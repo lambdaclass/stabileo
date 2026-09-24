@@ -5,7 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
-import { stripStabilisedReactions } from './orphan-rotations-3d';
+import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';

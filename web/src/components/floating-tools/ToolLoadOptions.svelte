@@ -11,7 +11,7 @@
 
 <label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
   <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>PP</span>
+  <span>{t('float.selfWeightLabel')}</span>
 </label>
 <span class="ft-sep">|</span>
 <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor(uiStore.activeLoadCaseId)}"></span>

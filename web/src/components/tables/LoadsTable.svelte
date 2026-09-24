@@ -2,13 +2,13 @@
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import CombosTable from './CombosTable.svelte';
   import { t } from '../../lib/i18n';
-  import type { DistributedLoad, PointLoadOnElement, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
+  import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const elementsArr = $derived([...modelStore.elements.values()]);
 
-  let newLoadType = $state<'nodal' | 'distributed' | 'pointOnElement' | 'thermal' | 'nodal3d' | 'distributed3d'>('nodal');
+  let newLoadType = $state<'nodal' | 'distributed' | 'pointOnElement' | 'thermal' | 'nodal3d' | 'distributed3d' | 'pointOnElement3d'>('nodal');
   let newLoadTargetId = $state(0);
   let newLoadCaseId = $state(1);
 
@@ -37,6 +37,9 @@
     } else if (newLoadType === 'distributed3d') {
       if (!modelStore.elements.get(newLoadTargetId)) return;
       modelStore.addDistributedLoad3D(newLoadTargetId, 0, 0, -10, -10, undefined, undefined, newLoadCaseId); // qZ: gravity
+    } else if (newLoadType === 'pointOnElement3d') {
+      if (!modelStore.elements.get(newLoadTargetId)) return;
+      modelStore.addPointLoadOnElement3D(newLoadTargetId, modelStore.getElementLength(newLoadTargetId) / 2, 0, -10, newLoadCaseId);
     } else if (newLoadType === 'pointOnElement') {
       if (!modelStore.elements.get(newLoadTargetId)) return;
       modelStore.addPointLoadOnElement(newLoadTargetId, 0, -10, { caseId: newLoadCaseId });
@@ -95,6 +98,8 @@
             {t('table.elemLabel')} {(load.data as DistributedLoad3D).elementId}
           {:else if load.type === 'thermal'}
             {t('table.elemLabel')} {(load.data as ThermalLoad).elementId}
+          {:else if load.type === 'pointOnElement3d'}
+            {t('table.elemLabel')} {(load.data as PointLoadOnElement3D).elementId}
           {:else}
             {t('table.elemLabel')} {(load.data as PointLoadOnElement).elementId}
           {/if}
@@ -129,6 +134,12 @@
             {@const d = load.data as ThermalLoad}
             <span class="load-field">&Delta;T<input type="number" step="5" value={d.dtUniform} onchange={(e) => updateLoadField(d.id, 'dtUniform', e.currentTarget.value)} /></span>
             <span class="load-field">&Delta;Tg<input type="number" step="5" value={d.dtGradient} onchange={(e) => updateLoadField(d.id, 'dtGradient', e.currentTarget.value)} /></span>
+          {:else if load.type === 'pointOnElement3d'}
+            <!-- It fell into the plane branch below and showed an empty P. -->
+            {@const d = load.data as PointLoadOnElement3D}
+            <span class="load-field">Py<input type="number" step="1" value={d.py} onchange={(e) => updateLoadField(d.id, 'py', e.currentTarget.value)} /></span>
+            <span class="load-field">Pz<input type="number" step="1" value={d.pz} onchange={(e) => updateLoadField(d.id, 'pz', e.currentTarget.value)} /></span>
+            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
           {:else}
             {@const d = load.data as PointLoadOnElement}
             <span class="load-field">P<input type="number" step="1" value={d.p} onchange={(e) => updateLoadField(d.id, 'p', e.currentTarget.value)} /></span>
@@ -146,6 +157,8 @@
       {#if uiStore.analysisMode === '3d'}
         <option value="nodal3d">{t('table.pointLoad3d')}</option>
         <option value="distributed3d">{t('table.distLoad3d')}</option>
+        <option value="pointOnElement3d">{t('table.pointBarLoad')}</option>
+        <option value="thermal">{t('table.thermalLoad')}</option>
       {:else}
         <option value="nodal">{t('table.pointLoad')}</option>
         <option value="distributed">{t('table.distLoad')}</option>

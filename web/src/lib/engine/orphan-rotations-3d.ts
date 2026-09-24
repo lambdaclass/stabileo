@@ -117,18 +117,5 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
   return { touched, created };
 }
 
-/**
- * Drop the reaction entries of nodes that had no support of their own and
- * only gained a vanishing spring — the solver reports them, as zeros. Takes
- * the wire object or the input: both carry `supports` with the mark.
- */
-export function stripStabilisedReactions<T extends { reactions?: Array<{ nodeId: number }> }>(
-  result: T, input: { supports: Map<number, SolverSupport3D> | Record<string, SolverSupport3D> },
-): T {
-  if (!result?.reactions) return result;
-  const sups = input.supports instanceof Map ? [...input.supports.values()] : Object.values(input.supports ?? {});
-  const created = new Set(sups.filter((s) => s?.stabilised === 'created').map((s) => s.nodeId));
-  if (created.size === 0) return result;
-  result.reactions = result.reactions.filter((r) => !created.has(r.nodeId));
-  return result;
-}
+// The reaction filter lives on its own: see stabilised-reactions.ts.
+export { stripStabilisedReactions } from './stabilised-reactions';

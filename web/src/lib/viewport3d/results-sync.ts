@@ -343,6 +343,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         leftHand,
         modelStore.sections,
         resultsStore.drawPositiveTowardLocalAxes,
+        uiStore.unitSystem,
       );
       ctx.resultsParent.add(ctx.diagramGroup);
     }
@@ -358,6 +359,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
       leftHand,
       modelStore.sections,
       resultsStore.drawPositiveTowardLocalAxes,
+      uiStore.unitSystem,
     );
     ctx.resultsParent.add(ctx.diagramGroup);
 

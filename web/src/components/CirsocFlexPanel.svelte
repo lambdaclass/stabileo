@@ -1088,7 +1088,7 @@
         resistance={cut.resistance}
         showRay={mode === 'verify'}
       />
-      <p class="fp-note fp-legend">
+      <p class="fp-legend">
         {#if mode === 'design'}<span class="fp-line fp-line-grid"></span>{t('flex.cut.grid')}{/if}
         <span class="fp-line fp-line-main"></span>{mode === 'design' ? t('flex.cut.adopted') : t('flex.cut.given')}
         {#if cut.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
@@ -1240,7 +1240,7 @@
         resistance={verify ? diagram.resistance : null}
         showEccentricity={verify}
       />
-      <p class="fp-note fp-legend">
+      <p class="fp-legend">
         <span class="fp-line fp-line-main"></span>{t('flex.diagram.capped')}
         <span class="fp-line fp-line-dash"></span>{t('flex.diagram.uncapped')}
         {#if diagram.demand}<span class="fp-dot fp-dot-dem"></span>{t('flex.diagram.demand')}{/if}
@@ -1510,7 +1510,10 @@
   .fp-line-dash { border-top: 1.2px dashed var(--st-text-3); }
   .fp-line-grid { border-top: 1px solid var(--st-text-3); }
   .fp-general th { font-weight: 400; color: var(--st-text-3); }
-  .fp-legend { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  /* A key to the figure, not a note: styled like one, but not an `.fp-note`, which the notes
+     about where a demand came from are. */
+  .fp-legend { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    margin: -0.15rem 0 0.1rem; font-size: 0.6rem; line-height: 1.4; color: var(--st-text-3); }
   .fp-dot { width: 8px; height: 8px; transform: rotate(45deg); display: inline-block; margin-left: 6px; }
   .fp-dot-dem { background: #e5484d; }
   .fp-dot-res { background: #d6409f; }

@@ -177,7 +177,7 @@
             </HelpTip>
           </label>
           <div class="input-group">
-            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (${ul('length')})`}:</label></HelpTip>
+            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (m)`}:</label></HelpTip>
             <input
               type="number"
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}

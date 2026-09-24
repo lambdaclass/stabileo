@@ -1196,6 +1196,7 @@
     resultsStore.overlayResults3D;
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
+    uiStore.unitSystem; // value labels are in the chosen units
     syncDiagrams3D();
     invalidate();
   });
@@ -1673,6 +1674,13 @@
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
+    } else if (uiStore.loadType === 'thermal') {
+      // The button was offered in 3D with no branch here: a click did nothing.
+      const elemId = findElementHit(e);
+      if (elemId === null) return;
+      historyStore.pushState();
+      modelStore.addThermalLoad(elemId, uiStore.thermalDT, uiStore.thermalDTg, uiStore.activeLoadCaseId);
+      uiStore.toast(t('viewport3d.thermalLoadApplied').replace('{id}', String(elemId)), 'success');
     }
   }
 
@@ -2483,7 +2491,7 @@
             const ef = r3d.elementForces.find(f => f.elementId === elemId);
             if (!ef) break;
             const val = evaluateDiagramAt(ef, kind, t);
-            const formatted = formatDiagramValue3D(val, kind);
+            const formatted = formatDiagramValue3D(val, kind, uiStore.unitSystem);
             const posLabel = `x=${(t * ef.length).toFixed(2)}m`;
             diagramTooltip = `Elem ${elemId} (${posLabel}): ${formatted}`;
             break;

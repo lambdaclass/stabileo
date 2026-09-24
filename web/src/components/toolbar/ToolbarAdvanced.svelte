@@ -5,7 +5,7 @@
   import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { analyzeKinematics, solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { plasticMoments, DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
@@ -367,7 +367,8 @@
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
-      const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
+      // The plane solver's y is the vertical, labelled Z everywhere else.
+      const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
       uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.modalError'), 'error');
@@ -395,6 +396,8 @@
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
+  /** The model's degree of indeterminacy, for the result line and the toast. */
+  let plasticGh = $state<number | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
@@ -415,12 +418,18 @@
       const t0 = performance.now();
       const result = solvePlastic({ solver: input, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
       plasticMps = mps;
+      /*
+       * The engine's `redundancy` is the number of hinges it formed, not the
+       * degree of indeterminacy — shown as "GH", a cantilever read GH = 2.
+       * The degree comes from the kinematic analysis of the model as given.
+       */
+      try { plasticGh = Math.max(0, analyzeKinematics(input).degree); } catch { plasticGh = null; }
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPlasticResult(result);
       const msg = result.isMechanism
-        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', String(result.redundancy + 1)).replace('{ms}', dt.toFixed(0))
-        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', String(result.redundancy)).replace('{ms}', dt.toFixed(0));
+        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', plasticGh === null ? '?' : String(plasticGh + 1)).replace('{ms}', dt.toFixed(0))
+        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', plasticGh === null ? '?' : String(plasticGh)).replace('{ms}', dt.toFixed(0));
       uiStore.toast(msg, result.isMechanism ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
@@ -1014,8 +1023,16 @@
         T = {mode.period.toFixed(3)} s
       </div>
       <div class="adv-result-info" style="font-size:10px; opacity:0.8">
-        Meff: X={( mode.massRatioX * 100).toFixed(1)}% Y={( mode.massRatioY * 100).toFixed(1)}% |
-        Σ: X={( moR.cumulativeMassRatioX * 100).toFixed(1)}% Y={( moR.cumulativeMassRatioY * 100).toFixed(1)}%
+        <!-- The plane solver's second axis is the vertical, Z on screen; a space model has all three. -->
+        {#if is3D}
+          {@const m3 = mode as { massRatioZ?: number }}
+          {@const r3 = moR as { cumulativeMassRatioZ?: number }}
+          Meff: X={(mode.massRatioX * 100).toFixed(1)}% Y={(mode.massRatioY * 100).toFixed(1)}% Z={((m3.massRatioZ ?? 0) * 100).toFixed(1)}% |
+          Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Y={(moR.cumulativeMassRatioY * 100).toFixed(1)}% Z={((r3.cumulativeMassRatioZ ?? 0) * 100).toFixed(1)}%
+        {:else}
+          Meff: X={(mode.massRatioX * 100).toFixed(1)}% Z={(mode.massRatioY * 100).toFixed(1)}% |
+          Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
+        {/if}
       </div>
     {/if}
   {/if}
@@ -1045,7 +1062,7 @@
     <div class="adv-result-info">
       &lambda; = {resultsStore.plasticResult.steps[resultsStore.plasticStep]?.loadFactor.toFixed(3) ?? '—'} |
       {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
-      GH = {resultsStore.plasticResult.redundancy}
+      GH = {plasticGh ?? '—'}
     </div>
     {#each plasticMps as m (m.sectionId)}
       <div class="adv-result-info" data-testid="plastic-mp">

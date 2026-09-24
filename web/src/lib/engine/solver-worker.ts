@@ -10,7 +10,7 @@
  */
 
 import { assertFiniteWire } from './wasm-solver';
-import { stripStabilisedReactions } from './orphan-rotations-3d';
+import { stripStabilisedReactions } from './stabilised-reactions';
 
 let solve_2d: ((input: any) => any) | null = null;
 let solve_3d: ((input: any) => any) | null = null;
