@@ -155,3 +155,74 @@ fn plastic_mechanism_detection() {
     // Redundancy equals number of hinges formed
     assert_eq!(result.redundancy, result.hinges.len());
 }
+
+// ─── A temperature cannot change the collapse load ─────────────────
+//
+// A temperature puts no load on a structure: by the uniqueness theorem a
+// fixed-fixed beam under a central load collapses at 8Mp/(PL) with or without
+// one. With a gradient on one half, the third hinge completes the mechanism at
+// exactly that factor — but the linear solve of the hinged beam returned a
+// finite, enormous answer instead of an error, and the loop read a fourth
+// hinge out of it at 1,15 × the collapse load, above the upper bound. The
+// loop now stops on the rank check the app runs before every analysis.
+
+fn fixed_fixed_central(extra: Vec<SolverLoad>) -> PlasticInput {
+    let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })];
+    loads.extend(extra);
+    let solver = make_input(
+        vec![(1, 0.0, 0.0), (2, 3.0, 0.0), (3, 6.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 3, "fixed")],
+        loads,
+    );
+    let mut input = make_plastic_portal(0.0);
+    input.solver = solver;
+    input
+}
+
+fn gradient(element_id: usize, dt: f64) -> SolverLoad {
+    SolverLoad::Thermal(SolverThermalLoad { element_id, dt_uniform: 0.0, dt_gradient: dt })
+}
+
+#[test]
+fn plastic_collapse_load_is_unchanged_by_a_temperature() {
+    let mp = FY * 1000.0 * B * H * H / 4.0;
+    let want = 8.0 * mp / (50.0 * 6.0);
+    for (label, extra) in [
+        ("no temperature", vec![]),
+        ("gradient on both halves", vec![gradient(1, 10.0), gradient(2, 10.0)]),
+        ("gradient on one half", vec![gradient(1, 30.0)]),
+        ("gradient on the other half, reversed", vec![gradient(2, -25.0)]),
+    ] {
+        let r = plastic::solve_plastic_2d(&fixed_fixed_central(extra)).unwrap();
+        assert!(r.is_mechanism, "{label}: ends in a mechanism");
+        assert!((r.collapse_factor - want).abs() / want < 1e-4,
+            "{label}: λ = {:.4}, expected 8Mp/(PL) = {want:.4}", r.collapse_factor);
+        assert!(r.hinges.iter().all(|h| h.load_factor <= want * (1.0 + 1e-4)), "{label}: no hinge past collapse");
+    }
+}
+
+#[test]
+fn plastic_double_hinge_over_a_support_is_not_a_mechanism() {
+    // Two equal spans, central loads: the hinge over the middle support forms
+    // on both member ends at once. That node's rotation is then resisted by
+    // nothing — undetermined, not a mechanism — and the analysis must go on
+    // to the span hinges: each span as a propped cantilever, 6Mp/(PL).
+    let solver = make_input(
+        vec![(1, 0.0, 0.0), (2, 3.0, 0.0), (3, 6.0, 0.0), (4, 9.0, 0.0), (5, 12.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false),
+             (3, "frame", 3, 4, 1, 1, false, false), (4, "frame", 4, 5, 1, 1, false, false)],
+        vec![(1, 1, "pinned"), (2, 3, "rollerX"), (3, 5, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 }),
+             SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -50.0, my: 0.0 })],
+    );
+    let mut input = make_plastic_portal(0.0);
+    input.solver = solver;
+    let r = plastic::solve_plastic_2d(&input).unwrap();
+    let mp = FY * 1000.0 * B * H * H / 4.0;
+    let want = 6.0 * mp / (50.0 * 6.0);
+    assert!(r.is_mechanism);
+    assert!((r.collapse_factor - want).abs() / want < 1e-4, "λ = {:.4}, expected 6Mp/(PL) = {want:.4}", r.collapse_factor);
+}
