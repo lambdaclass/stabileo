@@ -216,6 +216,34 @@ function stateOf3D(s: Solved3D): StateResult {
   };
 }
 
+/**
+ * Independent directions with no stiffness in Kff, at a pivot threshold of
+ * 1e-8 of its largest diagonal: below it sit only the vanishing springs added
+ * to rotations no member resists.
+ */
+function kffNullity(d: DSMStepData): number {
+  const n = d.dofNumbering.nFree;
+  const a = d.K.slice(0, n).map((row) => row.slice(0, n));
+  let maxDiag = 0;
+  for (let i = 0; i < n; i++) maxDiag = Math.max(maxDiag, Math.abs(a[i][i]));
+  const tol = maxDiag * 1e-8;
+  let r = 0;
+  let nullity = 0;
+  for (let k = 0; k < n; k++) {
+    let p = -1;
+    let best = tol;
+    for (let i = r; i < n; i++) if (Math.abs(a[i][k]) >= best) { best = Math.abs(a[i][k]); p = i; }
+    if (p < 0) { nullity++; continue; }
+    [a[r], a[p]] = [a[p], a[r]];
+    for (let i = r + 1; i < n; i++) {
+      const f = a[i][k] / a[r][k];
+      if (f !== 0) for (let j = k; j < n; j++) a[i][j] -= f * a[r][j];
+    }
+    r++;
+  }
+  return nullity;
+}
+
 export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
   let base: DSMStepData;
   try { base = solveDetailed3D(input); } catch { throw new ForceMethodError('hypostatic'); }
@@ -235,10 +263,24 @@ export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
     };
   }
 
+  /*
+   * A primary is stable when its Kff has no more null directions than the
+   * original's — the rotations no member resists, which the input builder and
+   * the detailed solver both prop up with vanishing springs (1e-10 of the
+   * largest diagonal). Measured at 1e-8, as `countIndeterminacy3D` counts
+   * those same orphans, so the springs count as the nothing they stand for.
+   * `nullModes` could not see this: the solver adds its spring to every
+   * rotation of a node whose block is singular, so a released redundant that
+   * left the frame free to swing about the line through two pins was held at
+   * 1e-10 stiffness, passed as stable, and the force method disagreed with
+   * the stiffness method it is checked against. Unloaded: a mechanism is one
+   * whatever the loads.
+   */
+  const orphans = kffNullity(base);
   const stable = (rs: Redundant[]) => {
     try {
-      const d = solveDetailed3D(buildPrimary3D(input, rs, input.loads, { keepPrescribed: true, keepThermal: true }).input);
-      return d.nullModes.length === 0 && d.uAll.every(Number.isFinite);
+      const d = solveDetailed3D(buildPrimary3D(input, rs, [], { keepPrescribed: true, keepThermal: true }).input);
+      return kffNullity(d) === orphans && d.uAll.every(Number.isFinite);
     } catch { return false; }
   };
   const transmits = restraintCarries(base);
