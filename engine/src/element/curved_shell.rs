@@ -267,9 +267,12 @@ fn build_b_matrix_at_point(
         // d × θ for θ_z=1: [d_y, -d_x, 0]
         // Note: sign convention doesn't affect K = B^T D B (quadratic form).
 
-        let cross_rx = [0.0, d[2], -d[1]];     // d × e_x  (θ_x=1)
-        let cross_ry = [-d[2], 0.0, d[0]];     // d × e_y  (θ_y=1)
-        let cross_rz = [d[1], -d[0], 0.0];     // d × e_z  (θ_z=1)
+        // A rotation vector θ turns the director by θ × d, as it turns every other vector in the
+        // model (frames and MITC4 included). These were d × θ: every rotation DOF of this element
+        // had the opposite sign to the one it shares a node with.
+        let cross_rx = [0.0, -d[2], d[1]];     // e_x × d  (θ_x=1)
+        let cross_ry = [d[2], 0.0, -d[0]];     // e_y × d  (θ_y=1)
+        let cross_rz = [-d[1], d[0], 0.0];     // e_z × d  (θ_z=1)
 
         // For each global DOF component (ux, uy, uz, rx, ry, rz):
         // Compute ∂u_global/∂ξ, ∂u_global/∂η, ∂u_global/∂ζ
@@ -461,9 +464,9 @@ fn build_b_matrix_covariant(
         let d = &dirs[i];
 
         // d × θ convention (matches build_b_matrix_at_point)
-        let cross_rx = [0.0, d[2], -d[1]];
-        let cross_ry = [-d[2], 0.0, d[0]];
-        let cross_rz = [d[1], -d[0], 0.0];
+        let cross_rx = [0.0, -d[2], d[1]];     // e_x × d
+        let cross_ry = [d[2], 0.0, -d[0]];     // e_y × d
+        let cross_rz = [-d[1], d[0], 0.0];     // e_z × d
 
         for dof_local in 0..6 {
             let col = di + dof_local;
@@ -625,9 +628,12 @@ fn shear_b_covariant(
         let d = &dirs[i];
 
         // d × θ convention (matches build_b_matrix_at_point)
-        let cross_rx = [0.0, d[2], -d[1]];     // d × e_x  (θ_x=1)
-        let cross_ry = [-d[2], 0.0, d[0]];     // d × e_y  (θ_y=1)
-        let cross_rz = [d[1], -d[0], 0.0];     // d × e_z  (θ_z=1)
+        // A rotation vector θ turns the director by θ × d, as it turns every other vector in the
+        // model (frames and MITC4 included). These were d × θ: every rotation DOF of this element
+        // had the opposite sign to the one it shares a node with.
+        let cross_rx = [0.0, -d[2], d[1]];     // e_x × d  (θ_x=1)
+        let cross_ry = [d[2], 0.0, -d[0]];     // e_y × d  (θ_y=1)
+        let cross_rz = [-d[1], d[0], 0.0];     // e_z × d  (θ_z=1)
 
         for dof_local in 0..6 {
             let col = di + dof_local;
@@ -674,6 +680,42 @@ fn shear_b_covariant(
 }
 
 // ==================== Stiffness Matrix ====================
+
+/// Hughes–Brezzi drilling row at a mid-surface point: θ·n − ω_n, with n the
+/// mid-surface normal and ω_n = ½ n·(∇ₛ × u) the membrane's rotation about it.
+///
+/// Penalising θ about the normal alone resists a rigid rotation, which makes the
+/// term a spring to ground wherever a beam, a nodal moment or a fold turns those
+/// nodes. Against ω_n it vanishes on every rigid motion, on any geometry: with
+/// ∂u/∂ξₐ = ω × gₐ, Σₐ gᵃ × (ω × gₐ) = 2ω − P·ω, whose normal part is 2 n·ω.
+/// n and the dual basis gᵃ come from the interpolated surface itself, not from
+/// the directors, which on a curved patch are not exactly normal to it.
+fn drilling_row(coords: &[[f64; 3]; 4], dirs: &[[f64; 3]; 4], h: f64, xi: f64, eta: f64) -> ([f64; 24], f64) {
+    let (g1, g2, _g3, det_j) = covariant_basis(coords, dirs, h, xi, eta, 0.0);
+    let n_sh = shape_functions(xi, eta);
+    let (dn_dxi, dn_deta) = shape_derivatives(xi, eta);
+    let mut row = [0.0; 24];
+    let nn = cross3(&g1, &g2);
+    let len = norm3(&nn);
+    if len < 1e-30 { return (row, det_j); }
+    let n = [nn[0] / len, nn[1] / len, nn[2] / len];
+    // Dual tangent basis gᵃ = G⁻¹ᵃᵇ g_b.
+    let (m11, m12, m22) = (dot3(&g1, &g1), dot3(&g1, &g2), dot3(&g2, &g2));
+    let det = m11 * m22 - m12 * m12;
+    let dual1 = [0, 1, 2].map(|c| (m22 * g1[c] - m12 * g2[c]) / det);
+    let dual2 = [0, 1, 2].map(|c| (-m12 * g1[c] + m11 * g2[c]) / det);
+    let c1 = cross3(&n, &dual1);
+    let c2 = cross3(&n, &dual2);
+    for i in 0..4 {
+        for c in 0..3 {
+            // ω_n = ½ Σₐ ∂Nᵢ/∂ξₐ (n × gᵃ)·u_i, and the row carries −ω_n.
+            row[i * 6 + c] = -0.5 * (dn_dxi[i] * c1[c] + dn_deta[i] * c2[c]);
+            row[i * 6 + 3 + c] = n_sh[i] * n[c];
+        }
+    }
+    (row, det_j)
+}
+
 
 /// Compute 24×24 curved shell stiffness matrix directly in global coordinates.
 ///
@@ -826,22 +868,15 @@ pub fn curved_shell_stiffness_covariant(
 
     // Drilling DOF stabilization — identical to standard
     for &((xi, eta), w_g) in &gauss_ip {
-        let (g1_d, g2_d, g3_d, det_j) = covariant_basis(coords, dirs, h, xi, eta, 0.0);
-        let (_, _, e3_gp) = local_frame(&g1_d, &g2_d, &g3_d);
-        let n_sh = shape_functions(xi, eta);
-
+        let (row, det_j) = drilling_row(coords, dirs, h, xi, eta);
         let dv = det_j.abs() * w_g * 2.0;
-
-        for i in 0..4 {
-            for j in 0..4 {
-                let factor = dv * alpha_drill * n_sh[i] * n_sh[j];
-                for a in 0..3 {
-                    for bb in 0..3 {
-                        let ri = i * 6 + 3 + a;
-                        let rj = j * 6 + 3 + bb;
-                        k[ri * ndof + rj] += factor * e3_gp[a] * e3_gp[bb];
-                    }
-                }
+        // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+        for r in 0..24 {
+            if row[r] == 0.0 { continue; }
+            for c in r..24 {
+                let v = dv * alpha_drill * row[r] * row[c];
+                k[r * ndof + c] += v;
+                if c != r { k[c * ndof + r] += v; }
             }
         }
     }
@@ -978,28 +1013,20 @@ fn curved_shell_stiffness_impl(
         }
     }
 
-    // Drilling DOF stabilization: penalize rotation about local normal (e3 at GP).
-    // Uses the Gauss-point normal e3 to distribute the penalty across rx, ry, rz.
-    // K_drill[ri+a, rj+b] += α * N_i * N_j * e3[a] * e3[b] * dA*2
-    // This is PSD by construction (B_θn^T B_θn), ensuring Cholesky compatibility.
+    // Drilling DOF stabilization: penalize the rotation about the local normal (e3 at
+    // the GP) against the membrane's own rotation (`drilling_row`). PSD by construction
+    // (a rank-one BᵀB per point), so Cholesky compatibility is kept.
     // (factor 2.0 from ∫_{-1}^{1} dζ = 2, with det_j already containing h/2 from g₃)
     for &((xi, eta), w_g) in &gauss_ip {
-        let (g1_d, g2_d, g3_d, det_j) = covariant_basis(coords, dirs, h, xi, eta, 0.0);
-        let (_, _, e3_gp) = local_frame(&g1_d, &g2_d, &g3_d);
-        let n_sh = shape_functions(xi, eta);
-
+        let (row, det_j) = drilling_row(coords, dirs, h, xi, eta);
         let dv = det_j.abs() * w_g * 2.0;
-
-        for i in 0..4 {
-            for j in 0..4 {
-                let factor = dv * alpha_drill * n_sh[i] * n_sh[j];
-                for a in 0..3 {
-                    for b in 0..3 {
-                        let ri = i * 6 + 3 + a;
-                        let rj = j * 6 + 3 + b;
-                        k[ri * ndof + rj] += factor * e3_gp[a] * e3_gp[b];
-                    }
-                }
+        // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+        for r in 0..24 {
+            if row[r] == 0.0 { continue; }
+            for c in r..24 {
+                let v = dv * alpha_drill * row[r] * row[c];
+                k[r * ndof + c] += v;
+                if c != r { k[c * ndof + r] += v; }
             }
         }
     }
@@ -1758,14 +1785,15 @@ mod tests {
         println!("  TY: {energy_ty:.4e}");
         println!("  TZ: {energy_tz:.4e}");
 
-        // Rigid rotation about X: θ = [1,0,0], u_mid from d×θ convention (θ=-ω)
+        // Rigid rotation about X: θ = ω = [1,0,0], u = ω × (x − x_c) — the right-handed
+        // convention the frames and MITC4 share (it read θ = −ω before the director fix)
         let xc = coords.iter().map(|c| c[0]).sum::<f64>() / 4.0;
         let yc = coords.iter().map(|c| c[1]).sum::<f64>() / 4.0;
         let zc = coords.iter().map(|c| c[2]).sum::<f64>() / 4.0;
         let u_rx: Vec<f64> = (0..4).flat_map(|i| {
             let y = coords[i][1] - yc;
             let z = coords[i][2] - zc;
-            vec![0.0, z, -y, 1.0, 0.0, 0.0]
+            vec![0.0, -z, y, 1.0, 0.0, 0.0]
         }).collect();
         let mut ku_rx = vec![0.0; 24];
         for i in 0..24 { for j in 0..24 { ku_rx[i] += k[i * 24 + j] * u_rx[j]; } }
@@ -1774,7 +1802,7 @@ mod tests {
         let u_ry: Vec<f64> = (0..4).flat_map(|i| {
             let x = coords[i][0] - xc;
             let z = coords[i][2] - zc;
-            vec![-z, 0.0, x, 0.0, 1.0, 0.0]
+            vec![z, 0.0, -x, 0.0, 1.0, 0.0]
         }).collect();
         let mut ku_ry = vec![0.0; 24];
         for i in 0..24 { for j in 0..24 { ku_ry[i] += k[i * 24 + j] * u_ry[j]; } }
@@ -1783,7 +1811,7 @@ mod tests {
         let u_rz: Vec<f64> = (0..4).flat_map(|i| {
             let x = coords[i][0] - xc;
             let y = coords[i][1] - yc;
-            vec![y, -x, 0.0, 0.0, 0.0, 1.0]
+            vec![-y, x, 0.0, 0.0, 0.0, 1.0]
         }).collect();
         let mut ku_rz = vec![0.0; 24];
         for i in 0..24 { for j in 0..24 { ku_rz[i] += k[i * 24 + j] * u_rz[j]; } }
@@ -1795,10 +1823,11 @@ mod tests {
         println!("  RZ: {energy_rz:.4e}");
 
         // All rigid body mode energies should be near zero.
-        // Slightly relaxed (2e-4) for curved elements where drilling penalty
-        // introduces small spurious rotation energy on curved patches.
+        // Exact, to round-off. It was relaxed to 2e-4 for the "small spurious
+        // rotation energy" a drilling penalty on θ·e₃ alone put on every rigid
+        // rotation; penalising it against the membrane's rotation leaves none.
         let max_diag = (0..24).map(|i| k[i * 24 + i]).fold(0.0f64, f64::max);
-        let tol = max_diag * 2e-4;
+        let tol = max_diag * 1e-10;
         assert!(energy_tx.abs() < tol, "TX energy too large: {energy_tx:.4e} (tol {tol:.4e})");
         assert!(energy_ty.abs() < tol, "TY energy too large: {energy_ty:.4e} (tol {tol:.4e})");
         assert!(energy_tz.abs() < tol, "TZ energy too large: {energy_tz:.4e} (tol {tol:.4e})");
@@ -2422,9 +2451,9 @@ mod tests {
         println!("\n--- Rotation DOF strain comparison ---");
         for node in 0..4 {
             let d = &dirs[node];
-            let cross_rx = [0.0, d[2], -d[1]];
-            let cross_ry = [-d[2], 0.0, d[0]];
-            let cross_rz = [d[1], -d[0], 0.0];
+            let cross_rx = [0.0, -d[2], d[1]];
+            let cross_ry = [d[2], 0.0, -d[0]];
+            let cross_rz = [-d[1], d[0], 0.0];
             let crosses = [cross_rx, cross_ry, cross_rz];
 
             for rot_idx in 0..3 {

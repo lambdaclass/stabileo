@@ -6,9 +6,8 @@
 ///   3. Patch test — uniform in-plane tension recovers σ_xx
 ///   4. Stiffness symmetry — k_local is symmetric
 ///
-/// Note: The DKT element uses lumped pressure loads (no rotational DOF contributions),
-/// which limits convergence to exact Navier values. Tests verify convergence behavior
-/// and correct order of magnitude.
+/// The DKT element uses lumped pressure loads (no rotational DOF contributions); it still
+/// converges to Navier, and benchmark 1 holds it to that.
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
@@ -143,8 +142,9 @@ fn solve_ss_plate(nx: usize) -> f64 {
 // w_center = 0.00406 · p·a⁴/D, D = E_eff·t³/(12·(1-ν²))
 // Analytical: 2.216×10⁻⁷ m
 //
-// DKT with lumped pressure loads converges from above (softer).
-// Verify: (a) 8×8 is closer to analytical than 4×4, (b) result is within 5×.
+// DKT converges to it: 0.961, 0.991, 0.998 at 4×4, 8×8, 16×16. The element's
+// coefficients were wrong until it was held to this; the old test accepted
+// anything within 5× and the element sat at ~3.8× at every mesh density.
 
 #[test]
 fn validation_plate_navier_ss_convergence() {
@@ -168,10 +168,12 @@ fn validation_plate_navier_ss_convergence() {
         err_4 * 100.0, err_8 * 100.0
     );
 
-    // Result should be within a factor of 5 of analytical (DKT with lumped loads)
+    // 8×8 within 1.5 %, and 16×16 within 0.5 %, of Navier.
     let ratio = w_8 / w_analytical;
+    let ratio_16 = solve_ss_plate(16) / w_analytical;
+    assert!((ratio_16 - 1.0).abs() < 0.005, "16×16 center deflection ratio={ratio_16:.4}");
     assert!(
-        ratio > 0.2 && ratio < 5.0,
+        (ratio - 1.0).abs() < 0.015,
         "8×8 center deflection ratio={:.2} (computed={:.3e}, analytical={:.3e})",
         ratio, w_8, w_analytical
     );

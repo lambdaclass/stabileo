@@ -478,12 +478,22 @@ pub fn mitc9_local_stiffness(
             }
         }
 
-        // --- Drilling DOF stabilization ---
+        // --- Drilling DOF stabilization (Hughes & Brezzi 1989) ---
+        // γ·∫(θz − ω)², ω = ½(∂v/∂x − ∂u/∂y): see `mitc4_local_stiffness`. A
+        // penalty on θz alone resists a rigid rotation about the normal.
+        let mut b_d = [0.0; 54];
         for i in 0..9 {
-            for j in 0..9 {
-                let di = i * 6 + 5;
-                let dj = j * 6 + 5;
-                k[di * ndof + dj] += dv * alpha_drill * n[i] * n[j];
+            b_d[i * 6] = 0.5 * dn_dy[i];
+            b_d[i * 6 + 1] = -0.5 * dn_dx[i];
+            b_d[i * 6 + 5] = n[i];
+        }
+        // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+        for r in 0..54 {
+            if b_d[r] == 0.0 { continue; }
+            for c in r..54 {
+                let v = dv * alpha_drill * b_d[r] * b_d[c];
+                k[r * ndof + c] += v;
+                if c != r { k[c * ndof + r] += v; }
             }
         }
     }
@@ -984,8 +994,10 @@ pub fn quad9_thermal_load(
             let di = i * 6;
             f[di]     += dv * dn_dx[i] * n_t;
             f[di + 1] += dv * dn_dy[i] * n_t;
-            f[di + 3] += dv * dn_dy[i] * m_t;
-            f[di + 4] -= dv * dn_dx[i] * m_t;
+            // Bending, with dt_gradient = T(+z face) − T(−z face) and right-handed
+            // rotations: see `quad_thermal_load`. These signs were reversed.
+            f[di + 3] -= dv * dn_dy[i] * m_t;
+            f[di + 4] += dv * dn_dx[i] * m_t;
         }
     }
 

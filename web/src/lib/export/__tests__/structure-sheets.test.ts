@@ -23,16 +23,18 @@ import { sheetToDxf, sheetToSvg, buildTitleBlock, LAYERS } from '../../engine/de
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
+import { applyVariant, ROLLED_BEAMS, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
 let scene: SceneModel;
 let statusOf: (id: number) => ReturnType<typeof reportElementStatus>['entries'][number]['status'] | undefined;
 let title: ReturnType<typeof buildTitleBlock>;
 
-async function build7p() {
+async function build7p(variant?: Variant) {
   modelStore.clear(); resultsStore.clear(); detailingStore.clear();
   designRunStore.resetMarks(); verificationStore.clear();
   await modelStore.loadExample('pro-edificio-7p');
   expect(isSolverReady()).toBe(true);
+  if (variant) applyVariant(variant);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
@@ -68,7 +70,7 @@ async function build7p() {
 }
 
 describe('the four sheet kinds exist and carry real geometry', () => {
-  beforeEach(build7p, 300_000);
+  beforeEach(() => build7p(), 300_000);
 
   it('a general plan shows the whole footprint, with grid and ids', () => {
     const sheet = drawGeneralPlan({ scene, title, statusOf });
@@ -153,10 +155,12 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     expect(sheet.notes.join(' ')).toContain(`Elemento ${id}`);
   }, 300_000);
 
-  it('a member that is not finished is named on the sheet, never shown as approved', () => {
-    // 117 of this building's beams carry a proposal rather than a certified design. A plan
-    // that drew them exactly like the verified ones is the failure the status model exists to
-    // prevent — and worse on paper, because the sheet outlives the session.
+  it('a member that is not finished is named on the sheet, never shown as approved', async () => {
+    // A beam that carries a proposal rather than a certified design. A plan that drew it
+    // exactly like the verified ones is the failure the status model exists to prevent — and
+    // worse on paper, because the sheet outlives the session. The building as committed has
+    // none any more, so five beams are turned about their axis to produce some (`ROLLED_BEAMS`).
+    await build7p(ROLLED_BEAMS);
     const sheet = drawGeneralPlan({ scene, title, statusOf });
     expect(sheet.notes.some((n) => /PROVISIONAL|UNSUPPORTED|REFUSED|NOT_EVALUATED/.test(n)))
       .toBe(true);
@@ -176,7 +180,7 @@ describe('the four sheet kinds exist and carry real geometry', () => {
 });
 
 describe('the sheets reconcile with the 3-D view', () => {
-  beforeEach(build7p, 300_000);
+  beforeEach(() => build7p(), 300_000);
 
   it('a level plan draws each of its bars once', () => {
     // Semantic, not geometric: two bars at different depths project onto the same line in plan

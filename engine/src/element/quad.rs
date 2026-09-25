@@ -551,13 +551,25 @@ pub fn mitc4_local_stiffness(
             }
         }
 
-        // --- Drilling DOF stabilization ---
-        // Add small stiffness to rz DOFs (index 5 for each node)
+        // --- Drilling DOF stabilization (Hughes & Brezzi 1989) ---
+        // Penalise the drilling rotation against the membrane's own rotation,
+        // γ·∫(θz − ω)² with ω = ½(∂v/∂x − ∂u/∂y), not θz alone: a penalty on θz
+        // alone resists a rigid rotation about the normal, and so acts as a spring
+        // to ground wherever something (a beam in the shell's plane, a nodal moment,
+        // a fold) turns those nodes.
+        let mut b_d = [0.0; 24];
         for i in 0..4 {
-            for j in 0..4 {
-                let di = i * 6 + 5;
-                let dj = j * 6 + 5;
-                k[di * ndof + dj] += dv * alpha_drill * n[i] * n[j];
+            b_d[i * 6] = 0.5 * dn_dy[i];
+            b_d[i * 6 + 1] = -0.5 * dn_dx[i];
+            b_d[i * 6 + 5] = n[i];
+        }
+        // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+        for r in 0..24 {
+            if b_d[r] == 0.0 { continue; }
+            for c in r..24 {
+                let v = dv * alpha_drill * b_d[r] * b_d[c];
+                k[r * ndof + c] += v;
+                if c != r { k[c * ndof + r] += v; }
             }
         }
     }
@@ -1099,11 +1111,13 @@ pub fn quad_thermal_load(
             f[di]     += dv * dn_dx[i] * n_t;
             f[di + 1] += dv * dn_dy[i] * n_t;
 
-            // Bending: f = ∫ B_b^T * M_T * {1, 1, 0} dA
-            // κxx = -∂θy/∂x → ry gets -dN/dx * M_T
-            // κyy = ∂θx/∂y  → rx gets dN/dy * M_T
-            f[di + 3] += dv * dn_dy[i] * m_t;   // rx
-            f[di + 4] -= dv * dn_dx[i] * m_t;   // ry
+            // Bending: f = −M_T·∫ ∂(w,xx + w,yy)/∂u dA, with right-handed rotations
+            // θx = w,y and θy = −w,x, and dt_gradient = T(+z face) − T(−z face) — the
+            // convention of the frames' dt_gradient_z and of the curved shell. A hotter
+            // top face lengthens the top fibre and curls the plate top-convex. These signs
+            // were reversed: a clamped plate with a hotter top curled up.
+            f[di + 3] -= dv * dn_dy[i] * m_t;   // rx
+            f[di + 4] += dv * dn_dx[i] * m_t;   // ry
         }
     }
 
