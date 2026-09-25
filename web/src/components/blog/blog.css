@@ -209,6 +209,23 @@
   color: var(--fg-2);
 }
 
+/* A pointer to another post: set apart like a note, but it leads somewhere. */
+.landing.blog .post-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 2rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--card-hair);
+  border-left: 2px solid var(--lp-accent);
+  border-radius: var(--lp-radius);
+  font-size: 0.95rem;
+}
+
+.landing.blog .post-link-lead {
+  color: var(--fg-2);
+}
+
 /* ─── TABLES ─────────────────────────────────────────────────────────────── */
 
 .landing.blog .post-figure {

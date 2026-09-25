@@ -5,7 +5,7 @@
  * and the viewport cannot show different steel. These tests are what makes that checkable, and
  * what stops a level plan quietly gathering two storeys.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -21,6 +21,7 @@ import {
 } from '../../engine/detailing/structure-drawings';
 import { sheetToDxf, sheetToSvg, buildTitleBlock, LAYERS } from '../../engine/detailing/drawings';
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
+import { plainDeepCopy } from '../../utils/plain-deep-copy';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -67,9 +68,17 @@ async function build7p() {
   });
 }
 
-describe('the four sheet kinds exist and carry real geometry', () => {
-  beforeEach(build7p, 300_000);
+let prepared: { scene: SceneModel; title: ReturnType<typeof buildTitleBlock> };
+beforeAll(async () => {
+  await build7p();
+  prepared = plainDeepCopy({ scene, title });
+}, 300_000);
+beforeEach(() => {
+  // Both suites use one real design, with independent drawing inputs for each test.
+  ({ scene, title } = plainDeepCopy(prepared));
+});
 
+describe('the four sheet kinds exist and carry real geometry', () => {
   it('a general plan shows the whole footprint, with grid and ids', () => {
     const sheet = drawGeneralPlan({ scene, title, statusOf });
     expect(sheet.kind).toBe('generalPlan');
@@ -176,8 +185,6 @@ describe('the four sheet kinds exist and carry real geometry', () => {
 });
 
 describe('the sheets reconcile with the 3-D view', () => {
-  beforeEach(build7p, 300_000);
-
   it('a level plan draws each of its bars once', () => {
     // Semantic, not geometric: two bars at different depths project onto the same line in plan
     // by design, so uniqueness of polylines would fail on every correct drawing.

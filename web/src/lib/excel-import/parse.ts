@@ -220,27 +220,29 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * model as flat at all. The storage is not what a reader filling in a
    * spreadsheet should have to know.
    *
-   * So the columns are read by MEANING and mapped to the storage here:
-   *
-   *   Z filled, Y blank   → a flat model. The height goes in the y slot, which
-   *                         is the slot a flat model's height lives in.
-   *   Y filled, Z blank   → a workbook written before this, or a 3-D plan at
-   *                         ground level. Unchanged: y is y, z is zero.
-   *   both filled         → genuinely 3-D. Stored as written, no interpretation.
-   *   neither             → the row has no position; reported, not guessed.
-   *
-   * The ambiguous case people worry about does not arise: a file with both
-   * columns filled is 3-D and says so, and one with neither is an error either
-   * way. Reading a pre-existing workbook the old way is not a compatibility
-   * shim to remove later — a plan drawn on the ground is a real model, and
-   * `Y filled, Z blank` is how it is written.
+   * The convention is chosen for the whole Nodes sheet: when every Y is blank,
+   * Z supplies the flat model's height. Any explicit Y selects native XYZ for
+   * every row, with missing coordinates filled as zero. A row with neither Y
+   * nor Z is invalid; a nonempty coordinate must be numeric.
    */
-  for (const row of readSheet(grab('Nodes'), 'Nodes', problems)) {
+  const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
+  // Choose one coordinate convention for the sheet. Any stated Y (including zero)
+  // makes it native XYZ; blank Y cells in that model mean zero, not a rotated node.
+  const flatFromZ = nodeRows.every((row) => str(row.cells.y) === '');
+  for (const row of nodeRows) {
     const id = reqNum(row, 'id', 'Nodes', problems);
     const x = reqNum(row, 'x', 'Nodes', problems);
     const yCell = num(row.cells.y);
     const zCell = num(row.cells.z);
     if (id === null || x === null) continue;
+    let invalidCoordinate = false;
+    for (const key of ['y', 'z'] as const) {
+      if (str(row.cells[key]) !== '' && num(row.cells[key]) === null) {
+        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: 'se esperaba un número' });
+        invalidCoordinate = true;
+      }
+    }
+    if (invalidCoordinate) continue;
     if (yCell === null && zCell === null) {
       problems.push({
         sheet: 'Nodes', row: row.n, column: 'z',
@@ -250,10 +252,9 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
     /* Flat: the height was given as Z, which is what it is called everywhere
        else. It is stored where a flat model keeps its height. */
-    const flatFromZ = yCell === null && zCell !== null;
     model.nodes.push({
       id, x,
-      y: flatFromZ ? zCell : (yCell ?? 0),
+      y: flatFromZ ? (zCell ?? 0) : (yCell ?? 0),
       z: flatFromZ ? 0 : (zCell ?? 0),
     });
   }

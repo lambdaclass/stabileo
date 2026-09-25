@@ -85,21 +85,6 @@ function addMoment(acc: Resultant6, M: [number, number, number]): void {
 }
 
 /**
- * Resultant of a linear load over [a, b] of a member, and where it acts.
- *
- * The trapezoid q(s) from qA at `a` to qB at `b` carries (qA + qB)·len/2, at the centroid
- * a + len·(qA + 2·qB) / (3·(qA + qB)). Both degenerate correctly: qA = qB gives the
- * midpoint, and qA = 0 gives the two-thirds point.
- */
-function trapezoid(qA: number, qB: number, a: number, b: number): { P: number; s: number } {
-  const len = b - a;
-  const P = 0.5 * (qA + qB) * len;
-  const sum = qA + qB;
-  const s = Math.abs(sum) < 1e-12 ? a + len / 2 : a + (len * (qA + 2 * qB)) / (3 * sum);
-  return { P, s };
-}
-
-/**
  * The line a member's loads act along, and the frame they are stated in — as the solve builds
  * them.
  *
@@ -181,9 +166,8 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
 
     const inCase = (l: Load): boolean => {
       const c = (l.data as { caseId?: number }).caseId;
-      // A load with no case belongs to every solve; a single solve takes everything.
-      if (caseId === null || c === undefined) return true;
-      return c === caseId;
+      // Match per-case solving: legacy loads belong to case 1; a single solve takes all.
+      return caseId === null || (c ?? 1) === caseId;
     };
 
     for (const l of model.loads ?? []) {
@@ -219,10 +203,11 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
           const q = d as DistributedLoad3D;
           const a = q.a ?? 0;
           const b = q.b ?? ax.L;
-          const y = trapezoid(q.qYI, q.qYJ, a, b);
-          const z = trapezoid(q.qZI, q.qZJ, a, b);
-          push(y.P, 0, y.s);
-          push(0, z.P, z.s);
+          // Two signed triangles preserve both force and first moment, including
+          // a pure couple when the end intensities cancel. No centroid division.
+          const len = b - a;
+          push(q.qYI * len / 2, q.qZI * len / 2, a + len / 3);
+          push(q.qYJ * len / 2, q.qZJ * len / 2, a + 2 * len / 3);
         }
       } else if (l.type === 'surface3d') {
         // q downward on the quad, a quarter of q·A to each corner — the solve's own split.
