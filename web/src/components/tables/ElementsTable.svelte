@@ -5,6 +5,12 @@
   import { t } from '../../lib/i18n';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  /** ○ hinged; in 3D, ◐ when only one bending moment is released (set per axis elsewhere). */
+  function hingeMark(r: { my?: boolean; mz?: boolean } | undefined): string {
+    if (!is3DMode) return r?.mz === true ? '\u25CB' : '\u2014';
+    if (r?.my === true && r?.mz === true) return '\u25CB';
+    return r?.my === true || r?.mz === true ? '\u25D0' : '\u2014';
+  }
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const elementsArr = $derived([...modelStore.elements.values()]);
@@ -84,8 +90,8 @@
             {/each}
           </select>
         </td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'start')}>{elem.releaseI?.mz === true ? '\u25CB' : '\u2014'}</td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => modelStore.toggleHinge(elem.id, 'end')}>{elem.releaseJ?.mz === true ? '\u25CB' : '\u2014'}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => is3DMode ? modelStore.toggleHinge3D(elem.id, 'start') : modelStore.toggleHinge(elem.id, 'start')}>{hingeMark(elem.releaseI)}</td>
+        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => is3DMode ? modelStore.toggleHinge3D(elem.id, 'end') : modelStore.toggleHinge(elem.id, 'end')}>{hingeMark(elem.releaseJ)}</td>
         <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>

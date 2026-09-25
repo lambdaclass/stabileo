@@ -1131,7 +1131,7 @@ const id: Translations = {
   'dsm.step9.globalDisp': '{u_e} global — Perpindahan elemen',
   'dsm.step9.localDisp': '{u_e} lokal — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Gaya sebelum FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — Gaya ujung jepit sempurna',
+  'dsm.step9.fixedEndForces': '{f_eq} — Gaya ujung jepit sempurna',
   'dsm.step9.finalForces': '{f} akhir — Gaya dalam elemen',
   'dsm.step9.force': 'Gaya',
   'dsm.step9.nodeI': 'Titik simpul i',

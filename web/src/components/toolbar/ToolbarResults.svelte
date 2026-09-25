@@ -515,6 +515,7 @@
             -->
           </div>
         {/if}
+      {/if}
 
         <!--
           A SIBLING of "change results view", not a child of it.
@@ -523,6 +524,10 @@
           you are looking at. It is not — it is the numbers behind whatever is
           already on screen. Same level, same weight, and the reader can tell
           the two apart.
+
+          And outside the combinations condition: it was inside it, so a user
+          who deleted the four default combinations lost the table of a model
+          they had just solved.
         -->
         <!-- Same treatment as its sibling above: a heading in the panel, a
              toggle in the compact bar. Matching form is what makes them read
@@ -541,7 +546,6 @@
             </div>
           </div>
         {/if}
-      {/if}
 
     {:else}
       <p class="no-results-msg">{t('results.noResultsMsg')}</p>

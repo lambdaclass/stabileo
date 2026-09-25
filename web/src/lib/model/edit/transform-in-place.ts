@@ -65,12 +65,28 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
       report.rigidMembers++;
     }
 
+    // Shells move rigidly whenever all their nodes move, including node-only selections.
+    const rigidQuads = [...modelStore.quads.values()].filter((q) => q.nodes.every((n) => src.nodes.has(n))).map((q) => q.id);
+    const rigidPlates = [...modelStore.plates.values()].filter((p) => p.nodes.every((n) => src.nodes.has(n))).map((p) => p.id);
+
+    // Global shell eccentricities are physical vectors, including for rotations without reflection.
+    for (const [kind, ids, shells] of [
+      ['quad', rigidQuads, modelStore.quads], ['plate', rigidPlates, modelStore.plates],
+    ] as const) {
+      for (const id of ids) {
+        const offset = shells.get(id)?.offset;
+        if (offset?.frame !== 'global') continue;
+        const v = applyVector(T, [offset.x, offset.y, offset.z]);
+        modelStore.setShellOffset(kind, id, { frame: 'global', x: v[0], y: v[1], z: v[2] });
+      }
+    }
+
     if (isReflection(T)) {
-      for (const id of src.quads) {
+      for (const id of rigidQuads) {
         const q = modelStore.quads.get(id);
         if (q && q.nodes.every((n) => src.nodes.has(n))) modelStore.updateQuadNodes(id, [q.nodes[0], q.nodes[3], q.nodes[2], q.nodes[1]]);
       }
-      for (const id of src.plates) {
+      for (const id of rigidPlates) {
         const p = modelStore.plates.get(id);
         if (p && p.nodes.every((n) => src.nodes.has(n))) modelStore.updatePlateNodes(id, [p.nodes[0], p.nodes[2], p.nodes[1]]);
       }
@@ -80,7 +96,8 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     for (const s of [...modelStore.supports.values()]) {
       if (!src.nodes.has(s.nodeId)) continue;
       const c = carriedSupport(T, s, s.nodeId, identity);
-      if (c) modelStore.addSupportEntry(c); else warn('supportDropped');
+      if (c) modelStore.addSupportEntry(c);
+      else { modelStore.removeSupport(s.id); warn('supportDropped'); }
     }
 
     const moved = (l: Load): Load | null => {

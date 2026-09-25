@@ -731,9 +731,30 @@ export function analyzeSectionStress(
   yFiber?: number,
 ): SectionStressResult {
   if (isWasmReady()) {
+    /*
+     * ── Resolve the section BEFORE the boundary, as every other path does ──
+     *
+     * This sent the raw `Section` while the JS fallback ten lines below, and the
+     * whole of `section-stress-3d`, send `resolveSectionGeometryLegacy(sec)`
+     * first. Two branches of one function disagreeing about what a section is.
+     *
+     * The engine's `SectionGeometry` requires `shape`, and a Section only
+     * carries one when somebody set it. The app's DEFAULT section does — which
+     * is why this went unseen: nearly every example uses it. A section that
+     * arrives from a fixture, an import or the profile catalogue does not, and
+     * the boundary answered `missing field \`shape\``. A `serde` parse error is
+     * a THROW, and a throw inside a `$derived` takes the panel's whole subtree
+     * with it: the reader sees the application stop, not a refused section.
+     *
+     * The three truss examples were where it showed, because their angle
+     * section is the one the fixtures define themselves. Nothing about a truss
+     * caused it, and the resolver already knew the answer — `inferSectionShape`
+     * reads `L 80x80x8` as an angle and the catalogue supplies its thickness.
+     * It was simply never asked on this path.
+     */
     const raw = computeSectionStress2D({
       elementForces: ef,
-      section: sec,
+      section: resolveSectionGeometryLegacy(sec),
       fy: fy ?? null,
       t,
       yFiber: yFiber ?? null,
