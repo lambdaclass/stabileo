@@ -32,12 +32,12 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
-import { segmentBounds, splitElementLoads, segmentFields } from '../model/edit/member-split';
+import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -1168,7 +1168,10 @@ function createModelStore() {
     _undoBatching = true;
     try {
       const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+      const L = elem.offset && !shouldEmbedFlat2DModelIn3D(model)
+        ? flexibleMemberLength(elem, ni, nj, model.sections.get(elem.sectionId)?.rotation)
+        : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+      const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
       for (const t of cuts) {
         const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
@@ -1193,7 +1196,7 @@ function createModelStore() {
       if (!opts.keepOriginalId) model.elements.delete(elementId);
       for (let k = 0; k < count; k++) {
         model.elements.set(segmentIds[k]!, {
-          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count),
+          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
         });
       }
 
@@ -1880,10 +1883,9 @@ function createModelStore() {
     updateElement(id: number, patch: Partial<Element>): void {
       const elem = model.elements.get(id);
       if (!elem) return;
-      modelVersion++;
-      _onMutation?.();
+      if (!_bulkMutating) { modelVersion++; _onMutation?.(); }
       model.elements.set(id, { ...elem, ...patch, id: elem.id });
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
     updateNodeZ(id: number, z: number): void {
@@ -2429,9 +2431,17 @@ function createModelStore() {
       const map = kind === 'plate' ? model.plates : model.quads;
       const shell = map.get(id);
       if (!shell) return;
-      if (offset) shell.offset = offset; else delete shell.offset;
-      if (kind === 'plate') model.plates = new Map(model.plates);
-      else model.quads = new Map(model.quads);
+      // Replace the record: snapshots retain shell records, so mutating one would
+      // also rewrite the offset that undo is supposed to restore.
+      const next = { ...shell };
+      if (offset) next.offset = { ...offset }; else delete next.offset;
+      if (kind === 'plate') {
+        model.plates.set(id, next as Plate);
+        model.plates = new Map(model.plates);
+      } else {
+        model.quads.set(id, next as Quad);
+        model.quads = new Map(model.quads);
+      }
     },
 
     addConstraint(c: Constraint3D): void {

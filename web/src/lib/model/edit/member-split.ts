@@ -22,7 +22,8 @@
  *
  * Material, section, type, local axes, roll and the curve tag belong to the whole member and go
  * to every segment. What belongs to an END goes to the segment at that end and nowhere else: the
- * I-end release, joint and rigid offset to the first segment, the J-end ones to the last. An
+ * I-end release and joint to the first segment, the J-end ones to the last. Offsets are
+ * interpolated at each cut so every flexible segment stays on the original line. An
  * interior cut is a rigid continuous connection, which is what cutting a continuous member means.
  *
  * Reinforcement does not follow. Bars are laid out against a member's length and supports, and
@@ -30,6 +31,9 @@
  *
  * Pure: no store.
  */
+
+import { computeLocalAxes3D } from '../../engine/local-axes-3d';
+import { offsetVecToSolver } from '../../engine/member-offsets';
 
 import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
@@ -155,7 +159,7 @@ const NO_RELEASE: Release = { my: false, mz: false, t: false };
  *
  * `reinforcement` is left out on purpose; see the module note.
  */
-export function segmentFields(elem: Element, k: number, count: number): Omit<Element, 'id' | 'nodeI' | 'nodeJ'> {
+export function segmentFields(elem: Element, k: number, count: number, t0 = k / count, t1 = (k + 1) / count): Omit<Element, 'id' | 'nodeI' | 'nodeJ'> {
   const first = k === 0, last = k === count - 1;
   const { id: _id, nodeI: _i, nodeJ: _j, reinforcement: _r, releaseI, releaseJ, jointI, jointJ, offset, ...whole } = elem;
   const out: Omit<Element, 'id' | 'nodeI' | 'nodeJ'> = {
@@ -167,10 +171,37 @@ export function segmentFields(elem: Element, k: number, count: number): Omit<Ele
   if (last && jointJ) out.jointJ = JSON.parse(JSON.stringify(jointJ));
   if (offset) {
     const o: NonNullable<Element['offset']> = { frame: offset.frame };
-    if (first && offset.i) o.i = { ...offset.i };
-    if (last && offset.j) o.j = { ...offset.j };
+    const at = (t: number) => ({
+      x: (1 - t) * (offset.i?.x ?? 0) + t * (offset.j?.x ?? 0),
+      y: (1 - t) * (offset.i?.y ?? 0) + t * (offset.j?.y ?? 0),
+      z: (1 - t) * (offset.i?.z ?? 0) + t * (offset.j?.z ?? 0),
+    });
+    const i = at(t0), j = at(t1);
+    if (Math.hypot(i.x, i.y, i.z) > EPS) o.i = i;
+    if (Math.hypot(j.x, j.y, j.z) > EPS) o.j = j;
     if (o.i || o.j) out.offset = o;
   }
   if (whole.arc) out.arc = JSON.parse(JSON.stringify(whole.arc));
   return out;
+}
+
+/** Loads are measured along the flexible segment, which may differ from the node-to-node line. */
+export function flexibleMemberLength(
+  elem: Element,
+  ni: { id: number; x: number; y: number; z?: number },
+  nj: { id: number; x: number; y: number; z?: number },
+  sectionRotation = 0,
+): number {
+  const a = { ...ni, z: ni.z ?? 0 }, b = { ...nj, z: nj.z ?? 0 };
+  if (elem.offset) {
+    const localY = elem.localYx === undefined ? undefined
+      : { x: elem.localYx, y: elem.localYy ?? 0, z: elem.localYz ?? 0 };
+    const axes = computeLocalAxes3D(a, b, localY, (elem.rollAngle ?? 0) + sectionRotation);
+    for (const [point, offset] of [[a, elem.offset.i], [b, elem.offset.j]] as const) {
+      if (!offset) continue;
+      const v = offsetVecToSolver(offset, elem.offset.frame, axes);
+      point.x += v.x; point.y += v.y; point.z += v.z;
+    }
+  }
+  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
 }
