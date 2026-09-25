@@ -2290,6 +2290,7 @@ const es: Record<string, string> = {
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Fuerzas antes de FEF',
   'dsm.step9.fixedEndForces': '{f_eq} — Cargas nodales equivalentes de las cargas sobre la barra (las fuerzas de empotramiento perfecto, con el signo cambiado)',
   'dsm.step9.finalForces': '{f} final — Fuerzas internas de la barra',
+  'dsm.step9.drawnAxesNote': 'En esta barra el eje y′ del método (x′ girado 90° antihorario) apunta al lado opuesto del eje z que se dibuja. La tabla de resultados y los diagramas leen V y M en los ejes dibujados, así que ahí tienen el signo cambiado respecto de estas fuerzas.',
   'dsm.step9.force': 'Fuerza',
   'dsm.step9.nodeI': 'Nodo i',
   'dsm.step9.nodeJ': 'Nodo j',
@@ -3463,6 +3464,7 @@ const es: Record<string, string> = {
   'svc.emptyModel': 'Modelo vac\u00EDo',
   'svc.solverError': 'Error al resolver: {n}',
   'svc.solver3dError': 'Error al resolver 3D: {n}',
+  'svc.mechanism3d': 'La estructura es un mecanismo: con estos vínculos puede moverse sin deformarse y las cargas la mueven (los desplazamientos no tienen límite). Revisá los apoyos y las articulaciones.',
 
   // ─── Critical Section Reasons ───
   'stress.endI': 'Extremo I',

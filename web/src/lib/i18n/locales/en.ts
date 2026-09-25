@@ -2297,6 +2297,7 @@ const en: Record<string, string> = {
   'dsm.step9.forcesBeforeFEF': '[k]\u00B7{u_local} \u2014 Forces before FEF',
   'dsm.step9.fixedEndForces': '{f_eq} — Equivalent nodal loads of the loads on the member (the fixed-end forces with their sign changed)',
   'dsm.step9.finalForces': '{f} final \u2014 Member internal forces',
+  'dsm.step9.drawnAxesNote': 'On this member the method\'s y′ axis (x′ turned 90° counter-clockwise) points to the side opposite the drawn z axis. The results table and the diagrams read V and M in the drawn axes, so there they carry the opposite sign to these forces.',
   'dsm.step9.force': 'Force',
   'dsm.step9.nodeI': 'Node i',
   'dsm.step9.nodeJ': 'Node j',
@@ -3470,6 +3471,7 @@ const en: Record<string, string> = {
   'svc.emptyModel': 'Empty model',
   'svc.solverError': 'Error solving: {n}',
   'svc.solver3dError': 'Error solving 3D: {n}',
+  'svc.mechanism3d': 'The structure is a mechanism: with these restraints it can move without deforming, and the loads move it (the displacements are unbounded). Check the supports and the releases.',
 
   // ─── Critical Section Reasons ───
   'stress.endI': 'End I',

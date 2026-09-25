@@ -130,11 +130,11 @@ const FULL = {
 
 describe('the shed has no longitudinal load path until it is given one', () => {
   it('returns a mechanism wearing a number under a load along the building', () => {
-    // 2.4·10^11 m for 20 kN. Not singular, so every `isFinite` check on it passes — which is
-    // exactly why this went unmeasured.
+    // 2.4·10^11 m for 20 kN. Not singular, so every `isFinite` check on it passed — which is
+    // exactly why this went unmeasured. The solve now refuses it as a mechanism.
     const d = displacementOf(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('still deflects 4 mm under the vertical load PR21 measured', () => {
@@ -173,8 +173,8 @@ describe('each element earns its place, measured by removing it', () => {
     const d = displacementOf(emit({
       ...DEFAULT_SHED_PARAMS, longitudinalBeams: true, wallBracing: true, roofBracing: true,
     }, 'Sin arriostramiento vertical'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('the vertical bracing needs a wall that reaches the ground', () => {
@@ -228,7 +228,7 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
     const roofOnly = displacementOf(
       emit({ ...NO_PURLINS, roofBracing: true, bracingBays: 'all' }, 'Solo cubierta'), -20,
     );
-    expect(roofOnly!).toBeGreaterThan(1e6);
+    expect(roofOnly === null || roofOnly > 1e6).toBe(true);
 
     const full = displacementOf(
       emit({ ...NO_PURLINS, roofBracing: true, wallBracing: true, trussBracing: true, bracingBays: 'all' }, 'Completo'),
@@ -362,8 +362,8 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
    */
   it('stays free along the building with wall bracing alone', () => {
     const d = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('stays free along the building even with the roof plane braced in every bay', () => {
@@ -371,8 +371,8 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
       { ...PINNED, wallBracing: true, roofBracing: true, bracingBays: 'all' as const },
       'Longitudinal',
     ), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('needs the vertical bracing, exactly as a fixed-base shed does', () => {

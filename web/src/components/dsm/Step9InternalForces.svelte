@@ -4,6 +4,7 @@
   import { dsmStepsStore } from '../../lib/store';
   import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
+  import { transverseSign } from '../../lib/engine/transverse-sign-2d';
 
   let { data }: { data: DSMStepData } = $props();
 
@@ -20,6 +21,13 @@
 
   const is3D = $derived(data.dofNumbering.dofsPerNode > 3);
   const isFrame = $derived(elem?.type === 'frame');
+  /*
+   * The method's local y is x turned 90° counter-clockwise. On a plane bar
+   * drawn right to left, or a column drawn upward, the drawn local z — the
+   * axis the results table and the diagrams read V and M in — is the other
+   * side, so there they carry the opposite sign (transverse-sign-2d.ts).
+   */
+  const drawnOpposite = $derived(!is3D && !!elem && transverseSign(Math.cos(elem.angle), Math.sin(elem.angle)) < 0);
 
   const localLabels = $derived.by(() => {
     if (is3D) {
@@ -102,6 +110,9 @@
       horizontal
     />
 
+    {#if drawnOpposite}
+      <p class="axes-note" data-testid="dsm-axes-note">{t('dsm.step9.drawnAxesNote')}</p>
+    {/if}
     <div class="force-summary">
       <table class="summary-table">
         <thead>
@@ -159,6 +170,14 @@
 </div>
 
 <style>
+  .axes-note {
+    margin: 0.4rem 0;
+    padding: 0.35rem 0.5rem;
+    border-left: 2px solid var(--st-accent);
+    font-size: 0.72rem;
+    color: var(--st-text-2);
+  }
+
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
   .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
   .explanation p { margin: 0; }

@@ -1554,7 +1554,9 @@
        * The same 0.5 m the node tool uses to decide "the cursor is on an
        * existing node". Two thresholds for one question drift apart.
        */
-      const onNode = findNearestNode(world.x, world.y, 0.5) ?? findNearestNode(ms.x, ms.y, 0.5);
+      // Under the cursor, or under where it snaps. (This read `ms`, a name that
+      // does not exist here: a press off every node threw a ReferenceError.)
+      const onNode = findNearestNode(world.x, world.y, 0.5) ?? findNearestNode(snapped.x, snapped.y, 0.5);
       if (!onNode) return;
       if (!uiStore.selectedNodes.has(onNode.id)) uiStore.selectNode(onNode.id, e.shiftKey);
       historyStore.pushState();

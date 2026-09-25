@@ -52,3 +52,27 @@ test.describe('@smoke explore', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(true);
   });
 });
+
+test.describe('@smoke explore in 3D', () => {
+  test('the result row is the space one, and a mechanism is said', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => { try { localStorage.setItem('liveCalc', 'false'); } catch { /* private mode */ } });
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    await page.evaluate(() => window.__stabileoActions.solve());
+    await page.getByTestId('rb-cmd-advanced').click();
+    await page.locator('button.adv-btn', { hasText: /Explore|Explorar/ }).first().click();
+    const panel = page.getByTestId('whatif-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.wif-res-btn')).toHaveText(['δ', 'N', 'My', 'Vz', 'Mz', 'Vy', 'T']);
+    await page.getByTestId('whatif-diagram-momentZ').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.diagramType())).toBe('momentZ');
+    for (const s of await panel.locator('[data-testid^=whatif-support-]').all()) await s.selectOption('rollerXY');
+    await expect(page.getByTestId('whatif-error')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('whatif-reset').click();
+    await expect(page.getByTestId('whatif-error')).toHaveCount(0, { timeout: 20_000 });
+    await page.getByTestId('adv-close').click();
+    await expect(panel).toHaveCount(0);
+  });
+});

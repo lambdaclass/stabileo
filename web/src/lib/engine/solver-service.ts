@@ -1792,6 +1792,24 @@ function finalizeSolve3DResults(results: AnalysisResults3D, model: ModelData): A
   return results;
 }
 
+/**
+ * A space model that is a mechanism the loads excite.
+ *
+ * The plane path refuses these before solving (kinematic preflight); the
+ * space path has no such gate — a planar frame embedded in space carries an
+ * out-of-plane sway nothing excites, and a kinematic test would reject it —
+ * so the engine solves the singular system and returns displacements of
+ * 1e11 m, flagged only as warnings. The results were shown as if valid: with
+ * every support of a portal turned into a roller, the diagrams stayed on
+ * screen and live calc reported nothing. When the engine says both that the
+ * displacements are excessive and that the equilibrium residual is high, the
+ * solution is not one, and this says so instead.
+ */
+function excitedMechanism3D(results: AnalysisResults3D): string | null {
+  const codes = new Set(((results as { structuredDiagnostics?: Array<{ code?: string }> }).structuredDiagnostics ?? []).map((d) => d.code));
+  return codes.has('excessive_displacement') && codes.has('residual_high') ? t('svc.mechanism3d') : null;
+}
+
 export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
   const input = prepareSolve3D(model, includeSelfWeight, leftHand);
   if (input === null || typeof input === 'string') return input;
@@ -1801,6 +1819,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     const results = solve3DEngine(input);
     const dt = performance.now() - t0;
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    const mechanism = excitedMechanism3D(results);
+    if (mechanism) return mechanism;
     return finalizeSolve3DResults(results, model);
   } catch (err: any) {
     console.error('Solver 3D error:', err);
@@ -1837,6 +1857,8 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     }
     const dt = performance.now() - t0;
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    const mechanism = excitedMechanism3D(results);
+    if (mechanism) return mechanism;
     const finalResults = finalizeSolve3DResults(results, model);
     solveCacheSet(cacheKey, finalResults);
     return finalResults;
@@ -1926,6 +1948,8 @@ export function solveCombinations3D(
     const perCase = new Map<number, AnalysisResults3D>();
     for (const cr of mcResult.caseResults) {
       const id = caseNameToId.get(cr.name);
+      const mech = excitedMechanism3D(cr.results);
+      if (mech) return t('svc.errorInCase3d').replace('{n}', cr.name).replace('{err}', mech);
       if (id != null) perCase.set(id, cr.results);
     }
 
@@ -1975,6 +1999,8 @@ function solveCombinations3DFallback(
         return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', result);
       }
       if (result) {
+        const mech = excitedMechanism3D(result);
+        if (mech) return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', mech);
         if (hasShells) postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
         perCase.set(lc.id, result);
       }
@@ -2063,6 +2089,8 @@ export async function solveCombinations3DParallel(
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
+      const mech = excitedMechanism3D(result);
+      if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {
         postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
