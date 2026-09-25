@@ -71,15 +71,18 @@ describe('structured diagnostics reach the diagnostics UI', () => {
     expect(plate.elementIds).toBeUndefined();
   });
 
-  it('leaves out the solve\u2019s own run notes, which describe the run and not the model', () => {
+  it('leaves out the solve\u2019s own run notes, and keeps its warnings as solver findings', () => {
     resultsStore.setResults(
       resultsWith([
         { code: 'dense_lu', severity: 'info', message: 'Dense solver (3 free DOFs)', phase: 'solve' },
         { code: 'residual_ok', severity: 'info', message: 'Residual 1.07e-15', phase: 'solve', value: 1.07e-15, threshold: 1e-6 },
-        { code: 'high_diagonal_ratio', severity: 'warning', message: 'Diagonal ratio …', phase: 'conditioning' },
+        { code: 'sparse_fill_ratio', severity: 'warning', message: 'Sparse fill ratio: 25.0x', phase: 'factorization' },
+        { code: 'high_diagonal_ratio', severity: 'warning', message: 'High diagonal ratio 3.0e9', phase: 'conditioning' },
       ])
     );
-    expect(resultsStore.structuredDiagnostics).toEqual([]);
+    // The run notes and the fill-ratio note are gone; the conditioning warning
+    // is a real finding, about the solve rather than the model.
+    expect(resultsStore.structuredDiagnostics.map((d) => [d.code, d.source])).toEqual([['high_diagonal_ratio', 'solver']]);
   });
 
   it('marks them as describing the model', () => {

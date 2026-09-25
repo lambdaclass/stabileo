@@ -185,13 +185,15 @@ function createResultsStore() {
   // are read from the single solve: `results` becomes a combination or the
   // envelope when the view changes, and those carry no structured diagnostics
   // — the findings vanished the moment a combination was picked. Converted
-  // once per solve: the cache is keyed on the engine's list itself.
+  // once per solve: the cache is keyed on the engine's list itself. (A
+  // `$derived` here did not recompute when read outside an effect: after
+  // `setResults` it still returned the first, empty conversion. Checked.)
   const findingsCache = new WeakMap<object, SolverDiagnostic[]>();
-  const findingsOf = (r: { structuredDiagnostics?: AnalysisResults['structuredDiagnostics'] } | null): SolverDiagnostic[] => {
+  const findingsOf = (r: { structuredDiagnostics?: AnalysisResults['structuredDiagnostics']; solverDiagnostics?: unknown[] } | null | undefined): SolverDiagnostic[] => {
     const list = r?.structuredDiagnostics;
     if (!list) return [];
     let found = findingsCache.get(list);
-    if (!found) { found = modelFindings(list); findingsCache.set(list, found); }
+    if (!found) { found = modelFindings(list, r?.solverDiagnostics as { category?: string }[] | undefined); findingsCache.set(list, found); }
     return found;
   };
   let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
@@ -949,8 +951,14 @@ function createResultsStore() {
     get solverDiagnostics3D(): SolverDiagnostic[] { return results3D?.solverDiagnostics ?? []; },
 
     // What the pre-solve gates found about the model (see model-findings.ts).
-    get structuredDiagnostics(): SolverDiagnostic[] { return findingsOf(singleResults ?? results); },
-    get structuredDiagnostics3D(): SolverDiagnostic[] { return findingsOf(singleResults3D ?? results3D); },
+    // With no single solve (combinations published on their own), a load case
+    // carries the gates' findings; a combination or the envelope does not.
+    get structuredDiagnostics(): SolverDiagnostic[] {
+      return findingsOf(singleResults ?? perCase.values().next().value ?? results);
+    },
+    get structuredDiagnostics3D(): SolverDiagnostic[] {
+      return findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D);
+    },
 
     get maxDisplacement(): number {
       if (!results) return 0;

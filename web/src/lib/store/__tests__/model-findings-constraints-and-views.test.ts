@@ -114,6 +114,25 @@ describe('model diagnostics survive switching to a combination / the envelope', 
     expect(brief(inEnv)).toEqual(brief(single));
   });
 
+  it('2D: combinations solved without a single solve keep the findings too', () => {
+    // ToolbarAdvanced's "solve combinations" publishes only the combination
+    // results: no base solve, so there is no single result to read from.
+    truss2D();
+    resultsStore.clear();
+    const combos = modelStore.solveCombinations(false);
+    expect(combos && typeof combos !== 'string').toBe(true);
+    resultsStore.setCombinationResults((combos as any).perCase, (combos as any).perCombo, (combos as any).envelope);
+    expect(resultsStore.singleResults).toBeNull();
+
+    const first = resultsStore.structuredDiagnostics;
+    expect(first.length).toBeGreaterThan(0);
+    resultsStore.activeView = 'combo';
+    expect(brief(resultsStore.structuredDiagnostics)).toEqual(brief(first));
+    resultsStore.activeView = 'envelope';
+    expect(brief(resultsStore.structuredDiagnostics)).toEqual(brief(first));
+    resultsStore.activeView = 'single';
+  });
+
   it('3D: diagnostics on the single solve are still shown in combo and envelope views', () => {
     // Two cantilevers from one fixed support whose tips end 1 µm apart without
     // being joined: the gates flag the tips as near-duplicate nodes.

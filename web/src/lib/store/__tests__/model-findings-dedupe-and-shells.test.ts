@@ -8,23 +8,13 @@
  * were listed twice. And frames, plates and quads number independently, so a
  * diagnostic about Quad 1 read as frame 1 selected the wrong member.
  */
-import { sameFinding } from '../../engine/model-findings';
+import { sameFinding, mergeFindings, selectionOf } from '../../engine/model-findings';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solve3D, solve } from '../../engine/wasm-solver';
 import { checkModel } from '../../engine/model-diagnostics';
 import { resultsStore } from '../results.svelte';
-import { uiStore } from '../ui.svelte';
 import type { SolverDiagnostic } from '../../engine/types';
 import type { SolverInput3D } from '../../engine/types-3d';
-
-/** ProDiagnosticsTab's merge, as it reads now. */
-function mergeLikePanel(autoModelDiags: SolverDiagnostic[], fromGates: SolverDiagnostic[]): SolverDiagnostic[] {
-  const merged = [...autoModelDiags];
-  for (const sd of fromGates) {
-    if (!merged.some((d) => sameFinding(d, sd))) merged.push(sd);
-  }
-  return merged;
-}
 
 const frame = (id: number, nodeI: number, nodeJ: number) => ({
   id, type: 'frame' as const, nodeI, nodeJ, materialId: 1, sectionId: 1,
@@ -92,7 +82,7 @@ describe('checkModel vs engine gate dedupe', () => {
     const res = solve3D(inp);
     resultsStore.setResults3D(res);
     const gates = resultsStore.structuredDiagnostics3D;
-    const merged = mergeLikePanel(js, gates);
+    const merged = mergeFindings(js, gates);
     const aboutPair = merged.filter((d) => JSON.stringify([...(d.nodeIds ?? [])].sort()) === '[2,3]');
     expect(aboutPair.length).toBe(1);
   });
@@ -126,21 +116,27 @@ describe('checkModel vs engine gate dedupe', () => {
       supports: inp2d.supports, loads: [{ type: 'nodal', data: { id: 1, nodeId: 2, caseId: 1 } }],
       loadCases: [{ id: 1, name: 'D', type: 'D' }],
     });
-    const merged = mergeLikePanel(js, gates);
+    const merged = mergeFindings(js, gates);
     expect(merged.filter((d) => JSON.stringify([...(d.nodeIds ?? [])].sort()) === '[2,3]').length).toBe(1);
   });
 });
 
+/** Frame 1, quad 1 at 30:1 and plate 1 at 40:1 — the same id in three families. */
+function frameQuadPlate(): SolverInput3D {
+  const inp = input3D(
+    [[1, 0, 0, 0], [2, 5, 0, 0],
+     [10, 0, 10, 0], [11, 30, 10, 0], [12, 30, 11, 0], [13, 0, 11, 0],
+     [20, 0, 20, 0], [21, 40, 20, 0], [22, 0, 21, 0]],
+    [[1, 1, 2]], [1, 10, 11, 12, 13, 20, 21, 22]);
+  inp.quads = new Map([[1, { id: 1, nodes: [10, 11, 12, 13], materialId: 1, thickness: 0.1 }]]);
+  inp.plates = new Map([[1, { id: 1, nodes: [20, 21, 22], materialId: 1, thickness: 0.1 }]]);
+  return inp;
+}
+
 describe('shell ids in elementIds', () => {
   it('a quad/plate gate diagnostic is distinguishable from a frame one, and does not select the frame with the same id', () => {
     // frame 1 (cantilever 1-2); quad 1 at 30:1 aspect; plate 1 at 40:1 aspect. All shell nodes fixed.
-    const inp = input3D(
-      [[1, 0, 0, 0], [2, 5, 0, 0],
-       [10, 0, 10, 0], [11, 30, 10, 0], [12, 30, 11, 0], [13, 0, 11, 0],
-       [20, 0, 20, 0], [21, 40, 20, 0], [22, 0, 21, 0]],
-      [[1, 1, 2]], [1, 10, 11, 12, 13, 20, 21, 22]);
-    inp.quads = new Map([[1, { id: 1, nodes: [10, 11, 12, 13], materialId: 1, thickness: 0.1 }]]);
-    inp.plates = new Map([[1, { id: 1, nodes: [20, 21, 22], materialId: 1, thickness: 0.1 }]]);
+    const inp = frameQuadPlate();
     const res: any = solve3D(inp);
     const raw = (res.structuredDiagnostics ?? []).filter((d: any) => /^(Quad|Plate)/.test(d.message));
     expect(raw.length).toBeGreaterThan(0);
@@ -153,20 +149,15 @@ describe('shell ids in elementIds', () => {
       expect(d.shellKeys?.[0], d.message).toBe(d.message.startsWith('Quad') ? 'q1' : 'p1');
     }
 
-    // (a) the diagnostic must carry something beyond a bare number that says which entity kind it is
-    for (const d of raw) {
-      const keys = Object.keys(d).filter((k) => !['code', 'severity', 'message', 'elementIds', 'nodeIds', 'dofIndices', 'phase', 'value', 'threshold'].includes(k));
-      expect(keys, `no entity-kind field on ${d.message}`).not.toEqual([]);
-    }
+    // The engine says which family each id numbers.
+    for (const d of raw) expect(d.elementKind, d.message).toBe(d.message.startsWith('Quad') ? 'quad' : 'plate');
   });
 
   it('clicking a quad diagnostic selects the quad, not the frame with the same id', () => {
+    resultsStore.setResults3D(solve3D(frameQuadPlate()));
     const quadDiag = resultsStore.structuredDiagnostics3D.find((d) => d.message.startsWith('Quad 1'))!;
     expect(quadDiag).toBeTruthy();
-    expect(quadDiag.elementIds).toBeUndefined();
-    // ProDiagnosticsTab.handleClick, shell branch, as it reads now:
-    uiStore.setSelection(new Set(), new Set(), false, new Set(quadDiag.shellKeys));
-    expect([...uiStore.selectedShells]).toEqual(['q1']);
-    expect([...uiStore.selectedElements]).toEqual([]);
+    // What ProDiagnosticsTab.handleClick selects.
+    expect(selectionOf(quadDiag)).toEqual({ nodes: [], elements: [], shells: ['q1'] });
   });
 });

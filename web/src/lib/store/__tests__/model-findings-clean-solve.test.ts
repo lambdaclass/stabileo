@@ -12,18 +12,9 @@ import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { initSolver } from '../../engine/wasm-solver';
 import { checkModel } from '../../engine/model-diagnostics';
-import { formatDetailValue } from '../../engine/model-findings';
+import { formatDetails } from '../../engine/model-findings';
 import type { AnalysisResults } from '../../engine/types';
 import type { AnalysisResults3D } from '../../engine/types-3d';
-
-/** Verbatim copy of ProDiagnosticsTab.svelte formatDetails. */
-/** ProDiagnosticsTab.formatDetails, as it reads now. */
-function formatDetails(details: Record<string, unknown>): string {
-  return Object.entries(details)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}: ${formatDetailValue(v)}`)
-    .join(' | ');
-}
 
 /** Drop the default empty load cases so checkModel has nothing to say (a genuinely clean model). */
 function dropEmptyCases(): void {
@@ -77,7 +68,7 @@ describe('a clean model must not show engine run telemetry as model findings', (
     // ResultsTable's merged count (diagnostics + solverDiagnostics + structuredDiagnostics)
     const tableCount = resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length
       + resultsStore.structuredDiagnostics.length;
-    expect(resultsStore.structuredDiagnostics.filter((d) => d.details?.phase !== 'pre_solve')).toEqual([]);
+    expect(resultsStore.structuredDiagnostics).toEqual([]);
     expect(tableCount).toBe(0);
   });
 

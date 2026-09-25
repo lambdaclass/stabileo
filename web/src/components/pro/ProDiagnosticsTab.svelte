@@ -3,7 +3,7 @@
   import { t } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
-  import { sameFinding, formatDetailValue } from '../../lib/engine/model-findings';
+  import { mergeFindings, selectionOf, shellRef, formatDetails } from '../../lib/engine/model-findings';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
@@ -54,12 +54,7 @@
     // Where `checkModel` found the same thing under its own code (coincident
     // nodes), `sameFinding` recognises it and it is reported once.
     const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
-    const merged = [...autoModelDiags];
-    // Add post-solve diagnostics, deduplicating
-    for (const sd of [...general, ...solver, ...fromGates]) {
-      if (!merged.some((d) => sameFinding(d, sd))) merged.push(sd);
-    }
-    return merged;
+    return mergeFindings(autoModelDiags, general, solver, fromGates);
   });
 
   // Apply severity filter
@@ -74,8 +69,10 @@
   const infos = $derived(allDiagnostics.filter(d => d.severity === 'info'));
   const hasAny = $derived(allDiagnostics.length > 0);
 
-  const modelCount = $derived(autoModelDiags.length);
-  const solverCount = $derived(allDiagnostics.length - autoModelDiags.length);
+  // By what each finding is about: the gates' findings describe the model as
+  // much as checkModel's do, and used to be counted as solver checks.
+  const modelCount = $derived(allDiagnostics.filter((d) => d.source === 'model').length);
+  const solverCount = $derived(allDiagnostics.length - modelCount);
 
   function severityIcon(s: SolverDiagnostic['severity']): string {
     if (s === 'error') return '\u2717';
@@ -100,24 +97,16 @@
   }
 
   function handleClick(diag: SolverDiagnostic) {
-    if (diag.shellKeys && diag.shellKeys.length > 0) {
-      // Plate and quad ids are not frame ids: they go to the shell selection.
-      uiStore.setSelection(new Set(), new Set(), false, new Set(diag.shellKeys));
-      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-    } else if (diag.elementIds && diag.elementIds.length > 0) {
-      uiStore.setSelection(new Set(), new Set(diag.elementIds));
-      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-    } else if (diag.nodeIds && diag.nodeIds.length > 0) {
-      uiStore.setSelection(new Set(diag.nodeIds), new Set());
-      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
-    }
+    const sel = selectionOf(diag);
+    if (!sel) return;
+    // Plate and quad ids are not frame ids: they go to the shell selection.
+    uiStore.setSelection(new Set(sel.nodes), new Set(sel.elements), false, new Set(sel.shells));
+    window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
   }
 
-  function formatDetails(details: Record<string, unknown>): string {
-    return Object.entries(details)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}: ${formatDetailValue(v)}`)
-      .join(' | ');
+  function shellLabel(key: string): string {
+    const { kind, id } = shellRef(key);
+    return t(kind === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(id));
   }
 </script>
 
@@ -238,6 +227,9 @@
           </div>
           {#if diag.elementIds && diag.elementIds.length > 0}
             <span class="diag-refs">{t('diag.elements')}: {diag.elementIds.join(', ')}</span>
+          {/if}
+          {#if diag.shellKeys && diag.shellKeys.length > 0}
+            <span class="diag-refs">{t('diag.shells')}: {diag.shellKeys.map(shellLabel).join(', ')}</span>
           {/if}
           {#if diag.nodeIds && diag.nodeIds.length > 0}
             <span class="diag-refs">{t('diag.nodes')}: {diag.nodeIds.join(', ')}</span>
