@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { POSTS, findPost } from '..';
-import { readingMinutes, type Block } from '../types';
+import { readingMinutes, wordCount, type Block, type PostBody } from '../types';
 import { PUBLIC_LOCALES, dictFor } from '../../i18n/store.svelte';
 
 const LOCALES = PUBLIC_LOCALES;
@@ -252,5 +252,13 @@ describe('the bars-or-finite-elements post keeps the engine’s numbers', () => 
       const ratio = Number(row[3]) / Number(row[2]);
       expect(ratio.toFixed(2), row[0]).toBe(row[4].split(' ')[0]);
     }
+  });
+});
+
+describe('reading time', () => {
+  it('counts the linked post\u2019s title a link block renders', () => {
+    const body = { title: 'One', excerpt: 'Two', blocks: [{ k: 'link', slug: 'other', t: 'Read next:' }] } as unknown as PostBody;
+    expect(wordCount(body)).toBe(4);
+    expect(wordCount(body, () => 'The other post')).toBe(7);
   });
 });

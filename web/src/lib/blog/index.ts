@@ -5,7 +5,8 @@
  * with no backend of its own, so posts ship with the application and are as
  * available offline as the solver is.
  */
-import type { Post } from './types';
+import { readingMinutes, type Post } from './types';
+import type { PublicLocale } from '../i18n/store.svelte';
 import { determinismBoundary } from './posts/determinism-boundary';
 import { conceptualAdvanced } from './posts/conceptual-advanced';
 import { cirsoc201Flexure } from './posts/cirsoc-201-flexure';
@@ -15,7 +16,7 @@ import { barsOrFiniteElements } from './posts/bars-or-finite-elements';
 /**
  * By `order`, not by date.
  *
- * Four posts that build on each other are a series, not a feed: the one that
+ * Posts that build on each other are a series, not a feed: the one that
  * frames the argument is the oldest, and sorting by recency put it last and
  * opened the blog with the most specialised piece instead. See Post.order.
  */
@@ -29,6 +30,11 @@ export const POSTS: Post[] = [
 
 export function findPost(slug: string): Post | undefined {
   return POSTS.find((p) => p.slug === slug);
+}
+
+/** Reading time of a post in one locale, counting the titles its link blocks render. */
+export function postReadingMinutes(post: Post, locale: PublicLocale): number {
+  return readingMinutes(post.i18n[locale], (slug) => findPost(slug)?.i18n[locale].title);
 }
 
 /**
