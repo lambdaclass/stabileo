@@ -10,13 +10,15 @@
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
   // built the seismic weight on a literal "* 50 // rough 50m2 per floor".
   import {
-    buildLoadPlan, describePlanDelta, type LoadPlan, type LoadPlanInput, type PlanDelta,
+    buildLoadPlan, describePlanDelta, levelsWithPlanArea, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
   import type { Enclosure, Exposure } from '../../lib/codes/cirsoc102/wind';
+  import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
+  import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { bindingLabel } from '../../lib/codes/roles';
   import { messageIdentity } from '../../lib/codes/message';
@@ -137,11 +139,15 @@
   let windRigid = $state(true);
   let windDirX = $state(true);
   let windDirZ = $state(false);
+  let windCaseSet = $state<WindCaseSet>('all');
+  let windBothSenses = $state(true);
 
   // ─── Options ───────────────────────────
   let genCombos = $state(true);
   /** Strength, service or both: strength by default, as the regulation's design needs. */
   let comboSet = $state<'ultimate' | 'service' | 'both'>('ultimate');
+  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
+  let bothSenses = $state(true);
   let clearExisting = $state(false);
 
   /* The fieldsets, so a focused open can bring one into view. */
@@ -202,6 +208,7 @@
         kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
         directions: { x: windDirX, y: windDirZ },
+        caseSet: windCaseSet, bothSenses: windBothSenses,
       } : undefined,
       seismic: enableSeismic ? {
         /* `coefficient` is the fallback the plan uses only when `code` is absent or
@@ -314,39 +321,44 @@
       for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
     }
 
-    // Resolve every planned case to a real id, creating only what is missing.
+    // Resolve every planned case to a real id, creating only what is missing. A case the plan
+    // has no match for is still reused when one of the same type already carries its name, so
+    // applying twice does not duplicate the wind cases of Fig. 2.4-8.
+    const caseIds: number[] = [];
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
-      let id = pc.existingId;
-      if (id === null) id = modelStore.addLoadCase(tp(pc.nameKey, pc.nameParams), pc.type);
+      const name = tp(pc.nameKey, pc.nameParams);
+      let id = pc.existingId
+        ?? modelStore.model.loadCases.find((c) => c.type === pc.type && c.name === name)?.id
+        ?? null;
+      if (id === null) id = modelStore.addLoadCase(name, pc.type);
+      caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
       caseIdByType.set(pc.type, list);
     }
-    const firstOf = (type: string) => caseIdByType.get(type)?.[0];
+    const caseOf = (type: string, index?: number) =>
+      index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0];
 
     for (const d of p.distributed) {
-      const id = firstOf(d.caseType);
+      const id = caseOf(d.caseType, d.caseIndex);
       if (id === undefined) continue;
       modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, d.q, undefined, undefined, id);
     }
 
-    // Nodal loads carry a direction; W/E cases were planned per direction in order.
-    const dirIndex = { W: 0, E: 0 } as Record<string, number>;
     for (const n of p.nodal) {
-      const ids = caseIdByType.get(n.caseType) ?? [];
-      if (ids.length === 0) continue;
-      const useY = Math.abs(n.fy) > Math.abs(n.fx);
-      const id = ids.length > 1 ? (useY ? ids[1] : ids[0]) : ids[0];
-      dirIndex[n.caseType] = 0;
-      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, 0, id);
+      const id = caseOf(n.caseType, n.caseIndex);
+      if (id === undefined) continue;
+      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
     }
 
     // One combination per wind or seismic direction, never both directions in one.
     const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => ({
       id, type, name: modelStore.model.loadCases.find((c) => c.id === id)?.name ?? type,
     })));
-    addGeneratedCombinations(expandCombinations(p.combinations, planned));
+    // Wind from −X and −Y is generated as cases of its own (`wind-cases.ts`); earthquake is
+    // reversed by the sign in the combination.
+    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: bothSenses } }));
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -642,6 +654,12 @@
             <label><input type="checkbox" bind:checked={windDirX} /> {t('autoLoad.dirX')}</label>
             <label><input type="checkbox" bind:checked={windDirZ} /> {t('autoLoad.dirZ')}</label>
           </div>
+          <ProWindCasesPanel
+            bind:caseSet={windCaseSet} bind:bothSenses={windBothSenses} bind:enclosure={windEnclosure}
+            speed={windV} exposure={windExposure} altitude={windAltitude}
+            kzt={windKztSurveyed ? windKzt : 1}
+            elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
+          />
         {/if}
       </fieldset>
 
@@ -657,6 +675,7 @@
             {/each}
           </div>
           {#if comboSet !== 'ultimate'}<p class="al-hint">{t('autoLoad.comboSetServiceHint')}</p>{/if}
+          <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('combos.bothSenses')}</label>
         {/if}
         <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
           onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>

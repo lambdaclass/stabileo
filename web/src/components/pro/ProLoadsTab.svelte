@@ -281,6 +281,9 @@
    */
   let windBasis = $state<WindBasis>('service');
   const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
+  const hasSeismicCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'E'));
+  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
+  let bothSenses = $state(true);
 
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
@@ -314,7 +317,7 @@
     const specs = template === 'service'
       ? generateServiceCombinations({ present })
       : withWindBasis(generateCombinations({ present }), windBasis);
-    const out = expandCombinations(specs, cases).map((c) => {
+    const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
     });
@@ -814,6 +817,13 @@
           </select>
         </div>
       {/if}
+      {#if hasWindCases || hasSeismicCases}
+        <label class="combo-wind-basis" data-testid="combo-both-senses">
+          <input type="checkbox" bind:checked={bothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('combos.bothSenses')}</span>
+        </label>
+        <p class="combo-senses-hint">{t('combos.bothSensesHint')}</p>
+      {/if}
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
           {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
@@ -1128,5 +1138,6 @@
   .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
   .pro-delete-btn:hover { color: var(--st-danger); }
   .pro-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 30px 10px; font-size: 0.78rem; }
+  .combo-senses-hint { margin: 0; padding: 0 12px 6px; font-size: 0.62rem; color: var(--st-text-3); }
   .combo-wind-basis { display: flex; gap: 6px; align-items: center; padding: 6px 12px; font-size: 0.68rem; color: var(--st-text-2); border-bottom: 1px solid var(--st-hair); }
 </style>

@@ -37,8 +37,8 @@
  * Flexible or dynamically sensitive buildings (§1.9.5), the large-volume reduction on
  * (GC_pi) (§1.11.1), domes and vaulted roofs (Fig. 2.4-2/2.4-3), parapets and roof
  * overhangs (§2.4.4/§2.4.5), components and cladding (Ch. 5), the wind-tunnel procedure
- * (Ch. 6), and the torsional load cases 2 and 4 of §2.4.6. Each returns an explicit
- * unsupported outcome; none is silently approximated.
+ * (Ch. 6). Each returns an explicit unsupported outcome; none is silently approximated. The
+ * four load cases of §2.4.6 (Fig. 2.4-8) are assembled from these pressures by the load plan.
  *
  * Pure: no store, no runes.
  */
@@ -298,6 +298,25 @@ export function roofCp(hOverL: number, thetaDeg: number): RoofCpResult {
   };
 }
 
+/**
+ * Fig. 2.4-1 — roof coefficients by horizontal distance x from the windward edge: wind normal to
+ * the ridge on a roof below 10°, and wind parallel to the ridge on any roof.
+ *
+ *   h/L ≤ 0,5:  0 to h/2  −0,9 · h/2 to h  −0,9 · h to 2h  −0,5 · beyond 2h  −0,3
+ *   h/L ≥ 1,0:  0 to h/2  −1,3 · beyond h/2  −0,7
+ *
+ * each paired with −0,18 (note 3: the roof is designed for both). Between the two rows the
+ * values at x are interpolated linearly (note 2; both rows are negative, so the rule on signs
+ * holds). The −1,3 is taken without the area reduction of the double-asterisk note, which only
+ * lowers it.
+ */
+export function flatRoofCp(hOverL: number, x: number, h: number): { cp: [number, number]; refs: ClauseRef[] } {
+  const low = x <= h / 2 ? -0.9 : x <= h ? -0.9 : x <= 2 * h ? -0.5 : -0.3;
+  const high = x <= h / 2 ? -1.3 : -0.7;
+  const t = hOverL <= 0.5 ? 0 : hOverL >= 1 ? 1 : (hOverL - 0.5) / 0.5;
+  return { cp: [+(low + (high - low) * t).toFixed(4), -0.18], refs: [REF_CP] };
+}
+
 // ─── The full calculation ────────────────────────────────────────
 
 export interface WindProject {
@@ -421,8 +440,12 @@ export function computeWindPressures(p: WindProject): WindResult {
   if (unsupported.length === 0) {
     const lOverB = p.B > 0 ? p.L / p.B : 1;
     const cpLee = cpLeewardWall(lOverB);
-    const roof = roofCp(p.meanRoofHeight / Math.max(p.L, 1e-9), p.roofSlopeDeg);
-    if (roof.unsupported) unsupported.push(roof.unsupported);
+    // Below 10° the roof reads Cp zone by zone (`flatRoofCp`), which needs the roof's own
+    // geometry: the load plan applies it member by member.
+    const roof = p.roofSlopeDeg < 10
+      ? { windward: [], leeward: [] }
+      : roofCp(p.meanRoofHeight / Math.max(p.L, 1e-9), p.roofSlopeDeg);
+    if ('unsupported' in roof && roof.unsupported) unsupported.push(roof.unsupported);
 
     // Windward wall pressure varies with height; evaluate at the mean roof height and
     // at the base so the caller can distribute. §2.4.1: q = q_z on the windward wall.
@@ -462,9 +485,8 @@ export function computeWindPressures(p: WindProject): WindResult {
     }
   }
 
-  // §2.4.6 — the four design load cases. Cases 2 and 4 apply a torsional eccentricity
-  // that the frame model has no way to receive as a surface pressure.
-  unsupported.push(msg('loads.cirsoc102.unsupported.torsionalCases'));
+  // §2.4.6 — the four design load cases of Fig. 2.4-8 are built from these pressures by the
+  // load plan (`engine/loads/wind-cases.ts`), level by level.
 
   return {
     factors,

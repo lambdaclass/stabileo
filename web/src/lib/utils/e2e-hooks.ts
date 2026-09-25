@@ -267,6 +267,8 @@ export interface StabileoTestHooks {
    * which says nothing about what landed in the model.
    */
   sectionNames(): string[];
+  /** The names of the load cases, in model order. */
+  loadCaseNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -634,6 +636,7 @@ export function installE2EHooks(): void {
       };
     },
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
+    loadCaseNames: () => modelStore.model.loadCases.map((c) => c.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,

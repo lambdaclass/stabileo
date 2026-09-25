@@ -16,6 +16,14 @@
  * Permanent and gravity symbols (D, L, Lr, S, R, F, H, T) sum all their cases: two dead-load
  * cases are both always there. Directional symbols (W, E) are alternatives: each case of the
  * symbol gets a combination of its own, never alongside another case of the same symbol.
+ *
+ * ── Both senses ──────────────────────────────────────────────────
+ *
+ * Wind and earthquake act either way along a direction, and a case holds one of the two. With
+ * `bothSenses`, each case of W or E also enters with the opposite sign (−1,0 E beside +1,0 E),
+ * which for a linear analysis is the case reversed, without a second solve. It is exact for the
+ * cases the regulation generator makes (the same forces on every node of a level, mirrored),
+ * and a statement about any case loaded by hand, which the option says where it is offered.
  */
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs, CombinationTerm } from '../../codes/cirsoc101/combinations';
 
@@ -49,9 +57,15 @@ export function presentSymbols(cases: ReadonlyArray<{ type?: string }>): Combina
  * Expand `specs` over `cases`. A spec that names a symbol with no case is dropped, since a
  * combination missing one of its actions is not the combination the spec prints.
  */
+export interface ExpandOptions {
+  /** Symbols whose cases also enter with the opposite sign. */
+  bothSenses?: Partial<Record<'W' | 'E', boolean>>;
+}
+
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
   cases: ReadonlyArray<{ id: number; type?: string; name: string }>,
+  opts: ExpandOptions = {},
 ): CaseCombination[] {
   const bySymbol = new Map<LoadSymbol, Array<{ id: number; name: string }>>();
   for (const c of cases) {
@@ -65,14 +79,20 @@ export function expandCombinations(
     if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
     const alt = terms.find((t) => ALTERNATIVE.has(t.symbol));
     const choices = alt ? bySymbol.get(alt.symbol)! : [null];
+    const reversible = !!alt && !!opts.bothSenses?.[alt.symbol as 'W' | 'E'];
     for (const choice of choices) {
-      const factors: CaseCombination['factors'] = [];
-      for (const t of terms) {
-        const ids = t.symbol === alt?.symbol ? [choice!] : bySymbol.get(t.symbol)!;
-        for (const c of ids) factors.push({ caseId: c.id, factor: t.factor });
+      for (const sense of reversible ? [1, -1] : [1]) {
+        const factors: CaseCombination['factors'] = [];
+        for (const t of terms) {
+          const ids = t.symbol === alt?.symbol ? [choice!] : bySymbol.get(t.symbol)!;
+          const f = t.symbol === alt?.symbol ? sense * t.factor : t.factor;
+          for (const c of ids) factors.push({ caseId: c.id, factor: f });
+        }
+        const which = choice && (choices.length > 1 || reversible)
+          ? `${reversible ? (sense > 0 ? '+' : '−') : ''}${choice.name}` : '';
+        const named = which ? `${spec.label} (${which})` : spec.label;
+        out.push({ name: named, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
       }
-      const named = alt && choices.length > 1 && choice ? `${spec.label} (${choice.name})` : spec.label;
-      out.push({ name: named, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
     }
   }
   return out;

@@ -89,4 +89,23 @@ describe('the wind basis', () => {
     const svc = generateServiceCombinations({ present: presentSymbols(cases) });
     expect(withWindBasis(svc, 'service').map((s) => s.label)).toEqual(svc.map((s) => s.label));
   });
+
+  it('with both senses, each wind case enters once with each sign, and nothing else changes', () => {
+    const specs = generateCombinations({ present: presentSymbols(cases) });
+    const one = expandCombinations(specs, cases);
+    const two = expandCombinations(specs, cases, { bothSenses: { W: true } });
+    const withWind = one.filter((c) => c.factors.some((f) => f.caseId === 4 || f.caseId === 5));
+    expect(two.length).toBe(one.length + withWind.length);
+    for (const c of withWind) {
+      const w = c.factors.find((f) => f.caseId === 4 || f.caseId === 5)!;
+      const mirror = two.find((d) => d.specId === c.specId
+        && d.factors.some((f) => f.caseId === w.caseId && f.factor === -w.factor));
+      expect(mirror, c.name).toBeDefined();
+      expect(mirror!.factors.filter((f) => f.caseId !== w.caseId)).toEqual(c.factors.filter((f) => f.caseId !== w.caseId));
+      expect(mirror!.name).toContain('−');
+    }
+    // A combination without wind is not doubled.
+    expect(two.filter((c) => !c.factors.some((f) => f.caseId === 4 || f.caseId === 5)).length)
+      .toBe(one.length - withWind.length);
+  });
 });

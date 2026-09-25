@@ -41,9 +41,10 @@ import {
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
 import {
-  applyMinimumWindLoad, computeWindPressures, velocityPressure, G_RIGID,
+  applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
+import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
@@ -133,6 +134,10 @@ export interface LoadPlanInput {
     roofSlopeDeg: number;
     rigid: boolean;
     directions: { x: boolean; y: boolean };
+    /** Which cases of Fig. 2.4-8 to generate. Absent: all four (§2.4.6). */
+    caseSet?: WindCaseSet;
+    /** Wind from −X and −Y as well. Absent: true. */
+    bothSenses?: boolean;
   };
   seismic?: {
     enabled: boolean;
@@ -177,6 +182,8 @@ export interface PlannedCase {
 export interface PlannedDistributed {
   elementId: number;
   caseType: PlannedCase['type'];
+  /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
+  caseIndex?: number;
   /** Local-z line load, kN/m, negative downward. */
   q: number;
 }
@@ -184,9 +191,13 @@ export interface PlannedDistributed {
 export interface PlannedNodal {
   nodeId: number;
   caseType: PlannedCase['type'];
+  /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
+  caseIndex?: number;
   fx: number;
   fy: number;
   fz: number;
+  /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
+  mz?: number;
 }
 
 export interface LevelMass {
@@ -257,6 +268,7 @@ export interface LoadPlan {
 }
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
+const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
@@ -488,6 +500,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   // ── Wind ──
   const nodal: PlannedNodal[] = [];
+  const windAxes: WindAxis[] = [];
   let windQh: ProvenancedValue<number> | undefined;
   if (input.wind?.enabled) {
     const elevations = levels.map((l) => l.elevation);
@@ -544,6 +557,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
 
       const elevated = levels.filter((l) => l.elevation > 0);
+      const windLevels: WindLevel[] = [];
       for (let i = 0; i < elevated.length; i++) {
         const lv = elevated[i];
         const below = i === 0 ? 0 : elevated[i - 1].elevation;
@@ -566,23 +580,32 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
           }));
           refs.push(...min.refs);
         }
-        const per = applied / Math.max(1, lv.nodeIds.length);
-        for (const id of lv.nodeIds) {
-          nodal.push({
-            nodeId: id, caseType: 'W',
-            fx: dir === 'x' ? per : 0, fy: dir === 'y' ? per : 0, fz: 0,
-          });
-        }
+        windLevels.push({ elevation: lv.elevation, nodeIds: lv.nodeIds, force: applied, pressureForce: force });
       }
-      cases.push({
-        existingId: findCase(input.model, 'W', dir.toUpperCase()),
-        type: 'W', nameKey: 'autoLoad.windCaseDir',
-        nameParams: { dir: dir.toUpperCase(), v: input.wind.basicSpeed },
+      windAxes.push({
+        axis: dir, across, along, levels: windLevels, project, qhNm2: res.qhNm2,
+        gcpi: internalPressureCoefficient(input.wind.enclosure),
       });
       derivation.push(msg('loadPlan.derivation.wind', {
         dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
         net: round(net, 3), front: round(across, 1),
       }));
+    }
+    if (windAxes.length > 0) {
+      const set = input.wind.caseSet ?? 'all';
+      const generated = windLoadCases({
+        model: input.model, axes: windAxes, set, bothSenses: input.wind.bothSenses ?? true,
+        tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
+      });
+      unsupportedKeys.push(...generated.notes);
+      refs.push(R102('2.4.6', 'casos de carga de viento de diseño'));
+      derivation.push(msg('loadPlan.derivation.windCases', { set, count: generated.cases.length }));
+      for (const c of generated.cases) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
+        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+      }
     }
   }
 
@@ -678,27 +701,25 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
 
+      const exIndex = input.seismic.directions.x ? cases.length : -1;
+      if (exIndex >= 0) {
+        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
+          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
+      }
+      const eyIndex = input.seismic.directions.y ? cases.length : -1;
+      if (eyIndex >= 0) {
+        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
+          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
+      }
       elevated.forEach((lv, i) => {
         const Fk = dist.forces[i]?.f ?? 0;
         const per = Fk / Math.max(1, lv.nodeIds.length);
         for (const id of lv.nodeIds) {
-          if (input.seismic!.directions.x) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: per, fy: 0, fz: 0 });
-          }
-          if (input.seismic!.directions.y) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: 0, fy: per, fz: 0 });
-          }
+          if (exIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: exIndex, fx: per, fy: 0, fz: 0 });
+          if (eyIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: eyIndex, fx: 0, fy: per, fz: 0 });
         }
       });
 
-      if (input.seismic.directions.x) {
-        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
-      }
-      if (input.seismic.directions.y) {
-        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
-      }
       derivation.push(msg('loadPlan.derivation.seismic', {
         weight: round(W, 1), coefficient: round(C, 4), baseShear: round(V0, 1),
       }));

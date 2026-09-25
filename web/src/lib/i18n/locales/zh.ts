@@ -3136,7 +3136,7 @@ const zh: Translations = {
   'autoLoad.sysWalls': '剪力墙',
   'autoLoad.sysOther': '其他',
   'autoLoad.dirX': 'X 方向',
-  'autoLoad.dirZ': 'Z 方向',
+  'autoLoad.dirZ': 'Y 方向',
   'autoLoad.preview': '地震预览',
   'autoLoad.options': '选项',
   'autoLoad.genCombos': '按规范生成组合',

@@ -274,9 +274,11 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     expect(teAllAt(p.unsupportedKeys, 'es').join(' ')).toMatch(/1\.9\.5/);
   });
 
-  it('always reports the torsional cases as not covered', () => {
-    expect(windOn().unsupportedKeys.map((u) => u.key))
-      .toContain('loads.cirsoc102.unsupported.torsionalCases');
+  it('no longer reports the torsional cases as not covered: it builds them', () => {
+    const p = windOn({ directions: { x: true, y: true } });
+    expect(p.unsupportedKeys.map((u) => u.key)).not.toContain('loads.cirsoc102.unsupported.torsionalCases');
+    expect(p.cases.some((c) => c.nameKey === 'autoLoad.windCase2')).toBe(true);
+    expect(p.cases.some((c) => c.nameKey === 'autoLoad.windCase4')).toBe(true);
   });
 
   it('loads each level with the velocity pressure at its own height', () => {
@@ -293,7 +295,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     }));
     const byLevel = new Map<number, number>();
     const zOf = new Map([...frame(10, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
-    for (const n of p.nodal.filter((x) => x.caseType === 'W')) {
+    // Case 1 from +X only: the plan now also carries −X and cases 2 to 4.
+    const first = p.cases.findIndex((c) => c.nameKey.startsWith('autoLoad.windCase1') && c.nameParams?.dir === '+X');
+    for (const n of p.nodal.filter((x) => x.caseType === 'W' && x.caseIndex === first)) {
       const z = zOf.get(n.nodeId)!;
       byLevel.set(z, (byLevel.get(z) ?? 0) + n.fx);
     }
@@ -320,9 +324,16 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     expect(perM(27) / perM(6)).toBeGreaterThan(1.25);
   });
 
-  it('adds a wind case per requested direction', () => {
-    const p = windOn({ directions: { x: true, y: true } });
-    expect(p.cases.filter((c) => c.type === 'W')).toHaveLength(2);
+  it('adds a wind case per requested direction, and the cases of Fig. 2.4-8 on request', () => {
+    const one = windOn({ directions: { x: true, y: true }, caseSet: 'case1', bothSenses: false });
+    const roofCase1 = one.cases.filter((c) => c.type === 'W');
+    // One per direction, twice when a roof takes the internal pressure with each sign.
+    expect(roofCase1.length % 2).toBe(0);
+    expect(new Set(roofCase1.map((c) => c.nameParams?.dir))).toEqual(new Set(['+X', '+Y']));
+    const all = windOn({ directions: { x: true, y: true } });
+    const perCase1 = roofCase1.length / 2;   // internal-pressure variants per direction and sense
+    // case 1: 2 axes × 2 senses × variants; case 2: 2 × 2 × 2 e; case 3: 4 quadrants; case 4: 4 × 2 e.
+    expect(all.cases.filter((c) => c.type === 'W')).toHaveLength(4 * perCase1 + 8 + 4 + 8);
   });
 });
 

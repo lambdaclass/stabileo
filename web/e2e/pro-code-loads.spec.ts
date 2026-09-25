@@ -161,3 +161,40 @@ test.describe('@smoke the regulation for one load, from the row that names it', 
     await expect(page.getByTestId('lc-code-S')).toHaveCount(0);
   });
 });
+
+test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () => {
+  test('the case set, both senses, the openings and the qz profile, and they reach the model',
+    async ({ pro: page }) => {
+      await loadModel(page, 'rc-design-qa-8');
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-loads').click();
+      await page.getByTestId('lc-code-W').first().click();
+      await expect(page.getByTestId('al-wind-cases')).toBeVisible();
+
+      // The openings classify the enclosure: 10 m² of openings on a 100 m² wall, none elsewhere.
+      await page.getByTestId('al-wind-openings').locator('summary').click();
+      await page.getByTestId('al-wind-a0').fill('10');
+      await page.getByTestId('al-wind-ag').fill('100');
+      await page.getByTestId('al-wind-agi').fill('300');
+      await expect(page.getByTestId('al-wind-classified')).toContainText(/partially enclosed/i);
+      await page.getByTestId('al-wind-use-classified').click();
+      await expect(page.getByTestId('al-wind-enclosure')).toHaveValue('partiallyEnclosed');
+
+      // qz at each level above the ground; this fixture has one, at 3,2 m.
+      await page.getByTestId('al-wind-profile').locator('summary').click();
+      const rows = page.getByTestId('al-wind-profile').locator('tbody tr');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first().locator('td').first()).toHaveText('3.20');
+      expect(Number(await rows.first().locator('td:nth-child(3)').innerText())).toBeGreaterThan(0);
+
+      // Case 1 only, one sense: one case per direction (twice with a roof, one per internal-pressure sign).
+      await page.getByTestId('al-wind-caseset').selectOption('case1');
+      await page.getByTestId('al-wind-both-senses').uncheck();
+      await page.getByTestId('al-preview-btn').click();
+      await page.getByTestId('al-apply').click();
+      const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+      const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
+      expect(wind.length).toBeGreaterThan(0);
+      expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
+    });
+});
