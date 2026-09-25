@@ -1,5 +1,8 @@
 # Quick Start
 
+> Looking for how to use the app? The [user guide](guide/en/README.md) covers every mode and the
+> theory behind it ([en español](guide/es/README.md)). This page is the short technical version.
+
 This is the shortest reliable path from empty canvas to a solved structure.
 
 Goal:

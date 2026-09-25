@@ -49,7 +49,17 @@ Educational tool with step-by-step solver visualization for civil/structural eng
   assertion passed.
 - `npm run test:unit` / `npm run test:build` — one pass on its own.
 - `npm run test:watch` — Watch mode (the `unit` pass)
-- `npm run wasm` — Build Rust/WASM engine (optional, not required)
+- In CI the two passes run as separate jobs: `web-unit` shards the unit pass two ways
+  (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test
+  file is the unit of parallelism, so one file that runs a minute of heavy cases serially sets
+  the floor for everyone — split it (see `design-families-fixture.ts`) rather than let it grow.
+- E2E in CI runs in 5 shards of whole spec files balanced by measured duration
+  (`scripts/e2e-shard.mjs`, weights in `e2e/shard-timings.json`). Refresh the weights from a
+  CI run's `playwright-artifacts-*/.artifacts/results.json` with
+  `node scripts/e2e-shard.mjs --update <results.json>…` when a shard runs noticeably longer.
+- `npm run wasm` — Build the Rust/WASM engine into `src/lib/wasm` (needs Rust and wasm-pack). Required
+  to run the app or any test that solves: without it `vite.config.ts` substitutes a stub, so
+  `npm run build` still succeeds in CI, but the stub's `solve_3d` returns `{}`.
 - `npm run typecheck` — Explicit `tsc` gate. `npm run build` is `vite build` and does **not**
   typecheck, so a type defect can otherwise reach a commit unseen. The project carries a large
   set of pre-existing errors (mostly test fixtures building partial literals on purpose), so

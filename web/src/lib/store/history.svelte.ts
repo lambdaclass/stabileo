@@ -44,6 +44,24 @@ export interface ModelSnapshot {
   plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
   quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
   constraints?: Array<{ type: string; [key: string]: unknown }>;
+  /**
+   * Named, persisted groups. Absent on every model saved before they existed, and on any
+   * model that has none — absent and empty mean the same thing for groups.
+   *
+   * Typed loosely on purpose: `kind` and `data` are carried verbatim so a group written by
+   * a build that knows a kind this one does not survives the round trip instead of being
+   * dropped by the reader that failed to recognise it.
+   */
+  groups?: Array<[number, {
+    id: number; name: string; kind: string; origin: 'user' | 'derived';
+    members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
+    data?: Record<string, unknown>;
+  }]>;
+  /** The stated mass source. Absent when the project has not stated one. */
+  massSource?: {
+    kind?: string; presetId?: string; params?: Record<string, string | number | boolean>;
+    factors?: Array<{ caseId: number; factor: number }>;
+  };
   /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
   connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
   /** Isolated spread footings. Each entry is [id, Footing]. Absent before foundations. */
@@ -58,7 +76,7 @@ export interface ModelSnapshot {
    * `setFootingMatPreferences` is what pushes the entry.
    */
   footingMatPreferences?: FootingMatPreferences;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; connector?: number; footing?: number; soilProfile?: number };
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; group?: number; connector?: number; footing?: number; soilProfile?: number };
   /** Jurisdiction, adopted regulation editions and concrete data. Absent on
    *  models saved before this existed — see migrateCodeSettings. */
   codeSettings?: ProjectCodeSettings;

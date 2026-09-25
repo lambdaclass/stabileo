@@ -2,6 +2,8 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
+  import NextMemberPicker from './NextMemberPicker.svelte';
+  import { nextMember } from '../../lib/store/next-member.svelte';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
 
@@ -106,8 +108,8 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.releaseI?.mz === true,
-          hingeJ: e.releaseJ?.mz === true,
+          hingeI: e.releaseI?.mz === true || e.releaseI?.my === true,
+          hingeJ: e.releaseJ?.mz === true || e.releaseJ?.my === true,
         })),
         ...unsavedRows,
       ];
@@ -127,13 +129,14 @@
         drawNodeI = nodeId;
       } else if (nodeId !== drawNodeI) {
         // Create element
-        const eid = modelStore.addElement(drawNodeI, nodeId);
+        const eid = nextMember.add(drawNodeI, nodeId);
+        const made = modelStore.elements.get(eid)!;
         rows = [...rows, {
           id: eid,
           nodeI: String(drawNodeI),
           nodeJ: String(nodeId),
-          materialId: 1,
-          sectionId: 1,
+          materialId: made.materialId,
+          sectionId: made.sectionId,
           hingeI: false,
           hingeJ: false,
         }];
@@ -154,7 +157,7 @@
   });
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: 1, sectionId: 1, hingeI: false, hingeJ: false }];
+    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.materialId ?? 1, sectionId: nextMember.sectionId ?? 1, hingeI: false, hingeJ: false }];
   }
 
   function commitRow(idx: number) {
@@ -168,8 +171,8 @@
       const eid = modelStore.addElement(ni, nj);
       modelStore.updateElementMaterial(eid, row.materialId);
       modelStore.updateElementSection(eid, row.sectionId);
-      if (row.hingeI) modelStore.toggleHinge(eid, 'start');
-      if (row.hingeJ) modelStore.toggleHinge(eid, 'end');
+      if (row.hingeI) modelStore.toggleHinge3D(eid, 'start');
+      if (row.hingeJ) modelStore.toggleHinge3D(eid, 'end');
       rows[idx] = { ...rows[idx], id: eid };
     } else {
       // Update existing element properties
@@ -178,8 +181,8 @@
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
       // Sync hinges
-      if ((elem.releaseI?.mz === true) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
-      if ((elem.releaseJ?.mz === true) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
+      if ((elem.releaseI?.mz === true || elem.releaseI?.my === true) !== row.hingeI) modelStore.toggleHinge3D(row.id, 'start');
+      if ((elem.releaseJ?.mz === true || elem.releaseJ?.my === true) !== row.hingeJ) modelStore.toggleHinge3D(row.id, 'end');
     }
   }
 
@@ -228,13 +231,14 @@
         pasteError = t('pro.pasteNodeNotExist').replace('{n}', String(i + 1)).replace('{ni}', String(ni)).replace('{nj}', String(nj));
         return;
       }
-      const eid = modelStore.addElement(ni, nj);
+      const eid = nextMember.add(ni, nj);
+      const made = modelStore.elements.get(eid)!;
       rows = [...rows, {
         id: eid,
         nodeI: String(ni),
         nodeJ: String(nj),
-        materialId: 1,
-        sectionId: 1,
+        materialId: made.materialId,
+        sectionId: made.sectionId,
         hingeI: false,
         hingeJ: false,
       }];
@@ -258,6 +262,7 @@
 </script>
 
 <div class="pro-elems">
+  <NextMemberPicker />
   {#if uiStore.selectedElements.size > 0}
     <div style="padding: 6px 10px;"><MemberOffsetEditor /></div>
   {/if}

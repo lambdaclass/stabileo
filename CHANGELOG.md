@@ -49,7 +49,8 @@ normalization only if Γ and φ share one.
 
 The PRO modal table's "Cum. X/Y" columns added up |Γ| and read the sum as a mass percentage
 against the 90 % target; with unit-maximum shapes a cantilever's first mode showed 157 %,
-marked sufficient, while carrying 61 % of the mass. They now add the modes' mass ratios.
+marked sufficient, while carrying 61 % of the mass. (That display was fixed separately on
+main; this entry covers the engine side.)
 
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 

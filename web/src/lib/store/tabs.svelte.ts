@@ -6,6 +6,7 @@ import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
+import { fmStepsStore } from './fmSteps.svelte';
 import { noteAxisConventionMigrationIfNeeded } from './file';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
@@ -180,6 +181,8 @@ function createTabManager() {
       // Clear everything first
       resultsStore.clear();
       dsmStepsStore.clear();
+      /* The flexibility wizard describes one tab's model; it does not follow a switch. */
+      fmStepsStore.clear();
       uiStore.resetSession();
 
       // Restore model
@@ -438,6 +441,8 @@ function createTabManager() {
       resultsStore.clear();
       historyStore.clear();
       dsmStepsStore.clear();
+      /* The flexibility wizard describes one tab's model; it does not follow a switch. */
+      fmStepsStore.clear();
       uiStore.resetSession();
     },
 
