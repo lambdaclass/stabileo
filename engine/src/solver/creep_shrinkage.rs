@@ -162,6 +162,8 @@ pub fn ec2_shrinkage_strain(params: &ConcreteCreepParams, t_days: f64) -> f64 {
 
 /// Solve time-dependent 2D analysis with creep and shrinkage.
 pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShrinkageResult, String> {
+    super::linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -316,6 +318,8 @@ pub struct CreepShrinkageResult3D {
 
 /// Solve time-dependent 3D analysis with creep and shrinkage.
 pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepShrinkageResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());

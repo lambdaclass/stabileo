@@ -261,6 +261,12 @@ pub struct NodeToSurfaceContactInfo {
 
 /// Solve a 2D structure with contact/gap elements.
 pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
+    // Contact assembles the model itself, so it needs the same guarantee the
+    // linear path gets before touching `node_by_id[&…]`. Gap elements resolve
+    // their own ends through `dof_num.map.get(…)` and are simply skipped when
+    // the node is unknown, so this covers what can actually panic.
+    super::linear::validate_input_2d(&input.solver)?;
+
     let max_iter = input.max_iter.unwrap_or(30);
     let max_flips = input.max_flips.unwrap_or(4);
     let al_factor = input.augmented_lagrangian.unwrap_or(0.0);
@@ -1200,6 +1206,8 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
 
 /// Solve a 3D structure with contact/gap elements.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+
     let max_iter = input.max_iter.unwrap_or(30);
     let max_flips = input.max_flips.unwrap_or(4);
     let al_factor = input.augmented_lagrangian.unwrap_or(0.0);

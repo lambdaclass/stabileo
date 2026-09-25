@@ -181,3 +181,35 @@ describe('statics check', () => {
     expect(rows.every((r) => Math.abs(r.difference.fz) < 1e-9)).toBe(true);
   });
 });
+
+describe('signed line loads and legacy case membership', () => {
+  it.each([[0, 10, 4], [2, 8, 4], [2, 8, -4]])('keeps a pure couple over [%s,%s] with end intensity %s', (a, b, q) => {
+    // Integral of x*q(x) over the loaded interval is q*(b-a)^2/6.
+    const moment = q * (b - a) ** 2 / 6;
+    const row = run(beam([{ type: 'distributed3d', data: {
+      id: 1, elementId: 1, qYI: -q, qYJ: q, qZI: -q, qZJ: q, a, b,
+    } }]), [{ nodeId: 1, fx: 0, fy: 0, fz: 0, mx: 0, my: moment, mz: -moment }]);
+    expect(row.applied.fy).toBeCloseTo(0, 10);
+    expect(row.applied.fz).toBeCloseTo(0, 10);
+    expect(row.applied.my).toBeCloseTo(-moment, 10);
+    expect(row.applied.mz).toBeCloseTo(moment, 10);
+    expect(row.worstRelative).toBeLessThan(1e-9);
+  });
+
+  it('retains the moment when the resultant is nearly zero', () => {
+    const row = run(beam([{ type: 'distributed3d', data: {
+      id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -4, qZJ: 4 + 1e-13,
+    } }]), []);
+    expect(row.applied.fz).toBeCloseTo(0, 10);
+    expect(row.applied.my).toBeCloseTo(-200 / 3, 10);
+  });
+
+  it('assigns legacy loads only to case 1 and includes every load in a single solve', () => {
+    const model = beam([
+      { type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } },
+      { type: 'nodal3d', data: { id: 2, caseId: 2, nodeId: 2, fx: 0, fy: 0, fz: -3, mx: 0, my: 0, mz: 0 } },
+    ]);
+    const rows = staticsCheck({ model, reactionsByCase: new Map([[1, []], [2, []], [null, []]]), includeSelfWeight: false });
+    expect(rows.map(r => r.applied.fz)).toEqual([-10, -3, -13]);
+  });
+});

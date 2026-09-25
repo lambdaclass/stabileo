@@ -96,6 +96,8 @@ pub struct SpringResult {
 
 /// Solve a 2D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
+    super::linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -317,6 +319,8 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
 
 /// Solve a 3D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+
     // Expand curved beams before DOF numbering and assembly.
     let expanded_solver = super::linear::expand_curved_beams_3d(&input.solver);
     let dof_num = DofNumbering::build_3d(&expanded_solver);

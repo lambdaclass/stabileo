@@ -76,7 +76,7 @@ export interface ModelSnapshot {
    * `setFootingMatPreferences` is what pushes the entry.
    */
   footingMatPreferences?: FootingMatPreferences;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; connector?: number; footing?: number; soilProfile?: number; group?: number };
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number; group?: number; connector?: number; footing?: number; soilProfile?: number };
   /** Jurisdiction, adopted regulation editions and concrete data. Absent on
    *  models saved before this existed — see migrateCodeSettings. */
   codeSettings?: ProjectCodeSettings;

@@ -61,7 +61,7 @@ export const cirsoc201Flexure: Post = {
     es: {
       title: 'Verificación a flexión según CIRSOC 201, paso a paso',
       excerpt:
-        'Todos recuerdan φMn ≥ Mu. Esa es la última línea de la verificación, no la verificación. Los pasos que deciden el resultado son otros, y uno hace que φ no valga 0,9.',
+        'Casi todos recuerdan φMn ≥ Mu. Esa es la última línea de la verificación, no la verificación. Los pasos que deciden el resultado son otros, y uno hace que φ no valga 0,9.',
       blocks: [
         { k: 'p', t: 'Verificar una viga a flexión se resume, en la memoria de casi todos, en una desigualdad: φMn ≥ Mu. Es cierto, y es la última línea. Lo que decide el resultado pasa antes, en pasos que rara vez se miran con atención porque parecen trámite.' },
         { k: 'p', t: 'Esto es lo que devuelve el módulo CIRSOC 201 de Stabileo para una viga de 20×40 cm, H-25, con acero fy 420, 25 mm de recubrimiento y estribos de 8, bajo un momento de 60 kN·m:' },
@@ -110,7 +110,7 @@ export const cirsoc201Flexure: Post = {
             ['H-35', '3.5215', '3.3333', '√f\'c'],
           ],
         },
-        { k: 'p', t: 'El cruce está en f\'c = 31,36 MPa. Para todo el rango que se usa en vivienda —H-20, H-25, H-30— la armadura mínima no depende del hormigón: sale de 1,4/fy y nada más. Subir de H-20 a H-30 no baja el mínimo ni un centímetro cuadrado.' },
+        { k: 'p', t: 'El cruce está en f\'c = 31,36 MPa. Para todo el rango que se usa en vivienda (H-20, H-25, H-30), la armadura mínima no depende del hormigón: sale de 1,4/fy y nada más. Subir de H-20 a H-30 no baja el mínimo ni un centímetro cuadrado.' },
 
         { k: 'h', t: 'Paso 9: φ no vale 0,9 porque sí' },
         { k: 'p', t: 'El coeficiente de reducción se aprende como 0,90 para flexión y se usa como constante. No lo es. Sale de la deformación de la armadura traccionada en el estado último, y el módulo lo dice en el paso 9: εt ≥ 5‰ → sección controlada por tracción → φ = 0,90. Si la sección lleva más armadura, εt baja y φ con ella.' },
@@ -130,7 +130,7 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Por qué se pone armadura de compresión' },
         { k: 'p', t: 'La respuesta que se suele dar es "para que entre". Es la consecuencia, no el motivo. Con Mu = 200 kN·m en esta misma viga, el módulo detecta εt = 1,51‰, por debajo del límite, y agrega armadura de compresión. Con ella el eje neutro sube, εt vuelve a 7,46‰ y φ vuelve a 0,90.' },
-        { k: 'p', t: 'O sea que la armadura de compresión no está ahí para aportar capacidad, sino para devolverle ductilidad a la sección y recuperar el coeficiente. La capacidad viene después, como resultado.' },
+        { k: 'p', t: 'O sea que la armadura de compresión está ahí para devolverle ductilidad a la sección y recuperar el coeficiente. La capacidad viene después, como resultado.' },
         { k: 'note', t: 'Los pasos que el módulo emite para ese caso lo dicen en ese orden: "εt = 1,51‰ < 2,1‰ → se necesita A\'s", después "ΔM = 144,50 kN·m, A\'s,req = 11,40 cm²", y recién al final "εt = 7,46‰ → F.C.T. → φ = 0,90".' },
 
         { k: 'h', t: 'Probalo sobre una viga de verdad' },
@@ -139,7 +139,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: «Calcular solicitaciones», «Calcular acero requerido» y «Diseñar todo» — el segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice «sin armadura». El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 gobernado por la flexión positiva del tramo, el segundo en 0,86 gobernado por el corte, los dos con la combinación 1,2D+1,6L. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
+          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: "Calcular solicitaciones", "Calcular acero requerido" y "Diseñar todo". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice "sin armadura". El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 gobernado por la flexión positiva del tramo, el segundo en 0,86 gobernado por el corte, los dos con la combinación 1,2D+1,6L. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
         },
 
         { k: 'h', t: 'En resumen' },
@@ -148,7 +148,7 @@ export const cirsoc201Flexure: Post = {
           items: [
             'Antes de dimensionar, mirá si el momento está por encima o por debajo del cruce con el mínimo. Debajo, la armadura ya está decidida.',
             'Para H-20 a H-30, el mínimo no depende del hormigón. Sale de 1,4/fy.',
-            'φ es un resultado, no un dato. Miralo junto con εt.',
+            'φ depende de εt: miralos siempre juntos.',
             'Si aparece armadura de compresión, es porque la sección perdió ductilidad, no porque falte capacidad.',
           ],
         },
@@ -160,9 +160,9 @@ export const cirsoc201Flexure: Post = {
     en: {
       title: 'Flexural verification to CIRSOC 201, step by step',
       excerpt:
-        'Everyone remembers φMn ≥ Mu. That is the last line of the check, not the check. The steps that decide the outcome are others, and one is why φ is not 0.9.',
+        'Almost everyone remembers φMn ≥ Mu. That is the last line of the check, not the check. The outcome is decided earlier, and one of those steps can pull φ below 0.9.',
       blocks: [
-        { k: 'p', t: 'Checking a beam in bending reduces, in most people\'s memory, to one inequality: φMn ≥ Mu. It is true, and it is the last line. What decides the outcome happens earlier, in steps that are rarely read closely because they look like paperwork.' },
+        { k: 'p', t: 'Most people remember a flexural check as one inequality: φMn ≥ Mu. That is true, and it is the last line. What decides the outcome happens earlier, in steps that rarely get a close look because they seem like paperwork.' },
         { k: 'p', t: 'This is what Stabileo\'s CIRSOC 201 module returns for a 20×40 cm beam of H-25 concrete, fy 420 steel, 25 mm cover and 8 mm stirrups, under a moment of 60 kN·m:' },
         {
           k: 'ol',
@@ -179,10 +179,10 @@ export const cirsoc201Flexure: Post = {
             'φMn = 77.90 kN·m',
           ],
         },
-        { k: 'p', t: 'Ten steps. The tenth is the one everyone remembers. The ones that decide are the third and the ninth.' },
+        { k: 'p', t: 'Ten steps. The tenth is the one everyone remembers. The ones that decide the result are the third and the ninth.' },
 
         { k: 'h', t: 'Step 3: the minimum governs more often than it seems' },
-        { k: 'p', t: 'Article 9.6.1.2 asks for a minimum flexural reinforcement equal to the greater of 0.25·√f\'c/fy·bw·d and 1.4/fy·bw·d. It tends to be read as a floor that is almost never reached. In housing beams it is reached constantly.' },
+        { k: 'p', t: 'Article 9.6.1.2 asks for a minimum flexural reinforcement equal to the greater of 0.25·√f\'c/fy·bw·d and 1.4/fy·bw·d. It is usually treated as a floor that is almost never reached. In residential beams it is reached all the time.' },
         {
           k: 'table',
           caption: 'The same 20×40 H-25 beam under increasing moments: what decides the reinforcement.',
@@ -194,13 +194,13 @@ export const cirsoc201Flexure: Post = {
             ['90', '7.38', '2.39', 'strength'],
           ],
         },
-        { k: 'p', t: 'The crossover is at Mu = 31.5 kN·m. Below that moment, sizing for strength achieves nothing: the section carries 2.39 cm² either way. It is worth knowing which side of the crossover a beam is on before arguing about its bars.' },
+        { k: 'p', t: 'The crossover is at Mu = 31.5 kN·m. Below that moment, sizing for strength achieves nothing: the section carries 2.39 cm² either way. It is worth knowing which side of the crossover a beam is on before discussing its reinforcement.' },
 
         { k: 'h', t: 'And the minimum rarely depends on the concrete' },
-        { k: 'p', t: 'Of the article\'s two branches, the √f\'c one only overtakes the other once the concrete is quite good.' },
+        { k: 'p', t: 'Of the article\'s two expressions, the √f\'c one only exceeds the other for fairly strong concrete.' },
         {
           k: 'table',
-          caption: 'The two branches of the minimum, for fy 420, per mille.',
+          caption: 'The two expressions for the minimum, for fy 420, per mille.',
           head: ['Concrete', '0.25·√f\'c/fy', '1.4/fy', 'Governs'],
           rows: [
             ['H-20', '2.6620', '3.3333', '1.4/fy'],
@@ -209,10 +209,10 @@ export const cirsoc201Flexure: Post = {
             ['H-35', '3.5215', '3.3333', '√f\'c'],
           ],
         },
-        { k: 'p', t: 'The crossover is at f\'c = 31.36 MPa. Across the whole range used in housing — H-20, H-25, H-30 — the minimum reinforcement does not depend on the concrete: it comes from 1.4/fy and nothing else. Going from H-20 to H-30 does not lower the minimum by a single square centimetre.' },
+        { k: 'p', t: 'The crossover is at f\'c = 31.36 MPa. Across the whole range used in residential work (H-20, H-25, H-30), the minimum reinforcement does not depend on the concrete: it comes from 1.4/fy and nothing else. Going from H-20 to H-30 does not lower the minimum by a single square centimetre.' },
 
-        { k: 'h', t: 'Step 9: φ is not 0.9 by decree' },
-        { k: 'p', t: 'The strength reduction factor is learnt as 0.90 for bending and used as a constant. It is not one. It comes from the strain in the tension steel at the ultimate state, and the module says so in step 9: εt ≥ 5‰ → tension-controlled → φ = 0.90. Put more steel in the section and εt falls, taking φ with it.' },
+        { k: 'h', t: 'Step 9: φ is not automatically 0.9' },
+        { k: 'p', t: 'The strength reduction factor is taught as 0.90 for bending and then treated as a constant. It is not. It comes from the strain in the tension steel at the ultimate state, and the module says so in step 9: εt ≥ 5‰ → tension-controlled → φ = 0.90. Put more steel in the section and εt falls, taking φ with it.' },
         {
           k: 'table',
           caption: 'The same beam, loaded further each time. εt and φ come from steps 8 and 9.',
@@ -229,16 +229,16 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Why compression steel goes in' },
         { k: 'p', t: 'The usual answer is "so the bars fit". That is the consequence, not the reason. At Mu = 200 kN·m on this same beam, the module finds εt = 1.51‰, below the limit, and adds compression reinforcement. With it the neutral axis rises, εt returns to 7.46‰ and φ returns to 0.90.' },
-        { k: 'p', t: 'So compression steel is not there to contribute capacity. It is there to give the section its ductility back and recover the factor. The capacity follows, as a result.' },
+        { k: 'p', t: 'So compression steel is there to give the section its ductility back and recover the factor. The capacity follows, as a result.' },
         { k: 'note', t: 'The steps the module emits for that case say it in that order: "εt = 1.51‰ < 2.1‰ → A\'s required", then "ΔM = 144.50 kN·m, A\'s,req = 11.40 cm²", and only at the end "εt = 7.46‰ → tension-controlled → φ = 0.90".' },
 
         { k: 'h', t: 'Try it on a real beam' },
-        { k: 'p', t: 'Below is the model: a simply supported 5 m beam, 20×40, H-25, with 12 kN/m of dead load and 8 kN/m of live load, plus its own weight. It opens in PRO\'s design workflow, with CIRSOC 201 as the code in force.' },
+        { k: 'p', t: 'Below is the model: a simply supported 5 m beam, 20×40, H-25, with 12 kN/m of dead load and 8 kN/m of live load, plus its own weight. It opens in PRO\'s design workflow, with CIRSOC 201 as the design code in force.' },
         {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'The beam in Stabileo, in PRO\'s design workflow. Three buttons, in this order: "Compute demands", "Run code check" and "Design all" — only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; the first closes at D/C = 0.89 governed by positive bending in the span, the second at 0.86 governed by shear, both under the 1.2D+1.6L combination. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
+          label: 'The beam in Stabileo, in PRO\'s design workflow. Three buttons, in this order: "Compute demands", "Run code check" and "Design all". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; the first closes at D/C = 0.89 governed by positive bending in the span, the second at 0.86 governed by shear, both under the 1.2D+1.6L combination. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
         },
 
         { k: 'h', t: 'In short' },
@@ -247,7 +247,7 @@ export const cirsoc201Flexure: Post = {
           items: [
             'Before sizing, check whether the moment is above or below the crossover with the minimum. Below it, the reinforcement is already decided.',
             'From H-20 to H-30, the minimum does not depend on the concrete. It comes from 1.4/fy.',
-            'φ is a result, not an input. Read it together with εt.',
+            'φ depends on εt: always read the two together.',
             'If compression steel appears, it is because the section lost ductility, not because it lacks capacity.',
           ],
         },
@@ -259,9 +259,9 @@ export const cirsoc201Flexure: Post = {
     pt: {
       title: 'Verificação à flexão segundo a CIRSOC 201, passo a passo',
       excerpt:
-        'Todo mundo lembra de φMn ≥ Mu. Essa é a última linha da verificação, não a verificação. Os passos que decidem o resultado são outros, e um faz φ não valer 0,9.',
+        'Quase todo mundo lembra de φMn ≥ Mu. Essa é a última linha da verificação, não a verificação. O resultado se decide antes, e um desses passos pode derrubar φ para menos de 0,9.',
       blocks: [
-        { k: 'p', t: 'Verificar uma viga à flexão se resume, na memória de quase todos, a uma desigualdade: φMn ≥ Mu. É verdade, e é a última linha. O que decide o resultado acontece antes, em passos que raramente são lidos com atenção porque parecem burocracia.' },
+        { k: 'p', t: 'Na memória de quase todo mundo, verificar uma viga à flexão se resume a uma desigualdade: φMn ≥ Mu. É verdade, e é a última linha. O que decide o resultado acontece antes, em passos que raramente recebem atenção porque parecem burocracia.' },
         { k: 'p', t: 'Isto é o que o módulo CIRSOC 201 do Stabileo devolve para uma viga de 20×40 cm, concreto H-25, aço fy 420, 25 mm de cobrimento e estribos de 8, sob um momento de 60 kN·m:' },
         {
           k: 'ol',
@@ -281,7 +281,7 @@ export const cirsoc201Flexure: Post = {
         { k: 'p', t: 'Dez passos. O décimo é o que todos lembram. Os que decidem são o terceiro e o nono.' },
 
         { k: 'h', t: 'Passo 3: o mínimo governa mais vezes do que parece' },
-        { k: 'p', t: 'O artigo 9.6.1.2 exige uma armadura mínima de flexão igual ao maior entre 0,25·√f\'c/fy·bw·d e 1,4/fy·bw·d. Costuma ser lido como um piso que quase nunca se alcança. Em vigas de habitação, alcança-se o tempo todo.' },
+        { k: 'p', t: 'O artigo 9.6.1.2 exige uma armadura mínima de flexão igual ao maior entre 0,25·√f\'c/fy·bw·d e 1,4/fy·bw·d. Costuma ser visto como um piso que quase nunca é atingido. Em vigas de edifícios residenciais, ele é atingido o tempo todo.' },
         {
           k: 'table',
           caption: 'A mesma viga 20×40 de H-25, com momentos crescentes: quem decide a armadura.',
@@ -293,13 +293,13 @@ export const cirsoc201Flexure: Post = {
             ['90', '7.38', '2.39', 'a resistência'],
           ],
         },
-        { k: 'p', t: 'O cruzamento está em Mu = 31,5 kN·m. Abaixo desse momento, dimensionar pela resistência não adianta: a seção vai levar 2,39 cm² de qualquer forma. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura.' },
+        { k: 'p', t: 'O ponto de cruzamento fica em Mu = 31,5 kN·m. Abaixo desse momento, dimensionar pela resistência não adianta: a seção vai ter 2,39 cm² de qualquer jeito. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura.' },
 
         { k: 'h', t: 'E o mínimo quase nunca depende do concreto' },
-        { k: 'p', t: 'Dos dois ramos do artigo, o de √f\'c só supera o outro quando o concreto é bastante bom.' },
+        { k: 'p', t: 'Das duas expressões do artigo, a de √f\'c só supera a outra quando o concreto é de resistência bem alta.' },
         {
           k: 'table',
-          caption: 'Os dois ramos do mínimo, para fy 420, em por mil.',
+          caption: 'As duas expressões do mínimo, para fy 420, em por mil.',
           head: ['Concreto', '0,25·√f\'c/fy', '1,4/fy', 'Governa'],
           rows: [
             ['H-20', '2.6620', '3.3333', '1,4/fy'],
@@ -308,10 +308,10 @@ export const cirsoc201Flexure: Post = {
             ['H-35', '3.5215', '3.3333', '√f\'c'],
           ],
         },
-        { k: 'p', t: 'O cruzamento está em f\'c = 31,36 MPa. Em toda a faixa usada em habitação — H-20, H-25, H-30 — a armadura mínima não depende do concreto: sai de 1,4/fy e nada mais. Passar de H-20 para H-30 não reduz o mínimo em um único centímetro quadrado.' },
+        { k: 'p', t: 'O ponto de cruzamento fica em f\'c = 31,36 MPa. Em toda a faixa usada em edificações residenciais (H-20, H-25, H-30), a armadura mínima não depende do concreto: sai de 1,4/fy e nada mais. Passar de H-20 para H-30 não reduz o mínimo em um único centímetro quadrado.' },
 
         { k: 'h', t: 'Passo 9: φ não vale 0,9 por decreto' },
-        { k: 'p', t: 'O coeficiente de redução é aprendido como 0,90 para flexão e usado como constante. Não é. Ele vem da deformação da armadura tracionada no estado último, e o módulo diz isso no passo 9: εt ≥ 5‰ → seção controlada por tração → φ = 0,90. Coloque mais aço na seção e εt cai, levando φ junto.' },
+        { k: 'p', t: 'O coeficiente de redução é ensinado como 0,90 para flexão e usado como constante. Não é. Ele vem da deformação da armadura tracionada no estado último, e o módulo diz isso no passo 9: εt ≥ 5‰ → seção controlada por tração → φ = 0,90. Coloque mais aço na seção e εt cai, levando φ junto.' },
         {
           k: 'table',
           caption: 'A mesma viga, carregada cada vez mais. εt e φ vêm dos passos 8 e 9.',
@@ -328,7 +328,7 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Por que entra armadura de compressão' },
         { k: 'p', t: 'A resposta habitual é "para as barras caberem". Essa é a consequência, não o motivo. Com Mu = 200 kN·m nesta mesma viga, o módulo detecta εt = 1,51‰, abaixo do limite, e acrescenta armadura de compressão. Com ela a linha neutra sobe, εt volta a 7,46‰ e φ volta a 0,90.' },
-        { k: 'p', t: 'Ou seja, a armadura de compressão não está ali para dar capacidade. Está para devolver ductilidade à seção e recuperar o coeficiente. A capacidade vem depois, como resultado.' },
+        { k: 'p', t: 'Ou seja, a armadura de compressão está ali para devolver ductilidade à seção e recuperar o coeficiente. A capacidade vem depois, como resultado.' },
         { k: 'note', t: 'Os passos que o módulo emite para esse caso dizem isso nessa ordem: "εt = 1,51‰ < 2,1‰ → é necessário A\'s", depois "ΔM = 144,50 kN·m, A\'s,req = 11,40 cm²", e só no final "εt = 7,46‰ → controlada por tração → φ = 0,90".' },
 
         { k: 'h', t: 'Experimente numa viga de verdade' },
@@ -337,7 +337,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Três botões, nesta ordem: «Calcular solicitações», «Executar verificação normativa» e «Dimensionar tudo» — só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz «sem armadura». O vão de 5 m está modelado com dois elementos; o primeiro fecha em D/C = 0,89 governado pela flexão positiva do vão, o segundo em 0,86 governado pelo cortante, ambos com a combinação 1,2D+1,6L. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
+          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Três botões, nesta ordem: "Calcular solicitações", "Executar verificação normativa" e "Dimensionar tudo". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz "sem armadura". O vão de 5 m está modelado com dois elementos; o primeiro fecha em D/C = 0,89 governado pela flexão positiva do vão, o segundo em 0,86 governado pelo cortante, ambos com a combinação 1,2D+1,6L. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
         },
 
         { k: 'h', t: 'Em resumo' },
@@ -346,12 +346,12 @@ export const cirsoc201Flexure: Post = {
           items: [
             'Antes de dimensionar, veja se o momento está acima ou abaixo do cruzamento com o mínimo. Abaixo dele, a armadura já está decidida.',
             'De H-20 a H-30, o mínimo não depende do concreto. Sai de 1,4/fy.',
-            'φ é um resultado, não um dado. Leia-o junto com εt.',
+            'φ depende de εt: olhe sempre os dois juntos.',
             'Se aparece armadura de compressão, é porque a seção perdeu ductilidade, não porque falta capacidade.',
           ],
         },
 
-        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado sobre as seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 e a aplicação 0,81. A diferença era o peso próprio, 2 kN/m que a aplicação soma à carga permanente. A aplicação estava certa. E um esclarecimento sobre o editor acima, para que os dois números não se atropelem: esse 0,81 supõe 2 Ø25, que é a armadura com que esta nota trabalha; o 0,89 que o editor mostra é com as barras que ele mesmo escolhe ao dimensionar. Mesma viga, duas armaduras. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
+        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado nas seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 e a aplicação 0,81. A diferença era o peso próprio, 2 kN/m que a aplicação soma à carga permanente. A aplicação estava certa. E um esclarecimento sobre o editor acima, para que os dois números não se confundam: esse 0,81 supõe 2 Ø25, que é a armadura com que esta nota trabalha; o 0,89 que o editor mostra é com as barras que ele mesmo escolhe ao dimensionar. Mesma viga, duas armaduras. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
       ],
     },
   },
