@@ -264,7 +264,27 @@ export function chooseBars(
       || a.count - bq.count
       || a.diameter - bq.diameter;
   });
-  return candidates[0];
+
+  /*
+   * ── Economy, where the arrangement does not change the lever arm ──
+   *
+   * On one layer every candidate sits at the same depth, and "fewest and
+   * largest" alone chose 2 Ø32 = 16.08 cm² for 10.67 needed — half as much
+   * steel again — beside 4 Ø20 = 12.57 that fits the same face. So among the
+   * single-layer arrangements that can be built, the lightest wins, except
+   * that one within 10 % of it with fewer bars is preferred: 3 Ø20 over
+   * 5 Ø16 for a hair more steel is what a detailer would pick. Several layers
+   * keep the rule above, where the centroid is worth more than the weight.
+   */
+  const best = candidates[0];
+  if (best.placeable !== false && (best.layers ?? 1) === 1) {
+    const oneLayer = candidates.filter((c) => c.placeable !== false && (c.layers ?? 1) === 1);
+    const lightest = Math.min(...oneLayer.map((c) => c.areaCm2));
+    const near = oneLayer.filter((c) => c.areaCm2 <= lightest * 1.10);
+    near.sort((a, bq) => a.count - bq.count || a.areaCm2 - bq.areaCm2);
+    return near[0];
+  }
+  return best;
 }
 
 /**

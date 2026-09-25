@@ -33,12 +33,12 @@ export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
-import { segmentBounds, splitElementLoads, segmentFields } from '../model/edit/member-split';
+import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -1192,7 +1192,10 @@ function createModelStore() {
     _undoBatching = true;
     try {
       const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+      const L = elem.offset && !shouldEmbedFlat2DModelIn3D(model)
+        ? flexibleMemberLength(elem, ni, nj, model.sections.get(elem.sectionId)?.rotation)
+        : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+      const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
       for (const t of cuts) {
         const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
@@ -1217,7 +1220,7 @@ function createModelStore() {
       if (!opts.keepOriginalId) model.elements.delete(elementId);
       for (let k = 0; k < count; k++) {
         model.elements.set(segmentIds[k]!, {
-          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count),
+          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
         });
       }
 
@@ -1915,10 +1918,9 @@ function createModelStore() {
     updateElement(id: number, patch: Partial<Element>): void {
       const elem = model.elements.get(id);
       if (!elem) return;
-      modelVersion++;
-      _onMutation?.();
+      if (!_bulkMutating) { modelVersion++; _onMutation?.(); }
       model.elements.set(id, { ...elem, ...patch, id: elem.id });
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
     updateNodeZ(id: number, z: number): void {
@@ -2464,9 +2466,17 @@ function createModelStore() {
       const map = kind === 'plate' ? model.plates : model.quads;
       const shell = map.get(id);
       if (!shell) return;
-      if (offset) shell.offset = offset; else delete shell.offset;
-      if (kind === 'plate') model.plates = new Map(model.plates);
-      else model.quads = new Map(model.quads);
+      // Replace the record: snapshots retain shell records, so mutating one would
+      // also rewrite the offset that undo is supposed to restore.
+      const next = { ...shell };
+      if (offset) next.offset = { ...offset }; else delete next.offset;
+      if (kind === 'plate') {
+        model.plates.set(id, next as Plate);
+        model.plates = new Map(model.plates);
+      } else {
+        model.quads.set(id, next as Quad);
+        model.quads = new Map(model.quads);
+      }
     },
 
     addConstraint(c: Constraint3D): void {
@@ -2984,6 +2994,31 @@ function createModelStore() {
       this.toggleRelease(elementId, end === 'start' ? 'i' : 'j', 'mz');
     },
 
+    /**
+     * The hinge a space model's "Art. I / Art. J" puts in: a pin in bending, both
+     * moments released, torsion still carried.
+     *
+     * `toggleHinge` releases `mz` alone — the in-plane moment of a plane frame. In
+     * a space model a beam's local z is vertical, so the moment gravity bends it
+     * with is My, and that toggle left it fully fixed (a portal's beam end went
+     * from −10,72 to −10,63). An end with either moment released counts as
+     * hinged, so a click clears both.
+     */
+    toggleHinge3D(elementId: number, end: 'start' | 'end'): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elementId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      const target: Release = { ...(end === 'start' ? plain.releaseI : plain.releaseJ) };
+      const on = !(target.my === true || target.mz === true);
+      target.my = on;
+      target.mz = on;
+      if (end === 'start') plain.releaseI = target;
+      else plain.releaseJ = target;
+      model.elements.set(elementId, plain);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
+    },
+
     /** Set (or clear, when `slide === undefined`) the 2D sliding-joint release on
      *  one element-end. `axis` is ignored when clearing. Explicit model data — the
      *  solver expands it ephemerally (sliding-joints.ts); save/load/undo persist it. */
@@ -3376,6 +3411,7 @@ function createModelStore() {
         addPointLoadOnElement: this.addPointLoadOnElement.bind(this),
         addThermalLoad: this.addThermalLoad.bind(this),
         toggleHinge: this.toggleHinge.bind(this),
+        toggleHinge3D: this.toggleHinge3D.bind(this),
         toggleRelease: this.toggleRelease.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),

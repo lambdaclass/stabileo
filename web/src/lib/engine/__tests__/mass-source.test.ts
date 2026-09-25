@@ -64,15 +64,15 @@ function frame(opts: { slab?: boolean } = {}) {
   if (opts.slab) modelStore.addQuad([2, 3, 7, 6], 1, 0.15);
 }
 
-function run(opts: { selfWeightLoads?: boolean } = {}) {
+function run(opts: { selfWeightLoads?: boolean; leftHand?: boolean } = {}) {
   const md = {
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
     loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
     quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
     connectors: modelStore.connectors,
   };
-  const input = buildSolverInput3D(md as never, opts.selfWeightLoads ?? false, false, { expandMemberOffsets: false })!;
-  const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, input);
+  const input = buildSolverInput3D(md as never, opts.selfWeightLoads ?? false, opts.leftHand ?? false, { expandMemberOffsets: false })!;
+  const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, input, opts.leftHand ?? false);
   const modal = solveModal3D(ms.input as never, ms.densities, 4);
   return { ...ms, modal };
 }
@@ -242,5 +242,24 @@ describe('the mass source is part of the project', () => {
   it('leaves a project that never stated one without one', () => {
     frame();
     expect('massSource' in modelStore.snapshot()).toBe(false);
+  });
+});
+
+
+describe('mass source under the displayed axis convention', () => {
+  it.each(['distributed', 'point'] as const)('%s local Y load contributes mass only when directed downward', (kind) => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.updateSection(2, { rotation: 90 });
+    // Local +Y is upward in the right-handed frame, downward in the displayed left-handed one.
+    if (kind === 'distributed') modelStore.addDistributedLoad3D(2, 10, 10, 0, 0, undefined, undefined, 1);
+    else modelStore.addPointLoadOnElement3D(2, 2, 40, 0, 1);
+    const right = run({ leftHand: false });
+    const left = run({ leftHand: true });
+    expect(right.input.leftHand).toBe(false);
+    expect(left.input.leftHand).toBe(false);
+    expect(right.report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(left.report.totalT).toBeCloseTo(PORTAL_SELF_T + 40 / G, 6);
+    expect(left.modal.totalMass).toBeCloseTo(left.report.totalT, 6);
   });
 });

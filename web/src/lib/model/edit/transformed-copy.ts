@@ -116,7 +116,7 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (src.nodes.size === 0 || transforms.length === 0) return report;
 
-  modelStore.batch(() => {
+  modelStore.bulkMutate(() => {
     const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
     const index = new NodeIndex(tol);
     for (const n of modelStore.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);

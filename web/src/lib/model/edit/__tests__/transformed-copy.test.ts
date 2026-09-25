@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
-import { validateAndSolve3D } from '../../../engine/solver-service';
+import { buildSolverInput3D, validateAndSolve3D } from '../../../engine/solver-service';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { reflection, rotation, translation, applyAxial, applyVector, type Affine, type Vec3 } from '../affine';
 import { copyTransformed } from '../transformed-copy';
@@ -211,5 +211,87 @@ describe('what cannot be carried is said, not guessed', () => {
     modelStore.updateElementSection(e, sid);
     const r = copyTransformed({ nodes: [], elements: [e] }, [reflection([0, 5, 0], [0, 1, 0])]);
     expect(r.warnings.asymmetricProfile).toBe(1);
+  });
+});
+
+
+describe('supports and shell offsets follow the transformed geometry', () => {
+  const restraints = () => buildSolverInput3D({
+    nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+    loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+    quads: modelStore.quads, plates: modelStore.plates,
+  } as never, false, false)!.supports;
+
+  for (const mode of ['copy', 'in-place'] as const) {
+    it.each([
+      { type: 'rollerYZ', axis: [0, 0, 1], expected: { rx: false, ry: true, rz: false } },
+      { type: 'rollerXZ', axis: [0, 0, 1], expected: { rx: true, ry: false, rz: false } },
+      { type: 'rollerXY', axis: [1, 0, 0], expected: { rx: false, ry: true, rz: false } },
+      { type: 'pinned', axis: [1, 0, 0], expected: { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true } },
+    ] as const)(`${mode} rotates $type restraints as the solver sees them`, ({ type, axis, expected }) => {
+      const src = asymmetricFrame();
+      modelStore.addSupportEntry({ nodeId: 3, type });
+      const T = rotation([10, 10, 10], [...axis], 90);
+      let nodeId = 3;
+      if (mode === 'copy') {
+        copyTransformed(src, [T], ALL);
+        nodeId = nodeMapOf(T, src.nodes).get(3)!;
+      } else transformInPlace(src, T);
+      expect(restraints().get(nodeId)).toMatchObject(expected);
+    });
+  }
+
+  it.each(['rollerYZ', 'custom3d'] as const)('translation keeps %s, while an unrepresentable rotation drops it and undo restores it', (type) => {
+    const src = asymmetricFrame();
+    modelStore.addSupportEntry({ nodeId: 3, type, ...(type === 'custom3d' ? { dofRestraints: { tx: true, ty: false, tz: false, rx: false, ry: false, rz: false } } : {}) });
+    transformInPlace(src, translation([0, 0, 2]));
+    expect(restraints().get(3)).toMatchObject({ rx: true, ry: false, rz: false });
+    historyStore.clear();
+    const r = transformInPlace(src, rotation([0, 0, 0], [0, 0, 1], 45));
+    expect(r.warnings.supportDropped).toBe(1);
+    expect([...modelStore.supports.values()].some((s) => s.nodeId === 3)).toBe(false);
+    expect(historyStore.undoCount).toBe(1);
+    historyStore.undo();
+    expect([...modelStore.supports.values()].find((s) => s.nodeId === 3)?.type).toBe(type);
+  });
+
+  it.each([['quad', false], ['plate', false], ['quad', true], ['plate', true]] as const)('carries a %s global offset on rotation and reflection (nodes only: %s)', (kind, nodesOnly) => {
+    const nodes = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    const offset = { frame: 'global' as const, x: 1, y: 2, z: 3 };
+    const id = modelStore.addShellEntry(kind, { nodes: (kind === 'quad' ? nodes : nodes.slice(0, 3)) as never, materialId: 1, thickness: 0.15, offset });
+    const set = nodesOnly ? { nodes } : kind === 'quad' ? { quads: [id] } : { plates: [id] };
+    for (const T of [rotation([0, 0, 0], [0, 0, 1], 90), reflection([0, 0, 0], [1, 0, 0])]) {
+      historyStore.clear();
+      transformInPlace({ nodes: [], elements: [], ...set }, T);
+      const got = (kind === 'quad' ? modelStore.quads : modelStore.plates).get(id)!.offset!;
+      const expected = applyVector(T, [offset.x, offset.y, offset.z]);
+      expect([got.x, got.y, got.z]).toEqual(expected.map((v) => expect.closeTo(v, 9)));
+      expect(historyStore.undoCount).toBe(1);
+      historyStore.undo();
+      expect((kind === 'quad' ? modelStore.quads : modelStore.plates).get(id)!.offset).toEqual(offset);
+    }
+  });
+});
+
+describe('repeat commits its updates in bulk', () => {
+  it('keeps invalidations constant and preserves loads and undo/redo across many copies', () => {
+    const src = asymmetricFrame();
+    const version = modelStore.modelVersion;
+    const originalLoads = JSON.parse(JSON.stringify(modelStore.loads));
+    const originalSupports = modelStore.supports.size;
+    const transforms = Array.from({ length: 20 }, (_, k) => translation([20 * (k + 1), 0, 0]));
+    const r = copyTransformed(src, transforms, ALL);
+    expect(r.elements).toHaveLength(src.elements.length * transforms.length);
+    expect(modelStore.modelVersion - version).toBeLessThanOrEqual(2);
+    expect(historyStore.undoCount).toBe(1);
+    expect(modelStore.loads).toHaveLength(originalLoads.length * 21);
+    expect(new Set(modelStore.loads.map((l) => l.data.id)).size).toBe(modelStore.loads.length);
+    expect(modelStore.supports.size).toBe(originalSupports * 21);
+    historyStore.undo();
+    expect(modelStore.elements.size).toBe(src.elements.length);
+    expect(modelStore.loads).toEqual(originalLoads);
+    historyStore.redo();
+    expect(modelStore.elements.size).toBe(src.elements.length * 21);
+    expect(modelStore.loads).toHaveLength(originalLoads.length * 21);
   });
 });

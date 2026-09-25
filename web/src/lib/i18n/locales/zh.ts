@@ -1125,7 +1125,7 @@ const zh: Translations = {
   'dsm.step9.globalDisp': '{u_e} 全局 — 单元位移',
   'dsm.step9.localDisp': '{u_e} 局部 — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — 固端力修正前的力',
-  'dsm.step9.fixedEndForces': '{f_FE} — 固端力',
+  'dsm.step9.fixedEndForces': '{f_eq} — 固端力',
   'dsm.step9.finalForces': '{f} 最终 — 单元内力',
   'dsm.step9.force': '力',
   'dsm.step9.nodeI': '节点 i',

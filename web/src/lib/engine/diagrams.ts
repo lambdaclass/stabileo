@@ -167,7 +167,14 @@ export function computeDiagramValueAt(
     for (const pl of sortedPL) {
       if (pl.a < xi - 1e-10) {
         value -= pl.p * (xi - pl.a);
-        if (pl.my) value -= pl.my;
+        /*
+         * A couple jumps the diagram by +my. With m(x) = mStart − vStart·x
+         * and a load P entering as −P·(x − a), the equilibrium of the piece
+         * left of x puts a counter-clockwise couple in with a plus: on a
+         * cantilever carrying only a couple the moment has to fall back to
+         * zero past it, and it did not — it doubled.
+         */
+        if (pl.my) value += pl.my;
       }
     }
     return value;

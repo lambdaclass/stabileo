@@ -19,6 +19,7 @@ import { t } from '../i18n';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { initSolver, isWasmReady } from '../engine/wasm-solver';
 import { reportModelDiagnostics } from '../engine/solve-diagnostics';
+import { requestAutosave } from '../store/autosave-service';
 
 export function runSolve() {
   /*
@@ -72,6 +73,8 @@ export function runSolve() {
       uiStore.toast(diagWarnings.join(' | '), 'info');
     }
     uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
+    // A solve is the expensive operation autosave exists for; only live-calc asked for one.
+    void requestAutosave('solve');
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
@@ -129,6 +132,7 @@ export async function runSolve3D() {
       `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,
       'success',
     );
+    void requestAutosave('solve');
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
