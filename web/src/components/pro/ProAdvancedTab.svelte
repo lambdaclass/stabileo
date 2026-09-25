@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import { cumulativeMassRatios } from '../../lib/engine/modal-mass';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
@@ -175,16 +176,9 @@
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
 
-  const modalCumX = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationX ?? m.partX ?? 0); return sum; });
-  });
-  const modalCumY = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationY ?? m.partY ?? 0); return sum; });
-  });
+  // Mass ratios, not |Γ|: see modal-mass.ts.
+  const modalCumX = $derived(modalResult?.modes ? cumulativeMassRatios(modalResult.modes, 'X') : []);
+  const modalCumY = $derived(modalResult?.modes ? cumulativeMassRatios(modalResult.modes, 'Y') : []);
 
   function handleModal() {
     solveError = null;
