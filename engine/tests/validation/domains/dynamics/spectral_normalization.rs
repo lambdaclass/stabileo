@@ -11,7 +11,7 @@
 ///   2. The modal expansion of the influence vector: with every mode kept, Σ Γₙ·φₙ = r, i.e. 1 at
 ///      every free horizontal DOF and 0 at every vertical one.
 ///
-/// Both are stated in 2D and in 3D.
+/// Both are stated in 2D and in 3D, the expansion for every direction.
 ///
 /// References:
 ///   - Chopra, "Dynamics of Structures", 5th Ed., §13.1–13.2 (eq. 13.2.3: Σ Γₙ φₙ = ι)
@@ -29,6 +29,14 @@ const COL_I: f64 = 6.75e-4; // 0.3 × 0.3 m
 const E_GIRDER: f64 = 3.0e8;
 const GIRDER_DENSITY: f64 = 2_446.5; // kg/m³ — a 24 kN/m³ weight density
 const COL_DENSITY: f64 = 1e-6;
+
+/// A relative check that is relative at any magnitude. `assert_close` divides by
+/// `max(|expected|, 1)`, so against Sd ≈ 5e-4 m its "1 %" is 0.01 m absolute — and
+/// main's 3.13 × Sd passed it.
+fn assert_rel(actual: f64, expected: f64, tol: f64, label: &str) {
+    let rel = ((actual - expected) / expected).abs();
+    assert!(rel < tol, "{label}: actual={actual:.6e}, expected={expected:.6e}, rel_err={:.3}%", rel * 100.0);
+}
 
 fn flat_spectrum_ms2(sa: f64) -> DesignSpectrum {
     DesignSpectrum {
@@ -99,7 +107,7 @@ fn sdof_participation_is_one_and_rsa_gives_sd_2d() {
 
     let sd = sa / (sway.omega * sway.omega);
     let girder = res.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(girder.ux.abs(), sd, 0.01, "RSA girder displacement = Sa/ω²");
+    assert_rel(girder.ux.abs(), sd, 0.01, "RSA girder displacement = Sa/ω²");
 }
 
 #[test]
@@ -132,7 +140,7 @@ fn sdof_participation_is_one_and_rsa_gives_sd_3d() {
 
     let sd = sa / (sway.omega * sway.omega);
     let girder = res.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(girder.ux.abs(), sd, 0.01, "RSA girder displacement = Sa/ω²");
+    assert_rel(girder.ux.abs(), sd, 0.01, "RSA girder displacement = Sa/ω²");
 }
 
 /// A three-element cantilever along the vertical, fixed at the base: 9 free DOFs in 2D.
@@ -169,5 +177,61 @@ fn modal_expansion_of_the_influence_vector_2d() {
         }
         assert_close(sum_ux, 1.0, 0.01, &format!("Σ Γx·φ.ux at node {node}"));
         assert!(sum_uz.abs() < 1e-6, "Σ Γx·φ.uz at node {node} should vanish, got {sum_uz:.3e}");
+    }
+
+    // And the vertical direction, which `participation_y` carries in 2D.
+    for node in [2usize, 3, 4] {
+        let (mut sum_ux, mut sum_uz) = (0.0, 0.0);
+        for m in &modal_res.modes {
+            let phi = m.displacements.iter().find(|d| d.node_id == node).unwrap();
+            sum_ux += m.participation_y * phi.ux;
+            sum_uz += m.participation_y * phi.uz;
+        }
+        assert_close(sum_uz, 1.0, 0.01, &format!("Σ Γy·φ.uz at node {node}"));
+        assert!(sum_ux.abs() < 1e-6, "Σ Γy·φ.ux at node {node} should vanish, got {sum_ux:.3e}");
+    }
+}
+
+/// The same cantilever in 3D, along global Z: 18 free DOFs. The 3D path is the one the
+/// web calls, and it rescales Γx, Γy and Γz separately.
+fn cantilever_3d() -> SolverInput3D {
+    make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 0.0, 0.0, 1.0), (3, 0.0, 0.0, 2.0), (4, 0.0, 0.0, 3.0)],
+        vec![(1, E_COL, 0.2)],
+        vec![(1, COL_A, COL_I, 0.5 * COL_I, 2.0 * COL_I)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1), (3, "frame", 3, 4, 1, 1)],
+        vec![(1, vec![true; 6])],
+        vec![],
+    )
+}
+
+#[test]
+fn modal_expansion_of_the_influence_vector_3d() {
+    let input = cantilever_3d();
+    let mut d = HashMap::new();
+    d.insert("1".to_string(), 2_446.5);
+    let modal_res = modal::solve_modal_3d(&input, &d, 18).unwrap();
+    assert_eq!(modal_res.modes.len(), 18, "every mode is needed for the expansion to close");
+
+    // For each direction, Σ Γ·φ is the rigid-body translation in that direction:
+    // 1 on that component, 0 on the other two translations and on every rotation.
+    for dir in 0..3 {
+        for node in [2usize, 3, 4] {
+            let mut sum = [0.0f64; 6];
+            for m in &modal_res.modes {
+                let g = [m.participation_x, m.participation_y, m.participation_z][dir];
+                let phi = m.displacements.iter().find(|d| d.node_id == node).unwrap();
+                for (k, v) in [phi.ux, phi.uy, phi.uz, phi.rx, phi.ry, phi.rz].into_iter().enumerate() {
+                    sum[k] += g * v;
+                }
+            }
+            let axis = ["x", "y", "z"][dir];
+            assert_close(sum[dir], 1.0, 0.01, &format!("Σ Γ{axis}·φ.u{axis} at node {node}"));
+            for (k, v) in sum.iter().enumerate() {
+                if k != dir {
+                    assert!(v.abs() < 1e-6, "Σ Γ{axis}·φ component {k} at node {node} should vanish, got {v:.3e}");
+                }
+            }
+        }
     }
 }
