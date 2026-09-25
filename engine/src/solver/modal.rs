@@ -86,16 +86,32 @@ pub fn solve_modal_2d(
     let free_idx: Vec<usize> = (0..nf).collect();
     let m_ff = m_full.as_ref().map(|m| extract_submatrix(m, n, &free_idx, &free_idx));
 
+    // Influence vectors: a unit rigid translation along X and along Y.
+    let mut r_x_full = vec![0.0; nf];
+    let mut r_y_full = vec![0.0; nf];
+    for &node_id in &dof_num.node_order {
+        if let Some(&d) = dof_num.map.get(&(node_id, 0)) {
+            if d < nf { r_x_full[d] = 1.0; }
+        }
+        if let Some(&d) = dof_num.map.get(&(node_id, 1)) {
+            if d < nf { r_y_full[d] = 1.0; }
+        }
+    }
+
     // Solve K·φ = λ·M·φ where λ = ω²
     // Large models (constrained or not): triplet sparse assembly + sparse
     // shift-invert Lanczos; the constraint transform reduces K and M as
     // sparse triple products (CᵀKC over triplets), never densifying.
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
+    // M·r on the full free space, taken before the mass is reduced.
+    let (m_r_x, m_r_y);
     let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
         let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
+        m_r_x = m_csc.sym_mat_vec(&r_x_full);
+        m_r_y = m_csc.sym_mat_vec(&r_y_full);
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&sasm.k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
@@ -113,6 +129,8 @@ pub fn solve_modal_2d(
         let asm = assemble_2d(input, &dof_num);
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
         let m_ff = m_ff.unwrap();
+        m_r_x = mat_vec_sub(&m_ff, &r_x_full, nf);
+        m_r_y = mat_vec_sub(&m_ff, &r_y_full, nf);
         let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
             (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.n_free_indep)
         } else {
@@ -125,21 +143,16 @@ pub fn solve_modal_2d(
 
     let num_modes = num_modes.min(ns);
 
-    // Build influence vectors for X and Y directions
-    let mut r_x_full = vec![0.0; nf];
-    let mut r_y_full = vec![0.0; nf];
-    for &node_id in &dof_num.node_order {
-        if let Some(&d) = dof_num.map.get(&(node_id, 0)) {
-            if d < nf { r_x_full[d] = 1.0; }
-        }
-        if let Some(&d) = dof_num.map.get(&(node_id, 1)) {
-            if d < nf { r_y_full[d] = 1.0; }
-        }
-    }
-    let (r_x_s, r_y_s) = if let Some(ref cs) = cs {
-        (cs.reduce_vector(&r_x_full), cs.reduce_vector(&r_y_full))
-    } else {
-        (r_x_full, r_y_full)
+    // The inertial load of a unit ground acceleration, M·r, reduced to the
+    // solve space: L = Cᵀ(M·r). Γ = φᵀM r / φᵀM φ is then φ_s·L / φ_sᵀM_sφ_s.
+    // Reducing r itself (Cᵀr) and multiplying by the reduced mass is not the
+    // same thing: Cᵀ is the force transform, so for N nodes tied by EqualDOF
+    // it sums their ones into N, and Γ came out N× too large, the effective
+    // mass N²× — mass ratios far above 1. M·r is a force, and Cᵀ reduces
+    // forces exactly, for every constraint type.
+    let (l_x, l_y) = match &cs {
+        Some(cs) => (cs.reduce_vector(&m_r_x), cs.reduce_vector(&m_r_y)),
+        None => (m_r_x, m_r_y),
     };
 
     let mut modes = Vec::new();
@@ -168,12 +181,9 @@ pub fn solve_modal_2d(
         };
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
-        // Participation factors in solve space
-        let phi_m_rx: f64 = r_x_s.iter().zip(m_phi.iter())
-            .map(|(rx, mp)| rx * mp).sum();
-
-        let phi_m_ry: f64 = r_y_s.iter().zip(m_phi.iter())
-            .map(|(ry, mp)| ry * mp).sum();
+        // Participation factors in solve space: φ_s · Cᵀ(M·r).
+        let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();
+        let phi_m_ry: f64 = phi_s.iter().zip(l_y.iter()).map(|(p, l)| p * l).sum();
 
         let gamma_x = if phi_m_phi.abs() > 1e-30 { phi_m_rx / phi_m_phi } else { 0.0 };
         let gamma_y = if phi_m_phi.abs() > 1e-30 { phi_m_ry / phi_m_phi } else { 0.0 };
@@ -205,6 +215,14 @@ pub fn solve_modal_2d(
                 *val /= max_disp;
             }
         }
+        // Γ was computed on the eigenvector as the eigensolver returned it. The shape published
+        // below is that vector divided by `max_disp`, and Γ scales inversely with its shape, so
+        // it has to be rescaled with it: Γ·φ is what spectral analysis multiplies, and it is
+        // normalization-independent only when both factors refer to the same φ. Effective mass
+        // (Γ²·φᵀMφ) is invariant and needs no change.
+        let shape_scale = if max_disp > 1e-20 { max_disp } else { 1.0 };
+        let gamma_x = gamma_x * shape_scale;
+        let gamma_y = gamma_y * shape_scale;
 
         let displacements = super::linear::build_displacements_2d(&dof_num, &u_mode);
 
@@ -351,11 +369,14 @@ pub fn solve_modal_3d(
         if let Some(&d) = dof_num.map.get(&(node_id, 1)) { if d < nf { r_y_full[d] = 1.0; } }
         if let Some(&d) = dof_num.map.get(&(node_id, 2)) { if d < nf { r_z_full[d] = 1.0; } }
     }
-    let (r_x_s, r_y_s, r_z_s) = if let Some(ref cs) = cs {
-        (cs.reduce_vector(&r_x_full), cs.reduce_vector(&r_y_full), cs.reduce_vector(&r_z_full))
-    } else {
-        (r_x_full, r_y_full, r_z_full)
+    // L = Cᵀ(M·r), the reduced inertial load — see the 2D solver. Cᵀr also
+    // put the eccentricities of a diaphragm's nodes on the master's θz, a
+    // torsional participation no rigid translation has.
+    let m_r = |r: &[f64]| {
+        let mr = m_sparse_ff.sym_mat_vec(r);
+        match &cs { Some(cs) => cs.reduce_vector(&mr), None => mr }
     };
+    let (l_x, l_y, l_z) = (m_r(&r_x_full), m_r(&r_y_full), m_r(&r_z_full));
 
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
@@ -376,9 +397,9 @@ pub fn solve_modal_3d(
         let m_phi = m_solve.sym_mat_vec(&phi_s);
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
-        let phi_m_rx: f64 = r_x_s.iter().zip(m_phi.iter()).map(|(r, mp)| r * mp).sum();
-        let phi_m_ry: f64 = r_y_s.iter().zip(m_phi.iter()).map(|(r, mp)| r * mp).sum();
-        let phi_m_rz: f64 = r_z_s.iter().zip(m_phi.iter()).map(|(r, mp)| r * mp).sum();
+        let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();
+        let phi_m_ry: f64 = phi_s.iter().zip(l_y.iter()).map(|(p, l)| p * l).sum();
+        let phi_m_rz: f64 = phi_s.iter().zip(l_z.iter()).map(|(p, l)| p * l).sum();
 
         let gamma_x = if phi_m_phi.abs() > 1e-30 { phi_m_rx / phi_m_phi } else { 0.0 };
         let gamma_y = if phi_m_phi.abs() > 1e-30 { phi_m_ry / phi_m_phi } else { 0.0 };
@@ -409,6 +430,11 @@ pub fn solve_modal_3d(
         if max_disp > 1e-20 {
             for val in u_mode.iter_mut().take(nf) { *val /= max_disp; }
         }
+        // Same rescaling as the 2D path: Γ must refer to the shape that is published.
+        let shape_scale = if max_disp > 1e-20 { max_disp } else { 1.0 };
+        let gamma_x = gamma_x * shape_scale;
+        let gamma_y = gamma_y * shape_scale;
+        let gamma_z = gamma_z * shape_scale;
 
         let displacements = super::linear::build_displacements_3d(&dof_num, &u_mode);
 

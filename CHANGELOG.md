@@ -11,6 +11,47 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Modal participation of constrained models (2026-09-24)
+
+**Output change: `participationX/Y/Z`, effective masses and mass ratios from modal analysis of
+models with constraints, and every spectral result built on them.** With constraints the
+eigenproblem is solved in the reduced space, and the participation numerator φᵀM r was formed
+as (Cᵀr)ᵀ(CᵀMC)φ_s. Cᵀ is the force transform: for N nodes tied by EqualDOF it sums their ones
+into N, so Γ came out N× too large and the effective mass N²× — three tied columns reported a
+cumulative mass ratio of 3.34, a one-storey diaphragm 434. A diaphragm's Cᵀr also put the
+nodes' eccentricities on the master's θz, a torsional participation no rigid translation has.
+
+The numerator is now φ_s · Cᵀ(M r): the inertial load of a unit ground acceleration, reduced as
+the force it is, which is exact for every constraint type. Unconstrained models compute the
+same numbers as before. Pinned by `tests/modal_constrained_participation.rs`, which compares
+each constrained model with the same structure tied by stiff massless links.
+
+The web app does not send constraints to modal analysis today, so this was reached only
+through the engine API.
+
+#### Modal participation factors refer to the published mode shape (2026-09-23)
+
+**Output change: `participationX/Y/Z` from modal analysis, and every spectral displacement and
+member force.** `solve_modal_2d`/`solve_modal_3d` computed Γ on the eigenvector as the
+eigensolver returned it (mass-normalized) and then published that vector scaled to a unit
+maximum, without rescaling Γ. Γ scales inversely with its shape, so the pair no longer
+belonged together — and `solve_spectral_2d`/`solve_spectral_3d` build each modal response as
+Γ·φ·Sd from exactly that pair. Spectral displacements and member forces came out multiplied by
+the reciprocal of the eigenvector's largest entry: √m for a single-degree-of-freedom system,
+3.13× for a 9.8 t girder, growing with the square root of the model's mass.
+
+Γ is now rescaled with the shape. Unaffected: frequencies, periods, mode shapes, effective
+masses and mass ratios (Γ²·φᵀMφ is invariant), and therefore spectral base shear, which is
+built from effective mass. Pinned by `validation/domains/dynamics/spectral_normalization.rs`:
+Γ = 1 and u = Sa/ω² for an SDOF frame in 2D and 3D, and the modal expansion Σ Γₙφₙ = ι over
+all modes of a cantilever, in every direction, in 2D and 3D — an identity that holds under any
+normalization only if Γ and φ share one.
+
+The PRO modal table's "Cum. X/Y" columns added up |Γ| and read the sum as a mass percentage
+against the 90 % target; with unit-maximum shapes a cantilever's first mode showed 157 %,
+marked sufficient, while carrying 61 % of the mass. (That display was fixed separately on
+main; this entry covers the engine side.)
+
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 
 **BREAKING (saved models): `quadEdge` and `quad9Edge` loads reverse direction.**
