@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
     loadFile, downloadExcel, downloadResultsCSV, downloadDXF, downloadSVG,
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
-  import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+  import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+  import { codeShareUrl } from '../../lib/model/code/share';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
   /**
@@ -109,13 +110,22 @@
    * this calls the same function rather than inventing a second route with
    * its own idea of what those outcomes are.
    */
+  /**
+   * PRO's link carries the model code (`model/code/share.ts`), so it carries everything the code
+   * does — shells, groups, the mass source, foundations — where the compact link carried a subset.
+   * Above the ceiling there is no link; the code is shared instead.
+   */
+  const proLink = $derived.by(() => {
+    void modelStore.modelVersion;
+    if (!hasModel) return null;
+    return codeShareUrl(modelStore.snapshot(), `${location.origin}${location.pathname}`);
+  });
+  const linkTooLong = $derived(!!proLink && proLink.length > MAX_URL_SAFE);
+
   async function copyShareLink() {
-    const result = generateShareURL();
-    if (!result) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
-    if (result.length > MAX_URL_SAFE) {
-      uiStore.toast(t('project.longLink').replace('{n}', String(result.length)), 'info');
-    }
-    await navigator.clipboard.writeText(result.url);
+    if (!proLink) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
+    if (linkTooLong) { uiStore.toast(tp('project.linkTooLong', { n: proLink.length }), 'info'); return; }
+    await navigator.clipboard.writeText(proLink.url);
     uiStore.toast(t('project.linkCopied'), 'success');
   }
 
@@ -246,14 +256,15 @@
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
-      <HelpTip text={t('project.copyLinkTooltip')}>
+      <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
         <button
           class="pp-btn"
           onclick={copyShareLink}
-          disabled={!hasModel}
+          disabled={!hasModel || linkTooLong}
           data-testid="pp-share"
         >{t('project.shareLink')}</button>
       </HelpTip>
+      <button class="pp-btn" onclick={() => { uiStore.proActiveTab = 'code'; uiStore.proPanelVisible = true; }} data-testid="pp-share-code">{t('project.shareCode')}</button>
     </div>
 
     {#if showSave}
