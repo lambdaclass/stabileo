@@ -31,21 +31,36 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="wizard">
+  <!--
+    "← Back" returns to the list of advanced functions this wizard was opened
+    from; "⊞ View matrix" is the short route through the same method.
+  -->
   <div class="wizard-header">
+    <button class="back-btn" data-testid="dsm-back" title={t('adv.backToList')} onclick={() => {
+      dsmStepsStore.close();
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+    }}>← {t('adv.back')}</button>
     <span class="wizard-title">{showExplorer ? t('dsm.matrixExplorer') : t('dsm.wizardTitle')}</span>
     <button
       class="explorer-toggle"
       class:active={showExplorer}
+      data-testid="dsm-view-matrix"
       onclick={() => { showExplorer = !showExplorer; }}
       title={showExplorer ? t('dsm.backToSteps') : t('dsm.matrixExplorer')}
     >
       {showExplorer ? t('dsm.stepsBtn') : t('dsm.explorerBtn')}
     </button>
-    <button class="close-btn" onclick={() => {
-      dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-    }}>✕</button>
   </div>
+  {#if dsmStepsStore.stepData && dsmStepsStore.stepData.nullModes.length > 0}
+    <!--
+      A mechanism the loads do not excite: the equilibrium solution exists and
+      is shown, but it is not the only one — say which DOFs are free, rather
+      than let a reader take a stable-looking answer for a stable structure.
+    -->
+    <div class="mode-banner mode-warn" data-testid="dsm-null-modes">
+      {t('dsm.nullModes').replace('{dofs}', dsmStepsStore.stepData.nullModes.slice(0, 12).join(', ') + (dsmStepsStore.stepData.nullModes.length > 12 ? '…' : ''))}
+    </div>
+  {/if}
 
   {#if showExplorer}
     <!-- Matrix Explorer mode -->
@@ -165,6 +180,20 @@
     border-color: var(--st-interactive);
   }
 
+  .back-btn {
+    padding: 2px 8px;
+    border: 1px solid var(--st-hair);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--st-text-2);
+    font-size: 0.66rem;
+    cursor: pointer;
+    font-family: inherit;
+    margin-right: 8px;
+    flex: none;
+  }
+  .back-btn:hover { border-color: var(--st-accent); color: var(--st-accent); }
+  .mode-warn { background: color-mix(in srgb, var(--st-warn) 14%, transparent); color: var(--st-warn); font-weight: 500; line-height: 1.4; }
   .close-btn {
     background: none;
     border: none;

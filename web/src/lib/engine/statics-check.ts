@@ -91,8 +91,8 @@ function addMoment(acc: Resultant6, M: [number, number, number]): void {
  * Two conventions of the solve are matched here, because a check that differs from it on either
  * reports a residual that is its own arithmetic:
  *
- *   · The frame composes the member's roll with its SECTION's rotation, and honours a
- *     left-handed convention, exactly as the solver input does.
+ *   · The frame composes the member's roll with its SECTION's rotation. Offsets and
+ *     analysis use right-handed axes; the displayed convention only changes local load Y.
  *   · A member with end offsets is solved as the flexible segment between the offset points
  *     (`member-offsets.ts`): its ends are node + offset, so the segment can tilt away from the
  *     node-to-node line, and its local loads are stated in the TILTED segment's frame and measured
@@ -102,7 +102,6 @@ function addMoment(acc: Resultant6, M: [number, number, number]): void {
 function memberLine(
   model: ModelData,
   el: { type?: string; nodeI: number; nodeJ: number; sectionId: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset },
-  leftHand: boolean,
 ): { ni: [number, number, number]; ax: ReturnType<typeof computeLocalAxes3D> } | null {
   const a = model.nodes.get(el.nodeI);
   const b = model.nodes.get(el.nodeJ);
@@ -118,7 +117,7 @@ function memberLine(
     try { const base = computeLocalAxes3D(A, B); localY = { x: base.ey[0], y: base.ey[1], z: base.ey[2] }; } catch { return null; }
   }
   let ax;
-  try { ax = computeLocalAxes3D(A, B, localY, roll, leftHand); } catch { return null; }
+  try { ax = computeLocalAxes3D(A, B, localY, roll, false); } catch { return null; }
   if (!hasMemberOffset(el)) return { ni: [A.x, A.y, A.z], ax };
   const shift = (p: typeof A, v: import('../model/element-3d-metadata').MemberOffsetVec | undefined) => {
     if (!v) return p;
@@ -126,7 +125,7 @@ function memberLine(
     return { ...p, x: p.x + g.x, y: p.y + g.y, z: p.z + g.z };
   };
   const A2 = shift(A, el.offset!.i), B2 = shift(B, el.offset!.j);
-  try { ax = computeLocalAxes3D(A2, B2, localY, roll, leftHand); } catch { return null; }
+  try { ax = computeLocalAxes3D(A2, B2, localY, roll, false); } catch { return null; }
   return { ni: [A2.x, A2.y, A2.z], ax };
 }
 
@@ -146,7 +145,7 @@ export interface StaticsCheckInput {
   caseTypes?: Map<number, string>;
   /** Names for the report. */
   caseNames?: Map<number, string>;
-  /** The model is solved with a left-handed local-axis convention. */
+  /** Local member loads are entered along the displayed left-handed Y axis. */
   leftHand?: boolean;
 }
 
@@ -183,13 +182,14 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const d = l.data as DistributedLoad3D | PointLoadOnElement3D;
         const el = model.elements.get(d.elementId);
         if (!el) continue;
-        const ends = memberLine(model, el, leftHand);
+        const ends = memberLine(model, el);
         if (!ends) continue;
         const { ni, ax } = ends;
         const at = (s: number): [number, number, number] => [
           ni[0] + ax.ex[0] * s, ni[1] + ax.ex[1] * s, ni[2] + ax.ex[2] * s,
         ];
         const push = (py: number, pz: number, s: number): void => {
+          if (leftHand) py = -py;
           addForceAt(applied, [
             ax.ey[0] * py + ax.ez[0] * pz,
             ax.ey[1] * py + ax.ez[1] * pz,

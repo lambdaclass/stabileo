@@ -18,7 +18,6 @@
  */
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
-import { uiStore } from './ui.svelte';
 import { activePerCombo3D } from './active-results';
 import { memberLocalCurve, chordDeflection, eiOf, type ChordDeflection } from '../engine/member-deflection';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
@@ -55,7 +54,9 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
   const out = new Map<number, MemberDeflection>();
   // The solver's own frame: a flat model is solved embedded in XZ, and its displacements are too.
   const embed = shouldEmbedFlat2DModelIn3D(modelStore.model);
-  const leftHand = uiStore.axisConvention3D === 'leftHand';
+  // The solver works in its own right-handed frame whatever triad is displayed; the curve is read
+  // in that frame too.
+  const leftHand = false;
   const indexed = sets.map((s) => ({
     name: s.name,
     disp: new Map(s.results.displacements.map((d) => [d.nodeId, d])),

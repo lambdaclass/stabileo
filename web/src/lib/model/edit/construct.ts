@@ -13,6 +13,7 @@ import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
 import { meshQuadRegion, type MeshDensity } from './mesh-region';
+import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
 export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles';
 
@@ -158,7 +159,7 @@ function earClip(poly: [number, number][]): Array<[number, number, number]> {
  *
  * A convex hole of four corners is meshed with quads —
  * one, or a grid at the requested density, through the same mesher as the shell tab; any other
- * becomes triangles. A hole that already has a shell over exactly its corners is left alone.
+ * becomes triangles. Faces overlapping an existing coplanar shell are left alone.
  */
 export function fillHoles(
   elementIds: Iterable<number>, materialId: number, thickness: number,
@@ -170,6 +171,7 @@ export function fillHoles(
   const density: MeshDensity = opts.density ?? { mode: 'fixedDivisions', nx: 1, ny: 1 };
   const elements = [...elementIds].map((id) => modelStore.elements.get(id)).filter((e) => !!e);
   const nodeIds = [...new Set(elements.flatMap((e) => [e!.nodeI, e!.nodeJ]))];
+  if (nodeIds.length < 3) return { refused: 'noHoles' };
   const pts = nodeIds.map((id) => pv(modelStore.nodes.get(id)!));
   const plane = planeOf(pts, tol);
   if (!plane) {
@@ -186,6 +188,9 @@ export function fillHoles(
     let any = false;
     modelStore.batch(() => {
       for (const ids of levels.values()) {
+        // A collinear horizontal selection cannot define a plane. Partitioning must
+        // make progress instead of recursively retrying exactly the same members.
+        if (ids.length === elements.length) continue;
         const r = fillHoles(ids, materialId, thickness, opts);
         if ('refused' in r) continue;
         any = true;
@@ -219,20 +224,33 @@ export function fillHoles(
   const faces = boundedFaces(adj, uv);
   if (faces.length === 0) return { refused: 'noHoles' };
 
-  const existing = new Set([
-    ...[...modelStore.quads.values()].map((q) => [...q.nodes].sort((a, b) => a - b).join('-')),
-    ...[...modelStore.plates.values()].map((p) => [...p.nodes].sort((a, b) => a - b).join('-')),
-  ]);
+  // A face may already contain a mesh, not just one shell with the same corners.
+  // Skip occupied faces (including partially occupied ones) rather than overlaying
+  // stiffness and self-weight. Shells on other planes do not occupy this face.
+  const occupied: Triangle2[] = [];
+  for (const shell of [...modelStore.quads.values(), ...modelStore.plates.values()]) {
+    const points = shell.nodes.map((id) => modelStore.nodes.get(id));
+    if (points.some((p) => !p)) continue;
+    const delta = points.map((p): Vec3 => [p!.x - plane.o[0], p!.y - plane.o[1], (p!.z ?? 0) - plane.o[2]]);
+    if (delta.some((p) => Math.abs(dot(p, plane.n)) > tol)) continue;
+    const projected = delta.map((p): [number, number] => [dot(p, plane.u), dot(p, plane.v)]);
+    occupied.push([projected[0]!, projected[1]!, projected[2]!]);
+    if (projected.length === 4) occupied.push([projected[0]!, projected[2]!, projected[3]!]);
+  }
   const report: FillReport = { quads: [], plates: [], skippedExisting: 0 };
   modelStore.batch(() => {
     for (const f of faces) {
-      if (existing.has([...f].sort((a, b) => a - b).join('-'))) { report.skippedExisting++; continue; }
+      const polygon = f.map((id) => uv.get(id)!);
+      const tris = earClip(polygon);
+      if (tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)))) {
+        report.skippedExisting++;
+        continue;
+      }
       if (f.length === 4 && convex(f.map((id) => uv.get(id)!))) {
         const m = meshQuadRegion(f as [number, number, number, number], { density, materialId, thickness, splitBeams: true });
         report.quads.push(...m.quads);
         continue;
       }
-      const tris = f.length === 3 ? [[0, 1, 2] as [number, number, number]] : earClip(f.map((id) => uv.get(id)!));
       for (const [a, b, c] of tris) report.plates.push(modelStore.addPlate([f[a]!, f[b]!, f[c]!], materialId, thickness));
     }
   });

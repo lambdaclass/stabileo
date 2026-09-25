@@ -112,3 +112,54 @@ describe('fill holes', () => {
     expect(fillHoles(els, 1, 0.15)).toEqual({ refused: 'noHoles' });
   });
 });
+
+describe('fill refuses degenerate or occupied faces', () => {
+  function rectangle(x = 0, z = 3) {
+    const nodes = [[x, 0], [x + 4, 0], [x + 4, 4], [x, 4]].map(([px, py]) => modelStore.addNode(px!, py!, z));
+    const members = nodes.map((id, k) => modelStore.addElement(id, nodes[(k + 1) % 4]!));
+    return { nodes, members };
+  }
+
+  it.each([1, 4])('refuses %s collinear horizontal members without recursion', (count) => {
+    const nodes = Array.from({ length: count + 1 }, (_, k) => modelStore.addNode(k, 0, 3));
+    const members = nodes.slice(1).map((id, k) => modelStore.addElement(nodes[k]!, id));
+    expect(fillHoles(members, 1, 0.15)).toEqual({ refused: 'noHoles' });
+    expect(modelStore.quads.size + modelStore.plates.size).toBe(0);
+  });
+
+  it('does not overlay triangles on a bay that was already meshed', () => {
+    const { members } = rectangle();
+    const density = { mode: 'targetSize' as const, size: 2 };
+    const first = fillHoles(members, 1, 0.15, { density });
+    expect('quads' in first && first.quads.length).toBe(4);
+    const again = fillHoles([...modelStore.elements.keys()], 1, 0.15, { density });
+    expect(again).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+    expect(modelStore.quads.size).toBe(4);
+    expect(modelStore.plates.size).toBe(0);
+  });
+
+  it('leaves partially occupied faces alone but fills an adjacent empty bay', () => {
+    const first = rectangle();
+    modelStore.addPlate(first.nodes.slice(0, 3) as [number, number, number], 1, 0.15);
+    expect(fillHoles(first.members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+    const adjacent = rectangle(4);
+    const r = fillHoles(adjacent.members, 1, 0.15);
+    expect('quads' in r && r.quads.length).toBe(1);
+    expect(modelStore.plates.size).toBe(1);
+  });
+
+  it('shells on another floor do not prevent filling this floor', () => {
+    const lower = rectangle();
+    fillHoles(lower.members, 1, 0.15);
+    const upper = rectangle(0, 6);
+    const r = fillHoles(upper.members, 1, 0.15);
+    expect('quads' in r && r.quads.length).toBe(1);
+  });
+
+  it('finds occupancy by geometry even when the shell uses different node IDs', () => {
+    const { members } = rectangle();
+    const shell = rectangle();
+    modelStore.addQuad(shell.nodes as [number, number, number, number], 1, 0.15);
+    expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+  });
+});

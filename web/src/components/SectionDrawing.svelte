@@ -34,6 +34,7 @@
    */
   import { t } from '../lib/i18n';
   import type { SectionShape } from '../lib/engine/codes/argentina/section-shape';
+  import { outlineRings, type Outline } from '../lib/engine/codes/argentina/cirsoc201-section';
 
   interface Props {
     shape: SectionShape;
@@ -55,12 +56,101 @@
     layerPitchM?: number;
     /** Total steel, cm² — sets the drawn bar diameter so it reads to scale. */
     AsCm2?: number;
+    /** A beam's compression bars, drawn on top — the sheet's blue A′s. */
+    compBarCount?: number;
+    compCover?: number;
+    compAsCm2?: number;
+
+    /*
+     * ── The column sheets: the section as the engine holds it ─────────
+     *
+     * Given an outline and the bars the calculation used, the drawing stops
+     * inventing a layout and plots those: every bar where it is, sized by its
+     * own area, the void if there is one, and the compression block on the
+     * side θ says is compressed — tilted, on a skew column. A drawing that
+     * showed a tidier arrangement than the one computed would be lying about
+     * the model, and on FCO it put eight bars in one bottom row.
+     */
+    outline?: Outline;
+    /** Centroid coordinates, y up, metres; area m². */
+    sectionBars?: Array<{ x: number; y: number; area: number }>;
+    /** Outward normal of the compressed face, `sectionPoint`'s θ. */
+    theta?: number;
+    /** Text beside a level, FCR-VERIF's A1 … A5. */
+    levelLabels?: Array<{ y: number; text: string }>;
+    /** Name FCO's three positions on the drawing. */
+    faceLabels?: boolean;
   }
 
   let {
     shape, cover, a, c, barCount = 4, AsCm2 = 0,
     perLayer = undefined, layerPitchM = 0,
+    compBarCount = 0, compCover = 0, compAsCm2 = 0,
+    outline = undefined, sectionBars = [], theta = Math.PI / 2,
+    levelLabels = [], faceLabels = false,
   }: Props = $props();
+
+  // ── General mode ────────────────────────────────────────────────────
+  const G = $derived.by(() => {
+    if (!outline) return null;
+    const { outer, holes } = outlineRings(outline);
+    const xs = outer.map((p) => p.x);
+    const ys = outer.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const w = maxX - minX, hgt = maxY - minY;
+    /* Room on the right for level labels. */
+    const labelRoom = levelLabels.length > 0 || faceLabels ? 22 : 0;
+    const sc = Math.min((BOX - 2 * PAD - labelRoom) / w, (BOX - 2 * PAD) / hgt);
+    const gx = (x: number) => (BOX - labelRoom - w * sc) / 2 + (x - minX) * sc;
+    const gy = (y: number) => (BOX - hgt * sc) / 2 + (maxY - y) * sc;
+    const ring = (pts: Array<{ x: number; y: number }>) =>
+      pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${gx(p.x).toFixed(2)},${gy(p.y).toFixed(2)}`).join(' ') + ' Z';
+    const path = [ring(outer), ...holes.map(ring)].join(' ');
+
+    /* Compression half-plane beyond `max − a`, and the neutral axis at `max − c`. */
+    const nx = Math.cos(theta), ny = Math.sin(theta);
+    const top = Math.max(...outer.map((p) => nx * p.x + ny * p.y));
+    const R = 2 * Math.hypot(w, hgt);
+    const cx0 = (minX + maxX) / 2, cy0 = (minY + maxY) / 2;
+    /** A point on the line n·p = s, and the line's direction. */
+    const lineAt = (sDist: number) => {
+      const s0 = nx * cx0 + ny * cy0;
+      const k = sDist - s0;
+      return { px: cx0 + k * nx, py: cy0 + k * ny, tx: -ny, ty: nx };
+    };
+    let block = '';
+    if (a && a > 0) {
+      const L = lineAt(top - a);
+      const p1 = { x: L.px - R * L.tx, y: L.py - R * L.ty };
+      const p2 = { x: L.px + R * L.tx, y: L.py + R * L.ty };
+      const p3 = { x: p2.x + R * nx, y: p2.y + R * ny };
+      const p4 = { x: p1.x + R * nx, y: p1.y + R * ny };
+      block = ring([p1, p2, p3, p4]);
+    }
+    let na: { x1: number; y1: number; x2: number; y2: number } | null = null;
+    if (c && c > 0) {
+      const L = lineAt(top - c);
+      na = {
+        x1: gx(L.px - R * L.tx), y1: gy(L.py - R * L.ty),
+        x2: gx(L.px + R * L.tx), y2: gy(L.py + R * L.ty),
+      };
+    }
+    const bars = sectionBars.map((b) => ({
+      cx: gx(b.x), cy: gy(b.y),
+      r: Math.max(1.8, Math.min(Math.sqrt(Math.max(b.area, 0) / Math.PI) * sc, 7)),
+      lower: b.y < -1e-9,
+    }));
+    const labels = levelLabels.map((l) => ({ x: gx(maxX) + 4, y: gy(l.y) + 3, text: l.text }));
+    const faces = faceLabels
+      ? [
+          { x: gx(cx0), y: gy(minY) + 11, text: 'A1' },
+          { x: gx(cx0), y: gy(maxY) - 4, text: 'A2' },
+          { x: gx(maxX) + 4, y: gy(cy0) + 3, text: 'A3', start: true },
+        ]
+      : [];
+    return { path, block, na, bars, labels, faces, gx, gy, minX, maxX };
+  });
 
   const PAD = 14;
   const BOX = 170;
@@ -133,6 +223,22 @@
       }
     });
     return out;
+  });
+
+  /** A beam's compression layer, across the top at its own cover. */
+  const compBars = $derived.by(() => {
+    if (outline || compBarCount <= 0 || shape.kind === 'circle') return [];
+    const width = shape.kind === 'tee' ? shape.bf : shape.b;
+    const cc = compCover > 0 ? compCover : cover;
+    const usable = Math.max(width - 2 * cc, width * 0.2);
+    const n = Math.max(1, Math.min(compBarCount, 10));
+    return Array.from({ length: n }, (_, i) => ({
+      x: cc + (n === 1 ? usable / 2 : (usable * i) / (n - 1)), y: cc,
+    }));
+  });
+  const compR = $derived.by(() => {
+    const areaPerBar = (compAsCm2 * 1e-4) / Math.max(compBars.length, 1);
+    return Math.max(2, Math.min(Math.sqrt(Math.max(areaPerBar, 0) / Math.PI) * s, 7));
   });
 
   /** Drawn radius from the real area, floored so a small bar stays visible. */
@@ -216,7 +322,23 @@
       </pattern>
     </defs>
 
-    {#if shape.kind === 'circle'}
+    {#if G}
+      <clipPath id="sd-gclip"><path d={G.path} clip-rule="evenodd" /></clipPath>
+      {#if G.block}<path d={G.block} class="sd-block" clip-path="url(#sd-gclip)" />{/if}
+      <path d={G.path} class="sd-outline" fill-rule="evenodd" />
+      {#if G.na}
+        <line x1={G.na.x1} y1={G.na.y1} x2={G.na.x2} y2={G.na.y2} class="sd-na" clip-path="url(#sd-gclip)" />
+      {/if}
+      {#each G.bars as bar}
+        <circle cx={bar.cx} cy={bar.cy} r={bar.r} class="sd-bar" class:sd-bar-low={bar.lower} class:sd-bar-up={!bar.lower} />
+      {/each}
+      {#each G.labels as l}
+        <text x={l.x} y={l.y} class="sd-lvl">{l.text}</text>
+      {/each}
+      {#each G.faces as f}
+        <text x={f.x} y={f.y} class="sd-lvl" text-anchor={f.start ? 'start' : 'middle'}>{f.text}</text>
+      {/each}
+    {:else if shape.kind === 'circle'}
       <circle cx={X(shape.D / 2)} cy={Y(shape.D / 2)} r={(shape.D / 2) * s} class="sd-outline" />
       {#if blockPath}<circle cx={X(shape.D / 2)} cy={Y(shape.D / 2)} r={(shape.D / 2) * s} class="sd-block-clip" clip-path="url(#sd-clip)" />{/if}
       <clipPath id="sd-clip"><circle cx={X(shape.D / 2)} cy={Y(shape.D / 2)} r={(shape.D / 2) * s} /></clipPath>
@@ -232,14 +354,18 @@
       />
     {/if}
 
-    {#if naY !== null}
-      <line x1={PAD / 2} y1={naY} x2={BOX - PAD / 2} y2={naY} class="sd-na" />
-      <text x={BOX - PAD / 2} y={naY - 3} class="sd-na-label" text-anchor="end">c</text>
+    {#if !G}
+      {#if naY !== null}
+        <line x1={PAD / 2} y1={naY} x2={BOX - PAD / 2} y2={naY} class="sd-na" />
+        <text x={BOX - PAD / 2} y={naY - 3} class="sd-na-label" text-anchor="end">c</text>
+      {/if}
+      {#each bars as bar}
+        <circle cx={X(bar.x)} cy={Y(bar.y)} r={barR} class="sd-bar" class:sd-bar-low={compBars.length > 0} />
+      {/each}
+      {#each compBars as bar}
+        <circle cx={X(bar.x)} cy={Y(bar.y)} r={compR} class="sd-bar sd-bar-up" />
+      {/each}
     {/if}
-
-    {#each bars as bar}
-      <circle cx={X(bar.x)} cy={Y(bar.y)} r={barR} class="sd-bar" />
-    {/each}
   </svg>
 </figure>
 
@@ -358,5 +484,13 @@
     fill: var(--st-text);
     stroke: var(--st-surface);
     stroke-width: 0.6;
+  }
+  /* The sheets' own colours: red for the bottom steel, blue for the top. */
+  .sd-bar-low { fill: #e5484d; }
+  .sd-bar-up { fill: #3e8ed0; }
+  .sd-lvl {
+    fill: var(--st-text-3);
+    font-size: 7px;
+    font-family: var(--st-mono);
   }
 </style>

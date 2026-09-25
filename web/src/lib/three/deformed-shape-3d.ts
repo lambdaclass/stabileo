@@ -61,9 +61,11 @@ export function computeDeformedShape3DPair(
   eiData?: ElementEI,
   localY?: { x: number; y: number; z: number },
   rollAngle?: number,
-  leftHand?: boolean,
+  _leftHand?: boolean,
 ): { p0: THREE.Vector3[]; p1: THREE.Vector3[] } {
-  const c = memberLocalCurve(nodeI, nodeJ, dispI, dispJ, ef, eiData, localY, rollAngle, leftHand, SEGMENTS_PER_ELEMENT);
+  // The solver's own right-handed frame: the left-handed triad is how the axes are shown, not
+  // how the member bends.
+  const c = memberLocalCurve(nodeI, nodeJ, dispI, dispJ, ef, eiData, localY, rollAngle, false, SEGMENTS_PER_ELEMENT);
   return c ? toGlobal(c, nodeI, nodeJ, 1) : { p0: [], p1: [] };
 }
 
@@ -82,9 +84,11 @@ export function computeDeformedShape3D(
   eiData?: ElementEI,
   localY?: { x: number; y: number; z: number },
   rollAngle?: number,
-  leftHand?: boolean,
+  _leftHand?: boolean,
 ): THREE.Vector3[] {
-  const c = memberLocalCurve(nodeI, nodeJ, dispI, dispJ, ef, eiData, localY, rollAngle, leftHand, SEGMENTS_PER_ELEMENT);
+  // The solver's own right-handed frame: the left-handed triad is how the axes are shown, not
+  // how the member bends.
+  const c = memberLocalCurve(nodeI, nodeJ, dispI, dispJ, ef, eiData, localY, rollAngle, false, SEGMENTS_PER_ELEMENT);
   return c ? toGlobal(c, nodeI, nodeJ, scale).p1 : [];
 }
 
@@ -159,7 +163,7 @@ export function createDeformedLines(
           { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
           { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
           dI, dJ, ef, eiEntry,
-          localY, rollAngle, _leftHand,
+          localY, rollAngle, false,
         );
         p0 = pair.p0;
         p1 = pair.p1;
