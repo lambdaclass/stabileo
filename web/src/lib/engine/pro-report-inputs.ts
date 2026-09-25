@@ -27,6 +27,8 @@
  * than buried in a `break`.
  */
 
+import { serviceSets, serviceDeflections } from '../store/service-deflection';
+import { activeCombinations } from '../store/active-results';
 import { modelStore, resultsStore } from '../store';
 import type { ReportData, ReportConfig } from './pro-report';
 import type { AnalysisResults3D } from './types-3d';
@@ -139,28 +141,33 @@ function serializeCombinations(): ReportData['combinations'] {
 /**
  * Crack width and deflection per verified member.
  *
- * `Ms` is the factored moment divided back by 1.4 — the service moment the serviceability checks
- * want, recovered from the ultimate one the design produced. Members that yield neither check are
- * dropped, so an empty section means "nothing was checkable", not "everything passed".
+ * `Ms` is the factored moment divided back by 1.4 — the service moment the crack check wants,
+ * recovered from the ultimate one the design produced. The deflection is each beam's own, relative
+ * to its chord, under the service loads `store/service-deflection.ts` chooses — the same number
+ * the verification tab shows. It was the largest vertical displacement of the whole model, the
+ * same for every beam. Members that yield neither check are dropped, so an empty section means
+ * "nothing was checkable", not "everything passed".
  */
 function serviceabilityRows(
   verifications: readonly ElementVerification[],
-  results: AnalysisResults3D,
 ): ReportData['serviceability'] {
   if (verifications.length === 0) return undefined;
-  const maxDisp = results.displacements.reduce((mx, d) => Math.max(mx, Math.abs(d.uz)), 0);
+  const beams = verifications.filter((v) => v.elementType === 'beam').map((v) => v.elementId);
+  const deflections = serviceDeflections(beams, serviceSets().sets);
   const rows = verifications.map((v) => {
     const Ms = v.Mu / 1.4;
     const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
       ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
       : undefined;
-    const L = elementLength(v.elementId) ?? 0;
-    const defl = (L > 0 && v.elementType === 'beam') ? checkDeflection(L, maxDisp) : undefined;
+    const d = deflections.get(v.elementId);
+    const defl = d && d.L > 0 ? checkDeflection(d.L, d.max) : undefined;
     return {
       elementId: v.elementId,
       elementType: v.elementType,
       crack: crack ? { wk: crack.wk, wkLimit: crack.wLimit, status: crack.status } : undefined,
-      deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined,
+      deflection: defl
+        ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.span / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor }
+        : undefined,
     };
   }).filter((s) => s.crack || s.deflection);
   return rows.length > 0 ? rows : undefined;
@@ -323,11 +330,12 @@ function columnStacks(
   return out.length > 0 ? out : undefined;
 }
 
-/** The governing envelope of each member across every solved combination. */
+/** The governing envelope of each member across every active combination. */
 function comboForces(): ReportData['comboForces'] {
-  if (resultsStore.perCombo3D.size === 0 || modelStore.model.combinations.length === 0) return undefined;
+  const combos = activeCombinations();
+  if (resultsStore.perCombo3D.size === 0 || combos.length === 0) return undefined;
   const out = new Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>();
-  for (const combo of modelStore.model.combinations) {
+  for (const combo of combos) {
     const comboResults = resultsStore.perCombo3D.get(combo.id);
     if (!comboResults) continue;
     for (const ef of comboResults.elementForces) {
@@ -433,7 +441,7 @@ export function buildProReportData(opts: {
     combinations: serializeCombinations(),
     advancedResults,
     diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
-    serviceability: serviceabilityRows(verifications, results),
+    serviceability: serviceabilityRows(verifications),
     screenshot,
     t,
     config,

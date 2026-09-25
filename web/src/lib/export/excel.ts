@@ -30,6 +30,10 @@ type XlsxModule = typeof import('xlsx');
 let XLSX!: XlsxModule;
 import { modelStore, resultsStore, uiStore } from '../store';
 import { isMode3D } from '../store/file';
+import { activePerCombo3D, activeCombinations } from '../store/active-results';
+import { computeStationDemands } from '../engine/verification-service';
+import type { AnalysisResults } from '../engine/types';
+import type { AnalysisResults3D } from '../engine/types-3d';
 import { t } from '../i18n';
 import {
   TWO_D_DISPLACEMENT_LABELS,
@@ -466,49 +470,71 @@ function createShellsSheet(): Xlsx.WorkSheet {
  * combination is what you cite.
  */
 function createCombinationsSheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
-  const perCombo = is3D ? resultsStore.perCombo3D : resultsStore.perCombo;
-
   const headers = [t('excel.combination'), t('excel.maxDisplacement') + ' (mm)',
     t('excel.maxMoment') + ' (kN·m)', t('excel.maxShear') + ' (kN)', t('excel.maxAxial') + ' (kN)'];
-  const data: (string | number)[][] = [headers];
-
-  const peak = (r: Record<string, never> | undefined, keys: string[]): number => {
-    let m = 0;
-    for (const ef of ((r?.elementForces ?? []) as unknown as Array<Record<string, number>>)) {
-      for (const k of keys) m = Math.max(m, Math.abs(Number(ef[k] ?? 0)));
-    }
-    return m;
-  };
-  const peakDisp = (r: Record<string, never> | undefined): number => {
-    let m = 0;
-    for (const d of ((r?.displacements ?? []) as unknown as Array<Record<string, number>>)) {
-      const comps = [d.ux, d.uy, d.uz].filter((v) => typeof v === 'number') as number[];
-      m = Math.max(m, Math.hypot(...comps));
-    }
-    return m;
-  };
-
-  /*
-   * Keyed by combination id, and the name comes from the model. The map's
-   * value type differs between 2D and 3D, so the peak helpers read the
-   * fields defensively rather than the code committing to one shape.
-   */
-  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
-  for (const [id, r] of perCombo as unknown as Map<number, Record<string, never>>) {
-    data.push([
-      comboName.get(id) ?? String(id),
-      Number((peakDisp(r) * 1000).toFixed(4)),
-      Number(peak(r, ['mz', 'my', 'momentI', 'momentJ']).toFixed(2)),
-      Number(peak(r, ['vy', 'vz', 'shearI', 'shearJ']).toFixed(2)),
-      Number(peak(r, ['n', 'axialI', 'axialJ']).toFixed(2)),
-    ]);
-  }
-
+  const data: (string | number)[][] = [headers, ...combinationPeakRows()];
   if (data.length === 1) data.push([t('excel.noCombinations')]);
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = headers.map(() => ({ wch: 18 }));
   return ws;
+}
+
+/** One row per combination: its name, and its peak displacement (mm), moment, shear and axial force. */
+export function combinationPeakRows(): Array<[string, number, number, number, number]> {
+  const is3D = isMode3D(uiStore.analysisMode);
+  const data: Array<[string, number, number, number, number]> = [];
+
+  /*
+   * The force peaks used to read one guessed set of field names for both dimensions (`mz`, `vy`,
+   * `n`, `momentI`…) that neither result type has, so every force column of this sheet was zero
+   * for every combination — in a sheet whose whole purpose is to say which combination produces
+   * the largest force. In 3D they are now read ALONG each member, at the stations design uses
+   * (`computeStationDemands`), because the member ends miss the midspan moment of every beam
+   * carrying a span load. Displacements are nodal.
+   */
+  type Peaks = { disp: number; moment: number; shear: number; axial: number };
+  const absMax = (vals: number[]) => vals.reduce((m, v) => (Number.isFinite(v) ? Math.max(m, Math.abs(v)) : m), 0);
+  const peaks2D = (r: AnalysisResults): Peaks => ({
+    disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uz)), 0),
+    moment: absMax(r.elementForces.flatMap((f) => [f.mStart, f.mEnd])),
+    shear: absMax(r.elementForces.flatMap((f) => [f.vStart, f.vEnd])),
+    axial: absMax(r.elementForces.flatMap((f) => [f.nStart, f.nEnd])),
+  });
+
+  let rows: Array<[number, Peaks]>;
+  if (is3D) {
+    // In PRO the sheet lists the combinations design reads: the active list.
+    const perCombo = activePerCombo3D();
+    const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
+    const { stations } = computeStationDemands(perCombo, activeCombinations(), md as never);
+    const along = new Map<number, Omit<Peaks, 'disp'>>();
+    for (const esr of stations.values()) {
+      for (const cr of esr.comboResults) {
+        const p = along.get(cr.comboId) ?? { moment: 0, shear: 0, axial: 0 };
+        p.moment = Math.max(p.moment, absMax(cr.stations.flatMap((st) => [st.my, st.mz])));
+        p.shear = Math.max(p.shear, absMax(cr.stations.flatMap((st) => [st.vy, st.vz])));
+        p.axial = Math.max(p.axial, absMax(cr.stations.map((st) => st.n)));
+        along.set(cr.comboId, p);
+      }
+    }
+    rows = [...perCombo].map(([id, r]: [number, AnalysisResults3D]) => [id, {
+      disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uy, d.uz)), 0),
+      ...(along.get(id) ?? { moment: 0, shear: 0, axial: 0 }),
+    }]);
+  } else {
+    rows = [...resultsStore.perCombo].map(([id, r]) => [id, peaks2D(r)]);
+  }
+  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
+  for (const [id, p] of rows) {
+    data.push([
+      comboName.get(id) ?? String(id),
+      Number((p.disp * 1000).toFixed(4)),
+      Number(p.moment.toFixed(2)),
+      Number(p.shear.toFixed(2)),
+      Number(p.axial.toFixed(2)),
+    ]);
+  }
+  return data;
 }
 
 export async function exportToExcel(options: ExcelExportOptions = {}): Promise<void> {

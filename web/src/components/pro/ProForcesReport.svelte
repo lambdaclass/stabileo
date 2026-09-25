@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { activePerCombo3D } from '../../lib/store/active-results';
   /**
    * The raw forces report, configured and generated.
    *
@@ -105,7 +106,7 @@
     const at = new Date().toISOString();
     const doc = buildForcesReport(cfg, {
       results,
-      perCombo: resultsStore.perCombo3D,
+      perCombo: activePerCombo3D(),
       comboNames: new Map(combinations.map((c) => [c.id, c.name])),
       elementNodes: elementNodes(),
     }, t);

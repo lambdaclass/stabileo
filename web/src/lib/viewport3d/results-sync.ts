@@ -12,6 +12,8 @@ import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
 import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
+import { eiOf } from '../engine/member-deflection';
+import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -234,12 +236,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // A time-history frame is a shape, like a mode: the static solve's forces do not belong to it.
   const staticDeformed = dt === 'deformed' && !thFrame;
   const sigDt = thFrame ? 'timeHistory' : dt;
-  const sigForces = staticDeformed && r3d ? r3d.elementForces : null;
+  // Quick draws straight lines between displaced nodes: no forces, no EI, no particular solution.
+  const exact = deformedView.exact;
+  const sigForces = staticDeformed && exact && r3d ? r3d.elementForces : null;
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
+  const sigLabels = staticDeformed && resultsStore.showDiagramValues;
   const prev = ctx.deformedGroup?.userData;
   if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
-      && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand) {
+      && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand
+      && prev?.sigExact === exact && prev?.sigLabels === sigLabels) {
     prev.setScale(scale);
     prev.material.color.setHex(modeColor ?? COLORS.deformed);
     ctx.resultsParent.add(ctx.deformedGroup);
@@ -255,19 +261,11 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   // Build EI map for particular solution (only for static deformed — modes don't need it)
   let eiMap: Map<number, ElementEI> | undefined;
-  if (staticDeformed) {
+  if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
-      const mat = modelStore.materials.get(elem.materialId);
-      const sec = modelStore.sections.get(elem.sectionId);
-      if (mat && sec) {
-        const E = mat.e * 1000; // MPa → kN/m²
-        const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
-        eiMap.set(id, {
-          EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
-          EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
-        });
-      }
+      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId));
+      if (ei) eiMap.set(id, ei);
     }
   }
 
@@ -275,7 +273,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     modelStore.elements,
     getProjectedNodes(),
     displacements,
-    staticDeformed && r3d ? r3d.elementForces : [],
+    staticDeformed && exact && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     sigHand,
@@ -301,6 +299,31 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   ctx.deformedGroup.userData.sigForces = sigForces;
   ctx.deformedGroup.userData.sigVer = sigVer;
   ctx.deformedGroup.userData.sigHand = sigHand;
+  ctx.deformedGroup.userData.sigExact = exact;
+  ctx.deformedGroup.userData.sigLabels = sigLabels;
+
+  // Displacement labels at the nodes that moved most, carried along by the scale control.
+  if (sigLabels) {
+    const nodes = getProjectedNodes();
+    const byId = new Map(displacements.map((d) => [d.nodeId, d]));
+    const labels = new THREE.Group();
+    labels.name = 'displacement-labels';
+    const placed: Array<{ sprite: THREE.Object3D; x: number; y: number; z: number; d: Displacement3D }> = [];
+    for (const { nodeId, magnitude } of nodesToLabel(displacements)) {
+      const n = nodes.get(nodeId), d = byId.get(nodeId);
+      if (!n || !d) continue;
+      const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
+      labels.add(sprite);
+      placed.push({ sprite, x: n.x, y: n.y, z: n.z ?? 0, d });
+    }
+    const place = (s: number) => {
+      for (const p of placed) p.sprite.position.set(p.x + p.d.ux * s, p.y + p.d.uy * s, p.z + p.d.uz * s);
+    };
+    place(scale);
+    ctx.deformedGroup.add(labels);
+    const setScale = ctx.deformedGroup.userData.setScale as ((s: number) => void) | undefined;
+    ctx.deformedGroup.userData.setScale = (s: number) => { setScale?.(s); place(s); };
+  }
 
   // Tint mode shapes with their distinctive color
   if (modeColor !== null) {

@@ -88,7 +88,7 @@ export interface ReportData {
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string } }>;
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number } }>;
   // Upgraded joint detail opts (detailing-aware, multiple types)
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
@@ -1225,8 +1225,11 @@ export function generateReportHtml(data: ReportData): string {
         for (const s of svcItems) {
           const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
           const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
-          const deflR = s.deflection ? `1/${Math.round(1 / s.deflection.ratio)}` : '—';
-          const deflLim = s.deflection ? `1/${Math.round(1 / s.deflection.limit)}` : '—';
+          // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
+          // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
+          const sod = s.deflection?.spanOverDelta;
+          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `L/${Math.round(sod)}` : 'L/∞') : '—';
+          const deflLim = s.deflection?.limitDivisor ? `L/${s.deflection.limitDivisor}` : '—';
           const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
           const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
           html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);

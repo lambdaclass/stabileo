@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
   /**
    * The PRO panel: which destination is open, and the three commands the ribbon delegates here.
    *
@@ -166,7 +167,7 @@
     const results = resultsStore.results3D;
     if (!results) return [];
     const stationData = resultsStore.hasCombinations3D
-      ? computeStationDemandsService(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
+      ? computeStationDemandsService(activePerCombo3D(), activeCombinations(), { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
       : undefined;
     return runUnifiedVerification(
       results,

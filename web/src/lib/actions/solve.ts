@@ -14,6 +14,7 @@
  */
 
 import { uiStore, resultsStore, modelStore } from '../store';
+import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { initSolver, isWasmReady } from '../engine/wasm-solver';
@@ -115,7 +116,7 @@ export async function runSolve3D() {
     if (modelStore.model.combinations.length > 0) {
       const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
       if (comboResult && typeof comboResult !== 'string') {
-        resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
+        publishCombinations3D(comboResult);
         comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
       }
     }

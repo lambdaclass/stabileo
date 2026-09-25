@@ -126,7 +126,7 @@ export function modelToCode(snap: ModelSnapshot): string {
     section('Footings');
     for (const [id, f] of entries('footings')) out.push(`footing ${id}${rest(f, ['id'])}`);
   }
-  const settings = ['massSource', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations'].filter((k) => s[k] !== undefined);
+  const settings = ['massSource', 'resultScopes', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations'].filter((k) => s[k] !== undefined);
   if (settings.length) {
     section('Project settings');
     for (const k of settings) out.push(`${k} ${lit(s[k])}`);
@@ -355,7 +355,7 @@ export function codeToModel(text: string): ParseResult {
         s.groups.push([id, { id, name, kind, ...fields }]);
         return;
       }
-      case 'massSource': case 'geotechnical': case 'footingMatPreferences': case 'codeSettings': case 'regulations': {
+      case 'massSource': case 'resultScopes': case 'geotechnical': case 'footingMatPreferences': case 'codeSettings': case 'regulations': {
         const v = json(pos[0], kw!.text);
         if (v !== undefined) s[kw!.text] = v;
         return;
