@@ -30,7 +30,8 @@ export type ProvenanceSource =
   | 'cad-dxf'
   | 'generator-truss'
   | 'generator-lattice-column'
-  | 'generator-shed';
+  | 'generator-shed'
+  | 'generator-structure';
 
 export interface ModelProvenance {
   source: ProvenanceSource;

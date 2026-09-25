@@ -26,6 +26,30 @@ import { carriedOrientation, carriedSupport } from '../model/edit/transform-fiel
 
 export const GENERATED_KIND = 'generated';
 
+/** What the generated structure stands on: what the generator chose, nothing, or one type everywhere it chose one. */
+export type SupportMode = 'generated' | 'none' | 'pinned' | 'fixed';
+
+/** Where the generator's output goes, shared by the two halves of its panel. */
+export interface OutputState {
+  mode: 'newModel' | 'atPoint' | 'atNode';
+  supportMode: SupportMode;
+  px: number; py: number; pz: number; rot: number;
+  plane: 'XZ' | 'YZ';
+  axisId: string;
+  anchorIndex: number;
+  result: string | null;
+}
+
+export const defaultOutputState = (): OutputState => ({
+  mode: 'newModel', supportMode: 'generated', px: 0, py: 0, pz: 0, rot: 0, plane: 'XZ', axisId: '', anchorIndex: 0, result: null,
+});
+
+export function withSupportMode<T extends { supports: Array<{ node: number; type: string }> }>(t: T, mode: SupportMode): T {
+  if (mode === 'generated') return t;
+  if (mode === 'none') return { ...t, supports: [] };
+  return { ...t, supports: t.supports.map((s) => ({ ...s, type: mode })) };
+}
+
 export interface GeneratedMeta {
   generator: string;
   params: Record<string, unknown>;

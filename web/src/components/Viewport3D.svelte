@@ -2079,7 +2079,7 @@
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      if (moved < 5) { placementHover(e); placementStore.commit(e.shiftKey); }
+      if (moved < 5 && placementStore.follow) { placementHover(e); placementStore.commit(e.shiftKey); }
       return;
     }
 
@@ -2560,7 +2560,7 @@
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
 
-    if (placementStore.active) { placementHover(e); return; }
+    if (placementStore.active) { if (placementStore.follow) placementHover(e); return; }
 
     // Schedule the expensive hover/diagram raycast on the next animation frame.
     // During orbit we clear any stale hover and skip entirely — recursive raycasts

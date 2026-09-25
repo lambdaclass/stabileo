@@ -38,6 +38,15 @@ export interface PlacementStart {
   withSupports?: boolean;
   /** Called after each commit (and not on cancel). */
   onCommit?: (r: EditReport | null) => void;
+  /**
+   * Put the fragment in with T yourself (a generated structure records a group as it goes in).
+   * Must be one undo step. Default: `insertFragment`.
+   */
+  commitWith?: (T: Affine) => EditReport | null;
+  /** False: the ghost stays where it is told (typed coordinates), the pointer does not move it. */
+  follow?: boolean;
+  rotation?: number;
+  anchorIndex?: number;
 }
 
 export interface MergePreview {
@@ -62,6 +71,8 @@ function createPlacementStore() {
   let withLoads = $state(true);
   let withSupports = $state(true);
   let onCommit: PlacementStart['onCommit'] = undefined;
+  let commitWith: PlacementStart['commitWith'] = undefined;
+  let follow = $state(true);
   let lastReport = $state.raw<EditReport | null>(null);
   /** Bumped whenever the transform changes, for the ghost to follow. */
   let revision = $state(0);
@@ -100,6 +111,7 @@ function createPlacementStore() {
     get target() { return target; },
     get targetLabel() { return targetLabel; },
     get revision() { return revision; },
+    get follow() { return follow; },
     get lastReport() { return lastReport; },
     get withLoads() { return withLoads; },
     set withLoads(v: boolean) { withLoads = v; },
@@ -114,10 +126,12 @@ function createPlacementStore() {
       mode = s.mode ?? 'insert';
       moveSet = s.moveSet ?? null;
       anchors = s.anchors && s.anchors.length ? s.anchors : defaultAnchors(s.fragment);
-      anchorIndex = 0;
-      rotationDeg = 0;
+      anchorIndex = Math.min(Math.max(0, s.anchorIndex ?? 0), anchors.length - 1);
+      rotationDeg = s.rotation ?? 0;
       mirrored = false;
-      target = s.target ?? anchors[0]!;
+      follow = s.follow ?? true;
+      commitWith = s.commitWith;
+      target = s.target ?? anchors[anchorIndex]!;
       targetLabel = '';
       withLoads = s.withLoads ?? true;
       withSupports = s.withSupports ?? true;
@@ -139,6 +153,28 @@ function createPlacementStore() {
       if (!active || anchors.length === 0) return;
       // Keep the ghost where it is on screen: the new anchor goes to the pointer.
       anchorIndex = (anchorIndex + step + anchors.length) % anchors.length;
+      revision++;
+    },
+
+    setRotation(deg: number): void {
+      if (!active) return;
+      rotationDeg = ((deg % 360) + 360) % 360;
+      revision++;
+    },
+
+    setAnchorIndex(i: number): void {
+      if (!active || anchors.length === 0) return;
+      anchorIndex = Math.min(Math.max(0, i), anchors.length - 1);
+      revision++;
+    },
+
+    /** A new picture of the same thing (the parameters changed): keep where and how it is placed. */
+    replaceFragment(frag: Fragment, nextAnchors?: Vec3[], committer?: PlacementStart['commitWith']): void {
+      if (!active || frag.nodes.length === 0) return;
+      fragment = frag;
+      anchors = nextAnchors && nextAnchors.length ? nextAnchors : defaultAnchors(frag);
+      anchorIndex = Math.min(anchorIndex, anchors.length - 1);
+      if (committer) commitWith = committer;
       revision++;
     },
 
@@ -184,7 +220,9 @@ function createPlacementStore() {
           new Set([...[...c.quads].map((id) => `q${id}`), ...[...c.plates].map((id) => `p${id}`)]));
         keepGoing = false;
       } else {
-        report = insertFragment(fragment, [T], { withLoads, withSupports, leftHand: uiStore.axisConvention3D === 'leftHand' });
+        report = commitWith ? commitWith(T)
+          : insertFragment(fragment, [T], { withLoads, withSupports, leftHand: uiStore.axisConvention3D === 'leftHand' });
+        if (!report) { store.cancel(); return null; }
         uiStore.setSelection(new Set(report.nodes), new Set(report.elements), true,
           new Set([...report.quads.map((id) => `q${id}`), ...report.plates.map((id) => `p${id}`)]));
       }
@@ -207,6 +245,8 @@ function createPlacementStore() {
       anchors = [];
       index = null;
       onCommit = undefined;
+      commitWith = undefined;
+      follow = true;
       revision++;
     },
   };
