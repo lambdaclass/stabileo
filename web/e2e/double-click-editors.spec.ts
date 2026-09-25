@@ -91,17 +91,27 @@ test.describe('@smoke editing a member by double-click', () => {
     await expect(page.getByTestId('release-axis-j')).toHaveValue('local');
   });
 
-  test('Cancel changes nothing', async ({ page }) => {
-    const versionBefore = await page.evaluate(() => window.__stabileo.modelVersion());
-
+  test('a change shows at once, and Reset puts the member back', async ({ page }) => {
     await openMember(page);
     await page.getByTestId('release-i').selectOption('hinge');
-    await page.getByRole('button', { name: /Cancelar|Cancel/ }).click();
-    await page.waitForTimeout(400);
-
-    expect(await page.evaluate(() => window.__stabileo.modelVersion())).toBe(versionBefore);
+    /* Live: the model has it while the card is still open. */
+    await expect
+      .poll(() => page.evaluate(() => window.__stabileo.viewportPick().hasResults))
+      .toBe(false);
+    await page.getByTestId('element-editor-reset').click();
+    await expect(page.getByTestId('release-i')).toHaveValue('none');
+    await page.getByTestId('element-editor-ok').click();
     await openMember(page);
     await expect(page.getByTestId('release-i')).toHaveValue('none');
+  });
+
+  test('reversing the member keeps the structure: same reactions', async ({ page }) => {
+    const before = await page.evaluate(() => window.__stabileo.modelVersion());
+    await openMember(page);
+    await page.getByTestId('element-editor-reverse').click();
+    await expect(page.locator('[data-testid=element-editor] .info')).toContainText('2 → 1');
+    await page.getByTestId('element-editor-ok').click();
+    expect(await page.evaluate(() => window.__stabileo.modelVersion())).toBeGreaterThan(before);
   });
 
   test('an axis only appears where there is a slide to orient', async ({ page }) => {

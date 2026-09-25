@@ -14,12 +14,14 @@
     onchange,
     compact = false,
     testid = undefined,
+    axisTestid = undefined,
   }: {
     release: Release | undefined;
     is3D: boolean;
     onchange: (next: Release) => void;
     compact?: boolean;
     testid?: string;
+    axisTestid?: string;
   } = $props();
 
   const kind = $derived(endKindOf(release, is3D));
@@ -39,7 +41,7 @@
   {#if kindHasSlide(kind)}
     <!-- Only a slide has an axis to be measured against. -->
     <select value={axis} onchange={(e) => pickAxis(e.currentTarget.value as SlideAxisMode)}
-      title={t('float.jointAxis')} data-testid={testid ? `${testid}-axis` : undefined}>
+      title={t('float.jointAxis')} data-testid={axisTestid ?? (testid ? `${testid}-axis` : undefined)}>
       <option value="global">{t('float.jointAxisGlobal')}</option>
       <option value="local">{t('float.jointAxisLocal')}</option>
     </select>

@@ -1426,10 +1426,16 @@
       // canvas-x = world x, canvas-up = world y (= 3D z). Local y is out of plane.
       let axes;
       try {
+        /*
+         * A vertical member's z is −X in the plane — the side the solver's own
+         * transverse axis takes for a column drawn upward — rather than the
+         * +X the space convention falls back to. Everything else keeps z up.
+         */
+        const vertical = Math.abs(nj.x - ni.x) < 1e-9 * Math.max(1, Math.abs(nj.y - ni.y));
         axes = computeLocalAxes3D(
           { id: 0, x: ni.x, y: 0, z: ni.y },
           { id: 0, x: nj.x, y: 0, z: nj.y },
-          undefined, undefined, leftHand,
+          vertical ? { x: 0, y: Math.sign(nj.y - ni.y), z: 0 } : undefined, undefined, leftHand,
         );
       } catch { continue; }
 

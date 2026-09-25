@@ -175,31 +175,138 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
 function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
-  const solverLoads = loads.map(l => {
+  /*
+   * One builder for every 2D path. The linear solve and the combinations had
+   * their own, which passed a distributed or point load's value straight to
+   * the solver as a transverse local load: a load given in global axes, or at
+   * an angle, was applied perpendicular to the member. On an inclined member
+   * that is a different load — a vertical 10 kN/m on a 3:4 rafter gave 33 kN
+   * of horizontal reaction — while P-Δ, buckling and the other analyses,
+   * which used this decomposition, got it right.
+   */
+  const solverLoads: SolverInput['loads'] = [];
+
+  for (const l of loads) {
     if (l.type === 'nodal') {
-      return {
+      solverLoads.push({
         type: 'nodal' as const,
         data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
-      };
-    } else if (l.type === 'distributed') {
-      const d = l.data as DistributedLoad;
-      const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
-      if (d.a !== undefined && d.a > 0) sd.a = d.a;
-      if (d.b !== undefined) sd.b = d.b;
-      return { type: 'distributed' as const, data: sd };
+      });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
-      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } };
-    } else {
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
+    } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
-      const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
-      if (d.px !== undefined && d.px !== 0) spd.px = d.px;
-      if ((d.my ?? d.mz) !== undefined && (d.my ?? d.mz) !== 0) spd.my = d.my ?? d.mz;
-      return { type: 'pointOnElement' as const, data: spd };
-    }
-  });
+      const angle = d.angle ?? 0;
+      const isGlobal = d.isGlobal ?? false;
 
-  // Add self-weight as distributed loads
+      if (angle === 0 && !isGlobal) {
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.my ?? d.mz } });
+      } else {
+        const elem = model.elements.get(d.elementId);
+        if (!elem) continue;
+        const ni = model.nodes.get(elem.nodeI);
+        const nj = model.nodes.get(elem.nodeJ);
+        if (!ni || !nj) continue;
+        const edx = nj.x - ni.x, edy = nj.y - ni.y;
+        const L = Math.sqrt(edx * edx + edy * edy);
+        if (L < 1e-10) continue;
+        const cosTheta = edx / L, sinTheta = edy / L;
+        const angleRad = angle * Math.PI / 180;
+
+        let fxGlobal: number, fyGlobal: number;
+        if (isGlobal) {
+          fxGlobal = d.p * Math.sin(angleRad);
+          fyGlobal = d.p * Math.cos(angleRad);
+        } else {
+          const fLocalPerp = d.p * Math.cos(angleRad);
+          const fLocalAxial = d.p * Math.sin(angleRad);
+          fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
+          fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
+        }
+
+        const pPerp = fxGlobal * (-sinTheta) + fyGlobal * cosTheta;
+        const pAxial = fxGlobal * cosTheta + fyGlobal * sinTheta;
+
+        if (Math.abs(pPerp) > 1e-10) {
+          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: pPerp } });
+        }
+        // The axial force and the moment given alongside it are local and unaffected by the angle.
+        const pointMy = d.my ?? d.mz;
+        if ((d.px !== undefined && d.px !== 0) || (pointMy !== undefined && pointMy !== 0)) {
+          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: 0, px: d.px, my: pointMy } });
+        }
+        if (Math.abs(pAxial) > 1e-10) {
+          const t = d.a / L;
+          const fI = pAxial * (1 - t);
+          const fJ = pAxial * t;
+          solverLoads.push(
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
+          );
+        }
+      }
+    } else if (l.type === 'distributed') {
+      const d = l.data as DistributedLoad;
+      const angle = d.angle ?? 0;
+      const isGlobal = d.isGlobal ?? false;
+
+      if (angle === 0 && !isGlobal) {
+        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: d.qI, qJ: d.qJ, a: d.a, b: d.b } });
+      } else {
+        const elem = model.elements.get(d.elementId);
+        if (!elem) continue;
+        const ni = model.nodes.get(elem.nodeI);
+        const nj = model.nodes.get(elem.nodeJ);
+        if (!ni || !nj) continue;
+        const edx = nj.x - ni.x, edy = nj.y - ni.y;
+        const L = Math.sqrt(edx * edx + edy * edy);
+        if (L < 1e-10) continue;
+        const cosTheta = edx / L, sinTheta = edy / L;
+        const angleRad = angle * Math.PI / 180;
+
+        let qIPerpLocal: number, qIAxialLocal: number;
+        let qJPerpLocal: number, qJAxialLocal: number;
+
+        if (isGlobal) {
+          const fxFactorI = d.qI * Math.sin(angleRad);
+          const fyFactorI = d.qI * Math.cos(angleRad);
+          const fxFactorJ = d.qJ * Math.sin(angleRad);
+          const fyFactorJ = d.qJ * Math.cos(angleRad);
+          qIPerpLocal = fxFactorI * (-sinTheta) + fyFactorI * cosTheta;
+          qIAxialLocal = fxFactorI * cosTheta + fyFactorI * sinTheta;
+          qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
+          qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
+        } else {
+          qIPerpLocal = d.qI * Math.cos(angleRad);
+          qIAxialLocal = d.qI * Math.sin(angleRad);
+          qJPerpLocal = d.qJ * Math.cos(angleRad);
+          qJAxialLocal = d.qJ * Math.sin(angleRad);
+        }
+
+        if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
+          solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
+        }
+        if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
+          const loadA = d.a ?? 0;
+          const loadB = d.b ?? L;
+          const loadSpan = loadB - loadA;
+          const totalAxial = (qIAxialLocal + qJAxialLocal) * loadSpan / 2;
+          const sumQ = Math.abs(qIAxialLocal) + Math.abs(qJAxialLocal);
+          const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(qIAxialLocal) + 2 * Math.abs(qJAxialLocal)) / (3 * sumQ) : loadSpan / 2;
+          const centroidFromNodeI = loadA + centroidFromA;
+          const tC = centroidFromNodeI / L;
+          const fI = totalAxial * (1 - tC);
+          const fJ = totalAxial * tC;
+          solverLoads.push(
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
+          );
+        }
+      }
+    }
+  }
+
   if (includeSelfWeight) {
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
@@ -207,29 +314,19 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!mat || !sec || !ni || !nj) continue;
-
-      const dx = nj.x - ni.x;
-      const dy = nj.y - ni.y;
+      const dx = nj.x - ni.x, dy = nj.y - ni.y;
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
-
-      const sinTheta = dy / L;
-      const cosTheta = dx / L;
+      const sinTheta = dy / L, cosTheta = dx / L;
       const w = mat.rho * sec.a;
-
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({
-          type: 'distributed' as const,
-          data: { elementId: elem.id, qI: qPerp, qJ: qPerp },
-        });
+        solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
       }
-
       const qTangent = -w * sinTheta;
       if (Math.abs(qTangent) > 1e-10) {
         const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta;
-        const fzNode = Ft * sinTheta;
+        const fxNode = Ft * cosTheta, fzNode = Ft * sinTheta;
         solverLoads.push(
           { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
           { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
@@ -826,151 +923,7 @@ export async function validateAndSolve2DAsync(
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
 
-  const solverLoads: SolverInput['loads'] = [];
-
-  for (const l of model.loads) {
-    if (l.type === 'nodal') {
-      solverLoads.push({
-        type: 'nodal' as const,
-        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
-      });
-    } else if (l.type === 'thermal') {
-      const d = l.data as ThermalLoad;
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
-    } else if (l.type === 'pointOnElement') {
-      const d = l.data as PointLoadOnElement;
-      const angle = d.angle ?? 0;
-      const isGlobal = d.isGlobal ?? false;
-
-      if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.my ?? d.mz } });
-      } else {
-        const elem = model.elements.get(d.elementId);
-        if (!elem) continue;
-        const ni = model.nodes.get(elem.nodeI);
-        const nj = model.nodes.get(elem.nodeJ);
-        if (!ni || !nj) continue;
-        const edx = nj.x - ni.x, edy = nj.y - ni.y;
-        const L = Math.sqrt(edx * edx + edy * edy);
-        if (L < 1e-10) continue;
-        const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
-
-        let fxGlobal: number, fyGlobal: number;
-        if (isGlobal) {
-          fxGlobal = d.p * Math.sin(angleRad);
-          fyGlobal = d.p * Math.cos(angleRad);
-        } else {
-          const fLocalPerp = d.p * Math.cos(angleRad);
-          const fLocalAxial = d.p * Math.sin(angleRad);
-          fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
-          fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
-        }
-
-        const pPerp = fxGlobal * (-sinTheta) + fyGlobal * cosTheta;
-        const pAxial = fxGlobal * cosTheta + fyGlobal * sinTheta;
-
-        if (Math.abs(pPerp) > 1e-10) {
-          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: pPerp } });
-        }
-        if (Math.abs(pAxial) > 1e-10) {
-          const t = d.a / L;
-          const fI = pAxial * (1 - t);
-          const fJ = pAxial * t;
-          solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
-          );
-        }
-      }
-    } else if (l.type === 'distributed') {
-      const d = l.data as DistributedLoad;
-      const angle = d.angle ?? 0;
-      const isGlobal = d.isGlobal ?? false;
-
-      if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: d.qI, qJ: d.qJ, a: d.a, b: d.b } });
-      } else {
-        const elem = model.elements.get(d.elementId);
-        if (!elem) continue;
-        const ni = model.nodes.get(elem.nodeI);
-        const nj = model.nodes.get(elem.nodeJ);
-        if (!ni || !nj) continue;
-        const edx = nj.x - ni.x, edy = nj.y - ni.y;
-        const L = Math.sqrt(edx * edx + edy * edy);
-        if (L < 1e-10) continue;
-        const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
-
-        let qIPerpLocal: number, qIAxialLocal: number;
-        let qJPerpLocal: number, qJAxialLocal: number;
-
-        if (isGlobal) {
-          const fxFactorI = d.qI * Math.sin(angleRad);
-          const fyFactorI = d.qI * Math.cos(angleRad);
-          const fxFactorJ = d.qJ * Math.sin(angleRad);
-          const fyFactorJ = d.qJ * Math.cos(angleRad);
-          qIPerpLocal = fxFactorI * (-sinTheta) + fyFactorI * cosTheta;
-          qIAxialLocal = fxFactorI * cosTheta + fyFactorI * sinTheta;
-          qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
-          qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
-        } else {
-          qIPerpLocal = d.qI * Math.cos(angleRad);
-          qIAxialLocal = d.qI * Math.sin(angleRad);
-          qJPerpLocal = d.qJ * Math.cos(angleRad);
-          qJAxialLocal = d.qJ * Math.sin(angleRad);
-        }
-
-        if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
-          solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
-        }
-        if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
-          const loadA = d.a ?? 0;
-          const loadB = d.b ?? L;
-          const loadSpan = loadB - loadA;
-          const totalAxial = (qIAxialLocal + qJAxialLocal) * loadSpan / 2;
-          const sumQ = Math.abs(qIAxialLocal) + Math.abs(qJAxialLocal);
-          const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(qIAxialLocal) + 2 * Math.abs(qJAxialLocal)) / (3 * sumQ) : loadSpan / 2;
-          const centroidFromNodeI = loadA + centroidFromA;
-          const tC = centroidFromNodeI / L;
-          const fI = totalAxial * (1 - tC);
-          const fJ = totalAxial * tC;
-          solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
-          );
-        }
-      }
-    }
-  }
-
-  if (includeSelfWeight) {
-    for (const elem of model.elements.values()) {
-      const mat = model.materials.get(elem.materialId);
-      const sec = model.sections.get(elem.sectionId);
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!mat || !sec || !ni || !nj) continue;
-      const dx = nj.x - ni.x, dy = nj.y - ni.y;
-      const L = Math.sqrt(dx * dx + dy * dy);
-      if (L < 1e-10) continue;
-      const sinTheta = dy / L, cosTheta = dx / L;
-      const w = mat.rho * sec.a;
-      const qPerp = -w * cosTheta;
-      if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
-      }
-      const qTangent = -w * sinTheta;
-      if (Math.abs(qTangent) > 1e-10) {
-        const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta, fzNode = Ft * sinTheta;
-        solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
-        );
-      }
-    }
-  }
+  const solverLoads = buildSolverLoads2D(model, model.loads, includeSelfWeight);
 
   return {
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),

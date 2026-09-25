@@ -1,8 +1,22 @@
 <script lang="ts">
-  import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
-  import { isHinged, releaseAfterEdit } from '../lib/store/end-release';
+  /**
+   * The member card, opened by double-clicking a member.
+   *
+   * ── Live, with a way back ────────────────────────────────────────
+   * Every change goes into the model as it is made — with live calc on the
+   * results follow at once — and closing keeps them. Reset puts the member
+   * back as it was when the card opened: its material, section, ends, sense
+   * and the loads on it. It used to collect the changes and apply them on OK,
+   * so nothing could be seen until the card was gone, and Cancel was the only
+   * way back.
+   *
+   * One undo step covers everything done while the card is open.
+   */
+  import { modelStore, uiStore, historyStore } from '../lib/store';
+  import type { Element, Load, Release } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
   import EditorCard from './EditorCard.svelte';
+  import EndConditionSelect from './EndConditionSelect.svelte';
 
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
@@ -12,135 +26,73 @@
   /* Position, clamping and dragging belong to `EditorCard`. */
   const pos = $derived(rawPos);
 
-  let hingeStart = $state(false);
-  let hingeEnd = $state(false);
-  let materialId = $state(1);
-  let sectionId = $state(1);
-  // Sliding joints (Basic 2D only) — '' = none.
-  let slideStart = $state<'' | 'x' | 'z'>('');
-  let slideEnd = $state<'' | 'x' | 'z'>('');
-  let slideStartAxis = $state<'global' | 'local'>('global');
-  let slideEndAxis = $state<'global' | 'local'>('global');
   // Basic 3D internal joint — six released relative-DOF masks per end.
   const DOF3D_LABELS = ['dx', 'dy', 'dz', 'θx', 'θy', 'θz'];
-  let jointStart = $state<boolean[]>([false, false, false, false, false, false]);
-  let jointEnd = $state<boolean[]>([false, false, false, false, false, false]);
 
-  // Sync local values when element changes
+  /* The member as the card found it, and the loads on it — what Reset returns to. */
+  let original: { id: number; element: Element; loads: Load[] } | null = null;
+  let recorded = false;
   $effect(() => {
-    if (elem) {
-      hingeStart = isHinged(elem.releaseI, is3DMode);
-      hingeEnd = isHinged(elem.releaseJ, is3DMode);
-      slideStart = elem.releaseI?.slide ?? '';
-      slideEnd = elem.releaseJ?.slide ?? '';
-      slideStartAxis = elem.releaseI?.slideAxis ?? 'global';
-      slideEndAxis = elem.releaseJ?.slideAxis ?? 'global';
-      jointStart = elem.jointI ? [...elem.jointI.dof] : [false, false, false, false, false, false];
-      jointEnd = elem.jointJ ? [...elem.jointJ.dof] : [false, false, false, false, false, false];
-      materialId = elem.materialId;
-      sectionId = elem.sectionId;
-    }
+    const id = elemId;
+    if (id === null) { original = null; return; }
+    if (original?.id === id) return;
+    const el = modelStore.elements.get(id);
+    if (!el) return;
+    original = {
+      id,
+      element: $state.snapshot(el) as Element,
+      loads: ($state.snapshot(modelStore.model.loads) as Load[]).filter((l) => (l.data as { elementId?: number }).elementId === id),
+    };
+    recorded = false;
   });
+  let changed = $state(false);
 
-  /**
-   * One end's condition as a single choice.
-   *
-   * The model stores a hinge and a slide independently, which is right — they
-   * release different things and can coexist. The CARD asks about the end as
-   * a whole, because that is how someone thinks about it, so the two fields
-   * are folded into one name here and unfolded again on the way back.
-   */
-  type ReleaseKind = 'none' | 'hinge' | 'slideX' | 'slideZ' | 'hingeSlideX' | 'hingeSlideZ';
-  const RELEASE_LABEL = {
-    slideX: 'editor.relSlideX', slideZ: 'editor.relSlideZ',
-    hingeSlideX: 'editor.relHingeSlideX', hingeSlideZ: 'editor.relHingeSlideZ',
-  } as const;
-
-  function kindOf(hinge: boolean, slide: '' | 'x' | 'z'): ReleaseKind {
-    if (slide === '') return hinge ? 'hinge' : 'none';
-    if (slide === 'x') return hinge ? 'hingeSlideX' : 'slideX';
-    return hinge ? 'hingeSlideZ' : 'slideZ';
+  /** The first change records the undo step; the rest belong to it. */
+  function record() {
+    if (!recorded) { historyStore.pushState({ notifyMutation: false }); recorded = true; }
+    changed = true;
   }
 
-  const releaseStart = $derived(kindOf(hingeStart, slideStart));
-  const releaseEnd = $derived(kindOf(hingeEnd, slideEnd));
-
-  function setRelease(end: 'i' | 'j', kind: ReleaseKind) {
-    const hinge = kind === 'hinge' || kind.startsWith('hingeSlide');
-    const slide: '' | 'x' | 'z' =
-      kind === 'slideX' || kind === 'hingeSlideX' ? 'x'
-        : kind === 'slideZ' || kind === 'hingeSlideZ' ? 'z'
-        : '';
-    if (end === 'i') { hingeStart = hinge; slideStart = slide; }
-    else { hingeEnd = hinge; slideEnd = slide; }
+  function patch(p: Partial<Element>) {
+    if (elemId === null) return;
+    record();
+    modelStore.updateElement(elemId, p);
   }
 
-  function confirm() {
-    if (!elem || elemId === null) return;
-    const changed =
-      hingeStart !== isHinged(elem.releaseI, is3DMode) ||
-      hingeEnd !== isHinged(elem.releaseJ, is3DMode) ||
-      slideStart !== (elem.releaseI?.slide ?? '') ||
-      slideEnd !== (elem.releaseJ?.slide ?? '') ||
-      slideStartAxis !== (elem.releaseI?.slideAxis ?? 'global') ||
-      slideEndAxis !== (elem.releaseJ?.slideAxis ?? 'global') ||
-      (is3DMode && jointStart.some((v, i) => v !== (elem.jointI?.dof[i] ?? false))) ||
-      (is3DMode && jointEnd.some((v, i) => v !== (elem.jointJ?.dof[i] ?? false))) ||
-      materialId !== elem.materialId ||
-      sectionId !== elem.sectionId;
+  function setEnd(end: 'i' | 'j', r: Release) {
+    patch(end === 'i' ? { releaseI: r } : { releaseJ: r });
+  }
 
-    if (changed) {
-      historyStore.pushState();
-      const relI = releaseAfterEdit(elem.releaseI, hingeStart, is3DMode) as typeof elem.releaseI;
-      const relJ = releaseAfterEdit(elem.releaseJ, hingeEnd, is3DMode) as typeof elem.releaseJ;
-      if (slideStart === '') { delete relI.slide; delete relI.slideAxis; }
-      else { relI.slide = slideStart; relI.slideAxis = slideStartAxis; }
-      if (slideEnd === '') { delete relJ.slide; delete relJ.slideAxis; }
-      else { relJ.slide = slideEnd; relJ.slideAxis = slideEndAxis; }
+  function setJoint(end: 'i' | 'j', k: number, on: boolean) {
+    if (!elem) return;
+    const cur = (end === 'i' ? elem.jointI?.dof : elem.jointJ?.dof) ?? [false, false, false, false, false, false];
+    const dof = cur.map((v, i) => (i === k ? on : v)) as NonNullable<Element['jointI']>['dof'];
+    const joint = dof.some(Boolean) ? { dof } : undefined;
+    patch(end === 'i' ? { jointI: joint } : { jointJ: joint });
+  }
 
-      /*
-       * ── Through the store, not onto the object ────────────────────
-       *
-       * This used to assign straight onto `elem`: `elem.materialId = …` and
-       * so on. That changes the data and tells nothing. `modelVersion` never
-       * moved, so everything keyed on it went on believing the model was the
-       * one that had been analysed; the mutation hook never fired; the
-       * elements map was never reassigned, so the canvas had no reason to
-       * redraw; and the results on screen still described the member's old
-       * section.
-       */
-      const patch: Parameters<typeof modelStore.updateElement>[1] = {
-        releaseI: relI,
-        releaseJ: relJ,
-        materialId,
-        sectionId,
-      };
-      if (is3DMode) {
-        patch.jointI = jointStart.some(Boolean)
-          ? ({ dof: [...jointStart] } as NonNullable<typeof elem.jointI>) : undefined;
-        patch.jointJ = jointEnd.some(Boolean)
-          ? ({ dof: [...jointEnd] } as NonNullable<typeof elem.jointJ>) : undefined;
-      }
-      modelStore.updateElement(elemId, patch);
+  function reverse() {
+    if (elemId === null) return;
+    record();
+    modelStore.reverseElement(elemId);
+  }
 
-      /*
-       * And the analysis described the member as it was. A material swap
-       * changes every force in the model that runs through it.
-       */
-      resultsStore.clear();
-    }
-    close();
+  function reset() {
+    const o = original;
+    if (!o || !changed) return;
+    const others = modelStore.model.loads.filter((l) => (l.data as { elementId?: number }).elementId !== o.id);
+    modelStore.model.loads = [...others, ...o.loads.map((l) => ({ ...l, data: { ...l.data } }) as Load)];
+    modelStore.updateElement(o.id, { ...o.element });
+    changed = false;
   }
 
   function close() {
     uiStore.editingElementId = null;
+    changed = false;
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirm();
-    } else if (e.key === 'Escape') {
+    if (e.key === 'Enter' || e.key === 'Escape') {
       e.preventDefault();
       close();
     }
@@ -159,7 +111,7 @@
 
     <div class="field">
       <span>{t('editor.material')}:</span>
-      <select bind:value={materialId}>
+      <select value={elem.materialId} onchange={(e) => patch({ materialId: Number(e.currentTarget.value) })}>
         {#each Array.from(modelStore.materials.values()) as mat}
           <option value={mat.id}>{mat.name}</option>
         {/each}
@@ -168,7 +120,7 @@
 
     <div class="field">
       <span>{t('editor.section')}:</span>
-      <select bind:value={sectionId}>
+      <select value={elem.sectionId} onchange={(e) => patch({ sectionId: Number(e.currentTarget.value) })}>
         {#each Array.from(modelStore.sections.values()) as sec}
           <option value={sec.id}>{sec.name}</option>
         {/each}
@@ -177,20 +129,11 @@
 
     <!--
       ── Releases, one end at a time ──────────────────────────────────
-      This was three separate controls: a hinge checkbox for each end, then
-      a slider dropdown for each end somewhere below, then an axis dropdown
-      that appeared next to the slider. The two things that describe ONE end
-      of the member sat in different parts of the card, and the word
-      "articulación" never appeared over any of them.
-
-      Now the end is the unit. Each gets one dropdown naming exactly what it
-      releases, and an axis beside it when there is a slide to orient.
-
-      The combined entries are not padding. A hinge releases rotation and a
-      slider releases a translation, so a pin-on-roller is a real end
-      condition and the old pair of independent controls could express it.
-      A dropdown offering only one or the other would silently drop that
-      combination the first time such a model was opened and saved.
+      Each end gets one dropdown naming exactly what it releases, and an axis
+      beside it when there is a slide to orient. The combined entries are not
+      padding: a hinge releases rotation and a slider a translation, so a
+      pin-on-roller is a real end condition. Sliding joints are a plane-frame
+      device, so in 3D only one already set is offered (to remove it).
     -->
     <div class="rel">
       <div class="rel-title">{t('editor.releases')}</div>
@@ -198,63 +141,34 @@
       {#each [
         { key: 'i', label: t('editor.atStart') },
         { key: 'j', label: t('editor.atEnd') },
-      ] as end (end.key)}
+      ] as const as end (end.key)}
+        {@const rel = end.key === 'i' ? elem.releaseI : elem.releaseJ}
         <div class="rel-row">
           <span class="rel-end">{end.label}</span>
-          <select
-            value={end.key === 'i' ? releaseStart : releaseEnd}
-            onchange={(e) => setRelease(end.key as 'i' | 'j', e.currentTarget.value as ReleaseKind)}
-            data-testid="release-{end.key}"
-          >
-            <option value="none">{t('editor.relNone')}</option>
-            <option value="hinge">{t('editor.relHinge')}</option>
-            <!-- Sliding joints are a plane-frame device: a space solve refuses them. In 3D
-                 only one already set (a model brought from 2D) is shown, so it can be removed. -->
-            {#each ['slideX', 'slideZ', 'hingeSlideX', 'hingeSlideZ'] as const as kind (kind)}
-              {#if !is3DMode || (end.key === 'i' ? releaseStart : releaseEnd) === kind}
-                <option value={kind}>{t(RELEASE_LABEL[kind])}</option>
-              {/if}
-            {/each}
-          </select>
-          {#if is3DMode && (end.key === 'i' ? slideStart : slideEnd) !== ''}
-            <span class="rel-warn">{t('editor.slideNot3D')}</span>
-          {/if}
-
-          {#if (end.key === 'i' ? releaseStart : releaseEnd).startsWith('slide')
-            || (end.key === 'i' ? releaseStart : releaseEnd).startsWith('hingeSlide')}
-            <!-- Only a slide has an axis to be measured against. -->
-            <select
-              value={end.key === 'i' ? slideStartAxis : slideEndAxis}
-              onchange={(e) => {
-                const v = e.currentTarget.value as 'global' | 'local';
-                if (end.key === 'i') slideStartAxis = v; else slideEndAxis = v;
-              }}
-              title={t('float.jointAxis')}
-              data-testid="release-axis-{end.key}"
-            >
-              <option value="global">{t('float.jointAxisGlobal')}</option>
-              <option value="local">{t('float.jointAxisLocal')}</option>
-            </select>
-          {/if}
+          <EndConditionSelect release={rel} is3D={is3DMode} onchange={(r) => setEnd(end.key, r)} testid="release-{end.key}" axisTestid="release-axis-{end.key}" />
         </div>
+        {#if is3DMode && rel?.slide}
+          <span class="rel-warn">{t('editor.slideNot3D')}</span>
+        {/if}
       {/each}
+
+      <button class="ee-btn ee-flip" onclick={reverse} title={t('editor.reverseHint')} data-testid="element-editor-reverse">
+        ⇄ {t('editor.reverse')}
+      </button>
     </div>
 
     {#if is3DMode && elem.type === 'frame'}
       <div class="joint3d" title={t('editor.joint3dHint')}>
         <div class="joint3d-title">{t('editor.joint3dTitle')}</div>
-        <div class="joint3d-row">
-          <span class="joint3d-end">I</span>
-          {#each DOF3D_LABELS as label, i}
-            <label class="joint3d-dof"><input type="checkbox" bind:checked={jointStart[i]} />{label}</label>
-          {/each}
-        </div>
-        <div class="joint3d-row">
-          <span class="joint3d-end">J</span>
-          {#each DOF3D_LABELS as label, i}
-            <label class="joint3d-dof"><input type="checkbox" bind:checked={jointEnd[i]} />{label}</label>
-          {/each}
-        </div>
+        {#each [{ end: 'i', label: 'I' }, { end: 'j', label: 'J' }] as const as row (row.end)}
+          {@const dof = (row.end === 'i' ? elem.jointI?.dof : elem.jointJ?.dof) ?? [false, false, false, false, false, false]}
+          <div class="joint3d-row">
+            <span class="joint3d-end">{row.label}</span>
+            {#each DOF3D_LABELS as label, i}
+              <label class="joint3d-dof"><input type="checkbox" checked={dof[i]} onchange={(e) => setJoint(row.end, i, e.currentTarget.checked)} />{label}</label>
+            {/each}
+          </div>
+        {/each}
       </div>
     {/if}
 
@@ -264,8 +178,8 @@
     </div>
 
     {#snippet footer()}
-      <button class="ee-btn" onclick={close}>{t('editor.cancel')}</button>
-      <button class="ee-btn ee-ok" onclick={confirm} data-testid="element-editor-ok">OK</button>
+      <button class="ee-btn" onclick={reset} disabled={!changed} title={t('editor.resetHint')} data-testid="element-editor-reset">{t('editor.reset')}</button>
+      <button class="ee-btn ee-ok" onclick={close} data-testid="element-editor-ok">OK</button>
     {/snippet}
   </EditorCard>
 {/if}
@@ -282,8 +196,7 @@
     color: var(--st-text-2);
   }
 
-  .field select,
-  .rel-row select {
+  .field select {
     padding: 0.2rem 0.3rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
@@ -294,8 +207,7 @@
     max-width: 130px;
   }
 
-  .field select:focus,
-  .rel-row select:focus { outline: none; border-color: var(--st-accent); }
+  .field select:focus { outline: none; border-color: var(--st-accent); }
 
   /* ── Releases ─────────────────────────────────────────────────── */
   .rel {
@@ -326,7 +238,6 @@
     color: var(--st-text-2);
   }
 
-  .rel-row select { flex: 1; max-width: none; }
 
   /* ── 3D joints ────────────────────────────────────────────────── */
   .joint3d {
@@ -390,5 +301,7 @@
   }
 
   .ee-ok:hover { background: var(--st-selected-bg); }
+  .ee-btn:disabled { opacity: 0.45; cursor: default; }
+  .ee-flip { align-self: flex-start; margin-top: 0.15rem; }
   .rel-warn { font-size: 0.65rem; color: var(--st-warn, #b45309); }
 </style>

@@ -47,6 +47,7 @@ import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
 // below), never during module initialisation.
+import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
@@ -1784,6 +1785,16 @@ function createModelStore() {
       modelVersion++;
       _onMutation?.();
       model.elements.set(id, { ...elem, ...patch, id: elem.id });
+      model.elements = new Map(model.elements);
+    },
+
+    /** Reverse a member (I ↔ J) without changing the structure; see reverse-element.ts. */
+    reverseElement(id: number): void {
+      if (!model.elements.has(id)) return;
+      if (!_undoBatching) _pushUndo?.();
+      modelVersion++;
+      _onMutation?.();
+      reverseElementInModel(model, id);
       model.elements = new Map(model.elements);
     },
 
