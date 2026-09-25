@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -8,20 +9,24 @@
     { id: 'roller', key: 'float.supportRoller', icon: '', svg: true },
     { id: 'spring', key: 'float.supportSpring', icon: '⌇', svg: false },
   ] as const;
+  const SUP_GLYPH = { fixed: 'supFixed', pinned: 'supPinned', roller: 'supRoller', spring: 'supSpring' } as const;
 </script>
 
 {#if uiStore.analysisMode === '3d'}
   <!-- Per-DOF checkboxes (global frame) -->
-  <label class="ft-chk" title={t('float.supportRestrainTx')}><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
-  <label class="ft-chk" title={t('float.supportRestrainTy')}><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>
-  <label class="ft-chk" title={t('float.supportRestrainTz')}><input type="checkbox" bind:checked={uiStore.sup3dTz}/> <span>Fz</span></label>
-  <label class="ft-chk" title={t('float.supportRestrainRx')}><input type="checkbox" bind:checked={uiStore.sup3dRx}/> <span>Mx</span></label>
-  <label class="ft-chk" title={t('float.supportRestrainRy')}><input type="checkbox" bind:checked={uiStore.sup3dRy}/> <span>My</span></label>
-  <label class="ft-chk" title={t('float.supportRestrainRz')}><input type="checkbox" bind:checked={uiStore.sup3dRz}/> <span>Mz</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainTx')}><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainTy')}><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainTz')}><input type="checkbox" bind:checked={uiStore.sup3dTz}/> <span>Fz</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainRx')}><input type="checkbox" bind:checked={uiStore.sup3dRx}/> <span>Mx</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainRy')}><input type="checkbox" bind:checked={uiStore.sup3dRy}/> <span>My</span></label>
+  <label class="ft-chk ft-dof" title={t('float.supportRestrainRz')}><input type="checkbox" bind:checked={uiStore.sup3dRz}/> <span>Mz</span></label>
+  <!-- The phone's row end after the six restraints (see DataTable). -->
+  <span class="ft-row" aria-hidden="true"></span>
   <span class="ft-sep">|</span>
   <!-- Quick presets -->
-  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('float.supportFixed3dTitle')}>▣ {t('float.supportFixedShort')}</button>
-  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('float.supportPinned3dTitle')}>△ {t('float.supportPinnedShort')}</button>
+  <button class="ft-opt-btn ft-primary" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('float.supportFixed3dTitle')}><span class="ft-sup-ic">▣</span><ToolGlyph name="supFixed" /> {t('float.supportFixedShort')}</button>
+  <button class="ft-opt-btn ft-primary" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('float.supportPinned3dTitle')}><span class="ft-sup-ic">△</span><ToolGlyph name="supPinned" /> {t('float.supportPinnedShort')}</button>
+  <span class="ft-break" aria-hidden="true"></span>
   <span class="ft-sep">|</span>
   <!-- Spring stiffnesses for unchecked DOFs -->
   {#if !uiStore.sup3dTx || !uiStore.sup3dTy || !uiStore.sup3dTz || !uiStore.sup3dRx || !uiStore.sup3dRy || !uiStore.sup3dRz}
@@ -66,6 +71,7 @@
           {st.icon}
         {/if}
       </span>
+      <ToolGlyph name={SUP_GLYPH[st.id]} />
       <span class="ft-sup-label">{t(st.key)}</span>
     </button>
   {/each}
@@ -150,6 +156,8 @@
 {/if}
 
 <style>
+  .ft-row { display: none; }
+
   /* A row break for the phone's layout (DataTable); nothing on a desktop. */
   .ft-break { display: none; }
   .ft-sup-ic { display: inline-flex; align-items: center; justify-content: center; }

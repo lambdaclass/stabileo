@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { planeLevelAxis } from '../../lib/geometry/coordinate-system';
@@ -8,12 +9,12 @@
   class="ft-opt-btn ft-primary"
   class:active={uiStore.nodeMode === 'create'}
   onclick={() => uiStore.nodeMode = 'create'}
->{t('float.nodeCreate')}</button>
+><ToolGlyph name="nodeCreate" />{t('float.nodeCreate')}</button>
 <button
   class="ft-opt-btn ft-primary"
   class:active={uiStore.nodeMode === 'hinge'}
   onclick={() => uiStore.nodeMode = 'hinge'}
->{t('float.nodeJoints')}</button>
+><ToolGlyph name="joints" />{t('float.nodeJoints')}</button>
 <!-- A phone puts the primary choice on a row of its own (see DataTable). -->
 <span class="ft-break" aria-hidden="true"></span>
 

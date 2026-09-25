@@ -217,48 +217,68 @@
   .dt-tool-options :global(.tb-sep),
   .dt-tool-options :global(.ft-sep),
   .dt-tool-options :global(.ft-selfweight-toggle) { display: none; }
+  /* Below the tool buttons above in weight: shorter than their 44 px. */
   .dt-tool-options :global(.ft-primary) {
     order: -2;
     flex: 1 1 0;
     min-width: 0;
-    min-height: 44px;
+    min-height: 34px;
     display: inline-flex;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    padding: 0.35rem 0.4rem;
-    font-size: 0.88rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
     white-space: nowrap;
   }
+  .dt-tool-options :global(.ft-ic) { display: inline-block; width: 16px; height: 16px; }
+  /* The phone draws its own glyphs; the desktop's text symbols give way. */
+  .dt-tool-options :global(.ft-sup-ic) { display: none; }
   .dt-tool-options :global(.ft-break) {
     display: block;
     order: -1;
     flex-basis: 100%;
     height: 0;
   }
-  /* The support types: one size for every button and every glyph. */
-  .dt-tool-options :global(.ft-sup-btn.ft-primary) {
-    flex-direction: column;
-    gap: 0.15rem;
-    min-height: 54px;
-    font-size: 0.78rem;
+  .dt-tool-options :global(.ft-row) {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
   }
-  .dt-tool-options :global(.ft-sup-ic) {
-    width: 22px;
-    height: 22px;
-    font-size: 1.1rem;
-    line-height: 1;
-  }
-  .dt-tool-options :global(.ft-sup-ic svg) { width: 20px; height: 20px; }
+  .dt-tool-options :global(.ft-sup-btn.ft-primary) { font-size: 0.76rem; gap: 0.25rem; }
   /* Rigid / pinned are radio labels: shown as the same wide buttons. */
   .dt-tool-options :global(.ft-opt-radio.ft-primary) {
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: var(--st-surface-2);
   }
+  .dt-tool-options :global(.ft-opt-radio.ft-primary input) { display: none; }
   .dt-tool-options :global(.ft-opt-radio.ft-primary:has(input:checked)) {
     border-color: var(--st-accent);
     color: var(--st-accent);
+  }
+  /* 3D supports: the six restraints as six equal toggles, under the presets. */
+  .dt-tool-options :global(.ft-dof) {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 26px;
+    padding: 0.1rem 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    font-family: var(--st-mono);
+    font-size: 0.76rem;
+    color: var(--st-text-2);
+  }
+  .dt-tool-options :global(.ft-dof input) { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .dt-tool-options :global(.ft-dof:has(input:checked)) {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+    background: color-mix(in srgb, var(--st-accent) 12%, var(--st-surface-2));
   }
   .dt-tool-options :global(.ft-hint) {
     flex-basis: 100%;
