@@ -21,6 +21,7 @@
  * only a structural loss can breach them.
  */
 
+import { applyVariant, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore } from '../../store/model.svelte';
@@ -148,32 +149,29 @@ describe('the 7-storey building is more than column longitudinals', () => {
 
   it('reports beams honestly when their design is only a proposal', async () => {
     /**
-     * On this model 5 of 119 beams are refused certification by the verifier's
-     * secondary-axis refusal (it was 117 before the merge derived section inertias from
-     * geometry). They used to carry no steel at all, and this test asserted exactly that —
-     * concrete drawn, absence of steel reported.
+     * A beam the verifier refuses to certify on its secondary axis carries a PROVISIONAL_BIAXIAL
+     * proposal: the primary-axis design, produced by the ordinary search, marked on every bar.
+     * The rule protected here: the scene may not invent reinforcement the design never
+     * calculated, and may not present a proposal as certified — which is what
+     * `provisionalMembers` is checked for.
      *
-     * They now carry a PROVISIONAL_BIAXIAL proposal: the primary-axis design, produced by the
-     * ordinary search, marked on every bar. So the honest shape has changed and the assertion
-     * changes with it. What has NOT changed is the rule the old assertion protected: the scene
-     * may not invent reinforcement the design never calculated. It does not — every one of
-     * these bars came from a real search whose primary-axis verdict passed — and it may not
-     * present them as certified, which is what `provisionalMembers` is checked for.
+     * The building as committed no longer has such a beam (its last five came from a shell
+     * drilling defect; see beam-reinforcement-audit.test.ts), so five beams are turned about
+     * their axis here, which makes some bend about both axes for a real reason.
      */
-    // Five, not the 50+ this once required. This fixture declares its beams' iy/iz
-    // transposed, so they used to be solved ~7× too flexible about the axis they bend on,
-    // and the spurious secondary moments that produced refused nearly every beam. The
-    // canonical-section work that came with the merge derives the inertias from geometry
-    // instead. See beam-reinforcement-audit.test.ts for the full account.
-    // The rule being protected is unchanged — a proposal must be NAMED as one.
-    expect(built.scene.provisionalMembers.length, 'the proposals are named').toBe(5);
-    expect(built.scene.bars.some((b) => b.provisional), 'and their steel is marked').toBe(true);
+    const rolled = await build(async () => { await modelStore.loadExample('pro-edificio-7p'); applyVariant(ROLLED_BEAMS); });
+    const named = rolled.scene.provisionalMembers;
+    expect(named.length, 'the proposals are named').toBeGreaterThan(0);
+    for (const id of named) expect(ROLLED_BEAMS.rollBeams.ids, `member ${id} was turned`).toContain(id);
+    expect(rolled.scene.bars.some((b) => b.provisional), 'and their steel is marked').toBe(true);
     // Every beam is drawn, which was true before and stays true.
-    const beamSolids = built.scene.solids.filter((s) => s.kind === 'beam');
+    const beamSolids = rolled.scene.solids.filter((s) => s.kind === 'beam');
     expect(beamSolids.length).toBeGreaterThan(50);
-    // A member with a proposal is not a member with nothing: the old population is now empty.
-    expect(built.scene.unreinforcedMembers, 'no beam is left bare').toEqual([]);
-  });
+    // A member with a proposal is not a member with nothing.
+    expect(rolled.scene.unreinforcedMembers, 'no beam is left bare').toEqual([]);
+    // And the building as committed names none.
+    expect(built.scene.provisionalMembers).toEqual([]);
+  }, 240_000);
 });
 
 // ─── Nothing is lost between the document and the scene ──────────

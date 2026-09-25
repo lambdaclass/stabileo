@@ -24,11 +24,12 @@ import {
   pruneDesignSelection, DESIGN_FAMILIES, totalsOf,
   type DesignFamily, type DesignRunReport,
 } from '../../engine/design/design-families';
+import { applyVariant, ROLLED_BEAMS, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
 /** Load and solve, ready for a design run. */
-async function ready(example: string) {
+async function ready(example: string, variant?: Variant) {
   modelStore.clear();
   resultsStore.clear();
   detailingStore.clear();
@@ -36,6 +37,7 @@ async function ready(example: string) {
   verificationStore.clear();
   await modelStore.loadExample(example);
   expect(isSolverReady()).toBe(true);
+  if (variant) applyVariant(variant);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
@@ -220,18 +222,18 @@ describe('the global command is the individual commands', () => {
 
 describe('the run reports what happened, family by family', () => {
   it('counts processed, designed, refused and not-modelled members', async () => {
-    await ready('pro-edificio-7p');
-    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
-
-    // 5 of this building's 119 beams are refused by the secondary-axis refusal. It was 117
-    // while the fixture's transposed iy/iz went straight to the solver; the canonical-section
-    // work that arrived with the merge derives them from geometry instead, which removed the
-    // spurious secondary moments. See beam-reinforcement-audit.test.ts for the full account.
+    // With five beams turned about their axis, so that some are refused by the secondary-axis
+    // refusal. The building as committed has none: its last five came from a shell drilling
+    // defect (117 before that, from transposed inertias). See beam-reinforcement-audit.test.ts.
     // A refusal is a design outcome either way, and the report must say so rather than
     // presenting a silent zero.
+    await ready('pro-edificio-7p', ROLLED_BEAMS);
+    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
+
     const beams = familyOf(report, 'beam');
     expect(beams.processed).toBeGreaterThan(100);
-    expect(beams.refused, 'refusals are counted, not swallowed').toBe(5);
+    expect(beams.refused, 'refusals are counted, not swallowed').toBeGreaterThan(0);
+    expect(beams.refused).toBeLessThanOrEqual(ROLLED_BEAMS.rollBeams.ids.length);
     expect(beams.designed, 'and the beams that DID design are counted too').toBeGreaterThan(100);
     expect(beams.designed + beams.refused + beams.notModelled).toBe(beams.processed);
 

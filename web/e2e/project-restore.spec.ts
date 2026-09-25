@@ -48,6 +48,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { turnRolledBeams } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -420,6 +421,8 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await page.evaluate((name) => window.__stabileoActions.loadExample(name), EXAMPLE);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length))
     .toBeGreaterThan(0);
+  // Five beams turned, so the design carries the provisional state step 10 asserts on.
+  await turnRolledBeams(page);
 
   // The autosave is written by the app's own 30 s timer. Waited for rather than faked: the
   // defect lived in what that timer wrote and in what the banner did with it.

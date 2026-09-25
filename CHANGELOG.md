@@ -11,6 +11,48 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)
+
+**BREAKING (results): every model with shell elements solves differently.** Four defects,
+found by one check that every element must pass and none did: its stiffness must
+annihilate the six rigid motions (`tests/shell_rigid_body_modes.rs`).
+
+- **Drilling stabilisation resisted rigid rotation (MITC4, MITC9, DKT+CST, curved
+  shell).** The penalty was γ·∫θz² on the drilling DOF alone. A rigid rotation about the
+  normal then cost energy, so the term acted as a spring to ground on every shell node,
+  about its normal. A beam sharing nodes with a slab and bending in the slab's plane lost
+  part of its moment to the ground: reactions stopped balancing the loads, and floor beams
+  under gravity carried weak-axis moments the structure does not have. It is now the
+  Hughes–Brezzi term γ·∫(θz − ω)², ω = ½(∂v/∂x − ∂u/∂y), with the same γ (G·t/1000). On
+  curved shells it uses the interpolated surface's own normal and dual basis, so it
+  vanishes on rigid rotation for any geometry; `rigid_body_modes_curved` was relaxed to 2e-4
+  for exactly this energy and is now held to 1e-10.
+- **The DKT triangle's B-matrix coefficients were wrong.** Pₖ, qₖ and tₖ had the wrong form
+  (Pₖ = −6xy/l² instead of −6x/l², on xⱼ − xᵢ). The element did not annihilate a rigid
+  tilt, and a simply supported square plate read 3.75–4.0× Navier's deflection at every
+  mesh density. It had passed its benchmark because that benchmark accepted anything within
+  5×. It now follows Batoz, Bathe & Ho (1980) and converges to Navier: 0.961, 0.991, 0.998,
+  1.000 at 4×4, 8×8, 16×16, 32×32. The benchmark now holds 16×16 to 0.5 %.
+- **The curved shell turned its director by d × θ.** Every rotation DOF of the element had
+  the opposite sign to the frames and MITC4 it shares nodes with. A tip moment on a
+  curved-shell strip bent it the wrong way (+1.59e-3 against −1.60e-3). It now uses θ × d.
+- **MITC4 and MITC9 thermal gradients curled plates the wrong way.** With
+  dt_gradient = T(+z face) − T(−z face), the convention of the frames' `dt_gradient_z`, of
+  the curved shell and of the corrected DKT, a hotter top curled a clamped plate up. The
+  moment sign in `quad_thermal_load` and `quad9_thermal_load` is corrected.
+
+Assembled with an upper triangle mirrored, the new terms are exactly symmetric. The shell
+modal golden in `tests/core/sparse_mass.rs` was re-captured: the bending modes moved by
+1e-8 to 6e-7 relative. `tests/shell_model_equilibrium.rs` pins the model-level
+consequences on all four elements: tip moment sign, thermal curl, and reaction balance
+with an edge beam.
+
+On the web side, the flagship `pro-edificio-7p` now has no provisional-biaxial beams. Its
+last five had secondary ratios of 0.106–0.244, and the drilling spring produced them: they
+are 0.010–0.028 now. Tests that exercise the provisional path turn five beams 20° about
+their axis (`ROLLED_BEAMS` in `workspace-scene.ts`), which bend about both axes for a real
+reason.
+
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 
 **BREAKING (saved models): `quadEdge` and `quad9Edge` loads reverse direction.**

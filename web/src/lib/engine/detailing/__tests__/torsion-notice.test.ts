@@ -24,7 +24,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import {
   TORSION_NOTICE_FLOOR, torsionUnevaluatedMembers, type TorsionNoticeInput,
 } from '../torsion-notice';
-import { workspaceScene } from './helpers/workspace-scene';
+import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../document-render';
 import type { SceneModel } from '../scene-model';
@@ -123,7 +123,9 @@ describe('unevaluated torsion, across every projection', { timeout: 30_000 }, ()
   let flagged: number[];
 
   beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
+    // With five beams turned about their axis, so the building also carries provisional
+    // proposals and the two warnings can be checked side by side (see `ROLLED_BEAMS`).
+    const w = await workspaceScene('pro-edificio-7p', ROLLED_BEAMS);
     scene = w.scene;
     doc = w.doc;
     flagged = scene.torsionUnevaluatedMembers;

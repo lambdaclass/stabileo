@@ -40,7 +40,30 @@ export interface WorkspaceScene {
   outcomes: Map<number, DesignOutcomeSummary>;
 }
 
-async function compute(example: string): Promise<WorkspaceScene> {
+/**
+ * A variant of a committed example with some members turned about their own axis.
+ *
+ * The provisional-biaxial path needs beams that genuinely bend about both axes. The flagship
+ * building used to supply five — but their secondary moments came from a shell drilling term
+ * that held floor nodes against rotation about the vertical, and once that was corrected their
+ * ratio fell from 0.11–0.24 to 0.010–0.028. A beam turned about its axis under gravity bends
+ * about both of its own axes for a reason that is real: M·cos θ and M·sin θ.
+ */
+export interface Variant { rollBeams: { ids: readonly number[]; degrees: number } }
+
+/** The five beams the flagship building's biaxial tests turn, and by how much. */
+export const ROLLED_BEAMS: Variant = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } };
+
+/** Apply a variant to the loaded model, before it is solved. */
+export function applyVariant(variant: Variant): void {
+  for (const id of variant.rollBeams.ids) {
+    const e = modelStore.elements.get(id);
+    expect(e, `element ${id} exists in the loaded example`).toBeTruthy();
+    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams.degrees) % 360 });
+  }
+}
+
+async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
   modelStore.clear();
   resultsStore.clear();
   detailingStore.clear();
@@ -49,6 +72,7 @@ async function compute(example: string): Promise<WorkspaceScene> {
 
   await modelStore.loadExample(example);
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
+  if (variant) applyVariant(variant);
 
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   expect(typeof solved, 'the solver returned results rather than an error string')
@@ -105,10 +129,11 @@ const cache = new Map<string, Promise<WorkspaceScene>>();
  * without paying for either twice. The promise itself is cached, so two concurrent callers
  * share one run rather than racing two.
  */
-export function workspaceScene(example: string): Promise<WorkspaceScene> {
-  const hit = cache.get(example);
+export function workspaceScene(example: string, variant?: Variant): Promise<WorkspaceScene> {
+  const key = variant ? `${example}:${JSON.stringify(variant)}` : example;
+  const hit = cache.get(key);
   if (hit) return hit;
-  const run = compute(example);
-  cache.set(example, run);
+  const run = compute(example, variant);
+  cache.set(key, run);
   return run;
 }
