@@ -583,7 +583,11 @@
       // write `diagramType` directly and forgot it entirely.
       showDiagram(cmd.diagram as never);
       if (cmd.action) cmd.action();
-      onOpenPanel(cmd.panel ?? null, { toggle: false });
+      /*
+       * Except over Explore: comparing diagrams is what it is for, and moving
+       * the column to Results took the sliders off screen mid-comparison.
+       */
+      if (!(uiStore.showWhatIf && activePanel === 'advanced')) onOpenPanel(cmd.panel ?? null, { toggle: false });
       return;
     }
     if (cmd.action) cmd.action();

@@ -73,6 +73,9 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
       await liveCalc2D(isStale);
     }
     if (isStale()) return;
+    const is3DMode = analysisMode === '3d' || analysisMode === 'pro';
+    // What was on screen before the edit cleared it: diagram, case, combination.
+    if (resultsStore.pendingView) { resultsStore.restoreView(is3DMode); return; }
     // Restore the diagram type the user was viewing before clear() reset it to 'none'.
     // Only restore if it's a valid diagram for the current mode.
     if (prevDiagram && prevDiagram !== 'none') {
@@ -110,6 +113,23 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   }
 
   resultsStore.setResults3D(r, true);
+
+  /*
+   * The combinations, when what was on screen was one of them (or a case, or
+   * the envelope): the 3D live calc skips them otherwise, as the model may be
+   * large, but re-solving a combination's view to the unit-factor loads would
+   * show a different state under the same controls.
+   */
+  const v = resultsStore.pendingView;
+  if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
+    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (combo && typeof combo !== 'string') {
+      resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+      const comboNames = new Map<number, string>();
+      for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+      resultsStore.setGoverning3D(computeGoverning3D(combo.perCombo, comboNames));
+    }
+  }
 }
 
 async function liveCalc2D(isStale: () => boolean): Promise<void> {
@@ -177,6 +197,7 @@ export async function runGlobalSolve(): Promise<void> {
   } else {
     await globalSolve2D(isStale);
   }
+  if (!isStale()) resultsStore.restoreView(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');

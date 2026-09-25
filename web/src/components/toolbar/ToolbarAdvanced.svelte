@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { whatIf } from '../../lib/store/whatif.svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
   import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
   import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
@@ -192,7 +193,7 @@
       close: () => { uiStore.currentTool = 'select'; resultsStore.setInfluenceLine(null); } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
-      close: () => { uiStore.showWhatIf = false; } },
+      close: () => { void whatIf.close(); } },
     { key: 'dsm', labelKey: 'advanced.stepByStep',
       isActive: () => dsmStepsStore.isOpen,
       close: () => dsmStepsStore.close() },
@@ -935,12 +936,12 @@
         <button class="adv-btn" style="flex:1"
           class:active={uiStore.showWhatIf}
           onclick={() => {
-            if (!uiStore.showWhatIf && blockedBySlidingJoints()) return;
-            if (!resultsStore.results && !resultsStore.results3D) {
-              uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-              return;
-            }
-            uiStore.showWhatIf = !uiStore.showWhatIf;
+            /*
+             * No "calculate first" and no sliding-joint refusal: Explore turns
+             * live calc on, which solves the model — sliders and all — as it
+             * opens, and says so in the panel if it cannot.
+             */
+            if (uiStore.showWhatIf) void whatIf.close(); else whatIf.open();
           }}
         >
           {uiStore.showWhatIf ? '\u2715 ' + t('advanced.closeExplorer') : t('advanced.whatIf')}

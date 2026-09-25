@@ -2,6 +2,7 @@
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
+  import { defaultDofs } from '../../lib/store/support-dofs';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const supportsArr = $derived([...modelStore.supports.values()]);
@@ -21,17 +22,6 @@
     const num = parseFloat(val);
     if (isNaN(num)) return;
     modelStore.updateSupport(supId, { [field]: num } as any);
-  }
-
-  /** Default DOF restraints based on support type (for supports without explicit dofRestraints) */
-  function defaultDofs(type: string): { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean } {
-    if (type === 'fixed3d' || type === 'fixed') return { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-    if (type === 'pinned3d' || type === 'pinned') return { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false };
-    if (type === 'spring3d' || type === 'spring') return { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false };
-    if (type === 'rollerXZ') return { tx: false, ty: true, tz: false, rx: false, ry: false, rz: false };
-    if (type === 'rollerXY') return { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false };
-    if (type === 'rollerYZ') return { tx: true, ty: false, tz: false, rx: false, ry: false, rz: false };
-    return { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
   }
 
   /** Derive support type from DOF restraints */

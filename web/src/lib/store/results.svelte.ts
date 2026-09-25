@@ -72,6 +72,15 @@ function createResultsStore() {
   let diagramType = $state<DiagramType>('none');
   /** Remembers last user-visible diagram so live-calc can restore it after clear() */
   let _lastDiagramType: DiagramType = 'none';
+  /*
+   * What was on screen when the results were last cleared — the diagram and
+   * the case, combination or envelope it was drawn for — so that a re-solve
+   * of the edited model puts it back instead of falling to the deformed shape
+   * of the unit-factor loads. An edit clears the results before the re-solve
+   * runs (and, under live calc, several edits in a row clear them several
+   * times), so this is taken from the first clear that had results to lose.
+   */
+  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null } | null = null;
   let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
@@ -667,6 +676,12 @@ function createResultsStore() {
     },
 
     clear() {
+      if (results || results3D) {
+        _viewBeforeClear = {
+          diagram: diagramType !== 'none' ? diagramType : _lastDiagramType,
+          view: activeView, caseId: activeCaseId, comboId: activeComboId,
+        };
+      }
       results = null;
       singleResults = null;
       diagramType = 'none';
@@ -724,6 +739,34 @@ function createResultsStore() {
       constraintForces3DArr = [];
       solveTimings2D = null;
       solveTimings3D = null;
+    },
+
+    /** The view a clear took away, still waiting for a re-solve to restore it. */
+    get pendingView() { return _viewBeforeClear; },
+
+    /**
+     * After a re-solve: show again what was on screen before the edit cleared
+     * it — the same diagram, and the same case, combination or envelope when
+     * the new results have it. Once: the next clear takes a fresh one.
+     */
+    restoreView(is3D: boolean) {
+      const v = _viewBeforeClear;
+      _viewBeforeClear = null;
+      if (!v) return;
+      const valid: DiagramType[] = is3D
+        ? ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap']
+        : ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
+      if (valid.includes(v.diagram)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
+      const cases = is3D ? perCase3D : perCase;
+      const combos = is3D ? perCombo3D : perCombo;
+      if (v.view === 'envelope' && (is3D ? envelope3D : envelope)) {
+        this.activeView = 'envelope';
+      } else if (v.view === 'combo' && v.comboId !== null && combos.has(v.comboId)) {
+        activeComboId = v.comboId;
+        this.activeView = 'combo';
+      } else if (v.caseId !== null && cases.has(v.caseId)) {
+        this.activeCaseId = v.caseId;
+      }
     },
 
     // ─── 3D Results ─────────────────────────────────────────────

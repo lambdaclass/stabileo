@@ -275,6 +275,7 @@
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
+  import { whatIf } from './lib/store/whatif.svelte';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
@@ -1045,6 +1046,31 @@
 
     // Cleanup: cancel pending timer when effect re-runs or component unmounts
     return () => { cancelPendingLiveCalc(); };
+  });
+
+  /*
+   * Explore was closed by something other than its own ✕ — a tab switch
+   * resets the session. The model it would restore is gone, so only live calc
+   * goes back to how it was.
+   */
+  $effect(() => {
+    const version = modelStore.modelVersion;
+    const shown = uiStore.showWhatIf;
+    untrack(() => {
+      if (!whatIf.active) return;
+      if (!shown) { whatIf.abandon(); return; }
+      /*
+       * And an edit from anywhere else — the canvas, undo, a file, an example —
+       * leaves the session's baseline describing a model that is no longer
+       * there: restoring it on close would throw the edit away. The session
+       * ends here, keeping the model as it now is.
+       */
+      if (whatIf.changedFromOutside(version)) {
+        whatIf.abandon();
+        uiStore.showWhatIf = false;
+        uiStore.toast(t('whatif.closedByEdit'), 'info');
+      }
+    });
   });
 
   // ─── PRO panel drag-resize ────────────────────────────────────────
