@@ -71,7 +71,8 @@
      * so a browser where WASM never arrives stops asking rather than polling
      * for the life of the page.
      */
-    if (report && !report.rankChecked && rankRetries < 40) {
+    // Not for a model the engine refused: its data will not change by waiting.
+    if (report && !report.rankChecked && !report.invalidInput && rankRetries < 40) {
       rankRetries++;
       setTimeout(() => {
         if (uiStore.showKinematicPanel) recompute();
@@ -250,7 +251,16 @@
               {@html t('kinematic.matrixExplanation').replaceAll('{n}', String(report.nFreeDofs))}
             </div>
 
-            {#if !report.rankChecked}
+            {#if report.invalidInput}
+              <!--
+                The engine refused the model's data before the check, so
+                `mechanismModes: 0` here means "not checked". Read as a result,
+                it announced a stable structure the footer called a mechanism.
+              -->
+              <div class="kp-result kp-danger-bg">
+                {t('kinematic.invalidInput').replace('{n}', report.invalidInput)}
+              </div>
+            {:else if !report.rankChecked}
               <!--
                 The check could not run — the WASM engine was not ready. This
                 used to fall into the branch below and announce that the
@@ -357,6 +367,8 @@
         <div class="kp-footer">
           {#if report.isSolvable}
             <span class="kp-status kp-ok-text">{t('kinematic.stableResult')}</span>
+          {:else if report.invalidInput}
+            <span class="kp-status kp-danger-text">{t('kinematic.invalidResult')}</span>
           {:else}
             <span class="kp-status kp-danger-text">{t('kinematic.mechanismResult')}</span>
           {/if}

@@ -49,7 +49,9 @@ Educational tool with step-by-step solver visualization for civil/structural eng
   assertion passed.
 - `npm run test:unit` / `npm run test:build` — one pass on its own.
 - `npm run test:watch` — Watch mode (the `unit` pass)
-- `npm run wasm` — Build Rust/WASM engine (optional, not required)
+- `npm run wasm` — Build the Rust/WASM engine into `src/lib/wasm` (needs Rust and wasm-pack). Required
+  to run the app or any test that solves: without it `vite.config.ts` substitutes a stub, so
+  `npm run build` still succeeds in CI, but the stub's `solve_3d` returns `{}`.
 - `npm run typecheck` — Explicit `tsc` gate. `npm run build` is `vite build` and does **not**
   typecheck, so a type defect can otherwise reach a commit unseen. The project carries a large
   set of pre-existing errors (mostly test fixtures building partial literals on purpose), so
