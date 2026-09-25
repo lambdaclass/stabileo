@@ -198,12 +198,14 @@ export interface StructuredDiagnostic {
   /** The threshold that value was compared against. */
   threshold?: number;
   /**
-   * What `elementIds` number: 'frame', 'plate', 'quad', 'quad9',
-   * 'solid_shell' or 'curved_shell'. Frames, plates and quads number
-   * independently, so an id alone does not say which element it is.
+   * What `elementIds` number. Frames, plates and quads number independently,
+   * so an id alone does not say which element it is.
    */
-  elementKind?: string;
+  elementKind?: ElementKind;
 }
+
+/** Mirrors `ElementKind` in `engine/src/types/output.rs` (serialized snake_case). */
+export type ElementKind = 'frame' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
 
 export interface AnalysisResults {
   displacements: Displacement[];
