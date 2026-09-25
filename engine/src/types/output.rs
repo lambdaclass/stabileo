@@ -261,6 +261,13 @@ pub struct StructuredDiagnostic {
     /// Threshold that was exceeded (if applicable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub threshold: Option<f64>,
+    /// What `element_ids` number: "frame", "plate", "quad", "quad9",
+    /// "solid_shell" or "curved_shell". Frames, plates and quads keep
+    /// independent id counters, so "element 7" alone does not say which one —
+    /// a consumer that assumed frames selected the wrong member for a
+    /// collapsed quad. Absent where the diagnostic names no element.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub element_kind: Option<String>,
 }
 
 impl StructuredDiagnostic {
@@ -276,6 +283,7 @@ impl StructuredDiagnostic {
             phase: None,
             value: None,
             threshold: None,
+            element_kind: None,
         }
     }
 
@@ -301,6 +309,12 @@ impl StructuredDiagnostic {
     /// Attach element IDs.
     pub fn with_elements(mut self, ids: Vec<usize>) -> Self {
         self.element_ids = ids;
+        self
+    }
+
+    /// Say which family `element_ids` belong to — see `element_kind`.
+    pub fn with_element_kind(mut self, kind: &str) -> Self {
+        self.element_kind = Some(kind.to_string());
         self
     }
 

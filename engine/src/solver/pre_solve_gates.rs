@@ -431,7 +431,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("Quad {} has no area — element is collapsed", q.id),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -441,7 +441,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("Quad {} has a singular Jacobian at an integration point", q.id),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(min_det.abs().min(max_det.abs()), 1e-30)
                     .with_phase("pre_solve"),
                 ),
@@ -454,7 +454,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q.id
                         ),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -469,7 +469,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q.id
                         ),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -485,7 +485,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                                     q.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
                                 ),
                             )
-                            .with_elements(vec![q.id])
+                            .with_elements(vec![q.id]).with_element_kind("quad")
                             .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
                             .with_phase("pre_solve"),
                         );
@@ -504,7 +504,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q.id, qm.aspect_ratio, ASPECT_RATIO_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(qm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -525,7 +525,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q.id, min_angle, MIN_ANGLE_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(min_angle, MIN_ANGLE_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -542,7 +542,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q.id, qm.warping, WARPING_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q.id])
+                    .with_elements(vec![q.id]).with_element_kind("quad")
                     .with_value(qm.warping, WARPING_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -604,7 +604,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             pl.id
                         ),
                     )
-                    .with_elements(vec![pl.id])
+                    .with_elements(vec![pl.id]).with_element_kind("plate")
                     .with_value(twice_area * 0.5, 0.0)
                     .with_phase("pre_solve"),
                 );
@@ -621,7 +621,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             pl.id, aspect_ratio, ASPECT_RATIO_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![pl.id])
+                    .with_elements(vec![pl.id]).with_element_kind("plate")
                     .with_value(aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -638,7 +638,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             pl.id, min_angle, MIN_ANGLE_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![pl.id])
+                    .with_elements(vec![pl.id]).with_element_kind("plate")
                     .with_value(min_angle, MIN_ANGLE_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -668,7 +668,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("Quad9 {} has no area — element is collapsed", q9.id),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -678,7 +678,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("Quad9 {} has a singular Jacobian at an integration point", q9.id),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(min_det.abs().min(max_det.abs()), 1e-30)
                     .with_phase("pre_solve"),
                 ),
@@ -691,7 +691,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q9.id
                         ),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -706,7 +706,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q9.id
                         ),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -721,7 +721,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                                     q9.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
                                 ),
                             )
-                            .with_elements(vec![q9.id])
+                            .with_elements(vec![q9.id]).with_element_kind("quad9")
                             .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
                             .with_phase("pre_solve"),
                         );
@@ -739,7 +739,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q9.id, qm.aspect_ratio, ASPECT_RATIO_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(qm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -758,7 +758,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q9.id, min_angle, MIN_ANGLE_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(min_angle, MIN_ANGLE_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -774,7 +774,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             q9.id, qm.warping, WARPING_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![q9.id])
+                    .with_elements(vec![q9.id]).with_element_kind("quad9")
                     .with_value(qm.warping, WARPING_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -804,7 +804,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("SolidShell {} has no volume — element is collapsed", ss.id),
                     )
-                    .with_elements(vec![ss.id])
+                    .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                     .with_value(hm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -814,7 +814,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         format!("SolidShell {} has a singular Jacobian at an integration point", ss.id),
                     )
-                    .with_elements(vec![ss.id])
+                    .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                     .with_value(min_det.abs().min(max_det.abs()), 1e-30)
                     .with_phase("pre_solve"),
                 ),
@@ -827,7 +827,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             ss.id
                         ),
                     )
-                    .with_elements(vec![ss.id])
+                    .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -842,7 +842,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             ss.id
                         ),
                     )
-                    .with_elements(vec![ss.id])
+                    .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 ),
@@ -857,7 +857,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                                     ss.id, hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
                                 ),
                             )
-                            .with_elements(vec![ss.id])
+                            .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                             .with_value(hm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
                             .with_phase("pre_solve"),
                         );
@@ -875,7 +875,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             ss.id, hm.aspect_ratio, ASPECT_RATIO_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![ss.id])
+                    .with_elements(vec![ss.id]).with_element_kind("solid_shell")
                     .with_value(hm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -919,7 +919,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                         Severity::Error,
                         message,
                     )
-                    .with_elements(vec![cs.id])
+                    .with_elements(vec![cs.id]).with_element_kind("curved_shell")
                     .with_value(min_det, 0.0)
                     .with_phase("pre_solve"),
                 );
@@ -936,7 +936,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                                 cs.id
                             ),
                         )
-                        .with_elements(vec![cs.id])
+                        .with_elements(vec![cs.id]).with_element_kind("curved_shell")
                         .with_value(min_det, 0.0)
                         .with_phase("pre_solve"),
                     );
@@ -956,7 +956,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                                 cs.id, jac_ratio, JACOBIAN_RATIO_THRESHOLD
                             ),
                         )
-                        .with_elements(vec![cs.id])
+                        .with_elements(vec![cs.id]).with_element_kind("curved_shell")
                         .with_value(jac_ratio, JACOBIAN_RATIO_THRESHOLD)
                         .with_phase("pre_solve"),
                     );
@@ -985,7 +985,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             cs.id, aspect_ratio, ASPECT_RATIO_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![cs.id])
+                    .with_elements(vec![cs.id]).with_element_kind("curved_shell")
                     .with_value(aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -1002,7 +1002,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                             cs.id, min_angle, MIN_ANGLE_THRESHOLD
                         ),
                     )
-                    .with_elements(vec![cs.id])
+                    .with_elements(vec![cs.id]).with_element_kind("curved_shell")
                     .with_value(min_angle, MIN_ANGLE_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
@@ -1071,7 +1071,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
                         el.id, el.node_i, el.node_j,
                     ),
                 )
-                .with_elements(vec![el.id])
+                .with_elements(vec![el.id]).with_element_kind("frame")
                 .with_nodes(vec![el.node_i, el.node_j])
                 .with_phase("pre_solve"),
             );
@@ -1099,7 +1099,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
                         Severity::Error,
                         format!("Element {} has zero-length local axis orientation vector", el.id),
                     )
-                    .with_elements(vec![el.id])
+                    .with_elements(vec![el.id]).with_element_kind("frame")
                     .with_phase("pre_solve"),
                 );
                 continue;
@@ -1118,7 +1118,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
                             el.id, dot,
                         ),
                     )
-                    .with_elements(vec![el.id])
+                    .with_elements(vec![el.id]).with_element_kind("frame")
                     .with_value(dot, 0.999)
                     .with_phase("pre_solve"),
                 );
@@ -1137,7 +1137,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
                             el.id, dot_y,
                         ),
                     )
-                    .with_elements(vec![el.id])
+                    .with_elements(vec![el.id]).with_element_kind("frame")
                     .with_value(dot_y, 0.995)
                     .with_phase("pre_solve"),
                 );
