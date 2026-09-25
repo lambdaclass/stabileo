@@ -1138,19 +1138,19 @@ function createModelStore() {
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
   /**
-   * Remove one entity id from every group that holds it.
+   * Replace or remove one entity id in every group that holds it.
    *
    * Reassigns the Map only when something actually changed, so deleting an element in a
    * model with no groups costs nothing and triggers no re-render.
    */
-  function dropFromGroups(family: keyof GroupMembers, entityId: number): void {
+  function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
     let touched = false;
     for (const [gid, g] of model.groups) {
       const list = g.members[family];
       if (!list || !list.includes(entityId)) continue;
       model.groups.set(gid, {
         ...g,
-        members: { ...g.members, [family]: list.filter((x) => x !== entityId) },
+        members: { ...g.members, [family]: list.flatMap((x) => x === entityId ? replacements : [x]) },
       });
       touched = true;
     }
@@ -1654,6 +1654,13 @@ function createModelStore() {
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
       nextId.connector = (s.nextId as any).connector ?? 1;
+      // Older files have no group counter; stale counters must not overwrite a saved group.
+      let firstUnusedGroupId = 1;
+      for (const id of model.groups.keys()) firstUnusedGroupId = Math.max(firstUnusedGroupId, id + 1);
+      const savedGroupId = s.nextId.group;
+      nextId.group = typeof savedGroupId === 'number' && Number.isSafeInteger(savedGroupId)
+        ? Math.max(firstUnusedGroupId, savedGroupId)
+        : firstUnusedGroupId;
       // `?? []` guards: a hand-edited/older/partial `.ded` may carry a
       // `provenance` object without `assumptions`/`layerMappings`. restore()
       // runs after the model is already mutated and is not wrapped in a
@@ -1961,10 +1968,11 @@ function createModelStore() {
       model.nodes = new Map(model.nodes);
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
-      dropFromGroups('nodes', id);
+      replaceInGroups('nodes', id);
       for (const [elemId, elem] of model.elements) {
         if (elem.nodeI === id || elem.nodeJ === id) {
           model.elements.delete(elemId);
+          replaceInGroups('elements', elemId);
         }
       }
       model.elements = new Map(model.elements);
@@ -2092,7 +2100,7 @@ function createModelStore() {
        * it is something a user stated, and an empty group they can see is a fact, while a
        * group that vanished is a question.
        */
-      dropFromGroups('elements', id);
+      replaceInGroups('elements', id);
       model.loads = model.loads.filter(l =>
         !((l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
@@ -2146,6 +2154,7 @@ function createModelStore() {
     removePlate(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.plates.delete(id);
+      replaceInGroups('plates', id);
       model.plates = new Map(model.plates);
     },
 
@@ -2169,6 +2178,7 @@ function createModelStore() {
     removeQuad(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
+      replaceInGroups('quads', id);
       model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
@@ -2654,6 +2664,7 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       nextId.connector = 1;
+      nextId.group = 1;
       nextId.footing = 1;
       nextId.soilProfile = 1;
       model.provenance = undefined;
@@ -2773,6 +2784,8 @@ function createModelStore() {
         });
         segmentElemIds.push(id);
       }
+
+      replaceInGroups('elements', elementId, segmentElemIds);
 
       // Replicate distributed loads on each sub-element (interpolate for trapezoidal)
       const newSubLoads: typeof model.loads = [];
@@ -3003,6 +3016,8 @@ function createModelStore() {
         releaseJ: origReleaseJ,
         ...inherited3D,
       });
+
+      replaceInGroups('elements', elementId, [elemAId, elemBId]);
 
       // Redistribute distributed loads (interpolate for trapezoidal, handle partial a/b)
       for (const dl of distLoads) {
