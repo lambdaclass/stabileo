@@ -1762,6 +1762,8 @@ const es: Record<string, string> = {
   'toast.spectralError': 'Error análisis espectral',
   'toast.bucklingSuccess': 'Pandeo: λ_cr={factor}, {nComp} elem. comprimidos ({ms}ms)',
   'toast.bucklingError': 'Error pandeo',
+  'toast.bucklingNoCompression': 'Con estas cargas ninguna barra queda comprimida: no hay pandeo que calcular.',
+  'toast.pdeltaPrescribed': 'P-Δ todavía no considera desplazamientos impuestos de apoyo (asentamientos). Quitalos para correrlo, o usá el cálculo lineal.',
   'toast.plasticMechanism': 'Colapso plástico: λ={lambda}, {hinges}/{limit} articulaciones ({ms}ms)',
   'toast.plasticNoCollapse': 'Plástico: {hinges} articulaciones, λ={lambda}, hiperestaticidad={redundancy} ({ms}ms)',
   'toast.plasticError': 'Error plástico',
@@ -7169,5 +7171,12 @@ const es: Record<string, string> = {
   'sel.kind.loads.other': '{n} cargas',
   'sel.kind.shells.one': '{n} placa',
   'sel.kind.shells.other': '{n} placas',
+  'plastic.collapse': 'colapso con {n} rótulas: λc = {lambda}',
+  'plastic.noCollapse': 'Sin colapso: la estructura no llegó a formar un mecanismo',
+  'plastic.member': 'Barra',
+  'plastic.value': 'Esfuerzo',
+  'plastic.axial': 'fluencia axil',
+  'plastic.note': 'Las cargas crecen todas juntas por λ. Cada sección queda elástica hasta llegar a su Mp; ahí se forma una rótula plástica y la estructura sigue cargando como si tuviera una articulación en ese punto. Una barra cuyo axil llega a Np = fy·A fluye y sale de juego (así colapsa un arco funicular, que no tiene momento). Sin interacción M–N. Colapsa cuando se vuelve un mecanismo.',
+  'toast.plasticCollapse': 'Colapso plástico: λc = {lambda} con {hinges} rótulas ({ms} ms)',
 };
 export default es;

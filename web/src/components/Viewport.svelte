@@ -1104,6 +1104,16 @@
           drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
         }
       } else if (dt === 'plasticHinges' && resultsStore.plasticResult) {
+        /*
+         * The step's accumulated moment diagram, on one scale for every step so
+         * it visibly grows toward collapse, then the hinges formed so far.
+         */
+        const pr = resultsStore.plasticResult;
+        const stepRes = pr.steps[resultsStore.plasticStep]?.results;
+        if (stepRes) {
+          const scaleAll = Math.max(...pr.steps.map((st) => computeDiagramGlobalMax(st.results, 'moment')));
+          drawDiagrams(stepRes, 'moment', makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, scaleAll, resultsStore.drawPositiveTowardLocalAxes);
+        }
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),

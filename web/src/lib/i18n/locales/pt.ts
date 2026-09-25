@@ -5442,6 +5442,8 @@ const pt: Translations = {
   'tmpl3d.tower4': 'Torre 4 Andares',
   'tmpl3d.tower4Desc': 'Torre contraventada com afilamento',
   'toast.bucklingError': 'Erro de flambagem',
+  'toast.bucklingNoCompression': 'Com estas cargas nenhuma barra fica comprimida: não há flambagem a calcular.',
+  'toast.pdeltaPrescribed': 'P-Δ ainda não considera deslocamentos impostos de apoio (recalques). Remova-os para executá-lo, ou use a análise linear.',
   'toast.bucklingSuccess': 'Flambagem: λ_cr={factor}, {nComp} elem. comprimidos ({ms}ms)',
   'toast.combinations3dSuccess': '{n} combinações 3D calculadas ({cases} casos de carga).',
   'toast.combinationsSuccess': '{n} combinações calculadas ({cases} casos de carga). Use "Primário" nos diagramas M/V/N para ver Envoltória ou combos individuais.',
@@ -5989,5 +5991,12 @@ const pt: Translations = {
   'sel.kind.loads.other': '{n} cargas',
   'sel.kind.shells.one': '{n} placa',
   'sel.kind.shells.other': '{n} placas',
+  'plastic.collapse': 'colapso com {n} rótulas: λc = {lambda}',
+  'plastic.noCollapse': 'Sem colapso: a estrutura não chegou a formar um mecanismo',
+  'plastic.member': 'Barra',
+  'plastic.value': 'Esforço',
+  'plastic.axial': 'escoamento axial',
+  'plastic.note': 'As cargas crescem juntas por λ. Cada seção fica elástica até atingir seu Mp; ali se forma uma rótula plástica e a estrutura continua carregando como se tivesse uma articulação nesse ponto. Uma barra cuja força normal atinge Np = fy·A escoa e sai de jogo (é assim que colapsa um arco funicular, que não tem momento). Sem interação M–N. Colapsa quando vira um mecanismo.',
+  'toast.plasticCollapse': 'Colapso plástico: λc = {lambda} com {hinges} rótulas ({ms} ms)',
 };
 export default pt;

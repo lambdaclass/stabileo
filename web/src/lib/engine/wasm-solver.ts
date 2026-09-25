@@ -5,6 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { mergeAllHingedJoints2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
@@ -452,6 +453,35 @@ export function serializeInput3D(input: SolverInput3D): string {
   return JSON.stringify(input3DToWireObject(input));
 }
 
+/**
+ * B₂, the amplification of the displacements that matter. The engine takes the
+ * largest ratio over every degree of freedom, and a DOF that barely moves in
+ * the linear solution turns that into anything: 247 for a building whose first
+ * buckling factor is 2. Here the ratio is taken only over nodal translations
+ * at least 5 % of the largest one, so a sway (amplified) still shows through an
+ * axial shortening (not amplified) at the same node, and round-off does not.
+ * Stability is then judged on this value, with the engine's own threshold.
+ */
+function amplifyByPeakDisplacement(result: any): any {
+  if (!result?.results || !result?.linearResults) return result;
+  const KEYS = ['ux', 'uy', 'uz'] as const;
+  const lin = new Map<number, any>(((result.linearResults.displacements ?? []) as any[]).map((d) => [d.nodeId, d]));
+  let peak = 0;
+  for (const d of lin.values()) for (const k of KEYS) peak = Math.max(peak, Math.abs(d[k] ?? 0));
+  if (!(peak > 1e-12)) return result;
+  let b2 = 0;
+  for (const d of (result.results.displacements ?? []) as any[]) {
+    const l = lin.get(d.nodeId);
+    if (!l) continue;
+    for (const k of KEYS) {
+      const u = l[k] ?? 0;
+      if (Math.abs(u) >= 0.05 * peak) b2 = Math.max(b2, Math.abs((d[k] ?? 0) / u));
+    }
+  }
+  if (!(b2 > 0) || !Number.isFinite(b2)) return result;
+  return { ...result, b2Factor: b2, isStable: !!result.converged && b2 < 100 };
+}
+
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -486,15 +516,17 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
 /** Solve 2D P-Delta analysis via WASM. */
 export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
-  return JSON.parse(resultJson);
+  return amplifyByPeakDisplacement(JSON.parse(resultJson));
 }
 
 /** Solve 2D buckling analysis via WASM. */
 export function solveBuckling(input: SolverInput, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  // A joint where every member is hinged leaves a rotation that is its own
+  // spurious first mode; see orphan-rotations-2d.ts.
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolveBuckling2d(json, numModes);
   return JSON.parse(resultJson);
 }
@@ -506,6 +538,7 @@ export function solveModal(
   numModes = 6,
 ) {
   if (!wasmReady || !wasmSolveModal2d) throw new Error('WASM solver not initialized.');
+  input = mergeAllHingedJoints2D(input);
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(input.nodes),
@@ -534,6 +567,7 @@ export function solveSpectral(config: {
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral2d) throw new Error('WASM solver not available.');
+  config = { ...config, solver: mergeAllHingedJoints2D(config.solver) };
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -619,7 +653,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  return result;
+  return amplifyByPeakDisplacement(result);
 }
 
 /** Solve 3D modal analysis via WASM. */

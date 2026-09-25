@@ -1769,6 +1769,8 @@ const en: Record<string, string> = {
   'toast.spectralError': 'Spectral analysis error',
   'toast.bucklingSuccess': 'Buckling: λ_cr={factor}, {nComp} compressed elem. ({ms}ms)',
   'toast.bucklingError': 'Buckling error',
+  'toast.bucklingNoCompression': 'No bar is compressed under these loads: there is no buckling to compute.',
+  'toast.pdeltaPrescribed': 'P-Δ does not yet account for prescribed support displacements (settlements). Remove them to run it, or use the linear analysis.',
   'toast.plasticMechanism': 'Plastic collapse: λ={lambda}, {hinges}/{limit} hinges ({ms}ms)',
   'toast.plasticNoCollapse': 'Plastic: {hinges} hinges, λ={lambda}, redundancy={redundancy} ({ms}ms)',
   'toast.plasticError': 'Plastic analysis error',
@@ -7180,5 +7182,12 @@ const en: Record<string, string> = {
   'sel.kind.loads.other': '{n} loads',
   'sel.kind.shells.one': '{n} shell',
   'sel.kind.shells.other': '{n} shells',
+  'plastic.collapse': 'collapse with {n} hinges: λc = {lambda}',
+  'plastic.noCollapse': 'No collapse: the structure never became a mechanism',
+  'plastic.member': 'Member',
+  'plastic.value': 'Force',
+  'plastic.axial': 'axial yield',
+  'plastic.note': 'All loads grow together by λ. Each section stays elastic until it reaches its Mp; a plastic hinge forms there and the structure carries on as if it had a pin at that point. A bar whose axial force reaches Np = fy·A yields and drops out (that is how a funicular arch, which carries no moment, fails). No M–N interaction. It collapses when it becomes a mechanism.',
+  'toast.plasticCollapse': 'Plastic collapse: λc = {lambda} with {hinges} hinges ({ms} ms)',
 };
 export default en;

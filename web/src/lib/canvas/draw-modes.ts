@@ -1,7 +1,6 @@
 // Drawing mode shapes (modal analysis) and buckling modes on the canvas
 
 import type { PlasticResult } from '../engine/result-types';
-import { canvasTheme } from './theme';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -83,83 +82,48 @@ export function drawModeShape(
 }
 
 /**
- * Draw plastic hinges on the structure.
+ * The plastic hinges formed up to a step of the collapse analysis, over the
+ * moment diagram the Viewport draws for that step's accumulated state.
+ *
+ * Every hinge formed so far is marked, numbered in the order it formed; those
+ * of the current step are drawn brighter, so stepping through reads as the
+ * hinges appearing one event at a time. A yielded truss bar is marked with a
+ * square rather than a circle: it is an axial yield, not a hinge.
  */
 export function drawPlasticHinges(
   result: PlasticResult,
   stepIndex: number,
   dc: DrawContext,
-  zoom: number,
+  _zoom: number,
 ): void {
   const { ctx, worldToScreen, nodes, elements } = dc;
-  const step = result.steps[stepIndex];
-  if (!step) return;
-
-  // Draw the deformed shape for this step
-  const dispMap = new Map<number, { ux: number; uz: number }>();
-  for (const d of step.results.displacements) {
-    dispMap.set(d.nodeId, { ux: d.ux, uz: d.uz });
-  }
-
-  // Determine auto-scale from max displacement
-  let maxDisp = 0;
-  for (const d of step.results.displacements) {
-    const mag = Math.sqrt(d.ux * d.ux + d.uz * d.uz);
-    if (mag > maxDisp) maxDisp = mag;
-  }
-  const autoScale = maxDisp > 0 ? Math.min(50 / zoom / maxDisp, 200) : 1;
-
-  // Draw elements
-  ctx.strokeStyle = canvasTheme().amber;
-  ctx.lineWidth = 2;
-  for (const [, elem] of elements) {
-    const ni = nodes.get(elem.nodeI);
-    const nj = nodes.get(elem.nodeJ);
-    if (!ni || !nj) continue;
-    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0 };
-    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0 };
-
-    const si = worldToScreen(ni.x + di.ux * autoScale, ni.y + di.uz * autoScale);
-    const sj = worldToScreen(nj.x + dj.ux * autoScale, nj.y + dj.uz * autoScale);
-    ctx.beginPath();
-    ctx.moveTo(si.x, si.y);
-    ctx.lineTo(sj.x, sj.y);
-    ctx.stroke();
-  }
-
-  // Draw hinge symbols at each formed hinge
-  for (const hinge of step.hingesFormed) {
-    const elem = elements.get(hinge.elementId);
+  if (!result.steps[stepIndex]) return;
+  const upTo = result.hinges
+    .map((h, order) => ({ h, order }))
+    .filter(({ h }) => h.step <= stepIndex);
+  for (const { h, order } of upTo) {
+    const elem = elements.get(h.elementId);
     if (!elem) continue;
     const ni = nodes.get(elem.nodeI);
     const nj = nodes.get(elem.nodeJ);
     if (!ni || !nj) continue;
-
-    // Use position field for interior hinges, fall back to start/end
-    const pos = hinge.position ?? (hinge.end === 'start' ? 0 : 1);
-    const wx = ni.x + (nj.x - ni.x) * pos;
-    const wy = ni.y + (nj.y - ni.y) * pos;
-    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0 };
-    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0 };
-    const dux = di.ux + (dj.ux - di.ux) * pos;
-    const duz = di.uz + (dj.uz - di.uz) * pos;
-    const s = worldToScreen(wx + dux * autoScale, wy + duz * autoScale);
-
-    // Draw hinge circle
-    const r = 8;
+    const pos = h.position ?? (h.end === 'start' ? 0 : 1);
+    const s = worldToScreen(ni.x + (nj.x - ni.x) * pos, ni.y + (nj.y - ni.y) * pos);
+    const current = h.step === stepIndex;
+    const axial = (h as { kind?: string }).kind === 'axial';
+    const r = current ? 9 : 7.5;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(233, 69, 96, 0.8)';
+    if (axial) ctx.rect(s.x - r, s.y - r, 2 * r, 2 * r);
+    else ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = current ? 'rgba(233, 69, 96, 0.95)' : 'rgba(150, 60, 75, 0.85)';
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = current ? 2 : 1.2;
     ctx.stroke();
-
-    // Label with step number
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 9px sans-serif';
+    ctx.font = `bold ${current ? 10 : 9}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${hinge.step + 1}`, s.x, s.y);
+    ctx.fillText(String(order + 1), s.x, s.y);
   }
 }

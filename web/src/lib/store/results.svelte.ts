@@ -827,7 +827,8 @@ function createResultsStore() {
       }
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
-        diagramType = 'momentZ';
+        // My: the bending of a beam under gravity (local z is up), as the "3" key and the 2D M.
+        diagramType = 'momentY';
       }
       combinationsDirty = false;
     },

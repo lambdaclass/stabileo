@@ -5,9 +5,11 @@
   import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { analyzeKinematics, solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
-  import { plasticMoments, DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
+  import type { SectionMp } from '../../lib/engine/plastic-moments';
+  import { runPlasticCollapse } from '../../lib/actions/plastic';
+  import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
@@ -282,6 +284,34 @@
     return active === null || active.key === key;
   }
 
+  /**
+   * A buckling analysis of a model in which no bar is compressed has nothing to
+   * find. The engine says so by throwing; that is an answer, not a failure.
+   */
+  function bucklingFailure(e: unknown): void {
+    const msg = errText(e, 'toast.bucklingError');
+    if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
+    else uiStore.toast(msg, 'error');
+  }
+
+  /**
+   * The second-order solver ignores prescribed support displacements: a model
+   * whose only action is a settlement came back all zeros and "not converged",
+   * and one with loads as well came back without the settlement. Say so rather
+   * than show either.
+   */
+  function blockedByPrescribed(supports: Iterable<Record<string, unknown>>): boolean {
+    for (const s of supports) {
+      for (const k of ['dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
+        if (typeof s[k] === 'number' && s[k] !== 0) {
+          uiStore.toast(t('toast.pdeltaPrescribed'), 'error');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function errText(e: unknown, fallbackKey: string): string {
     if (typeof e === 'string' && e.trim()) return e;
     const msg = (e as { message?: unknown } | null)?.message;
@@ -329,6 +359,7 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    if (blockedByPrescribed(input.supports.values() as Iterable<Record<string, unknown>>)) return;
     try {
       const t0 = performance.now();
       const result = solvePDelta(input);
@@ -390,47 +421,27 @@
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.bucklingError'), 'error');
+      bucklingFailure(e);
     }
   }
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
-  /** The model's degree of indeterminacy, for the result line and the toast. */
-  let plasticGh = $state<number | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    /* Mp from each section's own plastic modulus, not the solid rectangle b·h²/4 the engine assumes. */
-    const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
-    const sections = new Map<number, { a: number; iz: number; materialId: number }>();
-    for (const [id, sec] of modelStore.sections) {
-      const elem = [...modelStore.elements.values()].find(e => e.sectionId === id);
-      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, materialId: elem?.materialId ?? 1 });
-    }
-    const materials = new Map<number, { fy?: number }>();
-    for (const [id, mat] of modelStore.materials) {
-      materials.set(id, { fy: mat.fy });
-    }
     try {
       const t0 = performance.now();
-      const result = solvePlastic({ solver: input, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
-      plasticMps = mps;
-      /*
-       * The engine's `redundancy` is the number of hinges it formed, not the
-       * degree of indeterminacy — shown as "GH", a cantilever read GH = 2.
-       * The degree comes from the kinematic analysis of the model as given.
-       */
-      try { plasticGh = Math.max(0, analyzeKinematics(input).degree); } catch { plasticGh = null; }
+      /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
+      const run = runPlasticCollapse();
+      if (!run) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
-      resultsStore.setPlasticResult(result);
-      const msg = result.isMechanism
-        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', plasticGh === null ? '?' : String(plasticGh + 1)).replace('{ms}', dt.toFixed(0))
-        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', plasticGh === null ? '?' : String(plasticGh)).replace('{ms}', dt.toFixed(0));
-      uiStore.toast(msg, result.isMechanism ? 'info' : 'success');
+      plasticMps = run.mps;
+      resultsStore.setPlasticResult(run.result);
+      const r = run.result;
+      uiStore.toast(r.isMechanism
+        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
+        : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
@@ -481,6 +492,7 @@
     if (!await ensureWasmReady('handlePDelta3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    if (blockedByPrescribed(input.supports.values() as Iterable<Record<string, unknown>>)) return;
     try {
       const t0 = performance.now();
       let result: any;
@@ -536,7 +548,7 @@
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '\u2014').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.bucklingError'), 'error');
+      bucklingFailure(e);
     }
   }
 
@@ -828,7 +840,7 @@
           }
           if (is3D ? resultsStore.fullEnvelope3D : resultsStore.fullEnvelope) {
             resultsStore.activeView = 'envelope';
-            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = is3D ? 'momentZ' : 'moment';
+            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = is3D ? 'momentY' : 'moment';
           }
         }}>
         {t('advanced.envelope')}
@@ -1052,24 +1064,7 @@
       </div>
     {/if}
   {/if}
-  {#if resultsStore.plasticResult}
-    <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => resultsStore.diagramType = 'plasticHinges'}>{t('advanced.plasticLabel')}</button>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticStep > 0) resultsStore.plasticStep--; }} disabled={resultsStore.plasticStep === 0}>&#9664;</button>
-      <span class="adv-result-label">{resultsStore.plasticStep + 1}/{resultsStore.plasticResult.steps.length}</span>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticResult && resultsStore.plasticStep < resultsStore.plasticResult.steps.length - 1) resultsStore.plasticStep++; }} disabled={!resultsStore.plasticResult || resultsStore.plasticStep >= resultsStore.plasticResult.steps.length - 1}>&#9654;</button>
-    </div>
-    <div class="adv-result-info">
-      &lambda; = {resultsStore.plasticResult.steps[resultsStore.plasticStep]?.loadFactor.toFixed(3) ?? '—'} |
-      {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
-      GH = {plasticGh ?? '—'}
-    </div>
-    {#each plasticMps as m (m.sectionId)}
-      <div class="adv-result-info" data-testid="plastic-mp">
-        {m.name}: Mp = {m.mp.toFixed(1)} kN·m (Zp = {(m.zp * 1e6).toFixed(0)} cm³, fy = {m.fy} MPa) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {t('advanced.mpFyAssumed').replace('{fy}', String(DEFAULT_FY))}{/if}
-      </div>
-    {/each}
-  {/if}
+  <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={!resultsStore.movingLoadShowEnvelope} onclick={() => { resultsStore.movingLoadShowEnvelope = false; resultsStore.diagramType = 'moment'; }}>{t('advanced.movingLoad')}</button>
@@ -1379,7 +1374,8 @@
     color: white;
   }
 
-  .small-btn {
+  /* Reachable from the result panels mounted inside this section (components/advanced/). */
+  :where(.toolbar-section) :global(.small-btn) {
     padding: 0.1rem 0.4rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
@@ -1389,24 +1385,24 @@
     cursor: pointer;
   }
 
-  .small-btn:hover:not(:disabled) {
+  :where(.toolbar-section) :global(.small-btn:hover:not(:disabled)) {
     background: var(--st-surface-3);
     color: white;
   }
 
-  .small-btn:disabled {
+  :where(.toolbar-section) :global(.small-btn:disabled) {
     opacity: 0.4;
     cursor: default;
   }
 
-  .adv-result-row {
+  :where(.toolbar-section) :global(.adv-result-row) {
     display: flex;
     align-items: center;
     gap: 0.25rem;
     margin-top: 0.25rem;
   }
 
-  .adv-result-btn {
+  :where(.toolbar-section) :global(.adv-result-btn) {
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
@@ -1417,25 +1413,25 @@
     flex-shrink: 0;
   }
 
-  .adv-result-btn:hover {
+  :where(.toolbar-section) :global(.adv-result-btn:hover) {
     background: var(--st-surface-3);
     color: white;
   }
 
-  .adv-result-btn.active {
+  :where(.toolbar-section) :global(.adv-result-btn.active) {
     background: var(--st-accent);
     border-color: var(--st-danger);
     color: white;
   }
 
-  .adv-result-label {
+  :where(.toolbar-section) :global(.adv-result-label) {
     font-size: 0.72rem;
     color: var(--st-value);
     min-width: 2rem;
     text-align: center;
   }
 
-  .adv-result-info {
+  :where(.toolbar-section) :global(.adv-result-info) {
     font-size: 0.68rem;
     color: var(--st-text-3);
     padding: 0 0 0 0.25rem;
@@ -1447,7 +1443,7 @@
      other subordinate line in this panel gets. Loose at the foot of the list it
      looked like a stray line of debug output.
   */
-  .flat .adv-result-info {
+  .flat :global(.adv-result-info) {
     font-family: var(--st-mono);
     font-size: 0.66rem;
     letter-spacing: 0.02em;

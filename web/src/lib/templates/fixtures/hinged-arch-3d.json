@@ -131,7 +131,10 @@
       "materialId": 1,
       "sectionId": 1,
       "hingeStart": false,
-      "hingeEnd": true
+      "hingeEnd": false,
+      "releaseJ": {
+        "my": true
+      }
     },
     {
       "id": 4,
@@ -140,7 +143,7 @@
       "nodeJ": 5,
       "materialId": 1,
       "sectionId": 1,
-      "hingeStart": true,
+      "hingeStart": false,
       "hingeEnd": false
     },
     {
@@ -191,7 +194,10 @@
       "materialId": 1,
       "sectionId": 1,
       "hingeStart": false,
-      "hingeEnd": true
+      "hingeEnd": false,
+      "releaseJ": {
+        "my": true
+      }
     },
     {
       "id": 10,
@@ -200,7 +206,7 @@
       "nodeJ": 11,
       "materialId": 1,
       "sectionId": 1,
-      "hingeStart": true,
+      "hingeStart": false,
       "hingeEnd": false
     },
     {
