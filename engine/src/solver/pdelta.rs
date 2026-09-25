@@ -85,10 +85,15 @@ fn rhs_with_prescribed(k: &[f64], n: usize, nf: usize, f_f: &[f64], u: &[f64]) -
 /// This was the largest ratio u_PΔ / u_lin over every free DOF with a linear
 /// value above 1e-12, so one DOF that barely moves in the linear solution —
 /// a rotation, or a translation of 1e-11 m — set it to anything: 247 for a
-/// building whose first buckling factor is 2 (for which B₂ ≈ 2). The ratio is
-/// taken over nodal translations at least 5 % of the largest one, so a sway
-/// (amplified) still shows through an axial shortening (not amplified) at the
-/// same node, and round-off does not.
+/// building whose first buckling factor is 2 (for which B₂ ≈ 2).
+///
+/// It is taken now over the translations the second-order analysis actually
+/// changes: those whose increment u_PΔ − u_lin is at least 5 % of the largest
+/// increment, and among them those whose linear value is at least 5 % of the
+/// largest such value. Selecting by the increment, not by the linear value,
+/// matters: in a column near its critical load the axial shortening is two
+/// orders larger than the lateral deflection, but it is not amplified, and
+/// the lateral deflection — amplified 1/(1 − P/Pcr) — is what B₂ describes.
 fn b2_factor(dof_num: &DofNumbering, n_trans: usize, u_lin: &[f64], u_pd: &[f64]) -> f64 {
     let nf = dof_num.n_free;
     let trans: Vec<usize> = dof_num
@@ -97,13 +102,19 @@ fn b2_factor(dof_num: &DofNumbering, n_trans: usize, u_lin: &[f64], u_pd: &[f64]
         .filter(|((_, local), &idx)| *local < n_trans && idx < nf)
         .map(|(_, &idx)| idx)
         .collect();
-    let peak = trans.iter().fold(0.0f64, |m, &i| m.max(u_lin[i].abs()));
-    if peak <= 1e-15 {
+    let inc = |i: usize| (u_pd[i] - u_lin[i]).abs();
+    let d_max = trans.iter().fold(0.0f64, |m, &i| m.max(inc(i)));
+    if d_max <= 1e-15 {
         return 1.0;
     }
-    trans
+    let changed: Vec<usize> = trans.iter().copied().filter(|&i| inc(i) >= 0.05 * d_max).collect();
+    let l_max = changed.iter().fold(0.0f64, |m, &i| m.max(u_lin[i].abs()));
+    if l_max <= 1e-15 {
+        return 1.0;
+    }
+    changed
         .iter()
-        .filter(|&&i| u_lin[i].abs() >= 0.05 * peak)
+        .filter(|&&i| u_lin[i].abs() >= 0.05 * l_max)
         .fold(0.0f64, |m, &i| m.max((u_pd[i] / u_lin[i]).abs()))
 }
 
