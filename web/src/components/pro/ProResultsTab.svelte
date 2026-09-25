@@ -874,11 +874,12 @@
       {/if}
 
       
-      {#if shellRows.length}
+      <!-- Outside the shell block below: a frame with no plates has deflections too. -->
       {#if resSection === 'deflections'}
         <ProDeflectionTable />
       {/if}
 
+      {#if shellRows.length}
       {#if resSection === 'shells'}
           <div class="shell-table-legend">{t('pro.shellTableLegend')}</div>
           <div class="pro-res-table-wrap">

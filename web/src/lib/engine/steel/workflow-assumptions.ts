@@ -24,13 +24,16 @@
  *
  * ── `Lb` is reported, never invented ───────────────────────────────
  *
- * The value shown is the member's own length, because that is literally what
- * `verification-service.ts` passes. It is not `L/2`, not `L/n` over intermediate nodes, and not a
- * fraction of anything: replacing a declared conservative assumption with an undeclared and
- * possibly unsafe one is the trade this module exists to refuse.
+ * The value shown is the one `verification-service.ts` passes: the physical member's length
+ * (`unbraced-length.ts` — collinear pieces with nothing that could brace them, taken together),
+ * or the `Lb` the user declared on the member. It is never `L/2`, not `L/n` over intermediate
+ * nodes, and not a fraction of anything: replacing a declared conservative assumption with an
+ * undeclared and possibly unsafe one is the trade this module exists to refuse. A chain only
+ * lengthens; only the user shortens.
  */
 
 import type { SteelInventory } from './steel-inventory';
+import type { MemberLengths, LengthSource } from './unbraced-length';
 
 /** Where an assumption came from. */
 export type AssumptionSource = 'user' | 'generator' | 'assumed' | 'notInferable';
@@ -51,10 +54,13 @@ export interface MemberAssumption {
 export interface AssumptionRow {
   elementId: number;
   memberName: string;
-  /** The unbraced length the checker is given, in metres. The member's own length. */
+  /** The unbraced length the checker is given, in metres. */
   lbM: number;
-  /** Always `assumed` today. `user` and `generator` are the two ways out. */
+  /** `user` when declared on the member; `assumed` when deduced (element or chain). */
   lbSource: AssumptionSource;
+  /** How it was deduced or stated, and the elements of the chain. */
+  lbBasis: LengthSource;
+  lbChain: number[];
   /**
    * How many bracing members the model records for this one. **Always zero**, and not because there
    * are none — because there is no field that could hold the relationship.
@@ -157,21 +163,26 @@ const VALIDATION_BLOCKERS: readonly string[] = Object.freeze([
 /**
  * One row per metallic member.
  *
- * `lengthM` comes from the inventory, which measures it from the nodes — so `lbM` is the real
- * number the checker will receive, not a restatement of the rule.
+ * `lengths` is `memberLengths(model)`, the same map the checker reads, so `lbM` is the real number
+ * it receives, not a restatement of the rule. Without it, the inventory's element length.
  */
-export function assumptionRows(inv: SteelInventory): AssumptionRow[] {
-  return inv.members.map((m) => ({
+export function assumptionRows(inv: SteelInventory, lengths?: ReadonlyMap<number, MemberLengths>): AssumptionRow[] {
+  return inv.members.map((m) => {
+    const len = lengths?.get(m.elementId);
+    return {
     elementId: m.elementId,
     memberName: m.sectionName,
-    lbM: m.lengthM,
-    lbSource: 'assumed' as const,
+    lbM: len?.Lb ?? m.lengthM,
+    lbSource: len?.source === 'declared' ? 'user' as const : 'assumed' as const,
+    lbBasis: len?.source ?? 'element',
+    lbChain: len?.chain ?? [m.elementId],
     bracingRecorded: 0,
     applicable: [...UNIVERSAL],
     retired: [],
     notInferable: [...NOT_INFERABLE],
     blockedBy: [...VALIDATION_BLOCKERS],
-  }));
+    };
+  });
 }
 
 /** i18n key for a source. Never a raw enum on screen. */

@@ -55,7 +55,7 @@ export interface MemberLengths {
 export const COLLINEAR_COS = 1 - 1e-6;
 
 /** Every node a constraint names, however the constraint spells it. */
-function constraintNodes(constraints: readonly unknown[] | undefined): Set<number> {
+export function constraintNodes(constraints: readonly unknown[] | undefined): Set<number> {
   const out = new Set<number>();
   const visit = (v: unknown, key: string) => {
     if (typeof v === 'number' && /node|master|slave|retained|constrained|primary|secondary/i.test(key)) out.add(v);

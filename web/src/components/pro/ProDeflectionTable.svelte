@@ -22,18 +22,28 @@
     const ids = [...modelStore.elements.values()].filter((e) => e.type === 'frame').map((e) => e.id);
     const shown = resultsStore.results3D;
     const sets = source === 'service' ? svc.sets : shown ? [{ id: 0, name: '', results: shown }] : [];
-    return [...serviceDeflections(ids, sets)].map(([id, d]) => ({ id, ...d })).sort((a, b) => b.max / b.L - a.max / a.L);
+    // One row per span: every element of a span maps to the same result.
+    const seen = new Set<number>();
+    return [...serviceDeflections(ids, sets).values()]
+      .filter((d) => !seen.has(d.span[0]!) && (seen.add(d.span[0]!), true))
+      .map((d) => ({ id: d.span[0]!, ...d }))
+      .sort((a, b) => b.max / b.L - a.max / a.L);
   });
 
   // The check, for the beams, when reading service loads — the same one the verification runs.
   const checks = $derived(source === 'service' ? deflectionChecks().rows : new Map());
   const mm = (m: number) => (m * 1000).toFixed(2);
   const spanOver = (L: number, d: number) => (d > 0 ? `L/${Math.round(L / d)}` : 'L/∞');
+  const spanLabel = (ids: number[]) => (ids.length > 1 ? `${ids[0]}–${ids[ids.length - 1]} (${ids.length})` : String(ids[0]));
+  function pick(ids: number[]) {
+    uiStore.selectMode = 'elements';
+    ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
+  }
 
   function csv() {
     downloadText(toCsv(
       [t('pro.elemLabel'), 'L (m)', 'δ (mm)', 'x (m)', 'L/δ', 'δy (mm)', 'δz (mm)', t('tables.source')],
-      rows.map((r) => [r.id, r.L, r.max * 1000, r.x, r.max > 0 ? r.L / r.max : '', r.maxV * 1000, r.maxW * 1000, r.setName]),
+      rows.map((r) => [r.span.join(' '), r.L, r.max * 1000, r.x, r.max > 0 ? r.L / r.max : '', r.maxV * 1000, r.maxW * 1000, r.setName]),
     ), 'deflections.csv', 'text/csv;charset=utf-8');
   }
 </script>
@@ -53,8 +63,8 @@
     <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHint')}>{DEFLECTION_LIMIT}</th>{/if}</tr></thead>
     <tbody>
       {#each rows.slice(0, ROW_CAP) as r (r.id)}
-        <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(r.id, false); }} style="cursor:pointer">
-          <td class="col-id">{r.id}</td>
+        <tr onclick={() => pick(r.span)} style="cursor:pointer">
+          <td class="col-id" title={r.span.length > 1 ? tp('defl.spanOf', { ids: r.span.join(', ') }) : undefined}>{spanLabel(r.span)}</td>
           <td class="col-num">{r.L.toFixed(2)}</td>
           <td class="col-num">{mm(r.max)}</td>
           <td class="col-num">{r.x.toFixed(2)}</td>

@@ -234,12 +234,17 @@ export function chordDeflection(c: LocalCurve): ChordDeflection {
     for (let i = 1; i < n; i++) if (Math.abs(a[i]!) > Math.abs(a[k]!)) k = i;
     let value = Math.abs(a[k]!), xi = c.xi[k]!;
     if (k > 0 && k < n - 1) {
-      const y0 = Math.abs(a[k - 1]!), y1 = value, y2 = Math.abs(a[k + 1]!);
-      const den = y0 - 2 * y1 + y2;
-      if (den < 0) {
-        const d = 0.5 * (y0 - y2) / den; // in samples, within ±0.5
-        value = y1 - 0.25 * (y0 - y2) * d;
-        xi += d * (c.xi[1]! - c.xi[0]!);
+      // The parabola through the three samples, which need not be evenly spaced: a span of
+      // several elements is sampled per element.
+      const x0 = c.xi[k - 1]! - xi, x2 = c.xi[k + 1]! - xi;
+      const y0 = Math.abs(a[k - 1]!) - value, y2 = Math.abs(a[k + 1]!) - value;
+      // y = A·x² + B·x through (x0, y0), (0, 0), (x2, y2).
+      const A = (y2 / x2 - y0 / x0) / (x2 - x0);
+      const B = y0 / x0 - A * x0;
+      if (A < 0) {
+        const d = Math.min(Math.max(-B / (2 * A), x0), x2);
+        value += A * d * d + B * d;
+        xi += d;
       }
     }
     return { value, x: xi * c.L };
