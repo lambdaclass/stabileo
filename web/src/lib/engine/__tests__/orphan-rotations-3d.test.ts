@@ -87,3 +87,32 @@ describe('rotations no member resists, in a space frame', () => {
     expect(again.touched.size).toBe(0);
   });
 });
+
+
+describe('offset arms carry rotational stiffness to the real joints', () => {
+  it('does not stabilise a frame whose ends reach every joint through rigid offsets', () => {
+    const { e } = portal();
+    for (const id of e) modelStore.updateElement(id, {
+      offset: { frame: 'global', i: { x: 0.1, y: 0.2, z: 0 }, j: { x: 0.1, y: 0.2, z: 0 } },
+    });
+    const input = modelStore.buildSolverInput3D(false, false)!;
+    expect(input.nodes.size).toBeGreaterThan(modelStore.nodes.size);
+    expect([...input.supports.values()].some((s) => s.stabilised)).toBe(false);
+  });
+
+  it.each([false, true])('carries rotations through an unordered chain only when rigid (released: %s)', (released) => {
+    const { n } = portal();
+    const input = modelStore.buildSolverInput3D(false, false)!;
+    input.nodes.set(100, { id: 100, x: 4, y: 1, z: 3 });
+    input.nodes.set(101, { id: 101, x: 4, y: 2, z: 3 });
+    input.constraints = [
+      { type: 'eccentricConnection', masterNode: 100, slaveNode: 101, offsetY: 1,
+        releases: [false, false, false, released, released, released] },
+      { type: 'eccentricConnection', masterNode: n[2], slaveNode: 100, offsetY: 1 },
+    ];
+    const r = stabiliseOrphanRotations3D(input);
+    expect(r.touched.has(100)).toBe(false);
+    expect(r.touched.has(101)).toBe(released);
+    expect(r.touched.size).toBe(released ? 1 : 0);
+  });
+});
