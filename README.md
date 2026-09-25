@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/brand/stabileo-horizontal-color-fondo-oscuro.svg" alt="Stabileo" width="300" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/stabileo-horizontal-color-fondo-oscuro.svg">
+    <img src="docs/brand/stabileo-horizontal-color-fondo-claro.svg" alt="Stabileo" width="300" />
+  </picture>
 </p>
 
 <p align="center">
