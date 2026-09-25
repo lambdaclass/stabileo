@@ -113,6 +113,8 @@ su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y
   entra también con el signo opuesto. En **Reglas del proyecto** se escriben combinaciones propias
   en acciones (por ejemplo 1,2 D + 1,0 E + 0,5 L), para resistencia o servicio; se guardan con el
   proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
+  Los ejemplos de PRO se cargan con las combinaciones últimas de CIRSOC 101-2025 armadas desde
+  sus casos (salvo la plataforma offshore, cuyo oleaje no es un sismo de CIRSOC 103).
 - **Agregar carga:** nodal (en ejes globales), distribuida y puntual sobre barras (en ejes
   locales de la barra), y **de superficie** sobre placas cuadriláteras: en kN/m², vertical (un
   valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
@@ -128,6 +130,11 @@ argentina:
   edificios exceptuados (art. 2.4.7). El viento en −X y −Y se genera como casos propios. La presión
   de cubierta se aplica sobre las barras del techo, normal a cada una. El cerramiento se puede
   clasificar a partir de las aberturas, y el diálogo muestra q_z según la altura.
+  El diálogo muestra las dos ediciones de CIRSOC 102: la de 2025 se aplica; la de 2005 aparece
+  pero no se puede elegir hasta que se suministre su texto, y no se reemplaza por la de 2025.
+  Para las combinaciones de servicio se puede agregar el **viento de servicio Wa** de B.4.2: la
+  velocidad de 50 años del mapa de la Figura C AB.4.2-1 y una recurrencia (5 a 500 años), que la
+  convierte con el factor de esa figura.
 - **Nieve** según CIRSOC 104-2005: pg de la localidad (Tablas 1.1 a 1.15) o del lugar, pf con
   sus mínimos para cubiertas de baja pendiente, Cs según la pendiente y la condición térmica,
   lluvia sobre nieve, y la carga no balanceada en cubiertas a dos aguas, un caso por cada sentido

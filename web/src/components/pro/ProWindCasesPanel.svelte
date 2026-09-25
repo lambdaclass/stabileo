@@ -8,14 +8,17 @@
    */
   import { t, tp } from '../../lib/i18n';
   import {
-    classifyEnclosure, velocityPressure, velocityPressureExposureCoefficient,
-    type Enclosure, type Exposure,
+    classifyEnclosure, velocityPressure, velocityPressureExposureCoefficient, SERVICE_WIND_FACTOR,
+    type Enclosure, type Exposure, type ServiceRecurrence,
   } from '../../lib/codes/cirsoc102/wind';
+  const RECURRENCES: ServiceRecurrence[] = [5, 10, 25, 50, 100, 200, 500];
   import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
 
   interface Props {
     caseSet: WindCaseSet;
     bothSenses: boolean;
+    /** Service-level wind Wa for B.4.2: the 50-year speed of Figura C AB.4.2-1 and a recurrence. */
+    service: { enabled: boolean; v50: number; mri: ServiceRecurrence };
     enclosure: Enclosure;
     speed: number;
     exposure: Exposure;
@@ -25,7 +28,7 @@
     elevations: number[];
   }
   let {
-    caseSet = $bindable(), bothSenses = $bindable(), enclosure = $bindable(),
+    caseSet = $bindable(), bothSenses = $bindable(), enclosure = $bindable(), service = $bindable(),
     speed, exposure, altitude, kzt, elevations,
   }: Props = $props();
 
@@ -65,6 +68,19 @@
     </select>
   </div>
   <label class="wc-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-wind-both-senses" /> {t('autoLoad.windBothSenses')}</label>
+
+  <label class="wc-check"><input type="checkbox" bind:checked={service.enabled} data-testid="al-wind-service" /> {t('autoLoad.windService')}</label>
+  {#if service.enabled}
+    <div class="wc-row">
+      <label>V₅₀ (m/s) <input type="number" class="al-input-sm" min="0" step="1" bind:value={service.v50} data-testid="al-wind-service-v50" /></label>
+      <label>{t('autoLoad.windServiceMri')}
+        <select class="al-select-sm" bind:value={service.mri} data-testid="al-wind-service-mri">
+          {#each RECURRENCES as r (r)}<option value={r}>{r} {t('autoLoad.years')} (× {SERVICE_WIND_FACTOR[r]})</option>{/each}
+        </select>
+      </label>
+    </div>
+    <p class="wc-hint">{tp('autoLoad.windServiceHint', { v: (service.v50 * SERVICE_WIND_FACTOR[service.mri]).toFixed(1) })}</p>
+  {/if}
 
   <details class="wc-details" data-testid="al-wind-openings">
     <summary>{t('autoLoad.windOpenings')}</summary>

@@ -7713,5 +7713,15 @@ const en: Record<string, string> = {
   'autoLoad.snowRoofKind.mono': 'Single slope or flat',
   'autoLoad.snowSlippery': 'Smooth surface, unobstructed, with room below the eaves',
   'snow.preview': 'With the model’s roof ({slope}°): pf = {pf} kN/m², Cs = {cs}, ps = {ps} kN/m².',
+  'autoLoad.windEdition': 'CIRSOC 102 edition',
+  'autoLoad.editionNoText': 'text not supplied',
+  'autoLoad.windEditionHint': 'The 2005 edition is enabled once its text is supplied (with CIRSOC 101-2005’s, which sets its combinations at 1.6 W). Without it, it is not applied, nor replaced by 2025’s.',
+  'autoLoad.windCaseWa': 'Service wind Wa {dir}, {mri} years (V = {v} m/s)',
+  'autoLoad.windCaseWaGcpi': 'Service wind Wa {dir}, {mri} years, internal pressure {gcpi} (V = {v} m/s)',
+  'loadPlan.derivation.windService': 'Service wind Wa (B.4.2): V₅₀ = {v50} m/s × {factor} for {mri} years = {v} m/s (Figure C AB.4.2-1); {count} cases, for the service combinations only.',
+  'autoLoad.windService': 'Service wind Wa, for the service combinations (B.4.2)',
+  'autoLoad.windServiceMri': 'Recurrence',
+  'autoLoad.years': 'years',
+  'autoLoad.windServiceHint': 'V₅₀ is the site speed on the map of Figure C AB.4.2-1 (3-s gust at 10 m, exposure C). The recurrence is the designer’s judgement: the commentary mentions 10 years for drift in typical buildings. Wa speed: {v} m/s.',
 };
 export default en;

@@ -493,8 +493,8 @@
         {#each loadCases as lc}
           {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
           <tr class:active={uiStore.activeLoadCaseId === lc.id} onclick={() => { uiStore.activeLoadCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
-            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span></td>
-            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
+            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W' || lc.type === 'Wa'} class:type-e={lc.type === 'E'}></span></td>
+            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="Wa">Wa</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
             <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
             <td class="lc-count">{caseLoadCount}</td>
             <!--
@@ -525,6 +525,7 @@
         <option value="L">L</option>
         <option value="Lr">Lr</option>
         <option value="W">W</option>
+        <option value="Wa">Wa</option>
         <option value="E">E</option>
         <option value="S">S</option>
         <option value="">{t('pro.caseTypeOther')}</option>

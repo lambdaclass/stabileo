@@ -28,9 +28,9 @@
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
 /** Symbols whose cases are alternatives (one direction at a time), not summands. */
-const ALTERNATIVE: ReadonlySet<LoadSymbol> = new Set(['W', 'E']);
+const ALTERNATIVE: ReadonlySet<LoadSymbol> = new Set(['W', 'Wa', 'E']);
 
-const SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'E', 'F', 'H', 'T'];
+const SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
 /** The symbol a load case type stands for, case-insensitively ('LR' is Lr). */
 export function symbolOfType(type: string | undefined): LoadSymbol | null {
@@ -50,7 +50,7 @@ export interface CaseCombination {
 /** Which load symbols the model has cases for. */
 export function presentSymbols(cases: ReadonlyArray<{ type?: string }>): CombinationInputs['present'] {
   const has = (s: LoadSymbol) => cases.some((c) => symbolOfType(c.type) === s);
-  return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H') };
+  return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa') };
 }
 
 /**

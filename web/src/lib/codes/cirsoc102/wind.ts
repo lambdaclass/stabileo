@@ -317,6 +317,15 @@ export function flatRoofCp(hOverL: number, x: number, h: number): { cp: [number,
   return { cp: [+(low + (high - low) * t).toFixed(4), -0.18], refs: [REF_CP] };
 }
 
+/**
+ * Figura C AB.4.2-1 (commentary to Apéndice B.4.2): the factor that converts the 50-year basic
+ * speed of the figure's map to another mean recurrence interval, for service-level wind Wa.
+ */
+export type ServiceRecurrence = 5 | 10 | 25 | 50 | 100 | 200 | 500;
+export const SERVICE_WIND_FACTOR: Readonly<Record<ServiceRecurrence, number>> = Object.freeze({
+  500: 1.23, 200: 1.14, 100: 1.07, 50: 1.0, 25: 0.93, 10: 0.84, 5: 0.78,
+});
+
 // ─── The full calculation ────────────────────────────────────────
 
 export interface WindProject {

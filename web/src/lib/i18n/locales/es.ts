@@ -7702,5 +7702,15 @@ const es: Record<string, string> = {
   'autoLoad.snowRoofKind.mono': 'A un agua o plana',
   'autoLoad.snowSlippery': 'Superficie lisa, sin obstrucciones, con lugar bajo los aleros',
   'snow.preview': 'Con la cubierta del modelo ({slope}°): pf = {pf} kN/m², Cs = {cs}, ps = {ps} kN/m².',
+  'autoLoad.windEdition': 'Edición de CIRSOC 102',
+  'autoLoad.editionNoText': 'falta el texto',
+  'autoLoad.windEditionHint': 'La edición 2005 se habilita cuando se suministra su texto (junto con el de CIRSOC 101-2005, que fija sus combinaciones con 1,6 W). Sin él no se aplica, ni se reemplaza por la de 2025.',
+  'autoLoad.windCaseWa': 'Viento de servicio Wa {dir}, {mri} años (V = {v} m/s)',
+  'autoLoad.windCaseWaGcpi': 'Viento de servicio Wa {dir}, {mri} años, presión interior {gcpi} (V = {v} m/s)',
+  'loadPlan.derivation.windService': 'Viento de servicio Wa (B.4.2): V₅₀ = {v50} m/s × {factor} para {mri} años = {v} m/s (Figura C AB.4.2-1); {count} casos, sólo para las combinaciones de servicio.',
+  'autoLoad.windService': 'Viento de servicio Wa, para las combinaciones de servicio (B.4.2)',
+  'autoLoad.windServiceMri': 'Recurrencia',
+  'autoLoad.years': 'años',
+  'autoLoad.windServiceHint': 'V₅₀ es la velocidad del mapa de la Figura C AB.4.2-1 para el lugar (ráfaga de 3 s a 10 m, exposición C). La recurrencia es criterio del proyectista: el comentario menciona 10 años para la deriva de edificios típicos. Velocidad de Wa: {v} m/s.',
 };
 export default es;

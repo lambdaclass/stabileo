@@ -16,14 +16,14 @@
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
-  import type { Enclosure, Exposure } from '../../lib/codes/cirsoc102/wind';
+  import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
   import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import ProSnowSection from './ProSnowSection.svelte';
   import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
-  import { bindingLabel } from '../../lib/codes/roles';
+  import { allOptionsForRole, bindingLabel, optionIsAvailable, optionLabel } from '../../lib/codes/roles';
   import { messageIdentity } from '../../lib/codes/message';
   /*
    * Seismic comes from INPRES-CIRSOC 103 Parte I (2018) now.
@@ -112,6 +112,8 @@
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
   const windAvailable = $derived(regulationsStore.bound('wind'));
   const snowAvailable = $derived(regulationsStore.bound('snow'));
+  /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
+  const windEditions = allOptionsForRole('wind').filter((o) => o.regulation === 'cirsoc-102');
   let snowCfg = $state<SnowConfig>(defaultSnowConfig());
   const snowRoof = $derived.by(() => {
     const g = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements } as never);
@@ -150,6 +152,7 @@
   let windDirZ = $state(false);
   let windCaseSet = $state<WindCaseSet>('all');
   let windBothSenses = $state(true);
+  let windService = $state<{ enabled: boolean; v50: number; mri: ServiceRecurrence }>({ enabled: false, v50: 0, mri: 10 });
 
   // ─── Options ───────────────────────────
   let genCombos = $state(true);
@@ -221,6 +224,7 @@
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
         directions: { x: windDirX, y: windDirZ },
         caseSet: windCaseSet, bothSenses: windBothSenses,
+        service: windService.enabled ? { ...windService } : undefined,
       } : undefined,
       snow: snowCfg.enabled ? {
         enabled: true, ...snowPg(snowCfg),
@@ -633,6 +637,19 @@
           </p>
         {/if}
         {#if enableWind && windAvailable}
+          <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
+          <label class="al-row" data-testid="al-wind-edition">
+            <span class="al-label">{t('autoLoad.windEdition')}</span>
+            <select class="al-select-sm" value={regulationsStore.binding('wind').adapterId ?? ''}
+              onchange={(e) => regulationsStore.requestChange('wind', e.currentTarget.value)}>
+              {#each windEditions as o (o.adapterId)}
+                <option value={o.adapterId} disabled={!optionIsAvailable(o)}>
+                  {te(optionLabel(o))}{optionIsAvailable(o) ? '' : ` · ${t('autoLoad.editionNoText')}`}
+                </option>
+              {/each}
+            </select>
+          </label>
+          {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
           <div class="al-grid">
             <div class="al-field">
               <label class="al-label">V (m/s)</label>
@@ -676,6 +693,7 @@
           </div>
           <ProWindCasesPanel
             bind:caseSet={windCaseSet} bind:bothSenses={windBothSenses} bind:enclosure={windEnclosure}
+            bind:service={windService}
             speed={windV} exposure={windExposure} altitude={windAltitude}
             kzt={windKztSurveyed ? windKzt : 1}
             elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}

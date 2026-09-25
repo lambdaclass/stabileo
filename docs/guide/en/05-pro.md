@@ -110,6 +110,8 @@ one which displacements and rotations are restrained. A roller moves freely with
   opposite sign. **Project rules** are your own combinations written in actions (for example
   1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
   CIRSOC 101's, and can be saved as a template for another project.
+  PRO examples load with CIRSOC 101-2025's strength combinations built from their cases (except
+  the offshore platform, whose waves are not a CIRSOC 103 earthquake).
 - **Add load:** nodal (in global axes), distributed and point loads on members (in the member's
   local axes), and **surface** loads on quadrilateral plates: in kN/m², vertical (a positive value
   acts downward) and shared among the plate's four nodes.
@@ -124,6 +126,10 @@ one which displacements and rotations are restrained. A roller moves freely with
   Wind from −X and −Y is generated as cases of its own. Roof pressure is applied on the roof
   members, normal to each. The enclosure can be classified from the openings, and the dialog shows
   q_z against height.
+  The dialog names both CIRSOC 102 editions: 2025 is applied; 2005 is shown but cannot be chosen
+  until its text is supplied, and is not replaced by 2025's. For the service combinations you can
+  add B.4.2's **service wind Wa**: the 50-year speed from the map of Figure C AB.4.2-1 and a
+  recurrence (5 to 500 years), converted by that figure's factor.
 - **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
   minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
   unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are

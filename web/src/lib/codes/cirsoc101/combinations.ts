@@ -38,7 +38,8 @@ import { clause, type ClauseRef } from '../regulation';
 import { msg, type EngineMessage } from '../message';
 
 /** The load symbols of §2.2, as used by the combinations. */
-export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'E' | 'F' | 'H' | 'T';
+/** `Wa`: wind for a recurrence shorter than the risk category's (CIRSOC 102-2025 B.4), service only. */
+export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' | 'H' | 'T';
 
 export interface CombinationTerm {
   symbol: LoadSymbol;
@@ -72,6 +73,8 @@ export interface CombinationInputs {
   present: {
     L: boolean; Lr: boolean; S: boolean; R: boolean;
     W: boolean; E: boolean; F: boolean; H: boolean;
+    /** A service-level wind case exists (B.4.2's D + Wa). Absent: false. */
+    Wa?: boolean;
   };
   /**
    * Governing Lo from Table 4.1, in kN/m². Drives Exception 1. When several occupancies

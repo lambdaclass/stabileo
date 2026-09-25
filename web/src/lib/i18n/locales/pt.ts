@@ -6522,5 +6522,15 @@ const pt: Translations = {
   'autoLoad.snowRoofKind.mono': 'De uma água ou plana',
   'autoLoad.snowSlippery': 'Superfície lisa, sem obstruções, com espaço sob os beirais',
   'snow.preview': 'Com a cobertura do modelo ({slope}°): pf = {pf} kN/m², Cs = {cs}, ps = {ps} kN/m².',
+  'autoLoad.windEdition': 'Edição da CIRSOC 102',
+  'autoLoad.editionNoText': 'falta o texto',
+  'autoLoad.windEditionHint': 'A edição 2005 é habilitada quando seu texto for fornecido (com o da CIRSOC 101-2005, que fixa suas combinações com 1,6 W). Sem ele, não é aplicada nem substituída pela de 2025.',
+  'autoLoad.windCaseWa': 'Vento de serviço Wa {dir}, {mri} anos (V = {v} m/s)',
+  'autoLoad.windCaseWaGcpi': 'Vento de serviço Wa {dir}, {mri} anos, pressão interna {gcpi} (V = {v} m/s)',
+  'loadPlan.derivation.windService': 'Vento de serviço Wa (B.4.2): V₅₀ = {v50} m/s × {factor} para {mri} anos = {v} m/s (Figura C AB.4.2-1); {count} casos, só para as combinações de serviço.',
+  'autoLoad.windService': 'Vento de serviço Wa, para as combinações de serviço (B.4.2)',
+  'autoLoad.windServiceMri': 'Recorrência',
+  'autoLoad.years': 'anos',
+  'autoLoad.windServiceHint': 'V₅₀ é a velocidade do mapa da Figura C AB.4.2-1 para o local (rajada de 3 s a 10 m, exposição C). A recorrência é critério do projetista: o comentário menciona 10 anos para o deslocamento de edifícios típicos. Velocidade de Wa: {v} m/s.',
 };
 export default pt;

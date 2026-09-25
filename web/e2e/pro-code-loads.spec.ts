@@ -171,6 +171,12 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await page.getByTestId('lc-code-W').first().click();
       await expect(page.getByTestId('al-wind-cases')).toBeVisible();
 
+      // Both CIRSOC 102 editions are named; 2005 cannot be chosen without its text.
+      const edition = page.getByTestId('al-wind-edition').locator('select');
+      await expect(edition.locator('option[value="cirsoc102-2025"]')).not.toHaveAttribute('disabled', /.*/);
+      await expect(edition.locator('option[value="cirsoc102-2005"]')).toHaveAttribute('disabled', /.*/);
+      await expect(edition.locator('option[value="cirsoc102-2005"]')).toContainText(/text not supplied/);
+
       // The openings classify the enclosure: 10 m² of openings on a 100 m² wall, none elsewhere.
       await page.getByTestId('al-wind-openings').locator('summary').click();
       await page.getByTestId('al-wind-a0').fill('10');
@@ -190,12 +196,16 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       // Case 1 only, one sense: one case per direction (twice with a roof, one per internal-pressure sign).
       await page.getByTestId('al-wind-caseset').selectOption('case1');
       await page.getByTestId('al-wind-both-senses').uncheck();
+      // Service wind Wa at 10 years from a 40 m/s 50-year speed.
+      await page.getByTestId('al-wind-service').check();
+      await page.getByTestId('al-wind-service-v50').fill('40');
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
       const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
       const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
       expect(wind.length).toBeGreaterThan(0);
       expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
+      expect(names.filter((n) => /Wa/.test(n))).toEqual(expect.arrayContaining([expect.stringMatching(/^Service wind Wa \+X, 10 years/)]));
     });
 });
 
