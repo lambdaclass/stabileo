@@ -11,6 +11,24 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Modal participation of constrained models (2026-09-24)
+
+**Output change: `participationX/Y/Z`, effective masses and mass ratios from modal analysis of
+models with constraints, and every spectral result built on them.** With constraints the
+eigenproblem is solved in the reduced space, and the participation numerator φᵀM r was formed
+as (Cᵀr)ᵀ(CᵀMC)φ_s. Cᵀ is the force transform: for N nodes tied by EqualDOF it sums their ones
+into N, so Γ came out N× too large and the effective mass N²× — three tied columns reported a
+cumulative mass ratio of 3.34, a one-storey diaphragm 434. A diaphragm's Cᵀr also put the
+nodes' eccentricities on the master's θz, a torsional participation no rigid translation has.
+
+The numerator is now φ_s · Cᵀ(M r): the inertial load of a unit ground acceleration, reduced as
+the force it is, which is exact for every constraint type. Unconstrained models compute the
+same numbers as before. Pinned by `tests/modal_constrained_participation.rs`, which compares
+each constrained model with the same structure tied by stiff massless links.
+
+The web app does not send constraints to modal analysis today, so this was reached only
+through the engine API.
+
 #### Modal participation factors refer to the published mode shape (2026-09-23)
 
 **Output change: `participationX/Y/Z` from modal analysis, and every spectral displacement and
