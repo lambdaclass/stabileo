@@ -1,8 +1,9 @@
 <p align="center">
-  <img src="docs/brand/stabileo-mark.svg" alt="Stabileo" width="132" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/stabileo-horizontal-color-fondo-oscuro.svg">
+    <img src="docs/brand/stabileo-horizontal-color-fondo-claro.svg" alt="Stabileo" width="300" />
+  </picture>
 </p>
-
-<h1 align="center">Stabileo</h1>
 
 <p align="center">
   <strong>Cálculo estructural, en una pestaña del navegador.</strong><br>
