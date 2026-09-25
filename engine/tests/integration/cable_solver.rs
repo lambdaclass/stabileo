@@ -332,6 +332,7 @@ fn cable_3d_simple() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
             curved_shells: HashMap::new(),
@@ -421,7 +422,7 @@ fn make_stayed_deck(n_elem: usize) -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], connectors: HashMap::new(),
+        constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 

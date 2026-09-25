@@ -1453,6 +1453,7 @@ mod tests {
         });
 
         let solver = SolverInput {
+            solver_options: None,
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],

@@ -321,6 +321,7 @@ fn validation_sde_settlement_induced_moments() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };

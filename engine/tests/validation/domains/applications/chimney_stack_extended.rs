@@ -501,6 +501,7 @@ fn chimney_guy_wire_spring_support() {
     });
 
     let input_guyed = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_guyed,
     constraints: vec![],

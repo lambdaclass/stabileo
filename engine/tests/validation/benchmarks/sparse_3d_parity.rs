@@ -128,6 +128,7 @@ fn make_shell_input(
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
 
     SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -513,6 +514,7 @@ fn sparse_3d_parity_prescribed_displacements() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -631,6 +633,7 @@ fn sparse_3d_parity_inclined_supports() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -708,6 +711,7 @@ fn sparse_3d_parity_mixed_beam_shell() {
     }).collect();
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
@@ -883,7 +887,7 @@ fn sparse_3d_parity_inclined_support_skew_member() {
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
     };
 
     // Full-K parity (dense n×n vs sparse k_full reconstituted) — this is where

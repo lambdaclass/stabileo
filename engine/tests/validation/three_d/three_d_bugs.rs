@@ -282,6 +282,7 @@ fn bug_3d_plate_mass_contributes_to_modal() {
     });
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: HashMap::new(),

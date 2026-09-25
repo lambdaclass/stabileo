@@ -151,6 +151,7 @@ fn validation_composite_tapered_beam() {
         node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_t = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: loads_t,
     constraints: vec![],

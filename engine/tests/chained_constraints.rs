@@ -897,6 +897,7 @@ fn regression_2d_rigid_link_chain_kinematics() {
     });
 
     let solver = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,

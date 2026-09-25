@@ -91,6 +91,7 @@ fn cantilever_frame_3d(
     })];
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
@@ -186,6 +187,7 @@ fn make_mitc4_plate(
     let center_node = grid[nx / 2][ny / 2];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -305,6 +307,7 @@ fn make_mixed_frame_shell_model() -> (SolverInput3D, usize, usize) {
     ];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
@@ -626,6 +629,7 @@ fn shell_nonlinear_05_arc_length_snap_through_toggle() {
     })];
 
     let solver = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
@@ -732,6 +736,7 @@ fn shell_nonlinear_06_arc_length_is_2d_only() {
     })];
 
     let solver = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
@@ -853,6 +858,7 @@ fn shell_nonlinear_08_multi_element_cantilever_convergence() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
@@ -1007,6 +1013,7 @@ fn shell_nonlinear_10_portal_frame_arc_length_regression() {
     })];
 
     let solver = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };

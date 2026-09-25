@@ -297,6 +297,7 @@ fn validation_unit_load_overhang() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

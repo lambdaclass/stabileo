@@ -292,6 +292,7 @@ fn validation_fem_settlement() {
         });
     }
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems_map, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };

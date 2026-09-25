@@ -538,6 +538,7 @@ fn validation_ca_ssll112_beam_elastic_support() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };

@@ -78,6 +78,7 @@ fn cantilever_beam(n_elements: usize, length: f64) -> SolverInput {
     })];
 
     SolverInput {
+        solver_options: None,
         nodes: hm(nodes),
         materials: hm(vec![(1, mat())]),
         sections: hm(vec![(1, sec())]),

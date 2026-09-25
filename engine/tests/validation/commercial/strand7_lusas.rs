@@ -804,6 +804,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

@@ -76,6 +76,7 @@ fn single_element_with_orientation(
     let sups_map = HashMap::new();
 
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![],
         constraints: vec![], left_hand: None,

@@ -52,6 +52,14 @@ harness = false
 name = "workflow_bench"
 harness = false
 
+[[bench]]
+name = "pcg_bench"
+harness = false
+
+[[bench]]
+name = "eigen_bench"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = true

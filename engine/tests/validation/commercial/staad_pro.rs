@@ -695,6 +695,7 @@ fn validation_staad_v8_beam_spring_support() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

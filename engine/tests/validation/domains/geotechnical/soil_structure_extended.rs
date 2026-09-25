@@ -104,6 +104,7 @@ fn make_winkler_beam(
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -168,6 +169,7 @@ fn make_portal_spring_base(
     });
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -455,6 +457,7 @@ fn validation_ssi_pile_group_cap_beam() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -646,6 +649,7 @@ fn validation_ssi_lateral_earth_pressure() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

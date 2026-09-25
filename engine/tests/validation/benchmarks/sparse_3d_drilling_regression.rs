@@ -106,6 +106,7 @@ fn build_flat_shell_drilling_model(nx: usize, ny: usize) -> SolverInput3D {
     }).collect();
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,
