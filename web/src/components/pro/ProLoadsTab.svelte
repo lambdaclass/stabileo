@@ -1,5 +1,7 @@
 <script lang="ts">
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
+  import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
+  import ProCombinationRules from './ProCombinationRules.svelte';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, withWindBasis, type CaseCombination, type WindBasis } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
@@ -260,7 +262,7 @@
 
   // ─── Combination Generator with Review Modal ──────────
 
-  type ComboTemplate = 'lrfd' | 'service';
+  type ComboTemplate = 'lrfd' | 'service' | 'project';
 
   interface CandidateCombo {
     name: string;
@@ -314,7 +316,10 @@
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const present = presentSymbols(cases);
-    const specs = template === 'service'
+    // The project's rules carry their own factors: W is written as the engineer means it.
+    const specs = template === 'project'
+      ? modelStore.combinationRules.map(ruleToSpec)
+      : template === 'service'
       ? generateServiceCombinations({ present })
       : withWindBasis(generateCombinations({ present }), windBasis);
     const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
@@ -338,7 +343,7 @@
   function applySelectedCombos() {
     const toAdd = candidateCombos.filter(c => c.selected);
     if (toAdd.length === 0) { showComboModal = false; return; }
-    const prefix = activeTemplate === 'service' ? 'S' : 'U';
+    const prefix = activeTemplate === 'service' ? 'S' : activeTemplate === 'project' ? 'P' : 'U';
     // Continue numbering from the highest existing index for this prefix (not a
     // count): counting reuses a number after an earlier combo is deleted, which
     // produces duplicate names like two "U3: …".
@@ -584,6 +589,7 @@
             {t('pro.generateService')}
           </button>
         </div>
+        <ProCombinationRules onGenerate={() => openComboGenerator('project')} />
       </div>
     {/if}
   </div>
@@ -804,11 +810,11 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
       <div class="combo-modal-header">
-        <h3>{activeTemplate === 'service' ? t('pro.generateService') : t('pro.generateLRFD')}</h3>
-        <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : t('pro.comboSubStrength')}</span>
+        <h3>{activeTemplate === 'service' ? t('pro.generateService') : activeTemplate === 'project' ? t('combos.rules.generate') : t('pro.generateLRFD')}</h3>
+        <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : activeTemplate === 'project' ? t('combos.rules.sub') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
-      {#if activeTemplate !== 'service' && hasWindCases}
+      {#if activeTemplate === 'lrfd' && hasWindCases}
         <div class="combo-wind-basis" data-testid="combo-wind-basis">
           <label for="combo-wind-basis-sel">{t('pro.windBasis')}</label>
           <select id="combo-wind-basis-sel" bind:value={windBasis} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }}>

@@ -33,6 +33,7 @@ export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
+import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -779,6 +780,8 @@ export interface StructureModel {
    * combination is active and there are no named envelopes. See `engine/result-scopes.ts`.
    */
   resultScopes?: ResultScopes;
+  /** The project's own combination rules (`engine/loads/combination-rules.ts`). Absent: none. */
+  combinationRules?: CombinationRule[];
   /** Named camera views, to come back to a part of the model. Absent: none saved. */
   views?: SavedView[];
   constraints: Constraint3D[];
@@ -1524,6 +1527,7 @@ function createModelStore() {
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
     get resultScopes() { return model.resultScopes; },
+    get combinationRules() { return model.combinationRules ?? []; },
     get views(): readonly SavedView[] { return model.views ?? []; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
@@ -1595,6 +1599,9 @@ function createModelStore() {
           : {}),
         ...(snap.resultScopes
           ? { resultScopes: JSON.parse(JSON.stringify(snap.resultScopes)) as ModelSnapshot['resultScopes'] }
+          : {}),
+        ...(snap.combinationRules && snap.combinationRules.length > 0
+          ? { combinationRules: JSON.parse(JSON.stringify(snap.combinationRules)) as ModelSnapshot['combinationRules'] }
           : {}),
         ...(snap.views && snap.views.length > 0
           ? { views: JSON.parse(JSON.stringify(snap.views)) as ModelSnapshot['views'] }
@@ -1783,6 +1790,7 @@ function createModelStore() {
       : new Map();
     model.massSource = normalizeMassSource(s.massSource);
     model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
+    model.combinationRules = s.combinationRules ? JSON.parse(JSON.stringify(s.combinationRules)) : undefined;
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
@@ -2881,6 +2889,7 @@ function createModelStore() {
       model.groups = new Map();
       model.massSource = undefined;
       model.resultScopes = undefined;
+      model.combinationRules = undefined;
       model.views = undefined;
       model.constraints = [];
       model.connectors = new Map();
@@ -3235,6 +3244,12 @@ function createModelStore() {
       _pushUndoView?.();
       const next = (model.views ?? []).filter((v) => v.id !== id);
       model.views = next.length > 0 ? next : undefined;
+    },
+
+    /** State the project's combination rules; an empty list withdraws them. */
+    setCombinationRules(rules: CombinationRule[]): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.combinationRules = rules.length > 0 ? JSON.parse(JSON.stringify(rules)) : undefined;
     },
 
     /** State the active combination list and named envelopes, or withdraw them (`null`). */

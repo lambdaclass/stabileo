@@ -48,8 +48,8 @@ export interface CombinationTerm {
 export interface LoadCombinationSpec {
   /** 1..7 as printed, with a suffix when one printed combination expands to several. */
   id: string;
-  /** Which of the seven printed combinations this came from. */
-  basic: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  /** Which of the seven printed combinations this came from. Absent for a project's own rule. */
+  basic?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   terms: CombinationTerm[];
   /**
    * Canonical notation, e.g. `1.2 D + 1.6 L + 0.5 Lr`.
@@ -158,7 +158,7 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
   ];
 
   const push = (
-    basic: LoadCombinationSpec['basic'],
+    basic: NonNullable<LoadCombinationSpec['basic']>,
     suffix: string,
     terms: CombinationTerm[],
     refs: ClauseRef[],

@@ -61,6 +61,8 @@ export interface ModelSnapshot {
   views?: Array<{ id: number; name: string; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>;
   /** The active combination list and named envelopes. Absent: all combinations, none named. */
   resultScopes?: { active?: number[]; envelopes?: Array<{ id: number; name: string; purpose: string; comboIds: number[] }> };
+  /** The project's own combination rules. Absent: none. */
+  combinationRules?: Array<{ id: string; purpose: 'strength' | 'service'; terms: Array<{ symbol: import('../codes/cirsoc101/combinations').LoadSymbol; factor: number }> }>;
   /** The stated mass source. Absent when the project has not stated one. */
   massSource?: {
     kind?: string; presetId?: string; params?: Record<string, string | number | boolean>;

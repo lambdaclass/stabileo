@@ -198,3 +198,49 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
     });
 });
+
+test.describe('@smoke story drift is checked on the seismic cases', () => {
+  test('the generated seismic cases reach the drift table, against Tabla 6.4', async ({ pro: page }) => {
+    await openWithSeismic(page);
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    await page.evaluate(async () => { await window.__stabileoActions.solve(); });
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('res-tab-drift').click();
+    const panel = page.getByTestId('drift-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('[data-testid^="drift-table-"]').first()).toBeVisible();
+    await expect(panel).toContainText(/Table 6\.4/);
+    // ND relaxes the limit: the basis line follows the choice.
+    const before = await panel.innerText();
+    await page.getByTestId('drift-cond-ND').click();
+    await expect.poll(async () => panel.innerText()).not.toBe(before);
+  });
+});
+
+test.describe('@smoke the project states its own combination rules', () => {
+  test('a rule is written in actions, generated over the cases and saved with the model', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('load-tab-combos').click();
+    const rules = page.getByTestId('combo-rules');
+    await rules.locator('summary').click();
+    await page.getByTestId('combo-rule-add').click();
+    // 1,4 D + 0,7 L, typed with a decimal comma.
+    await page.getByTestId('combo-rule-r1-D').fill('1,4');
+    await page.getByTestId('combo-rule-r1-D').press('Tab');
+    await page.getByTestId('combo-rule-r1-L').fill('0,7');
+    await page.getByTestId('combo-rule-r1-L').press('Tab');
+    await expect(rules).toContainText('1.4 D + 0.7 L');
+    const before = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
+    await page.getByTestId('combo-rule-generate').click();
+    await page.getByRole('button', { name: /generate selected/i }).click();
+    const after = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
+    expect(after).toBe(before + 1);
+    // Saved as a template file.
+    const download = page.waitForEvent('download');
+    await page.getByTestId('combo-rule-export').click();
+    expect((await download).suggestedFilename()).toBe('combination-rules.json');
+  });
+});

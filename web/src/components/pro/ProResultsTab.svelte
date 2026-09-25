@@ -8,6 +8,7 @@
   import ProResultScopes from './ProResultScopes.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
+  import ProStoryDriftTable from './ProStoryDriftTable.svelte';
   import { deformedView } from '../../lib/store/deformed-view.svelte';
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
@@ -369,6 +370,7 @@
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
     // Relative to each member's chord — the number a span limit is written for.
     { id: 'deflections', labelKey: 'defl.title', count: () => (results ? [...modelStore.elements.values()].filter(e => e.type === 'frame').length : 0) },
+    { id: 'drift', labelKey: 'drift.title', count: () => !results ? 0 : modelStore.model.loadCases.filter((c) => (c.type || '').toUpperCase() === 'E').length },
     { id: 'shells', labelKey: 'pro.shellStresses', count: () => shellRows.length },
     // These two are computed inside the markup as `{@const}`, so the counts are
     // taken from the same source rather than from a binding that is not in
@@ -877,6 +879,9 @@
       <!-- Outside the shell block below: a frame with no plates has deflections too. -->
       {#if resSection === 'deflections'}
         <ProDeflectionTable />
+      {/if}
+      {#if resSection === 'drift'}
+        <ProStoryDriftTable />
       {/if}
 
       {#if shellRows.length}
