@@ -1146,7 +1146,7 @@ const ALPHA1 = 0.85;
  * Uses CIRSOC 201 §10.2 Whitney stress block method with strain compatibility.
  *
  * **Strain-compatible doubly reinforced** (when AsComp > 0):
- *   Uses iterative equilibrium to find neutral axis c, then:
+ *   Solves equilibrium for the neutral axis c by bisection, then:
  *   - εs' = 0.003·(c - d')/c — actual compression steel strain
  *   - fs' = min(Es·εs', fy) — compression steel stress (may not yield)
  *   - Cs = As'·(fs' - α1·f'c) if fs' > α1·f'c, else Cs = 0
@@ -1191,30 +1191,71 @@ export function computeFlexureCapacity(
   let compYields = false;
 
   if (isDoubly) {
-    // ── Strain-compatible iterative solution for doubly reinforced section ──
-    // Start from singly-reinforced c as initial guess, then iterate
-    const cInitial = (As_m2 * fy_kPa) / (ALPHA1 * fc_kPa * b * b1);
-    c = cInitial;
+    /*
+     * ── Strain-compatible solution for the doubly reinforced section ──
+     *
+     * By BISECTION on c, and not by the fixed-point iteration that used to be here.
+     *
+     * The old loop substituted c ← (As·fy − Cs(c)) / (α1·f'c·β1·b) twenty times and then
+     * used whatever the twentieth pass happened to leave, converged or not. For a section
+     * with symmetric reinforcement — the ordinary arrangement — it does not converge: it
+     * oscillates. Taking As = A's = 10.05 cm² in a 30×50 with d' = 4.1 cm, c alternates
+     * between 0.065 m (where the compression steel is counted) and 0.035 m (where c < d',
+     * so it is not), forever, because each value maps to the other.
+     *
+     * The twentieth pass then returned c from the branch that IGNORES the compression
+     * steel, while the moment below ADDS it. The state that came out satisfied no
+     * equilibrium at all: Cc + Cs = 618 kN against T = 422 kN, 47 % out, and φMn came
+     * back as 238 kN·m where the section carries about 164. The error ran one way only —
+     * always more capacity — and grew with the compression steel, so the more heavily
+     * reinforced the beam, the more it overstated.
+     *
+     * Bisection cannot do that. The residual
+     *
+     *     f(c) = α1·f'c·β1·c·b + Cs(c) − As·fy
+     *
+     * is continuous and non-decreasing in c: the concrete block grows with c, and Cs(c)
+     * is zero up to d' and then rises monotonically to its cap at yield. So the root is
+     * unique and bracketed by [0, h], and halving the bracket always converges.
+     *
+     * What does not happen any more is returning a number that is not a solution. If the
+     * bracket does not close — which would mean the residual is not what this reasoning
+     * says it is — the function returns null, and the member reports as not verifiable
+     * rather than as verified against an equilibrium that was never satisfied.
+     */
+    const CsOf = (cTrial: number): number => {
+      const eps = cTrial > dPrime ? 0.003 * (cTrial - dPrime) / cTrial : 0;
+      const fs = Math.min(Es * eps, fy_kPa);
+      return AsComp_m2 * Math.max(0, fs - ALPHA1 * fc_kPa);
+    };
+    const residual = (cTrial: number): number =>
+      ALPHA1 * fc_kPa * b1 * cTrial * b + CsOf(cTrial) - As_m2 * fy_kPa;
 
-    for (let iter = 0; iter < 20; iter++) {
-      // Compression steel strain from strain diagram
-      epsilonComp = c > dPrime ? 0.003 * (c - dPrime) / c : 0;
-      // Compression steel stress: fs' = min(Es·εs', fy)
-      fsComp = Math.min(Es * epsilonComp, fy_kPa);
-      // Compression steel force (net, minus displaced concrete)
-      const CsNet = AsComp_m2 * Math.max(0, fsComp - ALPHA1 * fc_kPa);
-      // Equilibrium: T = Cc + Cs → As·fy = α1·f'c·β1·c·b + Cs
-      const cNew = (As_m2 * fy_kPa - CsNet) / (ALPHA1 * fc_kPa * b1 * b);
-      // Check convergence
-      if (Math.abs(cNew - c) < 0.0001) { c = Math.max(0.001, cNew); break; }
-      c = Math.max(0.001, cNew);
+    // The neutral axis cannot sit deeper than the section. `d` is the tension centroid,
+    // so the depth to the compression face bounds it with room to spare.
+    let lo = 1e-6;
+    let hi = Math.max(d, dPrime) * 2;
+    if (residual(lo) > 0 || residual(hi) < 0) return null;
+    for (let iter = 0; iter < 80; iter++) {
+      const mid = 0.5 * (lo + hi);
+      if (residual(mid) < 0) lo = mid; else hi = mid;
+      if (hi - lo < 1e-9) break;
     }
+    c = 0.5 * (lo + hi);
 
     a = b1 * c;
-    compYields = epsilonComp >= (fy / 200000); // εy = fy/Es
-    // Final compression steel force with converged c
     epsilonComp = c > dPrime ? 0.003 * (c - dPrime) / c : 0;
     fsComp = Math.min(Es * epsilonComp, fy_kPa);
+    compYields = epsilonComp >= (fy / 200000); // εy = fy/Es
+
+    /*
+     * Equilibrium is now a POSTCONDITION, not an expectation. This is the assertion the
+     * old code had nowhere to fail: it is what turns "the loop ran" into "the answer
+     * balances". One per mille of the tension force is far tighter than bisection needs
+     * and far looser than any real imbalance.
+     */
+    const Cc_check = ALPHA1 * fc_kPa * a * b;
+    if (Math.abs(Cc_check + CsOf(c) - As_m2 * fy_kPa) > 1e-3 * As_m2 * fy_kPa) return null;
   } else {
     // Singly reinforced — direct solution
     a = (As_m2 * fy_kPa) / (ALPHA1 * fc_kPa * b);

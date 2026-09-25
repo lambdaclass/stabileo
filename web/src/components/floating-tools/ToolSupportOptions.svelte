@@ -103,7 +103,7 @@
       title={uiStore.supportIsGlobal
         ? t('float.rollerRestrictsXGlobal')
         : t('float.rollerRestrictsILocal')}
-    >{uiStore.supportIsGlobal ? 'Y' : 'j'}</button>
+    >{uiStore.supportIsGlobal ? 'Z' : 'j'}</button>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
       title={t('float.rollerGlobalLabel')}>Gl</button>
