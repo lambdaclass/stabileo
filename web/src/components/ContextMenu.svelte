@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../lib/model/edit/transform-in-place';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
 
   let subdivCount = $state(2);
@@ -45,17 +46,12 @@
       uiStore.selectNode(ctx.nodeId);
     } else if (action === 'select-element' && ctx.elementId != null) {
       uiStore.selectElement(ctx.elementId);
-    } else if (action === 'mirror-x') {
-      modelStore.mirrorNodes(uiStore.selectedNodes, 'x');
+    } else if (action === 'mirror-x' || action === 'mirror-y') {
+      // The edit layer's in-place mirror: member frames, offsets and local loads follow.
+      mirrorSelectionInPlace(uiStore.selectedNodes, action === 'mirror-x' ? 'x' : 'y', { leftHand: uiStore.axisConvention3D === 'leftHand' });
       resultsStore.clear();
-    } else if (action === 'mirror-y') {
-      modelStore.mirrorNodes(uiStore.selectedNodes, 'y');
-      resultsStore.clear();
-    } else if (action === 'rotate-90') {
-      modelStore.rotateNodes(uiStore.selectedNodes, 90);
-      resultsStore.clear();
-    } else if (action === 'rotate-neg90') {
-      modelStore.rotateNodes(uiStore.selectedNodes, -90);
+    } else if (action === 'rotate-90' || action === 'rotate-neg90') {
+      rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
       resultsStore.clear();
     } else if (action === 'rotate-local-axes' && ctx.elementId != null) {
       modelStore.rotateElementLocalAxes(ctx.elementId, 90);

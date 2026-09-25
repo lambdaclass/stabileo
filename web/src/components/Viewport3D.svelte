@@ -1,5 +1,6 @@
 <script lang="ts">
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
+  import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
@@ -201,7 +202,7 @@
     const y = parseFloat(coordY);
     const z = parseFloat(coordZ);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
@@ -1619,7 +1620,7 @@
 
     // Full 3D snap: snap all coordinates to grid
     const snapped = uiStore.snapWorld3D(pos.x, pos.y, pos.z);
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
@@ -1678,8 +1679,9 @@
       // Second click → create element
       if (nodeId === pendingElementNodeI) return; // same node
 
-      historyStore.pushState();
-      const elemId = modelStore.addElement(pendingElementNodeI, nodeId, uiStore.elementCreateType);
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
+      // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
+      const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 
@@ -1712,7 +1714,7 @@
 
     const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
     if (is3D) {
       const supId = addSupportFromTool3D(nodeId);
@@ -1744,7 +1746,7 @@
       const nodeId = findNodeHit(e);
       if (nodeId === null) return;
 
-      historyStore.pushState();
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       if (is3D) {
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
@@ -1770,7 +1772,7 @@
       const elemId = findElementHit(e);
       if (elemId === null) return;
 
-      historyStore.pushState();
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       if (is3D) {
         modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {

@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { supportDofs3D } from './support-dofs-3d';
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
@@ -1434,52 +1435,6 @@ export function buildSolverInput3D(
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, userLeftHand);
 
-  // Convert support types to SolverSupport3D booleans
-  const supportTo3D = (s: Support): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } => {
-    if (project2DToXZ && is2DSupportType(s.type)) {
-      switch (s.type) {
-        case 'fixed':
-          return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-        case 'pinned':
-          return { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true };
-        case 'rollerX':
-          return { rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true };
-        case 'rollerY':
-        case 'rollerZ':
-          return { rx: true, ry: true, rz: false, rrx: true, rry: false, rrz: true };
-        case 'spring':
-          return { rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
-      }
-    }
-
-    switch (s.type) {
-      case 'fixed':
-      case 'fixed3d':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-      case 'pinned':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: false };
-      case 'pinned3d':
-        return { rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
-      case 'rollerX':
-        return { rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: false };
-      case 'rollerY':
-        return { rx: true, ry: false, rz: true, rrx: true, rry: true, rrz: false };
-      case 'rollerXZ':
-        return { rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
-      case 'rollerXY':
-        return { rx: false, ry: false, rz: true, rrx: false, rry: false, rrz: false };
-      case 'rollerYZ':
-        return { rx: true, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-      case 'spring':
-      case 'spring3d':
-        return { rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-      case 'custom3d':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-      default:
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-    }
-  };
-
   const input: SolverInput3D = {
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, mapModelNodeToSolver3D(n, project2DToXZ)])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
@@ -1589,7 +1544,7 @@ export function buildSolverInput3D(
           const r = s.dofRestraints;
           dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
         } else {
-          dofs = supportTo3D(s);
+          dofs = supportDofs3D(s, project2DToXZ);
         }
         const supportDz = s.dz ?? s.dy;
         const supportDry = s.dry ?? s.drz;
