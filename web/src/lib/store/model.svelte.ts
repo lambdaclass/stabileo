@@ -569,7 +569,7 @@ export interface ThermalLoad {
   id: number;
   elementId: number;
   dtUniform: number;  // °C (uniform temperature change)
-  dtGradient: number; // °C (temperature difference top-bottom)
+  dtGradient: number; // °C, ΔT(bottom face) − ΔT(top face), top = drawn local z (the course's ∇T·h)
   caseId?: number;
 }
 

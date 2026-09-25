@@ -10,6 +10,7 @@ import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system'
 // Counts published structural analyses so browser tests can assert that a
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
+import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -80,6 +81,14 @@ function createResultsStore() {
    * runs (and, under live calc, several edits in a row clear them several
    * times), so this is taken from the first clear that had results to lose.
    */
+  /*
+   * Plane results are published in the drawn axes: V, M and the transverse
+   * loads of a member whose drawn z is opposite to the solver's transverse
+   * axis change sign here (transverse-sign-2d.ts). The member geometry comes
+   * from the model, through a provider wired in the store barrel.
+   */
+  let _signOf: SignOf = () => 1;
+  const drawn = (r: AnalysisResults): AnalysisResults => resultsToDrawnAxes(r, _signOf);
   let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null } | null = null;
   let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
@@ -373,8 +382,11 @@ function createResultsStore() {
     get overlayResults() { return overlayResults; },
     get overlayResults3D() { return overlayResults3D; },
     get overlayLabel() { return overlayLabel; },
+    /** The member sign the plane results are published with; see transverse-sign-2d.ts. */
+    _setTransverseSignProvider(fn: SignOf) { _signOf = fn; },
+
     setOverlay(r: AnalysisResults | null, label: string = '') {
-      overlayResults = r;
+      overlayResults = r ? drawn(r) : r;
       overlayResults3D = null;
       overlayLabel = label;
     },
@@ -394,6 +406,14 @@ function createResultsStore() {
       }
     },
     setMovingLoadEnvelope(env: MovingLoadEnvelope) {
+      env = {
+        ...env,
+        positions: env.positions.map((p) => ({ ...p, results: drawn(p.results) })),
+        elements: new Map([...env.elements].map(([id, e]) => [id, _signOf(id) < 0
+          ? { ...e, mMaxPos: -e.mMaxNeg, mMaxNeg: -e.mMaxPos, vMaxPos: -e.vMaxNeg, vMaxNeg: -e.vMaxPos }
+          : e])),
+        ...(env.fullEnvelope ? { fullEnvelope: envelopeToDrawnAxes(env.fullEnvelope, _signOf) } : {}),
+      };
       this.clearAdvanced();
       movingLoadEnvelope = env;
       activeMovingLoadPosition = 0;
@@ -458,6 +478,7 @@ function createResultsStore() {
 
     get pdeltaResult() { return pdeltaResult; },
     setPDeltaResult(r: PDeltaResult) {
+      r = { ...r, results: drawn(r.results), ...(r.linearResults ? { linearResults: drawn(r.linearResults) } : {}) };
       this.clearAdvanced();
       pdeltaResult = r;
       results = r.results;
@@ -492,6 +513,11 @@ function createResultsStore() {
     get plasticStep() { return plasticStep; },
     set plasticStep(v: number) { plasticStep = v; },
     setPlasticResult(r: PlasticResult) {
+      r = {
+        ...r,
+        steps: (r.steps ?? []).map((st) => ({ ...st, results: st.results && drawn(st.results) })),
+        hinges: (r.hinges ?? []).map((h) => ((h as { kind?: string }).kind === 'axial' ? h : { ...h, moment: _signOf(h.elementId) * h.moment })),
+      };
       this.clearAdvanced();
       plasticResult = r;
       plasticStep = r.steps.length - 1;
@@ -597,6 +623,9 @@ function createResultsStore() {
     },
 
     setInfluenceLine(il: InfluenceLineResult) {
+      if ((il.quantity === 'M' || il.quantity === 'V') && il.targetElementId !== undefined && _signOf(il.targetElementId) < 0) {
+        il = { ...il, points: il.points.map((p) => ({ ...p, value: -p.value })) };
+      }
       influenceLine = il;
       diagramType = 'influenceLine';
       ilAnimating = false;
@@ -604,6 +633,7 @@ function createResultsStore() {
     },
 
     setResults(r: AnalysisResults, preserveDiagram = false) {
+      r = drawn(r);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
       deformedScale = 1; // reset to default on fresh solve
@@ -637,6 +667,9 @@ function createResultsStore() {
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
+      pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
+      pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
+      env = envelopeToDrawnAxes(env, _signOf);
       perCase = pc;
       perCombo = pco;
       envelope = env;

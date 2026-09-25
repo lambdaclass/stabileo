@@ -161,7 +161,7 @@ test.describe('the steel a profile arrives in', () => {
     await openTab(page, 'Members');
     await expect(page.locator('.pairing-note')).toHaveCount(0);
 
-    const select = page.locator('table select').first();
+    const select = page.locator('[data-testid^=elem-material-]').first();
     const options = await select.evaluate((el) =>
       [...(el as HTMLSelectElement).options].map((o) => o.text));
     // Make an A992 exist by putting a W in the other section.
@@ -184,11 +184,11 @@ test.describe('the steel a profile arrives in', () => {
       await openTab(page, 'Members');
     }
 
-    const opts2 = await page.locator('table select').first().evaluate((el) =>
+    const opts2 = await page.locator('[data-testid^=elem-material-]').first().evaluate((el) =>
       [...(el as HTMLSelectElement).options].map((o) => o.text));
     const idx = opts2.findIndex((o) => /A992/.test(o));
     expect(idx, 'an A992 material must exist by now').toBeGreaterThanOrEqual(0);
-    await page.locator('table select').first().selectOption({ index: idx });
+    await page.locator('[data-testid^=elem-material-]').first().selectOption({ index: idx });
     await page.waitForTimeout(600);
 
     // Exactly one note, for the one member that departs from practice.

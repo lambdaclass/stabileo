@@ -120,14 +120,14 @@
             onclick={() => modelStore.reverseElement(elem.id)} data-testid="elem-reverse-{elem.id}">⇄</button>
         </td>
         <td>
-          <select value={String(elem.materialId)} onchange={(e) => changeElementMaterial(elem.id, e.currentTarget.value)}>
+          <select value={String(elem.materialId)} onchange={(e) => changeElementMaterial(elem.id, e.currentTarget.value)} data-testid="elem-material-{elem.id}">
             {#each materialsArr as mat}
               <option value={String(mat.id)}>{mat.name}</option>
             {/each}
           </select>
         </td>
         <td>
-          <select value={String(elem.sectionId)} onchange={(e) => changeElementSection(elem.id, e.currentTarget.value)}>
+          <select value={String(elem.sectionId)} onchange={(e) => changeElementSection(elem.id, e.currentTarget.value)} data-testid="elem-section-{elem.id}">
             {#each sectionsArr as sec}
               <option value={String(sec.id)}>{sec.name}</option>
             {/each}

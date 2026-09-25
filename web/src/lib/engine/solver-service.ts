@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { transverseSign } from './transverse-sign-2d';
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
@@ -185,6 +186,16 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
    * which used this decomposition, got it right.
    */
   const solverLoads: SolverInput['loads'] = [];
+  /*
+   * A local transverse load, and a gradient, are given in the drawn axes;
+   * the solver's transverse axis is the opposite one on some members. See
+   * transverse-sign-2d.ts.
+   */
+  const sOf = (elementId: number): 1 | -1 => {
+    const el = model.elements.get(elementId);
+    const ni = el && model.nodes.get(el.nodeI), nj = el && model.nodes.get(el.nodeJ);
+    return ni && nj ? transverseSign(nj.x - ni.x, nj.y - ni.y) : 1;
+  };
 
   for (const l of loads) {
     if (l.type === 'nodal') {
@@ -194,14 +205,14 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: sOf(d.elementId) * d.dtGradient } });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.my ?? d.mz } });
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: d.my ?? d.mz } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -219,7 +230,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
           fxGlobal = d.p * Math.sin(angleRad);
           fyGlobal = d.p * Math.cos(angleRad);
         } else {
-          const fLocalPerp = d.p * Math.cos(angleRad);
+          const fLocalPerp = sOf(d.elementId) * d.p * Math.cos(angleRad);
           const fLocalAxial = d.p * Math.sin(angleRad);
           fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
           fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
@@ -252,7 +263,8 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: d.qI, qJ: d.qJ, a: d.a, b: d.b } });
+        const sd = sOf(d.elementId);
+        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: sd * d.qI, qJ: sd * d.qJ, a: d.a, b: d.b } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -278,9 +290,10 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
           qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
           qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
         } else {
-          qIPerpLocal = d.qI * Math.cos(angleRad);
+          const sd = sOf(d.elementId);
+          qIPerpLocal = sd * d.qI * Math.cos(angleRad);
           qIAxialLocal = d.qI * Math.sin(angleRad);
-          qJPerpLocal = d.qJ * Math.cos(angleRad);
+          qJPerpLocal = sd * d.qJ * Math.cos(angleRad);
           qJAxialLocal = d.qJ * Math.sin(angleRad);
         }
 
@@ -1181,7 +1194,8 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
           dirY = project2DToXZ ? 0 : Math.cos(angleRad);
           dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
         } else {
-          const perpFactor = Math.cos(angleRad);
+          // In the drawn axes, like the plane solve (transverse-sign-2d.ts).
+          const perpFactor = (project2DToXZ ? transverseSign(edx, edPlan) : 1) * Math.cos(angleRad);
           const axialFactor = Math.sin(angleRad);
           dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
           dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
@@ -1260,7 +1274,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
         dirY = project2DToXZ ? 0 : Math.cos(angleRad);
         dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
       } else {
-        const perpFactor = Math.cos(angleRad);
+        const perpFactor = (project2DToXZ ? transverseSign(edx, edPlan) : 1) * Math.cos(angleRad);
         const axialFactor = Math.sin(angleRad);
         dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
         dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
@@ -1308,8 +1322,19 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
         data: {
           elementId: d.elementId,
           dtUniform: d.dtUniform,
-          dtGradientY: project2DToXZ ? d.dtGradient : 0,
-          dtGradientZ: project2DToXZ ? 0 : d.dtGradient,
+          /*
+           * ΔTg is the course's ∇T·h = ΔT(bottom face) − ΔT(top face), top
+           * being the drawn z side — the plane solve's convention. It is a
+           * gradient across local z (fef_thermal_3d: "gradient in Z → bending
+           * about Y"), with the engine's opposite sign (+Z face hotter).
+           *
+           * An embedded plane model sent it across y, which bent each member
+           * out of its plane (a fixed-fixed beam reacted with Mz, not My); a
+           * space model sent it across z with the plane's sign reversed, so
+           * the same load sagged in 2D and hogged in 3D.
+           */
+          dtGradientY: 0,
+          dtGradientZ: -d.dtGradient,
         },
       });
     } else if (l.type === 'thermalQuad3d') {
