@@ -106,8 +106,8 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.releaseI?.mz === true,
-          hingeJ: e.releaseJ?.mz === true,
+          hingeI: e.releaseI?.mz === true || e.releaseI?.my === true,
+          hingeJ: e.releaseJ?.mz === true || e.releaseJ?.my === true,
         })),
         ...unsavedRows,
       ];
@@ -168,8 +168,8 @@
       const eid = modelStore.addElement(ni, nj);
       modelStore.updateElementMaterial(eid, row.materialId);
       modelStore.updateElementSection(eid, row.sectionId);
-      if (row.hingeI) modelStore.toggleHinge(eid, 'start');
-      if (row.hingeJ) modelStore.toggleHinge(eid, 'end');
+      if (row.hingeI) modelStore.toggleHinge3D(eid, 'start');
+      if (row.hingeJ) modelStore.toggleHinge3D(eid, 'end');
       rows[idx] = { ...rows[idx], id: eid };
     } else {
       // Update existing element properties
@@ -178,8 +178,8 @@
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
       // Sync hinges
-      if ((elem.releaseI?.mz === true) !== row.hingeI) modelStore.toggleHinge(row.id, 'start');
-      if ((elem.releaseJ?.mz === true) !== row.hingeJ) modelStore.toggleHinge(row.id, 'end');
+      if ((elem.releaseI?.mz === true || elem.releaseI?.my === true) !== row.hingeI) modelStore.toggleHinge3D(row.id, 'start');
+      if ((elem.releaseJ?.mz === true || elem.releaseJ?.my === true) !== row.hingeJ) modelStore.toggleHinge3D(row.id, 'end');
     }
   }
 

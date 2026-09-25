@@ -471,9 +471,14 @@ function createUIStore() {
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
-  let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
-  let loadValueZ = $state<number>(0); // For Fz or qZI components
-  let loadValueZJ = $state<number>(0); // For qZJ components (3D distributed)
+  // Defaults point down: in 3D, Z is vertical. They used to be Fy and qY, horizontal —
+  // and the distributed tool always sent qY = loadValue (−10), so a user who typed
+  // only qZ got an unrequested lateral load as well.
+  let nodalLoadDir3D = $state<NodalLoadDir3D>('fz');
+  let loadValueZ = $state<number>(-10); // qZI (3D distributed)
+  let loadValueZJ = $state<number>(-10); // qZJ (3D distributed)
+  let loadValueY3D = $state<number>(0); // qYI (3D distributed), its own field, not the 2D qI
+  let loadValueYJ3D = $state<number>(0); // qYJ (3D distributed)
 
   // 3D support type
   let supportType3D = $state<SupportTool3D>('pinned3d');
@@ -1035,6 +1040,10 @@ function createUIStore() {
     set loadValueZ(v: number) { loadValueZ = v; },
     get loadValueZJ() { return loadValueZJ; },
     set loadValueZJ(v: number) { loadValueZJ = v; },
+    get loadValueY3D() { return loadValueY3D; },
+    set loadValueY3D(v: number) { loadValueY3D = v; },
+    get loadValueYJ3D() { return loadValueYJ3D; },
+    set loadValueYJ3D(v: number) { loadValueYJ3D = v; },
     get supportType3D() { return supportType3D; },
     set supportType3D(v: SupportTool3D) { supportType3D = v; },
     get springKrx() { return springKrx; },

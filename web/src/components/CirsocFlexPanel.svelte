@@ -28,8 +28,13 @@
   import { t } from '../lib/i18n';
   import { teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
+  import { sheetRows, sectionNumber, type Sec } from './flex/sheet-rows';
   import SectionDrawing from './SectionDrawing.svelte';
-  import { REBAR_DB } from '../lib/engine/codes/argentina/cirsoc201';
+  import FlexResults from './flex/FlexResults.svelte';
+  import LevelsTable from './flex/LevelsTable.svelte';
+  import { DIAMETERS, areaOf } from './flex/bar-areas';
+  import { characteristicPoints, columnDiagram, fcoSurfaceCut, fcoBarTable } from './flex/figures';
+  import BarTable from './flex/BarTable.svelte';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { stationForces2D, stationForces3D } from '../lib/section/panel';
   import { demandForCase } from '../lib/engine/codes/argentina/flex-demand-from-model';
@@ -89,9 +94,27 @@
   function loadExampleFor(next: FlexCase) {
     if (next === 'FSR') { b = 12; h = 40; dPrime = 3.4; dPrimeS = 3.4; Mu = 52; Pu = 0; }
     if (next === 'FST') { bf = 137; hf = 10; bw = 12; h = 40; dPrime = 3.2; dPrimeS = 3.2; Mu = 52; Pu = 0; }
-    if (next === 'FCR') { b = 30; h = 30; dPrime = 5; dPrimeS = 5; ratioAsPrime = 1; Pu = 500; Mu = 100; }
-    if (next === 'FCR-CIR') { D = 40; Dint = 0; dPrimeS = 3; barCount = 12; spiral = true; Pu = 1000; Mu = 300; }
-    if (next === 'FCO') { b = 30; h = 30; dPrimeH = 5; dPrimeV = 5; pctA1 = 50; pctA2 = 50; pctA3 = 0; nA1 = 4; nA2 = 4; Pu = 500; Mu = 100; Muy = 0; }
+    if (next === 'FCR') {
+      b = 30; h = 30; dPrime = 5; dPrimeS = 5; ratioAsPrime = 1; Pu = 500; Mu = 100; spiral = false;
+      /* FCR-VERIF ships two levels of 10,668 cm², at 5 and 25 cm from the bottom. */
+      levels = [
+        { distanceFromBottom: 5, areaCm2: 10.668 },
+        { distanceFromBottom: 25, areaCm2: 10.668 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+        { distanceFromBottom: 0, areaCm2: 0 },
+      ];
+    }
+    if (next === 'FCR-CIR') {
+      D = 40; Dint = 0; dPrimeS = 3; barCount = 12; spiral = true; Pu = 1000; Mu = 300;
+      /* FCR-CIR-VERIF asks for the area of one bar: 7,21 cm². */
+      asiGiven = 7.21; atFibre = true;
+    }
+    if (next === 'FCO') {
+      b = 30; h = 30; dPrimeH = 5; dPrimeV = 5; pctA1 = 50; pctA2 = 50; pctA3 = 0;
+      nA1 = 4; nA2 = 4; nA3 = 4; Pu = 500; Mu = 100; Muy = 0; spiral = false;
+      asA1 = 10.676; asA2 = 10.676; asA3 = 0;
+    }
     kase = next;
   }
 
@@ -139,6 +162,16 @@
   // ── 3. Armaduras y solicitaciones ──────────────────────────────────
   /** The sheet's A's/As. */
   let ratioAsPrime = $state(1);
+  /*
+   * The biaxial VERIFICATION sheet asks for the three positions as AREAS —
+   * "Sección total de la posición A1 = As1" — where the design sheet asks for
+   * percentages of a total it is about to find. Same three positions, opposite
+   * direction of the calculation, so the boxes differ and the engine does not:
+   * areas are summed into Ast and divided back into the percentages it takes.
+   */
+  let asA1 = $state(10.676);
+  let asA2 = $state(10.676);
+  let asA3 = $state(0);
   let pctA1 = $state(50);
   let pctA2 = $state(50);
   let pctA3 = $state(0);
@@ -147,6 +180,12 @@
   let nA3 = $state(4);
   /** Verification: the steel already there. */
   let AstGiven = $state(20);
+  /**
+   * FCR-CIR-VERIF asks for ONE bar's area, "Asi", and the count — Ast is what
+   * it derives, not what it takes. The ring is a set of equal bars, and a
+   * reader holding "12 Ø30" types 7,07 and 12 without multiplying first.
+   */
+  let asiGiven = $state(7.21);
 
   /*
    * ── Bars, because nobody checks a section in cm² ────────────────
@@ -163,9 +202,7 @@
    * works, which is what you want for a section that was never detailed in
    * round bar counts.
    */
-  const DIAMETERS = REBAR_DB.filter((r) => r.diameter >= 6).map((r) => r.diameter);
-  const areaOf = (n: number, dia: number) =>
-    n * (REBAR_DB.find((r) => r.diameter === dia)?.area ?? 0);
+  /* DIAMETERS and areaOf: see flex/bar-areas.ts. */
 
   let levelBars = $state(
     Array.from({ length: 5 }, () => ({ n: 0, dia: 16 })),
@@ -195,6 +232,26 @@
    * agreement with the workbook be reached in a unit test rather than in a
    * browser — see `cirsoc-flex-all-sheets.test.ts`.
    */
+  /** The biaxial sheet takes areas when verifying and percentages when sizing. */
+  const fcoByArea = $derived(kase === 'FCO' && mode === 'verify');
+  const fcoAstGiven = $derived(asA1 + asA2 + asA3);
+  const circByBar = $derived(kase === 'FCR-CIR' && mode === 'verify');
+  /*
+   * Percentages from the areas, which is the only conversion needed — and the
+   * one place it can go wrong is a total of zero, where every share is
+   * undefined rather than zero. Falling back to the typed percentages there
+   * keeps the panel answering while the reader is still filling boxes in.
+   */
+  const fcoPct = $derived.by(() => {
+    const total = fcoAstGiven;
+    if (!(total > 0)) return { a1: pctA1, a2: pctA2, a3: pctA3 };
+    return {
+      a1: (asA1 / total) * 100,
+      a2: (asA2 / total) * 100,
+      a3: (asA3 / total) * 100,
+    };
+  });
+
   const input = $derived<FlexInput>({
     kase, mode,
     fc, fy, confinement: spiral ? 'spiral' : 'ties', deductDisplacedConcrete: deduct,
@@ -204,8 +261,13 @@
     holeB: holeB / 100, holeH: holeH / 100,
     bf: bf / 100, hf: hf / 100, bw: bw / 100,
     D: D / 100, Dint: Dint / 100, barCount, barAtExtremeFibre: atFibre,
-    ratioAsPrime, pctA1, pctA2, pctA3, nA1, nA2, nA3,
-    AstGiven, levels: levels.filter((l) => l.areaCm2 > 0)
+    ratioAsPrime,
+    ...(fcoByArea
+      ? { pctA1: fcoPct.a1, pctA2: fcoPct.a2, pctA3: fcoPct.a3 }
+      : { pctA1, pctA2, pctA3 }),
+    nA1, nA2, nA3,
+    AstGiven: fcoByArea ? fcoAstGiven : circByBar ? asiGiven * barCount : AstGiven,
+    levels: levels.filter((l) => l.areaCm2 > 0)
       .map((l) => ({ distanceFromBottom: l.distanceFromBottom / 100, areaCm2: l.areaCm2 })),
     Pu, Mu, Muy,
   });
@@ -228,120 +290,36 @@
     return { kind: 'rect', b: o.b, h: o.h };
   });
 
-  const fmt = (v: number | undefined, digits = 2, unit = '') =>
-    v === undefined || !Number.isFinite(v) ? '—' : `${v.toFixed(digits)}${unit ? ' ' + unit : ''}`;
-  const cmOf = (m: number | undefined) => (m === undefined ? '—' : `${(m * 100).toFixed(2)} cm`);
-
-  /** The rows each sheet prints, in the order it prints them. */
-  const rows = $derived.by((): Array<[string, string]> => {
-    const r = out.r;
-    if (!r) return [];
-    const isColumn = kase !== 'FSR' && kase !== 'FST';
-    const base: Array<[string, string]> = [];
-
-    if (r.AsPrimeCm2 !== undefined && r.AsCm2 !== undefined && isColumn) {
-      base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
-      base.push([t('flex.out.asTension'), fmt(r.AsCm2, 3, 'cm²')]);
-    } else if (!isColumn) {
-      /* In `verify` this is the reader's own number, not one we worked out. */
-      base.push([
-        mode === 'verify' ? t('flex.in.asGiven') : t('flex.out.asFlexural'),
-        fmt(r.AsCm2, 3, 'cm²'),
-      ]);
-      if ((r.AsPrimeCm2 ?? 0) > 0) base.push([t('flex.out.asComp'), fmt(r.AsPrimeCm2, 3, 'cm²')]);
-    }
-    /*
-     * ── The bars, next to the area that asked for them ──────────────
-     *
-     * An area is not a design. "Ast = 21.35 cm²" leaves the reader with the
-     * question they actually came with — does that fit across the face —
-     * and the workbook's column sheets stop there too. Putting the count and
-     * diameter one row below the area is the whole of the addition, and it
-     * is what turns the two composite-flexure cases from a number into
-     * something you could draw.
-     *
-     * Sizing only. In `verify` the bars are an INPUT: echoing back an
-     * arrangement the reader typed, as though it were a proposal, would be
-     * the panel telling them what they just told it.
-     */
-    /*
-     * ── A second layer is a detail, not a warning ──────────────────
-     *
-     * Stacking bars is what a detailer does when the web is full, so the
-     * row says how many layers and stops. The warning is reserved for the
-     * case that actually needs one: steel that will not go in at all.
-     * Flagging every two-layer beam as a problem is how the panel came to
-     * look like it was failing ordinary sections.
-     */
-    const layerNote = (c: NonNullable<typeof r.barChoice>) =>
-      c.placeable === false
-        ? ` — ${t('flex.out.barsWontFit')}`
-        : (c.layers ?? 1) > 1
-          ? ` — ${t('flex.out.barsLayers').replace('{n}', String(c.layers))}`
-          : '';
-
-    if (mode === 'design' && r.barChoice) {
-      base.push([
-        /*
-         * "Ring" only where there IS a ring. FCR's proposal is per LEVEL —
-         * this many across the top face and this many across the bottom —
-         * and calling that a ring would misdescribe the arrangement the
-         * number belongs to.
-         */
-        kase === 'FCR-CIR' ? t('flex.out.barsRing')
-          : kase === 'FCR' ? t('flex.out.barsPerLevel')
-          : t('flex.out.bars'),
-        /*
-         * The chosen bars give slightly MORE than was asked for — bars come
-         * in sizes — so the area they deliver is shown beside them. Without
-         * it a reader comparing against `As` sees two numbers that disagree
-         * and no reason why.
-         */
-        `${r.barChoice.label} (${r.barChoice.areaCm2.toFixed(2)} cm²)`
-          + layerNote(r.barChoice),
-      ]);
-    }
-    if (mode === 'design' && r.barChoiceComp) {
-      base.push([
-        t('flex.out.barsComp'),
-        `${r.barChoiceComp.label} (${r.barChoiceComp.areaCm2.toFixed(2)} cm²)`
-          + layerNote(r.barChoiceComp),
-      ]);
-    }
-    base.push([t('flex.out.rho'), r.rho.toFixed(6)]);
-    /* Beams only: a column's floor is §10.9.1, printed as Ast,mín below. */
-    if (Number.isFinite(r.AsMinCm2)) {
-      base.push([t('flex.out.asMin'), fmt(r.AsMinCm2!, 3, 'cm²')]);
-    }
-    if (r.AstMinCm2 !== undefined) {
-      base.push([t('flex.out.astMin'), fmt(r.AstMinCm2, 3, 'cm²')]);
-      base.push([t('flex.out.astMax'), fmt(r.AstMaxCm2, 3, 'cm²')]);
-    }
-    base.push([t('flex.out.aReq'), cmOf(r.a)]);
-    base.push([t('flex.out.c'), cmOf(r.c)]);
-    if (r.cMax !== undefined) base.push([t('flex.out.cMax'), cmOf(r.cMax)]);
-    if (r.epsilonT !== undefined) base.push([t('flex.out.epsT'), `${(r.epsilonT * 1000).toFixed(2)} ‰`]);
-    if (r.phi !== undefined) base.push([t('flex.out.phi'), r.phi.toFixed(3)]);
-    if (r.phiPn !== undefined && isColumn) base.push([t('flex.out.phiPn'), fmt(r.phiPn, 1, 'kN')]);
-    if (r.phiMn !== undefined) base.push([t('flex.out.phiMn'), fmt(r.phiMn, 2, 'kN·m')]);
-    return base;
+  const isBeam = $derived(kase === 'FSR' || kase === 'FST');
+  const mat = $derived({
+    fc, fy, confinement: (spiral ? 'spiral' : 'ties') as 'spiral' | 'ties', deductDisplacedConcrete: deduct,
   });
 
-  const headline = $derived.by(() => {
-    const r = out.r;
-    if (!r) return t('flex.out.checkInputs');
-    if (r.impossible) return t('flex.out.sectionTooSmall');
-    /*
-     * In `verify` the ratio already has its own row right below, with the
-     * verdict beside it. Repeating it as the headline printed the same
-     * number twice in a row and said nothing new. The capacity is the other
-     * half of that comparison, and the number a reader wants next.
-     */
-    if (mode === 'verify') return `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`;
-    return kase === 'FSR' || kase === 'FST'
-      ? `As = ${r.AstCm2.toFixed(3)} cm²`
-      : `Ast = ${r.AstCm2.toFixed(3)} cm²`;
-  });
+  /* The rows each sheet prints and its own section numbers: see flex/sheet-rows.ts. */
+  const rows = $derived(sheetRows({ kase, mode, r: out.r, fc, fy, spiral, barCount, Pu, Mu }));
+  const num = (k: Sec) => sectionNumber(kase, mode, k);
+
+  /* The figures the column sheets draw: see flex/figures.ts. */
+  const characteristic = $derived(characteristicPoints(out.r, mat, kase, mode));
+  const diagram = $derived(columnDiagram(out.r, mat, kase, mode, Pu, Mu));
+  const cut = $derived(fcoSurfaceCut(out.r, input, mat, kase, mode, Pu, Mu, Muy));
+  const barTable = $derived(fcoBarTable(out.r, kase));
+
+  /** FCO-VERIF's "9.- Posicionamiento de secciones de acero". */
+  const positioning = $derived(
+    kase === 'FCO' && mode === 'verify'
+      ? ([['A1', asA1, nA1], ['A2', asA2, nA2], ['A3', asA3, nA3]] as Array<[string, number, number]>)
+      : [],
+  );
+
+  /** FCR-VERIF's drawing names each level it was given. */
+  const levelLabels = $derived(
+    kase === 'FCR' && mode === 'verify'
+      ? levels.map((l, k) => ({ l, k }))
+          .filter(({ l }) => l.areaCm2 > 0)
+          .map(({ l, k }) => ({ y: (l.distanceFromBottom - h / 2) / 100, text: `A${k + 1}` }))
+      : [],
+  );
 
   const showsAxial = $derived(kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO');
 
@@ -472,23 +450,36 @@
     </select>
   </label>
 
+  <!--
+    The sheet numbers its sections, and a reader checking one against the other
+    follows those numbers. Ours are the same numbers, so "4.2" means the same
+    block on both sides of the comparison.
+  -->
+  <h4 class="fp-heading">{num('general')}{t('flex.section.general')}</h4>
+  <table class="fp-table fp-general" data-testid="flex-general">
+    <tbody>
+      {#each rows.general as [label, value]}
+        <tr><th>{label}</th><td>{value}</td></tr>
+      {/each}
+    </tbody>
+  </table>
+
   <h4 class="fp-heading">{t('flex.section.materials')}</h4>
   <div class="fp-grid">
     <label class="fp-field"><span>f'c [MPa]</span><input type="number" bind:value={fc} min="15" step="1" /></label>
     <label class="fp-field"><span>fy [MPa]</span><input type="number" bind:value={fy} min="220" step="10" /></label>
-    {#if kase === 'FCR' || kase === 'FCR-CIR' || kase === 'FCO'}
+    {#if !isBeam}
       <label class="fp-check"><input type="checkbox" bind:checked={spiral} /><span>{t('flex.in.spiral')}</span></label>
     {/if}
     <label class="fp-check"><input type="checkbox" bind:checked={deduct} /><span>{t('flex.in.deduct')}</span></label>
   </div>
 
-  <h4 class="fp-heading">{t('flex.section.geometry')}</h4>
+  <h4 class="fp-heading">{num('geometry')}{t('flex.section.geometry')}</h4>
   <!--
     A calculator inside a modelling app invites one specific wrong
     assumption: that the section on screen is the section of whatever member
-    is selected. It is not, and never was — the shape comes from the Case and
-    the numbers from these fields. One line, because the assumption is cheap
-    to form and expensive to discover.
+    is selected. It is not — the shape comes from the Case and the numbers
+    from these fields.
   -->
   <p class="fp-note">{t('flex.geometryNote')}</p>
   <div class="fp-grid">
@@ -497,16 +488,57 @@
       <label class="fp-field"><span>hf [cm]</span><input type="number" bind:value={hf} min="1" step="1" /></label>
       <label class="fp-field"><span>bw [cm]</span><input type="number" bind:value={bw} min="1" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
-      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
       <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
     {:else if kase === 'FCR-CIR'}
       <label class="fp-field"><span>D [cm]</span><input type="number" bind:value={D} min="15" step="5" /></label>
       <!-- The sheet's `D int` — a hollow pier. -->
       <label class="fp-field"><span>D int [cm]</span><input type="number" bind:value={Dint} min="0" step="5" /></label>
+      {#if mode === 'design'}
+        <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
+      {/if}
       <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
-      <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
-      <label class="fp-check"><input type="checkbox" bind:checked={atFibre} /><span>{t('flex.in.atFibre')}</span></label>
+      {#if mode === 'design'}
+        <label class="fp-field fp-span">
+          <span>{t('flex.in.barLocation')}</span>
+          <select value={atFibre ? '1' : '0'} onchange={(e) => (atFibre = e.currentTarget.value === '1')} data-testid="flex-bar-location">
+            <option value="1">{t('flex.in.favourable')}</option>
+            <option value="0">{t('flex.in.unfavourable')}</option>
+          </select>
+        </label>
+      {/if}
     {:else if kase === 'FCO'}
+      <!--
+        Two covers, and the only way to be sure which is which is to see them.
+        d′sh runs in from the side face and d′sv down from the top, both to the
+        CENTRE of the corner bar — the sheet says so with a sketch.
+      -->
+      <svg class="fp-scheme" viewBox="0 0 150 110" role="img"
+        aria-label={t('flex.fco.schemeAlt')} data-testid="fco-scheme">
+        <rect x="8" y="8" width="134" height="94" fill="none"
+          stroke="currentColor" stroke-width="1.5" />
+        <circle cx="52" cy="46" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <line x1="38" y1="46" x2="66" y2="46" stroke="currentColor" stroke-width="0.8" />
+        <line x1="52" y1="32" x2="52" y2="60" stroke="currentColor" stroke-width="0.8" />
+        <line x1="104" y1="9" x2="104" y2="45" stroke="currentColor" stroke-width="1"
+          marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
+        <line x1="52" y1="46" x2="118" y2="46" stroke="currentColor"
+          stroke-width="0.6" stroke-dasharray="3 3" />
+        <text x="110" y="30" font-size="13" fill="currentColor">d′sv</text>
+        <line x1="9" y1="82" x2="51" y2="82" stroke="currentColor" stroke-width="1"
+          marker-start="url(#fpArrowUp)" marker-end="url(#fpArrowDown)" />
+        <line x1="52" y1="46" x2="52" y2="90" stroke="currentColor"
+          stroke-width="0.6" stroke-dasharray="3 3" />
+        <text x="16" y="99" font-size="13" fill="currentColor">d′sh</text>
+        <defs>
+          <marker id="fpArrowDown" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
+          </marker>
+          <marker id="fpArrowUp" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+            <path d="M6,0 L0,3 L6,6 Z" fill="currentColor" />
+          </marker>
+        </defs>
+      </svg>
       <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
       <label class="fp-field"><span>d′sh [cm]</span><input type="number" bind:value={dPrimeH} min="1" step="0.5" /></label>
@@ -516,89 +548,101 @@
     {:else}
       <label class="fp-field"><span>b [cm]</span><input type="number" bind:value={b} min="5" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>
-      <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
-      <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+      {#if !(kase === 'FCR' && mode === 'verify')}
+        <label class="fp-field"><span>d′ [cm]</span><input type="number" bind:value={dPrime} min="1" step="0.5" /></label>
+        <label class="fp-field"><span>d′s [cm]</span><input type="number" bind:value={dPrimeS} min="1" step="0.5" /></label>
+      {/if}
       {#if kase === 'FCR'}
         <label class="fp-field"><span>b_h [cm]</span><input type="number" bind:value={holeB} min="0" step="5" /></label>
         <label class="fp-field"><span>h_h [cm]</span><input type="number" bind:value={holeH} min="0" step="5" /></label>
       {/if}
     {/if}
   </div>
+  {#if kase === 'FCR-CIR'}
+    <!-- Printed by both circular sheets under the section's data. -->
+    <p class="fp-note" data-testid="flex-diameter-ratio">
+      {t('flex.out.diameterRatio')} = {(D > 0 ? Dint / D : 0).toFixed(3)}
+    </p>
+  {/if}
 
   {#if kase === 'FCO'}
     <!--
-      A1 / A2 / A3 — the sheet's own distribution, and its own rule that the
-      three percentages add to 100. Said rather than silently normalised: a
-      reader whose numbers do not add up has made a mistake worth seeing.
+      A1 / A2 / A3 — the sheet's own distribution, part of its section 2, and
+      its own rule that the three percentages add to 100. Said rather than
+      silently normalised.
     -->
     <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
-    <div class="fp-grid">
-      <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
-      <label class="fp-field"><span>A2 [%]</span><input type="number" bind:value={pctA2} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
-      <label class="fp-field"><span>A3 [%]</span><input type="number" bind:value={pctA3} min="0" max="100" step="5" /></label>
-      <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
-    </div>
-    {#if pctA1 + pctA2 + pctA3 !== 100}
-      <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+    {#if fcoByArea}
+      <div class="fp-grid">
+        <label class="fp-field"><span>As1 [cm²]</span><input type="number" bind:value={asA1} min="0" step="0.5" data-testid="fco-as1" /></label>
+        <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>As2 [cm²]</span><input type="number" bind:value={asA2} min="0" step="0.5" data-testid="fco-as2" /></label>
+        <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>As3 [cm²]</span><input type="number" bind:value={asA3} min="0" step="0.5" data-testid="fco-as3" /></label>
+        <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
+      </div>
+      <p class="fp-note" data-testid="fco-derived-pct">
+        Ast = {fcoAstGiven.toFixed(3)} cm² ·
+        A1 {fcoPct.a1.toFixed(1)} % · A2 {fcoPct.a2.toFixed(1)} % · A3 {fcoPct.a3.toFixed(1)} %
+      </p>
+      {#if asA1 <= 0}
+        <p class="fp-warn">{t('flex.warn.a1NotNull')}</p>
+      {/if}
+      <!-- FCO-VERIF tabulates the bars right under its inputs, in section 2. -->
+      {#if barTable.length > 0}
+        <BarTable bars={barTable} />
+      {/if}
+    {:else}
+      <div class="fp-grid">
+        <label class="fp-field"><span>A1 [%]</span><input type="number" bind:value={pctA1} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A1</span><input type="number" bind:value={nA1} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>A2 [%]</span><input type="number" bind:value={pctA2} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A2</span><input type="number" bind:value={nA2} min="0" max="20" step="1" /></label>
+        <label class="fp-field"><span>A3 [%]</span><input type="number" bind:value={pctA3} min="0" max="100" step="5" /></label>
+        <label class="fp-field"><span>N° A3</span><input type="number" bind:value={nA3} min="0" max="20" step="1" /></label>
+      </div>
+      {#if pctA1 + pctA2 + pctA3 !== 100}
+        <p class="fp-warn">{t('flex.warn.pct').replace('{n}', String(pctA1 + pctA2 + pctA3))}</p>
+      {/if}
     {/if}
-  {/if}
-
-  {#if kase === 'FCR' && mode === 'design'}
-    <h4 class="fp-heading">{t('flex.section.distribution')}</h4>
-    <div class="fp-grid">
-      <label class="fp-field"><span>A′s / As</span><input type="number" bind:value={ratioAsPrime} min="0" max="1" step="0.1" /></label>
-    </div>
   {/if}
 
   {#if kase === 'FCR' && mode === 'verify'}
     <!--
       Five levels, each a distance from the BOTTOM face — the sheet's own
-      arrangement, and the one thing a two-layer model cannot express. A row
-      with zero area is ignored, which is how the sheet treats an empty level.
+      arrangement. A row with zero area is ignored, which is how the sheet
+      treats an empty level.
     -->
-    <h4 class="fp-heading">{t('flex.section.levels')}</h4>
-    <table class="fp-levels">
-      <thead>
-        <tr>
-          <th></th>
-          <th>{t('flex.in.levelDist')} [cm]</th>
-          <th>n</th>
-          <th>Ø</th>
-          <th>As [cm²]</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each levels as lvl, k}
-          <tr>
-            <th>{k + 1}</th>
-            <td><input type="number" bind:value={lvl.distanceFromBottom} min="0" step="1" /></td>
-            <td>
-              <input
-                type="number" min="0" max="20" step="1"
-                bind:value={levelBars[k].n}
-                oninput={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
-              />
-            </td>
-            <td>
-              <select
-                bind:value={levelBars[k].dia}
-                onchange={() => { if (levelBars[k].n > 0) lvl.areaCm2 = areaOf(levelBars[k].n, levelBars[k].dia); }}
-              >
-                {#each DIAMETERS as d}<option value={d}>{d}</option>{/each}
-              </select>
-            </td>
-            <td><input type="number" bind:value={lvl.areaCm2} min="0" step="0.5" /></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    <p class="fp-levels-note">{t('flex.in.levelsNote')}</p>
+    <h4 class="fp-heading">{num('distribution')}{t('flex.section.distribution')}</h4>
+    <LevelsTable bind:levels bind:levelBars />
+  {/if}
+
+  {#if circByBar}
+    <!--
+      FCR-CIR-VERIF's section 3: one bar's area and how many, then the total
+      and the ratio it derives from them.
+    -->
+    <h4 class="fp-heading">{num('distribution')}{t('flex.section.distribution')}</h4>
+    <div class="fp-grid">
+      <label class="fp-field"><span>{t('flex.in.asiGiven')} [cm²]</span><input type="number" bind:value={asiGiven} min="0" step="0.5" data-testid="flex-asi" /></label>
+      <label class="fp-field"><span>{t('flex.in.barCount')}</span><input type="number" bind:value={barCount} min="4" max="48" step="1" /></label>
+      <label class="fp-field fp-span">
+        <span>{t('flex.in.barLocation')}</span>
+        <select value={atFibre ? '1' : '0'} onchange={(e) => (atFibre = e.currentTarget.value === '1')} data-testid="flex-bar-location">
+          <option value="1">{t('flex.in.favourable')}</option>
+          <option value="0">{t('flex.in.unfavourable')}</option>
+        </select>
+      </label>
+    </div>
+    {#if out.r}
+      <p class="fp-note" data-testid="flex-circ-derived">
+        Ast = {out.r.AstCm2.toFixed(3)} cm² · ρ = {out.r.rho.toFixed(4)}
+      </p>
+    {/if}
   {/if}
 
   <h4 class="fp-heading fp-heading-row">
-    {t('flex.section.demand')}
+    <span>{num('demand')}{kase === 'FCR' && mode === 'design' ? t('flex.section.ratioAndDemand') : t('flex.section.demand')}</span>
     <button
       class="fp-pick-btn"
       class:on={picking}
@@ -614,6 +658,10 @@
     <p class="fp-note">{pickNote}</p>
   {/if}
   <div class="fp-grid">
+    {#if kase === 'FCR' && mode === 'design'}
+      <!-- FCR-DIM asks for the split in the same block as the loads. -->
+      <label class="fp-field"><span>A′s / As</span><input type="number" bind:value={ratioAsPrime} min="0" max="1" step="0.1" /></label>
+    {/if}
     {#if showsAxial}
       <label class="fp-field"><span>Pu [kN]</span><input type="number" bind:value={Pu} step="10" /></label>
     {/if}
@@ -621,7 +669,7 @@
     {#if kase === 'FCO'}
       <label class="fp-field"><span>Myu [kN·m]</span><input type="number" bind:value={Muy} step="5" /></label>
     {/if}
-    {#if mode === 'verify' && !(kase === 'FCR' && levels.some((l) => l.areaCm2 > 0))}
+    {#if mode === 'verify' && (isBeam || (kase === 'FCR' && !levels.some((l) => l.areaCm2 > 0)))}
       <!--
         Bars on the left, the area they come to on the right. The area is
         what the calculation reads — see the note by `astBars` — so it stays
@@ -656,36 +704,39 @@
     beside it describe — so it has to move when they do.
   -->
   <div class="fp-figure">
-    <SectionDrawing
-      {shape}
-      cover={(kase === 'FCR-CIR' ? dPrimeS : kase === 'FCO' ? dPrimeV : dPrimeS) / 100}
-      a={out.r?.a}
-      c={out.r?.c}
-      barCount={out.r?.barChoice?.count ?? out.r?.bars.length ?? 4}
-      perLayer={out.r?.barChoice?.perLayer}
-      layerPitchM={((out.r?.barChoice?.diameter ?? 0) + 25) / 1000}
-      AsCm2={(out.r?.bars ?? []).reduce((acc, bar) => acc + bar.area, 0) * 1e4}
-    />
+    {#if isBeam}
+      <SectionDrawing
+        {shape}
+        cover={dPrimeS / 100}
+        a={out.r?.a}
+        c={out.r?.c}
+        barCount={out.r?.barChoice?.count ?? 2}
+        perLayer={out.r?.barChoice?.perLayer}
+        layerPitchM={((out.r?.barChoice?.diameter ?? 0) + 25) / 1000}
+        AsCm2={out.r?.AsCm2 ?? 0}
+        compBarCount={(out.r?.AsPrimeCm2 ?? 0) > 0 ? (out.r?.barChoiceComp?.count ?? 2) : 0}
+        compCover={dPrime / 100}
+        compAsCm2={out.r?.AsPrimeCm2 ?? 0}
+      />
+    {:else}
+      <SectionDrawing
+        {shape}
+        cover={0}
+        outline={out.r?.outline}
+        sectionBars={out.r?.bars ?? []}
+        theta={out.r?.theta ?? Math.PI / 2}
+        a={out.r?.a}
+        c={out.r?.c}
+        {levelLabels}
+        faceLabels={kase === 'FCO'}
+      />
+    {/if}
   </div>
 
-  <div class="fp-result" class:fp-fail={!(out.r?.ok ?? false)} data-testid="flex-result">
-    <div class="fp-headline">{headline}</div>
-    {#if out.r && Number.isFinite(out.r.ratio)}
-      <div class="fp-ratio">
-        {t('flex.out.ratio')} = <strong>{out.r.ratio.toFixed(3)}</strong>
-        <span class="fp-verdict">{out.r.ok ? t('flex.out.ok') : t('flex.out.notOk')}</span>
-      </div>
-    {/if}
-    {#if rows.length > 0}
-      <table class="fp-table">
-        <tbody>
-          {#each rows as [label, value]}
-            <tr><th>{label}</th><td>{value}</td></tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  </div>
+  <FlexResults
+    r={out.r} {rows} {kase} {mode} {isBeam} {barTable} {cut} {diagram} {characteristic} {positioning}
+    {Pu} {Mu} {Muy}
+  />
 
   <details class="fp-memo">
     <summary>{t('flex.out.memo')}</summary>
@@ -785,25 +836,10 @@
     font-size: 0.66rem;
   }
 
-  /* The five levels, as a compact grid rather than ten loose fields. */
-  .fp-levels {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.68rem;
-  }
-  .fp-levels th {
-    color: var(--st-text-3);
-    font-weight: 400;
-    text-align: left;
-    padding: 0.1rem 0.3rem 0.1rem 0;
-  }
-  .fp-levels td { padding: 0.1rem 0.15rem; }
-  .fp-levels-note {
-    margin: 0.25rem 0 0;
-    font-size: 0.6rem;
-    line-height: 1.4;
-    color: var(--st-text-3);
-  }
+
+
+
+
 
   .fp-bars-row {
     display: flex;
@@ -819,23 +855,14 @@
     font-size: 0.7rem;
   }
 
-  .fp-levels select {
-    width: 100%;
-    min-width: 0;
-  }
 
-  .fp-levels input {
-    width: 100%;
-    padding: 0.2rem 0.3rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text);
-    font-family: inherit;
-    font-size: 0.7rem;
-  }
 
-  .fp-heading {
+
+
+
+  /* Shared with the sheet's sub-components (FlexResults, BarTable, LevelsTable), so
+     global; wrapped in :where() so their own, more specific rules still win. */
+  :where(.flex-panel) :global(.fp-heading) {
     margin: 0.3rem 0 0;
     font-size: 0.65rem;
     font-weight: 600;
@@ -880,45 +907,27 @@
     font-size: 0.68rem;
   }
 
-  /* ── The answer ──────────────────────────────────────────────────
-     Bordered rather than filled, and the accent is spent on the number
-     itself. A failing check turns the border and the verdict, not the
-     whole box — the numbers beside it are still correct and still worth
-     reading.
-     ─────────────────────────────────────────────────────────────── */
-  .fp-result {
-    margin-top: 0.3rem;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: var(--st-surface-2);
-  }
-  .fp-result.fp-fail { border-color: var(--st-danger); }
-
-  .fp-headline {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--st-accent);
-    font-variant-numeric: tabular-nums;
-  }
-  .fp-ratio { margin-top: 0.15rem; color: var(--st-text-2); font-variant-numeric: tabular-nums; }
-  .fp-ratio strong { color: var(--st-text); }
-  .fp-verdict { margin-left: 0.4rem; color: var(--st-ok); }
-  .fp-result.fp-fail .fp-verdict { color: var(--st-danger); }
-
-  .fp-table {
+  :where(.flex-panel) :global(.fp-table) {
     width: 100%;
     margin-top: 0.4rem;
     border-collapse: collapse;
     font-variant-numeric: tabular-nums;
   }
-  .fp-table th {
+  :where(.flex-panel) :global(.fp-table th) {
     text-align: left;
     font-weight: 400;
     color: var(--st-text-3);
     padding: 0.12rem 0.4rem 0.12rem 0;
   }
-  .fp-table td { text-align: right; color: var(--st-text); padding: 0.12rem 0; }
+  :where(.flex-panel) :global(.fp-table td) { text-align: right; color: var(--st-text); padding: 0.12rem 0; }
+
+  .fp-scheme {
+    grid-column: 1 / -1;
+    width: 100%; max-width: 190px; height: auto;
+    color: var(--st-text-3); margin: 2px auto 6px;
+  }
+  .fp-span { grid-column: 1 / -1; }
+  .fp-general th { font-weight: 400; color: var(--st-text-3); }
 
   .fp-memo { color: var(--st-text-2); }
   .fp-memo summary { cursor: pointer; color: var(--st-text-3); font-size: 0.7rem; }
