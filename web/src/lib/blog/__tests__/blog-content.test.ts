@@ -207,12 +207,27 @@ describe('the bars-or-finite-elements post keeps the engine’s numbers', () => 
   it('quotes the slenderness table as the engine reported it', () => {
     const slender = tables()[1];
     expect(slender.rows.map((r) => r.slice(2, 4))).toEqual([
-      ['12.50', '12.57'],
-      ['1.563', '1.596'],
-      ['0.195', '0.212'],
-      ['0.0422', '0.0521'],
-      ['0.0125', '0.0190'],
+      ['12.500', '12.567'],
+      ['1.5625', '1.5961'],
+      ['0.19531', '0.21206'],
+      ['0.042188', '0.052145'],
+      ['0.012500', '0.019017'],
     ]);
+    // The frame column is the closed form, 5qL⁴/384EI, to the digits printed.
+    const q = 10, L = 6, E = 30000e3, b = 0.2;
+    for (const r of slender.rows) {
+      const h = Number(r[1]);
+      const eb = ((5 * q * L ** 4) / (384 * E * (b * h ** 3) / 12)) * 1000;
+      const decimals = r[2].split('.')[1]?.length ?? 0;
+      expect(Math.abs(Number(r[2]) - eb)).toBeLessThanOrEqual(0.5 * 10 ** -decimals + 1e-12);
+    }
+    // The percentage column is what a calculator gives from the two columns
+    // beside it. It was computed from unrounded output while those columns
+    // were rounded, and four rows of five disagreed with a reader's check.
+    for (const r of slender.rows) {
+      const low = (1 - Number(r[2]) / Number(r[3])) * 100;
+      expect(`${low.toFixed(1)} %`).toBe(r[4]);
+    }
     // Bars always below shells — the post's central claim, asserted rather
     // than left to prose — and the gap widens as the beam gets deeper.
     const gaps = slender.rows.map((r) => 1 - Number(r[2]) / Number(r[3]));

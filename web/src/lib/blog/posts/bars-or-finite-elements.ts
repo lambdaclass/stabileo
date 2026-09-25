@@ -35,11 +35,14 @@
  *     deflection 1.562500 mm every time, which is 5qL⁴/384EI.
  *   · The slenderness table: the same span and load, b = 0.20 m, ν = 0.2,
  *     h from 0.30 to 3.00 m. The shell is meshed in the beam's plane with 24
- *     elements through the depth (16 changes the fourth digit), the load on the
+ *     square elements through the depth (144/h along the span; 16 through the
+ *     depth changes the fourth digit), the load on the
  *     top edge, and both end sections restrained vertically over their full
  *     depth — the beam-theory support, without a point-support singularity.
  *     Deflection is read on the axis at midspan. Bars land 0.5 / 2.1 / 7.9 /
- *     19.1 / 34.3 % low.
+ *     19.1 / 34.3 % low. The table prints one more digit than the prose so a
+ *     reader's calculator lands on those percentages: at four digits, 12.50
+ *     against 12.57 reads 0.6 %.
  *   · The hand check at L/h = 3: Timoshenko's shear term qL²/(8κGA) with
  *     κ = 5/6 is 0.0108 mm, giving 0.0530 mm; the Timoshenko-Goodier
  *     plane-stress closed form gives 0.0523 mm; the shell 0.0521 mm.
@@ -106,11 +109,11 @@ export const barsOrFiniteElements: Post = {
           caption: 'Viga simplemente apoyada de 6 m, 20 cm de ancho, 10 kN/m, E = 30 000 MPa, ν = 0,2. Flecha en el centro, sobre el eje.',
           head: ['L/h', 'Canto h [m]', 'Barras [mm]', 'Cáscaras [mm]', 'Las barras quedan por debajo'],
           rows: [
-            ['20', '0,30', '12,50', '12,57', '0,5 %'],
-            ['10', '0,60', '1,563', '1,596', '2,1 %'],
-            ['5', '1,20', '0,195', '0,212', '7,9 %'],
-            ['3', '2,00', '0,0422', '0,0521', '19,1 %'],
-            ['2', '3,00', '0,0125', '0,0190', '34,3 %'],
+            ['20', '0,30', '12,500', '12,567', '0,5 %'],
+            ['10', '0,60', '1,5625', '1,5961', '2,1 %'],
+            ['5', '1,20', '0,19531', '0,21206', '7,9 %'],
+            ['3', '2,00', '0,042188', '0,052145', '19,1 %'],
+            ['2', '3,00', '0,012500', '0,019017', '34,3 %'],
           ],
         },
         { k: 'p', t: 'Con L/h = 10, que es una viga común, la diferencia es del 2 %. Con L/h = 5, casi del 8 %. Con L/h = 3 el modelo de barras da una flecha 19 % menor, y con L/h = 2, un tercio menor.' },
@@ -226,11 +229,11 @@ export const barsOrFiniteElements: Post = {
           caption: 'Simply supported 6 m beam, 20 cm wide, 10 kN/m, E = 30,000 MPa, ν = 0.2. Midspan deflection, on the axis.',
           head: ['L/h', 'Depth h [m]', 'Frame elements [mm]', 'Shells [mm]', 'Frame model low by'],
           rows: [
-            ['20', '0.30', '12.50', '12.57', '0.5 %'],
-            ['10', '0.60', '1.563', '1.596', '2.1 %'],
-            ['5', '1.20', '0.195', '0.212', '7.9 %'],
-            ['3', '2.00', '0.0422', '0.0521', '19.1 %'],
-            ['2', '3.00', '0.0125', '0.0190', '34.3 %'],
+            ['20', '0.30', '12.500', '12.567', '0.5 %'],
+            ['10', '0.60', '1.5625', '1.5961', '2.1 %'],
+            ['5', '1.20', '0.19531', '0.21206', '7.9 %'],
+            ['3', '2.00', '0.042188', '0.052145', '19.1 %'],
+            ['2', '3.00', '0.012500', '0.019017', '34.3 %'],
           ],
         },
         { k: 'p', t: 'At L/h = 10, an ordinary beam, the difference is 2%. At L/h = 5 it is almost 8%. At L/h = 3 the frame model gives a deflection 19% smaller, and at L/h = 2, a third smaller.' },
@@ -346,11 +349,11 @@ export const barsOrFiniteElements: Post = {
           caption: 'Viga simplesmente apoiada de 6 m, 20 cm de largura, 10 kN/m, E = 30 000 MPa, ν = 0,2. Flecha no meio do vão, sobre o eixo.',
           head: ['L/h', 'Altura h [m]', 'Barras [mm]', 'Cascas [mm]', 'As barras ficam abaixo em'],
           rows: [
-            ['20', '0,30', '12,50', '12,57', '0,5 %'],
-            ['10', '0,60', '1,563', '1,596', '2,1 %'],
-            ['5', '1,20', '0,195', '0,212', '7,9 %'],
-            ['3', '2,00', '0,0422', '0,0521', '19,1 %'],
-            ['2', '3,00', '0,0125', '0,0190', '34,3 %'],
+            ['20', '0,30', '12,500', '12,567', '0,5 %'],
+            ['10', '0,60', '1,5625', '1,5961', '2,1 %'],
+            ['5', '1,20', '0,19531', '0,21206', '7,9 %'],
+            ['3', '2,00', '0,042188', '0,052145', '19,1 %'],
+            ['2', '3,00', '0,012500', '0,019017', '34,3 %'],
           ],
         },
         { k: 'p', t: 'Com L/h = 10, uma viga comum, a diferença é de 2 %. Com L/h = 5, quase 8 %. Com L/h = 3, o modelo de barras dá uma flecha 19 % menor, e com L/h = 2, um terço menor.' },
