@@ -77,8 +77,11 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
     // What was on screen before the edit cleared it: diagram, case, combination.
     if (resultsStore.pendingView) { resultsStore.restoreView(is3DMode); return; }
     // Restore the diagram type the user was viewing before clear() reset it to 'none'.
-    // Only restore if it's a valid diagram for the current mode.
-    if (prevDiagram && prevDiagram !== 'none') {
+    // Only restore if it's a valid diagram for the current mode — and only if
+    // nothing is showing: a diagram picked while the solve was running (a slow
+    // space model under Explore) is the user's latest choice, and restoring
+    // the one captured when the solve was queued put it back to the deformed shape.
+    if (prevDiagram && prevDiagram !== 'none' && resultsStore.diagramType === 'none') {
       const is3D = analysisMode === '3d' || analysisMode === 'pro';
       const validList: readonly string[] = is3D ? VALID_3D_DIAGRAMS : VALID_2D_DIAGRAMS;
       if (validList.includes(prevDiagram)) {

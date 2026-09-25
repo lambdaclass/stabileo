@@ -27,4 +27,14 @@ describe('excited mechanisms in 3D', () => {
     await modelStore.loadExample('3d-portal-frame');
     expect(typeof modelStore.solve3D(false, false, false)).toBe('object');
   });
+
+  it('a raft on soil springs keeps its vertical springs (it used to float at 7e10 m)', async () => {
+    uiStore.analysisMode = 'pro';
+    await modelStore.loadExample('mat-foundation');
+    const r = modelStore.solve3D(false, false, true) as unknown as { displacements: Array<{ uz: number }> } | string;
+    expect(typeof r).toBe('object');
+    const w = Math.max(...(r as { displacements: Array<{ uz: number }> }).displacements.map((d) => Math.abs(d.uz)));
+    expect(w).toBeGreaterThan(1e-4);
+    expect(w).toBeLessThan(0.05);
+  });
 });

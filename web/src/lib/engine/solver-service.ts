@@ -1572,15 +1572,23 @@ export function buildSolverInput3D(
         const supportDz = s.dz ?? s.dy;
         const supportDry = s.dry ?? s.drz;
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
+        /*
+         * A plane support's springs are kx, ky (vertical) and kz (rotation);
+         * a space support's are kx, ky, kz (translations) and krx, kry, krz.
+         * The space case sent no kz at all and read kz as the rotational
+         * spring about z: every space support lost its vertical spring, and
+         * a raft on soil springs floated (7·10¹⁰ m, mat-foundation).
+         */
+        const plane = !s.dofRestraints && is2DSupportType(s.type);
         return [s.nodeId, {
           nodeId: s.nodeId,
           ...dofs,
           kx: s.kx,
           ky: embedded2D ? undefined : s.ky,
-          kz: embedded2D ? s.ky : undefined,
+          kz: embedded2D ? s.ky : (plane ? undefined : s.kz),
           krx: embedded2D ? undefined : s.krx,
           kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
-          krz: embedded2D ? s.krz : (s.krz ?? s.kz),
+          krz: embedded2D ? s.krz : (plane ? (s.krz ?? s.kz) : s.krz),
           dx: s.dx,
           dy: embedded2D ? undefined : s.dy,
           dz: embedded2D ? supportDz : s.dz,
