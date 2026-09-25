@@ -45,6 +45,8 @@ import {
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
+import { snowLoadCases } from './snow-loads';
+import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
@@ -139,6 +141,22 @@ export interface LoadPlanInput {
     /** Wind from −X and −Y as well. Absent: true. */
     bothSenses?: boolean;
   };
+  /** CIRSOC 104-2005 roof snow (`snow-loads.ts`). */
+  snow?: {
+    enabled: boolean;
+    /** Ground snow load, kN/m²: from Tablas 1.1 a 1.15 or a site value. */
+    pg: number;
+    /** Where p_g came from, for the derivation: a table locality or a site value. */
+    source: string;
+    terrain: SnowTerrain;
+    exposure: RoofExposure;
+    thermal: ThermalCondition;
+    category: SnowCategory;
+    roofKind: 'mono' | 'gable';
+    slippery: boolean;
+    /** The roof slope, degrees; absent: read from the roof members. */
+    roofSlopeDeg?: number;
+  };
   seismic?: {
     enabled: boolean;
     /**
@@ -173,7 +191,7 @@ export interface LoadPlanInput {
 export interface PlannedCase {
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
-  type: 'D' | 'L' | 'Lr' | 'W' | 'E';
+  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'E';
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
@@ -361,6 +379,9 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   if (input.wind?.enabled && !roleUsable(input.regulations, 'wind')) {
     blockedKeys.push(msg('loadPlan.blocked.windRoleUnusable'));
+  }
+  if (input.snow?.enabled && !roleUsable(input.regulations, 'snow')) {
+    blockedKeys.push(msg('loadPlan.blocked.snowRoleUnusable'));
   }
   if (input.seismic?.enabled && !roleUsable(input.regulations, 'seismic')) {
     blockedKeys.push(msg('loadPlan.blocked.seismicRoleUnusable'));
@@ -609,6 +630,45 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     }
   }
 
+  // ── Snow ──
+  let snowPlanned = false;
+  if (input.snow?.enabled) {
+    const sn = input.snow;
+    const out = snowLoadCases({ model: input.model, snow: sn, tributaryWidth: input.tributaryWidth });
+    if (!out) {
+      unsupportedKeys.push(msg('snow.note.noRoof'));
+    } else if (out.result.refused) {
+      blockedKeys.push(msg(out.result.refused));
+    } else {
+      const r = out.result;
+      refs.push(...r.refs);
+      derivation.push(msg('snow.derivation.pf', {
+        pg: round(sn.pg, 2), source: sn.source, ce: r.ce, ct: r.ct, i: r.importance,
+        pf: round(r.pfComputed, 3),
+      }));
+      if (r.pfMinimum !== null) derivation.push(msg('snow.derivation.minimum', { min: round(r.pfMinimum, 3), pf: round(r.pf, 3) }));
+      derivation.push(msg('snow.derivation.ps', {
+        slope: round(sn.roofSlopeDeg ?? out.geometry.slopeDeg, 1), cs: round(r.cs, 3), ps: round(r.ps, 3),
+        w: round(out.geometry.W, 2),
+      }));
+      if (r.rainOnSnow > 0) derivation.push(msg('snow.derivation.rain', { add: round(r.rainOnSnow, 3) }));
+      if (r.unbalanced) {
+        derivation.push(msg('snow.derivation.unbalanced', {
+          leeward: round(r.unbalanced.leeward, 3), windward: round(r.unbalanced.windward, 3),
+        }));
+      }
+      if ((sn.roofSlopeDeg ?? out.geometry.slopeDeg) < 1.2) unsupportedKeys.push(msg('snow.note.ponding'));
+      unsupportedKeys.push(msg('snow.note.notCovered'));
+      for (const c of out.cases) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'S', caseIndex: index, q: d.q });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
+        snowPlanned = true;
+      }
+    }
+  }
+
   /*
    * ── Seismic ────────────────────────────────────────────────────
    *
@@ -741,7 +801,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   let combinations: LoadCombinationSpec[] = [];
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
-      L: true, Lr: false, S: false, R: false,
+      L: true, Lr: false, S: snowPlanned, R: false,
       W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
       F: false, H: false,

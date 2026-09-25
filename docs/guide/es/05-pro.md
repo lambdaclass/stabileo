@@ -106,8 +106,10 @@ su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y
 - **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Lr sobrecarga de
   cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor. El
   **peso propio** está **activado por defecto** en PRO y se calcula para barras y placas.
-- **Combinaciones:** manuales, o generadas automáticamente (combinaciones de resistencia y de
-  servicio). Al generarlas se puede pedir el viento y el sismo en los dos sentidos: cada caso
+- **Combinaciones:** manuales, o generadas automáticamente. Las últimas son las de CIRSOC
+  101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se
+  genera aparte: las gravitatorias a factor 1,0 y, con viento, las de CIRSOC 102-2025 B.4.2
+  (0,6 D + 0,6 W y D + 0,75 L + 0,45 W + 0,75 (Lr ó S ó R)). Al generarlas se puede pedir el viento y el sismo en los dos sentidos: cada caso
   entra también con el signo opuesto. En **Reglas del proyecto** se escriben combinaciones propias
   en acciones (por ejemplo 1,2 D + 1,0 E + 0,5 L), para resistencia o servicio; se guardan con el
   proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
@@ -126,6 +128,10 @@ argentina:
   edificios exceptuados (art. 2.4.7). El viento en −X y −Y se genera como casos propios. La presión
   de cubierta se aplica sobre las barras del techo, normal a cada una. El cerramiento se puede
   clasificar a partir de las aberturas, y el diálogo muestra q_z según la altura.
+- **Nieve** según CIRSOC 104-2005: pg de la localidad (Tablas 1.1 a 1.15) o del lugar, pf con
+  sus mínimos para cubiertas de baja pendiente, Cs según la pendiente y la condición térmica,
+  lluvia sobre nieve, y la carga no balanceada en cubiertas a dos aguas, un caso por cada sentido
+  del viento. Las acumulaciones por arrastre, las cargas parciales y el hielo no se generan.
 - **Sismo** según INPRES-CIRSOC 103 (método estático). Esta parte se habilita cuando el proyecto
   tiene asignado un reglamento sísmico; si no lo tiene, el diálogo lo indica.
 

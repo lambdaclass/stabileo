@@ -39,13 +39,13 @@ import { msg, type EngineMessage, type MessageParam } from './message';
 // ─── Roles ───────────────────────────────────────────────────────
 
 export const REGULATION_ROLES = [
-  'basis', 'loads', 'wind', 'seismic', 'concrete', 'steel', 'masonry', 'timber',
+  'basis', 'loads', 'wind', 'snow', 'seismic', 'concrete', 'steel', 'masonry', 'timber',
 ] as const;
 export type RegulationRole = (typeof REGULATION_ROLES)[number];
 
 /** Roles whose configuration affects generated loads, and therefore the analysis. */
 export const LOAD_AFFECTING_ROLES: readonly RegulationRole[] =
-  Object.freeze(['basis', 'loads', 'wind', 'seismic']);
+  Object.freeze(['basis', 'loads', 'wind', 'snow', 'seismic']);
 
 /** Roles that only affect member design, not the forces. */
 export const DESIGN_ONLY_ROLES: readonly RegulationRole[] =
@@ -203,6 +203,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     nameKey: 'regulations.name.en1991_1_4', family: 'eurocode',
     maturity: 'UNSUPPORTED', requiresConfig: false,
     noteKey: 'regulations.note.notImplemented',
+  },
+  // ── snow ──
+  {
+    adapterId: 'cirsoc104-2005', role: 'snow', regulation: 'cirsoc-104',
+    edition: '2005', nameKey: 'regulations.name.cirsoc104', family: 'cirsoc',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
   // ── seismic: selected through the ROLE, never a hardcoded tab ──
   {
@@ -451,6 +457,7 @@ export function defaultRegulations(): ProjectRegulations {
     ['basis', 'cirsoc101-2025-basis'],
     ['loads', 'cirsoc101-2025-loads'],
     ['wind', 'cirsoc102-2025'],
+    ['snow', 'cirsoc104-2005'],
     ['concrete', 'cirsoc'],
   ];
   for (const [role, id] of seed) {

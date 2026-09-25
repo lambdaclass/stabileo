@@ -102,7 +102,10 @@ one which displacements and rotations are restrained. A roller moves freely with
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, E earthquake,
   S snow) and a button to show or hide it in the viewer. **Self-weight** is **on by default** in PRO
   and is computed for members and plates.
-- **Combinations:** manual, or generated automatically (strength and service combinations). When
+- **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
+  (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
+  gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
+  D + 0.75 L + 0.45 W + 0.75 (Lr or S or R)). When
   generating them, wind and earthquake can be taken in both senses: each case also enters with the
   opposite sign. **Project rules** are your own combinations written in actions (for example
   1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
@@ -121,6 +124,10 @@ one which displacements and rotations are restrained. A roller moves freely with
   Wind from −X and −Y is generated as cases of its own. Roof pressure is applied on the roof
   members, normal to each. The enclosure can be classified from the openings, and the dialog shows
   q_z against height.
+- **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
+  minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
+  unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are
+  not generated.
 - **Earthquake** to INPRES-CIRSOC 103 (static method). This part is enabled when the project has a
   seismic regulation assigned; if it has none, the dialog says so.
 

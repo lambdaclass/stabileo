@@ -244,3 +244,19 @@ test.describe('@smoke the project states its own combination rules', () => {
     expect((await download).suggestedFilename()).toBe('combination-rules.json');
   });
 });
+
+test.describe('@smoke snow from CIRSOC 104', () => {
+  test('a locality of the tables gives p_g, the preview reads p_s, and the case reaches the model', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('pro-auto-loads-btn').click();
+    await page.getByTestId('al-enable-snow').check();
+    await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
+    await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names.some((n) => /^Balanced snow/.test(n))).toBe(true);
+  });
+});

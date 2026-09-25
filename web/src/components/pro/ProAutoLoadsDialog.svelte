@@ -19,6 +19,9 @@
   import type { Enclosure, Exposure } from '../../lib/codes/cirsoc102/wind';
   import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
+  import ProSnowSection from './ProSnowSection.svelte';
+  import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
+  import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { bindingLabel } from '../../lib/codes/roles';
   import { messageIdentity } from '../../lib/codes/message';
@@ -39,7 +42,7 @@
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
   /** Which load the reader came in to define. */
-  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'seismic';
+  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'snow' | 'seismic';
 
   interface Props {
     open: boolean;
@@ -108,6 +111,12 @@
   // configComplete would be circular.
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
   const windAvailable = $derived(regulationsStore.bound('wind'));
+  const snowAvailable = $derived(regulationsStore.bound('snow'));
+  let snowCfg = $state<SnowConfig>(defaultSnowConfig());
+  const snowRoof = $derived.by(() => {
+    const g = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements } as never);
+    return g ? { slopeDeg: g.slopeDeg, W: g.W } : null;
+  });
   let seismicZone = $state<SeismicZone>(4);
   let siteClass = $state<SiteClass>('SD');
   let destinationGroup = $state<DestinationGroup>('B');
@@ -153,6 +162,7 @@
   /* The fieldsets, so a focused open can bring one into view. */
   let windFieldset = $state<HTMLElement | null>(null);
   let seismicFieldset = $state<HTMLElement | null>(null);
+  let snowFieldset = $state<HTMLElement | null>(null);
   let deadFieldset = $state<HTMLElement | null>(null);
   let liveFieldset = $state<HTMLElement | null>(null);
 
@@ -162,7 +172,9 @@
        row that says "W" is arriving nowhere. */
     if (focus === 'wind' && windAvailable) enableWind = true;
     if (focus === 'seismic' && seismicAvailable) enableSeismic = true;
+    if (focus === 'snow' && snowAvailable) snowCfg.enabled = true;
     const el = focus === 'wind' ? windFieldset
+      : focus === 'snow' ? snowFieldset
       : focus === 'seismic' ? seismicFieldset
       : focus === 'live' ? liveFieldset
       : deadFieldset;
@@ -210,6 +222,11 @@
         directions: { x: windDirX, y: windDirZ },
         caseSet: windCaseSet, bothSenses: windBothSenses,
       } : undefined,
+      snow: snowCfg.enabled ? {
+        enabled: true, ...snowPg(snowCfg),
+        terrain: snowCfg.terrain, exposure: snowCfg.exposure, thermal: snowCfg.thermal,
+        category: snowCfg.category, roofKind: snowCfg.roofKind, slippery: snowCfg.slippery,
+      } : undefined,
       seismic: enableSeismic ? {
         /* `coefficient` is the fallback the plan uses only when `code` is absent or
            blocked; the 103 path below is what normally produces C. */
@@ -249,6 +266,9 @@
         siteAltitudeM: windAltitude, kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
       }, true);
+    }
+    if (snowCfg.enabled) {
+      regulationsStore.configureRole('snow', { ...$state.snapshot(snowCfg) }, true);
     }
     if (enableSeismic) {
       regulationsStore.configureRole('seismic', {
@@ -394,7 +414,7 @@
       <fieldset class="al-fieldset" data-testid="al-regulations">
         <legend>{t('autoLoad.appliedRegulations')}</legend>
         <ul class="al-regs">
-          {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','seismic'].includes(s.role)) as st (st.role)}
+          {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','snow','seismic'].includes(s.role)) as st (st.role)}
             <li>
               <span class="al-reg-role">{t(`regulations.role.${st.role}`)}</span>
               <span class="al-reg-name">{te(st.label)}</span>
@@ -662,6 +682,10 @@
           />
         {/if}
       </fieldset>
+
+      <div bind:this={snowFieldset}>
+        <ProSnowSection bind:config={snowCfg} available={snowAvailable} roof={snowRoof} />
+      </div>
 
       <!-- Options -->
       <fieldset class="al-fieldset">

@@ -405,6 +405,7 @@
       case 'D': return 'dead';
       case 'L': return 'live';
       case 'W': return 'wind';
+      case 'S': return 'snow';
       case 'E': return 'seismic';
       default: return null;
     }
