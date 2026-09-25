@@ -1283,7 +1283,8 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
 
       const projY = (dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2]) * d.p;
       const projZ = (dirX * axes.ez[0] + dirY * axes.ez[1] + dirZ * axes.ez[2]) * d.p;
-      const projAxial = (dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2]) * d.p;
+      // Plus the load's own axial component, which the space mapping used to drop.
+      const projAxial = (dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2]) * d.p + (d.px ?? 0);
 
       if (Math.abs(projY) > 1e-10 || Math.abs(projZ) > 1e-10) {
         solverLoads.push({

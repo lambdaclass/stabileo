@@ -20,10 +20,15 @@ test.describe('@smoke modelling on a phone', () => {
     expect(tabs).toEqual(['dt-tab-nodes', 'dt-tab-elements', 'dt-tab-materials', 'dt-tab-sections', 'dt-tab-supports', 'dt-tab-loads']);
     const opts = page.getByTestId('dt-tool-options');
     await expect(opts).toBeVisible();
-    // Between the tool buttons and the table.
-    const tabBox = (await page.getByTestId('dt-tab-nodes').boundingBox())!;
-    const optBox = (await opts.boundingBox())!;
-    expect(optBox.y).toBeGreaterThan(tabBox.y + tabBox.height - 1);
+    // Between the tool buttons and the table: both measured in one frame, once
+    // the sheet has finished sliding up.
+    const gap = () => page.evaluate(() => {
+      const tab = document.querySelector('[data-testid=dt-tab-nodes]')!.getBoundingClientRect();
+      const opt = document.querySelector('[data-testid=dt-tool-options]')!.getBoundingClientRect();
+      return Math.round(opt.top - tab.bottom);
+    });
+    await expect.poll(async () => { const a = await gap(); await page.waitForTimeout(150); return a === (await gap()); }).toBe(true);
+    expect(await gap()).toBeGreaterThanOrEqual(-1);
 
     await page.getByTestId('dt-tab-materials').tap();
     await expect(opts).toHaveCount(0);
@@ -33,9 +38,12 @@ test.describe('@smoke modelling on a phone', () => {
     await page.evaluate(() => window.__stabileoActions.solve());
     const toast = page.locator('.toast').first();
     await expect(toast).toBeVisible();
-    const sheet = (await page.getByTestId('basic-panel').boundingBox())!;
-    const tb = (await toast.boundingBox())!;
-    expect(tb.y + tb.height).toBeLessThanOrEqual(sheet.y + 1);
+    const overlap = () => page.evaluate(() => {
+      const sheet = document.querySelector('[data-testid=basic-panel]')!.getBoundingClientRect();
+      const t = document.querySelector('.toast')!.getBoundingClientRect();
+      return Math.round(t.bottom - sheet.top);
+    });
+    await expect.poll(overlap).toBeLessThanOrEqual(1);
 
     await page.getByTestId('rb-cmd-advanced').tap();
     await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().tool)).toBe('select');
