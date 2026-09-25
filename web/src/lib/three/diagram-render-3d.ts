@@ -14,6 +14,7 @@ import {
   type Diagram3DKind,
 } from '../engine/diagrams-3d';
 import { createTextSprite } from './selection-helpers';
+import type { UnitSystem } from '../utils/units';
 import { GLOBAL_Z } from '../geometry/coordinate-system';
 
 // ─── Shared display-direction helper ────────────────────────────
@@ -105,6 +106,7 @@ export function createDiagramGroup3D(
   leftHand: boolean = false,
   sections?: Map<number, Section>,
   towardLocalAxes: boolean = false,
+  unitSystem: UnitSystem = 'SI',
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'diagram3d', kind };
@@ -273,7 +275,7 @@ export function createDiagramGroup3D(
         group.add(sphere);
 
         if (showValues) {
-          const labelText = formatDiagramValue3D(val, kind);
+          const labelText = formatDiagramValue3D(val, kind, unitSystem);
           const sprite = createTextSprite(labelText, colors.text, 28);
           sprite.position.set(
             pos.x + perpVec.x * 0.15,
@@ -323,6 +325,7 @@ export function createEnvelopeDiagramGroup3D(
   leftHand: boolean = false,
   sections?: Map<number, Section>,
   towardLocalAxes: boolean = false,
+  unitSystem: UnitSystem = 'SI',
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'diagram3dEnvelope', kind };
@@ -467,7 +470,7 @@ export function createEnvelopeDiagramGroup3D(
             sphere.renderOrder = 1;
             group.add(sphere);
 
-            const labelText = formatDiagramValue3D(extremeVal, kind);
+            const labelText = formatDiagramValue3D(extremeVal, kind, unitSystem);
             const sprite = createTextSprite(labelText, colors.text, 28);
             sprite.position.set(
               pos.x + perpVec.x * 0.15,

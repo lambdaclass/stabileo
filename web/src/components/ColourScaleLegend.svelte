@@ -20,6 +20,7 @@
   import { colourScaleSource } from '../lib/store/result-view';
   import { COLOUR_RAMP_STOPS, OVER_SCALE_RGB } from '../lib/three/colour-ramp';
   import { t } from '../lib/i18n';
+  import { toDisplay, unitLabel, type Quantity } from '../lib/utils/units';
 
   /**
    * The gradient is drawn from the SAME stops the painters interpolate — one
@@ -54,6 +55,12 @@
    */
   const overScale = $derived(scale?.source === 'colorMap:stressRatio');
 
+  /** The painters publish SI; the legend shows the chosen unit system. */
+  const QTY: Record<string, Quantity> = { kN: 'force', 'kN·m': 'moment', MPa: 'stress' };
+  const qty = $derived(scale?.unit ? QTY[scale.unit] : undefined);
+  const shownMax = $derived(scale ? (qty ? toDisplay(scale.max, qty, uiStore.unitSystem) : scale.max) : 0);
+  const shownUnit = $derived(scale?.unit ? (qty ? unitLabel(qty, uiStore.unitSystem) : scale.unit) : '');
+
   /**
    * Four labels rather than a continuous axis: a bar 90 px tall cannot carry
    * more without them colliding, and the reader needs the top, the bottom and
@@ -63,7 +70,7 @@
     if (!scale) return [];
     return [1, 0.75, 0.5, 0.25, 0].map((f) => ({
       at: f,
-      label: fmt(scale.max * f),
+      label: fmt(shownMax * f),
     }));
   });
 
@@ -95,8 +102,8 @@
         <span class="cs-tick" style="bottom: calc({tick.at * 100}% - 0.45em)">{tick.label}</span>
       {/each}
     </div>
-    {#if scale.unit}
-      <span class="cs-unit">{scale.unit}</span>
+    {#if shownUnit}
+      <span class="cs-unit">{shownUnit}</span>
     {/if}
   </div>
 {/if}
