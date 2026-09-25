@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
-  import { resolveDeleteTargets } from '../lib/store/delete-selection';
+  import { deleteSelection } from '../lib/actions/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
@@ -310,43 +310,9 @@
       }
     }
 
-    // Delete selected supports/nodes/elements/loads
+    // Delete: everything selected, every kind, one undo step (lib/actions/delete-selection).
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (uiStore.selectedSupports.size > 0) {
-        const supToDelete = [...uiStore.selectedSupports];
-        modelStore.batch(() => {
-          for (const supId of supToDelete) modelStore.removeSupport(supId);
-        });
-        uiStore.clearSelectedSupports();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
-        const ids = [...uiStore.selectedLoads];
-        modelStore.batch(() => {
-          for (const id of ids) modelStore.removeLoad(id);
-        });
-        uiStore.clearSelectedLoads();
-        resultsStore.clear();
-      } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
-        // Delete strictly from the EXPLICIT selection channels — never infer an
-        // entity kind from a numeric id. Frame elements, plates and quads have
-        // INDEPENDENT id spaces (all count from 1), so a frame id can collide
-        // with an unrelated quad/plate id. `selectedElements` only ever holds
-        // FRAME ids (box-select, element-row clicks); shells are selected and
-        // highlighted ONLY via `selectedShells` ("p<id>"/"q<id>"). The old code
-        // re-derived shells from `selectedElements` numeric ids in shell mode,
-        // which deleted unselected (any-floor) shells whose id happened to match
-        // a selected frame id. Highlight == delete target now.
-        const targets = resolveDeleteTargets(
-          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
-          (id) => modelStore.elements.has(id),
-        );
-        modelStore.deleteEntities(targets);
-        uiStore.clearSelection();
-        resultsStore.clear();
-      }
+      deleteSelection();
       return;
     }
 

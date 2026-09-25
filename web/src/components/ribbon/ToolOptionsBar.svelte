@@ -9,6 +9,7 @@
   import ToolSupportOptions from '../floating-tools/ToolSupportOptions.svelte';
   import ToolLoadOptions from '../floating-tools/ToolLoadOptions.svelte';
   import SelectedEntityPanel from '../floating-tools/SelectedEntityPanel.svelte';
+  import SelectionDeleteButton from './SelectionDeleteButton.svelte';
 
   /**
    * Contextual options for the armed tool, directly under the ribbon.
@@ -106,6 +107,8 @@
     single most-used read-out in the app, silently gone.
   -->
   <div class="tb-selection"><SelectedEntityPanel /></div>
+  <!-- Delete what is selected: present only while something is (a phone has no Delete key). -->
+  <SelectionDeleteButton />
 
   <div class="tb-state" data-testid="model-state" data-tone={state.tone}>
     <span class="tb-dot" data-tone={state.tone} aria-hidden="true"></span>

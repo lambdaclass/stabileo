@@ -14,7 +14,7 @@
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
-  import { resolveDeleteTargets } from './lib/store/delete-selection';
+  import { deleteSelection } from './lib/actions/delete-selection';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
@@ -722,40 +722,9 @@
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (uiStore.selectedSupports.size > 0) {
-        const sups = [...uiStore.selectedSupports];
-        modelStore.batch(() => { for (const id of sups) modelStore.removeSupport(id); });
-        uiStore.clearSelectedSupports();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads holds load data ids (stable across array mutations)
-        const ids = [...uiStore.selectedLoads];
-        modelStore.batch(() => {
-          for (const id of ids) modelStore.removeLoad(id);
-        });
-        uiStore.clearSelectedLoads();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
-        // Delete strictly from the EXPLICIT selection channels (mirrors
-        // Toolbar.handleKeydown) — never infer an entity kind from a numeric id.
-        // Frames, plates and quads have independent id spaces, and shells live
-        // ONLY in selectedShells ("p<id>"/"q<id>"). The previous PRO handler
-        // re-derived shells from selectedElements ids (the exact id-collision bug
-        // delete-selection.ts fixes) and ignored selectedShells entirely, so a
-        // plate/quad selected in the 3D viewport could not be deleted by keyboard.
-        const targets = resolveDeleteTargets(
-          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
-          (id) => modelStore.elements.has(id),
-        );
-        modelStore.deleteEntities(targets);
-        uiStore.clearSelection();
-        resultsStore.clear();
-        return;
-      }
+      // The same deletion as Basic's keyboard layer and the on-screen button.
+      deleteSelection();
+      return;
     }
   }
 
