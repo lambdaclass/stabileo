@@ -63,6 +63,7 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
+  import ProInstabilityReport from './ProInstabilityReport.svelte';
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
@@ -293,6 +294,8 @@
 
   <!-- Tab content -->
   <div class="pro-content">
+    <!-- Above every tab: a failed solve's mechanism is news wherever the user is. -->
+    <ProInstabilityReport />
     <!--
       The grid scrolls; the head above it does not.
       ────────────────────────────────────────────

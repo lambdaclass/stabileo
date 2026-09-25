@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs, activeMapMeasure, showStressMap, hasLiveColourScale, type MapMeasure } from '../../lib/store/result-view';
   import { showDiagram } from '../../lib/store/view-mode';
@@ -435,8 +436,7 @@
                   }}>
                   <option value="single">{t('results.simpleLoads')}</option>
                   {#each caseKeys as caseId}
-                    {@const lc = modelStore.model.loadCases.find(c => c.id === caseId)}
-                    <option value={`case_${caseId}`}>{lc?.name ?? `${t('results.caseFallback')} ${caseId}`}</option>
+                    <option value={`case_${caseId}`}>{resultCaseName(caseId, modelStore.model.loadCases, t('svc.settlementCase'), `${t('results.caseFallback')} `)}</option>
                   {/each}
                   {#each comboKeys as comboId}
                     {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
@@ -491,8 +491,7 @@
                     <option value="none">{t('results.noComparison')}</option>
                     <option value="single">{t('results.simpleLoads')}</option>
                     {#each caseKeys as caseId}
-                      {@const lc = modelStore.model.loadCases.find(c => c.id === caseId)}
-                      <option value={`case_${caseId}`}>{lc?.name ?? `${t('results.caseFallback')} ${caseId}`}</option>
+                      <option value={`case_${caseId}`}>{resultCaseName(caseId, modelStore.model.loadCases, t('svc.settlementCase'), `${t('results.caseFallback')} `)}</option>
                     {/each}
                     {#each comboKeys as comboId}
                       {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}

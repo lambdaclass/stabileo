@@ -20,6 +20,7 @@
  */
 
 import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D } from './types-3d';
+import { steelSectionConstants } from './steel/section-constants';
 import type { LoadCombination } from '../store/model.svelte';
 import {
   extractElementStations,
@@ -406,7 +407,9 @@ export function runSteelVerification(
     if (L <= 0) continue;
 
     const demand = steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId));
-    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, lengths?.get(ef.elementId) ?? { L, Lb: L });
+    const e3 = elem as { kStrong?: number; kWeak?: number };
+    const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
+    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(lengths?.get(ef.elementId) ?? { L, Lb: L }), ...k });
     if (v) verifs.push(v);
   }
 
@@ -494,7 +497,7 @@ export function checkSteelMember(
   demand: SteelMemberDemand,
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
-  lengths: { L: number; Lb: number },
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number },
 ): SteelVerification | null {
   const { MuStrong: MuStrongMax, MuWeak: MuWeakMax, Vu: VuMax, diagram } = demand;
   const { L, Lb } = lengths;
@@ -604,7 +607,21 @@ export function checkSteelMember(
     // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
     // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
     ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
-    J: (section as SteelSectionData).j ?? 0,
+    // J, Cw, Zx and Zy from the section's own data or geometry (`steel/section-constants.ts`):
+    // the catalogue's rolled shapes carry no J, which dropped F.2-4's torsional term, and the
+    // checker's own Z formula is an I-shape's applied to every shape.
+    ...(() => {
+      const k = steelSectionConstants(section as never);
+      return {
+        J: k.J,
+        ...(k.Cw !== undefined ? { Cw: k.Cw } : {}),
+        ...(k.Zx !== undefined ? { Zx: k.Zx } : {}),
+        ...(k.Zy !== undefined ? { Zy: k.Zy } : {}),
+      };
+    })(),
+    // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).
+    ...(lengths.Kx !== undefined ? { Kx: lengths.Kx } : {}),
+    ...(lengths.Ky !== undefined ? { Ky: lengths.Ky } : {}),
   };
 
 

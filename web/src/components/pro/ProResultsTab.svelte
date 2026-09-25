@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   import { untrack } from 'svelte';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
@@ -609,8 +610,7 @@
           <select class="pro-view-sel" value={resultsStore.activeCaseId ?? ''} onchange={onCaseChange} data-testid="pr-case-select">
             {#if resultsStore.singleResults3D}<option value="">{t('pro.queryAllLoads')}</option>{/if}
             {#each caseKeys as cid}
-              {@const lc = modelStore.loadCases.find(c => c.id === cid)}
-              <option value={cid}>{lc ? lc.name : `${t('pro.caseN')}${cid}`}</option>
+              <option value={cid}>{resultCaseName(cid, modelStore.loadCases, t('svc.settlementCase'), t('pro.caseN'))}</option>
             {/each}
           </select>
         {/if}

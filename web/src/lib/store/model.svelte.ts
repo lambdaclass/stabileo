@@ -66,6 +66,11 @@ export interface Material {
   rho: number; // kN/m³
   fy?: number; // MPa (yield stress for stress verification)
   /**
+   * Coefficient of thermal expansion, 1/°C. Absent: the family's (`engine/thermal-alpha.ts`),
+   * and the engine's 1,2·10⁻⁵ when the family cannot be told.
+   */
+  alpha?: number;
+  /**
    * Which catalogued grade this material came from, when it came from one.
    *
    * Stored rather than inferred from `name`: a user can rename a material to
@@ -493,6 +498,13 @@ export interface Element extends Element3DMetadata {
    * `engine/steel/unbraced-length.ts`. Absent: deduced.
    */
   unbracedLength?: number;
+  /**
+   * Effective-length factors for flexural buckling, about the section's strong and weak axes.
+   * Absent: 1,0 — right for a braced frame, and for a sway frame analysed with the direct
+   * analysis method; a sway frame checked on a first-order analysis needs the user's K.
+   */
+  kStrong?: number;
+  kWeak?: number;
 }
 
 /** A camera the user named: where it stands and what it looks at, in scene coordinates. */

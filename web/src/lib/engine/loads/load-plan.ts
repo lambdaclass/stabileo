@@ -35,12 +35,13 @@ import {
   generateCombinations, liveLoadFactorInCompanion,
   type CombinationInputs, type LoadCombinationSpec, type LoadSymbol,
 } from '../../codes/cirsoc101/combinations';
+import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
 import {
   findOccupancy, reduceLiveLoad,
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
 import {
-  applyMinimumWindLoad, computeWindPressures,
+  applyMinimumWindLoad, computeWindPressures, velocityPressure, G_RIGID,
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import {
@@ -155,6 +156,11 @@ export interface LoadPlanInput {
     directions: { x: boolean; y: boolean };
   };
   generateCombinations: boolean;
+  /**
+   * Which combinations to generate when `generateCombinations` is on: the strength ones of
+   * §2.3.2 (the default), the characteristic service ones, or both.
+   */
+  combinationSet?: 'ultimate' | 'service' | 'both';
 }
 
 // ─── Plan ────────────────────────────────────────────────────────
@@ -512,18 +518,46 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       if (res.pressures.length === 0) continue;
       windQh = fromProject(res.qhNm2, 'N/m²');
 
-      // Windward + leeward on each level, distributed over that level's nodes.
-      const ww = res.pressures.find((p) => p.surface === 'windwardWall' && p.gcpiSign === 1);
-      const lw = res.pressures.find((p) => p.surface === 'leewardWall' && p.gcpiSign === 1);
-      const net = (Math.abs(ww?.pNm2 ?? 0) + Math.abs(lw?.pNm2 ?? 0)) / 1000;   // kPa
+      /*
+       * Windward + leeward on each level, distributed over that level's nodes.
+       *
+       * The windward wall sees q_z, which grows with height (§2.4.1); the leeward wall
+       * sees q_h everywhere. The internal pressure acts on both walls and cancels in the
+       * net lateral force. This used to take the windward row evaluated at
+       * z = min(5 m, h) and apply it at every level, so the upper storeys of anything
+       * taller than 5 m got the base's pressure: about 40 % short at the top of a 30 m
+       * building in exposure B. Each level's band is now integrated over its own heights.
+       */
+      const cpWw = res.pressures.find((p) => p.surface === 'windwardWall')?.cp ?? 0;
+      const cpLw = res.pressures.find((p) => p.surface === 'leewardWall')?.cp ?? 0;
+      const qz = (z: number) => velocityPressure(Math.max(z, 0), project);
+      /** Net lateral pressure on the band [z0, z1], averaged over it, kPa. */
+      const bandNet = (z0: number, z1: number) => {
+        if (z1 <= z0) return (qz(z0) * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+        // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
+        const n = 8, hh = (z1 - z0) / n;
+        let sum = qz(z0) + qz(z1);
+        for (let k = 1; k < n; k++) sum += (k % 2 ? 4 : 2) * qz(z0 + k * hh);
+        const meanQz = (sum * hh / 3) / (z1 - z0);
+        return (meanQz * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+      };
+      const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
 
       const elevated = levels.filter((l) => l.elevation > 0);
       for (let i = 0; i < elevated.length; i++) {
         const lv = elevated[i];
         const below = i === 0 ? 0 : elevated[i - 1].elevation;
         const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
-        const tribH = (lv.elevation - below) / 2 + (above - lv.elevation) / 2;
-        const force = net * across * tribH;
+        // The lower half of the first storey goes straight to the foundation, as before.
+        const z0 = (below + lv.elevation) / 2;
+        const z1 = (lv.elevation + above) / 2;
+        const tribH = z1 - z0;
+        const levelNet = bandNet(z0, z1);
+        const force = levelNet * across * tribH;
+        derivation.push(msg('loadPlan.derivation.windLevel', {
+          dir: dir.toUpperCase(), level: round(lv.elevation, 2),
+          z0: round(z0, 2), z1: round(z1, 2), net: round(levelNet, 3), force: round(force, 1),
+        }));
         const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
         const applied = min.totalN / 1000;
         if (min.governedByMinimum) {
@@ -695,10 +729,14 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       present, maxLoKNm2: lo,
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
-    combinations = generateCombinations(ci);
-    const exc = liveLoadFactorInCompanion(ci);
-    if (exc.note) derivation.push(exc.note);
-    refs.push(R101('2.3.2', 'combinaciones básicas'));
+    const set = input.combinationSet ?? 'ultimate';
+    if (set !== 'service') {
+      combinations = generateCombinations(ci);
+      const exc = liveLoadFactorInCompanion(ci);
+      if (exc.note) derivation.push(exc.note);
+      refs.push(R101('2.3.2', 'combinaciones básicas'));
+    }
+    if (set !== 'ultimate') combinations = [...combinations, ...generateServiceCombinations(ci)];
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
@@ -719,6 +757,19 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 }
 
 // ─── Delta, for the before/after preview ─────────────────────────
+
+/**
+ * How many combinations applying the plan adds: a combination with a wind or seismic term
+ * becomes one per direction the plan has a case for (`combination-cases.ts`).
+ */
+function plannedCombinationCount(plan: LoadPlan): number {
+  const per = (sym: string) => plan.cases.filter((c) => c.type === sym).length;
+  return plan.combinations.reduce((n, c) => {
+    const alt = c.terms.find((t) => t.factor !== 0 && (t.symbol === 'W' || t.symbol === 'E'));
+    return n + (alt ? Math.max(1, per(alt.symbol)) : 1);
+  }, 0);
+}
+
 
 /**
  * What happens to one load case type when the plan is applied.
@@ -831,12 +882,12 @@ export function describePlanDelta(
   const after = replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plan.combinations.length, cases: afterTypes,
+        combinations: plannedCombinationCount(plan), cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plan.combinations.length,
+        combinations: current.combinations + plannedCombinationCount(plan),
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 

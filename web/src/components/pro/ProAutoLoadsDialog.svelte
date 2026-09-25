@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { expandCombinations } from '../../lib/engine/loads/combination-cases';
+  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -138,6 +140,8 @@
 
   // ─── Options ───────────────────────────
   let genCombos = $state(true);
+  /** Strength, service or both: strength by default, as the regulation's design needs. */
+  let comboSet = $state<'ultimate' | 'service' | 'both'>('ultimate');
   let clearExisting = $state(false);
 
   /* The fieldsets, so a focused open can bring one into view. */
@@ -212,6 +216,7 @@
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
       } : undefined,
       generateCombinations: genCombos,
+      combinationSet: comboSet,
     };
   }
 
@@ -337,15 +342,11 @@
       modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, 0, id);
     }
 
-    for (const combo of p.combinations) {
-      const factors: Array<{ caseId: number; factor: number }> = [];
-      for (const term of combo.terms) {
-        for (const id of caseIdByType.get(term.symbol) ?? []) {
-          factors.push({ caseId: id, factor: term.factor });
-        }
-      }
-      if (factors.length > 0) modelStore.addCombination(combo.label, factors);
-    }
+    // One combination per wind or seismic direction, never both directions in one.
+    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => ({
+      id, type, name: modelStore.model.loadCases.find((c) => c.id === id)?.name ?? type,
+    })));
+    addGeneratedCombinations(expandCombinations(p.combinations, planned));
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -648,6 +649,15 @@
       <fieldset class="al-fieldset">
         <legend>{t('autoLoad.options')}</legend>
         <label class="al-check"><input type="checkbox" bind:checked={genCombos} data-testid="al-gen-combos" /> {t('autoLoad.genCombos')}</label>
+        {#if genCombos}
+          <div class="al-row al-comboset" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">
+            <span>{t('autoLoad.comboSet')}</span>
+            {#each ['ultimate', 'service', 'both'] as const as k (k)}
+              <label><input type="radio" name="al-combo-set" value={k} bind:group={comboSet} data-testid="al-combo-set-{k}" /> {t(`autoLoad.comboSet.${k}`)}</label>
+            {/each}
+          </div>
+          {#if comboSet !== 'ultimate'}<p class="al-hint">{t('autoLoad.comboSetServiceHint')}</p>{/if}
+        {/if}
         <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
           onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
         <label class="al-check">
@@ -791,6 +801,8 @@
   .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
+  .al-comboset { flex-wrap: wrap; padding-left: 1.3rem; }
+  .al-hint { margin: 0.1rem 0 0.3rem 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
   .al-row label { min-width: 11rem; }
   .al-seismic-preview { margin-top: 6px; font-size: 0.78rem; opacity: 0.9; }
   .al-link { background: none; border:  none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }

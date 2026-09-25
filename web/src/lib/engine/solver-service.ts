@@ -19,6 +19,8 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
+import { addSettlementCase, hasSettlement, withoutSettlement } from './settlement-case';
+import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
 import { t } from '../i18n';
@@ -38,6 +40,15 @@ import type {
   DistributedLoad, PointLoadOnElement, ThermalLoad,
   NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, ThermalLoadQuad3D,
 } from '../store/model.svelte';
+
+/**
+ * The factor a member's ΔT is sent with, so the engine's fixed α becomes its material's
+ * (`thermal-alpha.ts`). 1 when the element or its material is missing.
+ */
+function thermalScaleOfElement(model: { elements: Map<number, { materialId: number }>; materials: Map<number, Material> }, elementId: number): number {
+  const e = model.elements.get(elementId);
+  return memberThermalScale(e ? model.materials.get(e.materialId) : undefined);
+}
 
 // ─── ModelData interface ──────────────────────────────────────────
 
@@ -188,7 +199,8 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       return { type: 'distributed' as const, data: sd };
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
-      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } };
+      const k = thermalScaleOfElement(model, d.elementId);
+      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: d.dtGradient * k } };
     } else {
       const d = l.data as PointLoadOnElement;
       const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
@@ -821,7 +833,8 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
       });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
+      const k = thermalScaleOfElement(model, d.elementId);
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: d.dtGradient * k } });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
       const angle = d.angle ?? 0;
@@ -1311,17 +1324,20 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
       }
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
+      const k = thermalScaleOfElement(model, d.elementId);
       solverLoads.push({
         type: 'thermal' as const,
         data: {
           elementId: d.elementId,
-          dtUniform: d.dtUniform,
-          dtGradientY: project2DToXZ ? d.dtGradient : 0,
-          dtGradientZ: project2DToXZ ? 0 : d.dtGradient,
+          dtUniform: d.dtUniform * k,
+          dtGradientY: project2DToXZ ? d.dtGradient * k : 0,
+          dtGradientZ: project2DToXZ ? 0 : d.dtGradient * k,
         },
       });
     } else if (l.type === 'thermalQuad3d') {
-      solverLoads.push(...convertThermalQuadLoad(l.data as ThermalLoadQuad3D));
+      const tq = l.data as ThermalLoadQuad3D;
+      const quad = model.quads?.get(tq.quadId);
+      solverLoads.push(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined)));
     }
   }
 
@@ -1839,7 +1855,45 @@ function pruneComboBundle3D(
 
 // ─── 3D: solveCombinations3D ─────────────────────────────────────
 
+type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D };
+
+/**
+ * The settlement, solved once and added once (`settlement-case.ts`). `solved` is the bundle for
+ * the structure without prescribed displacements.
+ */
+function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: LoadCombination[], leftHand: boolean): Bundle3D | string {
+  const input = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  if (!input) return t('svc.emptyModel');
+  let settlement: AnalysisResults3D | string;
+  try {
+    settlement = solve3DEngine(input);
+  } catch (err: any) {
+    return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', err.message);
+  }
+  if (typeof settlement === 'string') return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
+  // The same helper-node pruning the cases went through, so the ids line up when combined.
+  const pruned = pruneComboBundle3D({ perCase: new Map([[0, settlement]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
+  const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
+  const out = addSettlementCase(solved, pruned, combinations, hasShells
+    ? { nodes: model.nodes, quads: model.quads ?? new Map(), plates: model.plates ?? new Map(), materials: model.materials }
+    : undefined);
+  return out ?? t('svc.envelopeError3d');
+}
+
 export function solveCombinations3D(
+  model: ModelData,
+  loadCases: LoadCase[],
+  combinations: LoadCombination[],
+  includeSelfWeight = false,
+  leftHand = false,
+): Bundle3D | string | null {
+  if (!hasSettlement(model.supports.values())) return solveCombinations3DCore(model, loadCases, combinations, includeSelfWeight, leftHand);
+  const solved = solveCombinations3DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
+  if (!solved || typeof solved === 'string') return solved;
+  return withSettlementCase(solved, model, combinations, leftHand);
+}
+
+function solveCombinations3DCore(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
@@ -1990,7 +2044,20 @@ export async function solveCombinations3DParallel(
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
-): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+): Promise<Bundle3D | string | null> {
+  if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
+  const solved = await solveCombinations3DParallelCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
+  if (!solved || typeof solved === 'string') return solved;
+  return withSettlementCase(solved, model, combinations, leftHand);
+}
+
+async function solveCombinations3DParallelCore(
+  model: ModelData,
+  loadCases: LoadCase[],
+  combinations: LoadCombination[],
+  includeSelfWeight = false,
+  leftHand = false,
+): Promise<Bundle3D | string | null> {
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');
@@ -2082,6 +2149,6 @@ export async function solveCombinations3DParallel(
   } catch (err: any) {
     // Fallback to synchronous solving if workers fail
     console.warn('Parallel solve failed, falling back to sequential:', err.message);
-    return solveCombinations3D(model, loadCases, combinations, includeSelfWeight, leftHand);
+    return solveCombinations3DCore(model, loadCases, combinations, includeSelfWeight, leftHand);
   }
 }

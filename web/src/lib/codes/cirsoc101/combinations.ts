@@ -63,6 +63,8 @@ export interface LoadCombinationSpec {
   refs: ClauseRef[];
   /** Notes attached by an exception that was applied. Translated at the boundary. */
   notes: EngineMessage[];
+  /** Strength (§2.3.2) or service (`service-combinations.ts`). Absent means strength. */
+  purpose?: 'strength' | 'service';
 }
 
 export interface CombinationInputs {

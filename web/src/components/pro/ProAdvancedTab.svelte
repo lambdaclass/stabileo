@@ -237,6 +237,9 @@
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
+      // Published, so the viewport can draw and animate the mode picked in the table below.
+      // PRO kept this result to itself: the table listed modes and none of them could be seen.
+      resultsStore.setModalResult3D(res);
       modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
@@ -347,6 +350,7 @@
       if (typeof res === 'string') { solveError = `Buckling: ${res}`; solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
+      resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
@@ -1085,7 +1089,9 @@
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
-                <tr>
+                <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
+                  onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}
+                  title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
                   <td class="col-id">{i + 1}</td>
                   <td class="col-num">{fmtNum(mode.frequency)}</td>
                   <td class="col-num">{fmtNum(mode.period)}</td>
@@ -1191,7 +1197,9 @@
             <thead><tr><th>Modo</th><th>&#x03BB;cr</th></tr></thead>
             <tbody>
               {#each bucklingResult.modes as mode, i}
-                <tr>
+                <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'bucklingMode' && resultsStore.activeBucklingMode === i}
+                  onclick={() => { resultsStore.activeBucklingMode = i; resultsStore.diagramType = 'bucklingMode'; }}
+                  title={t('pro.showMode')} data-testid="adv-buckling-row-{i}">
                   <td class="col-id">{i + 1}</td>
                   <td class="col-num">{fmtNum(mode.loadFactor)}</td>
                 </tr>
@@ -2151,4 +2159,7 @@
   .cum-ok { color: var(--st-ok); }
   .cum-warn { color: var(--st-warn); }
   .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.66rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
+  .adv-mode-row { cursor: pointer; }
+  .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
+  .adv-mode-on td { color: var(--st-accent); }
 </style>

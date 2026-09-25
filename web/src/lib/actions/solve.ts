@@ -14,6 +14,7 @@
  */
 
 import { uiStore, resultsStore, modelStore } from '../store';
+import { instability } from '../store/instability.svelte';
 import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
@@ -100,7 +101,10 @@ export async function runSolve3D() {
   if (modelStore.modelVersion !== versionAtStart) return; // stale — user edited mid-solve
   if (typeof results === 'string') {
     uiStore.toast(results, 'error');
+    // Name the mechanism, when that is what stopped it (`store/instability.svelte.ts`).
+    if (isPro) instability.explain(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
   } else if (results) {
+    instability.clear();
     // Validate results aren't degenerate
     const hasNaN = hasInvalid3DDisplacements(results.displacements as Array<{ ux: number; uy: number; uz: number }>);
     if (hasNaN) {

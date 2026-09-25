@@ -126,3 +126,25 @@ export function axisPermutation(A: Mat3, tol = 1e-9): { perm: [number, number, n
   }
   return { perm: perm as [number, number, number], sign: sign as [number, number, number] };
 }
+
+/**
+ * The offsets of a repeat: `count` equal steps of `d`, or, with `spacings`, steps along d's
+ * direction of those lengths in turn — the 6 / 7,5 / 6 m bays of a real frame. Cumulative:
+ * copy k sits at the sum of the first k spacings.
+ */
+export function repeatOffsets(d: Vec3, count: number, spacings?: readonly number[]): Vec3[] {
+  if (!spacings || spacings.length === 0) {
+    return Array.from({ length: count }, (_, k) => [d[0] * (k + 1), d[1] * (k + 1), d[2] * (k + 1)] as Vec3);
+  }
+  const u = unit(d);
+  let at = 0;
+  return spacings.map((s) => { at += s; return [u[0] * at, u[1] * at, u[2] * at] as Vec3; });
+}
+
+/** Spacings typed as "6; 7,5; 6" or "6 7.5 6": positive numbers, or null when any is not. */
+export function parseSpacings(text: string): number[] | null {
+  const parts = text.split(/[;\s]+/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const out = parts.map((x) => Number(x.replace(',', '.')));
+  return out.every((v) => Number.isFinite(v) && v > 0) ? out : null;
+}

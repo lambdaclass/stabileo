@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
+  import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
+  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
+  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
@@ -264,6 +268,8 @@
     exists: boolean;
     selected: boolean;
     template: ComboTemplate;
+    /** The generated combination, so service ones reach the service envelope. */
+    generated: CaseCombination;
   }
 
   let showComboModal = $state(false);
@@ -284,145 +290,26 @@
   }
 
   function buildCandidates(template: ComboTemplate): CandidateCombo[] {
-    if (template === 'service') return buildServiceCandidates();
-    return buildLRFDCandidates();
+    return candidatesFrom(template);
   }
 
-  /** Build service/ASD combination candidates (ASCE 7-22 §2.4). */
-  function buildServiceCandidates(): CandidateCombo[] {
+  /**
+   * Candidates from the regulation's generators, onto this model's cases.
+   *
+   * Strength: CIRSOC 101-2025 §2.3.2 (1,0 W, with strength-level wind). Service: the
+   * characteristic combinations. Both come from the same code as the regulation dialog, and
+   * expand one wind or seismic direction at a time (`combination-cases.ts`). This tab used to
+   * carry its own tables: one labelled ASCE 7-22 with 1,6 W, which neither code prints now,
+   * and an ASD set labelled "service", which is allowable-stress design and not serviceability.
+   */
+  function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
-    const byType: Record<string, number[]> = {};
-    for (const lc of cases) { const t2 = (lc.type || '').toUpperCase(); if (!byType[t2]) byType[t2] = []; byType[t2].push(lc.id); }
-    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
-    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
-    function mkF(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
-      return cases.map(lc => { const m = pairs.find(([id]) => id === lc.id); return { caseId: lc.id, factor: m ? m[1] : 0 }; });
-    }
-    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
-      const factors = mkF(pairs); return { name, factors, exists: comboExists(factors), selected: false, template: 'service' };
-    }
-    const out: CandidateCombo[] = [];
-    if (D.length === 0) return out;
-    // S1: D
-    out.push(mk('D', D.map(id => [id, 1.0])));
-    // S2: D + L
-    if (L.length > 0) out.push(mk('D + L', [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 1.0] as [number, number])]));
-    // S3: D + Lr (or S)
-    if (Lr.length > 0) out.push(mk('D + Lr', [...D.map(id => [id, 1.0] as [number, number]), ...Lr.map(id => [id, 1.0] as [number, number])]));
-    else if (S2.length > 0) out.push(mk('D + S', [...D.map(id => [id, 1.0] as [number, number]), ...S2.map(id => [id, 1.0] as [number, number])]));
-    // S4: D + 0.75L + 0.75Lr (or S)
-    if (L.length > 0 && (Lr.length > 0 || S2.length > 0)) {
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 0.75] as [number, number])];
-      if (Lr.length > 0) pairs.push(...Lr.map(id => [id, 0.75] as [number, number]));
-      else pairs.push(...S2.map(id => [id, 0.75] as [number, number]));
-      out.push(mk('D + 0.75L + 0.75' + (Lr.length > 0 ? 'Lr' : 'S'), pairs));
-    }
-    // S5: D + W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      out.push(mk(`D + ${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [wId, 1.0]]));
-    }
-    // S6: D + 0.7E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
-      out.push(mk(`D + 0.7${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [eId, 0.7]]));
-    }
-    // S7: D + 0.75L + 0.75W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 0.75] as [number, number]));
-      pairs.push([wId, 0.75]);
-      out.push(mk(`D + 0.75L + 0.75${sn}`, pairs));
-    }
-    // S8: 0.6D + W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      out.push(mk(`0.6D + ${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [wId, 1.0]]));
-    }
-    // S9: 0.6D + 0.7E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
-      out.push(mk(`0.6D + 0.7${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [eId, 0.7]]));
-    }
-    for (const c of out) c.selected = !c.exists;
-    return out;
-  }
-
-  /** Build LRFD ultimate combination candidates (ASCE 7-22 §2.3). */
-  function buildLRFDCandidates(): CandidateCombo[] {
-    const cases = modelStore.model.loadCases;
-    const byType: Record<string, number[]> = {};
-    for (const lc of cases) {
-      const t2 = (lc.type || '').toUpperCase();
-      if (!byType[t2]) byType[t2] = [];
-      byType[t2].push(lc.id);
-    }
-    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
-    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
-
-    function mkFactors(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
-      return cases.map(lc => {
-        const match = pairs.find(([id]) => id === lc.id);
-        return { caseId: lc.id, factor: match ? match[1] : 0 };
-      });
-    }
-    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
-      const factors = mkFactors(pairs);
-      return { name, factors, exists: comboExists(factors), selected: false, template: 'lrfd' as ComboTemplate };
-    }
-
-    const out: CandidateCombo[] = [];
-    if (D.length === 0) return out;
-
-    // 1. 1.4D
-    out.push(mk('1.4D', D.map(id => [id, 1.4])));
-
-    // 2. 1.2D + 1.6L + 0.5(Lr or S)
-    if (L.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
-      if (Lr.length > 0) out.push(mk('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]));
-      else if (S2.length > 0) out.push(mk('1.2D + 1.6L + 0.5S', [...base, ...S2.map(id => [id, 0.5] as [number, number])]));
-      else out.push(mk('1.2D + 1.6L', base));
-    }
-
-    // 3. 1.2D + 1.6(Lr or S) + L
-    if (Lr.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
-      out.push(mk(L.length > 0 ? '1.2D + 1.6Lr + L' : '1.2D + 1.6Lr', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
-    } else if (S2.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S2.map(id => [id, 1.6] as [number, number])];
-      out.push(mk(L.length > 0 ? '1.2D + 1.6S + L' : '1.2D + 1.6S', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
-    }
-
-    // 4. 1.2D + L + 1.6W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
-      pairs.push([wId, 1.6]);
-      out.push(mk(`1.2D + L + 1.6${sn}`, pairs));
-    }
-    // 5. 1.2D + L + E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
-      pairs.push([eId, 1.0]);
-      out.push(mk(`1.2D + L + ${sn}`, pairs));
-    }
-    // 6. 0.9D + 1.6W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
-      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
-    }
-    // 7. 0.9D + E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
-      out.push(mk(`0.9D + ${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]));
-    }
-
-    // Default selection: check only those that don't already exist
+    const present = presentSymbols(cases);
+    const specs = template === 'service' ? generateServiceCombinations({ present }) : generateCombinations({ present });
+    const out = expandCombinations(specs, cases).map((c) => {
+      const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
+      return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
+    });
     for (const c of out) c.selected = !c.exists;
     return out;
   }
@@ -450,10 +337,7 @@
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
     }, 0);
     modelStore.batch(() => {
-      for (const c of toAdd) {
-        n++;
-        modelStore.addCombination(`${prefix}${n}: ${c.name}`, c.factors);
-      }
+      addGeneratedCombinations(toAdd.map((c) => ({ ...c.generated, name: c.name })), () => `${prefix}${++n}: `);
     });
     showComboModal = false;
     const label = activeTemplate === 'service' ? t('pro.serviceCombosGenerated') : t('pro.combosGenerated');

@@ -31,6 +31,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { steelSectionConstants } from '../steel/section-constants';
 import { solve3D } from '../wasm-solver';
 import { computeStationDemands, runSteelVerification } from '../verification-service';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
@@ -51,7 +52,13 @@ const STEEL = { id: 1, name: 'F-24', fy: 235, fu: 360, e: 200_000 };
 // ─── Closed-form capacities, from the checker's own formulas (cirsoc301.ts) ──
 
 const { b, tf, h, tw } = IPE200;
-const Zx = b * tf * (h - tf) + tw * (h - 2 * tf) ** 2 / 4;          // m³, strong
+/*
+ * Zx as the checker now receives it: from the section's geometry when the section engine
+ * resolves it (`steel/section-constants.ts`), which carries the root fillets the plate formula
+ * b·tf·(h − tf) + tw·(h − 2tf)²/4 leaves out; the formula otherwise.
+ */
+const K = steelSectionConstants(IPE200 as never);
+const Zx = K.Zx ?? b * tf * (h - tf) + tw * (h - 2 * tf) ** 2 / 4;   // m³, strong
 const Sx = IPE200.iy / (h / 2);
 const MP_STRONG = Math.min(STEEL.fy * Zx * 1e3, 1.5 * STEEL.fy * Sx * 1e3); // kN·m (F.2.1)
 const Zy = tf * b ** 2 / 2 + (h - 2 * tf) * tw ** 2 / 4;            // m³, weak
@@ -147,19 +154,21 @@ describe('steel demand axis mapping, through the real solver', () => {
 
     const phiMnStrong = PHI * MP_STRONG;  // Lb ≤ Lp → Mn = Mp
     expect(verif.flexureZ.phiMn).toBeCloseTo(phiMnStrong, 3);
-    expect(verif.flexureZ.ratio).toBeCloseTo(M / phiMnStrong, 3);  // ≈ 0,451
+    expect(verif.flexureZ.ratio).toBeCloseTo(M / phiMnStrong, 3);
     expect(verif.flexureZ.status).toBe('ok');
-    // The beam is at 45 % of its real capacity. The crossed-out mapping reported
+    // The beam is at about 43 % of its real capacity. The crossed-out mapping reported
     // ratio 2,22 FAIL here — the moment rated against φ·Mn of the weak axis (9,01 kN·m).
     expect(verif.overallStatus).toBe('ok');
   });
 
   it('runs lateral-torsional buckling against the real strong-axis moment', () => {
-    // L = 6 m > Lr: elastic LTB governs the strong axis. 7 kN·m exceeds the reduced
+    // L = 6 m > Lr: elastic LTB governs the strong axis. 25 kN·m exceeds the reduced
     // capacity, so the beam MUST fail — with the uncrossed mapping the LTB check ran on
-    // mz ≡ 0 and reported ratio 0,00 OK.
+    // mz ≡ 0 and reported ratio 0,00 OK. (This used 7 kN·m while the checker got no Cw and
+    // fell back to the Euler term alone; with F.2-4's torsional term 7 kN·m is about a third
+    // of the capacity.)
     const L = 6.0;
-    const M = 7;
+    const M = 25;
     const w = 8 * M / (L * L);
     const { verif } = solveAndVerify(L, {
       type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -w, qZJ: -w },
@@ -180,10 +189,14 @@ describe('steel demand axis mapping, through the real solver', () => {
     expect(cb).toBeGreaterThan(1.10);
     expect(cb).toBeLessThan(1.16);
 
-    // Fcr = Cb·π²·E/(Lb/ry)², Mn = min(Fcr·Sx, Mp) — closed form with the exact parabola Cb.
-    const fcr = (12.5 / 11) * Math.PI ** 2 * STEEL.e / ((L / ry) ** 2);
+    // F.2-4 with J and Cw, as the checker has them: rts² = √(Iy·Cw)/Sx, c = 1, h₀ = h − tf,
+    // Fcr = Cb·π²·E/(Lb/rts)² · √(1 + 0,078·J·c/(Sx·h₀)·(Lb/rts)²); Mn = min(Fcr·Sx, Mp).
+    expect(K.Cw, 'an IPE gets its warping constant').toBeGreaterThan(0);
+    const rts = Math.sqrt(Math.sqrt(IPE200.iz * K.Cw!) / Sx);
+    const lr2 = (L / rts) ** 2;
+    const fcr = (12.5 / 11) * Math.PI ** 2 * STEEL.e / lr2 * Math.sqrt(1 + 0.078 * K.J / (Sx * (h - tf)) * lr2);
     const mn = Math.min(fcr * Sx * 1e3, MP_STRONG);
-    const expected = M / (PHI * mn);                 // ≈ 1,29 (1,47 at Cb = 1)
+    const expected = M / (PHI * mn);
     expect(verif.flexureZ.ratio).toBeCloseTo(expected, 1);
     expect(verif.flexureZ.ratio).toBeGreaterThan(1);
     expect(verif.flexureZ.status).toBe('fail');
@@ -233,7 +246,7 @@ describe('steel demand axis mapping, through the real solver', () => {
     const verif = verifs[0];
     expect(verif.Muz).toBeCloseTo(P * L, 3);
     expect(verif.Muy).toBeCloseTo(0, 6);
-    expect(verif.flexureZ.ratio).toBeCloseTo((P * L) / (PHI * MP_STRONG), 3);  // ≈ 0,451
+    expect(verif.flexureZ.ratio).toBeCloseTo((P * L) / (PHI * MP_STRONG), 3);
     expect(verif.overallStatus).toBe('ok');
   });
 });

@@ -68,7 +68,8 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
     const e = modelStore.elements.get(id);
     if (!ef || !e) continue;
     const len = lengths.get(id);
-    members.push({ elementId: id, demand: steelDemandOf(ef, demands.get(id), stations.get(id)), lengths: len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length } });
+    const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
+    members.push({ elementId: id, demand: steelDemandOf(ef, demands.get(id), stations.get(id)), lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k } });
     const m = modelStore.materials.get(e.materialId);
     if (m) materialOf.set(id, m);
   }
