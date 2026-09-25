@@ -493,14 +493,60 @@ export function chainSegmentsIntoLoops(
   segments: Segment[],
   tol: number,
 ): { loops: CadPt[][]; loopSegIndex: number[]; unchained: number[] } {
-  // Weld endpoints into vertex ids.
+  // Weld endpoints into vertex ids, through a cell index.
+  //
+  // This scanned every vertex found so far for each endpoint, which is
+  // O(endpoints x vertices) — quadratic in the segment count, on the path that
+  // runs for every DXF drawing its columns as four separate LINEs. Measured
+  // before this change (best of 3): 400 columns 50 ms, 800 197 ms, 1600 770 ms,
+  // 3200 3089 ms. The cost per segment doubled at every doubling of the input,
+  // which is the quadratic signature rather than an unlucky constant.
+  //
+  // Cells of side `tol` mean every vertex within `tol` of p lies in p's own
+  // cell or one of the eight around it, so nine bucket lookups replace the
+  // scan.
+  //
+  // The subtle part is which candidate wins. The old scan returned the FIRST
+  // vertex within tolerance — the one with the SMALLEST index. Visiting cells
+  // yields candidates in a different order, so the minimum index is selected
+  // explicitly; otherwise two vertices both within tolerance of a third weld
+  // differently and the loops come out different. `cad-chain-weld.test.ts`
+  // pins that against the original implementation.
   const verts: CadPt[] = [];
+  const cell = Number.isFinite(tol) && tol > 0 ? tol : 1;
+  const buckets = new Map<string, number[]>();
   const vertOf = (p: CadPt): number => {
-    for (let i = 0; i < verts.length; i++) {
-      if (dist(verts[i], p) <= tol) return i;
+    // A non-finite coordinate cannot be bucketed: `Math.floor(Infinity / cell)`
+    // is Infinity, and `for (gx = Infinity - 1; gx <= Infinity + 1; gx++)` never
+    // advances — the index would hang where the scan merely failed to match.
+    // It never matched under the scan either (`dist(...) <= tol` is false for
+    // Infinity and for NaN), so it takes a fresh vertex and stays out of the
+    // index: the same answer, reached without looping.
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      verts.push({ x: p.x, y: p.y });
+      return verts.length - 1;
     }
+    const cx = Math.floor(p.x / cell), cy = Math.floor(p.y / cell);
+    let best = -1;
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gy = cy - 1; gy <= cy + 1; gy++) {
+        const ids = buckets.get(`${gx},${gy}`);
+        if (!ids) continue;
+        // Only a smaller index can improve on what we have, so the distance
+        // is not even computed for the rest.
+        for (const i of ids) {
+          if ((best === -1 || i < best) && dist(verts[i], p) <= tol) best = i;
+        }
+      }
+    }
+    if (best !== -1) return best;
     verts.push({ x: p.x, y: p.y });
-    return verts.length - 1;
+    const id = verts.length - 1;
+    const key = `${cx},${cy}`;
+    const arr = buckets.get(key);
+    if (arr) arr.push(id);
+    else buckets.set(key, [id]);
+    return id;
   };
   const edges = segments.map((s, i) => ({ i, a: vertOf(s.a), b: vertOf(s.b) }))
     .filter((e) => e.a !== e.b);
