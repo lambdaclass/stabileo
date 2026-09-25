@@ -33,6 +33,91 @@ fn model_solver_diagnostics(linear: &[SolverDiagnostic]) -> Vec<SolverDiagnostic
 /// Free DOFs threshold for sparse path in P-Delta iterations.
 const SPARSE_THRESHOLD: usize = 64;
 
+/// The symbolic factorization of the last matrix, with the pattern it was
+/// computed for.
+///
+/// The CSC matrix is built from the dense one by dropping zeros, so its
+/// pattern follows the values: a member carrying no axial force in the first
+/// iteration adds no geometric terms, and the same member compressed in the
+/// next adds entries the first pattern did not have. Reusing that first
+/// symbolic factorization regardless tripped an assertion inside the numeric
+/// one — an "unreachable" panic for any 3D model whose axial forces moved
+/// between iterations. It is reused now only while the pattern is the same.
+struct SymbolicCache {
+    col_ptr: Vec<usize>,
+    row_idx: Vec<usize>,
+    sym: Rc<SymbolicCholesky>,
+}
+
+fn symbolic_for(cache: &mut Option<SymbolicCache>, k: &CscMatrix) -> Rc<SymbolicCholesky> {
+    if let Some(c) = cache.as_ref() {
+        if c.col_ptr == k.col_ptr && c.row_idx == k.row_idx {
+            return c.sym.clone();
+        }
+    }
+    let sym = Rc::new(symbolic_cholesky(k));
+    *cache = Some(SymbolicCache { col_ptr: k.col_ptr.clone(), row_idx: k.row_idx.clone(), sym: sym.clone() });
+    sym
+}
+
+/// Right-hand side of the free equations with the restrained DOFs at their
+/// prescribed values: F_f − K_fr · u_r, with K the current (K + K_G).
+///
+/// The iterations used F_f alone and left every restrained DOF at zero, so a
+/// support settlement did not exist for the second-order solution: a model
+/// loaded only by one came back all zeros and "not converged", and one with
+/// loads as well came back without it. The linear pass had it; its
+/// displacements carry the prescribed values, which is where u_r comes from.
+fn rhs_with_prescribed(k: &[f64], n: usize, nf: usize, f_f: &[f64], u: &[f64]) -> Vec<f64> {
+    let mut rhs = f_f.to_vec();
+    for j in nf..n {
+        let uj = u[j];
+        if uj == 0.0 { continue; }
+        for (i, r) in rhs.iter_mut().enumerate() {
+            *r -= k[i * n + j] * uj;
+        }
+    }
+    rhs
+}
+
+/// B₂: the second-order amplification of the displacements that matter.
+///
+/// This was the largest ratio u_PΔ / u_lin over every free DOF with a linear
+/// value above 1e-12, so one DOF that barely moves in the linear solution —
+/// a rotation, or a translation of 1e-11 m — set it to anything: 247 for a
+/// building whose first buckling factor is 2 (for which B₂ ≈ 2).
+///
+/// It is taken now over the translations the second-order analysis actually
+/// changes: those whose increment u_PΔ − u_lin is at least 5 % of the largest
+/// increment, and among them those whose linear value is at least 5 % of the
+/// largest such value. Selecting by the increment, not by the linear value,
+/// matters: in a column near its critical load the axial shortening is two
+/// orders larger than the lateral deflection, but it is not amplified, and
+/// the lateral deflection — amplified 1/(1 − P/Pcr) — is what B₂ describes.
+fn b2_factor(dof_num: &DofNumbering, n_trans: usize, u_lin: &[f64], u_pd: &[f64]) -> f64 {
+    let nf = dof_num.n_free;
+    let trans: Vec<usize> = dof_num
+        .map
+        .iter()
+        .filter(|((_, local), &idx)| *local < n_trans && idx < nf)
+        .map(|(_, &idx)| idx)
+        .collect();
+    let inc = |i: usize| (u_pd[i] - u_lin[i]).abs();
+    let d_max = trans.iter().fold(0.0f64, |m, &i| m.max(inc(i)));
+    if d_max <= 1e-15 {
+        return 1.0;
+    }
+    let changed: Vec<usize> = trans.iter().copied().filter(|&i| inc(i) >= 0.05 * d_max).collect();
+    let l_max = changed.iter().fold(0.0f64, |m, &i| m.max(u_lin[i].abs()));
+    if l_max <= 1e-15 {
+        return 1.0;
+    }
+    changed
+        .iter()
+        .filter(|&&i| u_lin[i].abs() >= 0.05 * l_max)
+        .fold(0.0f64, |m, &i| m.max((u_pd[i] / u_lin[i]).abs()))
+}
+
 /// P-Delta analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,11 +154,6 @@ pub fn solve_pdelta_2d(
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let f_solve = if let Some(ref cs) = cs {
-        cs.reduce_vector(&f_f)
-    } else {
-        f_f.clone()
-    };
 
     let mut u_prev = vec![0.0; n];
     // Initialize with linear displacements
@@ -89,7 +169,7 @@ pub fn solve_pdelta_2d(
     let mut iterations = 0;
     let mut u_current = u_prev.clone();
     let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<Rc<SymbolicCholesky>> = None;
+    let mut symbolic: Option<SymbolicCache> = None;
 
     for iter in 0..max_iter {
         iterations = iter + 1;
@@ -105,11 +185,13 @@ pub fn solve_pdelta_2d(
         } else {
             k_ff
         };
+        let f_eff = rhs_with_prescribed(&k_total, n, nf, &f_f, &u_current);
+        let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_eff) } else { f_eff };
 
         let u_indep = if use_sparse {
             let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic.get_or_insert_with(|| Rc::new(symbolic_cholesky(&k_csc)));
-            match numeric_cholesky(sym, &k_csc) {
+            let sym = symbolic_for(&mut symbolic, &k_csc);
+            match numeric_cholesky(&sym, &k_csc) {
                 Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
                 None => {
                     let mut k_work = k_solve;
@@ -159,10 +241,9 @@ pub fn solve_pdelta_2d(
             u_indep
         };
 
-        let mut u_new = vec![0.0; n];
-        for i in 0..nf {
-            u_new[i] = u_f[i];
-        }
+        // The restrained DOFs keep their prescribed values.
+        let mut u_new = u_current.clone();
+        u_new[..nf].copy_from_slice(&u_f[..nf]);
 
         // Check convergence
         let mut diff_norm = 0.0;
@@ -182,15 +263,7 @@ pub fn solve_pdelta_2d(
         }
     }
 
-    // Compute B2 factor
-    let mut max_ratio = 0.0f64;
-    let u_linear_f = extract_subvec(&u_prev, &free_idx);
-    let u_pdelta_f = extract_subvec(&u_current, &free_idx);
-    for i in 0..nf {
-        if u_linear_f[i].abs() > 1e-12 {
-            max_ratio = max_ratio.max((u_pdelta_f[i] / u_linear_f[i]).abs());
-        }
-    }
+    let max_ratio = b2_factor(&dof_num, 2, &u_prev, &u_current);
 
     // Build final results from converged displacements
     let displacements = build_displacements_2d(&dof_num, &u_current);
@@ -325,11 +398,6 @@ pub fn solve_pdelta_3d(
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let f_solve = if let Some(ref cs) = cs {
-        cs.reduce_vector(&f_f)
-    } else {
-        f_f.clone()
-    };
 
     let mut u_prev = vec![0.0; n];
     for d in &linear_results.displacements {
@@ -343,7 +411,7 @@ pub fn solve_pdelta_3d(
     let mut iterations = 0;
     let mut u_current = u_prev.clone();
     let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<Rc<SymbolicCholesky>> = None;
+    let mut symbolic: Option<SymbolicCache> = None;
 
     for iter in 0..max_iter {
         iterations = iter + 1;
@@ -357,11 +425,13 @@ pub fn solve_pdelta_3d(
         } else {
             k_ff
         };
+        let f_eff = rhs_with_prescribed(&k_total, n, nf, &f_f, &u_current);
+        let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_eff) } else { f_eff };
 
         let u_indep = if use_sparse {
             let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic.get_or_insert_with(|| Rc::new(symbolic_cholesky(&k_csc)));
-            match numeric_cholesky(sym, &k_csc) {
+            let sym = symbolic_for(&mut symbolic, &k_csc);
+            match numeric_cholesky(&sym, &k_csc) {
                 Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
                 None => {
                     let mut k_work = k_solve;
@@ -411,8 +481,8 @@ pub fn solve_pdelta_3d(
             u_indep
         };
 
-        let mut u_new = vec![0.0; n];
-        for i in 0..nf { u_new[i] = u_f[i]; }
+        let mut u_new = u_current.clone();
+        u_new[..nf].copy_from_slice(&u_f[..nf]);
 
         let mut diff_norm = 0.0;
         let mut u_norm = 0.0;
@@ -431,14 +501,7 @@ pub fn solve_pdelta_3d(
         }
     }
 
-    let mut max_ratio = 0.0f64;
-    let u_linear_f = extract_subvec(&u_prev, &free_idx);
-    let u_pdelta_f = extract_subvec(&u_current, &free_idx);
-    for i in 0..nf {
-        if u_linear_f[i].abs() > 1e-12 {
-            max_ratio = max_ratio.max((u_pdelta_f[i] / u_linear_f[i]).abs());
-        }
-    }
+    let max_ratio = b2_factor(&dof_num, 3, &u_prev, &u_current);
 
     let displacements = build_displacements_3d(&dof_num, &u_current);
     let element_forces = compute_internal_forces_3d(input, &dof_num, &u_current);
