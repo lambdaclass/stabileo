@@ -113,9 +113,27 @@ describe('RC design baseline — the flagship frame, member by member', () => {
    */
   it('reproduces the recorded per-member fingerprint exactly', () => {
     const actual = fingerprint(lines);
-    // Re-recorded 2026-08-15 against origin/main@d6b32ff0. See RECORDED_FINGERPRINT for how,
-    // and why it was not this branch's to keep. The rule above still stands for PR21's own
-    // commits: do NOT re-record to make a change of yours pass.
+    /*
+     * Re-recorded 2026-08-15 against origin/main@d6b32ff0. See RECORDED_FINGERPRINT for how,
+     * and why it was not this branch's to keep. The rule above still stands: do NOT re-record
+     * to make a change of yours pass.
+     *
+     * Re-recorded again here, and this one IS this branch's change, so it carries its evidence.
+     * `computeFlexureCapacity` was returning a doubly reinforced section that satisfied no
+     * equilibrium — see `doubly-reinforced-capacity-balances.test.ts`. Correcting it moves
+     * capacities, so this digest had to move with them. What was checked before re-recording,
+     * member by member across all 408:
+     *
+     *   outcome changed              0
+     *   limiting constraint changed  0
+     *   utilisation changed         65  (28 up, 37 down)
+     *   worst utilisation after   0.9970  — the 1.0 gate above still holds
+     *
+     * Both directions are expected and neither is alarming. Up: the section now reports the
+     * capacity it has, so the same steel is used harder. Down: the search no longer believes
+     * in capacity that was not there, so it places more steel and lands further below its
+     * target. What must NOT move is a verdict, and none did.
+     */
     expect(actual).toBe(RECORDED_FINGERPRINT);
   });
 
@@ -178,4 +196,4 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * members from this pipeline) and `cirsoc301-capabilities.ts` (every faculty `false`).
  * A member of the flagship frame is concrete, so the exclusion cannot reach it.
  */
-const RECORDED_FINGERPRINT = 'c6a055ef135d0a71';
+const RECORDED_FINGERPRINT = '792b6f88ea1fc3a4';

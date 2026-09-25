@@ -137,8 +137,10 @@ test.describe('@slow PRO project files', () => {
     // The existing format, not a new one.
     expect(saved.version).toBe('2.0');
     expect(saved.name).toBeTruthy();
+    // `includeSelfWeight` is saved since the file stopped reopening 31 % heavier: the switch
+    // decides what the analysis weighs, so it belongs with the project.
     expect(Object.keys(saved).sort()).toEqual([
-      'analysisMode', 'appMode', 'axisConvention3D', 'name', 'snapshot', 'timestamp',
+      'analysisMode', 'appMode', 'axisConvention3D', 'includeSelfWeight', 'name', 'snapshot', 'timestamp',
       'version', 'viewportPresentation3D',
     ]);
 

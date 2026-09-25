@@ -89,9 +89,14 @@ export const SHEETS: SheetSpec[] = [
     columns: [
       { key: 'id', required: true, helpKey: 'xls.col.nodeId', example: 1 },
       { key: 'x', unit: 'm', required: true, helpKey: 'xls.col.x', example: 0 },
-      { key: 'y', unit: 'm', required: true, helpKey: 'xls.col.y', example: 0 },
-      // Not required: a 2D model has no z, and demanding a zero would make
-      // every 2D workbook carry a column of noughts to say "still flat".
+      /*
+       * Neither Y nor Z is required on its own, and one of the two must be
+       * there — which a per-column flag cannot express, so the check lives in
+       * `parse.ts`. A flat model fills X and Z and leaves Y empty; a plan on
+       * the ground fills X and Y. Demanding both would make every 2-D workbook
+       * carry a column of noughts to say "still flat".
+       */
+      { key: 'y', unit: 'm', helpKey: 'xls.col.y', example: '' },
       { key: 'z', unit: 'm', helpKey: 'xls.col.z', example: 0 },
     ],
     /*
@@ -100,11 +105,25 @@ export const SHEETS: SheetSpec[] = [
      * sheets have to describe ONE model — an example that references a node
      * the reader cannot see teaches the format wrong.
      */
+    /*
+     * A portal frame standing in X–Z, not a rectangle lying on the floor.
+     *
+     * The example rows are the template's real documentation: a reader copies
+     * their shape long before they read a word of the help. So they show the
+     * case the app opens in — X across, Z up, Y left empty — which is also
+     * what this file already claimed to contain, since `template.ts` describes
+     * its own examples as "a small portal frame".
+     *
+     * Still four nodes closing a rectangle, so the Plates and Quads examples
+     * further down keep real corners to point at. The rectangle is vertical
+     * now, which makes their shell a wall panel rather than a slab; both are
+     * shells and the wall is the one that belongs beside a portal.
+     */
     examples: [
-      [1, 0, 0, 0],
-      [2, 6, 0, 0],
-      [3, 6, 4, 0],
-      [4, 0, 4, 0],
+      [1, 0, '', 0],
+      [2, 6, '', 0],
+      [3, 6, '', 4],
+      [4, 0, '', 4],
     ],
   },
 

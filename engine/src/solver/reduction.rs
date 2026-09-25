@@ -217,6 +217,11 @@ fn csc_times_dense(a: &CscMatrix, x: &[f64], ncols: usize) -> Vec<f64> {
 ///
 /// Recovery: u_I = K_II^{-1} * (F_I - K_IB * u_B)
 pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
+    // Assembly resolves ids by direct map indexing: an element naming a
+    // node that does not exist panicked there, which in WASM ends the
+    // module rather than the call.
+    super::linear::validate_input_2d(&input.solver)?;
+
     // The reduction hardcodes u_r = 0 in the recovery/reaction path, so
     // prescribed support displacements would be silently ignored.
     for sup in input.solver.supports.values() {
@@ -587,6 +592,9 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
 /// where Ψ_s = -K_II^{-1} K_IB (constraint modes)
 ///       Φ_m = first n_modes eigenvectors of K_II with respect to M_II
 pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult, String> {
+    // As above: validated before assembly indexes by id.
+    super::linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
 
@@ -1060,6 +1068,9 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
+    // As above: validated before assembly indexes by id.
+    super::linear::validate_input_3d(&input.solver)?;
+
     // Same limitation as the 2D path: u_r = 0 is hardcoded in the
     // recovery/reaction path, so prescribed support displacements would be
     // silently ignored.
@@ -1253,6 +1264,9 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
 
 /// Perform Craig-Bampton reduction on a 3D model.
 pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
+    // As above: validated before assembly indexes by id.
+    super::linear::validate_input_3d(&input.solver)?;
+
     let dof_num = DofNumbering::build_3d(&input.solver);
     let nf = dof_num.n_free;
 

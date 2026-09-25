@@ -6,6 +6,7 @@
  */
 
 import { stripStabilisedReactions } from './stabilised-reactions';
+import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
@@ -624,15 +625,11 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
 /** Solve 3D modal analysis via WASM. */
 export function solveModal3D(input: SolverInput3D, densities: Map<number, number>, numModes = 6) {
   if (!wasmReady || !wasmSolveModal3d) throw new Error('WASM Modal 3D solver not available.');
+  // The whole model, through the same serializer every other 3D analysis uses. This built its
+  // own subset and left out quads, plates, constraints and connectors — so a slab contributed
+  // neither stiffness nor mass to PRO's modal analysis.
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
+    solver: input3DToWireObject(input),
     densities: mapToObj(densities),
   });
   const resultJson = wasmSolveModal3d(payload, numModes);
@@ -647,33 +644,33 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   return JSON.parse(resultJson);
 }
 
-/** Solve 3D spectral analysis via WASM. */
+/**
+ * Solve 3D spectral analysis via WASM, for ONE direction.
+ *
+ * The fields are `SpectralInput3D`'s, one for one. The previous signature took `directions`,
+ * `combination` and `numModes`, none of which the struct has, and omitted `modes` and
+ * `direction`, which it requires — every call failed to deserialise. The engine combines one
+ * direction per run; run it once per direction.
+ */
 export function solveSpectral3D(config: {
   solver: SolverInput3D;
+  modes: SpectralModeInput3D[];
   densities: Map<number, number>;
   spectrum: { name: string; points: { period: number; sa: number }[]; inG?: boolean };
-  directions: Array<'X' | 'Y' | 'Z'>;
-  combination: 'SRSS' | 'CQC';
-  numModes?: number;
+  direction: 'X' | 'Y' | 'Z';
+  rule: 'SRSS' | 'CQC';
   xi?: number;
   importanceFactor?: number;
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral3d) throw new Error('WASM Spectral 3D solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input3DToWireObject(config.solver),
+    modes: config.modes,
     densities: mapToObj(config.densities),
     spectrum: config.spectrum,
-    directions: config.directions,
-    combination: config.combination,
-    numModes: config.numModes,
+    direction: config.direction,
+    rule: config.rule,
     xi: config.xi,
     importanceFactor: config.importanceFactor,
     reductionFactor: config.reductionFactor,

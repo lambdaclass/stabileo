@@ -19,6 +19,7 @@ import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
+import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellNodalColors, type HeatmapVariable } from '../three/stress-heatmap';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
@@ -126,9 +127,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   const dt = resultsStore.diagramType;
   const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
+  /*
+   * A time-history instant takes the deformed view when the user asked to see it, and only for
+   * the model it was computed on: a frame keyed by node id over an edited model would move the
+   * wrong nodes.
+   */
+  const thFrame = dt === 'deformed' && timeHistoryView.shown && timeHistoryView.result
+    && timeHistoryView.modelVersion === modelStore.modelVersion;
 
   // Restore element opacity when not showing deformed shape
-  const showingDeformed = resultsStore.results3D && isDeformedLike;
+  const showingDeformed = (resultsStore.results3D && isDeformedLike) || thFrame;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
       // Skip picking helpers, heatmap overlays and section edge outlines —
@@ -173,7 +181,15 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     ctx.deformedGroup = null;
   }
 
-  if (dt === 'deformed') {
+  if (thFrame) {
+    // Scaled against the structure's size and the record's own peak, so the motion reads at any
+    // amplitude: at the deformed view's own scale of 1 the peak spans 15 % of the structure, and
+    // the scale control amplifies from there. The chart beside the slider carries true values.
+    displacements = timeHistoryView.frame();
+    const peak = timeHistoryView.peak;
+    scale = peak > 0 ? computeStructureBBox() * 0.15 * scale / peak : 0;
+    modeColor = 0x7fd4cc; // --st-value, as mode shapes
+  } else if (dt === 'deformed') {
     const r3d = resultsStore.results3D;
     if (!r3d) { dropDeformed(); return; }
     displacements = r3d.displacements;
@@ -214,9 +230,11 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // rewrites positions without rebuilding any geometry (previously every
   // animation frame disposed and recreated the whole group per element).
   const r3d = resultsStore.results3D;
-  const sigDt = dt;
   const sigDisp = displacements;
-  const sigForces = dt === 'deformed' && r3d ? r3d.elementForces : null;
+  // A time-history frame is a shape, like a mode: the static solve's forces do not belong to it.
+  const staticDeformed = dt === 'deformed' && !thFrame;
+  const sigDt = thFrame ? 'timeHistory' : dt;
+  const sigForces = staticDeformed && r3d ? r3d.elementForces : null;
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
   const prev = ctx.deformedGroup?.userData;
@@ -237,7 +255,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   // Build EI map for particular solution (only for static deformed — modes don't need it)
   let eiMap: Map<number, ElementEI> | undefined;
-  if (dt === 'deformed') {
+  if (staticDeformed) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
       const mat = modelStore.materials.get(elem.materialId);
@@ -257,7 +275,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     modelStore.elements,
     getProjectedNodes(),
     displacements,
-    dt === 'deformed' && r3d ? r3d.elementForces : [],
+    staticDeformed && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     sigHand,
