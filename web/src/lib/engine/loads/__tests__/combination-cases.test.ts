@@ -2,7 +2,7 @@
  * Combinations in symbols, onto cases: wind and seismic one direction at a time, the rest summed.
  */
 import { describe, it, expect } from 'vitest';
-import { expandCombinations, presentSymbols, symbolOfType, withWindBasis } from '../combination-cases';
+import { expandCombinations, presentSymbols, symbolOfType } from '../combination-cases';
 import { generateCombinations } from '../../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../../codes/cirsoc101/service-combinations';
 
@@ -55,15 +55,18 @@ describe('expanding combinations over the model’s cases', () => {
 });
 
 describe('the service set', () => {
-  it('is the characteristic combinations, every factor 1,0, marked as service', () => {
+  it('is the characteristic combination for gravity, and CIRSOC 102-2025 B.4.2 for wind', () => {
     const specs = generateServiceCombinations({ present: presentSymbols(cases) });
     expect(specs.map((s) => s.label)).toEqual([
-      '1.0 D', '1.0 D + 1.0 L', '1.0 D + 1.0 Lr', '1.0 D + 1.0 L + 1.0 Lr', '1.0 D + 1.0 W', '1.0 D + 1.0 L + 1.0 W',
+      '1.0 D', '1.0 D + 1.0 L', '1.0 D + 1.0 Lr', '1.0 D + 1.0 L + 1.0 Lr',
+      // B.4.2: 0,6 D + 0,6 W and D + 0,75 L + 0,45 W + 0,75 (Lr ó S ó R). No Wa case, so no D + Wa.
+      '0.6 D + 0.6 W', '1.0 D + 0.75 L + 0.45 W + 0.75 Lr',
     ]);
-    expect(specs.every((s) => s.purpose === 'service' && s.terms.every((t) => t.factor === 1))).toBe(true);
+    expect(specs.every((s) => s.purpose === 'service')).toBe(true);
+    expect(specs.filter((s) => s.terms.some((t) => t.symbol === 'W')).every((s) => s.refs.some((r) => r.clause === 'B.4.2'))).toBe(true);
     const out = expandCombinations(specs, cases);
     expect(out.filter((c) => c.purpose === 'service')).toHaveLength(out.length);
-    // D + W and D + L + W, per direction.
+    // The two wind ones, per direction.
     expect(out).toHaveLength(4 + 2 * 2);
   });
 
@@ -73,23 +76,7 @@ describe('the service set', () => {
   });
 });
 
-describe('the wind basis', () => {
-  it('service-level wind reads CIRSOC 101-2025 with W at 1,6 and 0,8, the 2005 factors', () => {
-    const specs = withWindBasis(generateCombinations({ present: presentSymbols(cases) }), 'service');
-    const wFactors = new Set(specs.flatMap((s) => s.terms.filter((t) => t.symbol === 'W').map((t) => t.factor)));
-    expect([...wFactors].sort()).toEqual([0.8, 1.6]);
-    expect(specs.some((s) => s.label === '0.9 D + 1.6 W')).toBe(true);
-    // Nothing else moves.
-    expect(specs.find((s) => s.id === '1')!.label).toBe('1.4 D');
-  });
-
-  it('CIRSOC 102-2025 wind keeps the printed factors, and service combinations never scale', () => {
-    const base = generateCombinations({ present: presentSymbols(cases) });
-    expect(withWindBasis(base, 'strength').map((s) => s.label)).toEqual(base.map((s) => s.label));
-    const svc = generateServiceCombinations({ present: presentSymbols(cases) });
-    expect(withWindBasis(svc, 'service').map((s) => s.label)).toEqual(svc.map((s) => s.label));
-  });
-
+describe('both senses', () => {
   it('with both senses, each wind case enters once with each sign, and nothing else changes', () => {
     const specs = generateCombinations({ present: presentSymbols(cases) });
     const one = expandCombinations(specs, cases);

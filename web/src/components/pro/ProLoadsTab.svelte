@@ -3,7 +3,7 @@
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProCombinationRules from './ProCombinationRules.svelte';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
-  import { expandCombinations, presentSymbols, withWindBasis, type CaseCombination, type WindBasis } from '../../lib/engine/loads/combination-cases';
+  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
@@ -277,11 +277,6 @@
   let showComboModal = $state(false);
   let candidateCombos = $state<CandidateCombo[]>([]);
   let activeTemplate = $state<ComboTemplate>('lrfd');
-  /**
-   * Where these wind cases came from. Service-level by default: a case typed by hand is most often
-   * that, and 1,6 W is the conservative reading. See `withWindBasis`.
-   */
-  let windBasis = $state<WindBasis>('service');
   const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
   const hasSeismicCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'E'));
   /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
@@ -321,7 +316,7 @@
       ? modelStore.combinationRules.map(ruleToSpec)
       : template === 'service'
       ? generateServiceCombinations({ present })
-      : withWindBasis(generateCombinations({ present }), windBasis);
+      : generateCombinations({ present });
     const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
@@ -814,15 +809,6 @@
         <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : activeTemplate === 'project' ? t('combos.rules.sub') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
-      {#if activeTemplate === 'lrfd' && hasWindCases}
-        <div class="combo-wind-basis" data-testid="combo-wind-basis">
-          <label for="combo-wind-basis-sel">{t('pro.windBasis')}</label>
-          <select id="combo-wind-basis-sel" bind:value={windBasis} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }}>
-            <option value="service">{t('pro.windBasis.service')}</option>
-            <option value="strength">{t('pro.windBasis.strength')}</option>
-          </select>
-        </div>
-      {/if}
       {#if hasWindCases || hasSeismicCases}
         <label class="combo-wind-basis" data-testid="combo-both-senses">
           <input type="checkbox" bind:checked={bothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
