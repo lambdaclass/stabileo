@@ -425,6 +425,7 @@ export interface AnalysisResults3D {
   constraintForces?: import('./types').ConstraintForce[];
   diagnostics?: import('./types').AssemblyDiagnostic[];
   solverDiagnostics?: import('./types').SolverDiagnostic[];
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   plateStresses?: PlateStress[];
   quadStresses?: QuadStress[];
   timings?: SolveTimings;

@@ -27,6 +27,7 @@ fn test_artifact() -> SolverRunArtifact {
             phase: None,
             value: None,
             threshold: None,
+            element_kind: None,
         }],
         equilibrium: None,
         timings: None,

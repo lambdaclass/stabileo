@@ -261,6 +261,26 @@ pub struct StructuredDiagnostic {
     /// Threshold that was exceeded (if applicable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub threshold: Option<f64>,
+    /// What `element_ids` number: "frame", "plate", "quad", "quad9",
+    /// "solid_shell" or "curved_shell". Frames, plates and quads keep
+    /// independent id counters, so "element 7" alone does not say which one —
+    /// a consumer that assumed frames selected the wrong member for a
+    /// collapsed quad. Absent where the diagnostic names no element.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub element_kind: Option<ElementKind>,
+}
+
+/// The element family a diagnostic's `element_ids` number. An enum, not a string, so a
+/// typo or a new family cannot silently read as a frame on the other side of the boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ElementKind {
+    Frame,
+    Plate,
+    Quad,
+    Quad9,
+    SolidShell,
+    CurvedShell,
 }
 
 impl StructuredDiagnostic {
@@ -276,6 +296,7 @@ impl StructuredDiagnostic {
             phase: None,
             value: None,
             threshold: None,
+            element_kind: None,
         }
     }
 
@@ -301,6 +322,13 @@ impl StructuredDiagnostic {
     /// Attach element IDs.
     pub fn with_elements(mut self, ids: Vec<usize>) -> Self {
         self.element_ids = ids;
+        self
+    }
+
+    /// Attach one element, and the family its id belongs to — see `element_kind`.
+    pub fn with_element(mut self, kind: ElementKind, id: usize) -> Self {
+        self.element_ids = vec![id];
+        self.element_kind = Some(kind);
         self
     }
 

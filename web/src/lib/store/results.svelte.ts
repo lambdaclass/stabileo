@@ -2,6 +2,7 @@
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
+import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
@@ -179,6 +180,22 @@ function createResultsStore() {
   // 3D analysis results
   let results3D = $state<AnalysisResults3D | null>(null);
   let singleResults3D = $state<AnalysisResults3D | null>(null);
+
+  // The gates' findings describe the model, not the result on screen, so they
+  // are read from the single solve: `results` becomes a combination or the
+  // envelope when the view changes, and those carry no structured diagnostics
+  // — the findings vanished the moment a combination was picked. Converted
+  // once per solve: the cache is keyed on the engine's list itself. (A
+  // `$derived` here did not recompute when read outside an effect: after
+  // `setResults` it still returned the first, empty conversion. Checked.)
+  const findingsCache = new WeakMap<object, SolverDiagnostic[]>();
+  const findingsOf = (r: { structuredDiagnostics?: AnalysisResults['structuredDiagnostics']; solverDiagnostics?: unknown[] } | null | undefined): SolverDiagnostic[] => {
+    const list = r?.structuredDiagnostics;
+    if (!list) return [];
+    let found = findingsCache.get(list);
+    if (!found) { found = modelFindings(list, r?.solverDiagnostics as { category?: string }[] | undefined); findingsCache.set(list, found); }
+    return found;
+  };
   let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let envelope3D = $state<FullEnvelope3D | null>(null);
@@ -932,6 +949,16 @@ function createResultsStore() {
 
     get solverDiagnostics(): SolverDiagnostic[] { return results?.solverDiagnostics ?? []; },
     get solverDiagnostics3D(): SolverDiagnostic[] { return results3D?.solverDiagnostics ?? []; },
+
+    // What the pre-solve gates found about the model (see model-findings.ts).
+    // With no single solve (combinations published on their own), a load case
+    // carries the gates' findings; a combination or the envelope does not.
+    get structuredDiagnostics(): SolverDiagnostic[] {
+      return findingsOf(singleResults ?? perCase.values().next().value ?? results);
+    },
+    get structuredDiagnostics3D(): SolverDiagnostic[] {
+      return findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D);
+    },
 
     get maxDisplacement(): number {
       if (!results) return 0;
