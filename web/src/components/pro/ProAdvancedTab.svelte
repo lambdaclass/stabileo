@@ -3,6 +3,7 @@
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
+  import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import {
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
   } from '../../lib/engine/dynamics/requests';
@@ -1000,6 +1001,7 @@
         { id: 't9', label: t('pro.stagedConstruction') },
         { id: 't10', label: t('pro.creepShrinkage') },
         { id: 'influenceline3d', label: t('pro.influenceLine3dTitle') },
+        { id: 'moving', label: t('moving.title') },
         { id: 'multicase', label: t('pro.multiCaseTitle') },
         { id: 'sectionanalyzer', label: t('pro.sectionAnalyzerTitle') },
         { id: 'constrained', label: t('pro.constrainedTitle') },
@@ -1237,6 +1239,10 @@
           >{v.label}</button>
         {/each}
       </div>
+
+      {#if advView === 'moving'}
+        <ProMovingLoadsPanel disabled={!hasModel || !wasmAvailable} />
+      {/if}
 
       {#if advView === 'timehistory'}
         <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)} />

@@ -419,6 +419,8 @@ export interface StabileoTestActions {
    * that carries combinations is concrete; the code checks read solved combinations only.
    */
   combineCases(name: string): number;
+  /** Select these members, in this order, as clicking them one after another would. */
+  selectElements(ids: number[]): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -700,6 +702,10 @@ export function installE2EHooks(): void {
     },
     combineCases: (name: string) =>
       modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
+    selectElements: (ids: number[]) => {
+      uiStore.selectMode = 'elements';
+      ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
+    },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
     /** Reset the selection between gestures — the position, not the subject. */

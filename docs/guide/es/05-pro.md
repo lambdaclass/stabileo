@@ -107,7 +107,10 @@ su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y
   cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor. El
   **peso propio** está **activado por defecto** en PRO y se calcula para barras y placas.
 - **Combinaciones:** manuales, o generadas automáticamente (combinaciones de resistencia y de
-  servicio).
+  servicio). Al generarlas se puede pedir el viento y el sismo en los dos sentidos: cada caso
+  entra también con el signo opuesto. En **Reglas del proyecto** se escriben combinaciones propias
+  en acciones (por ejemplo 1,2 D + 1,0 E + 0,5 L), para resistencia o servicio; se guardan con el
+  proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
 - **Agregar carga:** nodal (en ejes globales), distribuida y puntual sobre barras (en ejes
   locales de la barra), y **de superficie** sobre placas cuadriláteras: en kN/m², vertical (un
   valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
@@ -117,13 +120,19 @@ argentina:
 
 - **Cargas permanentes** a partir de las capas de la construcción (CIRSOC 101, Tabla 3.1).
 - **Sobrecarga de uso** según el destino de cada local, con la reducción por área tributaria.
-- **Viento** según CIRSOC 102.
+- **Viento** según CIRSOC 102-2025, con los cuatro casos de carga de la Figura 2.4-8: el caso 1
+  en cada dirección, el caso 2 con el momento torsor de la excentricidad ±0,15 B, y los casos 3 y
+  4 en las dos direcciones a la vez. Se puede pedir sólo el caso 1, o los casos 1 y 3 para los
+  edificios exceptuados (art. 2.4.7). El viento en −X y −Y se genera como casos propios. La presión
+  de cubierta se aplica sobre las barras del techo, normal a cada una. El cerramiento se puede
+  clasificar a partir de las aberturas, y el diálogo muestra q_z según la altura.
 - **Sismo** según INPRES-CIRSOC 103 (método estático). Esta parte se habilita cuando el proyecto
   tiene asignado un reglamento sísmico; si no lo tiene, el diálogo lo indica.
 
 Las cargas de superficie se transforman en cargas lineales sobre las barras horizontales,
 multiplicándolas por el ancho tributario que se indica en el diálogo, el mismo para todas; el
-viento se aplica como fuerzas por nivel. Primero muestra el plan de cargas para revisarlo, y lo
+viento se aplica como fuerzas por nivel, y la torsión como fuerzas repartidas entre los nodos del
+nivel que suman ese momento. Primero muestra el plan de cargas para revisarlo, y lo
 aplica cuando lo confirmás. Los casos de tipo D, L, W y E tienen además un botón **§** que abre el
 diálogo directamente para ese caso.
 
@@ -205,6 +214,10 @@ En el panel de **Resultados**:
   selección o en una lista de elementos, con filtros, y lo exporta a CSV.
 - **Reporte de esfuerzos crudos:** reacciones, desplazamientos y esfuerzos por barra y por
   estación, en Excel, PDF o HTML.
+- **Deriva de piso:** para cada caso de sismo, la distorsión de cada piso con los desplazamientos
+  elásticos multiplicados por Cd/γr (INPRES-CIRSOC 103, 6.4), contra el límite de la Tabla 6.4
+  según el grupo de la construcción y si los elementos no estructurales pueden dañarse. Cd y el
+  grupo salen de la configuración de sismo del proyecto.
 
 ### Avanzado
 
@@ -225,6 +238,10 @@ Los análisis avanzados de PRO:
 - **Construcción por etapas** y **fluencia y retracción**.
 - **Líneas de influencia 3D**, **solver multi-caso**, **analizador de sección** y **análisis con
   restricciones**.
+- **Cargas móviles:** un tren de ejes (predefinido o propio) recorre las barras seleccionadas, en
+  orden, y cada barra guarda sus esfuerzos máximos y mínimos con la posición del tren. La carga de
+  carril se crea como un caso de carga común sobre las mismas barras. La envolvente no entra en las
+  combinaciones ni en el diseño.
 - La opción **Diafragma rígido** para todo el modelo.
 
 Estos análisis usan el eje de las barras, sin su excentricidad, y las articulaciones de las
@@ -239,6 +256,16 @@ rígido**, si está activada).
 **Reporte** arma una **memoria de cálculo** imprimible: datos del modelo, detalle de cargas,
 resultados, los análisis avanzados que hayas corrido, cómputo de materiales y diagnósticos, con
 un encabezado opcional (logo, empresa, profesional, revisión). También se exporta a Excel.
+
+## La pestaña Diseño
+
+### Otras normas
+
+En la pestaña **Diseño**, **Otras normas** verifica las barras con **AISC 360**, **EN 1993-1-1**,
+**AISI S100** (perfiles C con labios), **ACI 318** y **EN 1992-1-1**, con las combinaciones activas.
+Al elegir una norma, un único cartel dice hasta dónde cubre. Las barras que la norma no puede
+describir quedan afuera con el motivo, y una verificación a la que le falta un chequeo figura como
+incompleta, nunca como cumplida. El hormigón se verifica con la armadura cargada en cada barra.
 
 ## La teoría detrás
 
