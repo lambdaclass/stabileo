@@ -50,6 +50,7 @@ For contributors and for anyone who wants to look inside the engine. In English.
 - [INFRASTRUCTURE_ROADMAP.md](roadmap/INFRASTRUCTURE_ROADMAP.md)
 - [AI_ROADMAP.md](roadmap/AI_ROADMAP.md)
 - [CURRENT_STATE_STABILEO.md](CURRENT_STATE_STABILEO.md)
+- [POSITIONING.md](POSITIONING.md): what Stabileo is and is not, its competitive wedge and the order it expands in
 - [CHANGELOG.md](../CHANGELOG.md)
 
 ### Research
