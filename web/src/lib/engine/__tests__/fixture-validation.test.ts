@@ -71,9 +71,13 @@ function createStoreMock() {
       });
       return id;
     },
-    addSupport(nodeId: number, type: string, extra?: any) {
+    // Same signature as the store: springs, then options. The options carry
+    // `dofRestraints`, angles and settlements; dropped, every `custom3d`
+    // support solved as fully fixed — deep-beam-shell's ends clamped over
+    // their full depth, its midspan 0.0185 mm instead of 0.0519.
+    addSupport(nodeId: number, type: string, springs?: any, opts?: any) {
       const id = nextSupport++;
-      model.supports.set(id, { id, nodeId, type, ...extra });
+      model.supports.set(id, { id, nodeId, type, ...springs, ...opts });
       return id;
     },
     updateSupport(id: number, data: any) {
@@ -367,5 +371,25 @@ describe('the kinematic report never passes an unrun check off as a result', () 
     // The invariant that matters: zero modes may only be trusted when the
     // check actually ran. Anything reading mechanismModes must consult this.
     expect(report.rankChecked || report.mechanismModes === 0).toBe(true);
+  });
+});
+
+// ─── The deep-beam pair the bars-or-finite-elements post embeds ─
+
+describe('the deep-beam fixtures read what the post tells the reader to look for', () => {
+  it('deep-beam-shell: node 113, midspan at mid-depth, reads -5.19e-5 m', () => {
+    const { model, api } = createStoreMock();
+    loadFixture(loadFixtureFile('deep-beam-shell'), api);
+    const res: any = solve3D(buildSolverInput3D(model, false, false)!);
+    const uz = res.displacements.find((d: any) => d.nodeId === 113).uz;
+    expect(uz.toExponential(2)).toBe('-5.19e-5');
+  });
+
+  it('deep-beam-bar: midspan reads -0.042 mm, the Euler-Bernoulli value', () => {
+    const { model, api } = createStoreMock();
+    loadFixture(loadFixtureFile('deep-beam-bar'), api);
+    const res: any = solve(buildSolverInput2D(model)!);
+    const mid = res.displacements.find((d: any) => d.nodeId === 2);
+    expect((mid.uz * 1000).toFixed(3)).toBe('-0.042');
   });
 });
