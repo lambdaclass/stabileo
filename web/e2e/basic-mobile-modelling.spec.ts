@@ -49,3 +49,29 @@ test.describe('@smoke modelling on a phone', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().tool)).toBe('select');
   });
 });
+
+test.describe('@smoke the phone results menu', () => {
+  test.use({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+  test('one row in 2D and 3D, every command but None the same width', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    for (const dim of ['2d', '3d']) {
+      if (dim === '3d') await page.getByTestId('rb-cmd-dim').tap();
+      await page.evaluate(() => window.__stabileoActions.solve());
+      await page.getByTestId('rb-cluster-results').tap();
+      await expect(page.getByTestId('rb-pop-results')).toBeVisible();
+      const m = await page.evaluate(() => {
+        const r = [...document.querySelectorAll('[data-testid=rb-pop-results] .rb-cmd')].map((b) => b.getBoundingClientRect());
+        return { rows: new Set(r.map((x) => Math.round(x.top))).size, first: r[0].width, rest: r.slice(1).map((x) => Math.round(x.width)) };
+      });
+      expect(m.rows).toBe(1);
+      expect(new Set(m.rest).size).toBe(1);
+      expect(m.first).toBeLessThan(m.rest[0]);
+      // The menu closes on a tap anywhere else (its backdrop takes the tap).
+      await page.locator('.rb-backdrop').tap({ position: { x: 20, y: 600 } });
+      await expect(page.getByTestId('rb-pop-results')).toHaveCount(0);
+    }
+  });
+});

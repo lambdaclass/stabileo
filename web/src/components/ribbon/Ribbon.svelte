@@ -64,6 +64,8 @@
     labelKey?: string | (() => string);
     /** Literal label, for symbols like N, My, Vz that are not translated. */
     label?: string;
+    /** A shorter label, for the phone's results menu on a narrow screen. */
+    shortKey?: string;
     /** Translation key for the human name, shown in the tooltip. */
     nameKey?: string;
     /** Which Model-data tab to land on, for the Properties group. */
@@ -135,8 +137,8 @@
     const any = () => solved;
     const only3d = () => solved && threeD;
     const cmds: Cmd[] = [
-      { id: 'none', icon: 'none', labelKey: 'ribbon.noDiagram', panel: 'results', diagram: 'none', enabled: any },
-      { id: 'deformed', icon: 'deformed', labelKey: 'ribbon.deformed', panel: 'results', diagram: 'deformed', enabled: any },
+      { id: 'none', icon: 'none', labelKey: 'ribbon.noDiagram', shortKey: 'ribbon.noDiagramShort', panel: 'results', diagram: 'none', enabled: any },
+      { id: 'deformed', icon: 'deformed', labelKey: 'ribbon.deformed', shortKey: 'ribbon.deformedShort', panel: 'results', diagram: 'deformed', enabled: any },
       { id: 'axial', icon: 'axial', label: F2D.axial, nameKey: 'ribbon.nameAxial', panel: 'results', diagram: 'axial', enabled: any },
       { id: 'momentY', icon: 'moment', label: F2D.moment, nameKey: 'ribbon.nameMomentY', panel: 'results', diagram: threeD ? 'momentY' : 'moment', enabled: any },
       { id: 'shearZ', icon: 'shear', label: F2D.shear, nameKey: 'ribbon.nameShearZ', panel: 'results', diagram: threeD ? 'shearZ' : 'shear', enabled: any },
@@ -161,7 +163,7 @@
      * already there.
      */
     cmds.push({
-      id: 'stress', icon: 'stress', labelKey: 'ribbon.stress',
+      id: 'stress', icon: 'stress', labelKey: 'ribbon.stress', shortKey: 'ribbon.stressShort',
       panel: 'results', stressMap: true, enabled: any,
     });
     return cmds;
@@ -742,7 +744,8 @@
     title={cmdTitle(c, on)}
   >
     <span class="rb-icon"><Icon name={typeof c.icon === 'function' ? c.icon() : c.icon} rotate={c.rotate ?? 0} /></span>
-    <span class="rb-label" class:symbol={!!c.label}>{cmdLabel(c)}</span>
+    <span class="rb-label" class:symbol={!!c.label} class:has-short={labelled && !!c.shortKey}>{cmdLabel(c)}</span>
+    {#if labelled && c.shortKey}<span class="rb-label rb-label-short">{t(c.shortKey)}</span>{/if}
   </button>
 {/snippet}
 
@@ -821,7 +824,13 @@
         <div class="rb-backdrop" onclick={() => openCluster = null}></div>
         <div class="rb-pop" data-testid="rb-pop-{c.id}">
           <p class="rb-pop-title">{t(c.labelKey)}</p>
-          <div class="rb-pop-cmds">
+          <!--
+            The results menu is one row at any width: "None" a narrower
+            column, every other command the same width (see .rb-pop-row).
+          -->
+          <div class="rb-pop-cmds" class:rb-pop-row={c.id === 'results'} class:rb-pop-tight={c.cmds.length > 7}
+            style:--rest={c.cmds[0]?.id === 'none' ? c.cmds.length - 1 : c.cmds.length}
+            style:--lead={c.cmds[0]?.id === 'none' ? '0.8fr' : '1fr'}>
             {#each c.cmds as cmd (cmd.id)}
               {@render cmdButton(cmd, true)}
             {/each}
@@ -1355,6 +1364,44 @@
     .rb-pop .rb-cmd.labelled.active {
       border-color: var(--st-accent);
       background: var(--st-selected-bg);
+    }
+
+    .rb-pop .rb-cmd.labelled .rb-label-short { display: none; }
+
+    /*
+       ── Results: one row, at any width ────────────────────────────
+       Six commands in 2D and nine in 3D wrapped onto two rows at some widths.
+       A grid of one row instead: "None" a narrower first column, every other
+       command an equal share of what is left. On a narrow phone the two long
+       words give way to short ones, and the label shrinks with the screen.
+    */
+    .rb-pop-cmds.rb-pop-row {
+      display: grid;
+      grid-template-columns: minmax(0, var(--lead)) repeat(var(--rest), minmax(0, 1fr));
+      gap: 3px;
+    }
+    .rb-pop-row .rb-cmd.labelled {
+      min-width: 0;
+      max-width: none;
+      flex: none;
+      padding: 6px 1px;
+    }
+    .rb-pop-row .rb-cmd.labelled .rb-label {
+      font-size: clamp(0.5rem, 2.55vw, 0.62rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+      width: 100%;
+      text-align: center;
+    }
+    /* Short words only where they are needed: nine commands on a narrow phone, or any on a tiny one. */
+    @media (max-width: 430px) {
+      .rb-pop-row.rb-pop-tight .rb-cmd.labelled .rb-label.has-short { display: none; }
+      .rb-pop-row.rb-pop-tight .rb-cmd.labelled .rb-label-short { display: block; }
+    }
+    @media (max-width: 340px) {
+      .rb-pop-row .rb-cmd.labelled .rb-label.has-short { display: none; }
+      .rb-pop-row .rb-cmd.labelled .rb-label-short { display: block; }
     }
   }
 
