@@ -157,10 +157,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: false,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc101-2005-basis', role: 'basis', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1990', role: 'basis', edition: 'EN 1990:2002',
@@ -175,10 +177,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc101-2005-loads', role: 'loads', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-1', role: 'loads', edition: 'EN 1991-1-1',
@@ -193,10 +197,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc102-2005', role: 'wind', regulation: 'cirsoc-102',
     edition: '2005', nameKey: 'regulations.name.cirsoc102', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-4', role: 'wind', edition: 'EN 1991-1-4',
@@ -735,18 +741,17 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
     ...bindRole('concrete', 'cirsoc', common),
     state: 'applied', appliedAtRevision: 0,
   };
-  roles.basis = {
-    ...bindRole('basis', loadEd === '2005' ? 'cirsoc101-2005-basis' : 'cirsoc101-2025-basis', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
-  roles.loads = {
-    ...bindRole('loads', loadEd === '2005' ? 'cirsoc101-2005-loads' : 'cirsoc101-2025-loads', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
-  roles.wind = {
-    ...bindRole('wind', windEd === '2005' ? 'cirsoc102-2005' : 'cirsoc102-2025', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
+  // Same for the 2005 load and wind editions: their texts are not supplied either, so the
+  // project goes to the edition in force, and is told.
+  if (loadEd === '2005') {
+    notices.push({ key: 'regulations.migration.editionWithdrawn', params: { role: 'loads', edition: '2005' } });
+  }
+  if (windEd === '2005') {
+    notices.push({ key: 'regulations.migration.editionWithdrawn', params: { role: 'wind', edition: '2005' } });
+  }
+  roles.basis = { ...bindRole('basis', 'cirsoc101-2025-basis', common), state: 'applied', appliedAtRevision: 0 };
+  roles.loads = { ...bindRole('loads', 'cirsoc101-2025-loads', common), state: 'applied', appliedAtRevision: 0 };
+  roles.wind = { ...bindRole('wind', 'cirsoc102-2025', common), state: 'applied', appliedAtRevision: 0 };
 
   const conc = src.concrete as { maxAggregateSizeMm?: unknown } | undefined;
   const rescued = typeof conc?.maxAggregateSizeMm === 'number' ? conc.maxAggregateSizeMm : null;
