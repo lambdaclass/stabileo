@@ -31,6 +31,7 @@ import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
+import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
@@ -639,6 +640,67 @@ export interface LoadCombination {
   factors: Array<{ caseId: number; factor: number }>;
 }
 
+/**
+ * A named, persisted set of model entities.
+ *
+ * ── Why this is one schema and not several ─────────────────────────
+ *
+ * The model carries no storeys, no grid lines and no user groups: `member-grouping.ts`
+ * DERIVES its bands from coordinates and refuses the grouping when the geometry cannot
+ * support one honestly. That is the right answer for something nobody stated, and the
+ * wrong one for something a user did state.
+ *
+ * What is stated needs somewhere to live, and everything that wants to live there has the
+ * same shape: an identity, a name, and a set of entities. A saved selection has it. A
+ * floor that a floor-load command targets has it. And a PHYSICAL MEMBER — the several
+ * collinear bars that are one column to the engineer who drew it — has it too, plus two
+ * rules of its own.
+ *
+ * So `kind` is the extension point, and it is the only one. A new kind brings new RULES
+ * over data that already round-trips; it does not bring a new schema, a new snapshot
+ * field, a new `.ded` migration and a new share-link encoding. That is the difference
+ * between adding physical members later and migrating to them later.
+ *
+ * ── Unknown kinds survive ──────────────────────────────────────────
+ *
+ * `kind` is typed as the known values OR any string, on purpose. A file written by a
+ * build that knows `physicalMember` must not lose its groups when opened by one that does
+ * not. Dropping what you do not understand is how a project silently comes back smaller
+ * than it was saved, and this codebase has paid for that lesson more than once.
+ */
+export type KnownGroupKind =
+  /** A selection the user named and kept. Carries no rules beyond existing. */
+  | 'selection'
+  /** Collinear, contiguous bars that are one member to the engineer. Rules pending. */
+  | 'physicalMember'
+  /** A level, for floor loads and for reporting. */
+  | 'floor';
+
+/** Entities by family. A group may hold more than one, as a floor must. */
+export interface GroupMembers {
+  nodes?: number[];
+  elements?: number[];
+  plates?: number[];
+  quads?: number[];
+}
+
+export interface ModelGroup {
+  id: number;
+  name: string;
+  /** Known kinds autocomplete; any other string is accepted and preserved. */
+  kind: KnownGroupKind | (string & {});
+  /** `user` was stated. `derived` was computed and may be recomputed. */
+  origin: 'user' | 'derived';
+  members: GroupMembers;
+  /**
+   * Kind-specific data, kept verbatim.
+   *
+   * A build that does not know a kind cannot validate its data either, so it carries it
+   * unread rather than discarding it. Known kinds read their own keys out of here.
+   */
+  data?: Record<string, unknown>;
+}
+
 export interface Plate {
   id: number;
   nodes: [number, number, number];
@@ -674,6 +736,16 @@ export interface StructureModel {
   combinations: LoadCombination[];
   plates: Map<number, Plate>;
   quads: Map<number, Quad>;
+  /** Named, persisted sets of entities. See `ModelGroup`. */
+  groups: Map<number, ModelGroup>;
+  /**
+   * Which load cases are mass for the dynamic analyses, and by how much.
+   *
+   * Absent means the project has not stated one, and the mass is self-weight alone — see
+   * `engine/dynamics/mass-source.ts`. A code's rule or a user's table is a statement, like a
+   * group, so a new project starts without one.
+   */
+  massSource?: MassSource;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -830,6 +902,9 @@ function createModelStore() {
     ],
     plates: new Map(),
     quads: new Map(),
+    // A new project has no groups. Absent and empty mean the same here, unlike
+    // `geotechnical`, because a group is something a user states and never a default.
+    groups: new Map(),
     constraints: [],
     connectors: new Map(),
     footings: new Map(),
@@ -998,6 +1073,7 @@ function createModelStore() {
     combination: 5,
     plate: 1,
     quad: 1,
+    group: 1,
     connector: 1,
     footing: 1,
     soilProfile: 1,
@@ -1060,6 +1136,26 @@ function createModelStore() {
   let _bulkMutating = false;
   let _bulkLoadBuffer: Load[] | null = null;
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
+
+  /**
+   * Replace or remove one entity id in every group that holds it.
+   *
+   * Reassigns the Map only when something actually changed, so deleting an element in a
+   * model with no groups costs nothing and triggers no re-render.
+   */
+  function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
+    let touched = false;
+    for (const [gid, g] of model.groups) {
+      const list = g.members[family];
+      if (!list || !list.includes(entityId)) continue;
+      model.groups.set(gid, {
+        ...g,
+        members: { ...g.members, [family]: list.flatMap((x) => x === entityId ? replacements : [x]) },
+      });
+      touched = true;
+    }
+    if (touched) model.groups = new Map(model.groups);
+  }
 
   return {
     _setHistoryPush(fn: (kind: SnapshotKind) => void) {
@@ -1342,6 +1438,20 @@ function createModelStore() {
         combinations: snap.combinations as ModelSnapshot['combinations'],
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
         quads: Array.from(snap.quads.entries()) as ModelSnapshot['quads'],
+        /*
+         * Emitted only when there are groups, so `restore(snapshot())` stays a no-op on a
+         * model that has none and older files keep opening unchanged. The entries go out
+         * whole — including the `data` of a kind this build may not know — because the
+         * round trip is the contract: what came in comes out.
+         */
+        ...(snap.groups && snap.groups.size > 0
+          ? { groups: Array.from(snap.groups.entries()) as ModelSnapshot['groups'] }
+          : {}),
+        // Same rule as groups: emitted only when stated, so older files and projects that
+        // never stated one round-trip unchanged.
+        ...(snap.massSource
+          ? { massSource: JSON.parse(JSON.stringify(snap.massSource)) as ModelSnapshot['massSource'] }
+          : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
@@ -1513,6 +1623,18 @@ function createModelStore() {
         : [];
       model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
       model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
+    /*
+     * Groups come back whole, `data` included.
+     *
+     * The deep clone is the point: `members` holds arrays, and a shallow copy would leave
+     * the restored model sharing them with the snapshot, so adding an element to a group
+     * would reach back and edit the undo entry meant to go back before it. The same trap
+     * `choices.bolts` documents a few lines up.
+     */
+    model.groups = s.groups
+      ? new Map(s.groups.map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as ModelGroup]))
+      : new Map();
+    model.massSource = normalizeMassSource(s.massSource);
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -1532,6 +1654,13 @@ function createModelStore() {
       nextId.plate = s.nextId.plate ?? 1;
       nextId.quad = s.nextId.quad ?? 1;
       nextId.connector = (s.nextId as any).connector ?? 1;
+      // Older files have no group counter; stale counters must not overwrite a saved group.
+      let firstUnusedGroupId = 1;
+      for (const id of model.groups.keys()) firstUnusedGroupId = Math.max(firstUnusedGroupId, id + 1);
+      const savedGroupId = s.nextId.group;
+      nextId.group = typeof savedGroupId === 'number' && Number.isSafeInteger(savedGroupId)
+        ? Math.max(firstUnusedGroupId, savedGroupId)
+        : firstUnusedGroupId;
       // `?? []` guards: a hand-edited/older/partial `.ded` may carry a
       // `provenance` object without `assumptions`/`layerMappings`. restore()
       // runs after the model is already mutated and is not wrapped in a
@@ -1837,9 +1966,13 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.nodes.delete(id);
       model.nodes = new Map(model.nodes);
+      // Same reasoning as removeElement: node numbers are reused, so a group holding a
+      // deleted one would quietly come to mean a different node.
+      replaceInGroups('nodes', id);
       for (const [elemId, elem] of model.elements) {
         if (elem.nodeI === id || elem.nodeJ === id) {
           model.elements.delete(elemId);
+          replaceInGroups('elements', elemId);
         }
       }
       model.elements = new Map(model.elements);
@@ -1897,10 +2030,77 @@ function createModelStore() {
       if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
     },
 
+    // ── Named groups ────────────────────────────────────────────────
+
+    /**
+     * Create a group. Returns its id.
+     *
+     * `kind` is not validated against the known list on purpose: this is the seam a later
+     * kind arrives through, and a store that rejects what it does not recognise is a store
+     * that has to be edited before the rule that uses it can be written.
+     */
+    addGroup(name: string, kind: ModelGroup['kind'], members: GroupMembers,
+             opts?: { origin?: ModelGroup['origin']; data?: Record<string, unknown> }): number {
+      _pushUndo?.();
+      const id = nextId.group++;
+      model.groups.set(id, {
+        id, name, kind,
+        origin: opts?.origin ?? 'user',
+        members: JSON.parse(JSON.stringify(members)) as GroupMembers,
+        ...(opts?.data ? { data: JSON.parse(JSON.stringify(opts.data)) as Record<string, unknown> } : {}),
+      });
+      model.groups = new Map(model.groups);
+      return id;
+    },
+
+    renameGroup(id: number, name: string): void {
+      const g = model.groups.get(id);
+      if (!g) return;
+      _pushUndo?.();
+      model.groups.set(id, { ...g, name });
+      model.groups = new Map(model.groups);
+    },
+
+    setGroupMembers(id: number, members: GroupMembers): void {
+      const g = model.groups.get(id);
+      if (!g) return;
+      _pushUndo?.();
+      model.groups.set(id, { ...g, members: JSON.parse(JSON.stringify(members)) as GroupMembers });
+      model.groups = new Map(model.groups);
+    },
+
+    removeGroup(id: number): void {
+      if (!model.groups.has(id)) return;
+      _pushUndo?.();
+      model.groups.delete(id);
+      model.groups = new Map(model.groups);
+    },
+
+    /** Groups an entity belongs to. */
+    groupsOf(family: keyof GroupMembers, entityId: number): ModelGroup[] {
+      const out: ModelGroup[] = [];
+      for (const g of model.groups.values()) {
+        if (g.members[family]?.includes(entityId)) out.push(g);
+      }
+      return out;
+    },
+
     removeElement(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.elements.delete(id);
       model.elements = new Map(model.elements);
+      /*
+       * A group loses the member, and does not keep a dangling id.
+       *
+       * Element numbers are reused. A group still holding a deleted id would silently
+       * acquire whatever element takes that number next — the group would look intact and
+       * mean something else. Dropping the reference is the only reading that stays true.
+       *
+       * The group SURVIVES becoming empty rather than being deleted with its last member:
+       * it is something a user stated, and an empty group they can see is a fact, while a
+       * group that vanished is a question.
+       */
+      replaceInGroups('elements', id);
       model.loads = model.loads.filter(l =>
         !((l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
@@ -1954,6 +2154,7 @@ function createModelStore() {
     removePlate(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.plates.delete(id);
+      replaceInGroups('plates', id);
       model.plates = new Map(model.plates);
     },
 
@@ -1977,6 +2178,7 @@ function createModelStore() {
     removeQuad(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
+      replaceInGroups('quads', id);
       model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
@@ -2412,6 +2614,10 @@ function createModelStore() {
       model.loads = [];
       model.plates = new Map();
       model.quads = new Map();
+      // A new model inherits no groups. Without this, `clear()` left the previous
+      // project's groups holding ids that now mean different entities.
+      model.groups = new Map();
+      model.massSource = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -2458,6 +2664,7 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       nextId.connector = 1;
+      nextId.group = 1;
       nextId.footing = 1;
       nextId.soilProfile = 1;
       model.provenance = undefined;
@@ -2578,6 +2785,8 @@ function createModelStore() {
         segmentElemIds.push(id);
       }
 
+      replaceInGroups('elements', elementId, segmentElemIds);
+
       // Replicate distributed loads on each sub-element (interpolate for trapezoidal)
       const newSubLoads: typeof model.loads = [];
       for (const dl of distLoads) {
@@ -2618,6 +2827,31 @@ function createModelStore() {
     /** Legacy fixture-loader wrapper. Toggles the bending-around-Mz release (the "hinge" in 2D). */
     toggleHinge(elementId: number, end: 'start' | 'end'): void {
       this.toggleRelease(elementId, end === 'start' ? 'i' : 'j', 'mz');
+    },
+
+    /**
+     * The hinge a space model's "Art. I / Art. J" puts in: a pin in bending, both
+     * moments released, torsion still carried.
+     *
+     * `toggleHinge` releases `mz` alone — the in-plane moment of a plane frame. In
+     * a space model a beam's local z is vertical, so the moment gravity bends it
+     * with is My, and that toggle left it fully fixed (a portal's beam end went
+     * from −10,72 to −10,63). An end with either moment released counts as
+     * hinged, so a click clears both.
+     */
+    toggleHinge3D(elementId: number, end: 'start' | 'end'): void {
+      if (!_undoBatching) _pushUndo?.();
+      const elem = model.elements.get(elementId);
+      if (!elem) return;
+      const plain = $state.snapshot(elem) as Element;
+      const target: Release = { ...(end === 'start' ? plain.releaseI : plain.releaseJ) };
+      const on = !(target.my === true || target.mz === true);
+      target.my = on;
+      target.mz = on;
+      if (end === 'start') plain.releaseI = target;
+      else plain.releaseJ = target;
+      model.elements.set(elementId, plain);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
     /** Set (or clear, when `slide === undefined`) the 2D sliding-joint release on
@@ -2807,6 +3041,8 @@ function createModelStore() {
         releaseJ: origReleaseJ,
         ...inherited3D,
       });
+
+      replaceInGroups('elements', elementId, [elemAId, elemBId]);
 
       // Redistribute distributed loads (interpolate for trapezoidal, handle partial a/b)
       for (const dl of distLoads) {
@@ -3014,6 +3250,23 @@ function createModelStore() {
       for (const combo of model.combinations) {
         combo.factors = combo.factors.filter(f => f.caseId !== id);
       }
+      // And from the mass source, where a stale case id would come to mean whatever case
+      // takes that number next.
+      if (model.massSource?.kind === 'custom') {
+        model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
+      }
+    },
+
+    /**
+     * State the mass source, or withdraw it (`null`) so the mass is self-weight alone again.
+     *
+     * Bumps the model version: the mass is part of what a modal result describes, so a result
+     * computed before the change must read as stale.
+     */
+    setMassSource(ms: MassSource | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
+      this.bumpModelVersion();
     },
 
     updateLoadCase(id: number, name: string): void {
@@ -3175,6 +3428,7 @@ function createModelStore() {
         addPointLoadOnElement: this.addPointLoadOnElement.bind(this),
         addThermalLoad: this.addThermalLoad.bind(this),
         toggleHinge: this.toggleHinge.bind(this),
+        toggleHinge3D: this.toggleHinge3D.bind(this),
         toggleRelease: this.toggleRelease.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),

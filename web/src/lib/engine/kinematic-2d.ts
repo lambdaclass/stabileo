@@ -36,8 +36,18 @@ export interface KinematicResult {
    * `'unavailable'` means only the counting degree is known — a model can have
    * `degree >= 0` and still be a mechanism, so an `'unavailable'` result must
    * never be treated as a verified stable model.
+   *
+   * `'invalid'` means the engine refused the model's data before analysing
+   * it: `mechanismModes: 0` again means "not checked", and `invalidInput`
+   * carries the reason. Unlike `'unavailable'`, waiting will not change it.
    */
-  rankAnalysis: 'available' | 'unavailable';
+  rankAnalysis: 'available' | 'unavailable' | 'invalid';
+  /**
+   * The engine's validation message when `rankAnalysis` is `'invalid'` — the
+   * same text a solve would have returned (e.g. "Material 1: Poisson ratio
+   * must be in (-1, 0.5)"). Absent otherwise.
+   */
+  invalidInput?: string;
   /**
    * Raw DOF codes the engine reported that this boundary does not recognise.
    * Normally empty; non-empty means the engine's vocabulary drifted again and
@@ -188,6 +198,7 @@ export function normalizeKinematicResult(raw: {
   unconstrainedDofs: Array<{ nodeId: number; dof: string }>;
   diagnosis: string;
   isSolvable: boolean;
+  invalidInput?: string;
 }): KinematicResult {
   const unconstrainedDofs: Array<{ nodeId: number; dof: Dof2D }> = [];
   const unmappedDofs: string[] = [];
@@ -206,7 +217,11 @@ export function normalizeKinematicResult(raw: {
     unconstrainedDofs,
     diagnosis: normalizeDiagnosisAxes(raw.diagnosis),
     isSolvable: raw.isSolvable,
-    rankAnalysis: 'available',
+    // An invalid model was never analysed, so its `mechanismModes: 0` is not
+    // a finding. Reported as 'available', the kinematic report read it as
+    // "no mechanisms — the structure is stable".
+    rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
+    ...(raw.invalidInput ? { invalidInput: raw.invalidInput } : {}),
     unmappedDofs,
   };
 }

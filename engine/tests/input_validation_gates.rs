@@ -224,9 +224,19 @@ fn kinematics_2d_reports_an_unanalysable_model_instead_of_panicking() {
         Err(_) => panic!("kinematics 2D panicked on a dangling node reference"),
     };
     assert!(!result.is_solvable, "an invalid model must not be reported as solvable");
+
+    // `diagnosis` is displayed as written — the JS side only rewrites axis
+    // names inside it — and every sentence this analyzer produces is Spanish.
+    // The validator answers in English, so its message must not be appended:
+    // that put half-translated text in front of the user.
     assert!(
-        result.diagnosis.contains("999"),
-        "the diagnosis should name the missing node, got: {}",
+        result.diagnosis.contains("no puede analizarse"),
+        "the diagnosis should be the finished Spanish sentence, got: {}",
+        result.diagnosis
+    );
+    assert!(
+        !result.diagnosis.contains("does not exist"),
+        "the validator's English message must not be concatenated into it, got: {}",
         result.diagnosis
     );
 }

@@ -317,6 +317,14 @@ function createUIStore() {
   // all (full representation). External actions, drawn once, never mirrored.
   let despieceLoadMode = $state<'off' | 'resultant' | 'all'>('off');
   // Click inspection target while Despiece is active (null = none).
+  /**
+   * Why the selected joint draws nothing, as i18n keys. Empty when it draws.
+   *
+   * `jointSceneLayout` has always produced these; the viewport used to drop them and return,
+   * which made «this joint has no drawable geometry» indistinguishable from «no joint is
+   * selected». The connections panel renders them, so an empty viewport says why it is empty.
+   */
+  let jointSceneEmptyReasons = $state<string[]>([]);
   let despieceInspect = $state<{ type: 'node' | 'member'; id: number } | null>(null);
 
   // Active load case for load tool
@@ -463,9 +471,14 @@ function createUIStore() {
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
-  let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
-  let loadValueZ = $state<number>(0); // For Fz or qZI components
-  let loadValueZJ = $state<number>(0); // For qZJ components (3D distributed)
+  // Defaults point down: in 3D, Z is vertical. They used to be Fy and qY, horizontal —
+  // and the distributed tool always sent qY = loadValue (−10), so a user who typed
+  // only qZ got an unrequested lateral load as well.
+  let nodalLoadDir3D = $state<NodalLoadDir3D>('fz');
+  let loadValueZ = $state<number>(-10); // qZI (3D distributed)
+  let loadValueZJ = $state<number>(-10); // qZJ (3D distributed)
+  let loadValueY3D = $state<number>(0); // qYI (3D distributed), its own field, not the 2D qI
+  let loadValueYJ3D = $state<number>(0); // qYJ (3D distributed)
 
   // 3D support type
   let supportType3D = $state<SupportTool3D>('pinned3d');
@@ -858,6 +871,8 @@ function createUIStore() {
     set despieceCombineVectors(v: boolean) { despieceCombineVectors = v; },
     get despieceLoadMode() { return despieceLoadMode; },
     set despieceLoadMode(v: 'off' | 'resultant' | 'all') { despieceLoadMode = v; },
+    get jointSceneEmptyReasons() { return jointSceneEmptyReasons; },
+    set jointSceneEmptyReasons(v: string[]) { jointSceneEmptyReasons = v; },
     get despieceInspect() { return despieceInspect; },
     set despieceInspect(v: { type: 'node' | 'member'; id: number } | null) { despieceInspect = v; },
 
@@ -1025,6 +1040,10 @@ function createUIStore() {
     set loadValueZ(v: number) { loadValueZ = v; },
     get loadValueZJ() { return loadValueZJ; },
     set loadValueZJ(v: number) { loadValueZJ = v; },
+    get loadValueY3D() { return loadValueY3D; },
+    set loadValueY3D(v: number) { loadValueY3D = v; },
+    get loadValueYJ3D() { return loadValueYJ3D; },
+    set loadValueYJ3D(v: number) { loadValueYJ3D = v; },
     get supportType3D() { return supportType3D; },
     set supportType3D(v: SupportTool3D) { supportType3D = v; },
     get springKrx() { return springKrx; },

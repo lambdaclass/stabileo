@@ -11,7 +11,7 @@
 
 <label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
   <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>PP</span>
+  <span>{t('float.selfWeightLabel')}</span>
 </label>
 <span class="ft-sep">|</span>
 <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor(uiStore.activeLoadCaseId)}"></span>
@@ -92,16 +92,29 @@
     <span class="ft-unit">°C</span>
   </label>
 {:else if uiStore.loadType === 'distributed'}
-  <label class="ft-input-group">
-    <span>{uiStore.analysisMode === '3d' ? 'qYI:' : 'qI:'}</span>
-    <input type="number" bind:value={uiStore.loadValue} step="1" />
-    <span class="ft-unit">kN/m</span>
-  </label>
-  <label class="ft-input-group">
-    <span>{uiStore.analysisMode === '3d' ? 'qYJ:' : 'qJ:'}</span>
-    <input type="number" bind:value={uiStore.loadValueJ} step="1" />
-    <span class="ft-unit">kN/m</span>
-  </label>
+  {#if uiStore.analysisMode === '3d'}
+    <label class="ft-input-group">
+      <span>qYI:</span>
+      <input type="number" bind:value={uiStore.loadValueY3D} step="1" />
+      <span class="ft-unit">kN/m</span>
+    </label>
+    <label class="ft-input-group">
+      <span>qYJ:</span>
+      <input type="number" bind:value={uiStore.loadValueYJ3D} step="1" />
+      <span class="ft-unit">kN/m</span>
+    </label>
+  {:else}
+    <label class="ft-input-group">
+      <span>qI:</span>
+      <input type="number" bind:value={uiStore.loadValue} step="1" />
+      <span class="ft-unit">kN/m</span>
+    </label>
+    <label class="ft-input-group">
+      <span>qJ:</span>
+      <input type="number" bind:value={uiStore.loadValueJ} step="1" />
+      <span class="ft-unit">kN/m</span>
+    </label>
+  {/if}
   {#if uiStore.analysisMode === '3d'}
     <label class="ft-input-group">
       <span>qZI:</span>

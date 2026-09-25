@@ -343,6 +343,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     // Same reason as the 2D entry: keep `Err` from the inner solve meaning
     // "mechanism", and nothing else.
     super::linear::validate_input_3d(&input.solver)?;
+    // Invalid shell geometry is a model error, not a mechanism formed by
+    // plastic hinges. Refuse it before the loop interprets a failed solve.
+    super::pre_solve_gates::refuse_broken_elements(
+        &super::pre_solve_gates::check_shell_distortion_3d(&input.solver),
+    )?;
 
     let solver_input = &input.solver;
     let max_hinges = input.max_hinges.unwrap_or(30);

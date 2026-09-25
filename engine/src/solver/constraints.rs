@@ -1393,6 +1393,12 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     linear::validate_input_3d(&input.solver)?;
+    // `prepare_static_3d` refuses a collapsed or folded element by name; this
+    // path never goes through it, and the same element came back here as
+    // "Singular stiffness in 3D constrained system".
+    super::pre_solve_gates::refuse_broken_elements(
+        &super::pre_solve_gates::check_shell_distortion_3d(&input.solver),
+    )?;
 
     // Constraint referential integrity
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
 
   let subdivCount = $state(2);
+  const is3D = () => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
   function handleContextAction(action: string) {
     const ctx = uiStore.contextMenu;
@@ -25,9 +27,20 @@
       uiStore.editingElementId = ctx.elementId;
       uiStore.editScreenPos = { x: ctx.x, y: ctx.y };
     } else if (action === 'add-support' && ctx.nodeId != null) {
-      modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
+      /* In 3D the 2D tool's 'pinned' meant restraining ux, uy, uz, rx and ry — nearly fixed. */
+      if (is3D()) addSupportFromTool3D(ctx.nodeId);
+      else modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
+      resultsStore.clear();
     } else if (action === 'add-load' && ctx.nodeId != null) {
-      modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue);
+      if (is3D()) {
+        /* As the load tool would place it; a 2D nodal load became a horizontal fy in 3D. */
+        const d = uiStore.nodalLoadDir3D, v = uiStore.loadValue;
+        modelStore.addNodalLoad3D(ctx.nodeId, d === 'fx' ? v : 0, d === 'fy' ? v : 0, d === 'fz' ? v : 0,
+          d === 'mx' ? v : 0, d === 'my' ? v : 0, d === 'mz' ? v : 0, uiStore.activeLoadCaseId);
+      } else {
+        modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue, 0, uiStore.activeLoadCaseId);
+      }
+      resultsStore.clear();
     } else if (action === 'select-node' && ctx.nodeId != null) {
       uiStore.selectNode(ctx.nodeId);
     } else if (action === 'select-element' && ctx.elementId != null) {

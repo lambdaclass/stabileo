@@ -1,0 +1,265 @@
+/**
+ * The mass source, checked against the engine that consumes it.
+ *
+ * The strongest assertion here is the cross-check: the mass the report claims and the mass the
+ * modal analysis actually integrates must be the same number. The report computes it from the
+ * loads; the engine computes it from the densities the transform wrote. If the two agree, the
+ * transform put every tonne where it said it did.
+ */
+import { describe, it, expect, beforeAll } from 'vitest';
+import { modelStore } from '../../store/model.svelte';
+import { buildSolverInput3D } from '../solver-service';
+import * as wasmSolver from '../wasm-solver';
+import { solveModal3D } from '../wasm-solver';
+import { G } from '../dynamics/requests';
+import { resolveMassFactors, normalizeMassSource } from '../dynamics/mass-source';
+import { withMassSource } from '../dynamics/mass-source-model';
+
+beforeAll(async () => {
+  await new Promise(r => setTimeout(r, 0));
+  expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
+});
+
+const H = 3, L = 4;
+const COL_I = 0.3 * 0.3 ** 3 / 12;
+const CASES = [
+  { id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }, { id: 3, type: 'W', name: 'W' },
+];
+
+/** Portal along X with a girder and, optionally, a 4 × 4 m slab behind it on two more columns. */
+function frame(opts: { slab?: boolean } = {}) {
+  modelStore.clear();
+  modelStore.restore({
+    nodes: [
+      [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: H }],
+      [3, { id: 3, x: L, y: 0, z: H }], [4, { id: 4, x: L, y: 0, z: 0 }],
+      ...(opts.slab ? [
+        [5, { id: 5, x: 0, y: L, z: 0 }], [6, { id: 6, x: 0, y: L, z: H }],
+        [7, { id: 7, x: L, y: L, z: H }], [8, { id: 8, x: L, y: L, z: 0 }],
+      ] : []),
+    ],
+    materials: [
+      [1, { id: 1, name: 'H-30', e: 30000, nu: 0.2, rho: 24 }],
+    ],
+    sections: [
+      [1, { id: 1, name: 'c', a: 0.09, iz: COL_I, iy: COL_I, j: 2 * COL_I }],
+      [2, { id: 2, name: 'v', a: 0.2 * 0.4, iz: 0.2 * 0.4 ** 3 / 12, iy: 0.4 * 0.2 ** 3 / 12, j: 1e-3 }],
+    ],
+    elements: [
+      [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],
+      [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 2 }],
+      [3, { id: 3, type: 'frame', nodeI: 4, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      ...(opts.slab ? [
+        [4, { id: 4, type: 'frame', nodeI: 5, nodeJ: 6, materialId: 1, sectionId: 1 }],
+        [5, { id: 5, type: 'frame', nodeI: 8, nodeJ: 7, materialId: 1, sectionId: 1 }],
+      ] : []),
+    ],
+    supports: [
+      [1, { id: 1, nodeId: 1, type: 'fixed3d' }], [2, { id: 2, nodeId: 4, type: 'fixed3d' }],
+      ...(opts.slab ? [[3, { id: 3, nodeId: 5, type: 'fixed3d' }], [4, { id: 4, nodeId: 8, type: 'fixed3d' }]] : []),
+    ],
+    loads: [], loadCases: CASES, combinations: [],
+    nextId: { node: 20, material: 10, section: 10, element: 20, support: 10, load: 1 },
+  } as never);
+  if (opts.slab) modelStore.addQuad([2, 3, 7, 6], 1, 0.15);
+}
+
+function run(opts: { selfWeightLoads?: boolean; leftHand?: boolean } = {}) {
+  const md = {
+    nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+    loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+    quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+    connectors: modelStore.connectors,
+  };
+  const input = buildSolverInput3D(md as never, opts.selfWeightLoads ?? false, opts.leftHand ?? false, { expandMemberOffsets: false })!;
+  const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, input, opts.leftHand ?? false);
+  const modal = solveModal3D(ms.input as never, ms.densities, 4);
+  return { ...ms, modal };
+}
+
+/** Self-weight of the portal, t. */
+const PORTAL_SELF_T = 24 * (2 * 0.09 * H + 0.08 * L) / G;
+
+const CIRSOC = { kind: 'preset' as const, presetId: 'cirsoc103-2018', params: {} };
+
+describe('resolveMassFactors', () => {
+  it('counts no load case when the project states nothing: self-weight alone', () => {
+    expect(resolveMassFactors(CASES).map(f => [f.factor, f.basis])).toEqual([
+      [0, 'selfWeightOnly'], [0, 'selfWeightOnly'], [0, 'selfWeightOnly'],
+    ]);
+  });
+
+  it('derives CIRSOC 103 [3.15] from each case type, with Tabla 3.3 by occupancy', () => {
+    expect(resolveMassFactors(CASES, CIRSOC).map(f => [f.factor, f.basis])).toEqual([
+      [1, 'preset'], [0.25, 'preset'], [0, 'notMass'],
+    ]);
+    const warehouse = { ...CIRSOC, params: { occupancy: 'high' } };
+    expect(resolveMassFactors(CASES, warehouse)[1]!.factor).toBe(0.75);
+    const snow = [{ id: 9, type: 'S', name: 'S' }];
+    expect(resolveMassFactors(snow, CIRSOC)[0]!.factor).toBe(0.2);
+    expect(resolveMassFactors(snow, { ...CIRSOC, params: { snowRetaining: true } })[0]!.factor).toBe(0.7);
+  });
+
+  it('follows the load cases: a case added later gets the code factor without restating', () => {
+    const more = [...CASES, { id: 4, type: 'L', name: 'L2' }];
+    expect(resolveMassFactors(more, CIRSOC)[3]!.factor).toBe(0.25);
+  });
+
+  it('reads a custom table as written, and marks a case it does not list', () => {
+    const r = resolveMassFactors(CASES, { kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+    expect(r.map(f => [f.factor, f.basis])).toEqual([[1, 'stated'], [0.5, 'stated'], [0, 'unlisted']]);
+  });
+
+  it('counts nothing for a rule this build does not know', () => {
+    const r = resolveMassFactors(CASES, { kind: 'preset', presetId: 'future-code', params: {} });
+    expect(r.every(f => f.factor === 0 && f.basis === 'unknownPreset')).toBe(true);
+  });
+});
+
+describe('the mass reaches the engine', () => {
+  it('counts self-weight alone when no case carries load', () => {
+    frame();
+    const { report, modal } = run();
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('by default weighs self-weight alone, whatever the loads', () => {
+    frame();
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);
+    const { report, modal } = run();
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('adds each case × its factor, and the engine integrates exactly that', () => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);   // D: 40 kN
+    modelStore.addDistributedLoad3D(2, 0, 0, -5, -5, undefined, undefined, 2);     // L: 20 kN × 0.25
+    modelStore.addDistributedLoad3D(2, 0, 0, -100, -100, undefined, undefined, 3); // W: not mass
+    const { report, modal } = run();
+    expect(report.addedT.get(1)).toBeCloseTo(40 / G, 6);
+    expect(report.addedT.get(2)).toBeCloseTo(0.25 * 20 / G, 6);
+    expect(report.addedT.has(3)).toBe(false);
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T + 45 / G, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('does not count self-weight twice when the self-weight switch puts it in the loads', () => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);
+    const off = run({ selfWeightLoads: false });
+    const on = run({ selfWeightLoads: true });
+    expect(on.report.totalT).toBeCloseTo(off.report.totalT, 9);
+    expect(on.modal.totalMass).toBeCloseTo(off.modal.totalMass, 9);
+  });
+
+  it('turns a slab load into slab mass', () => {
+    frame({ slab: true });
+    modelStore.setMassSource(CIRSOC);
+    const q = modelStore.quads.keys().next().value!;
+    modelStore.addSurfaceLoad3D(q, 2, 1); // D: 2 kN/m² × 16 m²
+    const { report, modal } = run();
+    expect(report.addedT.get(1)).toBeCloseTo(32 / G, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('reports the nodal loads it cannot carry instead of dropping them silently', () => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.addNodalLoad3D(2, 0, 0, -20, 0, 0, 0, 1);
+    const { report, modal } = run();
+    expect(report.excludedNodalKN).toBeCloseTo(20, 9);
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
+  it('follows a stated factor, and a stated zero means none', () => {
+    frame();
+    modelStore.addDistributedLoad3D(2, 0, 0, -5, -5, undefined, undefined, 2);
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0 }, { caseId: 3, factor: 0 }] });
+    expect(run().report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }, { caseId: 3, factor: 0 }] });
+    expect(run().report.addedT.get(2)).toBeCloseTo(20 / G, 6);
+  });
+
+  it('lengthens the period as √ of the mass, which is what the added mass is for', () => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    const bare = run();
+    modelStore.addDistributedLoad3D(2, 0, 0, -30, -30, undefined, undefined, 1);
+    const loaded = run();
+    const sway = (m: any) => m.modes.reduce((a: any, b: any) => (b.effectiveMassX > a.effectiveMassX ? b : a));
+    // The added mass all sits on the girder, while only part of the columns' own mass moves with
+    // the sway. So the period grows by more than √ of the total-mass ratio and by less than √ of
+    // the girder-mass ratio — the two bounds the physics allows.
+    const ratio = sway(loaded.modal).period / sway(bare.modal).period;
+    const girderT = 24 * 0.08 * L / G;
+    expect(ratio).toBeGreaterThan(Math.sqrt(loaded.report.totalT / bare.report.totalT));
+    expect(ratio).toBeLessThan(Math.sqrt((girderT + 120 / G) / girderT));
+  });
+});
+
+describe('the mass source is part of the project', () => {
+  const roundTrip = () => {
+    // Through JSON, as a saved file goes.
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    modelStore.clear();
+    expect(modelStore.model.massSource).toBeUndefined();
+    modelStore.restore(snap);
+  };
+
+  it('survives the file as a code rule, parameters included', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high', snowRetaining: true } });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high', snowRetaining: true } });
+  });
+
+  it('keeps a rule it does not know as it came, so a newer file is not damaged', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'preset', presetId: 'future-code', params: { zone: 4 } });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'preset', presetId: 'future-code', params: { zone: 4 } });
+  });
+
+  it('survives as a custom table, and drops a case with the case', () => {
+    frame();
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+    roundTrip();
+    expect(modelStore.model.massSource).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 0.5 }] });
+    modelStore.removeLoadCase(2);
+    expect(modelStore.model.massSource).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }] });
+  });
+
+  it('reads the first shape of the field, a bare factor list, as a custom table', () => {
+    expect(normalizeMassSource({ factors: [{ caseId: 1, factor: 1 }] })).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }] });
+    expect(normalizeMassSource({ nonsense: true })).toBeUndefined();
+  });
+
+  it('leaves a project that never stated one without one', () => {
+    frame();
+    expect('massSource' in modelStore.snapshot()).toBe(false);
+  });
+});
+
+
+describe('mass source under the displayed axis convention', () => {
+  it.each(['distributed', 'point'] as const)('%s local Y load contributes mass only when directed downward', (kind) => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.updateSection(2, { rotation: 90 });
+    // Local +Y is upward in the right-handed frame, downward in the displayed left-handed one.
+    if (kind === 'distributed') modelStore.addDistributedLoad3D(2, 10, 10, 0, 0, undefined, undefined, 1);
+    else modelStore.addPointLoadOnElement3D(2, 2, 40, 0, 1);
+    const right = run({ leftHand: false });
+    const left = run({ leftHand: true });
+    expect(right.input.leftHand).toBe(false);
+    expect(left.input.leftHand).toBe(false);
+    expect(right.report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(left.report.totalT).toBeCloseTo(PORTAL_SELF_T + 40 / G, 6);
+    expect(left.modal.totalMass).toBeCloseTo(left.report.totalT, 6);
+  });
+});

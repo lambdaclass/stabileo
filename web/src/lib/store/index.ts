@@ -3,6 +3,7 @@ import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
+import { fmStepsStore } from './fmSteps.svelte';
 import { tabManager } from './tabs.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
@@ -95,7 +96,7 @@ uiStore._setModelFlatnessProvider(() => shouldProjectModelToXZ({
   quadCount: modelStore.quads.size,
 }));
 
-export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, tabManager, tourStore, verificationStore };
+export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, fmStepsStore, tabManager, tourStore, verificationStore };
 
 // The editing/reading exclusion is a rule of the app, not of a component, so it
 // is installed once here rather than remembered at each of the six places that
