@@ -25,6 +25,7 @@
  * Pure: no store.
  */
 
+import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
 import type { MemberOffset } from '../element-3d-metadata';
@@ -142,7 +143,7 @@ export function carriedJoint(T: Affine, j: Joint3D | undefined): Joint3D | null 
   return a === b && b === c && d === e && e === f ? { dof: [...j.dof] as Joint3D['dof'] } : null;
 }
 
-const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed', 'pinned']);
+const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed']);
 
 /**
  * A support carried to the copy's node, or null when its restraints cannot be.
@@ -166,6 +167,14 @@ export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap
   }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
   if (translationOnly) return out;
+  // Named rollers encode their mask in `type`; carry that mask just as an explicit one.
+  // Use the solver's mapping so a permutation cannot silently leave the old axis fixed.
+  if (!s.dofRestraints && !SYMMETRIC_SUPPORTS.has(String(s.type))) {
+    const r = supportDofs3D(s);
+    s = { ...s, dofRestraints: { tx: r.rx, ty: r.ry, tz: r.rz, rx: r.rrx, ry: r.rry, rz: r.rrz } };
+    out.type = 'custom3d';
+    out.dofRestraints = { ...s.dofRestraints! };
+  }
   const hasPerDof = !!s.dofRestraints || [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
     .some((v) => v !== undefined && v !== 0);
   if (!hasPerDof && SYMMETRIC_SUPPORTS.has(String(s.type))) return out;

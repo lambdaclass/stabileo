@@ -297,9 +297,9 @@ export function syncElements(ctx: SceneSyncContext): void {
         const ax = computeLocalAxes3D(
           { id: 0, x: posI.x, y: posI.y, z: posI.z },
           { id: 0, x: posJ.x, y: posJ.y, z: posJ.z },
-          // leftHand mirrors the solver's convention (negated ey) so asymmetric
-          // profiles render the way the solver computes them.
-          elemLocalY, project2D ? undefined : elem.rollAngle, leftHand,
+          // Right-handed, as the solver: the profile is physical, and the axis
+          // convention is a drawing choice for diagrams and local-axis labels.
+          elemLocalY, project2D ? undefined : elem.rollAngle, false,
         );
         localAxes = { ex: ax.ex, ey: ax.ey, ez: ax.ez };
       } catch {
@@ -317,7 +317,7 @@ export function syncElements(ctx: SceneSyncContext): void {
       // NOT the mesh-orientation axes: the solver expansion composes the
       // section rotation into the roll angle, so the shifted profile must use
       // the same resolver or it renders away from where the member acts.
-      const off = resolveOffsetWorldVectors(elem, posI, posJ, sec?.rotation, leftHand);
+      const off = resolveOffsetWorldVectors(elem, posI, posJ, sec?.rotation, false);
       if (off) {
         gI = { ...posI, x: posI.x + (off.i?.x ?? 0), y: posI.y + (off.i?.y ?? 0), z: posI.z + (off.i?.z ?? 0) };
         gJ = { ...posJ, x: posJ.x + (off.j?.x ?? 0), y: posJ.y + (off.j?.y ?? 0), z: posJ.z + (off.j?.z ?? 0) };
@@ -604,7 +604,9 @@ function loadsSignature(project2D: boolean): string {
       const elem = modelStore.elements.get(d.elementId as number);
       // element endpoints + (for distributed3d) the local frame that orients qY/qZ
       parts.push(elem ? np(elem.nodeI) + np(elem.nodeJ) : '_',
-        elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '');
+        elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '',
+        // Local loads are drawn along the displayed axes: section rotation and convention.
+        elem ? (modelStore.sections.get(elem.sectionId)?.rotation ?? 0) : '', uiStore.axisConvention3D);
     } else if (load.type === 'surface3d') {
       const quad = modelStore.quads.get(d.quadId as number);
       parts.push(quad ? quad.nodes.map((nid: number) => np(nid)).join('') : '_');
@@ -736,7 +738,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const sceneJ = projectNodeToScene(nJ, project2D);
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
+      // The axes the user sees and types the load along: the analysis roll
+      // (element roll + section rotation) and the chosen convention.
+      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY,
+        (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0),
+        uiStore.axisConvention3D === 'leftHand');
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
       // qY loads act along local ey
@@ -827,7 +833,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
+      // The axes the user sees and types the load along: the analysis roll
+      // (element roll + section rotation) and the chosen convention.
+      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY,
+        (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0),
+        uiStore.axisConvention3D === 'leftHand');
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
 
@@ -1118,7 +1128,6 @@ export function syncMemberOffsets(ctx: SceneSyncContext): void {
   }
   if (!any) return;
 
-  const leftHand = uiStore.axisConvention3D === 'leftHand';
   const group = new THREE.Group();
   group.name = 'memberOffsetContainer';
 
@@ -1130,10 +1139,10 @@ export function syncMemberOffsets(ctx: SceneSyncContext): void {
     const pI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
     const pJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
 
-    // Solver-faithful axes (effectiveRoll + leftHand) — the preview's whole
+    // Solver-faithful axes (effectiveRoll, right-handed) — the preview's whole
     // point is showing where the ANALYSIS places the member.
     const sec = modelStore.sections.get(elem.sectionId);
-    const off = resolveOffsetWorldVectors(elem, pI, pJ, sec?.rotation, leftHand);
+    const off = resolveOffsetWorldVectors(elem, pI, pJ, sec?.rotation, false);
     if (!off) continue;
     group.add(createMemberOffsetViz(pI, pJ, off.i, off.j));
   }

@@ -16,7 +16,7 @@
     data.elements.find(e => e.elementId === (elemForce?.elementId ?? -1))
   );
 
-  const eqInternal = '\\{ f \\} = [k] \\cdot [T] \\cdot \\{ u_e \\} - \\{ f_{FE} \\}';
+  const eqInternal = '\\{ f \\} = [k] \\cdot [T] \\cdot \\{ u_e \\} - \\{ f_{eq} \\}';
 
   const is3D = $derived(data.dofNumbering.dofsPerNode > 3);
   const isFrame = $derived(elem?.type === 'frame');

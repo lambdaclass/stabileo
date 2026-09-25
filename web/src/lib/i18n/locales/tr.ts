@@ -1125,7 +1125,7 @@ const tr: Translations = {
   'dsm.step9.globalDisp': '{u_e} global — Eleman yer değiştirmeleri',
   'dsm.step9.localDisp': '{u_e} yerel — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — SEK öncesi kuvvetler',
-  'dsm.step9.fixedEndForces': '{f_FE} — Sabit uç kuvvetleri',
+  'dsm.step9.fixedEndForces': '{f_eq} — Sabit uç kuvvetleri',
   'dsm.step9.finalForces': '{f} nihai — Eleman iç kuvvetleri',
   'dsm.step9.force': 'Kuvvet',
   'dsm.step9.nodeI': 'Düğüm i',

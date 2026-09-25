@@ -141,7 +141,7 @@ describe('a split member keeps everything that was on it', () => {
     expect(total).toBeCloseTo(-12, 9);
   });
 
-  it('thermal goes to every segment; end properties to their end only; the curve tag to all', () => {
+  it('preserves thermal, releases, the offset line, and the curve tag across segments', () => {
     const { e } = beam();
     modelStore.updateElement(e, {
       releaseI: { my: true, mz: true, t: false }, releaseJ: { my: false, mz: true, t: false },
@@ -157,9 +157,13 @@ describe('a split member keeps everything that was on it', () => {
     expect(seg[0]!.releaseI).toEqual({ my: true, mz: true, t: false });
     expect(seg[0]!.releaseJ).toEqual({ my: false, mz: false, t: false });
     expect(seg[2]!.releaseJ).toEqual({ my: false, mz: true, t: false });
-    expect(seg[0]!.offset).toEqual({ frame: 'global', i: { x: 0, y: 0, z: 0.2 } });
-    expect(seg[1]!.offset).toBeUndefined();
-    expect(seg[2]!.offset).toEqual({ frame: 'global', j: { x: 0, y: 0, z: -0.2 } });
+    // Each cut stays on the original straight flexible line from z=0.2 to z=-0.2.
+    expect(seg[0]!.offset!.i!.z).toBeCloseTo(0.2, 12);
+    expect(seg[0]!.offset!.j!.z).toBeCloseTo(0.2 / 3, 12);
+    expect(seg[1]!.offset!.i).toEqual(seg[0]!.offset!.j);
+    expect(seg[1]!.offset!.j!.z).toBeCloseTo(-0.2 / 3, 12);
+    expect(seg[2]!.offset!.i).toEqual(seg[1]!.offset!.j);
+    expect(seg[2]!.offset!.j!.z).toBeCloseTo(-0.2, 12);
     expect(seg.every((s) => (s as any).arc?.id === 'arc-1')).toBe(true);
     expect(seg.every((s) => s.reinforcement === undefined)).toBe(true);
     expect(modelStore.loads.filter((l) => l.type === 'thermal').map((l) => (l.data as any).elementId).sort())

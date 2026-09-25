@@ -113,7 +113,7 @@
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
-      false,
+      uiStore.axisConvention3D === 'leftHand',
       // Advanced analyses run on the centerline: their wire payloads (modal/
       // spectral) don't carry constraints, so expanded offset-helper nodes
       // would float free — singular K instead of eccentricity effects. The
@@ -147,7 +147,7 @@
       quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
       connectors: modelStore.connectors,
     };
-    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput());
+    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
     massReport = ms.report;
     const input = maybeApplyDiaphragm(ms.input);
     return { input, densities: densitiesFor(input, ms.densities) };
@@ -771,7 +771,7 @@
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
-      false,
+      uiStore.axisConvention3D === 'leftHand',
       { expandMemberOffsets: false },
     );
     return (input?.loads as unknown[]) ?? [];

@@ -151,3 +151,38 @@ describe('merge collinear', () => {
     expect(modelStore.model.groups.get(g)!.members.elements).toEqual([s1]);
   });
 });
+
+describe('splitting preserves the offset flexible member', () => {
+  it.each([
+    { frame: 'global' as const, i: { x: 0, y: 1, z: 0 }, j: { x: 0, y: 1, z: 0 } },
+    { frame: 'global' as const, i: { x: 0.2, y: 0.1, z: 0.15 }, j: { x: -0.3, y: -0.2, z: 0.1 } },
+    { frame: 'local' as const, i: { x: 0.2, y: 0.1, z: 0.15 }, j: { x: -0.3, y: -0.2, z: 0.1 } },
+  ])('keeps displacement and reactions with $frame offsets', (offset) => {
+    const { a, b, e } = beam();
+    modelStore.updateNode(a, 0, 0, 3);
+    modelStore.updateNode(b, 6, 0, 3);
+    for (const id of [...modelStore.supports.keys()]) modelStore.removeSupport(id);
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.updateElement(e, { offset, rollAngle: 17 });
+    modelStore.updateSection(1, { rotation: 11 });
+    modelStore.addNodalLoad3D(b, 1, 2, -10, 0.2, 0.3, 0.4, 1);
+    modelStore.addDistributedLoad3D(e, 2, -1, -3, -5, 0.4, 4.8, 1);
+    modelStore.addPointLoadOnElement3D(e, 3.1, -2, -4, 1);
+    const before = solve();
+    historyStore.clear();
+    modelStore.splitMember(e, [0.2, 0.7]);
+    expect(historyStore.undoCount).toBe(1);
+    const after = solve();
+    for (const d of before.displacements) {
+      const got = after.displacements.find((x) => x.nodeId === d.nodeId)!;
+      for (const k of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const) expect(got[k], k).toBeCloseTo(d[k], 6);
+    }
+    for (const r of before.reactions) {
+      const got = after.reactions.find((x) => x.nodeId === r.nodeId)!;
+      for (const k of ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const) expect(got[k], k).toBeCloseTo(r[k], 5);
+    }
+    historyStore.undo();
+    expect(modelStore.elements.get(e)!.offset).toEqual(offset);
+    expect(modelStore.elements.size).toBe(1);
+  });
+});
