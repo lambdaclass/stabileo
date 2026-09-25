@@ -57,6 +57,8 @@ export interface ModelSnapshot {
     members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
     data?: Record<string, unknown>;
   }]>;
+  /** Structural grid and named levels. Absent: none defined. */
+  grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */
   views?: Array<{ id: number; name: string; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>;
   /** The active combination list and named envelopes. Absent: all combinations, none named. */

@@ -71,6 +71,8 @@ export interface EditReport {
   supportKept: number;
   /** Materials, sections and load cases the fragment brought that the model did not have. */
   added: { materials: number; sections: number; loadCases: number };
+  /** Per copy: fragment id → model id, for nodes (welded ones included) and members placed. */
+  maps: Array<{ nodes: Map<number, number>; elements: Map<number, number> }>;
   warnings: Partial<Record<EditWarning, number>>;
 }
 
@@ -121,7 +123,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
   const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
     nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0,
-    added: { materials: 0, sections: 0, loadCases: 0 }, warnings: {},
+    added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
   };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (frag.nodes.length === 0 || transforms.length === 0) return report;
@@ -264,6 +266,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
           report.links.push(lid);
         }
       }
+      report.maps.push({ nodes: nodeMap, elements: elementMap });
       prevNodeMap = nodeMap;
     });
   });

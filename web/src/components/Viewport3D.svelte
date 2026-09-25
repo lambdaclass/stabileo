@@ -8,6 +8,10 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { PlacementGhost } from '../lib/three/placement-ghost';
+  import { placementStore } from '../lib/store/placement.svelte';
+  import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -26,7 +30,7 @@
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
-  import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
+  import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
@@ -77,6 +81,7 @@
   let despieceStart = 0;
   const DESPIECE_ANIM_MS = 700;
   let gridGroup: THREE.Object3D | null = null;
+  let structuralGridGroup: THREE.Group | null = null;
   let measureGroup: THREE.Group | null = null;
   let axesHelper: THREE.Group | null = null;
   let axisLabelSprites: THREE.Sprite[] = [];
@@ -597,6 +602,7 @@
 
     // Grid (reactive — updated by syncGrid effect)
     updateGrid();
+    syncStructGrid();
 
     // Axes: fat Line2 lines — R=X, G=Y, B=Z
     axesHelper = createFatAxes();
@@ -1034,6 +1040,7 @@
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      ghost?.dispose(); ghost = null; ghostFragment = null;
       initialized = false;
       cancelAnimationFrame(animFrameId);
       ro.disconnect();
@@ -1455,6 +1462,19 @@
     invalidate();
   });
 
+  // The structural grid, drawn on the active level (PRO).
+  function syncStructGrid() {
+    const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
+    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    if (!scene) return;
+    structuralGridGroup = syncStructuralGrid(scene, structuralGridGroup, grid, z);
+  }
+  $effect(() => {
+    void modelStore.grid; void uiStore.analysisMode; void uiStore.workingPlane; void uiStore.nodeCreateZ;
+    syncStructGrid();
+    invalidate();
+  });
+
   // Reactive grid: update when working plane, grid size, nodeCreateZ change
   $effect(() => {
     uiStore.workingPlane;
@@ -1599,6 +1619,8 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
+    // Placing: the model is view-only; a click (not a drag, which orbits) places.
+    if (placementStore.active) { if (e.button === 0) mouseDownPos = { x: e.clientX, y: e.clientY }; return; }
     if (e.button === 0) {
       mouseDownPos = { x: e.clientX, y: e.clientY };
 
@@ -1645,6 +1667,58 @@
     return _getGroundIntersection(raycaster, mouse, camera, uiStore.workingPlane, uiStore.nodeCreateZ);
   }
 
+  /**
+   * A point on the working plane, snapped: onto an intersection or an axis of the structural
+   * grid when one is within a few pixels (PRO, horizontal plane), else to the drawing grid.
+   */
+  function snapToStructure(pos: THREE.Vector3): { x: number; y: number; z: number; label?: string } {
+    const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
+    if (grid && camera && container) {
+      const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
+      const hit = snapToAxes(grid, pos.x, pos.y, tol);
+      if (hit) {
+        const s = uiStore.snapWorld3D(hit.x, hit.y, pos.z);
+        // On an axis, the other coordinate still follows the drawing grid.
+        return hit.kind === 'intersection' ? { x: hit.x, y: hit.y, z: s.z, label: hit.label }
+          : { x: Math.abs(hit.x - pos.x) < 1e-9 ? s.x : hit.x, y: Math.abs(hit.y - pos.y) < 1e-9 ? s.y : hit.y, z: s.z, label: hit.label };
+      }
+    }
+    return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
+  }
+
+  // ─── Placement ─────────────────────────────────────────────
+  let ghost: PlacementGhost | null = null;
+  let ghostFragment: unknown = null;
+
+  /** The pointer's target while placing: a node under it, else the snapped working-plane point. */
+  function placementHover(e: MouseEvent) {
+    const nodeId = findNodeHit(e);
+    if (nodeId !== null) {
+      const n = modelStore.nodes.get(nodeId);
+      if (n) { placementStore.setTarget([n.x, n.y, n.z ?? 0], `${t('placement.node')} ${nodeId}`); return; }
+    }
+    const pos = getGroundIntersection(e);
+    if (!pos) return;
+    const p = snapToStructure(pos);
+    placementStore.setTarget([p.x, p.y, p.z], p.label ?? '');
+  }
+
+  $effect(() => {
+    void placementStore.revision;
+    if (!scene) return;
+    if (!placementStore.active || !placementStore.fragment) {
+      ghost?.hide();
+      invalidate();
+      return;
+    }
+    if (!ghost) ghost = new PlacementGhost(scene);
+    if (ghostFragment !== placementStore.fragment) { ghost.setFragment(placementStore.fragment); ghostFragment = placementStore.fragment; }
+    const target = placementStore.target;
+    const size = camera && container ? worldPerPixel(camera, new THREE.Vector3(...target), container.clientHeight) * 10 : 0.3;
+    ghost.update(placementStore.transform(), target, placementStore.mergePreview().welds, size);
+    invalidate();
+  });
+
   // ─── Find first node hit by raycast ───────────────────────
   function findNodeHit(e: MouseEvent): number | null {
     updateMouseNDC(e);
@@ -1669,8 +1743,8 @@
     const pos = getGroundIntersection(e);
     if (!pos) return;
 
-    // Full 3D snap: snap all coordinates to grid
-    const snapped = uiStore.snapWorld3D(pos.x, pos.y, pos.z);
+    // Full 3D snap: snap all coordinates to grid, then onto the structural grid's axes
+    const snapped = snapToStructure(pos);
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
@@ -2002,6 +2076,12 @@
   // ─── Main mouse up handler ─────────────────────────────────
   function handleMouseUp(e: MouseEvent) {
     if (e.button !== 0) return;
+
+    if (placementStore.active) {
+      const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      if (moved < 5) { placementHover(e); placementStore.commit(e.shiftKey); }
+      return;
+    }
 
     // ── Finalize node dragging ──
     if (draggedNodeId3D !== null) {
@@ -2479,6 +2559,8 @@
       const rect = container.getBoundingClientRect();
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
+
+    if (placementStore.active) { placementHover(e); return; }
 
     // Schedule the expensive hover/diagram raycast on the next animation frame.
     // During orbit we clear any stale hover and skip entirely — recursive raycasts

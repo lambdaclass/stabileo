@@ -135,3 +135,17 @@ export function findElementHit(
   }
   return null;
 }
+
+/**
+ * How many world units one screen pixel spans at `point`: the tolerance a snap needs to be the
+ * same few pixels at every zoom.
+ */
+export function worldPerPixel(camera: THREE.Camera, point: THREE.Vector3, heightPx: number): number {
+  if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
+    const c = camera as THREE.OrthographicCamera;
+    return (c.top - c.bottom) / c.zoom / Math.max(heightPx, 1);
+  }
+  const c = camera as THREE.PerspectiveCamera;
+  const d = c.position.distanceTo(point);
+  return (2 * d * Math.tan((c.fov * Math.PI) / 360)) / Math.max(heightPx, 1);
+}

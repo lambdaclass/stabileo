@@ -279,6 +279,13 @@ function support(id: number, s: GenSupport): JSONModel['supports'][number] {
   const nodeId = s.node + 1;
   if (s.type === 'fixed') return { id, nodeId, type: 'fixed3d' };
   if (s.type === 'pinned') return { id, nodeId, type: 'pinned3d' };
+  if (s.type === 'forkPinned' || s.type === 'forkRollerX') {
+    return {
+      id, nodeId, type: 'custom3d',
+      dofRestraints: { tx: s.type === 'forkPinned', ty: true, tz: true, rx: true, ry: false, rz: false },
+      dofFrame: 'global',
+    };
+  }
   return {
     id, nodeId, type: 'custom3d',
     dofRestraints: { tx: false, ty: true, tz: true, rx: false, ry: false, rz: false },

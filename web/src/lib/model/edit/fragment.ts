@@ -104,8 +104,9 @@ export function detach(frag: Fragment): Fragment {
   return { ...clone(frag), local: false };
 }
 
+/** A definition without its id and without what is derived from it (the canonical digest). */
 const definitionKey = (v: { id: number }) => {
-  const { id: _id, ...rest } = v as Record<string, unknown> & { id: number };
+  const { id: _id, canonical: _c, ...rest } = v as Record<string, unknown> & { id: number };
   return JSON.stringify(rest, Object.keys(rest).sort());
 };
 
@@ -155,4 +156,24 @@ export function fragmentBounds(frag: Fragment): { min: [number, number, number];
     for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k]!, p[k]!); max[k] = Math.max(max[k]!, p[k]!); }
   }
   return { min, max };
+}
+
+/**
+ * A fragment of bare members over its own nodes, on materials and sections the model already
+ * has: what a layout (columns and beams between axes, a generated frame) hands to insertion.
+ */
+export function fragmentFromMembers(
+  nodes: Array<{ id: number; x: number; y: number; z: number }>,
+  members: Array<{ nodeI: number; nodeJ: number; type?: 'frame' | 'truss'; materialId: number; sectionId: number }>,
+): Fragment {
+  const elements = members.map((m, i) => ({
+    id: i + 1, type: m.type ?? 'frame', nodeI: m.nodeI, nodeJ: m.nodeJ, materialId: m.materialId, sectionId: m.sectionId,
+  }) as Element);
+  const matIds = new Set(members.map((m) => m.materialId)), secIds = new Set(members.map((m) => m.sectionId));
+  return {
+    nodes: nodes.map((n) => ({ ...n })), elements, quads: [], plates: [], supports: [], loads: [], groups: [],
+    materials: [...matIds].map((id) => modelStore.materials.get(id)).filter(Boolean).map((m) => clone(m!)),
+    sections: [...secIds].map((id) => modelStore.sections.get(id)).filter(Boolean).map((s) => clone(s!)),
+    loadCases: [], local: true,
+  };
 }

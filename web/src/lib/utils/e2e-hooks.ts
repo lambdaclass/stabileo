@@ -267,6 +267,8 @@ export interface StabileoTestHooks {
    * which says nothing about what landed in the model.
    */
   sectionNames(): string[];
+  /** The elevation new nodes land on: the active level when working on the horizontal plane. */
+  nodeCreateZ(): number;
   /** The names of the load cases, in model order. */
   loadCaseNames(): string[];
   orientationSuspectCount(): number;
@@ -624,6 +626,7 @@ export function installE2EHooks(): void {
     },
     quadIds: () => [...modelStore.model.quads.keys()].sort((a, b) => a - b),
     quadCurved: (id: number) => !!modelStore.model.quads.get(id)?.curved,
+    nodeCreateZ: () => uiStore.nodeCreateZ,
     modelCensus: () => {
       const s = modelStore.snapshot();
       return {

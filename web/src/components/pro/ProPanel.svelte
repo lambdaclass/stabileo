@@ -40,6 +40,7 @@
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
+  import ProGridPanel from './ProGridPanel.svelte';
   import ProEditPanel from './ProEditPanel.svelte';
   import ProGroupsPanel from './ProGroupsPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
@@ -86,7 +87,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -245,6 +246,7 @@
     // "Nodes" the map used to produce for both.
     steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
     settings: 'config.title',
+    grid: 'grid.title',
     transform: 'transform.title',
     edit: 'edit.title',
     groups: 'groups.title',
@@ -329,6 +331,8 @@
             panel is a heading with nothing under it.
           -->
           <ToolbarConfig flat={true} />
+        {:else if activeTab === 'grid'}
+          <ProGridPanel />
         {:else if activeTab === 'transform'}
           <ProTransformPanel />
         {:else if activeTab === 'edit'}
