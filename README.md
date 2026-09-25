@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/brand/stabileo-mark.svg" alt="Stabileo" width="132" />
+  <img src="docs/brand/stabileo-horizontal-color-fondo-oscuro.svg" alt="Stabileo" width="300" />
 </p>
-
-<h1 align="center">Stabileo</h1>
 
 <p align="center">
   <strong>Structural analysis, in a browser tab.</strong><br>
