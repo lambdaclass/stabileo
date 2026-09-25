@@ -69,6 +69,238 @@ where
     }
 }
 
+// ---------- co-rotational: the iteration parameters come from the caller ----------
+
+/// Zero increments used to make `1..=0` an empty range: the load was never
+/// applied and the untouched zero state came back as `converged: true`.
+#[test]
+fn corotational_2d_rejects_zero_increments() {
+    use dedaliano_engine::solver::corotational::solve_corotational_2d;
+
+    let ok = solve_corotational_2d(&tiny_beam_2d(), 50, 1e-6, 10, false)
+        .expect("a well-formed run still solves");
+    assert!(ok.converged);
+    assert!(ok.max_displacement > 0.0, "the reference run must actually move");
+
+    expect_clean_err("corotational 2D, 0 increments", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, 1e-6, 0, false)
+    });
+}
+
+#[test]
+fn corotational_2d_rejects_degenerate_iteration_parameters() {
+    use dedaliano_engine::solver::corotational::solve_corotational_2d;
+
+    expect_clean_err("corotational 2D, 0 iterations", || {
+        solve_corotational_2d(&tiny_beam_2d(), 0, 1e-6, 10, false)
+    });
+    expect_clean_err("corotational 2D, NaN tolerance", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, f64::NAN, 10, false)
+    });
+    expect_clean_err("corotational 2D, non-positive tolerance", || {
+        solve_corotational_2d(&tiny_beam_2d(), 50, 0.0, 10, false)
+    });
+}
+
+// ---------- influence line: the one post-processing path that never validates ----------
+
+/// The influence line prepares the model with `.ok()`, discarding the very
+/// validation that rejects a dangling node, and then resolved element ends
+/// with `unwrap` — a panic, which in WASM takes the module down rather than
+/// surfacing an error the caller can show.
+#[test]
+fn influence_line_2d_rejects_element_with_missing_node() {
+    use dedaliano_engine::postprocess::influence::{compute_influence_line, InfluenceLineInput};
+
+    let mut input = tiny_beam_2d();
+    input.elements.insert("9".to_string(), SolverElement {
+        id: 9, elem_type: "frame".to_string(), node_i: 2, node_j: 999,
+        material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+    });
+
+    expect_clean_err("influence line 2D, dangling node", move || {
+        compute_influence_line(&InfluenceLineInput {
+            solver: input,
+            quantity: "M".to_string(),
+            target_node_id: None,
+            target_element_id: Some(1),
+            target_position: 0.5,
+            n_points_per_element: 5,
+        })
+    });
+}
+
+// ---------- every entry point that takes a model ----------
+//
+// Validation used to be opt-in: `solve_2d` refused a dangling node reference
+// while co-rotational 2D, kinematics, moving loads, contact, creep and SSI
+// went on to assembly, where ids are resolved by direct map indexing. Four of
+// them panicked — which in WASM ends the module, not the call — and plastic
+// reported `isMechanism: true` with a zero collapse factor, attributing an
+// invalid model to a physical conclusion.
+
+/// The minimal beam, plus one element pointing at a node that does not exist.
+fn tiny_beam_2d_dangling() -> SolverInput {
+    let mut input = tiny_beam_2d();
+    input.elements.insert("9".to_string(), SolverElement {
+        id: 9, elem_type: "frame".to_string(), node_i: 2, node_j: 999,
+        material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+    });
+    input
+}
+
+/// Wrap the broken model in one of the container inputs, filling only the
+/// fields that have no serde default.
+fn wrapped_dangling(extra_fields: &str) -> String {
+    let solver = serde_json::to_string(&tiny_beam_2d_dangling()).expect("serialize model");
+    format!("{{\"solver\":{solver}{extra_fields}}}")
+}
+
+#[test]
+fn corotational_2d_rejects_dangling_node() {
+    use dedaliano_engine::solver::corotational::solve_corotational_2d;
+    expect_clean_err("corotational 2D, dangling node", || {
+        solve_corotational_2d(&tiny_beam_2d_dangling(), 50, 1e-6, 10, false)
+    });
+}
+
+#[test]
+fn contact_2d_rejects_dangling_node() {
+    use dedaliano_engine::solver::contact::{solve_contact_2d, ContactInput};
+    let input: ContactInput = serde_json::from_str(&wrapped_dangling("")).expect("contact input");
+    expect_clean_err("contact 2D, dangling node", move || solve_contact_2d(&input));
+}
+
+/// Plastic must not call an invalid model a mechanism.
+#[test]
+fn plastic_2d_rejects_dangling_node_instead_of_calling_it_a_mechanism() {
+    use dedaliano_engine::solver::plastic::solve_plastic_2d;
+    use dedaliano_engine::types::PlasticInput;
+    let json = wrapped_dangling(
+        ",\"sections\":{\"1\":{\"a\":0.01,\"iz\":1e-4,\"materialId\":1}},\
+          \"materials\":{\"1\":{\"fy\":250.0}}",
+    );
+    let input: PlasticInput = serde_json::from_str(&json).expect("plastic input");
+    expect_clean_err("plastic 2D, dangling node", move || solve_plastic_2d(&input));
+}
+
+#[test]
+fn moving_loads_2d_rejects_dangling_node() {
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    use dedaliano_engine::types::MovingLoadInput;
+    let json = wrapped_dangling(
+        ",\"train\":{\"name\":\"t\",\"axles\":[{\"offset\":0.0,\"weight\":10.0}]},\"step\":1.0",
+    );
+    let input: MovingLoadInput = serde_json::from_str(&json).expect("moving load input");
+    expect_clean_err("moving loads 2D, dangling node", move || solve_moving_loads_2d(&input));
+}
+
+#[test]
+fn creep_shrinkage_2d_rejects_dangling_node() {
+    use dedaliano_engine::solver::creep_shrinkage::{solve_creep_shrinkage_2d, CreepShrinkageInput};
+    let json = wrapped_dangling(
+        ",\"creepParams\":{\"1\":{\"fc\":30.0,\"rh\":70.0,\"h0\":200.0}},\
+          \"timeSteps\":[{\"tDays\":28.0}]",
+    );
+    let input: CreepShrinkageInput = serde_json::from_str(&json).expect("creep input");
+    expect_clean_err("creep 2D, dangling node", move || solve_creep_shrinkage_2d(&input));
+}
+
+#[test]
+fn ssi_2d_rejects_dangling_node() {
+    use dedaliano_engine::solver::ssi::{solve_ssi_2d, SSIInput};
+    let input: SSIInput =
+        serde_json::from_str(&wrapped_dangling(",\"soilSprings\":[]")).expect("ssi input");
+    expect_clean_err("SSI 2D, dangling node", move || solve_ssi_2d(&input));
+}
+
+/// Kinematics has no `Result` to return: the JS wrapper reads this shape
+/// directly, so an unanalysable model is reported through `is_solvable`.
+#[test]
+fn kinematics_2d_reports_an_unanalysable_model_instead_of_panicking() {
+    use dedaliano_engine::solver::kinematic::analyze_kinematics_2d;
+    let result = match std::panic::catch_unwind(|| analyze_kinematics_2d(&tiny_beam_2d_dangling())) {
+        Ok(r) => r,
+        Err(_) => panic!("kinematics 2D panicked on a dangling node reference"),
+    };
+    assert!(!result.is_solvable, "an invalid model must not be reported as solvable");
+
+    // `diagnosis` is displayed as written — the JS side only rewrites axis
+    // names inside it — and every sentence this analyzer produces is Spanish.
+    // The validator answers in English, so its message must not be appended:
+    // that put half-translated text in front of the user.
+    assert!(
+        result.diagnosis.contains("no puede analizarse"),
+        "the diagnosis should be the finished Spanish sentence, got: {}",
+        result.diagnosis
+    );
+    assert!(
+        !result.diagnosis.contains("does not exist"),
+        "the validator's English message must not be concatenated into it, got: {}",
+        result.diagnosis
+    );
+}
+
+// ---------- collapsed elements ----------
+
+/// A quad whose four nodes are collinear has no area. That used to abort the
+/// whole WASM module from inside `invert_small_matrix` (an `assert!`, which
+/// release builds keep), rather than being refused like a collapsed plate or
+/// solid shell on the same geometry.
+#[test]
+fn collapsed_quad_is_refused_rather_than_aborting() {
+    use dedaliano_engine::solver::linear::solve_3d;
+    use dedaliano_engine::types::SolverInput3D;
+
+    let json = "{\"nodes\":{\
+            \"0\":{\"id\":0,\"x\":0.0,\"y\":0.0,\"z\":0.0},\
+            \"1\":{\"id\":1,\"x\":1.0,\"y\":0.0,\"z\":0.0},\
+            \"2\":{\"id\":2,\"x\":2.0,\"y\":0.0,\"z\":0.0},\
+            \"3\":{\"id\":3,\"x\":3.0,\"y\":0.0,\"z\":0.0}},\
+          \"materials\":{\"1\":{\"id\":1,\"e\":210000.0,\"nu\":0.3}},\
+          \"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iy\":1e-4,\"iz\":1e-4,\"j\":1e-4}},\
+          \"elements\":{\
+            \"0\":{\"id\":0,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1},\
+            \"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":1,\"nodeJ\":2,\"materialId\":1,\"sectionId\":1},\
+            \"2\":{\"id\":2,\"type\":\"frame\",\"nodeI\":2,\"nodeJ\":3,\"materialId\":1,\"sectionId\":1}},\
+          \"supports\":{\"1\":{\"nodeId\":0,\"rx\":true,\"ry\":true,\"rz\":true,\
+            \"rrx\":true,\"rry\":true,\"rrz\":true}},\
+          \"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":3,\"fx\":0.0,\"fy\":0.0,\
+            \"fz\":-10.0,\"mx\":0.0,\"my\":0.0,\"mz\":0.0}}],\
+          \"quads\":{\"0\":{\"id\":0,\"nodes\":[0,1,2,3],\"materialId\":1,\"thickness\":0.2}}}";
+    let input: SolverInput3D = serde_json::from_str(json).expect("collinear quad model");
+
+    // And the refusal has to say which element and why. Reaching the
+    // factorization instead produced "Singular stiffness matrix — structure is
+    // a mechanism", which blames the whole structure for one bad element.
+    match std::panic::catch_unwind(move || solve_3d(&input)) {
+        Ok(Err(e)) => assert!(
+            e.contains("Quad 0") && e.contains("collapsed"),
+            "the refusal should name the element and what is wrong with it, got: {e}"
+        ),
+        Ok(Ok(_)) => panic!("a quad with no area must not be analysed"),
+        Err(_) => panic!("a quad with no area must not abort the module"),
+    }
+}
+
+// ---------- constraints ----------
+
+/// `validate_input_2d` rejects non-finite coordinates, properties and loads.
+/// Constraints were the one part of the model nobody checked, and a NaN
+/// coefficient panicked inside the constraint diagnostics themselves.
+#[test]
+fn linear_mpc_with_a_non_finite_coefficient_is_refused() {
+    use dedaliano_engine::types::{Constraint, LinearMPCConstraint, MPCTerm};
+    let mut input = tiny_beam_2d();
+    input.constraints = vec![Constraint::LinearMPC(LinearMPCConstraint {
+        terms: vec![
+            MPCTerm { node_id: 1, dof: 1, coefficient: f64::NAN },
+            MPCTerm { node_id: 2, dof: 1, coefficient: -1.0 },
+        ],
+    })];
+    expect_clean_err("linear MPC with a NaN coefficient", move || linear::solve_2d(&input));
+}
+
 // ---------- modal ----------
 
 #[test]

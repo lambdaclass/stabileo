@@ -7,7 +7,7 @@
  * require every row to balance.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { modelStore } from '../../store/model.svelte';
+import { modelStore, NO_RELEASE } from '../../store/model.svelte';
 import { solveCombinations3D } from '../solver-service';
 import * as wasmSolver from '../wasm-solver';
 import { staticsCheck } from '../statics-check';
@@ -127,5 +127,45 @@ describe('every case balances, self-weight on the permanent case only', () => {
         expect(row.uncovered).toEqual([]);
       }
     }
+  });
+});
+
+function cantilever() {
+  modelStore.clear();
+  modelStore.restore({
+    nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 10, y: 0, z: 0 }]],
+    materials: [[1, { id: 1, name: 'S', e: 200000, nu: 0.3, rho: 78.5 }]],
+    sections: [[1, { id: 1, name: 'B', a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-5 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: { ...NO_RELEASE }, releaseJ: { ...NO_RELEASE } }]],
+    supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]],
+    loads: [], loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }],
+    combinations: [{ id: 1, name: 'D+L', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }] }],
+    nextId: { node: 3, material: 2, section: 2, element: 2, support: 2, load: 1 },
+  });
+}
+
+describe('signed trapezoids and default load cases agree with real WASM', () => {
+  it.each([
+    [0, 10, -4, 4], [2, 8, -4, 4], [2, 8, 4, -4],
+    [2, 8, -4, 4 + 1e-13], [2, 8, -4, -4], [2, 8, 0, -4],
+  ])('balances both local axes over [%s,%s], from %s to %s', (a, b, qi, qj) => {
+    cantilever();
+    modelStore.addDistributedLoad3D(1, qi, qj, qi, qj, a, b, 1);
+    // With a zero resultant, the relative metric amplifies WASM roundoff (~1e-15).
+    // Check all six absolute residuals in kN / kN·m for these small analytic models.
+    for (const row of checkPerCase(false)) {
+      for (const residual of Object.values(row.difference)) expect(Math.abs(residual)).toBeLessThan(1e-9);
+    }
+  });
+
+  it('a load with no caseId is solved and checked in D only', () => {
+    cantilever();
+    const snap = modelStore.snapshot();
+    snap.loads = [{ type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } }];
+    modelStore.restore(snap);
+    const rows = checkPerCase(false);
+    expect(rows.find(r => r.caseId === 1)!.applied.fz).toBe(-10);
+    expect(rows.find(r => r.caseId === 2)!.applied.fz).toBe(0);
+    for (const row of rows) expect(row.worstRelative).toBeLessThan(1e-6);
   });
 });

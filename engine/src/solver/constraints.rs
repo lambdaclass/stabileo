@@ -385,6 +385,19 @@ pub fn validate_constraint_refs(
                     if !node_ids.contains(&term.node_id) {
                         return Err(format!("Constraint {}: LinearMPC references non-existent node {}", i, term.node_id));
                     }
+                    // `validate_input_2d/3d` rejects non-finite coordinates,
+                    // properties and loads; constraints were the one part of
+                    // the model nobody checked. A NaN coefficient reaches
+                    // `collect_dependent_dofs`, whose `max_by(… partial_cmp …
+                    // .unwrap())` is `None` against NaN — so the diagnostics
+                    // pass that exists to report bad constraints panicked on
+                    // one instead.
+                    if !term.coefficient.is_finite() {
+                        return Err(format!(
+                            "Constraint {}: LinearMPC coefficient for node {} is not a finite number",
+                            i, term.node_id
+                        ));
+                    }
                     if term.dof >= max_dofs_per_node {
                         return Err(format!(
                             "Constraint {}: LinearMPC term references DOF {} but max is {} (0..{})",
@@ -627,7 +640,7 @@ fn collect_dependent_dofs(
         Constraint::LinearMPC(mpc) => {
             if mpc.terms.is_empty() { return result; }
             let (dep_idx, _) = mpc.terms.iter().enumerate()
-                .max_by(|(_, a), (_, b)| a.coefficient.abs().partial_cmp(&b.coefficient.abs()).unwrap())
+                .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
                 .unwrap();
             let dep_term = &mpc.terms[dep_idx];
             if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
@@ -912,7 +925,7 @@ pub fn build_constraint_transform(
 
                 // Find term with largest |coefficient|
                 let (dep_idx, _) = mpc.terms.iter().enumerate()
-                    .max_by(|(_, a), (_, b)| a.coefficient.abs().partial_cmp(&b.coefficient.abs()).unwrap())
+                    .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
                     .unwrap();
 
                 let dep_term = &mpc.terms[dep_idx];
@@ -1380,6 +1393,12 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     linear::validate_input_3d(&input.solver)?;
+    // `prepare_static_3d` refuses a collapsed or folded element by name; this
+    // path never goes through it, and the same element came back here as
+    // "Singular stiffness in 3D constrained system".
+    super::pre_solve_gates::refuse_broken_elements(
+        &super::pre_solve_gates::check_shell_distortion_3d(&input.solver),
+    )?;
 
     // Constraint referential integrity
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
