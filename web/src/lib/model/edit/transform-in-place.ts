@@ -13,7 +13,7 @@ import { modelStore } from '../../store/model.svelte';
 import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
 import { applyAxial, applyPoint, applyVector, isReflection, reflection, rotation, type Affine } from './affine';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
-import { closure, type EntitySet } from './transformed-copy';
+import { closure, type EntitySet } from './fragment';
 import { coincidentNodeGroups, mergeNodesInto, MERGE_TOL } from './cleanup';
 
 export interface InPlaceReport {
