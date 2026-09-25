@@ -106,3 +106,70 @@ describe('parseCadDxf — CadDocument IR', () => {
     expect(unsupportedFileKind('plano.dxf')).toBeNull();
   });
 });
+
+/**
+ * A corrupt DXF gives dxf-parser a group code whose value is not a number, and
+ * it hands back NaN. NaN used to travel into the IR intact, and it hid well:
+ * `NaN < minX` and `NaN > maxX` are both false, so the bad point did not widen
+ * the bbox — the extent silently ignored it while the entity kept it.
+ *
+ * Downstream it was worse than a wrong number. In `pairWallLines` the segment
+ * length was NaN, so `len <= 0` was false (not rejected as degenerate) and
+ * `len > 0` was also false (not collected as unpaired). The member was neither
+ * paired, nor kept, nor recorded in `skipped`: it vanished from the model and
+ * nothing in the result said it had ever been in the file.
+ */
+describe('parseCadDxf — entities whose numbers are not numbers', () => {
+  const rawLine = (layer: string, x1: string, y1: string, x2: string, y2: string) =>
+    ['0', 'LINE', '8', layer, '10', x1, '20', y1, '30', '0',
+      '11', x2, '21', y2, '31', '0'].join('\n');
+
+  it('refuses a LINE with a non-finite coordinate and counts it', () => {
+    const doc = parseCadDxf(
+      buildDxf({ insunits: 6, layers: ['VIGAS'], entities: rawLine('VIGAS', 'abc', '0', '5', '5') }),
+      'bad.dxf',
+    );
+    expect(doc.entities.length).toBe(0);
+    expect(doc.malformed['LINE']).toBe(1);
+    expect(doc.warnings).toContain('malformedEntity:LINE:1');
+  });
+
+  it('does not let a bad radius poison the drawing extent', () => {
+    // entityBBox computes `center.x - r`, and mergeBBox folds with Math.min /
+    // Math.max — which, unlike the comparisons in bboxOfPoints, propagate NaN.
+    // One bad arc used to turn the whole bbox into {null, null, null, null}.
+    const badArc = ['0', 'ARC', '8', 'VIGAS', '10', '0', '20', '0', '30', '0',
+      '40', 'nope', '50', '0', '51', '90'].join('\n');
+    const doc = parseCadDxf(
+      buildDxf({
+        insunits: 6, layers: ['VIGAS'],
+        entities: [dxfLine('VIGAS', 0, 0, 4, 3), badArc].join('\n'),
+      }),
+      'arc.dxf',
+    );
+    expect(doc.malformed['ARC']).toBe(1);
+    expect(doc.bbox).not.toBeNull();
+    for (const v of Object.values(doc.bbox!)) expect(Number.isFinite(v)).toBe(true);
+    // The good line survives untouched.
+    expect(doc.entities.length).toBe(1);
+    expect(doc.bbox!.maxX).toBeCloseTo(4, 9);
+  });
+
+  it('refuses a whole polyline when any one vertex is unreadable', () => {
+    // A shape with a hole where a corner should be is not a smaller shape.
+    const badPoly = ['0', 'LWPOLYLINE', '8', 'LOSAS', '90', '4', '70', '1',
+      '10', '0', '20', '0', '10', '6', '20', '0',
+      '10', 'x', '20', '5', '10', '0', '20', '5'].join('\n');
+    const doc = parseCadDxf(
+      buildDxf({ insunits: 6, layers: ['LOSAS'], entities: badPoly }), 'poly.dxf',
+    );
+    expect(doc.entities.filter((e) => e.kind === 'polyline').length).toBe(0);
+    expect(Object.values(doc.malformed).reduce((a, b) => a + b, 0)).toBe(1);
+  });
+
+  it('leaves a clean drawing with nothing marked malformed', () => {
+    const doc = parseCadDxf(simplePlanDxf(), 'plan.dxf');
+    expect(doc.malformed).toEqual({});
+    expect(doc.warnings.some((w) => w.startsWith('malformedEntity'))).toBe(false);
+  });
+});

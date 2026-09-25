@@ -1557,6 +1557,7 @@ const en: Record<string, string> = {
   'cad.applied': 'CAD draft applied: {nodes} nodes, {elems} elements, {shells} shells. Model tagged as unreviewed draft.',
   'cad.warn.insunitsUnknown': 'The DXF declares units this importer does not map (code {n}) — confirm units manually',
   'cad.warn.unsupportedEntity': '{n} × {type} entities are not supported and were ignored',
+  'cad.warn.malformedEntity': '{n} × {type} entities carried unreadable coordinates (corrupt or truncated DXF) and were refused — they are NOT in the model',
   'cad.warn.columnsMerged': '{n} duplicate column(s) at the same position were merged',
   'cad.warn.circularColumnsAsSquare': 'Circular columns approximated as equal-area square sections (v1 sections are rectangular)',
   'cad.warn.tinyCadColumnSize': '{n} column(s) had implausibly small CAD sizes — default section used',

@@ -103,7 +103,12 @@
       meshError = t('pro.err4Corners');
       return;
     }
-    if (meshMode === 'targetSize' ? meshTargetSize <= 0 : (meshNx < 1 || meshNy < 1)) {
+    // `<` and `<=` are both false against Infinity and NaN, so the bare
+    // comparisons let a non-finite field through to the mesh generator.
+    const badTarget = !(meshTargetSize > 0) || !Number.isFinite(meshTargetSize);
+    const badDivs = !Number.isFinite(meshNx) || !Number.isFinite(meshNy)
+      || meshNx < 1 || meshNy < 1;
+    if (meshMode === 'targetSize' ? badTarget : badDivs) {
       meshError = meshMode === 'targetSize' ? t('pro.errTargetSize') : t('pro.errSubdivisions');
       return;
     }

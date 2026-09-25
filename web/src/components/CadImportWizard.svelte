@@ -479,7 +479,9 @@
   const assumptionsValid = $derived(
     nFloors >= 1 && storyHeight > 0 && colB > 0 && colH > 0 && beamB > 0 && beamH > 0 &&
     slabThickness > 0 && wallThickness > 0 && deadLoad >= 0 && liveLoad >= 0 &&
-    meshDivisions >= 1 && snapTolerance > 0 &&
+    // `Infinity >= 1` is true, and a number field accepts "1e999", so the bare
+    // comparison let a non-finite division count reach the mesher.
+    Number.isFinite(meshDivisions) && meshDivisions >= 1 && snapTolerance > 0 &&
     // When meshing slabs by target size, the size must be a positive number —
     // a cleared/zeroed field would otherwise drive an unbounded mesh loop.
     (!meshSlabs || meshMode !== 'targetSize' || (meshTargetSize > 0 && Number.isFinite(meshTargetSize))),
@@ -685,6 +687,9 @@
                   </div>
                   {#each Object.entries(doc.unsupported) as [type, count]}
                     <div class="warn-line">⚠ {t('cad.warn.unsupportedEntity').replace('{type}', type).replace('{n}', String(count))}</div>
+                  {/each}
+                  {#each Object.entries(doc.malformed) as [type, count]}
+                    <div class="warn-line">⚠ {t('cad.warn.malformedEntity').replace('{type}', type).replace('{n}', String(count))}</div>
                   {/each}
                 {:else}
                   <h3>{t('cad.layerRoles')}</h3>

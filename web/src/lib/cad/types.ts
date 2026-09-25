@@ -63,6 +63,11 @@ export interface CadDocument {
   /** Counts of entity types present in the file but not representable in the
    *  IR (HATCH, SPLINE, DIMENSION, ELLIPSE, …). Surfaced as warnings. */
   unsupported: Record<string, number>;
+  /** Counts, by entity type, of entities whose type IS representable but whose
+   *  coordinates were not finite — a corrupt or truncated DXF. Kept apart from
+   *  `unsupported` because the distinction matters to the reader: there the
+   *  importer cannot read the shape, here the file does not carry one. */
+  malformed: Record<string, number>;
   warnings: string[];
 }
 
