@@ -32,7 +32,17 @@ export type Block =
    * argument list for /app/basic; `label` says what the reader is opening.
    * It renders as a placeholder until clicked — see PostEmbed.svelte.
    */
-  | { k: 'embed'; query: string; label: string; mode?: 'basic' | 'pro' };
+  | { k: 'embed'; query: string; label: string; mode?: 'basic' | 'pro' }
+  /**
+   * A pointer to another post. `t` is the sentence that says why the reader
+   * would follow it; the target's title is looked up in the reader's language
+   * and rendered as a real, crawlable link.
+   *
+   * It exists because no post linked to any other: each one competed alone,
+   * reachable only from the index. Posts on neighbouring questions that point
+   * at each other are how a reader — and a crawler — finds the next one.
+   */
+  | { k: 'link'; slug: string; t: string };
 
 /** One post in one language. */
 export type PostBody = {
@@ -70,11 +80,17 @@ export type Post = {
   i18n: Record<PublicLocale, PostBody>;
 };
 
-/** Every word the post renders, for the reading-time estimate. */
-export function wordCount(body: PostBody): number {
+/**
+ * Every word the post renders, for the reading-time estimate.
+ *
+ * A link block renders its lead and the target post's title; the title lives
+ * in the other post, so the caller resolves it (`postReadingMinutes` does).
+ */
+export function wordCount(body: PostBody, linkTitle?: (slug: string) => string | undefined): number {
   const parts: string[] = [body.title, body.excerpt];
   for (const b of body.blocks) {
-    if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
+    if (b.k === 'link') parts.push(b.t, linkTitle?.(b.slug) ?? '');
+    else if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
     else if (b.k === 'ul' || b.k === 'ol') parts.push(...b.items);
     else if (b.k === 'embed') parts.push(b.label);
     else parts.push(b.caption, ...b.head, ...b.rows.flat());
@@ -83,6 +99,6 @@ export function wordCount(body: PostBody): number {
 }
 
 /** Reading time in whole minutes, never zero. 200 wpm, the usual estimate. */
-export function readingMinutes(body: PostBody): number {
-  return Math.max(1, Math.round(wordCount(body) / 200));
+export function readingMinutes(body: PostBody, linkTitle?: (slug: string) => string | undefined): number {
+  return Math.max(1, Math.round(wordCount(body, linkTitle) / 200));
 }
