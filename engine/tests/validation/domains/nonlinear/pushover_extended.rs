@@ -862,6 +862,7 @@ fn validation_pushover_ext_weak_story_mechanism() {
     }
 
     let solver = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

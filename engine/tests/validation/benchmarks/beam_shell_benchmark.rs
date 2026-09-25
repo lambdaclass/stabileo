@@ -140,6 +140,7 @@ fn benchmark_beam_shell_stiffened_plate() {
         }
 
         let input = SolverInput3D {
+            solver_options: None,
             nodes, materials: mats, sections, elements, supports, loads,
             constraints: vec![], left_hand: None,
             plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
@@ -274,6 +275,7 @@ fn benchmark_beam_shell_column_to_slab() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
@@ -361,6 +363,7 @@ fn benchmark_beam_shell_cantilever_parity() {
     })];
 
     let input_b = SolverInput3D {
+        solver_options: None,
         nodes: nodes_b, materials: mats.clone(), sections, elements: elements_b,
         supports: sups_b, loads: loads_b,
         constraints: vec![], left_hand: None,
@@ -423,6 +426,7 @@ fn benchmark_beam_shell_cantilever_parity() {
     }
 
     let input_s = SolverInput3D {
+        solver_options: None,
         nodes: nodes_s, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports: sups_s, loads: loads_s,
         constraints: vec![], left_hand: None,
@@ -541,6 +545,7 @@ fn benchmark_beam_shell_equilibrium() {
     }
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections, elements, supports, loads,
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],

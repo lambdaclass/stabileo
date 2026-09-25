@@ -1295,7 +1295,7 @@ mod tests {
                 kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             });
         }
-        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
+        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new(), solver_options: None }
     }
 
     #[test]

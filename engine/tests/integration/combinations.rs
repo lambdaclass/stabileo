@@ -55,7 +55,7 @@ fn simply_supported_beam() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 

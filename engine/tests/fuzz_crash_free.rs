@@ -225,6 +225,7 @@ fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -479,6 +480,7 @@ fn random_3d_model(seed: u64) -> SolverInput3D {
     }
 
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

@@ -1110,6 +1110,7 @@ mod tests {
         });
 
         let solver = SolverInput {
+            solver_options: None,
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 0.0, fz: -50.0, my: 0.0,

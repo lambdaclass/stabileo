@@ -125,6 +125,7 @@ fn make_stepped_beam(
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

@@ -164,7 +164,7 @@ fn reference_2d(input: &MultiCaseInput) -> (Vec<AnalysisResults>, Vec<(String, A
             loads: lc.loads.clone(),
             constraints: vec![],
             connectors: HashMap::new(),
-        };
+            solver_options: None,        };
         cases.push(solve_2d(&case_input).expect("reference solve_2d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
@@ -203,7 +203,7 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
             curved_beams: input.solver.curved_beams.clone(),
             constraints: input.solver.constraints.clone(),
             connectors: HashMap::new(),
-        };
+            solver_options: None,        };
         cases.push(solve_3d(&case_input).expect("reference solve_3d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
@@ -269,7 +269,7 @@ fn make_frame_2d_dense() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -303,7 +303,7 @@ fn make_beam_2d_sparse() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -384,7 +384,7 @@ fn make_mixed_3d_dense() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-    }
+        solver_options: None,    }
 }
 
 /// 3D sparse model (nf = 150 >= 64): 4×4 quad slab on 4 fixed frame columns.
@@ -471,7 +471,7 @@ fn make_frame_slab_3d_sparse() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-    }
+        solver_options: None,    }
 }
 
 // ==================== 2D tests ====================

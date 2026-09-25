@@ -82,7 +82,7 @@ fn make_semirigid_beam(
         dx: None, dz: None, dry: None, angle: None,
     });
 
-    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
+    SolverInput { solver_options: None, nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
 }
 
 // ================================================================
@@ -362,6 +362,7 @@ fn validation_sr_ext_4_portal_sway_semi_rigid() {
     })];
 
     let input_semi = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -583,6 +584,7 @@ fn validation_sr_ext_7_effective_length() {
         dx: None, dz: None, dry: None, angle: None,
     });
     let input_soft = SolverInput {
+        solver_options: None,
         nodes: nodes.clone(), materials: mats.clone(), sections: secs.clone(),
         elements: elems.clone(),
         supports: sups_soft,
@@ -603,6 +605,7 @@ fn validation_sr_ext_7_effective_length() {
         dx: None, dz: None, dry: None, angle: None,
     });
     let input_semi = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups_semi,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {

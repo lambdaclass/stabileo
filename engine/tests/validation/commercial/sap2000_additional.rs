@@ -427,6 +427,7 @@ fn validation_sap_ext_pdelta_column() {
     ];
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -852,6 +853,7 @@ fn validation_sap_ext_propped_cantilever_settlement() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };

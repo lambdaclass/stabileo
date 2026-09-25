@@ -137,6 +137,7 @@ fn settlement_ext_ss_beam_uniform_settlement_rigid_body() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -232,6 +233,7 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -334,6 +336,7 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -463,6 +466,7 @@ fn settlement_ext_two_span_middle_support_settlement() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -573,6 +577,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -747,6 +752,7 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -910,6 +916,7 @@ fn settlement_ext_portal_frame_base_settlement() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),
@@ -1030,6 +1037,7 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes,
         materials: build_mats(),
         sections: build_secs(),

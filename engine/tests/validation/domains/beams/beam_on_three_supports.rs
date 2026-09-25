@@ -403,6 +403,7 @@ fn support_settlement_changes_reactions() {
     let loads = udl_loads(total_elems, q);
 
     let input_settled = SolverInput {
+        solver_options: None,
         nodes: nodes_map.clone(),
         materials: mats_map.clone(),
         sections: secs_map.clone(),
@@ -413,6 +414,7 @@ fn support_settlement_changes_reactions() {
     connectors: HashMap::new(),
     };
     let input_unsettled = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

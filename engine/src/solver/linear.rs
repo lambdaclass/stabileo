@@ -31,6 +31,371 @@ const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 /// Free DOFs threshold: use sparse solver when n_free >= this.
 pub(crate) const SPARSE_THRESHOLD: usize = 64;
 
+/// Free-DOF count above which Auto mode tries the iterative PCG solver before
+/// the direct chain.
+///
+// Reevaluated 2026-09-22 twice. First (Phase 3, `diagnose_shifted_ic_sweep`
+// and `diagnose_pcg_attempt_overhead` in engine/tests/sparse_shell_gates.rs):
+// no preconditioner in the chain converged on MITC4 shells and Auto paid
+// +12.4% (20×20) / +9.4% (30×30) before falling back to direct. Second
+// (preconditioning investigation, `diagnose_pcg_stall_curve` /
+// `diagnose_pcg_plateau_length` / `diagnose_precond_sweep`): the Jacobi/SSOR
+// "stall" on shells was the fixed 50-iteration stagnation safeguard aborting
+// legitimate slow convergence — the CG plateau grows like ~3.2·√nf (426
+// iterations at 50×50). With the window scaled to max(50, 8·√n), PCG-Jacobi
+// converges and Auto WINS on shells: −71% (20×20), −75% (30×30) and −85%
+// (50×50) end-to-end vs direct. 1_000 stays: below it the direct solve is
+// already milliseconds and the PCG attempt adds variance with no relevant
+// absolute savings.
+const ITERATIVE_THRESHOLD: usize = 1_000;
+
+/// Linear solver method selected via `SolverOptions`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SolverMethod {
+    Auto,
+    Direct,
+    Pcg,
+}
+
+/// Preconditioner selected via `SolverOptions`. `Auto` starts the
+/// degradation chain at shifted IC (Ajiz-Jennings pivot restoration), which
+/// subsumes strict IC(0) when no pivot degrades; explicit `"ic0"` keeps the
+/// strict variant that fails on non-SPD patterns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PreconditionerChoice {
+    Auto,
+    Ic0,
+    ShiftedIc,
+    Mic,
+    Ssor,
+    Jacobi,
+    NoPrecond,
+}
+
+impl PreconditionerChoice {
+    fn as_str(&self) -> &'static str {
+        match self {
+            PreconditionerChoice::Auto => "auto",
+            PreconditionerChoice::Ic0 => "ic0",
+            PreconditionerChoice::ShiftedIc => "ics",
+            PreconditionerChoice::Mic => "mic",
+            PreconditionerChoice::Ssor => "ssor",
+            PreconditionerChoice::Jacobi => "jacobi",
+            PreconditionerChoice::NoPrecond => "none",
+        }
+    }
+}
+
+/// Global diagonal shift (relative to max_diag(K_ff)) applied by the shifted-IC
+/// preconditioner in the auto chain.
+///
+// Measured 2026-09-22 with `diagnose_shifted_ic_sweep`
+// (engine/tests/sparse_shell_gates.rs, #[ignore]) on simply-supported MITC4
+// plates 10×10 to 50×50: the global shift does not change PCG iteration
+// counts appreciably once drilling pivots are restored per-DOF, so the
+// default is 0 — with shift 0 and no degraded pivots the factor is bitwise
+// identical to strict IC(0), preserving the Phase 1 behavior on frames
+// (where IC(0) never fails).
+const ICS_SHIFT_REL: f64 = 0.0;
+
+/// Solver options with defaults applied.
+struct ResolvedSolverOptions {
+    method: SolverMethod,
+    precond: PreconditionerChoice,
+    tol: f64,
+    max_iter: usize,
+}
+
+/// Parse `SolverOptions` from the input, applying defaults and pushing a
+/// warning diagnostic for each unrecognized or invalid value.
+fn resolve_solver_options(
+    input_opts: &Option<SolverOptions>,
+    nf: usize,
+    diags: &mut Vec<SolverDiagnostic>,
+) -> ResolvedSolverOptions {
+    let mut resolved = ResolvedSolverOptions {
+        method: SolverMethod::Auto,
+        precond: PreconditionerChoice::Auto,
+        tol: 1e-8,
+        max_iter: 1000usize.max(nf / 4),
+    };
+    let Some(opts) = input_opts else { return resolved };
+
+    if let Some(m) = &opts.method {
+        match m.as_str() {
+            "auto" => {}
+            "direct" => resolved.method = SolverMethod::Direct,
+            "pcg" => resolved.method = SolverMethod::Pcg,
+            other => diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("Unknown solver method '{}', falling back to 'auto'", other),
+                severity: "warning".into(),
+            }),
+        }
+    }
+    if let Some(p) = &opts.preconditioner {
+        match p.as_str() {
+            "ic0" => resolved.precond = PreconditionerChoice::Ic0,
+            "ics" => resolved.precond = PreconditionerChoice::ShiftedIc,
+            "mic" => resolved.precond = PreconditionerChoice::Mic,
+            "ssor" => resolved.precond = PreconditionerChoice::Ssor,
+            "jacobi" => resolved.precond = PreconditionerChoice::Jacobi,
+            "none" => resolved.precond = PreconditionerChoice::NoPrecond,
+            other => diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("Unknown preconditioner '{}', falling back to 'ics'", other),
+                severity: "warning".into(),
+            }),
+        }
+    }
+    if let Some(t) = opts.tolerance {
+        if t.is_finite() && t > 0.0 {
+            resolved.tol = t;
+        } else {
+            diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("Invalid PCG tolerance {}, falling back to 1e-8", t),
+                severity: "warning".into(),
+            });
+        }
+    }
+    if let Some(mi) = opts.max_iterations {
+        if mi > 0 {
+            resolved.max_iter = mi;
+        } else {
+            diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: "Invalid PCG max_iterations 0, falling back to default".into(),
+                severity: "warning".into(),
+            });
+        }
+    }
+    resolved
+}
+
+/// Validate `solverOptions` on every solve path (dense, sparse, PCG), pushing
+/// a structured warning per unrecognized or invalid value. Runs at prepare
+/// time so the warning is emitted even when the model takes the dense path,
+/// where `resolve_solver_options` is never called. The sparse paths still get
+/// the legacy-channel warning from `resolve_solver_options` — the codebase
+/// dual-reports solver-path events in both channels.
+fn validate_solver_options(input_opts: &Option<SolverOptions>, diags: &mut Vec<StructuredDiagnostic>) {
+    let Some(opts) = input_opts else { return };
+    let mut warn = |message: String| {
+        diags.push(
+            StructuredDiagnostic::global(DiagnosticCode::UnknownSolverOption, Severity::Warning, message)
+                .with_phase("pre_solve"),
+        );
+    };
+    if let Some(m) = &opts.method {
+        if !matches!(m.as_str(), "auto" | "direct" | "pcg") {
+            warn(format!("Unknown solver method '{}', falling back to 'auto'", m));
+        }
+    }
+    if let Some(p) = &opts.preconditioner {
+        if !matches!(p.as_str(), "ics" | "ic0" | "mic" | "ssor" | "jacobi" | "none") {
+            warn(format!("Unknown preconditioner '{}', falling back to 'ics'", p));
+        }
+    }
+    if let Some(t) = opts.tolerance {
+        if !(t.is_finite() && t > 0.0) {
+            warn(format!("Invalid PCG tolerance {}, falling back to 1e-8", t));
+        }
+    }
+    if let Some(mi) = opts.max_iterations {
+        if mi == 0 {
+            warn("Invalid PCG max_iterations 0, falling back to default".into());
+        }
+    }
+}
+
+/// Outcome of a verified PCG solve.
+struct PcgOutcome {    u: Vec<f64>,
+    iterations: usize,
+    /// True relative residual ‖K u − f‖/‖f‖ recomputed after the solve.
+    true_rel_residual: f64,
+    /// Preconditioner actually used: "ics" | "ic0" | "mic" | "ssor" | "jacobi" | "none".
+    preconditioner: &'static str,
+}
+
+/// Build the preconditioner for a PCG run. Explicit choices degrade
+/// (shifted/strict IC, MIC) → Jacobi → SSOR with warnings; `Auto` runs the
+/// same chain starting at shifted IC with info-level notes. Jacobi degrades
+/// before SSOR because on measured MITC4 shells it converges in fewer
+/// iterations AND costs less per iteration (no triangular sweeps), while
+/// SSOR remains as the final net before the direct fallback. Returns None
+/// when no usable preconditioner exists — the caller must fall back to the
+/// direct solver chain.
+fn build_pcg_preconditioner<'a>(
+    k_ff: &'a CscMatrix,
+    choice: PreconditionerChoice,
+    diags: &mut Vec<SolverDiagnostic>,
+) -> Option<Box<dyn Preconditioner + 'a>> {
+    match choice {
+        PreconditionerChoice::ShiftedIc => {
+            // Infallible by construction; report restored pivots.
+            let p = ShiftedIcPreconditioner::new(k_ff, ICS_SHIFT_REL);
+            if p.perturbations() > 0 {
+                diags.push(SolverDiagnostic {
+                    category: "solver_path".into(),
+                    message: format!(
+                        "Shifted-IC restored {} degraded pivots to the original DOF diagonal",
+                        p.perturbations()
+                    ),
+                    severity: "info".into(),
+                });
+            }
+            Some(Box::new(p) as _)
+        }
+        PreconditionerChoice::Ic0 => {
+            Ic0Preconditioner::new(k_ff).map(|p| Box::new(p) as _)
+        }
+        PreconditionerChoice::Mic => {
+            MicPreconditioner::new(k_ff).map(|p| Box::new(p) as _)
+        }
+        PreconditionerChoice::Ssor => {
+            SsorPreconditioner::new(k_ff, 1.0).map(|p| Box::new(p) as _)
+        }
+        PreconditionerChoice::Jacobi => {
+            JacobiPreconditioner::new(k_ff).map(|p| Box::new(p) as _)
+        }
+        PreconditionerChoice::NoPrecond => Some(Box::new(IdentityPreconditioner)),
+        PreconditionerChoice::Auto => unreachable!("chain never contains Auto"),
+    }
+}
+
+/// Attempt a PCG solve of K_ff u = f_f, walking the preconditioner chain
+/// (Auto: shifted IC → Jacobi → SSOR). Shifted IC is infallible to *build*,
+/// so the chain degrades on verified convergence, not just on construction:
+/// each candidate runs PCG and is accepted only when PCG reports convergence
+/// AND the true relative residual ‖K_ff u − f_f‖/‖f_f‖ ≤ 1e-6 (recomputed,
+/// never trusted blindly). On total failure a warning is pushed and None is
+/// returned — the caller falls back to the direct solver chain. Failed
+/// attempts are bounded by the PCG size-scaled stagnation safeguard.
+fn try_pcg_solve(
+    k_ff: &CscMatrix,
+    f_f: &[f64],
+    opts: &ResolvedSolverOptions,
+    diags: &mut Vec<SolverDiagnostic>,
+) -> Option<PcgOutcome> {
+    let severity = if opts.precond == PreconditionerChoice::Auto { "info" } else { "warning" };
+    let chain: &[PreconditionerChoice] = match opts.precond {
+        PreconditionerChoice::Auto | PreconditionerChoice::ShiftedIc => &[
+            PreconditionerChoice::ShiftedIc,
+            PreconditionerChoice::Jacobi,
+            PreconditionerChoice::Ssor,
+        ],
+        PreconditionerChoice::Ic0 => &[
+            PreconditionerChoice::Ic0,
+            PreconditionerChoice::Jacobi,
+            PreconditionerChoice::Ssor,
+        ],
+        PreconditionerChoice::Mic => &[
+            PreconditionerChoice::Mic,
+            PreconditionerChoice::Jacobi,
+            PreconditionerChoice::Ssor,
+        ],
+        PreconditionerChoice::Ssor => &[PreconditionerChoice::Ssor, PreconditionerChoice::Jacobi],
+        PreconditionerChoice::Jacobi => &[PreconditionerChoice::Jacobi],
+        PreconditionerChoice::NoPrecond => &[PreconditionerChoice::NoPrecond],
+    };
+
+    let mut built_any = false;
+    let mut last_failure = String::new();
+    for (idx, &c) in chain.iter().enumerate() {
+        let pre = match build_pcg_preconditioner(k_ff, c, diags) {
+            Some(p) => p,
+            None => {
+                if idx + 1 < chain.len() {
+                    diags.push(SolverDiagnostic {
+                        category: "solver_path".into(),
+                        message: format!(
+                            "Preconditioner '{}' failed to build (non-SPD pivot or zero diagonal), degrading",
+                            c.as_str()
+                        ),
+                        severity: severity.into(),
+                    });
+                }
+                continue;
+            }
+        };
+        built_any = true;
+        if idx > 0 {
+            diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("Preconditioner degraded to '{}'", pre.name()),
+                severity: severity.into(),
+            });
+        }
+
+        let res = pcg_solve(k_ff, f_f, pre.as_ref(), opts.tol, opts.max_iter);
+
+        // Recompute the true relative residual — never trust the iteration's
+        // internal estimate.
+        let ku = k_ff.sym_mat_vec(&res.x);
+        let mut res2 = 0.0f64;
+        let mut f2 = 0.0f64;
+        for i in 0..k_ff.n {
+            let r = ku[i] - f_f[i];
+            res2 += r * r;
+            f2 += f_f[i] * f_f[i];
+        }
+        let rel = res2.sqrt() / f2.sqrt().max(1e-30);
+
+        if res.converged && rel <= 1e-6 {
+            let precond_name: &'static str = match pre.name() {
+                "identity" => "none",
+                other => other,
+            };
+            return Some(PcgOutcome {
+                u: res.x,
+                iterations: res.iterations,
+                true_rel_residual: rel,
+                preconditioner: precond_name,
+            });
+        }
+
+        last_failure = format!(
+            "PCG with '{}' preconditioner did not converge (converged={}, true rel residual {:.2e} after {} iterations)",
+            pre.name(), res.converged, rel, res.iterations
+        );
+        if idx + 1 < chain.len() {
+            diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("{}, trying next preconditioner", last_failure),
+                severity: severity.into(),
+            });
+        }
+    }
+
+    if !built_any {
+        diags.push(SolverDiagnostic {
+            category: "fallback".into(),
+            message: "No usable PCG preconditioner, falling back to direct solver".into(),
+            severity: "warning".into(),
+        });
+    } else {
+        diags.push(SolverDiagnostic {
+            category: "fallback".into(),
+            message: format!("{}, falling back to direct solver", last_failure),
+            severity: "warning".into(),
+        });
+    }
+    None
+}
+
+/// Solver path label for a successful PCG run.
+fn pcg_solver_path(preconditioner: &str) -> &'static str {
+    match preconditioner {
+        "ic0" => "pcg_ic0",
+        "ics" => "pcg_ics",
+        "mic" => "pcg_mic",
+        "ssor" => "pcg_ssor",
+        "jacobi" => "pcg_jacobi",
+        _ => "pcg_none",
+    }
+}
+
 /// Solve a 2D linear static analysis.
 pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     // Auto-delegate to constrained solver when constraints are present
@@ -86,6 +451,10 @@ enum PreparedPath2D {
     Solve(Box<PreparedSolve2D>),
     /// Sparse Cholesky of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
     Sparse(Box<PreparedSparse2D>),
+    /// Iterative PCG on the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD,
+    /// explicit "pcg" or Auto above ITERATIVE_THRESHOLD); the direct chain is
+    /// factored lazily if PCG fails verified convergence.
+    Pcg(Box<PreparedPcg2D>),
     /// Sparse Cholesky failed even with diagonal-shift regularization:
     /// dense LU of the dense K_ff (legacy fallback semantics).
     SparseDenseLu(Box<PreparedSparseDenseLu2D>),
@@ -121,6 +490,36 @@ struct PreparedSparse2D {
     /// nf — K_fr · u_r (zeros when no prescribed DOFs).
     kfr_ur: Vec<f64>,
     cond_report: super::conditioning::ConditioningReport,
+}
+
+/// Iterative PCG form of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
+/// The PCG preconditioner chain is built per solve (cheap next to assembly);
+/// the direct chain (unregularized sparse Cholesky, then dense LU — same
+/// semantics as `PreparedPath2D::Sparse` → `SparseDenseLu`) is factored lazily
+/// and only if PCG fails verified convergence.
+struct PreparedPcg2D {
+    k_ff: CscMatrix,
+    /// Full n×n K (reactions via sym_mat_vec, cross-block for prescribed DOFs).
+    k_full: CscMatrix,
+    /// nf — K_fr · u_r (zeros when no prescribed DOFs).
+    kfr_ur: Vec<f64>,
+    cond_report: super::conditioning::ConditioningReport,
+    opts: ResolvedSolverOptions,
+    /// Option-parsing warnings, re-emitted with each per-case solve.
+    solver_diags_base: Vec<SolverDiagnostic>,
+    /// Lazily-factored direct fallback (shared across load cases).
+    direct: std::cell::OnceCell<PcgDirectFallback2D>,
+}
+
+/// Direct fallback for the 2D PCG path: sparse Cholesky WITHOUT diagonal-shift
+/// regularization (2D legacy semantics — a shifted factor "succeeds" on
+/// genuine mechanisms, where the legacy contract is the dense-LU error), then
+/// dense LU of the (unshifted) K_ff.
+struct PcgDirectFallback2D {
+    /// None when the unregularized factorization failed (mechanism candidate).
+    num: Option<NumericCholesky>,
+    /// Lazily-factored dense LU of K_ff; `None` (inside) = K_ff is singular.
+    dense_lu: std::cell::OnceCell<Option<(Vec<f64>, Vec<usize>)>>,
 }
 
 /// Dense-LU fallback when sparse Cholesky fails with every diagonal shift
@@ -218,7 +617,8 @@ pub fn prepare_static_2d_dense_reference(input: &SolverInput) -> Result<Prepared
 
 fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
     let dof_num = DofNumbering::build_2d(input);
-    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
 
     // ── Input validation (before assembly) ──
     validate_input_2d(input)?;
@@ -333,6 +733,42 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 
         // Conditioning report from the CSC diagonal (same thresholds as dense)
         let cond_report = sparse_conditioning_2d(&stiff.k_ff, nf);
+
+        // Solver options (PCG dispatch): explicit "pcg" or Auto above the
+        // iterative threshold. PCG skips the Cholesky factorization entirely;
+        // the direct chain is factored lazily if PCG fails verification.
+        let mut pcg_diags_base: Vec<SolverDiagnostic> = Vec::new();
+        let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut pcg_diags_base);
+        let use_pcg = solver_opts.method == SolverMethod::Pcg
+            || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
+        if use_pcg {
+            let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+            let kfr_ur = if has_prescribed {
+                stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
+            } else {
+                vec![0.0; nf]
+            };
+            return Ok(PreparedStatic2D {
+                input,
+                dof_num,
+                n,
+                nf,
+                nr,
+                u_r,
+                pre_solve_diags,
+                artificial_dofs: stiff.artificial_dofs,
+                inclined_transforms_2d: stiff.inclined_transforms_2d,
+                path: PreparedPath2D::Pcg(Box::new(PreparedPcg2D {
+                    k_ff: stiff.k_ff,
+                    k_full: stiff.k_full,
+                    kfr_ur,
+                    cond_report,
+                    opts: solver_opts,
+                    solver_diags_base: pcg_diags_base,
+                    direct: std::cell::OnceCell::new(),
+                })),
+            });
+        }
 
         // Symbolic + numeric sparse Cholesky. NO diagonal-shift regularization
         // on the 2D path: the legacy 2D solver never regularized, and a shifted
@@ -951,6 +1387,256 @@ impl PreparedStatic2D<'_> {
                 Ok(results)
             }
 
+            PreparedPath2D::Pcg(p) => {
+                // F_f modified for prescribed displacements: F_f −= K_fr · u_r (precomputed)
+                let mut f_f: Vec<f64> = f[..nf].to_vec();
+                for (a, b) in f_f.iter_mut().zip(p.kfr_ur.iter()) {
+                    *a -= b;
+                }
+
+                let mut solver_diags = p.solver_diags_base.clone();
+
+                // Iterative solve with verified convergence; the preconditioner
+                // chain degrades on the TRUE relative residual (≤ 1e-6).
+                let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
+
+                // On PCG failure, factor the direct chain lazily (shared across
+                // load cases): unregularized sparse Cholesky, then dense LU.
+                let mut used_lu_fallback = false;
+                let (u_f, pcg_meta): (Vec<f64>, Option<(usize, &'static str)>) = match pcg {
+                    Some(outcome) => {
+                        solver_diags.push(SolverDiagnostic {
+                            category: "solver_path".into(),
+                            message: format!(
+                                "PCG solver ({} preconditioner, {} iterations, {} free DOFs)",
+                                outcome.preconditioner, outcome.iterations, nf
+                            ),
+                            severity: "info".into(),
+                        });
+                        (outcome.u, Some((outcome.iterations, outcome.preconditioner)))
+                    }
+                    None => {
+                        let direct = p.direct.get_or_init(|| {
+                            let sym = Rc::new(symbolic_cholesky(&p.k_ff));
+                            PcgDirectFallback2D {
+                                num: numeric_cholesky(&sym, &p.k_ff),
+                                dense_lu: std::cell::OnceCell::new(),
+                            }
+                        });
+                        match &direct.num {
+                            Some(num) => {
+                                solver_diags.push(SolverDiagnostic {
+                                    category: "solver_path".into(),
+                                    message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                                    severity: "info".into(),
+                                });
+                                (sparse_cholesky_solve(num, &f_f), None)
+                            }
+                            None => {
+                                used_lu_fallback = true;
+                                let lu = direct.dense_lu.get_or_init(|| {
+                                    let mut k_ff_d = p.k_ff.to_dense_symmetric();
+                                    lu_factor(&mut k_ff_d, nf).map(|piv| (k_ff_d, piv))
+                                });
+                                let u = match lu {
+                                    Some((a, piv)) => lu_apply(a, piv, &f_f, nf),
+                                    None => None,
+                                };
+                                (u.ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?, None)
+                            }
+                        }
+                    }
+                };
+
+                // NaN/Inf guard: numerical blow-up means singular matrix
+                let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
+                if has_nan_inf {
+                    return Err("Singular stiffness matrix — structure is a mechanism".to_string());
+                }
+
+                // Check artificial DOFs for mechanism (absurd rotations)
+                if !self.artificial_dofs.is_empty() {
+                    for &idx in &self.artificial_dofs {
+                        if idx < nf && u_f[idx].abs() > 100.0 {
+                            return Err(
+                                "Local mechanism detected: a node with all elements hinged has \
+                                 excessive rotation, indicating local instability.".to_string()
+                            );
+                        }
+                    }
+                }
+
+                // Build full displacement vector
+                let mut u_full = vec![0.0; n];
+                u_full[..nf].copy_from_slice(&u_f[..nf]);
+                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
+
+                // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
+                let ku = p.k_full.sym_mat_vec(&u_full);
+                let f_r: Vec<f64> = f[nf..].to_vec();
+                let mut reactions_vec = vec![0.0; nr];
+                for i in 0..nr {
+                    reactions_vec[i] = ku[nf + i] - f_r[i];
+                }
+
+                // Residual against the ORIGINAL K_ff (describes the returned
+                // solution, whichever solver produced it). Legacy 2D semantics:
+                // a large residual is a structured warning, not a hard fallback.
+                let ku_f = p.k_ff.sym_mat_vec(&u_f);
+                let mut res2 = 0.0f64;
+                let mut f2 = 0.0f64;
+                for i in 0..nf {
+                    let r = ku_f[i] - f_f[i];
+                    res2 += r * r;
+                    f2 += f_f[i] * f_f[i];
+                }
+                let rel_residual = res2.sqrt() / f2.sqrt().max(1e-30);
+
+                // Reverse inclined transforms on displacements before building results
+                for it in &self.inclined_transforms_2d {
+                    reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+                }
+
+                // Build results
+                let displacements = build_displacements_2d(dof_num, &u_full);
+                let mut reactions = build_reactions_2d_inclined(
+                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                );
+                reactions.sort_by_key(|r| r.node_id);
+                let mut element_forces = compute_internal_forces_2d_with_loads(input, loads, dof_num, &u_full);
+                element_forces.sort_by_key(|ef| ef.element_id);
+
+                let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
+
+                // Build structured diagnostics — same contract as the other paths
+                let mut structured = Vec::new();
+                structured.extend(self.pre_solve_diags.iter().cloned());
+
+                // Solver path
+                if let Some((iters, pname)) = pcg_meta {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::PcgSolve,
+                        Severity::Info,
+                        format!("PCG solver ({} preconditioner, {} iterations, {} free DOFs)", pname, iters, nf),
+                    ).with_phase("solve"));
+                } else {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::PcgFallbackDirect,
+                        Severity::Warning,
+                        format!("PCG failed verification, fell back to direct solver ({} free DOFs)", nf),
+                    ).with_phase("solve"));
+                    if used_lu_fallback {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::CholeskyFailedLuFallback,
+                            Severity::Warning,
+                            "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+                        ).with_phase("solve"));
+                    } else {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::SparseCholesky,
+                            Severity::Info,
+                            format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                        ).with_phase("solve"));
+                    }
+                }
+
+                // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
+                let max_disp = dof_num.map.iter()
+                    .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
+                    .map(|(&_, &global)| u_f[global].abs())
+                    .fold(0.0f64, f64::max);
+                let char_length = {
+                    let mut min_x = f64::MAX;
+                    let mut max_x = f64::MIN;
+                    let mut min_z = f64::MAX;
+                    let mut max_z = f64::MIN;
+                    for node in input.nodes.values() {
+                        min_x = min_x.min(node.x);
+                        max_x = max_x.max(node.x);
+                        min_z = min_z.min(node.z);
+                        max_z = max_z.max(node.z);
+                    }
+                    let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
+                    span.max(1.0)
+                };
+                if max_disp > 1000.0 * char_length {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExcessiveDisplacement,
+                        Severity::Warning,
+                        format!(
+                            "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                            max_disp, char_length
+                        ),
+                    ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+                }
+
+                // Conditioning
+                let cond = p.cond_report.diagonal_ratio;
+                if cond > 1e12 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ExtremelyHighDiagonalRatio,
+                        Severity::Warning,
+                        format!("Extremely high diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e12).with_phase("conditioning"));
+                } else if cond > 1e8 {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::HighDiagonalRatio,
+                        Severity::Warning,
+                        format!("High diagonal ratio {:.2e}", cond),
+                    ).with_value(cond, 1e8).with_phase("conditioning"));
+                }
+
+                if !p.cond_report.near_zero_dofs.is_empty() {
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::NearZeroDiagonal,
+                        Severity::Warning,
+                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
+                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
+                }
+
+                // Residual
+                structured.push(if rel_residual < 1e-6 {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualOk,
+                        Severity::Info,
+                        format!("Residual {:.2e} ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                } else {
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualHigh,
+                        Severity::Warning,
+                        format!("Residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
+                    ).with_value(rel_residual, 1e-6).with_phase("solve")
+                });
+
+                let solver_path_2d = if let Some((_, pname)) = pcg_meta {
+                    pcg_solver_path(pname)
+                } else if used_lu_fallback {
+                    "dense_lu"
+                } else {
+                    "pcg_fallback_sparse_cholesky"
+                };
+                let mut results = AnalysisResults {
+                    displacements,
+                    reactions,
+                    element_forces,
+                    constraint_forces: vec![],
+                    diagnostics: vec![],
+                    solver_diagnostics: solver_diags,
+                    structured_diagnostics: structured,
+                    equilibrium: Some(equilibrium),
+                    result_summary: None,
+                    solver_run_meta: Some(SolverRunMeta::new(
+                        solver_path_2d,
+                        nf,
+                        input.elements.len(),
+                        input.nodes.len(),
+                    )),
+                };
+                results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
+                Ok(results)
+            }
+
             PreparedPath2D::SparseDenseLu(p) => {
                 // F_f_modified = F_f − K_fr · u_r
                 let mut f_f: Vec<f64> = f[..nf].to_vec();
@@ -1200,6 +1886,10 @@ enum PreparedPath3D {
     FullyRestrained(FullyRestrained3D),
     Dense(DensePrepared3D),
     Sparse(SparsePrepared3D),
+    /// Iterative PCG on the triplet-assembled K_ff (explicit "pcg" or Auto
+    /// above ITERATIVE_THRESHOLD); the direct chain is factored lazily if PCG
+    /// fails verified convergence.
+    Pcg(PcgPrepared3D),
     /// Sparse Cholesky failed even with regularization: dense LU of K_ff.
     SparseDenseLu(SparseDenseLuPrepared3D),
 }
@@ -1274,6 +1964,45 @@ struct SparseDenseLuPrepared3D {
     dense_fb_us: u64,
 }
 
+/// Iterative PCG form of the triplet-assembled K_ff. The preconditioner chain
+/// is built per solve (cheap next to assembly); the direct chain (sparse
+/// Cholesky with the drilling-shift ladder, then dense LU on bad residual —
+/// same semantics as `SparsePrepared3D`) is factored lazily and only if PCG
+/// fails verified convergence.
+struct PcgPrepared3D {
+    k_ff: CscMatrix,
+    k_full: CscMatrix,
+    /// max_diag(K_ff) — scale for the fallback shift ladder.
+    max_diag_k: f64,
+    opts: ResolvedSolverOptions,
+    /// nf — K_fr · u_r from the sparse full-K (zeros when no prescribed DOFs).
+    kfr_ur: Vec<f64>,
+    cond: f64,
+    nnz_kff: usize,
+    diagnostics: Vec<AssemblyDiagnostic>,
+    inclined_transforms: Vec<InclinedTransformData>,
+    /// Conditioning (+ option-parsing) messages, emitted before per-case ones.
+    solver_diags_base: Vec<SolverDiagnostic>,
+    assembly_us: u64,
+    conditioning_us: u64,
+    /// Lazily-factored direct fallback (shared across load cases).
+    direct: std::cell::OnceCell<PcgDirectFallback3D>,
+}
+
+/// Direct fallback for the 3D PCG path: symbolic + numeric sparse Cholesky
+/// with the same diagonal-shift ladder as the sparse prepare path, then (per
+/// solve) residual verification with dense LU as the last resort.
+struct PcgDirectFallback3D {
+    /// None when even the shift ladder failed — dense LU is the only path.
+    num: Option<(NumericCholesky, bool, f64)>,
+    nnz_l: usize,
+    symbolic_us: u64,
+    numeric_us: u64,
+    /// Lazily-factored dense LU of the (unshifted) K_ff, built only if a case's
+    /// sparse solve fails the residual check. `None` (inside) = K_ff singular.
+    dense_lu: std::cell::OnceCell<Option<(Vec<f64>, Vec<usize>)>>,
+}
+
 /// Prepare a 3D structure for one or more static solves: curved-beam expansion,
 /// numbering, assembly, and factorization of the free-free stiffness block
 /// happen exactly once here. This is exactly the load-independent part of `solve_3d`.
@@ -1288,7 +2017,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         + input.solid_shells.len()
         + input.curved_shells.len();
     let dof_num = DofNumbering::build_3d(&input);
-    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
 
     // ── Input validation (before assembly) ──
     validate_input_3d(&input)?;
@@ -1416,6 +2146,48 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             });
         }
         let conditioning_us = now_micros().saturating_sub(t0);
+
+        // Solver options (PCG dispatch): explicit "pcg" or Auto above the
+        // iterative threshold. PCG skips the Cholesky factorization entirely;
+        // the direct chain is factored lazily if PCG fails verification.
+        let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut solver_diags_base);
+        let use_pcg = solver_opts.method == SolverMethod::Pcg
+            || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
+        if use_pcg {
+            let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+            let kfr_ur = if has_prescribed {
+                stiff.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf)
+            } else {
+                vec![0.0; nf]
+            };
+            let nnz_kff = stiff.k_ff.col_ptr[nf]; // total nnz in lower triangle
+            return Ok(PreparedStatic3D {
+                input,
+                dof_num,
+                n,
+                nf,
+                nr,
+                n_elements,
+                n_nodes,
+                u_r,
+                pre_solve_diags,
+                path: PreparedPath3D::Pcg(PcgPrepared3D {
+                    k_ff: stiff.k_ff,
+                    k_full: stiff.k_full.unwrap(),
+                    max_diag_k: stiff.max_diag_k,
+                    opts: solver_opts,
+                    kfr_ur,
+                    cond,
+                    nnz_kff,
+                    diagnostics: stiff.diagnostics,
+                    inclined_transforms: stiff.inclined_transforms,
+                    solver_diags_base,
+                    assembly_us,
+                    conditioning_us,
+                    direct: std::cell::OnceCell::new(),
+                }),
+            });
+        }
 
         // Symbolic + numeric factorization of K_ff (split phases, K-only)
         let t0 = now_micros();
@@ -1633,6 +2405,7 @@ impl PreparedStatic3D {
             PreparedPath3D::FullyRestrained(p) => self.solve_loads_fully_restrained(loads, p),
             PreparedPath3D::Dense(p) => self.solve_loads_dense(loads, p),
             PreparedPath3D::Sparse(p) => self.solve_loads_sparse(loads, p),
+            PreparedPath3D::Pcg(p) => self.solve_loads_pcg(loads, p),
             PreparedPath3D::SparseDenseLu(p) => self.solve_loads_sparse_dense_lu(loads, p),
         }
     }
@@ -2069,6 +2842,8 @@ impl PreparedStatic3D {
             nnz_l: p.nnz_l,
             pivot_perturbations: if p.regularized { nf } else { 0 },
             max_perturbation: p.max_perturbation,
+            pcg_iterations: None,
+            pcg_final_residual: None,
         };
 
         // Build structured diagnostics (enum-based, machine-matchable)
@@ -2191,6 +2966,442 @@ impl PreparedStatic3D {
         Ok(results)
     }
 
+    /// Factor the direct fallback chain for the PCG path (shared across load
+    /// cases): symbolic + numeric sparse Cholesky with the same drilling-shift
+    /// ladder as the sparse prepare path.
+    fn pcg_direct_fallback_3d(p: &PcgPrepared3D) -> PcgDirectFallback3D {
+        let nf = p.k_ff.n;
+        let t0 = now_micros();
+        let sym = Rc::new(symbolic_cholesky(&p.k_ff));
+        let symbolic_us = now_micros().saturating_sub(t0);
+        let nnz_l = sym.l_nnz;
+
+        let t0 = now_micros();
+        let num_result = numeric_cholesky(&sym, &p.k_ff);
+        let num = if num_result.is_some() {
+            num_result.map(|n| (n, false, 0.0))
+        } else {
+            // Regularize: clone K_ff and add a diagonal shift to make it SPD.
+            // Try increasing shifts until Cholesky succeeds (drilling DOFs).
+            let max_d = p.max_diag_k;
+            let mut factored = None;
+            let mut shift = 0.0;
+            for &alpha in &[1e-6, 1e-4, 1e-2, 1e-1, 1.0, 10.0] {
+                shift = alpha * max_d;
+                let mut k_reg = p.k_ff.clone();
+                for j in 0..nf {
+                    for q in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
+                        if k_reg.row_idx[q] == j {
+                            k_reg.values[q] += shift;
+                            break;
+                        }
+                    }
+                }
+                if let Some(n) = numeric_cholesky(&sym, &k_reg) {
+                    factored = Some(n);
+                    break;
+                }
+            }
+            factored.map(|n| (n, true, shift))
+        };
+        let numeric_us = now_micros().saturating_sub(t0);
+
+        PcgDirectFallback3D {
+            num,
+            nnz_l,
+            symbolic_us,
+            numeric_us,
+            dense_lu: std::cell::OnceCell::new(),
+        }
+    }
+
+    fn solve_loads_pcg(
+        &self,
+        loads: &[SolverLoad3D],
+        p: &PcgPrepared3D,
+    ) -> Result<AnalysisResults3D, String> {
+        let t_total = now_micros();
+        let input = &self.input;
+        let dof_num = &self.dof_num;
+        let (n, nf, nr) = (self.n, self.nf, self.nr);
+
+        // Rebuild only the load vector for this case
+        let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
+
+        let mut solver_diags = p.solver_diags_base.clone();
+        let mut dense_fb_us: u64 = 0;
+
+        // F_f modified for prescribed displacements: F_f −= K_fr · u_r (precomputed)
+        let mut f_f: Vec<f64> = f[..nf].to_vec();
+        for i in 0..nf { f_f[i] -= p.kfr_ur[i]; }
+
+        // Iterative solve with verified convergence; the preconditioner chain
+        // degrades on the TRUE relative residual (≤ 1e-6).
+        let t0 = now_micros();
+        let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
+        let pcg_us = now_micros().saturating_sub(t0);
+
+        let mut used_residual_fallback = false;
+        let mut direct_symbolic_us = 0u64;
+        let mut direct_numeric_us = 0u64;
+        let mut direct_nnz_l = 0usize;
+        let mut direct_regularized = false;
+        let mut direct_max_perturbation = 0.0f64;
+
+        // Solve Kff · u_f = f_f
+        let (u_f, solve_us, residual_us, rel_residual, pcg_meta): (Vec<f64>, u64, u64, f64, Option<(usize, f64, &'static str)>) =
+            if let Some(outcome) = pcg {
+                solver_diags.push(SolverDiagnostic {
+                    category: "solver_path".into(),
+                    message: format!(
+                        "PCG solver ({} preconditioner, {} iterations, {} free DOFs)",
+                        outcome.preconditioner, outcome.iterations, nf
+                    ),
+                    severity: "info".into(),
+                });
+                (
+                    outcome.u,
+                    pcg_us,
+                    0,
+                    outcome.true_rel_residual,
+                    Some((outcome.iterations, outcome.true_rel_residual, outcome.preconditioner)),
+                )
+            } else {
+                // PCG failed verification — factor the direct chain lazily.
+                let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
+                direct_symbolic_us = direct.symbolic_us;
+                direct_numeric_us = direct.numeric_us;
+                direct_nnz_l = direct.nnz_l;
+
+                // Dense LU last resort (shared by both failure modes).
+                let dense_lu = |direct: &PcgDirectFallback3D, f_f: &[f64]| -> Result<Vec<f64>, String> {
+                    let lu = direct.dense_lu.get_or_init(|| {
+                        let mut k_ff_d = p.k_ff.to_dense_symmetric();
+                        lu_factor(&mut k_ff_d, nf).map(|piv| (k_ff_d, piv))
+                    });
+                    match lu {
+                        Some((a, piv)) => lu_apply(a, piv, f_f, nf)
+                            .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string()),
+                        None => Err("Singular stiffness matrix — structure is a mechanism".to_string()),
+                    }
+                };
+
+                match &direct.num {
+                    None => {
+                        // All shifts failed — fall back to dense LU
+                        solver_diags.push(SolverDiagnostic {
+                            category: "fallback".into(),
+                            message: "Sparse Cholesky failed even with regularization, fell back to dense LU".into(),
+                            severity: "warning".into(),
+                        });
+                        used_residual_fallback = true;
+                        let t0 = now_micros();
+                        let u_fb = dense_lu(direct, &f_f)?;
+                        dense_fb_us = now_micros().saturating_sub(t0);
+                        // Residual is recomputed below from the returned solution.
+                        (u_fb, pcg_us, 0, f64::NAN, None)
+                    }
+                    Some((num, regularized, max_perturbation)) => {
+                        direct_regularized = *regularized;
+                        direct_max_perturbation = *max_perturbation;
+                        if *regularized {
+                            solver_diags.push(SolverDiagnostic {
+                                category: "solver_path".into(),
+                                message: format!(
+                                    "Regularized K_ff with diagonal shift {:.2e} (drilling DOF stabilization)",
+                                    max_perturbation
+                                ),
+                                severity: "info".into(),
+                            });
+                        }
+
+                        let t0 = now_micros();
+                        let mut u = sparse_cholesky_solve(num, &f_f);
+
+                        // Iterative refinement against the ORIGINAL K_ff to correct for
+                        // the regularization shift. Up to 5 steps of residual correction.
+                        if *regularized {
+                            for _ in 0..5 {
+                                let ku = p.k_ff.sym_mat_vec(&u);
+                                let mut residual: Vec<f64> = vec![0.0; nf];
+                                let mut res2 = 0.0f64;
+                                let mut f2 = 0.0f64;
+                                for i in 0..nf {
+                                    residual[i] = f_f[i] - ku[i];
+                                    res2 += residual[i] * residual[i];
+                                    f2 += f_f[i] * f_f[i];
+                                }
+                                if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
+                                    break;
+                                }
+                                let du = sparse_cholesky_solve(num, &residual);
+                                for i in 0..nf {
+                                    u[i] += du[i];
+                                }
+                            }
+                        }
+                        let s_us = now_micros().saturating_sub(t0);
+
+                        // Verify final solution quality via residual check.
+                        let t0 = now_micros();
+                        let ku = p.k_ff.sym_mat_vec(&u);
+                        let mut res_norm2 = 0.0f64;
+                        let mut f_norm2 = 0.0f64;
+                        for i in 0..nf {
+                            res_norm2 += (ku[i] - f_f[i]).powi(2);
+                            f_norm2 += f_f[i].powi(2);
+                        }
+                        let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
+                        let r_us = now_micros().saturating_sub(t0);
+
+                        if rel_residual < 1e-6 {
+                            solver_diags.push(SolverDiagnostic {
+                                category: "solver_path".into(),
+                                message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                                severity: "info".into(),
+                            });
+                            (u, s_us, r_us, rel_residual, None)
+                        } else {
+                            solver_diags.push(SolverDiagnostic {
+                                category: "fallback".into(),
+                                message: format!(
+                                    "Sparse Cholesky residual too large ({:.2e}), fell back to dense LU",
+                                    rel_residual
+                                ),
+                                severity: "warning".into(),
+                            });
+                            used_residual_fallback = true;
+                            let t0 = now_micros();
+                            let u_fb = dense_lu(direct, &f_f)?;
+                            dense_fb_us = now_micros().saturating_sub(t0);
+                            (u_fb, s_us, r_us, f64::NAN, None)
+                        }
+                    }
+                }
+            };
+        // NaN/Inf guard — see `solve_loads_dense`. Covers the PCG result and
+        // both direct fallbacks.
+        assert_finite_3d(&u_f)?;
+
+        // Build full displacement vector
+        let mut u_full = vec![0.0; n];
+        u_full[..nf].copy_from_slice(&u_f);
+        for i in 0..nr { u_full[nf + i] = self.u_r[i]; }
+
+        // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
+        let t0 = now_micros();
+        let ku = p.k_full.sym_mat_vec(&u_full);
+        let mut reactions_vec = vec![0.0; nr];
+        let f_r: Vec<f64> = f[nf..].to_vec();
+        for i in 0..nr {
+            reactions_vec[i] = ku[nf + i] - f_r[i];
+        }
+
+        // If we fell back to dense LU (bad residual), recompute the residual
+        // from the actual returned solution — the branch-local rel_residual
+        // (NaN) described the rejected sparse attempt, not the final answer.
+        let rel_residual = if used_residual_fallback {
+            let mut res2 = 0.0f64;
+            let mut f2 = 0.0f64;
+            for i in 0..nf {
+                let r = ku[i] - f[i];
+                res2 += r * r;
+                f2 += f[i] * f[i];
+            }
+            res2.sqrt() / f2.sqrt().max(1e-30)
+        } else {
+            rel_residual
+        };
+
+        // Reverse inclined support rotations on displacements
+        for it in &p.inclined_transforms {
+            reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
+        }
+
+        let displacements = build_displacements_3d(dof_num, &u_full);
+        let mut reactions = build_reactions_3d_inclined(
+            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
+        );
+        reactions.sort_by_key(|r| r.node_id);
+        let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
+        element_forces.sort_by_key(|ef| ef.element_id);
+        let reactions_us = now_micros().saturating_sub(t0);
+
+        let t0 = now_micros();
+        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
+        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
+        let stress_recovery_us = now_micros().saturating_sub(t0);
+
+        let total_us = (p.assembly_us + p.conditioning_us + direct_symbolic_us + direct_numeric_us)
+            + now_micros().saturating_sub(t_total);
+
+        let timings = SolveTimings {
+            assembly_ms: micros_to_ms(p.assembly_us),
+            conditioning_ms: micros_to_ms(p.conditioning_us),
+            symbolic_ms: micros_to_ms(direct_symbolic_us),
+            numeric_ms: micros_to_ms(direct_numeric_us),
+            solve_ms: micros_to_ms(solve_us),
+            residual_ms: micros_to_ms(residual_us),
+            dense_fallback_ms: micros_to_ms(dense_fb_us),
+            reactions_ms: micros_to_ms(reactions_us),
+            stress_recovery_ms: micros_to_ms(stress_recovery_us),
+            total_ms: micros_to_ms(total_us),
+            n_free: nf,
+            nnz_kff: p.nnz_kff,
+            nnz_l: direct_nnz_l,
+            pivot_perturbations: if direct_regularized { nf } else { 0 },
+            max_perturbation: direct_max_perturbation,
+            pcg_iterations: pcg_meta.map(|m| m.0),
+            pcg_final_residual: pcg_meta.map(|m| m.1),
+        };
+
+        // Build structured diagnostics (enum-based, machine-matchable)
+        let mut structured = Vec::new();
+        structured.extend(self.pre_solve_diags.iter().cloned());
+
+        // Solver path — report the actual solver that produced the returned result
+        if let Some((iters, _, pname)) = pcg_meta {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::PcgSolve,
+                Severity::Info,
+                format!("PCG solver ({} preconditioner, {} iterations, {} free DOFs)", pname, iters, nf),
+            ).with_phase("solve"));
+        } else {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::PcgFallbackDirect,
+                Severity::Warning,
+                format!("PCG failed verification, fell back to direct solver ({} free DOFs)", nf),
+            ).with_phase("solve"));
+            if used_residual_fallback {
+                structured.push(StructuredDiagnostic::global(
+                    DiagnosticCode::SparseFallbackDenseLu,
+                    Severity::Warning,
+                    format!("Sparse Cholesky residual too large, fell back to dense LU ({} free DOFs)", nf),
+                ).with_phase("solve"));
+            } else {
+                structured.push(StructuredDiagnostic::global(
+                    DiagnosticCode::SparseCholesky,
+                    Severity::Info,
+                    format!("Sparse Cholesky solver ({} free DOFs, nnz(L)={})", nf, direct_nnz_l),
+                ).with_phase("solve"));
+            }
+        }
+
+        // Sparse fill ratio diagnostic (meaningful only when the factorization ran)
+        if pcg_meta.is_none() && !used_residual_fallback {
+            let fill_ratio = direct_nnz_l as f64 / p.nnz_kff.max(1) as f64;
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::SparseFillRatio,
+                if fill_ratio > 20.0 { Severity::Warning } else { Severity::Info },
+                format!("Sparse fill ratio: {:.1}x (nnz(K_ff)={}, nnz(L)={})", fill_ratio, p.nnz_kff, direct_nnz_l),
+            ).with_value(fill_ratio, 20.0).with_phase("factorization"));
+        }
+
+        // Conditioning diagnostics
+        if p.cond > 1e12 {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExtremelyHighDiagonalRatio,
+                Severity::Warning,
+                format!("Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned", p.cond),
+            ).with_value(p.cond, 1e12).with_phase("conditioning"));
+        } else if p.cond > 1e8 {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::HighDiagonalRatio,
+                Severity::Warning,
+                format!("High diagonal ratio {:.2e} — potential conditioning issues", p.cond),
+            ).with_value(p.cond, 1e8).with_phase("conditioning"));
+        }
+
+        // Solver path diagnostic
+        if direct_regularized {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::DiagonalRegularization,
+                Severity::Info,
+                format!("Regularized K_ff with diagonal shift {:.2e}", direct_max_perturbation),
+            ).with_value(direct_max_perturbation, 0.0).with_phase("factorization"));
+        }
+
+        // Displacement sanity check — translational DOFs only
+        let max_disp = dof_num.map.iter()
+            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+            .map(|(&_, &global)| u_f[global].abs())
+            .fold(0.0f64, f64::max);
+        let char_length = {
+            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+            for node in input.nodes.values() {
+                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+            }
+            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+        };
+        if max_disp > 1000.0 * char_length {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExcessiveDisplacement,
+                Severity::Warning,
+                format!(
+                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                    max_disp, char_length
+                ),
+            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+        }
+
+        // Residual diagnostic — describes the returned solution, not any rejected attempt
+        let solver_label = if pcg_meta.is_some() {
+            "PCG"
+        } else if used_residual_fallback {
+            "Dense LU fallback"
+        } else {
+            "Sparse Cholesky"
+        };
+        structured.push(if rel_residual < 1e-6 {
+            StructuredDiagnostic::global(
+                DiagnosticCode::ResidualOk,
+                Severity::Info,
+                format!("{} ({} free DOFs, residual {:.2e})", solver_label, nf, rel_residual),
+            ).with_value(rel_residual, 1e-6).with_phase("solve")
+        } else {
+            StructuredDiagnostic::global(
+                DiagnosticCode::ResidualHigh,
+                Severity::Warning,
+                format!("{} residual {:.2e} exceeds tolerance", solver_label, rel_residual),
+            ).with_value(rel_residual, 1e-6).with_phase("solve")
+        });
+
+        // Compute equilibrium summary from assembled force vector (includes all load types)
+        let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, rel_residual, &p.inclined_transforms);
+
+        let mut results = AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
+            constraint_forces: vec![],
+            diagnostics: p.diagnostics.clone(),
+            solver_diagnostics: solver_diags,
+            structured_diagnostics: structured,
+            equilibrium: Some(equilibrium),
+            timings: Some(timings),
+            result_summary: None,
+            solver_run_meta: Some(SolverRunMeta::new(
+                if let Some((_, _, pname)) = pcg_meta {
+                    pcg_solver_path(pname)
+                } else if used_residual_fallback {
+                    "sparse_fallback_dense_lu"
+                } else {
+                    "pcg_fallback_sparse_cholesky"
+                },
+                nf, self.n_elements, self.n_nodes,
+            )),
+        };
+        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
+        Ok(results)
+    }
+
     fn solve_loads_sparse_dense_lu(
         &self,
         loads: &[SolverLoad3D],
@@ -2230,6 +3441,8 @@ impl PreparedStatic3D {
             total_ms: micros_to_ms(total_us),
             n_free: nf, nnz_kff: p.nnz_kff, nnz_l: p.nnz_l,
             pivot_perturbations: 0, max_perturbation: 0.0,
+            pcg_iterations: None,
+            pcg_final_residual: None,
         };
 
         // Build full solution

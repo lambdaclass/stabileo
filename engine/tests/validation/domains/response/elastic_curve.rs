@@ -235,6 +235,7 @@ fn validation_elastic_curve_overhang() {
         node_id: n_total + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

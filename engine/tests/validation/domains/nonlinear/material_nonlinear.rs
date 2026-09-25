@@ -272,7 +272,7 @@ fn validation_material_nonlinear_support_settlement_matches_linear() {
 
     let solver = SolverInput {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], connectors: HashMap::new(),
+        constraints: vec![], connectors: HashMap::new(), solver_options: None,
     };
 
     let lin = linear::solve_2d(&solver).unwrap();
@@ -333,7 +333,7 @@ fn validation_material_nonlinear_pure_settlement() {
     let solver = SolverInput {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        constraints: vec![], connectors: HashMap::new(),
+        constraints: vec![], connectors: HashMap::new(), solver_options: None,
     };
 
     let input = NonlinearMaterialInput {

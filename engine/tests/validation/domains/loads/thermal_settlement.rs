@@ -202,6 +202,7 @@ fn validation_settlement_ss_roller() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -253,6 +254,7 @@ fn validation_settlement_propped_cantilever() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -315,6 +317,7 @@ fn validation_settlement_fixed_fixed() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -409,7 +412,7 @@ fn validation_thermal_settlement_superposition() {
             dx: None, dz: dy, dry: None, angle: None,
         });
 
-        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map,
+        SolverInput { solver_options: None, nodes: nodes_map, materials: mats_map, sections: secs_map,
                        elements: elems_map, supports: sups_map, loads, constraints: vec![],
                        connectors: HashMap::new(), }
     };

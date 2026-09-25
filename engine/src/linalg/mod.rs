@@ -7,6 +7,8 @@ pub mod amd;
 pub mod rcm;
 pub mod sparse_chol;
 pub mod lanczos;
+pub mod preconditioner;
+pub mod pcg;
 
 pub use dense::*;
 pub use cholesky::*;
@@ -21,3 +23,8 @@ pub use sparse_chol::{
     sparse_condition_estimate,
 };
 pub use lanczos::{lanczos_eigen, lanczos_generalized_eigen, lanczos_generalized_eigen_sparse, lanczos_buckling_eigen_sparse};
+pub use preconditioner::{
+    Preconditioner, IdentityPreconditioner, JacobiPreconditioner, SsorPreconditioner,
+    Ic0Preconditioner, ShiftedIcPreconditioner, MicPreconditioner,
+};
+pub use pcg::{pcg_solve, PcgResult};

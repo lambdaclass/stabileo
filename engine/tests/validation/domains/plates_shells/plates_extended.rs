@@ -92,6 +92,7 @@ fn make_plate_input(
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats_map,
         sections: HashMap::new(),
@@ -736,6 +737,7 @@ fn validation_plate_ss_modal_first_frequency() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats_map,
         sections: HashMap::new(),

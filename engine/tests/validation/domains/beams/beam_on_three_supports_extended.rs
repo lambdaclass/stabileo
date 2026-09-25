@@ -689,6 +689,7 @@ fn different_stiffness_per_span_deflection() {
     let loads = udl_loads(total_elems, q);
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

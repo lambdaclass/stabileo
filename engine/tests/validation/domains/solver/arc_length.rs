@@ -70,6 +70,7 @@ fn beam_section() -> SolverSection {
 /// Build a cantilever beam: node 0 fixed, node 1 free at (L, 0).
 fn make_cantilever(l: f64, fz: f64) -> SolverInput {
     SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (0, node(0, 0.0, 0.0)),
             (1, node(1, l, 0.0)),
@@ -96,6 +97,7 @@ fn make_cantilever(l: f64, fz: f64) -> SolverInput {
 /// Lateral load at node 2.
 fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
     SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 0.0, h)),
@@ -132,6 +134,7 @@ fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
 /// where the apex passes through the baseline of the supports.
 fn make_toggle_frame(half_span: f64, rise: f64, p: f64) -> SolverInput {
     SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0 * half_span, 0.0)),
@@ -664,7 +667,7 @@ fn make_cantilever_meshed(n_elem: usize, l: f64, fz: f64) -> SolverInput {
             node_id: n_elem, fx: 0.0, fz, my: 0.0,
         })],
         constraints: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -696,7 +699,7 @@ fn make_twin_cantilever_tied(l: f64, fz: f64) -> SolverInput {
             slave_node: 3,
             dofs: vec![1],
         })],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 

@@ -77,7 +77,7 @@ fn make_input(
         elements: elems_map,
         supports: sups_map,
         loads, constraints: vec![],
-        connectors: HashMap::new(), }
+        connectors: HashMap::new(), solver_options: None, }
 }
 
 /// Multi-element simply-supported beam with UDL.
@@ -303,7 +303,7 @@ fn make_input_3d(
         loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(),    }
+        connectors: HashMap::new(), solver_options: None,    }
 }
 
 /// 3D cantilever beam along X-axis with tip load in Z.
@@ -1280,7 +1280,8 @@ fn bench_multi_case(c: &mut Criterion) {
                         curved_beams: input.solver.curved_beams.clone(),
                         constraints: vec![],
                         connectors: HashMap::new(),
-                    };
+
+                        solver_options: None,                    };
                     criterion::black_box(linear::solve_3d(&case_input).unwrap());
                 }
             });

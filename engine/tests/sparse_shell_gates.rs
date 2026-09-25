@@ -5,7 +5,8 @@ use dedaliano_engine::solver::{linear, modal, buckling};
 use dedaliano_engine::solver::assembly::{assemble_sparse_3d, assemble_3d};
 use dedaliano_engine::solver::dof::DofNumbering;
 use dedaliano_engine::solver::reduction::{GuyanInput3D, CraigBamptonInput3D};
-use dedaliano_engine::linalg::{symbolic_cholesky, symbolic_cholesky_with, numeric_cholesky, CholOrdering, cholesky_solve, extract_submatrix, extract_subvec, lu_solve, mat_vec_rect, cholesky_decompose, forward_solve, back_solve};
+use dedaliano_engine::linalg::{symbolic_cholesky, symbolic_cholesky_with, numeric_cholesky, CholOrdering, cholesky_solve, extract_submatrix, extract_subvec, lu_solve, mat_vec_rect, cholesky_decompose, forward_solve, back_solve, pcg_solve, Ic0Preconditioner, JacobiPreconditioner, SsorPreconditioner, Preconditioner};
+use dedaliano_engine::linalg::preconditioner::{MicPreconditioner, ShiftedIcPreconditioner};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -104,6 +105,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         .collect();
 
     SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -258,6 +260,413 @@ fn sparse_vs_dense_parity() {
         "Direct sparse vs dense max relative error = {:.2e} (exceeds 1e-6)",
         max_rel_err
     );
+}
+
+/// Measurement harness for Phase 3.1 (shifted-IC design input): sweeps a
+/// global diagonal shift α·max_diag on the K_ff of SS MITC4 plates and checks
+/// which α makes the strict IC(0) factorization succeed on the pattern, plus
+/// the PCG iteration count when it does. Also reports Jacobi/SSOR convergence
+/// for reference. Ignored by default — run manually with:
+///   cargo test --release --test sparse_shell_gates diagnose_ic0_shift_sweep -- --ignored --nocapture
+///
+/// Measured 2026-09-22 (Apple M3, release): strict IC(0) needs α ≥ 1e-1 on
+/// 10×10/20×20 and α ≥ 1e-2 on 30×30 to factorize at all; Jacobi/SSOR
+/// appeared to stall from 20×20 up — later shown by `diagnose_pcg_stall_curve`
+/// to be the fixed 50-iteration stagnation safeguard aborting legitimate slow
+/// convergence, not divergence (fixed in `pcg_solve`: the stall window now
+/// scales with √n). This harness fixed the Shifted-IC design (per-pivot
+/// restore + optional small global shift) — see `diagnose_shifted_ic_sweep`
+/// below for the per-pivot variant that this harness motivated.
+#[test]
+#[ignore]
+fn diagnose_ic0_shift_sweep() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        let max_iter = 1000usize.max(nf / 4);
+        let f_norm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+
+        let mut max_diag = 0.0f64;
+        for j in 0..nf {
+            for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                if k_ff.row_idx[p] == j {
+                    max_diag = max_diag.max(k_ff.values[p]);
+                    break;
+                }
+            }
+        }
+        println!("=== plate {}x{}: nf={}, nnz={}, max_diag={:.6e} ===", nx, ny, nf, k_ff.nnz(), max_diag);
+
+        // Reference: Jacobi / SSOR on the unshifted matrix.
+        let report = |name: &str, pre: &dyn dedaliano_engine::linalg::Preconditioner| {
+            let res = pcg_solve(k_ff, &f_f, pre, 1e-8, max_iter);
+            let ku = k_ff.sym_mat_vec(&res.x);
+            let true_rel: f64 = ku.iter().zip(f_f.iter())
+                .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+            println!("  {}: converged={} iters={} true_rel={:.2e}", name, res.converged, res.iterations, true_rel);
+        };
+        if let Some(pre) = JacobiPreconditioner::new(k_ff) { report("jacobi", &pre); }
+        if let Some(pre) = SsorPreconditioner::new(k_ff, 1.0) { report("ssor", &pre); }
+
+        // Sweep α: shift the diagonal by α·max_diag, try strict IC(0).
+        for &alpha in &[0.0, 1e-8, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1] {
+            let shift = alpha * max_diag;
+            let mut k_reg = k_ff.clone();
+            if shift > 0.0 {
+                for j in 0..nf {
+                    for p in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
+                        if k_reg.row_idx[p] == j {
+                            k_reg.values[p] += shift;
+                            break;
+                        }
+                    }
+                }
+            }
+            match Ic0Preconditioner::new(&k_reg) {
+                Some(pre) => {
+                    let res = pcg_solve(&k_reg, &f_f, &pre, 1e-8, max_iter);
+                    let ku = k_reg.sym_mat_vec(&res.x);
+                    let true_rel: f64 = ku.iter().zip(f_f.iter())
+                        .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+                    println!(
+                        "  alpha={:.0e} shift={:.2e}: IC0 OK, converged={} iters={} true_rel={:.2e}",
+                        alpha, shift, res.converged, res.iterations, true_rel
+                    );
+                }
+                None => println!("  alpha={:.0e} shift={:.2e}: IC0 FAILED", alpha, shift),
+            }
+        }
+    }
+}
+
+/// Measurement harness for Phase 3.1/3.2 (default selection): runs PCG with
+/// ShiftedIcPreconditioner across shift_rel values and with MicPreconditioner
+/// on SS MITC4 plates, reporting restored pivots, iterations and the true
+/// relative residual. The chosen production default is `ICS_SHIFT_REL` in
+/// `solver/linear.rs`. Ignored by default — run manually with:
+///   cargo test --release --test sparse_shell_gates diagnose_shifted_ic_sweep -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_shifted_ic_sweep() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30), (50, 50)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        let max_iter = 1000usize.max(nf / 4);
+        let f_norm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+        println!("=== plate {}x{}: nf={}, nnz={} ===", nx, ny, nf, k_ff.nnz());
+
+        for &shift_rel in &[0.0, 1e-6, 1e-4, 1e-3, 1e-2] {
+            let pre = ShiftedIcPreconditioner::new(k_ff, shift_rel);
+            let res = pcg_solve(k_ff, &f_f, &pre, 1e-8, max_iter);
+            let ku = k_ff.sym_mat_vec(&res.x);
+            let true_rel: f64 = ku.iter().zip(f_f.iter())
+                .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+            println!(
+                "  ics shift_rel={:.0e}: perturbations={} converged={} iters={} true_rel={:.2e}",
+                shift_rel, pre.perturbations(), res.converged, res.iterations, true_rel
+            );
+        }
+        match MicPreconditioner::new(k_ff) {
+            Some(pre) => {
+                let res = pcg_solve(k_ff, &f_f, &pre, 1e-8, max_iter);
+                let ku = k_ff.sym_mat_vec(&res.x);
+                let true_rel: f64 = ku.iter().zip(f_f.iter())
+                    .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+                println!(
+                    "  mic: converged={} iters={} true_rel={:.2e}",
+                    res.converged, res.iterations, true_rel
+                );
+            }
+            None => println!("  mic: BUILD FAILED (non-SPD pivot on pattern)"),
+        }
+    }
+}
+
+/// Debug harness (Phase 3.2): why does PCG abort with Shifted-IC on shells?
+/// Prints the drilling diagonal scale, which DOFs get restored pivots, and
+/// the magnitude of z = M⁻¹r after the first application.
+#[test]
+#[ignore]
+fn diagnose_shifted_ic_breakdown() {
+    let (nx, ny) = (10usize, 10usize);
+    let input = make_ss_plate(nx, ny);
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let asm = assemble_sparse_3d(&input, &dof_num, false);
+    let k_ff = &asm.k_ff;
+    let f_f: Vec<f64> = asm.f[..nf].to_vec();
+
+    // Diagonal stats per DOF-within-node (3D solids/shells: 6 dofs per node,
+    // local_dof 5 = rz = drilling for flat plates in the XY plane).
+    let mut max_diag = 0.0f64;
+    let mut diag = vec![0.0f64; nf];
+    for j in 0..nf {
+        for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+            if k_ff.row_idx[p] == j {
+                diag[j] = k_ff.values[p];
+                max_diag = max_diag.max(k_ff.values[p]);
+                break;
+            }
+        }
+    }
+    let mut per_slot: [usize; 6] = [0; 6];
+    let mut min_slot: [f64; 6] = [f64::MAX; 6];
+    let mut max_slot: [f64; 6] = [0.0; 6];
+    for j in 0..nf {
+        let s = j % 6;
+        per_slot[s] += 1;
+        min_slot[s] = min_slot[s].min(diag[j]);
+        max_slot[s] = max_slot[s].max(diag[j]);
+    }
+    println!("nf={}, max_diag={:.3e}", nf, max_diag);
+    for s in 0..6 {
+        println!("  dof_slot {}: count={} min_diag={:.3e} max_diag={:.3e}", s, per_slot[s], min_slot[s], max_slot[s]);
+    }
+
+    let pre = ShiftedIcPreconditioner::new(k_ff, 0.0);
+    println!("perturbations={}", pre.perturbations());
+
+    let mut z = vec![0.0; nf];
+    pre.apply(&f_f, &mut z);
+    let rz: f64 = f_f.iter().zip(z.iter()).map(|(a, b)| a * b).sum();
+    let z_max = z.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+    let f_max = f_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+    let z_nan = z.iter().filter(|v| !v.is_finite()).count();
+    println!("first apply: r·z={:.6e}, |z|max={:.3e}, |f|max={:.3e}, non-finite z entries={}", rz, z_max, f_max, z_nan);
+}
+
+/// Experiment harness (Phase 3.2): which pivot-restore policy makes IC-family
+/// preconditioners work on MITC4 shells? Restoring the original DOF diagonal
+/// (production Cholesky heuristic) produces non-finite z = M⁻¹r on shells
+/// (see `diagnose_shifted_ic_breakdown`) because hundreds of pivots degrade
+/// without fill-in and the restored columns explode. This sweeps:
+///   - restore-up: degraded pivot → restore_rel · max_diag (Ajiz-Jennings up)
+///   - diag-scaled global shift: factorize K + alpha·diag(K) with strict IC(0)
+/// Ignored by default — run manually with:
+///   cargo test --release --test sparse_shell_gates diagnose_ic_restore_policy -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_ic_restore_policy() {
+    /// Local IC(0) factorization with parameterized pivot restore policy.
+    /// Returns (perturbations, iterations, converged, true_rel).
+    fn ic0_restore_sweep(
+        k_ff: &dedaliano_engine::linalg::CscMatrix,
+        f_f: &[f64],
+        shift_diag_rel: f64,   // global shift: diag += alpha·diag(K)
+        restore_rel: f64,      // degraded pivot target = restore_rel · max_diag
+    ) -> (usize, usize, bool, f64) {
+        let n = k_ff.n;
+        let mut a_diag = vec![0.0f64; n];
+        let mut max_diag = 0.0f64;
+        for j in 0..n {
+            for k in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                if k_ff.row_idx[k] == j {
+                    a_diag[j] = k_ff.values[k];
+                    max_diag = max_diag.max(k_ff.values[k]);
+                    break;
+                }
+            }
+        }
+        let mut col_ptr = vec![0usize; n + 1];
+        let mut row_idx = Vec::with_capacity(k_ff.nnz() + n);
+        let mut l_values = Vec::with_capacity(k_ff.nnz() + n);
+        for j in 0..n {
+            col_ptr[j] = row_idx.len();
+            row_idx.push(j);
+            l_values.push(a_diag[j] * (1.0 + shift_diag_rel));
+            for k in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                let i = k_ff.row_idx[k];
+                if i != j {
+                    row_idx.push(i);
+                    l_values.push(k_ff.values[k]);
+                }
+            }
+            col_ptr[j + 1] = row_idx.len();
+        }
+        let mut nz_cols_for_row: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+        for k in 0..n {
+            for p in (col_ptr[k] + 1)..col_ptr[k + 1] {
+                nz_cols_for_row[row_idx[p]].push((k, p));
+            }
+        }
+        let soft = 1e-8 * max_diag;
+        let restore_target = restore_rel * max_diag;
+        let mut perturbations = 0usize;
+        let mut pos_of = vec![usize::MAX; n];
+        for j in 0..n {
+            let (cs, ce) = (col_ptr[j], col_ptr[j + 1]);
+            for p in cs..ce {
+                pos_of[row_idx[p]] = p;
+            }
+            for &(k, pos_jk) in &nz_cols_for_row[j] {
+                let ljk = l_values[pos_jk];
+                if ljk == 0.0 {
+                    continue;
+                }
+                for p in col_ptr[k]..col_ptr[k + 1] {
+                    let slot = pos_of[row_idx[p]];
+                    if slot != usize::MAX {
+                        l_values[slot] -= ljk * l_values[p];
+                    }
+                }
+            }
+            let diag = l_values[cs];
+            for p in cs..ce {
+                pos_of[row_idx[p]] = usize::MAX;
+            }
+            let diag = if !diag.is_finite() || diag <= soft {
+                perturbations += 1;
+                restore_target
+            } else {
+                diag
+            };
+            let ljj = diag.sqrt();
+            l_values[cs] = ljj;
+            for v in &mut l_values[(cs + 1)..ce] {
+                *v /= ljj;
+            }
+        }
+
+        struct L {
+            n: usize,
+            col_ptr: Vec<usize>,
+            row_idx: Vec<usize>,
+            l_values: Vec<f64>,
+        }
+        impl Preconditioner for L {
+            fn apply(&self, r: &[f64], z: &mut [f64]) {
+                z.copy_from_slice(r);
+                for j in 0..self.n {
+                    let (cs, ce) = (self.col_ptr[j], self.col_ptr[j + 1]);
+                    z[j] /= self.l_values[cs];
+                    for p in (cs + 1)..ce {
+                        z[self.row_idx[p]] -= self.l_values[p] * z[j];
+                    }
+                }
+                for j in (0..self.n).rev() {
+                    let (cs, ce) = (self.col_ptr[j], self.col_ptr[j + 1]);
+                    let mut s = z[j];
+                    for p in (cs + 1)..ce {
+                        s -= self.l_values[p] * z[self.row_idx[p]];
+                    }
+                    z[j] = s / self.l_values[cs];
+                }
+            }
+            fn name(&self) -> &'static str {
+                "experiment"
+            }
+        }
+        let pre = L { n, col_ptr, row_idx, l_values };
+        // Instrument the first application: is M numerically SPD?
+        let mut z0 = vec![0.0; n];
+        pre.apply(f_f, &mut z0);
+        let rz0: f64 = f_f.iter().zip(z0.iter()).map(|(a, b)| a * b).sum();
+        let nf_z = z0.iter().filter(|v| !v.is_finite()).count();
+        let z0_max = z0.iter().copied().filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
+        println!(
+            "    [probe] perturbations={} r·z={:.3e} nonfinite_z={} |z|max={:.3e}",
+            perturbations, rz0, nf_z, z0_max
+        );
+        let max_iter = 1000usize.max(n / 4);
+        let res = pcg_solve(k_ff, f_f, &pre, 1e-8, max_iter);
+        let ku = k_ff.sym_mat_vec(&res.x);
+        let f_norm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let true_rel: f64 = ku.iter().zip(f_f.iter())
+            .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+        (perturbations, res.iterations, res.converged, true_rel)
+    }
+
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        println!("=== plate {}x{}: nf={} ===", nx, ny, nf);
+
+        for &restore_rel in &[1e-2, 1e-1, 1.0] {
+            let (pert, iters, conv, true_rel) =
+                ic0_restore_sweep(&asm.k_ff, &f_f, 0.0, restore_rel);
+            println!(
+                "  restore-up {:.0e}: perturbations={} converged={} iters={} true_rel={:.2e}",
+                restore_rel, pert, conv, iters, true_rel
+            );
+        }
+        for &alpha in &[1e-4, 1e-3, 1e-2, 1e-1] {
+            let (pert, iters, conv, true_rel) =
+                ic0_restore_sweep(&asm.k_ff, &f_f, alpha, 1e-1);
+            println!(
+                "  diag-shift {:.0e} (+restore 1e-1): perturbations={} converged={} iters={} true_rel={:.2e}",
+                alpha, pert, conv, iters, true_rel
+            );
+        }
+    }
+}
+
+/// Experiment harness (Phase 3.2): does fill-reducing ordering rescue IC(0)
+/// on MITC4 shells? IC(0) quality is ordering-sensitive; AMD reduces the
+/// effective dropped fill. Factorizes the AMD-permuted K_ff with strict IC(0),
+/// then Shifted-IC, and reports PCG convergence on the permuted system.
+///   cargo test --release --test sparse_shell_gates diagnose_ic0_ordering -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_ic0_ordering() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        let f_norm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let max_iter = 1000usize.max(nf / 4);
+        println!("=== plate {}x{}: nf={} ===", nx, ny, nf);
+
+        for ordering in [CholOrdering::Amd, CholOrdering::Rcm] {
+            let sym = symbolic_cholesky_with(k_ff, ordering);
+            let k_perm = k_ff.permute_symmetric(&sym.perm);
+            let f_perm: Vec<f64> = (0..nf).map(|i| f_f[sym.perm[i]]).collect();
+            let label = match ordering {
+                CholOrdering::Amd => "amd",
+                CholOrdering::Rcm => "rcm",
+            };
+
+            match Ic0Preconditioner::new(&k_perm) {
+                Some(pre) => {
+                    let res = pcg_solve(&k_perm, &f_perm, &pre, 1e-8, max_iter);
+                    let ku = k_perm.sym_mat_vec(&res.x);
+                    let true_rel: f64 = ku.iter().zip(f_perm.iter())
+                        .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+                    println!(
+                        "  {} ic0: converged={} iters={} true_rel={:.2e}",
+                        label, res.converged, res.iterations, true_rel
+                    );
+                }
+                None => println!("  {} ic0: BUILD FAILED", label),
+            }
+
+            let pre = ShiftedIcPreconditioner::new(&k_perm, 0.0);
+            let mut z0 = vec![0.0; nf];
+            pre.apply(&f_perm, &mut z0);
+            let nf_z = z0.iter().filter(|v| !v.is_finite()).count();
+            let res = pcg_solve(&k_perm, &f_perm, &pre, 1e-8, max_iter);
+            let ku = k_perm.sym_mat_vec(&res.x);
+            let true_rel: f64 = ku.iter().zip(f_perm.iter())
+                .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+            println!(
+                "  {} ics: perturbations={} nonfinite_z={} converged={} iters={} true_rel={:.2e}",
+                label, pre.perturbations(), nf_z, res.converged, res.iterations, true_rel
+            );
+        }
+    }
 }
 
 /// Diagnostic: check what happens to shell pivots and diagonal shifts.
@@ -773,6 +1182,7 @@ fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
         .collect();
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: HashMap::new(),
@@ -861,6 +1271,7 @@ fn make_compressed_plate(nx: usize, ny: usize) -> SolverInput3D {
     }
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,
@@ -1207,6 +1618,578 @@ fn guyan_3d_vs_linear_parity() {
     );
 }
 
+/// Measurement (Phase 3.4, ITERATIVE_THRESHOLD decision): end-to-end cost of
+/// the auto-mode PCG attempt vs direct on SS plates. After the preconditioner
+/// investigation of 2026-09-22 (size-scaled stall window), auto CONVERGES via
+/// PCG-Jacobi on ≥20×20 shells: measured −71% (20×20), −75% (30×30) and −85%
+/// (50×50) end-to-end vs direct. The 10×10 row stays direct (nf=684 <
+/// threshold).
+///   cargo test --release --test sparse_shell_gates diagnose_pcg_attempt_overhead -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_pcg_attempt_overhead() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30), (50, 50)] {
+        let timed = |method: Option<&str>| -> (f64, String) {
+            let mut input = make_ss_plate(nx, ny);
+            if let Some(m) = method {
+                input.solver_options = Some(SolverOptions {
+                    method: Some(m.to_string()),
+                    preconditioner: None,
+                    tolerance: None,
+                    max_iterations: None,
+                });
+            }
+            // Warmup
+            let _ = linear::solve_3d(&input).unwrap();
+            let t0 = Instant::now();
+            let r = linear::solve_3d(&input).unwrap();
+            let ms = t0.elapsed().as_secs_f64() * 1000.0;
+            (ms, r.solver_run_meta.as_ref().unwrap().solver_path.clone())
+        };
+        let (auto_ms, auto_path) = timed(None);
+        let (direct_ms, direct_path) = timed(Some("direct"));
+        let overhead_pct = (auto_ms - direct_ms) / direct_ms.max(1e-9) * 100.0;
+        println!(
+            "plate {}x{}: auto={:.1}ms ({}) direct={:.1}ms ({}) overhead={:+.1}%",
+            nx, ny, auto_ms, auto_path, direct_ms, direct_path, overhead_pct
+        );
+    }
+}
+
+// ==================== PCG Preconditioner Investigation (2026-09-22) ====================
+
+/// Local symmetric scaling B = S A S (S = diag(s)) for the equilibration
+/// experiments below. Deliberately NOT production code: measured neutral on
+/// MITC4 shells (see `diagnose_precond_sweep` results in the investigation
+/// report — PCG-Jacobi on the scaled matrix is mathematically the same
+/// iteration as Jacobi on the original).
+fn symmetric_scale_local(a: &dedaliano_engine::linalg::CscMatrix, s: &[f64]) -> dedaliano_engine::linalg::CscMatrix {
+    let mut out = a.clone();
+    for j in 0..a.n {
+        for k in a.col_ptr[j]..a.col_ptr[j + 1] {
+            out.values[k] = a.values[k] * s[a.row_idx[k]] * s[j];
+        }
+    }
+    out
+}
+
+/// Local nodal block-Jacobi (dense Cholesky per contiguous DOF block with a
+/// 1e-12 relative pivot floor), for the H3/H5 experiments. Deliberately NOT
+/// production code: measured neutral vs point-Jacobi on MITC4 shells (same
+/// iteration count, ~1.5× per-iteration cost), so it was not promoted.
+struct LocalBlockJacobi {
+    bounds: Vec<usize>,
+    factors: Vec<f64>,
+    factor_offsets: Vec<usize>,
+}
+
+impl LocalBlockJacobi {
+    fn new(a: &dedaliano_engine::linalg::CscMatrix, bounds: &[usize]) -> Option<Self> {
+        if bounds.len() < 2 || bounds[0] != 0 || bounds[bounds.len() - 1] != a.n {
+            return None;
+        }
+        let n_blocks = bounds.len() - 1;
+        let mut factors = Vec::new();
+        let mut factor_offsets = vec![0usize];
+        for b in 0..n_blocks {
+            let (s, e) = (bounds[b], bounds[b + 1]);
+            let m = e - s;
+            if m == 0 || m > 8 {
+                return None;
+            }
+            let mut blk = vec![0.0; m * m];
+            let mut max_diag = 0.0f64;
+            for j in s..e {
+                for k in a.col_ptr[j]..a.col_ptr[j + 1] {
+                    let i = a.row_idx[k];
+                    if i >= s && i < e {
+                        blk[(i - s) * m + (j - s)] = a.values[k];
+                        if i == j {
+                            max_diag = max_diag.max(a.values[k]);
+                        }
+                    }
+                }
+            }
+            let floor = 1e-12 * max_diag.max(1.0);
+            for j in 0..m {
+                for k in 0..j {
+                    let mut l_jk = blk[j * m + k];
+                    for p in 0..k {
+                        l_jk -= blk[j * m + p] * blk[k * m + p];
+                    }
+                    blk[j * m + k] = l_jk / blk[k * m + k];
+                }
+                let mut d = blk[j * m + j];
+                for p in 0..j {
+                    d -= blk[j * m + p] * blk[j * m + p];
+                }
+                blk[j * m + j] = if !d.is_finite() || d <= floor { floor } else { d }.sqrt();
+            }
+            factors.extend_from_slice(&blk);
+            factor_offsets.push(factors.len());
+        }
+        Some(Self { bounds: bounds.to_vec(), factors, factor_offsets })
+    }
+}
+
+impl Preconditioner for LocalBlockJacobi {
+    fn apply(&self, r: &[f64], z: &mut [f64]) {
+        for b in 0..self.bounds.len() - 1 {
+            let (s, e) = (self.bounds[b], self.bounds[b + 1]);
+            let m = e - s;
+            let l = &self.factors[self.factor_offsets[b]..self.factor_offsets[b + 1]];
+            for i in 0..m {
+                let mut acc = r[s + i];
+                for j in 0..i {
+                    acc -= l[i * m + j] * z[s + j];
+                }
+                z[s + i] = acc / l[i * m + i];
+            }
+            for i in (0..m).rev() {
+                let mut acc = z[s + i];
+                for j in (i + 1)..m {
+                    acc -= l[j * m + i] * z[s + j];
+                }
+                z[s + i] = acc / l[i * m + i];
+            }
+        }
+    }
+    fn name(&self) -> &'static str {
+        "bjacobi-local"
+    }
+}
+
+/// Block boundaries of the free DOFs grouped by node. Free-DOF numbering is
+/// node-major (`solver::dof::DofNumbering::build_3d` iterates sorted node ids
+/// and, per node, local DOFs 0..dofs_per_node pushing free ones first), so
+/// each node's free DOFs form one contiguous ascending range.
+fn free_node_block_bounds(dof_num: &DofNumbering, nf: usize) -> Vec<usize> {
+    let mut bounds = vec![0usize];
+    let mut count = 0usize;
+    for &nid in &dof_num.node_order {
+        let before = count;
+        for ld in 0..dof_num.dofs_per_node {
+            if let Some(&d) = dof_num.map.get(&(nid, ld)) {
+                if d < nf {
+                    assert_eq!(d, count, "free DOF numbering is not node-contiguous");
+                    count += 1;
+                }
+            }
+        }
+        if count > before {
+            bounds.push(count);
+        }
+    }
+    assert_eq!(count, nf);
+    bounds
+}
+
+/// Instrumented PCG identical to `linalg::pcg::pcg_solve` but WITHOUT the
+/// stagnation safeguard, logging ‖r‖/‖b‖ every `log_every` iterations.
+/// Diagnostic only — answers "is the observed Jacobi/SSOR stall a divergence
+/// or slow convergence the safeguard aborts?".
+fn pcg_trace_no_guard(
+    a: &dedaliano_engine::linalg::CscMatrix,
+    b: &[f64],
+    pre: &dyn Preconditioner,
+    tol: f64,
+    max_iter: usize,
+    log_every: usize,
+) -> (dedaliano_engine::linalg::PcgResult, Vec<(usize, f64)>) {
+    let n = a.n;
+    let bnorm: f64 = b.iter().map(|v| v * v).sum::<f64>().sqrt();
+    let mut x = vec![0.0; n];
+    let mut r = b.to_vec();
+    let mut z = vec![0.0; n];
+    let mut p = vec![0.0; n];
+    let mut trace = Vec::new();
+
+    pre.apply(&r, &mut z);
+    let mut rz: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
+    if !rz.is_finite() || rz <= 0.0 {
+        return (
+            dedaliano_engine::linalg::PcgResult { x, iterations: 0, final_rel_residual: 1.0, converged: false },
+            trace,
+        );
+    }
+    p.copy_from_slice(&z);
+
+    let mut iterations = 0;
+    let mut final_rel = 1.0;
+    let mut converged = false;
+
+    for iter in 0..max_iter {
+        let ap = a.sym_mat_vec(&p);
+        let pap: f64 = p.iter().zip(ap.iter()).map(|(pi, api)| pi * api).sum();
+        if !pap.is_finite() || pap <= 0.0 {
+            println!("  [trace] BREAKDOWN at iter {}: pᵀAp={:.3e}", iter, pap);
+            break;
+        }
+        let alpha = rz / pap;
+        for ((x_i, r_i), (p_i, ap_i)) in x.iter_mut().zip(r.iter_mut()).zip(p.iter().zip(ap.iter())) {
+            *x_i += alpha * p_i;
+            *r_i -= alpha * ap_i;
+        }
+        iterations = iter + 1;
+        let rnorm: f64 = r.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let rel = rnorm / bnorm;
+        final_rel = rel;
+        if iter % log_every == 0 || rel <= tol {
+            trace.push((iterations, rel));
+        }
+        if rel <= tol {
+            converged = true;
+            break;
+        }
+        pre.apply(&r, &mut z);
+        let rz_new: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
+        if !rz_new.is_finite() || rz_new <= 0.0 {
+            println!("  [trace] BREAKDOWN at iter {}: rᵀz={:.3e}", iter, rz_new);
+            break;
+        }
+        let beta = rz_new / rz;
+        rz = rz_new;
+        for (p_i, z_i) in p.iter_mut().zip(z.iter()) {
+            *p_i = z_i + beta * *p_i;
+        }
+    }
+    (
+        dedaliano_engine::linalg::PcgResult { x, iterations, final_rel_residual: final_rel, converged },
+        trace,
+    )
+}
+
+/// H1: is the Jacobi/SSOR "stall" on ≥20×20 plates divergence, or slow
+/// convergence that the 50-iteration stagnation safeguard aborts? Runs the
+/// production PCG recurrence without the safeguard and prints the residual
+/// curve plus an asymptotic rate / κ(M⁻¹K) estimate.
+///
+/// Measured 2026-09-22 (Apple M3, release): SLOW CONVERGENCE, not divergence.
+/// Jacobi converges (tol 1e-8) on every size once the safeguard is removed —
+/// 10×10: 109 iters, 20×20: 235 (with ‖r‖/‖b‖ climbing to ≈11 around iter
+/// 100 before collapsing — CG's 2-norm residual is not monotone), 30×30: 338,
+/// 50×50: 495. This motivated the size-scaled stall window in `pcg_solve`.
+///   cargo test --release --test sparse_shell_gates diagnose_pcg_stall_curve -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_pcg_stall_curve() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30), (50, 50)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        println!("=== plate {}x{}: nf={}, nnz={} ===", nx, ny, nf, k_ff.nnz());
+
+        for which in ["jacobi", "ssor"] {
+            let pre: Box<dyn Preconditioner> = match which {
+                "jacobi" => Box::new(JacobiPreconditioner::new(k_ff).unwrap()),
+                _ => Box::new(SsorPreconditioner::new(k_ff, 1.0).unwrap()),
+            };
+            let t0 = Instant::now();
+            let (res, trace) = pcg_trace_no_guard(k_ff, &f_f, pre.as_ref(), 1e-8, 20000, 500);
+            let ms = t0.elapsed().as_secs_f64() * 1000.0;
+            println!(
+                "  {}: converged={} iters={} final_rel={:.3e} time={:.1}ms",
+                which, res.converged, res.iterations, res.final_rel_residual, ms
+            );
+            for &(it, rel) in &trace {
+                println!("    iter {:>5}: rel={:.6e}", it, rel);
+            }
+            // Asymptotic rate from the last quarter of the trace:
+            // r per iter, κ(M⁻¹K) ≈ ((1+r)/(1-r))² (CG worst-case bound).
+            if trace.len() >= 4 {
+                let q = trace.len() * 3 / 4;
+                let (i0, r0) = trace[q];
+                let (i1, r1) = trace[trace.len() - 1];
+                if r1 > 0.0 && r1 < r0 && i1 > i0 {
+                    let rate = (r1 / r0).powf(1.0 / (i1 - i0) as f64);
+                    let kappa = ((1.0 + rate) / (1.0 - rate)).powi(2);
+                    println!(
+                        "    asymptotic rate/iter={:.6} over iters {}..{} → κ(M⁻¹K) ≈ {:.3e}",
+                        rate, i0, i1, kappa
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// H1b: plateau length under the production stagnation criterion — the max
+/// run of consecutive iterations without improving the best residual by the
+/// 0.99 factor. Grounds the size-scaled stall limit in `pcg_solve`: a fixed
+/// 50-iteration window aborts legitimate convergence (measured plateaus:
+/// Jacobi 164 @ 20×20, 272 @ 30×30, 426 @ 50×50, 527 @ 70×70 — ≈ 3.2·√nf).
+///   cargo test --release --test sparse_shell_gates diagnose_pcg_plateau_length -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_pcg_plateau_length() {
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30), (50, 50), (70, 70)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+
+        for which in ["jacobi", "ssor"] {
+            let pre: Box<dyn Preconditioner> = match which {
+                "jacobi" => Box::new(JacobiPreconditioner::new(k_ff).unwrap()),
+                _ => Box::new(SsorPreconditioner::new(k_ff, 1.0).unwrap()),
+            };
+            // Manual PCG tracking the production stall counters (0.99 factor).
+            let n = k_ff.n;
+            let bnorm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let mut x = vec![0.0; n];
+            let mut r = f_f.clone();
+            let mut z = vec![0.0; n];
+            let mut p = vec![0.0; n];
+            pre.apply(&r, &mut z);
+            let mut rz: f64 = r.iter().zip(z.iter()).map(|(a, b)| a * b).sum();
+            p.copy_from_slice(&z);
+            let mut best_rel = 1.0f64;
+            let mut stall = 0usize;
+            let mut max_stall = 0usize;
+            let mut iters = 0usize;
+            let mut converged = false;
+            for _ in 0..20000 {
+                let ap = k_ff.sym_mat_vec(&p);
+                let pap: f64 = p.iter().zip(ap.iter()).map(|(a, b)| a * b).sum();
+                let alpha = rz / pap;
+                for ((x_i, r_i), (p_i, ap_i)) in
+                    x.iter_mut().zip(r.iter_mut()).zip(p.iter().zip(ap.iter()))
+                {
+                    *x_i += alpha * p_i;
+                    *r_i -= alpha * ap_i;
+                }
+                iters += 1;
+                let rel = r.iter().map(|v| v * v).sum::<f64>().sqrt() / bnorm;
+                if rel <= 1e-8 {
+                    converged = true;
+                    break;
+                }
+                if rel < 0.99 * best_rel {
+                    best_rel = rel;
+                    stall = 0;
+                } else {
+                    stall += 1;
+                    max_stall = max_stall.max(stall);
+                }
+                pre.apply(&r, &mut z);
+                let rz_new: f64 = r.iter().zip(z.iter()).map(|(a, b)| a * b).sum();
+                let beta = rz_new / rz;
+                rz = rz_new;
+                for (p_i, z_i) in p.iter_mut().zip(z.iter()) {
+                    *p_i = z_i + beta * *p_i;
+                }
+            }
+            println!(
+                "  {}x{} {}: converged={} iters={} max_stall_run={} (prod stall limit now max(50, 8·√n))",
+                nx, ny, which, converged, iters, max_stall
+            );
+        }
+    }
+}
+
+/// H2/H3/H5: symmetric diagonal equilibration (D⁻¹ᐟ²KD⁻¹ᐟ²) and nodal
+/// block-Jacobi (6×6), alone and combined, vs the existing point
+/// preconditioners on SS MITC4 plates 10/20/30/50. Times preconditioner build
+/// and the PCG run separately; checks the TRUE residual against the original
+/// (unscaled) system. max_iter is generous (4·nf) to observe slow convergence;
+/// the production default is 1000.max(nf/4) — flagged per row when exceeded.
+///
+/// Measured 2026-09-22 (Apple M3, release, without the old 50-iter stall
+/// abort): Jacobi is the winner on every size — 109/235/338/495 iters for
+/// 10/20/30/50×50, 4-11× faster than the direct solve. Equilibration changes
+/// nothing (PCG-Jacobi on D⁻¹ᐟ²KD⁻¹ᐟ² is the same iteration), block-Jacobi
+/// matches Jacobi's iteration count at ~1.5× per-iteration cost, SSOR needs
+/// ~1.7× more iterations at ~4× per-iteration cost, and IC(0)/MIC still fail
+/// to factorize even after scaling (shifted-IC still breaks PCG down at
+/// iteration 0). Conclusion: no cheap preconditioner beats Jacobi here; the
+/// fix was the stall safeguard, not the preconditioner.
+///   cargo test --release --test sparse_shell_gates diagnose_precond_sweep -- --ignored --nocapture
+#[test]
+#[ignore]
+fn diagnose_precond_sweep() {
+    let variants = [
+        "jacobi", "ssor", "bjacobi",
+        "scaled+jacobi", "scaled+ssor", "scaled+bjacobi",
+        "scaled+ic0", "scaled+ics", "scaled+mic",
+    ];
+
+    for &(nx, ny) in &[(10usize, 10usize), (20, 20), (30, 30), (50, 50)] {
+        let input = make_ss_plate(nx, ny);
+        let dof_num = DofNumbering::build_3d(&input);
+        let nf = dof_num.n_free;
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let k_ff = &asm.k_ff;
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+        let f_norm: f64 = f_f.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let bounds = free_node_block_bounds(&dof_num, nf);
+        let prod_cap = 1000usize.max(nf / 4);
+        let max_iter = 4 * nf;
+
+        // Direct reference (symbolic + numeric + solve).
+        let t0 = Instant::now();
+        let sym = std::rc::Rc::new(symbolic_cholesky(k_ff));
+        let num = numeric_cholesky(&sym, k_ff).expect("direct factorization failed");
+        let _u = dedaliano_engine::linalg::sparse_cholesky_solve(&num, &f_f);
+        let direct_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        println!(
+            "=== plate {}x{}: nf={}, nnz={}, blocks={} | direct={:.1}ms, prod_max_iter={} ===",
+            nx, ny, nf, k_ff.nnz(), bounds.len() - 1, direct_ms, prod_cap
+        );
+
+        // Equilibration: s_i = 1/sqrt(diag_i)
+        let mut diag = vec![0.0f64; nf];
+        for j in 0..nf {
+            for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                if k_ff.row_idx[p] == j {
+                    diag[j] = k_ff.values[p];
+                    break;
+                }
+            }
+        }
+        let s: Vec<f64> = diag.iter().map(|&d| 1.0 / d.sqrt()).collect();
+        let ks = symmetric_scale_local(k_ff, &s);
+        let fs: Vec<f64> = f_f.iter().zip(s.iter()).map(|(f, si)| f * si).collect();
+
+        for &v in &variants {
+            let scaled = v.starts_with("scaled+");
+            let inner = if scaled { &v["scaled+".len()..] } else { v };
+            let (mat, rhs): (&dedaliano_engine::linalg::CscMatrix, &Vec<f64>) =
+                if scaled { (&ks, &fs) } else { (k_ff, &f_f) };
+
+            let t0 = Instant::now();
+            let pre: Option<Box<dyn Preconditioner>> = match inner {
+                "jacobi" => JacobiPreconditioner::new(mat).map(|p| Box::new(p) as _),
+                "ssor" => SsorPreconditioner::new(mat, 1.0).map(|p| Box::new(p) as _),
+                "bjacobi" => LocalBlockJacobi::new(mat, &bounds).map(|p| Box::new(p) as _),
+                "ic0" => Ic0Preconditioner::new(mat).map(|p| Box::new(p) as _),
+                "ics" => Some(Box::new(ShiftedIcPreconditioner::new(mat, 0.0)) as _),
+                "mic" => MicPreconditioner::new(mat).map(|p| Box::new(p) as _),
+                _ => unreachable!(),
+            };
+            let build_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            let Some(pre) = pre else {
+                println!("  {:>15}: BUILD FAILED", v);
+                continue;
+            };
+
+            let t0 = Instant::now();
+            let (res, _trace) = pcg_trace_no_guard(mat, rhs, pre.as_ref(), 1e-8, max_iter, 1_000_000);
+            let solve_ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+            // Unscale and verify against the ORIGINAL system.
+            let x: Vec<f64> = if scaled {
+                res.x.iter().zip(s.iter()).map(|(y, si)| y * si).collect()
+            } else {
+                res.x.clone()
+            };
+            let ku = k_ff.sym_mat_vec(&x);
+            let true_rel: f64 = ku.iter().zip(f_f.iter())
+                .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt() / f_norm.max(1e-30);
+
+            let over_cap = if res.iterations > prod_cap { " [>prod_cap]" } else { "" };
+            println!(
+                "  {:>15}: converged={} iters={:>6} true_rel={:.2e} build={:.1}ms solve={:.1}ms{}",
+                v, res.converged, res.iterations, true_rel, build_ms, solve_ms, over_cap
+            );
+        }
+    }
+}
+
+// ==================== Shifted-IC / MIC Gates (Phase 3) ====================
+
+/// Gate: shifted-IC factorizes the MITC4 shell pattern that breaks strict
+/// IC(0), and reports the restored pivots. (Convergence quality is a separate
+/// question — measured in `diagnose_shifted_ic_sweep`; on these shells the
+/// shifted factor does not make PCG converge, which is why Auto degrades on
+/// verified convergence rather than on build success.)
+#[test]
+fn shifted_ic_factorizes_shell_pattern_that_breaks_ic0() {
+    let input = make_ss_plate(10, 10);
+    let dof_num = DofNumbering::build_3d(&input);
+    let asm = assemble_sparse_3d(&input, &dof_num, false);
+
+    assert!(
+        Ic0Preconditioner::new(&asm.k_ff).is_none(),
+        "strict IC(0) unexpectedly succeeded on the MITC4 pattern — update this gate"
+    );
+    let pre = ShiftedIcPreconditioner::new(&asm.k_ff, 0.0);
+    assert!(
+        pre.perturbations() > 0,
+        "shifted-IC should report restored pivots on the MITC4 pattern"
+    );
+}
+
+/// Gate: a forced PCG solve on a large MITC4 shell (30×30, nf=5644) never
+/// returns an unverified result. Measured 2026-09-22 (after the size-scaled
+/// stall window in `pcg_solve`): shifted-IC breaks down at iteration 0
+/// (restored drilling pivots make M non-SPD) and the chain degrades to
+/// Jacobi, which converges — the path is `pcg_jacobi` with displacements
+/// matching the direct solve. If a future change makes every preconditioner
+/// fail here, the verified direct fallback keeps this gate green as well.
+#[test]
+fn pcg_shell_30x30_verified_or_direct_fallback() {
+    let pcg = linear::solve_3d(&{
+        let mut i = make_ss_plate(30, 30);
+        i.solver_options = Some(SolverOptions {
+            method: Some("pcg".to_string()),
+            preconditioner: None,
+            tolerance: None,
+            max_iterations: None,
+        });
+        i
+    })
+    .expect("PCG-forced 30x30 shell solve failed");
+
+    let path = pcg.solver_run_meta.as_ref().unwrap().solver_path.clone();
+    assert!(
+        path.starts_with("pcg_"),
+        "expected a pcg_* path (succeeded or verified fallback), got {}",
+        path
+    );
+
+    // Whatever path produced the result, the residual must be verified small.
+    let eq = pcg.equilibrium.as_ref().expect("should have equilibrium");
+    assert!(eq.residual_ok, "residual should be ok on path {}", path);
+
+    // Parity vs the direct solve.
+    let direct = linear::solve_3d(&{
+        let mut i = make_ss_plate(30, 30);
+        i.solver_options = Some(SolverOptions {
+            method: Some("direct".to_string()),
+            preconditioner: None,
+            tolerance: None,
+            max_iterations: None,
+        });
+        i
+    })
+    .expect("direct 30x30 shell solve failed");
+    assert_eq!(direct.solver_run_meta.as_ref().unwrap().solver_path, "sparse_cholesky");
+
+    let max_disp = direct.displacements.iter()
+        .flat_map(|d| [d.ux.abs(), d.uy.abs(), d.uz.abs(), d.rx.abs(), d.ry.abs(), d.rz.abs()])
+        .fold(0.0f64, f64::max);
+    let mut max_rel_err = 0.0f64;
+    for (a, b) in pcg.displacements.iter().zip(direct.displacements.iter()) {
+        assert_eq!(a.node_id, b.node_id);
+        for (x, y) in [
+            (a.ux, b.ux), (a.uy, b.uy), (a.uz, b.uz),
+            (a.rx, b.rx), (a.ry, b.ry), (a.rz, b.rz),
+        ] {
+            max_rel_err = max_rel_err.max((x - y).abs() / max_disp.max(1e-20));
+        }
+    }
+    assert!(
+        max_rel_err < 1e-9,
+        "PCG-forced vs direct max relative error {:.2e} exceeds 1e-9",
+        max_rel_err
+    );
+}
+
 // ==================== 2D Sparse Runtime Gate ====================
 
 /// Build a long 2D multi-span beam with many elements to test 2D sparse path.
@@ -1252,6 +2235,7 @@ fn make_2d_multi_span(n_elements: usize) -> SolverInput {
     })];
 
     SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     }
@@ -1297,4 +2281,186 @@ fn large_3d_equilibrium_gate() {
     let has_residual = result.structured_diagnostics.iter()
         .any(|d| d.code == DiagnosticCode::ResidualOk || d.code == DiagnosticCode::ResidualHigh);
     assert!(has_residual, "should have residual diagnostic");
+}
+
+// ==================== Modal Mass Parity Gates (fully-sparse eigensolver) ====================
+
+/// Reference modal quantities (frequencies and per-direction effective mass
+/// sums) computed from dense K_ff / M_ff, mirroring modal.rs post-processing.
+fn dense_modal_masses(
+    input: &SolverInput3D,
+    densities: &HashMap<String, f64>,
+    num_modes: usize,
+) -> (Vec<f64>, [f64; 3]) {
+    let dof_num = DofNumbering::build_3d(input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+    let sasm = assemble_sparse_3d(input, &dof_num, false);
+    let k_dense = sasm.k_ff.to_dense_symmetric();
+    let m_full = dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d(input, &dof_num, densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+
+    let eigen = dedaliano_engine::linalg::lanczos_generalized_eigen(&k_dense, &m_ff, nf, num_modes, 0.0)
+        .expect("Dense Lanczos failed");
+
+    // Influence vectors for X, Y, Z translational DOFs (same as modal.rs)
+    let mut r = [vec![0.0; nf], vec![0.0; nf], vec![0.0; nf]];
+    for &node_id in &dof_num.node_order {
+        for (axis, r_axis) in r.iter_mut().enumerate() {
+            if let Some(&d) = dof_num.map.get(&(node_id, axis)) {
+                if d < nf { r_axis[d] = 1.0; }
+            }
+        }
+    }
+
+    // lanczos_generalized_eigen may return more converged Ritz pairs than the
+    // k requested; solve_modal_3d reports exactly num_modes, so cap the
+    // reference to keep the mass sums over the same retained set.
+    let nk = eigen.values.len().min(num_modes);
+    let mut freqs = Vec::new();
+    let mut meff_sum = [0.0f64; 3];
+    for idx in 0..nk {
+        let lam = eigen.values[idx];
+        if lam <= 1e-10 { continue; }
+        freqs.push(lam.sqrt() / (2.0 * std::f64::consts::PI));
+
+        let phi: Vec<f64> = (0..nf).map(|i| eigen.vectors[i * nk + idx]).collect();
+        let mut m_phi = vec![0.0; nf];
+        for i in 0..nf {
+            let mut s = 0.0;
+            for j in 0..nf { s += m_ff[i * nf + j] * phi[j]; }
+            m_phi[i] = s;
+        }
+        let phi_m_phi: f64 = phi.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
+        if phi_m_phi.abs() < 1e-30 { continue; }
+        for (axis, r_axis) in r.iter().enumerate() {
+            let phi_m_r: f64 = r_axis.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
+            let gamma = phi_m_r / phi_m_phi;
+            meff_sum[axis] += gamma * gamma * phi_m_phi;
+        }
+    }
+    (freqs, meff_sum)
+}
+
+fn assert_modal_mass_parity(input: &SolverInput3D, densities: &HashMap<String, f64>, num_modes: usize, label: &str) {
+    let sparse = modal::solve_modal_3d(input, densities, num_modes)
+        .unwrap_or_else(|e| panic!("{}: sparse modal failed: {}", label, e));
+    let (dense_freqs, dense_meff) = dense_modal_masses(input, densities, num_modes);
+
+    // Frequencies, paired mode-by-mode
+    let min_freq = 0.1;
+    let sparse_freqs: Vec<f64> = sparse.modes.iter()
+        .map(|m| m.frequency)
+        .filter(|&f| f > min_freq)
+        .collect();
+    let dense_freqs: Vec<f64> = dense_freqs.into_iter().filter(|&f| f > min_freq).collect();
+    let n_compare = sparse_freqs.len().min(dense_freqs.len());
+    assert!(n_compare > 0, "{}: no modes to compare", label);
+    for i in 0..n_compare {
+        let rel_err = (sparse_freqs[i] - dense_freqs[i]).abs() / dense_freqs[i].max(1e-20);
+        assert!(
+            rel_err < 1e-2,
+            "{}: mode {} frequency mismatch: sparse={:.6}, dense={:.6}, rel_err={:.2e}",
+            label, i, sparse_freqs[i], dense_freqs[i], rel_err
+        );
+    }
+
+    // Effective masses: compared as sums over the retained modes because
+    // eigenvectors can mix within degenerate clusters (symmetric plate modes).
+    // γ²·φᵀMφ is scale-invariant, so eigenvector normalization is irrelevant.
+    let sparse_meff = [
+        sparse.modes.iter().map(|m| m.effective_mass_x).sum::<f64>(),
+        sparse.modes.iter().map(|m| m.effective_mass_y).sum::<f64>(),
+        sparse.modes.iter().map(|m| m.effective_mass_z).sum::<f64>(),
+    ];
+    for axis in 0..3 {
+        let diff = (sparse_meff[axis] - dense_meff[axis]).abs();
+        println!(
+            "{}: axis {} meff sparse={:.6e}, dense={:.6e}, diff={:.2e}",
+            label, axis, sparse_meff[axis], dense_meff[axis], diff
+        );
+        assert!(
+            diff < 0.02 * sparse.total_mass,
+            "{}: axis {} effective mass sum mismatch: sparse={:.6e}, dense={:.6e} (total_mass={:.6e})",
+            label, axis, sparse_meff[axis], dense_meff[axis], sparse.total_mass
+        );
+    }
+}
+
+/// Gate: fully-sparse modal solve (sparse M + sparse eigensolve + sym_mat_vec
+/// post-processing) matches dense-computed frequencies and modal masses on an
+/// 8×8 MITC4 plate.
+#[test]
+fn sparse_modal_mass_parity() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    // 7 modes: the 6th mode (~28.2 Hz) belongs to a degenerate pair; retaining
+    // only one member makes the effective-mass sum depend on the arbitrary
+    // eigenvector rotation inside the cluster, so both members are retained.
+    assert_modal_mass_parity(&input, &densities, 7, "plate_8x8");
+}
+
+/// Cantilever 3D frame along Z (iy ≠ iz breaks flexural degeneracy).
+fn make_cantilever_frame_3d(n_elem: usize) -> SolverInput3D {
+    let l = 6.0;
+    let mut nodes = HashMap::new();
+    for i in 0..=n_elem {
+        let id = i + 1;
+        nodes.insert(id.to_string(), SolverNode3D {
+            id, x: 0.0, y: 0.0, z: i as f64 * l / n_elem as f64,
+        });
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), SolverSection3D {
+        id: 1, name: None, a: 0.0625, iy: 2.0e-4, iz: 3.2552e-4, j: 5.0e-4,
+        cw: None, as_y: None, as_z: None,
+    });
+
+    let mut elements = HashMap::new();
+    for i in 0..n_elem {
+        let id = i + 1;
+        elements.insert(id.to_string(), SolverElement3D {
+            id, elem_type: "frame".to_string(), node_i: id, node_j: id + 1,
+            material_id: 1, section_id: 1,
+            release_my_start: false, release_my_end: false,
+            release_mz_start: false, release_mz_end: false,
+            release_t_start: false, release_t_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+    }
+
+    let mut supports = HashMap::new();
+    supports.insert("1".to_string(), SolverSupport3D {
+        node_id: 1,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    });
+
+    SolverInput3D {
+        solver_options: None,
+        nodes, materials: mats, sections, elements, supports,
+        loads: vec![],
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(),
+    }
+}
+
+/// Gate: same mass parity on a 3D frame (16 elements → 96 free DOFs, above the
+/// n≤80 dense fallback so the sparse Lanczos path is exercised).
+#[test]
+fn sparse_modal_mass_parity_frame() {
+    let input = make_cantilever_frame_3d(16);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    assert_modal_mass_parity(&input, &densities, 5, "frame_cantilever_16");
 }
