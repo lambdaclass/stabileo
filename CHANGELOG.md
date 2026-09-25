@@ -26,8 +26,12 @@ the reciprocal of the eigenvector's largest entry: √m for a single-degree-of-f
 masses and mass ratios (Γ²·φᵀMφ is invariant), and therefore spectral base shear, which is
 built from effective mass. Pinned by `validation/domains/dynamics/spectral_normalization.rs`:
 Γ = 1 and u = Sa/ω² for an SDOF frame in 2D and 3D, and the modal expansion Σ Γₙφₙ = ι over
-all modes of a cantilever — an identity that holds under any normalization only if Γ and φ
-share one.
+all modes of a cantilever, in every direction, in 2D and 3D — an identity that holds under any
+normalization only if Γ and φ share one.
+
+The PRO modal table's "Cum. X/Y" columns added up |Γ| and read the sum as a mass percentage
+against the 90 % target; with unit-maximum shapes a cantilever's first mode showed 157 %,
+marked sufficient, while carrying 61 % of the mass. They now add the modes' mass ratios.
 
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 
