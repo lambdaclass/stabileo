@@ -410,6 +410,13 @@ export interface StabileoTestActions {
    * section that genuinely cannot carry its demand — not a state written into a store.
    */
   updateSection(id: number, data: unknown): void;
+  /**
+   * One combination adding every load case at 1,0, as the combinations table would.
+   *
+   * A TEST MUTATOR. The steel examples carry load cases and no combination, and the one example
+   * that carries combinations is concrete; the code checks read solved combinations only.
+   */
+  combineCases(name: string): number;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -688,6 +695,8 @@ export function installE2EHooks(): void {
     updateSection: (id: number, data: unknown) => {
       modelStore.updateSection(id, data as never);
     },
+    combineCases: (name: string) =>
+      modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
     /** Reset the selection between gestures — the position, not the subject. */

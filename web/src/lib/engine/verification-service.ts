@@ -221,7 +221,6 @@ import {
   normalizeCirsoc201, buildDesignSummary,
   type MemberDesignResult as MemberResult,
 } from './design-check-results';
-import { DESIGN_CODES, type DesignCodeId } from './codes/index';
 
 /**
  * Run the complete CIRSOC design pipeline: verification + normalization + store update.
@@ -249,8 +248,7 @@ export function runCirsocDesign(
   // (e.g. an all-steel model, nothing checkable by CIRSOC 201) returns a null
   // summary so callers surface an error instead of a "0 members" success.
   if (normalized.length === 0) return { normalized, concrete, summary: null };
-  const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
-  const summary = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
+  const summary = buildDesignSummary(normalized, 'cirsoc', 'CIRSOC 201/301');
   return { normalized: summary.results, concrete, summary };
 }
 

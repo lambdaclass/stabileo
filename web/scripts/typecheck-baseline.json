@@ -1,5 +1,5 @@
 {
-	"total": 468,
+	"total": 467,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -1007,12 +1007,6 @@
 			"file": "src/lib/engine/station-design-forces.ts",
 			"code": "TS6196",
 			"message": "'BeamRegions' is declared but never used.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/verification-service.ts",
-			"code": "TS6133",
-			"message": "'DesignCodeId' is declared but its value is never read.",
 			"count": 1
 		},
 		{
