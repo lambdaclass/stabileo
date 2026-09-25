@@ -11,6 +11,7 @@
   import MaterialsTable from './tables/MaterialsTable.svelte';
   import SectionsTable from './tables/SectionsTable.svelte';
   import Icon from './ribbon/Icon.svelte';
+  import ToolOptions from './ribbon/ToolOptions.svelte';
 
   /* `plates` and `constraints` exist only in PRO; see the TABS list. */
   type TabId = 'nodes' | 'elements' | 'supports' | 'loads' | 'materials' | 'sections' | 'plates' | 'constraints';
@@ -40,6 +41,10 @@
   /* Pinned means the caller chose; the strip is what would let the reader
      choose again, so it goes with it. */
   const shown = $derived(pinned ?? activeTab);
+  const phoneOptions = $derived(
+    uiStore.isMobile && uiStore.appMode === 'basico' && !pinned
+    && ['node', 'element', 'support', 'load'].includes(uiStore.currentTool),
+  );
 
   /**
    * The tool each tab corresponds to.
@@ -89,10 +94,11 @@
   const TABS: { id: TabId; labelKey: string; icon: string; count: () => number; pro?: boolean }[] = [
     { id: 'nodes', labelKey: 'data.nodes', icon: 'node', count: () => modelStore.nodes.size },
     { id: 'elements', labelKey: 'data.elements', icon: 'element', count: () => modelStore.elements.size },
-    { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
-    { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
+    /* The ribbon's order: draw, then properties, then conditions. */
     { id: 'materials', labelKey: 'data.materials', icon: 'material', count: () => modelStore.materials.size },
     { id: 'sections', labelKey: 'data.sections', icon: 'section', count: () => modelStore.sections.size },
+    { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
+    { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
     /*
      * Plates and constraints exist only in PRO, and are filtered out below
      * rather than declared twice. A mode that cannot contain a plate has no
@@ -154,6 +160,14 @@
   </div>
   {/if}
 
+  <!--
+    A phone's tool options: under the tool buttons that arm them, above the
+    table they fill. On a desktop they are the options bar under the ribbon.
+  -->
+  {#if phoneOptions}
+    <div class="dt-tool-options" data-testid="dt-tool-options"><ToolOptions /></div>
+  {/if}
+
   <div class="table-wrapper">
     {#if shown === 'nodes'}
       <NodesTable />
@@ -176,6 +190,102 @@
 </div>
 
 <style>
+  /*
+   * ── The phone's tool options: a taller row, built for a thumb ─────
+   * Only rendered on a phone (phoneOptions), so nothing here reaches the
+   * desktop options bar. The tool's main choice (create / joints, rigid /
+   * pinned, the support types, the load types) gets a row of its own with
+   * equal, wide buttons; what that choice opens — the joint kinds, the
+   * directions, the values — keeps its compact size underneath, so the two
+   * levels read as two levels. The tool's name and the separators give way:
+   * the highlighted tool button above already names it, and rows replace
+   * the separators. Self weight is left to the checkbox just below.
+   */
+  .dt-tool-options {
+    display: flex;
+    align-items: center;
+    column-gap: 0.4rem;
+    row-gap: 0.55rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 0.7rem 0.75rem;
+    border-bottom: 1px solid var(--st-hair);
+    font-size: 0.82rem;
+    color: var(--st-text-2);
+    flex: none;
+  }
+  .dt-tool-options :global(.tb-tool-name),
+  .dt-tool-options :global(.tb-sep),
+  .dt-tool-options :global(.ft-sep),
+  .dt-tool-options :global(.ft-selfweight-toggle) { display: none; }
+  /* Below the tool buttons above in weight: shorter than their 44 px. */
+  .dt-tool-options :global(.ft-primary) {
+    order: -2;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 34px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .dt-tool-options :global(.ft-ic) { display: inline-block; width: 16px; height: 16px; }
+  /* The phone draws its own glyphs; the desktop's text symbols give way. */
+  .dt-tool-options :global(.ft-sup-ic) { display: none; }
+  .dt-tool-options :global(.ft-break) {
+    display: block;
+    order: -1;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .dt-tool-options :global(.ft-row) {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .dt-tool-options :global(.ft-sup-btn.ft-primary) { font-size: 0.76rem; gap: 0.25rem; }
+  /* Rigid / pinned are radio labels: shown as the same wide buttons. */
+  .dt-tool-options :global(.ft-opt-radio.ft-primary) {
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+  }
+  .dt-tool-options :global(.ft-opt-radio.ft-primary input) { display: none; }
+  .dt-tool-options :global(.ft-opt-radio.ft-primary:has(input:checked)) {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+  /* 3D supports: the six restraints as six equal toggles, under the presets. */
+  .dt-tool-options :global(.ft-dof) {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 26px;
+    padding: 0.1rem 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    font-family: var(--st-mono);
+    font-size: 0.76rem;
+    color: var(--st-text-2);
+  }
+  .dt-tool-options :global(.ft-dof input) { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .dt-tool-options :global(.ft-dof:has(input:checked)) {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+    background: color-mix(in srgb, var(--st-accent) 12%, var(--st-surface-2));
+  }
+  .dt-tool-options :global(.ft-hint) {
+    flex-basis: 100%;
+    font-size: 0.74rem;
+    color: var(--st-text-3);
+  }
+
   .data-table {
     height: 100%;
     display: flex;

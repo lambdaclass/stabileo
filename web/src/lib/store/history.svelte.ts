@@ -4,6 +4,7 @@ import type { DetailingStore } from '../engine/detailing/assembly';
 import type { ProjectCodeSettings } from '../codes/project-code-settings';
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
+import { uiStore } from './ui.svelte';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -14,6 +15,13 @@ import type { StoredJointDesigns } from '../connection/joint-choices';
 
 export interface ModelSnapshot {
   name?: string;
+  /**
+   * How the space workspace was showing the model when this entry was taken
+   * (history only). A flat plane model and a flat space model are stored
+   * alike; undoing the edit that turned a standing plane model into a space
+   * one must also stand it up again (materialize-space.ts).
+   */
+  presentation3D?: import('../geometry/coordinate-system').ViewportPresentation3D;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   /** Where the model came from (e.g. CAD-derived draft) and review status. */
   provenance?: ModelProvenance;
@@ -156,7 +164,7 @@ function createHistoryStore() {
      * pass it explicitly: worst case is a full restore, never a skipped one.
      */
     pushState(opts?: { notifyMutation?: boolean; kind?: SnapshotKind }): void {
-      const snapshot = modelStore.snapshot();
+      const snapshot = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
       const kind: SnapshotKind = opts?.kind ?? 'structural';
       undoStack.push(snapshot);
       undoKinds.push(kind);
@@ -173,7 +181,7 @@ function createHistoryStore() {
 
     undo(): void {
       if (undoStack.length === 0) return;
-      const current = modelStore.snapshot();
+      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
       const kind = undoKinds.pop() ?? 'structural';
       const prev = undoStack.pop()!;
       redoStack.push(current);
@@ -185,11 +193,12 @@ function createHistoryStore() {
       } else {
         modelStore.restore(prev);
       }
+      if (prev.presentation3D) uiStore.viewportPresentation3D = prev.presentation3D;
     },
 
     redo(): void {
       if (redoStack.length === 0) return;
-      const current = modelStore.snapshot();
+      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
       const kind = redoKinds.pop() ?? 'structural';
       const next = redoStack.pop()!;
       undoStack.push(current);
@@ -201,6 +210,7 @@ function createHistoryStore() {
       } else {
         modelStore.restore(next);
       }
+      if (next.presentation3D) uiStore.viewportPresentation3D = next.presentation3D;
     },
 
     clear(): void {

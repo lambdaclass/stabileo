@@ -36,7 +36,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { pickElement3DMetadata, type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -47,6 +47,8 @@ import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
 // below), never during module initialisation.
+import { materializeStandingPlaneModel } from './materialize-space';
+import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
@@ -568,7 +570,7 @@ export interface ThermalLoad {
   id: number;
   elementId: number;
   dtUniform: number;  // °C (uniform temperature change)
-  dtGradient: number; // °C (temperature difference top-bottom)
+  dtGradient: number; // °C, ΔT(bottom face) − ΔT(top face), top = drawn local z (the course's ∇T·h)
   caseId?: number;
 }
 
@@ -1748,8 +1750,26 @@ function createModelStore() {
       model.provenance = { ...model.provenance, status: 'reviewed' as ModelProvenance['status'] };
     },
 
+    /**
+     * Before an edit that makes a standing plane model a space one: rewrite it
+     * in space coordinates as it is shown (materialize-space.ts). A no-op
+     * outside the space workspace, or when the model is not a standing plane one.
+     */
+    ensureSpaceCoordinates(): boolean {
+      if (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro') return false;
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
+      const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
+      if (changed) {
+        modelVersion++;
+        _onMutation?.();
+      }
+      uiStore.useNative3DPresentation();
+      return changed;
+    },
+
     addNode(x: number, y: number, z?: number): number {
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.node++;
       const node: Node = { id, x, y };
       if (z !== undefined && z !== 0) node.z = z;
@@ -1787,6 +1807,16 @@ function createModelStore() {
       model.elements = new Map(model.elements);
     },
 
+    /** Reverse a member (I ↔ J) without changing the structure; see reverse-element.ts. */
+    reverseElement(id: number): void {
+      if (!model.elements.has(id)) return;
+      if (!_undoBatching) _pushUndo?.();
+      modelVersion++;
+      _onMutation?.();
+      reverseElementInModel(model, id);
+      model.elements = new Map(model.elements);
+    },
+
     updateNodeZ(id: number, z: number): void {
       const node = model.nodes.get(id);
       if (node) {
@@ -1815,6 +1845,8 @@ function createModelStore() {
 
     addSupport(nodeId: number, type: SupportType, springs?: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }, opts?: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
+      // A space support on a standing plane model makes it a space one.
+      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)) this.ensureSpaceCoordinates();
       // Remove existing support on this node (only one support per node allowed)
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === nodeId) {
@@ -1906,6 +1938,7 @@ function createModelStore() {
     // ─── 3D Load CRUD ─────────────────────────────────────────────
 
     addNodalLoad3D(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number {
+      this.ensureSpaceCoordinates();
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
@@ -1917,6 +1950,7 @@ function createModelStore() {
     },
 
     addDistributedLoad3D(elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number {
+      this.ensureSpaceCoordinates();
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
       const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
@@ -1930,6 +1964,7 @@ function createModelStore() {
     },
 
     addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number): number {
+      this.ensureSpaceCoordinates();
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
@@ -2686,6 +2721,8 @@ function createModelStore() {
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {
+      // A move in the space workspace is in space coordinates.
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') this.ensureSpaceCoordinates();
       const node = model.nodes.get(id);
       if (node) {
         modelVersion++;

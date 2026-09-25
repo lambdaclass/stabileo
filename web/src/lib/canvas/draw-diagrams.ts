@@ -1,5 +1,6 @@
 // Render M, V, N diagrams on Canvas 2D
 
+import { transverseSign } from '../engine/transverse-sign-2d';
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import { createLabelCollector, type LabelCollector } from './label-layout';
 import {
@@ -127,8 +128,8 @@ export function drawDiagrams(
 /**
  * Side on which a positive diagram value is plotted.
  *
- * The offset is `value · perp` with `perp = (-dy, dx)/L`, i.e. the member's
- * local +z (UP for a horizontal member). Engine moments are hogging-positive,
+ * The offset is `value · perp` with `perp` the member's drawn local +z (UP for
+ * a horizontal member, +X for a vertical one; transverse-sign-2d.ts). Engine moments are hogging-positive,
  * so a sagging moment (engine value < 0) naturally plots on the structural /
  * tension side (DOWN); shear & axial use raw values and plot toward local +z (UP).
  *
@@ -167,8 +168,11 @@ function drawSingleDiagram(
   // All diagrams drawn consistently: positive values on +perp side
   const dx = nodeJ.x - nodeI.x;
   const dy = nodeJ.y - nodeI.y;
-  const perpX = -dy / length;
-  const perpY = dx / length;
+  // The drawn local z: the results are published in the drawn axes
+  // (transverse-sign-2d.ts), so positive values go toward it.
+  const zs = transverseSign(dx, dy);
+  const perpX = zs * -dy / length;
+  const perpY = zs * dx / length;
 
   // Build screen-space polygon
   const screenBaseline: { x: number; y: number }[] = [];
@@ -383,8 +387,9 @@ export function drawEnvelopeDiagrams(
     const dy = nodeJ.y - nodeI.y;
     const length = Math.sqrt(dx * dx + dy * dy);
     if (length < 1e-10) continue;
-    const perpX = -dy / length;
-    const perpY = dx / length;
+    const zs = transverseSign(dx, dy);
+    const perpX = zs * -dy / length;
+    const perpY = zs * dx / length;
 
     const nPts = elemEnv.tPositions.length;
 

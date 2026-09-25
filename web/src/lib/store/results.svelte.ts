@@ -10,6 +10,7 @@ import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system'
 // Counts published structural analyses so browser tests can assert that a
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
+import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -72,6 +73,23 @@ function createResultsStore() {
   let diagramType = $state<DiagramType>('none');
   /** Remembers last user-visible diagram so live-calc can restore it after clear() */
   let _lastDiagramType: DiagramType = 'none';
+  /*
+   * What was on screen when the results were last cleared — the diagram and
+   * the case, combination or envelope it was drawn for — so that a re-solve
+   * of the edited model puts it back instead of falling to the deformed shape
+   * of the unit-factor loads. An edit clears the results before the re-solve
+   * runs (and, under live calc, several edits in a row clear them several
+   * times), so this is taken from the first clear that had results to lose.
+   */
+  /*
+   * Plane results are published in the drawn axes: V, M and the transverse
+   * loads of a member whose drawn z is opposite to the solver's transverse
+   * axis change sign here (transverse-sign-2d.ts). The member geometry comes
+   * from the model, through a provider wired in the store barrel.
+   */
+  let _signOf: SignOf = () => 1;
+  const drawn = (r: AnalysisResults): AnalysisResults => resultsToDrawnAxes(r, _signOf);
+  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null } | null = null;
   let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
@@ -364,8 +382,11 @@ function createResultsStore() {
     get overlayResults() { return overlayResults; },
     get overlayResults3D() { return overlayResults3D; },
     get overlayLabel() { return overlayLabel; },
+    /** The member sign the plane results are published with; see transverse-sign-2d.ts. */
+    _setTransverseSignProvider(fn: SignOf) { _signOf = fn; },
+
     setOverlay(r: AnalysisResults | null, label: string = '') {
-      overlayResults = r;
+      overlayResults = r ? drawn(r) : r;
       overlayResults3D = null;
       overlayLabel = label;
     },
@@ -385,6 +406,14 @@ function createResultsStore() {
       }
     },
     setMovingLoadEnvelope(env: MovingLoadEnvelope) {
+      env = {
+        ...env,
+        positions: env.positions.map((p) => ({ ...p, results: drawn(p.results) })),
+        elements: new Map([...env.elements].map(([id, e]) => [id, _signOf(id) < 0
+          ? { ...e, mMaxPos: -e.mMaxNeg, mMaxNeg: -e.mMaxPos, vMaxPos: -e.vMaxNeg, vMaxNeg: -e.vMaxPos }
+          : e])),
+        ...(env.fullEnvelope ? { fullEnvelope: envelopeToDrawnAxes(env.fullEnvelope, _signOf) } : {}),
+      };
       this.clearAdvanced();
       movingLoadEnvelope = env;
       activeMovingLoadPosition = 0;
@@ -449,6 +478,7 @@ function createResultsStore() {
 
     get pdeltaResult() { return pdeltaResult; },
     setPDeltaResult(r: PDeltaResult) {
+      r = { ...r, results: drawn(r.results), ...(r.linearResults ? { linearResults: drawn(r.linearResults) } : {}) };
       this.clearAdvanced();
       pdeltaResult = r;
       results = r.results;
@@ -483,6 +513,11 @@ function createResultsStore() {
     get plasticStep() { return plasticStep; },
     set plasticStep(v: number) { plasticStep = v; },
     setPlasticResult(r: PlasticResult) {
+      r = {
+        ...r,
+        steps: (r.steps ?? []).map((st) => ({ ...st, results: st.results && drawn(st.results) })),
+        hinges: (r.hinges ?? []).map((h) => ((h as { kind?: string }).kind === 'axial' ? h : { ...h, moment: _signOf(h.elementId) * h.moment })),
+      };
       this.clearAdvanced();
       plasticResult = r;
       plasticStep = r.steps.length - 1;
@@ -588,6 +623,9 @@ function createResultsStore() {
     },
 
     setInfluenceLine(il: InfluenceLineResult) {
+      if ((il.quantity === 'M' || il.quantity === 'V') && il.targetElementId !== undefined && _signOf(il.targetElementId) < 0) {
+        il = { ...il, points: il.points.map((p) => ({ ...p, value: -p.value })) };
+      }
       influenceLine = il;
       diagramType = 'influenceLine';
       ilAnimating = false;
@@ -595,6 +633,7 @@ function createResultsStore() {
     },
 
     setResults(r: AnalysisResults, preserveDiagram = false) {
+      r = drawn(r);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
       deformedScale = 1; // reset to default on fresh solve
@@ -628,6 +667,9 @@ function createResultsStore() {
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
+      pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
+      pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
+      env = envelopeToDrawnAxes(env, _signOf);
       perCase = pc;
       perCombo = pco;
       envelope = env;
@@ -667,6 +709,12 @@ function createResultsStore() {
     },
 
     clear() {
+      if (results || results3D) {
+        _viewBeforeClear = {
+          diagram: diagramType !== 'none' ? diagramType : _lastDiagramType,
+          view: activeView, caseId: activeCaseId, comboId: activeComboId,
+        };
+      }
       results = null;
       singleResults = null;
       diagramType = 'none';
@@ -724,6 +772,34 @@ function createResultsStore() {
       constraintForces3DArr = [];
       solveTimings2D = null;
       solveTimings3D = null;
+    },
+
+    /** The view a clear took away, still waiting for a re-solve to restore it. */
+    get pendingView() { return _viewBeforeClear; },
+
+    /**
+     * After a re-solve: show again what was on screen before the edit cleared
+     * it — the same diagram, and the same case, combination or envelope when
+     * the new results have it. Once: the next clear takes a fresh one.
+     */
+    restoreView(is3D: boolean) {
+      const v = _viewBeforeClear;
+      _viewBeforeClear = null;
+      if (!v) return;
+      const valid: DiagramType[] = is3D
+        ? ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap']
+        : ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
+      if (valid.includes(v.diagram)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
+      const cases = is3D ? perCase3D : perCase;
+      const combos = is3D ? perCombo3D : perCombo;
+      if (v.view === 'envelope' && (is3D ? envelope3D : envelope)) {
+        this.activeView = 'envelope';
+      } else if (v.view === 'combo' && v.comboId !== null && combos.has(v.comboId)) {
+        activeComboId = v.comboId;
+        this.activeView = 'combo';
+      } else if (v.caseId !== null && cases.has(v.caseId)) {
+        this.activeCaseId = v.caseId;
+      }
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
@@ -827,7 +903,8 @@ function createResultsStore() {
       }
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
-        diagramType = 'momentZ';
+        // My: the bending of a beam under gravity (local z is up), as the "3" key and the 2D M.
+        diagramType = 'momentY';
       }
       combinationsDirty = false;
     },

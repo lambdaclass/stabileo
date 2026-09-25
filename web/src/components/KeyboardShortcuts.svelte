@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
-  import { resolveDeleteTargets } from '../lib/store/delete-selection';
+  import { deleteSelection } from '../lib/actions/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
@@ -185,9 +185,24 @@
     uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
   }
 
+  /*
+   * ── Copy, cut and paste belong to the page first ──────────────────
+   * These took Cmd/Ctrl+C, X and V unconditionally for the model's own
+   * clipboard, so text selected anywhere on the page — a result, a message,
+   * a table — could only be copied from the context menu. The keys are the
+   * page's when text is selected (or when there is nothing of the model to
+   * copy or paste), and the model's otherwise.
+   */
+  function textSelected(): boolean {
+    const sel = window.getSelection();
+    return !!sel && !sel.isCollapsed && sel.toString().trim().length > 0;
+  }
+  const modelSelected = () => uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0;
+
   function handleKeydown(e: KeyboardEvent) {
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+    if ((e.target as HTMLElement).isContentEditable) return;
 
     const key = e.key.toUpperCase();
 
@@ -235,6 +250,7 @@
 
     // Ctrl+C: Copy
     if ((e.ctrlKey || e.metaKey) && key === 'C') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       return;
@@ -242,6 +258,7 @@
 
     // Ctrl+X: Cut
     if ((e.ctrlKey || e.metaKey) && key === 'X') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       const nodesToDelete = [...uiStore.selectedNodes];
@@ -256,6 +273,7 @@
 
     // Ctrl+V: Paste
     if ((e.ctrlKey || e.metaKey) && key === 'V') {
+      if (!uiStore.clipboard) return;
       e.preventDefault();
       handlePaste();
       return;
@@ -310,43 +328,9 @@
       }
     }
 
-    // Delete selected supports/nodes/elements/loads
+    // Delete: everything selected, every kind, one undo step (lib/actions/delete-selection).
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (uiStore.selectedSupports.size > 0) {
-        const supToDelete = [...uiStore.selectedSupports];
-        modelStore.batch(() => {
-          for (const supId of supToDelete) modelStore.removeSupport(supId);
-        });
-        uiStore.clearSelectedSupports();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
-        const ids = [...uiStore.selectedLoads];
-        modelStore.batch(() => {
-          for (const id of ids) modelStore.removeLoad(id);
-        });
-        uiStore.clearSelectedLoads();
-        resultsStore.clear();
-      } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
-        // Delete strictly from the EXPLICIT selection channels — never infer an
-        // entity kind from a numeric id. Frame elements, plates and quads have
-        // INDEPENDENT id spaces (all count from 1), so a frame id can collide
-        // with an unrelated quad/plate id. `selectedElements` only ever holds
-        // FRAME ids (box-select, element-row clicks); shells are selected and
-        // highlighted ONLY via `selectedShells` ("p<id>"/"q<id>"). The old code
-        // re-derived shells from `selectedElements` numeric ids in shell mode,
-        // which deleted unselected (any-floor) shells whose id happened to match
-        // a selected frame id. Highlight == delete target now.
-        const targets = resolveDeleteTargets(
-          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
-          (id) => modelStore.elements.has(id),
-        );
-        modelStore.deleteEntities(targets);
-        uiStore.clearSelection();
-        resultsStore.clear();
-      }
+      deleteSelection();
       return;
     }
 

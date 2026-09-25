@@ -76,6 +76,15 @@ modelStore._setOnFoundationChange(() => {
 // cycle through design-run → verification → regulations. See `project-provenance.ts`.
 modelStore._setCaptureProvenance(captureProjectProvenance);
 
+/* Plane results in the drawn axes: the sign of each member, from the geometry the canvas draws. */
+resultsStore._setTransverseSignProvider((elementId) => {
+  const el = modelStore.elements.get(elementId);
+  const a = el && modelStore.nodes.get(el.nodeI), b = el && modelStore.nodes.get(el.nodeJ);
+  if (!a || !b) return 1;
+  const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
+  return transverseSign(pb.x - pa.x, pb.y - pa.y);
+});
+
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();
 });
@@ -101,6 +110,8 @@ export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, fmSteps
 // The editing/reading exclusion is a rule of the app, not of a component, so it
 // is installed once here rather than remembered at each of the six places that
 // arm a tool.
+import { projectNode } from '../geometry/plane-projection';
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { installViewModeRules } from './view-mode';
 import { captureProjectProvenance } from './project-provenance';
 installViewModeRules();

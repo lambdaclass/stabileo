@@ -5,8 +5,8 @@
  * "structural" side — DOWN for a horizontal member, RIGHT for a vertical one.
  * ON (towardLocalAxes = true): all flip together to the local positive axis.
  *
- * The drawing offset is `value · sideFactor · scale/50 · perp`, perp = (-dy, dx)/L
- * (the member's local +z, UP for a horizontal member). Engine moments are
+ * The drawing offset is `value · sideFactor · scale/50 · perp`, perp the member's
+ * drawn local +z: UP for a horizontal member, +X for a vertical one. Engine moments are
  * hogging-positive, so a sagging ("displayed-positive") moment has engine value
  * < 0; shear & axial use raw values. We feed DISPLAYED-positive inputs (moment
  * engine −10, shear/axial engine +10) and check which side each plots on.
@@ -73,12 +73,24 @@ describe('2D diagram side convention', () => {
     }
   });
 
-  it('DEFAULT: vertical member draws positive N, V, M to the RIGHT (same side)', () => {
-    const I = { x: 0, y: 0 }, J = { x: 0, y: 4 };           // vertical
+  it('DEFAULT: vertical member draws positive N, V, M on −z, to the LEFT (same side), either way it is drawn', () => {
+    // A vertical member's drawn z is +X (transverse-sign-2d.ts); the structural
+    // side is −z, as it is "down" for a horizontal member.
+    for (const [I, J] of [[{ x: 0, y: 0 }, { x: 0, y: 4 }], [{ x: 0, y: 4 }, { x: 0, y: 0 }]]) {
+      for (const k of KINDS) {
+        const o = perpOffset(k, I, J, POS, false);
+        expect(o.x).toBeLessThan(0);                         // world −X = left
+        expect(Math.abs(o.y)).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it('DEFAULT: a horizontal member drawn right to left draws on the same side as one drawn left to right', () => {
+    const I = { x: 4, y: 0 }, J = { x: 0, y: 0 };
     for (const k of KINDS) {
       const o = perpOffset(k, I, J, POS, false);
-      expect(o.x).toBeGreaterThan(0);                        // world +X = right
-      expect(Math.abs(o.y)).toBeLessThan(1e-9);
+      expect(o.y).toBeLessThan(0);
+      expect(Math.abs(o.x)).toBeLessThan(1e-9);
     }
   });
 
