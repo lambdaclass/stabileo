@@ -216,7 +216,7 @@ test.describe('@landing landing page', () => {
      * hostage: a switcher that only repaints the top would pass otherwise.
      */
     await expect(page.locator('.landing #pricing-title')).toHaveText(
-      'Un desarrollo abierto con varias aristas',
+      'Cómo pensamos sostener un proyecto abierto',
     );
 
     expect(await page.evaluate(() => localStorage.getItem('stabileo-lang'))).toBe('es');
@@ -893,9 +893,9 @@ test.describe('@landing the model the deck states', () => {
  */
 test.describe('@landing every language gets the whole deck', () => {
   const HEADING = {
-    es: 'Un desarrollo abierto con varias aristas',
-    en: 'An open project with several sides to it',
-    pt: 'Um desenvolvimento aberto com várias arestas',
+    es: 'Cómo pensamos sostener un proyecto abierto',
+    en: 'How we plan to sustain an open project',
+    pt: 'Como pensamos sustentar um projeto aberto',
   } as const;
 
   const FREE = { es: 'Gratis', en: 'Free', pt: 'Grátis' } as const;

@@ -127,3 +127,83 @@ describe('the extension point', () => {
     expect(g.data).toEqual({ rule: 'not invented yet', nested: { deep: [1, 2, 3] } });
   });
 });
+
+describe('group IDs across restore and clear', () => {
+  it.each([undefined, 1, 2, 80, 0, -4, 1.5, NaN, Infinity])('restores or repairs counter %s without overwriting groups', (counter) => {
+    frame();
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot())) as ReturnType<typeof modelStore.snapshot>;
+    snap.groups = [[7, { id: 7, name: 'Saved', kind: 'selection', origin: 'user', members: {} }]];
+    snap.nextId.group = counter;
+    modelStore.restore(snap);
+    const added = modelStore.addGroup('New', 'selection', {});
+    expect(added).toBe(counter === 80 ? 80 : 8);
+    expect(modelStore.model.groups.get(7)!.name).toBe('Saved');
+    expect(modelStore.model.groups.size).toBe(2);
+  });
+
+  it('round-trips its counter and starts a fresh model at one', () => {
+    frame();
+    const first = modelStore.addGroup('Saved', 'selection', {});
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    modelStore.clear();
+    modelStore.restore(snap);
+    expect(modelStore.addGroup('Next', 'selection', {})).toBe(first + 1);
+    modelStore.clear();
+    expect(modelStore.addGroup('Fresh', 'selection', {})).toBe(1);
+  });
+});
+
+describe('groups follow cascading deletion and splitting', () => {
+  it('removes both a node and its attached member, retaining unrelated members and metadata', () => {
+    const { a, b, e } = frame();
+    const c = modelStore.addNode(8, 0, 0);
+    const other = modelStore.addElement(b, c, 'frame');
+    const id = modelStore.addGroup('G', 'custom', { nodes: [a, b], elements: [e, other] }, { data: { keep: true } });
+    modelStore.removeNode(a);
+    expect(modelStore.model.groups.get(id)).toMatchObject({
+      members: { nodes: [b], elements: [other] }, data: { keep: true },
+    });
+  });
+
+  it('removes deleted triangles and quads from groups', () => {
+    const { a, b } = frame();
+    const c = modelStore.addNode(4, 3, 0);
+    const d = modelStore.addNode(0, 3, 0);
+    const mat = [...modelStore.materials.keys()][0]!;
+    const plate = modelStore.addPlate([a, b, c], mat, 0.2);
+    const quad = modelStore.addQuad([a, b, c, d], mat, 0.2);
+    const id = modelStore.addGroup('Floor', 'floor', { plates: [plate], quads: [quad] });
+    modelStore.removePlate(plate);
+    modelStore.removeQuad(quad);
+    expect(modelStore.model.groups.get(id)!.members).toEqual({ plates: [], quads: [] });
+  });
+
+  it('replaces a split member with both pieces in every group and survives snapshot restoration', () => {
+    const { b, e } = frame();
+    const c = modelStore.addNode(8, 0, 0);
+    const other = modelStore.addElement(b, c, 'frame');
+    const id = modelStore.addGroup('Column', 'physicalMember', { elements: [e, other] }, { data: { keep: [1] } });
+    const selection = modelStore.addGroup('Selection', 'selection', { elements: [e] });
+    const before = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    const split = modelStore.splitElementAtPoint(e, 0.5)!;
+    expect(modelStore.elements.has(e)).toBe(false);
+    expect(modelStore.model.groups.get(id)).toMatchObject({
+      members: { elements: [split.elemA, split.elemB, other] }, data: { keep: [1] },
+    });
+    expect(modelStore.model.groups.get(selection)!.members.elements).toEqual([split.elemA, split.elemB]);
+    const after = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    modelStore.restore(before);
+    expect(modelStore.model.groups.get(id)!.members.elements).toEqual([e, other]);
+    modelStore.restore(after);
+    expect(modelStore.model.groups.get(id)!.members.elements).toEqual([split.elemA, split.elemB, other]);
+  });
+});
+
+it('a subdivided physical member includes every segment, in order', () => {
+  const { e } = frame();
+  const id = modelStore.addGroup('Column', 'physicalMember', { elements: [e] });
+  modelStore.subdivideElement(e, 3);
+  const segments = [...modelStore.elements.keys()];
+  expect(segments).toHaveLength(3);
+  expect(modelStore.model.groups.get(id)!.members.elements).toEqual(segments);
+});

@@ -226,10 +226,15 @@ fn shear_b_nat(pts: &[[f64; 2]; 4], xi: f64, eta: f64) -> [[f64; 24]; 2] {
 
 // ==================== EAS Helper ====================
 
-/// Invert an n×n matrix (flat row-major slice) in-place via Gauss-Jordan
-/// elimination with partial pivoting. Returns the inverse as a Vec.
-/// Panics if the matrix is singular.
-fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
+/// Invert an n×n matrix (flat row-major slice) via Gauss-Jordan elimination
+/// with partial pivoting. Returns `None` when the matrix is singular.
+///
+/// This used to `assert!` on a vanishing pivot. `assert!` is not compiled out
+/// in release, unlike `debug_assert!`, so a degenerate element — four
+/// collinear nodes, say — aborted the entire WASM module from inside element
+/// code, with a message addressed to whoever wrote this function rather than
+/// to whoever drew the model.
+fn invert_small_matrix(n: usize, m: &[f64]) -> Option<Vec<f64>> {
     debug_assert_eq!(m.len(), n * n);
     let cols = 2 * n;
     let mut a = vec![0.0f64; n * cols];
@@ -251,7 +256,11 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
                 max_row = row;
             }
         }
-        assert!(max_val > 1e-30, "invert_small_matrix: singular (pivot {col} ≈ 0)");
+        // Negated so NaN is refused as well: `NaN <= 1e-30` is false, where
+        // the old `assert!(max_val > 1e-30)` did catch it.
+        if !(max_val > 1e-30) {
+            return None;
+        }
 
         if max_row != col {
             for c in 0..cols {
@@ -281,13 +290,13 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
             inv[r * n + c] = a[r * cols + n + c];
         }
     }
-    inv
+    Some(inv)
 }
 
 /// Invert a 4×4 matrix stored as [f64; 16] (row-major).
 #[cfg(test)]
 fn invert_4x4(m: &[f64; 16]) -> [f64; 16] {
-    let v = invert_small_matrix(4, m);
+    let v = invert_small_matrix(4, m).expect("the test matrices are invertible");
     let mut out = [0.0; 16];
     out.copy_from_slice(&v);
     out
@@ -554,9 +563,13 @@ pub fn mitc4_local_stiffness(
     }
 
     // --- EAS static condensation: K_eff = K - C · Q⁻¹ · Cᵀ ---
-    {
-        let q_inv = invert_small_matrix(7, &q_eas);
-
+    //
+    // Keep direct element calls from aborting on a singular Q. Solver entry
+    // points validate finite, positive thickness, and the static geometry
+    // gates reject degenerate mappings before assembly. A singular Q alone
+    // does not imply the full system is singular: surrounding frame stiffness
+    // can mask an invalid shell, so factorization is not an input validator.
+    if let Some(q_inv) = invert_small_matrix(7, &q_eas) {
         // qi_ct = Q⁻¹ · Cᵀ  (7×8); Cᵀ[a][j] = c_eas[j][a]
         let mut qi_ct = [[0.0; 8]; 7];
         for a in 0..7 {
@@ -1292,6 +1305,11 @@ pub fn quad_check_jacobian(coords: &[[f64; 3]; 4]) -> (f64, f64, bool) {
 
     for &((xi, eta), _) in &gauss {
         let (_, _, det_j) = jacobian_2d(&pts, xi, eta);
+        // `f64::min`/`max` skip NaN, so a NaN determinant — an element with no
+        // plane to project onto — would vanish from the range. Report it.
+        if det_j.is_nan() {
+            return (f64::NAN, f64::NAN, true);
+        }
         min_det = min_det.min(det_j);
         max_det = max_det.max(det_j);
         if det_j <= 0.0 {

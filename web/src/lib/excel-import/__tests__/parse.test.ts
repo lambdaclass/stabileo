@@ -371,3 +371,26 @@ describe('Nodes — Z is the vertical, in 2-D and 3-D alike', () => {
     expect(out.every((n) => n.z === 0), 'and is flat').toBe(true);
   });
 });
+
+describe('one coordinate convention for the entire Nodes sheet', () => {
+  it.each([false, true])('preserves spatial coordinates with blank Y regardless of row order (reverse=%s)', (reverse) => {
+    const book = goodBook();
+    const rows = [[1, 0, 0, 0], [2, 0, '', 3], [3, 4, 2, 3]];
+    book.Nodes = aoa(['id', 'x', 'y', 'z'], ...(reverse ? rows.reverse() : rows));
+    const result = parseWorkbook(book);
+    expect(result.problems).toEqual([]);
+    expect(result.model.nodes.find(n => n.id === 2)).toEqual({ id: 2, x: 0, y: 0, z: 3 });
+    expect(result.model.nodes.find(n => n.id === 3)).toEqual({ id: 3, x: 4, y: 2, z: 3 });
+  });
+
+  it('an explicit zero Y selects native XYZ even if every other Y is blank', () => {
+    const result = parseWorkbook({ Nodes: aoa(['id', 'x', 'y', 'z'], [1, 0, '', 3], [2, 4, 0, 3]) });
+    expect(result.model.nodes.map(n => [n.y, n.z])).toEqual([[0, 3], [0, 3]]);
+  });
+
+  it.each([['invalid', 3, 'y'], ['', 'invalid', 'z'], [2, 'invalid', 'z']])('rejects malformed coordinates Y=%s Z=%s', (y, z, column) => {
+    const result = parseWorkbook({ Nodes: aoa(['id', 'x', 'y', 'z'], [1, 0, y, z]) });
+    expect(result.model.nodes).toEqual([]);
+    expect(result.problems).toContainEqual(expect.objectContaining({ sheet: 'Nodes', row: 2, column }));
+  });
+});

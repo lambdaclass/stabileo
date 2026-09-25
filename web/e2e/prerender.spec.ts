@@ -62,7 +62,7 @@ const HERO = {
 
 /** The same, for the blog index — `blog.lead`. */
 const BLOG_LEAD = {
-  en: 'the code checks and the decisions behind them',
+  en: 'structural-code checks and the decisions behind them',
   es: 'las verificaciones normativas y las decisiones detrás',
   pt: 'as verificações normativas e as decisões por trás',
 } as const;

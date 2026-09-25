@@ -658,7 +658,7 @@ function prepareSolve2D(
   if (cachedKin !== undefined) {
     if (onKinematic) onKinematic(cachedKin);
     if (cachedKin && !cachedKin.isSolvable) {
-      return cachedKin.diagnosis;
+      return unsolvableMessage(cachedKin);
     }
   } else {
     try {
@@ -666,7 +666,7 @@ function prepareSolve2D(
       kinematicCacheSet(wireKey, kinematic);
       if (onKinematic) onKinematic(kinematic);
       if (!kinematic.isSolvable) {
-        return kinematic.diagnosis;
+        return unsolvableMessage(kinematic);
       }
     } catch {
       kinematicCacheSet(wireKey, null);
@@ -685,6 +685,20 @@ function prepareSolve2D(
     : new Set<number>();
 
   return { input, slidingHelperIds, modelNodeIds: new Set(model.nodes.keys()), wireKey };
+}
+
+/**
+ * What to tell the user when the kinematic pre-check stops the solve.
+ *
+ * A model the engine refused for its data carries the validator's message,
+ * worded as the solve would have reported it. Returning the generic diagnosis
+ * instead ("the model has invalid data") hid which data: the solve that would
+ * have named it never runs once this check says no.
+ */
+function unsolvableMessage(kinematic: KinematicResult): string {
+  return kinematic.invalidInput
+    ? t('svc.solverError').replace('{n}', kinematic.invalidInput)
+    : kinematic.diagnosis;
 }
 
 /** Prune ephemeral sliding-joint helper-node results (no-op without sliders). */

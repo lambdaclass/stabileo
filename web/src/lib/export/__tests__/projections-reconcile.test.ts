@@ -26,6 +26,7 @@ import { LAYERS } from '../../engine/detailing/drawings';
 import { membersFromModel } from '../../engine/detailing/member-geometry';
 import { SLAB_BAR_ANCHOR_ALLOWANCE } from '../../engine/detailing/floor-design';
 import type { DocumentModel } from '../../engine/detailing/document-model';
+import { plainDeepCopy } from '../../utils/plain-deep-copy';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -33,7 +34,7 @@ const OPTS = { locale: 'es', projectName: 'Reconcile' };
 
 interface Built { doc: DocumentModel; scene: SceneModel }
 
-async function build(example: string): Promise<Built> {
+async function compute(example: string): Promise<Built> {
   modelStore.clear(); resultsStore.clear(); detailingStore.clear();
   designRunStore.resetMarks(); verificationStore.clear();
   await modelStore.loadExample(example);
@@ -51,7 +52,20 @@ async function build(example: string): Promise<Built> {
     elements: [...modelStore.model.elements.values()],
     sections: [...modelStore.model.sections.values()],
   });
-  return { doc, scene: buildSceneModel(doc, { members }) };
+  return plainDeepCopy({ doc, scene: buildSceneModel(doc, { members }) });
+}
+
+const examples = new Map<string, Promise<Built>>();
+
+/** Preserve this suite's designFamilies path, once per example and per file. */
+async function build(example: string): Promise<Built> {
+  let pending = examples.get(example);
+  if (!pending) {
+    pending = compute(example);
+    examples.set(example, pending);
+  }
+  // beforeEach copies the result so a test cannot mutate another test's starting point.
+  return plainDeepCopy(await pending);
 }
 
 for (const example of ['pro-edificio-7p', 'rc-qa-diagnostic']) {
