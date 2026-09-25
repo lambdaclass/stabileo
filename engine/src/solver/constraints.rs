@@ -1326,20 +1326,19 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     );
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    // Compute actual residual: ||K_ff*u_f - f_f|| / ||f_f||
+    // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
+    //
+    // Unreduced, K_ff·u_f − f_f is not a solve error: it is the force each
+    // constraint carries, non-zero by construction wherever a constraint
+    // transmits load. Measured that way every sliding joint or tied DOF that
+    // did its job reported "residual 9.9e-1 exceeds tolerance" as a Warning,
+    // on a correct solution. Cᵀ removes exactly those forces — it is the
+    // reduction the solve itself used.
     let rel_residual = {
-        let mut res2 = 0.0f64;
-        let mut fnorm2 = 0.0f64;
-        for i in 0..nf {
-            let mut ku_i = 0.0;
-            for j in 0..nf {
-                ku_i += k_ff[i * nf + j] * u_f[j];
-            }
-            let r = ku_i - f_f[i];
-            res2 += r * r;
-            fnorm2 += f_f[i] * f_f[i];
-        }
-        res2.sqrt() / fnorm2.sqrt().max(1e-30)
+        let r_full: Vec<f64> = (0..nf)
+            .map(|i| (0..nf).map(|j| k_ff[i * nf + j] * u_f[j]).sum::<f64>() - f_f[i])
+            .collect();
+        reduced_relative_residual(&fcs, &r_full, &f_f)
     };
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
@@ -1638,17 +1637,12 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     );
     reactions.sort_by_key(|r| r.node_id);
 
-    // Compute actual residual: ||K_ff*u_f - f_f|| / ||f_f||
+    // Residual of the system that was solved — see the 2D solver: unreduced,
+    // it measured the constraint forces (4.4 on a correct offset cantilever).
     let rel_residual = {
         let ku = k_ff.sym_mat_vec(&u_f);
-        let mut res2 = 0.0f64;
-        let mut fnorm2 = 0.0f64;
-        for i in 0..nf {
-            let r = ku[i] - f_f[i];
-            res2 += r * r;
-            fnorm2 += f_f[i] * f_f[i];
-        }
-        res2.sqrt() / fnorm2.sqrt().max(1e-30)
+        let r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
+        reduced_relative_residual(&fcs, &r_full, &f_f)
     };
 
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
@@ -1731,6 +1725,13 @@ fn get_node_offset(
 }
 
 // ==================== Reusable Constraint System ====================
+
+/// ||Cᵀr|| / ||Cᵀf||: the relative residual of the reduced system CᵀKC·u = Cᵀf,
+/// from the unreduced residual r = K·u − f and load f.
+fn reduced_relative_residual(fcs: &FreeConstraintSystem, r_full: &[f64], f_full: &[f64]) -> f64 {
+    let norm = |v: Vec<f64>| v.iter().map(|x| x * x).sum::<f64>().sqrt();
+    norm(fcs.reduce_vector(r_full)) / norm(fcs.reduce_vector(f_full)).max(1e-30)
+}
 
 /// Pre-computed constraint system for use by any solver.
 ///
