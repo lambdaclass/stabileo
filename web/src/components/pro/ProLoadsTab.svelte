@@ -1,7 +1,7 @@
 <script lang="ts">
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
-  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
+  import { expandCombinations, presentSymbols, withWindBasis, type CaseCombination, type WindBasis } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
@@ -275,6 +275,12 @@
   let showComboModal = $state(false);
   let candidateCombos = $state<CandidateCombo[]>([]);
   let activeTemplate = $state<ComboTemplate>('lrfd');
+  /**
+   * Where these wind cases came from. Service-level by default: a case typed by hand is most often
+   * that, and 1,6 W is the conservative reading. See `withWindBasis`.
+   */
+  let windBasis = $state<WindBasis>('service');
+  const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
 
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
@@ -305,7 +311,9 @@
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const present = presentSymbols(cases);
-    const specs = template === 'service' ? generateServiceCombinations({ present }) : generateCombinations({ present });
+    const specs = template === 'service'
+      ? generateServiceCombinations({ present })
+      : withWindBasis(generateCombinations({ present }), windBasis);
     const out = expandCombinations(specs, cases).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
@@ -794,9 +802,18 @@
     <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
       <div class="combo-modal-header">
         <h3>{activeTemplate === 'service' ? t('pro.generateService') : t('pro.generateLRFD')}</h3>
-        <span class="combo-modal-sub">{activeTemplate === 'service' ? 'ASCE 7 §2.4 / CIRSOC 101 ASD' : 'ASCE 7 §2.3 / CIRSOC 101 LRFD'}</span>
+        <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
+      {#if activeTemplate !== 'service' && hasWindCases}
+        <div class="combo-wind-basis" data-testid="combo-wind-basis">
+          <label for="combo-wind-basis-sel">{t('pro.windBasis')}</label>
+          <select id="combo-wind-basis-sel" bind:value={windBasis} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }}>
+            <option value="service">{t('pro.windBasis.service')}</option>
+            <option value="strength">{t('pro.windBasis.strength')}</option>
+          </select>
+        </div>
+      {/if}
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
           {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
@@ -1111,4 +1128,5 @@
   .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
   .pro-delete-btn:hover { color: var(--st-danger); }
   .pro-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 30px 10px; font-size: 0.78rem; }
+  .combo-wind-basis { display: flex; gap: 6px; align-items: center; padding: 6px 12px; font-size: 0.68rem; color: var(--st-text-2); border-bottom: 1px solid var(--st-hair); }
 </style>

@@ -8,7 +8,8 @@
  * the X and Y wind cases in the same combination — wind blowing both ways at once. The Loads
  * tab had its own table instead, labelled ASCE 7-22 and carrying 1,6 W, which is not what
  * ASCE 7-22 prints either (it moved to 1,0 W with strength-level wind speeds, as CIRSOC
- * 101-2025 did).
+ * 101-2025 did). 1,6 W stays available, stated as what it is: the factor for service-level
+ * wind (`withWindBasis`), not a silent default of an unnamed table.
  *
  * ── The rule ─────────────────────────────────────────────────────
  *
@@ -16,7 +17,7 @@
  * cases are both always there. Directional symbols (W, E) are alternatives: each case of the
  * symbol gets a combination of its own, never alongside another case of the same symbol.
  */
-import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
+import type { LoadCombinationSpec, LoadSymbol, CombinationInputs, CombinationTerm } from '../../codes/cirsoc101/combinations';
 
 /** Symbols whose cases are alternatives (one direction at a time), not summands. */
 const ALTERNATIVE: ReadonlySet<LoadSymbol> = new Set(['W', 'E']);
@@ -75,4 +76,32 @@ export function expandCombinations(
     }
   }
   return out;
+}
+
+/**
+ * Where the wind cases' loads came from, which decides W's factor in the strength combinations.
+ *
+ * CIRSOC 101-2025 prints 1,0 W and 0,5 W: it is written for wind from CIRSOC 102-2025, the one
+ * this app's regulation generator applies. A wind case the user entered by hand may have been
+ * computed with service-level speeds, the basis CIRSOC 101-2005 combined at 1,6 W and 0,8 W.
+ * Multiplying 2025's wind factors by 1,6 gives exactly 2005's (1,0 → 1,6 and 0,5 → 0,8), so that
+ * reading is the same combinations with W scaled, not a second table.
+ */
+export type WindBasis = 'service' | 'strength';
+
+/** 1,6 for service-level wind, 1 for wind from CIRSOC 102-2025. */
+export const WIND_SCALE: Readonly<Record<WindBasis, number>> = { service: 1.6, strength: 1 };
+
+const labelOf = (terms: readonly CombinationTerm[]) =>
+  terms.filter((t) => t.factor !== 0).map((t) => `${t.factor.toFixed(1)} ${t.symbol}`).join(' + ');
+
+/** The strength combinations with W scaled for `basis`. Service combinations are left as they are. */
+export function withWindBasis(specs: readonly LoadCombinationSpec[], basis: WindBasis): LoadCombinationSpec[] {
+  const k = WIND_SCALE[basis];
+  if (k === 1) return [...specs];
+  return specs.map((s) => {
+    if (s.purpose === 'service' || !s.terms.some((t) => t.symbol === 'W')) return s;
+    const terms = s.terms.map((t) => (t.symbol === 'W' ? { ...t, factor: Math.round(t.factor * k * 100) / 100 } : t));
+    return { ...s, terms, label: labelOf(terms) };
+  });
 }
