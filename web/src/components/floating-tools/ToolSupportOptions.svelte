@@ -49,23 +49,27 @@
   <!-- 2D support types -->
   {#each supportTypes as st}
     <button
-      class="ft-opt-btn ft-sup-btn"
+      class="ft-opt-btn ft-sup-btn ft-primary"
       class:active={uiStore.supportType === st.id}
       onclick={() => uiStore.supportType = st.id}
       title={t(st.key)}
     >
-      {#if st.id === 'roller'}
-        <svg class="ft-sup-svg" viewBox="0 0 20 20" width="16" height="16">
-          <polygon points="10,2 3,12 17,12" fill="none" stroke="currentColor" stroke-width="1.8"/>
-          <circle cx="7" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="13" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-      {:else}
-        {st.icon}
-      {/if}
-      {t(st.key)}
+      <!-- One box for every glyph, so the drawn roller and the text symbols read the same size. -->
+      <span class="ft-sup-ic" aria-hidden="true">
+        {#if st.id === 'roller'}
+          <svg class="ft-sup-svg" viewBox="0 0 20 20" width="16" height="16">
+            <polygon points="10,2 3,12 17,12" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="7" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="13" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        {:else}
+          {st.icon}
+        {/if}
+      </span>
+      <span class="ft-sup-label">{t(st.key)}</span>
     </button>
   {/each}
+  <span class="ft-break" aria-hidden="true"></span>
   {#if uiStore.supportType === 'spring'}
     <span class="ft-sep">|</span>
     <label class="ft-input-group">
@@ -146,6 +150,10 @@
 {/if}
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+  .ft-sup-ic { display: inline-flex; align-items: center; justify-content: center; }
+
   .ft-opt-btn {
     padding: 2px 8px;
     background: var(--st-surface-2);

@@ -5,15 +5,17 @@
 </script>
 
 <button
-  class="ft-opt-btn"
+  class="ft-opt-btn ft-primary"
   class:active={uiStore.nodeMode === 'create'}
   onclick={() => uiStore.nodeMode = 'create'}
 >{t('float.nodeCreate')}</button>
 <button
-  class="ft-opt-btn"
+  class="ft-opt-btn ft-primary"
   class:active={uiStore.nodeMode === 'hinge'}
   onclick={() => uiStore.nodeMode = 'hinge'}
 >{t('float.nodeJoints')}</button>
+<!-- A phone puts the primary choice on a row of its own (see DataTable). -->
+<span class="ft-break" aria-hidden="true"></span>
 
 {#if uiStore.nodeMode === 'hinge' && uiStore.analysisMode !== '3d'}
   <!-- Basic 2D joints: hinge + sliding X/Z + axis mode -->
@@ -74,6 +76,9 @@
 {/if}
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+
   .ft-opt-btn {
     padding: 2px 8px;
     background: var(--st-surface-2);

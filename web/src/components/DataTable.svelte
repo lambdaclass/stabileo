@@ -190,16 +190,80 @@
 </div>
 
 <style>
+  /*
+   * ── The phone's tool options: a taller row, built for a thumb ─────
+   * Only rendered on a phone (phoneOptions), so nothing here reaches the
+   * desktop options bar. The tool's main choice (create / joints, rigid /
+   * pinned, the support types, the load types) gets a row of its own with
+   * equal, wide buttons; what that choice opens — the joint kinds, the
+   * directions, the values — keeps its compact size underneath, so the two
+   * levels read as two levels. The tool's name and the separators give way:
+   * the highlighted tool button above already names it, and rows replace
+   * the separators. Self weight is left to the checkbox just below.
+   */
   .dt-tool-options {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    column-gap: 0.4rem;
+    row-gap: 0.55rem;
     flex-wrap: wrap;
-    padding: 0.45rem 0.6rem;
+    padding: 0.7rem 0.7rem 0.75rem;
     border-bottom: 1px solid var(--st-hair);
     font-size: 0.82rem;
     color: var(--st-text-2);
     flex: none;
+  }
+  .dt-tool-options :global(.tb-tool-name),
+  .dt-tool-options :global(.tb-sep),
+  .dt-tool-options :global(.ft-sep),
+  .dt-tool-options :global(.ft-selfweight-toggle) { display: none; }
+  .dt-tool-options :global(.ft-primary) {
+    order: -2;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.88rem;
+    white-space: nowrap;
+  }
+  .dt-tool-options :global(.ft-break) {
+    display: block;
+    order: -1;
+    flex-basis: 100%;
+    height: 0;
+  }
+  /* The support types: one size for every button and every glyph. */
+  .dt-tool-options :global(.ft-sup-btn.ft-primary) {
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 54px;
+    font-size: 0.78rem;
+  }
+  .dt-tool-options :global(.ft-sup-ic) {
+    width: 22px;
+    height: 22px;
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .dt-tool-options :global(.ft-sup-ic svg) { width: 20px; height: 20px; }
+  /* Rigid / pinned are radio labels: shown as the same wide buttons. */
+  .dt-tool-options :global(.ft-opt-radio.ft-primary) {
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+  }
+  .dt-tool-options :global(.ft-opt-radio.ft-primary:has(input:checked)) {
+    border-color: var(--st-accent);
+    color: var(--st-accent);
+  }
+  .dt-tool-options :global(.ft-hint) {
+    flex-basis: 100%;
+    font-size: 0.74rem;
+    color: var(--st-text-3);
   }
 
   .data-table {

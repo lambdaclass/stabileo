@@ -26,11 +26,12 @@
 <span class="ft-sep">|</span>
 {#each loadTypes as lt}
   <button
-    class="ft-opt-btn"
+    class="ft-opt-btn ft-primary"
     class:active={uiStore.loadType === lt.id}
     onclick={() => uiStore.loadType = lt.id}
   >{t(lt.key)}</button>
 {/each}
+<span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
   {#if uiStore.analysisMode === '3d'}
@@ -139,6 +140,9 @@
 {/if}
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+
   .ft-opt-btn {
     padding: 2px 8px;
     background: var(--st-surface-2);

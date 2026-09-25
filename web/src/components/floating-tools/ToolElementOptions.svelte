@@ -3,18 +3,22 @@
   import { t } from '../../lib/i18n';
 </script>
 
-<label class="ft-opt-radio">
+<label class="ft-opt-radio ft-primary">
   <input type="radio" name="ft-elemType" value="frame" checked={uiStore.elementCreateType === 'frame'} onchange={() => uiStore.elementCreateType = 'frame'} />
   <span>{t('float.elementRigid')}</span>
 </label>
-<label class="ft-opt-radio">
+<label class="ft-opt-radio ft-primary">
   <input type="radio" name="ft-elemType" value="truss" checked={uiStore.elementCreateType === 'truss'} onchange={() => uiStore.elementCreateType = 'truss'} />
   <span>{t('float.elementTruss')}</span>
 </label>
+<span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
 <span class="ft-hint">{t('float.elementHint')}</span>
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+
   .ft-opt-radio {
     display: flex;
     align-items: center;
