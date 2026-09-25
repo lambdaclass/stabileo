@@ -457,28 +457,32 @@ export function serializeInput3D(input: SolverInput3D): string {
  * B₂, the amplification of the displacements that matter. The engine takes the
  * largest ratio over every degree of freedom, and a DOF that barely moves in
  * the linear solution turns that into anything: 247 for a building whose first
- * buckling factor is 2. Here the ratio is taken only over nodal translations
- * at least 5 % of the largest one, so a sway (amplified) still shows through an
- * axial shortening (not amplified) at the same node, and round-off does not.
- * Stability is then judged on this value, with the engine's own threshold.
+ * buckling factor is 2. Here it is taken over the nodal translations the
+ * second-order analysis changes (increment at least 5 % of the largest one),
+ * and among them those whose linear value is at least 5 % of the largest such
+ * value: near its critical load a column's axial shortening dwarfs its
+ * lateral deflection, but only the deflection is amplified. The same
+ * definition the engine adopts in #224; stability is judged on it.
  */
 function amplifyByPeakDisplacement(result: any): any {
   if (!result?.results || !result?.linearResults) return result;
   const KEYS = ['ux', 'uy', 'uz'] as const;
   const lin = new Map<number, any>(((result.linearResults.displacements ?? []) as any[]).map((d) => [d.nodeId, d]));
-  let peak = 0;
-  for (const d of lin.values()) for (const k of KEYS) peak = Math.max(peak, Math.abs(d[k] ?? 0));
-  if (!(peak > 1e-12)) return result;
-  let b2 = 0;
+  const pairs: Array<[number, number]> = [];
   for (const d of (result.results.displacements ?? []) as any[]) {
     const l = lin.get(d.nodeId);
-    if (!l) continue;
-    for (const k of KEYS) {
-      const u = l[k] ?? 0;
-      if (Math.abs(u) >= 0.05 * peak) b2 = Math.max(b2, Math.abs((d[k] ?? 0) / u));
+    if (l) for (const k of KEYS) pairs.push([l[k] ?? 0, d[k] ?? 0]);
+  }
+  const dMax = Math.max(0, ...pairs.map(([l, p]) => Math.abs(p - l)));
+  let b2 = 1;
+  if (dMax > 1e-15) {
+    const changed = pairs.filter(([l, p]) => Math.abs(p - l) >= 0.05 * dMax);
+    const lMax = Math.max(0, ...changed.map(([l]) => Math.abs(l)));
+    if (lMax > 1e-15) {
+      b2 = Math.max(0, ...changed.filter(([l]) => Math.abs(l) >= 0.05 * lMax).map(([l, p]) => Math.abs(p / l)));
     }
   }
-  if (!(b2 > 0) || !Number.isFinite(b2)) return result;
+  if (!Number.isFinite(b2)) return result;
   return { ...result, b2Factor: b2, isStable: !!result.converged && b2 < 100 };
 }
 
