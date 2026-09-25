@@ -1611,6 +1611,7 @@ const es: Record<string, string> = {
   // ─── FloatingTools.svelte ───
   'float.pan': 'Mover',
   'float.select': 'Seleccionar',
+  'float.moveNodes': 'Mover nodo',
   'float.node': 'Nodo',
   'float.element': 'Barra',
   'float.support': 'Apoyo',

@@ -1,15 +1,11 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
-  import { IL_QUANTITY_GROUPS } from '../../lib/influence-line-quantities';
   import { uiStore } from '../../lib/store/ui.svelte';
   import { modelStore } from '../../lib/store/model.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
-  import ToolNodeOptions from '../floating-tools/ToolNodeOptions.svelte';
-  import ToolElementOptions from '../floating-tools/ToolElementOptions.svelte';
-  import ToolSupportOptions from '../floating-tools/ToolSupportOptions.svelte';
-  import ToolLoadOptions from '../floating-tools/ToolLoadOptions.svelte';
   import SelectedEntityPanel from '../floating-tools/SelectedEntityPanel.svelte';
   import SelectionDeleteButton from './SelectionDeleteButton.svelte';
+  import ToolOptions from './ToolOptions.svelte';
 
   /**
    * Contextual options for the armed tool, directly under the ribbon.
@@ -60,46 +56,27 @@
   });
 
   /*
-   * `influenceLine` belongs here too. It is armed from Advanced analysis, not
-   * from the ribbon, and its options — which reaction or internal force the
-   * line is drawn for — used to live in the floating strip. With that strip
-   * gone on desktop, arming it left no way to choose the quantity at all: a
-   * working feature reachable but unusable.
+   * ── On a phone, only while something is selected ──────────────────
+   * The armed tool's options live in the modelling sheet there, between its
+   * tool buttons and its table (DataTable), next to what they configure; a
+   * row of them under the ribbon cost the model a band of screen and read
+   * as detached. What stays here is what a selection needs wherever you are:
+   * its read-out and the delete button.
    */
-  const HAS_OPTIONS = ['select', 'node', 'element', 'support', 'load', 'influenceLine'];
-  const showOptions = $derived(HAS_OPTIONS.includes(uiStore.currentTool));
+  const phone = $derived(uiStore.isMobile);
+  const hasSelection = $derived(
+    uiStore.selectedNodes.size + uiStore.selectedElements.size + uiStore.selectedSupports.size
+      + uiStore.selectedLoads.size + uiStore.selectedShells.size > 0,
+  );
 </script>
 
-<div class="tool-bar" data-testid="tool-options-bar">
-  <div class="tb-opts" data-testid="tool-options">
-    {#if showOptions}
-      <span class="tb-tool-name">{t(`float.${uiStore.currentTool}`)}</span>
-      <span class="tb-sep" aria-hidden="true"></span>
-      <!--
-        No select options here any more: they live in the Selection panel, so
-        there is one control for one setting rather than two that can disagree.
-      -->
-      {#if uiStore.currentTool === 'node'}
-        <ToolNodeOptions />
-      {:else if uiStore.currentTool === 'element'}
-        <ToolElementOptions />
-      {:else if uiStore.currentTool === 'support'}
-        <ToolSupportOptions />
-      {:else if uiStore.currentTool === 'load'}
-        <ToolLoadOptions />
-      {:else if uiStore.currentTool === 'influenceLine'}
-        {#each IL_QUANTITY_GROUPS as group, gi}
-          {#if gi > 0}<span class="tb-sep" aria-hidden="true"></span>{/if}
-          <span class="tb-group-label">{t(group.labelKey)}</span>
-          {#each group.quantities as q}
-            <button class="tb-btn" class:on={uiStore.ilQuantity === q.id} onclick={() => (uiStore.ilQuantity = q.id)}>{t(q.labelKey)}</button>
-          {/each}
-        {/each}
-      {/if}
-    {:else}
-      <span class="tb-hint">{t('float.' + uiStore.currentTool)}</span>
-    {/if}
-  </div>
+{#if !phone || hasSelection}
+<div class="tool-bar" class:phone data-testid="tool-options-bar">
+  {#if !phone}
+    <div class="tb-opts" data-testid="tool-options">
+      <ToolOptions />
+    </div>
+  {/if}
 
   <!--
     What is selected, restored. It lived in the floating strip, which desktop no
@@ -110,11 +87,14 @@
   <!-- Delete what is selected: present only while something is (a phone has no Delete key). -->
   <SelectionDeleteButton />
 
-  <div class="tb-state" data-testid="model-state" data-tone={state.tone}>
-    <span class="tb-dot" data-tone={state.tone} aria-hidden="true"></span>
-    <span class="tb-state-text">{t(state.key)}</span>
-  </div>
+  {#if !phone}
+    <div class="tb-state" data-testid="model-state" data-tone={state.tone}>
+      <span class="tb-dot" data-tone={state.tone} aria-hidden="true"></span>
+      <span class="tb-state-text">{t(state.key)}</span>
+    </div>
+  {/if}
 </div>
+{/if}
 
 <style>
   .tool-bar {
@@ -142,52 +122,9 @@
     min-width: 0;
   }
 
-  /*
-     The tool's name leads the bar so the strip is self-explaining: these
-     controls belong to THAT tool, not to the document.
-  */
-  .tb-tool-name {
-    font-family: var(--st-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--st-accent);
-    white-space: nowrap;
-    flex: none;
-  }
-
-  .tb-sep {
-    width: 1px;
-    height: 16px;
-    background: var(--st-hair);
-    flex: none;
-  }
-
-  .tb-hint { color: var(--st-text-3); font-size: 0.78rem; }
-
-  .tb-group-label {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    white-space: nowrap;
-    flex: none;
-  }
-
-  .tb-btn {
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-size: 0.75rem;
-    padding: 0.2rem 0.45rem;
-    cursor: pointer;
-    white-space: nowrap;
-    flex: none;
-  }
-
-  .tb-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .tb-btn.on { color: var(--st-accent); border-color: var(--st-accent); }
-
   .tb-selection { display: flex; align-items: center; flex: none; }
+  .tool-bar.phone { justify-content: space-between; }
+  .tool-bar.phone .tb-selection { flex: 1; min-width: 0; overflow-x: auto; }
 
   /* ── Model state ──────────────────────────────────────────────────── */
 

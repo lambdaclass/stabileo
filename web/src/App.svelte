@@ -11,6 +11,7 @@
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
+  import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
@@ -112,6 +113,22 @@
     // It is wrong for a selection like a diagram, which only ever means "show".
     basicPanel = toggle && basicPanel === panel ? null : panel;
   }
+
+  /*
+   * On a phone an editing tool shows its options in the modelling sheet, and
+   * only there. With any other sheet open — or none — an armed Node or Load
+   * tool would keep placing things with its options out of sight, so the
+   * pointer goes back to selecting.
+   */
+  $effect(() => {
+    const phone = uiStore.isMobile && uiStore.appMode === 'basico';
+    const panel = basicPanel;
+    untrack(() => {
+      if (phone && panel !== 'data' && (EDIT_TOOLS as readonly string[]).includes(uiStore.currentTool)) {
+        uiStore.currentTool = 'select';
+      }
+    });
+  });
 
   /**
    * Close the right panel without stranding the pointer.
@@ -2012,7 +2029,7 @@
 <RebarWorkspace />
 
 {#if uiStore.toasts.length > 0}
-  <div class="toast-container">
+  <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -3733,17 +3750,19 @@
        screen. See `pointer-events` below for what that cost.
     */
     .toast-container {
-      /*
-         Stops short of the canvas's own two buttons — pointer mode and
-         zoom-to-fit sit at the top-right of the model, from x = 331. Running
-         the toast to the edge put its ✕ directly on top of them: two round
-         controls overlapping, one of them unreachable for as long as the
-         message lasted, which reads as a bug even though it heals itself.
-      */
-      right: 56px;
+      right: 10px;
       left: 10px;
-      top: 146px;
-      bottom: auto;
+      /*
+         At the foot of the screen, and above the sheet when one is open.
+         Under the ribbon it covered the tools and, more often than not, the
+         model; the sheet's top edge is the one place that is neither.
+      */
+      top: auto;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .toast-container.toast-over-sheet {
+      bottom: calc(var(--st-sheet-h) + 8px);
     }
 
     .toast {

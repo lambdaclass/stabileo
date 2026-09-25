@@ -11,6 +11,7 @@
   import MaterialsTable from './tables/MaterialsTable.svelte';
   import SectionsTable from './tables/SectionsTable.svelte';
   import Icon from './ribbon/Icon.svelte';
+  import ToolOptions from './ribbon/ToolOptions.svelte';
 
   /* `plates` and `constraints` exist only in PRO; see the TABS list. */
   type TabId = 'nodes' | 'elements' | 'supports' | 'loads' | 'materials' | 'sections' | 'plates' | 'constraints';
@@ -40,6 +41,10 @@
   /* Pinned means the caller chose; the strip is what would let the reader
      choose again, so it goes with it. */
   const shown = $derived(pinned ?? activeTab);
+  const phoneOptions = $derived(
+    uiStore.isMobile && uiStore.appMode === 'basico' && !pinned
+    && ['node', 'element', 'support', 'load'].includes(uiStore.currentTool),
+  );
 
   /**
    * The tool each tab corresponds to.
@@ -89,10 +94,11 @@
   const TABS: { id: TabId; labelKey: string; icon: string; count: () => number; pro?: boolean }[] = [
     { id: 'nodes', labelKey: 'data.nodes', icon: 'node', count: () => modelStore.nodes.size },
     { id: 'elements', labelKey: 'data.elements', icon: 'element', count: () => modelStore.elements.size },
-    { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
-    { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
+    /* The ribbon's order: draw, then properties, then conditions. */
     { id: 'materials', labelKey: 'data.materials', icon: 'material', count: () => modelStore.materials.size },
     { id: 'sections', labelKey: 'data.sections', icon: 'section', count: () => modelStore.sections.size },
+    { id: 'supports', labelKey: 'data.supports', icon: 'support', count: () => modelStore.supports.size },
+    { id: 'loads', labelKey: 'data.loads', icon: 'load', count: () => modelStore.loads.length },
     /*
      * Plates and constraints exist only in PRO, and are filtered out below
      * rather than declared twice. A mode that cannot contain a plate has no
@@ -154,6 +160,14 @@
   </div>
   {/if}
 
+  <!--
+    A phone's tool options: under the tool buttons that arm them, above the
+    table they fill. On a desktop they are the options bar under the ribbon.
+  -->
+  {#if phoneOptions}
+    <div class="dt-tool-options" data-testid="dt-tool-options"><ToolOptions /></div>
+  {/if}
+
   <div class="table-wrapper">
     {#if shown === 'nodes'}
       <NodesTable />
@@ -176,6 +190,18 @@
 </div>
 
 <style>
+  .dt-tool-options {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--st-hair);
+    font-size: 0.82rem;
+    color: var(--st-text-2);
+    flex: none;
+  }
+
   .data-table {
     height: 100%;
     display: flex;

@@ -185,9 +185,24 @@
     uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
   }
 
+  /*
+   * ── Copy, cut and paste belong to the page first ──────────────────
+   * These took Cmd/Ctrl+C, X and V unconditionally for the model's own
+   * clipboard, so text selected anywhere on the page — a result, a message,
+   * a table — could only be copied from the context menu. The keys are the
+   * page's when text is selected (or when there is nothing of the model to
+   * copy or paste), and the model's otherwise.
+   */
+  function textSelected(): boolean {
+    const sel = window.getSelection();
+    return !!sel && !sel.isCollapsed && sel.toString().trim().length > 0;
+  }
+  const modelSelected = () => uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0;
+
   function handleKeydown(e: KeyboardEvent) {
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+    if ((e.target as HTMLElement).isContentEditable) return;
 
     const key = e.key.toUpperCase();
 
@@ -235,6 +250,7 @@
 
     // Ctrl+C: Copy
     if ((e.ctrlKey || e.metaKey) && key === 'C') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       return;
@@ -242,6 +258,7 @@
 
     // Ctrl+X: Cut
     if ((e.ctrlKey || e.metaKey) && key === 'X') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       const nodesToDelete = [...uiStore.selectedNodes];
@@ -256,6 +273,7 @@
 
     // Ctrl+V: Paste
     if ((e.ctrlKey || e.metaKey) && key === 'V') {
+      if (!uiStore.clipboard) return;
       e.preventDefault();
       handlePaste();
       return;

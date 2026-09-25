@@ -89,7 +89,7 @@ describe('influence lines ask for quantities the engine accepts', () => {
     expect(groups).not.toMatch(/'Ry'/);
     expect(groups).not.toMatch(/'Mz'/);
     for (const file of [
-      'components/ribbon/ToolOptionsBar.svelte',
+      'components/ribbon/ToolOptions.svelte',
       'components/FloatingTools.svelte',
     ]) {
       expect(read(file), `${file} must render the shared quantity groups`).toContain('IL_QUANTITY_GROUPS');

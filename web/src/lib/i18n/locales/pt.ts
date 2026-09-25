@@ -2520,6 +2520,7 @@ const pt: Translations = {
   'float.ryVertical': 'Ry vertical',
   'float.rzVertical': 'Rz vertical',
   'float.select': 'Selecionar',
+  'float.moveNodes': 'Mover nó',
   'float.selectElements': 'Barras',
   'float.selectElementsHint': 'Clique em uma barra para selecioná-la. Excluir leva apenas as barras: os nós das extremidades ficam.',
   'float.selectLoads': 'Cargas',
