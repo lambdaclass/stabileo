@@ -3,6 +3,7 @@
   import { t } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
+  import { sameFinding, formatDetailValue } from '../../lib/engine/model-findings';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
@@ -50,19 +51,13 @@
     const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     const solver = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     // The gates' own findings about the model, which nothing read until now.
-    // They carry `source: 'model'`, the same as `checkModel`'s, so the dedupe
-    // below collapses the two where they say the same thing about the same
-    // element — an isolated node is reported once, not twice.
+    // Where `checkModel` found the same thing under its own code (coincident
+    // nodes), `sameFinding` recognises it and it is reported once.
     const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
     const merged = [...autoModelDiags];
     // Add post-solve diagnostics, deduplicating
     for (const sd of [...general, ...solver, ...fromGates]) {
-      const isDupe = merged.some(
-        d => d.code === sd.code && d.message === sd.message &&
-             JSON.stringify(d.elementIds) === JSON.stringify(sd.elementIds) &&
-             JSON.stringify(d.nodeIds) === JSON.stringify(sd.nodeIds)
-      );
-      if (!isDupe) merged.push(sd);
+      if (!merged.some((d) => sameFinding(d, sd))) merged.push(sd);
     }
     return merged;
   });
@@ -105,7 +100,11 @@
   }
 
   function handleClick(diag: SolverDiagnostic) {
-    if (diag.elementIds && diag.elementIds.length > 0) {
+    if (diag.shellKeys && diag.shellKeys.length > 0) {
+      // Plate and quad ids are not frame ids: they go to the shell selection.
+      uiStore.setSelection(new Set(), new Set(), false, new Set(diag.shellKeys));
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+    } else if (diag.elementIds && diag.elementIds.length > 0) {
       uiStore.setSelection(new Set(), new Set(diag.elementIds));
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
     } else if (diag.nodeIds && diag.nodeIds.length > 0) {
@@ -116,7 +115,8 @@
 
   function formatDetails(details: Record<string, unknown>): string {
     return Object.entries(details)
-      .map(([k, v]) => `${k}: ${typeof v === 'number' ? (v as number).toFixed(3) : v}`)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${k}: ${formatDetailValue(v)}`)
       .join(' | ');
   }
 </script>

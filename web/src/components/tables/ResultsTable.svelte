@@ -29,25 +29,20 @@
   // Merge assembly + solver diagnostics into a single list
   const allDiagnostics = $derived((() => {
     const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
-    const asmDiags = uiStore.analysisMode === '3d' ? resultsStore.diagnostics3D : resultsStore.diagnostics;
-    for (const d of asmDiags) {
+    const is3D = uiStore.analysisMode === '3d';
+    const asmDiags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    // What the pre-solve gates found about the model. Shell findings carry
+    // `shellKeys`, not `elementIds`, so they are never labelled as a frame.
+    const modelDiags = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
+    for (const d of [...asmDiags, ...modelDiags]) {
       const elemIds = d.elementIds && d.elementIds.length > 0
         ? t('results.elemLabel').replace('{id}', String(d.elementIds[0]))
         : '';
       items.push({ source: elemIds || d.source, type: d.code, message: d.message, severity: d.severity });
     }
-    const solverDiags = uiStore.analysisMode === '3d' ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    const solverDiags = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     for (const d of solverDiags) {
       items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
-    }
-    // What the pre-solve gates found about the model. The engine has always
-    // sent these; this table simply never asked for them.
-    const modelDiags = uiStore.analysisMode === '3d' ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
-    for (const d of modelDiags) {
-      const elemIds = d.elementIds && d.elementIds.length > 0
-        ? t('results.elemLabel').replace('{id}', String(d.elementIds[0]))
-        : '';
-      items.push({ source: elemIds || d.source, type: d.code, message: d.message, severity: d.severity });
     }
     return items;
   })());

@@ -11,8 +11,9 @@
  * engine had already diagnosed by name looked clean.
  *
  * These tests pin the translation, not the rendering: severity and code cross
- * as-is, and `source` says 'model' so the PRO panel dedupes them against
- * `checkModel`'s own findings instead of reporting the same thing twice.
+ * as-is, `source` says 'model', and only what describes the model gets through
+ * — the solve's own run notes (factorization, residual) share the list and are
+ * not findings. Shell ids go to the shell selection, never read as frames.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -41,6 +42,8 @@ describe('structured diagnostics reach the diagnostics UI', () => {
           severity: 'error',
           message: 'Quad 7 has no area — element is collapsed',
           elementIds: [7],
+          elementKind: 'quad',
+          phase: 'pre_solve',
         },
       ])
     );
@@ -49,10 +52,37 @@ describe('structured diagnostics reach the diagnostics UI', () => {
     expect(d.severity).toBe('error');
     expect(d.code).toBe('negative_jacobian');
     expect(d.message).toContain('collapsed');
-    expect(d.elementIds).toEqual([7]);
+    // Quad 7 is not frame element 7: it goes to the shell selection.
+    expect(d.shellKeys).toEqual(['q7']);
+    expect(d.elementIds).toBeUndefined();
   });
 
-  it('marks them as describing the model, so they dedupe against checkModel', () => {
+  it('keeps a frame element a frame element, and a plate a plate', () => {
+    resultsStore.setResults(
+      resultsWith([
+        { code: 'suspicious_local_axis', severity: 'warning', message: 'Element 4 …', elementIds: [4], elementKind: 'frame', phase: 'pre_solve' },
+        { code: 'high_aspect_ratio', severity: 'warning', message: 'Plate 4 …', elementIds: [4], elementKind: 'plate', phase: 'pre_solve' },
+      ])
+    );
+    const [frame, plate] = resultsStore.structuredDiagnostics;
+    expect(frame.elementIds).toEqual([4]);
+    expect(frame.shellKeys).toBeUndefined();
+    expect(plate.shellKeys).toEqual(['p4']);
+    expect(plate.elementIds).toBeUndefined();
+  });
+
+  it('leaves out the solve\u2019s own run notes, which describe the run and not the model', () => {
+    resultsStore.setResults(
+      resultsWith([
+        { code: 'dense_lu', severity: 'info', message: 'Dense solver (3 free DOFs)', phase: 'solve' },
+        { code: 'residual_ok', severity: 'info', message: 'Residual 1.07e-15', phase: 'solve', value: 1.07e-15, threshold: 1e-6 },
+        { code: 'high_diagonal_ratio', severity: 'warning', message: 'Diagonal ratio …', phase: 'conditioning' },
+      ])
+    );
+    expect(resultsStore.structuredDiagnostics).toEqual([]);
+  });
+
+  it('marks them as describing the model', () => {
     resultsStore.setResults(
       resultsWith([
         {
@@ -60,6 +90,7 @@ describe('structured diagnostics reach the diagnostics UI', () => {
           severity: 'warning',
           message: 'Node 3 is isolated (not connected to any element)',
           nodeIds: [3],
+          phase: 'pre_solve',
         },
       ])
     );
@@ -82,11 +113,9 @@ describe('structured diagnostics reach the diagnostics UI', () => {
       ])
     );
 
-    expect(resultsStore.structuredDiagnostics[0].details).toMatchObject({
-      phase: 'pre_solve',
-      value: 0.04,
-      threshold: 0.1,
-    });
+    // Only what the diagnostic carries: no `dofIndices: undefined`, and the
+    // phase — the same for every finding — is not repeated in each row.
+    expect(resultsStore.structuredDiagnostics[0].details).toEqual({ value: 0.04, threshold: 0.1 });
   });
 
   it('reports nothing when the engine sent nothing', () => {

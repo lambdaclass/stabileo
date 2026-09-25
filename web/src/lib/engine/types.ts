@@ -197,6 +197,12 @@ export interface StructuredDiagnostic {
   value?: number;
   /** The threshold that value was compared against. */
   threshold?: number;
+  /**
+   * What `elementIds` number: 'frame', 'plate', 'quad', 'quad9',
+   * 'solid_shell' or 'curved_shell'. Frames, plates and quads number
+   * independently, so an id alone does not say which element it is.
+   */
+  elementKind?: string;
 }
 
 export interface AnalysisResults {
@@ -242,6 +248,8 @@ export interface SolverDiagnostic {
   nodeIds?: number[];
   source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
   details?: Record<string, unknown>;
+  /** Shells this is about, as `uiStore.selectedShells` keys: `q{id}` quads, `p{id}` plates. */
+  shellKeys?: string[];
 }
 
 
