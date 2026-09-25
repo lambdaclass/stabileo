@@ -1,0 +1,330 @@
+{
+  "key": "cirsoc-104-2005-hielo",
+  "code": "CIRSOC 104 (hielo)",
+  "edition": "2005",
+  "title": "Reglamento Argentino de Acción del Hielo sobre las Construcciones",
+  "source_file": "CIRSOC 104-2005.pdf",
+  "sha256": "e1e6d178ddb40f999ffddb6d54698bcf27f318ab4e256fd5e6210453be41753f",
+  "bytes": 10142125,
+  "pages": 112,
+  "toc_pages_skipped": 2,
+  "extraction_method": "pypdf layout mode (embedded text layer, no OCR)",
+  "pages_ok": 21,
+  "pages_sparse": 1,
+  "pages_empty": 2,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        89,
+        92
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        93,
+        94
+      ],
+      "clause_count": 12
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "DEFINICIONES",
+      "file": "capitulo-2-definiciones.md",
+      "pages": [
+        95,
+        96
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "SIMBOLOGÍA",
+      "file": "capitulo-3-simbologia.md",
+      "pages": [
+        97,
+        98
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "CARGAS DE HIELO DEBIDAS A LLUVIA",
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md",
+      "pages": [
+        99,
+        100
+      ],
+      "clause_count": 6
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "VIENTO SOBRE ESTRUCTURAS CUBIER",
+      "file": "capitulo-5-viento-sobre-estructuras-cubier.md",
+      "pages": [
+        101,
+        102
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "CARGA PARCIAL",
+      "file": "capitulo-6-carga-parcial.md",
+      "pages": [
+        103,
+        104
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "PROCEDIMIENTO DE DISEÑO",
+      "file": "capitulo-7-procedimiento-de-diseno.md",
+      "pages": [
+        105,
+        112
+      ],
+      "clause_count": 11
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "ESTUDIOS EN LUGARES ESPECÍFICOS",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "Cordillera de los Andes y Precordillera,",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Patagonia, Antártida e Islas del Atlántico Sur,",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "Altas Cumbres de Córdoba, cerros de Tucumán,",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Lugares que se encuentran a alturas mayores que 3.000 m sobre nivel del mar,",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "5",
+      "title": "Regiones especiales de congelamiento,",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "6",
+      "title": "Terreno montañoso y gargantas donde su examen indica que existen condiciones",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1",
+      "title": "La calidad de los datos para viento y el tipo y cantidad de precipitación reunan las",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "2",
+      "title": "Se utilice un algoritmo confiable para la acumulación de hielo que permita estimar",
+      "page": 93,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "3",
+      "title": "Se utilicen procedimientos de análisis estadístico de los valores extremos que sean",
+      "page": 94,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "4",
+      "title": "Se considere la longitud de los registros y el error de la muestra.",
+      "page": 94,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "CARGAS DINÁMICAS",
+      "page": 94,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "PESO DEL HIELO",
+      "page": 99,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "ESPESOR NOMINAL DEL HIELO",
+      "page": 99,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "FACTOR DE ALTURA",
+      "page": 100,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "FACTORES DE IMPORTANCIA",
+      "page": 100,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5",
+      "title": "FACTOR TOPOGRÁFICO",
+      "page": 100,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.6",
+      "title": "ESPESOR DE HIELO DE DISEÑO PARA LLUVIA CONGELANTE",
+      "page": 100,
+      "file": "capitulo-4-cargas-de-hielo-debidas-a-lluvia.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "VIENTO SOBRE CHIMENEAS, TANQUES Y ESTRUCTURAS SIMILARES",
+      "page": 101,
+      "file": "capitulo-5-viento-sobre-estructuras-cubier.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "VIENTO SOBRE PAREDES AISLADAS Y CARTELES LLENOS CUBIER-",
+      "page": 101,
+      "file": "capitulo-5-viento-sobre-estructuras-cubier.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.3",
+      "title": "VIENTO SOBRE ESTRUCTURAS RETICULADAS Y CARTELES ABIER-",
+      "page": 101,
+      "file": "capitulo-5-viento-sobre-estructuras-cubier.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.4",
+      "title": "VIENTO SOBRE TORRES RETICULADAS CUBIERTAS DE HIELO",
+      "page": 102,
+      "file": "capitulo-5-viento-sobre-estructuras-cubier.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "1",
+      "title": "El espesor nominal,                       t, y la velocidad de viento concurrente,  Vc, para el lugar, se",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "2",
+      "title": "El factor topográfico para el lugar, Kzt              , se debe determinar de acuerdo con el",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "3",
+      "title": "El factor de importancia, Ιi, se debe determinar de acuerdo con el artículo 4.4.",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "4",
+      "title": "El factor de altura, fz, se debe determinar de acuerdo con el artículo 4.3 para cada",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "5",
+      "title": "El espesor de hielo de diseño,  td, se deber determinar de acuerdo con el artículo",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "6",
+      "title": "El peso del hielo se debe determinar para el espesor de hielo de diseño,   td, de",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7",
+      "title": "La presión dinámica,  qz, para la velocidad de viento,  Vc, se debe determinar de",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "8",
+      "title": "Los coeficientes de fuerza del viento se deben determinar de acuerdo con el",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "9",
+      "title": "El factor de efecto de ráfaga se debe determinar de acuerdo con el artículo 5.8. del",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "10",
+      "title": "La fuerza de viento de diseño se debe determinar de acuerdo con el artículo 5.13.",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "11",
+      "title": "La estructura sometida a cargas de hielo se debe analizar para las combinaciones",
+      "page": 105,
+      "file": "capitulo-7-procedimiento-de-diseno.md"
+    }
+  ]
+}
