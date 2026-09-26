@@ -57,6 +57,8 @@ export interface ModelSnapshot {
     members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
     data?: Record<string, unknown>;
   }]>;
+  /** Structural grid and named levels. Absent: none defined. */
+  grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */
   views?: Array<{ id: number; name: string; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>;
   /** The active combination list and named envelopes. Absent: all combinations, none named. */
@@ -133,6 +135,16 @@ const MAX_HISTORY = 50;
  */
 export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation';
 
+/**
+ * The selection when an entry was pushed, so an undo puts back what was selected before the edit
+ * and a redo what was selected after it. Placing a copy selects the copy; undoing it gives the
+ * user back the selection they started from, not the ids of entities that no longer exist.
+ *
+ * Registered from `store/index.ts`: this store does not import the UI store.
+ */
+export interface SelectionState { nodes: number[]; elements: number[]; shells: string[] }
+interface SelectionAccess { get(): SelectionState; set(s: SelectionState): void }
+
 function createHistoryStore() {
   let undoStack = $state<ModelSnapshot[]>([]);
   let redoStack = $state<ModelSnapshot[]>([]);
@@ -141,6 +153,13 @@ function createHistoryStore() {
   // from a component; it only drives undo()/redo()'s internal branch.
   let undoKinds: SnapshotKind[] = [];
   let redoKinds: SnapshotKind[] = [];
+  // Parallel as well: the selection that goes with each entry. Null where it is not known (stacks
+  // restored from a tab saved before this existed), and then an undo leaves the selection alone.
+  let undoSel: (SelectionState | null)[] = [];
+  let redoSel: (SelectionState | null)[] = [];
+  let selection: SelectionAccess | null = null;
+  const selNow = () => selection?.get() ?? null;
+  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); };
 
   const store = {
     get canUndo() { return undoStack.length > 0; },
@@ -166,12 +185,15 @@ function createHistoryStore() {
       const kind: SnapshotKind = opts?.kind ?? 'structural';
       undoStack.push(snapshot);
       undoKinds.push(kind);
+      undoSel.push(selNow());
       if (undoStack.length > MAX_HISTORY) {
         undoStack.shift();
         undoKinds.shift();
+        undoSel.shift();
       }
       redoStack = [];
       redoKinds = [];
+      redoSel = [];
       if (opts?.notifyMutation !== false) {
         modelStore.bumpModelVersion();
       }
@@ -182,8 +204,10 @@ function createHistoryStore() {
       const current = modelStore.snapshot();
       const kind = undoKinds.pop() ?? 'structural';
       const prev = undoStack.pop()!;
+      const prevSel = undoSel.pop() ?? null;
       redoStack.push(current);
       redoKinds.push(kind);
+      redoSel.push(selNow());
       if (kind === 'reinforcement') {
         modelStore.restoreReinforcementOnly(prev);
       } else if (kind === 'foundation') {
@@ -191,6 +215,7 @@ function createHistoryStore() {
       } else {
         modelStore.restore(prev);
       }
+      selRestore(prevSel);
     },
 
     redo(): void {
@@ -198,8 +223,10 @@ function createHistoryStore() {
       const current = modelStore.snapshot();
       const kind = redoKinds.pop() ?? 'structural';
       const next = redoStack.pop()!;
+      const nextSel = redoSel.pop() ?? null;
       undoStack.push(current);
       undoKinds.push(kind);
+      undoSel.push(selNow());
       if (kind === 'reinforcement') {
         modelStore.restoreReinforcementOnly(next);
       } else if (kind === 'foundation') {
@@ -207,6 +234,7 @@ function createHistoryStore() {
       } else {
         modelStore.restore(next);
       }
+      selRestore(nextSel);
     },
 
     clear(): void {
@@ -214,7 +242,12 @@ function createHistoryStore() {
       redoStack = [];
       undoKinds = [];
       redoKinds = [];
+      undoSel = [];
+      redoSel = [];
     },
+
+    /** Wire the selection in (see `SelectionState`). */
+    setSelectionAccess(access: SelectionAccess | null): void { selection = access; },
 
     /** Get current stacks for tab serialization */
     getStacks(): { undo: ModelSnapshot[]; redo: ModelSnapshot[]; undoKinds: SnapshotKind[]; redoKinds: SnapshotKind[] } {
@@ -229,6 +262,8 @@ function createHistoryStore() {
       redoStack = redo;
       undoKinds = uKinds ?? undo.map(() => 'structural' as SnapshotKind);
       redoKinds = rKinds ?? redo.map(() => 'structural' as SnapshotKind);
+      undoSel = undo.map(() => null);
+      redoSel = redo.map(() => null);
     },
   };
 

@@ -4,6 +4,10 @@
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
+  import PlacementHud from './components/pro/PlacementHud.svelte';
+  import { copySelection, cutSelection, paste, hasClipboard } from './lib/store/model-clipboard';
+  import { fragmentFromCode } from './lib/model/edit/fragment-code';
+  import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
@@ -495,7 +499,7 @@
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
       'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
-      'settings', 'selection', 'steel', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
+      'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
       'otherCodes'];
     if (!VALID.includes(tab)) return;
     uiStore.proActiveTab = tab;
@@ -704,6 +708,28 @@
     importText = '';
   }
 
+  let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
+  function handleProPaste(e: ClipboardEvent) {
+    if (uiStore.appMode !== 'pro' || !pendingPaste) return;
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const text = e.clipboardData?.getData('text/plain') ?? '';
+    const { inPlace, started } = pendingPaste;
+    pendingPaste = null;
+    e.preventDefault();
+    const external = fragmentFromCode(text) ? text : undefined;
+    if (started && !external) return;
+    if (started) placementStore.cancel();
+    paste(inPlace, external);
+  }
+  // A paste key with no paste event (no clipboard access) still pastes in place from memory.
+  $effect(() => {
+    if (!pendingPaste) return;
+    const p = pendingPaste;
+    const id = setTimeout(() => { if (pendingPaste === p) { pendingPaste = null; if (p.inPlace) paste(true); } }, 150);
+    return () => clearTimeout(id);
+  });
+
   function handleProKeydown(e: KeyboardEvent) {
     if (uiStore.appMode !== 'pro') return;
     // Skip if focus is in an input/textarea/select
@@ -721,6 +747,18 @@
     if ((e.ctrlKey || e.metaKey) && (key === 'Y' || (key === 'Z' && e.shiftKey))) {
       e.preventDefault();
       historyStore.redo();
+      return;
+    }
+
+    // Ctrl/Cmd+C, X, V, Shift+V: the model's clipboard. Text selected in a panel is left to the
+    // browser, so copying a number out of a table still copies the number.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'C' || key === 'X' || key === 'V')) {
+      if ((window.getSelection()?.toString() ?? '') !== '') return;
+      if (key === 'C') { if (copySelection()) e.preventDefault(); return; }
+      if (key === 'X') { if (cutSelection()) { e.preventDefault(); resultsStore.clear(); } return; }
+      // Paste: start with what is in memory; the paste event that follows may bring newer model
+      // code from the system clipboard, and then that is placed instead.
+      pendingPaste = { inPlace: e.shiftKey, started: hasClipboard() && !e.shiftKey ? paste(false) : false };
       return;
     }
 
@@ -1179,7 +1217,7 @@
   }
 </script>
 
-<svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} />
+<svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if showBlog}
   <BlogPage path={blogPath} />
@@ -1693,6 +1731,7 @@
         {:else}
           <Viewport3D />
         {/if}
+        {#if uiStore.appMode === 'pro'}<PlacementHud />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--

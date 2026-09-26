@@ -55,8 +55,22 @@
   import type { ProvenanceSource } from '../../../lib/model/provenance';
   import ProfilePicker from './ProfilePicker.svelte';
   import TopologyPreview from './TopologyPreview.svelte';
+  import GeneratorOutput from './GeneratorOutput.svelte';
+  import ProTemplatesSection from './ProTemplatesSection.svelte';
+  import {
+    DEFAULT_STRUCTURE_PARAMS, STRUCTURE_FIELDS, STRUCTURE_KINDS, generateStructure, validateStructureParams,
+    type StructureKind, type StructureParams,
+  } from '../../../lib/engine/generators/structures';
+  import { defaultOutputState, generatedData, generatedGroups, withSupportMode, type SupportMode } from '../../../lib/store/generated-structures';
+  const outputState = $state(defaultOutputState());
 
-  type Kind = 'truss' | 'column' | 'shed';
+  type Kind = 'truss' | 'column' | 'shed' | 'structure';
+  let structureKind = $state<StructureKind>('spaceFrame');
+  let structureParams = $state<Record<StructureKind, StructureParams>>(
+    Object.fromEntries(STRUCTURE_KINDS.map((k) => [k, { ...DEFAULT_STRUCTURE_PARAMS[k] }])) as Record<StructureKind, StructureParams>,
+  );
+  /** A generated group of the model being edited: Generate then regenerates it in place. */
+  let editingGroupId = $state<number | null>(null);
   let kind = $state<Kind>('truss');
 
   let truss = $state<TrussParams>({ ...DEFAULT_TRUSS_PARAMS });
@@ -85,10 +99,11 @@
   });
 
   /** Parameter problems, before anything is generated. */
-  const paramProblems = $derived(
+  const paramProblems = $derived<Array<{ key: string }>>(
     kind === 'truss' ? validateTrussParams(truss)
       : kind === 'column' ? validateLatticeColumnParams(column)
-        : validateShedParams(shed),
+        : kind === 'structure' ? validateStructureParams(structureKind, structureParams[structureKind])
+          : validateShedParams(shed),
   );
 
   /**
@@ -145,6 +160,7 @@
     if (paramProblems.length > 0) return null;
     if (kind === 'truss') return generateTruss(truss);
     if (kind === 'column') return generateLatticeColumn(column);
+    if (kind === 'structure') return generateStructure(structureKind, structureParams[structureKind]);
     return generateShed(shed);
   });
 
@@ -243,25 +259,56 @@
     truss: 'generator-truss',
     column: 'generator-lattice-column',
     shed: 'generator-shed',
+    structure: 'generator-structure',
   };
 
   function paramsOf(): Record<string, unknown> {
-    return kind === 'truss' ? { ...truss } : kind === 'column' ? { ...column } : { ...shed };
+    return kind === 'truss' ? { ...truss } : kind === 'column' ? { ...column }
+      : kind === 'structure' ? { ...structureParams[structureKind] } : { ...shed };
   }
 
   function nameOf(): string {
     if (kind === 'truss') return `${t('generator.ui.kindTruss')} ${truss.spanM} m`;
     if (kind === 'column') return `${t('generator.ui.kindColumn')} ${column.heightM} m`;
+    if (kind === 'structure') return t(`generator.structure.${structureKind}`);
     return `${t('generator.ui.kindShed')} ${shed.spanM}x${shed.bayM}x${shed.frames}`;
   }
 
-  function generate() {
+  /** The generated model as it would be emitted now, with the supports as chosen. */
+  function build(supports: SupportMode) {
+    if (!topology || !canGenerate) return null;
+    return emitModel(withSupportMode(topology, supports), { name: nameOf(), profiles, ...(material ? { material } : {}) });
+  }
+
+  const generatorId = () => (kind === 'structure' ? structureKind : kind);
+  function meta() {
+    return { generator: generatorId(), params: paramsOf(), profiles: { ...profiles }, gradeId, name: nameOf() };
+  }
+
+  /** Load a generated group's parameters back into the form, to regenerate it. */
+  function editGroup(id: number) {
+    const d = generatedData(id);
+    if (!d) return;
+    if ((STRUCTURE_KINDS as readonly string[]).includes(d.generator)) {
+      kind = 'structure';
+      structureKind = d.generator as StructureKind;
+      structureParams = { ...structureParams, [structureKind]: { ...(d.params as StructureParams) } };
+    } else if (d.generator === 'truss') { kind = 'truss'; truss = { ...truss, ...(d.params as Partial<TrussParams>) }; }
+    else if (d.generator === 'column') { kind = 'column'; column = { ...column, ...(d.params as Partial<LatticeColumnParams>) }; }
+    else if (d.generator === 'shed') { kind = 'shed'; shed = { ...shed, ...(d.params as Partial<ShedParams>) }; }
+    profiles = { ...profiles, ...(d.profiles as Record<MemberRole, ProfileSpec>) };
+    gradeId = d.gradeId;
+    editingGroupId = id;
+  }
+  const groups = $derived(generatedGroups());
+
+  function generate(supports: SupportMode = 'generated') {
     if (!topology || !canGenerate) return;
     const opts: EmitOptions = {
       name: nameOf(), profiles,
       ...(material ? { material } : {}),
     };
-    const g = emitModel(topology, opts);
+    const g = emitModel(withSupportMode(topology, supports), opts);
     const r = applyGeneratedModel(g, {
       source: SOURCE[kind],
       // The clock is read HERE and nowhere below: every module under this one takes the
@@ -303,6 +350,14 @@
           view="elevation"
           label={t('generator.ui.previewFrame')}
           heightPx={120}
+        />
+      {:else if kind === 'structure' && topology.nodes.some((n) => Math.abs(n.y) > 1e-9)}
+        <TopologyPreview
+          topology={topology}
+          view="isometric"
+          label={t('generator.ui.previewIso')}
+          heightPx={195}
+          showLegend
         />
       {:else if kind !== 'shed'}
         <TopologyPreview
@@ -348,25 +403,9 @@
     </div>
   {/if}
 
-  <p class="warn">{t('generator.ui.replacesModel')}</p>
-
-  <!--
-    A disabled Generate says WHY, and says it to a screen reader too.
-
-    `aria-describedby` points at whichever problem list is on screen, so the refusal is read with
-    the button instead of being a grey rectangle whose reason lives somewhere above it.
-  -->
-  <button
-    class="go"
-    type="button"
-    data-testid="gen-generate"
-    disabled={!canGenerate}
-    aria-describedby={paramProblems.length > 0 ? 'gen-param-problems'
-      : profileProblems.length > 0 ? 'gen-profile-problems' : undefined}
-    onclick={generate}
-  >
-    {t('generator.ui.generate')}
-  </button>
+  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta} onNewModel={generate}
+    {editingGroupId} onRegenerated={() => { lastResult = null; }}
+    describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
 
   {#if lastResult}
     <p class="result" data-testid="gen-result" role="status">{lastResult}</p>
@@ -380,7 +419,7 @@
   </header>
 
   <div class="kinds" role="group" aria-label={t('generator.ui.title')}>
-    {#each [['truss', 'kindTruss'], ['column', 'kindColumn'], ['shed', 'kindShed']] as [k, key] (k)}
+    {#each [['truss', 'kindTruss'], ['column', 'kindColumn'], ['shed', 'kindShed'], ['structure', 'kindStructure']] as [k, key] (k)}
       <button
         type="button"
         class:active={kind === k}
@@ -455,6 +494,28 @@
           {#each LACING_PATTERNS as l (l)}<option value={l}>{t(`generator.lacing.${l}`)}</option>{/each}
         </select></label>
       <label class="check"><input type="checkbox" bind:checked={column.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+
+    {:else if kind === 'structure'}
+      <label><span>{t('generator.ui.kindStructure')}</span>
+        <select bind:value={structureKind} data-testid="gen-structure-kind">
+          {#each STRUCTURE_KINDS as k (k)}<option value={k}>{t(`generator.structure.${k}`)}</option>{/each}
+        </select></label>
+      {#each STRUCTURE_FIELDS[structureKind] as f (structureKind + f.key)}
+        {#if f.type === 'bool'}
+          <label class="check"><input type="checkbox" checked={!!structureParams[structureKind][f.key]} onchange={(e) => { structureParams[structureKind][f.key] = e.currentTarget.checked; }} data-testid="gen-f-{f.key}" /><span>{t(`generator.field.${f.key}`)}</span></label>
+        {:else if f.type === 'select'}
+          <label><span>{t(`generator.field.${f.key}`)}</span>
+            <select bind:value={structureParams[structureKind][f.key]} data-testid="gen-f-{f.key}">
+              {#each f.options ?? [] as o (o)}<option value={o}>{t(`generator.option.${f.key}.${o}`)}</option>{/each}
+            </select></label>
+        {:else if f.type === 'bays'}
+          <label><span>{t(`generator.field.${f.key}`)}</span>
+            <input type="text" class="bays" bind:value={structureParams[structureKind][f.key]} placeholder="6; 7,5; 6" data-testid="gen-f-{f.key}" /></label>
+        {:else}
+          <label><span>{t(`generator.field.${f.key}`)}</span>
+            <input type="number" min={f.min} max={f.max} step={f.step ?? 1} bind:value={structureParams[structureKind][f.key]} data-testid="gen-f-{f.key}" /></label>
+        {/if}
+      {/each}
 
     {:else}
       <label><span>{t('generator.ui.spanVT')}</span><input type="number" min="1" step="0.5" bind:value={shed.spanM} /></label>
@@ -612,6 +673,26 @@
     </ul>
   {/if}
 
+    <h4>{t('generator.out.where')}</h4>
+    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} onNewModel={generate} {editingGroupId} />
+
+    {#if groups.length > 0}
+      <h4>{t('generator.out.groupsTitle')}</h4>
+      <ul class="gen-groups" data-testid="gen-groups">
+        {#each groups as g (g.id)}
+          <li class:editing={editingGroupId === g.id}>
+            <span>{g.name}</span>
+            {#if editingGroupId === g.id}
+              <button type="button" class="dock-toggle" onclick={() => (editingGroupId = null)}>{t('generator.out.stopEditing')}</button>
+            {:else}
+              <button type="button" class="dock-toggle" onclick={() => editGroup(g.id)} data-testid="gen-edit-group-{g.id}">{t('generator.out.editGroup')}</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <ProTemplatesSection />
+
     {#if !previewDocked}{@render previewAndActions()}{/if}
   </div><!-- /gen-scroll -->
 
@@ -706,6 +787,13 @@
   }
   .fields select { text-align: left; width: auto; min-width: 8rem; }
   .fields label.check > span { min-width: 0; }
+  .fields input.bays {
+    background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
+    border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 9rem;
+  }
+  .gen-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; }
+  .gen-groups li { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px; }
+  .gen-groups li.editing { background: var(--st-surface-3); }
   .fields input:focus-visible, .fields select:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .problems { margin: 0; padding-left: 16px; font-size: 0.68rem; color: var(--st-danger); }
   /* Warn, not error: the model will generate. `--st-warn` is the token that means exactly

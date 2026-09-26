@@ -12,6 +12,10 @@
   import { copyTransformed, type EditReport } from '../../lib/model/edit/transformed-copy';
   import { transformInPlace } from '../../lib/model/edit/transform-in-place';
   import type { EditWarning } from '../../lib/model/edit/transform-fields';
+  import { detach, fragmentOf } from '../../lib/model/edit/fragment';
+  import { editPreview } from '../../lib/store/edit-preview.svelte';
+  import { placementStore } from '../../lib/store/placement.svelte';
+  import { onDestroy } from 'svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
   const MODES: Mode[] = ['repeat', 'polar', 'mirror', 'rotate', 'move'];
@@ -36,6 +40,10 @@
   let linkMaterial = $state(1);
   let linkSection = $state(1);
   let message = $state<string | null>(null);
+  let showPreview = $state(true);
+
+  /** Past this many members the preview is not drawn: a thousand copies of a building is not a preview. */
+  const PREVIEW_LIMIT = 20000;
 
   /** The selection as an entity set: members and shells picked, plus those wholly inside the nodes. */
   const set = $derived.by(() => {
@@ -89,6 +97,61 @@
         : [rotation(point, axisVec, angle)];
       case 'move': return [translation(d)];
     }
+  }
+
+  // ── The preview: what Run would do, as a ghost, while the numbers change ──
+  const previewFragment = $derived(size > 0 ? fragmentOf(set, { withGroups: false }) : null);
+  $effect(() => {
+    if (!showPreview || !canRun || !previewFragment) { editPreview.clear('transform'); return; }
+    const ts = transforms();
+    if (previewFragment.elements.length * ts.length > PREVIEW_LIMIT) { editPreview.clear('transform'); return; }
+    editPreview.show('transform', previewFragment, ts);
+  });
+  onDestroy(() => editPreview.clear('transform'));
+
+  // ── Picking in the model ──
+  const pickLabel = (key: string) => (k: number) => tp(key, { k });
+  /** The axis or plane point, with one click. */
+  function pickPoint() {
+    placementStore.pickPoints(1, pickLabel('transform.pick.point'), ([p]) => { point = p!; });
+  }
+  /** A mirror plane through two clicked points, standing vertical. */
+  function pickMirror() {
+    placementStore.pickPoints(2, pickLabel('transform.pick.mirror'), ([a, b]) => {
+      const dx = b![0] - a![0], dy = b![1] - a![1];
+      if (Math.hypot(dx, dy) < 1e-9) return;
+      point = a!;
+      axis = 'custom';
+      axisCustom = [dy, -dx, 0];
+    });
+  }
+  /** A rotation about a vertical axis: centre, then from, then to. */
+  function pickRotation() {
+    placementStore.pickPoints(3, pickLabel('transform.pick.rotate'), ([c, f, g]) => {
+      const a1 = Math.atan2(f![1] - c![1], f![0] - c![0]), a2 = Math.atan2(g![1] - c![1], g![0] - c![0]);
+      let deg = ((a2 - a1) * 180) / Math.PI;
+      if (deg > 180) deg -= 360;
+      if (deg < -180) deg += 360;
+      point = c!;
+      axis = 'Z';
+      angle = Math.round(deg * 1e6) / 1e6;
+    });
+  }
+  /** The repeat step, as the vector between two clicked points. */
+  function pickOffset() {
+    placementStore.pickPoints(2, pickLabel('transform.pick.offset'), ([a, b]) => {
+      d = [b![0] - a![0], b![1] - a![1], b![2] - a![2]].map((v) => Math.round(v * 1e6) / 1e6) as Vec3;
+    });
+  }
+  /** Move by two points: the base, then where it goes. Ctrl or Cmd on the second click copies. */
+  function moveByTwoPoints() {
+    const moveSet = { nodes: [...set.nodes], elements: [...set.elements], quads: [...set.quads], plates: [...set.plates] };
+    placementStore.pickPoints(1, pickLabel('transform.pick.base'), ([base]) => {
+      placementStore.start({
+        fragment: detach(fragmentOf(moveSet, { withLoads, withSupports })), label: t('transform.pick.destination'),
+        mode: 'move', moveSet, anchors: [base!], target: base!,
+      });
+    });
   }
 
   function warningsText(w: Partial<Record<EditWarning, number>>): string {
@@ -172,6 +235,11 @@
     {#if spacings}<p class="pk-hint">{tp('transform.spacingsApplied', { n: spacings.length })}</p>{/if}
   {/if}
 
+  {#if mode === 'move'}
+    <button class="tp-link" disabled={size === 0} onclick={moveByTwoPoints} data-testid="tp-two-points">{t('transform.twoPoints')}</button>
+  {:else if mode === 'repeat'}
+    <button class="tp-link" onclick={pickOffset} data-testid="tp-pick-offset">{t('transform.pickOffset')}</button>
+  {/if}
   {#if mode === 'repeat' || mode === 'move'}
     <div class="tp-vec">
       <span class="tp-label">{t(mode === 'repeat' ? 'transform.stepOffset' : 'transform.offset')}</span>
@@ -189,7 +257,16 @@
           <label><span>{ax}</span><input type="number" step="0.1" bind:value={point[i]} data-testid="tp-p{ax.toLowerCase()}" /></label>
         {/each}
       </div>
-      <button class="tp-link" onclick={centreOfSelection}>{t('transform.atCentre')}</button>
+      <div class="tp-row">
+        <button class="tp-link" onclick={centreOfSelection}>{t('transform.atCentre')}</button>
+        {#if mode === 'mirror'}
+          <button class="tp-link" disabled={size === 0} onclick={pickMirror} data-testid="tp-pick-mirror">{t('transform.pickMirror')}</button>
+        {:else if mode === 'rotate'}
+          <button class="tp-link" disabled={size === 0} onclick={pickRotation} data-testid="tp-pick-rotate">{t('transform.pickRotate')}</button>
+        {:else}
+          <button class="tp-link" onclick={pickPoint} data-testid="tp-pick-point">{t('transform.pickPoint')}</button>
+        {/if}
+      </div>
     </div>
     <label class="tp-field">
       <span>{t(mode === 'mirror' ? 'transform.planeNormal' : 'transform.axis')}</span>
@@ -235,6 +312,7 @@
     <p class="tp-note">{t('transform.keepsConnections')}</p>
   {/if}
 
+  <label class="tp-check"><input type="checkbox" bind:checked={showPreview} data-testid="tp-preview" /> {t('transform.preview')}</label>
   <div class="pk-row pk-row-end">
     <button class="pk-btn pk-btn-primary" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
   </div>

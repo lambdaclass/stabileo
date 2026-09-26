@@ -96,6 +96,17 @@ uiStore._setModelFlatnessProvider(() => shouldProjectModelToXZ({
   quadCount: modelStore.quads.size,
 }));
 
+// Undo puts back the selection that went with the entry, keeping only what still exists.
+historyStore.setSelectionAccess({
+  get: () => ({ nodes: [...uiStore.selectedNodes], elements: [...uiStore.selectedElements], shells: [...uiStore.selectedShells] }),
+  set: (s) => uiStore.setSelection(
+    new Set(s.nodes.filter((id) => modelStore.nodes.has(id))),
+    new Set(s.elements.filter((id) => modelStore.elements.has(id))),
+    false,
+    new Set(s.shells.filter((k) => (k[0] === 'q' ? modelStore.quads : modelStore.plates).has(Number(k.slice(1))))),
+  ),
+});
+
 export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, fmStepsStore, tabManager, tourStore, verificationStore };
 
 // The editing/reading exclusion is a rule of the app, not of a component, so it

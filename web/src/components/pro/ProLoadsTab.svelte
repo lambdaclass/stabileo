@@ -2,6 +2,7 @@
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProCombinationRules from './ProCombinationRules.svelte';
+  import ProFloorLoadSection from './ProFloorLoadSection.svelte';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
@@ -446,6 +447,7 @@
         { id: 'cases', labelKey: 'pro.loadCases', n: loadCases.length },
         { id: 'combos', labelKey: 'pro.combos', n: combinations.length },
         { id: 'add', labelKey: 'pro.addLoad', n: caseLoads.length },
+        { id: 'floor', labelKey: 'floorLoad.tab', n: null },
       ] as sec (sec.id)}
         <button
           class="load-tab"
@@ -454,7 +456,7 @@
           aria-selected={loadSection === sec.id}
           onclick={() => (loadSection = sec.id)}
           data-testid="load-tab-{sec.id}"
-        >{t(sec.labelKey)}<span class="load-tab-n">{sec.n}</span></button>
+        >{t(sec.labelKey)}{#if sec.n !== null}<span class="load-tab-n">{sec.n}</span>{/if}</button>
       {/each}
     </div>
 
@@ -590,6 +592,10 @@
       </div>
     {/if}
   </div>
+
+  {#if loadSection === 'floor'}
+    <div class="pro-section-content"><ProFloorLoadSection /></div>
+  {/if}
 
   <!-- Add Load (collapsible) -->
   <div class="pro-addload-section">

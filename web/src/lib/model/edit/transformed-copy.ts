@@ -1,6 +1,7 @@
 /**
- * Copy a set of entities under one or more isometries — the operation behind repeat, polar
- * repeat, mirror and rotate-with-copy — as ONE undo step.
+ * Insert a fragment under one or more isometries as ONE undo step: the operation behind repeat,
+ * polar repeat, mirror, rotate-with-copy, paste, placing a generated structure and importing a
+ * file into the model.
  *
  * ── What is copied ────────────────────────────────────────────────
  *
@@ -19,7 +20,14 @@
  * A copied node that lands on an existing node — the shared column line of a repeated bay, a
  * node on the mirror plane — IS that node. That is what makes a repeat produce a connected
  * structure instead of a stack of coincident ones. A member whose ends both weld onto an existing
- * member's ends is that member already, and is not added twice.
+ * member's ends is that member already, and is not added twice. The model wins on a welded
+ * node: its support stays as it is, and a support the fragment carried there is reported, not
+ * added.
+ *
+ * ── Definitions ───────────────────────────────────────────────────
+ *
+ * A fragment from elsewhere brings its materials, sections and load cases by definition; an
+ * identical one already in the model is reused (`mapDefinitions`).
  *
  * ── Link bars ─────────────────────────────────────────────────────
  *
@@ -28,18 +36,14 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import type { Element, Load, Quad, Plate } from '../../store/model.svelte';
+import type { Element, Quad, Plate } from '../../store/model.svelte';
 import { applyPoint, applyVector, isReflection, type Affine, type Vec3 } from './affine';
 import {
   carriedJoint, carriedLoad, carriedOffset, carriedOrientation, carriedSupport, type EditWarning,
 } from './transform-fields';
+import { fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
 
-export interface EntitySet {
-  nodes: Iterable<number>;
-  elements: Iterable<number>;
-  quads?: Iterable<number>;
-  plates?: Iterable<number>;
-}
+export { closure, type EntitySet } from './fragment';
 
 export interface CopyOptions {
   withLoads?: boolean;
@@ -63,13 +67,19 @@ export interface EditReport {
   welded: number;
   /** Copied members that already existed, end for end. */
   duplicates: number;
+  /** Supports the fragment carried onto a welded node, where the model's own was kept. */
+  supportKept: number;
+  /** Materials, sections and load cases the fragment brought that the model did not have. */
+  added: { materials: number; sections: number; loadCases: number };
+  /** Per copy: fragment id → model id, for nodes (welded ones included) and members placed. */
+  maps: Array<{ nodes: Map<number, number>; elements: Map<number, number> }>;
   warnings: Partial<Record<EditWarning, number>>;
 }
 
-const DEFAULT_WELD = 1e-4;
+export const DEFAULT_WELD = 1e-4;
 
 /** A spatial hash for the weld: cells of the weld tolerance, neighbours checked. */
-class NodeIndex {
+export class NodeIndex {
   private cells = new Map<string, number[]>();
   constructor(private tol: number) {}
   private key(x: number, y: number, z: number) {
@@ -93,30 +103,38 @@ class NodeIndex {
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
-/** The nodes a set touches: its own, and every end and corner of its members and shells. */
-export function closure(set: EntitySet): { nodes: Set<number>; elements: Set<number>; quads: Set<number>; plates: Set<number> } {
-  const elements = new Set(set.elements), quads = new Set(set.quads ?? []), plates = new Set(set.plates ?? []);
-  const nodes = new Set(set.nodes);
-  for (const id of elements) { const e = modelStore.elements.get(id); if (e) { nodes.add(e.nodeI); nodes.add(e.nodeJ); } }
-  for (const id of quads) modelStore.quads.get(id)?.nodes.forEach((n) => nodes.add(n));
-  for (const id of plates) modelStore.plates.get(id)?.nodes.forEach((n) => nodes.add(n));
-  return { nodes, elements, quads, plates };
-}
-
 /**
  * Add `transforms.length` copies of `set`, copy k under `transforms[k]`.
  *
  * With `link`, copy k's nodes are joined to copy k−1's (copy 0 to the originals).
  */
 export function copyTransformed(set: EntitySet, transforms: readonly Affine[], opts: CopyOptions = {}): EditReport {
+  return insertFragment(fragmentOf(set, opts), transforms, opts);
+}
+
+/**
+ * Insert `transforms.length` copies of `frag`, copy k under `transforms[k]`, in one batch.
+ *
+ * With `link`, copy k's nodes are joined to copy k−1's (copy 0 to the fragment's own ids, which
+ * only exist when the fragment is `local`).
+ */
+export function insertFragment(frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
   const tol = opts.weldTol ?? DEFAULT_WELD;
   const leftHand = opts.leftHand ?? false;
-  const src = closure(set);
-  const report: EditReport = { nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, warnings: {} };
+  const report: EditReport = {
+    nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0,
+    added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
+  };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
-  if (src.nodes.size === 0 || transforms.length === 0) return report;
+  if (frag.nodes.length === 0 || transforms.length === 0) return report;
 
   modelStore.bulkMutate(() => {
+    const defs = mapDefinitions(frag);
+    report.added = defs.added;
+    const mat = (id: number) => defs.material.get(id) ?? id;
+    const sec = (id: number) => defs.section.get(id) ?? id;
+    const sourceSection = new Map(frag.sections.map((s) => [s.id, s]));
+
     const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
     const index = new NodeIndex(tol);
     for (const n of modelStore.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);
@@ -124,27 +142,20 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
     for (const e of modelStore.elements.values()) pairs.add(pairKey(e.nodeI, e.nodeJ));
     let nextArc = Math.max(0, ...[...modelStore.elements.values()].map((e) => e.arc?.id ?? 0)) + 1;
 
-    // Snapshot the originals before anything is added, so later copies read the source, not
-    // earlier copies.
-    const nodes0 = new Map([...src.nodes].map((id) => [id, { ...modelStore.nodes.get(id)! }]));
-    const elements0 = new Map([...src.elements].map((id) => [id, JSON.parse(JSON.stringify(modelStore.elements.get(id)!)) as Element]));
-    const quads0 = new Map([...src.quads].map((id) => [id, JSON.parse(JSON.stringify(modelStore.quads.get(id)!)) as Quad]));
-    const plates0 = new Map([...src.plates].map((id) => [id, JSON.parse(JSON.stringify(modelStore.plates.get(id)!)) as Plate]));
-    const loads0: Load[] = JSON.parse(JSON.stringify(modelStore.loads));
-    const supports0 = [...modelStore.supports.values()].filter((s) => src.nodes.has(s.nodeId)).map((s) => JSON.parse(JSON.stringify(s)));
-    const groups0 = [...modelStore.model.groups.values()].filter((g) => {
-      const m = g.members;
-      const all = [...(m.nodes ?? []).map((id) => src.nodes.has(id)), ...(m.elements ?? []).map((id) => src.elements.has(id)),
-        ...(m.quads ?? []).map((id) => src.quads.has(id)), ...(m.plates ?? []).map((id) => src.plates.has(id))];
-      return all.length > 0 && all.every(Boolean);
-    }).map((g) => JSON.parse(JSON.stringify(g)));
+    const nodes0 = new Map(frag.nodes.map((n) => [n.id, n]));
+    const elements0 = new Map(frag.elements.map((e) => [e.id, e]));
+    const supports0 = opts.withSupports ? frag.supports : [];
+    const loads0 = opts.withLoads ? frag.loads.map((l) => {
+      const c = (l.data as { caseId?: number }).caseId;
+      return c === undefined || frag.local ? l : { ...l, data: { ...l.data, caseId: defs.loadCase.get(c) ?? c } } as typeof l;
+    }) : [];
 
-    let prevNodeMap = new Map([...src.nodes].map((id) => [id, id]));
+    let prevNodeMap = new Map(frag.nodes.map((n) => [n.id, n.id]));
     const created = new Set<number>();
     transforms.forEach((T, k) => {
       const nodeMap = new Map<number, number>();
       for (const [id, n] of nodes0) {
-        const p = applyPoint(T, [n.x, n.y, n.z ?? 0]);
+        const p = applyPoint(T, [n.x, n.y, n.z]);
         const hit = index.find(p, pos);
         if (hit !== null) { nodeMap.set(id, hit); report.welded++; continue; }
         const nid = modelStore.addNode(p[0], p[1], p[2]);
@@ -163,12 +174,11 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
         if (pairs.has(pairKey(i2, j2))) { report.duplicates++; continue; }
         const ni = nodes0.get(e.nodeI)!, nj = nodes0.get(e.nodeJ)!;
         const ni2 = modelStore.nodes.get(i2)!, nj2 = modelStore.nodes.get(j2)!;
-        const section = modelStore.sections.get(e.sectionId);
-        const o = carriedOrientation(T, e, ni, nj, ni2, nj2, section, leftHand);
+        const o = carriedOrientation(T, e, ni, nj, ni2, nj2, sourceSection.get(e.sectionId), leftHand);
         if (!o.exact) warn('asymmetricProfile');
         signs.set(id, { sy: o.sy, sz: o.sz });
         const { id: _id, nodeI: _i, nodeJ: _j, localYx: _x, localYy: _y, localYz: _z, rollAngle: _r, jointI, jointJ, offset, arc, reinforcement: _rf, ...rest } = e;
-        const patch: Partial<Element> = { ...rest, ...o.fields };
+        const patch: Partial<Element> = { ...rest, ...o.fields, materialId: mat(e.materialId), sectionId: sec(e.sectionId) };
         const jI = carriedJoint(T, jointI), jJ = carriedJoint(T, jointJ);
         if (jI === null || jJ === null) warn('jointDropped');
         if (jI) patch.jointI = jI;
@@ -190,77 +200,73 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
       // Shells: a reflection reverses the corner order, so the normal is carried as A·n and not
       // turned inside out.
       const flip = isReflection(T);
+      const carryOffset = <O extends { frame: string; x: number; y: number; z: number }>(offset: O | undefined) =>
+        offset && offset.frame === 'global'
+          ? (() => { const w = applyVector(T, [offset.x, offset.y, offset.z]); return { ...offset, x: w[0], y: w[1], z: w[2] }; })()
+          : offset;
       const quadMap = new Map<number, number>();
-      for (const [id, q] of quads0) {
+      for (const q of frag.quads) {
         const corners = q.nodes.map((n) => nodeMap.get(n)!) as Quad['nodes'];
         const { id: _id, nodes: _n, offset, ...rest } = q;
         const nodes = (flip ? [corners[0], corners[3], corners[2], corners[1]] : corners) as Quad['nodes'];
-        const off = offset && offset.frame === 'global'
-          ? (() => { const w = applyVector(T, [offset.x, offset.y, offset.z]); return { frame: 'global' as const, x: w[0], y: w[1], z: w[2] }; })()
-          : offset;
-        const qid = modelStore.addShellEntry('quad', { ...rest, nodes, ...(off ? { offset: off } : {}) });
-        quadMap.set(id, qid);
+        const off = carryOffset(offset);
+        const qid = modelStore.addShellEntry('quad', { ...rest, materialId: mat(q.materialId), nodes, ...(off ? { offset: off } : {}) });
+        quadMap.set(q.id, qid);
         report.quads.push(qid);
       }
       const plateMap = new Map<number, number>();
-      for (const [id, p] of plates0) {
+      for (const p of frag.plates) {
         const corners = p.nodes.map((n) => nodeMap.get(n)!) as Plate['nodes'];
         const { id: _id, nodes: _n, offset, ...rest } = p;
         const nodes = (flip ? [corners[0], corners[2], corners[1]] : corners) as Plate['nodes'];
-        const off = offset && offset.frame === 'global'
-          ? (() => { const w = applyVector(T, [offset.x, offset.y, offset.z]); return { frame: 'global' as const, x: w[0], y: w[1], z: w[2] }; })()
-          : offset;
-        const pid = modelStore.addShellEntry('plate', { ...rest, nodes, ...(off ? { offset: off } : {}) });
-        plateMap.set(id, pid);
+        const off = carryOffset(offset);
+        const pid = modelStore.addShellEntry('plate', { ...rest, materialId: mat(p.materialId), nodes, ...(off ? { offset: off } : {}) });
+        plateMap.set(p.id, pid);
         report.plates.push(pid);
       }
 
-      if (opts.withSupports) {
-        for (const s of supports0) {
-          const to = nodeMap.get(s.nodeId)!;
-          // A welded node keeps whatever support it already has.
-          if (!created.has(to)) continue;
-          const c = carriedSupport(T, s, to, elementMap);
-          if (c) modelStore.addSupportEntry(c); else warn('supportDropped');
-        }
+      for (const s of supports0) {
+        const to = nodeMap.get(s.nodeId)!;
+        // A welded node keeps whatever support it already has.
+        if (!created.has(to)) { if (!frag.local || to !== s.nodeId) report.supportKept++; continue; }
+        const c = carriedSupport(T, s, to, elementMap);
+        if (c) modelStore.addSupportEntry(c); else warn('supportDropped');
       }
 
-      if (opts.withLoads) {
-        const sig = (id: number) => signs.get(id) ?? { sy: 1 as const, sz: 1 as const };
-        for (const l of loads0) {
-          const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
-          if (!c) continue;
-          if (c.warning) warn(c.warning);
-          // A load on a welded node that is not a copy would be applied twice.
-          const onNode = (c.load?.data as { nodeId?: number } | undefined)?.nodeId;
-          if (c.load && (onNode === undefined || created.has(onNode))) modelStore.addLoadEntry(c.load);
-        }
+      const sig = (id: number) => signs.get(id) ?? { sy: 1 as const, sz: 1 as const };
+      for (const l of loads0) {
+        const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
+        if (!c) continue;
+        if (c.warning) warn(c.warning);
+        // A load on a welded node that is not a copy would be applied twice.
+        const onNode = (c.load?.data as { nodeId?: number } | undefined)?.nodeId;
+        if (c.load && (onNode === undefined || created.has(onNode))) modelStore.addLoadEntry(c.load);
       }
 
-      if (opts.withGroups !== false) {
-        for (const g of groups0) {
-          const m = g.members;
-          const members = {
-            ...(m.nodes ? { nodes: m.nodes.map((id: number) => nodeMap.get(id)!) } : {}),
-            ...(m.elements ? { elements: m.elements.map((id: number) => elementMap.get(id)).filter((x: number | undefined) => x !== undefined) } : {}),
-            ...(m.quads ? { quads: m.quads.map((id: number) => quadMap.get(id)!) } : {}),
-            ...(m.plates ? { plates: m.plates.map((id: number) => plateMap.get(id)!) } : {}),
-          };
-          if (g.data) warn('groupDataVerbatim');
-          report.groups.push(modelStore.addGroup(`${g.name} (${k + 1})`, g.kind, members, { origin: g.origin, ...(g.data ? { data: g.data } : {}) }));
-        }
+      for (const g of frag.groups) {
+        const m = g.members;
+        const members = {
+          ...(m.nodes ? { nodes: m.nodes.map((id: number) => nodeMap.get(id)!) } : {}),
+          ...(m.elements ? { elements: m.elements.map((id: number) => elementMap.get(id)).filter((x: number | undefined) => x !== undefined) } : {}),
+          ...(m.quads ? { quads: m.quads.map((id: number) => quadMap.get(id)!) } : {}),
+          ...(m.plates ? { plates: m.plates.map((id: number) => plateMap.get(id)!) } : {}),
+        };
+        if (g.data) warn('groupDataVerbatim');
+        const name = frag.local || transforms.length > 1 ? `${g.name} (${k + 1})` : g.name;
+        report.groups.push(modelStore.addGroup(name, g.kind, members, { origin: g.origin, ...(g.data ? { data: g.data } : {}) }));
       }
 
       if (opts.link) {
         for (const [id] of nodes0) {
           const a = prevNodeMap.get(id)!, b = nodeMap.get(id)!;
-          if (a === b || pairs.has(pairKey(a, b))) continue;
+          if (a === b || pairs.has(pairKey(a, b)) || !modelStore.nodes.has(a)) continue;
           const lid = modelStore.addElement(a, b, opts.link.type);
           modelStore.updateElement(lid, { materialId: opts.link.materialId, sectionId: opts.link.sectionId });
           pairs.add(pairKey(a, b));
           report.links.push(lid);
         }
       }
+      report.maps.push({ nodes: nodeMap, elements: elementMap });
       prevNodeMap = nodeMap;
     });
   });

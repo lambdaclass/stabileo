@@ -105,6 +105,11 @@
     <circle cx="16" cy="7" r="2" />
     <circle cx="10" cy="12" r="2" />
     <circle cx="15" cy="17" r="2" />
+  {:else if name === 'grid'}
+    <!-- Two axes each way with their bubbles: the grid a building is set out from. -->
+    <path d="M9 7v14M17 7v14M3 11h16M3 18h16" stroke-dasharray="2.6 1.6" />
+    <circle cx="9" cy="4.5" r="2" />
+    <circle cx="17" cy="4.5" r="2" />
   {:else if name === 'transform'}
     <!-- A shape and its copy, moved: repeat, mirror, rotate and move all make one. -->
     <rect x="3.5" y="11.5" width="8" height="8" rx="1" />

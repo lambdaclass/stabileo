@@ -513,6 +513,8 @@ function createUIStore() {
 
   // Node creation Y level for 3D (ground plane height)
   let nodeCreateZ = $state<number>(0);
+  // Snap new points to the structural grid's axes (PRO, when the model has a grid).
+  let snapToAxes = $state<boolean>(true);
 
   // Measurement tool
   let measureMode = $state<boolean>(false);
@@ -1102,6 +1104,10 @@ function createUIStore() {
     },
     get nodeCreateZ() { return nodeCreateZ; },
     set nodeCreateZ(v: number) { nodeCreateZ = v; },
+    get snapToAxes() { return snapToAxes; },
+    set snapToAxes(v: boolean) { snapToAxes = v; },
+    /** Work on a level: new points land on its plane, and the grid is drawn there. */
+    setActiveLevel(z: number) { nodeCreateZ = z; workingPlane = 'XY'; },
 
     get measureMode() { return measureMode; },
     set measureMode(v: boolean) { measureMode = v; },

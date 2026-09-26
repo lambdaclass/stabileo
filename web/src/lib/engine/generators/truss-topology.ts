@@ -203,7 +203,11 @@ export interface GenMember {
 export interface GenSupport {
   /** Index into `nodes`. */
   node: number;
-  type: 'pinned' | 'rollerX' | 'fixed';
+  /**
+   * `forkPinned` and `forkRollerX` also hold the member's twist at the bearing: what a beam
+   * needs when every node of it lies on one line, and nothing else stops it spinning about it.
+   */
+  type: 'pinned' | 'rollerX' | 'fixed' | 'forkPinned' | 'forkRollerX';
 }
 
 export interface Topology {
