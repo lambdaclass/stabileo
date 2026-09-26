@@ -78,7 +78,7 @@ export function paste(inPlace: boolean, external?: string): boolean {
   if (!frag) return false;
   if (inPlace) {
     const r = insertFragment(frag, [{ A: IDENTITY, t: [0, 0, 0] }], { withLoads: true, withSupports: true });
-    uiStore.setSelection(new Set(r.nodes), new Set(r.elements), true,
+    uiStore.setSelection(new Set(r.nodes), new Set(r.elements), false,
       new Set([...r.quads.map((id) => `q${id}`), ...r.plates.map((id) => `p${id}`)]));
     uiStore.toast(tp('clipboard.pastedInPlace', { n: r.elements.length + r.quads.length + r.plates.length, welded: r.welded }), 'success');
     return true;

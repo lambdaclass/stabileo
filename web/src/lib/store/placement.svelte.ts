@@ -14,6 +14,7 @@
  * anchor, Shift+R back; F mirrors across the plane through the anchor normal to X. Enter places
  * at typed coordinates; Esc cancels; Shift+click places and keeps going.
  */
+import { untrack } from 'svelte';
 import { applyPoint, compose, reflection, rotation, translation, type Affine, type Vec3 } from '../model/edit/affine';
 import { closure, fragmentBounds, type EntitySet, type Fragment } from '../model/edit/fragment';
 import { insertFragment, NodeIndex, DEFAULT_WELD, type EditReport } from '../model/edit/transformed-copy';
@@ -76,6 +77,8 @@ function createPlacementStore() {
   let lastReport = $state.raw<EditReport | null>(null);
   /** Bumped whenever the transform changes, for the ghost to follow. */
   let revision = $state(0);
+  /** Bumped on every start, so a commit that starts the next step does not cancel it. */
+  let session = 0;
 
   let index: NodeIndex | null = null;
   const supportedNodes = new Set<number>();
@@ -139,14 +142,17 @@ function createPlacementStore() {
       lastReport = null;
       buildIndex();
       active = true;
+      session++;
       revision++;
     },
 
     setTarget(p: Vec3, lbl = ''): void {
-      if (!active) return;
-      target = p;
-      targetLabel = lbl;
-      revision++;
+      untrack(() => {
+        if (!active) return;
+        target = p;
+        targetLabel = lbl;
+        revision++;
+      });
     },
 
     cycleAnchor(step = 1): void {
@@ -157,15 +163,19 @@ function createPlacementStore() {
     },
 
     setRotation(deg: number): void {
-      if (!active) return;
-      rotationDeg = ((deg % 360) + 360) % 360;
-      revision++;
+      untrack(() => {
+        if (!active) return;
+        rotationDeg = ((deg % 360) + 360) % 360;
+        revision++;
+      });
     },
 
     setAnchorIndex(i: number): void {
-      if (!active || anchors.length === 0) return;
-      anchorIndex = Math.min(Math.max(0, i), anchors.length - 1);
-      revision++;
+      untrack(() => {
+        if (!active || anchors.length === 0) return;
+        anchorIndex = Math.min(Math.max(0, i), anchors.length - 1);
+        revision++;
+      });
     },
 
     /** A new picture of the same thing (the parameters changed): keep where and how it is placed. */
@@ -208,22 +218,24 @@ function createPlacementStore() {
     },
 
     /** Place the fragment where the ghost is. `keepGoing` leaves placement active for another. */
-    commit(keepGoing = false): EditReport | null {
+    commit(keepGoing = false, opts: { copy?: boolean } = {}): EditReport | null {
       if (!active || !fragment) return null;
       const T = transform();
+      const mySession = session;
       let report: EditReport | null = null;
-      if (mode === 'move' && moveSet) {
+      if (mode === 'move' && moveSet && !opts.copy) {
         const r = transformInPlace(moveSet, T, { leftHand: uiStore.axisConvention3D === 'leftHand' });
         void r;
         const c = closure(moveSet);
-        uiStore.setSelection(new Set(c.nodes), new Set(c.elements), true,
+        uiStore.setSelection(new Set(c.nodes), new Set(c.elements), false,
           new Set([...[...c.quads].map((id) => `q${id}`), ...[...c.plates].map((id) => `p${id}`)]));
         keepGoing = false;
       } else {
         report = commitWith ? commitWith(T)
           : insertFragment(fragment, [T], { withLoads, withSupports, leftHand: uiStore.axisConvention3D === 'leftHand' });
+        if (session !== mySession) return report; // the committer started the next step
         if (!report) { store.cancel(); return null; }
-        uiStore.setSelection(new Set(report.nodes), new Set(report.elements), true,
+        uiStore.setSelection(new Set(report.nodes), new Set(report.elements), false,
           new Set([...report.quads.map((id) => `q${id}`), ...report.plates.map((id) => `p${id}`)]));
       }
       lastReport = report;
@@ -236,6 +248,27 @@ function createPlacementStore() {
     commitAt(p: Vec3, keepGoing = false): EditReport | null {
       store.setTarget(p, '');
       return store.commit(keepGoing);
+    },
+
+    /**
+     * Pick `n` points in the model with the pointer (nodes snap, else the working plane and the
+     * grid), then hand them to `done`. Esc cancels and `done` is not called.
+     */
+    pickPoints(n: number, label: (k: number) => string, done: (pts: Vec3[]) => void, from?: Vec3): void {
+      const pts: Vec3[] = [];
+      const step = (at: Vec3) => {
+        store.start({
+          fragment: { nodes: [{ id: 1, x: at[0], y: at[1], z: at[2] }], elements: [], quads: [], plates: [], supports: [], loads: [], groups: [], materials: [], sections: [], loadCases: [], local: true },
+          label: label(pts.length + 1), anchors: [at], target: at,
+          commitWith: () => {
+            pts.push([...target] as Vec3);
+            if (pts.length < n) step(pts[pts.length - 1]!);
+            else { store.cancel(); done(pts); }
+            return null;
+          },
+        });
+      };
+      step(from ?? [0, 0, uiStore.nodeCreateZ]);
     },
 
     cancel(): void {

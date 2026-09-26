@@ -66,4 +66,37 @@ test.describe('@smoke placement', () => {
     await expect(page.getByTestId('placement-hud')).toBeHidden();
     expect((await census()).nodes).toBe(before.nodes + 2);
   });
+
+  test('move by two points, typed, moves the selection; a group places a copy', async ({ pro: page }) => {
+    await page.evaluate(async () => {
+      await window.__stabileoActions.loadExample('3d-portal-frame');
+      window.__stabileoActions.selectElements([1]);
+    });
+    const census = () => page.evaluate(() => window.__stabileo.modelCensus());
+    const before = await census();
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-transform').click();
+    await page.getByTestId('tp-mode-move').click();
+    await page.getByTestId('tp-two-points').click();
+    const typeAt = async (x: string, y: string, z: string) => {
+      await page.getByTestId('placement-x').fill(x);
+      await page.getByTestId('placement-y').fill(y);
+      await page.getByTestId('placement-z').fill(z);
+      await page.getByTestId('placement-x').press('Enter');
+    };
+    await typeAt('0', '0', '0');
+    await expect(page.getByTestId('placement-hud')).toBeVisible();
+    await typeAt('0', '0', '1');
+    await expect(page.getByTestId('placement-hud')).toBeHidden();
+    // Moved in place: nothing added.
+    expect(await census()).toEqual(before);
+
+    await page.getByTestId('pr-cmd-groups').click();
+    await page.getByTestId('gp-name').fill('Uno');
+    await page.getByTestId('gp-create').click();
+    await page.locator('[data-testid^="gp-place-"]').first().click();
+    await typeAt('60', '0', '0');
+    await expect(page.getByTestId('placement-hud')).toBeHidden();
+    expect((await census()).elements).toBe(before.elements + 1);
+  });
 });

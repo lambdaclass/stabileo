@@ -978,14 +978,14 @@ const steelPt: Record<string, string> = {
   'templates.namePlaceholder': "Nome",
   'templates.saveSelection': "Salvar a seleção",
   'templates.defaultName': "Modelo {n}",
-  'templates.saved': "Modelo «{name}» salvo.",
+  'templates.saved': "Modelo \"{name}\" salvo.",
   'templates.place': "Posicionar",
   'templates.copyCode': "Copiar código",
   'templates.delete': "Apagar",
   'templates.import': "Importar de código",
   'templates.importButton': "Importar",
   'templates.unreadable': "O texto não é código de modelo válido.",
-  'templates.copied': "Código de «{name}» copiado.",
+  'templates.copied': "Código de \"{name}\" copiado.",
   'templates.copyFailed': "Não foi possível acessar a área de transferência.",
 };
 export default steelPt;

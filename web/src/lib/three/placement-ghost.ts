@@ -24,7 +24,10 @@ export class PlacementGhost {
   private welds: THREE.Points;
   private anchor: THREE.LineSegments;
 
-  constructor(private scene: THREE.Scene) {
+  private copies = new THREE.Group();
+  private marks: THREE.Points | null = null;
+
+  constructor(private scene: THREE.Scene, private color = GHOST_COLOR) {
     this.group.name = 'placementGhost';
     this.group.renderOrder = 10;
     this.body.matrixAutoUpdate = false;
@@ -40,10 +43,11 @@ export class PlacementGhost {
 
     const ag = new THREE.BufferGeometry();
     ag.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(18), 3));
-    this.anchor = new THREE.LineSegments(ag, new THREE.LineBasicMaterial({ color: GHOST_COLOR, depthTest: false }));
+    this.anchor = new THREE.LineSegments(ag, new THREE.LineBasicMaterial({ color: this.color, depthTest: false }));
     this.anchor.raycast = noRaycast;
     this.anchor.frustumCulled = false;
     this.group.add(this.anchor);
+    this.group.add(this.copies);
     scene.add(this.group);
   }
 
@@ -63,7 +67,7 @@ export class PlacementGhost {
     if (seg.length) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
-      const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: GHOST_COLOR, transparent: true, opacity: 0.85, depthTest: false }));
+      const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: this.color, transparent: true, opacity: 0.85, depthTest: false }));
       lines.raycast = noRaycast;
       lines.frustumCulled = false;
       this.body.add(lines);
@@ -71,7 +75,7 @@ export class PlacementGhost {
     const pts = frag.nodes.flatMap((n) => [n.x, n.y, n.z]);
     const pg = new THREE.BufferGeometry();
     pg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    const points = new THREE.Points(pg, new THREE.PointsMaterial({ color: GHOST_COLOR, size: 5, sizeAttenuation: false, depthTest: false, transparent: true, opacity: 0.9 }));
+    const points = new THREE.Points(pg, new THREE.PointsMaterial({ color: this.color, size: 5, sizeAttenuation: false, depthTest: false, transparent: true, opacity: 0.9 }));
     points.raycast = noRaycast;
     points.frustumCulled = false;
     this.body.add(points);
@@ -96,6 +100,43 @@ export class PlacementGhost {
     const cross = [x - s, y, z, x + s, y, z, x, y - s, z, x, y + s, z, x, y, z - s, x, y, z + s];
     for (let k = 0; k < 6; k++) ap.setXYZ(k, cross[3 * k]!, cross[3 * k + 1]!, cross[3 * k + 2]!);
     ap.needsUpdate = true;
+  }
+
+  /**
+   * A preview rather than a placement: the fragment drawn once per transform, and marked points,
+   * with no anchor cross and no weld rings. The copies share the fragment's geometry.
+   */
+  showCopies(transforms: Affine[], points: Vec3[]): void {
+    for (const c of [...this.copies.children]) this.copies.remove(c);
+    this.body.visible = false;
+    this.anchor.visible = false;
+    this.welds.visible = false;
+    for (const T of transforms) {
+      const g = new THREE.Group();
+      g.matrixAutoUpdate = false;
+      const [a, b, c, d, e, f, gg, h, i] = T.A;
+      g.matrix.set(a, b, c, T.t[0], d, e, f, T.t[1], gg, h, i, T.t[2], 0, 0, 0, 1);
+      for (const child of this.body.children) g.add(child.clone(false));
+      this.copies.add(g);
+    }
+    if (this.marks) { this.group.remove(this.marks); this.marks.geometry.dispose(); this.marks = null; }
+    if (points.length) {
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute('position', new THREE.Float32BufferAttribute(points.flat(), 3));
+      this.marks = new THREE.Points(pg, new THREE.PointsMaterial({ color: WELD_COLOR, size: 9, sizeAttenuation: false, depthTest: false, transparent: true }));
+      this.marks.raycast = noRaycast;
+      this.marks.frustumCulled = false;
+      this.group.add(this.marks);
+    }
+    this.group.visible = true;
+  }
+
+  /** Back to placement drawing (one body, anchor, welds). */
+  showPlacement(): void {
+    for (const c of [...this.copies.children]) this.copies.remove(c);
+    this.body.visible = true;
+    this.anchor.visible = true;
+    this.welds.visible = true;
   }
 
   hide(): void { this.group.visible = false; }

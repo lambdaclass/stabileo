@@ -16,6 +16,9 @@
     coincidentNodeGroups, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
     removeOrphanNodes, removeZeroLengthMembers, type CleanupReport,
   } from '../../lib/model/edit/cleanup';
+  import { editPreview } from '../../lib/store/edit-preview.svelte';
+  import { onDestroy } from 'svelte';
+  import type { Vec3 } from '../../lib/model/edit/affine';
 
   let parts = $state(2);
   let message = $state<string | null>(null);
@@ -35,6 +38,24 @@
   });
   const selNodes = $derived([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
   const designDocs = $derived.by(() => { void modelStore.modelVersion; return designDocumentFields(); });
+
+  // Where "split into N" would cut, marked on the selected members before it is done.
+  $effect(() => {
+    const n = Math.floor(parts);
+    if (!(n >= 2 && n <= 20) || members.length === 0) { editPreview.clear('edit'); return; }
+    const pts: Vec3[] = [];
+    for (const id of members) {
+      const e = modelStore.elements.get(id);
+      const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
+      if (!e || !a || !b || e.arc) continue;
+      for (let k = 1; k < n; k++) {
+        const f = k / n;
+        pts.push([a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * f]);
+      }
+    }
+    editPreview.show('edit', null, [], pts);
+  });
+  onDestroy(() => editPreview.clear('edit'));
 
   function refusal(r: { refused: string }) { message = t(`edit.refused.${r.refused}`); }
 

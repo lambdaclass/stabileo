@@ -98,6 +98,6 @@
   .ph-row label { display: flex; gap: 4px; align-items: center; }
   .ph-row input:not([type='checkbox']) { width: 64px; font-family: var(--st-mono); }
   .ph-check { font-size: 0.64rem; }
-  .ph-welds { color: var(--st-warning); }
+  .ph-welds { color: var(--st-warn); }
   .ph-keys { font-size: 0.6rem; color: var(--st-text-3); }
 </style>

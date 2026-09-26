@@ -980,14 +980,14 @@ const steelEs: Record<string, string> = {
   'templates.namePlaceholder': "Nombre",
   'templates.saveSelection': "Guardar la selección",
   'templates.defaultName': "Plantilla {n}",
-  'templates.saved': "Plantilla «{name}» guardada.",
+  'templates.saved': "Plantilla \"{name}\" guardada.",
   'templates.place': "Ubicar",
   'templates.copyCode': "Copiar código",
   'templates.delete': "Borrar",
   'templates.import': "Importar desde código",
   'templates.importButton': "Importar",
   'templates.unreadable': "El texto no es código de modelo válido.",
-  'templates.copied': "Código de «{name}» copiado.",
+  'templates.copied': "Código de \"{name}\" copiado.",
   'templates.copyFailed': "No se pudo acceder al portapapeles.",
 };
 export default steelEs;

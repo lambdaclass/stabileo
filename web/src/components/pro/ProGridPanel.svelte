@@ -109,7 +109,7 @@
   function createFrame() {
     if (!layout) return;
     const r = insertFragment(fragmentFromMembers(layout.nodes, layout.members), [{ A: IDENTITY, t: [0, 0, 0] }]);
-    uiStore.setSelection(new Set(r.nodes), new Set(r.elements), true);
+    uiStore.setSelection(new Set(r.nodes), new Set(r.elements), false);
     lastReport = tp('grid.frameCreated', { members: r.elements.length, nodes: r.nodes.length, welded: r.welded, duplicates: r.duplicates });
   }
 
@@ -268,6 +268,6 @@
   .gr-active td { background: var(--st-surface-3); }
   .gr-check { display: flex; gap: 6px; align-items: center; font-size: 0.66rem; }
   .gr-grid { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 4px 6px; align-items: center; font-size: 0.66rem; margin: 4px 0; }
-  .gr-warn { color: var(--st-warning); }
+  .gr-warn { color: var(--st-warn); }
   :global(.gr .gr-del) { min-height: 20px; padding: 0 0.45rem; }
 </style>

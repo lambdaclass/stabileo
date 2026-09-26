@@ -10,6 +10,8 @@
   // provenance tag with the full assumption list (including the v1
   // one-plan-replicated-to-all-floors assumption).
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
+  import { fragmentFromSnapshot } from '../lib/model/edit/fragment-code';
+  import { placementStore } from '../lib/store/placement.svelte';
   import { t } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
@@ -542,6 +544,15 @@
     draft = result;
     diagnostics = diagnoseDraft(result);
     step = 4;
+  }
+
+  /** Insert the draft into the open model with the ghost, instead of replacing it. */
+  function handleInsert(): void {
+    if (!draft) return;
+    const frag = fragmentFromSnapshot(draft.snapshot);
+    if (frag.nodes.length === 0) return;
+    placementStore.start({ fragment: frag, label: fileName || 'DXF' });
+    onclose();
   }
 
   function handleApply(): void {
@@ -1151,6 +1162,9 @@
             {t('cad.generateDraft')}
           </button>
         {:else}
+          {#if modelStore.nodes.size > 0}
+            <button class="btn" disabled={!draft} onclick={handleInsert} data-testid="cad-insert">{t('import.insertIntoModel')}</button>
+          {/if}
           <button class="btn apply" disabled={!draft} onclick={handleApply}>{t('cad.apply')}</button>
         {/if}
       </div>

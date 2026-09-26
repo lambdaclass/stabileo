@@ -11,6 +11,7 @@
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
+  import { editPreview } from '../lib/store/edit-preview.svelte';
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
@@ -1041,6 +1042,7 @@
 
     return () => {
       ghost?.dispose(); ghost = null; ghostFragment = null;
+      previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
       cancelAnimationFrame(animFrameId);
       ro.disconnect();
@@ -1719,6 +1721,20 @@
     invalidate();
   });
 
+  // The edit preview: copies a panel would make, and points it would mark.
+  let previewGhost: PlacementGhost | null = null;
+  let previewFragment: unknown = null;
+  $effect(() => {
+    void editPreview.revision;
+    if (!scene) return;
+    const frag = editPreview.fragment;
+    if (!frag && editPreview.points.length === 0) { previewGhost?.hide(); invalidate(); return; }
+    if (!previewGhost) previewGhost = new PlacementGhost(scene, 0x7fd17f);
+    if (frag && previewFragment !== frag) { previewGhost.setFragment(frag); previewFragment = frag; }
+    previewGhost.showCopies(frag ? editPreview.transforms : [], editPreview.points);
+    invalidate();
+  });
+
   // ─── Find first node hit by raycast ───────────────────────
   function findNodeHit(e: MouseEvent): number | null {
     updateMouseNDC(e);
@@ -2079,7 +2095,7 @@
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      if (moved < 5 && placementStore.follow) { placementHover(e); placementStore.commit(e.shiftKey); }
+      if (moved < 5 && placementStore.follow) { placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
       return;
     }
 

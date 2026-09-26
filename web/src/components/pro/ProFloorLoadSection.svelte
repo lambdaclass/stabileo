@@ -146,12 +146,12 @@
 <style>
   .fl { display: flex; flex-direction: column; gap: 6px; font-size: 0.68rem; color: var(--st-text-2); }
   .fl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
-  .fl-warn { margin: 0; font-size: 0.62rem; color: var(--st-warning); }
+  .fl-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }
   .fl-summary { margin: 0; }
   .fl-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; }
   .fl-grid input[type='number'] { width: 70px; }
   .fl-plan { width: 100%; max-width: 320px; display: block; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .fl-panel { fill: color-mix(in srgb, var(--st-accent) 22%, transparent); stroke: var(--st-accent); stroke-width: 1.5; }
-  .fl-panel-off { fill: url(#fl-hatch); stroke: var(--st-warning); stroke-width: 1.5; stroke-dasharray: 4 3; }
-  .fl-hatch-line { stroke: var(--st-warning); stroke-width: 1; opacity: 0.6; }
+  .fl-panel-off { fill: url(#fl-hatch); stroke: var(--st-warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .fl-hatch-line { stroke: var(--st-warn); stroke-width: 1; opacity: 0.6; }
 </style>
