@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { sectionShearAreas } from '../section/shear-areas';
 import { supportDofs3D } from './support-dofs-3d';
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
@@ -1440,6 +1441,12 @@ export function hasLoadCarrying3D(model: ModelData): boolean {
     || (model.connectors?.size ?? 0) > 0;
 }
 
+/** A section's shear areas for the engine, when it has them. */
+function shearOf(s: Section): { asY?: number; asZ?: number } {
+  const sa = sectionShearAreas(s);
+  return sa ? { asY: sa.asY, asZ: sa.asZ } : {};
+}
+
 export function buildSolverInput3D(
   model: ModelData,
   includeSelfWeight = false,
@@ -1489,6 +1496,7 @@ export function buildSolverInput3D(
           // would only fire for an INVALID one — null, NaN or negative — and
           // passing that through would be worse than the placeholder.)
           j: props.j ?? outOfPlaneIz * 0.001,
+          ...shearOf(s),
         }];
       }
       // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
@@ -1506,6 +1514,7 @@ export function buildSolverInput3D(
         // See the note on the projected branch above: J never comes from the
         // polygon engine's Routh approximation.
         j: props.j ?? aboutY * 0.001,
+        ...shearOf(s),
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {

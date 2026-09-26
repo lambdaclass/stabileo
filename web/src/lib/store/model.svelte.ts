@@ -135,6 +135,12 @@ export interface Section {
   j?: number;   // m⁴ — torsional constant Saint-Venant (3D only)
   rotation?: number;  // degrees — rotation of section profile around bar axis (0-360)
   /**
+   * Shear areas, so members deform in shear too (`section/shear-areas.ts`): from the geometry,
+   * always recomputed, or declared. Absent: flexural only, which is how every section solved
+   * before this existed.
+   */
+  shearAreas?: import('../section/shear-areas').ShearAreaSpec;
+  /**
    * Which catalogue family this section was picked from (IPE, W, UPN...).
    *
    * Same reasoning as `Material.gradeId`: recorded at selection time, never
