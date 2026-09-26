@@ -26,7 +26,7 @@ import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand } from '.
 export interface OptimiseMember {
   elementId: number;
   demand: SteelMemberDemand;
-  lengths: { L: number; Lb: number };
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number };
 }
 
 /** A candidate's verdict on a group: the worst member and its ratio. */

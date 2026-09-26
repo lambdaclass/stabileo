@@ -267,6 +267,8 @@ export interface StabileoTestHooks {
    * which says nothing about what landed in the model.
    */
   sectionNames(): string[];
+  /** The names of the load cases, in model order. */
+  loadCaseNames(): string[];
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -410,6 +412,15 @@ export interface StabileoTestActions {
    * section that genuinely cannot carry its demand — not a state written into a store.
    */
   updateSection(id: number, data: unknown): void;
+  /**
+   * One combination adding every load case at 1,0, as the combinations table would.
+   *
+   * A TEST MUTATOR. The steel examples carry load cases and no combination, and the one example
+   * that carries combinations is concrete; the code checks read solved combinations only.
+   */
+  combineCases(name: string): number;
+  /** Select these members, in this order, as clicking them one after another would. */
+  selectElements(ids: number[]): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -627,6 +638,7 @@ export function installE2EHooks(): void {
       };
     },
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
+    loadCaseNames: () => modelStore.model.loadCases.map((c) => c.name),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
@@ -687,6 +699,12 @@ export function installE2EHooks(): void {
     },
     updateSection: (id: number, data: unknown) => {
       modelStore.updateSection(id, data as never);
+    },
+    combineCases: (name: string) =>
+      modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
+    selectElements: (ids: number[]) => {
+      uiStore.selectMode = 'elements';
+      ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },

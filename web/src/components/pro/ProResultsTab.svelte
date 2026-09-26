@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   import { untrack } from 'svelte';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
@@ -7,6 +8,7 @@
   import ProResultScopes from './ProResultScopes.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
+  import ProStoryDriftTable from './ProStoryDriftTable.svelte';
   import { deformedView } from '../../lib/store/deformed-view.svelte';
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
@@ -368,6 +370,7 @@
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
     // Relative to each member's chord — the number a span limit is written for.
     { id: 'deflections', labelKey: 'defl.title', count: () => (results ? [...modelStore.elements.values()].filter(e => e.type === 'frame').length : 0) },
+    { id: 'drift', labelKey: 'drift.title', count: () => !results ? 0 : modelStore.model.loadCases.filter((c) => (c.type || '').toUpperCase() === 'E').length },
     { id: 'shells', labelKey: 'pro.shellStresses', count: () => shellRows.length },
     // These two are computed inside the markup as `{@const}`, so the counts are
     // taken from the same source rather than from a binding that is not in
@@ -609,8 +612,7 @@
           <select class="pro-view-sel" value={resultsStore.activeCaseId ?? ''} onchange={onCaseChange} data-testid="pr-case-select">
             {#if resultsStore.singleResults3D}<option value="">{t('pro.queryAllLoads')}</option>{/if}
             {#each caseKeys as cid}
-              {@const lc = modelStore.loadCases.find(c => c.id === cid)}
-              <option value={cid}>{lc ? lc.name : `${t('pro.caseN')}${cid}`}</option>
+              <option value={cid}>{resultCaseName(cid, modelStore.loadCases, t('svc.settlementCase'), t('pro.caseN'))}</option>
             {/each}
           </select>
         {/if}
@@ -877,6 +879,9 @@
       <!-- Outside the shell block below: a frame with no plates has deflections too. -->
       {#if resSection === 'deflections'}
         <ProDeflectionTable />
+      {/if}
+      {#if resSection === 'drift'}
+        <ProStoryDriftTable />
       {/if}
 
       {#if shellRows.length}

@@ -282,7 +282,7 @@ describe('GATE: ProPanel was decomposed', () => {
 
   it('the extracted example catalogue carries no markup and one loader per fixture', () => {
     const examples = readCode('../../data/pro-examples.ts');
-    const fixtures = [...examples.matchAll(/loadExample\('([^']+)'\)/g)].map(m => m[1]);
+    const fixtures = [...examples.matchAll(/(?:loadExample|loadWithRegulationCombinations)\('([^']+)'\)/g)].map(m => m[1]);
     expect(fixtures.length).toBeGreaterThan(10);
     expect(new Set(fixtures).size, 'two cards loading the same fixture').toBe(fixtures.length);
   });

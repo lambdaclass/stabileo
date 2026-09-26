@@ -255,7 +255,8 @@ describe('stack compatibility', () => {
 describe('pending changes', () => {
   it('detects a pending load-affecting change', () => {
     const r = defaultRegulations();
-    r.wind = bindRole('wind', 'cirsoc102-2005');
+    // Any other bindable option: the 2005 edition is reserved (its text is not supplied).
+    r.wind = bindRole('wind', 'en1991-1-4');
     expect(pendingRoles(r)).toEqual(['wind']);
     expect(pendingRequiresLoadRegeneration(r)).toBe(true);
   });
@@ -300,18 +301,17 @@ describe('migration from the CIRSOC-specific v1 shape', () => {
     // A v1 project naming concreteEdition '2005' is bound to the edition IN FORCE and told,
     // because CIRSOC 201-2005 is no longer available for design. No migration workflow is
     // offered: results stored under 2005 came from rules the app no longer applies, so
-    // re-running the design is the only honest outcome. The load and wind roles are
-    // untouched — 101-2005 and 102-2005 remain available.
+    // re-running the design is the only honest outcome. The wind role goes the same way:
+    // 102-2005's text is not supplied either, so it is bound to 2025 and told.
     expect(m.stored.roles.concrete.adapterId).toBe('cirsoc');
     expect(m.stored.roles.concrete.edition).toBe('2025');
     expect(m.notices.map((n) => n.key))
       .toContain('regulations.migration.editionWithdrawn');
-    const withdrawn = m.notices.find(
-      (n) => n.key === 'regulations.migration.editionWithdrawn');
-    expect(withdrawn?.params?.role).toBe('concrete');
-    expect(withdrawn?.params?.edition).toBe('2005');
+    const withdrawn = m.notices.filter(
+      (n) => n.key === 'regulations.migration.editionWithdrawn').map((n) => n.params?.role);
+    expect(withdrawn).toEqual(['concrete', 'wind']);
     expect(m.stored.roles.basis.adapterId).toBe('cirsoc101-2025-basis');
-    expect(m.stored.roles.wind.adapterId).toBe('cirsoc102-2005');
+    expect(m.stored.roles.wind.adapterId).toBe('cirsoc102-2025');
     expect(m.stored.roles.concrete.jurisdiction).toBe('CABA');
     expect(m.stored.roles.concrete.adoption).toBe('adopted');
   });

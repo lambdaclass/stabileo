@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { expandCombinations } from '../../lib/engine/loads/combination-cases';
+  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -8,15 +10,20 @@
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
   // built the seismic weight on a literal "* 50 // rough 50m2 per floor".
   import {
-    buildLoadPlan, describePlanDelta, type LoadPlan, type LoadPlanInput, type PlanDelta,
+    buildLoadPlan, describePlanDelta, levelsWithPlanArea, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
-  import type { Enclosure, Exposure } from '../../lib/codes/cirsoc102/wind';
+  import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
+  import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
+  import ProWindCasesPanel from './ProWindCasesPanel.svelte';
+  import ProSnowSection from './ProSnowSection.svelte';
+  import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
+  import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
-  import { bindingLabel } from '../../lib/codes/roles';
+  import { allOptionsForRole, bindingLabel, optionIsAvailable, optionLabel } from '../../lib/codes/roles';
   import { messageIdentity } from '../../lib/codes/message';
   /*
    * Seismic comes from INPRES-CIRSOC 103 Parte I (2018) now.
@@ -35,7 +42,7 @@
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
   /** Which load the reader came in to define. */
-  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'seismic';
+  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'snow' | 'seismic';
 
   interface Props {
     open: boolean;
@@ -104,6 +111,14 @@
   // configComplete would be circular.
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
   const windAvailable = $derived(regulationsStore.bound('wind'));
+  const snowAvailable = $derived(regulationsStore.bound('snow'));
+  /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
+  const windEditions = allOptionsForRole('wind').filter((o) => o.regulation === 'cirsoc-102');
+  let snowCfg = $state<SnowConfig>(defaultSnowConfig());
+  const snowRoof = $derived.by(() => {
+    const g = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements } as never);
+    return g ? { slopeDeg: g.slopeDeg, W: g.W } : null;
+  });
   let seismicZone = $state<SeismicZone>(4);
   let siteClass = $state<SiteClass>('SD');
   let destinationGroup = $state<DestinationGroup>('B');
@@ -135,14 +150,22 @@
   let windRigid = $state(true);
   let windDirX = $state(true);
   let windDirZ = $state(false);
+  let windCaseSet = $state<WindCaseSet>('all');
+  let windBothSenses = $state(true);
+  let windService = $state<{ enabled: boolean; v50: number; mri: ServiceRecurrence }>({ enabled: false, v50: 0, mri: 10 });
 
   // ─── Options ───────────────────────────
   let genCombos = $state(true);
+  /** Strength, service or both: strength by default, as the regulation's design needs. */
+  let comboSet = $state<'ultimate' | 'service' | 'both'>('ultimate');
+  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
+  let bothSenses = $state(true);
   let clearExisting = $state(false);
 
   /* The fieldsets, so a focused open can bring one into view. */
   let windFieldset = $state<HTMLElement | null>(null);
   let seismicFieldset = $state<HTMLElement | null>(null);
+  let snowFieldset = $state<HTMLElement | null>(null);
   let deadFieldset = $state<HTMLElement | null>(null);
   let liveFieldset = $state<HTMLElement | null>(null);
 
@@ -152,7 +175,9 @@
        row that says "W" is arriving nowhere. */
     if (focus === 'wind' && windAvailable) enableWind = true;
     if (focus === 'seismic' && seismicAvailable) enableSeismic = true;
+    if (focus === 'snow' && snowAvailable) snowCfg.enabled = true;
     const el = focus === 'wind' ? windFieldset
+      : focus === 'snow' ? snowFieldset
       : focus === 'seismic' ? seismicFieldset
       : focus === 'live' ? liveFieldset
       : deadFieldset;
@@ -198,6 +223,13 @@
         kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
         directions: { x: windDirX, y: windDirZ },
+        caseSet: windCaseSet, bothSenses: windBothSenses,
+        service: windService.enabled ? { ...windService } : undefined,
+      } : undefined,
+      snow: snowCfg.enabled ? {
+        enabled: true, ...snowPg(snowCfg),
+        terrain: snowCfg.terrain, exposure: snowCfg.exposure, thermal: snowCfg.thermal,
+        category: snowCfg.category, roofKind: snowCfg.roofKind, slippery: snowCfg.slippery,
       } : undefined,
       seismic: enableSeismic ? {
         /* `coefficient` is the fallback the plan uses only when `code` is absent or
@@ -212,6 +244,7 @@
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
       } : undefined,
       generateCombinations: genCombos,
+      combinationSet: comboSet,
     };
   }
 
@@ -237,6 +270,9 @@
         siteAltitudeM: windAltitude, kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
       }, true);
+    }
+    if (snowCfg.enabled) {
+      regulationsStore.configureRole('snow', { ...$state.snapshot(snowCfg) }, true);
     }
     if (enableSeismic) {
       regulationsStore.configureRole('seismic', {
@@ -309,43 +345,44 @@
       for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
     }
 
-    // Resolve every planned case to a real id, creating only what is missing.
+    // Resolve every planned case to a real id, creating only what is missing. A case the plan
+    // has no match for is still reused when one of the same type already carries its name, so
+    // applying twice does not duplicate the wind cases of Fig. 2.4-8.
+    const caseIds: number[] = [];
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
-      let id = pc.existingId;
-      if (id === null) id = modelStore.addLoadCase(tp(pc.nameKey, pc.nameParams), pc.type);
+      const name = tp(pc.nameKey, pc.nameParams);
+      let id = pc.existingId
+        ?? modelStore.model.loadCases.find((c) => c.type === pc.type && c.name === name)?.id
+        ?? null;
+      if (id === null) id = modelStore.addLoadCase(name, pc.type);
+      caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
       caseIdByType.set(pc.type, list);
     }
-    const firstOf = (type: string) => caseIdByType.get(type)?.[0];
+    const caseOf = (type: string, index?: number) =>
+      index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0];
 
     for (const d of p.distributed) {
-      const id = firstOf(d.caseType);
+      const id = caseOf(d.caseType, d.caseIndex);
       if (id === undefined) continue;
       modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, d.q, undefined, undefined, id);
     }
 
-    // Nodal loads carry a direction; W/E cases were planned per direction in order.
-    const dirIndex = { W: 0, E: 0 } as Record<string, number>;
     for (const n of p.nodal) {
-      const ids = caseIdByType.get(n.caseType) ?? [];
-      if (ids.length === 0) continue;
-      const useY = Math.abs(n.fy) > Math.abs(n.fx);
-      const id = ids.length > 1 ? (useY ? ids[1] : ids[0]) : ids[0];
-      dirIndex[n.caseType] = 0;
-      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, 0, id);
+      const id = caseOf(n.caseType, n.caseIndex);
+      if (id === undefined) continue;
+      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
     }
 
-    for (const combo of p.combinations) {
-      const factors: Array<{ caseId: number; factor: number }> = [];
-      for (const term of combo.terms) {
-        for (const id of caseIdByType.get(term.symbol) ?? []) {
-          factors.push({ caseId: id, factor: term.factor });
-        }
-      }
-      if (factors.length > 0) modelStore.addCombination(combo.label, factors);
-    }
+    // One combination per wind or seismic direction, never both directions in one.
+    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => ({
+      id, type, name: modelStore.model.loadCases.find((c) => c.id === id)?.name ?? type,
+    })));
+    // Wind from −X and −Y is generated as cases of its own (`wind-cases.ts`); earthquake is
+    // reversed by the sign in the combination.
+    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: bothSenses } }));
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -381,7 +418,7 @@
       <fieldset class="al-fieldset" data-testid="al-regulations">
         <legend>{t('autoLoad.appliedRegulations')}</legend>
         <ul class="al-regs">
-          {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','seismic'].includes(s.role)) as st (st.role)}
+          {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','snow','seismic'].includes(s.role)) as st (st.role)}
             <li>
               <span class="al-reg-role">{t(`regulations.role.${st.role}`)}</span>
               <span class="al-reg-name">{te(st.label)}</span>
@@ -600,6 +637,19 @@
           </p>
         {/if}
         {#if enableWind && windAvailable}
+          <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
+          <label class="al-row" data-testid="al-wind-edition">
+            <span class="al-label">{t('autoLoad.windEdition')}</span>
+            <select class="al-select-sm" value={regulationsStore.binding('wind').adapterId ?? ''}
+              onchange={(e) => regulationsStore.requestChange('wind', e.currentTarget.value)}>
+              {#each windEditions as o (o.adapterId)}
+                <option value={o.adapterId} disabled={!optionIsAvailable(o)}>
+                  {te(optionLabel(o))}{optionIsAvailable(o) ? '' : ` · ${t('autoLoad.editionNoText')}`}
+                </option>
+              {/each}
+            </select>
+          </label>
+          {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
           <div class="al-grid">
             <div class="al-field">
               <label class="al-label">V (m/s)</label>
@@ -641,13 +691,34 @@
             <label><input type="checkbox" bind:checked={windDirX} /> {t('autoLoad.dirX')}</label>
             <label><input type="checkbox" bind:checked={windDirZ} /> {t('autoLoad.dirZ')}</label>
           </div>
+          <ProWindCasesPanel
+            bind:caseSet={windCaseSet} bind:bothSenses={windBothSenses} bind:enclosure={windEnclosure}
+            bind:service={windService}
+            speed={windV} exposure={windExposure} altitude={windAltitude}
+            kzt={windKztSurveyed ? windKzt : 1}
+            elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
+          />
         {/if}
       </fieldset>
+
+      <div bind:this={snowFieldset}>
+        <ProSnowSection bind:config={snowCfg} available={snowAvailable} roof={snowRoof} />
+      </div>
 
       <!-- Options -->
       <fieldset class="al-fieldset">
         <legend>{t('autoLoad.options')}</legend>
         <label class="al-check"><input type="checkbox" bind:checked={genCombos} data-testid="al-gen-combos" /> {t('autoLoad.genCombos')}</label>
+        {#if genCombos}
+          <div class="al-row al-comboset" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">
+            <span>{t('autoLoad.comboSet')}</span>
+            {#each ['ultimate', 'service', 'both'] as const as k (k)}
+              <label><input type="radio" name="al-combo-set" value={k} bind:group={comboSet} data-testid="al-combo-set-{k}" /> {t(`autoLoad.comboSet.${k}`)}</label>
+            {/each}
+          </div>
+          {#if comboSet !== 'ultimate'}<p class="al-hint">{t('autoLoad.comboSetServiceHint')}</p>{/if}
+          <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('combos.bothSenses')}</label>
+        {/if}
         <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
           onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
         <label class="al-check">
@@ -791,6 +862,8 @@
   .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
+  .al-comboset { flex-wrap: wrap; padding-left: 1.3rem; }
+  .al-hint { margin: 0.1rem 0 0.3rem 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
   .al-row label { min-width: 11rem; }
   .al-seismic-preview { margin-top: 6px; font-size: 0.78rem; opacity: 0.9; }
   .al-link { background: none; border:  none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }

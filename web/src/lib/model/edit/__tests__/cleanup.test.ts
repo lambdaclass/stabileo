@@ -93,3 +93,22 @@ describe('clean up all', () => {
     expect(historyStore.undoCount).toBe(1);
   });
 });
+
+describe('moving onto the structure welds', () => {
+  it('a moved node that lands on a node that stayed becomes it, in one undo step', async () => {
+    const { transformInPlace } = await import('../transform-in-place');
+    const { translation } = await import('../affine');
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    // A loose bar beside it, moved so its end lands on b.
+    const c = modelStore.addNode(0, 2, 0), d = modelStore.addNode(0, 5, 0);
+    const loose = modelStore.addElement(c, d, 'frame');
+    const r = transformInPlace({ nodes: [c, d], elements: [loose] }, translation([3, -2, 0]));
+    expect(r.welded).toBe(1);
+    expect(modelStore.nodes.has(c)).toBe(false);
+    expect(modelStore.elements.get(loose)!.nodeI).toBe(b);
+    historyStore.undo();
+    expect(modelStore.nodes.has(c)).toBe(true);
+    expect(modelStore.nodes.get(c)!.y).toBe(2);
+  });
+});

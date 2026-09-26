@@ -398,6 +398,24 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             },
           ],
         },
+        {
+          /*
+           * Codes other than CIRSOC: AISC 360, EN 1993-1-1, AISI S100, ACI 318, EN 1992-1-1.
+           * A group of its own because it spans both materials above, and because what it does
+           * is check the members under another code, not design them.
+           */
+          id: 'otherCodes',
+          labelKey: 'proRibbon.groupOtherCodes',
+          cmds: [
+            {
+              id: 'otherCodes',
+              labelKey: 'proRibbon.cmdOtherCodes',
+              descKey: 'proRibbon.cmdOtherCodesDesc',
+              icon: 'data',
+              tab: 'otherCodes',
+            },
+          ],
+        },
       ],
     },];
 }
@@ -438,7 +456,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
-    design: 'design', steel: 'design', connections: 'design',
+    design: 'design', steel: 'design', connections: 'design', otherCodes: 'design',
   };
 
 /** Every command in every stage, flattened — for callers that want a lookup. */

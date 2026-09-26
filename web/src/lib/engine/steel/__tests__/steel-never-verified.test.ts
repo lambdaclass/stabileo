@@ -116,7 +116,6 @@ describe('the metallic components', () => {
     ...walk('components/pro/steel'),
     ...walk('components/pro/generators'),
     'components/pro/ProConnectionsTab.svelte',
-    'components/pro/ProVerificationTab.svelte',
   ];
 
   it('covers every metallic screen there is, including the ones added later', () => {
@@ -159,16 +158,10 @@ describe('the metallic components', () => {
        * manual check, and points at the designed joint for the state that counts. So the
        * exemption is gone and the tick is banned here like anywhere else.
        *
-       * `ProVerificationTab` stays exempt, and only it. That tab is genuinely shared: the same
-       * component renders reinforced-concrete rows, where a tick is a legitimate verdict main's
-       * own guards protect, and scanning the whole file asserted about concrete — which this
-       * rule was never about. The steel half of that tab is guarded precisely, and separately,
-       * by «the verification tab shows no steel row through the green-tick path» below.
+       * `ProVerificationTab` used to be exempt, as a tab shared with concrete rows. It was never
+       * mounted and has been removed, so there is no exemption left.
        */
-      const SHARED_WITH_CONCRETE = ['ProVerificationTab.svelte'];
-      if (!SHARED_WITH_CONCRETE.some((n) => f.endsWith(n))) {
-        expect(readCode(f), `${f} shows a tick`).not.toMatch(/[✓✔]/);
-      }
+      expect(readCode(f), `${f} shows a tick`).not.toMatch(/[✓✔]/);
     }
   });
 
@@ -189,18 +182,6 @@ describe('the metallic components', () => {
     // the number is worth before showing it.
     expect(read('components/pro/steel/SteelPanel.svelte')).toMatch(/experimentalBanner|SteelExperimentalBanner/);
     expect(read('components/pro/ProConnectionsTab.svelte')).toMatch(/conn\.experimentalBanner/);
-  });
-
-  it('the verification tab shows no steel row through the green-tick path', () => {
-    // `statusIcon`/`statusClass` map 'ok' to ✓ and green. A steel row's `overallStatus`
-    // comes from the untested CIRSOC 301 table, so routing the row through that path is the
-    // green tick this branch exists to kill. Steel rows render the steel-status vocabulary
-    // instead, and no steel row may be counted as ok in the summary header.
-    const tab = read('components/pro/ProVerificationTab.svelte');
-    expect(tab).not.toMatch(/statusIcon\(sv\.overallStatus\)/);
-    expect(tab).not.toMatch(/statusClass\(sv\.overallStatus\)/);
-    expect(tab).not.toMatch(/steelVerifications\.filter\([^)]*overallStatus === 'ok'/);
-    expect(tab).toMatch(/SteelStatusBadge/);
   });
 });
 

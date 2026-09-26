@@ -3134,7 +3134,7 @@ const ko: Translations = {
   'autoLoad.sysWalls': '벽체',
   'autoLoad.sysOther': '기타',
   'autoLoad.dirX': 'X 방향',
-  'autoLoad.dirZ': 'Z 방향',
+  'autoLoad.dirZ': 'Y 방향',
   'autoLoad.preview': '지진 미리보기',
   'autoLoad.options': '옵션',
   'autoLoad.genCombos': '기준에 따른 조합 생성',

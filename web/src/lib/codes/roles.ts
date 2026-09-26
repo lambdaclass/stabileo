@@ -39,13 +39,13 @@ import { msg, type EngineMessage, type MessageParam } from './message';
 // ─── Roles ───────────────────────────────────────────────────────
 
 export const REGULATION_ROLES = [
-  'basis', 'loads', 'wind', 'seismic', 'concrete', 'steel', 'masonry', 'timber',
+  'basis', 'loads', 'wind', 'snow', 'seismic', 'concrete', 'steel', 'masonry', 'timber',
 ] as const;
 export type RegulationRole = (typeof REGULATION_ROLES)[number];
 
 /** Roles whose configuration affects generated loads, and therefore the analysis. */
 export const LOAD_AFFECTING_ROLES: readonly RegulationRole[] =
-  Object.freeze(['basis', 'loads', 'wind', 'seismic']);
+  Object.freeze(['basis', 'loads', 'wind', 'snow', 'seismic']);
 
 /** Roles that only affect member design, not the forces. */
 export const DESIGN_ONLY_ROLES: readonly RegulationRole[] =
@@ -157,10 +157,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: false,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc101-2005-basis', role: 'basis', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1990', role: 'basis', edition: 'EN 1990:2002',
@@ -175,10 +177,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc101-2005-loads', role: 'loads', regulation: 'cirsoc-101',
     edition: '2005', nameKey: 'regulations.name.cirsoc101', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-1', role: 'loads', edition: 'EN 1991-1-1',
@@ -193,16 +197,24 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'VALIDATED', requiresConfig: true,
   },
   {
+    // RESERVED, not selectable: the 2005 text is not supplied, and applying the 2025 rules
+    // under a 2005 name is what this entry used to do. Same treatment as CIRSOC 201-2005.
     adapterId: 'cirsoc102-2005', role: 'wind', regulation: 'cirsoc-102',
     edition: '2005', nameKey: 'regulations.name.cirsoc102', family: 'cirsoc',
-    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
-    noteKey: 'regulations.note.legacyEdition',
+    maturity: 'UNSUPPORTED', availability: 'UNAVAILABLE_SOURCE', requiresConfig: false,
+    noteKey: 'regulations.note.editionTextNotSupplied',
   },
   {
     adapterId: 'en1991-1-4', role: 'wind', edition: 'EN 1991-1-4',
     nameKey: 'regulations.name.en1991_1_4', family: 'eurocode',
     maturity: 'UNSUPPORTED', requiresConfig: false,
     noteKey: 'regulations.note.notImplemented',
+  },
+  // ── snow ──
+  {
+    adapterId: 'cirsoc104-2005', role: 'snow', regulation: 'cirsoc-104',
+    edition: '2005', nameKey: 'regulations.name.cirsoc104', family: 'cirsoc',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
   // ── seismic: selected through the ROLE, never a hardcoded tab ──
   {
@@ -451,6 +463,7 @@ export function defaultRegulations(): ProjectRegulations {
     ['basis', 'cirsoc101-2025-basis'],
     ['loads', 'cirsoc101-2025-loads'],
     ['wind', 'cirsoc102-2025'],
+    ['snow', 'cirsoc104-2005'],
     ['concrete', 'cirsoc'],
   ];
   for (const [role, id] of seed) {
@@ -728,18 +741,17 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
     ...bindRole('concrete', 'cirsoc', common),
     state: 'applied', appliedAtRevision: 0,
   };
-  roles.basis = {
-    ...bindRole('basis', loadEd === '2005' ? 'cirsoc101-2005-basis' : 'cirsoc101-2025-basis', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
-  roles.loads = {
-    ...bindRole('loads', loadEd === '2005' ? 'cirsoc101-2005-loads' : 'cirsoc101-2025-loads', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
-  roles.wind = {
-    ...bindRole('wind', windEd === '2005' ? 'cirsoc102-2005' : 'cirsoc102-2025', common),
-    state: 'applied', appliedAtRevision: 0,
-  };
+  // Same for the 2005 load and wind editions: their texts are not supplied either, so the
+  // project goes to the edition in force, and is told.
+  if (loadEd === '2005') {
+    notices.push({ key: 'regulations.migration.editionWithdrawn', params: { role: 'loads', edition: '2005' } });
+  }
+  if (windEd === '2005') {
+    notices.push({ key: 'regulations.migration.editionWithdrawn', params: { role: 'wind', edition: '2005' } });
+  }
+  roles.basis = { ...bindRole('basis', 'cirsoc101-2025-basis', common), state: 'applied', appliedAtRevision: 0 };
+  roles.loads = { ...bindRole('loads', 'cirsoc101-2025-loads', common), state: 'applied', appliedAtRevision: 0 };
+  roles.wind = { ...bindRole('wind', 'cirsoc102-2025', common), state: 'applied', appliedAtRevision: 0 };
 
   const conc = src.concrete as { maxAggregateSizeMm?: unknown } | undefined;
   const rescued = typeof conc?.maxAggregateSizeMm === 'number' ? conc.maxAggregateSizeMm : null;

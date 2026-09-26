@@ -7,6 +7,7 @@ import {
 import {
   bindRole, defaultRegulations, unsetBinding, type ProjectRegulations,
 } from '../../../codes/roles';
+import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -273,14 +274,66 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     expect(teAllAt(p.unsupportedKeys, 'es').join(' ')).toMatch(/1\.9\.5/);
   });
 
-  it('always reports the torsional cases as not covered', () => {
-    expect(windOn().unsupportedKeys.map((u) => u.key))
-      .toContain('loads.cirsoc102.unsupported.torsionalCases');
+  it('no longer reports the torsional cases as not covered: it builds them', () => {
+    const p = windOn({ directions: { x: true, y: true } });
+    expect(p.unsupportedKeys.map((u) => u.key)).not.toContain('loads.cirsoc102.unsupported.torsionalCases');
+    expect(p.cases.some((c) => c.nameKey === 'autoLoad.windCase2')).toBe(true);
+    expect(p.cases.some((c) => c.nameKey === 'autoLoad.windCase4')).toBe(true);
   });
 
-  it('adds a wind case per requested direction', () => {
-    const p = windOn({ directions: { x: true, y: true } });
-    expect(p.cases.filter((c) => c.type === 'W')).toHaveLength(2);
+  it('loads each level with the velocity pressure at its own height', () => {
+    // A 10-storey, 30 m frame in exposure B, where K_z grows from 0.57 at 5 m to ~1.0 at
+    // 30 m. The generator used to apply the windward pressure at z = 5 m to every level.
+    const bay = 6;
+    const p = buildLoadPlan(input({
+      model: frame(10, bay, 3),
+      wind: {
+        enabled: true, basicSpeed: 45, exposure: 'B', enclosure: 'enclosed',
+        siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true,
+        directions: { x: true, y: false },
+      },
+    }));
+    const byLevel = new Map<number, number>();
+    const zOf = new Map([...frame(10, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
+    // Case 1 from +X only: the plan now also carries −X and cases 2 to 4.
+    const first = p.cases.findIndex((c) => c.nameKey.startsWith('autoLoad.windCase1') && c.nameParams?.dir === '+X');
+    for (const n of p.nodal.filter((x) => x.caseType === 'W' && x.caseIndex === first)) {
+      const z = zOf.get(n.nodeId)!;
+      byLevel.set(z, (byLevel.get(z) ?? 0) + n.fx);
+    }
+    // Force per metre of height, on the intermediate storeys (3 m bands).
+    const perM = (z: number) => byLevel.get(z)! / 3 / bay;   // kPa
+    const project = {
+      basicSpeed: 45, exposure: 'B' as const, siteAltitudeM: 0, kzt: 1, kztSurveyed: true,
+      structureKind: 'building' as const, enclosure: 'enclosed' as const, meanRoofHeight: 30,
+      L: bay, B: bay, roofSlopeDeg: 0, rigid: true,
+    };
+    const res = computeWindPressures(project);
+    const cpW = res.pressures.find((x) => x.surface === 'windwardWall')!.cp;
+    const cpL = res.pressures.find((x) => x.surface === 'leewardWall')!.cp;
+    const expected = (z0: number, z1: number) => {
+      // The band's mean q_z, by a fine rectangle rule: independent of the generator's Simpson.
+      let sum = 0; const n = 600;
+      for (let k = 0; k < n; k++) sum += velocityPressure(z0 + (k + 0.5) * (z1 - z0) / n, project);
+      return (sum / n * G_RIGID * cpW - res.qhNm2 * G_RIGID * cpL) / 1000;
+    };
+    for (const z of [6, 15, 27]) {
+      expect(perM(z) / expected(z - 1.5, z + 1.5)).toBeCloseTo(1, 4);
+    }
+    // And the top storeys carry clearly more than the lower ones.
+    expect(perM(27) / perM(6)).toBeGreaterThan(1.25);
+  });
+
+  it('adds a wind case per requested direction, and the cases of Fig. 2.4-8 on request', () => {
+    const one = windOn({ directions: { x: true, y: true }, caseSet: 'case1', bothSenses: false });
+    const roofCase1 = one.cases.filter((c) => c.type === 'W');
+    // One per direction, twice when a roof takes the internal pressure with each sign.
+    expect(roofCase1.length % 2).toBe(0);
+    expect(new Set(roofCase1.map((c) => c.nameParams?.dir))).toEqual(new Set(['+X', '+Y']));
+    const all = windOn({ directions: { x: true, y: true } });
+    const perCase1 = roofCase1.length / 2;   // internal-pressure variants per direction and sense
+    // case 1: 2 axes × 2 senses × variants; case 2: 2 × 2 × 2 e; case 3: 4 quadrants; case 4: 4 × 2 e.
+    expect(all.cases.filter((c) => c.type === 'W')).toHaveLength(4 * perCase1 + 8 + 4 + 8);
   });
 });
 

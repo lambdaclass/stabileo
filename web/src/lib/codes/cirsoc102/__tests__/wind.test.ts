@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
-import {
+import { flatRoofCp,
   CP_SIDE_WALL, CP_WINDWARD_WALL, EXPOSURE_CONSTANTS, G_RIGID, KD,
   applyMinimumWindLoad, classifyEnclosure, computeWindPressures, cpLeewardWall,
   groundElevationFactor, internalPressureCoefficient, roofCp, velocityPressure,
@@ -258,12 +258,23 @@ describe('§1.13 Eq. (1.13-1) and §2.4.1 Eq. (2.4-1) end to end', () => {
     expect(teAllAt(r.unsupported, 'en').join(' ')).toMatch(/1\.9\.5/);
   });
 
-  it('always declares the torsional cases unsupported rather than omitting them silently', () => {
+  it('leaves the load cases of Fig. 2.4-8 to the load plan, which builds all four', () => {
+    // The torsional cases used to be declared unsupported here; `wind-cases.ts` builds them now.
     const r = computeWindPressures(project());
-    expect(r.unsupported.map((u) => u.key))
-      .toContain('loads.cirsoc102.unsupported.torsionalCases');
-    expect(teAllAt(r.unsupported, 'es').join(' ')).toMatch(/torsionales 2 y 4/);
-    expect(teAllAt(r.unsupported, 'en').join(' ')).toMatch(/cases 2 and 4/);
+    expect(r.unsupported.map((u) => u.key)).not.toContain('loads.cirsoc102.unsupported.torsionalCases');
+  });
+
+  it('reads a roof below 10° zone by zone from the windward edge (Fig. 2.4-1)', () => {
+    expect(flatRoofCp(0.3, 1, 10).cp).toEqual([-0.9, -0.18]);
+    expect(flatRoofCp(0.3, 15, 10).cp).toEqual([-0.5, -0.18]);
+    expect(flatRoofCp(0.3, 25, 10).cp).toEqual([-0.3, -0.18]);
+    expect(flatRoofCp(1.2, 1, 10).cp).toEqual([-1.3, -0.18]);
+    expect(flatRoofCp(1.2, 8, 10).cp).toEqual([-0.7, -0.18]);
+    // h/L = 0,75, halfway: at x = 8 (between h/2 and h) −0,9 and −0,7 give −0,8.
+    expect(flatRoofCp(0.75, 8, 10).cp).toEqual([-0.8, -0.18]);
+    // And the calculation no longer calls a flat roof unsupported.
+    expect(computeWindPressures(project({ roofSlopeDeg: 0 })).unsupported.map((u) => u.key))
+      .not.toContain('loads.cirsoc102.unsupported.shallowRoofParallelRidge');
   });
 
   it('records K_zt = 1,0 as an assumption when the site was not surveyed', () => {

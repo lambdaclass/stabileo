@@ -3137,7 +3137,7 @@ const id: Translations = {
   'autoLoad.sysWalls': 'Dinding',
   'autoLoad.sysOther': 'Lainnya',
   'autoLoad.dirX': 'Arah X',
-  'autoLoad.dirZ': 'Arah Z',
+  'autoLoad.dirZ': 'Arah Y',
   'autoLoad.preview': 'Pratinjau gempa',
   'autoLoad.options': 'Opsi',
   'autoLoad.genCombos': 'Buat kombinasi menurut standar',

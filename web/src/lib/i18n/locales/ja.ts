@@ -3103,7 +3103,7 @@ const ja: Translations = {
   'autoLoad.sysWalls': '壁',
   'autoLoad.sysOther': 'その他',
   'autoLoad.dirX': 'X方向',
-  'autoLoad.dirZ': 'Z方向',
+  'autoLoad.dirZ': 'Y方向',
   'autoLoad.preview': '地震プレビュー',
   'autoLoad.options': 'オプション',
   'autoLoad.genCombos': '基準に基づく組合せを生成',

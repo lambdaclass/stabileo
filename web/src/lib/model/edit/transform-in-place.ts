@@ -14,17 +14,20 @@ import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3
 import { applyAxial, applyPoint, applyVector, isReflection, reflection, rotation, type Affine } from './affine';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
 import { closure, type EntitySet } from './transformed-copy';
+import { coincidentNodeGroups, mergeNodesInto, MERGE_TOL } from './cleanup';
 
 export interface InPlaceReport {
   movedNodes: number;
+  /** Moved nodes that landed on a node that stayed, and became it. */
+  welded: number;
   rigidMembers: number;
   stretchedMembers: number;
   warnings: Partial<Record<EditWarning, number>>;
 }
 
-export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: boolean } = {}): InPlaceReport {
+export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: boolean; weldTol?: number } = {}): InPlaceReport {
   const src = closure(set);
-  const report: InPlaceReport = { movedNodes: 0, rigidMembers: 0, stretchedMembers: 0, warnings: {} };
+  const report: InPlaceReport = { movedNodes: 0, welded: 0, rigidMembers: 0, stretchedMembers: 0, warnings: {} };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (src.nodes.size === 0) return report;
 
@@ -122,6 +125,22 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     };
     const next = modelStore.loads.map((l) => moved(l) ?? l);
     modelStore.replaceLoads(next);
+
+    /*
+     * A moved node that lands on a node that stayed becomes it, as a copy's does: a set moved
+     * onto the structure it belongs to is connected to it, not stacked beside it. Only moved
+     * onto stationary — two moved nodes that coincide were coincident before, and that is the
+     * clean-up's to decide.
+     */
+    const tol = opts.weldTol ?? MERGE_TOL;
+    const to = new Map<number, number>();
+    for (const g of coincidentNodeGroups(tol)) {
+      const stays = g.find((id) => !src.nodes.has(id));
+      if (stays === undefined) continue;
+      for (const id of g) if (src.nodes.has(id)) to.set(id, stays);
+    }
+    report.welded = to.size;
+    mergeNodesInto(to);
   });
   return report;
 }

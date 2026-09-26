@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   /**
    * The same result table read across combinations: all of them, a summary, an envelope, and —
    * for members — the governing demand of each type along the member.
@@ -40,7 +41,7 @@
       return [...combos].map(([id, results]) => ({ id, name: names.get(id) ?? `${t('pro.comboN')}${id}`, results }));
     }
     const names = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
-    return [...resultsStore.perCase3D].map(([id, results]) => ({ id, name: names.get(id) ?? `${t('pro.caseN')}${id}`, results }));
+    return [...resultsStore.perCase3D].map(([id, results]) => ({ id, name: names.get(id) ?? resultCaseName(id, [], t('svc.settlementCase'), t('pro.caseN')), results }));
   });
   const basis = $derived(activePerCombo3D().size > 0 ? 'combos' : 'cases');
 

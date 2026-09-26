@@ -35,14 +35,19 @@ import {
   generateCombinations, liveLoadFactorInCompanion,
   type CombinationInputs, type LoadCombinationSpec, type LoadSymbol,
 } from '../../codes/cirsoc101/combinations';
+import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
 import {
   findOccupancy, reduceLiveLoad,
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
 import {
-  applyMinimumWindLoad, computeWindPressures,
+  applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
+import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
+import { SERVICE_WIND_FACTOR, type ServiceRecurrence } from '../../codes/cirsoc102/wind';
+import { snowLoadCases } from './snow-loads';
+import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
@@ -132,6 +137,28 @@ export interface LoadPlanInput {
     roofSlopeDeg: number;
     rigid: boolean;
     directions: { x: boolean; y: boolean };
+    /** Which cases of Fig. 2.4-8 to generate. Absent: all four (§2.4.6). */
+    caseSet?: WindCaseSet;
+    /** Wind from −X and −Y as well. Absent: true. */
+    bothSenses?: boolean;
+    /** Service-level wind Wa (B.4.2): the 50-year speed and the recurrence to convert it to. */
+    service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
+  };
+  /** CIRSOC 104-2005 roof snow (`snow-loads.ts`). */
+  snow?: {
+    enabled: boolean;
+    /** Ground snow load, kN/m²: from Tablas 1.1 a 1.15 or a site value. */
+    pg: number;
+    /** Where p_g came from, for the derivation: a table locality or a site value. */
+    source: string;
+    terrain: SnowTerrain;
+    exposure: RoofExposure;
+    thermal: ThermalCondition;
+    category: SnowCategory;
+    roofKind: 'mono' | 'gable';
+    slippery: boolean;
+    /** The roof slope, degrees; absent: read from the roof members. */
+    roofSlopeDeg?: number;
   };
   seismic?: {
     enabled: boolean;
@@ -155,6 +182,11 @@ export interface LoadPlanInput {
     directions: { x: boolean; y: boolean };
   };
   generateCombinations: boolean;
+  /**
+   * Which combinations to generate when `generateCombinations` is on: the strength ones of
+   * §2.3.2 (the default), the characteristic service ones, or both.
+   */
+  combinationSet?: 'ultimate' | 'service' | 'both';
 }
 
 // ─── Plan ────────────────────────────────────────────────────────
@@ -162,7 +194,7 @@ export interface LoadPlanInput {
 export interface PlannedCase {
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
-  type: 'D' | 'L' | 'Lr' | 'W' | 'E';
+  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E';
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
@@ -171,6 +203,8 @@ export interface PlannedCase {
 export interface PlannedDistributed {
   elementId: number;
   caseType: PlannedCase['type'];
+  /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
+  caseIndex?: number;
   /** Local-z line load, kN/m, negative downward. */
   q: number;
 }
@@ -178,9 +212,13 @@ export interface PlannedDistributed {
 export interface PlannedNodal {
   nodeId: number;
   caseType: PlannedCase['type'];
+  /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
+  caseIndex?: number;
   fx: number;
   fy: number;
   fz: number;
+  /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
+  mz?: number;
 }
 
 export interface LevelMass {
@@ -251,6 +289,7 @@ export interface LoadPlan {
 }
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
+const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
@@ -343,6 +382,9 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   if (input.wind?.enabled && !roleUsable(input.regulations, 'wind')) {
     blockedKeys.push(msg('loadPlan.blocked.windRoleUnusable'));
+  }
+  if (input.snow?.enabled && !roleUsable(input.regulations, 'snow')) {
+    blockedKeys.push(msg('loadPlan.blocked.snowRoleUnusable'));
   }
   if (input.seismic?.enabled && !roleUsable(input.regulations, 'seismic')) {
     blockedKeys.push(msg('loadPlan.blocked.seismicRoleUnusable'));
@@ -482,6 +524,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   // ── Wind ──
   const nodal: PlannedNodal[] = [];
+  const windAxes: WindAxis[] = [];
   let windQh: ProvenancedValue<number> | undefined;
   if (input.wind?.enabled) {
     const elevations = levels.map((l) => l.elevation);
@@ -491,64 +534,176 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     const bx = Math.max(...xs) - Math.min(...xs);
     const by = Math.max(...ys) - Math.min(...ys);
 
-    for (const [dir, enabled, along, across] of [
-      ['x', input.wind.directions.x, bx, by],
-      ['y', input.wind.directions.y, by, bx],
-    ] as const) {
-      if (!enabled) continue;
-      const project: WindProject = {
-        basicSpeed: input.wind.basicSpeed, exposure: input.wind.exposure,
-        siteAltitudeM: input.wind.siteAltitudeM, kzt: input.wind.kzt,
-        kztSurveyed: input.wind.kztSurveyed, structureKind: 'building',
-        enclosure: input.wind.enclosure, meanRoofHeight: Math.max(h, 1),
-        L: Math.max(along, 1), B: Math.max(across, 1),
-        roofSlopeDeg: input.wind.roofSlopeDeg, rigid: input.wind.rigid,
-      };
-      const res = computeWindPressures(project);
-      refs.push(...res.factors.kd.refs, ...res.factors.kh.refs);
-      assumptions.push(...res.assumptions);
-      unsupportedKeys.push(...res.unsupported);
-
-      if (res.pressures.length === 0) continue;
-      windQh = fromProject(res.qhNm2, 'N/m²');
-
-      // Windward + leeward on each level, distributed over that level's nodes.
-      const ww = res.pressures.find((p) => p.surface === 'windwardWall' && p.gcpiSign === 1);
-      const lw = res.pressures.find((p) => p.surface === 'leewardWall' && p.gcpiSign === 1);
-      const net = (Math.abs(ww?.pNm2 ?? 0) + Math.abs(lw?.pNm2 ?? 0)) / 1000;   // kPa
-
-      const elevated = levels.filter((l) => l.elevation > 0);
-      for (let i = 0; i < elevated.length; i++) {
-        const lv = elevated[i];
-        const below = i === 0 ? 0 : elevated[i - 1].elevation;
-        const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
-        const tribH = (lv.elevation - below) / 2 + (above - lv.elevation) / 2;
-        const force = net * across * tribH;
-        const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
-        const applied = min.totalN / 1000;
-        if (min.governedByMinimum) {
-          unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
-            level: round(lv.elevation, 2),
-          }));
-          refs.push(...min.refs);
+    /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
+    const axesFor = (speed: number, service: boolean): WindAxis[] => {
+      const out: WindAxis[] = [];
+      for (const [dir, enabled, along, across] of [
+        ['x', input.wind!.directions.x, bx, by],
+        ['y', input.wind!.directions.y, by, bx],
+      ] as const) {
+        if (!enabled) continue;
+        const project: WindProject = {
+          basicSpeed: speed, exposure: input.wind!.exposure,
+          siteAltitudeM: input.wind!.siteAltitudeM, kzt: input.wind!.kzt,
+          kztSurveyed: input.wind!.kztSurveyed, structureKind: 'building',
+          enclosure: input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
+          L: Math.max(along, 1), B: Math.max(across, 1),
+          roofSlopeDeg: input.wind!.roofSlopeDeg, rigid: input.wind!.rigid,
+        };
+        const res = computeWindPressures(project);
+        if (!service) {
+          refs.push(...res.factors.kd.refs, ...res.factors.kh.refs);
+          assumptions.push(...res.assumptions);
+          unsupportedKeys.push(...res.unsupported);
         }
-        const per = applied / Math.max(1, lv.nodeIds.length);
-        for (const id of lv.nodeIds) {
-          nodal.push({
-            nodeId: id, caseType: 'W',
-            fx: dir === 'x' ? per : 0, fy: dir === 'y' ? per : 0, fz: 0,
-          });
+
+        if (res.pressures.length === 0) continue;
+        if (!service) windQh = fromProject(res.qhNm2, 'N/m²');
+
+        /*
+         * Windward + leeward on each level, distributed over that level's nodes.
+         *
+         * The windward wall sees q_z, which grows with height (§2.4.1); the leeward wall
+         * sees q_h everywhere. The internal pressure acts on both walls and cancels in the
+         * net lateral force. This used to take the windward row evaluated at
+         * z = min(5 m, h) and apply it at every level, so the upper storeys of anything
+         * taller than 5 m got the base's pressure: about 40 % short at the top of a 30 m
+         * building in exposure B. Each level's band is now integrated over its own heights.
+         */
+        const cpWw = res.pressures.find((p) => p.surface === 'windwardWall')?.cp ?? 0;
+        const cpLw = res.pressures.find((p) => p.surface === 'leewardWall')?.cp ?? 0;
+        const qz = (z: number) => velocityPressure(Math.max(z, 0), project);
+        /** Net lateral pressure on the band [z0, z1], averaged over it, kPa. */
+        const bandNet = (z0: number, z1: number) => {
+          if (z1 <= z0) return (qz(z0) * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+          // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
+          const n = 8, hh = (z1 - z0) / n;
+          let sum = qz(z0) + qz(z1);
+          for (let k = 1; k < n; k++) sum += (k % 2 ? 4 : 2) * qz(z0 + k * hh);
+          const meanQz = (sum * hh / 3) / (z1 - z0);
+          return (meanQz * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+        };
+        const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
+
+        const elevated = levels.filter((l) => l.elevation > 0);
+        const windLevels: WindLevel[] = [];
+        for (let i = 0; i < elevated.length; i++) {
+          const lv = elevated[i];
+          const below = i === 0 ? 0 : elevated[i - 1].elevation;
+          const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
+          // The lower half of the first storey goes straight to the foundation, as before.
+          const z0 = (below + lv.elevation) / 2;
+          const z1 = (lv.elevation + above) / 2;
+          const tribH = z1 - z0;
+          const levelNet = bandNet(z0, z1);
+          const force = levelNet * across * tribH;
+          if (!service) derivation.push(msg('loadPlan.derivation.windLevel', {
+            dir: dir.toUpperCase(), level: round(lv.elevation, 2),
+            z0: round(z0, 2), z1: round(z1, 2), net: round(levelNet, 3), force: round(force, 1),
+          }));
+          const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
+          const applied = min.totalN / 1000;
+          if (!service && min.governedByMinimum) {
+            unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
+              level: round(lv.elevation, 2),
+            }));
+            refs.push(...min.refs);
+          }
+          // §2.1.5's minimum is a design load; service wind (Wa) is the pressures alone.
+          windLevels.push({ elevation: lv.elevation, nodeIds: lv.nodeIds, force: service ? force : applied, pressureForce: force });
+        }
+        out.push({
+          axis: dir, across, along, levels: windLevels, project, qhNm2: res.qhNm2,
+          gcpi: internalPressureCoefficient(input.wind!.enclosure),
+        });
+        if (!service) derivation.push(msg('loadPlan.derivation.wind', {
+          dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
+          net: round(net, 3), front: round(across, 1),
+        }));
+      }
+      return out;
+    };
+    windAxes.push(...axesFor(input.wind.basicSpeed, false));
+    if (windAxes.length > 0) {
+      const set = input.wind.caseSet ?? 'all';
+      const generated = windLoadCases({
+        model: input.model, axes: windAxes, set, bothSenses: input.wind.bothSenses ?? true,
+        tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
+      });
+      unsupportedKeys.push(...generated.notes);
+      refs.push(R102('2.4.6', 'casos de carga de viento de diseño'));
+      derivation.push(msg('loadPlan.derivation.windCases', { set, count: generated.cases.length }));
+      for (const c of generated.cases) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
+        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+      }
+    }
+
+    /*
+     * Wa, for the service combinations of B.4.2: the same procedure at the speed of a shorter
+     * recurrence, the 50-year speed of Figura C AB.4.2-1 times its conversion factor. Case 1 in
+     * each direction and sense: the torsional and simultaneous cases are for strength.
+     */
+    const sw = input.wind.service;
+    if (sw?.enabled && sw.v50 > 0) {
+      const factor = SERVICE_WIND_FACTOR[sw.mri];
+      const speed = sw.v50 * factor;
+      const waAxes = axesFor(speed, true);
+      if (waAxes.length > 0) {
+        const generated = windLoadCases({
+          model: input.model, axes: waAxes, set: 'case1', bothSenses: input.wind.bothSenses ?? true,
+          tributaryWidth: input.tributaryWidth, speed: round(speed, 1),
+        });
+        refs.push(R102('B.4.2', 'servicio'));
+        derivation.push(msg('loadPlan.derivation.windService', { v50: sw.v50, mri: sw.mri, factor, v: round(speed, 1), count: generated.cases.length }));
+        for (const c of generated.cases) {
+          const index = cases.length;
+          cases.push({ existingId: null, type: 'Wa', nameKey: c.nameKey.replace('windCase1', 'windCaseWa'), nameParams: { ...c.nameParams, mri: sw.mri } });
+          for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'Wa', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
+          for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
         }
       }
-      cases.push({
-        existingId: findCase(input.model, 'W', dir.toUpperCase()),
-        type: 'W', nameKey: 'autoLoad.windCaseDir',
-        nameParams: { dir: dir.toUpperCase(), v: input.wind.basicSpeed },
-      });
-      derivation.push(msg('loadPlan.derivation.wind', {
-        dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
-        net: round(net, 3), front: round(across, 1),
+    }
+  }
+
+  // ── Snow ──
+  let snowPlanned = false;
+  if (input.snow?.enabled) {
+    const sn = input.snow;
+    const out = snowLoadCases({ model: input.model, snow: sn, tributaryWidth: input.tributaryWidth });
+    if (!out) {
+      unsupportedKeys.push(msg('snow.note.noRoof'));
+    } else if (out.result.refused) {
+      blockedKeys.push(msg(out.result.refused));
+    } else {
+      const r = out.result;
+      refs.push(...r.refs);
+      derivation.push(msg('snow.derivation.pf', {
+        pg: round(sn.pg, 2), source: sn.source, ce: r.ce, ct: r.ct, i: r.importance,
+        pf: round(r.pfComputed, 3),
       }));
+      if (r.pfMinimum !== null) derivation.push(msg('snow.derivation.minimum', { min: round(r.pfMinimum, 3), pf: round(r.pf, 3) }));
+      derivation.push(msg('snow.derivation.ps', {
+        slope: round(sn.roofSlopeDeg ?? out.geometry.slopeDeg, 1), cs: round(r.cs, 3), ps: round(r.ps, 3),
+        w: round(out.geometry.W, 2),
+      }));
+      if (r.rainOnSnow > 0) derivation.push(msg('snow.derivation.rain', { add: round(r.rainOnSnow, 3) }));
+      if (r.unbalanced) {
+        derivation.push(msg('snow.derivation.unbalanced', {
+          leeward: round(r.unbalanced.leeward, 3), windward: round(r.unbalanced.windward, 3),
+        }));
+      }
+      if ((sn.roofSlopeDeg ?? out.geometry.slopeDeg) < 1.2) unsupportedKeys.push(msg('snow.note.ponding'));
+      unsupportedKeys.push(msg('snow.note.notCovered'));
+      for (const c of out.cases) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'S', caseIndex: index, q: d.q });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
+        snowPlanned = true;
+      }
     }
   }
 
@@ -644,27 +799,25 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
 
+      const exIndex = input.seismic.directions.x ? cases.length : -1;
+      if (exIndex >= 0) {
+        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
+          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
+      }
+      const eyIndex = input.seismic.directions.y ? cases.length : -1;
+      if (eyIndex >= 0) {
+        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
+          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
+      }
       elevated.forEach((lv, i) => {
         const Fk = dist.forces[i]?.f ?? 0;
         const per = Fk / Math.max(1, lv.nodeIds.length);
         for (const id of lv.nodeIds) {
-          if (input.seismic!.directions.x) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: per, fy: 0, fz: 0 });
-          }
-          if (input.seismic!.directions.y) {
-            nodal.push({ nodeId: id, caseType: 'E', fx: 0, fy: per, fz: 0 });
-          }
+          if (exIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: exIndex, fx: per, fy: 0, fz: 0 });
+          if (eyIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: eyIndex, fx: 0, fy: per, fz: 0 });
         }
       });
 
-      if (input.seismic.directions.x) {
-        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
-      }
-      if (input.seismic.directions.y) {
-        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
-      }
       derivation.push(msg('loadPlan.derivation.seismic', {
         weight: round(W, 1), coefficient: round(C, 4), baseShear: round(V0, 1),
       }));
@@ -686,8 +839,9 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   let combinations: LoadCombinationSpec[] = [];
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
-      L: true, Lr: false, S: false, R: false,
+      L: true, Lr: false, S: snowPlanned, R: false,
       W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
+      Wa: nodal.some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
       F: false, H: false,
     };
@@ -695,10 +849,14 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       present, maxLoKNm2: lo,
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
-    combinations = generateCombinations(ci);
-    const exc = liveLoadFactorInCompanion(ci);
-    if (exc.note) derivation.push(exc.note);
-    refs.push(R101('2.3.2', 'combinaciones básicas'));
+    const set = input.combinationSet ?? 'ultimate';
+    if (set !== 'service') {
+      combinations = generateCombinations(ci);
+      const exc = liveLoadFactorInCompanion(ci);
+      if (exc.note) derivation.push(exc.note);
+      refs.push(R101('2.3.2', 'combinaciones básicas'));
+    }
+    if (set !== 'ultimate') combinations = [...combinations, ...generateServiceCombinations(ci)];
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
@@ -719,6 +877,19 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 }
 
 // ─── Delta, for the before/after preview ─────────────────────────
+
+/**
+ * How many combinations applying the plan adds: a combination with a wind or seismic term
+ * becomes one per direction the plan has a case for (`combination-cases.ts`).
+ */
+function plannedCombinationCount(plan: LoadPlan): number {
+  const per = (sym: string) => plan.cases.filter((c) => c.type === sym).length;
+  return plan.combinations.reduce((n, c) => {
+    const alt = c.terms.find((t) => t.factor !== 0 && (t.symbol === 'W' || t.symbol === 'E'));
+    return n + (alt ? Math.max(1, per(alt.symbol)) : 1);
+  }, 0);
+}
+
 
 /**
  * What happens to one load case type when the plan is applied.
@@ -831,12 +1002,12 @@ export function describePlanDelta(
   const after = replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plan.combinations.length, cases: afterTypes,
+        combinations: plannedCombinationCount(plan), cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plan.combinations.length,
+        combinations: current.combinations + plannedCombinationCount(plan),
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 

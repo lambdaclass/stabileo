@@ -301,7 +301,6 @@ describe('what M1 added needs nothing from the contract', () => {
 
     const hatched = METALLIC.filter((f) => styles(f).includes('repeating-linear-gradient'));
     expect(hatched.sort()).toEqual([
-      'components/pro/steel/SteelExperimentalBanner.svelte',
       'components/pro/steel/SteelPanel.svelte',
       'components/pro/steel/SteelStatusBadge.svelte',
     ]);

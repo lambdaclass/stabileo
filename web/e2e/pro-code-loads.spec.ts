@@ -161,3 +161,112 @@ test.describe('@smoke the regulation for one load, from the row that names it', 
     await expect(page.getByTestId('lc-code-S')).toHaveCount(0);
   });
 });
+
+test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () => {
+  test('the case set, both senses, the openings and the qz profile, and they reach the model',
+    async ({ pro: page }) => {
+      await loadModel(page, 'rc-design-qa-8');
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-loads').click();
+      await page.getByTestId('lc-code-W').first().click();
+      await expect(page.getByTestId('al-wind-cases')).toBeVisible();
+
+      // Both CIRSOC 102 editions are named; 2005 cannot be chosen without its text.
+      const edition = page.getByTestId('al-wind-edition').locator('select');
+      await expect(edition.locator('option[value="cirsoc102-2025"]')).not.toHaveAttribute('disabled', /.*/);
+      await expect(edition.locator('option[value="cirsoc102-2005"]')).toHaveAttribute('disabled', /.*/);
+      await expect(edition.locator('option[value="cirsoc102-2005"]')).toContainText(/text not supplied/);
+
+      // The openings classify the enclosure: 10 m² of openings on a 100 m² wall, none elsewhere.
+      await page.getByTestId('al-wind-openings').locator('summary').click();
+      await page.getByTestId('al-wind-a0').fill('10');
+      await page.getByTestId('al-wind-ag').fill('100');
+      await page.getByTestId('al-wind-agi').fill('300');
+      await expect(page.getByTestId('al-wind-classified')).toContainText(/partially enclosed/i);
+      await page.getByTestId('al-wind-use-classified').click();
+      await expect(page.getByTestId('al-wind-enclosure')).toHaveValue('partiallyEnclosed');
+
+      // qz at each level above the ground; this fixture has one, at 3,2 m.
+      await page.getByTestId('al-wind-profile').locator('summary').click();
+      const rows = page.getByTestId('al-wind-profile').locator('tbody tr');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first().locator('td').first()).toHaveText('3.20');
+      expect(Number(await rows.first().locator('td:nth-child(3)').innerText())).toBeGreaterThan(0);
+
+      // Case 1 only, one sense: one case per direction (twice with a roof, one per internal-pressure sign).
+      await page.getByTestId('al-wind-caseset').selectOption('case1');
+      await page.getByTestId('al-wind-both-senses').uncheck();
+      // Service wind Wa at 10 years from a 40 m/s 50-year speed.
+      await page.getByTestId('al-wind-service').check();
+      await page.getByTestId('al-wind-service-v50').fill('40');
+      await page.getByTestId('al-preview-btn').click();
+      await page.getByTestId('al-apply').click();
+      const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+      const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
+      expect(wind.length).toBeGreaterThan(0);
+      expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
+      expect(names.filter((n) => /Wa/.test(n))).toEqual(expect.arrayContaining([expect.stringMatching(/^Service wind Wa \+X, 10 years/)]));
+    });
+});
+
+test.describe('@smoke story drift is checked on the seismic cases', () => {
+  test('the generated seismic cases reach the drift table, against Tabla 6.4', async ({ pro: page }) => {
+    await openWithSeismic(page);
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    await page.evaluate(async () => { await window.__stabileoActions.solve(); });
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('res-tab-drift').click();
+    const panel = page.getByTestId('drift-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('[data-testid^="drift-table-"]').first()).toBeVisible();
+    await expect(panel).toContainText(/Table 6\.4/);
+    // ND relaxes the limit: the basis line follows the choice.
+    const before = await panel.innerText();
+    await page.getByTestId('drift-cond-ND').click();
+    await expect.poll(async () => panel.innerText()).not.toBe(before);
+  });
+});
+
+test.describe('@smoke the project states its own combination rules', () => {
+  test('a rule is written in actions, generated over the cases and saved with the model', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('load-tab-combos').click();
+    const rules = page.getByTestId('combo-rules');
+    await rules.locator('summary').click();
+    await page.getByTestId('combo-rule-add').click();
+    // 1,4 D + 0,7 L, typed with a decimal comma.
+    await page.getByTestId('combo-rule-r1-D').fill('1,4');
+    await page.getByTestId('combo-rule-r1-D').press('Tab');
+    await page.getByTestId('combo-rule-r1-L').fill('0,7');
+    await page.getByTestId('combo-rule-r1-L').press('Tab');
+    await expect(rules).toContainText('1.4 D + 0.7 L');
+    const before = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
+    await page.getByTestId('combo-rule-generate').click();
+    await page.getByRole('button', { name: /generate selected/i }).click();
+    const after = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
+    expect(after).toBe(before + 1);
+    // Saved as a template file.
+    const download = page.waitForEvent('download');
+    await page.getByTestId('combo-rule-export').click();
+    expect((await download).suggestedFilename()).toBe('combination-rules.json');
+  });
+});
+
+test.describe('@smoke snow from CIRSOC 104', () => {
+  test('a locality of the tables gives p_g, the preview reads p_s, and the case reaches the model', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('pro-auto-loads-btn').click();
+    await page.getByTestId('al-enable-snow').check();
+    await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
+    await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names.some((n) => /^Balanced snow/.test(n))).toBe(true);
+  });
+});

@@ -23,6 +23,27 @@
  */
 
 import { modelStore } from '../store/model.svelte';
+import { generateCombinations } from '../codes/cirsoc101/combinations';
+import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+import { addGeneratedCombinations } from '../store/generated-combinations';
+
+/**
+ * Load an example with the strength combinations of CIRSOC 101-2025 (§2.3.2) built from its
+ * load cases: W at 1,0 and 0,5, one wind or seismic case at a time, in both senses, as the
+ * regulation generator makes them. Service combinations are generated on request, as the
+ * alternative. The fixtures keep their own combinations for the tests that read them.
+ */
+async function loadWithRegulationCombinations(id: string): Promise<void> {
+  await modelStore.loadExample(id);
+  const cases = modelStore.model.loadCases;
+  if (!cases.some((c) => (c.type || '').toUpperCase() === 'D')) return;
+  const specs = generateCombinations({ present: presentSymbols(cases) });
+  modelStore.batch(() => {
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    let n = 0;
+    addGeneratedCombinations(expandCombinations(specs, cases, { bothSenses: { W: true, E: true } }), () => `U${++n}: `);
+  });
+}
 
 export type ExampleGroup =
   | 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
@@ -48,7 +69,7 @@ export interface ProExample {
   stats: { nodes: string; members: string; shells?: string };
   preset?: ExamplePreset;
   featured?: boolean;
-  load: () => void;
+  load: () => void | Promise<void>;
 }
 
 /** One heading with its cards, ready to render. */
@@ -72,7 +93,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagRC', 'pro.tagCodes'],
     stats: { nodes: '141', members: '203', shells: '120' },
     preset: 'clean-shell',
-    load: () => modelStore.loadExample('pro-edificio-7p'),
+    load: () => loadWithRegulationCombinations('pro-edificio-7p'),
   },
   {
     group: 'buildings',
@@ -83,7 +104,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagDrift', 'pro.tagTorsion'],
     stats: { nodes: '420', members: '1180' },
     preset: 'default',
-    load: () => modelStore.loadExample('torre-irregular-con-retiros'),
+    load: () => loadWithRegulationCombinations('torre-irregular-con-retiros'),
   },
   {
     group: 'buildings',
@@ -94,7 +115,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagDesign', 'pro.tagRC'],
     stats: { nodes: '180', members: '344' },
     preset: 'default',
-    load: () => modelStore.loadExample('rc-design-frame'),
+    load: () => loadWithRegulationCombinations('rc-design-frame'),
   },
   {
     group: 'buildings',
@@ -105,7 +126,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagDesign', 'pro.tagRC'],
     stats: { nodes: '18', members: '26' },
     preset: 'default',
-    load: () => modelStore.loadExample('rc-qa-diagnostic'),
+    load: () => loadWithRegulationCombinations('rc-qa-diagnostic'),
   },
   {
     group: 'buildings',
@@ -116,7 +137,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagRC', 'pro.tagCad'],
     stats: { nodes: '2101', members: '970', shells: '1160' },
     preset: 'default',
-    load: () => modelStore.loadExample('cad-arch-structure-dxf'),
+    load: () => loadWithRegulationCombinations('cad-arch-structure-dxf'),
   },
   {
     group: 'buildings',
@@ -127,7 +148,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagRC', 'pro.tagCad'],
     stats: { nodes: '794', members: '1000', shells: '660' },
     preset: 'default',
-    load: () => modelStore.loadExample('cad-arch-only-dxf'),
+    load: () => loadWithRegulationCombinations('cad-arch-only-dxf'),
   },
   {
     group: 'industrial',
@@ -138,7 +159,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagSteel', 'pro.tagCrane'],
     stats: { nodes: '232', members: '633' },
     preset: 'default',
-    load: () => modelStore.loadExample('3d-nave-industrial'),
+    load: () => loadWithRegulationCombinations('3d-nave-industrial'),
   },
   {
     group: 'industrial',
@@ -149,7 +170,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagIndustrial', 'pro.tagSteel'],
     stats: { nodes: '90', members: '173' },
     preset: 'default',
-    load: () => modelStore.loadExample('pipe-rack'),
+    load: () => loadWithRegulationCombinations('pipe-rack'),
   },
   {
     group: 'energy',
@@ -161,6 +182,8 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     stats: { nodes: '196', members: '762' },
     preset: 'default',
     featured: true,
+    // Its combinations stay as the example states them: wave and current loads, typed E here,
+    // are an offshore action and not CIRSOC 103's earthquake.
     load: () => modelStore.loadExample('offshore-platform'),
   },
   {
@@ -172,7 +195,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagFoundation', 'pro.tagSoil'],
     stats: { nodes: '99', members: '180', shells: '80' },
     preset: 'clean-shell',
-    load: () => modelStore.loadExample('mat-foundation'),
+    load: () => loadWithRegulationCombinations('mat-foundation'),
   },
   {
     group: 'longspan',
@@ -183,7 +206,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagCables', 'pro.tagLongSpan'],
     stats: { nodes: '378', members: '932' },
     preset: 'bridge',
-    load: () => modelStore.loadExample('suspension-bridge'),
+    load: () => loadWithRegulationCombinations('suspension-bridge'),
   },
   {
     group: 'longspan',
@@ -194,7 +217,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagCables', 'pro.tagBridge'],
     stats: { nodes: '74', members: '125' },
     preset: 'bridge',
-    load: () => modelStore.loadExample('cable-stayed-bridge'),
+    load: () => loadWithRegulationCombinations('cable-stayed-bridge'),
   },
   {
     group: 'longspan',
@@ -205,7 +228,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagRoof', 'pro.tagBowl'],
     stats: { nodes: '360', members: '876', shells: '48' },
     preset: 'clean-shell',
-    load: () => modelStore.loadExample('full-stadium'),
+    load: () => loadWithRegulationCombinations('full-stadium'),
   },
   {
     group: 'xl',
@@ -216,7 +239,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagShells', 'pro.tagScale'],
     stats: { nodes: '641', members: '1920' },
     preset: 'xl',
-    load: () => modelStore.loadExample('geodesic-dome'),
+    load: () => loadWithRegulationCombinations('geodesic-dome'),
   },
   {
     group: 'xl',
@@ -228,7 +251,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     stats: { nodes: '1005', members: '2476', shells: '120' },
     preset: 'clean-shell',
     featured: true,
-    load: () => modelStore.loadExample('la-bombonera'),
+    load: () => loadWithRegulationCombinations('la-bombonera'),
   },
   {
     group: 'xl',
@@ -239,7 +262,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     tags: ['pro.tagScale', 'pro.tagDrift'],
     stats: { nodes: '1262', members: '5013' },
     preset: 'xl',
-    load: () => modelStore.loadExample('xl-diagrid-tower'),
+    load: () => loadWithRegulationCombinations('xl-diagrid-tower'),
   },
   // Sagrada Familia removed upstream — fixture no longer available
 ];
