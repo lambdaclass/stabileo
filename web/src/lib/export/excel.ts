@@ -48,6 +48,8 @@ import {
 
 interface ExcelExportOptions {
   filename?: string;
+  /** The model's own sheets — members, nodes, materials, sections, shells. Default true. */
+  includeModel?: boolean;
   includeResults?: boolean;
   /**
    * Extra sheets to append, as arrays of arrays.
@@ -552,6 +554,7 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
    */
   const {
     filename = 'analisis-estructural.xlsx',
+    includeModel = true,
     includeResults = true,
     extraSheets = [],
     onlyExtras = false,
@@ -564,21 +567,25 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
 
   if (!onlyExtras) {
     XLSX.utils.book_append_sheet(wb, createSummarySheet(), t('excel.sheetSummary'));
-    XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
-    XLSX.utils.book_append_sheet(wb, createNodesSheet(), t('excel.sheetNodes'));
+    if (includeModel) {
+      XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
+      XLSX.utils.book_append_sheet(wb, createNodesSheet(), t('excel.sheetNodes'));
+    }
 
     if (includeResults && hasResults) {
       XLSX.utils.book_append_sheet(wb, createReactionsSheet(), t('excel.sheetReactions'));
     }
 
-    XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
-    XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
+    if (includeModel) {
+      XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
+      XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
+    }
 
     /*
      * Only when there is something to say. An empty Shells tab on every beam
      * export is a question the reader has to dismiss each time.
      */
-    if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
+    if (includeModel && (modelStore.plates.size > 0 || modelStore.quads.size > 0)) {
       XLSX.utils.book_append_sheet(wb, createShellsSheet(), t('excel.sheetShells'));
     }
     if (includeResults && resultsStore.hasCombinations) {

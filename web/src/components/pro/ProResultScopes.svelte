@@ -83,7 +83,7 @@
 </script>
 
 {#if combos.length > 0}
-  <details class="rs" data-testid="result-scopes">
+  <details class="rs pk-card" data-testid="result-scopes">
     <summary>
       {t('scopes.title')}:
       <strong>{active ? tp('scopes.summarySome', { n: nActive, total: combos.length }) : tp('scopes.summaryAll', { n: combos.length })}</strong>
@@ -94,8 +94,8 @@
       <label><input type="radio" name="rs-mode" checked={!active} onchange={() => setAll(true)} data-testid="rs-all" /> {t('scopes.all')}</label>
       <label><input type="radio" name="rs-mode" checked={!!active} onchange={() => setAll(false)} data-testid="rs-chosen" /> {t('scopes.chosen')}</label>
       {#if active}
-        <button onclick={() => markActive(true)}>{t('scopes.markAll')}</button>
-        <button onclick={() => markActive(false)}>{t('scopes.markNone')}</button>
+        <button class="pk-btn" onclick={() => markActive(true)}>{t('scopes.markAll')}</button>
+        <button class="pk-btn" onclick={() => markActive(false)}>{t('scopes.markNone')}</button>
       {/if}
     </div>
     {#if active}
@@ -104,15 +104,15 @@
           <li><label><input type="checkbox" checked={active.has(c.id)} onchange={() => toggleActive(c.id)} /> {c.name}</label></li>
         {/each}
       </ul>
-      {#if nActive === 0}<p class="rs-warn" role="alert">{t('scopes.noneActive')}</p>{/if}
+      {#if nActive === 0}<p class="pk-warn" role="alert">{t('scopes.noneActive')}</p>{/if}
     {/if}
-    <p class="rs-hint">{t('scopes.hint')}</p>
+    <p class="pk-hint">{t('scopes.hint')}</p>
 
-    <h4>{t('scopes.envelopes')}</h4>
+    <h4 class="pk-heading rs-sub">{t('scopes.envelopes')}</h4>
     {#if resultsStore.viewedEnvelopeName}
       <p class="rs-onscreen" data-testid="rs-onscreen">
         {tp('scopes.onScreen', { name: resultsStore.viewedEnvelopeName })}
-        <button onclick={backToActive}>{t('scopes.backToActive')}</button>
+        <button class="pk-btn" onclick={backToActive}>{t('scopes.backToActive')}</button>
       </p>
     {/if}
     {#each envelopes as env (env.id)}
@@ -124,11 +124,11 @@
         <select value={env.purpose} onchange={(e) => updateEnvelope(env.id, { purpose: (e.target as HTMLSelectElement).value as EnvelopePurpose })} aria-label={t('scopes.purpose')}>
           {#each PURPOSES as p (p)}<option value={p}>{t(`scopes.purpose.${p}`)}</option>{/each}
         </select>
-        <button class:on={editing === env.id} onclick={() => (editing = editing === env.id ? null : env.id)}>
+        <button class="pk-btn" class:on={editing === env.id} onclick={() => (editing = editing === env.id ? null : env.id)}>
           {tp('scopes.nCombos', { n: env.comboIds.length })}
         </button>
-        <button disabled={!solved || env.comboIds.length === 0} onclick={() => show(env)} title={solved ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
-        <button class="rs-x" onclick={() => removeEnvelope(env.id)} aria-label={t('scopes.remove')}>×</button>
+        <button class="pk-btn" disabled={!solved || env.comboIds.length === 0} onclick={() => show(env)} title={solved ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
+        <button class="pk-btn pk-btn-icon" onclick={() => removeEnvelope(env.id)} aria-label={t('scopes.remove')}>×</button>
       </div>
       {#if editing === env.id}
         <ul class="rs-list">
@@ -138,32 +138,21 @@
         </ul>
       {/if}
     {/each}
-    <button onclick={addEnvelope} data-testid="rs-add-envelope">+ {t('scopes.addEnvelope')}</button>
-    <p class="rs-hint">{t('scopes.serviceHint')}</p>
+    <button class="pk-btn" onclick={addEnvelope} data-testid="rs-add-envelope">+ {t('scopes.addEnvelope')}</button>
+    <p class="pk-hint">{t('scopes.serviceHint')}</p>
   </details>
 {/if}
 
 <style>
-  .rs { font-size: 0.68rem; color: var(--st-text-2); margin: 4px 0; }
-  .rs summary { cursor: pointer; color: var(--st-text); }
-  .rs h4 { margin: 8px 0 4px; font-size: 0.66rem; font-weight: 600; color: var(--st-text); }
-  .rs-mode { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
-  .rs-list { list-style: none; margin: 2px 0 4px; padding: 0 0 0 4px; max-height: 160px; overflow-y: auto; columns: 2; }
+  .rs { margin: 6px 0; }
+  .rs summary { cursor: pointer; color: var(--st-text); font-size: 0.7rem; }
+  .rs[open] summary { margin-bottom: 4px; }
+  .rs-sub { margin-top: 6px; }
+  .rs-mode { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rs-list { list-style: none; margin: 0; padding: 0 0 0 4px; max-height: 160px; overflow-y: auto; columns: 2; font-size: 0.66rem; }
   .rs-list li { break-inside: avoid; }
-  .rs-hint { margin: 2px 0; color: var(--st-text-3); font-size: 0.62rem; }
-  .rs-warn { margin: 2px 0; color: var(--st-danger); font-size: 0.64rem; }
-  .rs-onscreen { margin: 2px 0 4px; color: var(--st-accent); }
-  .rs-env { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
+  .rs-onscreen { margin: 0; color: var(--st-accent); font-size: 0.66rem; }
+  .rs-env { display: flex; gap: 4px; align-items: center; }
   .rs-name { flex: 1; min-width: 0; }
-  input.rs-name, select {
-    font-size: 0.64rem; padding: 1px 4px; color: var(--st-text); background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px;
-  }
-  button {
-    padding: 1px 6px; font-size: 0.62rem; color: var(--st-text); background: var(--st-surface-3);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
-  }
-  button.on { border-color: var(--st-accent); }
-  button:disabled { opacity: 0.35; cursor: not-allowed; }
-  .rs-x { padding: 0 5px; }
+  .rs :global(.pk-btn) { min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.64rem; }
 </style>

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { deformedView } from '../lib/store/deformed-view.svelte';
+  import { viewState, selectionNodeIds, viewVisibility } from '../lib/store/view-state.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -26,7 +27,7 @@
   import { resolveHitUserData } from '../lib/viewport3d/picking';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
@@ -804,6 +805,7 @@
 
       const _perfT0 = perfHud.on ? performance.now() : 0;
       renderer.render(scene, camera);
+      renderInset();
       drawAxisGizmo();
       if (perfHud.on) {
         // GPU side: draw calls + triangles (renderer.info auto-resets per render,
@@ -979,6 +981,34 @@
     };
     window.addEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
 
+    // A saved view, asked for by the view panel: stand where it stood, look where it looked.
+    const handleCameraSet = (e: Event) => {
+      const v = (e as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>).detail;
+      if (!v) return;
+      setCameraUp(camera);
+      camera.position.set(v.position.x, v.position.y, v.position.z);
+      controls.target.set(v.target.x, v.target.y, v.target.z);
+      controls.update();
+      invalidate();
+    };
+    window.addEventListener('stabileo-camera-set', handleCameraSet);
+
+    // Frame what is selected — the magnifier. Same fit as the whole model, over its nodes only.
+    const handleZoomToSelection = () => {
+      const ids = selectionNodeIds(uiStore.selectedNodes, uiStore.selectedElements, modelStore.elements);
+      if (ids.size === 0) return;
+      const subset = new Map([...modelStore.nodes].filter(([id]) => ids.has(id)));
+      if (subset.size === 1) {
+        // One node has no extent to fit; give it a metre around it.
+        const [n] = subset.values();
+        subset.set(-1, { ...n!, id: -1, x: n!.x + 0.5 });
+        subset.set(-2, { ...n!, id: -2, x: n!.x - 0.5 });
+      }
+      _zoomToFit(camera, controls, subset as never, orthoCamera, container);
+      invalidate();
+    };
+    window.addEventListener('stabileo-zoom-to-selection', handleZoomToSelection);
+
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
       // Shift+P — toggle the dev perf HUD live (also persisted for next load).
@@ -993,7 +1023,7 @@
         if (uiStore.measureMode) { clearMeasureVisuals(); }
       }
       // "N" opens coordinate dialog when node tool is active (and no input is focused)
-      if (e.key === 'n' && uiStore.currentTool === 'node' && !showCoordDialog) {
+      if (e.key === 'n' && !e.altKey && uiStore.currentTool === 'node' && !showCoordDialog) {
         const active = document.activeElement;
         if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && active.tagName !== 'SELECT')) {
           e.preventDefault();
@@ -1031,6 +1061,8 @@
       window.removeEventListener('stabileo-camera-view', handleCameraViewEvent);
       window.removeEventListener('stabileo-zoom-to-joint', handleZoomToJointEvent);
       window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
+      window.removeEventListener('stabileo-camera-set', handleCameraSet);
+      window.removeEventListener('stabileo-zoom-to-selection', handleZoomToSelection);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onNavKeyDown);
       window.removeEventListener('keyup', onNavKeyUp);
@@ -1166,6 +1198,17 @@
   });
 
   // ─── Reactive effects ────────────────────────────────────────
+  // Hiding or isolating in the view (store/view-state): the scene and every overlay on it
+  // are rebuilt from the visible part of the model. Nothing in the model changes.
+  $effect(() => {
+    viewVisibility.version;
+    untrack(() => {
+      syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
+      syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
+    });
+    invalidate();
+  });
+
   $effect(() => {
     // Trigger on model changes
     modelStore.nodes;
@@ -1404,6 +1447,10 @@
     uiStore.showNodeLabels3D;
     uiStore.showElementLabels3D;
     uiStore.showLengths3D;
+    // What a member label says, and the names it may read.
+    viewState.memberLabel;
+    modelStore.sections;
+    modelStore.materials;
     syncLabels3D();
     invalidate();
   });
@@ -2789,8 +2836,8 @@
   }
 
   function handleCameraViewEvent(e: Event) {
-    const which = (e as CustomEvent<'top' | 'front' | 'side'>).detail;
-    if (which === 'top' || which === 'front' || which === 'side') setView(which);
+    const which = (e as CustomEvent<PresetView>).detail;
+    if (['top', 'bottom', 'front', 'back', 'right', 'left', 'side', 'iso'].includes(which)) setView(which);
   }
 
   /**
@@ -2830,13 +2877,46 @@
     invalidate();
   }
 
-  function setView(view: 'top' | 'front' | 'side' | 'iso') {
+  function setView(view: PresetView) {
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }
 
   // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
   let gizmoCanvas: HTMLCanvasElement | null = null;
+
+  /*
+   * A second window on a saved view, in the lower-right corner of the same canvas.
+   *
+   * Drawn with the scissor on the one renderer rather than as a second viewport: the scene, its
+   * results and its labels are shared, so the corner always shows the model as it is now, and a
+   * PNG export takes both. The camera is its own, placed from the saved view on every frame.
+   */
+  let insetCamera: THREE.PerspectiveCamera | null = null;
+  const insetBox = $derived.by(() => {
+    const id = viewState.insetViewId;
+    return id === null ? null : modelStore.views.find((v) => v.id === id) ?? null;
+  });
+  function renderInset() {
+    const v = insetBox;
+    if (!v || !renderer || !container) return;
+    const w = container.clientWidth, h = container.clientHeight;
+    const iw = Math.max(160, Math.round(w * 0.28)), ih = Math.max(120, Math.round(h * 0.28));
+    const x = w - iw - 12, y = 12;
+    insetCamera ??= new THREE.PerspectiveCamera(50, 1, 0.01, 1e6);
+    insetCamera.aspect = iw / ih;
+    setCameraUp(insetCamera);
+    insetCamera.position.set(v.position.x, v.position.y, v.position.z);
+    insetCamera.lookAt(v.target.x, v.target.y, v.target.z);
+    insetCamera.updateProjectionMatrix();
+    renderer.setScissorTest(true);
+    renderer.setViewport(x, y, iw, ih);
+    renderer.setScissor(x, y, iw, ih);
+    renderer.render(scene, insetCamera);
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, w, h);
+  }
+  $effect(() => { insetBox; invalidate(); });
 
   function drawAxisGizmo() {
     if (!gizmoCanvas || !camera) return;
@@ -3282,6 +3362,11 @@
       {hoverTooltip.text}
     </div>
   {/if}
+  {#if insetBox}
+    <div class="inset-frame" data-testid="view-inset" style="width:max(160px, 28%);height:max(120px, 28%)">
+      <span>{insetBox.name}</span>
+    </div>
+  {/if}
   <canvas
     bind:this={gizmoCanvas}
     class="axis-gizmo"
@@ -3322,6 +3407,22 @@
     display: block;
     width: 100% !important;
     height: 100% !important;
+  }
+  .inset-frame {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 9;
+  }
+  .inset-frame span {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 0.6rem;
+    color: var(--st-text-2);
   }
   .axis-gizmo {
     position: absolute;

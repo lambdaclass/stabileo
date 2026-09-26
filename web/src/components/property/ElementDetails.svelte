@@ -190,6 +190,21 @@
       <!-- Whether this section/steel pairing is one mills actually supply.
            Silent unless it departs from every recorded practice. -->
       <PairingNote family={sec?.profileFamily} gradeId={mat?.gradeId} />
+      <!-- A stated lateral-torsional unbraced length, steel members in PRO only. Empty means
+           deduced (engine/steel/unbraced-length.ts). -->
+      {#if uiStore.analysisMode === 'pro' && (mat?.fy ?? 0) > 80 && elem.type === 'frame'}
+        <div class="property-row" title={t('prop.lbHint')}>
+          <span>{t('prop.lb')}:</span>
+          <input
+            type="number" min="0" step="0.1" placeholder={t('prop.lbDeduced')} value={elem.unbracedLength ?? ''}
+            data-testid="elem-lb"
+            onchange={(e) => {
+              const v = Number(e.currentTarget.value);
+              modelStore.updateElement(elemId, { unbracedLength: e.currentTarget.value === '' || !(v > 0) ? undefined : v });
+            }}
+          />
+        </div>
+      {/if}
       <div class="property-row">
         <span>{t('prop.hinges')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}:</span>
         <div class="hinge-toggles">

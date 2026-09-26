@@ -114,7 +114,7 @@
 </div>
 
 <style>
-  .cp { display: flex; flex-direction: column; gap: 6px; font-size: 0.72rem; height: 100%; }
+  .cp { display: flex; flex-direction: column; gap: 6px; font-size: 0.72rem; height: 100%; padding: 0.75rem 0 0.9rem; box-sizing: border-box; }
   .cp-bar { display: flex; gap: 4px; flex-wrap: wrap; }
   button {
     padding: 3px 8px; font-size: 0.66rem; color: var(--st-text); background: var(--st-surface-3);

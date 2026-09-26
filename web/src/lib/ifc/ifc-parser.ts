@@ -3,34 +3,21 @@
 
 import type { IfcMember } from './ifc-mapper';
 import { t } from '../i18n';
+import { IDENTITY, axis2Placement3D, compose, extrusionAxis, type Frame, type V3 } from './ifc-geometry';
 
-// ─── IFC Y-up → App Z-up coordinate remapping ───────────────────
-// IFC (buildingSMART) uses Y-up convention; this app uses Z-up
-// (structural engineering convention where Z is vertical).
-// The right-hand-preserving transform is:
-//   app_x =  ifc_x
-//   app_y = -ifc_z
-//   app_z =  ifc_y
-
-/** Remap an IFC Y-up position to the app's Z-up convention. */
-export function ifcToZup(
-  ifc_x: number, ifc_y: number, ifc_z: number,
-): { x: number; y: number; z: number } {
-  return { x: ifc_x, y: -ifc_z, z: ifc_y };
-}
-
-/** Remap an IFC Y-up direction vector to the app's Z-up convention. */
-export function ifcDirToZup(
-  ifc_dx: number, ifc_dy: number, ifc_dz: number,
-): { dx: number; dy: number; dz: number } {
-  return { dx: ifc_dx, dy: -ifc_dz, dz: ifc_dy };
-}
-
-// IFC entity type constants
-const IFCBEAM = 753729222;
-const IFCCOLUMN = 3999819293;
-const IFCMEMBER = 1073191201;
-const IFCRELASSOCIATESMATERIAL = 2655215786;
+/*
+ * ── What this read wrong, and reads now ─────────────────────────────
+ *
+ *   · The entity type ids were hand-typed, and two were wrong: IFCBEAM and IFCCOLUMN matched
+ *     nothing, so a file of beams and columns imported "0 beams, 0 columns". They come from
+ *     web-ifc itself now, with the IFC4 `*StandardCase` subtypes, which a query by the parent
+ *     type does not return.
+ *   · IFC was taken as Y-up and remapped; it is Z-up, like this app, so a column came in lying
+ *     down. And only placement LOCATIONS were summed up the hierarchy, so every rotated placement
+ *     put its member on the wrong line. Placements are composed as full frames (`ifc-geometry`).
+ *   · The first material found was given to every member. Each member now carries the material
+ *     its own IfcRelAssociatesMaterial names.
+ */
 
 export interface IfcParseResult {
   members: IfcMember[];
@@ -53,102 +40,55 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
   const members: IfcMember[] = [];
   let nextId = 1;
 
-  // Helper: extract placement origin, composing the IfcLocalPlacement hierarchy.
-  // IFC objects can have nested local coordinate systems via IfcLocalPlacement.
-  // Each placement has a PlacementRelTo (parent) that must be composed
-  // to obtain world coordinates. The result is remapped from IFC Y-up to app Z-up.
-  function getPlacementOrigin(placementId: number): { x: number; y: number; z: number } | null {
-    try {
-      // Accumulate translations up the placement hierarchy (IFC Y-up space)
-      let totalX = 0, totalY = 0, totalZ = 0;
-      let currentId: number | null = placementId;
-      const visited = new Set<number>(); // guard against circular references
-
-      while (currentId !== null) {
-        if (visited.has(currentId)) break;
-        visited.add(currentId);
-
-        const placement = api.GetLine(modelID, currentId);
-        if (!placement) break;
-
-        // Extract this level's translation
-        const relPlacement = placement.RelativePlacement;
-        if (relPlacement) {
-          const relObj = api.GetLine(modelID, relPlacement.value);
-          if (relObj?.Location) {
-            const locObj = api.GetLine(modelID, relObj.Location.value);
-            if (locObj?.Coordinates) {
-              totalX += locObj.Coordinates[0]?.value ?? 0;
-              totalY += locObj.Coordinates[1]?.value ?? 0;
-              totalZ += locObj.Coordinates[2]?.value ?? 0;
-            }
-          }
-        }
-
-        // Walk up to parent placement (IfcLocalPlacement.PlacementRelTo)
-        currentId = placement.PlacementRelTo?.value ?? null;
-      }
-
-      // Remap from IFC Y-up to app Z-up
-      return ifcToZup(totalX, totalY, totalZ);
-    } catch {
-      return null;
+  const v3 = (ref: any, fallback?: V3): V3 | undefined => {
+    if (!ref) return fallback;
+    const o = api.GetLine(modelID, ref.value);
+    const c = o?.Coordinates ?? o?.DirectionRatios;
+    if (!c) return fallback;
+    return [c[0]?.value ?? 0, c[1]?.value ?? 0, c[2]?.value ?? 0];
+  };
+  /** An IfcAxis2Placement3D line as a frame. */
+  const frameOf = (ref: any): Frame => {
+    if (!ref) return IDENTITY;
+    const p = api.GetLine(modelID, ref.value);
+    if (!p) return IDENTITY;
+    return axis2Placement3D(v3(p.Location, [0, 0, 0])!, v3(p.Axis), v3(p.RefDirection));
+  };
+  /** An IfcLocalPlacement in world coordinates: its RelativePlacement under each PlacementRelTo. */
+  function worldPlacement(placementId: number): Frame {
+    const chain: Frame[] = [];
+    let current: number | null = placementId;
+    const visited = new Set<number>();
+    while (current !== null && !visited.has(current)) {
+      visited.add(current);
+      const pl = api.GetLine(modelID, current);
+      if (!pl) break;
+      chain.push(frameOf(pl.RelativePlacement));
+      current = pl.PlacementRelTo?.value ?? null;
     }
+    return chain.reverse().reduce((acc, f) => compose(acc, f), IDENTITY);
   }
 
-  // Helper: get member endpoints from representation (extrusion direction + length)
+  // A member's axis: the extruded solid's own Position under the object's placement, pushed
+  // Depth along its ExtrudedDirection.
   function getMemberEndpoints(
     entity: any,
   ): { start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } } | null {
     try {
-      // Get placement origin
-      const origin = entity.ObjectPlacement
-        ? getPlacementOrigin(entity.ObjectPlacement.value)
-        : null;
-
-      const start = origin ?? { x: 0, y: 0, z: 0 };
-
-      // Try to get length from representation (ExtrudedAreaSolid)
-      if (entity.Representation) {
-        const repr = api.GetLine(modelID, entity.Representation.value);
-        if (repr && repr.Representations) {
-          for (const reprRef of repr.Representations) {
-            const reprItem = api.GetLine(modelID, reprRef.value);
-            if (reprItem && reprItem.Items) {
-              for (const itemRef of reprItem.Items) {
-                const item = api.GetLine(modelID, itemRef.value);
-                if (item && item.Depth) {
-                  // ExtrudedAreaSolid — Depth is the length
-                  const length = item.Depth.value;
-                  // ExtrudedDirection — read in IFC Y-up space, then remap
-                  let ifc_dx = 0, ifc_dy = 0, ifc_dz = 1; // default: IFC Z direction
-                  if (item.ExtrudedDirection) {
-                    const dirObj = api.GetLine(modelID, item.ExtrudedDirection.value);
-                    if (dirObj && dirObj.DirectionRatios) {
-                      ifc_dx = dirObj.DirectionRatios[0]?.value ?? 0;
-                      ifc_dy = dirObj.DirectionRatios[1]?.value ?? 0;
-                      ifc_dz = dirObj.DirectionRatios[2]?.value ?? 1;
-                    }
-                  }
-                  // Remap extrusion direction from IFC Y-up to app Z-up
-                  const dir = ifcDirToZup(ifc_dx, ifc_dy, ifc_dz);
-                  const mag = Math.sqrt(dir.dx * dir.dx + dir.dy * dir.dy + dir.dz * dir.dz) || 1;
-                  return {
-                    start,
-                    end: {
-                      x: start.x + (dir.dx / mag) * length,
-                      y: start.y + (dir.dy / mag) * length,
-                      z: start.z + (dir.dz / mag) * length,
-                    },
-                  };
-                }
-              }
-            }
-          }
+      const world = entity.ObjectPlacement ? worldPlacement(entity.ObjectPlacement.value) : IDENTITY;
+      if (!entity.Representation) return null;
+      const repr = api.GetLine(modelID, entity.Representation.value);
+      for (const reprRef of repr?.Representations ?? []) {
+        const reprItem = api.GetLine(modelID, reprRef.value);
+        for (const itemRef of reprItem?.Items ?? []) {
+          const item = api.GetLine(modelID, itemRef.value);
+          if (!item?.Depth) continue;
+          const solid = compose(world, frameOf(item.Position));
+          const dir = v3(item.ExtrudedDirection, [0, 0, 1])!;
+          const { start, end } = extrusionAxis(solid, dir, item.Depth.value);
+          return { start: { x: start[0], y: start[1], z: start[2] }, end: { x: end[0], y: end[1], z: end[2] } };
         }
       }
-
-      // Fallback: try to use bounding box or just return null
       return null;
     } catch {
       return null;
@@ -182,18 +122,23 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
     }
   }
 
-  // Process structural element types
+  // Process structural element types, each with its IFC4 StandardCase subtype.
   const entityTypes = [
-    { type: IFCBEAM, memberType: 'beam' as const },
-    { type: IFCCOLUMN, memberType: 'column' as const },
-    { type: IFCMEMBER, memberType: 'brace' as const },
+    { type: WebIFC.IFCBEAM, memberType: 'beam' as const },
+    { type: WebIFC.IFCBEAMSTANDARDCASE, memberType: 'beam' as const },
+    { type: WebIFC.IFCCOLUMN, memberType: 'column' as const },
+    { type: WebIFC.IFCCOLUMNSTANDARDCASE, memberType: 'column' as const },
+    { type: WebIFC.IFCMEMBER, memberType: 'brace' as const },
+    { type: WebIFC.IFCMEMBERSTANDARDCASE, memberType: 'brace' as const },
   ];
 
+  const memberByExpressId = new Map<number, IfcMember>();
   for (const { type, memberType } of entityTypes) {
     try {
       const ids = api.GetLineIDsWithType(modelID, type);
       for (let i = 0; i < ids.size(); i++) {
         const id = ids.get(i);
+        if (memberByExpressId.has(id)) continue;
         try {
           const entity = api.GetLine(modelID, id);
           if (!entity) continue;
@@ -203,14 +148,9 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
           const profileName = getProfileName(entity);
 
           if (endpoints) {
-            members.push({
-              id: nextId++,
-              type: memberType,
-              name,
-              start: endpoints.start,
-              end: endpoints.end,
-              profileName,
-            });
+            const m: IfcMember = { id: nextId++, type: memberType, name, start: endpoints.start, end: endpoints.end, profileName };
+            members.push(m);
+            memberByExpressId.set(id, m);
           } else {
             warnings.push(`No se pudieron extraer puntos para "${name}"`);
           }
@@ -223,39 +163,32 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
     }
   }
 
-  // Extract materials via IfcRelAssociatesMaterial
+  /** The name of a material definition, through the usages and sets IFC wraps it in. */
+  function materialName(ref: number, depth = 0): string | undefined {
+    const m = api.GetLine(modelID, ref);
+    if (!m) return undefined;
+    // Usage → set → first entry → IfcMaterial; the innermost name is the material's own.
+    const next = m.ForProfileSet ?? m.ForLayerSet ?? m.Material
+      ?? m.MaterialProfiles?.[0] ?? m.MaterialLayers?.[0] ?? m.Materials?.[0] ?? m.MaterialConstituents?.[0];
+    if (next?.value && depth < 4) {
+      const inner = materialName(next.value, depth + 1);
+      if (inner) return inner;
+    }
+    return m.Name?.value;
+  }
+
+  // Materials via IfcRelAssociatesMaterial — each to the members it names.
   try {
-    const relIds = api.GetLineIDsWithType(modelID, IFCRELASSOCIATESMATERIAL);
+    const relIds = api.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESMATERIAL);
     for (let i = 0; i < relIds.size(); i++) {
-      const relId = relIds.get(i);
       try {
-        const rel = api.GetLine(modelID, relId);
-        if (!rel || !rel.RelatingMaterial || !rel.RelatedObjects) continue;
-
-        // Get material name
-        let materialName: string | undefined;
-        const matRef = rel.RelatingMaterial.value;
-        try {
-          const mat = api.GetLine(modelID, matRef);
-          if (mat?.Name) materialName = mat.Name.value;
-        } catch {
-          // May be a material layer set etc — try to get name from type
-        }
-
-        if (!materialName) continue;
-
-        // Assign material to related objects
-        const relatedIds = new Set<number>();
+        const rel = api.GetLine(modelID, relIds.get(i));
+        if (!rel?.RelatingMaterial || !rel.RelatedObjects) continue;
+        const name = materialName(rel.RelatingMaterial.value);
+        if (!name) continue;
         for (const objRef of rel.RelatedObjects) {
-          relatedIds.add(objRef.value);
-        }
-
-        for (const member of members) {
-          // Match by IFC entity ID (member.id is sequential, we'd need to store express ID)
-          // For now, apply material name if found
-          if (!member.materialName) {
-            member.materialName = materialName;
-          }
+          const member = memberByExpressId.get(objRef.value);
+          if (member) member.materialName = name;
         }
       } catch {
         // Skip problematic relations

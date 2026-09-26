@@ -14,6 +14,7 @@ import { colourScaleSource } from '../store/result-view';
 import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
 import { eiOf } from '../engine/member-deflection';
 import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
+import { viewState, memberLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -270,7 +271,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   }
 
   ctx.deformedGroup = createDeformedLines(
-    modelStore.elements,
+    visibleElements(),
     getProjectedNodes(),
     displacements,
     staticDeformed && exact && r3d ? r3d.elementForces : [],
@@ -289,7 +290,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   */
   if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
     ctx.deformedGroup.add(createDeformedShells(
-      modelStore.plates, modelStore.quads, getProjectedNodes(), displacements, scale,
+      visiblePlates(), visibleQuads(), getProjectedNodes(), displacements, scale,
       modeColor ?? 0x22d3a5,
     ));
   }
@@ -313,6 +314,8 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
       const n = nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
+      // Screen-sized like every other label (`syncLabels3D`): a fraction of the viewport height.
+      sprite.scale.set(0.032, 0.032, 1);
       labels.add(sprite);
       placed.push({ sprite, x: n.x, y: n.y, z: n.z ?? 0, d });
     }
@@ -375,7 +378,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
-        modelStore.elements,
+        visibleElements(),
         projectedNodes,
         envDiagram,
         kind,
@@ -391,7 +394,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   } else {
     // Normal single diagram
     ctx.diagramGroup = createDiagramGroup3D(
-      modelStore.elements,
+      visibleElements(),
       projectedNodes,
       r3d.elementForces,
       kind,
@@ -408,7 +411,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const overlay3D = resultsStore.overlayResults3D;
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
-        modelStore.elements,
+        visibleElements(),
         projectedNodes,
         overlay3D.elementForces,
         kind,
@@ -975,7 +978,7 @@ export function syncReactions(ctx: ResultsSyncContext): void {
 
   for (const r of r3d.reactions) {
     const node = modelStore.nodes.get(r.nodeId);
-    if (!node) continue;
+    if (!node || viewVisibility.isNodeHidden(r.nodeId)) continue;
     const pos = projectNodeToScene(node, project2D);
     const arrow = createReactionArrow(
       pos,
@@ -1147,7 +1150,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    for (const [id, node] of modelStore.nodes) {
+    for (const [id, node] of visibleNodes()) {
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
       sprite.position.set(
@@ -1162,11 +1165,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
 
   // Element labels
-  if (uiStore.showElementLabels3D && modelStore.elements.size > 0) {
+  if (uiStore.showElementLabels3D && visibleElements().size > 0) {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
-    for (const [id, elem] of modelStore.elements) {
+    for (const [, elem] of visibleElements()) {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1178,7 +1181,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(String(id), '#88ccff', 24, true);
+      const sprite = createTextSpriteCached(memberLabelText(viewState.memberLabel, elem, modelStore.sections, modelStore.materials), '#88ccff', 24, true);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
       sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);
@@ -1187,11 +1190,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
 
   // Length labels
-  if (uiStore.showLengths3D && modelStore.elements.size > 0) {
+  if (uiStore.showLengths3D && visibleElements().size > 0) {
     ctx.lengthLabelsGroup = new THREE.Group();
     ctx.lengthLabelsGroup.name = 'lengthLabels';
 
-    for (const [, elem] of modelStore.elements) {
+    for (const [, elem] of visibleElements()) {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1242,8 +1245,8 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       ctx.shellLabelsGroup!.add(sprite);
     };
 
-    for (const [id, p] of modelStore.plates) centroidLabel(p.nodes, String(id));
-    for (const [id, q] of modelStore.quads) centroidLabel(q.nodes, String(id));
+    for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
+    for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
     ctx.scene.add(ctx.shellLabelsGroup);
   }
 }

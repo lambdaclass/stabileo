@@ -213,6 +213,20 @@ export function spectralOrdinate(t: number, s: DesignSpectrum): number {
 
 export const SPECTRUM_REF = REF_SPECTRUM;
 
+/**
+ * The spectrum as the (T, Sa) table a response-spectrum solver reads, Sa in g.
+ *
+ * The four branches [3.1]–[3.4] are sampled densely enough that the solver's linear
+ * interpolation reproduces the 1/T and 1/T² branches (steps of 0,01 s to 2 s, 0,05 s after),
+ * and every corner — T1, T2, T3 — is a sample of its own, so no plateau is cut short.
+ */
+export function spectrumPoints(s: DesignSpectrum, tMax = Math.max(10, s.t3 * 1.5)): Array<{ period: number; sa: number }> {
+  const ts = new Set<number>([0, s.t1, s.t2, s.t3]);
+  for (let t = 0.01; t <= Math.min(2, tMax) + 1e-9; t += 0.01) ts.add(Math.round(t * 1000) / 1000);
+  for (let t = 2.05; t <= tMax + 1e-9; t += 0.05) ts.add(Math.round(t * 1000) / 1000);
+  return [...ts].filter((t) => t <= tMax).sort((a, b) => a - b).map((t) => ({ period: t, sa: spectralOrdinate(t, s) }));
+}
+
 // ─── §3.6 — the gravity load that shakes ─────────────────────────
 
 /**

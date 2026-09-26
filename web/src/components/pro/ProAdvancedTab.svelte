@@ -9,7 +9,12 @@
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
+  import { te } from '../../lib/i18n/engine-text';
+  import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
+  import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
+  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
+  import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import {
     isSolverReady,
     solvePDelta3D as wasmPDelta3D,
@@ -36,8 +41,13 @@
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
-  import { cirsoc103Spectrum } from '../../lib/engine/result-types';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
+  import {
+    designSpectrum, isBlocked, spectrumPoints, RISK_FACTOR,
+    type SeismicZone, type SiteClass, type DestinationGroup,
+  } from '../../lib/codes/cirsoc103/spectrum';
+  import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
+  import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { applyRigidDiaphragm, detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
@@ -59,7 +69,21 @@
   let pdeltaElapsed = $state<number | null>(null);
   let harmonicElapsed = $state<number | null>(null);
 
-  const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+  /* Shells carry load too: a plates-only model has something to analyse, and the buttons used to
+     sit disabled over it with no reason given. See `hasLoadCarrying3D`. */
+  const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
+  /*
+   * What these analyses leave out, said before they run rather than after. Offsets are not
+   * expanded here (the linear solve expands them), and internal joints and sliders are refused.
+   */
+  const limits = $derived.by(() => {
+    const out: string[] = [];
+    if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) out.push('pro.advLimitOffsets');
+    if (modelStore.hasJoint3D()) out.push('advanced.jointsUnsupported');
+    if (modelStore.hasSlidingJoints()) out.push('advanced.slidingUnsupported');
+    if (modelStore.nodes.size > 0 && !hasLoadCarrying3D(modelStore.model)) out.push('pro.advLimitEmpty');
+    return out;
+  });
   const wasmAvailable = $derived(isSolverReady());
   const elementIds = $derived([...modelStore.elements.keys()]);
   const nodeIds = $derived([...modelStore.nodes.keys()]);
@@ -187,6 +211,15 @@
   let numModes = $state(6);
 
   const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
+  /*
+   * With constraints (rigid links, diaphragms — the building examples have 28), the engine reduces
+   * the influence vector as if it were a force, C^T·r, where a rigid translation needs the r_s with
+   * C·r_s = r. Participation, effective mass and their ratios come out inflated: the 7-storey
+   * example reports a cumulative X ratio of 817 339 against 0,976 for the same mass without the
+   * constraints. Frequencies and shapes are unaffected. Until the engine is corrected those
+   * numbers are not shown, and the spectral run — which combines modes by them — is refused.
+   */
+  let modalConstrained = $state(false);
   /** The model the modal result describes. Spectral reuses its modes and must not outlive it. */
   let modalModelVersion = $state<number | null>(null);
 
@@ -199,6 +232,7 @@
       let res: any;
       const t0 = performance.now();
       res = wasmModal3D(input, densities, numModes);
+      modalConstrained = (input.constraints?.length ?? 0) > 0;
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
@@ -208,11 +242,15 @@
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
           frequency: m.frequency ?? m.freq ?? (res.frequencies?.[i] ?? 0),
           period: m.period ?? (m.frequency ? 1 / m.frequency : 0),
-          participationX: m.participationX ?? m.partX,
-          participationY: m.participationY ?? m.partY,
-          participationZ: m.participationZ ?? m.partZ,
+          // Participation and mass ratios are withheld with constraints — see `modalConstrained`.
+          ...(modalConstrained ? {} : {
+            participationX: m.participationX ?? m.partX,
+            participationY: m.participationY ?? m.partY,
+            participationZ: m.participationZ ?? m.partZ,
+            massRatioX: m.massRatioX, massRatioY: m.massRatioY,
+          }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
       solveError = `Modal: ${errorText(e, 'Error')}`;
@@ -224,8 +262,24 @@
 
   let spectralResult = $state<any | null>(null);
   let spectralCombination = $state<'CQC' | 'SRSS'>('CQC');
-  let seismicZone = $state<1 | 2 | 3 | 4>(3);
-  let soilType = $state<'I' | 'II' | 'III'>('II');
+  /*
+   * The spectrum is INPRES-CIRSOC 103 2018's (`codes/cirsoc103/spectrum.ts`), the same one the
+   * seismic load generator uses. It was a table of its own — as, Ca and Cv by zone and a three-way
+   * soil class, none of them the code's, and a descending branch written as a·Cv·Ts/T that made the
+   * curve jump at Ts — which put zone 3 on SD 1,5 times low at 0,2 s and 4,5 times low at 1 s, with
+   * neither R nor γr applied. Zone, site, destination group and system are read from the project's
+   * seismic regulation when it has been configured, and can be changed here for this run.
+   */
+  const seismicSettings = regulationsStore.binding('seismic')?.settings as
+    { zone?: SeismicZone; site?: SiteClass; destinationGroup?: DestinationGroup; systemKey?: string; elastic?: boolean } | undefined;
+  const settingsR = seismicSettings?.elastic ? R_ELASTIC : seismicSettings?.systemKey ? findBehaviour(seismicSettings.systemKey)?.r : undefined;
+  let seismicZone = $state<SeismicZone>(seismicSettings?.zone && seismicSettings.zone > 0 ? seismicSettings.zone : 3);
+  let siteClass = $state<SiteClass>(seismicSettings?.site ?? 'SD');
+  let destinationGroup = $state<DestinationGroup>(seismicSettings?.destinationGroup ?? 'B');
+  /** Response modification factor. 1 = the elastic spectrum, unreduced. */
+  let spectralR = $state<number>(settingsR ?? 1);
+  const fromProject = seismicSettings?.zone !== undefined;
+  const codeSpectrum = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
 
   function handleSpectral() {
     solveError = null;
@@ -243,13 +297,26 @@
         solving = false;
         return;
       }
+      if (modalConstrained) {
+        solveError = `${t('pro.spectralTitle')}: ${t('pro.spectralConstrained')}`;
+        solving = false;
+        return;
+      }
       const { input, densities } = buildDynamicInput();
-      const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
+      const cs = codeSpectrum;
+      if (isBlocked(cs)) { solveError = `${t('pro.spectralTitle')}: ${te(cs.blocked)}`; solving = false; return; }
+      const spectrum: DesignSpectrum = {
+        name: `INPRES-CIRSOC 103 2018 — ${t('autoLoad.zone')} ${cs.zone}, ${siteClass}`,
+        points: spectrumPoints(cs),
+        inG: true,
+      };
+      const importanceFactor = RISK_FACTOR[destinationGroup];
+      const reductionFactor = spectralR > 0 ? spectralR : 1;
       const modes = spectralModesFrom(modalResult);
       // One run per horizontal direction: the engine combines a single direction at a time.
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
-        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination });
+        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor });
         if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
         byDir[direction] = res;
       }
@@ -339,6 +406,8 @@
   let nlIncrements = $state(10);
   let nlFiberIntPts = $state(5);
   let nlResult = $state<any | null>(null);
+  /** Sections whose Mp rests on an assumption (fy absent, or Zp estimated from A and I). */
+  let nlAssumed = $state<string[]>([]);
   // Displacements never sit at the top level: the incremental solvers
   // (corotational, fiber) nest them under `.results`, and pushover nests
   // them under each step's `.results` — so read the last step's.
@@ -356,39 +425,34 @@
       input = maybeApplyDiaphragm(input);
 
       if (nlType === 'pushover') {
-        const sections: Record<string, any> = {};
-        for (const [id, sec] of modelStore.sections) {
-          sections[String(id)] = {
-            a: (sec as any).area ?? (sec as any).a ?? 0,
-            iy: (sec as any).iy ?? (sec as any).Iy ?? 0,
-            iz: (sec as any).iz ?? (sec as any).Iz ?? 0,
-            materialId: (sec as any).materialId ?? 0,
-            b: (sec as any).b ?? (sec as any).width ?? 0,
-            h: (sec as any).h ?? (sec as any).height ?? 0,
-          };
-        }
-        const materials: Record<string, any> = {};
-        for (const [id, mat] of modelStore.materials) {
-          materials[String(id)] = { fy: (mat as any).fy ?? 250 };
-        }
+        /*
+         * A section has no material — its members do — so `sec.materialId` was always undefined,
+         * sent as 0, found nowhere, and every section went in at the default 250 MPa. `b` and `h`
+         * went as 0 when a section had neither, and the engine then computed Mp = 0 and a collapse
+         * factor of 0. And with them present, the engine's Mp is the solid rectangle's b·h²/4:
+         * 3,7 times the real one for an IPN 300. Now the material is the members', absent
+         * dimensions stay absent, and Mp about both axes comes from the section's own geometry
+         * (`plastic-moments.ts`), through the `mpOverrides` the engine already honours.
+         */
+        const { sections, materials, mpOverrides, assumed } = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
+        nlAssumed = assumed;
         nlResult = solvePlastic3D({
           solver: input,
           sections,
           materials,
           maxHinges: nlMaxHinges,
+          mpOverrides,
         });
       } else if (nlType === 'corotational') {
         nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
       } else {
         const fiberSections: Record<string, any> = {};
         for (const [id, sec] of modelStore.sections) {
+          const member = [...modelStore.elements.values()].find((e) => e.sectionId === id);
+          if (!member) continue;
           fiberSections[String(id)] = {
-            a: (sec as any).area ?? (sec as any).a ?? 0,
-            iy: (sec as any).iy ?? (sec as any).Iy ?? 0,
-            iz: (sec as any).iz ?? (sec as any).Iz ?? 0,
-            materialId: (sec as any).materialId ?? 0,
-            b: (sec as any).b ?? (sec as any).width ?? 0,
-            h: (sec as any).h ?? (sec as any).height ?? 0,
+            a: sec.a, iy: sec.iy ?? sec.iz, iz: sec.iz, materialId: member.materialId,
+            ...(sec.b ? { b: sec.b } : {}), ...(sec.h ? { h: sec.h } : {}),
           };
         }
         nlResult = solveFiberNonlinear3D({
@@ -939,6 +1003,11 @@
 </script>
 
 <div class="adv-tab">
+  {#if limits.length > 0}
+    <ul class="adv-limits" data-testid="adv-limits">
+      {#each limits as k (k)}<li>{t(k)}</li>{/each}
+    </ul>
+  {/if}
   <!-- Global options -->
   <div class="adv-header">
     <label class="adv-check">
@@ -1010,6 +1079,7 @@
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
+        {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
@@ -1019,11 +1089,15 @@
                   <td class="col-id">{i + 1}</td>
                   <td class="col-num">{fmtNum(mode.frequency)}</td>
                   <td class="col-num">{fmtNum(mode.period)}</td>
+                  {#if modalConstrained}
+                    <td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td>
+                  {:else}
                   <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
                   <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
                   <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
+                  {/if}
                 </tr>
               {/each}
             </tbody>
@@ -1043,17 +1117,35 @@
           </select>
         </label>
         <label class="adv-label">
-          Zona:
-          <select class="adv-sel" bind:value={seismicZone}>
+          {t('autoLoad.zone')}:
+          <select class="adv-sel" bind:value={seismicZone} data-testid="spectral-zone">
             <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
           </select>
         </label>
         <label class="adv-label">
-          Suelo:
-          <select class="adv-sel" bind:value={soilType}>
-            <option value="I">I</option><option value="II">II</option><option value="III">III</option>
+          {t('spectral.site')}:
+          <select class="adv-sel" bind:value={siteClass} data-testid="spectral-site">
+            {#each ['SA', 'SB', 'SC', 'SD', 'SE', 'SF'] as sc (sc)}<option value={sc}>{sc}</option>{/each}
           </select>
         </label>
+        <label class="adv-label">
+          {t('spectral.group')}:
+          <select class="adv-sel" bind:value={destinationGroup}>
+            {#each ['Ao', 'A', 'B', 'C'] as g (g)}<option value={g}>{g} (γr {RISK_FACTOR[g as DestinationGroup]})</option>{/each}
+          </select>
+        </label>
+        <label class="adv-label" title={t('spectral.rHint')}>
+          R:
+          <input type="number" class="adv-num" min="1" step="0.5" bind:value={spectralR} data-testid="spectral-r" />
+        </label>
+      </div>
+      <div class="adv-hint" data-testid="spectral-basis">
+        {#if isBlocked(codeSpectrum)}
+          {te(codeSpectrum.blocked)}
+        {:else}
+          {tp('spectral.basis', { ca: codeSpectrum.ca.toFixed(2), cv: codeSpectrum.cv.toFixed(2), t1: codeSpectrum.t1.toFixed(2), t2: codeSpectrum.t2.toFixed(2), t3: codeSpectrum.t3, gr: RISK_FACTOR[destinationGroup], r: spectralR })}
+          {#if fromProject}· {t('spectral.fromProject')}{/if}
+        {/if}
       </div>
       {#if !modalResult}
         <div class="adv-hint">{t('pro.requiresModal')}</div>
@@ -1219,6 +1311,7 @@
           {#if nlResult.isMechanism != null} — {nlResult.isMechanism ? t('pro.mechanism') : t('pro.stable')}{/if}
           {#if nlResult.converged != null} — {nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
           {#if nlResult.steps != null} — {nlResult.steps.length} {t('pro.steps')}{/if}
+          {#if nlType === 'pushover' && nlAssumed.length > 0}<div class="adv-hint" data-testid="pushover-assumed">{tp('pro.pushoverAssumed', { names: nlAssumed.join(', ') })}</div>{/if}
           {#if nlDisplacements.length}
             — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
@@ -2057,4 +2150,5 @@
 
   .cum-ok { color: var(--st-ok); }
   .cum-warn { color: var(--st-warn); }
+  .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.66rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
 </style>

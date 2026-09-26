@@ -264,6 +264,8 @@
   import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
+  import ToolLoadOptions from './components/floating-tools/ToolLoadOptions.svelte';
+  import ToolSupportOptions from './components/floating-tools/ToolSupportOptions.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ProRibbon from './components/pro/ProRibbon.svelte';
@@ -493,7 +495,7 @@
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
       'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
-      'settings'];
+      'settings', 'selection', 'steel', 'generators', 'transform', 'edit', 'groups', 'code', 'view'];
     if (!VALID.includes(tab)) return;
     uiStore.proActiveTab = tab;
   }
@@ -1459,6 +1461,13 @@
   {#if uiStore.appMode === 'basico'}
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
+  {/if}
+  <!-- PRO has no options strip; "Draw load" and "Draw support" used Basic's hidden settings.
+       While either tool is armed its options show here, the same controls Basic uses. -->
+  {#if uiStore.appMode === 'pro' && (uiStore.currentTool === 'load' || uiStore.currentTool === 'support')}
+    <div class="pro-tool-options" data-testid="pro-tool-options">
+      {#if uiStore.currentTool === 'load'}<ToolLoadOptions />{:else}<ToolSupportOptions />{/if}
+    </div>
   {/if}
 
   <!--
@@ -4001,4 +4010,8 @@
   .btn-help:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .btn-help { width: 26px; padding: 0.3rem 0; text-align: center; }
+  .pro-tool-options {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px 10px;
+    background: var(--st-surface-2); border-bottom: 1px solid var(--st-hair); font-size: 0.72rem;
+  }
 </style>

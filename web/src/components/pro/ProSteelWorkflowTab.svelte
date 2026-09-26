@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProSteelOptimise from './ProSteelOptimise.svelte';
   /**
    * Flujo de diseño metálico — the whole workflow, including the part that cannot happen.
    *
@@ -48,6 +49,8 @@
   import { steelInputCompleteness, steelInputGapKey } from '../../lib/engine/verification-service';
   import { gradeRows, sectionRows, rowStateKey } from '../../lib/engine/steel/workflow-rows';
   import { assumptionRows, assumptionSourceKey } from '../../lib/engine/steel/workflow-assumptions';
+  import { memberLengths } from '../../lib/engine/steel/unbraced-length';
+  import ProSteelLbEditor from './ProSteelLbEditor.svelte';
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
   import { f62Report } from '../../lib/engine/steel/flange-local-buckling';
@@ -118,19 +121,22 @@
 
   // ── 4. Geometry and bracing ──────────────────────────────────────
   /**
-   * Permanently blocked, and this is the honest one.
+   * The user's move, not a wall.
    *
-   * The model has nowhere to record a brace, so `verification-service.ts` passes `Lb = L` — the
-   * member unbraced over its whole length. That is conservative for flexure taken alone, which is
-   * why it is tolerable, and it is still an assumption the user never made. Replacing it with a
-   * fraction of `L` would be an invention; the stage says so instead.
+   * Without a declared `Lb` the checker takes the physical member's length (`unbraced-length.ts`):
+   * unbraced over the whole chain. That is conservative for flexure taken alone, which is why it
+   * is tolerable, and it is still an assumption the user never made. Replacing it with a fraction
+   * of `L` would be an invention; a shorter `Lb` is declared per member, right here. What the
+   * model still cannot hold is which member braces which — the blocker below stays open for that.
    */
-  const geometryState = $derived<State>(hasSteel ? 'blocked' : 'optional');
+  const geometryState = $derived<State>(hasSteel ? 'current' : 'optional');
+  const steelIds = $derived(new Set(members.map((m) => m.elementId)));
 
   // ── 5. Assumptions ───────────────────────────────────────────────
   const assumptionState = $derived<State>(hasSteel ? 'current' : 'optional');
   /** Per-member assumptions, with the provenance of each. */
-  const aRows = $derived(assumptionRows(inv));
+  // The same lengths the checker reads, so the table shows the number it receives.
+  const aRows = $derived(assumptionRows(inv, memberLengths(modelStore.model)));
 
   // ── 6. Analysis ──────────────────────────────────────────────────
   const hasDemands = $derived(resultsStore.results3D !== null && resultsStore.hasCombinations3D);
@@ -553,6 +559,8 @@
       -->
       <p class="line warn" data-testid="steel-sub-geometry-blocked">{t('steel.workflow.geometry.blocked')}</p>
       <p class="line" data-testid="steel-stage-geometry-body">{t('steel.workflow.geometry.lbDetail')}</p>
+      <p class="line" data-testid="steel-stage-geometry-chain">{t('steel.workflow.geometry.chain')}</p>
+      <ProSteelLbEditor {steelIds} />
     </section>
     <section class="sub" data-testid="steel-sub-assumptions" data-state={assumptionState}>
       <h4>
@@ -571,7 +579,7 @@
 
       {#if aRows.length > 0}
         <!--
-          What DOES vary per member is `Lb`, because it is the member's own length. So the table
+          What DOES vary per member is `Lb`: its chain's length, or the one declared. So the table
           carries that number and the source of it, and the source is the point: `assumed` means the
           app decided, which is a risk the user did not knowingly take.
         -->
@@ -590,7 +598,7 @@
                 <!-- The real number the checker receives, not a restatement of the rule. -->
                 <td data-testid={`steel-lb-${row.elementId}`}>{row.lbM.toFixed(3)} m</td>
                 <td data-testid={`steel-lb-source-${row.elementId}`}
-                  >{t(assumptionSourceKey(row.lbSource))}</td>
+                  >{t(assumptionSourceKey(row.lbSource))}{#if row.lbBasis === 'chain'} · {tp('steel.rows.lbChain', { n: row.lbChain.length })}{/if}</td>
               </tr>
             {/each}
           </tbody>
@@ -715,6 +723,12 @@
         {CIRSOC301_CLAUSES_UNVALIDATED.length} / {CIRSOC301_CLAUSE_MAP.length}
         · {t('steel.workflow.blocker.clauseRefs')}
       </p>
+    </section>
+    <!-- The lightest profile the checker above accepts, per section or per member. A pre-design:
+         it inherits every limitation listed above, and says so. -->
+    <section class="sub" data-testid="steel-sub-optimise">
+      <h4>{t('opt.title')}</h4>
+      <ProSteelOptimise />
     </section>
   </StageSection>
 

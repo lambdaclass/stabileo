@@ -6,7 +6,7 @@
   import { resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { shellContourColor } from '../../lib/three/stress-heatmap';
-  import { shellComponentMeta, shellComponentRange, shellComponentStats } from '../../lib/engine/shell-stress';
+  import { shellComponentLabelKey, shellComponentMeta, shellComponentRange, shellComponentStats } from '../../lib/engine/shell-stress';
 
   // Shell contour mode is selected (regardless of whether data exists).
   const shellMode = $derived(
@@ -68,18 +68,18 @@
 
 {#if shellMode && !hasData}
   <div class="shell-legend shell-legend-empty" role="status">
-    <div class="legend-title">{meta.label}</div>
+    <div class="legend-title">{t(shellComponentLabelKey(meta.key))}</div>
     <div class="legend-unavailable">{t('results.shellContourUnavailable')}</div>
   </div>
 {:else if active && stat?.status === 'negligible'}
   <div class="shell-legend shell-legend-flat" role="status">
-    <div class="legend-title">{meta.label} <span class="legend-unit-inline">[{meta.unit}]</span></div>
+    <div class="legend-title">{t(shellComponentLabelKey(meta.key))} <span class="legend-unit-inline">[{meta.unit}]</span></div>
     <div class="legend-flat-note">{t('results.shellContourNegligible')}</div>
-    <div class="legend-flat-range">peak ≈ {fmt(stat.peak)} {meta.unit}</div>
+    <div class="legend-flat-range">{t('shell.peak')} ≈ {fmt(stat.peak)} {meta.unit}</div>
   </div>
 {:else if active}
-  <div class="shell-legend" role="img" aria-label="Shell contour legend">
-    <div class="legend-title">{meta.label} <span class="legend-unit-inline">[{meta.unit}]</span></div>
+  <div class="shell-legend" role="img" aria-label={t('shell.legend')}>
+    <div class="legend-title">{t(shellComponentLabelKey(meta.key))} <span class="legend-unit-inline">[{meta.unit}]</span></div>
     {#if stat?.status === 'uniform'}
       <div class="legend-flat-note">{t('results.shellContourUniform').replace('{v}', fmt(mid) + ' ' + meta.unit)}</div>
     {:else}

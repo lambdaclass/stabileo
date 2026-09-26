@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
@@ -127,7 +128,8 @@ function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
 
 export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
-  const storeNodes = modelStore.nodes;
+  // Hidden in the view (store/view-state): not drawn, not picked. The model is untouched.
+  const storeNodes = visibleNodes();
   const project2D = projectFlag();
   const ni = ctx.nodesInstanced;
 
@@ -157,7 +159,7 @@ function* iterateIds(ni: NodesInstanced): IterableIterator<[number, number]> {
 
 export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
-  const storeElements = modelStore.elements;
+  const storeElements = visibleElements();
   const project2D = projectFlag();
   const renderMode = uiStore.renderMode3D;
   const leftHand = uiStore.axisConvention3D === 'leftHand';
@@ -386,7 +388,9 @@ export function applyElementVisibility(
 
 export function syncSupports(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
-  const storeSupports = modelStore.supports;
+  const storeSupports = viewVisibility.active
+    ? new Map([...modelStore.supports].filter(([, s]) => !viewVisibility.isNodeHidden(s.nodeId)))
+    : modelStore.supports;
   const project2D = projectFlag();
 
   // Remove stale
@@ -483,7 +487,7 @@ export function syncShells(ctx: SceneSyncContext): void {
   };
 
   // Plates (triangular DKT)
-  for (const [id, plate] of modelStore.plates) {
+  for (const [id, plate] of visiblePlates()) {
     const key = `p${id}`;
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
@@ -509,7 +513,7 @@ export function syncShells(ctx: SceneSyncContext): void {
   }
 
   // Quads (MITC4)
-  for (const [id, quad] of modelStore.quads) {
+  for (const [id, quad] of visibleQuads()) {
     const key = `q${id}`;
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
@@ -589,6 +593,7 @@ function loadsSignature(project2D: boolean): string {
     resultsStore.diagramType,
     (uiStore.visibleLoadCases3D ?? []).join(','),
     project2D ? 1 : 0,
+    viewVisibility.version,
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -682,6 +687,13 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
     // Filter by visible load cases
     if (visibleCases !== null && caseId !== undefined && !visibleCases.includes(caseId)) continue;
+    // Nor on what the view hides.
+    if (viewVisibility.active) {
+      const d = load.data as { nodeId?: number; elementId?: number; quadId?: number };
+      if (d.nodeId !== undefined && viewVisibility.isNodeHidden(d.nodeId)) continue;
+      if (d.elementId !== undefined && viewVisibility.isElementHidden(d.elementId)) continue;
+      if (d.quadId !== undefined && viewVisibility.isShellHidden(`q${d.quadId}`)) continue;
+    }
 
     const cc = getCaseColor(caseId);
 
@@ -1011,7 +1023,7 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
   const group = new THREE.Group();
   group.name = 'localAxesContainer';
 
-  if (drawMembers) for (const [id, elem] of modelStore.elements) {
+  if (drawMembers) for (const [id, elem] of visibleElements()) {
     const isSelected = selected.has(id);
     if (!memberShowAll && !isSelected) continue;
 
@@ -1068,8 +1080,8 @@ export function syncLocalAxes(ctx: SceneSyncContext): void {
       const origin = new THREE.Vector3(cx / verts.length, cy / verts.length, cz / verts.length);
       group.add(createLocalAxesTriad(origin, axes, { withLabels: isSel && shellLabel }));
     };
-    for (const [id, plate] of modelStore.plates) addShellTriad(`p${id}`, [...plate.nodes]);
-    for (const [id, quad] of modelStore.quads) addShellTriad(`q${id}`, [...quad.nodes]);
+    for (const [id, plate] of visiblePlates()) addShellTriad(`p${id}`, [...plate.nodes]);
+    for (const [id, quad] of visibleQuads()) addShellTriad(`q${id}`, [...quad.nodes]);
   }
 
   ctx.localAxesGroup = group;

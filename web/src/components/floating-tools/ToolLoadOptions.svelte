@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMode3D } from '../../lib/store/file';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -33,7 +34,7 @@
 {/each}
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
-  {#if uiStore.analysisMode === '3d'}
+  {#if isMode3D(uiStore.analysisMode)}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
       onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
@@ -92,7 +93,7 @@
     <span class="ft-unit">°C</span>
   </label>
 {:else if uiStore.loadType === 'distributed'}
-  {#if uiStore.analysisMode === '3d'}
+  {#if isMode3D(uiStore.analysisMode)}
     <label class="ft-input-group">
       <span>qYI:</span>
       <input type="number" bind:value={uiStore.loadValueY3D} step="1" />
@@ -115,7 +116,7 @@
       <span class="ft-unit">kN/m</span>
     </label>
   {/if}
-  {#if uiStore.analysisMode === '3d'}
+  {#if isMode3D(uiStore.analysisMode)}
     <label class="ft-input-group">
       <span>qZI:</span>
       <input type="number" bind:value={uiStore.loadValueZ} step="1" />

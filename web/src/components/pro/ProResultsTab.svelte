@@ -27,7 +27,7 @@
     type SourceKind,
   } from '../../lib/engine/result-query';
   import {
-    SHELL_CONTOUR_COMPONENTS, SHELL_COMPONENT_GROUP_LABELS, principalStresses,
+    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, principalStresses,
     shellComponentStats, type ShellComponentGroup,
   } from '../../lib/engine/shell-stress';
 
@@ -519,10 +519,10 @@
             <label class="pro-viz-label">{t('pro.shellComponent')}</label>
             <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
               {#each shellGroups as [group, comps]}
-                <optgroup label={SHELL_COMPONENT_GROUP_LABELS[group]}>
+                <optgroup label={t(shellGroupLabelKey(group))}>
                   {#each comps as c}
                     {@const st = shellStats?.[c.key]?.status}
-                    <option value={c.key}>{c.label} ({c.unit}){st === 'negligible' ? ' — ≈0' : st === 'uniform' ? ' — uniform' : ''}</option>
+                    <option value={c.key}>{t(shellComponentLabelKey(c.key))} ({c.unit}){st === 'negligible' ? ' — ≈0' : st === 'uniform' ? ` — ${t('shell.uniform')}` : ''}</option>
                   {/each}
                 </optgroup>
               {/each}
@@ -874,11 +874,12 @@
       {/if}
 
       
-      {#if shellRows.length}
+      <!-- Outside the shell block below: a frame with no plates has deflections too. -->
       {#if resSection === 'deflections'}
         <ProDeflectionTable />
       {/if}
 
+      {#if shellRows.length}
       {#if resSection === 'shells'}
           <div class="shell-table-legend">{t('pro.shellTableLegend')}</div>
           <div class="pro-res-table-wrap">

@@ -253,10 +253,11 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
     clause: 'F.2.2',
     inputs: ['Lb', 'Lp', 'Lr', 'Mp', 'Sx', 'Fy'],
     assumptions: [
-      'Lb is supplied by the caller as the member length — the member is assumed unbraced end to '
-      + 'end. Apéndice 6 §6.1 defines it as «la longitud lateralmente no arriostrada Lb igual a la '
-      + 'distancia entre puntos intermedios», in cm, for beams whose intermediate braced points '
-      + 'satisfy §6.3. So the definition is available; what the model lacks is the field.',
+      'Lb is supplied by the caller: the length the member declares, or else the physical '
+      + 'member\'s — collinear pieces with nothing that could brace them, taken together, assumed '
+      + 'unbraced end to end. Apéndice 6 §6.1 defines it as «la longitud lateralmente no arriostrada '
+      + 'Lb igual a la distancia entre puntos intermedios», in cm, for beams whose intermediate '
+      + 'braced points satisfy §6.3. The model holds the declared length, not the braces themselves.',
       '§6.3 rules out one candidate explicitly: «el punto de inflexión no será considerado un '
       + 'punto arriostrado, a menos que se haya ubicado una riostra en esa posición».',
     ],

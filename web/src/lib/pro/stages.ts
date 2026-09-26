@@ -46,6 +46,13 @@ export type ProCmd = {
   /** Destination: which panel view this opens. */
   tab?: string;
   /**
+   * When the button reads as on. Absent: its tab is the open panel, its diagram is on screen, or
+   * its tool is armed. A command that shows something INSIDE a shared panel says it here — Stress
+   * opens the Results panel, which is open whenever results are read, so "its tab is open" lit it
+   * permanently.
+   */
+  activeWhen?: () => boolean;
+  /**
    * Arms a POINTER tool rather than opening a destination.
    *
    * The viewport has implemented click-to-place nodes and two-click members
@@ -162,10 +169,11 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
-            { id: 'transform', labelKey: 'transform.title', icon: 'move', tab: 'transform' },
-            { id: 'edit', labelKey: 'edit.title', icon: 'element', tab: 'edit' },
-            { id: 'groups', labelKey: 'groups.title', icon: 'data', tab: 'groups' },
-            { id: 'code', labelKey: 'code.title', icon: 'data', tab: 'code' },
+            { id: 'transform', labelKey: 'transform.title', icon: 'transform', tab: 'transform' },
+            { id: 'edit', labelKey: 'edit.title', icon: 'edit', tab: 'edit' },
+            { id: 'groups', labelKey: 'groups.title', icon: 'groups', tab: 'groups' },
+            { id: 'code', labelKey: 'code.title', icon: 'code', tab: 'code' },
+            { id: 'view', labelKey: 'view.title', icon: 'eye', tab: 'view' },
           ],
         },
         {
@@ -285,6 +293,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
               action: () => { resultsStore.colorMapKind = 'stress'; },
               tab: 'results',
               enabled: () => solved,
+              activeWhen: () => resultsStore.diagramType === 'colorMap' && resultsStore.colorMapKind === 'stress',
             },
           ],
         },
@@ -425,7 +434,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Settings is reached from the header corner, like the AI drawer. */
     settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model',
+    generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model', view: 'model',
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', constraints: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',

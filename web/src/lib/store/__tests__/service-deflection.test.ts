@@ -141,3 +141,77 @@ describe('under which loads', () => {
     expect(serviceSets().sets.map((x) => x.id)).toEqual([service, strength]);
   });
 });
+
+describe('over the physical member, not the element', () => {
+  /** A 6 m simply supported beam along X drawn as `n` elements; returns their ids. */
+  function cutBeam(n: number): number[] {
+    modelStore.clear();
+    const nodes = Array.from({ length: n + 1 }, (_, i) => modelStore.addNode((L * i) / n, 0, 0));
+    const ids = nodes.slice(1).map((b, i) => modelStore.addElement(nodes[i]!, b, 'frame'));
+    modelStore.addSupport(nodes[0]!, 'custom3d', undefined, { dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: false } });
+    modelStore.addSupport(nodes[n]!, 'custom3d', undefined, { dofRestraints: { tx: false, ty: true, tz: true, rx: false, ry: false, rz: false } });
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    for (const id of ids) modelStore.addDistributedLoad3D(id, 0, 0, -q, -q);
+    beam = ids[0]!;
+    return ids;
+  }
+
+  it('a beam cut into uneven pieces reads 5qL⁴/384EI over the whole span, for every piece', () => {
+    const ids = cutBeam(3);
+    // Move the inner nodes off the thirds, so the pieces are uneven and sampled unevenly.
+    const inner = [...modelStore.elements.values()].map((e) => e.nodeJ).slice(0, 2);
+    modelStore.updateNode(inner[0]!, 1.3, 0, 0);
+    modelStore.updateNode(inner[1]!, 4.1, 0, 0);
+    const single = modelStore.solve3D(false, false, true);
+    if (!single || typeof single === 'string') throw new Error(String(single));
+    resultsStore.setResults3D(single);
+    const got = serviceDeflections(ids, serviceSets().sets);
+    const exact = (5 * q * L ** 4) / (384 * ei().EIy);
+    for (const id of ids) {
+      const d = got.get(id)!;
+      expect(d.span).toEqual(ids);
+      expect(d.L).toBeCloseTo(L, 12);
+      // Midspan is not a sample here; the parabola through the three around it carries the peak.
+      expect(d.max / exact).toBeCloseTo(1, 5);
+      expect(d.x).toBeCloseTo(L / 2, 3);
+    }
+  });
+
+  it('a level bar framing in rides on the span; a column stops it', () => {
+    const ids = cutBeam(2);
+    const mid = modelStore.elements.get(ids[0]!)!.nodeJ;
+    // A secondary beam, level, framing in at midspan and carried on a far support.
+    const far = modelStore.addNode(L / 2, 4, 0);
+    const secondary = modelStore.addElement(mid, far, 'frame');
+    modelStore.addSupport(far, 'custom3d', undefined, { dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false } });
+    modelStore.addDistributedLoad3D(secondary, 0, 0, -q, -q);
+    let single = modelStore.solve3D(false, false, true);
+    if (!single || typeof single === 'string') throw new Error(String(single));
+    resultsStore.setResults3D(single);
+    expect(serviceDeflections(ids, serviceSets().sets).get(ids[0]!)!.span).toEqual(ids);
+
+    // A column under the midspan node holds the girder up there: two spans.
+    const foot = modelStore.addNode(L / 2, 0, -3);
+    modelStore.addElement(foot, mid, 'frame');
+    modelStore.addSupport(foot, 'fixed3d');
+    single = modelStore.solve3D(false, false, true);
+    if (!single || typeof single === 'string') throw new Error(String(single));
+    resultsStore.setResults3D(single);
+    const got = serviceDeflections(ids, serviceSets().sets);
+    expect(got.get(ids[0]!)!.span).toEqual([ids[0]]);
+    expect(got.get(ids[1]!)!.span).toEqual([ids[1]]);
+  });
+
+  it('a physical-member group does not stretch the span across a column', () => {
+    const ids = cutBeam(2);
+    const mid = modelStore.elements.get(ids[0]!)!.nodeJ;
+    const foot = modelStore.addNode(L / 2, 0, -3);
+    modelStore.addElement(foot, mid, 'frame');
+    modelStore.addSupport(foot, 'fixed3d');
+    modelStore.addGroup('V1', 'physicalMember', { elements: ids });
+    const single = modelStore.solve3D(false, false, true);
+    if (!single || typeof single === 'string') throw new Error(String(single));
+    resultsStore.setResults3D(single);
+    expect(serviceDeflections(ids, serviceSets().sets).get(ids[1]!)!.span).toEqual([ids[1]]);
+  });
+});
