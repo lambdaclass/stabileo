@@ -7801,5 +7801,14 @@ const es: Record<string, string> = {
   'import.replaceModel': "Reemplazar el modelo",
   'transform.pickOffset': "Paso por dos puntos",
   'transform.pick.offset': "Paso: punto {k} de 2",
+  'shear.title': "Deformación por corte",
+  'shear.none': "No (sólo flexión)",
+  'shear.geometry': "Áreas desde la geometría",
+  'shear.declared': "Áreas declaradas",
+  'shear.values': "As,y = {y} cm² (con Iy) · As,z = {z} cm² (con Iz)",
+  'shear.noShape': "La forma de esta sección no da áreas de corte: se pueden declarar.",
+  'shear.all': "Corte en todas:",
+  'shear.allOn': "Desde la geometría",
+  'shear.allOff': "Quitar",
 };
 export default es;

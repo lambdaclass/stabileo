@@ -22,6 +22,10 @@ export interface SolverSection3D {
   iy: number;  // m⁴ — moment of inertia about local Y
   iz: number;  // m⁴ — moment of inertia about local Z
   j: number;   // m⁴ — torsional constant (Saint-Venant)
+  /** m² — shear area paired with iy (Timoshenko). Absent: no shear deformation in that plane. */
+  asY?: number;
+  /** m² — shear area paired with iz. */
+  asZ?: number;
 }
 
 // ─── Elements ────────────────────────────────────────────────────

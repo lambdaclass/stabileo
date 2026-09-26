@@ -6621,5 +6621,14 @@ const pt: Translations = {
   'import.replaceModel': "Substituir o modelo",
   'transform.pickOffset': "Passo por dois pontos",
   'transform.pick.offset': "Passo: ponto {k} de 2",
+  'shear.title': "Deformação por cortante",
+  'shear.none': "Não (só flexão)",
+  'shear.geometry': "Áreas pela geometria",
+  'shear.declared': "Áreas declaradas",
+  'shear.values': "As,y = {y} cm² (com Iy) · As,z = {z} cm² (com Iz)",
+  'shear.noShape': "A forma desta seção não fornece áreas de cortante: podem ser declaradas.",
+  'shear.all': "Cortante em todas:",
+  'shear.allOn': "Pela geometria",
+  'shear.allOff': "Remover",
 };
 export default pt;

@@ -7812,5 +7812,14 @@ const en: Record<string, string> = {
   'import.replaceModel': "Replace the model",
   'transform.pickOffset': "Step from two points",
   'transform.pick.offset': "Step: point {k} of 2",
+  'shear.title': "Shear deformation",
+  'shear.none': "No (bending only)",
+  'shear.geometry': "Areas from the geometry",
+  'shear.declared': "Declared areas",
+  'shear.values': "As,y = {y} cm² (with Iy) · As,z = {z} cm² (with Iz)",
+  'shear.noShape': "This section’s shape gives no shear areas: they can be declared.",
+  'shear.all': "Shear in all:",
+  'shear.allOn': "From the geometry",
+  'shear.allOff': "Remove",
 };
 export default en;
