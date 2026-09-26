@@ -4871,6 +4871,7 @@ const pt: Translations = {
   'regulations.rolePurpose.steel': 'A norma dos elementos de aço. O fluxo de betão não a usa.',
   'regulations.rolePurpose.timber': 'A norma dos elementos de madeira. O fluxo de betão não a usa.',
   'regulations.rolePurpose.wind': 'A ação do vento sobre a estrutura. Alterá-lo invalida a análise.',
+  'regulations.rolePurpose.snow': "A carga de neve e de gelo sobre a cobertura. Alterá-lo invalida a análise.",
   'regulations.stackProblems': 'Conjunto de normas',
   'regulations.state.applied': 'Aplicado',
   'regulations.state.pending': 'Pendente',

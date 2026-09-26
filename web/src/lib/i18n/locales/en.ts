@@ -5935,6 +5935,7 @@ const en: Record<string, string> = {
   'regulations.rolePurpose.loads': 'How the load cases and their combinations are built. Changing it invalidates the analysis.',
   'regulations.rolePurpose.seismic': 'The seismic action and its spectrum. Changing it invalidates the analysis.',
   'regulations.rolePurpose.wind': 'The wind action on the structure. Changing it invalidates the analysis.',
+  'regulations.rolePurpose.snow': "The snow and ice load on the roof. Changing it invalidates the analysis.",
   'regulations.rolePurpose.steel': 'The design code for steel members. Not used by the concrete workflow.',
   'regulations.rolePurpose.masonry': 'The design code for masonry members. Not used by the concrete workflow.',
   'regulations.rolePurpose.timber': 'The design code for timber members. Not used by the concrete workflow.',

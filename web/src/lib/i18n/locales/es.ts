@@ -5928,6 +5928,7 @@ const es: Record<string, string> = {
   'regulations.rolePurpose.loads': 'Cómo se arman los estados de carga y sus combinaciones. Cambiarlo invalida el análisis.',
   'regulations.rolePurpose.seismic': 'La acción sísmica y su espectro. Cambiarlo invalida el análisis.',
   'regulations.rolePurpose.wind': 'La acción del viento sobre la estructura. Cambiarlo invalida el análisis.',
+  'regulations.rolePurpose.snow': "La carga de nieve y de hielo sobre la cubierta. Cambiarlo invalida el análisis.",
   'regulations.rolePurpose.steel': 'El reglamento de elementos de acero. El flujo de hormigón no lo usa.',
   'regulations.rolePurpose.masonry': 'El reglamento de elementos de mampostería. El flujo de hormigón no lo usa.',
   'regulations.rolePurpose.timber': 'El reglamento de elementos de madera. El flujo de hormigón no lo usa.',

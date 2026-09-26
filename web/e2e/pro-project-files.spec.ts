@@ -80,7 +80,12 @@ test.describe('@slow PRO project files', () => {
     const openBtn = page.getByTestId('pp-open');
     await expect(openBtn, 'PRO exposes Open').toBeVisible();
     await expect(openBtn).toBeEnabled();
-    await expect(openBtn).toHaveAttribute('title', /.+/);
+    // Its explanation is a HelpTip (it replaced the title, which a touch screen never shows):
+    // focusing the button opens it and ties it to the button.
+    await openBtn.focus();
+    await expect(openBtn).toHaveAttribute('aria-describedby', /helptip-/);
+    await expect(page.locator(`#${await openBtn.getAttribute('aria-describedby')}`)).not.toBeEmpty();
+    await openBtn.blur();
 
     await openFixtureFromPro(page);
 
