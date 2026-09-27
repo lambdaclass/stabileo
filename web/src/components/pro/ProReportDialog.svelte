@@ -1,30 +1,9 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
 
-  /** Report configuration passed to the generator */
-  export interface ReportConfig {
-    companyName: string;
-    companyLogo: string | null; // data URL
-    projectAddress: string;
-    engineerName: string;
-    revision: string;
-    /** Which document to produce from the same choices. */
-    format?: 'pdf' | 'xlsx';
-    /** False when the letterhead was left blank — the report prints none. */
-    hasProjectInfo?: boolean;
-    /** Which advanced analyses to print, by result key. */
-    advancedPicked?: Record<string, boolean>;
-    sections: {
-      modelData: boolean;
-      results: boolean;
-      verification: boolean;
-      advancedAnalysis: boolean;
-      storyDrift: boolean;
-      diagnostics: boolean;
-      quantities: boolean;
-      loads: boolean;
-    };
-  }
+  import type { ReportConfig } from '../../lib/engine/pro-report';
+  import { reportFigures } from '../../lib/store/report-figures.svelte';
+  import { captureFigure } from '../../lib/export/figure';
 
   interface Props {
     open: boolean;
@@ -63,9 +42,6 @@
 
   let companyName = $state(saved.companyName ?? '');
   let companyLogo = $state<string | null>(saved.companyLogo ?? null);
-  let projectAddress = $state(saved.projectAddress ?? '');
-  let engineerName = $state(saved.engineerName ?? '');
-  let revision = $state(saved.revision ?? '1');
 
   let secModelData = $state(true);
   let secResults = $state(true);
@@ -73,6 +49,16 @@
   let secDiagnostics = $state(true);
   let secQuantities = $state(true);
   let secLoads = $state(true);
+  let secEnvelope = $state(true);
+  let secStatics = $state(true);
+  let secDeflections = $state(true);
+  let secFigures = $state(true);
+  let figureError = $state(false);
+  function addFigure() {
+    const f = captureFigure();
+    figureError = !f;
+    if (f) reportFigures.add(f);
+  }
 
   /** Which advanced analyses to print, of the ones that ran. */
   let advancedPicked = $state<Record<string, boolean>>({});
@@ -85,12 +71,8 @@
    * The disclosure opens itself when there is something in it, so a reader who
    * has used it before does not have to go looking.
    */
-  const hasProjectInfo = $derived(
-    !!(companyName.trim() || engineerName.trim() || projectAddress.trim() || companyLogo),
-  );
-  let infoOpen = $state(
-    !!(saved.companyName || saved.engineerName || saved.projectAddress || saved.companyLogo),
-  );
+  const hasProjectInfo = $derived(!!(companyName.trim() || companyLogo));
+  let infoOpen = $state(!!(saved.companyName || saved.companyLogo));
 
   function handleLogoUpload(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -110,16 +92,14 @@
 
   function handleGenerate(as: 'pdf' | 'xlsx' = 'pdf') {
     // Persist company info for next time
-    save({ companyName, companyLogo, projectAddress, engineerName, revision });
+    save({ companyName, companyLogo });
 
     ongenerate({
       /* Which document. The choices above apply to both. */
       format: as,
       companyName,
       companyLogo,
-      projectAddress,
-      engineerName,
-      revision,
+      figures: secFigures ? reportFigures.list.map(({ dataUrl, caption }) => ({ dataUrl, caption })) : [],
       /* Blank stays blank: an untouched letterhead prints nothing rather
          than a row of empty labels. */
       hasProjectInfo,
@@ -135,6 +115,10 @@
         diagnostics: secDiagnostics,
         quantities: secQuantities,
         loads: secLoads,
+        envelope: secEnvelope,
+        statics: secStatics,
+        deflections: secDeflections,
+        figures: secFigures,
       },
     });
   }
@@ -183,20 +167,7 @@
           <input type="text" bind:value={companyName} placeholder={t('report.companyNamePh')} class="rpt-input" />
         </div>
 
-        <div class="rpt-field">
-          <label class="rpt-label">{t('report.engineerName')}</label>
-          <input type="text" bind:value={engineerName} placeholder={t('report.engineerNamePh')} class="rpt-input" />
-        </div>
-
-        <div class="rpt-field">
-          <label class="rpt-label">{t('report.projectAddress')}</label>
-          <input type="text" bind:value={projectAddress} placeholder={t('report.projectAddressPh')} class="rpt-input" />
-        </div>
-
-        <div class="rpt-field">
-          <label class="rpt-label">{t('report.revision')}</label>
-          <input type="text" bind:value={revision} placeholder="1" class="rpt-input rpt-input-sm" />
-        </div>
+        <p class="rpt-hint">{t('report.projectDataMoved')}</p>
       </details>
 
       <!-- Sections to include -->
@@ -206,6 +177,13 @@
           <label class="rpt-check"><input type="checkbox" bind:checked={secModelData} /> {t('report.secModelData')}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secLoads} /> {t('report.secLoads')}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secResults} disabled={!hasResults} /> {t('report.secResults')} {#if !hasResults}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          {#if secResults && hasResults}
+            <div class="rpt-sub-checks">
+              <label class="rpt-check rpt-check-sub"><input type="checkbox" bind:checked={secEnvelope} data-testid="rpt-envelope" /> {t('report.env.title')}</label>
+              <label class="rpt-check rpt-check-sub"><input type="checkbox" bind:checked={secStatics} data-testid="rpt-statics" /> {t('pro.statics.title')}</label>
+              <label class="rpt-check rpt-check-sub"><input type="checkbox" bind:checked={secDeflections} data-testid="rpt-deflections" /> {t('defl.title')}</label>
+            </div>
+          {/if}
           <!--
             CIRSOC verification is not here.
             ───────────────────────────────
@@ -243,7 +221,24 @@
           {/if}
           <label class="rpt-check"><input type="checkbox" bind:checked={secQuantities} disabled={!hasQuantities} /> {t('report.secQuantities')} {#if !hasQuantities}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secDiagnostics} disabled={!hasDiagnostics} /> {t('report.secDiagnostics')} {#if !hasDiagnostics}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secFigures} /> {t('report.figures')} ({reportFigures.list.length})</label>
         </div>
+      </fieldset>
+
+      <!-- The figures: captures of the viewport as it is now, captioned and with its scale. -->
+      <fieldset class="rpt-fieldset" data-testid="rpt-figures">
+        <legend>{t('report.figures')}</legend>
+        <button class="rpt-btn-sm" onclick={addFigure} data-testid="rpt-add-figure">+ {t('report.addFigure')}</button>
+        {#if figureError}<span class="rpt-hint">{t('report.figureFailed')}</span>{/if}
+        {#each reportFigures.list as f, i (f.id)}
+          <div class="rpt-figure" data-testid="rpt-figure">
+            <img src={f.dataUrl} alt={f.caption} />
+            <input class="rpt-input" value={f.caption} onchange={(e) => reportFigures.caption(f.id, e.currentTarget.value)} aria-label={t('report.figureCaption')} />
+            <button class="rpt-btn-sm" disabled={i === 0} onclick={() => reportFigures.move(f.id, -1)} aria-label="↑">↑</button>
+            <button class="rpt-btn-sm rpt-btn-danger" onclick={() => reportFigures.remove(f.id)} aria-label={t('report.removeFigure')}>×</button>
+          </div>
+        {/each}
+        <p class="rpt-hint">{t('report.figuresHint')}</p>
       </fieldset>
     </div>
 
@@ -320,4 +315,7 @@
   .rpt-btn-sm { padding: 3px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: none; }
   .rpt-btn-danger { background: var(--st-accent); color: var(--st-text); }
   .rpt-btn-danger:hover { background: var(--st-accent); }
+  .rpt-figure { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  .rpt-figure img { width: 72px; height: auto; border: 1px solid var(--st-surface-3); }
+  .rpt-figure .rpt-input { flex: 1; }
 </style>

@@ -20,6 +20,8 @@
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import ProMemberStressTable from './ProMemberStressTable.svelte';
   import ProShellContourOptions from './ProShellContourOptions.svelte';
+  import ProRecordVideo from './ProRecordVideo.svelte';
+  let wasAnimating = false;
   import {
     componentUnit,
     diagramTypeToComponent,
@@ -562,6 +564,17 @@
             <option value="quick">{t('annot.quick')}</option>
           </select>
         </div>
+        <div class="pro-viz-row">
+          <label class="pro-viz-label"><input type="checkbox" bind:checked={resultsStore.animateDeformed} data-testid="pr-animate" /> {t('video.animate')}</label>
+          {#if resultsStore.animateDeformed}
+            <input type="range" class="pro-viz-range" min={0.25} max={3} step={0.25} bind:value={resultsStore.animSpeed} aria-label={t('video.speed')} />
+            <span class="pro-viz-val">{resultsStore.animSpeed}×</span>
+          {/if}
+        </div>
+        <ProRecordVideo
+          before={() => { wasAnimating = resultsStore.animateDeformed; resultsStore.animateDeformed = true; }}
+          after={() => { resultsStore.animateDeformed = wasAnimating; }}
+        />
         {:else if DIAGRAM_KINDS.includes(resultsStore.diagramType)}
           <div class="pro-viz-row">
             <label class="pro-viz-label">{t('pro.scaleLabel')}</label>

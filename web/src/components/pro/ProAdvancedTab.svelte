@@ -17,6 +17,7 @@
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
+  import ProRecordVideo from './ProRecordVideo.svelte';
   import {
     isSolverReady,
     solvePDelta3D as wasmPDelta3D,
@@ -1091,6 +1092,7 @@
         </div>
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
+        <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>

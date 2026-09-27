@@ -30,13 +30,16 @@
 import { deflectionChecks } from '../store/serviceability';
 import { storyDrifts as computeStoryDrifts } from './story-drift';
 import { shouldEmbedFlat2DModelIn3D } from './solver-service';
-import { activeCombinations } from '../store/active-results';
+import { activeCombinations, activePerCombo3D } from '../store/active-results';
 import { modelStore, resultsStore } from '../store';
 import type { ReportData, ReportConfig } from './pro-report';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { checkCrackWidth } from './codes/argentina/serviceability';
 import { projectQuantities } from './quantities';
+import { staticsRows } from '../store/statics-rows';
+import { resultSetName } from '../export/figure';
+import { ruleLabel } from './deflection-limits';
 import { detailingStore } from '../store/detailing.svelte';
 import { computeBarMarks } from './bar-marks';
 import { buildStructuralGraph } from './structural-graph';
@@ -446,6 +449,27 @@ export function buildProReportData(opts: {
     { nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, materials: modelStore.materials, plates: modelStore.plates, quads: modelStore.quads } as never,
     detailingStore.assemblies.flatMap((a) => a.marks),
   );
+  // The project's own data for the cover, and the project-scale sections.
+  data.projectInfo = modelStore.projectInfo;
+  data.resultSetName = resultSetName();
+  const combos = activePerCombo3D();
+  const cname = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
+  const kname = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
+  data.resultSets = combos.size > 0
+    ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))
+    : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
+  data.statics = staticsRows();
+  const seen = new Set<string>();
+  data.deflections = [...deflectionChecks().rows.values()].flatMap((c) => {
+    const key = c.deflection.span.join(',');
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{
+      span: c.deflection.span.length > 1 ? `${c.deflection.span[0]}–${c.deflection.span[c.deflection.span.length - 1]}` : String(c.deflection.span[0]),
+      L: c.deflection.L, delta: c.check.deltaTotal, limit: ruleLabel(c.rule, !!c.deflection.cantilever),
+      direction: c.rule.direction, ratio: c.check.ratio, status: c.check.status, cantilever: !!c.deflection.cantilever,
+    }];
+  }).sort((a, b) => b.ratio - a.ratio);
   data.storyDrifts = storyDrifts(results);
   return data;
 }

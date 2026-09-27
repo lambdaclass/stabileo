@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
   import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
@@ -457,7 +458,7 @@
     modelStore.restore(snapshot);
 
     // Zoom to fit
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    const canvas = viewportCanvas();
     if (canvas && modelStore.nodes.size > 0) {
       uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
     }

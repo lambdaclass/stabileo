@@ -534,6 +534,15 @@ export function downloadResultsCSV(): void {
 
 // ─── Export PNG ─────────────────────────────────────────────────
 
+/** A PNG given as a data URL, saved under the project's name. */
+export function downloadDataUrlPNG(dataUrl: string): void {
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
+  const bin = atob(dataUrl.split(',')[1] ?? '');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  downloadBlob(new Blob([bytes], { type: 'image/png' }), `${safeName}.png`);
+}
+
 export function downloadCanvasPNG(canvas: HTMLCanvasElement): void {
   canvas.toBlob((blob) => {
     if (!blob) return;

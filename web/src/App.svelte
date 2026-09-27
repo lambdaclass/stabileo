@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { captureFigure } from './lib/export/figure';
+  import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
@@ -25,7 +27,7 @@
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, noteAxisConventionMigrationIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -819,7 +821,10 @@
   }
 
   function handleExportPNG() {
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    // Captioned, with the colour scale drawn into the image (`lib/export/figure.ts`).
+    const fig = captureFigure();
+    if (fig) { downloadDataUrlPNG(fig.dataUrl); return; }
+    const canvas = viewportCanvas();
     if (canvas) downloadCanvasPNG(canvas);
   }
 
@@ -880,7 +885,7 @@
           // inside an iframe the canvas is 0×0 during first paint, so a single
           // event lands before the viewport is ready.
           const tryFit = (attempt: number) => {
-            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            const canvas = viewportCanvas();
             if (canvas && canvas.width > 0 && canvas.height > 0) {
               window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
               return;
@@ -910,7 +915,7 @@
     // Auto zoom-to-fit when loading from shared link
     if (hashMode) {
       setTimeout(() => {
-        const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+        const canvas = viewportCanvas();
         if (canvas && modelStore.nodes.size > 0) {
           uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
         }
