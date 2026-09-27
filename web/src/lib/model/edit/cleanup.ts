@@ -162,3 +162,28 @@ export function cleanUpModel(tol = weldTolerance()): CleanupReport {
   });
   return total;
 }
+
+/**
+ * Unify repeated materials or sections: every member (and shell, for materials) using one of a
+ * set is moved to its first id, and the others are removed. One undo step.
+ */
+export function unifyProperties(kind: 'materials' | 'sections', sets: readonly number[][]): number {
+  let removed = 0;
+  modelStore.batch(() => {
+    for (const ids of sets) {
+      const [keep, ...drop] = ids;
+      if (keep === undefined || drop.length === 0) continue;
+      const gone = new Set(drop);
+      for (const e of modelStore.elements.values()) {
+        if (kind === 'materials' && gone.has(e.materialId)) modelStore.updateElement(e.id, { materialId: keep } as never);
+        if (kind === 'sections' && gone.has(e.sectionId)) modelStore.updateElement(e.id, { sectionId: keep } as never);
+      }
+      if (kind === 'materials') {
+        for (const [id, q] of modelStore.quads) if (gone.has(q.materialId)) modelStore.updateQuad(id, { materialId: keep });
+        for (const [id, p] of modelStore.plates) if (gone.has(p.materialId)) modelStore.updatePlate(id, { materialId: keep });
+      }
+      for (const id of drop) if (kind === 'materials' ? modelStore.removeMaterial(id) : modelStore.removeSection(id)) removed++;
+    }
+  });
+  return removed;
+}

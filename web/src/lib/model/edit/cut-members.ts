@@ -104,20 +104,16 @@ export function crossing(a0: Vec3, a1: Vec3, b0: Vec3, b1: Vec3, tol = CUT_TOL):
 }
 
 /**
- * Cut the given members wherever two of them cross, so they share a node there.
- *
- * A crossing at a member's END already has a node on that member and only cuts the other one;
- * two members meeting end to end are not a crossing at all.
+ * Every pair of the given members that cross without sharing an end node, with where on each
+ * (0…1). Swept on x so a few thousand members are not compared pairwise.
  */
-export function intersectMembers(elementIds: Iterable<number>): CutReport {
+export function crossingPairs(elementIds: Iterable<number>): Array<{ a: number; b: number; s: number; t: number }> {
   const ids = [...new Set(elementIds)].filter((id) => modelStore.elements.has(id));
   const seg = new Map(ids.map((id) => {
     const e = modelStore.elements.get(id)!;
     return [id, { a: v(modelStore.nodes.get(e.nodeI)!), b: v(modelStore.nodes.get(e.nodeJ)!), e }];
   }));
-  const cuts = new Map<number, number[]>();
-  const push = (id: number, t: number) => { if (t > END_T && t < 1 - END_T) (cuts.get(id) ?? cuts.set(id, []).get(id)!).push(t); };
-  // Sweep on x so a few thousand members are not compared pairwise.
+  const out: Array<{ a: number; b: number; s: number; t: number }> = [];
   const order = ids.map((id) => ({ id, lo: Math.min(seg.get(id)!.a[0], seg.get(id)!.b[0]), hi: Math.max(seg.get(id)!.a[0], seg.get(id)!.b[0]) }))
     .sort((p, q) => p.lo - q.lo);
   for (let i = 0; i < order.length; i++) {
@@ -127,10 +123,21 @@ export function intersectMembers(elementIds: Iterable<number>): CutReport {
       const shared = [P.e.nodeI, P.e.nodeJ].some((n) => n === Q.e.nodeI || n === Q.e.nodeJ);
       if (shared) continue;
       const c = crossing(P.a, P.b, Q.a, Q.b);
-      if (!c) continue;
-      push(order[i]!.id, c.s);
-      push(order[j]!.id, c.t);
+      if (c) out.push({ a: order[i]!.id, b: order[j]!.id, s: c.s, t: c.t });
     }
   }
+  return out;
+}
+
+/**
+ * Cut the given members wherever two of them cross, so they share a node there.
+ *
+ * A crossing at a member's END already has a node on that member and only cuts the other one;
+ * two members meeting end to end are not a crossing at all.
+ */
+export function intersectMembers(elementIds: Iterable<number>): CutReport {
+  const cuts = new Map<number, number[]>();
+  const push = (id: number, t: number) => { if (t > END_T && t < 1 - END_T) (cuts.get(id) ?? cuts.set(id, []).get(id)!).push(t); };
+  for (const c of crossingPairs(elementIds)) { push(c.a, c.s); push(c.b, c.t); }
   return applyCuts(cuts);
 }

@@ -5,6 +5,9 @@
    * The rules live in `lib/model/edit/` (cut-members, merge-collinear, cleanup, and the split every
    * cut reduces to). Every button is one undo step and says what it did.
    */
+  import { looseParts, freeShellEdges, unconnectedCrossings, repeatedProperties } from '../../lib/model/edit/hygiene';
+  import { flipMembers } from '../../lib/model/edit/flip-members';
+  import { unifyProperties } from '../../lib/model/edit/cleanup';
   import { weldTolerance, setWeldTolerance } from '../../lib/model/weld-tolerance';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -85,10 +88,40 @@
     if ('refused' in r) { refusal(r); return; }
     message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting });
   }
+  let renumberShells = $state(false);
+  let renumberOnlySel = $state(false);
+  let renumberFrom = $state<number | null>(null);
   function doRenumber() {
-    const r = renumber({ nodes: renumberNodes, members: renumberMembers, order });
-    if ('refused' in r) { message = tp('edit.renumberRefused', { fields: r.fields.join(', ') }); return; }
-    message = tp('edit.renumbered', { nodes: r.changedNodes, members: r.changedMembers });
+    const only = renumberOnlySel ? { nodes: new Set(uiStore.selectedNodes), elements: new Set(uiStore.selectedElements), shells: new Set(uiStore.selectedShells) } : undefined;
+    const r = renumber({ nodes: renumberNodes, members: renumberMembers, shells: renumberShells, order, only, ...(renumberFrom && renumberFrom > 0 ? { start: Math.floor(renumberFrom) } : {}) });
+    if ('refused' in r) {
+      message = r.refused === 'hasDesignDocuments'
+        ? tp('edit.renumberRefused', { fields: r.fields.join(', ') })
+        : tp('edit.renumberCollision', { kind: t(`edit.kind.${r.kind}`), ids: r.ids.slice(0, 12).join(', ') + (r.ids.length > 12 ? '…' : '') });
+      return;
+    }
+    message = tp('edit.renumbered', { nodes: r.changedNodes, members: r.changedMembers }) + (r.changedShells ? ` ${tp('edit.renumberedShells', { n: r.changedShells })}` : '');
+  }
+
+  // ── Model hygiene: found, then selected or fixed ──
+  const hygieneModel = () => ({
+    nodes: modelStore.nodes, elements: modelStore.elements, quads: modelStore.quads, plates: modelStore.plates,
+    supports: modelStore.supports, connectors: modelStore.model.connectors, constraints: modelStore.model.constraints as never,
+    materials: modelStore.materials, sections: modelStore.sections,
+  });
+  const hygiene = $derived.by(() => {
+    void modelStore.modelVersion;
+    const m = hygieneModel();
+    return { loose: looseParts(m as never), edges: freeShellEdges(m as never), crossings: unconnectedCrossings(modelStore.elements.keys()), repeated: repeatedProperties(m as never) };
+  });
+  function selectLoose() {
+    uiStore.setSelection(new Set(hygiene.loose.flatMap((p) => p.nodes)), new Set(hygiene.loose.flatMap((p) => p.elements)), true);
+  }
+  function selectEdges() { uiStore.selectMode = 'nodes'; uiStore.setSelection(new Set(hygiene.edges.flat()), new Set(), true); }
+  function selectCrossings() { uiStore.selectMode = 'elements'; uiStore.setSelection(new Set(), new Set(hygiene.crossings.flatMap((c) => [c.a, c.b])), true); }
+  function doFlip() {
+    const r = flipMembers(members);
+    message = tp('edit.flipped', { n: r.flipped.length }) + (r.skipped.length ? ` ${tp('edit.flipSkipped', { n: r.skipped.length })}` : '');
   }
 
   /** Selected members, and the members wholly between selected nodes. */
@@ -204,7 +237,12 @@
       </select>
       <label class="pk-check"><input type="checkbox" bind:checked={renumberNodes} /> {t('edit.renumberNodes')}</label>
       <label class="pk-check"><input type="checkbox" bind:checked={renumberMembers} /> {t('edit.renumberMembers')}</label>
-      <button class="pk-btn" onclick={doRenumber} disabled={designDocs.length > 0 || (!renumberNodes && !renumberMembers)} data-testid="ep-renumber">{t('edit.renumber')}</button>
+      <label class="pk-check"><input type="checkbox" bind:checked={renumberShells} data-testid="ep-renumber-shells" /> {t('edit.renumberShells')}</label>
+    </div>
+    <div class="pk-row ep-row">
+      <label class="pk-check"><input type="checkbox" bind:checked={renumberOnlySel} data-testid="ep-renumber-selection" /> {t('edit.renumberOnlySelection')}</label>
+      <label>{t('edit.renumberFrom')} <input type="number" min="1" step="1" bind:value={renumberFrom} placeholder="1" data-testid="ep-renumber-from" /></label>
+      <button class="pk-btn" onclick={doRenumber} disabled={designDocs.length > 0 || (!renumberNodes && !renumberMembers && !renumberShells)} data-testid="ep-renumber">{t('edit.renumber')}</button>
     </div>
     <p class="pk-hint">{designDocs.length > 0 ? tp('edit.renumberRefused', { fields: designDocs.join(', ') }) : t('edit.renumberNote')}</p>
   </section>
@@ -219,7 +257,14 @@
       <li>{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))}>{t('edit.fix')}</button></li>
       <li>{tp('edit.found.zero', { n: findings.zero })} <button class="pk-btn" disabled={findings.zero === 0} onclick={() => (message = cleanupMessage(removeZeroLengthMembers()))}>{t('edit.fix')}</button></li>
       <li>{t('edit.found.orphans')} <button class="pk-btn" onclick={() => (message = cleanupMessage(removeOrphanNodes()))}>{t('edit.fix')}</button></li>
+      <li data-testid="ep-hyg-loose">{tp('edit.found.loose', { n: hygiene.loose.length })} <button class="pk-btn" disabled={hygiene.loose.length === 0} onclick={selectLoose}>{t('edit.select')}</button></li>
+      <li data-testid="ep-hyg-edges">{tp('edit.found.freeEdges', { n: hygiene.edges.length })} <button class="pk-btn" disabled={hygiene.edges.length === 0} onclick={selectEdges}>{t('edit.select')}</button></li>
+      <li data-testid="ep-hyg-crossings">{tp('edit.found.crossings', { n: hygiene.crossings.length })} <button class="pk-btn" disabled={hygiene.crossings.length === 0} onclick={selectCrossings}>{t('edit.select')}</button></li>
+      <li data-testid="ep-hyg-repeated">{tp('edit.found.repeated', { m: hygiene.repeated.materials.reduce((s, g) => s + g.length - 1, 0), s: hygiene.repeated.sections.reduce((s, g) => s + g.length - 1, 0) })}
+        <button class="pk-btn" disabled={hygiene.repeated.materials.length + hygiene.repeated.sections.length === 0}
+          onclick={() => { const n = unifyProperties('materials', hygiene.repeated.materials) + unifyProperties('sections', hygiene.repeated.sections); message = tp('edit.unified', { n }); }} data-testid="ep-unify">{t('edit.unify')}</button></li>
     </ul>
+    <div class="pk-row"><button class="pk-btn" disabled={members.length === 0} onclick={doFlip} data-testid="ep-flip">{tp('edit.flip', { n: members.length })}</button></div>
     <button class="pk-btn pk-btn-primary" onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
   </section>
 
