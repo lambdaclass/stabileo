@@ -141,8 +141,17 @@
     // Null when the catalogue does not know the name. Nothing is added rather than a section
     // with no area, which the canonical resolver would report as having no known geometry.
     if (!fields) return;
-    modelStore.addSection(fields as never);
+    if (editingId != null && modelStore.sections.has(editingId)) modelStore.updateSection(editingId, fields as never);
+    else modelStore.addSection(fields as never);
+    editingId = null;
   }
+
+  /** The drawn section being reopened, or null when the modal adds a new section. */
+  let editingId = $state<number | null>(null);
+  const editingDrawn = $derived.by(() => {
+    const s = editingId != null ? modelStore.sections.get(editingId) : undefined;
+    return s?.drawn ? { name: s.name, drawn: $state.snapshot(s.drawn) as import('../../lib/section/drawn').DrawnSection } : null;
+  });
 
   // ─── Sections list ──────────────────────
   const sections = $derived([...modelStore.sections.values()]);
@@ -170,7 +179,7 @@
   <div class="add-panel" data-testid="pro-add-section-panel">
     <button
       type="button" class="open-modal" data-testid="pro-open-section-modal"
-      onclick={() => { modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
+      onclick={() => { editingId = null; modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
     >{t('pro.addSectionPanel')}</button>
   </div>
 
@@ -216,6 +225,12 @@
                   onclick={() => (expandedId = open ? null : s.id)}
                   data-testid="pro-sec-info-{s.id}"
                 >&#9432;</button>
+                {#if s.drawn}
+                  <button
+                    class="row-act" title={t('drawn.edit')} data-testid="pro-sec-edit-drawn-{s.id}"
+                    onclick={() => { editingId = s.id; modalOpen = true; }}
+                  >&#9998;</button>
+                {/if}
                 <button class="del-btn" onclick={() => removeSec(s.id)}>×</button>
               </td>
             </tr>
@@ -259,8 +274,9 @@
 <ProSectionModal
   open={modalOpen}
   spec={modalSpec}
+  drawn={editingDrawn}
   onApply={applyChoice}
-  onClose={() => (modalOpen = false)}
+  onClose={() => { modalOpen = false; editingId = null; }}
 />
 
 <style>

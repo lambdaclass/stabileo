@@ -2605,6 +2605,7 @@ const en: Record<string, string> = {
   'stress.amorphMsg1': 'The selected section is <strong>amorphous</strong> (no defined geometric shape).',
   'stress.amorphMsg2': 'Amorphous sections do not support stress distribution analysis, Mohr\u2019s circle, or failure criteria.',
   'stress.amorphMsg3': 'To enable section analysis, assign a standard profile or build a section with geometric shape.',
+  'stress.compositeMsg': 'The section combines materials. Its properties are those of the transformed section, and the detailed stress field is computed for a single material, so it is not shown. The member stresses in Results do account for each material.',
 
   // ─── Stress State Details ───
   'stress.stressState': 'Stress state',

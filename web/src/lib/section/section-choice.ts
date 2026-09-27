@@ -43,6 +43,16 @@ export type SectionChoice =
       params: Record<string, number>;
       props: SectionProperties;
       rotationDeg: number | 'auto';
+    }
+  /**
+   * Drawn from parts. The parts are the geometry, and `props` the analysis the editor showed:
+   * carried for the same reason as a built section's, so the store and the preview agree.
+   */
+  | {
+      kind: 'drawn';
+      name: string;
+      drawn: import('./drawn').DrawnSection;
+      props: { a: number; iy: number; iz: number; j: number | null; b: number; h: number };
     };
 
 /** The subset of `Section` a choice writes. Deliberately not the whole interface. */
@@ -51,6 +61,11 @@ export interface SectionFields {
   rotation: number;
   composition?: { profileName: string; arrangement: string; gapMm: number };
   built?: { shapeType: string; params: Record<string, number> };
+  /**
+   * Written as `undefined` by every choice that is not drawn, so replacing a drawn section with a
+   * catalogue pick does not leave the parts behind, winning over the name at the next resolve.
+   */
+  drawn?: import('./drawn').DrawnSection;
   profileFamily?: string;
   a?: number;
   iy?: number;
@@ -89,6 +104,20 @@ export interface SectionFields {
  * decision rather than as an oversight.
  */
 export function toSectionFields(choice: SectionChoice, autoDeg: number): SectionFields | null {
+  if (choice.kind === 'drawn') {
+    const { name, drawn, props } = choice;
+    return {
+      name,
+      rotation: 0,
+      drawn,
+      // Nothing of a previous make-up may survive: each of these would describe another section.
+      built: undefined, composition: undefined, shape: undefined, profileFamily: undefined,
+      tw: undefined, tf: undefined, t: undefined, tl: undefined,
+      a: props.a, iy: props.iy, iz: props.iz,
+      ...(props.j != null ? { j: props.j } : {}),
+      b: props.b, h: props.h,
+    };
+  }
   if (choice.kind === 'standard') {
     const { spec } = choice;
     const resolved = resolveProfile(spec.profileName);
@@ -115,6 +144,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
     const single = built.count === 1;
     return {
       name: built.name,
+      drawn: undefined,
       rotation: resolveRotationDeg(spec, autoDeg),
       composition: specToComposition(spec, resolved.name),
       profileFamily: resolved.family,
@@ -138,6 +168,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
   const { name, shapeType, params, props, rotationDeg } = choice;
   return {
     name,
+    drawn: undefined,
     rotation: rotationDeg === 'auto' ? autoDeg : rotationDeg,
     built: { shapeType, params },
     a: props.a,

@@ -5603,6 +5603,7 @@ const pt: Translations = {
   'stress.amorphMsg1': 'A seção selecionada é <strong>amorfa</strong> (sem forma geométrica definida).',
   'stress.amorphMsg2': 'Seções amorfas não suportam análise de distribuição de tensões, círculo de Mohr ou critérios de falha.',
   'stress.amorphMsg3': 'Para habilitar a análise de seção, atribua um perfil padrão ou construa uma seção com forma geométrica.',
+  'stress.compositeMsg': 'A seção combina materiais. Suas propriedades são as da seção transformada, e o campo de tensões detalhado é calculado para um só material, por isso não é mostrado. As tensões por barra em Resultados consideram cada material.',
   'stress.ccCHSNote': 'Círculo de raio R<sub>cc</sub> = I<sub>z</sub>/(A·R) = R/4 (seção maciça)',
   'stress.ccDefaultNote': 'Losango com e<sub>y</sub> = I<sub>z</sub>/(A·y<sub>max</sub>) e e<sub>z</sub> = I<sub>y</sub>/(A·z<sub>max</sub>)',
   'stress.ccDesc1': 'O <strong>núcleo central</strong> é uma propriedade geométrica da seção transversal, independente das cargas aplicadas.',

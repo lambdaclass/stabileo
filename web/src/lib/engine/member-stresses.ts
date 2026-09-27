@@ -16,6 +16,9 @@
  */
 import { analyzeSectionBending, type CanonicalGeometry } from './wasm-solver';
 import { extractForcesAtStation } from './station-forces';
+import { analyzeDrawn, compositeStress } from '../section/drawn-properties';
+import { catalogueOutline } from '../section/canonical';
+import type { DrawnSection } from '../section/drawn';
 import type { ElementForces3D } from './types-3d';
 
 export interface StationStress { elementId: number; x: number; sigmaMax: number; sigmaMin: number; basis: 'geometry' | 'bounds' }
@@ -25,11 +28,25 @@ export type SectionStressModel = ((n: number, my: number, mz: number) => { max: 
 
 interface SectionLike {
   a: number; iy?: number; iz: number; b?: number; h?: number;
-  canonical?: { kind?: string; geometry?: CanonicalGeometry };
+  canonical?: { kind?: string; geometry?: CanonicalGeometry; composite?: boolean };
+  drawn?: DrawnSection;
+  rotation?: number;
 }
 
 /** The stress model of a section, or null when its geometry and its dimensions are both unknown. */
 export function sectionStressModel(sec: SectionLike): SectionStressModel | null {
+  // Several materials: the transformed section, n times its stress in each part.
+  if (sec.drawn && sec.canonical?.kind === 'geometry-backed' && sec.canonical.composite) {
+    const c = compositeStress(analyzeDrawn(sec.drawn, catalogueOutline, { torsion: false }), ((sec.rotation ?? 0) * Math.PI) / 180);
+    if (c) {
+      const f = ((n: number, my: number, mz: number) => {
+        const r = c(n, my, mz);
+        return { max: r.max / 1000, min: r.min / 1000 }; // kPa → MPa
+      }) as SectionStressModel;
+      f.basis = 'geometry';
+      return f;
+    }
+  }
   const g = sec.canonical?.kind === 'geometry-backed' ? sec.canonical.geometry : undefined;
   if (g) {
     try {

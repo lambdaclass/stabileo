@@ -2598,6 +2598,7 @@ const es: Record<string, string> = {
   'stress.amorphMsg1': 'La sección seleccionada es <strong>amorfa</strong> (sin forma geométrica definida).',
   'stress.amorphMsg2': 'Las secciones amorfas no permiten análisis de distribución de tensiones, círculo de Mohr ni criterios de falla.',
   'stress.amorphMsg3': 'Para habilitar el análisis de sección, asigne un perfil estándar o construya una sección con forma geométrica.',
+  'stress.compositeMsg': 'La sección combina materiales. Sus propiedades son las de la sección transformada y el campo de tensiones detallado se calcula para un solo material, por eso no se muestra. Las tensiones por barra en Resultados sí tienen en cuenta cada material.',
 
   // ─── Stress State Details ───
   'stress.stressState': 'Estado tensional',

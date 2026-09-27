@@ -175,13 +175,14 @@
     return sec ? propertyDeviation(sec) : null;
   });
 
-  const unavailableReason = $derived.by((): { kind: 'amorphous' | 'noGeometryData'; name: string } | null => {
+  const unavailableReason = $derived.by((): { kind: 'amorphous' | 'noGeometryData' | 'composite'; name: string } | null => {
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
     const sec = modelStore.sections.get(elem.sectionId);
     if (!sec || supportsDetailedAnalysis(sec)) return null;
     const st = sec.canonical;
+    if (st?.kind === 'geometry-backed' && st.composite) return { kind: 'composite', name: sec.name || '—' };
     const dataGap =
       st?.kind === 'properties-only' &&
       st.reason.kind !== 'noGeometry';
@@ -1345,7 +1346,9 @@
     {/if}
     <div class="ssp-amorph-msg">
       <span class="ssp-amorph-icon">⚠</span>
-      {#if unavailableReason?.kind === 'noGeometryData'}
+      {#if unavailableReason?.kind === 'composite'}
+        <p data-testid="stress-composite">{t('stress.compositeMsg')}</p>
+      {:else if unavailableReason?.kind === 'noGeometryData'}
         <!-- The name is free text, so it is rendered AS text: interpolating it
              into an {@html} string would hand a section name the markup. -->
         <p>{t('stress.noGeomMsg1a')}<strong>{unavailableReason.name}</strong>{t('stress.noGeomMsg1b')}</p>
