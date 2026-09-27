@@ -15,6 +15,14 @@ import { modelStore } from './model.svelte';
 let memberLabel = $state<MemberLabel>('id');
 /** The saved view drawn in the corner window, or null for none. */
 let insetViewId = $state<number | null>(null);
+/** The magnifier's window: the next rectangle dragged on the model is zoomed into, not selected. */
+let zoomWindowArmed = $state(false);
+/** Labels only on the chosen entities: the selected nodes and members. */
+let labelsOnSelection = $state(false);
+/** Draw the constraints and diaphragms as lines between their nodes. */
+let showConstraints = $state(false);
+/** Mark each member's I and J ends. */
+let showMemberEnds = $state(false);
 
 export const viewState = {
   get memberLabel() { return memberLabel; },
@@ -23,6 +31,14 @@ export const viewState = {
   cycleMemberLabel() { memberLabel = MEMBER_LABELS[(MEMBER_LABELS.indexOf(memberLabel) + 1) % MEMBER_LABELS.length]!; },
   get insetViewId() { return insetViewId; },
   set insetViewId(v: number | null) { insetViewId = v; },
+  get showConstraints() { return showConstraints; },
+  set showConstraints(v: boolean) { showConstraints = v; },
+  get showMemberEnds() { return showMemberEnds; },
+  set showMemberEnds(v: boolean) { showMemberEnds = v; },
+  get labelsOnSelection() { return labelsOnSelection; },
+  set labelsOnSelection(v: boolean) { labelsOnSelection = v; },
+  get zoomWindowArmed() { return zoomWindowArmed; },
+  set zoomWindowArmed(v: boolean) { zoomWindowArmed = v; },
 };
 
 /** The text of a member's label. */
@@ -113,6 +129,10 @@ export const viewVisibility = {
     setHidden(h);
   },
   showAll() { setHidden(null); },
+  /** Put back what a saved view had hidden, or show all. */
+  restore(h: { elements: number[]; shells: string[] } | null | undefined) {
+    setHidden(h ? { elements: new Set(h.elements), nodes: new Set(), shells: new Set(h.shells) } : null);
+  },
   isElementHidden(id: number) { return hidden?.elements.has(id) ?? false; },
   isNodeHidden(id: number) { return hidden?.nodes.has(id) ?? false; },
   isShellHidden(key: string) { return hidden?.shells.has(key) ?? false; },

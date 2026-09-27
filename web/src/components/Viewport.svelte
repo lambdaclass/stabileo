@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { firstGroupIndex } from '../lib/viewport/element-colour';
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
@@ -234,6 +235,9 @@
   $effect(() => { uiStore.showGrid; uiStore.showAxes; uiStore.showLoads; invalidate(); });
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
+  // Each member's group, only while colouring by group.
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex(modelStore.model.groups.values()) : null);
+  $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
   $effect(() => { uiStore.currentTool; invalidate(); });
@@ -1368,6 +1372,7 @@
       worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy),
       isSelected: uiStore.selectedElements.has(elem.id),
       elementColorMode: uiStore.elementColorMode,
+      groupOf: memberGroups ? (id: number) => memberGroups!.get(id) : undefined,
       showElementLabels: uiStore.showElementLabels,
       showLengths: uiStore.showLengths,
       zoom: uiStore.zoom,

@@ -61,10 +61,11 @@ export interface ModelSnapshot {
   dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   projectInfo?: import('../model/project-info').ProjectInfo;
+  notes?: import('../model/annotations').ViewNote[];
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */
-  views?: Array<{ id: number; name: string; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>;
+  views?: Array<{ id: number; name: string; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number }; display?: import('./model.svelte').SavedViewDisplay }>;
   /** The active combination list and named envelopes. Absent: all combinations, none named. */
   resultScopes?: { active?: number[]; envelopes?: Array<{ id: number; name: string; purpose: string; comboIds: number[]; caseIds?: number[] }> };
   /** The project's own combination rules. Absent: none. */

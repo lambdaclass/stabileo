@@ -1090,7 +1090,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
+    const only = viewState.labelsOnSelection;
     for (const [id, node] of visibleNodes()) {
+      if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
       sprite.position.set(
@@ -1110,6 +1112,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.elementLabelsGroup.name = 'elementLabels';
 
     for (const [, elem] of visibleElements()) {
+      if (viewState.labelsOnSelection && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;

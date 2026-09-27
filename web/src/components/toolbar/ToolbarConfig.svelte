@@ -320,6 +320,7 @@
               <option value="uniform">{t('config.uniform')}</option>
               <option value="byMaterial">{t('config.byMaterial')}</option>
               <option value="bySection">{t('config.bySection')}</option>
+              <option value="byGroup">{t('config.byGroup')}</option>
             </select>
           </div>
         {/if}

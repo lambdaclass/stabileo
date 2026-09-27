@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
@@ -157,6 +158,18 @@ function* iterateIds(ni: NodesInstanced): IterableIterator<[number, number]> {
 
 // ─── Elements ────────────────────────────────────────────────
 
+/**
+ * A member's colour when nothing is selected and no result owns it: its category's (section,
+ * material or group, `uiStore.elementColorMode`), or the type colour, frame or truss.
+ */
+function memberBaseColour(elem: { id: number; type?: string; materialId: number; sectionId: number }, wireframe: boolean, groupOf: Map<number, number> | null): number {
+  const cat = colourCategory(elem, uiStore.elementColorMode, groupOf ? (id) => groupOf.get(id) : undefined);
+  if (cat !== null) return categoryHex(cat);
+  const isTruss = elem.type === 'truss';
+  return wireframe ? (isTruss ? COLORS.truss : COLORS.frameWire) : (isTruss ? COLORS.truss : COLORS.frame);
+}
+const groupIndex = () => (uiStore.elementColorMode === 'byGroup' ? firstGroupIndex(modelStore.model.groups.values()) : null);
+
 export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeElements = visibleElements();
@@ -184,6 +197,7 @@ export function syncElements(ctx: SceneSyncContext): void {
     }
   }
 
+  const groupOf = groupIndex();
   // Signature captures everything that forces a rebuild of the element mesh:
   // endpoint positions, type, hinges, section geometry, roll, render mode.
   for (const [id, elem] of storeElements) {
@@ -226,10 +240,7 @@ export function syncElements(ctx: SceneSyncContext): void {
       const mapOwnsColors = resultsStore.results3D != null
         && (mapDt === 'axialColor' || mapDt === 'colorMap' || mapDt === 'verification');
       if (!mapOwnsColors) {
-        const isTruss = elem.type === 'truss';
-        const baseColor = (renderMode === 'wireframe')
-          ? (isTruss ? COLORS.truss : COLORS.frameWire)
-          : (isTruss ? COLORS.truss : COLORS.frame);
+        const baseColor = memberBaseColour(elem, renderMode === 'wireframe', groupOf);
         if (eb.getBaseColor(id) !== baseColor) {
           eb.setBaseColor(id, baseColor);
         }
@@ -935,14 +946,12 @@ export function syncSelection(ctx: SceneSyncContext): void {
   // Elements
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
+  const groupOf = groupIndex();
   forEachElementVisual(ctx, (id, group) => {
     const selected = !shellMode && uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
-    const isTruss = elem?.type === 'truss';
-    // Use brightened colors in wireframe mode for grid contrast
-    const baseColor = wireframe
-      ? (isTruss ? COLORS.truss : COLORS.frameWire)
-      : (isTruss ? COLORS.truss : COLORS.frame);
+    // Brightened colours in wireframe for grid contrast; the category's when colouring by one.
+    const baseColor = elem ? memberBaseColour(elem, wireframe, groupOf) : (wireframe ? COLORS.frameWire : COLORS.frame);
     const color = selected ? COLORS.elementSelected : baseColor;
     if (group) setGroupColor(group, color);
     // Wireframe mode: batched LineSegments2 carries the visual, so push the

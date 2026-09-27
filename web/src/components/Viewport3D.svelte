@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility, visibleNodes } from '../lib/store/view-state.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
@@ -589,6 +590,7 @@
         const tgt = controls.target;
         uiStore.cameraPosition3D = { x: pos.x, y: pos.y, z: pos.z };
         uiStore.cameraTarget3D = { x: tgt.x, y: tgt.y, z: tgt.z };
+        if (orthoCamera) uiStore.cameraOrthoZoom3D = orthoCamera.zoom;
       }, 100);
     });
 
@@ -991,11 +993,12 @@
 
     // A saved view, asked for by the view panel: stand where it stood, look where it looked.
     const handleCameraSet = (e: Event) => {
-      const v = (e as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>).detail;
+      const v = (e as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number }; orthoZoom?: number }>).detail;
       if (!v) return;
       setCameraUp(camera);
       camera.position.set(v.position.x, v.position.y, v.position.z);
       controls.target.set(v.target.x, v.target.y, v.target.z);
+      if (v.orthoZoom && orthoCamera) { orthoCamera.zoom = v.orthoZoom; orthoCamera.updateProjectionMatrix(); }
       controls.update();
       invalidate();
     };
@@ -1412,6 +1415,9 @@
     uiStore.selectedElements;
     uiStore.selectedSupports;
     uiStore.selectedShells;
+    // Colouring by section, material or group repaints the members' base colours.
+    uiStore.elementColorMode;
+    if (uiStore.elementColorMode === 'byGroup') modelStore.model.groups;
     syncSelection();
     invalidate();
   });
@@ -1464,7 +1470,21 @@
     viewState.memberLabel;
     modelStore.sections;
     modelStore.materials;
+    // Labels on the chosen entities follow the selection.
+    if (viewState.labelsOnSelection) { uiStore.selectedNodes; uiStore.selectedElements; }
+    viewState.labelsOnSelection;
     syncLabels3D();
+    invalidate();
+  });
+
+  // Constraints, member ends and notes, beside the members.
+  let viewOverlaysGroup: THREE.Group | null = null;
+  $effect(() => {
+    void modelStore.nodes; void modelStore.elements; void modelStore.model.constraints; void modelStore.notes;
+    void viewState.showConstraints; void viewState.showMemberEnds; void viewState.labelsOnSelection; void viewVisibility.version;
+    if (viewState.showMemberEnds && viewState.labelsOnSelection) void uiStore.selectedElements;
+    if (!scene) return;
+    viewOverlaysGroup = syncViewOverlays(scene, viewOverlaysGroup, shouldProject2DModel());
     invalidate();
   });
 
@@ -2114,6 +2134,30 @@
       dragStartWorld3D = null;
       controls.enabled = true;
       finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
+      return;
+    }
+
+    // ── The magnifier's window: frame what the rectangle holds, select nothing ──
+    if (boxSelect3D && viewState.zoomWindowArmed) {
+      const x1 = Math.min(boxSelect3D.startX, boxSelect3D.endX), x2 = Math.max(boxSelect3D.startX, boxSelect3D.endX);
+      const y1 = Math.min(boxSelect3D.startY, boxSelect3D.endY), y2 = Math.max(boxSelect3D.startY, boxSelect3D.endY);
+      boxSelect3D = null;
+      controls.enabled = true;
+      if (x2 - x1 > 3 || y2 - y1 > 3) {
+        viewState.zoomWindowArmed = false;
+        const project2D = shouldProject2DModel();
+        const inside = new Map([...visibleNodes()].filter(([, n]) => {
+          const p = projectNodeToScene(n, project2D);
+          const s = projectToScreen(p.x, p.y, p.z);
+          return s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2;
+        }));
+        if (inside.size === 1) {
+          const [n] = inside.values();
+          inside.set(-1, { ...n!, id: -1, x: n!.x + 0.5 });
+          inside.set(-2, { ...n!, id: -2, x: n!.x - 0.5 });
+        }
+        if (inside.size > 0) { _zoomToFit(camera, controls, inside as never, orthoCamera, container); invalidate(); }
+      }
       return;
     }
 

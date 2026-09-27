@@ -61,7 +61,8 @@ export type NodeMode = 'create' | 'hinge';
 export type JointType = 'hinge' | 'slideX' | 'slideZ';
 /** Axis frame for sliding joints: world (global) or member-local. */
 export type JointAxisMode = 'global' | 'local';
-export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
+export type { ElementColorMode } from '../viewport/element-colour';
+import type { ElementColorMode } from '../viewport/element-colour';
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
 // 3D-specific types
@@ -566,6 +567,8 @@ function createUIStore() {
   // 3D camera state (synced from Viewport3D via saveCameraState, restored on tab switch)
   let cameraPosition3D = $state<{ x: number; y: number; z: number }>({ x: 10, y: 8, z: 10 });
   let cameraTarget3D = $state<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
+  /** The orthographic camera's zoom, published like the position. */
+  let cameraOrthoZoom3D = $state(1);
 
   // Pending auto-solve from URL sharing (stores the diagramType to restore after solve)
   let pendingSolveFromURL = $state<string | null>(null);
@@ -1151,6 +1154,8 @@ function createUIStore() {
     // 3D camera state (persisted for tab switching)
     get cameraPosition3D() { return cameraPosition3D; },
     set cameraPosition3D(v: { x: number; y: number; z: number }) { cameraPosition3D = v; },
+    get cameraOrthoZoom3D() { return cameraOrthoZoom3D; },
+    set cameraOrthoZoom3D(v: number) { cameraOrthoZoom3D = v; },
     get cameraTarget3D() { return cameraTarget3D; },
     set cameraTarget3D(v: { x: number; y: number; z: number }) { cameraTarget3D = v; },
 

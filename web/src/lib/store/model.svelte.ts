@@ -526,6 +526,17 @@ export interface SavedView {
   name: string;
   position: { x: number; y: number; z: number };
   target: { x: number; y: number; z: number };
+  /** How it was being looked at, beyond the camera. Absent on views saved before it existed. */
+  display?: SavedViewDisplay;
+}
+
+/** The rest of a view: projection, zoom, what was hidden, what the labels showed, the colours. */
+export interface SavedViewDisplay {
+  camera: 'perspective' | 'orthographic';
+  orthoZoom?: number;
+  hidden?: { elements: number[]; shells: string[] };
+  labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
+  colourBy?: string;
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -811,6 +822,8 @@ export interface StructureModel {
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   /** Client, job, revisions and signatories (`model/project-info.ts`). Absent: none stated. */
   projectInfo?: import('../model/project-info').ProjectInfo;
+  /** Text notes placed in the view (`model/annotations.ts`). Absent: none. */
+  notes?: import('../model/annotations').ViewNote[];
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1560,6 +1573,7 @@ function createModelStore() {
     get dynamics() { return model.dynamics; },
     get deflectionLimits() { return model.deflectionLimits; },
     get projectInfo() { return model.projectInfo; },
+    get notes() { return model.notes ?? []; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1645,6 +1659,9 @@ function createModelStore() {
           : {}),
         ...(snap.projectInfo
           ? { projectInfo: JSON.parse(JSON.stringify(snap.projectInfo)) as ModelSnapshot['projectInfo'] }
+          : {}),
+        ...(snap.notes?.length
+          ? { notes: JSON.parse(JSON.stringify(snap.notes)) as ModelSnapshot['notes'] }
           : {}),
         ...(snap.deflectionLimits?.rules.length
           ? { deflectionLimits: JSON.parse(JSON.stringify(snap.deflectionLimits)) as ModelSnapshot['deflectionLimits'] }
@@ -1839,6 +1856,7 @@ function createModelStore() {
     model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
     model.deflectionLimits = s.deflectionLimits ? JSON.parse(JSON.stringify(s.deflectionLimits)) : undefined;
     model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
+    model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2954,6 +2972,7 @@ function createModelStore() {
       model.dynamics = undefined;
       model.deflectionLimits = undefined;
       model.projectInfo = undefined;
+      model.notes = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3297,10 +3316,10 @@ function createModelStore() {
      * (it is part of the project) but it does not retire the results the way `_pushUndo` does for
      * a model edit — saving a camera must not throw away a solve.
      */
-    saveView(name: string, position: SavedView['position'], target: SavedView['target']): number {
+    saveView(name: string, position: SavedView['position'], target: SavedView['target'], display?: SavedViewDisplay): number {
       const id = (model.views ?? []).reduce((m, v) => Math.max(m, v.id), 0) + 1;
       _pushUndoView?.();
-      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target } }];
+      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
     },
     renameView(id: number, name: string): void {
@@ -3323,6 +3342,12 @@ function createModelStore() {
     },
 
     /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    /** State the notes in the view. Undoable; they touch no result. */
+    setNotes(notes: import('../model/annotations').ViewNote[]): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.notes = notes.length ? JSON.parse(JSON.stringify(notes)) : undefined;
+    },
+
     /** State the project's data. Undoable; it touches no result. */
     setProjectInfo(info: import('../model/project-info').ProjectInfo | null): void {
       if (!_undoBatching) _pushUndoView?.();
