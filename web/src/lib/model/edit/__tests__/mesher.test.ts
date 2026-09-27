@@ -66,7 +66,7 @@ describe('free', () => {
     const r = 2, h = 0.4;
     const m = generateMesh({ outer: { kind: 'circle', center: [0, 0, 0], radius: r }, holes: [], size: h, element: 'quad' })!;
     expect(m.structured).toBe(true);
-    const n = 4 * Math.max(2, Math.round((Math.PI * r) / 2 / h));
+    const n = 4 * Math.max(2, 2 * Math.round((Math.PI * r) / 4 / h));
     expect(meshArea(m)).toBeCloseTo((n / 2) * r * r * Math.sin((2 * Math.PI) / n), 6);
     expect(conforming(m)).toBe(true);
     expect(m.cells.every((c) => c.length === 4)).toBe(true);

@@ -5,6 +5,7 @@
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import ProMesher from './ProMesher.svelte';
+  import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -437,6 +438,8 @@
       {#if showMeshGen}
         <div class="section-body">
           <ProMesher />
+          <div class="mesh-hint" style="margin-top: 8px; font-weight: 600;">{t('surface.title')}</div>
+          <ProSurfaces />
 
           <!-- How shells connect & transfer load (lives with the mesh tool, the
                place where node-sharing actually matters) -->

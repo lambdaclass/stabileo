@@ -251,7 +251,8 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   // ── Structured circle: an O-grid, a central square and four patches out to the arc ──
   if (input.outer.kind === 'circle' && holes.length === 0 && input.element === 'quad') {
     const r = input.outer.radius;
-    const n = Math.max(2, Math.round((Math.PI * r) / 2 / h));   // divisions per quarter
+    // Divisions per quarter, even, so the centre is a node (a dome's crown, a plate's middle).
+    const n = Math.max(2, 2 * Math.round((Math.PI * r) / 4 / h));
     const s = 0.5 * r / Math.SQRT2;                               // half side of the inner square
     const m = Math.max(1, Math.round((r - s * Math.SQRT2) / h));  // radial divisions
     const key = new Map<string, number>();
