@@ -1697,7 +1697,7 @@
     const nodeId = findNodeHit(e);
     if (nodeId !== null) {
       const n = modelStore.nodes.get(nodeId);
-      if (n) { placementStore.setTarget([n.x, n.y, n.z ?? 0], `${t('placement.node')} ${nodeId}`); return; }
+      if (n) { placementStore.setTarget([n.x, n.y, n.z ?? 0], `${t('placement.node')} ${nodeId}`, true); return; }
     }
     const pos = getGroundIntersection(e);
     if (!pos) return;
@@ -1717,7 +1717,7 @@
     if (ghostFragment !== placementStore.fragment) { ghost.setFragment(placementStore.fragment); ghostFragment = placementStore.fragment; }
     const target = placementStore.target;
     const size = camera && container ? worldPerPixel(camera, new THREE.Vector3(...target), container.clientHeight) * 10 : 0.3;
-    ghost.update(placementStore.transform(), target, placementStore.mergePreview().welds, size);
+    ghost.update(placementStore.transform(), target, placementStore.mergePreview().welds, size, placementStore.onNode);
     invalidate();
   });
 

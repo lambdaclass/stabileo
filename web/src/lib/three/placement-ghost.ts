@@ -25,6 +25,8 @@ export class PlacementGhost {
   private anchor: THREE.LineSegments;
 
   private copies = new THREE.Group();
+  /** A ring on the model node the pointer has snapped to. */
+  private snap: THREE.Points;
   private marks: THREE.Points | null = null;
 
   constructor(private scene: THREE.Scene, private color = GHOST_COLOR) {
@@ -48,6 +50,14 @@ export class PlacementGhost {
     this.anchor.frustumCulled = false;
     this.group.add(this.anchor);
     this.group.add(this.copies);
+
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+    this.snap = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 16, sizeAttenuation: false, depthTest: false, transparent: true, opacity: 0.9 }));
+    this.snap.raycast = noRaycast;
+    this.snap.frustumCulled = false;
+    this.snap.visible = false;
+    this.group.add(this.snap);
     scene.add(this.group);
   }
 
@@ -83,7 +93,11 @@ export class PlacementGhost {
   }
 
   /** Move the ghost under T, mark the welds, and put the anchor cross at `target`. */
-  update(T: Affine, target: Vec3, welds: Vec3[], size: number): void {
+  update(T: Affine, target: Vec3, welds: Vec3[], size: number, onNode = false): void {
+    const sp = this.snap.geometry.getAttribute('position') as THREE.BufferAttribute;
+    sp.setXYZ(0, target[0], target[1], target[2]);
+    sp.needsUpdate = true;
+    this.snap.visible = onNode;
     const [a, b, c, d, e, f, g, h, i] = T.A;
     this.body.matrix.set(a, b, c, T.t[0], d, e, f, T.t[1], g, h, i, T.t[2], 0, 0, 0, 1);
     this.body.matrixWorldNeedsUpdate = true;
@@ -111,6 +125,7 @@ export class PlacementGhost {
     this.body.visible = false;
     this.anchor.visible = false;
     this.welds.visible = false;
+    this.snap.visible = false;
     for (const T of transforms) {
       const g = new THREE.Group();
       g.matrixAutoUpdate = false;

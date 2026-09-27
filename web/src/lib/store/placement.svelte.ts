@@ -69,6 +69,8 @@ function createPlacementStore() {
   let mirrored = $state(false);
   let target = $state.raw<Vec3>([0, 0, 0]);
   let targetLabel = $state('');
+  /** Whether the target is a model node (snapped) rather than a point on the plane. */
+  let onNode = $state(false);
   let withLoads = $state(true);
   let withSupports = $state(true);
   let onCommit: PlacementStart['onCommit'] = undefined;
@@ -113,6 +115,7 @@ function createPlacementStore() {
     get mirrored() { return mirrored; },
     get target() { return target; },
     get targetLabel() { return targetLabel; },
+    get onNode() { return onNode; },
     get revision() { return revision; },
     get follow() { return follow; },
     get lastReport() { return lastReport; },
@@ -146,11 +149,12 @@ function createPlacementStore() {
       revision++;
     },
 
-    setTarget(p: Vec3, lbl = ''): void {
+    setTarget(p: Vec3, lbl = '', node = false): void {
       untrack(() => {
         if (!active) return;
         target = p;
         targetLabel = lbl;
+        onNode = node;
         revision++;
       });
     },

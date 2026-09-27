@@ -8,7 +8,8 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { splitAtNodes, intersectMembers, type CutReport } from '../../lib/model/edit/cut-members';
-  import { perpendicularMember, midpointMember, fillHoles } from '../../lib/model/edit/construct';
+  import { perpendicularMember, midpointMember, fillHoles, constructionPreview } from '../../lib/model/edit/construct';
+  import type { Fragment } from '../../lib/model/edit/fragment';
   import { renumber, designDocumentFields, type AxisOrder } from '../../lib/model/edit/renumber';
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { mergeCollinear } from '../../lib/model/edit/merge-collinear';
@@ -39,21 +40,32 @@
   const selNodes = $derived([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
   const designDocs = $derived.by(() => { void modelStore.modelVersion; return designDocumentFields(); });
 
-  // Where "split into N" would cut, marked on the selected members before it is done.
+  // Before anything is pressed: where "split into N" would cut, and the member a construction
+  // would add (perpendicular from the node, or between the two midpoints).
   $effect(() => {
     const n = Math.floor(parts);
-    if (!(n >= 2 && n <= 20) || members.length === 0) { editPreview.clear('edit'); return; }
     const pts: Vec3[] = [];
-    for (const id of members) {
-      const e = modelStore.elements.get(id);
-      const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
-      if (!e || !a || !b || e.arc) continue;
-      for (let k = 1; k < n; k++) {
-        const f = k / n;
-        pts.push([a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * f]);
+    if (n >= 2 && n <= 20) {
+      for (const id of members) {
+        const e = modelStore.elements.get(id);
+        const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
+        if (!e || !a || !b || e.arc) continue;
+        for (let k = 1; k < n; k++) {
+          const f = k / n;
+          pts.push([a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * f]);
+        }
       }
     }
-    editPreview.show('edit', null, [], pts);
+    const bar = selNodes.length === 1 && members.length === 1 ? constructionPreview('perpendicular', selNodes[0]!, members[0]!)
+      : selNodes.length === 0 && members.length === 2 ? constructionPreview('midpoints', members[0]!, members[1]!)
+        : null;
+    const frag: Fragment | null = bar ? {
+      nodes: [{ id: 1, x: bar[0][0], y: bar[0][1], z: bar[0][2] }, { id: 2, x: bar[1][0], y: bar[1][1], z: bar[1][2] }],
+      elements: [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 0, sectionId: 0 } as never],
+      quads: [], plates: [], supports: [], loads: [], groups: [], materials: [], sections: [], loadCases: [], local: true,
+    } : null;
+    if (!frag && pts.length === 0) { editPreview.clear('edit'); return; }
+    editPreview.show('edit', frag, frag ? [{ A: [1, 0, 0, 0, 1, 0, 0, 0, 1], t: [0, 0, 0] }] : [], pts);
   });
   onDestroy(() => editPreview.clear('edit'));
 
