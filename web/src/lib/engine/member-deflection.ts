@@ -252,3 +252,25 @@ export function chordDeflection(c: LocalCurve): ChordDeflection {
   const r = peak(res), pv = peak(vr), pw = peak(wr);
   return { L: c.L, max: r.value, x: r.x, maxV: pv.value, xV: pv.x, maxW: pw.value, xW: pw.x };
 }
+
+/**
+ * The deflection of a cantilever: relative to the tangent at its root, not to its chord. The
+ * chord of a cantilever runs through its tip, so the chord reading misses nearly all of it.
+ *
+ * `slopeV` and `slopeW` are the root's slopes in the curve's axes, dv/dx and dw/dx: from the
+ * root node's rotation θ, θ·ez and −θ·ey.
+ */
+export function tangentDeflection(c: LocalCurve, root: 'start' | 'end', slopeV: number, slopeW: number): ChordDeflection {
+  const n = c.xi.length;
+  const k0 = root === 'start' ? 0 : n - 1;
+  const xi0 = c.xi[k0]!;
+  const rel = (arr: number[], sl: number) => c.xi.map((xi, i) => arr[i]! - (arr[k0]! + sl * (xi - xi0) * c.L));
+  const vr = rel(c.v, slopeV), wr = rel(c.w, slopeW);
+  const pick = (a: number[]) => {
+    let k = 0;
+    for (let i = 1; i < n; i++) if (Math.abs(a[i]!) > Math.abs(a[k]!)) k = i;
+    return { value: Math.abs(a[k]!), x: c.xi[k]! * c.L };
+  };
+  const r = pick(vr.map((v, i) => Math.hypot(v, wr[i]!))), pv = pick(vr), pw = pick(wr);
+  return { L: c.L, max: r.value, x: r.x, maxV: pv.value, xV: pv.x, maxW: pw.value, xW: pw.x };
+}

@@ -102,8 +102,10 @@ export interface DeflectionResult {
  */
 export function checkDeflection(
   L: number, delta: number,
-  limitType: 'L/240' | 'L/360' | 'L/480' = 'L/360',
+  limitType: 'L/240' | 'L/360' | 'L/480' | number = 'L/360',
   lambdaDelta: number = 2.0,
+  /** The length the limit is taken over when it is not the span: 2L for a cantilever. */
+  limitLength: number = L,
 ): DeflectionResult {
   const steps: string[] = [];
   const deltaAbs = Math.abs(delta);
@@ -119,9 +121,10 @@ export function checkDeflection(
   const deltaTotal = deltaAbs + deltaLT;
   steps.push(`δ_total = ${(deltaTotal * 1000).toFixed(2)} mm`);
 
-  const divisor = limitType === 'L/240' ? 240 : limitType === 'L/480' ? 480 : 360;
-  const limit = L / divisor;
-  steps.push(`δ_admisible = L/${divisor} = ${(limit * 1000).toFixed(2)} mm`);
+  const divisor = typeof limitType === 'number' ? limitType : limitType === 'L/240' ? 240 : limitType === 'L/480' ? 480 : 360;
+  const limit = limitLength / divisor;
+  const over = limitLength === L ? 'L' : `${+(limitLength / L).toFixed(3)}L`;
+  steps.push(`δ_admisible = ${over}/${divisor} = ${(limit * 1000).toFixed(2)} mm`);
 
   const ratio = deltaTotal / limit;
   steps.push(`Ratio = ${ratio.toFixed(3)}`);

@@ -19,7 +19,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { activePerCombo3D } from './active-results';
-import { memberLocalCurve, chordDeflection, eiOf, type ChordDeflection, type LocalCurve } from '../engine/member-deflection';
+import { memberLocalCurve, chordDeflection, tangentDeflection, eiOf, type ChordDeflection, type LocalCurve } from '../engine/member-deflection';
 import { deflectionSpans, type Span, type SpanModel } from '../engine/deflection-spans';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
@@ -57,6 +57,8 @@ export function serviceSets(): ServiceSets {
 
 export type MemberDeflection = ChordDeflection & {
   setName: string;
+  /** Measured as a cantilever, from the tangent at its root. */
+  cantilever?: boolean;
   /** The span measured: its elements in order, one for a member drawn as one element. */
   span: number[];
 };
@@ -96,8 +98,20 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
     for (const s of indexed) {
       const curve = spanCurve(span, parts, s, leftHand);
       if (!curve) continue;
-      const d = chordDeflection(curve);
-      if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements };
+      let d = chordDeflection(curve);
+      if (span.free) {
+        const root = s.disp.get(span.free === 'start' ? span.end : span.start);
+        if (root) {
+          // The root's rotation in the curve's axes: dv/dx = θ·ez, dw/dx = −θ·ey, with x along
+          // the curve's ex. The curve is sampled from the span's start, so when its first element
+          // runs against the span its ex does too and the slopes change sign.
+          const th = [root.rx, root.ry, root.rz];
+          const dot = (a: readonly number[]) => a[0]! * th[0]! + a[1]! * th[1]! + a[2]! * th[2]!;
+          const sg = span.reversed[0] ? -1 : 1;
+          d = tangentDeflection(curve, span.free === 'start' ? 'end' : 'start', sg * dot(curve.ez), -sg * dot(curve.ey));
+        }
+      }
+      if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements, ...(span.free ? { cantilever: true } : {}) };
     }
     if (best) for (const id of span.elements) out.set(id, best);
   }

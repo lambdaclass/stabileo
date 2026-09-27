@@ -50,6 +50,11 @@ export interface Span {
   start: number;
   end: number;
   length: number;
+  /**
+   * A cantilever: the end that is free (no support, constraint or connector, and no other bar),
+   * the other one holding it. Absent when both ends are held, or both free.
+   */
+  free?: 'start' | 'end';
 }
 
 /** A level span: its axis within ~6° of horizontal. */
@@ -114,12 +119,16 @@ export function deflectionSpans(model: SpanModel): Map<number, Span> {
     }).sort((a, b) => a.s0 - b.s0);
     if (rows.length === 0) return null;
     const head = rows[0]!, tail = rows[rows.length - 1]!;
+    const start = head.reversed ? head.e.nodeJ : head.e.nodeI;
+    const end = tail.reversed ? tail.e.nodeI : tail.e.nodeJ;
+    const isFree = (n: number, own: number) => !held.has(n) && (incident.get(n) ?? []).every((id) => id === own);
+    const fs = isFree(start, head.id), fe = isFree(end, tail.id);
     return {
       elements: rows.map((r) => r.id),
       reversed: rows.map((r) => r.reversed),
-      start: head.reversed ? head.e.nodeJ : head.e.nodeI,
-      end: tail.reversed ? tail.e.nodeI : tail.e.nodeJ,
+      start, end,
       length: rows.reduce((s, r) => s + (lenOf.get(r.id) ?? 0), 0),
+      ...(fs !== fe ? { free: fs ? 'start' as const : 'end' as const } : {}),
     };
   };
 

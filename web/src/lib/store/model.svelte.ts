@@ -807,6 +807,8 @@ export interface StructureModel {
   grid?: import('../model/grid').StructuralGrid;
   /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
   dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
+  /** Deflection limits by member, group or kind (`engine/deflection-limits.ts`). Absent: beams at L/360. */
+  deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1554,6 +1556,7 @@ function createModelStore() {
     get views(): readonly SavedView[] { return model.views ?? []; },
     get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
     get dynamics() { return model.dynamics; },
+    get deflectionLimits() { return model.deflectionLimits; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1636,6 +1639,9 @@ function createModelStore() {
           : {}),
         ...(snap.dynamics?.timeHistory
           ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
+          : {}),
+        ...(snap.deflectionLimits?.rules.length
+          ? { deflectionLimits: JSON.parse(JSON.stringify(snap.deflectionLimits)) as ModelSnapshot['deflectionLimits'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1825,6 +1831,7 @@ function createModelStore() {
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
     model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
     model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
+    model.deflectionLimits = s.deflectionLimits ? JSON.parse(JSON.stringify(s.deflectionLimits)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2938,6 +2945,7 @@ function createModelStore() {
       model.views = undefined;
       model.grid = undefined;
       model.dynamics = undefined;
+      model.deflectionLimits = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3307,6 +3315,12 @@ function createModelStore() {
     },
 
     /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    /** State the deflection limits. Undoable; they are read after the solve, which survives it. */
+    setDeflectionLimits(d: import('../engine/deflection-limits').DeflectionLimits | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.deflectionLimits = d && d.rules.length > 0 ? JSON.parse(JSON.stringify(d)) : undefined;
+    },
+
     setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
       if (!_undoBatching) _pushUndoView?.();
       model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;

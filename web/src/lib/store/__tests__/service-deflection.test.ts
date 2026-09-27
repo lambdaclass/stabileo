@@ -83,17 +83,32 @@ describe('relative to the chord, against closed forms', () => {
     expect(d.x).toBeCloseTo(xm, 2);
   });
 
-  it('a cantilever is measured from its chord, not from where it started', () => {
+  it('a cantilever is measured from the tangent at its root: PL³/3EI at the tip', () => {
+    // Its chord runs through the tip, so a chord reading would miss most of it: it gave
+    // v(x) − x·v(L)/L, about a third of the tip deflection.
     const tip = member('fixed', 'free');
     modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
+    const d = solveAndRead() as ReturnType<typeof solveAndRead> & { cantilever?: boolean };
+    expect(d.cantilever).toBe(true);
+    expect(d.max / ((P * L ** 3) / (3 * ei().EIy))).toBeCloseTo(1, 6);
+    expect(d.x).toBeCloseTo(L, 9);
+  });
+
+  it('a cantilever off a flexible column: its own bending, without the column\'s rotation', () => {
+    modelStore.clear();
+    const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 3), tip = modelStore.addNode(L, 0, 3);
+    modelStore.addElement(base, top, 'frame');
+    beam = modelStore.addElement(top, tip, 'frame');
+    modelStore.addSupport(base, 'fixed3d');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
     const d = solveAndRead();
-    const EI = ei().EIy;
-    // v(x) = P x²(3L − x)/6EI; relative to the chord x·v(L)/L, largest where 6Lx − 3x² − 2L² = 0.
-    const v = (x: number) => (P * x * x * (3 * L - x)) / (6 * EI);
-    const xm = L * (1 - 1 / Math.sqrt(3));
-    const exact = Math.abs(v(xm) - (xm / L) * v(L));
-    expect(d.max / exact).toBeCloseTo(1, 5);
-    expect(d.max).toBeLessThan(v(L) / 2); // the absolute tip displacement is not the number
+    // The column rotates its top, and the tip drops far more than the beam bends; relative to the
+    // tangent at the root the beam's own curve is the fixed cantilever's.
+    const drop = Math.abs(resultsStore.results3D!.displacements.find((x) => x.nodeId === tip)!.uz);
+    const own = (P * L ** 3) / (3 * ei().EIy);
+    expect(drop).toBeGreaterThan(1.5 * own);
+    expect(d.max / own).toBeCloseTo(1, 4);
   });
 
   it('a member that moves without bending has no deflection', () => {
