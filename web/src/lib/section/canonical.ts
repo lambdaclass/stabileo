@@ -54,7 +54,7 @@ const IRAM_I_STANDARD: Record<string, string> = {
   M: 'IRAM-IAS U 500-215-8',
 };
 
-const GEOMETRY_BACKED_FAMILIES = new Set(['IPE', 'HEA', 'HEB', 'W', 'HP', 'M', 'C', 'T', 'CHS', 'IPN', 'UPN', 'L', 'RHS', 'SHS']);
+const GEOMETRY_BACKED_FAMILIES = new Set(['IPE', 'HEA', 'HEB', 'HEM', 'W', 'HP', 'M', 'C', 'T', 'CHS', 'IPN', 'UPN', 'L', 'RHS', 'SHS']);
 
 /**
  * Why a section could not be expressed as canonical geometry.

@@ -39,6 +39,8 @@
   import SectionDataSheet from './SectionDataSheet.svelte';
   import BuiltSectionPanel from './BuiltSectionPanel.svelte';
   import DrawnSectionEditor from './DrawnSectionEditor.svelte';
+  import ProfileTableBrowser from './ProfileTableBrowser.svelte';
+  import ProfileDimensioned from './ProfileDimensioned.svelte';
   import type { DrawnSection } from '../../../lib/section/drawn';
   import BattenPanel from './BattenPanel.svelte';
   import { steelProfileSource, type ProfileSource } from '../../../lib/profiles/catalogue';
@@ -82,6 +84,9 @@
    * A way of building, not a third division: both produce a section with an outline.
    */
   let buildMode = $state<'template' | 'draw'>('template');
+  /** The catalogue as the searchable list, or as a table of every column. */
+  let browseMode = $state<'list' | 'table'>('list');
+  let dimsOpen = $state(false);
   $effect.pre(() => {
     if (open && drawn) untrack(() => { division = 'build'; buildMode = 'draw'; });
   });
@@ -309,6 +314,16 @@
       <div class="body">
         <div class="browse">
           {#if division === 'standard'}
+            <div class="build-modes" role="radiogroup" aria-label={t('profileTable.view')}>
+              <button type="button" role="radio" aria-checked={browseMode === 'list'} class:active={browseMode === 'list'}
+                data-testid="browse-mode-list" onclick={() => (browseMode = 'list')}>{t('profileTable.list')}</button>
+              <button type="button" role="radio" aria-checked={browseMode === 'table'} class:active={browseMode === 'table'}
+                data-testid="browse-mode-table" onclick={() => (browseMode = 'table')}>{t('profileTable.table')}</button>
+            </div>
+          {/if}
+          {#if division === 'standard' && browseMode === 'table'}
+            <ProfileTableBrowser {source} selected={draft.profileName} onPick={pick} />
+          {:else if division === 'standard'}
             <ProfileSelectorPanel
               selected={draft.profileName}
               label={t('section.modal.standard')}
@@ -438,6 +453,13 @@
             <details bind:open={battensOpen} data-testid="section-battens-toggle">
               <summary>{t('battens.title')}</summary>
               <BattenPanel plan={battens} />
+            </details>
+          {/if}
+
+          {#if division === 'standard'}
+            <details bind:open={dimsOpen} data-testid="section-dims-toggle">
+              <summary>{t('profileTable.dimensions')}</summary>
+              {#if dimsOpen}<ProfileDimensioned name={draft.profileName} />{/if}
             </details>
           {/if}
 

@@ -150,7 +150,7 @@ describe('a built choice', () => {
  */
 describe('every family the catalogue publishes', () => {
   it('resolves to a section with an area, through the one remaining path', () => {
-    expect(FAMILY_LIST).toHaveLength(15);
+    expect(FAMILY_LIST).toHaveLength(16);
     for (const family of FAMILY_LIST) {
       const rows = PROFILE_FAMILIES[family];
       expect(rows?.length, `${family} has rows`).toBeGreaterThan(0);

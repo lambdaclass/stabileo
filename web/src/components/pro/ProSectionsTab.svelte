@@ -8,6 +8,26 @@
   import { solverProperties } from '../../lib/section/state';
   import ProShearAreas from './section/ProShearAreas.svelte';
   import { geometricShearAreas } from '../../lib/section/shear-areas';
+  import { importSectionsCsv, type CsvImport } from '../../lib/profiles/csv-sections';
+
+  /** The last CSV import's outcome, shown under the buttons until the next one. */
+  let csvReport = $state<CsvImport | null>(null);
+  async function importCsv(e: Event & { currentTarget: HTMLInputElement }) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    const r = importSectionsCsv(await file.text());
+    // One undo step for the whole file.
+    modelStore.batch(() => { for (const s of r.sections) modelStore.addSection(s); });
+    csvReport = r;
+  }
+  function refusalText(r: CsvImport['refused'][number]): string {
+    const base = t(`csvSections.refused.${r.kind}`).replace('{line}', String(r.line));
+    if (r.kind === 'unknownShape') return base.replace('{value}', r.value);
+    if (r.kind === 'missing') return base.replace('{fields}', r.fields.join(', ') || '—');
+    if (r.kind === 'notANumber') return base.replace('{field}', r.field).replace('{value}', r.value);
+    return base;
+  }
 
   /** Every section whose shape gives shear areas deforms in shear, or none does. One undo step. */
   function shearForAll(on: boolean) {
@@ -181,7 +201,20 @@
       type="button" class="open-modal" data-testid="pro-open-section-modal"
       onclick={() => { editingId = null; modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
     >{t('pro.addSectionPanel')}</button>
+    <label class="csv-import" title={t('csvSections.help')}>
+      {t('csvSections.import')}
+      <input type="file" accept=".csv,text/csv" data-testid="pro-sections-csv" onchange={importCsv} />
+    </label>
   </div>
+  {#if csvReport}
+    <div class="csv-report" data-testid="pro-sections-csv-report">
+      <p>{t('csvSections.added').replace('{n}', String(csvReport.sections.length))}</p>
+      {#each csvReport.refused as r (r.line)}<p class="warn">{refusalText(r)}</p>{/each}
+      {#each csvReport.disagreements as d (d.line)}
+        <p class="warn">{t('csvSections.areaGap').replace('{line}', String(d.line)).replace('{name}', d.name).replace('{gap}', (d.gap * 100).toFixed(1))}</p>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Sections table -->
   <div class="sec-list">
@@ -280,6 +313,11 @@
 />
 
 <style>
+  .csv-import { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 0.66rem; color: var(--st-text-2); cursor: pointer; }
+  .csv-import input { width: 9rem; font-size: 0.62rem; }
+  .csv-report { padding: 4px 8px; font-size: 0.64rem; color: var(--st-text-2); }
+  .csv-report p { margin: 1px 0; }
+  .csv-report .warn { color: var(--st-warn); }
   .sec-shear-all { display: flex; gap: 4px; align-items: center; margin-left: auto; font-size: 0.62rem; color: var(--st-text-3); }
   .sec-shear-all button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
   /* ── The detail, in Basic's visual language ────────────────────── */
