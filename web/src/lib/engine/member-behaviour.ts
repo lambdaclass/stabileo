@@ -24,7 +24,7 @@
  */
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D } from './types-3d';
-import { solve3D, solveContact3D } from './wasm-solver';
+import { solve3D, solveContact3D, solveSSI3D } from './wasm-solver';
 
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive';
 
@@ -80,9 +80,15 @@ export function hasNonlinearBehaviour(model: ModelData): boolean {
     const b = (e as El).behaviour;
     if (b === 'tensionOnly' || b === 'compressionOnly') return true;
   }
-  for (const s of model.supports.values()) if ((s as { uplift?: boolean }).uplift) return true;
+  for (const s of model.supports.values()) if ((s as { uplift?: boolean }).uplift || hasCurves(s)) return true;
   return false;
 }
+
+type Curves = Partial<Record<'x' | 'y' | 'z', Array<[number, number]>>>;
+const hasCurves = (s: { curves?: Curves }) => !!s.curves && Object.values(s.curves).some((c) => (c?.length ?? 0) > 0);
+const DIRS = { x: 0, y: 1, z: 2 } as const;
+const FREE = { x: 'rx', y: 'ry', z: 'rz' } as const;
+const SPRING = { x: 'kx', y: 'ky', z: 'kz' } as const;
 
 export interface NonlinearReport {
   converged: boolean;
@@ -104,12 +110,33 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     if (b === 'compressionOnly') behaviours[String(e.id)] = 'compression_only';
   }
   const hasMembers = Object.keys(behaviours).length > 0;
+  // Multilinear springs: the direction they act in is left free and the engine's soil-structure
+  // iteration supplies the curve's secant stiffness.
+  const soilSprings: Array<{ nodeId: number; direction: number; curve: { type: 'custom'; points: Array<[number, number]> }; tributaryLength: number }> = [];
+  const curved = new Map<number, Curves>();
+  for (const s of model.supports.values()) {
+    const c = (s as { curves?: Curves }).curves;
+    if (!c || !hasCurves(s as never)) continue;
+    curved.set(s.nodeId, c);
+    for (const d of ['x', 'y', 'z'] as const) {
+      const pts = c[d];
+      if (pts && pts.length) soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+    }
+  }
+  if (hasMembers && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
   const lifted = new Set<number>();
   let last: { results: AnalysisResults3D; slack: number[]; converged: boolean } | null = null;
 
   for (let it = 1; it <= MAX_ITER; it++) {
     const supports = new Map(input.supports);
+    for (const [n, c] of curved) {
+      const s = supports.get(n);
+      if (!s) continue;
+      const next = { ...s } as Record<string, unknown>;
+      for (const d of ['x', 'y', 'z'] as const) if (c[d]?.length) { next[FREE[d]] = false; next[SPRING[d]] = undefined; }
+      supports.set(n, next as never);
+    }
     for (const n of lifted) {
       const s = supports.get(n);
       if (s) supports.set(n, { ...s, rz: false, kz: undefined, dz: undefined });
@@ -121,6 +148,11 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       results = r.results as AnalysisResults3D;
       memberConverged = r.converged !== false;
       slack = ((r.elementStatus ?? []) as Array<{ elementId: number; status: string }>).filter((x) => x.status === 'inactive').map((x) => x.elementId);
+    } else if (soilSprings.length) {
+      const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
+      const r = solveSSI3D({ solver: trial, soilSprings: live });
+      results = r.results as AnalysisResults3D;
+      memberConverged = r.converged !== false;
     } else {
       const r = solve3D(trial);
       if (typeof r === 'string') throw new Error(r);
@@ -134,7 +166,10 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     const scale = Math.max(1e-9, ...results.reactions.map((r) => Math.abs(r.fz)));
     for (const n of upliftNodes) {
       if (!lifted.has(n)) {
-        if ((reaction.get(n) ?? 0) < -1e-6 * scale) { lifted.add(n); changed = true; }
+        // A multilinear vertical spring pulls when its node goes up; any other support when its
+        // reaction is downward.
+        const pulls = curved.get(n)?.z?.length ? (disp.get(n) ?? 0) > 1e-9 : (reaction.get(n) ?? 0) < -1e-6 * scale;
+        if (pulls) { lifted.add(n); changed = true; }
       } else if ((disp.get(n) ?? 0) < -1e-9) { lifted.delete(n); changed = true; }
     }
     if (!changed) {

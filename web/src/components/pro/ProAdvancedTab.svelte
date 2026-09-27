@@ -616,22 +616,26 @@
 
   // ─── 10. Contact / Gap ─────────────────────────────────────────
 
-  let contactBehaviors = $state<Map<number, 'normal' | 'tensionOnly' | 'compressionOnly'>>(new Map());
+  /*
+   * The behaviours are the members' own (`Element.behaviour`), the same ones the Members panel
+   * sets and every solve honours. This section used to keep a list of its own that nothing else
+   * read, so a tension-only brace set here was linear everywhere else.
+   */
+  const contactBehaviors = $derived(new Map([...modelStore.elements.values()]
+    .filter((e) => e.behaviour === 'tensionOnly' || e.behaviour === 'compressionOnly')
+    .map((e) => [e.id, e.behaviour as 'tensionOnly' | 'compressionOnly'])));
   let contactElementId = $state<number | null>(null);
   let contactBehavior = $state<'normal' | 'tensionOnly' | 'compressionOnly'>('tensionOnly');
   let contactResult = $state<any | null>(null);
 
   function setContactBehavior() {
     if (contactElementId == null) return;
-    const next = new Map(contactBehaviors);
-    next.set(contactElementId, contactBehavior);
-    contactBehaviors = next;
+    const id = contactElementId, b = contactBehavior;
+    modelStore.batch(() => modelStore.updateElement(id, { behaviour: b === 'normal' ? undefined : b }));
   }
 
   function removeContactBehavior(eid: number) {
-    const next = new Map(contactBehaviors);
-    next.delete(eid);
-    contactBehaviors = next;
+    modelStore.batch(() => modelStore.updateElement(eid, { behaviour: undefined }));
   }
 
   const contactEntries = $derived([...contactBehaviors.entries()]);

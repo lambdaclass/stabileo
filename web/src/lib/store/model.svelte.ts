@@ -540,6 +540,11 @@ export interface Support {
   type: SupportType;
   /** Holds the node down, never up: released where its reaction would pull (`engine/member-behaviour.ts`). */
   uplift?: boolean;
+  /**
+   * Multilinear springs: force against displacement per global direction, [m, kN] pairs from the
+   * origin, the same both ways. Solved by the engine's soil-structure iteration.
+   */
+  curves?: Partial<Record<'x' | 'y' | 'z', Array<[number, number]>>>;
   kx?: number; // kN/m
   ky?: number; // kN/m
   kz?: number; // kN·m/rad (2D rotation spring / 3D rotation-Z spring)
@@ -2780,7 +2785,7 @@ function createModelStore() {
       model.supports = new Map(model.supports);
     },
 
-    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean }>): void {
+    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean; curves: Support['curves']; isInclined: boolean; normalX: number; normalY: number; normalZ: number }>): void {
       if (!_undoBatching) _pushUndo?.();
       const sup = model.supports.get(id);
       if (!sup) return;
@@ -2815,12 +2820,13 @@ function createModelStore() {
         dofRestraints: data.dofRestraints ?? sup.dofRestraints,
         dofFrame: data.dofFrame ?? sup.dofFrame,
         dofLocalElementId: data.dofLocalElementId ?? sup.dofLocalElementId,
-        // Preserve inclined support fields
-        normalX: sup.normalX,
-        normalY: sup.normalY,
-        normalZ: sup.normalZ,
-        isInclined: sup.isInclined,
+        // Inclined support fields: kept unless stated
+        normalX: 'normalX' in data ? data.normalX : sup.normalX,
+        normalY: 'normalY' in data ? data.normalY : sup.normalY,
+        normalZ: 'normalZ' in data ? data.normalZ : sup.normalZ,
+        isInclined: 'isInclined' in data ? data.isInclined : sup.isInclined,
         ...(('uplift' in data ? data.uplift : sup.uplift) ? { uplift: true } : {}),
+        ...((('curves' in data ? data.curves : sup.curves) && Object.keys(('curves' in data ? data.curves : sup.curves)!).length) ? { curves: JSON.parse(JSON.stringify('curves' in data ? data.curves : sup.curves)) } : {}),
       });
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },

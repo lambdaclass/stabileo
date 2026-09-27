@@ -6,6 +6,7 @@
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
+  import ProMemberBehaviour from './ProMemberBehaviour.svelte';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
@@ -265,6 +266,7 @@
   <NextMemberPicker />
   {#if uiStore.selectedElements.size > 0}
     <div style="padding: 6px 10px;"><MemberOffsetEditor /></div>
+    <ProMemberBehaviour />
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>

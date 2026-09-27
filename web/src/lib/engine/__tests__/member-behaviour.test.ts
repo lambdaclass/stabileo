@@ -150,3 +150,18 @@ describe('stiffness modifiers', () => {
     expect(modelStore.sections.get(modelStore.elements.get(e)!.sectionId)!.iy).toBeDefined();
   });
 });
+
+describe('multilinear springs', () => {
+  it('a bilinear vertical spring: past its first branch the node follows the second', () => {
+    // 10 000 kN/m up to 100 kN at 10 mm, then 1 250 kN/m to 150 kN at 50 mm. Under 120 kN:
+    // 10 mm + 20 kN / 1 250 kN/m = 26 mm.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0), c = modelStore.addNode(0, 3, 0);
+    modelStore.addElement(a, b, 'truss'); modelStore.addElement(a, c, 'truss');
+    modelStore.addSupport(b, 'fixed3d' as never);
+    modelStore.addSupport(c, 'fixed3d' as never);
+    const s = modelStore.addSupport(a, 'custom3d' as never, undefined, { dofRestraints: { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false } });
+    modelStore.updateSupport(s, { curves: { z: [[0.01, 100], [0.05, 150]] } });
+    modelStore.addNodalLoad3D(a, 0, 0, -120, 0, 0, 0, 1);
+    expect(disp(solve(), a).uz).toBeCloseTo(-0.026, 4);
+  });
+});
