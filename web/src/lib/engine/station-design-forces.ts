@@ -37,6 +37,7 @@ import {
   type DesignAxes,
 } from './design/design-axes';
 import { utilizationStatus } from './design/outcome';
+import { crackControlFaceSpacing } from './design/crack-spacing';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -1104,7 +1105,7 @@ export interface ProvidedRebarCheck {
   stationX?: number;          // station where the demand occurs
   /** Coarse failure class, consumed by the design outcome classifier. */
   limiting?: 'flexure' | 'shear' | 'axialFlexure' | 'biaxial' | 'torsion'
-    | 'barFit' | 'anchorage' | 'minSteel' | 'maxSteel' | 'tieSpacing' | 'congestion' | 'cover'
+    | 'barFit' | 'barSpacing' | 'anchorage' | 'minSteel' | 'maxSteel' | 'tieSpacing' | 'congestion' | 'cover'
     /** A provision of the regulation this app does not implement — never a silent pass. */
     | 'unsupportedCheck';
   /** True for a check that could not be evaluated because reinforcement is absent.
@@ -1954,6 +1955,21 @@ export function verifyProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
+
+      // ── §24.3.2: the bars next to this region's tension face, spaced for crack control ──
+      const stirMm = (rs.sign === 1 ? stirSpan : stirSupport)?.diameter ?? section.stirrupDia;
+      const crack = crackControlFaceSpacing(spacingRule.edition, rs.layers, section.b, section.cover, stirMm, section.fy);
+      if (crack && !crack.ok) {
+        pushStrength({
+          category: `${rs.label} s,max §24.3`, demandCategory: null,
+          required: +(crack.limit.maxSpacing * 100).toFixed(1),
+          provided: +(crack.spacing * 100).toFixed(1),
+          utilization: crack.limit.maxSpacing > 0 ? crack.spacing / crack.limit.maxSpacing : Number.POSITIVE_INFINITY,
+          unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: rs.range,
+          description: `${crack.count}Ø${crack.diameterMm} next to the tension face at ${(crack.spacing * 100).toFixed(1)} cm exceed s,max = ${(crack.limit.maxSpacing * 100).toFixed(1)} cm for crack control (§24.3.2, fs = ${crack.limit.fs.toFixed(0)} MPa${crack.limit.fsSource === 'permittedTwoThirdsFy' ? ' = 2/3 fy, §24.3.2.1' : ''})`,
+          limiting: 'barSpacing',
+        });
+      }
     }
 
     // ─── Opposite-sign coverage sweep ─────────────────────────────
