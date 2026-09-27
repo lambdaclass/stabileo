@@ -16,6 +16,8 @@
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
+  import { pushoverFrames } from '../../lib/engine/pushover-curve';
+  import PushoverView from './nonlinear/PushoverView.svelte';
   import {
     isSolverReady,
     solvePDelta3D as wasmPDelta3D,
@@ -420,13 +422,14 @@
   let nlResult = $state<any | null>(null);
   /** Sections whose Mp rests on an assumption (fy absent, or Zp estimated from A and I). */
   let nlAssumed = $state<string[]>([]);
-  // Displacements never sit at the top level: the incremental solvers
-  // (corotational, fiber) nest them under `.results`, and pushover nests
-  // them under each step's `.results` — so read the last step's.
+  /** The model version the nonlinear result describes. */
+  let nlVersion = $state(0);
+  // Displacements never sit at the top level: the incremental solvers (corotational, fiber) nest
+  // them under `.results`. Pushover gives each step's increment, so the state at collapse is
+  // their sum; the last step's alone is only the last increment.
   const nlDisplacements = $derived(
     nlResult?.results?.displacements
-      ?? nlResult?.steps?.[nlResult.steps.length - 1]?.results?.displacements
-      ?? []
+      ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : [])
   );
 
   function handleNonlinear() {
@@ -454,6 +457,7 @@
           maxHinges: nlMaxHinges,
           mpOverrides,
         });
+        nlVersion = modelStore.modelVersion;
       } else if (nlType === 'corotational') {
         nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
       } else {
@@ -1340,6 +1344,9 @@
             — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
         </div>
+        {#if nlType === 'pushover' && nlResult.steps?.length}
+          <PushoverView result={nlResult} modelVersion={nlVersion} />
+        {/if}
       {/if}
       {/if}
 

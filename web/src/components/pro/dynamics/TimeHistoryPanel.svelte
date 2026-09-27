@@ -47,7 +47,7 @@
   onDestroy(() => { if (saveTimer) { clearTimeout(saveTimer); modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) }); } });
 
   let running = $state(false);
-  const result = $derived(timeHistoryView.result);
+  const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
   const stale = $derived(!!result && timeHistoryView.modelVersion !== modelStore.modelVersion);
 
   /** Run a record through: enough steps at the current dt to reach its last sample. */
