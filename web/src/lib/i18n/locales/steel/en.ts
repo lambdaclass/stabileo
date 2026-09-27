@@ -700,6 +700,8 @@ const steelEn: Record<string, string> = {
   'drawn.jSummed': 'Sum over the pieces.',
   'drawn.jHomogenised': 'A piece combines materials: it is solved as one outline and weighted by its mean G.',
   'drawn.mass': 'Mass',
+  'drawn.weight': 'Self-weight',
+  'drawn.massNote': 'From each material\'s unit weight divided by g = 9.80665 m/s².',
   'drawn.perPart': 'Per part',
   'battens.title': 'Battens and connectors',
   'battens.group': 'Built-up member group',

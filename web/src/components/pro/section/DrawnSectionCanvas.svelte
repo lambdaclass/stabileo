@@ -89,7 +89,7 @@
 
   const axes = $derived.by(() => {
     if (!sp) return null;
-    const L = Math.hypot(box[2] - box[0], box[3] - box[1]) * 0.55;
+    const L = Math.hypot(box[2] - box[0], box[3] - box[1]) * 0.45;
     const line = (th: number) => ({
       x1: view.px(sp.yc - L * Math.cos(th)), y1: view.pz(sp.zc - L * Math.sin(th)),
       x2: view.px(sp.yc + L * Math.cos(th)), y2: view.pz(sp.zc + L * Math.sin(th)),
@@ -174,7 +174,7 @@
 
 <style>
   .canvas {
-    width: 100%; height: auto; display: block;
+    width: 100%; height: auto; max-height: 280px; display: block;
     background: var(--st-bg); border: 1px solid var(--st-hair); border-radius: 4px;
     touch-action: none; user-select: none;
   }

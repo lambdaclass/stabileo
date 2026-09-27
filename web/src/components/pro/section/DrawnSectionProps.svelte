@@ -11,10 +11,14 @@
 
   const { values: p }: { values: DrawnProperties } = $props();
 
-  const f = (v: number | null | undefined, scale: number, d = 2) =>
-    v == null || !Number.isFinite(v) ? '—' : (v * scale).toLocaleString(undefined, { maximumFractionDigits: d });
+  /** A value that rounds to zero prints as 0, not as -0. */
+  const f = (v: number | null | undefined, scale: number, d = 2) => {
+    if (v == null || !Number.isFinite(v)) return '—';
+    const x = v * scale;
+    return (Math.abs(x) < 0.5 * 10 ** -d ? 0 : x).toLocaleString(undefined, { maximumFractionDigits: d });
+  };
   const CM2 = 1e4, CM3 = 1e6, CM4 = 1e8, CM6 = 1e12;
-  const deg = (r: number) => ((r * 180) / Math.PI).toFixed(1);
+  const deg = (r: number) => f((r * 180) / Math.PI, 1, 1);
   const rows = $derived<Array<{ k: string; v: string; u: string; note?: string; id: string }>>([
     { id: 'a', k: 'A', v: f(p.a, CM2), u: 'cm²' },
     { id: 'iy', k: 'Iy', v: f(p.iy, CM4), u: 'cm⁴' },
@@ -35,7 +39,8 @@
     { id: 'asy', k: 'As,z', v: f(p.shearAreas?.asY, CM2), u: 'cm²', note: p.shearAreas ? undefined : t('drawn.noShear') },
     { id: 'asz', k: 'As,y', v: f(p.shearAreas?.asZ, CM2), u: 'cm²', note: p.shearAreas ? undefined : t('drawn.noShear') },
     { id: 'sc', k: 'yS, zS', v: p.shearCentre ? `${f(p.shearCentre[0], 1000, 1)}, ${f(p.shearCentre[1], 1000, 1)}` : '—', u: 'mm', note: p.shearCentre ? undefined : t('drawn.noShear') },
-    { id: 'mass', k: t('drawn.mass'), v: f(p.massPerM, 1, 1), u: 'kg/m' },
+    { id: 'weight', k: t('drawn.weight'), v: f(p.massPerM == null ? null : (p.massPerM * 9.80665) / 1000, 1, 3), u: 'kN/m' },
+    { id: 'mass', k: t('drawn.mass'), v: f(p.massPerM, 1, 1), u: 'kg/m', note: t('drawn.massNote') },
   ]);
 </script>
 

@@ -714,6 +714,8 @@ const steelEs: Record<string, string> = {
   'drawn.jSummed': 'Suma de las piezas.',
   'drawn.jHomogenised': 'Una pieza combina materiales: se resuelve como un solo contorno y se pondera por su G medio.',
   'drawn.mass': 'Masa',
+  'drawn.weight': 'Peso propio',
+  'drawn.massNote': 'Del peso específico de cada material dividido por g = 9,80665 m/s².',
   'drawn.perPart': 'Por pieza',
   'battens.title': 'Presillas y enlaces',
   'battens.group': 'Grupo de barra armada',

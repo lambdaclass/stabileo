@@ -712,6 +712,8 @@ const steelPt: Record<string, string> = {
   'drawn.jSummed': 'Soma das peças.',
   'drawn.jHomogenised': 'Uma peça combina materiais: é resolvida como um só contorno e ponderada pelo seu G médio.',
   'drawn.mass': 'Massa',
+  'drawn.weight': 'Peso próprio',
+  'drawn.massNote': 'Do peso específico de cada material dividido por g = 9,80665 m/s².',
   'drawn.perPart': 'Por peça',
   'battens.title': 'Presilhas e ligações',
   'battens.group': 'Grupo de barra composta',
