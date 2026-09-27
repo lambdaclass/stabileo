@@ -32,7 +32,7 @@ export const STRUCTURE_LAYERS = {
   grid: 'RC-GRID',
 } as const;
 
-function bbox(points: readonly { x: number; y: number; z: number }[]) {
+export function bbox(points: readonly { x: number; y: number; z: number }[]) {
   return {
     minX: Math.min(...points.map((p) => p.x)), maxX: Math.max(...points.map((p) => p.x)),
     minY: Math.min(...points.map((p) => p.y)), maxY: Math.max(...points.map((p) => p.y)),
@@ -40,14 +40,14 @@ function bbox(points: readonly { x: number; y: number; z: number }[]) {
   };
 }
 
-function solidCorners(s: SceneSolid) {
+export function solidCorners(s: SceneSolid) {
   return [...s.base, ...s.base.map((p) => ({
     x: p.x + s.extrude.x, y: p.y + s.extrude.y, z: p.z + s.extrude.z,
   }))];
 }
 
 /** A solid's outline in a projection, as a closed polyline of its footprint corners. */
-function solidOutline(s: SceneSolid, proj: Projection, layer: string): DrawnPolyline {
+export function solidOutline(s: SceneSolid, proj: Projection, layer: string): DrawnPolyline {
   const pts = solidCorners(s).map((p) => project(p, proj));
   const b = {
     minX: Math.min(...pts.map((p) => p.x)), maxX: Math.max(...pts.map((p) => p.x)),
@@ -64,7 +64,7 @@ function solidOutline(s: SceneSolid, proj: Projection, layer: string): DrawnPoly
 }
 
 /** The sheet's own extents shape: `{ min, max }`, matching every other drawing. */
-function extentsOf(polylines: readonly DrawnPolyline[]): Sheet['extents'] {
+export function extentsOf(polylines: readonly DrawnPolyline[]): Sheet['extents'] {
   const pts = polylines.flatMap((p) => p.points);
   if (pts.length === 0) return { min: { x: 0, y: 0 }, max: { x: 1, y: 1 } };
   return {
@@ -85,7 +85,7 @@ export interface StatusLookup {
  * whole status model exists to prevent, and it is worse on paper than on screen: the sheet
  * outlives the session.
  */
-function statusNotes(
+export function statusNotes(
   elementIds: readonly number[], statusOf: StatusLookup,
 ): string[] {
   const byStatus = new Map<ElementStatus, number[]>();
@@ -403,7 +403,7 @@ function layerFor(kind: SceneSolidKind): string {
   return kind === 'column' || kind === 'beam' ? LAYERS.outline : LAYERS.outline;
 }
 
-function barPolyline(b: SceneBar, proj: Projection): DrawnPolyline {
+export function barPolyline(b: SceneBar, proj: Projection): DrawnPolyline {
   return {
     layer: b.role === 'transverse' ? LAYERS.stirrup : LAYERS.bar,
     points: b.polyline.map((p) => project(p, proj)),
