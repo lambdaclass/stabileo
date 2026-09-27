@@ -17,6 +17,7 @@
   // question this tab's strip already asks. It is NOT in Documentos: §5 keeps raw solver
   // results and reinforcement design as two documents.
   import ProForcesReport from './ProForcesReport.svelte';
+  import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import {
     componentUnit,
     diagramTypeToComponent,
@@ -366,6 +367,8 @@
 
   const RES_SECTIONS: ResSection[] = $derived([
     { id: 'reactions', labelKey: 'pro.reactionsTitle', count: () => results?.reactions.length ?? 0 },
+    // ΣF and ΣM of the loads against the reactions, per case and per combination.
+    { id: 'statics', labelKey: 'pro.statics.title', count: () => (results ? Math.max(1, resultsStore.perCase3D.size + resultsStore.perCombo3D.size) : 0) },
     { id: 'forces', labelKey: 'pro.forcesTitle', count: () => results?.elementForces.length ?? 0 },
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
     // Relative to each member's chord — the number a span limit is written for.
@@ -762,6 +765,9 @@
         </div>
       {/if}
 
+      {#if resSection === 'statics'}
+        <StaticsCheckPanel />
+      {/if}
       {#if resSection === 'reactions'}
         <ProResultTableModes kind="reactions" bind:mode={tableModes.reactions} />
         {#if tableModes.reactions === 'current'}

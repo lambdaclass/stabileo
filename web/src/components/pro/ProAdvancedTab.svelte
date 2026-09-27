@@ -8,7 +8,6 @@
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
-  import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { te } from '../../lib/i18n/engine-text';
@@ -1054,9 +1053,6 @@
       <ProDiagnosticsTab />
     </div>
 
-    <div class="adv-group">
-      <StaticsCheckPanel />
-    </div>
 
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
