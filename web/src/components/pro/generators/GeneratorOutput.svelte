@@ -147,7 +147,16 @@
       return `M${tx(a[0]).toFixed(1)},${ty(a[1]).toFixed(1)}L${tx(b[0]).toFixed(1)},${ty(b[1]).toFixed(1)}`;
     }).join('') : '';
     const dots = anchors.map((a) => ({ x: tx(a.p[0]), y: ty(planView ? a.p[1] : a.p[2]) }));
-    return { lines, dots, planView };
+    // Where the generated axes end up in the model, after the plane and the rotation.
+    const r = (rotation * Math.PI) / 180;
+    const name = (dx: number, dy: number) => {
+      if (Math.abs(Math.abs(dx) - 1) < 1e-9) return dx > 0 ? '+X' : '−X';
+      if (Math.abs(Math.abs(dy) - 1) < 1e-9) return dy > 0 ? '+Y' : '−Y';
+      return `${Math.round(((Math.atan2(dy, dx) * 180) / Math.PI) * 10) / 10}°`;
+    };
+    const hName = name(Math.cos(r), Math.sin(r));
+    const vName = planView ? name(-Math.sin(r), Math.cos(r)) : '+Z';
+    return { lines, dots, planView, h: hName, v: vName };
   });
 </script>
 
@@ -168,6 +177,18 @@
       {#if schema}
         <svg viewBox="0 0 {W} {H}" class="go-schema" role="img" aria-label={t('generator.out.anchor')}>
           <path d={schema.lines} class="go-lines" />
+          <!-- The generated x and y (or z), named by where they point in the model. -->
+          <g class="go-axes" data-testid="gen-schema-axes">
+            <path d="M8,{H - 8} L34,{H - 8} M8,{H - 8} L8,{H - 34}" />
+            <path d="M34,{H - 8} l-4,-3 v6 z M8,{H - 34} l-3,4 h6 z" class="go-arrow" />
+            <text x="37" y={H - 5}>{schema.h}</text>
+            <text x="3" y={H - 38}>{schema.v}</text>
+            {#if Math.abs(rotation % 360) > 1e-9}
+              <path d="M{W - 30},{H - 12} a10,10 0 1,0 12,-12" class="go-rot" />
+              <path d="M{W - 18},{H - 24} l2,5 l-5,-1 z" class="go-arrow" />
+              <text x={W - 36} y={H - 28} data-testid="gen-schema-rot">{Math.round(rotation * 10) / 10}°</text>
+            {/if}
+          </g>
           {#each schema.dots as d, i (i)}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <g class="go-dot" class:on={i === st.anchorIndex} role="button" tabindex="-1" onclick={() => (st.anchorIndex = i)} data-testid="gen-anchor-dot-{i}">
@@ -253,6 +274,10 @@
   .go-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   .go-schema { width: 100%; max-width: 300px; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .go-lines { stroke: var(--st-text-3); stroke-width: 1; fill: none; }
+  .go-axes path { stroke: var(--st-text-2); stroke-width: 1.2; fill: none; }
+  .go-axes .go-arrow { fill: var(--st-text-2); stroke: none; }
+  .go-axes .go-rot { stroke: var(--st-accent); }
+  .go-axes text { font-size: 8px; fill: var(--st-text-2); }
   .go-dot { cursor: pointer; }
   .go-dot circle { fill: var(--st-surface); stroke: var(--st-accent); stroke-width: 1.5; }
   .go-dot.on circle { fill: var(--st-accent); }

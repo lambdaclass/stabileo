@@ -163,3 +163,18 @@ describe('fill refuses degenerate or occupied faces', () => {
     expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
   });
 });
+
+describe('the preview of a construction', () => {
+  it('is the member the construction then adds, and adds nothing itself', async () => {
+    const { constructionPreview } = await import('../construct');
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), p = modelStore.addNode(1, 3, 0);
+    const c = modelStore.addNode(0, 2, 0), d = modelStore.addNode(4, 2, 0);
+    const e1 = modelStore.addElement(a, b), e2 = modelStore.addElement(c, d);
+    const before = { n: modelStore.nodes.size, e: modelStore.elements.size };
+    expect(constructionPreview('perpendicular', p, e1)).toEqual([[1, 3, 0], [1, 0, 0]]);
+    expect(constructionPreview('midpoints', e1, e2)).toEqual([[2, 0, 0], [2, 2, 0]]);
+    expect(constructionPreview('perpendicular', a, e1)).toBeNull();
+    expect({ n: modelStore.nodes.size, e: modelStore.elements.size }).toEqual(before);
+  });
+});

@@ -24,6 +24,12 @@ test.describe('@smoke generators into the model', () => {
     await page.getByTestId('gen-f-storeys').fill('3');
     await page.getByTestId('gen-out-atPoint').check();
     await page.getByTestId('gen-x').fill('30');
+    // The schema names where the generated axes point: +X, then +Y once turned 90°.
+    await expect(page.getByTestId('gen-schema-axes')).toContainText('+X');
+    await page.getByTestId('gen-rot').fill('90');
+    await expect(page.getByTestId('gen-schema-axes')).toContainText('+Y');
+    await expect(page.getByTestId('gen-schema-rot')).toContainText('90');
+    await page.getByTestId('gen-rot').fill('0');
     await page.getByTestId('gen-preview-point').click();
     await expect(page.getByTestId('placement-hud')).toBeVisible();
     expect((await census()).elements).toBe(before.elements);
