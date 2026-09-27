@@ -18,6 +18,7 @@
   // results and reinforcement design as two documents.
   import ProForcesReport from './ProForcesReport.svelte';
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
+  import ProMemberStressTable from './ProMemberStressTable.svelte';
   import ProShellContourOptions from './ProShellContourOptions.svelte';
   import {
     componentUnit,
@@ -372,6 +373,7 @@
     { id: 'statics', labelKey: 'pro.statics.title', count: () => (results ? Math.max(1, resultsStore.perCase3D.size + resultsStore.perCombo3D.size) : 0) },
     { id: 'forces', labelKey: 'pro.forcesTitle', count: () => results?.elementForces.length ?? 0 },
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
+    { id: 'memberStress', labelKey: 'mstress.title', count: () => results?.elementForces.length ?? 0 },
     // Relative to each member's chord — the number a span limit is written for.
     { id: 'deflections', labelKey: 'defl.title', count: () => (results ? [...modelStore.elements.values()].filter(e => e.type === 'frame').length : 0) },
     { id: 'drift', labelKey: 'drift.title', count: () => !results ? 0 : modelStore.model.loadCases.filter((c) => (c.type || '').toUpperCase() === 'E').length },
@@ -767,6 +769,9 @@
         </div>
       {/if}
 
+      {#if resSection === 'memberStress'}
+        <ProMemberStressTable />
+      {/if}
       {#if resSection === 'statics'}
         <StaticsCheckPanel />
       {/if}
