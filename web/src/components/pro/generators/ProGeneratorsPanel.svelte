@@ -23,6 +23,7 @@
   import { uiStore } from '../../../lib/store/ui.svelte';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { applyGeneratedModel, matchesPreview } from '../../../lib/store/generator-apply';
+  import { taperSupportedColumns } from '../../../lib/model/edit/taper';
   import {
     DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies,
     generateTruss, validateTrussParams, type Topology, type TrussParams,
@@ -302,6 +303,12 @@
   }
   const groups = $derived(generatedGroups());
 
+  /**
+   * Solid shed columns as welded I tapered from base to head, applied right after the frame lands.
+   * Flanges and web are the chosen column profile's; only the depth varies.
+   */
+  let taperColumns = $state({ on: false, baseMm: 300, headMm: 600 });
+
   function generate(supports: SupportMode = 'generated') {
     if (!topology || !canGenerate) return;
     const opts: EmitOptions = {
@@ -320,6 +327,10 @@
     lastResult = matchesPreview(g, r)
       ? tp('generator.ui.generated', { nodes: r.nodes, elements: r.elements, name: opts.name })
       : tp('generator.ui.mismatch', { promised: g.json.elements.length, got: r.elements });
+    if (kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on) {
+      const tr = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000);
+      lastResult += ` ${tp('generator.ui.taperedColumns', { n: tr.tapered.length, notI: tr.notI })}`;
+    }
     uiStore.toast(lastResult, matchesPreview(g, r) ? 'success' : 'error');
   }
 </script>
@@ -527,6 +538,13 @@
           <option value="lattice">{t('generator.ui.columnLattice')}</option>
           <option value="solid">{t('generator.ui.columnSolid')}</option>
         </select></label>
+      {#if shed.columnKind === 'solid'}
+        <label class="check"><input type="checkbox" bind:checked={taperColumns.on} data-testid="gen-taper-columns" /><span>{t('generator.ui.taperColumns')}</span></label>
+        {#if taperColumns.on}
+          <label><span>{t('generator.ui.taperBase')}</span><input type="number" min="50" step="10" bind:value={taperColumns.baseMm} data-testid="gen-taper-base" /></label>
+          <label><span>{t('generator.ui.taperHead')}</span><input type="number" min="50" step="10" bind:value={taperColumns.headMm} data-testid="gen-taper-head" /></label>
+        {/if}
+      {/if}
       {#if shed.columnKind === 'lattice'}
         <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={shed.column.widthM} aria-describedby="gen-hint-width" /></label>
         <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={shed.column.divisions} aria-describedby="gen-hint-divisions" /></label>

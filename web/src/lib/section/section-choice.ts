@@ -25,6 +25,10 @@ import type { SectionProperties } from '../data/section-shapes';
 import { composeBuiltUp } from '../engine/generators/built-up-section';
 import { resolveProfile } from '../engine/generators/profile-resolve';
 import { familyToShape } from '../data/steel-profiles';
+import { drawnDesignShape } from './drawn-design';
+import { findProfile } from '../engine/generators/profile-resolve';
+
+const findProfileFamily = (name: string) => findProfile(name)?.family;
 
 export type SectionChoice =
   /** Picked from a catalogue, possibly composed and rotated. */
@@ -106,13 +110,22 @@ export interface SectionFields {
 export function toSectionFields(choice: SectionChoice, autoDeg: number): SectionFields | null {
   if (choice.kind === 'drawn') {
     const { name, drawn, props } = choice;
+    /*
+     * The shape and thicknesses a steel check reads, only when the drawing IS that shape: a welded
+     * I of three plates, or one catalogue profile. Otherwise they are written as `undefined`, so no
+     * check can take a cover-plated or cut section for a plain I. The geometry is the parts either
+     * way; the canonical resolver reads `drawn` before `shape`.
+     */
+    const design = drawnDesignShape(drawn);
+    const d = 'shape' in design ? design.shape : null;
     return {
       name,
       rotation: 0,
       drawn,
       // Nothing of a previous make-up may survive: each of these would describe another section.
-      built: undefined, composition: undefined, shape: undefined, profileFamily: undefined,
-      tw: undefined, tf: undefined, t: undefined, tl: undefined,
+      built: undefined, composition: undefined, tl: undefined,
+      shape: d?.shape, tw: d?.tw, tf: d?.tf, t: d?.t,
+      profileFamily: d?.profileName ? findProfileFamily(d.profileName) : undefined,
       a: props.a, iy: props.iy, iz: props.iz,
       ...(props.j != null ? { j: props.j } : {}),
       b: props.b, h: props.h,

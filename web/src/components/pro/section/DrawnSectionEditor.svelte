@@ -232,6 +232,7 @@
     <div class="left">
       <DrawnSectionCanvas
         drawn={effective} {sp} {selected} profile={catalogueOutline} {materialOrder}
+        materialNames={new Map([[null, refMat?.name ?? ''], ...materials.map((m) => [m.id, m.name] as [number, string])])}
         onSelect={(id) => (selected = id)}
         onMove={(id, at: Pt) => { const p = drawn.parts.find((x) => x.id === id); if (p) replace({ ...p, at }); }}
         onDrag={(d) => (dragging = d)}

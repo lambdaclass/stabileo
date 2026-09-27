@@ -19,11 +19,13 @@
     profile: ProfileOutline;
     /** Material ids in the order their colours are assigned. */
     materialOrder: Array<number | null>;
+    /** Names for the legend, by material id (`null` is the reference material). */
+    materialNames?: Map<number | null, string>;
     onSelect: (id: number | null) => void;
     onMove: (id: number, at: Pt) => void;
     onDrag: (dragging: boolean) => void;
   }
-  const { drawn, sp, selected, profile, materialOrder, onSelect, onMove, onDrag }: Props = $props();
+  const { drawn, sp, selected, profile, materialOrder, materialNames, onSelect, onMove, onDrag }: Props = $props();
 
   const W = 420, H = 300;
   const outlines = $derived(drawn.parts.map((p) => ({ part: p, polys: partOutline(p, profile) })));
@@ -46,6 +48,9 @@
       ring.map(([y, z], i) => `${i ? 'L' : 'M'}${view.px(y).toFixed(1)} ${view.pz(z).toFixed(1)}`).join(' ') + ' Z')).join(' ');
 
   const colourOf = (p: DrawnPart) => categoryCss(materialOrder.indexOf(p.materialId ?? null) + 1);
+  /** The materials the drawing uses, in colour order, for the legend and the hatches. */
+  const used = $derived(materialOrder.filter((m) => drawn.parts.some((p) => !p.void && (p.materialId ?? null) === m)));
+  const hatchId = (m: number | null) => `drawn-hatch-${m ?? 'ref'}`;
   const mm = (m: number) => (m * 1000).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
   const selBox = $derived.by(() => {
@@ -106,13 +111,20 @@
   onpointerdown={() => onSelect(null)}
   role="img" aria-label="section drawing"
 >
+  <defs>
+    {#each used as m (m)}
+      <pattern id={hatchId(m)} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate({m === null ? 45 : 135})">
+        <line x1="0" y1="0" x2="0" y2="6" stroke={categoryCss(materialOrder.indexOf(m) + 1)} stroke-width="1" />
+      </pattern>
+    {/each}
+  </defs>
   {#each outlines as o (o.part.id)}
     {#if o.polys}
       <path
         d={path(o.polys)}
         fill-rule="evenodd"
-        fill={o.part.void ? 'none' : colourOf(o.part)}
-        fill-opacity={o.part.void ? 0 : 0.35}
+        fill={o.part.void ? 'none' : used.length > 1 ? `url(#${hatchId(o.part.materialId ?? null)})` : colourOf(o.part)}
+        fill-opacity={o.part.void ? 0 : used.length > 1 ? 0.9 : 0.35}
         stroke={o.part.id === selected ? 'var(--st-selected)' : o.part.void ? 'var(--st-text-2)' : colourOf(o.part)}
         stroke-width={o.part.id === selected ? 2 : 1.2}
         stroke-dasharray={o.part.void ? '4 3' : undefined}
@@ -143,6 +155,15 @@
         <text x={view.px(sp.shearCentre[0]) + 5} y={view.pz(sp.shearCentre[1]) + 12} class="lbl">S</text>
       </g>
     {/if}
+  {/if}
+
+  {#if used.length > 1}
+    <g class="legend" data-testid="drawn-legend">
+      {#each used as m, i (m)}
+        <rect x={W - 110} y={8 + i * 14} width="10" height="10" fill={`url(#${hatchId(m)})`} stroke={categoryCss(materialOrder.indexOf(m) + 1)} />
+        <text x={W - 96} y={17 + i * 14} class="lbl">{materialNames?.get(m) ?? '—'}</text>
+      {/each}
+    </g>
   {/if}
 
   <!-- Overall dimensions, under and left of the drawing. -->

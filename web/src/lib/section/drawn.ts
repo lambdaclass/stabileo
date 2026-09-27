@@ -33,8 +33,13 @@ export type DrawnShape =
   | { kind: 'polygon'; points: Pt[] }
   /** Open centreline with a wall thickness, as a bent plate or a cold-formed section is drawn. */
   | { kind: 'polyline'; points: Pt[]; t: number }
-  /** A catalogue profile's outline, by exact catalogue name. */
-  | { kind: 'profile'; name: string };
+  /**
+   * A catalogue profile's outline, by exact catalogue name.
+   *
+   * `cut` keeps the part above or below a horizontal cut, `at` metres from the profile's
+   * underside: a tee cut from an I, or half a channel.
+   */
+  | { kind: 'profile'; name: string; cut?: { keep: 'top' | 'bottom'; at: number } };
 
 export interface DrawnPart {
   id: number;
@@ -173,8 +178,19 @@ function localPolygons(shape: DrawnShape, profile: ProfileOutline): Polygon[] | 
       return ring ? [[ring]] : null;
     }
     case 'profile': {
-      const polys = profile(shape.name);
+      let polys = profile(shape.name);
       if (!polys || polys.length === 0) return null;
+      if (shape.cut) {
+        const b0 = bboxOf(polys);
+        const zc = b0[1] + shape.cut.at;
+        if (!(zc > b0[1] && zc < b0[3])) return null;
+        // A box a metre wider than the profile on every side, above or below the cut.
+        const [y0, y1] = [b0[0] - 1, b0[2] + 1];
+        const [z0, z1] = shape.cut.keep === 'top' ? [zc, b0[3] + 1] : [b0[1] - 1, zc];
+        const half: Polygon = [[[y0, z0], [y1, z0], [y1, z1], [y0, z1]]];
+        polys = polygonClipping.intersection(polys as MultiPolygon, half);
+        if (areaOf(polys) <= AREA_TOL) return null;
+      }
       // Around the bounding box centre, like the other templates.
       const bb = bboxOf(polys);
       const cy = (bb[0] + bb[2]) / 2, cz = (bb[1] + bb[3]) / 2;

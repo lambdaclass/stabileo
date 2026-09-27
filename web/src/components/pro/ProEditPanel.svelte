@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   /**
    * Cut, merge and clean up — the topology commands over the selection.
    *
@@ -7,6 +8,7 @@
    */
   import { looseParts, freeShellEdges, unconnectedCrossings, repeatedProperties } from '../../lib/model/edit/hygiene';
   import { flipMembers } from '../../lib/model/edit/flip-members';
+  import { taperMembers, validateTaper, DEFAULT_TAPER_SEGMENTS, type TaperSpec } from '../../lib/model/edit/taper';
   import { unifyProperties } from '../../lib/model/edit/cleanup';
   import { weldTolerance, setWeldTolerance } from '../../lib/model/weld-tolerance';
   import { modelStore, uiStore } from '../../lib/store';
@@ -122,6 +124,24 @@
   function doFlip() {
     const r = flipMembers(members);
     message = tp('edit.flipped', { n: r.flipped.length }) + (r.skipped.length ? ` ${tp('edit.flipSkipped', { n: r.skipped.length })}` : '');
+  }
+
+  // ── Taper: welded I from depth hI at end I to hJ at end J, in prismatic segments ──
+  let taper = $state({ hI: 600, hJ: 300, b: 200, tf: 12, tw: 8, segments: DEFAULT_TAPER_SEGMENTS });
+  /** Start from the first selected member's own I, when it has one. */
+  $effect(() => {
+    const first = members[0];
+    const sec = first != null ? modelStore.sections.get(modelStore.elements.get(first)?.sectionId ?? -1) : undefined;
+    if (sec && (sec.shape === 'I' || sec.shape === 'H') && sec.h && sec.b && sec.tf && sec.tw) {
+      const mm = (v: number) => Math.round(v * 10000) / 10;
+      untrack(() => { taper = { ...taper, hI: mm(sec.h!), hJ: mm(sec.h! / 2), b: mm(sec.b!), tf: mm(sec.tf!), tw: mm(sec.tw!) }; });
+    }
+  });
+  const taperSpec = $derived<TaperSpec>({ hI: taper.hI / 1000, hJ: taper.hJ / 1000, b: taper.b / 1000, tf: taper.tf / 1000, tw: taper.tw / 1000, segments: taper.segments });
+  const taperProblems = $derived(validateTaper(taperSpec));
+  function doTaper() {
+    const r = taperMembers(members, taperSpec);
+    message = tp('edit.tapered', { n: r.tapered.length / taperSpec.segments, s: r.sections }) + (r.skipped.length ? ` ${tp('edit.flipSkipped', { n: r.skipped.length })}` : '');
   }
 
   /** Selected members, and the members wholly between selected nodes. */
@@ -268,12 +288,31 @@
     <button class="pk-btn pk-btn-primary" onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
   </section>
 
+  <section class="pk-card" data-testid="ep-taper">
+    <h4 class="pk-heading">{t('edit.taperTitle')}</h4>
+    <p class="ep-note">{t('edit.taperNote')}</p>
+    <div class="pk-row ep-row">
+      {#each ['hI', 'hJ', 'b', 'tf', 'tw'] as k (k)}
+        <label>{k}<input type="number" min="1" step="1" value={taper[k as 'hI']} data-testid="ep-taper-{k}"
+          onchange={(e) => (taper = { ...taper, [k]: Number(e.currentTarget.value) })} /></label>
+      {/each}
+      <span class="ep-unit">mm</span>
+      <label>{t('edit.taperSegments')}<input type="number" min="2" max="50" step="1" value={taper.segments} data-testid="ep-taper-n"
+        onchange={(e) => (taper = { ...taper, segments: Number(e.currentTarget.value) })} /></label>
+    </div>
+    {#if taperProblems.length}<p class="ep-note warn">{taperProblems.map((p) => t(`edit.taperProblem.${p}`)).join(' ')}</p>{/if}
+    <div class="pk-row"><button class="pk-btn" disabled={members.length === 0 || taperProblems.length > 0} onclick={doTaper} data-testid="ep-taper-go">{tp('edit.taperGo', { n: members.length })}</button></div>
+  </section>
+
   {#if message}<p class="pk-ok" data-testid="ep-done">{message}</p>{/if}
 </div>
 
 <style>
   .ep-row label { display: flex; align-items: center; gap: 4px; color: var(--st-text-3); }
   .ep-row input[type='number'] { width: 56px; text-align: right; }
+  .ep-note { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.35; }
+  .ep-note.warn { color: var(--st-warn); }
+  .ep-unit { color: var(--st-text-3); font-size: 0.64rem; }
   .ep-findings { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 4px; color: var(--st-text-2); }
   .ep-findings li { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .ep-findings :global(.pk-btn) { min-height: 20px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }

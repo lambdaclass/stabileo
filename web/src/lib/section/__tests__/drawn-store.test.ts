@@ -37,7 +37,9 @@ d('drawn sections in the model', () => {
     expect(sec.canonical.j!).toBeCloseTo(direct.j!, 12);
     expect(sec.a).toBeCloseTo(direct.a, 12);
     expect(supportsDetailedAnalysis(sec)).toBe(true);
-    expect(sec.shape).toBeUndefined();
+    // A welded I of three plates is an I to the steel checks, with its plates' thicknesses.
+    expect(sec.shape).toBe('I');
+    expect(sec.tw).toBeCloseTo(0.008, 12);
   });
 
   it('editing the parts re-derives the properties; a catalogue pick afterwards drops the parts', () => {

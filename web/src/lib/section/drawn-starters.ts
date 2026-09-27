@@ -8,9 +8,9 @@
 import type { DrawnPart, Pt, ProfileOutline } from './drawn';
 import { attachOffset } from './drawn';
 
-export type StarterId = 'weldedI' | 'box' | 'tee' | 'coverPlated' | 'doubleAngle' | 'lippedC' | 'filledTube';
+export type StarterId = 'weldedI' | 'box' | 'tee' | 'coverPlated' | 'cutTee' | 'doubleAngle' | 'doubleChannel' | 'lippedC' | 'filledTube';
 
-export const STARTERS: readonly StarterId[] = ['weldedI', 'box', 'tee', 'coverPlated', 'doubleAngle', 'lippedC', 'filledTube'];
+export const STARTERS: readonly StarterId[] = ['weldedI', 'box', 'tee', 'coverPlated', 'cutTee', 'doubleAngle', 'doubleChannel', 'lippedC', 'filledTube'];
 
 const plate = (id: number, b: number, h: number, at: Pt): DrawnPart => ({ id, shape: { kind: 'rect', b, h }, at, rotationDeg: 0 });
 
@@ -40,6 +40,27 @@ export function starterParts(id: StarterId, profile: ProfileOutline, profileName
       const atTop = attachOffset(top, base, 'top', 'centre', profile);
       const atBottom = attachOffset(bottom, base, 'bottom', 'centre', profile);
       return atTop && atBottom ? [base, { ...top, at: atTop }, { ...bottom, at: atBottom }] : [base];
+    }
+    case 'cutTee': {
+      // The top half of an I, cut at mid-depth: the usual chord of a light truss.
+      const outline = profile(profileName);
+      if (!outline) return [];
+      const zs = outline.flat(2).map((p) => p[1]);
+      const at = (Math.max(...zs) - Math.min(...zs)) / 2;
+      return [{ id: 1, shape: { kind: 'profile', name: profileName, cut: { keep: 'top', at } }, at: [0, 0], rotationDeg: 0 }];
+    }
+    case 'doubleChannel': {
+      // Two channels back to back, their webs 10 mm apart for a gusset.
+      const name = 'UPN 200', gap = 0.01;
+      const outline = profile(name);
+      if (!outline) return [];
+      const ys = outline.flat(2).map((p) => p[0]);
+      const w = Math.max(...ys) - Math.min(...ys);
+      const right: DrawnPart = { id: 1, shape: { kind: 'profile', name }, at: [gap / 2 + w / 2, 0], rotationDeg: 0 };
+      const left: DrawnPart = { id: 2, shape: { kind: 'profile', name }, at: [-gap / 2 - w / 2, 0], rotationDeg: 0, mirror: true };
+      // The catalogue draws a channel with its web on the left; the right-hand one keeps it, so
+      // its back faces the gap, and the left-hand one is mirrored.
+      return [right, left];
     }
     case 'doubleAngle': {
       // Two 75 × 8 angles back to back with a 10 mm gusset gap, drawn on their centrelines.
