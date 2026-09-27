@@ -38,7 +38,33 @@ export interface SteelSectionConstants {
   Zy?: number;
 }
 
+/**
+ * Kept per section description. The plastic moduli mesh the section in the engine, some 60 ms a
+ * profile, and the optimiser asks for the same few hundred profiles on every run; the answer
+ * depends only on the fields in the key. A result computed without the engine is not kept, so
+ * the first call after it starts gets the geometry's values.
+ */
+const CACHE_LIMIT = 512;
+const cache = new Map<string, SteelSectionConstants>();
+const keyOf = (s: Sec) => JSON.stringify([
+  s.name, s.shape, s.a, s.b, s.h, s.tw, s.tf, s.t, s.j, s.iy, s.iz, s.rotation,
+  s.polygon, s.holes, s.drawn, s.composition, s.canonical?.kind === 'geometry-backed' ? s.canonical.digest : null,
+]);
+
 export function steelSectionConstants(sec: Sec): SteelSectionConstants {
+  const key = keyOf(sec);
+  const hit = cache.get(key);
+  if (hit) return { ...hit };
+  const { value, engine } = computeConstants(sec);
+  if (engine) {
+    if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value!);
+    cache.set(key, value);
+  }
+  return { ...value };
+}
+
+function computeConstants(sec: Sec): { value: SteelSectionConstants; engine: boolean } {
+  let engine = true;
   let J = 0, jBasis: SteelSectionConstants['jBasis'] = 'none';
   if (sec.j !== undefined && sec.j > 0) {
     J = sec.j; jBasis = 'declared';
@@ -65,6 +91,7 @@ export function steelSectionConstants(sec: Sec): SteelSectionConstants {
     if (zy.source === 'geometry') out.Zy = zy.zp;
   } catch {
     // No section engine: the checker keeps its own formula.
+    engine = false;
   }
-  return out;
+  return { value: out, engine };
 }

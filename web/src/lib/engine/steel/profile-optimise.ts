@@ -128,8 +128,33 @@ export interface OptimiseResult {
   chosen: CandidateVerdict | null;
   /** The heaviest checked when none passes, so the user sees how far off the family is. */
   best: CandidateVerdict | null;
-  /** How many candidates were checked. */
+  /** How many candidates were checked in full. */
   tried: number;
+  /** How many were set aside by the plastic bound (`mayPass`) without the full check. */
+  pruned: number;
+}
+
+/**
+ * Whether a profile could pass at all, from its tabulated area and elastic moduli alone.
+ *
+ * No resistance exceeds the plastic one: axial Fy·A, flexure Fy·Z, and for an I section Z stays
+ * under 1.5·S about the strong axis and 1.7·S about the weak one (1.5 is the rectangle's shape
+ * factor, the limit an I approaches as its web vanishes; the weak axis is the flanges' rectangles
+ * plus a little web). A profile below any of these for any member cannot pass, so it is skipped
+ * without the full check, which meshes the section in the engine. This only removes candidates
+ * the check would have failed; it never changes which one is chosen.
+ */
+export function mayPass(p: SteelProfile, members: readonly OptimiseMember[], material: { fy?: number }, target = 1): boolean {
+  if (!material.fy) return true;
+  const fy = material.fy * 1000; // kPa
+  const A = p.a * 1e-4, Sy = (p.iy * 1e-8) / (p.h / 2000), Sz = (p.iz * 1e-8) / (p.b / 2000);
+  for (const m of members) {
+    const d = m.demand;
+    if (Math.max(d.Nc, d.Nt) > target * fy * A) return false;
+    if (Math.abs(d.MuStrong) > target * fy * 1.5 * Sy) return false;
+    if (Math.abs(d.MuWeak) > target * fy * 1.7 * Sz) return false;
+  }
+  return true;
 }
 
 /** The lightest profile, of `family` or of the criteria's families, that passes every member of the group. */
@@ -139,14 +164,18 @@ export function lightestPassing(
   material: { fy?: number; e?: number; fu?: number },
   criteria: OptimiseCriteria = {},
 ): OptimiseResult {
-  let tried = 0;
+  let tried = 0, pruned = 0;
   let best: CandidateVerdict | null = null;
-  for (const p of candidates(criteria, family)) {
+  const list = candidates(criteria, family);
+  for (const p of list) {
+    if (I_FAMILIES.includes(p.family) && !mayPass(p, members, material, criteria.target ?? 1)) { pruned++; continue; }
     const v = verdictFor(p, members, material, criteria);
     if (!v) continue;
     tried++;
-    if (v.passes) return { chosen: v, best: v, tried };
+    if (v.passes) return { chosen: v, best: v, tried, pruned };
     if (!best || v.ratio < best.ratio) best = v;
   }
-  return { chosen: null, best, tried };
+  // Everything pruned: the heaviest candidate says how far the search is from passing.
+  if (!best && list.length > 0) best = verdictFor(list[list.length - 1]!, members, material, criteria);
+  return { chosen: null, best, tried, pruned };
 }

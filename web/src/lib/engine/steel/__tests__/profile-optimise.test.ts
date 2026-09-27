@@ -88,7 +88,8 @@ describe('lightest passing profile', () => {
     const r = lightestPassing('IPE', beam(5e4, 3), steel);
     expect(r.chosen).toBeNull();
     expect(r.best!.ratio).toBeGreaterThan(1);
-    expect(r.tried).toBe(familyByWeight('IPE').length);
+    // Every candidate was either checked or set aside by the plastic bound.
+    expect(r.tried + r.pruned).toBe(familyByWeight('IPE').length);
   });
 });
 
@@ -233,5 +234,20 @@ describe('by named group', () => {
     const secs = new Set(beams.map((id) => modelStore.elements.get(id)!.sectionId));
     expect(secs.size).toBe(1);
     expect(modelStore.sections.get([...secs][0]!)!.name).toBe(row.result.chosen!.profile.name);
+  });
+});
+
+import { mayPass } from '../profile-optimise';
+
+describe('pruning by the plastic bound', () => {
+  const beam = (M: number, Lb: number) => [{ elementId: 1, demand: { ...noDemand, MuStrong: M, Vu: M / 2 }, lengths: { L: Lb, Lb } }];
+  it('never removes a profile the full check passes, and does remove the ones far too small', () => {
+    for (const M of [20, 60, 150]) {
+      for (const p of familyByWeight('IPE')) {
+        const v = verdictFor(p, beam(M, 2), steel);
+        if (v?.passes) expect(mayPass(p, beam(M, 2), steel), `${p.name} at ${M}`).toBe(true);
+      }
+    }
+    expect(mayPass(familyByWeight('IPE')[0]!, beam(150, 2), steel)).toBe(false);
   });
 });
