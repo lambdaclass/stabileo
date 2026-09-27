@@ -1576,15 +1576,25 @@ export function buildSolverInput3D(
         const supportDz = s.dz ?? s.dy;
         const supportDry = s.dry ?? s.drz;
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
+        /*
+         * `kz` means two things, by support family. On a 2D support (`spring`) it is the
+         * rotational spring, as in the plane model: kx and ky translate, kz turns. On a 3D
+         * support (`spring3d`, `custom3d`) it is the vertical translational spring, as the
+         * supports table labels it (kN/m) and as the step-by-step 3D solver and the kinematic
+         * count read it. This mapping used to give every support the 2D reading, so a 3D
+         * spring's kz arrived as krz and no vertical spring existed: the mat foundation example
+         * floated.
+         */
+        const legacyRotZ = is2DSupportType(s.type);
         return [s.nodeId, {
           nodeId: s.nodeId,
           ...dofs,
           kx: s.kx,
           ky: embedded2D ? undefined : s.ky,
-          kz: embedded2D ? s.ky : undefined,
+          kz: embedded2D ? s.ky : (legacyRotZ ? undefined : s.kz),
           krx: embedded2D ? undefined : s.krx,
           kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
-          krz: embedded2D ? s.krz : (s.krz ?? s.kz),
+          krz: embedded2D ? s.krz : (legacyRotZ ? (s.krz ?? s.kz) : s.krz),
           dx: s.dx,
           dy: embedded2D ? undefined : s.dy,
           dz: embedded2D ? supportDz : s.dz,
