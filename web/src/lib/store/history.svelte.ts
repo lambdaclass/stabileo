@@ -57,6 +57,8 @@ export interface ModelSnapshot {
     members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] };
     data?: Record<string, unknown>;
   }]>;
+  /** Dynamic analysis settings (the time history). Absent: none stated. */
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */

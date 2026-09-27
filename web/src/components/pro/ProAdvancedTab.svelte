@@ -44,7 +44,7 @@
   import { errorText } from '../../lib/utils/error-text';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
-    designSpectrum, isBlocked, spectrumPoints, RISK_FACTOR,
+    designSpectrum, isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
     type SeismicZone, type SiteClass, type DestinationGroup,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -55,7 +55,7 @@
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -1254,7 +1254,8 @@
       {/if}
 
       {#if advView === 'timehistory'}
-        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)} />
+        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)}
+          spectrumSa={isBlocked(codeSpectrum) ? null : (T) => spectralOrdinate(T, codeSpectrum as never)} />
       {/if}
 
     <!-- ── 6b. Harmonic Response ── -->

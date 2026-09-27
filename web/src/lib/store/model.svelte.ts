@@ -805,6 +805,8 @@ export interface StructureModel {
   views?: SavedView[];
   /** The structural grid and the named levels (`model/grid.ts`). Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
+  /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1551,6 +1553,7 @@ function createModelStore() {
     get combinationRules() { return model.combinationRules ?? []; },
     get views(): readonly SavedView[] { return model.views ?? []; },
     get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
+    get dynamics() { return model.dynamics; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1630,6 +1633,9 @@ function createModelStore() {
           : {}),
         ...(snap.grid && (snap.grid.axes.length > 0 || snap.grid.levels.length > 0)
           ? { grid: JSON.parse(JSON.stringify(snap.grid)) as ModelSnapshot['grid'] }
+          : {}),
+        ...(snap.dynamics?.timeHistory
+          ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1818,6 +1824,7 @@ function createModelStore() {
     model.combinationRules = s.combinationRules ? JSON.parse(JSON.stringify(s.combinationRules)) : undefined;
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
     model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
+    model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2930,6 +2937,7 @@ function createModelStore() {
       model.combinationRules = undefined;
       model.views = undefined;
       model.grid = undefined;
+      model.dynamics = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3292,6 +3300,12 @@ function createModelStore() {
     setGrid(grid: import('../model/grid').StructuralGrid | null): void {
       if (!_undoBatching) _pushUndoView?.();
       model.grid = grid && (grid.axes.length > 0 || grid.levels.length > 0) ? JSON.parse(JSON.stringify(grid)) : undefined;
+    },
+
+    /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
     /** State the project's combination rules; an empty list withdraws them. */

@@ -158,7 +158,8 @@ export interface TimeHistoryOptions {
  * The engine ignores `method` and switches to HHT-α only when `alpha` is present, so choosing
  * HHT in the panel without sending α ran average-acceleration Newmark under an HHT label.
  */
-export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown> {
+/** The integration part of a time-history input: shared by every way of building one. */
+export function integrationFields(o: Pick<TimeHistoryOptions, 'densities' | 'dt' | 'nSteps' | 'method' | 'alpha' | 'dampingXi'>): Record<string, unknown> {
   const hht = o.method === 'hht';
   if (hht && (o.alpha === undefined || !isValidHhtAlpha(o.alpha))) {
     throw new Error(`HHT-α needs α in [${HHT_ALPHA_RANGE.min.toFixed(3)}, 0]`);
@@ -172,6 +173,12 @@ export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown
     gamma: 0.5,
     ...(hht ? { alpha: o.alpha } : {}),
     dampingXi: o.dampingXi,
+  };
+}
+
+export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown> {
+  return {
+    ...integrationFields(o),
     groundAccelX: o.direction === 'X' ? o.groundAccel : undefined,
     groundAccelY: o.direction === 'Y' ? o.groundAccel : undefined,
     groundAccelZ: o.direction === 'Z' ? o.groundAccel : undefined,
