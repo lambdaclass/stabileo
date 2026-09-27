@@ -8,7 +8,7 @@
  * times those displacements, without the geometric part Kg(N)·u. Measured on a 4 m cantilever
  * under 60 kN and 0.12 kN of lateral load about its weak axis: base moment 0.824 kN·m reported,
  * 0.778 exact, and a horizontal reaction of 0.198 kN against 0.12 applied. That is recorded for
- * the engine (M8 in the engine's pending list), and until it is fixed there the forces are
+ * the engine (M13 in the engine's pending list), and until it is fixed there the forces are
  * corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
  *
  * `pdelta-forces.test.ts` pins the engine's current behaviour with an `it.fails`. When the engine
