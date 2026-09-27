@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * A slab or raft on the ground: vertical springs k = ks · A at the nodes of the selected shells
-   * (or of every shell at an elevation), with ks from the project's soil profile or typed
+   * A slab or raft on the ground: vertical springs k = ks · A at the nodes of the selected shells,
+   * with ks from the project's soil profile or typed
    * (`engine/foundation-springs.ts`). Optionally one-way, so the raft can lift, and held
    * horizontally. One undo step; a node's existing support is replaced.
    */
@@ -22,7 +22,7 @@
     return p?.subgradeModulusKNm3 ?? null;
   });
 
-  /** The selected shells, or every shell if none is selected. */
+  /** The selected shells. None selected: nothing, and the panel asks for them. */
   const shells = $derived.by(() => {
     const out: Array<{ nodes: number[] }> = [];
     for (const key of uiStore.selectedShells) {

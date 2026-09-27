@@ -269,6 +269,11 @@ export interface StabileoTestHooks {
   sectionNames(): string[];
   /** The elevation new nodes land on: the active level when working on the horizontal plane. */
   nodeCreateZ(): number;
+  /**
+   * One element's or support's stored data, or a project setting (`dynamics`), as JSON: what a
+   * panel wrote to the model, which its own display may round or omit.
+   */
+  entityData(kind: 'element' | 'support' | 'section' | 'setting', key: number | string): unknown;
   /** The names of the load cases, in model order. */
   loadCaseNames(): string[];
   orientationSuspectCount(): number;
@@ -423,6 +428,8 @@ export interface StabileoTestActions {
   combineCases(name: string): number;
   /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
+  /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
+  selectShells(keys: string[]): void;
   toggleBarLock(barId: string): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -627,6 +634,13 @@ export function installE2EHooks(): void {
     quadIds: () => [...modelStore.model.quads.keys()].sort((a, b) => a - b),
     quadCurved: (id: number) => !!modelStore.model.quads.get(id)?.curved,
     nodeCreateZ: () => uiStore.nodeCreateZ,
+    entityData: (kind: 'element' | 'support' | 'section' | 'setting', key: number | string) => {
+      const v = kind === 'element' ? modelStore.elements.get(Number(key))
+        : kind === 'support' ? modelStore.supports.get(Number(key))
+        : kind === 'section' ? modelStore.sections.get(Number(key))
+        : (modelStore.snapshot() as unknown as Record<string, unknown>)[String(key)];
+      return v === undefined ? null : JSON.parse(JSON.stringify(v));
+    },
     modelCensus: () => {
       const s = modelStore.snapshot();
       return {
@@ -708,6 +722,10 @@ export function installE2EHooks(): void {
     selectElements: (ids: number[]) => {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
+    },
+    selectShells: (keys: string[]) => {
+      const all = keys.length ? keys : [...[...modelStore.quads.keys()].map((id) => `q${id}`), ...[...modelStore.plates.keys()].map((id) => `p${id}`)];
+      all.forEach((k, i) => uiStore.selectShell(k, i > 0));
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
