@@ -166,3 +166,72 @@ describe('a stated Lb is part of the model', () => {
     expect(el.unbracedLength).toBe(1.25);
   });
 });
+
+import { candidates, deflectionRatio, I_FAMILIES } from '../profile-optimise';
+
+describe('the search, widened and bounded', () => {
+  const beam = (M: number, Lb: number) => [{ elementId: 1, demand: { ...noDemand, MuStrong: M, Vu: M / 2 }, lengths: { L: Lb, Lb } }];
+
+  it('across families it is never heavier than within one, and stays within the depth limits', () => {
+    const own = lightestPassing('IPE', beam(60, 3), steel).chosen!;
+    const wide = lightestPassing('IPE', beam(60, 3), steel, { families: I_FAMILIES }).chosen!;
+    expect(wide.profile.weight).toBeLessThanOrEqual(own.profile.weight);
+    const shallow = lightestPassing('IPE', beam(60, 3), steel, { families: I_FAMILIES, hMaxMm: 250 }).chosen!;
+    expect(shallow.profile.h).toBeLessThanOrEqual(250);
+    expect(candidates({ families: ['HEB'], hMinMm: 300, bMaxMm: 300 }, 'IPE').every((p) => p.family === 'HEB' && p.h >= 300 && p.b <= 300)).toBe(true);
+  });
+
+  it('a target ratio of 70 % picks a profile at or under it, heavier than at 100 %', () => {
+    const full = lightestPassing('IPE', beam(60, 3), steel).chosen!;
+    const r70 = lightestPassing('IPE', beam(60, 3), steel, { target: 0.7 }).chosen!;
+    expect(r70.ratio).toBeLessThanOrEqual(0.7);
+    expect(r70.profile.weight).toBeGreaterThan(full.profile.weight);
+  });
+
+  it('the deflection estimate is the current deflection over the inertia ratio, and it can govern', () => {
+    const [ipe200, ipe300] = ['IPE 200', 'IPE 300'].map((n) => familyByWeight('IPE').find((p) => p.name === n)!);
+    // A simply supported beam deflecting 30 mm on an IPE 200 against a 20 mm limit.
+    const d = [{ elementId: 1, v: 0, w: 0.03, direction: 'resultant' as const, limit: 0.02, iy: ipe200!.iy * 1e-8, iz: ipe200!.iz * 1e-8 }];
+    expect(deflectionRatio(ipe200!, d)).toBeCloseTo(1.5, 9);
+    expect(deflectionRatio(ipe300!, d)).toBeCloseTo((0.03 * (ipe200!.iy / ipe300!.iy)) / 0.02, 9);
+    const byStrength = lightestPassing('IPE', beam(10, 1), steel).chosen!;
+    const byDeflection = lightestPassing('IPE', beam(10, 1), steel, { deflection: d }).chosen!;
+    expect(byDeflection.deflectionRatio!).toBeLessThanOrEqual(1);
+    expect(byDeflection.profile.iy).toBeGreaterThanOrEqual(ipe200!.iy * 1.5);
+    expect(byDeflection.profile.weight).toBeGreaterThan(byStrength.profile.weight);
+  });
+});
+
+describe('by named group', () => {
+  beforeAll(async () => { await initSolver(); });
+  beforeEach(() => { uiStore.analysisMode = 'pro'; });
+  afterEach(() => { uiStore.analysisMode = '3d'; steelOptimise.clearApplied(); });
+
+  it('one profile for all the group\'s members, named by the group', () => {
+    modelStore.clear();
+    const heavy = PROFILE_FAMILIES.IPE[PROFILE_FAMILIES.IPE.length - 1]!;
+    const sid = modelStore.addSection({ name: heavy.name, profileFamily: heavy.family, ...profileToSectionFull(heavy) } as never);
+    const mid = modelStore.addMaterial({ name: 'S235', e: 200000, nu: 0.3, rho: 78.5, fy: 250, fu: 400 } as never);
+    const n = [0, 1, 2].map((i) => modelStore.addNode(0, i * 5, 3));
+    const sup = [0, 1, 2].map((i) => modelStore.addNode(0, i * 5, 0));
+    const beams = [modelStore.addElement(n[0]!, n[1]!, 'frame'), modelStore.addElement(n[1]!, n[2]!, 'frame')];
+    const cols = sup.map((s, i) => modelStore.addElement(s, n[i]!, 'frame'));
+    for (const id of [...beams, ...cols]) { modelStore.updateElementSection(id, sid); modelStore.updateElementMaterial(id, mid); }
+    for (const s of sup) modelStore.addSupport(s, 'fixed3d');
+    modelStore.addDistributedLoad3D(beams[0]!, 0, 0, -10, -10);
+    modelStore.addDistributedLoad3D(beams[1]!, 0, 0, -20, -20);
+    modelStore.addGroup('Vigas', 'selection', { elements: beams });
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D(r);
+    steelOptimise.run('group');
+    expect(steelOptimise.rows).toHaveLength(1);
+    const row = steelOptimise.rows[0]!;
+    expect(row.groupName).toBe('Vigas');
+    expect(new Set(row.elementIds)).toEqual(new Set(beams));
+    steelOptimise.apply([row.key]);
+    const secs = new Set(beams.map((id) => modelStore.elements.get(id)!.sectionId));
+    expect(secs.size).toBe(1);
+    expect(modelStore.sections.get([...secs][0]!)!.name).toBe(row.result.chosen!.profile.name);
+  });
+});

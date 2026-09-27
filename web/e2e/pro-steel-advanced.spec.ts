@@ -41,3 +41,25 @@ test.describe('@smoke PRO direct analysis', () => {
     await expect(page.getByTestId('other-codes-summary')).toBeVisible();
   });
 });
+
+test.describe('@smoke PRO optimiser criteria', () => {
+  test('a target ratio and a depth limit shape the proposal', async ({ pro: page }) => {
+    await page.evaluate(async () => {
+      await window.__stabileoActions.loadExample('3d-portal-frame');
+      await window.__stabileoActions.solve();
+    });
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-steel').click();
+    const opt = page.getByTestId('steel-optimise');
+    await opt.scrollIntoViewIfNeeded();
+    await page.getByTestId('opt-criteria').locator('summary').click();
+    await page.getByTestId('opt-family-HEB').check();
+    await page.getByTestId('opt-hmax').fill('400');
+    await page.getByTestId('opt-target').fill('80');
+    await page.getByTestId('opt-run').click();
+    const rows = page.getByTestId('opt-rows').locator('tbody tr');
+    await expect(rows.first()).toBeVisible();
+    const ratios = await rows.locator('td:nth-child(6)').allInnerTexts();
+    for (const r of ratios) if (r !== '—') expect(Number(r.replace(/[^\d.]/g, ''))).toBeLessThanOrEqual(80);
+  });
+});

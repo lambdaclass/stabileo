@@ -19,15 +19,52 @@ import { resultsStore } from './results.svelte';
 import { activePerCombo3D, activeCombinations } from './active-results';
 import { computeStationDemands, steelDemandOf } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
-import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict } from '../engine/steel/profile-optimise';
+import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict, type OptimiseCriteria } from '../engine/steel/profile-optimise';
+import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
-export type OptimiseScope = 'section' | 'member';
+export type OptimiseScope = 'section' | 'member' | 'group';
+
+/** What the user asks of the search, beyond passing the strength check. */
+export interface OptimiseSettings {
+  families?: ProfileFamily[];
+  hMinMm?: number;
+  hMaxMm?: number;
+  bMaxMm?: number;
+  target?: number;
+  /** Also keep each member's deflection within its rule, estimated from the analysis on hand. */
+  deflection?: boolean;
+}
+
+/** The deflection criterion for a group's members: each one's deflection now, its limit and its inertias. */
+function deflectionCriterion(ids: readonly number[]): OptimiseCriteria['deflection'] {
+  const run = deflectionChecks(ids);
+  const out: Array<NonNullable<OptimiseCriteria['deflection']>[number]> = [];
+  for (const [id, row] of run.rows) {
+    const sec = modelStore.sections.get(modelStore.elements.get(id)?.sectionId ?? -1);
+    if (!sec?.iy || !sec.iz) continue;
+    out.push({ elementId: id, v: row.deflection.maxV, w: row.deflection.maxW, direction: row.rule.direction, limit: row.check.limit, iy: sec.iy, iz: sec.iz });
+  }
+  return out;
+}
+
+function criteriaFor(settings: OptimiseSettings, ids: readonly number[]): OptimiseCriteria {
+  return {
+    ...(settings.families?.length ? { families: settings.families } : {}),
+    ...(settings.hMinMm != null ? { hMinMm: settings.hMinMm } : {}),
+    ...(settings.hMaxMm != null ? { hMaxMm: settings.hMaxMm } : {}),
+    ...(settings.bMaxMm != null ? { bMaxMm: settings.bMaxMm } : {}),
+    ...(settings.target != null ? { target: settings.target } : {}),
+    ...(settings.deflection ? { deflection: deflectionCriterion(ids) } : {}),
+  };
+}
 
 export interface OptimiseRow {
   key: string;
   scope: OptimiseScope;
+  /** The group's name, for a group row. */
+  groupName?: string;
   sectionId: number;
   elementIds: number[];
   family: ProfileFamily;
@@ -85,15 +122,29 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
  */
 function groups(scope: OptimiseScope, ids?: readonly number[]) {
   const wanted = ids ? new Set(ids) : null;
-  const out = new Map<string, { sectionId: number; materialId: number; profile: SteelProfile; elementIds: number[] }>();
+  const out = new Map<string, { sectionId: number; materialId: number; profile: SteelProfile; elementIds: number[]; groupName?: string }>();
+  /*
+   * A named group is a design group: one profile for all its steel members. A member in two
+   * groups is optimised with the first, so no member receives two answers.
+   */
+  const groupOf = new Map<number, { id: number; name: string }>();
+  if (scope === 'group') {
+    for (const g of modelStore.model.groups.values()) {
+      for (const id of g.members.elements ?? []) if (!groupOf.has(id)) groupOf.set(id, { id: g.id, name: g.name });
+    }
+  }
   for (const e of modelStore.elements.values()) {
     if (wanted && !wanted.has(e.id)) continue;
     const m = modelStore.materials.get(e.materialId);
     if (!m?.fy || m.fy <= 80) continue;
     const p = catalogueProfileOf(modelStore.sections.get(e.sectionId));
     if (!p) continue;
-    const key = scope === 'section' ? `s${e.sectionId}m${e.materialId}` : `e${e.id}`;
-    const g = out.get(key) ?? { sectionId: e.sectionId, materialId: e.materialId, profile: p, elementIds: [] };
+    const grp = groupOf.get(e.id);
+    if (scope === 'group' && !grp) continue;
+    const key = scope === 'section' ? `s${e.sectionId}m${e.materialId}` : scope === 'group' ? `g${grp!.id}m${e.materialId}` : `e${e.id}`;
+    const g = out.get(key) ?? { sectionId: e.sectionId, materialId: e.materialId, profile: p, elementIds: [], ...(grp ? { groupName: grp.name } : {}) };
+    // A group's current profile is its heaviest member's: the one the group is designed around.
+    if (p.weight > g.profile.weight) { g.profile = p; g.sectionId = e.sectionId; }
     g.elementIds.push(e.id);
     out.set(key, g);
   }
@@ -106,6 +157,8 @@ function createSteelOptimise() {
   /** The model version the picks were applied at; a later version means the user edited since. */
   let appliedAt = $state<number | null>(null);
   let error = $state<string | null>(null);
+  /** The criteria of the last run, which the re-verification applies again. */
+  let lastSettings: OptimiseSettings = {};
 
   return {
     get rows() { return rows; },
@@ -117,18 +170,22 @@ function createSteelOptimise() {
     get appliedAt() { return appliedAt; },
 
     /** Propose the lightest passing profile per group, against the analysis on hand. */
-    run(scope: OptimiseScope, ids?: readonly number[]): void {
+    run(scope: OptimiseScope, ids?: readonly number[], settings: OptimiseSettings = {}): void {
       error = null;
+      lastSettings = settings;
       if (!resultsStore.results3D) { rows = []; error = 'opt.needSolve'; return; }
+      if (scope === 'group' && modelStore.model.groups.size === 0) { rows = []; error = 'opt.noGroups'; return; }
       const out: OptimiseRow[] = [];
       for (const [key, g] of groups(scope, ids)) {
         const { members } = membersFor(g.elementIds);
         if (members.length === 0) continue;
         const material = modelStore.materials.get(g.materialId)!;
+        const criteria = criteriaFor(settings, g.elementIds);
         out.push({
           key, scope, sectionId: g.sectionId, elementIds: g.elementIds, family: g.profile.family as ProfileFamily,
-          currentName: g.profile.name, current: verdictFor(g.profile, members, material),
-          result: lightestPassing(g.profile.family as ProfileFamily, members, material),
+          ...(g.groupName ? { groupName: g.groupName } : {}),
+          currentName: g.profile.name, current: verdictFor(g.profile, members, material, criteria),
+          result: lightestPassing(g.profile.family as ProfileFamily, members, material, criteria),
         });
       }
       rows = out;
@@ -150,6 +207,7 @@ function createSteelOptimise() {
           const full = profileToSectionFull(p);
           const fields = { name: p.name, profileFamily: p.family, a: full.a, iy: full.iy, iz: full.iz, j: full.j, b: full.b, h: full.h, shape: full.shape, tw: full.tw, tf: full.tf, t: full.t };
           if (r.scope === 'section') {
+            // The section in place: every member sharing it follows.
             modelStore.updateSection(r.sectionId, fields);
           } else {
             const rotation = modelStore.sections.get(r.sectionId)?.rotation;
@@ -177,8 +235,9 @@ function createSteelOptimise() {
         const { members, materialOf } = membersFor(ids);
         const material = materialOf.get(ids[0]!);
         if (!p || !material || members.length === 0) return { ...a, status: 'unchecked' as const };
-        const mine = verdictFor(p, members, material);
-        const now = lightestPassing(p.family as ProfileFamily, members, material);
+        const criteria = criteriaFor(lastSettings, ids);
+        const mine = verdictFor(p, members, material, criteria);
+        const now = lightestPassing(p.family as ProfileFamily, members, material, criteria);
         const status: RecheckStatus = !mine?.passes ? 'failsNow'
           : now.chosen && now.chosen.profile.name !== p.name && now.chosen.profile.weight < p.weight ? 'lighter'
           : 'holds';
