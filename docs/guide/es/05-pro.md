@@ -136,6 +136,10 @@ seleccionadas antes de dividir.
 - **Invertir barras:** I pasa a ser J. La sección conserva su orientación, y las articulaciones,
   los extremos semirrígidos, los desplazamientos y las cargas de la barra la acompañan, así que el
   resultado es el mismo. Una barra con armadura no se invierte.
+- **Barra acartelada:** una I soldada cuya altura cambia de un extremo al otro, con alas y alma
+  constantes. Cada barra seleccionada se corta en tramos prismáticos (12 por defecto) con la altura
+  de la mitad de cada tramo; con 12 tramos la flecha de un voladizo queda a menos de 0,5 % de la
+  exacta.
 
 **Seleccionar.** Además de las opciones de Básico: arrastrar puede dibujar un **lazo** en lugar de
 un rectángulo; se seleccionan las barras **paralelas a un eje o a un plano global**, lo que está
@@ -160,6 +164,29 @@ etiquetas y los colores. Además:
 maderas, aluminio; perfiles laminados y conformados) o definiciones a medida. En secciones,
 **Construir sección** arma formas paramétricas, y en los perfiles de catálogo se puede elegir la
 rotación y componer secciones.
+
+**Catálogo.** Además de las familias de siempre están los **HE M** y los **ángulos de alas
+desiguales** (EN 10365 y EN 10056-1, con los valores del productor). La lista se puede ver como
+**tabla**, con todas las propiedades de cada perfil (h, b, espesores, radio, A, masa, inercias,
+módulos, radios de giro y J), ordenable por cualquier columna y exportable a CSV. El **dibujo
+acotado** muestra el perfil con sus medidas. **Importar CSV** trae la lista de secciones propias
+de una empresa (nombre, forma y medidas en mm, con A e inercias opcionales para comparar): cada fila
+tiene que tener las medidas de su contorno, y una fila cuyo contorno no coincide con el área
+declarada se informa con su línea.
+
+**Dibujar la sección.** En **Construir sección**, **Dibujar** arma una sección con piezas:
+rectángulos, rectángulos huecos, círculos, tubos, polígonos, chapas plegadas (un eje con espesor),
+perfiles del catálogo (también cortados, como una T sacada de un I) y huecos. Se arranca de una
+forma habitual (I, cajón o T soldadas, perfil con platabandas, T cortada, doble ángulo, doble canal,
+C conformado, tubo relleno) o de cero, se importa un contorno DXF o se traen secciones del
+proyecto. Las piezas se mueven arrastrando y se enganchan a los bordes de las otras, o se **apoyan**
+arriba, abajo o a un costado, alineadas. Cada pieza puede tener su **material**; las propiedades son
+entonces las de la sección transformada, con n = Eᵢ/E_ref, y el dibujo muestra un tramado por
+material con su leyenda. Mientras se dibuja se ven A, las inercias y los ejes principales, el
+baricentro y el centro de corte, los módulos resistentes arriba, abajo y a los costados, Z, J, Cw,
+las áreas de corte, el peso y la masa por metro, las cotas, y una tabla por pieza. Se avisa si hay
+piezas superpuestas, piezas sueltas o huecos fuera de la sección. La sección dibujada se vuelve a
+abrir para editarla desde la lista, se guarda con el proyecto y viaja en el código de modelo.
 
 **Deformación por corte.** Cada sección puede incluirla, con las áreas de corte calculadas a partir
 de su geometría o escritas a mano. Un botón la activa o la desactiva en todas las secciones a la
@@ -272,7 +299,8 @@ diálogo directamente para ese caso.
   distintos patrones de diagonales, media cercha y diagonales subdivididas.
 - **Columna reticulada.**
 - **Nave:** luz, separación entre pórticos, cantidad de pórticos, columnas reticuladas o de alma
-  llena, correas y arriostramientos de cubierta, de cercha y de muro.
+  llena, correas y arriostramientos de cubierta, de cercha y de muro. Las columnas de alma llena
+  pueden ser **acarteladas**, con una altura en la base y otra en la cabeza.
 - **Estructuras:** pórtico espacial por vanos (X, Y y pisos), pórtico plano, emparrillado, viga
   continua, reticulado espacial, viga reticulada en X o en K, cabriada Howe, diente de sierra,
   bóveda cilíndrica, viga circular y cúpula. Los vanos se escriben como "6; 7,5; 6".
@@ -458,6 +486,24 @@ En la pestaña **Diseño**, **Otras normas** verifica las barras con **AISC 360*
 Al elegir una norma, un único cartel dice hasta dónde cubre. Las barras que la norma no puede
 describir quedan afuera con el motivo, y una verificación a la que le falta un chequeo figura como
 incompleta, nunca como cumplida. El hormigón se verifica con la armadura cargada en cada barra.
+
+Con **AISC 360** los esfuerzos pueden venir del **análisis directo** (capítulo C): segundo orden en
+cada combinación, sobre la rigidez reducida (0,8 en todo y τb en la flexión de las barras de acero,
+iterado o con τb = 1 y la carga nocional adicional), con cargas nocionales de 0,002 de la carga
+gravitatoria de cada nudo. En las combinaciones sólo gravitatorias se prueban las cuatro
+direcciones y queda la de mayor desplazamiento; en las que tienen carga lateral, las nocionales se
+suman si la amplificación supera 1,7. Con esos esfuerzos cada barra se verifica con K = 1. Una
+combinación sin equilibrio de segundo orden se informa y no se verifica.
+
+Una **sección dibujada** entra en las verificaciones cuando es exactamente una de las formas que
+cubren: una I soldada de tres chapas o un perfil solo. Si no (platabandas, una T cortada, varios
+perfiles, un tubo relleno, un contorno libre), la barra queda afuera con ese motivo.
+
+**Perfil más liviano.** En **Metálicas › Diseño de perfiles**, la búsqueda del perfil más liviano que verifica puede recorrer
+otras familias I además de la del perfil actual, respetar una altura mínima y máxima y un ancho
+máximo, apuntar a una razón objetivo (por ejemplo 80 %), agrupar por **grupo con nombre** (un mismo
+perfil para todas sus barras) y exigir además la **flecha** de cada barra, estimada con la actual y
+la razón de inercias. Como siempre, lo aplicado se re-verifica después de volver a calcular.
 
 ## La teoría detrás
 
