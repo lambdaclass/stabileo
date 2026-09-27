@@ -23,33 +23,35 @@
  */
 
 import type { AnalysisResults3D } from './types-3d';
+import type { Quantity } from '../utils/units';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { extractForcesAtStation } from './station-forces';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
-export interface Column { key: string; label: string; unit: string }
+/** A column: its key, label, SI unit, and the physical quantity its values are (for display units). */
+export interface Column { key: string; label: string; unit: string; qty: Quantity }
 
 export const COLUMNS: Readonly<Record<TableKind, readonly Column[]>> = Object.freeze({
   displacements: [
-    { key: 'ux', label: 'ux', unit: 'm' }, { key: 'uy', label: 'uy', unit: 'm' }, { key: 'uz', label: 'uz', unit: 'm' },
-    { key: 'rx', label: 'θx', unit: 'rad' }, { key: 'ry', label: 'θy', unit: 'rad' }, { key: 'rz', label: 'θz', unit: 'rad' },
+    { key: 'ux', label: 'ux', unit: 'm', qty: 'displacement' }, { key: 'uy', label: 'uy', unit: 'm', qty: 'displacement' }, { key: 'uz', label: 'uz', unit: 'm', qty: 'displacement' },
+    { key: 'rx', label: 'θx', unit: 'rad', qty: 'rotation' }, { key: 'ry', label: 'θy', unit: 'rad', qty: 'rotation' }, { key: 'rz', label: 'θz', unit: 'rad', qty: 'rotation' },
   ],
   reactions: [
-    { key: 'fx', label: 'Fx', unit: 'kN' }, { key: 'fy', label: 'Fy', unit: 'kN' }, { key: 'fz', label: 'Fz', unit: 'kN' },
-    { key: 'mx', label: 'Mx', unit: 'kN·m' }, { key: 'my', label: 'My', unit: 'kN·m' }, { key: 'mz', label: 'Mz', unit: 'kN·m' },
+    { key: 'fx', label: 'Fx', unit: 'kN', qty: 'force' }, { key: 'fy', label: 'Fy', unit: 'kN', qty: 'force' }, { key: 'fz', label: 'Fz', unit: 'kN', qty: 'force' },
+    { key: 'mx', label: 'Mx', unit: 'kN·m', qty: 'moment' }, { key: 'my', label: 'My', unit: 'kN·m', qty: 'moment' }, { key: 'mz', label: 'Mz', unit: 'kN·m', qty: 'moment' },
   ],
   forces: [
-    { key: 'n', label: 'N', unit: 'kN' }, { key: 'vy', label: 'Vy', unit: 'kN' }, { key: 'vz', label: 'Vz', unit: 'kN' },
-    { key: 'mx', label: 'T', unit: 'kN·m' }, { key: 'my', label: 'My', unit: 'kN·m' }, { key: 'mz', label: 'Mz', unit: 'kN·m' },
+    { key: 'n', label: 'N', unit: 'kN', qty: 'force' }, { key: 'vy', label: 'Vy', unit: 'kN', qty: 'force' }, { key: 'vz', label: 'Vz', unit: 'kN', qty: 'force' },
+    { key: 'mx', label: 'T', unit: 'kN·m', qty: 'moment' }, { key: 'my', label: 'My', unit: 'kN·m', qty: 'moment' }, { key: 'mz', label: 'Mz', unit: 'kN·m', qty: 'moment' },
   ],
 });
 
 /** The resultants a table can add after its six components. */
 export const RESULTANTS: Readonly<Record<TableKind, readonly Column[]>> = Object.freeze({
-  displacements: [{ key: 'u', label: '|u|', unit: 'm' }],
-  reactions: [{ key: 'f', label: '|F|', unit: 'kN' }, { key: 'm', label: '|M|', unit: 'kN·m' }],
-  forces: [{ key: 'v', label: 'V', unit: 'kN' }, { key: 'm', label: 'M', unit: 'kN·m' }],
+  displacements: [{ key: 'u', label: '|u|', unit: 'm', qty: 'displacement' }],
+  reactions: [{ key: 'f', label: '|F|', unit: 'kN', qty: 'force' }, { key: 'm', label: '|M|', unit: 'kN·m', qty: 'moment' }],
+  forces: [{ key: 'v', label: 'V', unit: 'kN', qty: 'force' }, { key: 'm', label: 'M', unit: 'kN·m', qty: 'moment' }],
 });
 
 export interface TableOptions {
@@ -167,11 +169,11 @@ export interface MaxByTypeRow {
 
 /** The columns of the max-by-type table, in order, with the categories each one reads. */
 export const MAX_TYPES = [
-  { key: 'axial', label: 'N', unit: 'kN', cats: ['N_compression', 'N_tension'] },
-  { key: 'momentY', label: 'My', unit: 'kN·m', cats: ['My+', 'My-'] },
-  { key: 'momentZ', label: 'Mz', unit: 'kN·m', cats: ['Mz+', 'Mz-'] },
-  { key: 'shearY', label: 'Vy', unit: 'kN', cats: ['Vy'] },
-  { key: 'shearZ', label: 'Vz', unit: 'kN', cats: ['Vz'] },
+  { key: 'axial', label: 'N', unit: 'kN', qty: 'force', cats: ['N_compression', 'N_tension'] },
+  { key: 'momentY', label: 'My', unit: 'kN·m', qty: 'moment', cats: ['My+', 'My-'] },
+  { key: 'momentZ', label: 'Mz', unit: 'kN·m', qty: 'moment', cats: ['Mz+', 'Mz-'] },
+  { key: 'shearY', label: 'Vy', unit: 'kN', qty: 'force', cats: ['Vy'] },
+  { key: 'shearZ', label: 'Vz', unit: 'kN', qty: 'force', cats: ['Vz'] },
 ] as const;
 
 /** Per member, the largest |N|, |My|, |Mz|, |Vy| and |Vz| along it, each with its station and combination. */

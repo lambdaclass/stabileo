@@ -360,7 +360,7 @@ function createUIStore() {
 
   // Unit system — persisted in localStorage
   const savedUnitSystem = hasLocalStorage() ? localStorage.getItem('stabileo-unitSystem') : null;
-  let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' ? 'Imperial' : 'SI') as UnitSystem);
+  let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' || savedUnitSystem === 'MKS' ? savedUnitSystem : 'SI') as UnitSystem);
 
   /*
    * How big the controls INSIDE a panel are on a phone. Persisted.

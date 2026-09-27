@@ -16,11 +16,11 @@
    * setting — honestly labelled, but not converted. Displacements are mm in SI
    * and in in Imperial; rotations stay mrad.
    */
-  const imperial = $derived(uiStore.unitSystem === 'Imperial');
-  const uDisp = $derived(imperial ? 'in' : 'mm');
+  const imperial = $derived(uiStore.unitSystem !== 'SI');
+  const uDisp = $derived(imperial ? unitLabel('displacement', uiStore.unitSystem) : 'mm');
   const uF = $derived(unitLabel('force', uiStore.unitSystem));
   const uM = $derived(unitLabel('moment', uiStore.unitSystem));
-  const dsp = (m: number) => (imperial ? toDisplay(m, 'displacement', 'Imperial') : m * 1000).toFixed(4);
+  const dsp = (m: number) => (imperial ? toDisplay(m, 'displacement', uiStore.unitSystem) : m * 1000).toFixed(4);
   const frc = (kN: number, digits = 4) => toDisplay(kN, 'force', uiStore.unitSystem).toFixed(digits);
   const mom = (kNm: number, digits = 4) => toDisplay(kNm, 'moment', uiStore.unitSystem).toFixed(digits);
 

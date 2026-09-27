@@ -27,6 +27,7 @@
     type TableKind, type Source, type TableOptions,
   } from '../../lib/engine/result-tables';
   import type { AnalysisResults3D } from '../../lib/engine/types-3d';
+  import { fmtQ, unitQ, toQ } from '../../lib/store/display-units.svelte';
 
   let { kind, mode = $bindable('current') }: { kind: TableKind; mode?: TableMode } = $props();
 
@@ -107,31 +108,32 @@
     else { uiStore.selectMode = 'elements'; uiStore.selectElement(entity, false); }
   }
 
-  /** The table on screen as a header and rows, full precision: what both exports write. */
+  /** The table on screen as a header and rows, full precision in the units shown: what both exports write. */
   function table(): { header: string[]; rows: Array<Array<string | number>> } {
     const id = isNode ? t('pro.nodeLabel') : t('pro.elemLabel');
-    const head = (c: { label: string; unit: string }) => `${c.label} (${c.unit})`;
+    const head = (c: { label: string; qty: import('../../lib/utils/units').Quantity }) => `${c.label} (${unitQ(c.qty)})`;
+    const q = (v: number, c: number) => toQ(v, cols[c]!.qty);
     const at = isNode ? [] : withStations ? ['x (m)'] : [t('tables.end')];
     const atOf = (r: { end?: 'i' | 'j'; x?: number }) => (isNode ? [] : withStations ? [r.x ?? ''] : [r.end ?? '']);
     if (mode === 'all') {
-      return { header: [t('tables.source'), id, ...at, ...cols.map(head)], rows: all.map((r) => [r.source.name, r.entity, ...atOf(r), ...r.values]) };
+      return { header: [t('tables.source'), id, ...at, ...cols.map(head)], rows: all.map((r) => [r.source.name, r.entity, ...atOf(r), ...r.values.map(q)]) };
     }
     if (mode === 'summary') {
       return {
         header: [t('tables.column'), t('tables.max'), id, t('tables.source'), t('tables.min'), id, t('tables.source')],
-        rows: summary.map((s) => [head(s.column), s.max?.value ?? '', s.max ? where(s.max) : '', s.max?.source.name ?? '', s.min?.value ?? '', s.min ? where(s.min) : '', s.min?.source.name ?? '']),
+        rows: summary.map((s) => [head(s.column), s.max ? toQ(s.max.value, s.column.qty) : '', s.max ? where(s.max) : '', s.max?.source.name ?? '', s.min ? toQ(s.min.value, s.column.qty) : '', s.min ? where(s.min) : '', s.min?.source.name ?? '']),
       };
     }
     if (mode === 'envelope') {
       return {
         header: [id, ...at, ...cols.flatMap((c) => [`${head(c)} ${t('tables.max')}`, t('tables.source'), `${head(c)} ${t('tables.min')}`, t('tables.source')])],
-        rows: envelope.map((r) => [r.entity, ...atOf(r), ...cols.flatMap((_, c) => [r.max[c]!.value, r.max[c]!.source.name, r.min[c]!.value, r.min[c]!.source.name])]),
+        rows: envelope.map((r) => [r.entity, ...atOf(r), ...cols.flatMap((_, c) => [q(r.max[c]!.value, c), r.max[c]!.source.name, q(r.min[c]!.value, c), r.min[c]!.source.name])]),
       };
     }
-    const d = (g: (typeof byType)[number]['axial']) => (g ? [g.value, g.stationX, g.comboName] : ['', '', '']);
+    const d = (g: (typeof byType)[number]['axial'], m: (typeof MAX_TYPES)[number]) => (g ? [toQ(g.value, m.qty), g.stationX, g.comboName] : ['', '', '']);
     return {
-      header: [id, 'L (m)', ...MAX_TYPES.flatMap((m) => [`${m.label} (${m.unit})`, 'x (m)', t('tables.source')])],
-      rows: byType.map((r) => [r.elementId, r.length, ...MAX_TYPES.flatMap((m) => d(r[m.key]))]),
+      header: [id, 'L (m)', ...MAX_TYPES.flatMap((m) => [`${m.label} (${unitQ(m.qty)})`, 'x (m)', t('tables.source')])],
+      rows: byType.map((r) => [r.elementId, r.length, ...MAX_TYPES.flatMap((m) => d(r[m.key], m))]),
     };
   }
   const stem = () => `${kind}-${mode}`;
@@ -201,12 +203,12 @@
 {#if mode === 'all'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-all">
-      <thead><tr><th>{t('tables.source')}</th><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}{#each cols as c (c.key)}<th>{c.label} ({c.unit})</th>{/each}</tr></thead>
+      <thead><tr><th>{t('tables.source')}</th><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}{#each cols as c (c.key)}<th>{c.label} ({unitQ(c.qty)})</th>{/each}</tr></thead>
       <tbody>
         {#each all.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer" class:tm-first={byEntity && (i === 0 || all[i - 1]!.entity !== r.entity)}>
             <td class="tm-src">{r.source.name}</td><td class="col-id">{r.entity}</td>{#if !isNode}<td class="col-end">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
-            {#each r.values as v, c (c)}<td class="col-num">{fmt(v)}</td>{/each}
+            {#each r.values as v, c (c)}<td class="col-num">{fmtQ(v, cols[c]!.qty)}</td>{/each}
           </tr>
         {/each}
       </tbody>
@@ -220,9 +222,9 @@
       <tbody>
         {#each summary as s (s.column.key)}
           <tr>
-            <td class="col-id">{s.column.label} ({s.column.unit})</td>
-            {#if s.max}<td class="col-num">{fmt(s.max.value)}</td><td class="col-id tm-link" onclick={() => pick(s.max!.entity)}>{where(s.max)}</td><td class="tm-src">{s.max.source.name}</td>{:else}<td colspan="3">—</td>{/if}
-            {#if s.min}<td class="col-num">{fmt(s.min.value)}</td><td class="col-id tm-link" onclick={() => pick(s.min!.entity)}>{where(s.min)}</td><td class="tm-src">{s.min.source.name}</td>{:else}<td colspan="3">—</td>{/if}
+            <td class="col-id">{s.column.label} ({unitQ(s.column.qty)})</td>
+            {#if s.max}<td class="col-num">{fmtQ(s.max.value, s.column.qty)}</td><td class="col-id tm-link" onclick={() => pick(s.max!.entity)}>{where(s.max)}</td><td class="tm-src">{s.max.source.name}</td>{:else}<td colspan="3">—</td>{/if}
+            {#if s.min}<td class="col-num">{fmtQ(s.min.value, s.column.qty)}</td><td class="col-id tm-link" onclick={() => pick(s.min!.entity)}>{where(s.min)}</td><td class="tm-src">{s.min.source.name}</td>{:else}<td colspan="3">—</td>{/if}
           </tr>
         {/each}
       </tbody>
@@ -231,17 +233,17 @@
 {:else if mode === 'envelope'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-envelope">
-      <thead><tr><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}<th></th>{#each cols as c (c.key)}<th>{c.label} ({c.unit})</th>{/each}</tr></thead>
+      <thead><tr><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}<th></th>{#each cols as c (c.key)}<th>{c.label} ({unitQ(c.qty)})</th>{/each}</tr></thead>
       <tbody>
         {#each envelope.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer">
             <td class="col-id" rowspan="2">{r.entity}</td>{#if !isNode}<td class="col-end" rowspan="2">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
             <td class="tm-mm">{t('tables.max')}</td>
-            {#each r.max as m, c (c)}<td class="col-num" title={m.source.name}>{fmt(m.value)}</td>{/each}
+            {#each r.max as m, c (c)}<td class="col-num" title={m.source.name}>{fmtQ(m.value, cols[c]!.qty)}</td>{/each}
           </tr>
           <tr>
             <td class="tm-mm">{t('tables.min')}</td>
-            {#each r.min as m, c (c)}<td class="col-num" title={m.source.name}>{fmt(m.value)}</td>{/each}
+            {#each r.min as m, c (c)}<td class="col-num" title={m.source.name}>{fmtQ(m.value, cols[c]!.qty)}</td>{/each}
           </tr>
         {/each}
       </tbody>
@@ -253,7 +255,7 @@
     <table class="pro-res-table" data-testid="tm-maxtype">
       <thead>
         <tr><th rowspan="2">{t('pro.elemLabel')}</th>{#each MAX_TYPES as m (m.key)}<th colspan="3">{m.label}</th>{/each}</tr>
-        <tr>{#each MAX_TYPES as m (m.key)}<th>{m.unit}</th><th>x (m)</th><th>{t('tables.source')}</th>{/each}</tr>
+        <tr>{#each MAX_TYPES as m (m.key)}<th>{unitQ(m.qty)}</th><th>x (m)</th><th>{t('tables.source')}</th>{/each}</tr>
       </thead>
       <tbody>
         {#each byType.slice(0, ROW_CAP) as r (r.elementId)}
@@ -261,7 +263,7 @@
             <td class="col-id">{r.elementId}</td>
             {#each MAX_TYPES as m (m.key)}
               {@const g = r[m.key]}
-              {#if g}<td class="col-num">{fmt(g.value)}</td><td class="col-num">{fmt(g.stationX)}</td><td class="tm-src">{g.comboName}</td>{:else}<td colspan="3">—</td>{/if}
+              {#if g}<td class="col-num">{fmtQ(g.value, m.qty)}</td><td class="col-num">{fmt(g.stationX)}</td><td class="tm-src">{g.comboName}</td>{:else}<td colspan="3">—</td>{/if}
             {/each}
           </tr>
         {/each}

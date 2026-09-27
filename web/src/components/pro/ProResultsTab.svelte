@@ -21,6 +21,7 @@
   import ProMemberStressTable from './ProMemberStressTable.svelte';
   import ProShellContourOptions from './ProShellContourOptions.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   let wasAnimating = false;
   import {
     componentUnit,
@@ -796,24 +797,24 @@
             <thead>
               <tr>
                 <th>{t('pro.nodeLabel')}</th>
-                <th>Fx (kN)</th>
-                <th>Fy (kN)</th>
-                <th>Fz (kN)</th>
-                <th>Mx (kN·m)</th>
-                <th>My (kN·m)</th>
-                <th>Mz (kN·m)</th>
+                <th>Fx ({unitQ('force')})</th>
+                <th>Fy ({unitQ('force')})</th>
+                <th>Fz ({unitQ('force')})</th>
+                <th>Mx ({unitQ('moment')})</th>
+                <th>My ({unitQ('moment')})</th>
+                <th>Mz ({unitQ('moment')})</th>
               </tr>
             </thead>
             <tbody>
               {#each results.reactions as r}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(r.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{r.nodeId}</td>
-                  <td class="col-num">{fmtNum(r.fx)}</td>
-                  <td class="col-num">{fmtNum(r.fy)}</td>
-                  <td class="col-num">{fmtNum(r.fz)}</td>
-                  <td class="col-num">{fmtNum(r.mx)}</td>
-                  <td class="col-num">{fmtNum(r.my)}</td>
-                  <td class="col-num">{fmtNum(r.mz)}</td>
+                  <td class="col-num">{fmtQ(r.fx, 'force')}</td>
+                  <td class="col-num">{fmtQ(r.fy, 'force')}</td>
+                  <td class="col-num">{fmtQ(r.fz, 'force')}</td>
+                  <td class="col-num">{fmtQ(r.mx, 'moment')}</td>
+                  <td class="col-num">{fmtQ(r.my, 'moment')}</td>
+                  <td class="col-num">{fmtQ(r.mz, 'moment')}</td>
                 </tr>
               {/each}
             </tbody>
@@ -831,12 +832,12 @@
               <tr>
                 <th>{t('pro.elemLabel')}</th>
                 <th>Ext.</th>
-                <th>N</th>
-                <th>Vy</th>
-                <th>Vz</th>
-                <th>T</th>
-                <th>My</th>
-                <th>Mz</th>
+                <th>N ({unitQ('force')})</th>
+                <th>Vy ({unitQ('force')})</th>
+                <th>Vz ({unitQ('force')})</th>
+                <th>T ({unitQ('moment')})</th>
+                <th>My ({unitQ('moment')})</th>
+                <th>Mz ({unitQ('moment')})</th>
               </tr>
             </thead>
             <tbody>
@@ -844,21 +845,21 @@
                 <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(ef.elementId, false); }} style="cursor:pointer">
                   <td class="col-id" rowspan="2">{ef.elementId}</td>
                   <td class="col-end">i</td>
-                  <td class="col-num">{fmtNum(ef.nStart)}</td>
-                  <td class="col-num">{fmtNum(ef.vyStart)}</td>
-                  <td class="col-num">{fmtNum(ef.vzStart)}</td>
-                  <td class="col-num">{fmtNum(ef.mxStart)}</td>
-                  <td class="col-num">{fmtNum(ef.myStart)}</td>
-                  <td class="col-num">{fmtNum(ef.mzStart)}</td>
+                  <td class="col-num">{fmtQ(ef.nStart, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.vyStart, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.vzStart, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.mxStart, 'moment')}</td>
+                  <td class="col-num">{fmtQ(ef.myStart, 'moment')}</td>
+                  <td class="col-num">{fmtQ(ef.mzStart, 'moment')}</td>
                 </tr>
                 <tr>
                   <td class="col-end">j</td>
-                  <td class="col-num">{fmtNum(ef.nEnd)}</td>
-                  <td class="col-num">{fmtNum(ef.vyEnd)}</td>
-                  <td class="col-num">{fmtNum(ef.vzEnd)}</td>
-                  <td class="col-num">{fmtNum(ef.mxEnd)}</td>
-                  <td class="col-num">{fmtNum(ef.myEnd)}</td>
-                  <td class="col-num">{fmtNum(ef.mzEnd)}</td>
+                  <td class="col-num">{fmtQ(ef.nEnd, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.vyEnd, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.vzEnd, 'force')}</td>
+                  <td class="col-num">{fmtQ(ef.mxEnd, 'moment')}</td>
+                  <td class="col-num">{fmtQ(ef.myEnd, 'moment')}</td>
+                  <td class="col-num">{fmtQ(ef.mzEnd, 'moment')}</td>
                 </tr>
               {/each}
             </tbody>
@@ -875,24 +876,24 @@
             <thead>
               <tr>
                 <th>{t('pro.nodeLabel')}</th>
-                <th>ux (m)</th>
-                <th>uy (m)</th>
-                <th>uz (m)</th>
-                <th>&#x03B8;x</th>
-                <th>&#x03B8;y</th>
-                <th>&#x03B8;z</th>
+                <th>ux ({unitQ('displacement')})</th>
+                <th>uy ({unitQ('displacement')})</th>
+                <th>uz ({unitQ('displacement')})</th>
+                <th>&#x03B8;x (rad)</th>
+                <th>&#x03B8;y (rad)</th>
+                <th>&#x03B8;z (rad)</th>
               </tr>
             </thead>
             <tbody>
               {#each results.displacements as d}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(d.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{d.nodeId}</td>
-                  <td class="col-num">{fmtNum(d.ux)}</td>
-                  <td class="col-num">{fmtNum(d.uy)}</td>
-                  <td class="col-num">{fmtNum(d.uz)}</td>
-                  <td class="col-num">{fmtNum(d.rx)}</td>
-                  <td class="col-num">{fmtNum(d.ry)}</td>
-                  <td class="col-num">{fmtNum(d.rz)}</td>
+                  <td class="col-num">{fmtQ(d.ux, 'displacement')}</td>
+                  <td class="col-num">{fmtQ(d.uy, 'displacement')}</td>
+                  <td class="col-num">{fmtQ(d.uz, 'displacement')}</td>
+                  <td class="col-num">{fmtQ(d.rx, 'rotation')}</td>
+                  <td class="col-num">{fmtQ(d.ry, 'rotation')}</td>
+                  <td class="col-num">{fmtQ(d.rz, 'rotation')}</td>
                 </tr>
               {/each}
             </tbody>

@@ -15,6 +15,8 @@
   import type { SavedViewDisplay } from '../../lib/store/model.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
   import { addNote } from '../../lib/model/annotations';
+  import { UNIT_SYSTEMS } from '../../lib/utils/units';
+  import { displayUnits, unitQ, DECIMAL_QUANTITIES } from '../../lib/store/display-units.svelte';
 
   const PRESETS: CubeFace[] = ['top', 'front', 'right', 'iso', 'bottom', 'back', 'left'];
   const selection = () => ({ nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells });
@@ -145,6 +147,24 @@
     {/if}
   </section>
 
+  <section class="pk-card" data-testid="view-units">
+    <h4 class="pk-heading">{t('view.units')}</h4>
+    <div class="pk-row">
+      <select bind:value={uiStore.unitSystem} data-testid="view-unit-system">
+        {#each UNIT_SYSTEMS as u (u)}<option value={u}>{t(`config.unit${u}`)}</option>{/each}
+      </select>
+    </div>
+    <div class="vp-dec">
+      {#each DECIMAL_QUANTITIES as q (q)}
+        <label>{t(`view.qty.${q}`)} <span class="vp-unit">({unitQ(q)})</span>
+          <input type="number" min="0" max="8" step="1" placeholder={t('view.decimalsAuto')} value={displayUnits.decimals[q] ?? ''}
+            onchange={(e) => displayUnits.setDecimals(q, e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} data-testid="view-dec-{q}" />
+        </label>
+      {/each}
+    </div>
+    <p class="pk-hint">{t('view.unitsHint')}</p>
+  </section>
+
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.colourBy')}</h4>
     <div class="pk-row">
@@ -226,6 +246,10 @@
   .vp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .vp-list li { display: flex; gap: 4px; align-items: center; }
   .vp-indent { padding-left: 1.3rem; }
+  .vp-dec { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px 8px; margin: 6px 0; font-size: 0.62rem; color: var(--st-text-2); }
+  .vp-dec label { display: flex; flex-direction: column; gap: 2px; }
+  .vp-dec input { width: 64px; }
+  .vp-unit { color: var(--st-text-3); }
   .vp-legend { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.62rem; color: var(--st-text-2); }
   .vp-legend li { display: inline-flex; gap: 4px; align-items: center; }
   .vp-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
