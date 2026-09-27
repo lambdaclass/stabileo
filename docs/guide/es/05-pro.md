@@ -58,9 +58,15 @@ desde una planilla de Excel, que también permite fijar el giro de los ejes loca
 **Placas.** Una placa se define por sus nodos: **tres nodos forman un triángulo y cuatro un
 cuadrilátero**. Se le asigna material y espesor.
 
-- **Generador de malla:** a partir de cuatro esquinas (en sentido antihorario), genera una malla
-  de cuadriláteros por tamaño objetivo o por cantidad de divisiones. Puede partir las vigas del
-  contorno para que compartan los nodos del borde.
+- **Generador de malla:** el contorno es un polígono de nodos existentes o un círculo (centro y
+  radio), con agujeros poligonales o circulares. Cada lado admite su propia cantidad de divisiones
+  y un sesgo que concentra los elementos hacia un extremo; el resto se malla por tamaño objetivo.
+  Genera cuadriláteros o triángulos, respeta los nodos que ya hay sobre el borde (para que muro y
+  losa empalmen) y puede partir las vigas del contorno. Una placa circular se malla con una grilla
+  en O, sin triángulos degenerados en el centro. Una vista previa muestra la malla antes de crearla.
+- **Superficies:** cilindro, cono, casquete y zona esférica, hiperboloide (torre) y paraboloide
+  hiperbólico, como cáscaras curvas. Se colocan con el fantasma, igual que un generador, o a lo
+  largo de un eje que se marca con dos puntos.
 - **Cáscara (con curvatura):** para cuadriláteros cuyos cuatro nodos no están en un mismo plano.
   El panel mide cuánto se aparta el cuarto nodo y sugiere cuándo usarla.
 - **Escalera:** una losa inclinada con los escalones aplicados como carga.
@@ -115,12 +121,42 @@ maderas, aluminio; perfiles laminados y conformados) o definiciones a medida. En
 **Construir sección** arma formas paramétricas, y en los perfiles de catálogo se puede elegir la
 rotación y componer secciones.
 
+**Deformación por corte.** Cada sección puede incluirla, con las áreas de corte calculadas a partir
+de su geometría o escritas a mano. Un botón la activa o la desactiva en todas las secciones a la
+vez. Sin ella, las barras se calculan con la teoría de Euler-Bernoulli.
+
+**Comportamiento de barra.** Con barras seleccionadas, el panel de barras permite:
+
+- que trabajen **sólo a tracción** o **sólo a compresión**, o que queden **inactivas** (fuera de
+  todos los cálculos, sin borrarlas);
+- aplicar **modificadores de rigidez** para la inercia fisurada, con los valores de CIRSOC 201-2025
+  (Tabla 6.6.3.1.1(a): columnas 0,70 Ig, muros no fisurados 0,70 y fisurados 0,35, vigas 0,35,
+  losas 0,25) o valores propios;
+- liberar cualquiera de los seis grados de libertad en cada extremo;
+- hacer **semirrígido** un extremo, con una rigidez al giro en kN·m/rad.
+
+Las barras inactivas y los modificadores de rigidez valen en todos los análisis. Tracción o
+compresión exclusivas se resuelven en **Calcular**, iterando hasta que cada barra trabaje como se
+indicó.
+
 ### Condiciones
 
 **Apoyos.** **Empotrado 3D**, **Articulado 3D**, móviles en cada plano (**Roller XZ**, **XY** y
 **YZ**), **Resorte 3D** (con rigidez en cada grado de libertad) y **Personalizado**, donde se marca
 uno por uno qué desplazamientos y giros se restringen. Un móvil se desplaza libremente dentro de
 su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y.
+
+Cada apoyo tiene además un editor propio: qué grados de libertad se fijan, un resorte en cada uno
+(lineal o **multilineal**, con una curva desplazamiento–fuerza escrita como pares "mm kN;"), si el
+apoyo **se levanta** (sólo toma compresión) y una **terna inclinada**, definida por dos puntos o
+apuntando a un nodo. Un apoyo que se levanta se resuelve en **Calcular**: si tracciona, se libera
+y se vuelve a calcular.
+
+**Resortes de fundación.** Sobre las placas seleccionadas de una losa o platea, crea resortes
+verticales k = ks·A en cada nodo, con el área tributaria de cada nodo (un cuarto de cada
+cuadrilátero y un tercio de cada triángulo que lo tocan). El ks se escribe o se toma del perfil
+geotécnico del proyecto. Los resortes pueden ser de un solo sentido, para que la platea se
+levante, y reemplazan el apoyo que tuviera el nodo.
 
 **Vínculos.** Relaciones entre nodos:
 
@@ -293,16 +329,31 @@ En el panel de **Resultados**:
 
 Los análisis avanzados de PRO:
 
-- **P-Delta**, **modal**, **espectral** y **pandeo**. El espectral usa un espectro simplificado de
-  INPRES-CIRSOC 103 por zona sísmica y tipo de suelo, combina los modos por CQC (combinación
-  cuadrática completa) o SRSS (raíz cuadrada de la suma de los cuadrados) y requiere haber corrido
-  antes el modal.
-- **Historia en el tiempo** (métodos de Newmark o HHT-α, con una aceleración de base senoidal que
-  genera el programa o un acelerograma propio pegado como lista de valores) y **respuesta
-  armónica**.
+- **P-Delta**, **modal**, **espectral** y **pandeo**. El modal puede pedir modos **hasta el 90 %
+  de la masa**: agrega modos hasta que la masa participante acumulada llega al 90 % en X y en Y, o
+  avisa si el modelo no tiene más. Con vínculos, las fracciones de masa no son confiables y esta
+  opción no se ofrece. El espectral usa un espectro simplificado de INPRES-CIRSOC 103 por zona
+  sísmica y tipo de suelo, combina los modos por CQC (combinación cuadrática completa, con el ξ que
+  se indica) o SRSS (raíz cuadrada de la suma de los cuadrados) y requiere haber corrido antes el
+  modal.
+- **Historia en el tiempo**, con los métodos de Newmark o HHT-α. La configuración se guarda con el
+  proyecto y viaja en el código de modelo. Cada dirección (X, Y y Z, a la vez) tiene su propia
+  aceleración de base, con un factor de escala: senoidal, un registro leído de un archivo (PEER
+  .AT2, una tabla tiempo–aceleración o una columna de valores) o **compatible con el espectro**
+  INPRES-CIRSOC 103 del proyecto, un acelerograma artificial generado a partir de una semilla y una
+  duración. Cada registro se puede graficar con su aceleración máxima. Se agregan también
+  **fuerzas nodales en el tiempo**, senoidales o escalón, con o sin aceleración de base. El
+  amortiguamiento es de Rayleigh, con un único ξ ajustado en los dos primeros modos.
+- **Respuesta armónica**.
 - **No lineal:** **pushover** (formación sucesiva de rótulas plásticas bajo las cargas del modelo,
   con el mismo cálculo de Mp que el [colapso plástico](04-funciones-avanzadas.md#colapso-plástico)
-  del modo Básico), corrotacional (grandes desplazamientos) y de fibras.
+  del modo Básico), corrotacional (grandes desplazamientos) y de fibras. El pushover muestra la
+  **curva de capacidad**: el corte basal según el desplazamiento de un nodo de control, con un
+  punto por cada rótula que se forma. Un deslizador recorre los pasos; en cada uno se ven las
+  rótulas nuevas, con sus momentos, y en el modelo la deformada y todas las rótulas formadas hasta
+  ese paso. Cuando el análisis se detiene porque plastificaron a la vez todos los extremos que
+  llegan a un nudo, el panel lo avisa: la estructura puede resistir más y el factor de colapso se
+  toma como un mínimo.
 - **Imperfecciones geométricas**, **fundación sobre resortes de Winkler**, **interacción
   suelo-estructura** con curvas p-y y **contacto o gap**.
 - **Construcción por etapas** y **fluencia y retracción**.
@@ -312,14 +363,12 @@ Los análisis avanzados de PRO:
   orden, y cada barra guarda sus esfuerzos máximos y mínimos con la posición del tren. La carga de
   carril se crea como un caso de carga común sobre las mismas barras. La envolvente no entra en las
   combinaciones ni en el diseño.
-- La opción **Diafragma rígido** para todo el modelo.
 
 Estos análisis usan el eje de las barras, sin su excentricidad, y las articulaciones de las
 columnas **Vinc. i** y **Vinc. j**. Las deslizaderas y las liberaciones por grado de libertad que se
 definen al editar una barra se consideran en **Calcular**; antes de un análisis avanzado, el
-programa pide quitarlas. El **modal** y el **espectral** trabajan con las barras del modelo: la
-rigidez y la masa salen de las barras (y de las barras rígidas que agrega la opción **Diafragma
-rígido**, si está activada).
+programa pide quitarlas. El **modal** y el **espectral** trabajan con las barras y las placas del
+modelo y con sus diafragmas, que se definen en **Vínculos** (el panel indica cuántos hay).
 
 ### Reporte
 
