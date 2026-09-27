@@ -36,7 +36,8 @@ import type { ReportData, ReportConfig } from './pro-report';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { checkCrackWidth } from './codes/argentina/serviceability';
-import { estimateQuantitiesFromVerification } from './quantity-takeoff';
+import { projectQuantities } from './quantities';
+import { detailingStore } from '../store/detailing.svelte';
 import { computeBarMarks } from './bar-marks';
 import { buildStructuralGraph } from './structural-graph';
 import type { FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
@@ -437,10 +438,14 @@ export function buildProReportData(opts: {
     }
 
     data.comboForces = comboForces();
-    data.quantities = estimateQuantitiesFromVerification(verifications as ElementVerification[], lengths);
     data.elementLengths = lengths;
   }
 
+  // From the geometry and the bar schedule of the detailing, whether or not a design ran.
+  data.quantities = projectQuantities(
+    { nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, materials: modelStore.materials, plates: modelStore.plates, quads: modelStore.quads } as never,
+    detailingStore.assemblies.flatMap((a) => a.marks),
+  );
   data.storyDrifts = storyDrifts(results);
   return data;
 }

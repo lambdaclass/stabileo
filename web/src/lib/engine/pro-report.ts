@@ -11,7 +11,8 @@ import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
-import type { QuantitySummary } from './quantity-takeoff';
+import type { ProjectQuantities } from './quantities';
+import { quantitiesSectionHtml } from './report/quantities-section';
 import type { SolverDiagnostic } from './types';
 import { principalStresses } from './shell-stress';
 
@@ -68,7 +69,7 @@ export interface ReportData {
   // Verification
   verifications: ElementVerification[];
   // Quantities
-  quantities?: QuantitySummary;
+  quantities?: ProjectQuantities;
   // Element lengths for elevation drawings
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
@@ -1291,24 +1292,11 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`</tbody></table>`);
     }
 
-    // Quantities section
-    if (quantities) {
-      html.push(`<h2>3.4 ${escHtml(tr('report.quantities'))}</h2>`);
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.concept'))}</th><th>${escHtml(tr('report.quantity'))}</th><th>${escHtml(tr('report.unit'))}</th></tr></thead><tbody>`);
-      html.push(`<tr><td>${escHtml(tr('report.concrete'))}</td><td class="num">${quantities.totalConcreteVolume.toFixed(2)}</td><td>m³</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.rebarLong'))}</td><td class="num">${quantities.totalRebarWeight.toFixed(0)}</td><td>kg</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.rebarStirrups'))}</td><td class="num">${quantities.totalStirrupWeight.toFixed(0)}</td><td>kg</td></tr>`);
-      html.push(`<tr><td><strong>${escHtml(tr('report.steelTotal'))}</strong></td><td class="num"><strong>${quantities.totalSteelWeight.toFixed(0)}</strong></td><td>kg</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.steelRatio'))}</td><td class="num">${quantities.steelRatio.toFixed(0)}</td><td>kg/m³</td></tr>`);
-      html.push(`</tbody></table>`);
+  }
 
-      html.push(`<h3>${escHtml(tr('report.detailByElement'))}</h3>`);
-      html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('L')} (m)</th><th>H° (m³)</th><th>Long. (kg)</th><th>${escHtml(tr('report.stirrups'))} (kg)</th><th>Total (kg)</th></tr></thead><tbody>`);
-      for (const eq of quantities.elements) {
-        html.push(`<tr><td>${eq.elementId}</td><td>${typeLabelShort(eq.elementType, tr)}</td><td class="num">${eq.length.toFixed(2)}</td><td class="num">${eq.concreteVolume.toFixed(3)}</td><td class="num">${eq.rebarWeight.toFixed(1)}</td><td class="num">${eq.stirrupWeight.toFixed(1)}</td><td class="num">${eq.totalSteelWeight.toFixed(1)}</td></tr>`);
-      }
-      html.push(`</tbody></table>`);
-    }
+  // ─── Quantities ─────────────────────────────────────────
+  if (showSection('quantities') && quantities) {
+    html.push(...quantitiesSectionHtml(quantities, tr, tr('report.quantities')));
   }
 
   // ─── Advanced Analysis Summary ──────────────────────────
