@@ -2,6 +2,7 @@
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { viewState, selectionNodeIds, viewVisibility } from '../lib/store/view-state.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
+  import { contourOptions } from '../lib/store/contour-options.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount, untrack } from 'svelte';
   import { t } from '../lib/i18n';
@@ -1366,6 +1367,9 @@
     resultsStore.diagramType;
     resultsStore.colorMapKind;
     resultsStore.shellContourComponent;
+    contourOptions.signature;
+    // Deformed contours follow the deformed view's scale.
+    if (contourOptions.onDeformed) resultsStore.deformedScale;
     // Shell meshes rebuild on render-mode / geometry change → re-apply contour.
     uiStore.renderMode3D;
     modelStore.plates;

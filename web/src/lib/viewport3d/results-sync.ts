@@ -23,10 +23,11 @@ import { createReactionArrow, createConstraintForceArrow } from '../three/create
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
-import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, applyShellNodalColors, type HeatmapVariable } from '../three/stress-heatmap';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
+import { shellContourField } from '../engine/shell-contour-field';
+import { contourOptions } from '../store/contour-options.svelte';
 import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
-import { shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
@@ -666,6 +667,7 @@ function resetShellColors(ctx: ResultsSyncContext): void {
       if (child instanceof THREE.Mesh && child.userData.shellFace) {
         const geo = child.geometry;
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
+        displaceShellFace(child, null, 0, false);
         const mat = child.material as THREE.MeshStandardMaterial;
         mat.vertexColors = false;
         // Restore the mode's base look (contour may have forced it opaque).
@@ -848,102 +850,40 @@ function applyFrameHeatmap(
   ctx.elementsBatched.flush();
 }
 
-/** Paint plates + quads by the selected shell contour component.
- *  - 'vonMises' uses per-node values when available (smooth gradient).
- *  - all other components are reported only at element level → flat per-element
- *    colour, signed components on a diverging blue↔red scale. */
+/**
+ * Paint plates and quads by the selected shell contour component, from the shared field
+ * (`engine/shell-contour-field.ts`): at the nodes or at each element's centre, over the range
+ * the results occupy or the typed one, smooth or in bands (`store/contour-options.svelte.ts`).
+ * The legend reads the same field, so it says what the shells show.
+ *
+ * On the deformed shape, each face is moved by its corners' displacements at the deformed view's
+ * scale; otherwise its undeformed positions are put back.
+ */
 function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  const component = resultsStore.shellContourComponent;
-
-  const plateById = new Map<number, NonNullable<typeof r3d.plateStresses>[number]>();
-  const quadById = new Map<number, NonNullable<typeof r3d.quadStresses>[number]>();
-  for (const ps of r3d.plateStresses ?? []) plateById.set(ps.elementId, ps);
-  for (const qs of r3d.quadStresses ?? []) quadById.set(qs.elementId, qs);
-  const all = [...(r3d.plateStresses ?? []), ...(r3d.quadStresses ?? [])];
-  if (all.length === 0) return;
-
-  // ── Von Mises: nodal-smoothed vertex colours (best-quality default) ──
-  if (component === 'vonMises') {
-    let globalMax = 0;
-    const nodalById = new Map<string, number[]>();
-    for (const ps of r3d.plateStresses ?? []) {
-      const nvm = ps.nodalVonMises?.length ? [...ps.nodalVonMises] : [ps.vonMises, ps.vonMises, ps.vonMises];
-      nodalById.set(`p${ps.elementId}`, nvm);
-      for (const v of nvm) if (v > globalMax) globalMax = v;
-    }
-    for (const qs of r3d.quadStresses ?? []) {
-      const nvm = qs.nodalVonMises?.length ? [...qs.nodalVonMises] : [qs.vonMises, qs.vonMises, qs.vonMises, qs.vonMises];
-      nodalById.set(`q${qs.elementId}`, nvm);
-      for (const v of nvm) if (v > globalMax) globalMax = v;
-    }
-    for (const [key, group] of ctx.shellGroups) {
-      const nodalVM = nodalById.get(key);
-      if (!nodalVM) continue;
-      const isQuad = key.startsWith('q');
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.userData?.shellFace) {
-          applyShellVertexColors(child, nodalVM, globalMax || 1, isQuad);
-        }
-      });
-    }
-    return;
-  }
-
-  /*
-   * ── Other components: averaged at the nodes, not flat per element ──
-   *
-   * The solver reports these per ELEMENT, and one flat colour per element is
-   * the honest minimum — it says exactly what was computed. It also reads as
-   * a mosaic: a field that is smooth through the structure arrives as a
-   * patchwork whose edges are mesh artefacts, and nothing on screen tells a
-   * real discontinuity from a change of element.
-   *
-   * So each element's value is accumulated at the nodes it touches, averaged
-   * there, and interpolated across the face — what a post-processor does
-   * with element-level results, and for this reason. The averaging is the
-   * approximation; it is what makes the picture legible.
-   *
-   * An element whose nodes are shared with nothing still paints its own
-   * value at all of its corners, so a lone plate looks exactly as it did.
-   */
-  /* The range the results actually occupy — the whole scale is spent on it.
-     See `shellContourColor` for why this is not a symmetric amplitude. */
-  const range = shellComponentRange(all, component);
-
-  const sum = new Map<number, number>();
-  const count = new Map<number, number>();
-  const cornersOf = new Map<string, number[]>();
-
-  for (const [key] of ctx.shellGroups) {
-    const isPlate = key.startsWith('p');
-    const id = parseInt(key.substring(1));
-    const s = isPlate ? plateById.get(id) : quadById.get(id);
-    const geomNodes = isPlate
-      ? modelStore.plates.get(id)?.nodes
-      : modelStore.quads.get(id)?.nodes;
-    if (!s || !geomNodes) continue;
-    const v = shellComponentValue(s, component);
-    cornersOf.set(key, [...geomNodes]);
-    for (const n of geomNodes) {
-      sum.set(n, (sum.get(n) ?? 0) + v);
-      count.set(n, (count.get(n) ?? 0) + 1);
-    }
-  }
-
+  const plates = r3d.plateStresses ?? [], quads = r3d.quadStresses ?? [];
+  if (plates.length === 0 && quads.length === 0) return;
+  const field = shellContourField(
+    { plates, quads },
+    (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
+    resultsStore.shellContourComponent,
+    contourOptions,
+  );
+  const disp = contourOptions.onDeformed ? new Map(r3d.displacements.map((d) => [d.nodeId, d])) : null;
   for (const [key, group] of ctx.shellGroups) {
-    const corners = cornersOf.get(key);
-    if (!corners) continue;
+    const values = field.corners.get(key);
+    if (!values) continue;
     const isQuad = key.startsWith('q');
-    const values = corners.map((n) => {
-      const c = count.get(n) ?? 0;
-      return c > 0 ? (sum.get(n) ?? 0) / c : 0;
-    });
+    const nodes = isQuad ? modelStore.quads.get(+key.slice(1))?.nodes : modelStore.plates.get(+key.slice(1))?.nodes;
+    const corners = disp && nodes
+      ? nodes.map((n) => { const d = disp.get(n); return [d?.ux ?? 0, d?.uy ?? 0, d?.uz ?? 0] as const; })
+      : null;
     group.traverse((child) => {
       if (child instanceof THREE.Mesh && child.userData?.shellFace) {
-        applyShellNodalColors(child, values, range, isQuad);
+        applyShellNodalColors(child, values, field.range, isQuad, contourOptions.bands);
+        displaceShellFace(child, corners, resultsStore.deformedScale, isQuad);
       }
     });
   }

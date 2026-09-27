@@ -18,6 +18,7 @@
   // results and reinforcement design as two documents.
   import ProForcesReport from './ProForcesReport.svelte';
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
+  import ProShellContourOptions from './ProShellContourOptions.svelte';
   import {
     componentUnit,
     diagramTypeToComponent,
@@ -534,6 +535,7 @@
               {/each}
             </select>
           </div>
+          <ProShellContourOptions />
         {/if}
       {/if}
 

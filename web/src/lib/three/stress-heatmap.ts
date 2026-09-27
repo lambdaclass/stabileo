@@ -7,6 +7,7 @@ import { computeSectionStress } from '../engine/section-stress-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
 import { ensureOwnShellMaterial } from './create-shell-mesh';
+import { bandValue } from '../engine/contour-scale';
 import { THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 
 const HEATMAP_SEGMENTS = 16; // Number of segments along each element
@@ -188,80 +189,6 @@ export function orientHeatmapMesh(
   mesh.quaternion.setFromUnitVectors(THREEJS_CYLINDER_AXIS, dir);
 }
 
-/**
- * Apply per-vertex colors to a shell mesh (plate=3 nodes, quad=4 nodes).
- * nodalValues: stress value at each node (3 for plates, 4 for quads).
- * globalMax: global maximum for normalization.
- */
-export function applyShellVertexColors(
-  mesh: THREE.Mesh,
-  nodalValues: number[],
-  globalMax: number,
-  isQuad: boolean,
-): void {
-  const geo = mesh.geometry;
-  const posCount = geo.getAttribute('position').count;
-  const colors = new Float32Array(posCount * 3);
-  const tmpColor = new THREE.Color();
-
-  // Preferred path: the shell mesh tags every position vertex with its source
-  // corner-node index (works for flat faces AND extruded slabs in 'sections').
-  const vertexWeights = geo.userData?.vertexNodeWeights as number[][] | undefined;
-  const vertexNodeIndex = geo.userData?.vertexNodeIndex as number[] | undefined;
-  if (vertexWeights && vertexWeights.length === posCount) {
-    /* Interpolated across the subdivided face — see `applyShellNodalColors`
-       for why a vertex is generally not a corner. */
-    for (let i = 0; i < posCount; i++) {
-      const w = vertexWeights[i];
-      let v = 0;
-      for (let k = 0; k < w.length; k++) v += w[k] * (nodalValues[k] ?? 0);
-      const norm = globalMax > 1e-10 ? v / globalMax : 0;
-      tmpColor.setHex(heatmapColor(norm));
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
-    }
-  } else if (vertexNodeIndex && vertexNodeIndex.length === posCount) {
-    for (let i = 0; i < posCount; i++) {
-      const node = vertexNodeIndex[i];
-      const v = nodalValues[node] ?? 0;
-      const norm = globalMax > 1e-10 ? v / globalMax : 0;
-      tmpColor.setHex(heatmapColor(norm));
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
-    }
-  } else if (!isQuad && nodalValues.length >= 3) {
-    // Triangle: 3 vertices
-    for (let i = 0; i < Math.min(posCount, 3); i++) {
-      const norm = globalMax > 1e-10 ? nodalValues[i] / globalMax : 0;
-      tmpColor.setHex(heatmapColor(norm));
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
-    }
-  } else if (isQuad && nodalValues.length >= 4) {
-    // Quad: 6 vertices (triangles 0-1-2, 0-2-3)
-    const vertexToNode = [0, 1, 2, 0, 2, 3];
-    for (let i = 0; i < Math.min(posCount, 6); i++) {
-      const norm = globalMax > 1e-10 ? nodalValues[vertexToNode[i]] / globalMax : 0;
-      tmpColor.setHex(heatmapColor(norm));
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
-    }
-  }
-
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const mat = ensureOwnShellMaterial(mesh);
-  mat.vertexColors = true;
-  mat.color.setHex(0xffffff);
-  // Make the contour visible regardless of render mode (wireframe faces are
-  // nearly transparent at rest).
-  mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
-  mat.needsUpdate = true;
-}
-
 /** Diverging blue→white→red colour for a signed, symmetric-normalised value
  *  `tn ∈ [-1, 1]`. Used for signed shell contour components (σ, moments). */
 export function divergingColor(tn: number): number {
@@ -346,6 +273,8 @@ export function applyShellNodalColors(
   cornerValues: readonly number[],
   range: { min: number; max: number },
   isQuad: boolean,
+  /** 0: a smooth ramp; otherwise each vertex takes its band's colour (`contour-scale.ts`). */
+  bands = 0,
 ): void {
   const geo = mesh.geometry;
   const pos = geo.getAttribute('position');
@@ -366,6 +295,8 @@ export function applyShellNodalColors(
    * interpolate across.
    */
   const weights = geo.userData?.vertexNodeWeights as number[][] | undefined;
+  // The extruded solid tags each vertex with the corner it came from.
+  const nodeIndex = geo.userData?.vertexNodeIndex as number[] | undefined;
   const vertexToCorner = isQuad ? [0, 1, 2, 0, 2, 3] : [0, 1, 2];
   const colour = new THREE.Color();
 
@@ -375,10 +306,12 @@ export function applyShellNodalColors(
     if (w) {
       v = 0;
       for (let k = 0; k < w.length; k++) v += w[k] * (cornerValues[k] ?? 0);
+    } else if (nodeIndex && nodeIndex.length === posCount) {
+      v = cornerValues[nodeIndex[i]!] ?? 0;
     } else {
       v = cornerValues[vertexToCorner[i % vertexToCorner.length] ?? 0] ?? 0;
     }
-    colour.setHex(shellContourColor(v, range.min, range.max));
+    colour.setHex(shellContourColor(bandValue(v, range.min, range.max, bands), range.min, range.max));
     colors[i * 3] = colour.r;
     colors[i * 3 + 1] = colour.g;
     colors[i * 3 + 2] = colour.b;
@@ -404,4 +337,40 @@ export function applyShellFlatColor(mesh: THREE.Mesh, hex: number): void {
   mat.color.setHex(hex);
   mat.opacity = 0.95; mat.transparent = false; mat.depthWrite = true;
   mat.needsUpdate = true;
+}
+
+/**
+ * Move a shell face's vertices by its corners' displacements, `scale` times, interpolated with the
+ * same weights the colours use; or, with `disp` null, put them back. The undeformed positions are
+ * kept on the geometry the first time.
+ */
+export function displaceShellFace(mesh: THREE.Mesh, disp: ReadonlyArray<readonly [number, number, number]> | null, scale: number, isQuad: boolean): void {
+  const geo = mesh.geometry;
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute | undefined;
+  if (!pos) return;
+  let base = geo.userData.basePositions as Float32Array | undefined;
+  if (!disp) {
+    if (base) { (pos.array as Float32Array).set(base); pos.needsUpdate = true; geo.computeBoundingSphere(); }
+    return;
+  }
+  if (!base) { base = new Float32Array(pos.array as Float32Array); geo.userData.basePositions = base; }
+  const weights = geo.userData?.vertexNodeWeights as number[][] | undefined;
+  const nodeIndex = geo.userData?.vertexNodeIndex as number[] | undefined;
+  const vertexToCorner = isQuad ? [0, 1, 2, 0, 2, 3] : [0, 1, 2];
+  const arr = pos.array as Float32Array;
+  for (let i = 0; i < pos.count; i++) {
+    let dx = 0, dy = 0, dz = 0;
+    const w = weights?.[i];
+    if (w) {
+      for (let k = 0; k < w.length; k++) { const d = disp[k]; if (d) { dx += w[k]! * d[0]; dy += w[k]! * d[1]; dz += w[k]! * d[2]; } }
+    } else {
+      const d = disp[nodeIndex && nodeIndex.length === pos.count ? nodeIndex[i]! : vertexToCorner[i % vertexToCorner.length]!];
+      if (d) { dx = d[0]; dy = d[1]; dz = d[2]; }
+    }
+    arr[i * 3] = base[i * 3]! + scale * dx;
+    arr[i * 3 + 1] = base[i * 3 + 1]! + scale * dy;
+    arr[i * 3 + 2] = base[i * 3 + 2]! + scale * dz;
+  }
+  pos.needsUpdate = true;
+  geo.computeBoundingSphere();
 }
