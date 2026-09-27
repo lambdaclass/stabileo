@@ -23,6 +23,7 @@ import { memberLocalCurve, chordDeflection, eiOf, type ChordDeflection, type Loc
 import { deflectionSpans, type Span, type SpanModel } from '../engine/deflection-spans';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
+import { envelopeMembers } from '../engine/result-scopes';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
 
@@ -35,11 +36,16 @@ export function serviceSets(): ServiceSets {
   const envs = (modelStore.resultScopes?.envelopes ?? []).filter((e) => e.purpose === 'service');
   const comboName = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
   if (envs.length > 0) {
-    const ids = [...new Set(envs.flatMap((e) => e.comboIds))];
-    const sets = ids.flatMap((id) => {
-      const r = resultsStore.perCombo3D.get(id);
-      return r ? [{ id, name: comboName.get(id) ?? String(id), results: r }] : [];
-    });
+    const caseName = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
+    const members = envelopeMembers(
+      { comboIds: [...new Set(envs.flatMap((e) => e.comboIds))], caseIds: [...new Set(envs.flatMap((e) => e.caseIds ?? []))] },
+      resultsStore.perCombo3D, resultsStore.perCase3D,
+    );
+    // A load case in a service envelope is read unfactored. Its id is negated to keep it apart
+    // from the combinations', since the two id spaces overlap.
+    const sets = members.map((m) => m.kind === 'combo'
+      ? { id: m.id, name: comboName.get(m.id) ?? String(m.id), results: m.results }
+      : { id: -m.id, name: caseName.get(m.id) ?? String(m.id), results: m.results });
     if (sets.length > 0) return { basis: 'service', names: envs.map((e) => e.name), sets };
   }
   if (resultsStore.singleResults3D) return { basis: 'unfactored', names: [], sets: [{ id: 0, name: '', results: resultsStore.singleResults3D }] };

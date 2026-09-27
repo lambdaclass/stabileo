@@ -3268,6 +3268,10 @@ function createModelStore() {
       if (model.massSource?.kind === 'custom') {
         model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
+      // Likewise a named envelope that takes the case on its own.
+      if (model.resultScopes) {
+        model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)), new Set(model.loadCases.map((c) => c.id)));
+      }
     },
 
     /**

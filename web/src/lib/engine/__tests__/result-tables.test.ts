@@ -2,7 +2,8 @@
  * The across-combination tables: every value comes from a result set, with where and under what.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, type Source } from '../result-tables';
+import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
+import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
@@ -42,7 +43,33 @@ describe('pure tables', () => {
   it('member rows are one per end', () => {
     const f = { elementId: 7, nStart: 1, nEnd: 2, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 3, myEnd: 4, mzStart: 0, mzEnd: 0 };
     const r = rowsOf('forces', { displacements: [], reactions: [], elementForces: [f] } as never);
-    expect(r).toEqual([{ entity: 7, end: 'i', values: [1, 0, 0, 0, 3, 0] }, { entity: 7, end: 'j', values: [2, 0, 0, 0, 4, 0] }]);
+    expect(r).toEqual([{ entity: 7, end: 'i', x: 0, values: [1, 0, 0, 0, 3, 0] }, { entity: 7, end: 'j', values: [2, 0, 0, 0, 4, 0] }]);
+  });
+
+  it('narrows to the given nodes, adds the resultant, and groups by node on request', () => {
+    const only1 = { entities: new Set([1]), resultant: true };
+    const rows = rowsOf('displacements', A.results, only1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.values[6]).toBeCloseTo(Math.hypot(0.001, -0.004), 12);
+    expect(columnsOf('displacements', only1).map((c) => c.key)).toEqual(['ux', 'uy', 'uz', 'rx', 'ry', 'rz', 'u']);
+    expect(allRows('displacements', [A, B], {}, 'entity').map((r) => `${r.source.name}${r.entity}`)).toEqual(['A1', 'B1', 'A2', 'B2']);
+    expect(summaryRows('displacements', [A, B], only1).find((r) => r.column.key === 'u')!.max).toMatchObject({ entity: 1, source: A });
+  });
+
+  it('member resultants are √(Vy² + Vz²) and √(My² + Mz²)', () => {
+    const f = { elementId: 7, length: 2, nStart: 1, nEnd: 1, vyStart: 3, vyEnd: 3, vzStart: 4, vzEnd: 4, mxStart: 0, mxEnd: 0, myStart: 6, myEnd: 0, mzStart: 8, mzEnd: 0 };
+    const r = rowsOf('forces', { displacements: [], reactions: [], elementForces: [f] } as never, { resultant: true });
+    expect(r[0]!.values.slice(6)).toEqual([5, 10]);
+    expect(whereOf(r[0]!)).toBe('7·i');
+    expect(whereOf({ entity: 7, x: 1.5 }, true)).toBe('7 @ 1.50');
+  });
+
+  it('a named envelope reads its combinations and its load cases, and forgets a case that is gone', () => {
+    const perCombo = new Map([[1, A.results]]), perCase = new Map([[1, B.results], [2, A.results]]);
+    const m = envelopeMembers({ comboIds: [1], caseIds: [1, 3] }, perCombo, perCase);
+    expect(m.map((x) => `${x.kind}${x.id}`)).toEqual(['combo1', 'case1']);
+    const pruned = pruneScopes({ envelopes: [{ id: 1, name: 'S', purpose: 'service', comboIds: [1], caseIds: [1, 2] }] }, new Set([1]), new Set([2]));
+    expect(pruned!.envelopes![0]!.caseIds).toEqual([2]);
   });
 
   it('CSV quotes what needs quoting', () => {
@@ -76,11 +103,30 @@ describe('solved: max by type reads along the member, and the Excel sheet is no 
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     const rows = maxByType(computeStationDemands(activePerCombo3D(), activeCombinations(), md as never).demands);
     expect(rows).toHaveLength(1);
-    const m = rows[0]!.bending!;
+    // A load along −Z on a member along X bends it about its local y: My, and Vz. Each axis has
+    // its own column, so the other one reads nothing.
+    const m = rows[0]!.momentY!;
     expect(m.absValue).toBeCloseTo((1.4 * 10 * 36) / 8, 6);
     expect(m.stationX).toBeCloseTo(3, 6);
     expect(m.comboId).toBe(heavy);
-    expect(rows[0]!.shear!.absValue).toBeCloseTo((1.4 * 10 * 6) / 2, 6);
+    expect(rows[0]!.shearZ!.absValue).toBeCloseTo((1.4 * 10 * 6) / 2, 6);
+    expect(Math.abs(rows[0]!.momentZ?.value ?? 0)).toBeLessThan(1e-6);
+    expect(maxByType(computeStationDemands(activePerCombo3D(), activeCombinations(), md as never).demands, new Set([999]))).toEqual([]);
+  });
+
+  it('stations along the member read the diagram: qL²/8 at midspan, the end forces at the ends', () => {
+    const r = [...activePerCombo3D().values()][0]!;
+    const rows = rowsOf('forces', r, { stations: 5 });
+    expect(rows).toHaveLength(5);
+    expect(rows.map((x) => x.x)).toEqual([0, 1.5, 3, 4.5, 6]);
+    expect(rows[0]!.end).toBe('i');
+    expect(rows[4]!.end).toBe('j');
+    expect(Math.abs(rows[2]!.values[4]!)).toBeCloseTo((10 * 36) / 8, 4);
+    const ends = rowsOf('forces', r);
+    expect(rows[0]!.values[4]).toBeCloseTo(ends[0]!.values[4]!, 9);
+    expect(rows[4]!.values[2]).toBeCloseTo(ends[1]!.values[2]!, 9);
+    // Each station is its own envelope row.
+    expect(envelopeRows('forces', [{ id: 1, name: 'x', results: r }], { stations: 5 })).toHaveLength(5);
   });
 
   it('the Excel combinations sheet carries the forces', () => {
