@@ -2077,11 +2077,7 @@ function solveCombinations3DNonlinear(
   const base = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
   if (!base) return t('svc.emptyModel');
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-  const caseLoads = new Map<number, SolverLoad3D[]>();
-  for (const lc of loadCases) {
-    const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
-    caseLoads.set(lc.id, buildSolverLoads3D(model, loads, includeSelfWeight && lc.type === 'D', leftHand));
-  }
+  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const run = (loads: SolverLoad3D[]): AnalysisResults3D => {
     const r = solveNonlinear3D(model, { ...base, loads }).results;
     if (hasShells) postProcessShellStresses(r, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
@@ -2092,7 +2088,7 @@ function solveCombinations3DNonlinear(
     for (const [id, loads] of caseLoads) if (loads.length > 0) perCase.set(id, run(loads));
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
-      const loads = combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
+      const loads = comboSolverLoads3D(combo, caseLoads);
       if (loads.length > 0) perCombo.set(combo.id, run(loads));
     }
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
@@ -2102,6 +2098,23 @@ function solveCombinations3DNonlinear(
   } catch (err: any) {
     return t('svc.solver3dError').replace('{n}', err.message);
   }
+}
+
+/** Each case's solver loads, self-weight in the dead-load cases when asked for. */
+export function caseSolverLoads3D(
+  model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean,
+): Map<number, SolverLoad3D[]> {
+  const caseLoads = new Map<number, SolverLoad3D[]>();
+  for (const lc of loadCases) {
+    const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
+    caseLoads.set(lc.id, buildSolverLoads3D(model, loads, includeSelfWeight && lc.type === 'D', leftHand));
+  }
+  return caseLoads;
+}
+
+/** A combination's own factored loads, for an analysis that cannot superpose. */
+export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number, SolverLoad3D[]>): SolverLoad3D[] {
+  return combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
 }
 
 /** A solver load times a factor: every magnitude scales, positions and ids do not. */

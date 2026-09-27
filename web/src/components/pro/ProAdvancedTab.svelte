@@ -20,7 +20,6 @@
   import ProRecordVideo from './ProRecordVideo.svelte';
   import {
     isSolverReady,
-    solvePDelta3D as wasmPDelta3D,
     solveModal3D as wasmModal3D,
     solveBuckling3D as wasmBuckling3D,
     solveSpectral3D as wasmSpectral3D,
@@ -39,6 +38,8 @@
     analyzeSection,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
+  // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
+  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
   // Every solver below is a WASM export that throws a bare string, which has no
   // `.message`. Reading it with `e.message` reported "Error" for every engine

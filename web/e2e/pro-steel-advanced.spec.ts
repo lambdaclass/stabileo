@@ -21,3 +21,23 @@ test.describe('@smoke PRO tapered members', () => {
     expect(after).toBe(before + 3);
   });
 });
+
+test.describe('@smoke PRO direct analysis', () => {
+  test('AISC 360 reads the direct analysis at K = 1, one row per combination', async ({ pro: page }) => {
+    await page.evaluate(async () => {
+      await window.__stabileoActions.loadExample('3d-portal-frame');
+      window.__stabileoActions.updateSection(1, { shape: 'I', tw: 0.0108, tf: 0.0162 });
+      window.__stabileoActions.combineCases('1.0 todos');
+      await window.__stabileoActions.solve();
+    });
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-otherCodes').click();
+    await page.getByTestId('other-codes-source-direct').click();
+    await expect(page.getByTestId('other-codes-run')).toBeDisabled();
+    await page.getByTestId('direct-run').click();
+    await expect(page.getByTestId('direct-table').locator('tbody tr')).not.toHaveCount(0);
+    await page.getByTestId('other-codes-run').click();
+    await expect(page.getByTestId('other-codes-direct-note')).toBeVisible();
+    await expect(page.getByTestId('other-codes-summary')).toBeVisible();
+  });
+});

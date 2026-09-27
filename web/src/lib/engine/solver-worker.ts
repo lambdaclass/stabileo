@@ -6,6 +6,7 @@
  *   { type: 'init', wasmModule: WebAssembly.Module }  → initialize WASM (pre-compiled module, structured-cloned)
  *   { type: 'solve',   id: number, input: object }    → 2D solve (SolverInput wire object)
  *   { type: 'solve3d', id: number, input: object }    → 3D solve (SolverInput3D wire object)
+ *   { type: 'pdelta3d', id, input, maxIter, tol }      → 3D P-Delta, one load set
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
@@ -14,6 +15,7 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 
 let solve_2d: ((input: any) => any) | null = null;
 let solve_3d: ((input: any) => any) | null = null;
+let solve_pdelta_3d: ((json: string, maxIter: number, tol: number) => string) | null = null;
 let ready = false;
 
 function handleSolve(msg: any, solveFn: ((input: any) => any) | null): void {
@@ -44,6 +46,7 @@ self.onmessage = async (e: MessageEvent) => {
       const wasm = await import(/* @vite-ignore */ '../wasm/dedaliano_engine.js');
       solve_2d = wasm.solve_2d;
       solve_3d = wasm.solve_3d;
+      solve_pdelta_3d = (wasm as { solve_pdelta_3d?: typeof solve_pdelta_3d }).solve_pdelta_3d ?? null;
 
       wasm.initSync({ module: msg.wasmModule });
       ready = true;
@@ -61,6 +64,24 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (msg.type === 'solve3d') {
     handleSolve(msg, solve_3d);
+    return;
+  }
+
+  if (msg.type === 'pdelta3d') {
+    if (!ready || !solve_pdelta_3d) {
+      self.postMessage({ type: 'result', id: msg.id, error: 'Worker P-Delta not available' });
+      return;
+    }
+    try {
+      assertFiniteWire(msg.input);
+      // The P-Delta export takes JSON text, as its main-thread wrapper sends it.
+      const result = JSON.parse(solve_pdelta_3d(JSON.stringify(msg.input), msg.maxIter, msg.tol));
+      if (result?.results) stripStabilisedReactions(result.results, msg.input);
+      if (result?.linearResults) stripStabilisedReactions(result.linearResults, msg.input);
+      self.postMessage({ type: 'result', id: msg.id, result });
+    } catch (err: any) {
+      self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
+    }
     return;
   }
 };

@@ -14,6 +14,8 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { activeCombinations, activePerCombo3D } from '../../lib/store/active-results';
+  import { directAnalysis } from '../../lib/store/direct-analysis.svelte';
+  import ProDirectAnalysis from './ProDirectAnalysis.svelte';
   import {
     OTHER_CODES, otherCode, memberContexts, runOtherCode,
     type OtherCodeId, type OtherCodeRun, type OtherCodeRow,
@@ -26,17 +28,29 @@
   let run = $state<OtherCodeRun | null>(null);
   let runOf = $state<unknown>(null);
   let failed = $state(false);
+  /**
+   * Where the forces come from. The direct analysis is AISC 360's own method (Chapter C), so it
+   * is offered with that code only; with it every member is checked at K = 1.
+   */
+  let source = $state<'linear' | 'direct'>('linear');
+  const direct = $derived(codeId === 'aisc360' && source === 'direct');
+  let ranDirect = $state(false);
 
   const code = $derived(otherCode(codeId)!);
   const solved = $derived(resultsStore.perCombo3D.size > 0);
-  const stale = $derived(run !== null && runOf !== resultsStore.perCombo3D);
+  const stale = $derived(run !== null && (ranDirect ? runOf !== directAnalysis.result || !directAnalysis.fresh : runOf !== resultsStore.perCombo3D));
 
   function verify() {
     failed = false;
     try {
-      const ctxs = memberContexts(modelStore.model as never, activePerCombo3D(), activeCombinations());
+      const forces = direct ? directAnalysis.forces() : activePerCombo3D();
+      if (!forces) { run = null; failed = true; return; }
+      // Only the combinations the forces exist for: an unstable one publishes none.
+      const combos = activeCombinations().filter((c) => forces.has(c.id));
+      const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct });
       run = runOtherCode(code, ctxs);
-      runOf = resultsStore.perCombo3D;
+      runOf = direct ? directAnalysis.result : resultsStore.perCombo3D;
+      ranDirect = direct;
     } catch {
       run = null;
       failed = true;
@@ -97,14 +111,23 @@
       </div>
     {/each}
     <p class="oc-coverage" data-testid="other-codes-coverage">{t(code.coverageKey)}</p>
+    {#if codeId === 'aisc360'}
+      <div class="pk-row oc-source" role="radiogroup" aria-label={t('direct.source')}>
+        <span class="pk-label">{t('direct.source')}</span>
+        <button class="pk-btn" class:on={source === 'linear'} role="radio" aria-checked={source === 'linear'} onclick={() => (source = 'linear')} data-testid="other-codes-source-linear">{t('direct.source.linear')}</button>
+        <button class="pk-btn" class:on={source === 'direct'} role="radio" aria-checked={source === 'direct'} onclick={() => (source = 'direct')} data-testid="other-codes-source-direct">{t('direct.source.direct')}</button>
+      </div>
+      {#if source === 'direct'}<ProDirectAnalysis />{/if}
+    {/if}
     <div class="pk-row">
       <button
         class="pk-btn pk-btn-primary"
-        disabled={!solved}
+        disabled={direct ? !directAnalysis.fresh : !solved}
         onclick={verify}
         data-testid="other-codes-run"
       >{t('otherCodes.run')}</button>
-      {#if !solved}<span class="pk-hint">{t('otherCodes.blocked.noCombos')}</span>{/if}
+      {#if direct && !directAnalysis.fresh}<span class="pk-hint">{t('direct.blocked')}</span>
+      {:else if !direct && !solved}<span class="pk-hint">{t('otherCodes.blocked.noCombos')}</span>{/if}
     </div>
   </section>
 
@@ -118,6 +141,7 @@
       {#if stale}
         <p class="pk-warn" data-testid="other-codes-stale">{t('otherCodes.stale')}</p>
       {/if}
+      {#if ranDirect}<p class="pk-hint" data-testid="other-codes-direct-note">{t('direct.designNote')}</p>{/if}
       {#if checked.length === 0}
         <p class="pk-hint" data-testid="other-codes-none">{t('otherCodes.none')}</p>
       {:else}

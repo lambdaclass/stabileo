@@ -29,6 +29,12 @@ export function memberContexts(
   perCombo: Map<number, AnalysisResults3D>,
   combinations: LoadCombination[],
   ids?: Iterable<number>,
+  /**
+   * The forces come from a direct analysis (AISC 360 C1): every member is designed with K = 1,
+   * whatever effective length factor it carries, since the analysis already holds the
+   * second-order and stiffness effects that K stood for.
+   */
+  opts: { unitK?: boolean } = {},
 ): MemberContext[] {
   const { demands } = computeStationDemands(perCombo, combinations, model as never);
   const lengths = memberLengths(model as never);
@@ -47,8 +53,10 @@ export function memberContexts(
     out.push({
       elementId: id, element: e, section, material, kind,
       L: len?.L ?? d.length, Lb: len?.Lb ?? d.length,
-      ...(e.kStrong !== undefined ? { kStrong: e.kStrong } : {}),
-      ...(e.kWeak !== undefined ? { kWeak: e.kWeak } : {}),
+      ...(opts.unitK ? { kStrong: 1, kWeak: 1 } : {
+        ...(e.kStrong !== undefined ? { kStrong: e.kStrong } : {}),
+        ...(e.kWeak !== undefined ? { kWeak: e.kWeak } : {}),
+      }),
       demands: d.demands,
     });
   }

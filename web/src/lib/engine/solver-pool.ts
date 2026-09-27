@@ -229,13 +229,13 @@ async function ensurePool(): Promise<void> {
  * because the caller's fallback swallows the throw, so this string may be the only trace
  * the failure ever leaves.
  */
-function runJob(type: 'solve' | 'solve3d', input: any, target?: PoolWorker): Promise<any> {
+function runJob(type: 'solve' | 'solve3d' | 'pdelta3d', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
     pw.pending.set(msgId, { resolve, reject });
     try {
-      pw.worker.postMessage({ type, id: msgId, input });
+      pw.worker.postMessage({ type, id: msgId, input, ...extra });
     } catch (err: any) {
       pw.pending.delete(msgId);
       if (err?.name === 'DataCloneError') {
@@ -268,6 +268,15 @@ export async function solve2DInWorker(input: any): Promise<any> {
 export async function solve3DInWorker(input: any): Promise<any> {
   await ensurePool();
   return runJob('solve3d', input);
+}
+
+/**
+ * A 3D P-Delta solve of one load set in a worker.
+ * @throws PoolUnavailableError when Workers are unavailable — caller should fall back to the sync solver
+ */
+export async function pdelta3DInWorker(input: any, maxIter: number, tol: number): Promise<any> {
+  await ensurePool();
+  return runJob('pdelta3d', input, undefined, { maxIter, tol });
 }
 
 /**

@@ -6,7 +6,9 @@
   import { publishCombinations3D } from '../../lib/store/active-results';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { analyzeKinematics, solvePDelta, solveBuckling, solveModal, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { analyzeKinematics, solvePDelta, solveBuckling, solveModal, solvePlastic, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
+  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { plasticMoments, DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
