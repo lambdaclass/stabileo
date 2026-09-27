@@ -196,6 +196,7 @@
     <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showLengths3D} /> {t('view.labelLengths')} <kbd>Alt+L</kbd></label>
     <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showShellLabels3D} /> {t('view.labelShells')} <kbd>Alt+P</kbd></label>
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.labelsOnSelection} data-testid="view-labels-selection" /> {t('view.labelsOnSelection')}</label>
+    <label class="pk-check"><input type="checkbox" bind:checked={viewState.quickInfo} data-testid="view-quick-info" /> {t('view.quickInfo')}</label>
   </section>
 
   <section class="pk-card">

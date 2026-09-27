@@ -14,7 +14,8 @@ import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3
 import { applyAxial, applyPoint, applyVector, isReflection, reflection, rotation, type Affine } from './affine';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
 import { closure, type EntitySet } from './fragment';
-import { coincidentNodeGroups, mergeNodesInto, MERGE_TOL } from './cleanup';
+import { coincidentNodeGroups, mergeNodesInto } from './cleanup';
+import { weldTolerance } from '../weld-tolerance';
 
 export interface InPlaceReport {
   movedNodes: number;
@@ -132,7 +133,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
      * onto stationary — two moved nodes that coincide were coincident before, and that is the
      * clean-up's to decide.
      */
-    const tol = opts.weldTol ?? MERGE_TOL;
+    const tol = opts.weldTol ?? weldTolerance();
     const to = new Map<number, number>();
     for (const g of coincidentNodeGroups(tol)) {
       const stays = g.find((id) => !src.nodes.has(id));

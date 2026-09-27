@@ -5,6 +5,7 @@
    * The rules live in `lib/model/edit/` (cut-members, merge-collinear, cleanup, and the split every
    * cut reduces to). Every button is one undo step and says what it did.
    */
+  import { weldTolerance, setWeldTolerance } from '../../lib/model/weld-tolerance';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { splitAtNodes, intersectMembers, type CutReport } from '../../lib/model/edit/cut-members';
@@ -105,7 +106,10 @@
     : tp('edit.scopeAll', { n: modelStore.elements.size }));
 
   // What the clean-up would find, counted before it runs.
+  /** The weld tolerance, mm on screen; every weld reads it (`model/weld-tolerance.ts`). */
+  let weldMm = $state(weldTolerance() * 1000);
   const findings = $derived.by(() => {
+    void weldMm;
     void modelStore.modelVersion;
     const coincident = coincidentNodeGroups().reduce((s, g) => s + g.length - 1, 0);
     const pairs = new Map<string, number>();
@@ -207,6 +211,9 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('edit.cleanTitle')}</h4>
+    <label class="pk-row ep-weld">{t('edit.weldTol')}
+      <input type="number" min="0.001" max="100" step="0.1" value={weldMm} onchange={(e) => (weldMm = setWeldTolerance(Number(e.currentTarget.value) / 1000) * 1000)} data-testid="ep-weld-tol" /> mm
+    </label>
     <ul class="ep-findings">
       <li>{tp('edit.found.coincident', { n: findings.coincident })} <button class="pk-btn" disabled={findings.coincident === 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
       <li>{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))}>{t('edit.fix')}</button></li>

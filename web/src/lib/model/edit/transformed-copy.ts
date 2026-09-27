@@ -35,6 +35,7 @@
  * beams between repeated frames, the purlins of a polar array.
  */
 
+import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Element, Quad, Plate } from '../../store/model.svelte';
 import { applyPoint, applyVector, isReflection, type Affine, type Vec3 } from './affine';
@@ -76,6 +77,7 @@ export interface EditReport {
   warnings: Partial<Record<EditWarning, number>>;
 }
 
+/** The default weld tolerance; the one in force is `weldTolerance()`. */
 export const DEFAULT_WELD = 1e-4;
 
 /** A spatial hash for the weld: cells of the weld tolerance, neighbours checked. */
@@ -119,7 +121,7 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
  * only exist when the fragment is `local`).
  */
 export function insertFragment(frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
-  const tol = opts.weldTol ?? DEFAULT_WELD;
+  const tol = opts.weldTol ?? weldTolerance();
   const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
     nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0,

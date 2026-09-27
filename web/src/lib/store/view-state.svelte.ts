@@ -23,6 +23,10 @@ let labelsOnSelection = $state(false);
 let showConstraints = $state(false);
 /** Mark each member's I and J ends. */
 let showMemberEnds = $state(false);
+/** The quick card on a click: what one node or member is and carries. */
+let quickInfo = $state(false);
+/** A drag on empty space draws a lasso instead of a rectangle. */
+let lasso = $state(false);
 
 export const viewState = {
   get memberLabel() { return memberLabel; },
@@ -33,6 +37,10 @@ export const viewState = {
   set insetViewId(v: number | null) { insetViewId = v; },
   get showConstraints() { return showConstraints; },
   set showConstraints(v: boolean) { showConstraints = v; },
+  get lasso() { return lasso; },
+  set lasso(v: boolean) { lasso = v; },
+  get quickInfo() { return quickInfo; },
+  set quickInfo(v: boolean) { quickInfo = v; },
   get showMemberEnds() { return showMemberEnds; },
   set showMemberEnds(v: boolean) { showMemberEnds = v; },
   get labelsOnSelection() { return labelsOnSelection; },

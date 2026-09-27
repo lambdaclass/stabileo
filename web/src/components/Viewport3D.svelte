@@ -1,7 +1,9 @@
 <script lang="ts">
+  import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility, visibleNodes } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility, visibleNodes, visibleElements } from '../lib/store/view-state.svelte';
+  import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
@@ -131,6 +133,8 @@
   let camMenuOpen = $state(false);
   let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
+  /** The lasso's outline while one is being drawn (`viewState.lasso`). */
+  let lassoPath = $state<Array<{ x: number; y: number }>>([]);
 
   // ─── Node dragging state ───────────────────────────────────
   let draggedNodeId3D = $state<number | null>(null);
@@ -1676,6 +1680,7 @@
           const mx = e.clientX - rect.left;
           const my = e.clientY - rect.top;
           boxSelect3D = { startX: mx, startY: my, endX: mx, endY: my, additive: e.shiftKey };
+          lassoPath = viewState.lasso ? [{ x: mx, y: my }] : [];
           controls.enabled = false;
           // This is a box-select, not an orbit — undo the low-detail/low-res
           // state that OrbitControls 'start' just engaged, and re-render so the
@@ -2160,6 +2165,30 @@
       }
       return;
     }
+
+    // ── The lasso: what the outline encloses (nodes; members and shells wholly inside) ──
+    if (boxSelect3D && viewState.lasso && lassoPath.length >= 3) {
+      const poly = lassoPath;
+      const additive = boxSelect3D.additive;
+      boxSelect3D = null;
+      lassoPath = [];
+      controls.enabled = true;
+      const project2D = shouldProject2DModel();
+      const scr = (id: number) => { const n = modelStore.nodes.get(id); if (!n) return null; const p = projectNodeToScene(n, project2D); return projectToScreen(p.x, p.y, p.z); };
+      const inside = (id: number) => { const s = scr(id); return !!s && insidePolygon(s, poly); };
+      const nodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
+      const elems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
+      const shells = additive ? new Set(uiStore.selectedShells) : new Set<string>();
+      if (uiStore.selectsKind('nodes')) for (const id of visibleNodes().keys()) if (inside(id)) nodes.add(id);
+      if (uiStore.selectsKind('elements')) for (const [id, el] of visibleElements()) if (inside(el.nodeI) && inside(el.nodeJ)) elems.add(id);
+      if (uiStore.selectMode === 'shells') {
+        for (const [id, q] of modelStore.quads) if (q.nodes.every(inside)) shells.add(`q${id}`);
+        for (const [id, p] of modelStore.plates) if (p.nodes.every(inside)) shells.add(`p${id}`);
+      }
+      uiStore.setSelection(nodes, elems, true, shells);
+      return;
+    }
+    lassoPath = [];
 
     // ── Finalize box selection (AutoCAD-style Window vs Crossing) ──
     if (boxSelect3D) {
@@ -2662,6 +2691,7 @@
     if (boxSelect3D) {
       const rect = container.getBoundingClientRect();
       boxSelect3D = { ...boxSelect3D, endX: e.clientX - rect.left, endY: e.clientY - rect.top };
+      if (viewState.lasso) lassoPath = extendLasso(lassoPath, { x: boxSelect3D.endX, y: boxSelect3D.endY });
       // Keep re-rendering during the drag so the model stays visible (the camera
       // is static during box-select, so without this the canvas wouldn't repaint).
       invalidate();
@@ -3488,7 +3518,9 @@
   {/if}
 
   <!-- Box select overlay (AutoCAD-style) -->
-  {#if boxSelect3D}
+  {#if boxSelect3D && viewState.lasso && lassoPath.length > 1}
+    <svg class="lasso-path" data-testid="lasso-path"><polygon points={lassoPath.map((p) => `${p.x},${p.y}`).join(' ')} /></svg>
+  {:else if boxSelect3D}
     {@const x = Math.min(boxSelect3D.startX, boxSelect3D.endX)}
     {@const y = Math.min(boxSelect3D.startY, boxSelect3D.endY)}
     {@const w = Math.abs(boxSelect3D.endX - boxSelect3D.startX)}
@@ -3522,6 +3554,7 @@
 
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
+  <QuickInfoCard />
 </div>
 
 <style>
@@ -3570,6 +3603,8 @@
     font-size: 0.6rem;
     color: var(--st-text-2);
   }
+  .lasso-path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; }
+  .lasso-path polygon { fill: rgba(127, 212, 204, 0.12); stroke: #7fd4cc; stroke-width: 1.5; stroke-dasharray: 4 3; }
   .axis-gizmo {
     position: absolute;
     bottom: 8px;

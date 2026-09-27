@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProCommandPalette from './ProCommandPalette.svelte';
   import { t } from '../../lib/i18n';
   /*
    * Through the barrel, like every other PRO component.
@@ -416,6 +417,8 @@
     {/if}
   </div>
 </nav>
+
+<ProCommandPalette stages={STAGES} {run} />
 
 <style>
   .pro-ribbon {

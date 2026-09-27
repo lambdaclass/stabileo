@@ -15,9 +15,11 @@
  * which the combined clean-up runs next.
  */
 
+import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
 
+/** The default weld tolerance; the one in force is `weldTolerance()`. */
 export const MERGE_TOL = 1e-4;
 
 export interface CleanupReport {
@@ -34,7 +36,7 @@ const empty = (): CleanupReport => ({
 });
 
 /** Groups of coincident nodes, each sorted, lowest id first. Spatial hash on the tolerance. */
-export function coincidentNodeGroups(tol = MERGE_TOL): number[][] {
+export function coincidentNodeGroups(tol = weldTolerance()): number[][] {
   const cells = new Map<string, number[]>();
   const key = (x: number, y: number, z: number) => `${Math.round(x / tol)},${Math.round(y / tol)},${Math.round(z / tol)}`;
   const parent = new Map<number, number>();
@@ -59,7 +61,7 @@ export function coincidentNodeGroups(tol = MERGE_TOL): number[][] {
   return [...groups.values()].filter((g) => g.length > 1).map((g) => g.sort((a, b) => a - b));
 }
 
-export function mergeCoincidentNodes(tol = MERGE_TOL): CleanupReport {
+export function mergeCoincidentNodes(tol = weldTolerance()): CleanupReport {
   const report = empty();
   const groups = coincidentNodeGroups(tol);
   if (groups.length === 0) return report;
@@ -122,7 +124,7 @@ export function removeDuplicateMembers(): CleanupReport {
   return report;
 }
 
-export function removeZeroLengthMembers(tol = MERGE_TOL): CleanupReport {
+export function removeZeroLengthMembers(tol = weldTolerance()): CleanupReport {
   const report = empty();
   const zero = [...modelStore.elements.values()].filter((e) => {
     if (e.nodeI === e.nodeJ) return true;
@@ -151,7 +153,7 @@ export function removeOrphanNodes(): CleanupReport {
 }
 
 /** All four, in the order that lets each clear what the previous one uncovers. One undo step. */
-export function cleanUpModel(tol = MERGE_TOL): CleanupReport {
+export function cleanUpModel(tol = weldTolerance()): CleanupReport {
   const total = empty();
   modelStore.batch(() => {
     for (const r of [mergeCoincidentNodes(tol), removeZeroLengthMembers(tol), removeDuplicateMembers(), removeOrphanNodes()]) {
