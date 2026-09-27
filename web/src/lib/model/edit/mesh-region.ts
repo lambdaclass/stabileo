@@ -8,9 +8,7 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import { buildBilinearQuadGrid } from '../../engine/shell-mesh-gen';
-import { findCoincidentNode } from '../../engine/mesh-weld';
-import { splitAtNodes } from './cut-members';
+import { applyMesh } from './mesh-apply';
 
 export type MeshDensity = { mode: 'targetSize'; size: number } | { mode: 'fixedDivisions'; nx: number; ny: number };
 
@@ -37,24 +35,11 @@ export function divisionsFor(corners: ReadonlyArray<{ x: number; y: number; z?: 
 export function meshQuadRegion(cornerIds: [number, number, number, number], o: MeshRegionOptions): MeshRegionResult {
   const corners = cornerIds.map((id) => modelStore.nodes.get(id)!);
   const { nx, ny } = divisionsFor(corners, o.density);
-  const out: MeshRegionResult = { newNodes: 0, quadCount: 0, quads: [], splitCount: 0 };
-  modelStore.batch(() => {
-    const r = buildBilinearQuadGrid(
-      corners.map((c) => ({ x: c.x, y: c.y, z: c.z ?? 0 })) as never,
-      nx, ny,
-      {
-        findNode: (x, y, z) => findCoincidentNode(modelStore.nodes.values(), x, y, z),
-        addNode: (x, y, z) => modelStore.addNode(x, y, z !== 0 ? z : undefined),
-        addQuad: (nodes) => { out.quads.push(modelStore.addQuad(nodes, o.materialId, o.thickness)); },
-      },
-      cornerIds,
-    );
-    out.newNodes = r.newNodes;
-    out.quadCount = r.quadCount;
-    if (o.splitBeams) {
-      const cut = splitAtNodes([...modelStore.elements.keys()], r.nodeGrid.flat());
-      out.splitCount = cut.cut.reduce((s, c) => s + c.segments.length - 1, 0);
-    }
-  });
-  return out;
+  // The structured path of the one mesher: four sides, nx and ny divisions on opposite sides.
+  const r = applyMesh({
+    outer: { kind: 'polygon', points: corners.map((c) => [c.x, c.y, c.z ?? 0] as [number, number, number]) },
+    holes: [], size: 1, element: 'quad', fixedPoints: [],
+    sides: [{ divisions: nx }, { divisions: ny }, { divisions: nx }, { divisions: ny }],
+  }, { materialId: o.materialId, thickness: o.thickness, splitBeams: o.splitBeams });
+  return r ? { newNodes: r.newNodes, quadCount: r.quads.length, quads: r.quads, splitCount: r.splitCount } : { newNodes: 0, quadCount: 0, quads: [], splitCount: 0 };
 }
