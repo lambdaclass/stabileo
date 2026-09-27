@@ -490,6 +490,8 @@ export interface Element extends Element3DMetadata {
   behaviour?: import('../engine/member-behaviour').MemberBehaviour;
   /** Factors on A, Iy, Iz and J for the analysis only; the section itself is not changed. */
   stiffness?: import('../engine/member-behaviour').StiffnessModifiers;
+  /** Semi-rigid ends: rotational stiffness about local y and z, kN·m/rad (`engine/expand-semi-rigid-3d.ts`). */
+  semiRigid?: import('../engine/expand-semi-rigid-3d').SemiRigid;
   /**
    * The curve this member belongs to, when it was drawn as one.
    *

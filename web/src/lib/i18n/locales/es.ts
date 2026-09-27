@@ -7850,5 +7850,9 @@ const es: Record<string, string> = {
   'support.node': "Nodo",
   'support.pickNormal': "Normal del apoyo: punto {k} de 2",
   'support.more': "Resortes, curvas, inclinación",
+  'behaviour.releases': "Liberaciones en los extremos (6 GDL)",
+  'behaviour.releasesHint': "Libera el movimiento relativo entre el extremo y el nodo en cada grado de libertad marcado. Es la misma articulación que dibuja la herramienta de Básico 3D.",
+  'behaviour.semiRigid': "Extremos semirrígidos",
+  'behaviour.semiRigidHint': "Rigidez al giro de la unión alrededor de los ejes locales y y z. Vale para barras alineadas con los ejes globales; en las demás el extremo queda rígido y se informa.",
 };
 export default es;

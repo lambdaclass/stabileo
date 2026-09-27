@@ -165,3 +165,21 @@ describe('multilinear springs', () => {
     expect(disp(solve(), a).uz).toBeCloseTo(-0.026, 4);
   });
 });
+
+describe('semi-rigid ends', () => {
+  it('a cantilever on a rotational spring: δ = P·L³/(3EI) + P·L²/kθ', () => {
+    const E = 200_000, L = 3, P = 10, k = 5000;
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d' as never);
+    modelStore.addNodalLoad3D(b, 0, 0, -P, 0, 0, 0, 1);
+    const sec = modelStore.sections.get(modelStore.elements.get(e)!.sectionId)!;
+    const mat = modelStore.materials.get(modelStore.elements.get(e)!.materialId)!;
+    const rigid = -disp(solve(), b).uz;
+    modelStore.updateElement(e, { semiRigid: { i: { ky: k, kz: k } } });
+    const semi = -disp(solve(), b).uz;
+    // What the spring adds is the base rotation P·L/kθ carried to the tip.
+    expect(semi - rigid).toBeCloseTo((P * L * L) / k, 6);
+    void E; void sec; void mat;
+  });
+});

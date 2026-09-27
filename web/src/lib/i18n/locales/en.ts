@@ -7861,5 +7861,9 @@ const en: Record<string, string> = {
   'support.node': "Node",
   'support.pickNormal': "Support normal: point {k} of 2",
   'support.more': "Springs, curves, inclination",
+  'behaviour.releases': "End releases (6 DOF)",
+  'behaviour.releasesHint': "Frees the relative movement between the end and the node in each ticked degree of freedom. It is the same joint Basic 3D’s tool draws.",
+  'behaviour.semiRigid': "Semi-rigid ends",
+  'behaviour.semiRigidHint': "Rotational stiffness of the connection about local y and z. It applies to members aligned with the global axes; any other keeps its end rigid and is reported.",
 };
 export default en;

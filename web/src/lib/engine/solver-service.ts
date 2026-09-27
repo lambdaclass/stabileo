@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { expandSemiRigid3D } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D } from './member-behaviour';
 import { sectionShearAreas } from '../section/shear-areas';
 import { supportDofs3D } from './support-dofs-3d';
@@ -1658,6 +1659,7 @@ export function buildSolverInput3D(
     // (advanced analyses opt out via expandMemberOffsets:false and are blocked in
     // the UI when joints are present, so they never silently ignore a release.)
     const jointHelpers = expandJoints3D(input, model.elements, project2DToXZ ? EMBED_XZ_DOF_PERMUTATION : undefined);
+    for (const h of expandSemiRigid3D(input, model.elements).helpers) jointHelpers.add(h);
     // On the embed path the out-of-plane restraint pass that built `supports`
     // ran before expansion and only covered the original model nodes; the new
     // coincident helper nodes need the same out-of-plane lock (uy, rx, rz) or

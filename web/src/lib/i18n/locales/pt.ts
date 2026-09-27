@@ -6670,5 +6670,9 @@ const pt: Translations = {
   'support.node': "Nó",
   'support.pickNormal': "Normal do apoio: ponto {k} de 2",
   'support.more': "Molas, curvas, inclinação",
+  'behaviour.releases': "Liberações nas extremidades (6 GDL)",
+  'behaviour.releasesHint': "Libera o movimento relativo entre a extremidade e o nó em cada grau de liberdade marcado. É a mesma articulação da ferramenta do Básico 3D.",
+  'behaviour.semiRigid': "Extremidades semirrígidas",
+  'behaviour.semiRigidHint': "Rigidez à rotação da ligação em torno dos eixos locais y e z. Vale para barras alinhadas com os eixos globais; nas demais a extremidade fica rígida e é informado.",
 };
 export default pt;
