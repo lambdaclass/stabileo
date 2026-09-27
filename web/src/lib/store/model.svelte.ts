@@ -486,6 +486,10 @@ export interface Element extends Element3DMetadata {
   jointJ?: Joint3D;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
+  /** Inactive, tension only or compression only (`engine/member-behaviour.ts`). Absent: linear. */
+  behaviour?: import('../engine/member-behaviour').MemberBehaviour;
+  /** Factors on A, Iy, Iz and J for the analysis only; the section itself is not changed. */
+  stiffness?: import('../engine/member-behaviour').StiffnessModifiers;
   /**
    * The curve this member belongs to, when it was drawn as one.
    *
@@ -534,6 +538,8 @@ export interface Support {
   id: number;
   nodeId: number;
   type: SupportType;
+  /** Holds the node down, never up: released where its reaction would pull (`engine/member-behaviour.ts`). */
+  uplift?: boolean;
   kx?: number; // kN/m
   ky?: number; // kN/m
   kz?: number; // kN·m/rad (2D rotation spring / 3D rotation-Z spring)
@@ -2774,7 +2780,7 @@ function createModelStore() {
       model.supports = new Map(model.supports);
     },
 
-    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number }>): void {
+    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean }>): void {
       if (!_undoBatching) _pushUndo?.();
       const sup = model.supports.get(id);
       if (!sup) return;
@@ -2814,6 +2820,7 @@ function createModelStore() {
         normalY: sup.normalY,
         normalZ: sup.normalZ,
         isInclined: sup.isInclined,
+        ...(('uplift' in data ? data.uplift : sup.uplift) ? { uplift: true } : {}),
       });
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
