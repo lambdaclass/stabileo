@@ -6726,5 +6726,11 @@ const pt: Translations = {
   'surface.axis': "Eixo por dois pontos",
   'surface.pickAxis': "Eixo: ponto {k} de 2 (base, depois direção)",
   'surface.done': "{n} quadriláteros curvos inseridos.",
+  'pro.diaphragmsFromModel': "Diafragmas rígidos do modelo: {n} (definidos em Vínculos › Detectar diafragmas).",
+  'pro.modalAuto': "Até 90 % da massa",
+  'pro.modalAutoReached': "{n} modos: participa {x} % da massa em X e {y} % em Y.",
+  'pro.modalAutoShort': "O modelo tem {n} modos e não chega a 90 %: {x} % em X, {y} % em Y.",
+  'pro.modalAutoConstrained': "Com vínculos o motor não dá razões de massa confiáveis, então se usa a quantidade de modos pedida.",
+  'spectral.xiHint': "Amortecimento da combinação CQC entre modos. O espectro é o do regulamento, para 5 %; ξ não o reescala.",
 };
 export default pt;

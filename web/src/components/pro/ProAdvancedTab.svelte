@@ -5,7 +5,7 @@
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import {
-    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
+    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
@@ -49,7 +49,6 @@
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
-  import { applyRigidDiaphragm, detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -122,8 +121,6 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  let useDiaphragm = $state(false);
-
   function buildInput() {
     // These analyses build with expandMemberOffsets:false, which ALSO skips
     // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
@@ -149,12 +146,9 @@
     return input;
   }
 
-  function maybeApplyDiaphragm(input: any) {
-    if (!useDiaphragm) return input;
-    const levels = detectFloorLevels(input.nodes);
-    if (!levels || levels.length === 0) return input;
-    return applyRigidDiaphragm(input, { levels });
-  }
+
+
+  const diaphragmCount = $derived(modelStore.constraints.filter((c) => c.type === 'diaphragm').length);
 
   /** What the last dynamic run took as mass. Shown beside the mass-source table. */
   let massReport = $state<MassSourceReport | null>(null);
@@ -174,7 +168,9 @@
     };
     const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
     massReport = ms.report;
-    const input = maybeApplyDiaphragm(ms.input);
+    // Rigid diaphragms are the model's own constraints (Constraints › Auto-detect); this panel used
+    // to add a second, transient set of its own behind a checkbox.
+    const input = ms.input;
     return { input, densities: densitiesFor(input, ms.densities) };
   }
 
@@ -188,7 +184,6 @@
     pdeltaElapsed = null;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
       res = wasmPDelta3D(input);
@@ -210,6 +205,9 @@
 
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
+  /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
+  let modalAuto = $state(false);
+  let modalAutoNote = $state<string | null>(null);
 
   const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
   /*
@@ -232,8 +230,16 @@
       const { input, densities } = buildDynamicInput();
       let res: any;
       const t0 = performance.now();
-      res = wasmModal3D(input, densities, numModes);
       modalConstrained = (input.constraints?.length ?? 0) > 0;
+      modalAutoNote = null;
+      if (modalAuto && !modalConstrained) {
+        const r = modalUntilMass((n) => wasmModal3D(input, densities, n), numModes);
+        res = r.result;
+        if (typeof res !== 'string') modalAutoNote = tp(r.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: r.modes, x: (r.x * 100).toFixed(1), y: (r.y * 100).toFixed(1) });
+      } else {
+        res = wasmModal3D(input, densities, numModes);
+        if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
+      }
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
@@ -282,6 +288,8 @@
   let destinationGroup = $state<DestinationGroup>(seismicSettings?.destinationGroup ?? 'B');
   /** Response modification factor. 1 = the elastic spectrum, unreduced. */
   let spectralR = $state<number>(settingsR ?? 1);
+  /** Damping ratio for the modal combination (CQC correlation). The spectrum is the code's. */
+  let spectralXi = $state(0.05);
   const fromProject = seismicSettings?.zone !== undefined;
   const codeSpectrum = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
 
@@ -320,7 +328,7 @@
       // One run per horizontal direction: the engine combines a single direction at a time.
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
-        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor });
+        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
         if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
         byDir[direction] = res;
       }
@@ -343,7 +351,6 @@
     bucklingElapsed = null;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
@@ -427,7 +434,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
 
       if (nlType === 'pushover') {
         /*
@@ -492,7 +498,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       imperfResult = solveWithImperfections3D({
         solver: input,
         imperfections: {
@@ -811,7 +816,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       ilResult = computeInfluenceLine3D({
         solver: input,
         quantity: IL_QUANTITY[ilResponse],
@@ -861,7 +865,6 @@
         return;
       }
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       const byId = new Map(cases.map(c => [c.id, c.name]));
       multiCaseResult = solveMultiCase3D({
         solver: input,
@@ -977,7 +980,6 @@
       // PRO is a 3D workspace — `analysisMode` reads 'pro' here, never '3d',
       // so branching on it sent every PRO model down the 2D path.
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       // Like Winkler, this export returns AnalysisResults3D itself.
       const res = solveConstrained3D({ solver: input, constraints });
       constrainedResult = res;
@@ -1020,10 +1022,7 @@
   {/if}
   <!-- Global options -->
   <div class="adv-header">
-    <label class="adv-check">
-      <input type="checkbox" bind:checked={useDiaphragm} />
-      {t('pro.rigidDiaphragm')}
-    </label>
+    <span class="adv-hint" data-testid="adv-diaphragms">{tp('pro.diaphragmsFromModel', { n: diaphragmCount })}</span>
     {#if !wasmAvailable}
       <span class="adv-wasm-warn">{t('pro.wasmNotReady')}</span>
     {/if}
@@ -1083,6 +1082,7 @@
           Modos:
           <input type="number" class="adv-num" bind:value={numModes} min={1} max={50} />
         </label>
+        <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
       {#if modalResult}
         <div class="adv-inline">
@@ -1090,6 +1090,7 @@
           {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
+        {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
@@ -1149,6 +1150,10 @@
         <label class="adv-label" title={t('spectral.rHint')}>
           R:
           <input type="number" class="adv-num" min="1" step="0.5" bind:value={spectralR} data-testid="spectral-r" />
+        </label>
+        <label class="adv-label" title={t('spectral.xiHint')}>
+          ξ:
+          <input type="number" class="adv-num" min="0" max="0.3" step="0.01" bind:value={spectralXi} data-testid="spectral-xi" />
         </label>
       </div>
       <div class="adv-hint" data-testid="spectral-basis">

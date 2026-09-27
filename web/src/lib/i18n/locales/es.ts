@@ -7906,5 +7906,11 @@ const es: Record<string, string> = {
   'surface.axis': "Eje por dos puntos",
   'surface.pickAxis': "Eje: punto {k} de 2 (base, luego dirección)",
   'surface.done': "{n} cuadriláteros curvos insertados.",
+  'pro.diaphragmsFromModel': "Diafragmas rígidos del modelo: {n} (se definen en Vínculos › Auto-detectar diafragmas).",
+  'pro.modalAuto': "Hasta el 90 % de la masa",
+  'pro.modalAutoReached': "{n} modos: participa el {x} % de la masa en X y el {y} % en Y.",
+  'pro.modalAutoShort': "El modelo tiene {n} modos y no llega al 90 %: {x} % en X, {y} % en Y.",
+  'pro.modalAutoConstrained': "Con vínculos el motor no da las razones de masa confiables, así que se usa la cantidad de modos pedida.",
+  'spectral.xiHint': "Amortiguamiento de la combinación CQC entre modos. El espectro es el del reglamento, para 5 %; ξ no lo reescala.",
 };
 export default es;

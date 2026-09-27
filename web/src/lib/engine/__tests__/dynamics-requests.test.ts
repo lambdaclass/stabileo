@@ -213,3 +213,26 @@ describe('accelerograms', () => {
     expect(Math.abs(ux[nSteps - 1])).toBe(0);
   });
 });
+
+describe('modes until 90 % of the mass', () => {
+  // A fake model whose k-th mode carries 30 %, 20 %, 15 %, … of the mass in both directions.
+  const shares = [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01, 0.01];
+  const solve = (n: number) => ({ modes: shares.slice(0, n).map((f) => ({ massRatioX: f, massRatioY: f })) });
+
+  it('doubles until both directions pass the target', async () => {
+    const { modalUntilMass } = await import('../dynamics/requests');
+    const r = modalUntilMass(solve, 2);
+    // 2 → 4 (75 %) → 8 (96 %).
+    expect(r.modes).toBe(8);
+    expect(r.reached).toBe(true);
+    expect(r.x).toBeCloseTo(0.96, 9);
+  });
+
+  it('stops when the model has no more modes, and says it fell short', async () => {
+    const { modalUntilMass } = await import('../dynamics/requests');
+    const short = (n: number) => ({ modes: shares.slice(0, Math.min(n, 3)).map((f) => ({ massRatioX: f, massRatioY: f })) });
+    const r = modalUntilMass(short, 2);
+    expect(r.modes).toBe(3);
+    expect(r.reached).toBe(false);
+  });
+});

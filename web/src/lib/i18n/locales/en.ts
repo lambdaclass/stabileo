@@ -7917,5 +7917,11 @@ const en: Record<string, string> = {
   'surface.axis': "Axis by two points",
   'surface.pickAxis': "Axis: point {k} of 2 (base, then direction)",
   'surface.done': "{n} curved quadrilaterals inserted.",
+  'pro.diaphragmsFromModel': "Rigid diaphragms in the model: {n} (set in Constraints › Auto-detect diaphragms).",
+  'pro.modalAuto': "Until 90 % of the mass",
+  'pro.modalAutoReached': "{n} modes: {x} % of the mass participates in X and {y} % in Y.",
+  'pro.modalAutoShort': "The model has {n} modes and does not reach 90 %: {x} % in X, {y} % in Y.",
+  'pro.modalAutoConstrained': "With constraints the engine does not give reliable mass ratios, so the number of modes asked for is used.",
+  'spectral.xiHint': "Damping in the CQC combination between modes. The spectrum is the code’s, for 5 %; ξ does not rescale it.",
 };
 export default en;

@@ -91,6 +91,31 @@ export function cumulativeMassRatios(modes: ReadonlyArray<{ massRatioX?: number;
   return out;
 }
 
+/** The mass that participates in X and Y over all the modes given. */
+export function totalMassRatios(modes: ReadonlyArray<{ massRatioX?: number; massRatioY?: number }>): { x: number; y: number } {
+  const c = cumulativeMassRatios(modes);
+  return { x: c.x[c.x.length - 1] ?? 0, y: c.y[c.y.length - 1] ?? 0 };
+}
+
+/**
+ * Modes until `target` of the mass participates in X and in Y: solve with `start` modes, double
+ * until the target is reached, the model has no more modes to give, or `max`.
+ */
+export function modalUntilMass<R extends { modes?: Array<{ massRatioX?: number; massRatioY?: number }> }>(
+  solve: (n: number) => R | string, start: number, target = 0.9, max = 200,
+): { result: R | string; modes: number; reached: boolean; x: number; y: number } {
+  let n = Math.max(1, Math.floor(start));
+  for (;;) {
+    const res = solve(n);
+    if (typeof res === 'string') return { result: res, modes: 0, reached: false, x: 0, y: 0 };
+    const got = res.modes?.length ?? 0;
+    const tot = totalMassRatios(res.modes ?? []);
+    const reached = tot.x >= target && tot.y >= target;
+    if (reached || got < n || n >= max) return { result: res, modes: got, reached, ...tot };
+    n = Math.min(max, n * 2);
+  }
+}
+
 /** The two horizontal directions a building is excited in. Z is vertical in this app. */
 export const HORIZONTAL_DIRECTIONS = ['X', 'Y'] as const;
 export type HorizontalDirection = (typeof HORIZONTAL_DIRECTIONS)[number];
