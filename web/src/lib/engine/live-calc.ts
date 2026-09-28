@@ -16,6 +16,7 @@ import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D } from './governing-case';
+import { allLoadsResult3D } from './shell-combos';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
@@ -250,10 +251,16 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     // panel call "All loads", and what the deflection check reads as unfactored. It was the
     // first case alone (usually the dead load), so both showed the dead load under that name.
     // The solve is linear, so the sum of the cases is exact.
+    // The engine's combination carries only displacements, reactions and member forces;
+    // allLoadsResult3D puts back the shell stresses (the floor design reads them), constraint
+    // forces and the solve's diagnostics.
     const caseIds = [...comboResult.perCase.keys()];
-    const firstCaseResult = caseIds.length === 1
-      ? comboResult.perCase.get(caseIds[0])
-      : combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase);
+    const combined = caseIds.length > 1
+      ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
+      : null;
+    const firstCaseResult = combined
+      ? allLoadsResult3D(combined, comboResult.perCase)
+      : comboResult.perCase.get(caseIds[0]);
     if (!firstCaseResult) return t('results.emptyModelError');
 
     resultsStore.setResults3D(firstCaseResult);
