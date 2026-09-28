@@ -454,36 +454,12 @@ export function serializeInput3D(input: SolverInput3D): string {
 }
 
 /**
- * B₂, the amplification of the displacements that matter. The engine takes the
- * largest ratio over every degree of freedom, and a DOF that barely moves in
- * the linear solution turns that into anything: 247 for a building whose first
- * buckling factor is 2. Here it is taken over the nodal translations the
- * second-order analysis changes (increment at least 5 % of the largest one),
- * and among them those whose linear value is at least 5 % of the largest such
- * value: near its critical load a column's axial shortening dwarfs its
- * lateral deflection, but only the deflection is amplified. The same
- * definition the engine adopts in #224; stability is judged on it.
+ * The engine owns both B₂ and stability: a converged indefinite system is
+ * still unstable. Only restore the Infinity that JSON encodes as null;
+ * recomputing stability from displacement ratios hides postcritical states.
  */
-function amplifyByPeakDisplacement(result: any): any {
-  if (!result?.results || !result?.linearResults) return result;
-  const KEYS = ['ux', 'uy', 'uz'] as const;
-  const lin = new Map<number, any>(((result.linearResults.displacements ?? []) as any[]).map((d) => [d.nodeId, d]));
-  const pairs: Array<[number, number]> = [];
-  for (const d of (result.results.displacements ?? []) as any[]) {
-    const l = lin.get(d.nodeId);
-    if (l) for (const k of KEYS) pairs.push([l[k] ?? 0, d[k] ?? 0]);
-  }
-  const dMax = Math.max(0, ...pairs.map(([l, p]) => Math.abs(p - l)));
-  let b2 = 1;
-  if (dMax > 1e-15) {
-    const changed = pairs.filter(([l, p]) => Math.abs(p - l) >= 0.05 * dMax);
-    const lMax = Math.max(0, ...changed.map(([l]) => Math.abs(l)));
-    if (lMax > 1e-15) {
-      b2 = Math.max(0, ...changed.filter(([l]) => Math.abs(l) >= 0.05 * lMax).map(([l, p]) => Math.abs(p / l)));
-    }
-  }
-  if (!Number.isFinite(b2)) return result;
-  return { ...result, b2Factor: b2, isStable: !!result.converged && b2 < 100 };
+function normalizePDeltaResult(result: any): any {
+  return { ...result, b2Factor: result.b2Factor === null ? Infinity : result.b2Factor };
 }
 
 // ─── Solver functions ───────────────────────────────────────────
@@ -522,7 +498,7 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
   if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
   const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
-  return amplifyByPeakDisplacement(JSON.parse(resultJson));
+  return normalizePDeltaResult(JSON.parse(resultJson));
 }
 
 /** Solve 2D buckling analysis via WASM. */
@@ -657,7 +633,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  return amplifyByPeakDisplacement(result);
+  return normalizePDeltaResult(result);
 }
 
 /** Solve 3D modal analysis via WASM. */

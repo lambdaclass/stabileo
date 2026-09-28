@@ -10,6 +10,7 @@
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import {
     isSolverReady,
     solvePDelta3D as wasmPDelta3D,
@@ -44,7 +45,7 @@
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
     modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
@@ -174,7 +175,7 @@
       if (res.results) {
         resultsStore.setPDeltaResult3D(res);
       }
-      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor } };
+      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor, isStable: res.isStable } };
     } catch (e: any) {
       solveError = `P-Delta: ${errorText(e, 'Error')}`;
     }
@@ -985,7 +986,8 @@
       {#if pdeltaResult}
         <div class="adv-inline">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
-          {#if pdeltaResult.b2Factor != null} — B2 = {fmtNum(pdeltaResult.b2Factor)}{/if}
+          — {pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
+          — B2 = {formatPDeltaFactor(pdeltaResult.b2Factor)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
       {/if}
