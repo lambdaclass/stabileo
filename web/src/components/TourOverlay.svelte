@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tourStore } from '../lib/store/tour.svelte';
+  import { tourStore, actionAdvances } from '../lib/store/tour.svelte';
   import { t } from '../lib/i18n';
   import { onMount, onDestroy, untrack } from 'svelte';
 
@@ -326,7 +326,8 @@
               disabled={tourStore.isBusy}
               onclick={() => {
                 step.actionButton!.action();
-                if (step.actionButton!.advanceAfter !== false) {
+                // A step that advances itself when its condition holds is left to do so (`actionAdvances`).
+                if (actionAdvances(step, step.actionButton!.advanceAfter)) {
                   // Small delay so the action can take effect (e.g. model loads)
                   setTimeout(() => tourStore.next(), 100);
                 }
