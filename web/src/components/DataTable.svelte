@@ -215,8 +215,7 @@
   }
   .dt-tool-options :global(.tb-tool-name),
   .dt-tool-options :global(.tb-sep),
-  .dt-tool-options :global(.ft-sep),
-  .dt-tool-options :global(.ft-selfweight-toggle) { display: none; }
+  .dt-tool-options :global(.ft-sep) { display: none; }
   /* Below the tool buttons above in weight: shorter than their 44 px. */
   .dt-tool-options :global(.ft-primary) {
     order: -2;

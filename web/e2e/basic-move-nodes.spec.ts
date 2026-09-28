@@ -21,4 +21,16 @@ test.describe('@smoke moving nodes', () => {
     expect(errors).toEqual([]);
     expect(await page.evaluate(() => window.__stabileo.modelVersion())).toBe(before);
   });
+
+  test('the pointer button says it is moving nodes, not selecting', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.getByTestId('rb-cmd-move').click();
+    await page.getByTestId('move-nodes').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.currentTool())).toBe('moveNodes');
+    const tip = page.locator('.pm-tip-mode');
+    await expect(tip).toHaveText(/Mover nodo|Move node|Mover nó/);
+    // Its own drawing: the dashed place the node was.
+    await expect(page.getByTestId('pointer-mode').locator('circle[stroke-dasharray]')).toHaveCount(1);
+  });
 });
