@@ -3350,6 +3350,23 @@ function createModelStore() {
       this.bumpModelVersion();
     },
 
+    /**
+     * The case of this type and name, created when missing — what a load generator applies
+     * into. Its alternatives group is set either way: a case reused from an earlier generation
+     * (or an older project) carried none, and its snow patterns kept adding up.
+     */
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
+        ?? model.loadCases.find((c) => c.type === type && c.name === name);
+      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
+      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+        if (!_undoBatching) _pushUndo?.();
+        found.alternatives = opts.alternatives;
+        model.loadCases = [...model.loadCases];
+      }
+      return found.id;
+    },
+
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);

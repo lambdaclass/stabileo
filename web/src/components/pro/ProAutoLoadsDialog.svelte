@@ -360,10 +360,7 @@
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = tp(pc.nameKey, pc.nameParams);
-      let id = pc.existingId
-        ?? modelStore.model.loadCases.find((c) => c.type === pc.type && c.name === name)?.id
-        ?? null;
-      if (id === null) id = modelStore.addLoadCase(name, pc.type, pc.alternatives ? { alternatives: pc.alternatives } : {});
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);

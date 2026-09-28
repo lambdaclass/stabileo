@@ -76,3 +76,22 @@ describe('generating again once a list is stated', () => {
     expect(JSON.stringify(modelStore.resultScopes)).toBe(before);
   });
 });
+
+describe('snow patterns from an earlier generation', () => {
+  it('are grouped as alternatives when the loads are generated again', () => {
+    modelStore.clear();
+    for (const c of [...modelStore.model.loadCases]) modelStore.removeLoadCase(c.id);
+    // An older project: the three patterns exist, with no group.
+    const ids = ['Balanced', 'Unbalanced +X', 'Unbalanced −X'].map((n) => modelStore.addLoadCase(n, 'S'));
+    const again = ['Balanced', 'Unbalanced +X', 'Unbalanced −X'].map((n) => modelStore.ensureLoadCase(n, 'S', { alternatives: 'snow-roof' }));
+    expect(again).toEqual(ids);
+    const cases = modelStore.model.loadCases;
+    modelStore.addLoadCase('Dead', 'D');
+    const out = expandCombinations(
+      [{ id: 's', label: '1.2 D + 1.6 S', terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'S', factor: 1.6 }] }] as never,
+      modelStore.model.loadCases,
+    );
+    expect(cases.filter((c) => c.type === 'S').every((c) => c.alternatives === 'snow-roof')).toBe(true);
+    expect(out).toHaveLength(3);
+  });
+});
