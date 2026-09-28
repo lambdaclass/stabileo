@@ -70,7 +70,7 @@ below). Also:
 - **Curved:** an arc through three nodes, built as a chain of straight members. The panel reports
   the chord error.
 - **Member offset (eccentricity):** shifts the member's axis away from its nodes, for instance so a
-  beam hangs below the slab.
+  beam hangs below the slab. It is set in **Specifications › Members**.
 - Right-clicking a member: **edit** it (material, section and per-degree-of-freedom releases at
   each end) or **subdivide** it into N parts (2 to 20). With nodes selected, right-clicking empty
   space mirrors them in X or Y or rotates them by 90°.
@@ -91,10 +91,11 @@ quadrilateral**. It is given a material and a thickness.
   paraboloid, as curved shells. They are placed with the ghost, like a generator, or along an axis
   marked with two points.
 - **Curved shell (cáscara):** for quadrilaterals whose four nodes do not lie in one plane. The panel
-  measures how far the fourth node is out of plane and suggests when to use it.
+  measures how far the fourth node is out of plane and suggests when to use it; it is switched on
+  in **Specifications › Surfaces**.
 - **Stair:** an inclined slab with the steps applied as load.
 - **Shell offset (eccentric):** shifts the plate's mid-plane, for instance to line up the top face
-  of the slab with the floor level.
+  of the slab with the floor level. It is set in **Specifications › Surfaces**.
 
 > **How plates connect to members:** only through **shared nodes**. A beam running under a slab
 > without sharing nodes with it is not connected. The panel warns when a plate has a loose corner.
@@ -199,17 +200,30 @@ the model code.
 
 **Shear deformation.** Each section can include it, with shear areas computed from its geometry or
 typed in. One button turns it on or off for every section at once. Without it, members are solved
-with Euler-Bernoulli theory.
+with Euler-Bernoulli theory. The switch in **Specifications › Analysis** leaves it out of the whole
+model.
 
-**Member behaviour.** With members selected, the members panel lets you:
+### Specifications
 
-- make them work **in tension only** or **in compression only**, or leave them **inactive** (out of
-  every analysis, without deleting them);
-- apply **stiffness modifiers** for cracked inertia, with the values of CIRSOC 201-2025 (Table
+What a member, support or plate is told beyond its geometry, material and section is in
+**Specifications**, in six sections. Each edits what is selected: several members take the same
+value at once, in one undo step, and a property whose value differs across the selection reads
+**mixed** until it is set. Opening a section points the pointer at what it edits (members,
+supports, nodes or plates).
+
+**Members.**
+
+- **Axial behaviour:** frame, truss (axial force only), **tension only**, **compression only**,
+  **cable**, or **inactive** (out of every analysis, without deleting it).
+- **Releases** of My, Mz and T at each end, in the member's local axes.
+- **Local axes:** β turns the member's y and z axes about its x axis, on top of the section's own
+  rotation.
+- **Offsets** (eccentricity) and **design lengths** (unbraced length and effective length factors
+  for steel design).
+- **Stiffness modifiers** for cracked inertia, with the values of CIRSOC 201-2025 (Table
   6.6.3.1.1(a): columns 0.70 Ig, uncracked walls 0.70 and cracked walls 0.35, beams 0.35, slabs
-  0.25) or your own;
-- release any of the six degrees of freedom at each end;
-- make an end **semi-rigid**, with a rotational stiffness in kN·m/rad.
+  0.25) or your own; **joints** that release any of the six degrees of freedom at each end, in
+  global axes; and **semi-rigid** ends, with a rotational stiffness in kN·m/rad.
 
 Inactive members and stiffness modifiers apply to every analysis. Tension or compression only is
 resolved by **Solve**: a member working the wrong way leaves the model and the model is solved
@@ -218,25 +232,27 @@ and any load along it goes to its nodes as the reactions of a simply supported s
 has left the model reports zero forces. The results state how many iterations it took, which
 members were left out, and whether any keeps switching between the two states.
 
-### Conditions
+A **cable** works in tension only, and its own weight gives it sag and softens it: each solve takes
+Ernst's equivalent modulus from the cable's tension, span and weight, and repeats until the tension
+settles. The results list each cable's tension, horizontal thrust, sag and modulus. A cable has no
+pretension (its unstretched length is its chord). The weight that softens it comes from its
+material; the weight that loads it is the project's self-weight, as for any member.
 
-**Supports.** **Fixed 3D**, **Pinned 3D**, rollers in each plane (**Roller XZ**, **XY** and **YZ**),
-**Spring 3D** (with a stiffness for each degree of freedom) and **Custom**, where you tick one by
-one which displacements and rotations are restrained. A roller moves freely within its plane:
-**Roller XZ**, for instance, is restrained only along Y.
+Design follows the behaviour: a tension-only member or a cable is checked in tension only, a
+compression-only member in compression only, and an inactive member is not designed.
 
-Each support also has an editor of its own: which degrees of freedom are fixed, a spring on each
-one (linear or **multilinear**, with a displacement–force curve typed as "mm kN;" pairs), whether
-the support **lifts off** (takes compression only), and an **inclined frame**, set by two points or
-by pointing at a node. A support that lifts off is resolved by **Solve**: if it pulls, it is
-released and the model is solved again.
+**Supports.** The type of every selected support at once, and whether they **lift off** (take
+compression only). A support that lifts off is resolved by **Solve**: if it pulls, it is released
+and the model is solved again. With one support selected, its own editor: which degrees of freedom
+are fixed, a spring on each one (linear or **multilinear**, with a displacement–force curve typed as
+"mm kN;" pairs) and an **inclined frame**, set by two points or by pointing at a node.
 
 **Foundation springs.** On the selected shells of a slab or raft, this creates vertical springs
 k = ks·A at each node, with each node's tributary area (a quarter of every quadrilateral and a third
 of every triangle around it). ks is typed in or taken from the project's geotechnical profile. The
 springs can act one way, so the raft can lift, and they replace any support the node had.
 
-**Constraints.** Relations between nodes:
+**Links.** Relations between nodes, with the shared table of links under them:
 
 - **Rigid link:** a slave node follows a master node as if they were joined by an infinitely
   rigid member.
@@ -247,6 +263,36 @@ springs can act one way, so the raft can lift, and they replace any support the 
 - **Eccentric connection**, **linear MPC** (multi-point constraint: a linear relation between
   degrees of freedom of several nodes) and **connectors** with their own stiffness between two
   nodes.
+
+**Surfaces.** On the selected plates, the **curved shell** (for quadrilaterals whose four nodes do
+not lie in one plane) and the **offset** of the mid-plane, each in one undo step.
+
+**Analysis.** How combinations are formed: with one-way members, cables or supports that lift off,
+each combination is
+solved on its own factored loads (the sound choice, since a member can work in one combination
+and not in another), or the cases are superposed, each solved with its own set of active members;
+then the members whose state in the sum contradicts the cases' are listed. Without such members
+both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
+A P-Delta combination whose load the structure cannot carry to second order (it buckles below
+it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
+the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
+half thousand members take a few seconds.
+
+**Shear deformation** is on by default, and each section then decides with its shear areas. Off,
+every member deforms in bending only, whatever its section says.
+
+**List.** Every specification the model holds, one row per value, with the members, supports or
+plates that hold it. Clicking a row selects them and opens the section that edits them. The list is
+read from the entities themselves, so it shows what they hold. The project workbook carries it as
+its **Specifications** sheet, and the cables' results as **Cables**.
+
+### Conditions
+
+**Supports.** **Fixed 3D**, **Pinned 3D**, rollers in each plane (**Roller XZ**, **XY** and **YZ**),
+**Spring 3D** (with a stiffness for each degree of freedom) and **Custom**, where you tick one by
+one which displacements and rotations are restrained. A roller moves freely within its plane:
+**Roller XZ**, for instance, is restrained only along Y. Springs, lift-off and an inclined frame
+are set in **Specifications › Supports**.
 
 **Loads.** The panel has three parts:
 
@@ -260,15 +306,6 @@ springs can act one way, so the raft can lift, and they replace any support the 
   that case's factor. A project saved before this rule opens with self-weight in its first D case,
   and a notice says so; if it had several D cases, the notice recalls that the weight used to be
   counted in each of them.
-- **How combinations are formed:** with one-way members or supports that lift off, each combination
-  is solved on its own factored loads (the sound choice, since a member can work in one combination
-  and not in another), or the cases are superposed, each solved with its own set of active members;
-  then the members whose state in the sum contradicts the cases' are listed. Without such members
-  both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
-  A P-Delta combination whose load the structure cannot carry to second order (it buckles below
-  it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
-  the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
-  half thousand members take a few seconds.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
   (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
@@ -478,10 +515,11 @@ PRO's advanced analyses:
   and every hinge formed up to that step. When the run stops because every member end at a joint
   yielded at once, the panel says so: the structure may carry more, and the collapse factor is
   read as a lower bound.
-- **Geometric imperfections**, **foundation on Winkler springs**, **soil-structure interaction**
-  with p-y curves, and **contact or gap**.
+- **Geometric imperfections**, and, as **experimental** analyses whose data stays in the panel,
+  **foundation on Winkler springs** and **soil-structure interaction** with p-y curves. The springs
+  and curves the model keeps are set on its supports, in **Specifications › Supports**.
 - **Staged construction** and **creep and shrinkage**.
-- **3D influence lines**, **multi-case solver**, **section analyser** and **constrained analysis**.
+- **3D influence lines** and the **section analyser**.
 - **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
   in order, and each member keeps its largest and smallest forces with the train's position. The
   lane load is created as an ordinary load case on the same members. The envelope does not enter
@@ -491,7 +529,7 @@ These analyses use the members' axis, without their offsets, and the hinges of t
 **Hinge j** columns. Sliding joints and per-degree-of-freedom releases set when editing a member are
 taken into account by **Solve**; before an advanced analysis, the program asks for them to be
 removed. **Modal** and **spectral** work with the model's members and shells and with its
-diaphragms, which are set in **Constraints** (the panel says how many there are).
+diaphragms, which are set in **Specifications › Links** (the panel says how many there are).
 
 ### Report
 
