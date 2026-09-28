@@ -49,6 +49,7 @@ fn make_arch_input(
         });
     }
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

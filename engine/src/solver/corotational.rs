@@ -2145,7 +2145,7 @@ mod tests {
             }),
         ];
 
-        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() }
+        SolverInput { solver_options: None, nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() }
     }
 
     #[test]
@@ -2241,7 +2241,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
+        let input = SolverInput { solver_options: None, nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 50, 1e-8, 1, false).unwrap();
 
         assert!(corot.converged);
@@ -2290,6 +2290,7 @@ mod tests {
         });
 
         let input = SolverInput {
+            solver_options: None,
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],
@@ -2343,7 +2344,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
+        let input = SolverInput { solver_options: None, nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 100, 1e-6, 5, false).unwrap();
         assert!(corot.converged, "Two-element frame should converge");
         assert_eq!(corot.results.element_forces.len(), 2);
@@ -2386,7 +2387,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new(), solver_options: None };
         let corot = solve_corotational_2d(&input, 50, 1e-8, 1, false).unwrap();
         assert!(corot.converged);
 

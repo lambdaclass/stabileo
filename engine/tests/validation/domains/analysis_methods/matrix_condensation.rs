@@ -220,6 +220,7 @@ fn validation_condensation_prescribed() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -284,6 +285,7 @@ fn validation_condensation_mixed_supports() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

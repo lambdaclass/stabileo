@@ -378,6 +378,12 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /**
+   * Turn members about their own axis by `degrees`, as the section rotation field does.
+   * The flagship building's provisional-biaxial specs turn five beams so that some bend about
+   * both axes for a real reason (see `ROLLED_BEAMS` in `e2e/fixtures.ts`).
+   */
+  turnElements(ids: number[], degrees: number): void;
   /** Reset the selection between gestures — the position, not the subject. */
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
@@ -690,6 +696,14 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    turnElements: (ids: number[], degrees: number) => {
+      modelStore.batch(() => {
+        for (const id of ids) {
+          const e = modelStore.elements.get(id);
+          if (e) modelStore.updateElement(id, { rollAngle: ((e.rollAngle ?? 0) + degrees) % 360 });
+        }
+      });
+    },
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
     solve: async () => { await runGlobalSolve(); },
