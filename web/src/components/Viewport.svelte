@@ -1727,37 +1727,42 @@
         }
       }
     } else if (uiStore.currentTool === 'element') {
-      // For element tool: snap to existing node, or midpoint (create node there), or grid.
-      // Node search uses RAW world coords so off-grid nodes are reachable when
-      // grid snap is on — searching from `snapped` would warp the search center
-      // to the nearest grid intersection and miss any node further than 0.5m
-      // from that intersection (matches snapWithMidpoint's precedence rule).
-      const nearNode = findNearestNode(world.x, world.y, 0.5);
-      const targetNode = nearNode ?? (() => {
-        const mid = findNearestMidpoint(world.x, world.y, 0.4);
-        if (mid) {
-          // Check if a node already exists at midpoint
-          const existing = findNearestNode(mid.x, mid.y, 0.01);
-          if (existing) return existing;
-          // Create a new node at midpoint
-          const mid3d = to3D(uiStore.drawPlane2D, mid.x, mid.y, { x: 0, y: 0, z: 0 });
-          const id = modelStore.addNode(mid3d.x, mid3d.y, mid3d.z || undefined);
-          return modelStore.getNode(id) ?? null;
-        }
-        return null;
-      })();
-      if (targetNode) {
-        if (!pendingNode) {
-          pendingNode = { x: targetNode.x, y: targetNode.y };
-          uiStore.selectNode(targetNode.id);
-        } else {
-          const startNode = findNearestNode(pendingNode.x, pendingNode.y, 0.1);
-          if (startNode && startNode.id !== targetNode.id) {
-            modelStore.addElement(startNode.id, targetNode.id, uiStore.elementCreateType);
+      /*
+       * ── Members drawn point to point, nodes made on the way ───────────
+       * Each click names an end: an existing node (0.5 m of the cursor), a
+       * point ON an existing member (its midpoint, or wherever the cursor
+       * lies on it), or a free point on the grid. A member used to need both
+       * ends to be nodes already, so a structure had to be drawn twice —
+       * nodes first, then members — and a click on a member's midpoint put a
+       * node ON the bar without splitting it: the new member looked joined
+       * and was not.
+       *
+       * Nothing is created until a member is: the first click only remembers
+       * the point (Esc leaves no stray node), and the second makes whatever
+       * nodes are missing — splitting a member where an end lands on one, as
+       * the node tool does — and the member, as one undo step. The chain then
+       * continues from the second end.
+       */
+      const end = memberEndAt(world.x, world.y, snapped.x, snapped.y);
+      if (!pendingNode) {
+        pendingNode = { x: end.x, y: end.y };
+        if (end.nodeId !== undefined) uiStore.selectNode(end.nodeId);
+      } else if (Math.hypot(end.x - pendingNode.x, end.y - pendingNode.y) > 1e-6) {
+        const from = pendingNode;
+        let made: { i: number; j: number } | null = null;
+        modelStore.batch(() => {
+          const i = realizeMemberEnd(from.x, from.y);
+          const j = realizeMemberEnd(end.x, end.y);
+          if (i !== j) {
+            modelStore.addElement(i, j, uiStore.elementCreateType);
+            made = { i, j };
           }
-          pendingNode = { x: targetNode.x, y: targetNode.y };
-          uiStore.selectNode(targetNode.id);
+        });
+        if (made) {
+          resultsStore.clear();
+          uiStore.selectNode((made as { i: number; j: number }).j);
         }
+        pendingNode = { x: end.x, y: end.y };
       }
     } else if (uiStore.currentTool === 'support') {
       // Support: find nearest existing node using raw world coords (not snapped,
@@ -2600,6 +2605,58 @@
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
     return _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
+  }
+
+  /**
+   * Where a member-tool click puts an end, without changing the model: an
+   * existing node near the cursor, else a point on a member under it (its
+   * midpoint when the cursor is near one, else the projection of the
+   * grid-snapped cursor), else the grid-snapped cursor itself.
+   */
+  function memberEndAt(wx: number, wy: number, sx: number, sy: number): { x: number; y: number; nodeId?: number } {
+    const near = findNearestNode(wx, wy, 0.5);
+    if (near) return { x: near.x, y: near.y, nodeId: near.id };
+    const mid = findNearestMidpoint(wx, wy, 0.4);
+    if (mid) return { x: mid.x, y: mid.y };
+    const onBar = findNearestElement(wx, wy, 0.3);
+    if (onBar) {
+      const ni = getProjectedNode(onBar.nodeI), nj = getProjectedNode(onBar.nodeJ);
+      if (ni && nj) {
+        const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
+        const px = uiStore.snapToGrid ? sx : wx, py = uiStore.snapToGrid ? sy : wy;
+        const t = lenSq > 1e-10 ? ((px - ni.x) * dx + (py - ni.y) * dy) / lenSq : -1;
+        if (t >= 0.05 && t <= 0.95) return { x: ni.x + t * dx, y: ni.y + t * dy };
+      }
+    }
+    return { x: sx, y: sy };
+  }
+
+  /**
+   * The node at a member end, made if missing: the node already there, else
+   * a split of the member the point lies on (auto-split, as the node tool
+   * does), else a new node. Re-read from the model at the moment it is made,
+   * so a split made for one end cannot leave the other pointing at a member
+   * that no longer exists.
+   */
+  function realizeMemberEnd(x: number, y: number): number {
+    const there = findNearestNode(x, y, 1e-6);
+    if (there) return there.id;
+    if (uiStore.autoSplitOnNodePlace) {
+      const bar = findNearestElement(x, y, 1e-6);
+      if (bar) {
+        const ni = getProjectedNode(bar.nodeI), nj = getProjectedNode(bar.nodeJ);
+        if (ni && nj) {
+          const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
+          const t = lenSq > 1e-10 ? ((x - ni.x) * dx + (y - ni.y) * dy) / lenSq : -1;
+          if (t > 1e-6 && t < 1 - 1e-6) {
+            const r = modelStore.splitElementAtPoint(bar.id, t);
+            if (r) return r.nodeId;
+          }
+        }
+      }
+    }
+    const p3d = to3D(uiStore.drawPlane2D, x, y, { x: 0, y: 0, z: 0 });
+    return modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {

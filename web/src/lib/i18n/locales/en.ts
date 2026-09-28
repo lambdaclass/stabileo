@@ -2137,7 +2137,7 @@ const en: Record<string, string> = {
   'float.selectSupportsHint': 'Click a support to select it',
   'float.elementRigid': 'Rigid (frame)',
   'float.elementTruss': 'Hinged (truss)',
-  'float.elementHint': 'Click two nodes to create a member',
+  'float.elementHint': 'Click two points (nodes, members or empty space) to create a member; keep clicking to chain, Esc to finish',
   'float.supportFixedShort': 'Fixed',
   'float.supportPinnedShort': 'Pin.',
   'float.supportRoller': 'Roller',

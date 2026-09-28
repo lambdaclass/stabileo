@@ -2455,7 +2455,7 @@ const pt: Translations = {
   'file.yes': 'Sim',
   'float.activeLoadCase': 'Caso de carga ativo',
   'float.element': 'Barra',
-  'float.elementHint': 'Clique em dois nós para criar uma barra',
+  'float.elementHint': 'Clique em dois pontos (nós, barras ou espaço vazio) para criar uma barra; continue para encadear, Esc para terminar',
   'float.elementRigid': 'Rígido (pórtico)',
   'float.elementTruss': 'Articulado (treliça)',
   'float.hideBar': 'Ocultar barra (use atalhos)',
