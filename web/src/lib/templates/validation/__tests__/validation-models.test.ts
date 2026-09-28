@@ -12,8 +12,8 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
 import '../../../store';
-import { initSolver } from '../../../engine/wasm-solver';
-import { solveCombinations3D } from '../../../engine/solver-service';
+import { initSolver, solveBuckling3D } from '../../../engine/wasm-solver';
+import { solveCombinations3D, buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from '../../../engine/solver-service';
 import { staticsCheck } from '../../../engine/statics-check';
 import { codeToModel, modelToCode } from '../../../model/code/format';
 import type { ModelSnapshot } from '../../../store/history.svelte';
@@ -55,8 +55,7 @@ const SHELL_DRILLING = new Map<ValidationModelId, { balanced: Array<'mx' | 'my' 
 /**
  * Every case solved and checked. The cases are what is checked, so the solve goes through one
  * combination per case rather than the model's own: a model whose combinations are solved with
- * P-Delta (04) would otherwise spend its time on them, and the engine's 3D P-Delta assembles a
- * dense matrix that a model of that size does not fit (M15).
+ * P-Delta (04) would otherwise spend its time on them. They have a test of their own below.
  */
 async function statics(id: ValidationModelId) {
   await loadValidationModel(id);
@@ -167,3 +166,40 @@ describe('the "Validation models" group of the PRO examples', () => {
   });
 });
 
+
+/**
+ * 04's own combinations go to second order (`analysis.perCombination: 'pdelta'`). The engine's 3D
+ * P-Delta used to build dense matrices, about 360 MB each for this model, and ran the WASM heap
+ * out after minutes; it assembles them sparse now, and the fourteen take seconds.
+ *
+ * Ten of them do not reach a second-order equilibrium: the model, as it stands, buckles below
+ * their load, sideways in a top chord. What is asserted is that the P-Delta and the buckling
+ * analysis say the same thing, combination by combination: stable exactly where the first
+ * buckling factor is above one. Whether the chord should be that free is a question for the
+ * comparison of displacements, not for statics.
+ */
+describe('validation-04 with its own combinations', () => {
+  it('is stable to second order exactly where it does not buckle', async () => {
+    await loadValidationModel('validation-04');
+    expect(modelStore.analysis?.perCombination).toBe('pdelta');
+    const cases = modelStore.model.loadCases;
+    const r = solveCombinations3D(md() as never, cases, modelStore.combinations, true, false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(r.perCombo.size).toBe(SHAPE['validation-04'].combinations);
+    const base = buildSolverInput3D({ ...md(), loads: [] } as never, false, false)!;
+    const caseLoads = caseSolverLoads3D(md() as never, cases, true, false);
+    let stable = 0;
+    for (const combo of modelStore.combinations) {
+      const so = r.perCombo.get(combo.id)!.secondOrder!;
+      const lambda = (solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1) as { modes: Array<{ loadFactor: number }> }).modes[0]!.loadFactor;
+      expect(so.stable, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
+      if (so.stable) {
+        stable++;
+        expect(so.converged).toBe(true);
+        expect(so.b2).toBeGreaterThan(1);
+        expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
+      }
+    }
+    expect(stable).toBe(4);
+  }, 300_000);
+});

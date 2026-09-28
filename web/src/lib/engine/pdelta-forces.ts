@@ -92,13 +92,17 @@ const S = { vy: 1, vz: 1, mzI: 1, mzJ: -1, myI: 1, myJ: -1 };
  * Second- over first-order drift, read from the two sets of displacements, and whether the
  * second-order answer is a physical one.
  *
- * Not the engine's `b2Factor` or `isStable`: past the critical load in a member's weak axis the
- * engine was measured returning `converged`, `isStable` and a B2 of 1.0 with the displacement's
- * sign reversed, a column under 300 kN whose weak-axis critical load is 139 kN. Here the
- * displacement at the node that moves most in first order is compared with its second-order
- * counterpart: a reversed or vanishing one means no equilibrium exists at this load.
+ * Not the engine's `b2Factor`, and its `isStable` only when it says no: past the critical load in
+ * a member's weak axis the engine was measured returning `converged`, `isStable` and a B2 of 1.0
+ * with the displacement's sign reversed, a column under 300 kN whose weak-axis critical load is
+ * 139 kN. It now reports such an equilibrium unstable, and it also gives up with the first-order
+ * results when K + Kg is indefinite on a model too large for a dense fallback, where these
+ * displacements would read as a B2 of 1. Here the displacement at the node that moves most in
+ * first order is compared with its second-order counterpart: a reversed or vanishing one means no
+ * equilibrium exists at this load.
  */
-export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D }): { b2: number; stable: boolean } {
+export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean }): { b2: number; stable: boolean } {
+  if (r.isStable === false) return { b2: Infinity, stable: false };
   const lin = r.linearResults?.displacements ?? [];
   const second = new Map((r.results.displacements ?? []).map((d) => [d.nodeId, d]));
   let worst: { d1: [number, number, number]; d2: [number, number, number] } | null = null;
