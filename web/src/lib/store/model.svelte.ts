@@ -919,6 +919,13 @@ export interface InfluenceLineResult {
   points: Array<{ x: number; y: number; elementId: number; t: number; value: number }>;
 }
 
+/**
+ * The model fields recorded through the views undo channel (`_pushUndoView`), which undo restores
+ * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
+ * adds its field here.
+ */
+const VIEW_CHANNEL_FIELDS = ['views', 'grid'] as const;
+
 function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
@@ -1490,20 +1497,29 @@ function createModelStore() {
     },
 
     /**
-     * Restore ONLY the named views.
+     * Restore ONLY what the views channel records (`VIEW_CHANNEL_FIELDS`): the named views and
+     * the rest of the project data the analysis does not read.
      *
      * The mirror of `restoreFoundationOnly`, for the same reason: a view is a camera, it
      * changes nothing the analysis reads, so undoing a view save/rename/remove must not
      * bump `modelVersion` or fire `_onMutation` — that would retire a valid solve, the
      * exact failure that routing view entries through the full `restore()` produced.
      *
-     * A view edit fires no invalidation hook at all: nothing downstream is computed from
-     * `model.views`, so there is nothing stale to drop.
+     * Every setter that records through `_pushUndoView` has its field restored here. It used to
+     * restore `model.views` alone, so undoing a grid edit, recorded on the same channel, left
+     * the grid in place.
+     *
+     * These edits fire no invalidation hook at all: nothing the solve computes reads them, so
+     * there is nothing stale to drop.
      */
     restoreViewsOnly(s: ModelSnapshot): void {
-      const next = s.views ? (JSON.parse(JSON.stringify(s.views)) as SavedView[]) : undefined;
-      if (JSON.stringify(model.views ?? null) === JSON.stringify(next ?? null)) return;
-      model.views = next;
+      const m = model as unknown as Record<string, unknown>;
+      const snap = s as unknown as Record<string, unknown>;
+      for (const k of VIEW_CHANNEL_FIELDS) {
+        const next = snap[k] !== undefined ? JSON.parse(JSON.stringify(snap[k])) : undefined;
+        if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
+        m[k] = next;
+      }
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
