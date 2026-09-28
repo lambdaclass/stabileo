@@ -21,12 +21,14 @@
  */
 
 import { PROFILE_FAMILIES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../../data/steel-profiles';
-import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand } from '../verification-service';
+import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand, type SteelSegmentDiagram } from '../verification-service';
 
 export interface OptimiseMember {
   elementId: number;
   demand: SteelMemberDemand;
   lengths: { L: number; Lb: number; Kx?: number; Ky?: number };
+  /** The unbraced-segment diagram Cb reads, when the member is a chain. See `checkSteelMember`. */
+  segment?: SteelSegmentDiagram;
 }
 
 /** A candidate's verdict on a group: the worst member and its ratio. */
@@ -54,7 +56,7 @@ export function verdictFor(
   let worst: { ratio: number; elementId: number } | null = null;
   let passes = true;
   for (const m of members) {
-    const v = checkSteelMember(m.elementId, m.demand, section, material, m.lengths);
+    const v = checkSteelMember(m.elementId, m.demand, section, material, m.lengths, m.segment);
     if (!v) return null;
     const r = steelGoverningRatio(v);
     if (v.overallStatus === 'fail' || !(r <= 1)) passes = false;
