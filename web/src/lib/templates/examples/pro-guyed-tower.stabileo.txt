@@ -1,0 +1,636 @@
+stabileo-model 1
+# A 42 m triangular lattice mast, 1.2 m a face, held at three levels by nine guys that work in
+# tension only. The wind blows along X; a guy that goes slack leaves the analysis for that case.
+name "Torre arriostrada con tensores"
+mode pro
+axes zUpStrongAxis
+
+node 1 0.692820323 0 0
+node 2 -0.3464101615 0.6 0
+node 3 -0.3464101615 -0.6 0
+node 4 0.692820323 0 1.5
+node 5 -0.3464101615 0.6 1.5
+node 6 -0.3464101615 -0.6 1.5
+node 7 0.692820323 0 3
+node 8 -0.3464101615 0.6 3
+node 9 -0.3464101615 -0.6 3
+node 10 0.692820323 0 4.5
+node 11 -0.3464101615 0.6 4.5
+node 12 -0.3464101615 -0.6 4.5
+node 13 0.692820323 0 6
+node 14 -0.3464101615 0.6 6
+node 15 -0.3464101615 -0.6 6
+node 16 0.692820323 0 7.5
+node 17 -0.3464101615 0.6 7.5
+node 18 -0.3464101615 -0.6 7.5
+node 19 0.692820323 0 9
+node 20 -0.3464101615 0.6 9
+node 21 -0.3464101615 -0.6 9
+node 22 0.692820323 0 10.5
+node 23 -0.3464101615 0.6 10.5
+node 24 -0.3464101615 -0.6 10.5
+node 25 0.692820323 0 12
+node 26 -0.3464101615 0.6 12
+node 27 -0.3464101615 -0.6 12
+node 28 0.692820323 0 13.5
+node 29 -0.3464101615 0.6 13.5
+node 30 -0.3464101615 -0.6 13.5
+node 31 0.692820323 0 15
+node 32 -0.3464101615 0.6 15
+node 33 -0.3464101615 -0.6 15
+node 34 0.692820323 0 16.5
+node 35 -0.3464101615 0.6 16.5
+node 36 -0.3464101615 -0.6 16.5
+node 37 0.692820323 0 18
+node 38 -0.3464101615 0.6 18
+node 39 -0.3464101615 -0.6 18
+node 40 0.692820323 0 19.5
+node 41 -0.3464101615 0.6 19.5
+node 42 -0.3464101615 -0.6 19.5
+node 43 0.692820323 0 21
+node 44 -0.3464101615 0.6 21
+node 45 -0.3464101615 -0.6 21
+node 46 0.692820323 0 22.5
+node 47 -0.3464101615 0.6 22.5
+node 48 -0.3464101615 -0.6 22.5
+node 49 0.692820323 0 24
+node 50 -0.3464101615 0.6 24
+node 51 -0.3464101615 -0.6 24
+node 52 0.692820323 0 25.5
+node 53 -0.3464101615 0.6 25.5
+node 54 -0.3464101615 -0.6 25.5
+node 55 0.692820323 0 27
+node 56 -0.3464101615 0.6 27
+node 57 -0.3464101615 -0.6 27
+node 58 0.692820323 0 28.5
+node 59 -0.3464101615 0.6 28.5
+node 60 -0.3464101615 -0.6 28.5
+node 61 0.692820323 0 30
+node 62 -0.3464101615 0.6 30
+node 63 -0.3464101615 -0.6 30
+node 64 0.692820323 0 31.5
+node 65 -0.3464101615 0.6 31.5
+node 66 -0.3464101615 -0.6 31.5
+node 67 0.692820323 0 33
+node 68 -0.3464101615 0.6 33
+node 69 -0.3464101615 -0.6 33
+node 70 0.692820323 0 34.5
+node 71 -0.3464101615 0.6 34.5
+node 72 -0.3464101615 -0.6 34.5
+node 73 0.692820323 0 36
+node 74 -0.3464101615 0.6 36
+node 75 -0.3464101615 -0.6 36
+node 76 0.692820323 0 37.5
+node 77 -0.3464101615 0.6 37.5
+node 78 -0.3464101615 -0.6 37.5
+node 79 0.692820323 0 39
+node 80 -0.3464101615 0.6 39
+node 81 -0.3464101615 -0.6 39
+node 82 0.692820323 0 40.5
+node 83 -0.3464101615 0.6 40.5
+node 84 -0.3464101615 -0.6 40.5
+node 85 0.692820323 0 42
+node 86 -0.3464101615 0.6 42
+node 87 -0.3464101615 -0.6 42
+node 88 24 0 0
+node 89 -12 20.78460969 0
+node 90 -12 -20.78460969 0
+
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=235
+material 2 name="Cable de acero" e=160000 nu=0.3 rho=78.5 alpha=0.000012
+section 1 name="L 76.2x76.2x9.5" profileFamily="L" shape="L" a=0.001364 iy=7.19991e-7 iz=7.19991e-7 b=0.0762 h=0.0762 t=0.0095
+section 2 name="L 38.1x38.1x3.2" profileFamily="L" shape="L" a=0.000237 iy=3.1747e-8 iz=3.1747e-8 b=0.0381 h=0.0381 t=0.0032
+section 3 name="Cable Ø16" declared=true a=0.00016 iy=1e-9 iz=1e-9 j=2e-9
+member 1 frame 1 4 materialId=1 sectionId=1
+member 2 truss 4 5 materialId=1 sectionId=2
+member 3 truss 1 5 materialId=1 sectionId=2
+member 4 frame 2 5 materialId=1 sectionId=1
+member 5 truss 5 6 materialId=1 sectionId=2
+member 6 truss 2 6 materialId=1 sectionId=2
+member 7 frame 3 6 materialId=1 sectionId=1
+member 8 truss 6 4 materialId=1 sectionId=2
+member 9 truss 3 4 materialId=1 sectionId=2
+member 10 frame 4 7 materialId=1 sectionId=1
+member 11 truss 7 8 materialId=1 sectionId=2
+member 12 truss 5 7 materialId=1 sectionId=2
+member 13 frame 5 8 materialId=1 sectionId=1
+member 14 truss 8 9 materialId=1 sectionId=2
+member 15 truss 6 8 materialId=1 sectionId=2
+member 16 frame 6 9 materialId=1 sectionId=1
+member 17 truss 9 7 materialId=1 sectionId=2
+member 18 truss 4 9 materialId=1 sectionId=2
+member 19 frame 7 10 materialId=1 sectionId=1
+member 20 truss 10 11 materialId=1 sectionId=2
+member 21 truss 7 11 materialId=1 sectionId=2
+member 22 frame 8 11 materialId=1 sectionId=1
+member 23 truss 11 12 materialId=1 sectionId=2
+member 24 truss 8 12 materialId=1 sectionId=2
+member 25 frame 9 12 materialId=1 sectionId=1
+member 26 truss 12 10 materialId=1 sectionId=2
+member 27 truss 9 10 materialId=1 sectionId=2
+member 28 frame 10 13 materialId=1 sectionId=1
+member 29 truss 13 14 materialId=1 sectionId=2
+member 30 truss 11 13 materialId=1 sectionId=2
+member 31 frame 11 14 materialId=1 sectionId=1
+member 32 truss 14 15 materialId=1 sectionId=2
+member 33 truss 12 14 materialId=1 sectionId=2
+member 34 frame 12 15 materialId=1 sectionId=1
+member 35 truss 15 13 materialId=1 sectionId=2
+member 36 truss 10 15 materialId=1 sectionId=2
+member 37 frame 13 16 materialId=1 sectionId=1
+member 38 truss 16 17 materialId=1 sectionId=2
+member 39 truss 13 17 materialId=1 sectionId=2
+member 40 frame 14 17 materialId=1 sectionId=1
+member 41 truss 17 18 materialId=1 sectionId=2
+member 42 truss 14 18 materialId=1 sectionId=2
+member 43 frame 15 18 materialId=1 sectionId=1
+member 44 truss 18 16 materialId=1 sectionId=2
+member 45 truss 15 16 materialId=1 sectionId=2
+member 46 frame 16 19 materialId=1 sectionId=1
+member 47 truss 19 20 materialId=1 sectionId=2
+member 48 truss 17 19 materialId=1 sectionId=2
+member 49 frame 17 20 materialId=1 sectionId=1
+member 50 truss 20 21 materialId=1 sectionId=2
+member 51 truss 18 20 materialId=1 sectionId=2
+member 52 frame 18 21 materialId=1 sectionId=1
+member 53 truss 21 19 materialId=1 sectionId=2
+member 54 truss 16 21 materialId=1 sectionId=2
+member 55 frame 19 22 materialId=1 sectionId=1
+member 56 truss 22 23 materialId=1 sectionId=2
+member 57 truss 19 23 materialId=1 sectionId=2
+member 58 frame 20 23 materialId=1 sectionId=1
+member 59 truss 23 24 materialId=1 sectionId=2
+member 60 truss 20 24 materialId=1 sectionId=2
+member 61 frame 21 24 materialId=1 sectionId=1
+member 62 truss 24 22 materialId=1 sectionId=2
+member 63 truss 21 22 materialId=1 sectionId=2
+member 64 frame 22 25 materialId=1 sectionId=1
+member 65 truss 25 26 materialId=1 sectionId=2
+member 66 truss 23 25 materialId=1 sectionId=2
+member 67 frame 23 26 materialId=1 sectionId=1
+member 68 truss 26 27 materialId=1 sectionId=2
+member 69 truss 24 26 materialId=1 sectionId=2
+member 70 frame 24 27 materialId=1 sectionId=1
+member 71 truss 27 25 materialId=1 sectionId=2
+member 72 truss 22 27 materialId=1 sectionId=2
+member 73 frame 25 28 materialId=1 sectionId=1
+member 74 truss 28 29 materialId=1 sectionId=2
+member 75 truss 25 29 materialId=1 sectionId=2
+member 76 frame 26 29 materialId=1 sectionId=1
+member 77 truss 29 30 materialId=1 sectionId=2
+member 78 truss 26 30 materialId=1 sectionId=2
+member 79 frame 27 30 materialId=1 sectionId=1
+member 80 truss 30 28 materialId=1 sectionId=2
+member 81 truss 27 28 materialId=1 sectionId=2
+member 82 frame 28 31 materialId=1 sectionId=1
+member 83 truss 31 32 materialId=1 sectionId=2
+member 84 truss 29 31 materialId=1 sectionId=2
+member 85 frame 29 32 materialId=1 sectionId=1
+member 86 truss 32 33 materialId=1 sectionId=2
+member 87 truss 30 32 materialId=1 sectionId=2
+member 88 frame 30 33 materialId=1 sectionId=1
+member 89 truss 33 31 materialId=1 sectionId=2
+member 90 truss 28 33 materialId=1 sectionId=2
+member 91 frame 31 34 materialId=1 sectionId=1
+member 92 truss 34 35 materialId=1 sectionId=2
+member 93 truss 31 35 materialId=1 sectionId=2
+member 94 frame 32 35 materialId=1 sectionId=1
+member 95 truss 35 36 materialId=1 sectionId=2
+member 96 truss 32 36 materialId=1 sectionId=2
+member 97 frame 33 36 materialId=1 sectionId=1
+member 98 truss 36 34 materialId=1 sectionId=2
+member 99 truss 33 34 materialId=1 sectionId=2
+member 100 frame 34 37 materialId=1 sectionId=1
+member 101 truss 37 38 materialId=1 sectionId=2
+member 102 truss 35 37 materialId=1 sectionId=2
+member 103 frame 35 38 materialId=1 sectionId=1
+member 104 truss 38 39 materialId=1 sectionId=2
+member 105 truss 36 38 materialId=1 sectionId=2
+member 106 frame 36 39 materialId=1 sectionId=1
+member 107 truss 39 37 materialId=1 sectionId=2
+member 108 truss 34 39 materialId=1 sectionId=2
+member 109 frame 37 40 materialId=1 sectionId=1
+member 110 truss 40 41 materialId=1 sectionId=2
+member 111 truss 37 41 materialId=1 sectionId=2
+member 112 frame 38 41 materialId=1 sectionId=1
+member 113 truss 41 42 materialId=1 sectionId=2
+member 114 truss 38 42 materialId=1 sectionId=2
+member 115 frame 39 42 materialId=1 sectionId=1
+member 116 truss 42 40 materialId=1 sectionId=2
+member 117 truss 39 40 materialId=1 sectionId=2
+member 118 frame 40 43 materialId=1 sectionId=1
+member 119 truss 43 44 materialId=1 sectionId=2
+member 120 truss 41 43 materialId=1 sectionId=2
+member 121 frame 41 44 materialId=1 sectionId=1
+member 122 truss 44 45 materialId=1 sectionId=2
+member 123 truss 42 44 materialId=1 sectionId=2
+member 124 frame 42 45 materialId=1 sectionId=1
+member 125 truss 45 43 materialId=1 sectionId=2
+member 126 truss 40 45 materialId=1 sectionId=2
+member 127 frame 43 46 materialId=1 sectionId=1
+member 128 truss 46 47 materialId=1 sectionId=2
+member 129 truss 43 47 materialId=1 sectionId=2
+member 130 frame 44 47 materialId=1 sectionId=1
+member 131 truss 47 48 materialId=1 sectionId=2
+member 132 truss 44 48 materialId=1 sectionId=2
+member 133 frame 45 48 materialId=1 sectionId=1
+member 134 truss 48 46 materialId=1 sectionId=2
+member 135 truss 45 46 materialId=1 sectionId=2
+member 136 frame 46 49 materialId=1 sectionId=1
+member 137 truss 49 50 materialId=1 sectionId=2
+member 138 truss 47 49 materialId=1 sectionId=2
+member 139 frame 47 50 materialId=1 sectionId=1
+member 140 truss 50 51 materialId=1 sectionId=2
+member 141 truss 48 50 materialId=1 sectionId=2
+member 142 frame 48 51 materialId=1 sectionId=1
+member 143 truss 51 49 materialId=1 sectionId=2
+member 144 truss 46 51 materialId=1 sectionId=2
+member 145 frame 49 52 materialId=1 sectionId=1
+member 146 truss 52 53 materialId=1 sectionId=2
+member 147 truss 49 53 materialId=1 sectionId=2
+member 148 frame 50 53 materialId=1 sectionId=1
+member 149 truss 53 54 materialId=1 sectionId=2
+member 150 truss 50 54 materialId=1 sectionId=2
+member 151 frame 51 54 materialId=1 sectionId=1
+member 152 truss 54 52 materialId=1 sectionId=2
+member 153 truss 51 52 materialId=1 sectionId=2
+member 154 frame 52 55 materialId=1 sectionId=1
+member 155 truss 55 56 materialId=1 sectionId=2
+member 156 truss 53 55 materialId=1 sectionId=2
+member 157 frame 53 56 materialId=1 sectionId=1
+member 158 truss 56 57 materialId=1 sectionId=2
+member 159 truss 54 56 materialId=1 sectionId=2
+member 160 frame 54 57 materialId=1 sectionId=1
+member 161 truss 57 55 materialId=1 sectionId=2
+member 162 truss 52 57 materialId=1 sectionId=2
+member 163 frame 55 58 materialId=1 sectionId=1
+member 164 truss 58 59 materialId=1 sectionId=2
+member 165 truss 55 59 materialId=1 sectionId=2
+member 166 frame 56 59 materialId=1 sectionId=1
+member 167 truss 59 60 materialId=1 sectionId=2
+member 168 truss 56 60 materialId=1 sectionId=2
+member 169 frame 57 60 materialId=1 sectionId=1
+member 170 truss 60 58 materialId=1 sectionId=2
+member 171 truss 57 58 materialId=1 sectionId=2
+member 172 frame 58 61 materialId=1 sectionId=1
+member 173 truss 61 62 materialId=1 sectionId=2
+member 174 truss 59 61 materialId=1 sectionId=2
+member 175 frame 59 62 materialId=1 sectionId=1
+member 176 truss 62 63 materialId=1 sectionId=2
+member 177 truss 60 62 materialId=1 sectionId=2
+member 178 frame 60 63 materialId=1 sectionId=1
+member 179 truss 63 61 materialId=1 sectionId=2
+member 180 truss 58 63 materialId=1 sectionId=2
+member 181 frame 61 64 materialId=1 sectionId=1
+member 182 truss 64 65 materialId=1 sectionId=2
+member 183 truss 61 65 materialId=1 sectionId=2
+member 184 frame 62 65 materialId=1 sectionId=1
+member 185 truss 65 66 materialId=1 sectionId=2
+member 186 truss 62 66 materialId=1 sectionId=2
+member 187 frame 63 66 materialId=1 sectionId=1
+member 188 truss 66 64 materialId=1 sectionId=2
+member 189 truss 63 64 materialId=1 sectionId=2
+member 190 frame 64 67 materialId=1 sectionId=1
+member 191 truss 67 68 materialId=1 sectionId=2
+member 192 truss 65 67 materialId=1 sectionId=2
+member 193 frame 65 68 materialId=1 sectionId=1
+member 194 truss 68 69 materialId=1 sectionId=2
+member 195 truss 66 68 materialId=1 sectionId=2
+member 196 frame 66 69 materialId=1 sectionId=1
+member 197 truss 69 67 materialId=1 sectionId=2
+member 198 truss 64 69 materialId=1 sectionId=2
+member 199 frame 67 70 materialId=1 sectionId=1
+member 200 truss 70 71 materialId=1 sectionId=2
+member 201 truss 67 71 materialId=1 sectionId=2
+member 202 frame 68 71 materialId=1 sectionId=1
+member 203 truss 71 72 materialId=1 sectionId=2
+member 204 truss 68 72 materialId=1 sectionId=2
+member 205 frame 69 72 materialId=1 sectionId=1
+member 206 truss 72 70 materialId=1 sectionId=2
+member 207 truss 69 70 materialId=1 sectionId=2
+member 208 frame 70 73 materialId=1 sectionId=1
+member 209 truss 73 74 materialId=1 sectionId=2
+member 210 truss 71 73 materialId=1 sectionId=2
+member 211 frame 71 74 materialId=1 sectionId=1
+member 212 truss 74 75 materialId=1 sectionId=2
+member 213 truss 72 74 materialId=1 sectionId=2
+member 214 frame 72 75 materialId=1 sectionId=1
+member 215 truss 75 73 materialId=1 sectionId=2
+member 216 truss 70 75 materialId=1 sectionId=2
+member 217 frame 73 76 materialId=1 sectionId=1
+member 218 truss 76 77 materialId=1 sectionId=2
+member 219 truss 73 77 materialId=1 sectionId=2
+member 220 frame 74 77 materialId=1 sectionId=1
+member 221 truss 77 78 materialId=1 sectionId=2
+member 222 truss 74 78 materialId=1 sectionId=2
+member 223 frame 75 78 materialId=1 sectionId=1
+member 224 truss 78 76 materialId=1 sectionId=2
+member 225 truss 75 76 materialId=1 sectionId=2
+member 226 frame 76 79 materialId=1 sectionId=1
+member 227 truss 79 80 materialId=1 sectionId=2
+member 228 truss 77 79 materialId=1 sectionId=2
+member 229 frame 77 80 materialId=1 sectionId=1
+member 230 truss 80 81 materialId=1 sectionId=2
+member 231 truss 78 80 materialId=1 sectionId=2
+member 232 frame 78 81 materialId=1 sectionId=1
+member 233 truss 81 79 materialId=1 sectionId=2
+member 234 truss 76 81 materialId=1 sectionId=2
+member 235 frame 79 82 materialId=1 sectionId=1
+member 236 truss 82 83 materialId=1 sectionId=2
+member 237 truss 79 83 materialId=1 sectionId=2
+member 238 frame 80 83 materialId=1 sectionId=1
+member 239 truss 83 84 materialId=1 sectionId=2
+member 240 truss 80 84 materialId=1 sectionId=2
+member 241 frame 81 84 materialId=1 sectionId=1
+member 242 truss 84 82 materialId=1 sectionId=2
+member 243 truss 81 82 materialId=1 sectionId=2
+member 244 frame 82 85 materialId=1 sectionId=1
+member 245 truss 85 86 materialId=1 sectionId=2
+member 246 truss 83 85 materialId=1 sectionId=2
+member 247 frame 83 86 materialId=1 sectionId=1
+member 248 truss 86 87 materialId=1 sectionId=2
+member 249 truss 84 86 materialId=1 sectionId=2
+member 250 frame 84 87 materialId=1 sectionId=1
+member 251 truss 87 85 materialId=1 sectionId=2
+member 252 truss 82 87 materialId=1 sectionId=2
+member 253 frame 31 88 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 254 frame 32 89 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 255 frame 33 90 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 256 frame 61 88 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 257 frame 62 89 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 258 frame 63 90 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 259 frame 85 88 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 260 frame 86 89 materialId=2 sectionId=3 behaviour="tensionOnly"
+member 261 frame 87 90 materialId=2 sectionId=3 behaviour="tensionOnly"
+
+case 1 D "Peso propio"
+case 2 W "Viento X"
+support 1 1 fixed3d
+support 2 2 fixed3d
+support 3 3 fixed3d
+support 4 88 pinned3d
+support 5 89 pinned3d
+support 6 90 pinned3d
+analysis {"selfWeight":[{"caseId":1,"direction":"Z","factor":-1}]}
+
+load distributed3d 1 elementId=1 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 2 elementId=2 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 3 elementId=3 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 4 elementId=4 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 5 elementId=5 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 6 elementId=6 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 7 elementId=7 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 8 elementId=8 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 9 elementId=9 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 10 elementId=10 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 11 elementId=11 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 12 elementId=12 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 13 elementId=13 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 14 elementId=14 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 15 elementId=15 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 16 elementId=16 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 17 elementId=17 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 18 elementId=18 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 19 elementId=19 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 20 elementId=20 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 21 elementId=21 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 22 elementId=22 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 23 elementId=23 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 24 elementId=24 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 25 elementId=25 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 26 elementId=26 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 27 elementId=27 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 28 elementId=28 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 29 elementId=29 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 30 elementId=30 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 31 elementId=31 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 32 elementId=32 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 33 elementId=33 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 34 elementId=34 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 35 elementId=35 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 36 elementId=36 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 37 elementId=37 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 38 elementId=38 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 39 elementId=39 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 40 elementId=40 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 41 elementId=41 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 42 elementId=42 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 43 elementId=43 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 44 elementId=44 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 45 elementId=45 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 46 elementId=46 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 47 elementId=47 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 48 elementId=48 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 49 elementId=49 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 50 elementId=50 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 51 elementId=51 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 52 elementId=52 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 53 elementId=53 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 54 elementId=54 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 55 elementId=55 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 56 elementId=56 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 57 elementId=57 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 58 elementId=58 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 59 elementId=59 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 60 elementId=60 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 61 elementId=61 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 62 elementId=62 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 63 elementId=63 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 64 elementId=64 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 65 elementId=65 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 66 elementId=66 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 67 elementId=67 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 68 elementId=68 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 69 elementId=69 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 70 elementId=70 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 71 elementId=71 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 72 elementId=72 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 73 elementId=73 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 74 elementId=74 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 75 elementId=75 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 76 elementId=76 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 77 elementId=77 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 78 elementId=78 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 79 elementId=79 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 80 elementId=80 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 81 elementId=81 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 82 elementId=82 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 83 elementId=83 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 84 elementId=84 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 85 elementId=85 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 86 elementId=86 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 87 elementId=87 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 88 elementId=88 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 89 elementId=89 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 90 elementId=90 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 91 elementId=91 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 92 elementId=92 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 93 elementId=93 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 94 elementId=94 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 95 elementId=95 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 96 elementId=96 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 97 elementId=97 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 98 elementId=98 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 99 elementId=99 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 100 elementId=100 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 101 elementId=101 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 102 elementId=102 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 103 elementId=103 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 104 elementId=104 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 105 elementId=105 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 106 elementId=106 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 107 elementId=107 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 108 elementId=108 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 109 elementId=109 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 110 elementId=110 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 111 elementId=111 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 112 elementId=112 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 113 elementId=113 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 114 elementId=114 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 115 elementId=115 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 116 elementId=116 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 117 elementId=117 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 118 elementId=118 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 119 elementId=119 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 120 elementId=120 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 121 elementId=121 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 122 elementId=122 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 123 elementId=123 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 124 elementId=124 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 125 elementId=125 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 126 elementId=126 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 127 elementId=127 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 128 elementId=128 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 129 elementId=129 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 130 elementId=130 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 131 elementId=131 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 132 elementId=132 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 133 elementId=133 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 134 elementId=134 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 135 elementId=135 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 136 elementId=136 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 137 elementId=137 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 138 elementId=138 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 139 elementId=139 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 140 elementId=140 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 141 elementId=141 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 142 elementId=142 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 143 elementId=143 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 144 elementId=144 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 145 elementId=145 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 146 elementId=146 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 147 elementId=147 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 148 elementId=148 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 149 elementId=149 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 150 elementId=150 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 151 elementId=151 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 152 elementId=152 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 153 elementId=153 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 154 elementId=154 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 155 elementId=155 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 156 elementId=156 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 157 elementId=157 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 158 elementId=158 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 159 elementId=159 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 160 elementId=160 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 161 elementId=161 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 162 elementId=162 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 163 elementId=163 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 164 elementId=164 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 165 elementId=165 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 166 elementId=166 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 167 elementId=167 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 168 elementId=168 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 169 elementId=169 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 170 elementId=170 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 171 elementId=171 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 172 elementId=172 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 173 elementId=173 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 174 elementId=174 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 175 elementId=175 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 176 elementId=176 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 177 elementId=177 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 178 elementId=178 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 179 elementId=179 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 180 elementId=180 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 181 elementId=181 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 182 elementId=182 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 183 elementId=183 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 184 elementId=184 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 185 elementId=185 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 186 elementId=186 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 187 elementId=187 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 188 elementId=188 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 189 elementId=189 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 190 elementId=190 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 191 elementId=191 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 192 elementId=192 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 193 elementId=193 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 194 elementId=194 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 195 elementId=195 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 196 elementId=196 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 197 elementId=197 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 198 elementId=198 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 199 elementId=199 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 200 elementId=200 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 201 elementId=201 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 202 elementId=202 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 203 elementId=203 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 204 elementId=204 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 205 elementId=205 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 206 elementId=206 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 207 elementId=207 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 208 elementId=208 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 209 elementId=209 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 210 elementId=210 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 211 elementId=211 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 212 elementId=212 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 213 elementId=213 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 214 elementId=214 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 215 elementId=215 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 216 elementId=216 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 217 elementId=217 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 218 elementId=218 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 219 elementId=219 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 220 elementId=220 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 221 elementId=221 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 222 elementId=222 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 223 elementId=223 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 224 elementId=224 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 225 elementId=225 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 226 elementId=226 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 227 elementId=227 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 228 elementId=228 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 229 elementId=229 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 230 elementId=230 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 231 elementId=231 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 232 elementId=232 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 233 elementId=233 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 234 elementId=234 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 235 elementId=235 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 236 elementId=236 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 237 elementId=237 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 238 elementId=238 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 239 elementId=239 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 240 elementId=240 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 241 elementId=241 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 242 elementId=242 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 243 elementId=243 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 244 elementId=244 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 245 elementId=245 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 246 elementId=246 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 247 elementId=247 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 248 elementId=248 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 249 elementId=249 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 250 elementId=250 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 251 elementId=251 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 252 elementId=252 qXI=0.12 qXJ=0.12 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 253 elementId=253 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 254 elementId=254 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 255 elementId=255 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 256 elementId=256 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 257 elementId=257 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 258 elementId=258 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 259 elementId=259 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 260 elementId=260 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
+load distributed3d 261 elementId=261 qXI=0.03 qXJ=0.03 qYI=0 qYJ=0 qZI=0 qZJ=0 frame="global" caseId=2
