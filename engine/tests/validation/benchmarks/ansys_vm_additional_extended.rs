@@ -916,6 +916,7 @@ fn validation_vm49_continuous_beam_settlement() {
     );
 
     let input_settlement = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

@@ -77,6 +77,7 @@ fn build_pile_2d(
     });
 
     SolverInput {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: secs,
