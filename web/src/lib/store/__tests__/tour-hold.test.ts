@@ -6,7 +6,7 @@
  * the next card asks for selected the member instead.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { tourStore } from '../tour.svelte';
+import { tourStore, actionAdvances } from '../tour.svelte';
 
 // The store remembers a started tour, measures its target on the next frame and checks the page
 // when it ends. The unit environment has none of the three, and none is what this is about.
@@ -37,5 +37,15 @@ describe('the walkthrough holds for a load', () => {
   it('lets go of a load that fails', async () => {
     await expect(tourStore.hold(Promise.reject(new Error('no such example')))).rejects.toThrow();
     expect(tourStore.isBusy).toBe(false);
+  });
+});
+
+describe('a card\'s action button', () => {
+  it('leaves a step that advances itself to do so, instead of running ahead of its action', () => {
+    const waitFor = () => false;
+    expect(actionAdvances({ autoAdvance: true, waitFor })).toBe(false);
+    expect(actionAdvances({ waitFor })).toBe(true);
+    expect(actionAdvances({})).toBe(true);
+    expect(actionAdvances({}, false)).toBe(false);
   });
 });
