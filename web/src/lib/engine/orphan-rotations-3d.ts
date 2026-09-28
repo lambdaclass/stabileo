@@ -90,6 +90,16 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
       resisted.set(node, list);
     }
   }
+  // A shell corner resists all three rotations: bending about the two in-plane axes, and drilling
+  // about the normal, which the engine's quads, triangles and curved shells stiffen themselves.
+  // A spring there was not needed, and it was not harmless: it carried a share of the moment
+  // about the shell's normal to ground, and that share is not in the reactions reported.
+  const all: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (const shells of [input.quads, input.plates, input.curvedShells]) {
+    for (const sh of shells?.values() ?? []) {
+      for (const n of (sh as { nodes: number[] }).nodes) resisted.set(n, [...(resisted.get(n) ?? []), ...all]);
+    }
+  }
   // Offset expansion moves the frame end to a helper node. Its real joint
   // still carries the same rotations through the eccentric constraint, so it
   // must not acquire an artificial spring just because no frame ends there.
