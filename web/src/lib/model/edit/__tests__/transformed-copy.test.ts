@@ -15,7 +15,8 @@ import { historyStore } from '../../../store/history.svelte';
 import { buildSolverInput3D, validateAndSolve3D } from '../../../engine/solver-service';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { reflection, rotation, translation, applyAxial, applyVector, type Affine, type Vec3 } from '../affine';
-import { copyTransformed } from '../transformed-copy';
+import { copyTransformed, insertFragment } from '../transformed-copy';
+import { detach, fragmentOf } from '../fragment';
 import { transformInPlace } from '../transform-in-place';
 
 beforeAll(async () => {
@@ -158,6 +159,43 @@ describe('the copy is the same structure, moved — the solver agrees', () => {
 });
 
 describe('repeat', () => {
+  it.each([false, true])('preserves loads welded onto a different node (detached: %s) and undoes them', (detached) => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, 1);
+    let frag = fragmentOf({ nodes: [], elements: [e] }, { withLoads: true });
+    if (detached) { frag = detach(frag); modelStore.clear(); }
+    const host = modelStore.addNode(14, 0, 0);
+    const original = JSON.parse(JSON.stringify(modelStore.loads));
+    historyStore.clear();
+    const r = insertFragment(frag, [translation([10, 0, 0])], { withLoads: true });
+    expect(r.welded).toBe(1);
+    expect(modelStore.loads).toHaveLength(original.length + 1);
+    expect(modelStore.loads.at(-1)!.data).toMatchObject({ nodeId: host, fz: -10 });
+    expect(historyStore.undoCount).toBe(1);
+    historyStore.undo();
+    expect(modelStore.loads).toEqual(original);
+    expect(modelStore.nodes.has(host)).toBe(true);
+  });
+
+  it('does not duplicate a local nodal load when copying onto its own source', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, 1);
+    copyTransformed({ nodes: [a], elements: [] }, [translation([0, 0, 0])], { withLoads: true });
+    expect(modelStore.loads).toHaveLength(1);
+  });
+
+  it('preserves detached loads even when donor and host happen to have the same node ID', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, 1);
+    const frag = detach(fragmentOf({ nodes: [a], elements: [] }, { withLoads: true }));
+    modelStore.clear();
+    expect(modelStore.addNode(0, 0, 0)).toBe(a);
+    insertFragment(frag, [translation([0, 0, 0])], { withLoads: true });
+    expect(modelStore.loads).toHaveLength(1);
+    expect(modelStore.loads[0]!.data).toMatchObject({ nodeId: a, fz: -10 });
+  });
+
   it('welds shared nodes, links the copies, carries groups, and is one undo step', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(5, 0, 3), d = modelStore.addNode(5, 0, 0);
     const e1 = modelStore.addElement(a, b, 'frame'), e2 = modelStore.addElement(b, c, 'frame'), e3 = modelStore.addElement(d, c, 'frame');

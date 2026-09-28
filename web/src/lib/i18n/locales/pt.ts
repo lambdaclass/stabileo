@@ -6582,7 +6582,7 @@ const pt: Translations = {
   'floorLoad.plan': "Painéis em planta",
   'floorLoad.summary': "{panels} painéis, {area} m², {total} kN sobre {beams} vigas.",
   'floorLoad.skip.nonConvex': "{n} painéis não convexos ficam sem carga: divida-os com uma viga ou carregue-os manualmente.",
-  'floorLoad.skip.crossings': "{n} cruzamentos de vigas sem nó: essas vigas não formam painéis.",
+  'floorLoad.skip.crossings': "{n} cruzamentos de vigas sem nó: os painéis dos conjuntos conectados afetados não recebem cargas.",
   'floorLoad.skip.open': "{n} vigas com uma extremidade livre não fecham nenhum painel.",
   'floorLoad.skip.trusses': "{n} barras articuladas não recebem carga transversal e ficam de fora.",
   'floorLoad.skip.otherLevel': "{n} vigas estão em outra cota e ficam de fora.",

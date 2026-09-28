@@ -26,7 +26,7 @@
  *
  * A panel that is not convex (an L) has a nearest-side pattern with curved boundaries, and it is
  * not loaded: it is reported, to be split with a beam or loaded by hand. Beams that cross in plan
- * without a shared node are not joined into panels and are reported too.
+ * without a shared node invalidate their connected components, which are reported and not loaded.
  *
  * Pure: no store.
  */
@@ -75,7 +75,7 @@ export interface FloorPanel {
   polygon: P2[];
   area: number;
   loaded: boolean;
-  reason?: 'nonConvex';
+  reason?: 'nonConvex' | 'crossing';
 }
 
 export interface FloorLoadResult {
@@ -122,10 +122,14 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number }>>();
 
   // ── Crossings without a node ──
+  const crossed = new Set<number>();
   for (let i = 0; i < beams.length; i++) for (let j = i + 1; j < beams.length; j++) {
     const b1 = beams[i]!, b2 = beams[j]!;
     if (b1.nodeI === b2.nodeI || b1.nodeI === b2.nodeJ || b1.nodeJ === b2.nodeI || b1.nodeJ === b2.nodeJ) continue;
-    if (properCross(xy(b1.nodeI), xy(b1.nodeJ), xy(b2.nodeI), xy(b2.nodeJ))) skipped.crossings++;
+    if (properCross(xy(b1.nodeI), xy(b1.nodeJ), xy(b2.nodeI), xy(b2.nodeJ))) {
+      skipped.crossings++;
+      crossed.add(b1.nodeI); crossed.add(b2.nodeI);
+    }
   }
 
   // ── The plane graph, without its dangling edges ──
@@ -136,6 +140,15 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     (adj.get(v) ?? adj.set(v, new Map()).get(v)!).set(u, e);
   };
   for (const b of beams) link(b.nodeI, b.nodeJ, b.id);
+  // A non-planar component cannot yield trustworthy faces. Mark it before pruning so a
+  // dangling beam crossing a panel cannot disappear and make that panel appear valid.
+  const invalid = new Set<number>(crossed);
+  const pending = [...crossed];
+  while (pending.length) {
+    for (const v of adj.get(pending.pop()!)?.keys() ?? []) {
+      if (!invalid.has(v)) { invalid.add(v); pending.push(v); }
+    }
+  }
   let pruned = true;
   while (pruned) {
     pruned = false;
@@ -189,6 +202,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     const sides = mergeSides(cycle, poly, (p, q) => adj.get(p)!.get(q)!, (e, p) => beamById.get(e)!.nodeI === p);
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
     res.panels.push(panel);
+    if (cycle.some((n) => invalid.has(n))) { panel.reason = 'crossing'; continue; }
     if (!isConvex(sides.map((s) => s.a))) { panel.reason = 'nonConvex'; skipped.nonConvex++; continue; }
     panel.loaded = true;
     res.loadedArea += area;

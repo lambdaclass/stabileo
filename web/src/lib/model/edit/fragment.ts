@@ -14,6 +14,7 @@
  * into another project does not point a member at whatever section happens to carry its old id.
  */
 import { modelStore } from '../../store/model.svelte';
+import { generatedMetadata } from './generated-metadata';
 import type {
   Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support,
 } from '../../store/model.svelte';
@@ -92,6 +93,11 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
   };
   const matIds = new Set([...frag.elements.map((e) => e.materialId), ...frag.quads.map((q) => q.materialId), ...frag.plates.map((p) => p.materialId)]);
   const secIds = new Set(frag.elements.map((e) => e.sectionId));
+  // Preserve the original generated section too when a member has been manually resized.
+  for (const g of frag.groups) {
+    const data = generatedMetadata(g);
+    for (const e of data?.elements ?? []) if (e) secIds.add(e.sectionId);
+  }
   frag.materials = [...matIds].map((id) => modelStore.materials.get(id)).filter(Boolean).map((m) => clone(m!));
   frag.sections = [...secIds].map((id) => modelStore.sections.get(id)).filter(Boolean).map((s) => clone(s!));
   const caseIds = new Set(frag.loads.map((l) => (l.data as { caseId?: number }).caseId).filter((c): c is number => c !== undefined));
