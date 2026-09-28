@@ -12,10 +12,10 @@
 import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
-import { meshQuadRegion, type MeshDensity } from './mesh-region';
+import { meshQuadRegion, exceedsDivisionCap, type MeshDensity } from './mesh-region';
 import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
-export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles';
+export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions';
 
 export interface MemberSpec { type: 'frame' | 'truss'; materialId: number; sectionId: number }
 
@@ -153,22 +153,18 @@ function earClip(poly: [number, number][]): Array<[number, number, number]> {
   return out;
 }
 
+/** One face to fill: its corners, its triangles, whether a shell already covers it, and whether it is meshed as a quad. */
+interface FillStep { f: number[]; tris: Array<[number, number, number]>; taken: boolean; quad: boolean }
+
 /**
- * Plates over every hole the members bound. When they are not in one plane, each horizontal level
- * of them is filled on its own — the floors of a storey or a building.
- *
- * A convex hole of four corners is meshed with quads —
- * one, or a grid at the requested density, through the same mesher as the shell tab; any other
- * becomes triangles. Faces overlapping an existing coplanar shell are left alone.
+ * What filling would build, face by face and plane by plane, decided before anything is: a bay
+ * the mesher would have to coarsen past its cap refuses the whole fill — every level of a
+ * building, not just its own — rather than leaving the others built, or that one quietly coarser
+ * than asked. An occupied face is skipped whatever its size.
  */
-export function fillHoles(
-  elementIds: Iterable<number>, materialId: number, thickness: number,
-  opts: { density?: MeshDensity; tol?: number } = {},
-): FillReport | { refused: ConstructRefusal } {
-  const tol = opts.tol ?? 1e-3;
-  // One quad per hole unless a density is asked for; a density meshes it with the shell tab's
-  // own mesher and cuts the bounding members at the new edge nodes.
-  const density: MeshDensity = opts.density ?? { mode: 'fixedDivisions', nx: 1, ny: 1 };
+function planFill(
+  elementIds: Iterable<number>, density: MeshDensity, tol: number,
+): FillStep[][] | { refused: ConstructRefusal } {
   const elements = [...elementIds].map((id) => modelStore.elements.get(id)).filter((e) => !!e);
   const nodeIds = [...new Set(elements.flatMap((e) => [e!.nodeI, e!.nodeJ]))];
   if (nodeIds.length < 3) return { refused: 'noHoles' };
@@ -184,20 +180,19 @@ export function fillHoles(
       const k = Math.round((a.z ?? 0) / tol);
       (levels.get(k) ?? levels.set(k, []).get(k)!).push(e!.id);
     }
-    const total: FillReport = { quads: [], plates: [], skippedExisting: 0 };
-    let any = false;
-    modelStore.batch(() => {
-      for (const ids of levels.values()) {
-        // A collinear horizontal selection cannot define a plane. Partitioning must
-        // make progress instead of recursively retrying exactly the same members.
-        if (ids.length === elements.length) continue;
-        const r = fillHoles(ids, materialId, thickness, opts);
-        if ('refused' in r) continue;
-        any = true;
-        total.quads.push(...r.quads); total.plates.push(...r.plates); total.skippedExisting += r.skippedExisting;
+    const planes: FillStep[][] = [];
+    for (const ids of levels.values()) {
+      // A collinear horizontal selection cannot define a plane. Partitioning must
+      // make progress instead of recursively retrying exactly the same members.
+      if (ids.length === elements.length) continue;
+      const r = planFill(ids, density, tol);
+      if ('refused' in r) {
+        if (r.refused === 'tooManyDivisions') return r;
+        continue;
       }
-    });
-    return any ? total : { refused: levels.size === 0 ? 'notCoplanar' : 'noHoles' };
+      planes.push(...r);
+    }
+    return planes.length > 0 ? planes : { refused: levels.size === 0 ? 'notCoplanar' : 'noHoles' };
   }
 
   const uv = new Map<number, [number, number]>();
@@ -237,17 +232,43 @@ export function fillHoles(
     occupied.push([projected[0]!, projected[1]!, projected[2]!]);
     if (projected.length === 4) occupied.push([projected[0]!, projected[2]!, projected[3]!]);
   }
+  const steps = faces.map((f): FillStep => {
+    const polygon = f.map((id) => uv.get(id)!);
+    const tris = earClip(polygon);
+    const taken = tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)));
+    return { f, tris, taken, quad: f.length === 4 && convex(polygon) };
+  });
+  if (steps.some((p) => !p.taken && p.quad && exceedsDivisionCap(p.f.map((id) => modelStore.nodes.get(id)!), density))) {
+    return { refused: 'tooManyDivisions' };
+  }
+  return [steps];
+}
+
+/**
+ * Plates over every hole the members bound. When they are not in one plane, each horizontal level
+ * of them is filled on its own — the floors of a storey or a building.
+ *
+ * A convex hole of four corners is meshed with quads —
+ * one, or a grid at the requested density, through the same mesher as the shell tab; any other
+ * becomes triangles. Faces overlapping an existing coplanar shell are left alone. Nothing is
+ * built unless every face can be (see planFill).
+ */
+export function fillHoles(
+  elementIds: Iterable<number>, materialId: number, thickness: number,
+  opts: { density?: MeshDensity; tol?: number } = {},
+): FillReport | { refused: ConstructRefusal } {
+  // One quad per hole unless a density is asked for; a density meshes it with the shell tab's
+  // own mesher and cuts the bounding members at the new edge nodes.
+  const density: MeshDensity = opts.density ?? { mode: 'fixedDivisions', nx: 1, ny: 1 };
+  const plan = planFill(elementIds, density, opts.tol ?? 1e-3);
+  if ('refused' in plan) return plan;
   const report: FillReport = { quads: [], plates: [], skippedExisting: 0 };
   modelStore.batch(() => {
-    for (const f of faces) {
-      const polygon = f.map((id) => uv.get(id)!);
-      const tris = earClip(polygon);
-      if (tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)))) {
-        report.skippedExisting++;
-        continue;
-      }
-      if (f.length === 4 && convex(f.map((id) => uv.get(id)!))) {
+    for (const { f, tris, taken, quad } of plan.flat()) {
+      if (taken) { report.skippedExisting++; continue; }
+      if (quad) {
         const m = meshQuadRegion(f as [number, number, number, number], { density, materialId, thickness, splitBeams: true });
+        if ('refused' in m) continue; // planFill refused these already
         report.quads.push(...m.quads);
         continue;
       }
