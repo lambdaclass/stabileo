@@ -46,6 +46,19 @@ if (hasLocalStorage()) {
   }
 }
 
+/**
+ * Whether a card's action button moves the walkthrough on by itself after acting.
+ *
+ * Not when the step advances on its own once its condition holds: forcing `next()` 100 ms after
+ * the click ran ahead of any action that took longer. The section walkthrough's Solve moved on to
+ * the card that arms the section analysis while the solve was still running (193 ms on a CI
+ * runner), the viewport found that mode without results and disarmed it, and the member click
+ * the next card asks for selected the member.
+ */
+export function actionAdvances(step: Pick<TourStep, 'autoAdvance' | 'waitFor'>, advanceAfter?: boolean): boolean {
+  return advanceAfter !== false && !(step.autoAdvance && step.waitFor);
+}
+
 function createTourStore() {
   let _isActive = $state(false);
   let _currentStepIndex = $state(0);
