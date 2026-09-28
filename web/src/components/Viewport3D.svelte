@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../lib/store/view-state.svelte';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount, untrack } from 'svelte';
@@ -2153,9 +2153,11 @@
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
-        // Nodes: project to screen, check containment
+        // Nodes: project to screen, check containment. Only what the view draws — a hidden
+        // object is not picked either, or a crossing sweep would select what Delete then
+        // removes without the user ever seeing it.
         const project2D = shouldProject2DModel();
-        if (allowNodes) for (const node of modelStore.nodes.values()) {
+        if (allowNodes) for (const node of visibleNodes().values()) {
           const pos = projectNodeToScene(node, project2D);
           const s = projectToScreen(pos.x, pos.y, pos.z);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
@@ -2163,7 +2165,7 @@
           }
         }
         // Elements: project both endpoints
-        if (allowElems) for (const elem of modelStore.elements.values()) {
+        if (allowElems) for (const elem of visibleElements().values()) {
           const ni = modelStore.getNode(elem.nodeI);
           const nj = modelStore.getNode(elem.nodeJ);
           if (!ni || !nj) continue;
@@ -2202,8 +2204,8 @@
             const flags = nodeIds.map(cornerIn);
             if (isWindow ? flags.every(Boolean) : flags.some(Boolean)) newShells.add(key);
           };
-          for (const p of modelStore.model.plates.values()) collectShell('p' + p.id, p.nodes);
-          for (const q of modelStore.model.quads.values()) collectShell('q' + q.id, q.nodes);
+          for (const p of visiblePlates().values()) collectShell('p' + p.id, p.nodes);
+          for (const q of visibleQuads().values()) collectShell('q' + q.id, q.nodes);
         }
 
         /*
@@ -2233,8 +2235,18 @@
             model: {
               nodes: [],
               elements: modelStore.elements.values(),
-              supports: modelStore.supports.values(),
-              loads: modelStore.model.loads as never,
+              /*
+               * Only what the view draws: a support on a hidden node and a
+               * load on a hidden node, member or shell are not drawn, and what
+               * is not drawn is not picked — the same rule syncSupports and
+               * syncLoads draw them with.
+               */
+              supports: viewVisibility.active
+                ? [...modelStore.supports.values()].filter((s) => !viewVisibility.isNodeHidden(s.nodeId))
+                : modelStore.supports.values(),
+              loads: modelStore.model.loads.filter(
+                (l) => !isLoadHidden(l.data as { nodeId?: number; elementId?: number; quadId?: number }),
+              ) as never,
               getNode: (id) => modelStore.getNode(id) as never,
               getElement: (id) => modelStore.elements.get(id),
             },

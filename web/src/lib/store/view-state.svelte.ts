@@ -118,6 +118,18 @@ export const viewVisibility = {
   isShellHidden(key: string) { return hidden?.shells.has(key) ?? false; },
 };
 
+/**
+ * A load is hidden with what it stands on — its node, its member or its shell — which is the rule
+ * the 3D scene draws loads with, so it is also the rule a marquee takes them with.
+ */
+export function isLoadHidden(d: { nodeId?: number; elementId?: number; quadId?: number }): boolean {
+  if (!hidden) return false;
+  if (d.nodeId !== undefined && hidden.nodes.has(d.nodeId)) return true;
+  if (d.elementId !== undefined && hidden.elements.has(d.elementId)) return true;
+  if (d.quadId !== undefined && hidden.shells.has(`q${d.quadId}`)) return true;
+  return false;
+}
+
 /** A model map without what is hidden; the map itself when nothing is. Cached per map and change. */
 const cache = new WeakMap<object, { version: number; out: Map<number, any> }>();
 function visible<T>(src: Map<number, T>, isHidden: (id: number) => boolean): Map<number, T> {

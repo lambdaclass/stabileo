@@ -134,8 +134,11 @@ const MAX_HISTORY = 50;
  *    elements' `reinforcement` field is touched, and only their cached
  *    provided-rebar verification is dropped. Results/demand data/revisions
  *    survive untouched.
+ *  - 'views': a named-view save/rename/remove — undo/redo goes through the
+ *    silent `modelStore.restoreViewsOnly()` path: only `model.views` is
+ *    restored, no modelVersion bump, no mutation hook, so the solve survives.
  */
-export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation';
+export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation' | 'views';
 
 /**
  * The selection when an entry was pushed, so an undo puts back what was selected before the edit
@@ -214,6 +217,8 @@ function createHistoryStore() {
         modelStore.restoreReinforcementOnly(prev);
       } else if (kind === 'foundation') {
         modelStore.restoreFoundationOnly(prev);
+      } else if (kind === 'views') {
+        modelStore.restoreViewsOnly(prev);
       } else {
         modelStore.restore(prev);
       }
@@ -233,6 +238,8 @@ function createHistoryStore() {
         modelStore.restoreReinforcementOnly(next);
       } else if (kind === 'foundation') {
         modelStore.restoreFoundationOnly(next);
+      } else if (kind === 'views') {
+        modelStore.restoreViewsOnly(next);
       } else {
         modelStore.restore(next);
       }
