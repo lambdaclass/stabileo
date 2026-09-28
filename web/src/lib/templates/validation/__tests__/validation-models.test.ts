@@ -26,6 +26,7 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
 /** What each model is, as counts: nodes, members, supports, cases, combinations. */
 const SHAPE: Record<ValidationModelId, { nodes: number; members: number; supports: number; cases: number; combinations: number }> = {
+  'validation-01': { nodes: 1153, members: 552, supports: 25, cases: 2, combinations: 1 },
   'validation-02': { nodes: 56, members: 119, supports: 6, cases: 2, combinations: 1 },
   'validation-03': { nodes: 230, members: 97, supports: 38, cases: 1, combinations: 0 },
   'validation-06': { nodes: 18, members: 25, supports: 3, cases: 3, combinations: 0 },
@@ -43,6 +44,8 @@ const ids = Object.keys(VALIDATION_MODELS) as ValidationModelId[];
 
 /** Models with shells, and the moment components the engine's drilling penalty leaves exact. */
 const SHELL_DRILLING = new Map<ValidationModelId, { balanced: Array<'mx' | 'my' | 'mz'> }>([
+  // Slabs normal to Z and core walls normal to X and to Y: every moment is touched.
+  ['validation-01', { balanced: [] }],
   // Walls in planes x = constant: the normal is X.
   ['validation-03', { balanced: ['my', 'mz'] }],
 ]);
@@ -128,10 +131,12 @@ describe.each(ids)('%s', (id) => {
  * the shell normal with α·Nᵢ·Nⱼ alone, uncoupled from the in-plane translations, so a rigid
  * rotation about the normal meets a restoring moment. The element acts as a weak spring to ground
  * about its normal, and the reactions come short of the loads by that moment: 7·10⁻⁷ of it on the
- * walls of model 03. Fixing the engine makes this pass, and then it and SHELL_DRILLING go.
+ * walls of model 03. Fixing the engine makes these pass, and then they and SHELL_DRILLING go.
  */
-it.fails('validation-03 balances about the walls\' normal too (engine defect M14)', async () => {
-  for (const row of await statics('validation-03')) expect(row.worstRelative).toBeLessThan(1e-9);
+describe.each([...SHELL_DRILLING.keys()])('%s, about the shells\' normals (engine defect M14)', (id) => {
+  it.fails('balances every moment too', async () => {
+    for (const row of await statics(id)) expect(row.worstRelative).toBeLessThan(1e-9);
+  });
 });
 
 describe('the "Validation models" group of the PRO examples', () => {
