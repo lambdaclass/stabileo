@@ -73,6 +73,21 @@ describe('decomposeRectilinear', () => {
 });
 
 describe('pairWallLines', () => {
+  it('only a positive, finite length takes part: a NaN or infinite segment is neither paired nor kept', () => {
+    const { paired, unpaired } = pairWallLines(
+      [
+        { a: { x: 0, y: 2.0 }, b: { x: 6, y: 2.0 } },
+        { a: { x: 0, y: 2.2 }, b: { x: 6, y: 2.2 } },
+        { a: { x: NaN, y: 3 }, b: { x: 6, y: 3 } },
+        // Finite coordinates whose difference overflows to an infinite length.
+        { a: { x: -1e308, y: 5 }, b: { x: 1e308, y: 5 } },
+      ],
+      { minGap: 0.05, maxGap: 0.5 },
+    );
+    expect(paired.length).toBe(1);
+    expect(unpaired).toEqual([]);
+  });
+
   it('pairs parallel faces into a centerline with the gap as thickness', () => {
     const { paired, unpaired } = pairWallLines(
       [

@@ -438,16 +438,25 @@ export function pairWallLines(
 
   const used = new Array(segments.length).fill(false);
   const paired: PairedWall[] = [];
+  /*
+   * A segment takes part only with a positive, finite length. Written as one
+   * predicate rather than `len <= 0` to skip and `len > 0` to keep: a NaN
+   * length is false both ways, so a segment with a bad coordinate was neither
+   * skipped from pairing (and paired on a NaN direction) nor kept, and an
+   * infinite one (coordinates near 1e308) passed both as a real wall. Such a
+   * segment is now degenerate, like a zero-length one, from whatever source.
+   */
+  const usable = (k: number) => frames[k].len > 0 && Number.isFinite(frames[k].len);
 
   for (let i = 0; i < segments.length; i++) {
-    if (used[i] || frames[i].len <= 0) continue;
+    if (used[i] || !usable(i)) continue;
     const fi = frames[i];
     let best = -1;
     let bestGap = Infinity;
     let bestProj: { t0: number; t1: number; offMid: number } | null = null;
 
     for (let j = i + 1; j < segments.length; j++) {
-      if (used[j] || frames[j].len <= 0) continue;
+      if (used[j] || !usable(j)) continue;
       const fj = frames[j];
       // Parallel check (direction or anti-direction).
       const cross = Math.abs(fi.dir.x * fj.dir.y - fi.dir.y * fj.dir.x);
@@ -486,7 +495,7 @@ export function pairWallLines(
   }
 
   const unpaired: number[] = [];
-  for (let i = 0; i < segments.length; i++) if (!used[i] && frames[i].len > 0) unpaired.push(i);
+  for (let i = 0; i < segments.length; i++) if (!used[i] && usable(i)) unpaired.push(i);
   return { paired, unpaired };
 }
 
