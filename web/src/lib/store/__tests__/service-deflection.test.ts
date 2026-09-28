@@ -6,7 +6,7 @@
  * to 1e-9 relative, except where the peak lies between samples and the parabolic refinement
  * carries it.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -15,6 +15,7 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { serviceSets, serviceDeflections } from '../service-deflection';
 import { deflectionChecks } from '../serviceability';
+import { runGlobalSolve } from '../../engine/live-calc';
 import { eiOf } from '../../engine/member-deflection';
 
 const L = 6, q = 10, P = 20;
@@ -285,5 +286,26 @@ describe('over the physical member, not the element', () => {
     if (!single || typeof single === 'string') throw new Error(String(single));
     resultsStore.setResults3D(single);
     expect(serviceDeflections(ids, serviceSets().sets).get(ids[1]!)!.span).toEqual([ids[1]]);
+  });
+});
+
+describe('the unfactored basis after a PRO solve', () => {
+  afterEach(() => { vi.restoreAllMocks(); uiStore.analysisMode = '2d'; });
+
+  it('is every load case at factor 1, not the first case alone', async () => {
+    member('pinned', 'roller');
+    const dead = modelStore.addLoadCase('Defl D', 'D');
+    const live = modelStore.addLoadCase('Defl L', 'L');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
+    modelStore.addDistributedLoad3D(beam, 0, 0, -2 * q, -2 * q, undefined, undefined, live);
+    modelStore.addCombination('1.2D+1.6L', [{ caseId: dead, factor: 1.2 }, { caseId: live, factor: 1.6 }]);
+    uiStore.analysisMode = 'pro';
+    // The worker pool is not there under vitest; the same solve, in-process.
+    vi.spyOn(modelStore, 'solveCombinations3DParallel').mockImplementation(async (w, l, p) => modelStore.solveCombinations3D(w, l, p));
+    await runGlobalSolve();
+    const s = serviceSets();
+    expect(s.basis).toBe('unfactored');
+    const d = serviceDeflections([beam], s.sets).get(beam)!;
+    expect(d.max / ((5 * 3 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });

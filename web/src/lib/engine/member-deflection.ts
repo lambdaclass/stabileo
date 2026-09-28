@@ -236,6 +236,13 @@ export interface ChordDeflection {
  * it the tip reads its true bending deflection: PL³/3EI under a tip load, where the chord left
  * only 0.064·PL³/EI. CIRSOC 201's Table 9.5(b) has the cantilever rows that number is for.
  *
+ * A cantilever is the exception: with one end free, the chord runs through the tip it is
+ * meant to measure, and the peak relative to it is about a fifth of the tip's deflection
+ * (PL³/3EI under a tip load). A span limit for a cantilever is written for the tip relative
+ * to its support, so with `supportedEnd` the reference is that end's displaced position —
+ * a whole-frame translation still drops out, and the support's rotation, which the tip
+ * really undergoes, stays in.
+ *
  * The largest sampled value is refined with the parabola through it and its neighbours, so the
  * peak between two samples is not missed by the sampling.
  */
