@@ -502,9 +502,10 @@ export function chainSegmentsIntoLoops(
   // 3200 3089 ms. The cost per segment doubled at every doubling of the input,
   // which is the quadratic signature rather than an unlucky constant.
   //
-  // Cells of side `tol` mean every vertex within `tol` of p lies in p's own
-  // cell or one of the eight around it, so nine bucket lookups replace the
-  // scan.
+  // Cells have side 2*tol: the extra search margin covers floating-point
+  // rounding at cell boundaries (e.g. dist(-1e-19, 0.005) rounds to 0.005).
+  // This only widens candidate collection; dist <= tol remains the exact weld
+  // predicate. Nine bucket lookups replace the scan for ordinary CAD coordinates.
   //
   // The subtle part is which candidate wins. The old scan returned the FIRST
   // vertex within tolerance — the one with the SMALLEST index. Visiting cells
@@ -513,24 +514,43 @@ export function chainSegmentsIntoLoops(
   // differently and the loops come out different. `cad-chain-weld.test.ts`
   // pins that against the original implementation.
   const verts: CadPt[] = [];
-  const cell = Number.isFinite(tol) && tol > 0 ? tol : 1;
+  const cell = 2 * tol;
+  let indexed = tol > 0 && Number.isFinite(cell);
   const buckets = new Map<string, number[]>();
-  const vertOf = (p: CadPt): number => {
-    // A non-finite coordinate cannot be bucketed: `Math.floor(Infinity / cell)`
-    // is Infinity, and `for (gx = Infinity - 1; gx <= Infinity + 1; gx++)` never
-    // advances — the index would hang where the scan merely failed to match.
-    // It never matched under the scan either (`dist(...) <= tol` is false for
-    // Infinity and for NaN), so it takes a fresh vertex and stays out of the
-    // index: the same answer, reached without looping.
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
-      verts.push({ x: p.x, y: p.y });
-      return verts.length - 1;
+  const append = (p: CadPt): number => {
+    verts.push({ x: p.x, y: p.y });
+    return verts.length - 1;
+  };
+  const scan = (p: CadPt): number => {
+    for (let i = 0; i < verts.length; i++) {
+      if (dist(verts[i], p) <= tol) return i;
     }
-    const cx = Math.floor(p.x / cell), cy = Math.floor(p.y / cell);
+    return append(p);
+  };
+  const vertOf = (p: CadPt): number => {
+    // Preserve the original predicate for zero, negative, NaN and infinite
+    // tolerances too. In particular, Infinity DOES match distant vertices.
+    if (!indexed) return scan(p);
+    // With finite tolerance these never match, and cannot enter the index.
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      return append(p);
+    }
+    const x = p.x / cell, y = p.y / cell;
+    // Keep quotient rounding far below the half-cell search margin: at 2^48
+    // the spacing is at most 1/16 cell. Finite coordinates alone do not ensure
+    // this (division can even overflow). Fall back permanently so later points
+    // still consider EVERY previously inserted vertex, including unindexed ones.
+    if (!(Math.abs(x) <= 2 ** 48 && Math.abs(y) <= 2 ** 48)) {
+      indexed = false;
+      buckets.clear();
+      return scan(p);
+    }
+    const cx = Math.floor(x), cy = Math.floor(y);
     let best = -1;
-    for (let gx = cx - 1; gx <= cx + 1; gx++) {
-      for (let gy = cy - 1; gy <= cy + 1; gy++) {
-        const ids = buckets.get(`${gx},${gy}`);
+    // Increment small offsets, never large floating-point grid coordinates.
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const ids = buckets.get(`${cx + dx},${cy + dy}`);
         if (!ids) continue;
         // Only a smaller index can improve on what we have, so the distance
         // is not even computed for the rest.
@@ -540,8 +560,7 @@ export function chainSegmentsIntoLoops(
       }
     }
     if (best !== -1) return best;
-    verts.push({ x: p.x, y: p.y });
-    const id = verts.length - 1;
+    const id = append(p);
     const key = `${cx},${cy}`;
     const arr = buckets.get(key);
     if (arr) arr.push(id);

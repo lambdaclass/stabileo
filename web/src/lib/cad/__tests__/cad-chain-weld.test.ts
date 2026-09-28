@@ -12,6 +12,7 @@
 // one it happens to touch — otherwise two vertices that are both within
 // tolerance of a third weld differently and the loops come out different.
 import { describe, it, expect } from 'vitest';
+import { runInNewContext } from 'node:vm';
 import { chainSegmentsIntoLoops, dist, type Segment } from '../geometry';
 import type { CadPt } from '../types';
 
@@ -76,13 +77,12 @@ function chainSegmentsIntoLoopsReference(
 const TOL = 0.005;
 
 /** A column outline drawn as four separate LINEs — what the caller feeds this. */
-function square(cx: number, cy: number, s = 0.15, jitter = 0): Segment[] {
-  const j = () => (jitter === 0 ? 0 : (Math.random() - 0.5) * 2 * jitter);
+function square(cx: number, cy: number, s = 0.15): Segment[] {
   const c: CadPt[] = [
-    { x: cx - s + j(), y: cy - s + j() },
-    { x: cx + s + j(), y: cy - s + j() },
-    { x: cx + s + j(), y: cy + s + j() },
-    { x: cx - s + j(), y: cy + s + j() },
+    { x: cx - s, y: cy - s },
+    { x: cx + s, y: cy - s },
+    { x: cx + s, y: cy + s },
+    { x: cx - s, y: cy + s },
   ];
   return [
     { a: c[0], b: c[1] }, { a: c[1], b: c[2] },
@@ -90,11 +90,11 @@ function square(cx: number, cy: number, s = 0.15, jitter = 0): Segment[] {
   ];
 }
 
-function grid(n: number, jitter = 0): Segment[] {
+function grid(n: number): Segment[] {
   const out: Segment[] = [];
   const perRow = Math.ceil(Math.sqrt(n));
   for (let i = 0; i < n; i++) {
-    out.push(...square((i % perRow) * 6, Math.floor(i / perRow) * 5, 0.15, jitter));
+    out.push(...square((i % perRow) * 6, Math.floor(i / perRow) * 5));
   }
   return out;
 }
@@ -126,9 +126,16 @@ describe('chainSegmentsIntoLoops — output is unchanged by the spatial index', 
   });
 
   it('squares whose corners are within tolerance but not identical', () => {
-    // The weld has to fire here, and it has to pick the same vertex the linear
-    // scan picked — the earliest-inserted one within tol.
-    expectSameAsReference(grid(30, TOL * 0.4));
+    // Perturb each LINE endpoint independently. Moving a shared corner once
+    // leaves endpoints identical and never exercises tolerance-based welding.
+    const rnd = seeded(20260928);
+    const jitter = (p: CadPt) => ({
+      x: p.x + (rnd() - 0.5) * TOL * 0.4,
+      y: p.y + (rnd() - 0.5) * TOL * 0.4,
+    });
+    const segments = grid(30).map((s) => ({ a: jitter(s.a), b: jitter(s.b) }));
+    expect(chainSegmentsIntoLoops(segments, TOL).loops).toHaveLength(30);
+    expectSameAsReference(segments);
   });
 
   it('two squares sharing a corner exactly', () => {
@@ -165,9 +172,16 @@ describe('chainSegmentsIntoLoops — output is unchanged by the spatial index', 
     expectSameAsReference(grid(12), 0);
   });
 
-  it('a non-finite tolerance welds nothing, as the scan did', () => {
+  it('NaN never matches, while infinite tolerance also matches distant vertices', () => {
     expectSameAsReference(grid(12), NaN);
-    expectSameAsReference(grid(12), Infinity);
+    // Small squares all collapse even with an incorrectly bounded search;
+    // widely separated corners expose that regression.
+    expectSameAsReference(square(0, 0, 5), Infinity);
+    expectSameAsReference([
+      ...square(0, 0, 5),
+      { a: { x: Infinity, y: 0 }, b: { x: 20, y: 20 } },
+      { a: { x: NaN, y: 0 }, b: { x: 30, y: 30 } },
+    ], Infinity);
   });
 
   it('non-finite coordinates take a fresh vertex instead of hanging the index', () => {
@@ -197,9 +211,97 @@ describe('chainSegmentsIntoLoops — output is unchanged by the spatial index', 
   });
 
   it('a plan far larger than the linear scan could handle, still identical', () => {
-    // 1600 squares = 6400 segments. Under the old weld this alone took ~16 s;
+    // 1600 squares = 6400 segments. Under the old weld this took ~770 ms;
     // it is here to prove the answer is the same at a size the importer
     // actually meets, not to assert a duration.
     expectSameAsReference(grid(1600));
   }, 60_000);
+});
+
+/** Run the actual function with an interruptible deadline: a normal test timeout
+ * cannot stop an infinite synchronous loop. This checks termination, not speed. */
+function boundedChain(segments: Segment[], tol: number): ReturnType<typeof chainSegmentsIntoLoops> {
+  return runInNewContext(`(${chainSegmentsIntoLoops.toString()})(segments, tol)`,
+    { segments, tol, dist }, { timeout: 1_000 });
+}
+
+function nearClosedSquare(tol: number, endX = tol): Segment[] {
+  const size = 60 * tol;
+  return [
+    { a: { x: -tol * Number.EPSILON / 16, y: 0 }, b: { x: size, y: 0 } },
+    { a: { x: size, y: 0 }, b: { x: size, y: size } },
+    { a: { x: size, y: size }, b: { x: 0, y: size } },
+    { a: { x: 0, y: size }, b: { x: endX, y: 0 } },
+  ];
+}
+
+describe('welding preserves the distance predicate at numeric boundaries', () => {
+  it.each([1e-200, TOL, 1, 1e150])('closes a rounded distance equal to tolerance %s', (tol) => {
+    const segments = nearClosedSquare(tol);
+    expect(dist(segments[0].a, segments[3].b)).toBe(tol);
+    // Both axes, both signs, and either insertion order.
+    for (const swap of [false, true]) for (const sign of [-1, 1]) {
+      const map = (p: CadPt) => swap ? { x: p.y, y: sign * p.x } : { x: sign * p.x, y: p.y };
+      const mapped = segments.map((s) => ({ a: map(s.a), b: map(s.b) }));
+      for (const lines of [mapped, mapped.toReversed().map((s) => ({ a: s.b, b: s.a }))]) {
+        expect(chainSegmentsIntoLoops(lines, tol).loops).toHaveLength(1);
+        expectSameAsReference(lines, tol);
+      }
+    }
+  });
+
+  it('does not enlarge the tolerance when searching neighbouring cells', () => {
+    for (const factor of [1 + 4 * Number.EPSILON, 1.01, 1.9]) {
+      const segments = nearClosedSquare(TOL, TOL * factor);
+      expect(dist(segments[0].a, segments[3].b)).toBeGreaterThan(TOL);
+      expect(chainSegmentsIntoLoops(segments, TOL).loops).toHaveLength(0);
+      expectSameAsReference(segments);
+    }
+  });
+
+  it('selects the earliest vertex even when a later candidate is in an earlier cell', () => {
+    const first = { x: 0.75 * TOL, y: 0 }, later = { x: -0.75 * TOL, y: 0 };
+    const p = { x: 0, y: 5 * TOL }, q = { x: 5 * TOL, y: 5 * TOL };
+    const segments = [
+      { a: first, b: p },
+      { a: later, b: { x: -5 * TOL, y: 0 } },
+      { a: p, b: q },
+      { a: q, b: { x: 0, y: 0 } },
+    ];
+    const result = chainSegmentsIntoLoops(segments, TOL);
+    expect(result.loops).toEqual([[first, p, q]]);
+    expect(result.unchained).toEqual([1]);
+    expectSameAsReference(segments);
+  });
+
+  it.each([1e14, -1e14, 1e308, -1e308])('terminates for finite coordinates %s', (x) => {
+    const segments = [...square(0, 0), ...square(x, x, 1), ...square(3, 3)];
+    expect(boundedChain(segments, TOL)).toEqual(chainSegmentsIntoLoopsReference(segments, TOL));
+  });
+
+  it.each([0, -1, -Infinity, NaN, Infinity, Number.MIN_VALUE, Number.MAX_VALUE])(
+    'preserves the scan for exceptional tolerance %s', (tol) => {
+      const segments = [...square(0, 0, 5), ...square(20, 20, 5)];
+      expect(boundedChain(segments, tol)).toEqual(chainSegmentsIntoLoopsReference(segments, tol));
+    },
+  );
+
+  it('matches the scan across scales and near the indexed/fallback boundary', () => {
+    const rnd = seeded(204);
+    for (const tol of [1e-200, TOL, 1, 1e150]) {
+      for (const origin of [0, -17, 2 ** 49 - 64, 2 ** 49 + 64, -(2 ** 49 + 64)]) {
+        // Independent endpoints include misses, near matches, and exact copies.
+        const segments: Segment[] = [];
+        for (let i = 0; i < 10; i++) {
+          const lines = square((origin + i * 80) * tol, origin * tol, 20 * tol);
+          const jitter = (p: CadPt) => ({
+            x: p.x + (rnd() - 0.5) * tol * 1.5,
+            y: p.y + (rnd() - 0.5) * tol * 1.5,
+          });
+          segments.push(...lines.map((s) => ({ a: jitter(s.a), b: jitter(s.b) })));
+        }
+        expectSameAsReference(segments, tol);
+      }
+    }
+  });
 });
