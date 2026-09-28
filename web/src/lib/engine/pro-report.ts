@@ -7,6 +7,7 @@ import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
+import { formatPDeltaFactor } from './pdelta-result';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
@@ -73,7 +74,7 @@ export interface ReportData {
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
     modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
@@ -1334,11 +1335,14 @@ export function generateReportHtml(data: ReportData): string {
 
     if (adv.pdelta && wants('pdelta')) {
       html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
+      if (adv.pdelta.isStable !== undefined) {
+        html.push(`<p>${escHtml(tr(adv.pdelta.isStable ? 'advanced.stable' : 'advanced.unstable'))}</p>`);
+      }
       html.push(`<table><tbody>`);
       html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
       html.push(`<tr><td>${escHtml(tr('report.iterations'))}</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
-      if (adv.pdelta.b2Factor != null) {
-        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${fmtNum(adv.pdelta.b2Factor, 3)}</td></tr>`);
+      if (adv.pdelta.b2Factor !== undefined) {
+        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${formatPDeltaFactor(adv.pdelta.b2Factor)}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }

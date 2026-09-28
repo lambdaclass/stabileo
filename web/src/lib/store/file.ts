@@ -297,6 +297,7 @@ export function deserializeProject(text: string): boolean {
   if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
+  resultsStore.forgetView();
   noteAxisConventionMigrationIfNeeded(data.snapshot, data.analysisMode);
   return true;
 }

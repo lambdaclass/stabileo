@@ -20,6 +20,14 @@ export interface JSONModel {
     sectionId: number;
     hingeStart?: boolean;
     hingeEnd?: boolean;
+    /**
+     * Per-axis end releases, for a space model: `hingeStart`/`hingeEnd` are a
+     * plane frame's hinge (the in-plane moment) and cannot say which axis a 3D
+     * hinge frees — an arch hinge turns about the axis normal to its plane, My
+     * for an arch in XZ.
+     */
+    releaseI?: { my?: boolean; mz?: boolean; t?: boolean };
+    releaseJ?: { my?: boolean; mz?: boolean; t?: boolean };
     /** Analytical member offset (PR [7] eccentric framing). */
     offset?: Record<string, unknown>;
     /**
@@ -63,6 +71,7 @@ export interface FixtureLoader {
   addPointLoadOnElement?(elementId: number, a: number, p: number, opts?: Record<string, unknown>): number;
   addThermalLoad?(elemId: number, dtUniform: number, dtGradient: number): number;
   toggleHinge?(elemId: number, end: 'start' | 'end'): void;
+  toggleRelease?(elemId: number, end: 'i' | 'j', axis: 'my' | 'mz' | 't'): void;
   // 3D loads
   addDistributedLoad3D?(elemId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number;
   addNodalLoad3D?(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number;
@@ -163,6 +172,10 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     // Hinges
     if (e.hingeStart && api.toggleHinge) api.toggleHinge(newId, 'start');
     if (e.hingeEnd && api.toggleHinge) api.toggleHinge(newId, 'end');
+    for (const [end, rel] of [['i', e.releaseI], ['j', e.releaseJ]] as const) {
+      if (!rel || !api.toggleRelease) continue;
+      for (const axis of ['my', 'mz', 't'] as const) if (rel[axis]) api.toggleRelease(newId, end, axis);
+    }
   }
 
   // Supports — separate spring stiffness keys from opts (settlements, angles, 3D DOF)

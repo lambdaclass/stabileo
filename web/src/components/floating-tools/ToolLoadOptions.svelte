@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -7,6 +8,7 @@
     { id: 'distributed', key: 'float.loadDistributed' },
     { id: 'thermal', key: 'float.loadThermal' },
   ] as const;
+  const LOAD_GLYPH = { nodal: 'loadPoint', distributed: 'loadDistributed', thermal: 'loadThermal' } as const;
 </script>
 
 <label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
@@ -26,11 +28,12 @@
 <span class="ft-sep">|</span>
 {#each loadTypes as lt}
   <button
-    class="ft-opt-btn"
+    class="ft-opt-btn ft-primary"
     class:active={uiStore.loadType === lt.id}
     onclick={() => uiStore.loadType = lt.id}
-  >{t(lt.key)}</button>
+  ><ToolGlyph name={LOAD_GLYPH[lt.id]} />{t(lt.key)}</button>
 {/each}
+<span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
   {#if uiStore.analysisMode === '3d'}
@@ -139,6 +142,9 @@
 {/if}
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+
   .ft-opt-btn {
     padding: 2px 8px;
     background: var(--st-surface-2);
