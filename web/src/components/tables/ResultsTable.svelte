@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
     TWO_D_DISPLACEMENT_LABELS,
@@ -26,17 +27,28 @@
 
   let resultsSubTab = $state<'displacements' | 'reactions' | 'forces' | 'diagnostics'>('displacements');
 
+  /** The first member, quad or plate a diagnostic names, labelled by its kind. */
+  function entityLabel(d: { elementIds?: number[]; shellKeys?: string[] }): string {
+    if (d.shellKeys && d.shellKeys.length > 0) {
+      const { kind, id } = shellRef(d.shellKeys[0]);
+      return t(kind === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(id));
+    }
+    if (d.elementIds && d.elementIds.length > 0) return t('results.elemLabel').replace('{id}', String(d.elementIds[0]));
+    return '';
+  }
+
   // Merge assembly + solver diagnostics into a single list
   const allDiagnostics = $derived((() => {
     const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
-    const asmDiags = uiStore.analysisMode === '3d' ? resultsStore.diagnostics3D : resultsStore.diagnostics;
-    for (const d of asmDiags) {
-      const elemIds = d.elementIds && d.elementIds.length > 0
-        ? t('results.elemLabel').replace('{id}', String(d.elementIds[0]))
-        : '';
-      items.push({ source: elemIds || d.source, type: d.code, message: d.message, severity: d.severity });
+    const is3D = uiStore.analysisMode === '3d';
+    const asmDiags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    // What the pre-solve gates found about the model. Shell findings carry
+    // `shellKeys`, not `elementIds`, so they are never labelled as a frame.
+    const modelDiags = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
+    for (const d of [...asmDiags, ...modelDiags]) {
+      items.push({ source: entityLabel(d) || d.source, type: d.code, message: d.message, severity: d.severity });
     }
-    const solverDiags = uiStore.analysisMode === '3d' ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    const solverDiags = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     for (const d of solverDiags) {
       items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
     }

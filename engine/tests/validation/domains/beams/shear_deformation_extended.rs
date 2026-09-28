@@ -154,6 +154,7 @@ fn make_timoshenko_beam(
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -283,6 +284,7 @@ fn make_timoshenko_continuous_beam(
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
