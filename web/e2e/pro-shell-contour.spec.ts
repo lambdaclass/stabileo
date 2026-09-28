@@ -62,3 +62,24 @@ test.describe('@smoke PRO — the shell contour opens on something worth looking
     await expect(component).toHaveValue('vonMises');
   });
 });
+
+test.describe('@smoke PRO — the shells\' faces and criteria', () => {
+  test('a raft lists its faces\' Von Mises and Tresca, and exports every column', async ({ pro: page }) => {
+    await loadModel(page, 'mat-foundation');
+    await solveModel(page);
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('res-tab-shells').click();
+    const faces = page.getByTestId('shell-faces');
+    await expect(faces).toBeVisible();
+    // A slab in bending: its faces carry what its membrane does not.
+    await expect(faces.locator('tbody tr').first()).toBeVisible();
+    const wait = page.waitForEvent('download');
+    await page.getByTestId('shell-faces-csv').click();
+    const dl = await wait;
+    expect(dl.suggestedFilename()).toBe('shells.csv');
+    const text = (await import('node:fs')).readFileSync((await dl.path())!, 'utf8');
+    const header = text.split('\n')[0]!;
+    for (const col of ['topVonMises [kN/m²]', 'bottomTresca [kN/m²]', 'SZZ [kN/m²]', 'MXX [kN·m/m]']) expect(header).toContain(col);
+  });
+});
+

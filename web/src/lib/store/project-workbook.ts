@@ -74,6 +74,7 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
       unstable: unstableCombinations(),
       comboNames: new Map(modelStore.combinations.map((c) => [c.id, c.name])),
       deflections: elementStationDeflections,
+      shells: { nodes: modelStore.nodes, plates: modelStore.plates, quads: modelStore.quads },
       stressModel: (id) => {
         const e = modelStore.elements.get(id);
         const s = e && modelStore.sections.get(e.sectionId);
