@@ -322,13 +322,22 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     };
     const frameEndsAt = (nodeId: number) => [...work.elements.values()]
       .filter((e) => e.type !== 'truss' && (e.nodeI === nodeId || e.nodeJ === nodeId)).length;
+    /*
+     * "Nothing else there" includes the support: a fixed one, or a rotational
+     * spring, holds the joint's rotation, so each member end keeps its own
+     * moment and a hinge on one does not free the other. Marked but not
+     * hinged, that end stayed rigid, went past Mp unchecked, and the collapse
+     * factor came out above the true one.
+     */
+    const rotationHeld = (nodeId: number) => [...work.supports.values()]
+      .some((s) => s.nodeId === nodeId && (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0)));
     const claimed = new Set<number>();
     for (const [mb, ks] of byMember) {
       const keep: number[] = [];
       for (const k of ks) {
         const node = endNode(mb, k);
         const hasNodalMoment = node !== null && work.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && Math.abs(l.data.my) > 1e-12);
-        if (node !== null && frameEndsAt(node) === 2 && !hasNodalMoment) {
+        if (node !== null && frameEndsAt(node) === 2 && !hasNodalMoment && !rotationHeld(node)) {
           if (claimed.has(node)) { mb.hinged[k] = true; continue; }
           claimed.add(node);
         }

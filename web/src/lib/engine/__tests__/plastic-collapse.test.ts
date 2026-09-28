@@ -133,3 +133,17 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(5, 4);
   });
 });
+
+describe('one hinge where two members meet', () => {
+  it('does not apply at a fixed support: each member end there is its own hinge', () => {
+    // A propped span (pin–fixed, q₁L² = a) beside a span fixed at both ends
+    // (q₂L² = 1.5a), sharing the fixed support. Both ends there reach Mp
+    // together (a/8 = 1.5a/12). The fixed–fixed span collapses first, at
+    // 16Mp/(q₂L²); the propped one would only at 11.657Mp/(q₁L²).
+    const L = 4;
+    const r = run(model([[1, 0, 0], [2, L, 0], [3, 2 * L, 0]], [[1, 1, 2], [2, 2, 3]],
+      [[1, 'pinned'], [2, 'fixed'], [3, 'fixed']], [q(1, -10), q(2, -15)]));
+    expect(r.isMechanism).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo((16 * MP) / (15 * L * L), 2);
+  });
+});
