@@ -197,7 +197,11 @@ with Euler-Bernoulli theory.
 - make an end **semi-rigid**, with a rotational stiffness in kN·m/rad.
 
 Inactive members and stiffness modifiers apply to every analysis. Tension or compression only is
-resolved by **Solve**, iterating until each member works as set.
+resolved by **Solve**: a member working the wrong way leaves the model and the model is solved
+again, until no member changes state. While it works, a one-way member carries axial force only,
+and any load along it goes to its nodes as the reactions of a simply supported span. A member that
+has left the model reports zero forces. The results state how many iterations it took, which
+members were left out, and whether any keeps switching between the two states.
 
 ### Conditions
 
@@ -232,8 +236,19 @@ springs can act one way, so the raft can lift, and they replace any support the 
 **Loads.** The panel has three parts:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, E earthquake,
-  S snow) and a button to show or hide it in the viewer. **Self-weight** is **on by default** in PRO
-  and is computed for members and plates.
+  S snow) and a button to show or hide it in the viewer.
+- **Self-weight:** a load of a case. Each row says which case it goes into, along which global
+  direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
+  members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
+  plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
+  that case's factor. A project saved before this rule opens with self-weight in its first D case,
+  and a notice says so; if it had several D cases, the notice recalls that the weight used to be
+  counted in each of them.
+- **How combinations are formed:** with one-way members or supports that lift off, each combination
+  is solved on its own factored loads (the sound choice, since a member can work in one combination
+  and not in another), or the cases are superposed, each solved with its own set of active members;
+  then the members whose state in the sum contradicts the cases' are listed. Without such members
+  both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
   (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
@@ -250,9 +265,13 @@ springs can act one way, so the raft can lift, and they replace any support the 
   the strips load the two beams they reach. Each beam gets partial linear loads that add up to the
   load times the area. A plan shows the panels before applying; non-convex panels are reported
   and left unloaded.
-- **Add load:** nodal (in global axes), distributed and point loads on members (in the member's
-  local axes), and **surface** loads on quadrilateral plates: in kN/m², vertical (a positive value
-  acts downward) and shared among the plate's four nodes.
+- **Add load:** nodal (in global axes), point loads on members (in the member's local axes),
+  distributed loads on members, and **surface** loads on quadrilateral plates: in kN/m², vertical
+  (a positive value acts downward) and shared among the plate's four nodes. A distributed load is
+  given in **local** axes (qx along the member, which is the axial component, and qy, qz along its
+  axes), **global** axes (per metre of member) or **projected** (per metre of the member's
+  projection: snow on a rafter is given per metre of plan). The axes can also be changed from the
+  loads table.
 
 **Auto-generate from code.** Builds the building's load plan from Argentine codes:
 
