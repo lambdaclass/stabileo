@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { addSettlementToMultiCase3D, hasSettlement, withoutSettlement } from '../../lib/engine/settlement-case';
   import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
@@ -35,6 +36,7 @@
     solveWithImperfections3D,
     computeInfluenceLine3D,
     solveMultiCase3D,
+    solve3D,
     analyzeSection,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
@@ -125,7 +127,8 @@
 
   let useDiaphragm = $state(false);
 
-  function buildInput() {
+  /** `withoutSettlement`: the supports without their prescribed displacements (see handleMultiCase). */
+  function buildInput(stripSettlement = false) {
     // These analyses build with expandMemberOffsets:false, which ALSO skips
     // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
     // jointed model would silently solve as rigid (too stiff). Refuse with a
@@ -134,7 +137,8 @@
     if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
     if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
     const input = buildSolverInput3D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+      { nodes: modelStore.nodes, elements: modelStore.elements,
+        supports: stripSettlement ? withoutSettlement(modelStore.supports) : modelStore.supports,
         loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
@@ -857,21 +861,32 @@
         solving = false;
         return;
       }
-      let input = buildInput();
+      // A settlement is solved once and added once to every combination, as in the
+      // combination solve (settlement-case.ts): each case on the settled supports counted it
+      // Σ factors times.
+      const settled = hasSettlement(modelStore.supports.values());
+      let input = buildInput(settled);
       input = maybeApplyDiaphragm(input);
       const byId = new Map(cases.map(c => [c.id, c.name]));
-      multiCaseResult = solveMultiCase3D({
+      const combinations = modelStore.combinations.map(cb => ({
+        name: cb.name,
+        factors: Object.fromEntries(
+          cb.factors
+            .filter(f => byId.has(f.caseId))
+            .map(f => [byId.get(f.caseId) as string, f.factor]),
+        ),
+      }));
+      let result = solveMultiCase3D({
         solver: input,
         loadCases: cases.map(c => ({ name: c.name, loads: loadsForCase(c.id) })),
-        combinations: modelStore.combinations.map(cb => ({
-          name: cb.name,
-          factors: Object.fromEntries(
-            cb.factors
-              .filter(f => byId.has(f.caseId))
-              .map(f => [byId.get(f.caseId) as string, f.factor]),
-          ),
-        })),
+        combinations,
       });
+      if (settled && result) {
+        const settlement = solve3D({ ...maybeApplyDiaphragm(buildInput()), loads: [] });
+        if (typeof settlement === 'string') throw new Error(settlement);
+        result = addSettlementToMultiCase3D(result, settlement, combinations, t('svc.settlementCase'));
+      }
+      multiCaseResult = result;
     } catch (e: any) {
       solveError = `Multi-Case: ${errorText(e, 'Error')}`;
     }
