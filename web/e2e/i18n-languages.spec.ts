@@ -346,7 +346,7 @@ for (const locale of OFFERED) {
       await page.getByTestId('pr-project').click();
       await expect(page.getByTestId('pro-project-tab')).toBeVisible();
       await expect(page.getByTestId('pp-open')).toHaveText(D['project.open']);
-      await expect(page.getByTestId('pp-save')).toHaveText(D['project.saveTab']);
+      await expect(page.getByTestId('pp-save')).toHaveText(D['project.save']);
       await expect(page.getByTestId('pp-autosave'))
         .toContainText(D['proProject.autosaveSection']);
 
