@@ -316,10 +316,12 @@ test.describe('@smoke the cards do not contradict the screen', () => {
  * that is the signal to do that work, not to raise them.
  *
  * The trail did name it once CI kept it: every failing run clicked with the viewport in
- * `mode=elements`, not `stress`. The walkthrough's first card loads its example without waiting,
- * and on a slow runner the load landed after the solve; it cleared the results, and the viewport
- * disarms the section analysis when there are none. The walkthrough now holds while its example
- * loads (`tourStore.hold`), so no card runs ahead of the model it acts on.
+ * `mode=elements`, not `stress`. The card's Solve button forced the next card 100 ms after the
+ * click, ahead of its own "wait for results": on CI's runners the solve took longer, so the card
+ * that arms the section analysis ran with no results yet, and the viewport disarms that mode when
+ * there are none. A step that advances itself is now left to do so (`TourOverlay.svelte`). The
+ * walkthrough also holds while its example loads (`tourStore.hold`), a race of the same kind that
+ * the trace ruled out as this one's cause.
  */
 test.describe('@smoke the section walkthrough', () => {
   test.describe.configure({ retries: 2 });
