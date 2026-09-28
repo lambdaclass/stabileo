@@ -75,7 +75,12 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
     if (isStale()) return;
     const is3DMode = analysisMode === '3d' || analysisMode === 'pro';
     // What was on screen before the edit cleared it: diagram, case, combination.
-    if (resultsStore.pendingView) { resultsStore.restoreView(is3DMode); return; }
+    // Only onto results: a solve that published none (WASM not ready, an error,
+    // NaN displacements) leaves the view waiting for the next one.
+    if (resultsStore.pendingView) {
+      if (is3DMode ? resultsStore.results3D : resultsStore.results) resultsStore.restoreView(is3DMode);
+      return;
+    }
     // Restore the diagram type the user was viewing before clear() reset it to 'none'.
     // Only restore if it's a valid diagram for the current mode — and only if
     // nothing is showing: a diagram picked while the solve was running (a slow

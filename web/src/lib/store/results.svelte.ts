@@ -301,6 +301,8 @@ function createResultsStore() {
       diagramType = v;
       if (v !== 'none') {
         _lastDiagramType = v;
+        // Picked while a re-solve is pending: that is the view to come back to.
+        if (_viewBeforeClear) _viewBeforeClear = { ..._viewBeforeClear, diagram: v };
         _onDiagramShown?.();
       }
     },
@@ -403,7 +405,11 @@ function createResultsStore() {
     _setTransverseSignProvider(fn: SignOf) { _signOf = fn; },
 
     setOverlay(r: AnalysisResults | null, label: string = '') {
-      overlayResults = r ? drawn(r) : r;
+      // Already in the drawn axes: every source the Compare menu offers — the
+      // base solve, a case, a combination, the envelope — was converted when it
+      // was published. Converting again drew it against the main diagram with
+      // V and M reversed on every member drawn against the solver's axis.
+      overlayResults = r;
       overlayResults3D = null;
       overlayLabel = label;
     },
@@ -793,6 +799,13 @@ function createResultsStore() {
 
     /** The view a clear took away, still waiting for a re-solve to restore it. */
     get pendingView() { return _viewBeforeClear; },
+
+    /**
+     * Another project replaced this one (a tab, a file, an example): the view
+     * taken from the old one's results does not describe the new one — its
+     * case or combination ids name something else there.
+     */
+    forgetView() { _viewBeforeClear = null; },
 
     /**
      * After a re-solve: show again what was on screen before the edit cleared
