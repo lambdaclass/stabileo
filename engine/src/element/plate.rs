@@ -183,187 +183,104 @@ fn cst_stiffness(p: &[(f64, f64); 3], e: f64, nu: f64, t: f64) -> [f64; 36] {
 
 /// Geometric quantities for DKT element edges.
 struct DktGeom {
-    /// Edge lengths squared: l_ij^2 for edges 4-5 (01), 5-6 (12), 6-4 (20)
-    lij_sq: [f64; 3],
-    /// x_ij = x_j - x_i for each edge
-    xij: [f64; 3],
-    /// y_ij = y_j - y_i for each edge
-    yij: [f64; 3],
     /// Area of the triangle.
     area: f64,
 }
 
 fn dkt_geometry(p: &[(f64, f64); 3]) -> DktGeom {
-    // Edges: k=0 → (0,1), k=1 → (1,2), k=2 → (2,0)
-    let idx = [(0, 1), (1, 2), (2, 0)];
-    let mut xij = [0.0; 3];
-    let mut yij = [0.0; 3];
-    let mut lij_sq = [0.0; 3];
-    for k in 0..3 {
-        let (i, j) = idx[k];
-        xij[k] = p[j].0 - p[i].0;
-        yij[k] = p[j].1 - p[i].1;
-        lij_sq[k] = xij[k] * xij[k] + yij[k] * yij[k];
-    }
-    let two_a = twice_area(p);
-    let area = two_a.abs() / 2.0;
-    DktGeom { lij_sq, xij, yij, area }
+    DktGeom { area: twice_area(p).abs() / 2.0 }
 }
 
-/// Evaluate the DKT B-matrix (3×9) at natural coordinates (xi, eta).
+/// Evaluate the DKT B-matrix (3×9) at natural coordinates (xi, eta), xi = L2 and eta = L3.
 ///
-/// The DOF ordering per node is (w, theta_x, theta_y).
+/// The DOF ordering per node is (w, θx, θy), with θx = ∂w/∂y and θy = −∂w/∂x, which are the
+/// shell's rx and ry for a plate in its own xy plane.
 ///
-/// Uses the formulation from Batoz, Bathe & Ho (1980).
+/// Batoz, Bathe & Ho (1980), "A study of three-node triangular plate bending elements", IJNME 15,
+/// eqs. for H_x and H_y and their derivatives, with their sides k = 4, 5, 6 for the edges 2–3,
+/// 3–1 and 1–2, x_ij = x_i − x_j, and
+///   P_k = −6 x_ij / l²,  t_k = −6 y_ij / l²,  q_k = 3 x_ij y_ij / l²,  r_k = 3 y_ij² / l².
+///
+/// The previous version defined P_k as −6 x_ij y_ij / l² and t_k as −6 y_ij² / l², which have no
+/// length in them: the w terms of the curvature did not scale with the element, and the element
+/// grew stiffer as the mesh was refined (a cantilever strip 10 times too stiff on an 8×2 mesh and
+/// 15 times on 32×8, where the quad converged). Its H_x,ξ also carried (q6 − q5) for (q5 + q6).
 fn dkt_b_matrix(
     p: &[(f64, f64); 3],
-    g: &DktGeom,
+    _g: &DktGeom,
     xi: f64,
     eta: f64,
 ) -> [f64; 27] {
-    let _zeta = 1.0 - xi - eta;
+    let (x1, y1) = p[0];
+    let (x2, y2) = p[1];
+    let (x3, y3) = p[2];
+    // Sides 4 = 2–3, 5 = 3–1, 6 = 1–2, as x_ij = x_i − x_j.
+    let side = |xi_: f64, yi_: f64, xj_: f64, yj_: f64| {
+        let (x, y) = (xi_ - xj_, yi_ - yj_);
+        let l2 = x * x + y * y;
+        (-6.0 * x / l2, -6.0 * y / l2, 3.0 * x * y / l2, 3.0 * y * y / l2)
+    };
+    let (p4, t4, q4, r4) = side(x2, y2, x3, y3);
+    let (p5, t5, q5, r5) = side(x3, y3, x1, y1);
+    let (p6, t6, q6, r6) = side(x1, y1, x2, y2);
+    let (x31, y31, x12, y12) = (x3 - x1, y3 - y1, x1 - x2, y1 - y2);
+    let two_a = x31 * y12 - x12 * y31;
 
-    // P_k, q_k, r_k, t_k  — additional intermediaries.
-    let mut pk = [0.0; 3];
-    let mut qk = [0.0; 3];
-    let mut rk = [0.0; 3];
-    let mut tk = [0.0; 3];
-    for k in 0..3 {
-        let xk = g.xij[k];
-        let yk = g.yij[k];
-        let l2 = g.lij_sq[k];
-        pk[k] = -6.0 * xk * yk / l2;
-        tk[k] = -6.0 * yk * yk / l2;
-        qk[k] = 3.0 * xk * xk / l2;
-        rk[k] = 3.0 * yk * yk / l2;
-    }
+    let a = 1.0 - 2.0 * xi;
+    let b = 1.0 - 2.0 * eta;
 
-    // Hx and Hy shape function derivatives w.r.t. xi and eta.
-    // There are 9 functions each (3 per node), derivatives w.r.t. xi and eta.
-    // Notation: Hx_k,xi means dHx_k/d(xi).
-
-    // For node 1 (index 0), edge k=0 is (0→1) [Batoz edge 4], edge k=2 is (2→0) [Batoz edge 6].
-    // For node 2 (index 1), edge k=0 is (0→1), edge k=1 is (1→2) [Batoz edge 5].
-    // For node 3 (index 2), edge k=1 is (1→2), edge k=2 is (2→0).
-
-    // dHx/d_xi  (9 components, one per DOF)
     let hx_xi = [
-        // Node 1: w1
-        pk[0] * (1.0 - 2.0 * xi) + (pk[2] - pk[0]) * eta,
-        // Node 1: theta_x1
-        qk[0] * (1.0 - 2.0 * xi) - (qk[0] - qk[2]) * eta,
-        // Node 1: theta_y1
-        -4.0 + 6.0 * (xi + eta) + rk[0] * (1.0 - 2.0 * xi) - eta * (rk[0] - rk[2]),
-        // Node 2: w2
-        -pk[0] * (1.0 - 2.0 * xi) + (pk[1] + pk[0]) * eta,
-        // Node 2: theta_x2
-        qk[0] * (1.0 - 2.0 * xi) - (qk[0] + qk[1]) * eta,
-        // Node 2: theta_y2
-        -2.0 + 6.0 * xi + rk[0] * (1.0 - 2.0 * xi) + eta * (rk[1] - rk[0]),
-        // Node 3: w3
-        -(pk[2] + pk[1]) * eta,
-        // Node 3: theta_x3
-        (qk[2] + qk[1]) * eta,
-        // Node 3: theta_y3
-        -eta * (rk[1] + rk[2]),
+        p6 * a + (p5 - p6) * eta,
+        q6 * a - (q5 + q6) * eta,
+        -4.0 + 6.0 * (xi + eta) + r6 * a - eta * (r5 + r6),
+        -p6 * a + eta * (p4 + p6),
+        q6 * a - eta * (q6 - q4),
+        -2.0 + 6.0 * xi + r6 * a + eta * (r4 - r6),
+        -eta * (p5 + p4),
+        eta * (q4 - q5),
+        -eta * (r5 - r4),
     ];
-
-    // dHx/d_eta  (9 components)
-    let hx_eta = [
-        // Node 1: w1
-        (pk[2] - pk[0]) * xi + pk[2] * (1.0 - 2.0 * eta),
-        // Node 1: theta_x1
-        -(qk[0] - qk[2]) * xi + qk[2] * (1.0 - 2.0 * eta),
-        // Node 1: theta_y1
-        -4.0 + 6.0 * (xi + eta) - xi * (rk[0] - rk[2]) + rk[2] * (1.0 - 2.0 * eta),
-        // Node 2: w2
-        (pk[1] + pk[0]) * xi,
-        // Node 2: theta_x2
-        -(qk[0] + qk[1]) * xi,
-        // Node 2: theta_y2
-        xi * (rk[1] - rk[0]),
-        // Node 3: w3
-        -pk[2] * (1.0 - 2.0 * eta) - (pk[1] + pk[2]) * xi,
-        // Node 3: theta_x3
-        qk[2] * (1.0 - 2.0 * eta) + (qk[2] + qk[1]) * xi,
-        // Node 3: theta_y3
-        -2.0 + 6.0 * eta + rk[2] * (1.0 - 2.0 * eta) + xi * (rk[1] - rk[2]),
-    ];
-
-    // dHy/d_xi  (9 components)
     let hy_xi = [
-        // Node 1: w1
-        tk[0] * (1.0 - 2.0 * xi) + (tk[2] - tk[0]) * eta,
-        // Node 1: theta_x1
-        1.0 + rk[0] * (1.0 - 2.0 * xi) - eta * (rk[0] - rk[2]),
-        // Node 1: theta_y1
-        -pk[0] * (1.0 - 2.0 * xi) + eta * (pk[0] - pk[2]),
-        // Node 2: w2
-        -tk[0] * (1.0 - 2.0 * xi) + (tk[1] + tk[0]) * eta,
-        // Node 2: theta_x2
-        -1.0 + rk[0] * (1.0 - 2.0 * xi) + eta * (rk[1] - rk[0]),
-        // Node 2: theta_y2
-        -pk[0] * (1.0 - 2.0 * xi) - eta * (pk[1] - pk[0]),
-        // Node 3: w3
-        -(tk[2] + tk[1]) * eta,
-        // Node 3: theta_x3
-        (rk[2] + rk[1]) * eta,
-        // Node 3: theta_y3
-        -(pk[1] + pk[2]) * eta,
+        t6 * a + eta * (t5 - t6),
+        1.0 + r6 * a - eta * (r5 + r6),
+        -q6 * a + eta * (q5 + q6),
+        -t6 * a + eta * (t4 + t6),
+        -1.0 + r6 * a + eta * (r4 - r6),
+        -q6 * a - eta * (q4 - q6),
+        -eta * (t4 + t5),
+        eta * (r4 - r5),
+        -eta * (q4 - q5),
     ];
-
-    // dHy/d_eta  (9 components)
+    let hx_eta = [
+        -p5 * b - xi * (p6 - p5),
+        q5 * b - xi * (q5 + q6),
+        -4.0 + 6.0 * (xi + eta) + r5 * b - xi * (r5 + r6),
+        xi * (p4 + p6),
+        xi * (q4 - q6),
+        -xi * (r6 - r4),
+        p5 * b - xi * (p4 + p5),
+        q5 * b + xi * (q4 - q5),
+        -2.0 + 6.0 * eta + r5 * b + xi * (r4 - r5),
+    ];
     let hy_eta = [
-        // Node 1: w1
-        (tk[2] - tk[0]) * xi + tk[2] * (1.0 - 2.0 * eta),
-        // Node 1: theta_x1
-        -(rk[0] - rk[2]) * xi + rk[2] * (1.0 - 2.0 * eta),
-        // Node 1: theta_y1
-        (pk[0] - pk[2]) * xi - pk[2] * (1.0 - 2.0 * eta),
-        // Node 2: w2
-        (tk[1] + tk[0]) * xi,
-        // Node 2: theta_x2
-        (rk[1] - rk[0]) * xi,
-        // Node 2: theta_y2
-        -(pk[1] - pk[0]) * xi,
-        // Node 3: w3
-        -tk[2] * (1.0 - 2.0 * eta) - (tk[1] + tk[2]) * xi,
-        // Node 3: theta_x3
-        rk[2] * (1.0 - 2.0 * eta) + (rk[1] + rk[2]) * xi,
-        // Node 3: theta_y3
-        pk[2] * (1.0 - 2.0 * eta) + (pk[1] + pk[2]) * xi,
+        -t5 * b - xi * (t6 - t5),
+        1.0 + r5 * b - xi * (r5 + r6),
+        -q5 * b + xi * (q5 + q6),
+        xi * (t4 + t6),
+        xi * (r4 - r6),
+        -xi * (q4 - q6),
+        t5 * b - xi * (t4 + t5),
+        -1.0 + r5 * b + xi * (r4 - r5),
+        -q5 * b - xi * (q4 - q5),
     ];
 
-    // Jacobian: map from (xi, eta) to (x, y).
-    // J = [[dx/d_xi, dy/d_xi], [dx/d_eta, dy/d_eta]]
-    // For a triangle with vertices (x1,y1), (x2,y2), (x3,y3):
-    //   x = zeta*x1 + xi*x2 + eta*x3
-    //   dx/d_xi  = x2 - x1,  dy/d_xi  = y2 - y1
-    //   dx/d_eta = x3 - x1,  dy/d_eta = y3 - y1
-    let j11 = p[1].0 - p[0].0;
-    let j12 = p[1].1 - p[0].1;
-    let j21 = p[2].0 - p[0].0;
-    let j22 = p[2].1 - p[0].1;
-    let det_j = j11 * j22 - j12 * j21;
-    let inv_det = 1.0 / det_j;
-
-    // Inverse Jacobian
-    let ji11 = j22 * inv_det;
-    let ji12 = -j12 * inv_det;
-    let ji21 = -j21 * inv_det;
-    let ji22 = j11 * inv_det;
-
-    // B-matrix (3×9): curvatures = B * u_bending
-    // kappa_xx = d(beta_x)/dx = (ji11 * dHx/d_xi + ji12 * dHx/d_eta) for each DOF
-    // kappa_yy = d(beta_y)/dy = (ji21 * dHy/d_xi + ji22 * dHy/d_eta) for each DOF
-    // kappa_xy = d(beta_x)/dy + d(beta_y)/dx
-    //          = (ji21*dHx/d_xi + ji22*dHx/d_eta) + (ji11*dHy/d_xi + ji12*dHy/d_eta)
-    let mut b_dkt = [0.0; 27]; // 3×9
+    // κ = (1/2A) [ y31·Hx,ξ + y12·Hx,η ;  −x31·Hy,ξ − x12·Hy,η ;
+    //              −x31·Hx,ξ − x12·Hx,η + y31·Hy,ξ + y12·Hy,η ]
+    let mut b_dkt = [0.0; 27];
     for j in 0..9 {
-        b_dkt[0 * 9 + j] = ji11 * hx_xi[j] + ji12 * hx_eta[j];
-        b_dkt[1 * 9 + j] = ji21 * hy_xi[j] + ji22 * hy_eta[j];
-        b_dkt[2 * 9 + j] = ji21 * hx_xi[j] + ji22 * hx_eta[j]
-                          + ji11 * hy_xi[j] + ji12 * hy_eta[j];
+        b_dkt[j] = (y31 * hx_xi[j] + y12 * hx_eta[j]) / two_a;
+        b_dkt[9 + j] = (-x31 * hy_xi[j] - x12 * hy_eta[j]) / two_a;
+        b_dkt[18 + j] = (-x31 * hx_xi[j] - x12 * hx_eta[j] + y31 * hy_xi[j] + y12 * hy_eta[j]) / two_a;
     }
     b_dkt
 }
@@ -652,7 +569,9 @@ pub fn plate_thermal_load(
                 for k in 0..3 {
                     val += b[k * 9 + i] * kappa_th[k];
                 }
-                f_local[BEND_DOFS[i]] += gauss_w * area * val;
+                // Batoz's curvature is the quad's with the opposite sign (−w,xx against +w,xx), so
+                // the load that gives the quad's free curvature α·ΔT/t is −∫Bᵀ·M_T here.
+                f_local[BEND_DOFS[i]] -= gauss_w * area * val;
             }
         }
     }
@@ -800,7 +719,9 @@ pub fn plate_stress_recovery(
     let mut kappa = [0.0; 3];
     for i in 0..3 {
         for j in 0..9 {
-            kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
+            // Batoz's κ = (βx,x, βy,y, βx,y + βy,x) is the quad's curvature with the opposite
+            // sign; the moments are reported in the quad's convention, one for both elements.
+            kappa[i] -= b_dkt[i * 9 + j] * u_bend[j];
         }
     }
 
@@ -988,7 +909,9 @@ pub fn plate_stress_at_nodes(
         let mut kappa = [0.0; 3];
         for i in 0..3 {
             for j in 0..9 {
-                kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
+                // Batoz's κ = (βx,x, βy,y, βx,y + βy,x) is the quad's curvature with the opposite
+            // sign; the moments are reported in the quad's convention, one for both elements.
+            kappa[i] -= b_dkt[i * 9 + j] * u_bend[j];
             }
         }
         let mut mom = [0.0; 3];

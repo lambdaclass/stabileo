@@ -143,8 +143,7 @@ fn solve_ss_plate(nx: usize) -> f64 {
 // w_center = 0.00406 · p·a⁴/D, D = E_eff·t³/(12·(1-ν²))
 // Analytical: 2.216×10⁻⁷ m
 //
-// DKT with lumped pressure loads converges from above (softer).
-// Verify: (a) 8×8 is closer to analytical than 4×4, (b) result is within 5×.
+// Verify: (a) 8×8 is closer to analytical than 4×4, (b) 8×8 is within 5 %.
 
 #[test]
 fn validation_plate_navier_ss_convergence() {
@@ -168,10 +167,11 @@ fn validation_plate_navier_ss_convergence() {
         err_4 * 100.0, err_8 * 100.0
     );
 
-    // Result should be within a factor of 5 of analytical (DKT with lumped loads)
+    // Within 5 % of Navier. This used to allow a factor of 5 either way, which hid a DKT whose
+    // bending grew stiffer as the mesh was refined.
     let ratio = w_8 / w_analytical;
     assert!(
-        ratio > 0.2 && ratio < 5.0,
+        (ratio - 1.0).abs() < 0.05,
         "8×8 center deflection ratio={:.2} (computed={:.3e}, analytical={:.3e})",
         ratio, w_8, w_analytical
     );
@@ -256,11 +256,12 @@ fn validation_plate_cantilever_strip_beam_theory() {
     }
     let avg_tip_uz = sum_uz / n_tip as f64;
 
-    // Plate is stiffer than beam due to Poisson coupling + element behavior.
-    // Verify within factor of 5 of beam theory.
+    // A clamped strip lies between the plate in cylindrical bending, (1 − ν²) times the beam, and
+    // the beam itself. This used to allow a factor of 5 either way, which hid a DKT 10 times too
+    // stiff on meshes like this one.
     let ratio = avg_tip_uz / delta_beam;
     assert!(
-        ratio > 0.2 && ratio < 5.0,
+        ratio > 0.99 * (1.0 - NU * NU) && ratio < 1.01,
         "Cantilever strip: avg_uz={:.3e}, beam_delta={:.3e}, ratio={:.2}",
         avg_tip_uz, delta_beam, ratio
     );
@@ -402,11 +403,15 @@ fn validation_plate_stiffness_symmetry() {
     let n = 18;
     assert_eq!(k.len(), n * n, "Plate stiffness should be 18x18");
 
+    // Entries that are zero in exact arithmetic come out as round-off (1e-15 against a largest
+    // entry of 1e6), and the ratio of two round-offs means nothing; they are measured against the
+    // matrix instead.
+    let k_max = k.iter().fold(0.0_f64, |a, b| a.max(b.abs()));
     let mut max_asym = 0.0_f64;
     for i in 0..n {
         for j in (i + 1)..n {
             let diff = (k[i * n + j] - k[j * n + i]).abs();
-            let scale = k[i * n + j].abs().max(k[j * n + i].abs()).max(1e-20);
+            let scale = k[i * n + j].abs().max(k[j * n + i].abs()).max(1e-6 * k_max);
             let rel = diff / scale;
             if rel > max_asym {
                 max_asym = rel;

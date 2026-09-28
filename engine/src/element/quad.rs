@@ -807,6 +807,44 @@ pub fn quad_stresses(
     }
 }
 
+/// Transverse shear forces per unit length (Qx, Qy) at a point of a MITC4 quad, in the element's
+/// local axes, from the same assumed covariant shear field the stiffness uses: e_ξz tied at the
+/// midpoints of the η = ±1 edges and e_ηz at the midpoints of the ξ = ±1 edges, interpolated to
+/// (ξ, η) and mapped to physical axes with J⁻¹. Q = κ·G·t·γ, with κ = 5/6 as in the stiffness.
+///
+/// Sign: Qx is the force per unit length along local z on a face whose outward normal is +x, and
+/// Qy likewise on a face with normal +y. A cantilever strip along x with an upward tip load F over
+/// its width b carries Qx = F/b.
+fn quad_transverse_shear_at(pts: &[[f64; 2]; 4], u_local: &[f64; 24], d_s: f64, xi: f64, eta: f64) -> [f64; 2] {
+    let b_a = shear_b_nat(pts, 0.0, -1.0);
+    let b_b = shear_b_nat(pts, 0.0, 1.0);
+    let b_c = shear_b_nat(pts, -1.0, 0.0);
+    let b_d = shear_b_nat(pts, 1.0, 0.0);
+    let (w_a, w_b) = (0.5 * (1.0 - eta), 0.5 * (1.0 + eta));
+    let (w_c, w_d) = (0.5 * (1.0 - xi), 0.5 * (1.0 + xi));
+    let mut e_xi = 0.0;
+    let mut e_eta = 0.0;
+    for col in 0..24 {
+        e_xi += (w_a * b_a[0][col] + w_b * b_b[0][col]) * u_local[col];
+        e_eta += (w_c * b_c[1][col] + w_d * b_d[1][col]) * u_local[col];
+    }
+    let (_, inv_j, _) = jacobian_2d(pts, xi, eta);
+    let g_xz = inv_j[0][0] * e_xi + inv_j[0][1] * e_eta;
+    let g_yz = inv_j[1][0] * e_xi + inv_j[1][1] * e_eta;
+    [d_s * g_xz, d_s * g_yz]
+}
+
+fn quad_shear_rigidity(e: f64, nu: f64, t: f64) -> f64 {
+    5.0 / 6.0 * e / (2.0 * (1.0 + nu)) * t
+}
+
+/// Transverse shear forces (Qx, Qy) per unit length at the centroid of a MITC4 quad, local axes.
+pub fn quad_transverse_shear(coords: &[[f64; 3]; 4], u_local: &[f64; 24], e: f64, nu: f64, t: f64) -> [f64; 2] {
+    let (ex, ey, _) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+    quad_transverse_shear_at(&pts, u_local, quad_shear_rigidity(e, nu, t), 0.0, 0.0)
+}
+
 /// Quad element DOFs for 4 nodes.
 pub fn quad_element_dofs(
     dof_map: &std::collections::HashMap<(usize, usize), usize>,
@@ -1049,6 +1087,11 @@ pub fn quad_stress_at_nodes(
             my,
             mxy,
             von_mises: vm.max(0.0),
+            // The assumed shear field is exact at the centre and poor at the corners (a third off
+            // at the edge of a clamped strip, whether evaluated there or extrapolated): the
+            // element reports Q at its centre only.
+            qx: None,
+            qy: None,
         });
     }
 
