@@ -94,6 +94,7 @@ export async function loadExample(id: string): Promise<void> {
   await modelStore.loadExample(id);
   resultsStore.clear();
   resultsStore.clear3D();
+  resultsStore.forgetView();
   setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
 }
 
