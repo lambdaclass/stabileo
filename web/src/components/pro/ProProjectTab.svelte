@@ -8,10 +8,12 @@
   import { t, tp } from '../../lib/i18n';
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
-    loadFile, downloadExcel, downloadResultsCSV, downloadDXF, downloadSVG,
+    loadFile, downloadResultsCSV, downloadDXF, downloadSVG,
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
+  import { downloadProjectWorkbook } from '../../lib/store/project-workbook';
+  import type { StationSpec } from '../../lib/engine/station-forces';
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { codeShareUrl } from '../../lib/model/code/share';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
@@ -164,6 +166,8 @@
 
   const solved = $derived(resultsStore.results3D != null || resultsStore.results != null);
   const hasModel = $derived(modelStore.nodes.size > 0);
+  /** Where the project workbook reads each member. */
+  let wbStations = $state<StationSpec>(5);
 
   async function handleLoad(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -330,9 +334,9 @@
     two PRO only has — a DXF floor plan and IFC — and Export groups by what
     comes out rather than by file extension.
 
-    These call the SAME functions as the surfaces the data lives on: the
-    results table exports its own numbers through `downloadExcel`, and so
-    does this. One route with two doors, not two routes to keep in step.
+    These call the SAME functions as the surfaces the data lives on. Excel is
+    the project workbook (`store/project-workbook.ts`): the model and every
+    case and combination, built from the result tables the screen shows.
   -->
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.importExport')}</h4>
@@ -379,9 +383,17 @@
     <div class="pp-group">
       <span class="pp-group-label">{t('project.exportResults')}</span>
       <div class="pp-grid">
-        <HelpTip text={t('project.exportExcelTooltip')}>
-          <button class="pp-btn" onclick={() => downloadExcel()}>Excel</button>
+        <HelpTip text={t('wb.tooltip')}>
+          <button class="pp-btn" data-testid="project-workbook" onclick={() => downloadProjectWorkbook(wbStations)} disabled={!hasModel}>{t('wb.button')}</button>
         </HelpTip>
+        <label class="pp-wb-stations">
+          <span>{t('wb.stations')}</span>
+          <select data-testid="project-workbook-stations" bind:value={wbStations}>
+            <option value={5}>{t('wb.stations5')}</option>
+            <option value={13}>{t('wb.stations13')}</option>
+            <option value="critical">{t('wb.stationsCriticalShort')}</option>
+          </select>
+        </label>
         <HelpTip text={t('project.exportCsvTooltip')}>
           <button class="pp-btn" onclick={() => downloadResultsCSV()} disabled={!solved}>CSV</button>
         </HelpTip>
@@ -683,6 +695,8 @@
   }
 
   .pp-btn-wide { grid-column: 1 / -1; }
+  .pp-wb-stations { display: flex; align-items: center; gap: 4px; font-size: 0.66rem; color: var(--st-text-2); }
+  .pp-wb-stations select { font-size: 0.66rem; }
 
   .pp-btn {
     display: flex;
