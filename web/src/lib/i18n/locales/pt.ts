@@ -2303,7 +2303,6 @@ const pt: Translations = {
   'examples.title': 'Exemplos',
   'examples.title2d': 'Exemplos 2D',
   'examples.title3d': 'Exemplos 3D',
-  'examples.titlePro': 'PRO Examples',
   'excel.elements': 'Barras',
   'excel.equilibriumCheck': 'VERIFICAÇÃO DE EQUILÍBRIO',
   'excel.fixed': 'Engaste',

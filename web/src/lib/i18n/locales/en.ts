@@ -473,7 +473,6 @@ const en: Record<string, string> = {
   'examples.title': 'Examples',
   'examples.title2d': '2D Examples',
   'examples.title3d': '3D Examples',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Select nodes or members first',
   'examples.duplicatedIn': 'Duplicated in',
   // 2D examples

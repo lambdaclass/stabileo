@@ -466,7 +466,6 @@ const es: Record<string, string> = {
   'examples.title': 'Ejemplos',
   'examples.title2d': 'Ejemplos 2D',
   'examples.title3d': 'Ejemplos 3D',
-  'examples.titlePro': 'Ejemplos PRO',
   'examples.selectFirst': 'Seleccioná nodos o barras primero',
   'examples.duplicatedIn': 'Duplicado en',
   // 2D examples

@@ -326,7 +326,6 @@ const id: Translations = {
   'examples.title': 'Contoh',
   'examples.title2d': 'Contoh 2D',
   'examples.title3d': 'Contoh 3D',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Pilih titik simpul atau elemen terlebih dahulu',
   'examples.duplicatedIn': 'Diduplikasi di',
   // 2D examples

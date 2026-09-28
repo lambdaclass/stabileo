@@ -322,7 +322,6 @@ const it: Translations = {
   'examples.title': 'Esempi',
   'examples.title2d': 'Esempi 2D',
   'examples.title3d': 'Esempi 3D',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Seleziona prima nodi o elementi',
   'examples.duplicatedIn': 'Duplicato in',
   // 2D examples

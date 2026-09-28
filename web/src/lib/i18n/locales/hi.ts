@@ -322,7 +322,6 @@ const hi: Translations = {
   'examples.title': 'उदाहरण',
   'examples.title2d': '2D उदाहरण',
   'examples.title3d': '3D उदाहरण',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'पहले नोड या तत्व चुनें',
   'examples.duplicatedIn': 'इसमें दोहराया गया',
   // 2D examples

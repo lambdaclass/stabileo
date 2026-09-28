@@ -322,7 +322,6 @@ const tr: Translations = {
   'examples.title': 'Örnekler',
   'examples.title2d': '2B Örnekler',
   'examples.title3d': '3B Örnekler',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Önce düğüm veya eleman seçin',
   'examples.duplicatedIn': 'Şurada çoğaltıldı:',
   // 2D examples

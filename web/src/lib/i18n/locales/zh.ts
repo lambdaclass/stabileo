@@ -323,7 +323,6 @@ const zh: Translations = {
   'examples.title': '示例',
   'examples.title2d': '2D 示例',
   'examples.title3d': '3D 示例',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': '请先选择节点或单元',
   'examples.duplicatedIn': '已复制到',
   // 2D examples

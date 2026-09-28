@@ -323,7 +323,6 @@ const ru: Translations = {
   'examples.title': 'Примеры',
   'examples.title2d': 'Примеры 2D',
   'examples.title3d': 'Примеры 3D',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Сначала выберите узлы или элементы',
   'examples.duplicatedIn': 'Скопировано в',
   // 2D examples
