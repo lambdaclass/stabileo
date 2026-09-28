@@ -28,15 +28,12 @@
     solveFiberNonlinear3D,
     solveWinkler3D,
     solveSSI3D,
-    solveContact3D,
     solveStaged3D,
     solveCreepShrinkage3D,
     solveHarmonic3D,
     solveWithImperfections3D,
     computeInfluenceLine3D,
-    solveMultiCase3D,
     analyzeSection,
-    solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
@@ -628,62 +625,6 @@
 
   // ─── 10. Contact / Gap ─────────────────────────────────────────
 
-  /*
-   * The behaviours are the members' own (`Element.behaviour`), the same ones the Members panel
-   * sets and every solve honours. This section used to keep a list of its own that nothing else
-   * read, so a tension-only brace set here was linear everywhere else.
-   */
-  const contactBehaviors = $derived(new Map([...modelStore.elements.values()]
-    .filter((e) => e.behaviour === 'tensionOnly' || e.behaviour === 'compressionOnly')
-    .map((e) => [e.id, e.behaviour as 'tensionOnly' | 'compressionOnly'])));
-  let contactElementId = $state<number | null>(null);
-  let contactBehavior = $state<'normal' | 'tensionOnly' | 'compressionOnly'>('tensionOnly');
-  let contactResult = $state<any | null>(null);
-
-  function setContactBehavior() {
-    if (contactElementId == null) return;
-    const id = contactElementId, b = contactBehavior;
-    modelStore.batch(() => modelStore.updateElement(id, { behaviour: b === 'normal' ? undefined : b }));
-  }
-
-  function removeContactBehavior(eid: number) {
-    modelStore.batch(() => modelStore.updateElement(eid, { behaviour: undefined }));
-  }
-
-  const contactEntries = $derived([...contactBehaviors.entries()]);
-  // The result's per-element status list is `elementStatus` (with
-  // `status: 'active' | 'inactive'`); the old read looked for a
-  // `deactivated` field that has never existed, so it never reported.
-  const contactDeactivatedCount = $derived(
-    ((contactResult?.elementStatus ?? []) as { status: string }[])
-      .filter(s => s.status === 'inactive').length
-  );
-
-  function handleContact() {
-    solveError = null;
-    solving = true;
-    try {
-      const input = buildInput();
-      // `ContactInput3D.element_behaviors` is a map keyed on the element id
-      // holding the exact snake_case strings the engine matches; the old
-      // `{ contactElements: [...] }` payload hit no field, so serde dropped
-      // it and the "contact" solve ran as a plain linear one.
-      const elementBehaviors: Record<string, string> = {};
-      for (const [elementId, behavior] of contactBehaviors) {
-        elementBehaviors[String(elementId)] =
-          behavior === 'tensionOnly' ? 'tension_only'
-          : behavior === 'compressionOnly' ? 'compression_only'
-          : 'normal';
-      }
-      const res = solveContact3D({ solver: input, elementBehaviors });
-      contactResult = res;
-      if (res.results) resultsStore.setResults3D(res.results);
-    } catch (e: any) {
-      solveError = `Contacto: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 11. Staged Construction ───────────────────────────────────
 
   let stages = $state<{
@@ -837,60 +778,6 @@
     solving = false;
   }
 
-  // ─── 16. Multi-Case Solver ──────────────────────────────────
-
-  let multiCaseResult = $state<any | null>(null);
-
-  /**
-   * One load vector per case, built the same way the combination solve builds
-   * them: the model with only that case's loads. The engine wants the LOADS,
-   * not case ids — `caseIds` was a field it never had, so multi-case failed on
-   * a missing `loadCases` every time.
-   */
-  function loadsForCase(caseId: number): unknown[] {
-    const input = buildSolverInput3D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-        loads: modelStore.loads.filter(l => ((l as any).data?.caseId ?? 1) === caseId),
-        materials: modelStore.materials, sections: modelStore.sections,
-        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
-        connectors: modelStore.connectors },
-      uiStore.includeSelfWeight,
-      uiStore.axisConvention3D === 'leftHand',
-      { expandMemberOffsets: false },
-    );
-    return (input?.loads as unknown[]) ?? [];
-  }
-
-  function handleMultiCase() {
-    solveError = null;
-    solving = true;
-    try {
-      const cases = modelStore.model.loadCases;
-      if (cases.length < 2) {
-        solveError = t('pro.needMultipleCases');
-        solving = false;
-        return;
-      }
-      let input = buildInput();
-      const byId = new Map(cases.map(c => [c.id, c.name]));
-      multiCaseResult = solveMultiCase3D({
-        solver: input,
-        loadCases: cases.map(c => ({ name: c.name, loads: loadsForCase(c.id) })),
-        combinations: modelStore.combinations.map(cb => ({
-          name: cb.name,
-          factors: Object.fromEntries(
-            cb.factors
-              .filter(f => byId.has(f.caseId))
-              .map(f => [byId.get(f.caseId) as string, f.factor]),
-          ),
-        })),
-      });
-    } catch (e: any) {
-      solveError = `Multi-Case: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 17. Section Analyzer ──────────────────────────────────
 
   let secShape = $state<'rect' | 'circle' | 'I' | 'L' | 'T' | 'polygon'>('rect');
@@ -963,43 +850,11 @@
     }
   }
 
-  // ─── 18. Constrained Solver ────────────────────────────────
-
-  let constraintPairs = $state('');  // "master,slave; master,slave; ..."
-  let constrainedResult = $state<any | null>(null);
-
-  function handleConstrained() {
-    solveError = null;
-    solving = true;
-    try {
-      // A constraint is a tagged union in the engine, and the only pair-shaped
-      // member of it is a rigid link. `{nodeA, nodeB}` plus a `method` the
-      // engine has no field for parsed as nothing at all.
-      const constraints = constraintPairs.split(';').map(p => {
-        const [a, b] = p.trim().split(',').map(Number);
-        return { type: 'rigidLink', masterNode: a, slaveNode: b, dofs: [] as number[] };
-      }).filter(c => !isNaN(c.masterNode) && !isNaN(c.slaveNode));
-      if (constraints.length === 0) {
-        solveError = t('pro.needConstraintPairs');
-        solving = false;
-        return;
-      }
-      // PRO is a 3D workspace — `analysisMode` reads 'pro' here, never '3d',
-      // so branching on it sent every PRO model down the 2D path.
-      let input = buildInput();
-      // Like Winkler, this export returns AnalysisResults3D itself.
-      const res = solveConstrained3D({ solver: input, constraints });
-      constrainedResult = res;
-      if (res.displacements) resultsStore.setResults3D(res);
-    } catch (e: any) {
-      solveError = `Constrained: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   /*
    * Which advanced analysis owns the panel. Null is a real state: the strip
-   * alone, so the seventeen are browsable without any of their forms open.
+   * alone, so the fourteen are browsable without any of their forms open. Contact, multi-case and
+   * constrained solves were duplicates of the member behaviours, the combination solve and the
+   * model's constraints, and went when Specifications became the one place for each.
    */
   let advView = $state<string | null>(null);
 
@@ -1008,16 +863,13 @@
         { id: 'harmonic', label: t('pro.harmonicTitle') },
         { id: 'nolineal', label: 'No lineal' },
         { id: 'imperfections', label: t('pro.imperfectionsTitle') },
-        { id: 't', label: t('pro.winklerFoundation') },
-        { id: 'ssi', label: t('pro.ssiTitle') },
-        { id: 't8', label: t('pro.contactGap') },
+        { id: 't', label: `${t('pro.winklerFoundation')} · ${t('adv.experimental')}` },
+        { id: 'ssi', label: `${t('pro.ssiTitle')} · ${t('adv.experimental')}` },
         { id: 't9', label: t('pro.stagedConstruction') },
         { id: 't10', label: t('pro.creepShrinkage') },
         { id: 'influenceline3d', label: t('pro.influenceLine3dTitle') },
         { id: 'moving', label: t('moving.title') },
-        { id: 'multicase', label: t('pro.multiCaseTitle') },
         { id: 'sectionanalyzer', label: t('pro.sectionAnalyzerTitle') },
-        { id: 'constrained', label: t('pro.constrainedTitle') },
   ]);
 </script>
 
@@ -1378,6 +1230,7 @@
     <!-- ── 8. Winkler Foundation ── -->
       {#if advView === 't'}
       <div class="adv-panel">
+        <p class="adv-hint" data-testid="adv-experimental">{t('adv.experimentalHint')}</p>
         <div class="adv-form">
           <label class="adv-label">{t('pro.element')}:
             <select class="adv-sel" bind:value={winklerElementId}>
@@ -1423,6 +1276,7 @@
     <!-- ── 9. SSI ── -->
       {#if advView === 'ssi'}
       <div class="adv-panel">
+        <p class="adv-hint" data-testid="adv-experimental">{t('adv.experimentalHint')}</p>
         <div class="adv-form">
           <label class="adv-label">{t('pro.ssiNode')}:
             <select class="adv-sel" bind:value={ssiNodeId}>
@@ -1490,50 +1344,6 @@
           <!-- `SSIResult3D` has no maxDisplacement of its own; the
                displacements nest under `.results`. -->
           {#if ssiResult.results?.displacements?.length} — <span>{t('pro.maxDisp')}: {fmtNum(Math.max(...ssiResult.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m</span>{/if}
-        </div>
-      {/if}
-      {/if}
-
-    <!-- ── 10. Contact / Gap ── -->
-      {#if advView === 't8'}
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">{t('pro.element')}:
-            <select class="adv-sel" bind:value={contactElementId}>
-              <option value={null}>--</option>
-              {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
-            </select>
-          </label>
-          <label class="adv-label">{t('pro.behavior')}:
-            <select class="adv-sel" bind:value={contactBehavior}>
-              <option value="normal">{t('pro.normal')}</option>
-              <option value="tensionOnly">{t('pro.tensionOnly')}</option>
-              <option value="compressionOnly">{t('pro.compressionOnly')}</option>
-            </select>
-          </label>
-          <button class="adv-btn-sm" onclick={setContactBehavior} disabled={contactElementId == null}>+</button>
-        </div>
-        {#if contactEntries.length > 0}
-          <table class="adv-table">
-            <thead><tr><th>Elem</th><th>{t('pro.behavior')}</th><th></th></tr></thead>
-            <tbody>
-              {#each contactEntries as [eid, beh]}
-                <tr>
-                  <td class="col-id">{eid}</td>
-                  <td class="col-num">{beh === 'tensionOnly' ? t('pro.tensionOnly') : beh === 'compressionOnly' ? t('pro.compressionOnly') : t('pro.normal')}</td>
-                  <td><button class="adv-rm" onclick={() => removeContactBehavior(eid)}>x</button></td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        {/if}
-        <button class="adv-run-btn" onclick={handleContact} disabled={!hasModel || solving || !wasmAvailable || contactEntries.length === 0}>{solving ? t('pro.solving') : t('pro.solveContact')}</button>
-      </div>
-      {#if contactResult}
-        <div class="adv-result-title">{t('pro.resultContact')}</div>
-        <div class="adv-inline">
-          <span>{t('pro.convergence')}: {contactResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {contactResult.iterations ?? '?'}</span>
-          {#if contactDeactivatedCount > 0} — <span>{t('pro.deactivatedElems')}: {contactDeactivatedCount}</span>{/if}
         </div>
       {/if}
       {/if}
@@ -1705,20 +1515,6 @@
       {/if}
       {/if}
 
-    <!-- ── 16. Multi-Case Solver ── -->
-      {#if advView === 'multicase'}
-      <div class="adv-panel">
-        <p class="adv-hint">{t('pro.multiCaseHint')}</p>
-        <button class="adv-run-btn" onclick={handleMultiCase} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveMultiCase')}</button>
-      </div>
-      {#if multiCaseResult}
-        <div class="adv-inline">
-          {#if multiCaseResult.caseResults != null}{multiCaseResult.caseResults.length} {t('pro.casesResolved')}{/if}
-          {#if multiCaseResult.combinationResults != null} — {multiCaseResult.combinationResults.length} {t('pro.combos')}{/if}
-        </div>
-      {/if}
-      {/if}
-
     <!-- ── 17. Section Analyzer ── -->
       {#if advView === 'sectionanalyzer'}
       <div class="adv-panel">
@@ -1778,30 +1574,6 @@
           {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
           {#if secResult.syTop != null} — Wy={secResult.syTop.toExponential(3)} m³{/if}
           {#if secResult.szRight != null} — Wz={secResult.szRight.toExponential(3)} m³{/if}
-        </div>
-      {/if}
-      {/if}
-
-    <!-- ── 18. Constrained Solver ── -->
-      {#if advView === 'constrained'}
-      <div class="adv-panel">
-        <div class="adv-form">
-          <!-- The engine ties the pair with a rigid link; there is no penalty
-               alternative to choose between, so the selector is gone. -->
-          <label class="adv-label">{t('pro.nodePairs')}:</label>
-        </div>
-        <textarea class="adv-textarea" bind:value={constraintPairs} rows="2" placeholder="1,5; 2,6; 3,7"></textarea>
-        <p class="adv-hint">{t('pro.constrainedHint')}</p>
-        <button class="adv-run-btn" onclick={handleConstrained} disabled={!hasModel || solving || !wasmAvailable || !constraintPairs.trim()}>{solving ? t('pro.solving') : t('pro.solveConstrained')}</button>
-      </div>
-      {#if constrainedResult}
-        <div class="adv-inline">
-          {#if constrainedResult.displacements?.length}
-            δmax={fmtNum(Math.max(...constrainedResult.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
-          {/if}
-          <!-- Not dead: the export returns a bare AnalysisResults3D, but
-               solve_constrained_3d fills its constraintForces. -->
-          {#if constrainedResult.constraintForces?.length} — {constrainedResult.constraintForces.length} {t('pro.constraintForcesCount')}{/if}
         </div>
       {/if}
       {/if}

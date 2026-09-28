@@ -5,7 +5,7 @@ import { test, expect, loadModel, solveModel } from './fixtures';
  *
  * ── Why press all of them, rather than read them ───────────────────
  *
- * There are sixteen, most reached through WASM, and the failure mode they
+ * There are fourteen, most reached through WASM, and the failure mode they
  * share is silence: a button that runs, throws inside a worker, and leaves
  * the panel exactly as it was. That is indistinguishable from a button that
  * worked and had nothing to report, and it is the reason "check that they all
@@ -16,16 +16,16 @@ import { test, expect, loadModel, solveModel } from './fixtures';
  * something, or the panel says why it cannot. What it may not do is nothing.
  */
 /**
- * The panel is four analyses always on screen and thirteen behind a chip
+ * The panel is four analyses always on screen and ten behind a chip
  * picker, one at a time. A sweep has to walk the chips.
  */
 const CHIPS = [
   'timehistory', 'harmonic', 'nolineal', 'imperfections', 't', 'ssi',
-  't8', 't9', 't10', 'influenceline3d', 'multicase', 'sectionanalyzer', 'constrained',
+  't9', 't10', 'influenceline3d', 'sectionanalyzer',
 ];
 
 test.describe('@slow PRO — every advanced analysis answers', () => {
-  /* Sixteen real analyses on a real model; the default sixty seconds is for
+  /* Fourteen real analyses on a real model; the default sixty seconds is for
      a test that presses one button. */
   test.setTimeout(15 * 60_000);
 
