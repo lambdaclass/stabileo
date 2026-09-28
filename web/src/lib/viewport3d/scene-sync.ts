@@ -5,7 +5,7 @@
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
-import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
+import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
@@ -699,12 +699,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
     // Filter by visible load cases
     if (visibleCases !== null && caseId !== undefined && !visibleCases.includes(caseId)) continue;
     // Nor on what the view hides.
-    if (viewVisibility.active) {
-      const d = load.data as { nodeId?: number; elementId?: number; quadId?: number };
-      if (d.nodeId !== undefined && viewVisibility.isNodeHidden(d.nodeId)) continue;
-      if (d.elementId !== undefined && viewVisibility.isElementHidden(d.elementId)) continue;
-      if (d.quadId !== undefined && viewVisibility.isShellHidden(`q${d.quadId}`)) continue;
-    }
+    if (isLoadHidden(load.data as { nodeId?: number; elementId?: number; quadId?: number })) continue;
 
     const cc = getCaseColor(caseId);
 

@@ -139,9 +139,10 @@ describe('the moments it reports are the ones F.1.1 names', () => {
 
   it('honours a segment that is not the whole member', () => {
     /*
-     * `Lb` is the whole member today, but the segment is a parameter because that is what F.1.1 is
-     * written about — «el segmento no arriostrado». Reading the second half of a linear diagram
-     * must give the quarter points OF THAT HALF.
+     * The segment is a parameter because that is what F.1.1 is written about — «el segmento no
+     * arriostrado» — and the caller passes it: a chained member's `Lb` spans several elements,
+     * and a declared `Lb` shorter than the chain bounds the read further. Reading the second
+     * half of a linear diagram must give the quarter points OF THAT HALF.
      */
     const g = momentGradient({
       stations: diagram((t) => 100 * (1 - t)), shape: 'I', tStart: 0.5, tEnd: 1,

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
-import { viewVisibility, visibleElements, visibleNodes, visibleQuads } from '../view-state.svelte';
+import { viewVisibility, visibleElements, visibleNodes, visibleQuads, isLoadHidden } from '../view-state.svelte';
 
 let cols: number[] = [], beam = 0, slab = 0;
 
@@ -44,5 +44,25 @@ describe('view visibility', () => {
     viewVisibility.showAll();
     expect(viewVisibility.active).toBe(false);
     expect(visibleElements()).toBe(modelStore.elements);
+  });
+
+  it('a load is hidden with what it stands on — the rule both drawing and box-select use', () => {
+    // Nothing hidden: nothing about a load is hidden.
+    expect(isLoadHidden({ nodeId: 1 })).toBe(false);
+    expect(isLoadHidden({ elementId: beam })).toBe(false);
+
+    viewVisibility.hide({ nodes: [], elements: [beam], shells: [`q${slab}`] });
+    // On the hidden member / shell: hidden. On the still-drawn columns: not.
+    expect(isLoadHidden({ elementId: beam })).toBe(true);
+    expect(isLoadHidden({ quadId: slab })).toBe(true);
+    expect(isLoadHidden({ elementId: cols[0]! })).toBe(false);
+
+    // A nodal load on a node the user hid, or on one left over by only-hidden members.
+    const nodeId = [...modelStore.nodes.keys()][0]!;
+    viewVisibility.hide({ nodes: [nodeId], elements: [], shells: [] });
+    expect(isLoadHidden({ nodeId })).toBe(true);
+
+    viewVisibility.showAll();
+    expect(isLoadHidden({ elementId: beam })).toBe(false);
   });
 });
