@@ -168,10 +168,22 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
 
     const elements: GeneratedData['elements'] = [];
     const elementMap = new Map<number, number>();
+    const ownedElements = new Set(old.elements.flatMap((e) => e ? [e.id] : []));
+    const pairKey = (a: number, b: number) => a < b ? `${a}-${b}` : `${b}-${a}`;
+    const existingPairs = new Map([...modelStore.elements.values()]
+      .filter((e) => !ownedElements.has(e.id)).map((e) => [pairKey(e.nodeI, e.nodeJ), e.id]));
     g.json.elements.forEach((e, k) => {
       const role = roles[k] ?? '';
       const src = frag.elements[k]!;
       const i2 = nodeOf(e.nodeI), j2 = nodeOf(e.nodeJ);
+      // Insertion leaves shared members to their existing owner. Regeneration must do the
+      // same, including when two copied frames share a column along their common edge.
+      const existing = existingPairs.get(pairKey(i2, j2));
+      if (i2 === j2 || existing !== undefined) {
+        elements.push(null);
+        if (existing !== undefined) elementMap.set(e.id, existing);
+        return;
+      }
       const a = g.json.nodes[e.nodeI - 1]!, b = g.json.nodes[e.nodeJ - 1]!;
       const o = carriedOrientation(T, src, a, b, modelStore.nodes.get(i2)!, modelStore.nodes.get(j2)!, modelStore.sections.get(secOf(e.sectionId)), false);
       const newSec = secOf(e.sectionId);
@@ -187,6 +199,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
         modelStore.updateElement(prev.id, patch);
         elements.push({ id: prev.id, sectionId: unedited ? newSec : prev.sectionId, ...(role ? { role } : {}) });
         elementMap.set(e.id, prev.id);
+        existingPairs.set(pairKey(i2, j2), prev.id);
         out.kept++;
         return;
       }
@@ -194,6 +207,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       modelStore.updateElement(id, { materialId: matOf(e.materialId), sectionId: newSec, ...o.fields });
       elements.push({ id, sectionId: newSec, ...(role ? { role } : {}) });
       elementMap.set(e.id, id);
+      existingPairs.set(pairKey(i2, j2), id);
       out.added++;
     });
     for (const prev of old.elements) {

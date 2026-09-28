@@ -9,10 +9,11 @@
  * `transform-fields.ts` for how each is carried), and optionally their loads and supports.
  *
  * GROUPS are copied too, when every entity a group holds is in the set: the copy of a group is a
- * group over the copies. Its `kind` and `data` go across verbatim. That is the seam the physical
- * model arrives through — a physical member, a panel, a precast piece is a group of analytical
+ * group over the copies. Generated metadata follows the copied IDs and placement; other kinds'
+ * data goes across verbatim. That is the seam the physical model arrives through — a physical
+ * member, a panel, a precast piece is a group of analytical
  * entities with rules in `data` — so copying a structure copies its physical objects without
- * this layer knowing what any of them is. A group only partly inside the set is not copied: half
+ * this layer knowing every kind. A group only partly inside the set is not copied: half
  * of a physical object is not one.
  *
  * ── Welding ───────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ import {
   carriedJoint, carriedLoad, carriedOffset, carriedOrientation, carriedSupport, type EditWarning,
 } from './transform-fields';
 import { fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
+import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
 
 export { closure, type EntitySet } from './fragment';
 
@@ -151,8 +153,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     }) : [];
 
     let prevNodeMap = new Map(frag.nodes.map((n) => [n.id, n.id]));
-    const created = new Set<number>();
     transforms.forEach((T, k) => {
+      const created = new Set<number>();
       const nodeMap = new Map<number, number>();
       for (const [id, n] of nodes0) {
         const p = applyPoint(T, [n.x, n.y, n.z]);
@@ -238,9 +240,10 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
         if (!c) continue;
         if (c.warning) warn(c.warning);
-        // A load on a welded node that is not a copy would be applied twice.
+        // Only a local load copied onto its own source node is already present.
         const onNode = (c.load?.data as { nodeId?: number } | undefined)?.nodeId;
-        if (c.load && (onNode === undefined || created.has(onNode))) modelStore.addLoadEntry(c.load);
+        const sourceNode = (l.data as { nodeId?: number }).nodeId;
+        if (c.load && (onNode === undefined || !frag.local || onNode !== sourceNode)) modelStore.addLoadEntry(c.load);
       }
 
       for (const g of frag.groups) {
@@ -251,9 +254,13 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
           ...(m.quads ? { quads: m.quads.map((id: number) => quadMap.get(id)!) } : {}),
           ...(m.plates ? { plates: m.plates.map((id: number) => plateMap.get(id)!) } : {}),
         };
-        if (g.data) warn('groupDataVerbatim');
+        const generated = generatedMetadata(g);
+        const mapped = generated ? copyGeneratedMetadata(generated, T, nodeMap, elementMap, defs.section, created) : null;
+        const data = generated ? mapped as unknown as Record<string, unknown> | null : g.data;
+        if (generated && mapped) members.nodes = mapped.nodes.filter((n) => n.owned).map((n) => n.id);
+        if (g.data && !generated) warn('groupDataVerbatim');
         const name = frag.local || transforms.length > 1 ? `${g.name} (${k + 1})` : g.name;
-        report.groups.push(modelStore.addGroup(name, g.kind, members, { origin: g.origin, ...(g.data ? { data: g.data } : {}) }));
+        report.groups.push(modelStore.addGroup(name, generated && !mapped ? 'selection' : g.kind, members, { origin: g.origin, ...(data ? { data } : {}) }));
       }
 
       if (opts.link) {

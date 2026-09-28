@@ -118,8 +118,37 @@ export function validateStructureParams(kind: StructureKind, p: StructureParams)
 /** The topology, or null while the parameters are invalid or it would be too large. */
 export function generateStructure(kind: StructureKind, p: StructureParams): Topology | null {
   if (validateStructureParams(kind, p).length > 0) return null;
+  if (memberBudget(kind, p) > MAX_STRUCTURE_MEMBERS) return null;
   const t = BUILDERS[kind](p);
   return t && t.members.length <= MAX_STRUCTURE_MEMBERS ? t : null;
+}
+
+/** Count before any Cartesian grid is allocated. Bounded generators use safe upper bounds. */
+function memberBudget(kind: StructureKind, p: StructureParams): number {
+  const n = (key: string) => bays(p, key)!.length;
+  switch (kind) {
+    case 'spaceFrame':
+    case 'planeFrame': {
+      const x = n('baysX'), y = kind === 'planeFrame' ? 0 : n('baysY');
+      return n('storeys') * ((x + 1) * (y + 1) + x * (y + 1) + (x + 1) * y);
+    }
+    case 'floorGrid': { const x = n('baysX'), y = n('baysY'); return x * (y + 1) + (x + 1) * y; }
+    case 'spaceTruss': return 8 * n('baysX') * n('baysY');
+    case 'continuousBeam': return n('spans');
+    case 'cylindricalVault': {
+      const a = num(p, 'arcDivisions'), y = n('baysY');
+      const diagonals = p.bracing === 'x' ? 2 : p.bracing === 'single' ? 1 : 0;
+      return a * (y + 1) + (a + 1) * y + diagonals * a * y;
+    }
+    case 'dome': {
+      const m = num(p, 'meridians'), r = num(p, 'rings');
+      return 2 * m * (r + 1) + (p.diagonals ? m * r : 0);
+    }
+    case 'latticeGirder': return 6 * num(p, 'panels') + 1;
+    case 'howeRoof': return 10 * num(p, 'panelsPerHalf');
+    case 'sawtooth': return 4 * num(p, 'teeth') * num(p, 'panelsPerTooth');
+    case 'circularBeam': return num(p, 'segments');
+  }
 }
 
 // ─── Building blocks ───────────────────────────────────────────────
@@ -130,6 +159,7 @@ class Builder {
   supports: GenSupport[] = [];
   assumptions: string[] = [];
   private at = new Map<string, number>();
+  private supported = new Set<number>();
   node(x: number, y: number, z: number): number {
     const k = `${x.toFixed(6)},${y.toFixed(6)},${z.toFixed(6)}`;
     const hit = this.at.get(k);
@@ -143,7 +173,7 @@ class Builder {
     if (a !== b) this.members.push({ a, b, role, type });
   }
   support(node: number, type: GenSupport['type']): void {
-    if (!this.supports.some((s) => s.node === node)) this.supports.push({ node, type });
+    if (!this.supported.has(node)) { this.supported.add(node); this.supports.push({ node, type }); }
   }
   done(slopePercent: number | null = null): Topology {
     let total = 0;

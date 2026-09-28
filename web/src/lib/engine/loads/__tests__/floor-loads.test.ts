@@ -97,6 +97,59 @@ describe('one way', () => {
 });
 
 describe('what is not loaded', () => {
+  const overlapping = () => {
+    const m = panelModel([[0, 0], [4, 0], [4, 4], [0, 4]]);
+    const other = panelModel([[2, 2], [6, 2], [6, 6], [2, 6]]);
+    for (const [id, n] of other.nodes) m.nodes.set(id + 4, n);
+    m.beams.push(...other.beams.map((b) => ({ ...b, id: b.id + 4, nodeI: b.nodeI + 4, nodeJ: b.nodeJ + 4 })));
+    return m;
+  };
+
+  it.each(['oneWay', 'twoWay'] as const)('refuses crossing loops instead of double-loading their overlap (%s)', (distribution) => {
+    const r = floorLoad({ ...overlapping(), q: 5, distribution });
+    expect(r.skipped.crossings).toBe(2);
+    expect(r.panels).toHaveLength(2);
+    expect(r.panels.every((p) => !p.loaded && p.reason === 'crossing')).toBe(true);
+    expect(r.loads).toHaveLength(0);
+    expect(r.loadedArea).toBe(0);
+    expect(r.totalKN).toBe(0);
+  });
+
+  it('still loads a separate valid component beside crossing loops', () => {
+    const m = overlapping();
+    const safe = panelModel([[10, 0], [14, 0], [14, 4], [10, 4]]);
+    for (const [id, n] of safe.nodes) m.nodes.set(id + 8, n);
+    m.beams.push(...safe.beams.map((b) => ({ ...b, id: b.id + 8, nodeI: b.nodeI + 8, nodeJ: b.nodeJ + 8 })));
+    const r = floorLoad({ ...m, q: 5, distribution: 'twoWay' });
+    expect(r.skipped.crossings).toBe(2);
+    expect(r.loadedArea).toBe(16);
+    expect(r.totalKN).toBeCloseTo(80);
+    expect(r.loads.every((l) => l.elementId > 8)).toBe(true);
+  });
+
+  it('does not hide a crossing by pruning its dangling beam', () => {
+    const m = panelModel([[0, 0], [4, 0], [4, 4], [0, 4]]);
+    m.nodes.set(5, { x: 2, y: -1, z: 3 });
+    m.nodes.set(6, { x: 2, y: 2, z: 3 });
+    m.beams.push({ id: 5, nodeI: 5, nodeJ: 6, type: 'frame', sectionId: 1 });
+    const r = floorLoad({ ...m, q: 5, distribution: 'twoWay' });
+    expect(r.skipped.crossings).toBe(1);
+    expect(r.loads).toHaveLength(0);
+  });
+
+  it('rejects unconnected crossing diagonals but accepts their shared centre node', () => {
+    const m = panelModel([[0, 0], [4, 0], [4, 4], [0, 4]]);
+    m.beams.push({ id: 5, nodeI: 1, nodeJ: 3, type: 'frame', sectionId: 1 }, { id: 6, nodeI: 2, nodeJ: 4, type: 'frame', sectionId: 1 });
+    expect(floorLoad({ ...m, q: 5, distribution: 'twoWay' }).loads).toHaveLength(0);
+    m.beams.splice(4);
+    m.nodes.set(5, { x: 2, y: 2, z: 3 });
+    for (let i = 1; i <= 4; i++) m.beams.push({ id: 4 + i, nodeI: i, nodeJ: 5, type: 'frame', sectionId: 1 });
+    const r = floorLoad({ ...m, q: 5, distribution: 'twoWay' });
+    expect(r.skipped.crossings).toBe(0);
+    expect(r.panels.filter((p) => p.loaded)).toHaveLength(4);
+    expect(r.totalKN).toBeCloseTo(80);
+  });
+
   it('an L-shaped panel is reported, not loaded', () => {
     const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]]), q: 5, distribution: 'twoWay' });
     expect(r.panels[0]!.loaded).toBe(false);

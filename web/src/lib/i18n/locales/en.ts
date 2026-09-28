@@ -7773,7 +7773,7 @@ const en: Record<string, string> = {
   'floorLoad.plan': "Panels in plan",
   'floorLoad.summary': "{panels} panels, {area} m², {total} kN on {beams} beams.",
   'floorLoad.skip.nonConvex': "{n} non-convex panels are left unloaded: split them with a beam or load them by hand.",
-  'floorLoad.skip.crossings': "{n} beam crossings without a node: those beams are not joined into panels.",
+  'floorLoad.skip.crossings': "{n} beam crossings without a node: panels in the affected connected components are not loaded.",
   'floorLoad.skip.open': "{n} beams with a free end bound no panel.",
   'floorLoad.skip.trusses': "{n} truss members take no transverse load and are left out.",
   'floorLoad.skip.otherLevel': "{n} beams are at another elevation and are left out.",
