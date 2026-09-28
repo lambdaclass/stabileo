@@ -52,6 +52,14 @@ function createTourStore() {
   let _steps = $state<TourStep[]>([]);
   let _targetRect = $state<DOMRect | null>(null);
   let _isTransitioning = $state(false);
+  /**
+   * Work a step started and the next one depends on, still running: the example a walkthrough
+   * loads on its first card. Advancing past it let the load land AFTER the reader had solved,
+   * and the results it clears on arrival took the section analysis's armed mode with them (the
+   * viewport disarms it when there are no results), so the member click that followed selected
+   * the member instead of asking for its section.
+   */
+  let _pending = $state(0);
 
   return {
     // --- Getters ---
@@ -70,8 +78,18 @@ function createTourStore() {
     get canAdvance(): boolean {
       const step = _steps[_currentStepIndex];
       if (!step) return false;
+      if (_pending > 0) return false;
       if (step.waitFor) return step.waitFor();
       return true;
+    },
+
+    /** Whether work a step started is still running. */
+    get isBusy() { return _pending > 0; },
+
+    /** Hold the walkthrough until `work` settles, whether it succeeds or not. */
+    async hold<T>(work: Promise<T>): Promise<T> {
+      _pending++;
+      try { return await work; } finally { _pending--; }
     },
 
     // --- Actions ---
@@ -85,7 +103,7 @@ function createTourStore() {
     },
 
     next() {
-      if (_isTransitioning || _currentStepIndex >= _steps.length - 1) return;
+      if (_isTransitioning || _pending > 0 || _currentStepIndex >= _steps.length - 1) return;
       _isTransitioning = true;
       _steps[_currentStepIndex]?.onExit?.();
       // Skip steps whose skip() returns true
