@@ -230,9 +230,18 @@
 {#if uiStore.showWhatIf}
   <div class="wif-panel" class:docked={docked}>
     <div class="wif-header">
-      <span class="wif-title">{t('whatif.title')}</span>
+      <!--
+        Docked, the panel above already names what is running and carries its ✕.
+        Drawing them again put the same title twice — once in the accent colour
+        of the running-analysis header and once in grey immediately beneath it,
+        each with its own close button. Floating, this header is the only one
+        there is, so it keeps both.
+      -->
+      {#if !docked}<span class="wif-title">{t('whatif.title')}</span>{/if}
       <button class="wif-reset" onclick={resetAll} title={t('whatif.restoreOriginals')}>Reset</button>
-      <button class="wif-close" onclick={close} title={t('whatif.closeAndRestore')}>✕</button>
+      {#if !docked}
+        <button class="wif-close" onclick={close} title={t('whatif.closeAndRestore')}>✕</button>
+      {/if}
     </div>
 
     <div class="wif-body">

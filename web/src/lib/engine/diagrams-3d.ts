@@ -2,6 +2,7 @@
 // Compute diagram values (My, Mz, Vy, Vz, N, Mx) along each 3D element
 // using equilibrium equations with distributed and point loads.
 
+import { toDisplay, unitLabel, type UnitSystem } from '../utils/units';
 import type { ElementForces3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -213,12 +214,12 @@ export function evaluateDiagramAt(
 /** Format a 3D diagram value for display.
  *  Moment values are negated: internal convention is hogging=positive,
  *  but standard engineering convention is sagging=positive. */
-export function formatDiagramValue3D(value: number, kind: Diagram3DKind): string {
+export function formatDiagramValue3D(value: number, kind: Diagram3DKind, system: UnitSystem = 'SI'): string {
   const isMoment = kind === 'momentY' || kind === 'momentZ' || kind === 'torsion';
-  const displayVal = isMoment ? -value : value;
+  const qty = isMoment ? 'moment' : 'force';
+  const displayVal = toDisplay(isMoment ? -value : value, qty, system);
   const abs = Math.abs(displayVal);
   const sign = displayVal < 0 ? '-' : '';
   const formatted = abs >= 100 ? abs.toFixed(0) : abs >= 10 ? abs.toFixed(1) : abs.toFixed(2);
-  const unit = isMoment ? ' kN·m' : ' kN';
-  return sign + formatted + unit;
+  return `${sign}${formatted} ${unitLabel(qty, system)}`;
 }

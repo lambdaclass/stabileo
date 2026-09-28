@@ -37,10 +37,17 @@ import {
 import { SLAB_BAR_ANCHOR_ALLOWANCE } from '../../engine/detailing/floor-design';
 import { membersFromModel } from '../../engine/detailing/member-geometry';
 import type { DocumentModel } from '../../engine/detailing/document-model';
+import { plainDeepCopy } from '../../utils/plain-deep-copy';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
-interface Built { doc: DocumentModel; scene: SceneModel }
+interface Built {
+  doc: DocumentModel;
+  scene: SceneModel;
+  members: ReturnType<typeof membersFromModel>['members'];
+  outcomes: Record<number, ReturnType<typeof verificationStore.outcomeFor>>;
+  footingCount: number;
+}
 
 /** Run the production chain and project the scene the workspace projects. */
 async function build(load: () => void | Promise<void>): Promise<Built> {
@@ -72,10 +79,26 @@ async function build(load: () => void | Promise<void>): Promise<Built> {
     elements: [...modelStore.model.elements.values()],
     sections: [...modelStore.model.sections.values()],
   });
-  return { doc: doc!, scene: buildSceneModel(doc!, { members }) };
+  const outcomes = Object.fromEntries([...modelStore.model.elements.keys()]
+    .map((id) => [id, verificationStore.outcomeFor(id)]));
+  // Capture store-dependent evidence now: another fixture may replace the live model.
+  return plainDeepCopy({
+    doc: doc!, scene: buildSceneModel(doc!, { members }), members, outcomes,
+    footingCount: modelStore.model.footings.size,
+  });
 }
 
-const example = (name: string) => () => modelStore.loadExample(name);
+const examples = new Map<string, Promise<Built>>();
+
+/** Run each real design once per file; give every test its own detached copy. */
+async function buildExample(name: string): Promise<Built> {
+  let pending = examples.get(name);
+  if (!pending) {
+    pending = build(() => modelStore.loadExample(name));
+    examples.set(name, pending);
+  }
+  return plainDeepCopy(await pending);
+}
 
 function familyOf(s: ReturnType<typeof summariseScene>, family: string) {
   return s.byFamily.find((f) => f.family === family)
@@ -86,7 +109,7 @@ function familyOf(s: ReturnType<typeof summariseScene>, family: string) {
 
 describe('the 7-storey building is more than column longitudinals', () => {
   let built: Built;
-  beforeEach(async () => { built = await build(example('pro-edificio-7p')); }, 120_000);
+  beforeEach(async () => { built = await buildExample('pro-edificio-7p'); }, 120_000);
 
   it('carries transverse steel, and a lot of it', async () => {
     /**
@@ -158,13 +181,13 @@ describe('the 7-storey building is more than column longitudinals', () => {
 describe('every detailed bar reaches the scene', () => {
   for (const name of ['pro-edificio-7p', 'rc-qa-diagnostic']) {
     it(`${name}: the scene holds exactly the document's bars`, async () => {
-      const { doc, scene } = await build(example(name));
+      const { doc, scene } = await buildExample(name);
       const inDoc = doc.assemblies.flatMap((a) => a.bars).map((b) => b.id).sort();
       expect(scene.bars.map((b) => b.barId).sort()).toEqual(inDoc);
     }, 120_000);
 
     it(`${name}: the scene's counts reconcile with the detailing source`, async () => {
-      const { doc, scene } = await build(example(name));
+      const { doc, scene } = await buildExample(name);
       const s = summariseScene(scene);
       const source = doc.assemblies.flatMap((a) => a.bars);
       expect(s.barCount).toBe(source.length);
@@ -187,7 +210,7 @@ describe('a model whose beams design shows every frame family', () => {
      * exist to be shown. A model whose beams DO design is what distinguishes "the scene drops
      * beam bars" from "the design produced none".
      */
-    const { scene } = await build(example('rc-qa-diagnostic'));
+    const { scene } = await buildExample('rc-qa-diagnostic');
     const s = summariseScene(scene);
     expect(familyOf(s, 'column').longitudinal).toBeGreaterThan(0);
     expect(familyOf(s, 'column').transverse).toBeGreaterThan(0);
@@ -221,7 +244,7 @@ describe('a footing brings its own steel into the same scene', () => {
 
 describe('column transverse steel is classified, not lumped together', () => {
   let built: Built;
-  beforeEach(async () => { built = await build(example('pro-edificio-7p')); }, 120_000);
+  beforeEach(async () => { built = await buildExample('pro-edificio-7p'); }, 120_000);
 
   it('tells a closed tie from a crosstie from a joint tie', () => {
     /**
@@ -282,7 +305,7 @@ describe('shell ids and frame ids are not confused', () => {
      * steel belonging to columns — and a column with no reinforcement could report MODELLED
      * because a slab bar had claimed its number.
      */
-    const { scene } = await build(example('pro-edificio-7p'));
+    const { scene } = await buildExample('pro-edificio-7p');
     for (const b of scene.bars) {
       expect(b.ownerScope, b.barId).toBe(b.family ? 'family' : 'frame');
     }
@@ -305,8 +328,8 @@ describe('a family with no members is stated, not silently empty', () => {
      * fixture genuinely contains zero footings — `model.footings.size === 0` — so a footing
      * solid appearing here would mean the scene invented one.
      */
-    const { scene } = await build(example('pro-edificio-7p'));
-    expect(modelStore.model.footings.size).toBe(0);
+    const { scene, footingCount } = await buildExample('pro-edificio-7p');
+    expect(footingCount).toBe(0);
     expect(scene.solids.filter((s) => s.kind === 'footing')).toEqual([]);
     expect(scene.solids.filter((s) => s.kind === 'pedestal')).toEqual([]);
   }, 120_000);
@@ -316,7 +339,7 @@ describe('a family with no members is stated, not silently empty', () => {
 
 describe('each layer switch filters its own family and no other', () => {
   it('every family can be hidden alone, taking its steel and nothing else', async () => {
-    const { scene } = await build(example('pro-edificio-7p'));
+    const { scene } = await buildExample('pro-edificio-7p');
     const present = [...new Set(scene.solids.map((s) => s.kind))];
     expect(present.length).toBeGreaterThan(1);
 
@@ -335,7 +358,7 @@ describe('each layer switch filters its own family and no other', () => {
   }, 120_000);
 
   it('hiding reinforcement never removes a piece of concrete', async () => {
-    const { scene } = await build(example('pro-edificio-7p'));
+    const { scene } = await buildExample('pro-edificio-7p');
     const shell = filterScene(scene, { hideBars: true });
     expect(shell.bars).toEqual([]);
     expect(shell.solids.length).toBe(scene.solids.length);
@@ -346,7 +369,7 @@ describe('each layer switch filters its own family and no other', () => {
 
 describe('the view stays honest under its own controls', () => {
   it('hiding reinforcement leaves the concrete standing', async () => {
-    const { scene } = await build(example('rc-qa-diagnostic'));
+    const { scene } = await buildExample('rc-qa-diagnostic');
     const shell = filterScene(scene, { hideBars: true });
     expect(shell.bars).toEqual([]);
     expect(shell.solids.length).toBe(scene.solids.length);
@@ -356,13 +379,7 @@ describe('the view stays honest under its own controls', () => {
   it('re-projecting the same document gives the same scene', async () => {
     // Closing and reopening the workspace rebuilds from the same document. If that produced a
     // different scene, everything the user had inspected would silently shift under them.
-    const { doc } = await build(example('rc-qa-diagnostic'));
-    const { members } = membersFromModel({
-      elementIds: [...modelStore.model.elements.keys()],
-      nodes: [...modelStore.model.nodes.values()],
-      elements: [...modelStore.model.elements.values()],
-      sections: [...modelStore.model.sections.values()],
-    });
+    const { doc, members } = await buildExample('rc-qa-diagnostic');
     expect(buildSceneModel(doc, { members })).toEqual(buildSceneModel(doc, { members }));
   }, 120_000);
 
@@ -372,7 +389,7 @@ describe('the view stays honest under its own controls', () => {
      * whose owners are all absent from the scene would report a parent that cannot be found
      * or focused — a dead end the user has no way to interpret.
      */
-    const { scene } = await build(example('rc-qa-diagnostic'));
+    const { scene } = await buildExample('rc-qa-diagnostic');
     const known = new Set(scene.solids.flatMap((s) => s.elementIds));
     const orphans = scene.bars.filter((b) => !b.elementIds.some((id) => known.has(id)));
     expect(orphans.map((b) => b.barId)).toEqual([]);
@@ -392,7 +409,7 @@ describe('slab bars leave their panel only by the declared anchorage allowance',
      * a unit or a clipping error would look like. The bound is read from the constant so the
      * test cannot drift from the generator.
      */
-    const { doc, scene } = await build(example('pro-edificio-7p'));
+    const { doc, scene } = await buildExample('pro-edificio-7p');
 
     const panels = new Map<string, { min: [number, number]; max: [number, number] }>();
     for (const a of doc.assemblies) {
@@ -427,7 +444,7 @@ describe('slab bars leave their panel only by the declared anchorage allowance',
   it('declares the allowance rather than leaving it a silent constant', async () => {
     // A bar that visibly leaves the concrete and explains itself is a detail an engineer can
     // accept or reject. The same bar with no explanation is the app appearing to be wrong.
-    const { doc } = await build(example('pro-edificio-7p'));
+    const { doc } = await buildExample('pro-edificio-7p');
     const keys = doc.assemblies.flatMap((a) => a.assumptions).map((m) => m.key);
     expect(keys).toContain('detailing.slab.anchorAllowance');
   }, 120_000);
@@ -442,7 +459,7 @@ describe('every beam’s state is explained, and none loses its steel on the way
      * loss, and this test is what tells the two apart: every beam WITH reinforcement in the
      * document must have it in the scene, and every beam WITHOUT must carry a stated reason.
      */
-    const { doc, scene } = await build(example('pro-edificio-7p'));
+    const { doc, scene, outcomes } = await buildExample('pro-edificio-7p');
     const beamIds = scene.solids.filter((s) => s.kind === 'beam').flatMap((s) => s.elementIds);
     expect(beamIds.length).toBeGreaterThan(100);
 
@@ -467,7 +484,7 @@ describe('every beam’s state is explained, and none loses its steel on the way
         expect(inScene.get(id) ?? 0, `member ${id} keeps its bars`).toBeGreaterThan(0);
         armed += 1;
       } else {
-        const o = verificationStore.outcomeFor(id);
+        const o = outcomes[id];
         expect(o?.outcome, `member ${id} has an outcome`).toBeDefined();
         expect((o?.reasons ?? []).length, `member ${id} states a reason`).toBeGreaterThan(0);
         refused += 1;
@@ -485,7 +502,7 @@ describe('every beam’s state is explained, and none loses its steel on the way
      */
     expect(armed + refused, 'every beam is accounted for').toBe(beamIds.length);
     for (const id of beamIds) {
-      const o = verificationStore.outcomeFor(id);
+      const o = outcomes[id];
       expect(o, `member ${id} has an outcome`).toBeTruthy();
     }
   }, 120_000);
@@ -497,13 +514,7 @@ describe('the scene signature tracks content, not object identity', () => {
   it('is stable across two projections of one document', async () => {
     // This is what stops the viewport rebuilding 20 917 tubes on every reactive touch — the
     // three-second freeze on returning from another browser tab.
-    const { doc } = await build(example('rc-qa-diagnostic'));
-    const { members } = membersFromModel({
-      elementIds: [...modelStore.model.elements.keys()],
-      nodes: [...modelStore.model.nodes.values()],
-      elements: [...modelStore.model.elements.values()],
-      sections: [...modelStore.model.sections.values()],
-    });
+    const { doc, members } = await buildExample('rc-qa-diagnostic');
     const a = buildSceneModel(doc, { members });
     const b = buildSceneModel(doc, { members });
     expect(a).not.toBe(b);
@@ -511,7 +522,7 @@ describe('the scene signature tracks content, not object identity', () => {
   }, 120_000);
 
   it('changes when the visible steel changes', async () => {
-    const { scene } = await build(example('rc-qa-diagnostic'));
+    const { scene } = await buildExample('rc-qa-diagnostic');
     expect(sceneSignature(filterScene(scene, { hideBars: true })))
       .not.toBe(sceneSignature(scene));
     expect(sceneSignature(filterScene(scene, {}))).toBe(sceneSignature(scene));

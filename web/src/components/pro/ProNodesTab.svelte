@@ -59,8 +59,10 @@
       const realId = modelStore.addNode(x, y, z);
       rows[idx] = { ...rows[idx], id: realId };
     } else {
-      // Update existing node
-      modelStore.updateNode(row.id, x, y, z);
+      // Update existing node. `updateNode` pushes no undo of its own — its callers are expected
+      // to — so without the batch this edit could not be undone.
+      const id = row.id;
+      modelStore.batch(() => modelStore.updateNode(id, x, y, z));
     }
   }
 

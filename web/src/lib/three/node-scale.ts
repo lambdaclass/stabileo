@@ -76,6 +76,22 @@ export function diagonalOf(points: ReadonlyArray<{ x: number; y: number; z?: num
  * With the extruded profiles drawn, a full-size marker at every panel point buries the very
  * geometry the mode exists to show. Halved rather than hidden, and never below the picking
  * floor: a node that cannot be clicked in one mode and can in another is worse than a small one.
+ *
+ * ── RETIRED, and why it is kept ─────────────────────────────────────
+ *
+ * **No production code calls this any more.** Halving was the compromise this file could reach
+ * on its own: it made the markers smaller and left them IN FRONT of the geometry, so the joint
+ * being inspected was still behind a sphere. The reason it stopped at halving is the sentence
+ * above — hiding cost picking.
+ *
+ * `NodesInstanced.setDrawn` removed that cost: a mesh whose MATERIAL is invisible leaves the
+ * render list and stays raycastable, so `sections` now draws no markers at all and every node
+ * stays clickable. `Viewport3D` takes `nodeRadiusFor` in every mode, because with nothing drawn
+ * the radius is a pick target and a halved target is worse.
+ *
+ * Kept exported, with its tests, because it is the record of a decision that was reversed rather
+ * than of one that was wrong — and because a mode that wants small-but-visible markers has the
+ * function ready. Delete it when something proves nothing will.
  */
 export function nodeRadiusForSections(extent: ModelExtent): number {
   return Math.max(MIN_NODE_RADIUS_M, nodeRadiusFor(extent) * 0.5);

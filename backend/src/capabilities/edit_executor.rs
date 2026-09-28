@@ -19,6 +19,18 @@ struct NodeCoord {
 
 /// Apply an edit action to an existing snapshot, returning the modified snapshot.
 pub fn apply_edit(action: &BuildAction, snapshot: &Value) -> Result<Value, AppError> {
+    // Missing collections can be created by additions, but malformed existing
+    // collections must never be silently replaced and lose their contents.
+    let object = snapshot
+        .as_object()
+        .ok_or_else(|| AppError::BadRequest("snapshot must be a JSON object".into()))?;
+    for key in ["nodes", "elements", "materials", "sections", "supports", "loads"] {
+        if let Some(value) = object.get(key) {
+            if !value.is_array() {
+                return Err(AppError::BadRequest(format!("snapshot.{key} must be an array")));
+            }
+        }
+    }
     let mut snap = snapshot.clone();
 
     match action {
@@ -146,6 +158,19 @@ fn find_node_at_3d(snap: &Value, x: f64, y: f64, z: f64) -> Option<u32> {
     })
 }
 
+/// Get a collection for an addition, creating it only when absent.
+/// `apply_edit` validates the object and existing collection types before
+/// dispatch, so malformed client data cannot reach this helper. Removals keep
+/// refusing missing collections rather than calling this helper.
+fn array_mut<'a>(snap: &'a mut Value, key: &str) -> &'a mut Vec<Value> {
+    if snap.get(key).is_none() {
+        snap[key] = json!([]);
+    }
+    snap[key]
+        .as_array_mut()
+        .expect("collection validated by apply_edit or created above")
+}
+
 fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
     let load_id = next_id(snap, "load");
     let load = if is_3d_snapshot(snap) {
@@ -159,7 +184,7 @@ fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
             "data": {"id": load_id, "elementId": element_id, "qI": q, "qJ": q}
         })
     };
-    snap["loads"].as_array_mut().unwrap().push(load);
+    array_mut(snap, "loads").push(load);
 }
 
 /// Get the first section and material from the snapshot (for reuse).
@@ -186,7 +211,7 @@ fn add_node_to_snap(snap: &mut Value, x: f64, y: f64, z: Option<f64>) -> u32 {
     } else {
         json!([id, {"id": id, "x": x, "y": y}])
     };
-    snap["nodes"].as_array_mut().unwrap().push(node);
+    array_mut(snap, "nodes").push(node);
     id
 }
 
@@ -202,7 +227,7 @@ fn add_element_to_snap(snap: &mut Value, node_i: u32, node_j: u32, mat_id: u32, 
         "hingeStart": false,
         "hingeEnd": false,
     }]);
-    snap["elements"].as_array_mut().unwrap().push(elem);
+    array_mut(snap, "elements").push(elem);
     id
 }
 
@@ -213,14 +238,14 @@ fn clone_element_to_snap(snap: &mut Value, source: &Value, node_i: u32, node_j: 
     data["nodeI"] = json!(node_i);
     data["nodeJ"] = json!(node_j);
     let elem = json!([id, data]);
-    snap["elements"].as_array_mut().unwrap().push(elem);
+    array_mut(snap, "elements").push(elem);
     id
 }
 
 fn add_support_to_snap(snap: &mut Value, node_id: u32, support_type: &str) -> u32 {
     let id = next_id(snap, "support");
     let support = json!([id, {"id": id, "nodeId": node_id, "type": support_type}]);
-    snap["supports"].as_array_mut().unwrap().push(support);
+    array_mut(snap, "supports").push(support);
     id
 }
 
@@ -244,7 +269,7 @@ fn ensure_section(snap: &mut Value, name: &str) -> u32 {
         // Unknown section — use defaults
         json!([id, {"id": id, "name": name, "a": 0.00538, "iz": 8.356e-5}])
     };
-    snap["sections"].as_array_mut().unwrap().push(sec);
+    array_mut(snap, "sections").push(sec);
     id
 }
 
@@ -689,7 +714,7 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
                     "type": "nodal3d",
                     "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}
                 });
-                snap["loads"].as_array_mut().unwrap().push(load);
+                array_mut(snap, "loads").push(load);
             }
         }
     } else {
@@ -700,7 +725,7 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
                     "type": "nodal",
                     "data": {"id": load_id, "nodeId": node_id, "fx": h, "fz": 0, "my": 0}
                 });
-                snap["loads"].as_array_mut().unwrap().push(load);
+                array_mut(snap, "loads").push(load);
             }
         }
     }
@@ -773,7 +798,7 @@ fn add_nodal_load(
             }
         })
     };
-    snap["loads"].as_array_mut().unwrap().push(load);
+    array_mut(snap, "loads").push(load);
 
     Ok(())
 }
@@ -964,6 +989,83 @@ mod tests {
         let nodal_count = loads.iter().filter(|l| l["type"].as_str() == Some("nodal")).count();
         // One per floor level above base
         assert_eq!(nodal_count, floors.len() - 1);
+    }
+
+    /// Audit probe: the snapshot arrives from the client as a free-form
+    /// `serde_json::Value` (`BuildModelRequest::current_snapshot`), and the
+    /// edit path hands it straight here — `validate_snapshot` only ever runs
+    /// on the snapshot the backend assembles itself, in the create path. These
+    /// are shapes a request can actually carry.
+    #[test]
+    fn malformed_snapshots_are_refused_not_panicked_on() {
+        // Each case pairs an edit with a snapshot broken in exactly what that
+        // edit dereferences. A variant that never reaches the field proves
+        // nothing — the first version of this probe used `SetAllBeamLoads`,
+        // which walks `elements` and simply does nothing on an empty one.
+        let one_element = serde_json::json!({
+            "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}], [2, {"id": 2, "x": 5.0, "y": 0.0}]],
+            "elements": [[1, {"id": 1, "nodeI": 1, "nodeJ": 2}]],
+        });
+        let mut loads_is_a_number = one_element.clone();
+        loads_is_a_number["loads"] = serde_json::json!(5);
+        let mut loads_is_an_object = one_element.clone();
+        loads_is_an_object["loads"] = serde_json::json!({});
+
+        let cases: Vec<(&str, BuildAction, serde_json::Value)> = vec![
+            (
+                "AddDistributedLoad, loads is a number",
+                BuildAction::AddDistributedLoad { element_id: 1, q: -10.0 },
+                loads_is_a_number,
+            ),
+            (
+                "AddDistributedLoad, loads key absent",
+                BuildAction::AddDistributedLoad { element_id: 1, q: -10.0 },
+                one_element.clone(),
+            ),
+            (
+                "DeleteLoad, loads is an object",
+                BuildAction::DeleteLoad { load_id: 1 },
+                loads_is_an_object,
+            ),
+            (
+                "AddStory, element points at a node that does not exist",
+                BuildAction::AddStory { height: 3.0, beam_section: None, column_section: None },
+                serde_json::json!({
+                    "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}]],
+                    "elements": [[1, {"id": 1, "nodeI": 1, "nodeJ": 99}]],
+                    "loads": [],
+                }),
+            ),
+            (
+                "AddStory, element with non-numeric nodeI",
+                BuildAction::AddStory { height: 3.0, beam_section: None, column_section: None },
+                serde_json::json!({
+                    "nodes": [[1, {"id": 1, "x": 0.0, "y": 0.0}]],
+                    "elements": [[1, {"id": 1, "nodeI": "one", "nodeJ": 1}]],
+                    "loads": [],
+                }),
+            ),
+        ];
+
+        let mut panicked: Vec<&str> = Vec::new();
+        for (label, action, snap) in cases {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                apply_edit(&action, &snap)
+            }));
+            match outcome {
+                Ok(Ok(_)) => println!("{label:<48}: Ok"),
+                Ok(Err(e)) => println!("{label:<48}: refused — {e}"),
+                Err(_) => {
+                    println!("{label:<48}: PANICKED");
+                    panicked.push(label);
+                }
+            }
+        }
+
+        assert!(
+            panicked.is_empty(),
+            "client-supplied snapshots that panic the request handler: {panicked:?}"
+        );
     }
 
     #[test]

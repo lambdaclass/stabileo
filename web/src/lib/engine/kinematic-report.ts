@@ -143,6 +143,13 @@ export interface KinematicReport {
    * on one screen.
    */
   rankChecked: boolean;
+  /**
+   * The engine's validation message when it refused the model's data, so the
+   * rank check did not run and never will until the data is fixed. `null`
+   * otherwise. Distinct from `!rankChecked` alone, which also covers "the
+   * engine has not loaded yet" — a state the panel waits out.
+   */
+  invalidInput: string | null;
   hasHiddenMechanism: boolean;
   mechanismModes: number;
   mechanismNodes: number[];
@@ -363,7 +370,10 @@ export function generateKinematicReport(
   // ── Step 3: Rank verification ── (computed before classification so we can adjust it)
 
   const kinResult = analyzeKinematics(input);
-  const rankChecked = kinResult.rankAnalysis !== 'unavailable';
+  // Only 'available' means the check ran: an 'invalid' model was refused
+  // before it, and its `mechanismModes: 0` is not a finding.
+  const rankChecked = kinResult.rankAnalysis === 'available';
+  const invalidInput = kinResult.invalidInput ?? null;
   const mechanismModes = kinResult.mechanismModes;
   const mechanismNodes = kinResult.mechanismNodes;
   const hasHiddenMechanism = degree >= 0 && mechanismModes > 0;
@@ -420,7 +430,7 @@ export function generateKinematicReport(
     hingeDetails, slideDetails, totalC,
     isPureTruss, formula, substitution,
     degree, classification, classificationText,
-    nFreeDofs, rankChecked, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
+    nFreeDofs, rankChecked, invalidInput, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
     elementAnalysis,
     suggestions,
     isSolvable: kinResult.isSolvable,
