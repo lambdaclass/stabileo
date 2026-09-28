@@ -76,7 +76,7 @@ async function statics(id: ValidationModelId) {
 }
 
 /** The force and moment scales of a row, the way the check itself scales its differences. */
-function scales(row: { applied: Record<string, number>; reactions: Record<string, number> }) {
+function scales(row: { applied: Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', number> }) {
   const f = Math.max(1e-9, ...(['fx', 'fy', 'fz'] as const).map((k) => Math.abs(row.applied[k]!)));
   const m = Math.max(1e-9, ...(['mx', 'my', 'mz'] as const).map((k) => Math.abs(row.applied[k]!)));
   return { f, m };
