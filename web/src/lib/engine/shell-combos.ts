@@ -2,24 +2,24 @@
 //
 // The WASM combination solver linearly combines displacements / reactions /
 // element forces, but drops plate/quad stresses (combine_results_3d sets them
-// to empty). Shell membrane stresses (σxx, σyy, τxy) and bending moments
-// (mx, my, mxy) are LINEAR in the displacement field, so for a linear-elastic
-// combo they equal Σ factorᵢ · (case-i stress). We recombine them here from the
-// per-case results — no solver change. (Von Mises is nonlinear, so it is
-// RECOMPUTED from the combined membrane components, not linearly combined.
-// Nodal Von Mises needs nodal components we don't carry, so combos fall back to
-// the centroidal value — the contour still colours, just without nodal smoothing.)
+// to empty). Shell membrane stresses (σxx, σyy, τxy), bending moments
+// (mx, my, mxy) and the quads' transverse shears (qx, qy) are LINEAR in the
+// displacement field, so for a linear-elastic combo they equal
+// Σ factorᵢ · (case-i value). We recombine them here from the per-case results.
+//
+// σ1, σ2 and Von Mises are not linear and are recomputed, each as the engine
+// defines it for its element: on the worse face (membrane ± 6M/t²) for a DKT
+// triangle, from the membrane for a quad. They used to be recomputed from the
+// membrane for both, so a plate's Von Mises meant the face value in a case and
+// the membrane value in a combination. Nodal Von Mises needs nodal components
+// we don't carry, so combos fall back to the centroidal value.
 
 import type { AnalysisResults3D, PlateStress, QuadStress } from './types-3d';
-import { principalStresses } from './shell-stress';
+import { principalStresses, vonMisesPlane, worseFace } from './shell-stress';
 
 export interface ComboFactor { caseId: number; factor: number; }
 
-function vonMisesPlane(sxx: number, syy: number, txy: number): number {
-  return Math.sqrt(Math.max(0, sxx * sxx - sxx * syy + syy * syy + 3 * txy * txy));
-}
-
-type Membrane = { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number };
+type Membrane = { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; qx?: number; qy?: number };
 
 function combineMembrane(
   factors: ComboFactor[],
@@ -34,13 +34,18 @@ function combineMembrane(
   for (const id of ids) {
     const acc: Membrane = { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0 };
     let contributed = false;
+    // Q only where every contributing case has it: a sum over part of the cases is no value.
+    let qx: number | undefined = 0, qy: number | undefined = 0;
     for (const f of factors) {
       const s = perCase.get(f.caseId)?.get(id);
       if (!s) continue;
       contributed = true;
       acc.sigmaXx += f.factor * s.sigmaXx; acc.sigmaYy += f.factor * s.sigmaYy; acc.tauXy += f.factor * s.tauXy;
       acc.mx += f.factor * s.mx; acc.my += f.factor * s.my; acc.mxy += f.factor * s.mxy;
+      qx = qx === undefined || s.qx === undefined ? undefined : qx + f.factor * s.qx;
+      qy = qy === undefined || s.qy === undefined ? undefined : qy + f.factor * s.qy;
     }
+    if (qx !== undefined && qy !== undefined) { acc.qx = qx; acc.qy = qy; }
     // Only include ids present in at least one of THIS combo's cases — with a
     // precomputed global union, absent ids would otherwise be written as zeros
     // (phantom zero-stress entries in the combo output).
@@ -50,25 +55,31 @@ function combineMembrane(
 }
 
 const toMembraneMap = (list: Array<{ elementId: number } & Membrane> | undefined): Map<number, Membrane> =>
-  new Map((list ?? []).map(s => [s.elementId, { sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy }]));
+  new Map((list ?? []).map(s => [s.elementId, { sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy, qx: s.qx, qy: s.qy }]));
+
+/** The plates' thicknesses, which their face stresses need. */
+export type PlateThickness = ReadonlyMap<number, { thickness: number }>;
 
 /** Recombine plate + quad stresses for one combo from per-case results. */
 export function combineShellStresses(
   factors: ComboFactor[],
   perCasePlates: Map<number, Map<number, Membrane>>,
   perCaseQuads: Map<number, Map<number, Membrane>>,
+  plates: PlateThickness,
   ids?: { plates: Set<number>; quads: Set<number> },
 ): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
-  const plates: PlateStress[] = [];
+  const plateOut: PlateStress[] = [];
   for (const [id, m] of combineMembrane(factors, perCasePlates, ids?.plates)) {
-    const pr = principalStresses(m.sigmaXx, m.sigmaYy, m.tauXy);
-    plates.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy) });
+    const t = plates.get(id)?.thickness ?? 0;
+    // No thickness, no faces: the membrane is all that can be said.
+    const pr = t > 0 ? worseFace(m, t) : { ...principalStresses(m.sigmaXx, m.sigmaYy, m.tauXy), vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy) };
+    plateOut.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: pr.vonMises });
   }
   const quads: QuadStress[] = [];
   for (const [id, m] of combineMembrane(factors, perCaseQuads, ids?.quads)) {
-    quads.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy) });
+    quads.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy), ...(m.qx !== undefined ? { qx: m.qx, qy: m.qy } : {}) });
   }
-  return { plateStresses: plates, quadStresses: quads };
+  return { plateStresses: plateOut, quadStresses: quads };
 }
 
 /** Per-element governing (max Von Mises across combos) shell stresses for the
@@ -94,6 +105,7 @@ export function enrichComboShellStresses(
   perCombo: Map<number, AnalysisResults3D>,
   envelopeMaxAbs: AnalysisResults3D | undefined,
   combinations: Array<{ id: number; factors: Array<{ caseId: number; factor: number }> }>,
+  plates: PlateThickness,
 ): void {
   const perCasePlates = new Map<number, Map<number, Membrane>>();
   const perCaseQuads = new Map<number, Map<number, Membrane>>();
@@ -116,7 +128,7 @@ export function enrichComboShellStresses(
   for (const combo of combinations) {
     const r = perCombo.get(combo.id);
     if (!r) continue;
-    const { plateStresses, quadStresses } = combineShellStresses(combo.factors, perCasePlates, perCaseQuads, ids);
+    const { plateStresses, quadStresses } = combineShellStresses(combo.factors, perCasePlates, perCaseQuads, plates, ids);
     r.plateStresses = plateStresses;
     r.quadStresses = quadStresses;
   }

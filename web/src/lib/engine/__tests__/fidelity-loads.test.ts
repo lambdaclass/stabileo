@@ -191,6 +191,26 @@ describe('P-Delta per combination', () => {
     expect(r.unstable).toEqual([past]);
   });
 
+  it('the envelope carries the shells of its second-order combinations', () => {
+    // A wall panel of 2 × 2 quads, held along its foot, pressed down along its head.
+    const n: number[][] = [];
+    for (let i = 0; i <= 2; i++) { n.push([]); for (let k = 0; k <= 2; k++) n[i]!.push(modelStore.addNode(i, 0, k)); }
+    const mat = [...modelStore.materials.keys()][0]!;
+    for (let i = 0; i < 2; i++) for (let k = 0; k < 2; k++) modelStore.addQuad([n[i]![k]!, n[i + 1]![k]!, n[i + 1]![k + 1]!, n[i]![k + 1]!], mat, 0.2);
+    for (let i = 0; i <= 2; i++) modelStore.addSupport(n[i]![0]!, 'fixed3d');
+    for (let i = 0; i <= 2; i++) modelStore.addNodalLoad3D(n[i]![2]!, 0.5, 0, -20, 0, 0, 0, 1);
+    modelStore.addCombination('1.2 D', [{ caseId: 1, factor: 1.2 }]);
+    modelStore.addCombination('1.4 D', [{ caseId: 1, factor: 1.4 }]);
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const env = r.envelope.maxAbsResults3D!.quadStresses!;
+    expect(env).toHaveLength(4);
+    // Each element's envelope is its governing combination's: the larger factor here.
+    const c14 = [...r.perCombo.values()].reduce((a, b) => (b.quadStresses![0]!.vonMises > a.quadStresses![0]!.vonMises ? b : a));
+    for (const q of env) expect(q.vonMises).toBe(c14.quadStresses!.find((x) => x.elementId === q.elementId)!.vonMises);
+  });
+
   it('with every combination past it, the solve says so', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
     modelStore.addElement(a, b, 'frame');

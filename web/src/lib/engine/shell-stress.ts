@@ -35,6 +35,46 @@ export function principalStresses(sxx: number, syy: number, txy: number): Princi
   };
 }
 
+/** Von Mises of a plane stress state. */
+export function vonMisesPlane(sxx: number, syy: number, txy: number): number {
+  return Math.sqrt(Math.max(0, sxx * sxx - sxx * syy + syy * syy + 3 * txy * txy));
+}
+
+/** Tresca of a plane stress state: the largest difference of the three principals, σ3 = 0 included. */
+export function trescaPlane(sxx: number, syy: number, txy: number): number {
+  const { sigma1, sigma2 } = principalStresses(sxx, syy, txy);
+  return Math.max(sigma1 - sigma2, Math.abs(sigma1), Math.abs(sigma2));
+}
+
+/** An in-plane stress state. */
+export interface PlaneStress { sxx: number; syy: number; txy: number }
+
+/**
+ * The stress on the shell's two faces: membrane plus and minus 6M/t². Top is z = +t/2 along the
+ * element's local z, the engine's convention (`element/plate.rs`, "Combined top/bottom fibre
+ * stresses").
+ */
+export function faceStresses(s: { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number }, t: number): { top: PlaneStress; bottom: PlaneStress } {
+  const k = 6 / (t * t);
+  return {
+    top: { sxx: s.sigmaXx + k * s.mx, syy: s.sigmaYy + k * s.my, txy: s.tauXy + k * s.mxy },
+    bottom: { sxx: s.sigmaXx - k * s.mx, syy: s.sigmaYy - k * s.my, txy: s.tauXy - k * s.mxy },
+  };
+}
+
+/**
+ * σ1, σ2 and Von Mises as the engine reports them for a DKT triangle: on the face where Von Mises
+ * is larger. Combinations recompute them this way, so a combination's plate value means what a
+ * case's does.
+ */
+export function worseFace(s: { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number }, t: number): { sigma1: number; sigma2: number; vonMises: number } {
+  const { top, bottom } = faceStresses(s, t);
+  const vt = vonMisesPlane(top.sxx, top.syy, top.txy), vb = vonMisesPlane(bottom.sxx, bottom.syy, bottom.txy);
+  const f = vt >= vb ? top : bottom;
+  const p = principalStresses(f.sxx, f.syy, f.txy);
+  return { sigma1: p.sigma1, sigma2: p.sigma2, vonMises: Math.max(vt, vb) };
+}
+
 export type ShellContourComponent =
   | 'vonMises'
   | 'sigmaXx' | 'sigmaYy' | 'tauXy'
