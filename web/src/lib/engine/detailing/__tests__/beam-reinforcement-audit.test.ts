@@ -1,5 +1,6 @@
 /**
- * Why 5 of the 119 beams in the flagship building carry a PROPOSAL and not a design.
+ * Why none of the 119 beams in the flagship building carries a PROPOSAL any more, and how a
+ * proposal is shown where one remains.
  *
  * ── The question this file answers ─────────────────────────────────
  *
@@ -79,6 +80,17 @@
  * including if it improves. A drop in the provisional count means either the biaxial path
  * started covering beams or the demands feeding it moved, and both are deliberate acts that
  * should update this file, not silent ones. That is exactly how the 117 above was caught.
+ *
+ * ── Why the number is now 0 ────────────────────────────────────────
+ *
+ * The demands moved, deliberately: self-weight became a load along each member. Lumped at the
+ * nodes it gave these beams no bending of their own, and this building's slabs meet its beams
+ * only at the columns, so a beam's primary moment was little more than frame action. Its own
+ * weight (6 kN/m on a VP 30×80, over 6 m) is now wL²/12 at each support, and the five ratios
+ * above fall to 0,031–0,055; the largest in the building is 0,060. All 119 are verified.
+ *
+ * The proposal still has to be shown correctly wherever it does arise, so those assertions run
+ * on the 408-member frame, whose wind bends 13 beams about both axes.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -133,6 +145,71 @@ function categorise(r: BeamRow): Category {
   return 'workflow-error';
 }
 
+interface Audit {
+  rows: BeamRow[];
+  byCategory: Map<Category, BeamRow[]>;
+  scene: SceneModel;
+  doc: DocumentModel;
+}
+
+/** Every beam of one example, across the four places its steel could be. */
+async function audit(example: string): Promise<Audit> {
+  const w = await workspaceScene(example);
+  const scene = w.scene;
+  const doc = w.doc;
+  const m = modelStore.model;
+
+  const barsInDocument = new Map<number, number>();
+  const provisionalBarsInDocument = new Map<number, number>();
+  for (const a of doc.assemblies) {
+    for (const bar of a.bars) {
+      for (const id of bar.ownerElementIds) {
+        barsInDocument.set(id, (barsInDocument.get(id) ?? 0) + 1);
+        if (bar.provisional) {
+          provisionalBarsInDocument.set(id, (provisionalBarsInDocument.get(id) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  const barsInScene = new Map<number, number>();
+  for (const b of scene.bars) {
+    for (const id of b.elementIds) barsInScene.set(id, (barsInScene.get(id) ?? 0) + 1);
+  }
+  const withConcrete = new Set(scene.solids.flatMap((s) => s.elementIds));
+  const unreinforced = new Set(scene.unreinforcedMembers);
+  const provisionalMembers = new Set(scene.provisionalMembers);
+
+  const rows: BeamRow[] = [];
+  for (const [id] of m.elements) {
+    if (memberKindOf(m as never, id) !== 'beam') continue;
+    const o = verificationStore.outcomeFor(id);
+    rows.push({
+      elementId: id,
+      designRan: !!o,
+      outcome: o?.outcome ?? '-',
+      secondaryRatio: o?.axes?.secondaryRatio,
+      reasonKey: o?.reasons?.[0]?.key ?? '',
+      steelInRecord: !!m.elements.get(id)?.reinforcement,
+      barsInDocument: barsInDocument.get(id) ?? 0,
+      provisionalBarsInDocument: provisionalBarsInDocument.get(id) ?? 0,
+      barsInScene: barsInScene.get(id) ?? 0,
+      hasConcrete: withConcrete.has(id),
+      hasCertificate: !!o?.certificate,
+      flaggedUnreinforced: unreinforced.has(id),
+      flaggedProvisional: provisionalMembers.has(id),
+    });
+  }
+
+  const byCategory = new Map<Category, BeamRow[]>();
+  for (const r of rows) {
+    const c = categorise(r);
+    const list = byCategory.get(c) ?? [];
+    list.push(r);
+    byCategory.set(c, list);
+  }
+  return { rows, byCategory, scene, doc };
+}
+
 // A whole-building test: 30 s rather than Vitest's 5 s default, for the reason set out in
 // `provisional-projections.test.ts` — under a full-suite pool these were failing on
 // contention with every assertion passing.
@@ -143,59 +220,7 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
   let doc: DocumentModel;
 
   beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
-    scene = w.scene;
-    doc = w.doc;
-    const m = modelStore.model;
-
-    const barsInDocument = new Map<number, number>();
-    const provisionalBarsInDocument = new Map<number, number>();
-    for (const a of doc.assemblies) {
-      for (const bar of a.bars) {
-        for (const id of bar.ownerElementIds) {
-          barsInDocument.set(id, (barsInDocument.get(id) ?? 0) + 1);
-          if (bar.provisional) {
-            provisionalBarsInDocument.set(id, (provisionalBarsInDocument.get(id) ?? 0) + 1);
-          }
-        }
-      }
-    }
-    const barsInScene = new Map<number, number>();
-    for (const b of scene.bars) {
-      for (const id of b.elementIds) barsInScene.set(id, (barsInScene.get(id) ?? 0) + 1);
-    }
-    const withConcrete = new Set(scene.solids.flatMap((s) => s.elementIds));
-    const unreinforced = new Set(scene.unreinforcedMembers);
-    const provisionalMembers = new Set(scene.provisionalMembers);
-
-    rows = [];
-    for (const [id] of m.elements) {
-      if (memberKindOf(m as never, id) !== 'beam') continue;
-      const o = verificationStore.outcomeFor(id);
-      rows.push({
-        elementId: id,
-        designRan: !!o,
-        outcome: o?.outcome ?? '-',
-        secondaryRatio: o?.axes?.secondaryRatio,
-        reasonKey: o?.reasons?.[0]?.key ?? '',
-        steelInRecord: !!m.elements.get(id)?.reinforcement,
-        barsInDocument: barsInDocument.get(id) ?? 0,
-        provisionalBarsInDocument: provisionalBarsInDocument.get(id) ?? 0,
-        barsInScene: barsInScene.get(id) ?? 0,
-        hasConcrete: withConcrete.has(id),
-        hasCertificate: !!o?.certificate,
-        flaggedUnreinforced: unreinforced.has(id),
-        flaggedProvisional: provisionalMembers.has(id),
-      });
-    }
-
-    byCategory = new Map();
-    for (const r of rows) {
-      const c = categorise(r);
-      const list = byCategory.get(c) ?? [];
-      list.push(r);
-      byCategory.set(c, list);
-    }
+    ({ rows, byCategory, scene, doc } = await audit('pro-edificio-7p'));
   }, 900_000);
 
   const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
@@ -206,13 +231,12 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
   });
 
   it('accounts for every beam as either verified or a provisional proposal', () => {
-    expect(of('provisional-biaxial').length).toBe(5);
-    expect(of('reinforced').length).toBe(114);
-    // The provisional set is the small, interesting one, so it is pinned by id: which
-    // members the biaxial path refuses is the fact an engineer acts on, and 114 verified
-    // ids would pin nothing a reader could check.
-    expect(of('provisional-biaxial').map((r) => r.elementId).sort((a, b) => a - b))
-      .toEqual([88, 151, 153, 157, 164]);
+    expect(of('provisional-biaxial').length).toBe(0);
+    expect(of('reinforced').length).toBe(119);
+    // The five that were proposals until self-weight bent the beams, pinned by id so a reader
+    // can see them come back if the demands move again.
+    const reinforced = new Set(of('reinforced').map((r) => r.elementId));
+    for (const id of [88, 151, 153, 157, 164]) expect(reinforced.has(id), `member ${id}`).toBe(true);
     // The categories that would mean a defect rather than a limitation.
     expect(of('provisional-without-steel')).toEqual([]);
     expect(of('verified-geometry-lost')).toEqual([]);
@@ -221,31 +245,10 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     expect(of('workflow-error')).toEqual([]);
   });
 
-  it('proposes only for beams that genuinely bend about both axes', () => {
-    // Every proposal is above the published threshold — none of them is threshold noise, and
-    // the spread is stated so a reader can see how far above it they are.
-    const ratios = of('provisional-biaxial').map((r) => r.secondaryRatio ?? 0);
-    // Non-empty FIRST, because every assertion below is vacuous without it: on an empty set
-    // `Math.min()` is Infinity and `Math.max()` is −Infinity, so both bounds pass, and
-    // `[].every()` is true. The whole block would go green if the biaxial path stopped
-    // producing anything at all.
-    expect(ratios.length, 'there is something to check').toBeGreaterThan(0);
-    expect(Math.min(...ratios)).toBeGreaterThan(BIAXIAL_RATIO_THRESHOLD);
-    /**
-     * The ceiling, not a floor.
-     *
-     * This used to assert `> 1` — that some beam bent HARDER about its weak axis than its
-     * strong one. On a gravity-loaded floor beam that is not a spread, it is a symptom, and it
-     * was: it appeared while the fixture's transposed iy/iz went straight to the solver, which
-     * inflated every beam's secondary moment. With the inertias derived from geometry the whole
-     * spread sits between the 10 % threshold and 0.25, which is what a real secondary bending
-     * demand looks like. The header carries the full account.
-     *
-     * Asserted as a bound so the number is not a snapshot: anything above 0.5 on this fixture
-     * means the demands are contaminated again, and that is worth failing for.
-     */
-    expect(Math.max(...ratios)).toBeLessThan(0.5);
-    expect(of('provisional-biaxial').every((r) => r.outcome === 'PROVISIONAL_BIAXIAL')).toBe(true);
+  it('has no beam over the biaxial threshold, which is why none is proposed', () => {
+    const ratios = rows.map((r) => r.secondaryRatio ?? 0);
+    expect(ratios.length).toBe(119);
+    expect(Math.max(...ratios)).toBeLessThan(BIAXIAL_RATIO_THRESHOLD);
   });
 
   it('never lets a proposal look like a design', () => {
@@ -288,8 +291,67 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     const missingFrom3D = [...inDoc].filter((id) => !inScene.has(id)).sort((a, b) => a - b);
     expect(missingFrom3D, 'every member with steel in the document has steel in the scene').toEqual([]);
   });
+});
 
-  it('states the shared cause once, rather than five times', () => {
+describe('a provisional proposal, beam by beam — the 408-member frame', { timeout: 30_000 }, () => {
+  let byCategory: Map<Category, BeamRow[]>;
+  let scene: SceneModel;
+  let doc: DocumentModel;
+
+  beforeAll(async () => {
+    ({ byCategory, scene, doc } = await audit('rc-design-frame'));
+    expect(of('provisional-biaxial').length, 'the frame produces proposals').toBe(13);
+    expect(of('provisional-without-steel')).toEqual([]);
+  }, 900_000);
+
+  const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
+
+  it('proposes only for beams that genuinely bend about both axes', () => {
+    // Every proposal is above the published threshold — none of them is threshold noise, and
+    // the spread is stated so a reader can see how far above it they are.
+    const ratios = of('provisional-biaxial').map((r) => r.secondaryRatio ?? 0);
+    // Non-empty FIRST, because every assertion below is vacuous without it: on an empty set
+    // `Math.min()` is Infinity and `Math.max()` is −Infinity, so both bounds pass, and
+    // `[].every()` is true. The whole block would go green if the biaxial path stopped
+    // producing anything at all.
+    expect(ratios.length, 'there is something to check').toBeGreaterThan(0);
+    expect(Math.min(...ratios)).toBeGreaterThan(BIAXIAL_RATIO_THRESHOLD);
+    /**
+     * The ceiling, not a floor.
+     *
+     * This used to assert `> 1` — that some beam bent HARDER about its weak axis than its
+     * strong one. On a gravity-loaded floor beam that is not a spread, it is a symptom, and it
+     * was: it appeared while the fixture's transposed iy/iz went straight to the solver, which
+     * inflated every beam's secondary moment. With the inertias derived from geometry the whole
+     * spread sits between the 10 % threshold and 0.25, which is what a real secondary bending
+     * demand looks like. The header carries the full account.
+     *
+     * Asserted as a bound so the number is not a snapshot: anything above 0.5 on this frame
+     * means the demands are contaminated again, and that is worth failing for.
+     */
+    expect(Math.max(...ratios)).toBeLessThan(0.5);
+    expect(of('provisional-biaxial').every((r) => r.outcome === 'PROVISIONAL_BIAXIAL')).toBe(true);
+  });
+
+  it('never lets a proposal look like a design', () => {
+    for (const r of of('provisional-biaxial')) {
+      // The one thing a proposal may never acquire.
+      expect(r.hasCertificate, `member ${r.elementId} carries no certificate`).toBe(false);
+      // …and the one thing that must reach every projection that draws its steel.
+      expect(r.provisionalBarsInDocument,
+        `member ${r.elementId}: every bar it owns is marked provisional`).toBe(r.barsInDocument);
+      expect(r.flaggedProvisional, `member ${r.elementId} is named as provisional`).toBe(true);
+    }
+    const provisionalIds = of('provisional-biaxial').map((r) => r.elementId).sort((a, b) => a - b);
+    expect([...scene.provisionalMembers].sort((a, b) => a - b)).toEqual(provisionalIds);
+    // A verified beam is not swept into the provisional set by a bar that runs through it.
+    for (const r of of('reinforced')) {
+      expect(r.flaggedProvisional, `member ${r.elementId} is verified, not provisional`).toBe(false);
+      expect(r.hasCertificate).toBe(true);
+    }
+  });
+
+  it('states the shared cause once, rather than once per member', () => {
     const outcomes = new Map<number, DesignOutcomeSummary>();
     for (const [id] of modelStore.model.elements) {
       const o = verificationStore.outcomeFor(id);
@@ -310,19 +372,19 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
       });
     }
     const report = reportElementStatus(scene, outcomes);
-    expect(report.counts.PROVISIONAL, 'the workspace counts them as their own state').toBe(5);
+    expect(report.counts.PROVISIONAL, 'the workspace counts them as their own state').toBe(13);
     expect(report.counts.MODELLED, 'and does not fold them into the modelled ones')
       .toBeGreaterThan(0);
-    expect(report.entries.filter((e) => e.status === 'PROVISIONAL').length).toBe(5);
+    expect(report.entries.filter((e) => e.status === 'PROVISIONAL').length).toBe(13);
 
     const groups = summariseStatusReasons(report.entries);
     const biaxial = groups.find((g) => g.reasonKey === 'design.reason.provisionalBiaxial');
     expect(biaxial, 'the shared cause is surfaced as one group').toBeTruthy();
     expect(biaxial!.status).toBe('PROVISIONAL');
-    expect(biaxial!.count).toBe(5);
+    expect(biaxial!.count).toBe(13);
     expect(biaxial!.ratioRange!.min).toBeGreaterThan(BIAXIAL_RATIO_THRESHOLD);
     // The group is a way IN: its ids are what the panel isolates on click.
-    expect(biaxial!.elementIds.length).toBe(5);
+    expect(biaxial!.elementIds.length).toBe(13);
   });
 
   it('carries the metadata an engineer needs to act on the proposal', () => {

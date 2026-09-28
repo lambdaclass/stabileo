@@ -458,8 +458,9 @@ export function surfaceWarnings(
 }
 
 /**
- * Transverse-load-on-truss warnings. A truss member carries only axial force, so
- * a perpendicular load is not transferred as beam bending/shear. Educational;
+ * Transverse-load-on-truss warnings. A truss member carries only axial force, so a
+ * perpendicular load reaches its end nodes as simply supported reactions (`member-loads.ts`)
+ * and bends nothing. Educational;
  * never blocks solving. Extracted from checkModel so the Basic solve path can
  * surface it as a pre-solve diagnostic too (checkModel itself only runs in PRO).
  */

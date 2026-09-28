@@ -263,11 +263,16 @@ test.describe('@slow the 7-storey project survives the file', () => {
      * "NO APTO PARA EMISIÓN CONSTRUCTIVA" on the banner, the sheet note and the report.
      *
      * Both halves are asserted here so a regression says which half broke.
+     *
+     * Against what the prepared page showed rather than a fixed yes: this building has had no
+     * proposal since self-weight became a member load (its beams fell under the biaxial
+     * threshold), so today both halves read "none". The restore keeping a non-empty list is
+     * pinned in assembly.test.ts.
      */
     const inFile = JSON.parse(readFileSync(path, 'utf8'))
       .snapshot.detailing.assemblies as Array<{ provisionalMembers?: number[] }>;
     expect(inFile.some((a) => (a.provisionalMembers?.length ?? 0) > 0),
-      'the file records which members are proposals').toBe(true);
+      'the file records which members are proposals').toBe(preparedProject.provisionalBanner);
     expect(await fresh.getByTestId('rebar-provisional-banner').count() > 0,
       'and the project that opened it still says so').toBe(preparedProject.provisionalBanner);
 

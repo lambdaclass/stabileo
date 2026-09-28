@@ -358,7 +358,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     expect(Math.abs(tipDisp.uy)).toBeLessThan(1e-10);
   });
 
-  it('buildSolverInput3D(includeSelfWeight=true) emits self-weight in fz, not fy', () => {
+  it('buildSolverInput3D(includeSelfWeight=true) emits self-weight along global -Z, not along Y', () => {
     const model = {
       nodes: new Map([
         [1, { id: 1, x: 0, y: 0, z: 0 }],
@@ -384,15 +384,20 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     const input = buildSolverInput3D(model as any, true, false);
     expect(input).not.toBeNull();
 
-    const nodalLoads = input!.loads.filter(
-      (load): load is Extract<SolverInput3D['loads'][number], { type: 'nodal' }> => load.type === 'nodal',
+    // Self-weight is a member load along the member now (wL²/8 at midspan), no longer lumped at
+    // the nodes. Put back into global axes it must point down Z and have nothing along Y.
+    const member = input!.loads.filter(
+      (load): load is Extract<SolverInput3D['loads'][number], { type: 'distributed' }> => load.type === 'distributed',
     );
-
-    expect(nodalLoads).toHaveLength(2);
-    for (const load of nodalLoads) {
-      expect(load.data.fy).toBe(0);
-      expect(load.data.fz).toBeLessThan(0);
-    }
+    expect(member).toHaveLength(1);
+    const w = 78.5 * 0.01;
+    const { qYI, qYJ, qZI, qZJ } = member[0]!.data;
+    // A horizontal member along X: local z is up and local y horizontal.
+    expect(qYI).toBeCloseTo(0, 12);
+    expect(qYJ).toBeCloseTo(0, 12);
+    expect(qZI).toBeCloseTo(-w, 12);
+    expect(qZJ).toBeCloseTo(-w, 12);
+    expect(input!.loads.some((l) => l.type === 'nodal' && Math.abs(l.data.fy) > 0)).toBe(false);
   });
 
   it('flat 2D models must embed into the 3D solver on XZ with Z-up loads and Y bending', () => {

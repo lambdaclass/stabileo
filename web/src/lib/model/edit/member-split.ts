@@ -117,12 +117,14 @@ export function splitElementLoads(
       case 'distributed3d': {
         const d = l.data as DistributedLoad3D;
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ]], bounds[k]!, bounds[k + 1]!);
+          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!);
           if (!c) continue;
-          const { id: _id, elementId: _e, a: _a, b: _b, ...meta } = d;
+          const { id: _id, elementId: _e, a: _a, b: _b, qXI: _xi, qXJ: _xj, ...meta } = d;
           const data: DistributedLoad3D = {
             ...meta, id: newId(), elementId: segmentIds[k]!,
             qYI: c.values[0]![0], qYJ: c.values[0]![1], qZI: c.values[1]![0], qZJ: c.values[1]![1],
+            // The axial (or global X) part is clipped like the others, and kept only when given.
+            ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: c.values[2]![0], qXJ: c.values[2]![1] } : {}),
           };
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
@@ -169,6 +171,17 @@ export function segmentFields(elem: Element, k: number, count: number, t0 = k / 
   };
   if (first && jointI) out.jointI = JSON.parse(JSON.stringify(jointI));
   if (last && jointJ) out.jointJ = JSON.parse(JSON.stringify(jointJ));
+  /*
+   * A semi-rigid end belongs to its end: the first segment keeps end I's, the last end J's, and
+   * the cuts are rigid. The unbraced length and K do go to every segment, since they describe the
+   * physical member between its bracings, which a cut for a node does not change.
+   */
+  const sr = (elem as { semiRigid?: { i?: unknown; j?: unknown } }).semiRigid;
+  if (sr) {
+    const kept = { ...(first && sr.i ? { i: JSON.parse(JSON.stringify(sr.i)) } : {}), ...(last && sr.j ? { j: JSON.parse(JSON.stringify(sr.j)) } : {}) };
+    if (Object.keys(kept).length) (out as { semiRigid?: unknown }).semiRigid = kept;
+    else delete (out as { semiRigid?: unknown }).semiRigid;
+  }
   if (offset) {
     const o: NonNullable<Element['offset']> = { frame: offset.frame };
     const at = (t: number) => ({

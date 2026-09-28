@@ -234,6 +234,10 @@ export function carriedLoad(
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
       const { sy, sz } = signsOf(q.elementId);
+      if (q.frame === 'global' || q.frame === 'projected') {
+        const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]), J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
+        return { load: { type: 'distributed3d', data: { ...q, elementId: to, qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } } };
+      }
       return { load: { type: 'distributed3d', data: { ...q, elementId: to, qYI: sy * q.qYI, qYJ: sy * q.qYJ, qZI: sz * q.qZI, qZJ: sz * q.qZJ } } };
     }
     case 'pointOnElement3d': {

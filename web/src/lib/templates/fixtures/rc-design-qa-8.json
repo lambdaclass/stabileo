@@ -196,8 +196,8 @@
         "elementId": 5,
         "qYI": 0,
         "qYJ": 0,
-        "qZI": -22,
-        "qZJ": -22,
+        "qZI": -17.875,
+        "qZJ": -17.875,
         "caseId": 1
       }
     },
@@ -220,8 +220,8 @@
         "elementId": 6,
         "qYI": 0,
         "qYJ": 0,
-        "qZI": -22,
-        "qZJ": -22,
+        "qZI": -17.875,
+        "qZJ": -17.875,
         "caseId": 1
       }
     },
@@ -244,8 +244,8 @@
         "elementId": 7,
         "qYI": 0,
         "qYJ": 0,
-        "qZI": -22,
-        "qZJ": -22,
+        "qZI": -17.875,
+        "qZJ": -17.875,
         "caseId": 1
       }
     },
@@ -268,8 +268,8 @@
         "elementId": 8,
         "qYI": 0,
         "qYJ": 0,
-        "qZI": -22,
-        "qZJ": -22,
+        "qZI": -17.875,
+        "qZJ": -17.875,
         "caseId": 1
       }
     },
@@ -391,5 +391,14 @@
         }
       ]
     }
-  ]
+  ],
+  "analysis": {
+    "selfWeight": [
+      {
+        "caseId": 1,
+        "direction": "Z",
+        "factor": -1
+      }
+    ]
+  }
 }

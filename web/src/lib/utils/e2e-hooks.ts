@@ -283,6 +283,10 @@ export interface StabileoTestHooks {
   canvasInkRatio(): number;
   /** Project regulation settings, as persisted. Read-only. */
   codeSettings(): unknown;
+  /** The model's analysis rules (`model.analysis`), as a plain copy; null when none. */
+  analysisSettings(): unknown;
+  /** The 3D distributed loads, as plain copies of their data. */
+  distributedLoads3D(): Array<Record<string, unknown>>;
   /**
    * The joint designs the project carries, as persisted — I-06.
    *
@@ -661,6 +665,10 @@ export function installE2EHooks(): void {
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
+    analysisSettings: () => JSON.parse(JSON.stringify(modelStore.analysis ?? null)),
+    distributedLoads3D: () => modelStore.loads
+      .filter((l) => l.type === 'distributed3d')
+      .map((l) => JSON.parse(JSON.stringify(l.data)) as Record<string, unknown>),
     jointDesigns: () => JSON.parse(JSON.stringify(modelStore.model.jointDesigns ?? null)),
     jointObsolete: () => jointDesignStore.obsolete.map((o) => ({ ...o })),
     jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],

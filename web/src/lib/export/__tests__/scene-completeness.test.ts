@@ -165,15 +165,24 @@ describe('the 7-storey building is more than column longitudinals', () => {
     // and the spurious secondary moments that produced refused nearly every beam. The
     // canonical-section work that came with the merge derives the inertias from geometry
     // instead. See beam-reinforcement-audit.test.ts for the full account.
+    //
+    // And none since self-weight became a member load: its strong-axis moment took all five
+    // under the threshold. This building now names no proposal and marks no bar as one; the
+    // 408-member frame, whose wind bends 13 beams about both axes, carries the rule instead.
+    expect(built.scene.provisionalMembers, 'no proposal here any more').toEqual([]);
+    expect(built.scene.bars.some((b) => b.provisional), 'and no bar is marked as one').toBe(false);
     // The rule being protected is unchanged — a proposal must be NAMED as one.
-    expect(built.scene.provisionalMembers.length, 'the proposals are named').toBe(5);
-    expect(built.scene.bars.some((b) => b.provisional), 'and their steel is marked').toBe(true);
+    const frame = await buildExample('rc-design-frame');
+    expect(frame.scene.provisionalMembers.length, 'the proposals are named').toBe(13);
+    expect(frame.scene.bars.some((b) => b.provisional), 'and their steel is marked').toBe(true);
     // Every beam is drawn, which was true before and stays true.
-    const beamSolids = built.scene.solids.filter((s) => s.kind === 'beam');
-    expect(beamSolids.length).toBeGreaterThan(50);
-    // A member with a proposal is not a member with nothing: the old population is now empty.
-    expect(built.scene.unreinforcedMembers, 'no beam is left bare').toEqual([]);
-  });
+    for (const b of [built, frame]) {
+      const beamSolids = b.scene.solids.filter((s) => s.kind === 'beam');
+      expect(beamSolids.length).toBeGreaterThan(50);
+      // A member with a proposal is not a member with nothing: the old population is empty.
+      expect(b.scene.unreinforcedMembers, 'no beam is left bare').toEqual([]);
+    }
+  }, 900_000);
 });
 
 // ─── Nothing is lost between the document and the scene ──────────

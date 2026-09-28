@@ -83,10 +83,17 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * unchanged. That is the load-bearing fact in the re-recording below: main moved the
      * refused members from one label to another without designing a single member differently.
      */
+    /*
+     * 395 and 13 since self-weight became a member load. The weight lumped at the nodes gave
+     * a beam no bending; as a load along it, it adds strong-axis moment and nothing lateral, so
+     * nine BEAM-Y members (243, 246, 249, 274, 280, 364, 376, 395, 407) fall under the
+     * 10 % lateral-to-strong ratio that makes a beam biaxial: 0,104–0,125 before, 0,080–0,097
+     * after. They are designed and verified. No member went the other way.
+     */
     expect(summary.total).toBe(408);
-    expect(summary.verified).toBe(386);
+    expect(summary.verified).toBe(395);
     expect(summary.searchExhausted).toBe(0);
-    expect(summary.provisionalBiaxial).toBe(22);
+    expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
     expect(summary.unsupported).toBe(0);
@@ -133,6 +140,17 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * capacity it has, so the same steel is used harder. Down: the search no longer believes
      * in capacity that was not there, so it places more steel and lands further below its
      * target. What must NOT move is a verdict, and none did.
+     *
+     * And again, for self-weight as a member load (see the counts above). Checked across all
+     * 408 before re-recording:
+     *
+     *   outcome changed               9  (PROVISIONAL_BIAXIAL → VERIFIED, the nine named above)
+     *   limiting constraint changed   0
+     *   utilisation changed         100  (65 up, 35 down; −0,077 to +0,103)
+     *   worst utilisation after   1,0000 — the gate above still holds
+     *
+     * Up: a beam now carries its weight's wL²/8 and its fixed-end moments reach the columns.
+     * Down: where wind governs a support region, the added gravity moment opposes it there.
      */
     expect(actual).toBe(RECORDED_FINGERPRINT);
   });
@@ -143,8 +161,9 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // reader can check without recomputing a hash — and it is where main's drift is visible in
     // words: the SET did not change, the SIZE did not change, the REASON did not change. Only
     // the name the engine gives that refusal did.
+    // 13 since self-weight bends the beams: nine of the 22 left the biaxial band (see above).
     const refused = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED');
-    expect(refused).toHaveLength(22);
+    expect(refused).toHaveLength(13);
     for (const o of refused) {
       expect(o.outcome).toBe('PROVISIONAL_BIAXIAL');
       expect(o.limiting).toContain('biaxial');
@@ -195,5 +214,8 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * `engine/design/` except its own two test files, `member-context.ts` (which EXCLUDES metallic
  * members from this pipeline) and `cirsoc301-capabilities.ts` (every faculty `false`).
  * A member of the flagship frame is concrete, so the exclusion cannot reach it.
+ *
+ * Re-recorded once more (was `792b6f88ea1fc3a4`) when self-weight became a member load; the
+ * member-by-member check is in the test above.
  */
-const RECORDED_FINGERPRINT = '792b6f88ea1fc3a4';
+const RECORDED_FINGERPRINT = 'f4681de2873ce5ac';

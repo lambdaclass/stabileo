@@ -93,6 +93,11 @@ const fixtures3D: Record<string, FixtureLoader> = {
   'rc-design-frame': () => import('./fixtures/rc-design-frame.json'),
   // Small deterministic RC design fixture (8 members) for fast unit + browser
   // tests: adequate sections, load combinations present, every member verifiable.
+  // Its beams were sized for a dead line load of 22 kN/m. Self-weight is now a member load
+  // that bends the beam, so the stated line load is 22 − ρ·A = 17.875 kN/m and the weight
+  // comes from `analysis.selfWeight`: the beams carry the same 22 kN/m they were sized for.
+  // Stating 22 on top of the weight gives 300×550 beams Ø16 bottom bars, and then the 135°
+  // tails of every stirrup reach the second layer of the crossing beams' bars at every corner.
   'rc-design-qa-8': () => import('./fixtures/rc-design-qa-8.json'),
   // Same family, sized so the SUPPORT regions land in row 2 of Table 9.7.6.2.2 (V_s required
   // above 0,33·√f'c·bw·d). A 300 mm web has 242 mm between its two leg centres against row

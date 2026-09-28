@@ -6,6 +6,7 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { publishCombinations3D } from '../../lib/store/active-results';
   import ProResultScopes from './ProResultScopes.svelte';
+  import ProNonlinearReport from './ProNonlinearReport.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
   import ProStoryDriftTable from './ProStoryDriftTable.svelte';
@@ -621,6 +622,7 @@
     </div>
 
     <ProResultScopes />
+    <ProNonlinearReport />
 
     <!-- View mode selector -->
     {#if hasCombinations}

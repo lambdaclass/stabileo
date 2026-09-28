@@ -432,6 +432,27 @@ export interface AnalysisResults3D {
   plateStresses?: PlateStress[];
   quadStresses?: QuadStress[];
   timings?: SolveTimings;
+  /** How the active-set loop ended, when the solve had one-way members or lifting supports. */
+  nonlinear?: NonlinearReport;
+  /** A combination solved with P-Delta (`analysis.perCombination`): how the iteration ended. */
+  secondOrder?: { converged: boolean; iterations: number; stable: boolean; b2: number };
+}
+
+/** The active-set loop's account of one solve (`member-behaviour.ts`). */
+export interface NonlinearReport {
+  converged: boolean;
+  iterations: number;
+  /** Supports whose node lifted off. */
+  lifted: number[];
+  /** One-way members that ended up switched off: they carry exactly nothing. */
+  slack: number[];
+  /** Members that went on and off, or supports that lifted and landed, without settling. */
+  oscillating?: number[];
+  /**
+   * A superposed combination: one-way members the sum leaves with the forbidden sign, and
+   * lifting supports it leaves pulling. Each case had its own active set; the sum need not.
+   */
+  signViolations?: { members: number[]; supports: number[] };
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

@@ -32,7 +32,8 @@ import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject } from './wasm-solver';
-import { correctPDeltaForces, solvePDelta3DCorrected } from './pdelta-forces';
+import { correctPDeltaForces, solvePDelta3DCorrected, amplification } from './pdelta-forces';
+export { amplification } from './pdelta-forces';
 
 export type TauBMode = 'iterate' | 'unity';
 
@@ -197,35 +198,6 @@ function compression(results: AnalysisResults3D): Map<number, number> {
     out.set(f.elementId, c);
   }
   return out;
-}
-
-/**
- * Second- over first-order drift, read from the two sets of displacements, and whether the
- * second-order answer is a physical one.
- *
- * Not the engine's `b2Factor` or `isStable`: past the critical load in a member's weak axis the
- * engine was measured returning `converged`, `isStable` and a B2 of 1.0 with the displacement's
- * sign reversed, a column under 300 kN whose weak-axis critical load is 139 kN. Here the
- * displacement at the node that moves most in first order is compared with its second-order
- * counterpart: a reversed or vanishing one means no equilibrium exists at this load.
- */
-export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D }): { b2: number; stable: boolean } {
-  const lin = r.linearResults?.displacements ?? [];
-  const second = new Map((r.results.displacements ?? []).map((d) => [d.nodeId, d]));
-  let worst: { d1: [number, number, number]; d2: [number, number, number] } | null = null;
-  let m1 = 0, b2 = 1;
-  for (const d of lin) {
-    const d2 = second.get(d.nodeId);
-    if (!d2) continue;
-    const a: [number, number, number] = [d.ux, d.uy, d.uz], b: [number, number, number] = [d2.ux, d2.uy, d2.uz];
-    const h1 = Math.hypot(a[0], a[1]);
-    if (h1 > m1) { m1 = h1; worst = { d1: a, d2: b }; }
-  }
-  if (!worst || m1 < 1e-12) return { b2: 1, stable: true };
-  const dot = worst.d1[0] * worst.d2[0] + worst.d1[1] * worst.d2[1];
-  if (!(dot > 0)) return { b2: Infinity, stable: false };
-  b2 = Math.hypot(worst.d2[0], worst.d2[1]) / m1;
-  return { b2, stable: Number.isFinite(b2) };
 }
 
 /** The largest horizontal displacement anywhere, for choosing the governing notional direction. */

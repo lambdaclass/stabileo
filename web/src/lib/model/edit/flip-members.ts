@@ -41,7 +41,13 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
         if (d.elementId !== id) return l;
         if (l.type === 'distributed3d') {
           const aa = d.a ?? 0, bb = d.b ?? L;
-          return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.a !== undefined || d.b !== undefined ? { a: L - bb, b: L - aa } : {}) } };
+          const span = d.a !== undefined || d.b !== undefined ? { a: L - bb, b: L - aa } : {};
+          // Global and projected loads point where they pointed: only the ends swap. A local one
+          // follows the reversed axes, x and z turning over with the section kept in place.
+          if ((d as { frame?: string }).frame === 'global' || (d as { frame?: string }).frame === 'projected') {
+            return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: d.qZJ, qZJ: d.qZI, ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: d.qXJ, qXJ: d.qXI } : {}), ...span } };
+          }
+          return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
         }
         if (l.type === 'pointOnElement3d') return { ...l, data: { ...d, a: L - (d.a ?? 0), pz: -(d.pz ?? 0) } };
         return l;

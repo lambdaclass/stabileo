@@ -336,7 +336,8 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
      */
     await trussThenSteel(page);
     await page.getByTestId('steel-sub-assumptions').click();
-    const lb = page.locator('[data-testid^="steel-lb-"]').first();
+    // The table's cells, `steel-lb-<id>`: the Lb editor's card shares the prefix.
+    const lb = page.locator('td[data-testid^="steel-lb-"]:not([data-testid^="steel-lb-source-"])').first();
     await expect(lb).toBeVisible();
     // A real length in metres, not a placeholder.
     await expect(lb).toContainText(/\d+\.\d{3} m/);

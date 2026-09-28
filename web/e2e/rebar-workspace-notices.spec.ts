@@ -1,8 +1,8 @@
 /**
- * The viewer's two standing notices, on a building that actually has both — F6 §6.
+ * The viewer's two standing notices, on a model that actually has both — F6 §6.
  *
  * `viewer-notices.test.ts` proves the fold's bookkeeping without a browser, and `f6-viewer.spec.ts`
- * proves that a zero count renders nothing. What only the 7-storey building can show is the thing
+ * proves that a zero count renders nothing. What only a whole building can show is the thing
  * F6 is about: both notices present at once, what they COST in vertical space, and that folding
  * gives that space back without giving up the claim.
  *
@@ -19,6 +19,13 @@
 
 import { test, expect, openPreparedWorkspace } from './prepared-building';
 import type { Page } from '@playwright/test';
+
+/*
+ * On the 408-member frame. The 7-storey building these were written against has had no proposal
+ * since self-weight became a member load (its beams fell under the biaxial threshold), so it
+ * carries one notice, not both; the frame carries 13 proposals and unevaluated torsion.
+ */
+test.use({ preparedBuilding: 'rc-design-frame' });
 
 const NOTICES = [
   { kind: 'provisional', testid: 'rebar-provisional-banner' },
@@ -176,6 +183,8 @@ test.describe('@slow the standing notices, on the building that carries both', (
     const filter = page.getByTestId('rebar-status-PROVISIONAL');
     await expect(filter, 'the state the notice announces is offered as a filter').toBeVisible();
     await expect(filter, 'and its count is the same count').toContainText(String(declared));
+    await expect(page.getByTestId('rebar-provisional-banner'), 'and it says it is not for issue')
+      .toContainText(/NO APTO PARA|NOT VALID FOR/i);
 
     /**
      * And it is a ROUTE, not only a label: pressing it narrows the scene to those members, so a

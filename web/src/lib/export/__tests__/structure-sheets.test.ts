@@ -163,10 +163,15 @@ describe('the four sheet kinds exist and carry real geometry', () => {
   }, 300_000);
 
   it('a member that is not finished is named on the sheet, never shown as approved', () => {
-    // 117 of this building's beams carry a proposal rather than a certified design. A plan
-    // that drew them exactly like the verified ones is the failure the status model exists to
-    // prevent — and worse on paper, because the sheet outlives the session.
-    const sheet = drawGeneralPlan({ scene, title, statusOf });
+    // A plan that drew a proposal exactly like the verified members is the failure the status
+    // model exists to prevent — and worse on paper, because the sheet outlives the session.
+    //
+    // Every beam of this building is verified since self-weight became a member load (see
+    // beam-reinforcement-audit.test.ts), so one member is given the state here. What is under
+    // test is the sheet's reading of a state, whichever member holds it.
+    const beam = scene.solids.find((x) => x.kind === 'beam')!.elementIds[0];
+    const withProposal: typeof statusOf = (id) => (id === beam ? 'PROVISIONAL' : statusOf(id));
+    const sheet = drawGeneralPlan({ scene, title, statusOf: withProposal });
     expect(sheet.notes.some((n) => /PROVISIONAL|UNSUPPORTED|REFUSED|NOT_EVALUATED/.test(n)))
       .toBe(true);
     // And the note says what the state COSTS, not only what it is called. A reader who does

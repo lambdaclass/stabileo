@@ -29,6 +29,7 @@ export function staticsRows(): StaticsRows | null {
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
     loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
     quads: modelStore.quads, plates: modelStore.plates,
+    analysis: modelStore.analysis, groups: modelStore.model.groups,
   };
   const cases = staticsCheck({
     model: md as never,

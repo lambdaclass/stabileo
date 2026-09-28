@@ -83,6 +83,8 @@
     const out: string[] = [];
     if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) out.push('pro.advLimitOffsets');
     if (modelStore.hasJoint3D()) out.push('advanced.jointsUnsupported');
+    // Semi-rigid ends are expanded by the linear solve only; here the ends are rigid.
+    if ([...modelStore.elements.values()].some((e) => e.semiRigid && (e.semiRigid.i || e.semiRigid.j))) out.push('pro.advLimitSemiRigid');
     if (modelStore.hasSlidingJoints()) out.push('advanced.slidingUnsupported');
     if (modelStore.nodes.size > 0 && !hasLoadCarrying3D(modelStore.model)) out.push('pro.advLimitEmpty');
     return out;
