@@ -23,9 +23,10 @@ test.describe('@smoke PRO — one table, under the tools', () => {
     await expect(table.locator('.tabs'), 'and it shows no tab strip').toHaveCount(0);
   });
 
-  test('the constraints panel does the same', async ({ pro: page }) => {
+  test('the links, under Specifications, do the same', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-constraints').click();
+    await page.getByTestId('pr-cmd-specifications').click();
+    await page.getByTestId('spec-section-links').click();
     await expect(page.locator('.data-table')).toHaveCount(1);
     await expect(page.locator('.data-table .tabs')).toHaveCount(0);
   });

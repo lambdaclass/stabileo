@@ -88,7 +88,7 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
     await page.getByTestId('draw-node').click();
     expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('node');
 
-    for (const cmd of ['materials', 'sections', 'constraints', 'elements'] as const) {
+    for (const cmd of ['materials', 'sections', 'specifications', 'elements'] as const) {
       await page.getByTestId(`pr-cmd-${cmd}`).click();
       expect(await page.evaluate(() => window.__stabileo.currentTool()), cmd).toBe('select');
     }

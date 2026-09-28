@@ -67,7 +67,7 @@
   import ProInstabilityReport from './ProInstabilityReport.svelte';
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
-  import ProConstraintsTab from './ProConstraintsTab.svelte';
+  import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
@@ -87,7 +87,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -233,7 +233,7 @@
     ai: 'ai.title',
     project: 'ribbon.project', nodes: 'pro.tabNodes', elements: 'pro.tabElements',
     shells: 'pro.tabShells', materials: 'pro.tabMaterials', sections: 'pro.tabSections',
-    supports: 'pro.tabSupports', constraints: 'pro.tabConstraints', loads: 'pro.tabLoads',
+    specifications: 'spec.title', supports: 'pro.tabSupports', loads: 'pro.tabLoads',
     advanced: 'ribbon.advanced', results: 'ribbon.results', design: 'pro.tabDesign',
     // The panel's heading follows the command that opens it. Leaving it at
     // `pro.tabConnections` would have put "Uniones metálicas" on the ribbon and "Conexiones"
@@ -356,8 +356,8 @@
           <ProSectionsTab />
         {:else if activeTab === 'supports'}
           <ProSupportsTab />
-        {:else if activeTab === 'constraints'}
-          <ProConstraintsTab />
+        {:else if activeTab === 'specifications'}
+          <ProSpecificationsTab />
         {:else if activeTab === 'loads'}
           <ProLoadsTab />
         {:else if activeTab === 'advanced'}

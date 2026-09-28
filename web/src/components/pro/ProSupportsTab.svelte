@@ -3,26 +3,11 @@
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
-  import ProFoundationSprings from './ProFoundationSprings.svelte';
-  import ProSupportEditor from './ProSupportEditor.svelte';
+  import { supportTypeOptions } from '../../lib/pro/support-types';
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
-  const supportTypes = $derived(is3D ? [
-    { value: 'fixed3d' as SupportType, label: t('pro.fixed3d') },
-    { value: 'pinned3d' as SupportType, label: t('pro.pinned3d') },
-    { value: 'rollerXZ' as SupportType, label: t('pro.rollerXZ') },
-    { value: 'rollerXY' as SupportType, label: t('pro.rollerXY') },
-    { value: 'rollerYZ' as SupportType, label: t('pro.rollerYZ') },
-    { value: 'spring3d' as SupportType, label: t('pro.spring3d') },
-    { value: 'custom3d' as SupportType, label: t('pro.custom3d') },
-  ] : [
-    { value: 'fixed' as SupportType, label: t('pro.fixed') },
-    { value: 'pinned' as SupportType, label: t('pro.pinned') },
-    { value: 'rollerX' as SupportType, label: t('pro.rollerX') },
-    { value: 'rollerZ' as SupportType, label: t('pro.rollerY') },
-    { value: 'spring' as SupportType, label: t('pro.spring') },
-  ]);
+  const supportTypes = $derived(supportTypeOptions(is3D, t));
 
   let newNodeId = $state('');
   let newType = $state<SupportType>('fixed3d');
@@ -166,33 +151,19 @@
                        data-testid="sup-uplift-{s.id}" /></td>
             <td><button class="pro-delete-btn" onclick={() => removeSupport(s.id)}>×</button></td>
           </tr>
-          {#if s.type === 'custom3d' || s.type === 'spring3d' || s.isInclined}
-            <tr class="param-row">
-              <td colspan="5"><ProSupportEditor support={s} /></td>
-            </tr>
-          {:else if s.type === 'spring'}
-            <tr class="param-row">
-              <td colspan="5">
-                <div class="spring-grid-inline">
-                  <label class="spring-field">kx <input type="text" value={s.kx ?? ''} placeholder="kN/m" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kx: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                  <label class="spring-field">ky <input type="text" value={s.ky ?? ''} placeholder="kN/m" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { ky: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                  <label class="spring-field">kz <input type="text" value={s.kz ?? ''} placeholder="kN·m/rad" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kz: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                </div>
-              </td>
-            </tr>
-          {:else}
-            <tr class="param-row">
-              <td colspan="5"><details><summary>{t('support.more')}</summary><ProSupportEditor support={s} /></details></td>
-            </tr>
-          {/if}
         {/each}
       </tbody>
     </table>
   </div>
-  <ProFoundationSprings />
+  <!-- Restraints, springs, curves, the inclined normal and the foundation springs are edited in
+       Specifications › Supports, over the selected supports. -->
+  <button class="pro-sup-spec" onclick={() => { uiStore.specSection = 'supports'; uiStore.proActiveTab = 'specifications'; }} data-testid="sup-open-spec">
+    {t('spec.supports.open')}
+  </button>
 </div>
 
 <style>
+  .pro-sup-spec { margin: 6px 10px; align-self: flex-start; font-size: 0.66rem; }
 
 
   .pro-sup { display: flex; flex-direction: column; height: 100%; }
@@ -320,9 +291,6 @@
   .pro-sup-table tbody tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
   .col-id { width: 34px; color: var(--st-text-3); font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; }
-  .param-row td { padding: 4px 8px; background: var(--st-surface); }
-  .dof-grid-inline { display: flex; flex-wrap: wrap; gap: 4px 10px; }
-  .spring-grid-inline { display: flex; flex-wrap: wrap; gap: 4px; }
   .pro-select-inline {
     padding: 2px 4px; background: var(--st-surface-3); border: 1px solid transparent; border-radius: 3px;
     color: var(--st-text-2); font-size: 0.72rem; cursor: pointer; width: 100%;

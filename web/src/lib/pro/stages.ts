@@ -183,6 +183,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           cmds: [
             { id: 'materials', labelKey: 'pro.tabMaterials', icon: 'material', tab: 'materials' },
             { id: 'sections', labelKey: 'pro.tabSections', icon: 'section', tab: 'sections' },
+            { id: 'specifications', labelKey: 'spec.title', icon: 'constraint', tab: 'specifications' },
           ],
         },
         /*
@@ -207,7 +208,6 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
                PANEL, and the panel carries the button that arms the tool.
                See the note on the Draw group. */
             { id: 'supports', labelKey: 'pro.tabSupports', icon: 'support', tab: 'supports' },
-            { id: 'constraints', labelKey: 'pro.tabConstraints', icon: 'constraint', tab: 'constraints' },
             { id: 'loads', labelKey: 'pro.tabLoads', icon: 'load', tab: 'loads' },
           ],
         },
@@ -455,7 +455,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
     grid: 'model', generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model', view: 'model',
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
-    supports: 'model', constraints: 'model', loads: 'model',
+    supports: 'model', specifications: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
     design: 'design', steel: 'design', connections: 'design', otherCodes: 'design',
   };
