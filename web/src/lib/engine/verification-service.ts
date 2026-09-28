@@ -386,7 +386,7 @@ export function runSteelVerification(
    * The length the checker uses per member, and the unbraced length for lateral-torsional
    * buckling (`engine/steel/unbraced-length.ts`). Absent: both are the element's own length.
    */
-  lengths?: ReadonlyMap<number, { L: number; Lb: number }>,
+  lengths?: ReadonlyMap<number, { L: number; Lb: number; chain?: readonly number[] }>,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
 
@@ -406,7 +406,9 @@ export function runSteelVerification(
     if (L <= 0) continue;
 
     const demand = steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId));
-    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, lengths?.get(ef.elementId) ?? { L, Lb: L });
+    const len = lengths?.get(ef.elementId);
+    const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
+    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, len ?? { L, Lb: L }, segment);
     if (v) verifs.push(v);
   }
 
@@ -459,18 +461,125 @@ export function steelDemandOf(
     MuWeak = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
     Vu = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
   }
-  const diagram: StationMoment[] = [];
-  if (stations) {
-    const byT = new Map<number, number>();
-    for (const combo of stations.comboResults) {
-      for (const st of combo.stations) {
-        const prev = byT.get(st.t) ?? 0;
-        if (Math.abs(st.my) > Math.abs(prev)) byT.set(st.t, st.my);
+  const diagram: StationMoment[] = stations ? stationMomentEnvelope(stations) : [];
+  return { Nc, Nt, MuStrong, MuWeak, Vu, diagram };
+}
+
+/**
+ * The signed strong-axis envelope of one element's stations: per station, the `my` with the
+ * largest |my| across every combo, sign kept. This is the diagram Cb reads (`my` is the strong
+ * axis — see the demand mapping in `checkSteelMember`). The envelope rather than one combo,
+ * because `Lb` spans the whole unbraced length and the governing diagram is the one that
+ * produced `MuStrongMax`.
+ */
+function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
+  const byT = new Map<number, number>();
+  for (const combo of stations.comboResults) {
+    for (const st of combo.stations) {
+      const prev = byT.get(st.t);
+      // The first value seen STANDS, zeros included — a dropped zero endpoint would silently
+      // extend the neighbour's value to the segment's edge; later combos win on |my| only.
+      if (prev === undefined || Math.abs(st.my) > Math.abs(prev)) byT.set(st.t, st.my);
+    }
+  }
+  return [...byT].map(([t, m]) => ({ t, m }));
+}
+
+/**
+ * The strong-axis moment diagram over the whole UNBRACED SEGMENT, in segment-normalised `t` —
+ * what F.1.1's `Cb` is written about («Mmáx … en el segmento no arriostrado»).
+ *
+ * ── Why this exists ─────────────────────────────────────────
+ *
+ * `Lb` is the CHAIN length for a member split into collinear elements at pass-through nodes
+ * (`engine/steel/unbraced-length.ts`), but the station diagrams are element-local. Reading Cb
+ * from one element of a chain mismatches the length the checker buckles over, and the error is
+ * unconservative where the gradient is steep: the end element of a beam with a midspan point
+ * load reads 1,667 (its half of the triangle falls linearly to zero) where the segment read is
+ * 1,316.
+ *
+ * ── How the segment diagram is assembled ────────────────────
+ *
+ * Each chain element's envelope is placed along the chain at its geometric offset. An element
+ * drawn against the chain direction (nodeJ first) is read back-to-front AND negated: its local
+ * y axis points the other way, so the same physical moment carries the opposite sign and only
+ * the negation keeps the stitched diagram continuous. The quarter points and the maximum are
+ * then read over the segment — `tStart`/`tEnd` — which is the whole chain, except when a
+ * declared `Lb` is SHORTER than the chain: then the read is bounded to a window of that length
+ * centred on the element that declared it. The app does not know where along the member the
+ * braces are; centring on the declaring element is the read the data supports, and it keeps the
+ * segment aligned with the element whose demand the checker rates.
+ *
+ * Returns undefined when there is no chain to stitch or no diagrams to read — the caller then
+ * falls back to the element-local diagram, which is the segment itself in that case.
+ */
+export interface SteelSegmentDiagram {
+  stations: StationMoment[];
+  tStart: number;
+  tEnd: number;
+}
+
+export function steelSegmentDiagram(
+  elementId: number,
+  lengths: { Lb: number; chain?: readonly number[] } | undefined,
+  stationDiagrams: ReadonlyMap<number, ElementStationResult> | undefined,
+  model: {
+    elements: ReadonlyMap<number, { nodeI: number; nodeJ: number }>;
+    nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>;
+  },
+): SteelSegmentDiagram | undefined {
+  const chain = lengths?.chain;
+  if (!chain || chain.length < 2 || !stationDiagrams || !lengths) return undefined;
+
+  const elems: Array<{ id: number; nodeI: number; nodeJ: number; L: number }> = [];
+  for (const id of chain) {
+    const e = model.elements.get(id);
+    if (!e) return undefined;
+    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+    if (!a || !b) return undefined;
+    const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    if (L <= 0) return undefined;
+    elems.push({ id, nodeI: e.nodeI, nodeJ: e.nodeJ, L });
+  }
+  const total = elems.reduce((s, e) => s + e.L, 0);
+
+  /** The node two consecutive chain elements share. */
+  const shared = (a: { nodeI: number; nodeJ: number }, b: { nodeI: number; nodeJ: number }) =>
+    (a.nodeI === b.nodeI || a.nodeI === b.nodeJ) ? a.nodeI : a.nodeJ;
+
+  const stations: StationMoment[] = [];
+  let prefix = 0;
+  let selfStart = 0;
+  let selfLen = 0;
+  for (let i = 0; i < elems.length; i++) {
+    const e = elems[i]!;
+    // The node the chain ENTERS this element through: the one shared with the previous element
+    // (or, for the first, the one NOT shared with the next). An element entered through nodeJ
+    // is traversed against its own drawing direction.
+    const prev = elems[i - 1], next = elems[i + 1];
+    const entry = prev ? shared(prev, e) : next && shared(e, next) === e.nodeI ? e.nodeJ : e.nodeI;
+    const reversed = entry === e.nodeJ;
+    const env = stationDiagrams.get(e.id);
+    if (env) {
+      for (const s of stationMomentEnvelope(env)) {
+        stations.push({
+          t: (prefix + (reversed ? 1 - s.t : s.t) * e.L) / total,
+          m: reversed ? -s.m : s.m,
+        });
       }
     }
-    for (const [t, m] of byT) diagram.push({ t, m });
+    if (e.id === elementId) { selfStart = prefix; selfLen = e.L; }
+    prefix += e.L;
   }
-  return { Nc, Nt, MuStrong, MuWeak, Vu, diagram };
+
+  let tStart = 0, tEnd = 1;
+  if (lengths.Lb > 0 && lengths.Lb < total - 1e-9) {
+    const w = lengths.Lb / total;
+    const mid = (selfStart + selfLen / 2) / total;
+    tStart = Math.max(0, Math.min(mid - w / 2, 1 - w));
+    tEnd = tStart + w;
+  }
+  return { stations, tStart, tEnd };
 }
 
 /** The largest utilisation of a steel verification, over every limit state it ran. */
@@ -495,6 +604,12 @@ export function checkSteelMember(
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
   lengths: { L: number; Lb: number },
+  /**
+   * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
+   * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
+   * is the segment itself when `Lb` is the element's own length.
+   */
+  segment?: SteelSegmentDiagram,
 ): SteelVerification | null {
   const { MuStrong: MuStrongMax, MuWeak: MuWeakMax, Vu: VuMax, diagram } = demand;
   const { L, Lb } = lengths;
@@ -545,10 +660,12 @@ export function checkSteelMember(
   /*
    * ── Cb from the moment diagram, F.1.1 ────────────────────────────
    *
-   * The stations already exist for the RC path; this reads the strong-axis moment (`my`, which is
-   * what `Muz` feeds — see the demand mapping above) across every combo and takes the envelope of
-   * |M| per station. The envelope rather than one combo, because `Lb` here is the whole member
-   * and the governing diagram is the one that produced `MuStrongMax`.
+   * F.1.1 is written about the UNBRACED SEGMENT, so the diagram read is the one `segment`
+   * carries — stitched from every element of the chain by `steelSegmentDiagram` — and only the
+   * element-local envelope when there is no chain, where the element IS the segment. Reading an
+   * end element of a chain instead would pair a steep local gradient with the chain's `Lb` and
+   * overstate Cb (1,667 against 1,316 on a midspan point load), which raises the LTB capacity
+   * on the unsafe side.
    *
    * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
    * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
@@ -558,7 +675,9 @@ export function checkSteelMember(
    * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
    */
   const grad = momentGradient({
-    stations: diagram,
+    stations: segment?.stations ?? diagram,
+    tStart: segment?.tStart,
+    tEnd: segment?.tEnd,
     shape: (section as { shape?: string }).shape,
     // A free cantilever end is a topology fact this loop does not have; left undefined rather
     // than guessed, which keeps `Cb = 1` for those members via the diagram path.

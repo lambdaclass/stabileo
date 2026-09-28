@@ -200,7 +200,11 @@
             data-testid="elem-lb"
             onchange={(e) => {
               const v = Number(e.currentTarget.value);
-              modelStore.updateElement(elemId, { unbracedLength: e.currentTarget.value === '' || !(v > 0) ? undefined : v });
+              const lb = e.currentTarget.value === '' || !(v > 0) ? undefined : v;
+              // `onchange` fires once, when the value is committed (blur/Enter) — no
+              // per-keystroke flood — so the batch is exactly one undo step, like the
+              // same edit through ProSteelLbEditor.
+              modelStore.batch(() => modelStore.updateElement(elemId, { unbracedLength: lb }));
             }}
           />
         </div>

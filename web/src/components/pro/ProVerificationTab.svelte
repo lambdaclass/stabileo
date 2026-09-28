@@ -414,11 +414,11 @@
       }
     }
 
-    // Deflection: each beam's own bending — relative to the chord of its displaced ends — under
-    // service loads. It used to read a node's absolute displacement, or estimate the midspan
-    // with 5·Ms·L²/(48·E·Ig) when the ends did not move. See `store/service-deflection.ts`.
-    const beamIds = verifs.filter(v => v.elementType === 'beam').map(v => v.elementId);
-    const svc = deflectionChecks(beamIds);
+    // Deflection: every beam's own bending — relative to the chord of its displaced ends — under
+    // service loads, concrete and steel alike: the same run the Deflections table shows. It used
+    // to read a node's absolute displacement, or estimate the midspan with 5·Ms·L²/(48·E·Ig) when
+    // the ends did not move. See `store/service-deflection.ts`.
+    const svc = deflectionChecks();
     deflectionBasis = svc.basis;
     deflectionBasisNames = svc.names;
     for (const [id, row] of svc.rows) {

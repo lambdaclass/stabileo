@@ -3,6 +3,7 @@
  * selection that reads like the selected members.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { storyDrifts } from '../../engine/story-drift';
 import { groupByParallel } from '../../engine/design/member-grouping';
 import { memberLabelText, selectionNodeIds } from '../view-state.svelte';
@@ -13,6 +14,8 @@ import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { deflectionChecks, LONG_TERM_FACTOR } from '../serviceability';
+import { buildProReportData } from '../../engine/pro-report-inputs';
+import { eiOf } from '../../engine/member-deflection';
 import { modelToCode, codeToModel } from '../../model/code/format';
 
 const disp = (nodeId: number, ux: number, uy = 0, uz = 0) => ({ nodeId, ux, uy, uz });
@@ -109,6 +112,41 @@ describe('named views', () => {
     modelStore.removeView(id);
     expect(modelStore.snapshot().views).toBeUndefined();
   });
+
+  it('undo/redo of a view edit keeps the solve and restores the views themselves', async () => {
+    await initSolver();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0);
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D(r);
+
+    const id = modelStore.saveView('North frame', { x: 10, y: -20, z: 5 }, { x: 0, y: 0, z: 1.5 });
+    modelStore.renameView(id, 'South frame');
+
+    const versionBefore = modelStore.modelVersion;
+    historyStore.undo(); // undo the rename
+    expect(modelStore.modelVersion).toBe(versionBefore);
+    expect(resultsStore.results3D).not.toBeNull();
+    expect(modelStore.views[0]!.name).toBe('North frame');
+    historyStore.undo(); // undo the save
+    expect(modelStore.modelVersion).toBe(versionBefore);
+    expect(resultsStore.results3D).not.toBeNull();
+    expect(modelStore.views).toEqual([]);
+    historyStore.redo();
+    historyStore.redo();
+    expect(modelStore.modelVersion).toBe(versionBefore);
+    expect(resultsStore.results3D).not.toBeNull();
+    expect(modelStore.views).toEqual([{ id, name: 'South frame', position: { x: 10, y: -20, z: 5 }, target: { x: 0, y: 0, z: 1.5 } }]);
+
+    modelStore.removeView(id);
+    historyStore.undo(); // undo the remove
+    expect(modelStore.modelVersion).toBe(versionBefore);
+    expect(resultsStore.results3D).not.toBeNull();
+    expect(modelStore.views[0]!.name).toBe('South frame');
+  });
 });
 
 describe('one deflection check for concrete and steel', () => {
@@ -141,5 +179,39 @@ describe('one deflection check for concrete and steel', () => {
     expect(steel.family).toBe('steel');
     expect(steel.check.deltaTotal).toBe(steel.check.deltaImm);
     expect(steel.check.limit).toBeCloseTo(6 / 360, 12);
+  });
+
+  it('the report states a steel beam’s deflection, with no concrete verification to hang it on', () => {
+    // The report's verification set is concrete-only (`reportVerification`); a steel-only model
+    // hands it nothing, and its serviceability section still owes the reader the deflection.
+    const s = beam({ e: 200000, fy: 250 });
+    const el = modelStore.elements.get(s)!;
+    const EI = eiOf(modelStore.materials.get(el.materialId), modelStore.sections.get(el.sectionId) as never)!.EIy;
+    const data = buildProReportData({
+      config: {
+        companyName: '', companyLogo: null, projectAddress: '', engineerName: '', revision: '',
+        sections: { modelData: true, results: true, verification: true, advancedAnalysis: true, storyDrift: true, diagnostics: true, quantities: true, loads: true },
+      },
+      verifications: [],
+      t: (k: string) => k,
+    });
+    const row = data?.serviceability?.find((r2) => r2.elementId === s);
+    expect(row?.deflection).toBeDefined();
+    // Simply supported, q = 5 over L = 6: 5qL⁴/384EI, no long-term factor for steel.
+    const delta = (5 * 5 * 6 ** 4) / (384 * EI);
+    expect(row!.deflection!.spanOverDelta).toBeCloseTo(6 / delta, 3);
+    expect(row!.deflection!.limitDivisor).toBe(360);
+  });
+
+  it('the tab and the report run it for every beam, not the concrete verification set', () => {
+    // The concrete-only verification set is what `runUnifiedVerification` returns; steel members
+    // live in `steelVerifs`. Filtering the deflection check by the former is how steel beams
+    // never reached it. Both call sites run the same unfiltered check the Deflections table runs.
+    const tab = readFileSync(new URL('../../../components/pro/ProVerificationTab.svelte', import.meta.url), 'utf8');
+    const report = readFileSync(new URL('../../engine/pro-report-inputs.ts', import.meta.url), 'utf8');
+    for (const [name, src] of [['ProVerificationTab.svelte', tab], ['pro-report-inputs.ts', report]] as const) {
+      expect(src, name).toContain('deflectionChecks()');
+      expect(src, name).not.toMatch(/deflectionChecks\(\s*beam/);
+    }
   });
 });

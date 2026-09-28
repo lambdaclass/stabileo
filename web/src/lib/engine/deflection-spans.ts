@@ -49,6 +49,13 @@ export interface Span {
   /** The span's end nodes. */
   start: number;
   end: number;
+  /**
+   * An end nothing holds and no element outside the span continues into: the tip of a
+   * cantilever. The deflection of such a span is measured from the tangent at its other end,
+   * not from the chord — see `member-deflection.ts`.
+   */
+  freeStart: boolean;
+  freeEnd: boolean;
   length: number;
 }
 
@@ -114,11 +121,17 @@ export function deflectionSpans(model: SpanModel): Map<number, Span> {
     }).sort((a, b) => a.s0 - b.s0);
     if (rows.length === 0) return null;
     const head = rows[0]!, tail = rows[rows.length - 1]!;
+    const start = head.reversed ? head.e.nodeJ : head.e.nodeI;
+    const end = tail.reversed ? tail.e.nodeI : tail.e.nodeJ;
+    const inSpan = new Set(rows.map((r) => r.id));
+    const free = (n: number) => !held.has(n) && (incident.get(n) ?? []).every((id) => inSpan.has(id));
     return {
       elements: rows.map((r) => r.id),
       reversed: rows.map((r) => r.reversed),
-      start: head.reversed ? head.e.nodeJ : head.e.nodeI,
-      end: tail.reversed ? tail.e.nodeI : tail.e.nodeJ,
+      start,
+      end,
+      freeStart: free(start),
+      freeEnd: free(end),
       length: rows.reduce((s, r) => s + (lenOf.get(r.id) ?? 0), 0),
     };
   };
