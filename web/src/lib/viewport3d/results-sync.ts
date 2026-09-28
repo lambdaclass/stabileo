@@ -28,6 +28,9 @@ import { restoreShellColor } from '../three/create-shell-mesh';
 import { shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
+/** A screen-sized label's height, as a fraction of the viewport's (see the node labels). */
+const LABEL_SCREEN = 0.038;
+
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
 function projectFlag(): boolean {
   return getCachedProjectModelToXZ(
@@ -313,6 +316,8 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
       const n = nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
+      // Screen-sized: without a scale the sprite keeps the default 0.6 — 60 % of the viewport.
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       labels.add(sprite);
       placed.push({ sprite, x: n.x, y: n.y, z: n.z ?? 0, d });
     }
@@ -1140,7 +1145,6 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
      report. `LABEL_SCREEN` is a fraction of the viewport height.
   */
   const spriteScale = modelSize * 0.025;
-  const LABEL_SCREEN = 0.038;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {
