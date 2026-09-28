@@ -32,7 +32,8 @@
   import { DAGG_MAX_MM, DAGG_MIN_MM } from '../../lib/codes/project-code-settings';
   import ProMaterialModal from './material/ProMaterialModal.svelte';
   import { toMaterialFields, type MaterialChoice } from '../../lib/material/material-choice';
-  import { materialFamilyOf } from '../../lib/engine/steel/material-family';
+  import { concreteStrengthConflict, materialFamilyOf } from '../../lib/engine/steel/material-family';
+  import { catalogueGradeFamily } from '../../lib/engine/steel/grade-family';
 
   /**
    * Whether a material is one these two columns have anything to say about.
@@ -64,6 +65,13 @@
    * check or concrete detailing — and the application was reaching that
    * verdict silently, from `fy` or a declared grade.
    */
+  function conflictNote(m: { e: number; fy?: number; gradeId?: string }): string | undefined {
+    const c = concreteStrengthConflict(m, catalogueGradeFamily);
+    if (c === 'stiffnessSaysConcrete') return t('diag.model.concreteFyReadAsSteel');
+    if (c === 'gradeSaysConcrete') return t('diag.model.concreteGradeFyOutOfRange');
+    return undefined;
+  }
+
   function detailOf(m: {
     e: number; nu: number; rho: number; fy?: number; gradeId?: string; name?: string;
     maxAggregateSizeMm?: number; spacingMarginMm?: number;
@@ -82,7 +90,8 @@
       {
         label: t('materials.family'),
         value: t(`steel.family.${verdict.family}`) ?? verdict.family,
-        note: t(`steel.basis.${verdict.basis}`) ?? undefined,
+        // A concrete filed as steel by its fy is decided right here, so this is where it is said.
+        note: conflictNote(m) ?? t(`steel.basis.${verdict.basis}`) ?? undefined,
       },
     ];
     if (verdict.family === 'concrete') {

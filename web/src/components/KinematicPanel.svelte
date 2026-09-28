@@ -121,7 +121,14 @@
 {#if uiStore.showKinematicPanel}
   <div class="kp-panel" class:docked={docked}>
     <div class="kp-header">
-      <span class="kp-title">{t('kinematic.title')}</span>
+      <!--
+        Docked, the panel above already names what is running and carries its ✕.
+        Drawing them again put the same title twice — once in the accent colour
+        of the running-analysis header and once in grey immediately beneath it,
+        each with its own close button. Floating, this header is the only one
+        there is, so it keeps both.
+      -->
+      {#if !docked}<span class="kp-title">{t('kinematic.title')}</span>{/if}
       <div class="kp-header-actions">
         <button
           class="kp-quick-btn"
@@ -144,7 +151,9 @@
           onclick={() => { if (is3D) uiStore.showLoads3D = !uiStore.showLoads3D; else uiStore.showLoads = !uiStore.showLoads; }}>
           Q
         </button>
-        <button class="kp-close" onclick={close} title={t('kinematic.close')}>&times;</button>
+        {#if !docked}
+          <button class="kp-close" onclick={close} title={t('kinematic.close')}>&times;</button>
+        {/if}
       </div>
     </div>
 

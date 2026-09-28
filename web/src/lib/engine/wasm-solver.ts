@@ -5,6 +5,8 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { stripStabilisedReactions } from './stabilised-reactions';
+import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
@@ -470,7 +472,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return wasmSolve3d(wire);
+    return stripStabilisedReactions(wasmSolve3d(wire), input);
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
@@ -612,22 +614,22 @@ export function solveMovingLoads(config: {
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
   const json = serializeInput3D(input);
-  const resultJson = wasmSolvePdelta3d(json, maxIter, tolerance);
-  return JSON.parse(resultJson);
+  const result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
+  // Same as `solve3D`: a node that only gained a vanishing spring is not a
+  // support, and its zero reaction row is not a result.
+  if (result?.results) stripStabilisedReactions(result.results, input);
+  if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
+  return result;
 }
 
 /** Solve 3D modal analysis via WASM. */
 export function solveModal3D(input: SolverInput3D, densities: Map<number, number>, numModes = 6) {
   if (!wasmReady || !wasmSolveModal3d) throw new Error('WASM Modal 3D solver not available.');
+  // The whole model, through the same serializer every other 3D analysis uses. This built its
+  // own subset and left out quads, plates, constraints and connectors — so a slab contributed
+  // neither stiffness nor mass to PRO's modal analysis.
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
+    solver: input3DToWireObject(input),
     densities: mapToObj(densities),
   });
   const resultJson = wasmSolveModal3d(payload, numModes);
@@ -642,33 +644,33 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   return JSON.parse(resultJson);
 }
 
-/** Solve 3D spectral analysis via WASM. */
+/**
+ * Solve 3D spectral analysis via WASM, for ONE direction.
+ *
+ * The fields are `SpectralInput3D`'s, one for one. The previous signature took `directions`,
+ * `combination` and `numModes`, none of which the struct has, and omitted `modes` and
+ * `direction`, which it requires — every call failed to deserialise. The engine combines one
+ * direction per run; run it once per direction.
+ */
 export function solveSpectral3D(config: {
   solver: SolverInput3D;
+  modes: SpectralModeInput3D[];
   densities: Map<number, number>;
   spectrum: { name: string; points: { period: number; sa: number }[]; inG?: boolean };
-  directions: Array<'X' | 'Y' | 'Z'>;
-  combination: 'SRSS' | 'CQC';
-  numModes?: number;
+  direction: 'X' | 'Y' | 'Z';
+  rule: 'SRSS' | 'CQC';
   xi?: number;
   importanceFactor?: number;
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral3d) throw new Error('WASM Spectral 3D solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input3DToWireObject(config.solver),
+    modes: config.modes,
     densities: mapToObj(config.densities),
     spectrum: config.spectrum,
-    directions: config.directions,
-    combination: config.combination,
-    numModes: config.numModes,
+    direction: config.direction,
+    rule: config.rule,
     xi: config.xi,
     importanceFactor: config.importanceFactor,
     reductionFactor: config.reductionFactor,
@@ -1275,6 +1277,9 @@ export function solveMultiCase2D(config: any): any {
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
 export function solveMultiCase3D(config: any): any {
   if (!wasmReady || !wasmSolveMultiCase3d) throw new Error('WASM multi-case 3D solver not available.');
+  // Kept before the wire conversion: the strip below reads the stabiliser's
+  // mark off the supports, and both shapes carry it.
+  const input = config.solver;
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input3DToWireObject(config.solver) };
   }
@@ -1283,7 +1288,17 @@ export function solveMultiCase3D(config: any): any {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return wasmSolveMultiCase3d(config);
+    const result = wasmSolveMultiCase3d(config);
+    // As in `solve3D`, and for every case, combination and the envelope: this
+    // is the path behind Calcular with load combinations, and a node the
+    // stabiliser supported showed up in all of them as a zero reaction the
+    // user never asked for.
+    if (input && result) {
+      for (const cr of result.caseResults ?? []) stripStabilisedReactions(cr.results, input);
+      for (const cr of result.combinationResults ?? []) stripStabilisedReactions(cr.results, input);
+      if (result.envelope?.maxAbsResults3D) stripStabilisedReactions(result.envelope.maxAbsResults3D, input);
+    }
+    return result;
   } catch (e: any) {
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
     const base = e?.message ?? String(e);

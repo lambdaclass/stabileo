@@ -1,5 +1,13 @@
 <script lang="ts">
+  import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
+  import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
+  import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
+  import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
+  import {
+    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
+  } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
@@ -8,7 +16,6 @@
     solveModal3D as wasmModal3D,
     solveBuckling3D as wasmBuckling3D,
     solveSpectral3D as wasmSpectral3D,
-    solveTimeHistory3D,
     solvePlastic3D,
     solveCorotational3D,
     solveFiberNonlinear3D,
@@ -106,7 +113,7 @@
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
-      false,
+      uiStore.axisConvention3D === 'leftHand',
       // Advanced analyses run on the centerline: their wire payloads (modal/
       // spectral) don't carry constraints, so expanded offset-helper nodes
       // would float free — singular K instead of eccentricity effects. The
@@ -117,29 +124,33 @@
     return input;
   }
 
-  function getMaterialDensities(input?: any): Map<number, number> {
-    // mat.rho is weight density in kN/m³; convert to mass density in kg/m³
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      densities.set(id, ((mat as any).rho ?? 0) * 1000 / 9.81);
-    }
-    // Also include any materials from the enforced input (penalty materials)
-    // that aren't in the store — use small density to avoid zero-mass DOFs
-    if (input?.materials) {
-      for (const [id] of input.materials) {
-        if (!densities.has(id)) {
-          densities.set(id, 1.0); // 1 kg/m³ — negligible but non-zero
-        }
-      }
-    }
-    return densities;
-  }
-
   function maybeApplyDiaphragm(input: any) {
     if (!useDiaphragm) return input;
     const levels = detectFloorLevels(input.nodes);
     if (!levels || levels.length === 0) return input;
     return applyRigidDiaphragm(input, { levels });
+  }
+
+  /** What the last dynamic run took as mass. Shown beside the mass-source table. */
+  let massReport = $state<MassSourceReport | null>(null);
+
+  /**
+   * The input every dynamic analysis runs on: the model, its mass source, then the diaphragm.
+   *
+   * One builder for modal, spectral, time history and harmonic, so the four cannot disagree
+   * about how heavy the structure is.
+   */
+  function buildDynamicInput(): { input: any; densities: Map<number, number> } {
+    const md = {
+      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+      quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+      connectors: modelStore.connectors,
+    };
+    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
+    massReport = ms.report;
+    const input = maybeApplyDiaphragm(ms.input);
+    return { input, densities: densitiesFor(input, ms.densities) };
   }
 
   // ─── 1. P-Delta ─────────────────────────────────────────────────
@@ -175,25 +186,16 @@
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
 
-  const modalCumX = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationX ?? m.partX ?? 0); return sum; });
-  });
-  const modalCumY = $derived.by(() => {
-    if (!modalResult?.modes) return [];
-    let sum = 0;
-    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationY ?? m.partY ?? 0); return sum; });
-  });
+  const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
+  /** The model the modal result describes. Spectral reuses its modes and must not outlive it. */
+  let modalModelVersion = $state<number | null>(null);
 
   function handleModal() {
     solveError = null;
     solving = true;
     modalElapsed = null;
     try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities(input);
+      const { input, densities } = buildDynamicInput();
       let res: any;
       const t0 = performance.now();
       res = wasmModal3D(input, densities, numModes);
@@ -201,6 +203,7 @@
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
+      modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
           frequency: m.frequency ?? m.freq ?? (res.frequencies?.[i] ?? 0),
@@ -233,24 +236,27 @@
         solving = false;
         return;
       }
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities(input);
+      // The modes carry node ids and shapes of the model they were computed on. Combining them
+      // with an edited model would pair shapes with the wrong nodes, silently.
+      if (modalModelVersion !== modelStore.modelVersion) {
+        solveError = t('pro.modalStale');
+        solving = false;
+        return;
+      }
+      const { input, densities } = buildDynamicInput();
       const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
-      let res: any;
-      res = wasmSpectral3D({
-          solver: input,
-          densities,
-          spectrum,
-          directions: ['X', 'Y', 'Z'],
-          combination: spectralCombination,
-          numModes,
-        });
-      if (typeof res === 'string') { solveError = `Espectral: ${res}`; solving = false; return; }
-      spectralResult = res;
-      advancedResults = { ...advancedResults, spectral: { baseShearX: res.baseShearX ?? res.baseShear, baseShearY: res.baseShearY, baseShearZ: res.baseShearZ } };
+      const modes = spectralModesFrom(modalResult);
+      // One run per horizontal direction: the engine combines a single direction at a time.
+      const byDir: Record<string, any> = {};
+      for (const direction of HORIZONTAL_DIRECTIONS) {
+        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination });
+        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
+        byDir[direction] = res;
+      }
+      spectralResult = byDir;
+      advancedResults = { ...advancedResults, spectral: { baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
     } catch (e: any) {
-      solveError = `Espectral: ${errorText(e, 'Error')}`;
+      solveError = `${t('pro.spectralTitle')}: ${errorText(e, 'Error')}`;
     }
     solving = false;
   }
@@ -282,77 +288,6 @@
     solving = false;
   }
 
-  // ─── 5. Time History ──────────────────────────────────────────
-
-  let thDt = $state(0.01);
-  let thNSteps = $state(200);
-  let thDir = $state<'X' | 'Y' | 'Z'>('X');
-  let thDamping = $state(0.05);
-  let thMethod = $state<'newmark' | 'hht'>('newmark');
-  let thAccelText = $state('');
-  let thResult = $state<any | null>(null);
-  /* Starts on the generated sine: with the text box empty and this off, the
-     only thing the button could do was refuse to run. */
-  let thUseSine = $state(true);
-  let thSineAmp = $state(0.3);
-  let thSineFreq = $state(2.0);
-
-  function generateSineAccel(): number[] {
-    const vals: number[] = [];
-    for (let i = 0; i < thNSteps; i++) {
-      vals.push(thSineAmp * Math.sin(2 * Math.PI * thSineFreq * i * thDt));
-    }
-    return vals;
-  }
-
-  function parseAccelInput(): number[] {
-    if (thUseSine) return generateSineAccel();
-    return thAccelText.split(/[,\s]+/).filter(s => s.length > 0).map(Number).filter(n => !isNaN(n));
-  }
-
-  function handleTimeHistory() {
-    solveError = null;
-    solving = true;
-    try {
-      const groundAccel = parseAccelInput();
-      if (groundAccel.length === 0) {
-        solveError = t('pro.needAccelData');
-        solving = false;
-        return;
-      }
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      const densities: Record<string, number> = {};
-      for (const [id, mat] of modelStore.materials) {
-        densities[String(id)] = (mat as any).rho ?? 0;
-      }
-      const beta = 0.25;
-      const gamma = 0.5;
-      const res = solveTimeHistory3D({
-        solver: input,
-        densities,
-        timeStep: thDt,
-        nSteps: thNSteps,
-        method: thMethod,
-        beta,
-        gamma,
-        dampingXi: thDamping,
-        // `TimeHistoryInput3D` takes one acceleration series per global
-        // axis. The old payload sent the 2D pair { groundAccel,
-        // groundDirection }, which hit no field at all — so the run went
-        // ahead with ZERO ground motion and the static loads as the only
-        // excitation.
-        groundAccelX: thDir === 'X' ? groundAccel : undefined,
-        groundAccelY: thDir === 'Y' ? groundAccel : undefined,
-        groundAccelZ: thDir === 'Z' ? groundAccel : undefined,
-      });
-      thResult = res;
-    } catch (e: any) {
-      solveError = `Time History: ${errorText(e, 'Error')}`;
-    }
-    solving = false;
-  }
-
   // ─── 6b. Harmonic Response ───────────────────────────────────
 
   let harmFMin = $state(0.1);
@@ -368,13 +303,9 @@
     solving = true;
     harmonicElapsed = null;
     try {
-      let input = buildInput();
-      input = maybeApplyDiaphragm(input);
-      // Mass density in kg/m³, exactly as modal does it — `rho` is a WEIGHT
-      // density in kN/m³, and feeding it straight in made every frequency
-      // wrong by a factor of g/1000.
-      const densities: Record<string, number> = {};
-      for (const [id, d] of getMaterialDensities(input)) densities[String(id)] = d;
+      const dyn = buildDynamicInput();
+      const input = dyn.input;
+      const densities = densityRecord(dyn.densities);
       // The engine sweeps an explicit frequency list and reports one node's
       // response; it has no fMin/fMax/nPoints of its own.
       const span = harmNPoints > 1 ? (harmFMax - harmFMin) / (harmNPoints - 1) : 0;
@@ -840,7 +771,7 @@
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
       uiStore.includeSelfWeight,
-      false,
+      uiStore.axisConvention3D === 'leftHand',
       { expandMemberOffsets: false },
     );
     return (input?.loads as unknown[]) ?? [];
@@ -1041,6 +972,10 @@
       <ProDiagnosticsTab />
     </div>
 
+    <div class="adv-group">
+      <StaticsCheckPanel />
+    </div>
+
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
       <div class="adv-row">
@@ -1056,6 +991,11 @@
       {/if}
     </div>
 
+    <!-- ── Mass source: what the dynamic analyses below weigh ── -->
+    <div class="adv-group">
+      <MassSourcePanel report={massReport} />
+    </div>
+
     <!-- ── 2. Modal ── -->
     <div class="adv-group">
       <div class="adv-row">
@@ -1067,12 +1007,12 @@
       </div>
       {#if modalResult}
         <div class="adv-inline">
-          {#if modalResult.totalMass != null}Masa: {fmtNum(modalResult.totalMass)} kg — {/if}
+          {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>Cum. X</th><th>Cum. Y</th></tr></thead>
+            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr>
@@ -1082,8 +1022,8 @@
                   <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
-                  <td class="col-num" class:cum-warn={modalCumX[i] < 0.9} class:cum-ok={modalCumX[i] >= 0.9}>{(modalCumX[i] * 100).toFixed(1)}%</td>
-                  <td class="col-num" class:cum-warn={modalCumY[i] < 0.9} class:cum-ok={modalCumY[i] >= 0.9}>{(modalCumY[i] * 100).toFixed(1)}%</td>
+                  <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
+                  <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
                 </tr>
               {/each}
             </tbody>
@@ -1119,26 +1059,25 @@
         <div class="adv-hint">{t('pro.requiresModal')}</div>
       {/if}
       {#if spectralResult}
-        <div class="adv-inline">
-          Vb: X={fmtNum(spectralResult.baseShearX ?? spectralResult.baseShear?.x ?? spectralResult.baseShear ?? 0)}, Y={fmtNum(spectralResult.baseShearY ?? spectralResult.baseShear?.y ?? 0)} kN
+        <div class="adv-inline" data-testid="spectral-base-shear">
+          Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
-        {#if spectralResult.perMode || spectralResult.perModeX}
-          <div class="adv-table-scroll">
-            <table class="adv-table">
-              <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb (kN)</th></tr></thead>
-              <tbody>
-                {#each (spectralResult.perMode ?? spectralResult.perModeX ?? []) as pm, i}
-                  <tr>
-                    <td class="col-id">{i + 1}</td>
-                    <td class="col-num">{fmtNum(pm.period ?? 0)}</td>
-                    <td class="col-num">{fmtNum((pm.sa ?? pm.Sa ?? 0) / 9.81)}</td>
-                    <td class="col-num">{fmtNum(pm.shear ?? pm.Vb ?? 0)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
+        <div class="adv-table-scroll">
+          <table class="adv-table">
+            <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
+            <tbody>
+              {#each (spectralResult.X?.perMode ?? []) as pm, i}
+                <tr>
+                  <td class="col-id">{i + 1}</td>
+                  <td class="col-num">{fmtNum(pm.period ?? 0)}</td>
+                  <td class="col-num">{fmtNum((pm.sa ?? 0) / 9.81)}</td>
+                  <td class="col-num">{fmtNum(Math.abs(pm.modalForce ?? 0))}</td>
+                  <td class="col-num">{fmtNum(Math.abs(spectralResult.Y?.perMode?.[i]?.modalForce ?? 0))}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
       {/if}
     </div>
 
@@ -1200,44 +1139,7 @@
       </div>
 
       {#if advView === 'timehistory'}
-      <div class="adv-panel">
-        <div class="adv-form">
-          <label class="adv-label">dt (s): <input type="number" class="adv-num" bind:value={thDt} min={0.001} max={1} step={0.001} /></label>
-          <label class="adv-label">Pasos: <input type="number" class="adv-num adv-num-wide" bind:value={thNSteps} min={1} max={10000} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={thDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
-          <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={thDamping} min={0} max={1} step={0.01} /></label>
-          <label class="adv-label">Método: <select class="adv-sel" bind:value={thMethod}><option value="newmark">Newmark</option><option value="hht">HHT-&#x03B1;</option></select></label>
-        </div>
-        <label class="adv-check">
-          <input type="checkbox" bind:checked={thUseSine} />
-          {t('pro.testSine')}
-        </label>
-        {#if thUseSine}
-          <div class="adv-form">
-            <label class="adv-label">Amp (g): <input type="number" class="adv-num" bind:value={thSineAmp} min={0.01} step={0.05} /></label>
-            <label class="adv-label">Freq (Hz): <input type="number" class="adv-num" bind:value={thSineFreq} min={0.1} step={0.1} /></label>
-          </div>
-        {:else}
-          <div class="adv-accel-area">
-            <label class="adv-label">{t('pro.accelInput')}:</label>
-            <textarea class="adv-textarea" bind:value={thAccelText} rows="2" placeholder="0.1, 0.25, 0.4, 0.3, -0.1, ..."></textarea>
-          </div>
-        {/if}
-        <button class="adv-run-btn" onclick={handleTimeHistory} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
-      </div>
-      {#if thResult}
-        <div class="adv-inline">
-          <!-- The engine returns peak ENVELOPES, one per node and per support,
-               plus the step count — not a single peak triple. -->
-          {#if thResult.peakDisplacements?.length}
-            δmax={fmtNum(Math.max(...thResult.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
-          {/if}
-          {#if thResult.peakReactions?.length}
-            — Vb_max={fmtNum(Math.max(...thResult.peakReactions.map((r: any) => Math.hypot(r.rx ?? 0, r.ry ?? 0))))} kN
-          {/if}
-          {#if thResult.nSteps != null} — {thResult.nSteps} {t('pro.steps')} ({thResult.method}){/if}
-        </div>
-      {/if}
+        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)} />
       {/if}
 
     <!-- ── 6b. Harmonic Response ── -->
