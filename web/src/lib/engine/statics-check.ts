@@ -26,13 +26,14 @@
  * residual into a clean bill of health.
  *
  * Surface loads and the self-weight of shells are distributed to their nodes exactly as the
- * solve distributes them — a quarter of q·A or ρ·t·A to each corner of a quad, a third to each
- * of a triangle — so the moment side agrees with the solve and not with an idealised centroid.
+ * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
+ * corner of a triangle), so the moment side agrees with the solve.
  */
 import type { ModelData } from './solver-service';
 import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
 import { selfWeightFor, selfWeightScope } from './self-weight';
 import { activeModel } from './member-behaviour';
+import { quadCornerShares } from './solver-shells';
 import type {
   NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, Load,
 } from '../store/model.svelte';
@@ -181,14 +182,13 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
           for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
         }
       } else if (l.type === 'surface3d') {
-        // q downward on the quad, a quarter of q·A to each corner — the solve's own split.
+        // q downward on the quad, each corner its consistent share — the solve's own split.
         const d = l.data as SurfaceLoad3D;
         const q = model.quads?.get(d.quadId);
         const ps = q?.nodes.map((id) => model.nodes.get(id));
         if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
-        const [a, b, c, e] = ps as P3[];
-        const F = -d.q * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4;
-        for (const n of ps as P3[]) addForceAt(applied, [0, 0, F], [n.x, n.y, n.z ?? 0]);
+        const shares = quadCornerShares(ps as never);
+        (ps as P3[]).forEach((n, i) => addForceAt(applied, [0, 0, -d.q * shares[i]!], [n.x, n.y, n.z ?? 0]));
       } else if (l.type === 'thermal' || l.type === 'thermalQuad3d') {
         // No net external force by definition. Not a gap.
       } else {
@@ -220,9 +220,11 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const mat = model.materials.get(q.materialId);
         const ps = q.nodes.map((id) => model.nodes.get(id));
         if (!mat || ps.some((n) => !n)) continue;
-        const [a, b, c, e] = ps as P3[];
-        const w = mat.rho * q.thickness * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4 * sw.factor;
-        for (const n of ps as P3[]) addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+        const shares = quadCornerShares(ps as never);
+        (ps as P3[]).forEach((n, i) => {
+          const w = mat.rho * q.thickness * shares[i]! * sw.factor;
+          addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+        });
       }
       for (const pl of model.plates?.values() ?? []) {
         if (scope.plates && !scope.plates.has(pl.id)) continue;

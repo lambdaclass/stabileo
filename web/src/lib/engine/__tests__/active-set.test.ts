@@ -102,6 +102,27 @@ describe('combinations with one-way members', () => {
   });
 });
 
+describe('a slack guy at an anchor nothing else reaches', () => {
+  it('still hands its load to the anchor, which keeps its reaction', () => {
+    const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 6), anchor = modelStore.addNode(6, 0, 0);
+    modelStore.addElement(base, top, 'frame');
+    const guy = modelStore.addElement(anchor, top, 'frame');
+    modelStore.updateElement(guy, { behaviour: 'tensionOnly' } as never);
+    modelStore.addSupport(base, 'fixed3d' as never);
+    modelStore.addSupport(anchor, 'fixed3d' as never);
+    // Pushed toward the anchor, the guy shortens and goes slack; wind acts on it all the same.
+    modelStore.addNodalLoad3D(top, 10, 0, 0, 0, 0, 0);
+    modelStore.addDistributedLoad3D(guy, 1, 1, 0, 0, undefined, undefined, undefined, { frame: 'global' });
+    const r = solve();
+    expect(r.nonlinear!.slack).toEqual([guy]);
+    const L = Math.hypot(6, 6);
+    const atAnchor = r.reactions.find((x) => x.nodeId === anchor)!;
+    expect(atAnchor.fy).toBeCloseTo(-L / 2, 9);
+    const rows = staticsCheck({ model: md() as never, reactionsByCase: new Map([[null, r.reactions]]), includeSelfWeight: false });
+    expect(rows[0]!.worstRelative).toBeLessThan(1e-9);
+  });
+});
+
 describe('a settlement', () => {
   it('goes into each combination once, and into no case', () => {
     const { n2, n3, combo } = (() => {
