@@ -12,8 +12,7 @@
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
-  import { POSTS, findPost, formatPostDate } from '../../lib/blog';
-  import { readingMinutes } from '../../lib/blog/types';
+  import { POSTS, findPost, formatPostDate, postReadingMinutes } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
   import BlogNav from './BlogNav.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -98,7 +97,7 @@
         <div class="post-meta">
           <time datetime={post.date}>{formatPostDate(post.date, publicI18n.locale)}</time>
           <span aria-hidden="true">·</span>
-          <span>{tp('blog.readingTime', { n: readingMinutes(body) })}</span>
+          <span>{tp('blog.readingTime', { n: postReadingMinutes(post, publicI18n.locale) })}</span>
           <span aria-hidden="true">·</span>
           <span>{t('blog.by')} {post.authors.join(', ')}</span>
         </div>
@@ -144,7 +143,7 @@
                   <div class="post-card-meta">
                     <time datetime={p.date}>{formatPostDate(p.date, publicI18n.locale)}</time>
                     <span aria-hidden="true">·</span>
-                    <span>{tp('blog.readingTime', { n: readingMinutes(b) })}</span>
+                    <span>{tp('blog.readingTime', { n: postReadingMinutes(p, publicI18n.locale) })}</span>
                   </div>
                   <h2>
                     <PublicLink to={`/blog/${p.slug}`} class="post-card-title">{b.title}</PublicLink>

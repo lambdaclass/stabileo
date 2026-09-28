@@ -208,13 +208,55 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     return hit ? sheets[hit] : [];
   };
 
-  // ── Nodes ────────────────────────────────────────────────────────
-  for (const row of readSheet(grab('Nodes'), 'Nodes', problems)) {
+  /*
+   * ── Nodes: Z is the vertical, in 2-D and in 3-D alike ──────────────
+   *
+   * X is horizontal, Y is the plan depth a 3-D model needs, Z is the height.
+   * That is what the viewport's axis labels say, what the results export
+   * writes — `createNodesSheet` heads its 2-D column `Z (m)` — and now what the
+   * template asks for. It was the one surface still asking for the height in Y,
+   * because Y is where a flat model STORES it: `projectNodeToScene` renders that
+   * y as scene Z and `shouldProjectModelToXZ` requires z ≈ 0 to recognise the
+   * model as flat at all. The storage is not what a reader filling in a
+   * spreadsheet should have to know.
+   *
+   * The convention is chosen for the whole Nodes sheet: when every Y is blank,
+   * Z supplies the flat model's height. Any explicit Y selects native XYZ for
+   * every row, with missing coordinates filled as zero. A row with neither Y
+   * nor Z is invalid; a nonempty coordinate must be numeric.
+   */
+  const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
+  // Choose one coordinate convention for the sheet. Any stated Y (including zero)
+  // makes it native XYZ; blank Y cells in that model mean zero, not a rotated node.
+  const flatFromZ = nodeRows.every((row) => str(row.cells.y) === '');
+  for (const row of nodeRows) {
     const id = reqNum(row, 'id', 'Nodes', problems);
     const x = reqNum(row, 'x', 'Nodes', problems);
-    const y = reqNum(row, 'y', 'Nodes', problems);
-    if (id === null || x === null || y === null) continue;
-    model.nodes.push({ id, x, y, z: num(row.cells.z) ?? 0 });
+    const yCell = num(row.cells.y);
+    const zCell = num(row.cells.z);
+    if (id === null || x === null) continue;
+    let invalidCoordinate = false;
+    for (const key of ['y', 'z'] as const) {
+      if (str(row.cells[key]) !== '' && num(row.cells[key]) === null) {
+        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: 'se esperaba un número' });
+        invalidCoordinate = true;
+      }
+    }
+    if (invalidCoordinate) continue;
+    if (yCell === null && zCell === null) {
+      problems.push({
+        sheet: 'Nodes', row: row.n, column: 'z',
+        message: 'falta la posición: completá Z (la altura) o Y (la profundidad en planta)',
+      });
+      continue;
+    }
+    /* Flat: the height was given as Z, which is what it is called everywhere
+       else. It is stored where a flat model keeps its height. */
+    model.nodes.push({
+      id, x,
+      y: flatFromZ ? (zCell ?? 0) : (yCell ?? 0),
+      z: flatFromZ ? 0 : (zCell ?? 0),
+    });
   }
   counts.Nodes = model.nodes.length;
 

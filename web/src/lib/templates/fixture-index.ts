@@ -45,6 +45,14 @@ const fixtures2D: Record<string, FixtureLoader> = {
    * that work, and this one is meant not to.
    */
   'hidden-mechanism': () => import('./fixtures/hidden-mechanism.json'),
+  /*
+   * A 6 m span, 20×200 cm, 10 kN/m: L/h = 3, the deep beam of the blog post on
+   * bars versus finite elements. Two frame elements so the reader has a node at
+   * midspan to read — 0.0422 mm, Euler-Bernoulli's 5qL⁴/384EI. Its twin as a
+   * shell is `deep-beam-shell`. Not in the examples menu, like the other
+   * article fixtures.
+   */
+  'deep-beam-bar': () => import('./fixtures/deep-beam-bar.json'),
 };
 
 // 3D examples (basic + PRO)
@@ -66,6 +74,13 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // Registered here so a post can load it; deliberately not in the examples
   // menu, which is a catalogue for users rather than for articles.
   'rc-beam-flexure': () => import('./fixtures/rc-beam-flexure.json'),
+  // The `deep-beam-bar` beam as a shell for PRO: 24×8 MITC4 quads of 25 cm in
+  // the XZ plane, each end section restrained vertically over its full depth
+  // (per-DOF, out-of-plane held), the 10 kN/m as nodal loads on the top edge.
+  // Density zero ON PURPOSE: PRO switches self-weight on by default, and the
+  // point of the post is two models under the same load. Midspan at mid-depth
+  // reads 0.0519 mm against the bar's 0.0422.
+  'deep-beam-shell': () => import('./fixtures/deep-beam-shell.json'),
   '3d-nave-industrial': () => import('./fixtures/3d-nave-industrial.json'),
   '3d-building': () => import('./fixtures/3d-building.json'),
   'pro-edificio-7p': () => import('./fixtures/pro-edificio-7p.json'),

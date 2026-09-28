@@ -131,6 +131,59 @@ export function materialFamilyOf(
   return { family: 'steel', basis: 'inferredFromFy', caveatKey: 'steel.family.inferredMetalNotFerrousChecked' };
 }
 
+/**
+ * The Young's modulus band, MPa, that reads as concrete and as no structural metal.
+ *
+ * CIRSOC 201's E = 4700·√f'c runs from 18 000 MPa at H-15 to 42 000 at H-80; Eurocode moduli
+ * sit a little higher and lightweight mixes lower. The nearest metal is aluminium, at about
+ * 70 000, so the band stops well short of it.
+ */
+export const CONCRETE_E_BAND_MPA = { min: 10_000, max: 55_000 } as const;
+
+/**
+ * Why a material's strength and the rest of it disagree about what it is.
+ *
+ * `stiffnessSaysConcrete`: no grade declared, a modulus only concrete has, and an `fy` above
+ *   the ceiling. The usual cause is the rebar yield typed where f'c belongs — ADN 420 is the
+ *   first number an engineer associates with a concrete member. The magnitude rule then
+ *   files the material as steel, the concrete pipeline never sees it, and the metallic one
+ *   lists a steel with a third of steel's stiffness.
+ *
+ * `gradeSaysConcrete`: the material came from the concrete catalogue and its `fy` was edited
+ *   past the ceiling afterwards. The declared grade keeps it in the concrete pipeline, where
+ *   that `fy` is read as f'c and every member is refused as out of range.
+ */
+export type ConcreteStrengthConflict = 'stiffnessSaysConcrete' | 'gradeSaysConcrete';
+
+/** The minimum `concreteStrengthConflict` reads: `materialFamilyOf`'s shape plus the modulus. */
+export interface ConflictReadableMaterial extends FamilyReadableMaterial {
+  e?: number;
+}
+
+/**
+ * Whether a material looks like concrete while its `fy` says it is not.
+ *
+ * Null when nothing disagrees. This is still an inference about the modulus, so it is worth
+ * a warning, never a refusal: a material outside the catalogue with this pairing is possible,
+ * only unlikely in a product whose structures are concrete and steel.
+ */
+export function concreteStrengthConflict(
+  material: ConflictReadableMaterial | undefined | null,
+  lookupGrade?: GradeFamilyLookup,
+): ConcreteStrengthConflict | null {
+  if (!material) return null;
+  const fy = material.fy;
+  if (fy === undefined || fy === null || !Number.isFinite(fy) || fy <= CONCRETE_FY_CEILING) return null;
+
+  const verdict = materialFamilyOf(material, lookupGrade);
+  if (verdict.basis === 'declaredGrade') {
+    return verdict.family === 'concrete' ? 'gradeSaysConcrete' : null;
+  }
+  const e = material.e;
+  if (e === undefined || !Number.isFinite(e)) return null;
+  return e >= CONCRETE_E_BAND_MPA.min && e <= CONCRETE_E_BAND_MPA.max ? 'stiffnessSaysConcrete' : null;
+}
+
 /** Convenience: is this material one the concrete pipeline should be handed? */
 export function isConcrete(v: MaterialFamilyVerdict): boolean {
   return v.family === 'concrete';

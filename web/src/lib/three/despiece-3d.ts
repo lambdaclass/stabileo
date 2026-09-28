@@ -319,7 +319,7 @@ export function createDespiece3DGroup(opts: {
       const localY = (!project2D && elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const roll = project2D ? undefined : ((elem.rollAngle ?? 0) + (sections?.get(elem.sectionId)?.rotation ?? 0));
-      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, localY, roll, leftHand);
+      axes = computeLocalAxes3D({ id: 0, ...pI }, { id: 0, ...pJ }, localY, roll, false); // forces are in the solver's right-handed frame
     } catch { continue; }
     const exV = new THREE.Vector3(...axes.ex), eyV = new THREE.Vector3(...axes.ey), ezV = new THREE.Vector3(...axes.ez);
 
@@ -359,6 +359,8 @@ export function createDespiece3DGroup(opts: {
     // the load centroid. Capped on large models (same gate as labels).
     if (loadMode !== 'off' && showLabels) {
       const Llen = Math.hypot(pJ.x - pI.x, pJ.y - pI.y, pJ.z - pI.z) || 1;
+      /* Member loads are typed along the y the user sees: negated under the left-hand convention. */
+      const eyUser = leftHand ? eyV.clone().negate() : eyV;
       const addLoad = (dir: THREE.Vector3, len: number, frac: number) => {
         const a = fixedArrow(dir, len, colLoad);
         if (a) { a.userData.despieceLoad = true; group.add(a); anim.loads.push({ obj: a, frac: Math.max(0, Math.min(1, frac)) }); }
@@ -368,7 +370,7 @@ export function createDespiece3DGroup(opts: {
           const d = ld.data; const a0 = d.a ?? 0, b0 = d.b ?? Llen;
           if (loadMode === 'resultant') {
             const RY = distResultant(d.qYI, d.qYJ, a0, b0), RZ = distResultant(d.qZI, d.qZJ, a0, b0);
-            const dir = eyV.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
+            const dir = eyUser.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
             const wsum = Math.abs(RY.mag) + Math.abs(RZ.mag);
             const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.mag) * RY.centroid + Math.abs(RZ.mag) * RZ.centroid) / wsum;
             if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, centroid / Llen);
@@ -377,13 +379,13 @@ export function createDespiece3DGroup(opts: {
             for (let i = 0; i <= SAMPLES; i++) {
               const t = i / SAMPLES, pos = a0 + (b0 - a0) * t;
               const qY = d.qYI + (d.qYJ - d.qYI) * t, qZ = d.qZI + (d.qZJ - d.qZI) * t;
-              const dir = eyV.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
+              const dir = eyUser.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
               if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN * 0.7, pos / Llen);
             }
           }
         } else if (ld.type === 'pointOnElement3d' && ld.data.elementId === elem.id) {
           const d = ld.data;
-          const dir = eyV.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
+          const dir = eyUser.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
           if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, (d.a ?? 0) / Llen);
         }
       }
@@ -527,7 +529,7 @@ function endAction3D(args: Inspect3DArgs, el: DespieceElement3D, end: 'I' | 'J')
   let axes;
   try {
     const localY = (el.localYx !== undefined && el.localYy !== undefined && el.localYz !== undefined) ? { x: el.localYx, y: el.localYy, z: el.localYz } : undefined;
-    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, el.rollAngle, args.leftHand ?? false);
+    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, el.rollAngle, false); // the solver's right-handed frame
   } catch { return null; }
   const ex = new THREE.Vector3(...axes.ex), ey = new THREE.Vector3(...axes.ey), ez = new THREE.Vector3(...axes.ez);
   const [axialOut, n, vy, vz, mx, my, mz, nodeId]: [1 | -1, number, number, number, number, number, number, number] =

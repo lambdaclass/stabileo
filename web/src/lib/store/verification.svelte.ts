@@ -459,20 +459,28 @@ function createVerificationStore() {
      * provided verification ran and checked no strength falls through to the baseline exactly
      * as an unreinforced one does, and reads the same from here.
      *
-     * NOT null when the utilization is non-finite: that returns `99`, a sentinel, and the
-     * docstring used to say "null when unavailable" and stop there — which is how a magic
-     * number reaches a design table as a ratio and the 3-D viewer as a colour without any
-     * reader of this signature knowing it can. 99 is not a utilization anyone computed; it is
-     * "this could not be computed", wearing the type of an answer.
+     * Null ALSO when the utilization is not finite, and that is the fix this docstring used
+     * to describe as pending.
      *
-     * Stated rather than fixed. Replacing it means deciding what the table and the viewport
-     * should show for an incomputable ratio, which is a product decision and is on H3's list.
+     * It used to return `99`. Ninety-nine is not a utilization anyone computed — it is "this
+     * could not be computed" wearing the type of an answer, and it reached the design table
+     * as a ratio and the 3-D viewer as a colour. A reader has no way to tell a sentinel from
+     * a real number, and 99 is plausible on the wrong scale: it reads as "the demand is
+     * ninety-nine times the capacity", which is catastrophic and false. The engine meant
+     * "not computable".
+     *
+     * The decision the old comment deferred: every consumer decides for itself, and all four
+     * already could. `DesignTable` prints `—` for null and draws no bar, `ChangedMembersPanel`
+     * prints `—`, and both viewport paths already return early or pass null through to
+     * `verificationStateColor`, which keeps colouring by STATE. Nothing is lost by saying
+     * nothing: the member still reads as failing, through its status, which is the part that
+     * was true.
      */
     getDisplayRatio(elementId: number): number | null {
       void providedRevision;
       const pv = providedFor(elementId);
       if (pv && pv.strengthCheckCount > 0) {
-        return Number.isFinite(pv.worstUtilization) ? pv.worstUtilization : 99;
+        return Number.isFinite(pv.worstUtilization) ? pv.worstUtilization : null;
       }
       // Fall back to the code-check baseline only for members with no rebar, and
       // only so the viewport can show *something* — the status stays 'unavailable'.

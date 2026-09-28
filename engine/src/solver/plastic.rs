@@ -65,9 +65,29 @@ pub struct PlasticHinge3D {
     pub step: usize,
 }
 
+/// The load increment that takes a moment from `m_acc` to ±Mp along `m_unit`.
+///
+/// The moment reaches the plastic moment of the sign it is moving in. This used
+/// to be (Mp − |m_acc|)/|m_unit|, which holds only while the moment grows in
+/// magnitude: once redistribution turned a moment back toward zero, a hinge was
+/// declared where |M| was a fraction of Mp — below the collapse load. The space
+/// method's interaction criterion already solves this with signs.
+fn increment_to_mp(mp: f64, m_acc: f64, m_unit: f64) -> f64 {
+    (mp.copysign(m_unit) - m_acc) / m_unit
+}
+
 /// Solve 2D plastic analysis (event-to-event incremental method).
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let solver_input = &input.solver;
+
+    // Validated up front so that the `Err` from `solve_2d` inside the step
+    // loop below can keep its one meaning: the structure has become a
+    // mechanism. Without this, an invalid model took that same branch and was
+    // reported as `isMechanism: true` with a zero collapse factor — the right
+    // shape of answer for the wrong reason, and no way for the caller to tell
+    // the two apart.
+    super::linear::validate_input_2d(solver_input)?;
+
     let max_hinges = input.max_hinges.unwrap_or(20);
 
     // Compute plastic moments Mp for each section
@@ -97,6 +117,14 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         .collect();
 
     for step in 0..max_hinges {
+        // A mechanism ends the analysis. The linear solve alone cannot be
+        // trusted to say so: on a singular K whose load excites the mode it
+        // can return a finite, enormous answer, and a hinge was then read out
+        // of it — past the collapse load. The rank check is the one the app
+        // runs before every analysis.
+        if !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable {
+            break;
+        }
         // Solve under unit loads on current structure
         let results = match super::linear::solve_2d(&current_input) {
             Ok(r) => r,
@@ -121,7 +149,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
                 let m_acc = accumulated_moments.get(&(ef.element_id, "start".to_string())).copied().unwrap_or(0.0);
                 let m_unit = ef.m_start;
                 if m_unit.abs() > 1e-10 {
-                    let delta = (mp - m_acc.abs()) / m_unit.abs();
+                    let delta = increment_to_mp(mp, m_acc, m_unit);
                     if delta > 1e-10 && delta < min_delta_lambda {
                         min_delta_lambda = delta;
                         new_hinges.clear();
@@ -137,7 +165,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
                 let m_acc = accumulated_moments.get(&(ef.element_id, "end".to_string())).copied().unwrap_or(0.0);
                 let m_unit = ef.m_end;
                 if m_unit.abs() > 1e-10 {
-                    let delta = (mp - m_acc.abs()) / m_unit.abs();
+                    let delta = increment_to_mp(mp, m_acc, m_unit);
                     if delta > 1e-10 && delta < min_delta_lambda {
                         min_delta_lambda = delta;
                         new_hinges.clear();
@@ -167,7 +195,7 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
                         .get(&(ef.element_id, "span".to_string()))
                         .copied()
                         .unwrap_or(0.0);
-                    let delta = (mp - m_acc.abs()) / max_interior_m.abs();
+                    let delta = increment_to_mp(mp, m_acc, max_interior_m);
                     if delta > 1e-10 && delta < min_delta_lambda {
                         min_delta_lambda = delta;
                         new_hinges.clear();
@@ -247,8 +275,9 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         }
     }
 
-    // Check if mechanism formed (solver fails on next iteration)
-    let is_mechanism = super::linear::solve_2d(&current_input).is_err();
+    // Check if mechanism formed
+    let is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
+        || super::linear::solve_2d(&current_input).is_err();
 
     Ok(PlasticResult {
         collapse_factor: cumulative_factor,
@@ -331,6 +360,15 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
 /// At each step, finds the minimum load increment to form the next hinge,
 /// inserts it, and resolves until a mechanism forms.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
+    // Same reason as the 2D entry: keep `Err` from the inner solve meaning
+    // "mechanism", and nothing else.
+    super::linear::validate_input_3d(&input.solver)?;
+    // Invalid shell geometry is a model error, not a mechanism formed by
+    // plastic hinges. Refuse it before the loop interprets a failed solve.
+    super::pre_solve_gates::refuse_broken_elements(
+        &super::pre_solve_gates::check_shell_distortion_3d(&input.solver),
+    )?;
+
     let solver_input = &input.solver;
     let max_hinges = input.max_hinges.unwrap_or(30);
 
