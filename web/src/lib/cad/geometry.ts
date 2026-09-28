@@ -493,14 +493,79 @@ export function chainSegmentsIntoLoops(
   segments: Segment[],
   tol: number,
 ): { loops: CadPt[][]; loopSegIndex: number[]; unchained: number[] } {
-  // Weld endpoints into vertex ids.
+  // Weld endpoints into vertex ids, through a cell index.
+  //
+  // This scanned every vertex found so far for each endpoint, which is
+  // O(endpoints x vertices) — quadratic in the segment count, on the path that
+  // runs for every DXF drawing its columns as four separate LINEs. Measured
+  // before this change (best of 3): 400 columns 50 ms, 800 197 ms, 1600 770 ms,
+  // 3200 3089 ms. The cost per segment doubled at every doubling of the input,
+  // which is the quadratic signature rather than an unlucky constant.
+  //
+  // Cells have side 2*tol: the extra search margin covers floating-point
+  // rounding at cell boundaries (e.g. dist(-1e-19, 0.005) rounds to 0.005).
+  // This only widens candidate collection; dist <= tol remains the exact weld
+  // predicate. Nine bucket lookups replace the scan for ordinary CAD coordinates.
+  //
+  // The subtle part is which candidate wins. The old scan returned the FIRST
+  // vertex within tolerance — the one with the SMALLEST index. Visiting cells
+  // yields candidates in a different order, so the minimum index is selected
+  // explicitly; otherwise two vertices both within tolerance of a third weld
+  // differently and the loops come out different. `cad-chain-weld.test.ts`
+  // pins that against the original implementation.
   const verts: CadPt[] = [];
-  const vertOf = (p: CadPt): number => {
+  const cell = 2 * tol;
+  let indexed = tol > 0 && Number.isFinite(cell);
+  const buckets = new Map<string, number[]>();
+  const append = (p: CadPt): number => {
+    verts.push({ x: p.x, y: p.y });
+    return verts.length - 1;
+  };
+  const scan = (p: CadPt): number => {
     for (let i = 0; i < verts.length; i++) {
       if (dist(verts[i], p) <= tol) return i;
     }
-    verts.push({ x: p.x, y: p.y });
-    return verts.length - 1;
+    return append(p);
+  };
+  const vertOf = (p: CadPt): number => {
+    // Preserve the original predicate for zero, negative, NaN and infinite
+    // tolerances too. In particular, Infinity DOES match distant vertices.
+    if (!indexed) return scan(p);
+    // With finite tolerance these never match, and cannot enter the index.
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      return append(p);
+    }
+    const x = p.x / cell, y = p.y / cell;
+    // Keep quotient rounding far below the half-cell search margin: at 2^48
+    // the spacing is at most 1/16 cell. Finite coordinates alone do not ensure
+    // this (division can even overflow). Fall back permanently so later points
+    // still consider EVERY previously inserted vertex, including unindexed ones.
+    if (!(Math.abs(x) <= 2 ** 48 && Math.abs(y) <= 2 ** 48)) {
+      indexed = false;
+      buckets.clear();
+      return scan(p);
+    }
+    const cx = Math.floor(x), cy = Math.floor(y);
+    let best = -1;
+    // Increment small offsets, never large floating-point grid coordinates.
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const ids = buckets.get(`${cx + dx},${cy + dy}`);
+        if (!ids) continue;
+        // Only a smaller index can improve on what we have, so the distance
+        // is not even computed for the rest.
+        for (const i of ids) {
+          if ((best === -1 || i < best) && dist(verts[i], p) <= tol) best = i;
+        }
+      }
+    }
+    if (best !== -1) return best;
+    const id = append(p);
+    const key = `${cx},${cy}`;
+    const arr = buckets.get(key);
+    if (arr) arr.push(id);
+    else buckets.set(key, [id]);
+    return id;
   };
   const edges = segments.map((s, i) => ({ i, a: vertOf(s.a), b: vertOf(s.b) }))
     .filter((e) => e.a !== e.b);

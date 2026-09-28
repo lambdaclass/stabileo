@@ -32,6 +32,10 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
   if (src.nodes.size === 0) return report;
 
   modelStore.batch(() => {
+    // Every node is read before any moves: a standing plane model is rewritten
+    // in space coordinates first, or the first move would rewrite it under the
+    // coordinates already read for the rest.
+    modelStore.ensureSpaceCoordinates();
     const before = new Map([...src.nodes].map((id) => [id, { ...modelStore.nodes.get(id)! }]));
     // Members wholly inside move rigidly; their frames are read before anything moves.
     const rigid = [...modelStore.elements.values()].filter((e) => src.nodes.has(e.nodeI) && src.nodes.has(e.nodeJ));
