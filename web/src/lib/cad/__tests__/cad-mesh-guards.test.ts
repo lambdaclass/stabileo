@@ -131,6 +131,15 @@ describe('a request beyond the cap is said, not silently coarsened', () => {
 });
 
 describe('target-size meshing past the cap is said too', () => {
+  it.each([1e-308, Number.MIN_VALUE])('caps an overflowing quotient for a finite target %s', (target) => {
+    const r = structuredBreakpoints(0, 10, { mode: 'targetSize', target });
+    expect(r.lines).toHaveLength(MAX_DIVISIONS_PER_AXIS + 1);
+    expect(r.lines[0]).toBe(0);
+    expect(r.lines.at(-1)).toBe(10);
+    expect(r.lines.every(Number.isFinite)).toBe(true);
+    expect(r.capped).toBe(1);
+  });
+
   it('structuredBreakpoints counts the gaps it had to coarsen', () => {
     const r = structuredBreakpoints(0, 10, { mode: 'targetSize', target: 0.001 });
     expect(r.lines.length).toBe(MAX_DIVISIONS_PER_AXIS + 1);

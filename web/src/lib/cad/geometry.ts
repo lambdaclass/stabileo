@@ -297,7 +297,9 @@ export function structuredBreakpoints(
       // cap, and counted, so the caller can say the mesh came out coarser.
       const wanted = Math.round(gap / target);
       if (wanted > MAX_DIVISIONS_PER_AXIS) capped++;
-      const nSub = sanitizeDivisions(wanted, 1);
+      // A finite positive target can overflow the quotient. It still asks
+      // for the capped density, rather than the invalid-input fallback of 1.
+      const nSub = sanitizeDivisions(Math.min(wanted, MAX_DIVISIONS_PER_AXIS), 1);
       for (let k = 1; k < nSub; k++) lines.push(a + (k * gap) / nSub);
       lines.push(b);
     }

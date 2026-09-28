@@ -545,7 +545,8 @@ export function generateRcDraft(
     if (meshMode !== 'targetSize') return fixedN;
     const wanted = Math.round(L / effTarget);
     if (wanted > MAX_DIVISIONS_PER_AXIS) meshCapped++;
-    return sanitizeDivisions(wanted, 1);
+    // Match the structured path when a finite target overflows L / effTarget.
+    return sanitizeDivisions(Math.min(wanted, MAX_DIVISIONS_PER_AXIS), 1);
   };
 
   const cutOpenings = new Set<number>();      // opening indices cut from a slab
