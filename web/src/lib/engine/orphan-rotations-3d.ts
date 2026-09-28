@@ -90,6 +90,39 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
       resisted.set(node, list);
     }
   }
+  // Offset expansion moves the frame end to a helper node. Its real joint
+  // still carries the same rotations through the eccentric constraint, so it
+  // must not acquire an artificial spring just because no frame ends there.
+  // Share resisted axes across each component of rotationally rigid arms;
+  // traversing components also handles chains independently of constraint order.
+  const arms = new Map<number, number[]>();
+  for (const c of input.constraints ?? []) {
+    if (c.type !== 'eccentricConnection' || [3, 4, 5].some((d) => c.releases?.[d])) continue;
+    for (const [a, b] of [[c.masterNode, c.slaveNode], [c.slaveNode, c.masterNode]] as const) {
+      const neighbours = arms.get(a) ?? [];
+      neighbours.push(b);
+      arms.set(a, neighbours);
+    }
+  }
+  const linkedRank = new Map<number, number>();
+  const visited = new Set<number>();
+  for (const start of arms.keys()) {
+    if (visited.has(start)) continue;
+    const stack = [start], component: number[] = [], axes: V3[] = [];
+    visited.add(start);
+    while (stack.length) {
+      const node = stack.pop()!;
+      component.push(node);
+      axes.push(...(resisted.get(node) ?? []));
+      for (const neighbour of arms.get(node) ?? []) {
+        if (visited.has(neighbour)) continue;
+        visited.add(neighbour);
+        stack.push(neighbour);
+      }
+    }
+    const componentRank = rank(axes);
+    for (const node of component) linkedRank.set(node, componentRank);
+  }
   if (kMax <= 0) return { touched, created };
   const k = kMax * 1e-10;
 
@@ -98,7 +131,7 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
   let nextId = Math.max(0, ...input.supports.keys()) + 1;
 
   for (const nodeId of input.nodes.keys()) {
-    if (rank(resisted.get(nodeId) ?? []) === 3) continue;
+    if ((linkedRank.get(nodeId) ?? rank(resisted.get(nodeId) ?? [])) === 3) continue;
     const found = byNode.get(nodeId);
     const sup: SolverSupport3D = found ? { ...found[1] }
       : { nodeId, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };

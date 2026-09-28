@@ -39,7 +39,9 @@ import { describe, it, expect } from 'vitest';
 import { generateShed, DEFAULT_SHED_PARAMS, BRACING_BAYS } from '../shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
 import { modelFromFixture, assertRealSolver } from '../../design/__tests__/helpers';
-import { validateAndSolve3D } from '../../solver-service';
+import { validateAndSolve3D, buildSolverInput3D } from '../../solver-service';
+import { input3DToWireObject } from '../../wasm-solver';
+import { solve_3d } from '../../../wasm/dedaliano_engine.js';
 
 const PROFILES: EmitOptions['profiles'] = {
   chord: defaultProfileSpec('IPE 100'),
@@ -90,10 +92,10 @@ const emit = (params: Parameters<typeof generateShed>[0], name: string) =>
 const SOLVE_TIMEOUT_MS = 20_000;
 
 /** One nodal load at the highest node, along the building unless told otherwise. */
-function solve(json: any, kn: number, direction: 'y' | 'z' = 'y') {
+function solve(json: any, kn: number, direction: 'y' | 'z' = 'y', method?: 'direct' | 'pcg') {
   assertRealSolver();
   const node = json.nodes.reduce((b: any, n: any) => (n.z > b.z ? n : b), json.nodes[0]).id;
-  return validateAndSolve3D(modelFromFixture({
+  const model = modelFromFixture({
     ...json,
     loadCases: [{ id: 1, type: 'dead', name: 'D' }],
     loads: [{
@@ -105,7 +107,16 @@ function solve(json: any, kn: number, direction: 'y' | 'z' = 'y') {
         mx: 0, my: 0, mz: 0, caseId: 1,
       },
     }],
-  }).model, false, false);
+  }).model;
+  if (method) {
+    const input = buildSolverInput3D(model, false, false)!;
+    try {
+      return solve_3d({ ...input3DToWireObject(input), solverOptions: { method } });
+    } catch (error) {
+      return String(error);
+    }
+  }
+  return validateAndSolve3D(model, false, false);
 }
 
 function maxDisplacement(res: unknown): number {
@@ -209,6 +220,15 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
     // half of the answer that stops roof bracing being sold as a substitute for purlins.
     expect(displacementOf(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z'))
       .toBeNull();
+  }, SOLVE_TIMEOUT_MS);
+
+  it.each(['direct', 'pcg'] as const)('rejects the end-bay mechanism with explicit %s', (method) => {
+    // The vertical load does not excite the interior frames' free sideways
+    // motion. PCG alone converges to a plausible 3.96 mm result, so residual
+    // convergence must not bypass the load-independent stability check.
+    const result = solve(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z', method);
+    expect(typeof result).toBe('string');
+    expect(result).toContain('mechanism');
   }, SOLVE_TIMEOUT_MS);
 
   it('solves under vertical load when EVERY bay is braced, because that reaches every frame', () => {

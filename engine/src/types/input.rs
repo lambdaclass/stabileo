@@ -127,6 +127,23 @@ pub enum SolverLoad {
     Thermal(SolverThermalLoad),
 }
 
+/// Optional linear-solver configuration.
+///
+/// Absent entirely → legacy behavior (direct solvers only, chosen by size).
+/// Unknown strings are ignored with a warning diagnostic and the default applies.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverOptions {
+    /// "auto" (default) | "direct" | "pcg"
+    pub method: Option<String>,
+    /// "ics" (shifted IC, default in auto) | "ic0" (strict) | "ssor" | "jacobi" | "mic" | "none"
+    pub preconditioner: Option<String>,
+    /// PCG relative residual tolerance (default 1e-8).
+    pub tolerance: Option<f64>,
+    /// PCG iteration cap (default max(1000, n_free / 4)).
+    pub max_iterations: Option<usize>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverInput {
@@ -140,6 +157,8 @@ pub struct SolverInput {
     pub constraints: Vec<Constraint>,
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorElement>,
+    #[serde(default)]
+    pub solver_options: Option<SolverOptions>,
 }
 
 // ==================== 3D Input Types ====================
@@ -432,6 +451,8 @@ pub struct SolverInput3D {
     pub curved_beams: Vec<CurvedBeamInput>,
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorElement>,
+    #[serde(default)]
+    pub solver_options: Option<SolverOptions>,
 }
 
 // ==================== Plate / Curved Beam Input Types ====================

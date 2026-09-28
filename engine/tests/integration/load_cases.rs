@@ -51,6 +51,7 @@ fn make_beam_2d() -> SolverInput {
     });
 
     SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports,
         loads: vec![], constraints: vec![],
         connectors: HashMap::new(), }
@@ -117,6 +118,7 @@ fn make_beam_3d() -> SolverInput3D {
     });
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,

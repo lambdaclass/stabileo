@@ -71,6 +71,8 @@ export type SupportTool3D = 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | '
 export interface ClipboardData {
   nodes: Array<{ origId: number; x: number; y: number; z?: number }>;
   elements: Array<{
+    /** The member copied, so a paste over an unchanged model can copy it whole. */
+    origId?: number;
     origNodeI: number;
     origNodeJ: number;
     type: 'frame' | 'truss';

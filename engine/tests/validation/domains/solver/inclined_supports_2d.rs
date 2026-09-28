@@ -57,7 +57,7 @@ fn make_simple_beam(
     supports.insert("1".to_string(), make_support(1, 1, "pinned"));
     supports.insert("2".to_string(), end_support);
 
-    SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![], connectors: HashMap::new() }
+    SolverInput { solver_options: None, nodes, materials, sections, elements, supports, loads, constraints: vec![], connectors: HashMap::new() }
 }
 
 // ================================================================
@@ -366,6 +366,7 @@ fn validation_2d_symmetric_inclined_rollers() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
@@ -438,6 +439,7 @@ fn validation_2d_inclined_roller_truss() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], connectors: HashMap::new(),
     };
