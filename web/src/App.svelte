@@ -822,8 +822,18 @@
       setTimeout(() => startDemo(DEFAULT_DEMO), 600);
     }
 
-    // Check for URL hash (shared model link or embed)
-    const hashMode = loadFromURLHash();
+    // Check for URL hash (shared model link or embed). The link is untrusted
+    // input and restore() is not atomic: whatever a link still manages to break
+    // must not take the app down before it starts, nor leave a half-loaded model.
+    let hashMode: ReturnType<typeof loadFromURLHash> = null;
+    try {
+      hashMode = loadFromURLHash();
+    } catch (err) {
+      console.error('shared link failed to load', err);
+      modelStore.clear();
+      history.replaceState(null, '', location.pathname + location.search);
+      uiStore.toast(t('app.sharedLinkBroken'), 'error');
+    }
     const queryParams = new URLSearchParams(location.search);
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;

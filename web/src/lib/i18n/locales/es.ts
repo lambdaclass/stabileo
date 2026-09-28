@@ -165,6 +165,7 @@ const es: Record<string, string> = {
   'app.cancel': 'Cancelar',
   'app.nodesImported': '{n} nodos importados',
   'app.noValidCoords': 'No se encontraron coordenadas válidas',
+  'app.sharedLinkBroken': 'No se pudo abrir el enlace compartido: está dañado o incompleto.',
   'app.modeBasic': 'Básico',
   'app.modeEdu': 'Educativo',
   'app.modePro': 'PRO',
