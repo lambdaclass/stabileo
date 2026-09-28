@@ -323,6 +323,7 @@
             <!-- Action button replaces "Esperando..." when available -->
             <button
               class="tour-action"
+              disabled={tourStore.isBusy}
               onclick={() => {
                 step.actionButton!.action();
                 if (step.actionButton!.advanceAfter !== false) {
@@ -339,6 +340,7 @@
               {#each step.multiAction as ma}
                 <button
                   class="tour-action"
+                  disabled={tourStore.isBusy}
                   onclick={() => {
                     ma.action();
                     if (ma.advanceAfter !== false) {
@@ -353,7 +355,7 @@
             <button
               class="tour-next"
               onclick={() => tourStore.next()}
-              disabled={step.waitFor ? !tourStore.canAdvance : false}
+              disabled={step.waitFor ? !tourStore.canAdvance : tourStore.isBusy}
             >
               {step.waitFor && !tourStore.canAdvance ? t('tour.waiting') : t('tour.next')}
             </button>

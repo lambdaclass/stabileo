@@ -314,6 +314,12 @@ test.describe('@smoke the cards do not contradict the screen', () => {
  * where the member is instead of guessing — still clicking the canvas, which is
  * the point of the test, just not blindly. If the retries stop absorbing it,
  * that is the signal to do that work, not to raise them.
+ *
+ * The trail did name it once CI kept it: every failing run clicked with the viewport in
+ * `mode=elements`, not `stress`. The walkthrough's first card loads its example without waiting,
+ * and on a slow runner the load landed after the solve; it cleared the results, and the viewport
+ * disarms the section analysis when there are none. The walkthrough now holds while its example
+ * loads (`tourStore.hold`), so no card runs ahead of the model it acts on.
  */
 test.describe('@smoke the section walkthrough', () => {
   test.describe.configure({ retries: 2 });
