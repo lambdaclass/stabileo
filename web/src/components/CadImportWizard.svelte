@@ -11,7 +11,7 @@
   // one-plan-replicated-to-all-floors assumption).
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { t } from '../lib/i18n';
-  import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
+  import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent, cadImportProblem } from '../lib/cad/parse';
   import { MAX_DIVISIONS_PER_AXIS } from '../lib/engine/shell-mesh-gen';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
   import {
@@ -129,9 +129,13 @@
       try {
         const text = reader.result as string;
         const parsed = parseCadDxf(text, f.name);
-        if (parsed.warnings.includes('parseError') || parsed.entities.length === 0) {
+        const problem = cadImportProblem(parsed);
+        if (problem) {
           doc = parsed;
-          error = parsed.warnings.includes('parseError') ? t('cad.parseError') : t('cad.emptyFile');
+          error = problem === 'allMalformed'
+            ? t('cad.allMalformed').replace('{list}',
+              Object.entries(parsed.malformed).map(([type, n]) => `${n} × ${type}`).join(', '))
+            : t(problem === 'parseError' ? 'cad.parseError' : 'cad.emptyFile');
           return;
         }
         error = null;

@@ -131,7 +131,8 @@ describe('parseCadDxf — entities whose numbers are not numbers', () => {
     );
     expect(doc.entities.length).toBe(0);
     expect(doc.malformed['LINE']).toBe(1);
-    expect(doc.warnings).toContain('malformedEntity:LINE:1');
+    // Counted in `doc.malformed`, which the wizard shows; not repeated in `warnings`.
+    expect(doc.warnings.some((w) => w.startsWith('malformedEntity'))).toBe(false);
   });
 
   it('does not let a bad radius poison the drawing extent', () => {

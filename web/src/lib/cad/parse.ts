@@ -31,10 +31,17 @@ const SUPPORTED_TYPES = new Set([
 
 const CLOSE_EPS = 1e-9;
 
+/**
+ * The box around the finite points, or null when there are none. A NaN point
+ * compares false both ways, so it used to be skipped by accident; with no
+ * finite point at all the result was the inverted {+∞, +∞, −∞, −∞}, which is
+ * truthy, and an INSERT transformed it into a NaN box.
+ */
 function bboxOfPoints(pts: CadPt[]): CadBBox | null {
-  if (pts.length === 0) return null;
+  const finite = pts.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (finite.length === 0) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of pts) {
+  for (const p of finite) {
     if (p.x < minX) minX = p.x;
     if (p.y < minY) minY = p.y;
     if (p.x > maxX) maxX = p.x;
@@ -69,20 +76,27 @@ function entityBBox(e: CadEntity): CadBBox | null {
   }
 }
 
-/** Bounding box of a block's local geometry (lines/polylines/circles/arcs). */
-function blockLocalBBox(entities: Array<Record<string, unknown>>): CadBBox | null {
+/**
+ * Bounding box of a block's local geometry (lines/polylines/circles/arcs).
+ *
+ * The same rules as the entities outside a block: a piece with an unreadable
+ * or missing number is refused and counted through `refuse`, not quietly
+ * dropped from the box — a column symbol with a bad circle used to come out
+ * the size of whatever was left of it, or NaN when nothing was.
+ */
+function blockLocalBBox(entities: Array<Record<string, unknown>>, refuse: (kind: string) => void): CadBBox | null {
   const pts: CadPt[] = [];
   for (const ent of entities ?? []) {
     const type = ent.type as string;
     if (type === 'LINE' || type === 'LWPOLYLINE' || type === 'POLYLINE') {
       const vs = ent.vertices as Array<{ x: number; y: number }> | undefined;
-      for (const v of vs ?? []) pts.push({ x: v.x, y: v.y });
+      if (!vs || vs.length < 2 || !vs.every((v) => allFinite(v.x, v.y))) { refuse(type); continue; }
+      for (const v of vs) pts.push({ x: v.x, y: v.y });
     } else if (type === 'CIRCLE' || type === 'ARC') {
       const c = ent.center as { x: number; y: number } | undefined;
-      const r = (ent.radius as number) ?? 0;
-      if (c) {
-        pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r });
-      }
+      const r = ent.radius as number | undefined;
+      if (!c || !allFinite(c.x, c.y, r) || !(r! > 0)) { refuse(type); continue; }
+      pts.push({ x: c.x - r!, y: c.y - r! }, { x: c.x + r!, y: c.y + r! });
     }
   }
   return bboxOfPoints(pts);
@@ -130,6 +144,19 @@ function allFinite(...vs: unknown[]): boolean {
   return vs.every((v) => typeof v === 'number' && Number.isFinite(v));
 }
 
+/**
+ * Why a parsed file cannot be imported, or null when it can.
+ *
+ * A file whose every usable entity was refused is not an empty file: calling
+ * it one told the reader there was nothing there, and the wizard then hid the
+ * counts that said what was wrong with it.
+ */
+export function cadImportProblem(doc: CadDocument): 'parseError' | 'allMalformed' | 'emptyFile' | null {
+  if (doc.warnings.includes('parseError')) return 'parseError';
+  if (doc.entities.length > 0) return null;
+  return Object.keys(doc.malformed).length > 0 ? 'allMalformed' : 'emptyFile';
+}
+
 export function parseCadDxf(text: string, sourceName: string): CadDocument {
   const empty: CadDocument = {
     sourceName,
@@ -168,7 +195,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
   // Pre-compute block bounding boxes for INSERT expansion.
   const blockBoxes = new Map<string, CadBBox>();
   for (const [name, block] of Object.entries(dxf.blocks ?? {})) {
-    const local = blockLocalBBox((block as unknown as { entities?: Array<Record<string, unknown>> }).entities ?? []);
+    const local = blockLocalBBox((block as unknown as { entities?: Array<Record<string, unknown>> }).entities ?? [], refuse);
     if (local) blockBoxes.set(name, local);
   }
 
@@ -185,20 +212,20 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
     switch (type) {
       case 'LINE': {
         const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
-        if (vs && vs.length >= 2) {
-          if (!allFinite(vs[0].x, vs[0].y, vs[1].x, vs[1].y)) { refuse('LINE'); break; }
-          doc.entities.push({
-            kind: 'line', layer,
-            a: { x: vs[0].x, y: vs[0].y },
-            b: { x: vs[1].x, y: vs[1].y },
-          });
-        }
+        // A missing end point is as unusable as an unreadable one: a file cut
+        // off mid-entity leaves one vertex, and the beam used to vanish unseen.
+        if (!vs || vs.length < 2 || !allFinite(vs[0].x, vs[0].y, vs[1].x, vs[1].y)) { refuse('LINE'); break; }
+        doc.entities.push({
+          kind: 'line', layer,
+          a: { x: vs[0].x, y: vs[0].y },
+          b: { x: vs[1].x, y: vs[1].y },
+        });
         break;
       }
       case 'LWPOLYLINE':
       case 'POLYLINE': {
         const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
-        if (!vs || vs.length < 2) break;
+        if (!vs || vs.length < 2) { refuse(type); break; }
         // One bad vertex condemns the outline: a polyline is a shape, and a
         // shape with a hole where a corner should be is not a smaller shape.
         if (!vs.every((v) => allFinite(v.x, v.y))) { refuse(type); break; }
@@ -220,37 +247,36 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
         break;
       }
       case 'ARC': {
-        if (e.center) {
-          const r = e.radius ?? 0;
-          const startAngle = e.startAngle ?? 0; // radians (dxf-parser converts)
-          const endAngle = e.endAngle ?? 0;
-          // A non-finite radius is the worst of these: entityBBox computes
-          // `center.x - r`, so one bad arc poisons the whole drawing extent
-          // through Math.min/Math.max, which do NOT skip NaN the way the
-          // comparisons in bboxOfPoints do.
-          if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle)) { refuse('ARC'); break; }
-          doc.entities.push({
-            kind: 'arc', layer,
-            center: { x: e.center.x, y: e.center.y },
-            r, startAngle, endAngle,
-          });
-        }
+        if (!e.center) { refuse('ARC'); break; }
+        const r = e.radius;
+        const startAngle = e.startAngle ?? 0; // radians (dxf-parser converts)
+        const endAngle = e.endAngle ?? 0;
+        // A non-finite radius is the worst of these: entityBBox computes
+        // `center.x - r`, so one bad arc poisons the whole drawing extent
+        // through Math.min/Math.max, which do NOT skip NaN the way the
+        // comparisons in bboxOfPoints do. And a radius is a size: missing,
+        // zero or negative is not one — a negative one drew an inverted box.
+        if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle) || !(r > 0)) { refuse('ARC'); break; }
+        doc.entities.push({
+          kind: 'arc', layer,
+          center: { x: e.center.x, y: e.center.y },
+          r, startAngle, endAngle,
+        });
         break;
       }
       case 'CIRCLE': {
-        if (e.center) {
-          const r = e.radius ?? 0;
-          if (!allFinite(e.center.x, e.center.y, r)) { refuse('CIRCLE'); break; }
-          doc.entities.push({
-            kind: 'circle', layer,
-            center: { x: e.center.x, y: e.center.y },
-            r,
-          });
-        }
+        if (!e.center) { refuse('CIRCLE'); break; }
+        const r = e.radius;
+        if (!allFinite(e.center.x, e.center.y, r) || !(r > 0)) { refuse('CIRCLE'); break; }
+        doc.entities.push({
+          kind: 'circle', layer,
+          center: { x: e.center.x, y: e.center.y },
+          r,
+        });
         break;
       }
       case 'INSERT': {
-        if (!e.position) break;
+        if (!e.position) { refuse('INSERT'); break; }
         const xScale = e.xScale ?? 1, yScale = e.yScale ?? 1, rotation = e.rotation ?? 0;
         // The scale and rotation matter as much as the position: they go into
         // transformBlockBBox, so a NaN there produces a NaN bbox for a column
@@ -268,14 +294,13 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'TEXT':
       case 'MTEXT': {
         const pos = e.startPoint ?? e.position;
-        if (pos) {
-          if (!allFinite(pos.x, pos.y)) { refuse(type); break; }
-          doc.entities.push({
-            kind: 'text', layer,
-            at: { x: pos.x, y: pos.y },
-            value: String(e.text ?? ''),
-          });
-        }
+        if (!pos) { refuse(type); break; }
+        if (!allFinite(pos.x, pos.y)) { refuse(type); break; }
+        doc.entities.push({
+          kind: 'text', layer,
+          at: { x: pos.x, y: pos.y },
+          value: String(e.text ?? ''),
+        });
         break;
       }
       case 'POINT':
@@ -309,9 +334,6 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
 
   for (const [type, count] of Object.entries(doc.unsupported)) {
     if (type !== 'POINT') doc.warnings.push(`unsupportedEntity:${type}:${count}`);
-  }
-  for (const [type, count] of Object.entries(doc.malformed)) {
-    doc.warnings.push(`malformedEntity:${type}:${count}`);
   }
 
   return doc;
