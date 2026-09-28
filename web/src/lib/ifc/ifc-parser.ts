@@ -17,6 +17,9 @@ import { IDENTITY, axis2Placement3D, compose, extrusionAxis, type Frame, type V3
  *     put its member on the wrong line. Placements are composed as full frames (`ifc-geometry`).
  *   · The first material found was given to every member. Each member now carries the material
  *     its own IfcRelAssociatesMaterial names.
+ *   · The project's length unit was never read, so a file authored in millimetres — the
+ *     default of several BIM tools — imported 1000x too large. Coordinates and extrusion
+ *     depths are scaled by the IfcUnitAssignment now (`lengthUnitScale`).
  */
 
 export interface IfcParseResult {
@@ -24,15 +27,22 @@ export interface IfcParseResult {
   warnings: string[];
 }
 
+/** SI prefixes as a factor of the unprefixed unit, for IfcSIUnit.Prefix. */
+const SI_PREFIX: Record<string, number> = {
+  EXA: 1e18, PETA: 1e15, TERA: 1e12, GIGA: 1e9, MEGA: 1e6, KILO: 1e3, HECTO: 1e2, DECA: 1e1,
+  DECI: 1e-1, CENTI: 1e-2, MILLI: 1e-3, MICRO: 1e-6, NANO: 1e-9, PICO: 1e-12, FEMTO: 1e-15, ATTO: 1e-18,
+};
+
 /**
  * Parse an IFC file and extract structural members (beams, columns, braces).
- * Returns start/end points in world coordinates.
+ * Returns start/end points in world coordinates, in metres.
  */
-export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
+export async function parseIfc(data: ArrayBuffer, opts?: { wasmPath?: string }): Promise<IfcParseResult> {
   // Dynamic import to avoid bundling 3.5MB WASM in main chunk
   const WebIFC = await import('web-ifc');
   const api = new WebIFC.IfcAPI();
-  api.SetWasmPath('/');
+  // '/' is where the app serves web-ifc.wasm from; tests point at the package instead.
+  api.SetWasmPath(opts?.wasmPath ?? '/');
   await api.Init();
 
   const modelID = api.OpenModel(new Uint8Array(data));
@@ -40,10 +50,60 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
   const members: IfcMember[] = [];
   let nextId = 1;
 
+  /**
+   * Metres per file length unit, from the project's IfcUnitAssignment.
+   *
+   * BIM tools that author in millimetres say so here — an IfcSIUnit of LENGTHUNIT with
+   * Prefix MILLI — and coordinates and extrusion depths follow. Read raw, such a file
+   * imported 1000x too large. A conversion-based unit (inches, feet) names its factor
+   * through an IfcMeasureWithUnit against an SI unit. Anything unrecognized is taken as
+   * metres, the IFC default.
+   */
+  const lengthUnitScale = (): number => {
+    const unitScale = (unit: any, depth: number): number | undefined => {
+      if (!unit || depth > 2) return undefined;
+      if (unit.type === WebIFC.IFCSIUNIT) {
+        if (unit.Name?.value !== 'METRE') return undefined;
+        return SI_PREFIX[unit.Prefix?.value] ?? 1;
+      }
+      if (unit.type === WebIFC.IFCCONVERSIONBASEDUNIT) {
+        const mwu = unit.ConversionFactor ? api.GetLine(modelID, unit.ConversionFactor.value) : undefined;
+        const raw = mwu?.ValueComponent;
+        const value = typeof raw === 'number' ? raw : raw?.value;
+        const base = mwu?.UnitComponent ? api.GetLine(modelID, mwu.UnitComponent.value) : undefined;
+        const baseScale = unitScale(base, depth + 1);
+        if (typeof value === 'number' && baseScale !== undefined) return value * baseScale;
+      }
+      return undefined;
+    };
+    try {
+      const ids = api.GetLineIDsWithType(modelID, WebIFC.IFCUNITASSIGNMENT);
+      for (let i = 0; i < ids.size(); i++) {
+        const assignment = api.GetLine(modelID, ids.get(i));
+        for (const unitRef of assignment?.Units ?? []) {
+          const unit = api.GetLine(modelID, unitRef.value);
+          if (unit?.UnitType?.value !== 'LENGTHUNIT') continue;
+          const s = unitScale(unit, 0);
+          if (s !== undefined && s > 0) return s;
+        }
+      }
+    } catch {
+      // No unit assignment — metres.
+    }
+    return 1;
+  };
+  const lengthScale = lengthUnitScale();
+
   const v3 = (ref: any, fallback?: V3): V3 | undefined => {
     if (!ref) return fallback;
     const o = api.GetLine(modelID, ref.value);
-    const c = o?.Coordinates ?? o?.DirectionRatios;
+    // Coordinates are length-like and follow the file unit; DirectionRatios are
+    // unitless (and normalized downstream) and stay raw.
+    if (o?.Coordinates) {
+      const c = o.Coordinates;
+      return [(c[0]?.value ?? 0) * lengthScale, (c[1]?.value ?? 0) * lengthScale, (c[2]?.value ?? 0) * lengthScale];
+    }
+    const c = o?.DirectionRatios;
     if (!c) return fallback;
     return [c[0]?.value ?? 0, c[1]?.value ?? 0, c[2]?.value ?? 0];
   };
@@ -85,7 +145,7 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
           if (!item?.Depth) continue;
           const solid = compose(world, frameOf(item.Position));
           const dir = v3(item.ExtrudedDirection, [0, 0, 1])!;
-          const { start, end } = extrusionAxis(solid, dir, item.Depth.value);
+          const { start, end } = extrusionAxis(solid, dir, item.Depth.value * lengthScale);
           return { start: { x: start[0], y: start[1], z: start[2] }, end: { x: end[0], y: end[1], z: end[2] } };
         }
       }
