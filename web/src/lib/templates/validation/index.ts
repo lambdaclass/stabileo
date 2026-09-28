@@ -20,6 +20,7 @@ import { mergeCode } from '../../model/code/apply';
 
 export const VALIDATION_MODELS = {
   'validation-06': () => import('./validation-06.stabileo.txt?raw'),
+  'validation-07': () => import('./validation-07.stabileo.txt?raw'),
 } as const;
 
 export type ValidationModelId = keyof typeof VALIDATION_MODELS;
