@@ -31,8 +31,6 @@ const EX2 = ['simply-supported', 'cantilever', 'cantilever-point', 'point-loads'
 const EX3 = ['3d-cantilever-load', '3d-torsion-beam', 'hinged-arch-3d', '3d-portal-frame', 'grid-beams',
   '3d-space-truss', 'space-frame', 'tower-3d-2', 'tower-3d-4', '3d-nave-industrial'];
 
-/* P-Δ does not take prescribed displacements yet; the UI says so instead of running. */
-const PRESCRIBED = new Set(['settlement']);
 /* Self-equilibrated actions: they use up redundancy but cannot collapse a structure. */
 const NO_COLLAPSE = new Set(['settlement', 'thermal']);
 
@@ -61,13 +59,11 @@ describe('advanced analyses on the Basic 2D examples', () => {
     await load(name, '2d');
     const input = modelStore.buildSolverInput(false)!;
 
-    if (!PRESCRIBED.has(name)) {
-      const pd = solvePDelta(input);
-      expect(pd.converged).toBe(true);
-      expect(pd.isStable).toBe(true);
-      expect(pd.b2Factor).toBeGreaterThan(0.9);
-      expect(pd.b2Factor).toBeLessThan(3);
-    }
+    const pd = solvePDelta(input);
+    expect(pd.converged).toBe(true);
+    expect(pd.isStable).toBe(true);
+    expect(pd.b2Factor).toBeGreaterThan(0.9);
+    expect(pd.b2Factor).toBeLessThan(3);
 
     bucklingOk(() => solveBuckling(input));
 
