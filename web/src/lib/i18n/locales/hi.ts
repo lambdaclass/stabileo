@@ -3147,7 +3147,7 @@ const hi: Translations = {
   'autoLoad.sysWalls': 'दीवारें',
   'autoLoad.sysOther': 'अन्य',
   'autoLoad.dirX': 'X दिशा',
-  'autoLoad.dirZ': 'Z दिशा',
+  'autoLoad.dirZ': 'Y दिशा',
   'autoLoad.preview': 'भूकंपीय पूर्वावलोकन',
   'autoLoad.options': 'विकल्प',
   'autoLoad.genCombos': 'मानक के अनुसार संयोजन उत्पन्न करें',

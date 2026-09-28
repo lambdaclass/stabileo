@@ -380,7 +380,8 @@
               {@const hint = [c.descKey ? t(c.descKey) : '', why].filter(Boolean).join(' — ')}
               <button
                 class="pr-cmd"
-                class:active={(!!c.tab && uiStore.proActiveTab === c.tab)
+                class:active={c.activeWhen ? c.activeWhen()
+                  : (!!c.tab && uiStore.proActiveTab === c.tab)
                   || (!!c.diagram && shownDiagram === c.diagram)
                   || (!!c.tool && uiStore.currentTool === c.tool)}
                 disabled={!on}

@@ -3135,7 +3135,7 @@ const ar: Translations = {
   'autoLoad.sysWalls': 'جدران',
   'autoLoad.sysOther': 'أخرى',
   'autoLoad.dirX': 'الاتجاه X',
-  'autoLoad.dirZ': 'الاتجاه Z',
+  'autoLoad.dirZ': 'الاتجاه Y',
   'autoLoad.preview': 'معاينة زلزالية',
   'autoLoad.options': 'خيارات',
   'autoLoad.genCombos': 'إنشاء تراكيب حسب المعيار',

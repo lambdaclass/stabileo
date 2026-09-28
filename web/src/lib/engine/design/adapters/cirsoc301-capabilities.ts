@@ -17,8 +17,9 @@
  *   · it has ZERO tests — no external benchmark, no hand fixture, no property test;
  *   · it cites no clause anywhere in the `ClauseRef` sense, so `deriveMaturity` could not
  *     promote it past UNSUPPORTED even if benchmarks existed;
- *   · it is invoked with `Lb = L`, i.e. the member is assumed unbraced over its whole
- *     length, which for a beam usually decides the answer;
+ *   · it is invoked with the physical member's length as `Lb` unless one is declared, i.e.
+ *     the member is assumed unbraced over its whole chain, which for a beam usually decides
+ *     the answer;
  *   · when the section carries no `tw`/`tf` it invents them as `b/10` and `b/15`, and when
  *     the material carries no `fu` it invents `1,25·fy`.
  *

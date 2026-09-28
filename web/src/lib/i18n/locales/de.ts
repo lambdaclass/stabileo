@@ -3155,7 +3155,7 @@ const de: Translations = {
   'autoLoad.sysWalls': 'Wände',
   'autoLoad.sysOther': 'Andere',
   'autoLoad.dirX': 'Richtung X',
-  'autoLoad.dirZ': 'Richtung Z',
+  'autoLoad.dirZ': 'Richtung Y',
   'autoLoad.preview': 'Erdbeben-Vorschau',
   'autoLoad.options': 'Optionen',
   'autoLoad.genCombos': 'Kombinationen nach Norm generieren',

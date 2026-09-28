@@ -4,8 +4,10 @@
   import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
   import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
   import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
+  import { publishCombinations3D } from '../../lib/store/active-results';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
+  import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { solvePDelta, solveBuckling, solveModal, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
@@ -295,24 +297,6 @@
     else uiStore.toast(msg, 'error');
   }
 
-  /**
-   * The second-order solver ignores prescribed support displacements: a model
-   * whose only action is a settlement came back all zeros and "not converged",
-   * and one with loads as well came back without the settlement. Say so rather
-   * than show either.
-   */
-  function blockedByPrescribed(supports: Iterable<Record<string, unknown>>): boolean {
-    for (const s of supports) {
-      for (const k of ['dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
-        if (typeof s[k] === 'number' && s[k] !== 0) {
-          uiStore.toast(t('toast.pdeltaPrescribed'), 'error');
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   function errText(e: unknown, fallbackKey: string): string {
     if (typeof e === 'string' && e.trim()) return e;
     const msg = (e as { message?: unknown } | null)?.message;
@@ -360,17 +344,16 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (blockedByPrescribed(input.supports.values() as Iterable<Record<string, unknown>>)) return;
     try {
       const t0 = performance.now();
       const result = solvePDelta(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult(result);
-      const msg = result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
-        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
-      uiStore.toast(msg, result.converged ? 'success' : 'error');
+      const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
+        : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
+      uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -493,7 +476,6 @@
     if (!await ensureWasmReady('handlePDelta3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (blockedByPrescribed(input.supports.values() as Iterable<Record<string, unknown>>)) return;
     try {
       const t0 = performance.now();
       let result: any;
@@ -501,10 +483,10 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult3D(result);
-      const msg = result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
-        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
-      uiStore.toast(msg, result.converged ? 'success' : 'error');
+      const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
+        : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
+      uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -560,7 +542,7 @@
       if (typeof result === 'string') {
         uiStore.toast(result, 'error');
       } else if (result) {
-        resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
+        publishCombinations3D(result);
         const nCombos = result.perCombo.size;
         const nCases = result.perCase.size;
         uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
@@ -1016,8 +998,8 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <div class="adv-result-info" style="font-size:10px">
-      P-Δ: B₂ = {pdR.b2Factor.toFixed(3)} |
+    <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
+      P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
       {pdR.converged ? `${pdR.iterations} iter` : 'no conv.'} |
       {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>

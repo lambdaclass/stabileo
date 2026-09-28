@@ -45,3 +45,42 @@ describe('plastic moments', () => {
     expect(m.fy).toBe(250);
   });
 });
+
+describe('3-D pushover payload', () => {
+  it('a steel cantilever collapses at Mp/(P·L), with the members’ fy and the profile’s own Zp', async () => {
+    const { plasticInput3D, plasticMoments3D } = await import('../plastic-moments');
+    const { solvePlastic3D, initSolver } = await import('../wasm-solver');
+    const { buildSolverInput3D } = await import('../solver-service');
+    await initSolver();
+    historyStore.clear(); uiStore.analysisMode = 'pro'; modelStore.clear();
+    const mid = modelStore.addMaterial({ name: 'S355', e: 200000, nu: 0.3, rho: 78.5, fy: 355, fu: 510 } as never);
+    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(4, 0, 3);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.updateElementMaterial(e, mid);
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0);
+    const p = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
+    const [m] = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements);
+    expect(m.fy).toBe(355);
+    expect(m.source).toBe('geometry');
+    const r = solvePlastic3D({ solver: buildSolverInput3D(modelStore.model as never, false, false), ...p, maxHinges: 5 });
+    expect(r.collapseFactor).toBeCloseTo(m.mp / (10 * 4), 4);
+    uiStore.analysisMode = '2d';
+  });
+});
+
+describe('3-D Mp of a rotated section', () => {
+  it('stays about the profile’s own axes: the roll already turns the member’s local axes', async () => {
+    const { plasticMoments3D, plasticModulus } = await import('../plastic-moments');
+    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+    await modelStore.loadExample('cantilever-point');
+    const [id, sec] = [...modelStore.sections.entries()][0]!;
+    const upright = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements)[0]!;
+    modelStore.sections.set(id, { ...sec, rotation: 90 });
+    const turned = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements)[0]!;
+    expect(turned.zp).toBeCloseTo(upright.zp, 9);
+    expect(turned.zpz).toBeCloseTo(upright.zpz, 9);
+    // 2-D does turn it: its bending axis does not follow the section.
+    expect(plasticModulus({ ...sec, rotation: 90 }).zp).toBeCloseTo(upright.zpz, 7);
+  });
+});

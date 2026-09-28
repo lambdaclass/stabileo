@@ -12,6 +12,9 @@ import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
 import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
+import { eiOf } from '../engine/member-deflection';
+import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
+import { viewState, memberLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -25,6 +28,9 @@ import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
 import { shellComponentValue, shellComponentRange } from '../engine/shell-stress';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
+
+/** A screen-sized label's height, as a fraction of the viewport's (see the node labels). */
+const LABEL_SCREEN = 0.038;
 
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
 function projectFlag(): boolean {
@@ -234,12 +240,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // A time-history frame is a shape, like a mode: the static solve's forces do not belong to it.
   const staticDeformed = dt === 'deformed' && !thFrame;
   const sigDt = thFrame ? 'timeHistory' : dt;
-  const sigForces = staticDeformed && r3d ? r3d.elementForces : null;
+  // Quick draws straight lines between displaced nodes: no forces, no EI, no particular solution.
+  const exact = deformedView.exact;
+  const sigForces = staticDeformed && exact && r3d ? r3d.elementForces : null;
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
+  const sigLabels = staticDeformed && resultsStore.showDiagramValues;
   const prev = ctx.deformedGroup?.userData;
   if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
-      && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand) {
+      && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand
+      && prev?.sigExact === exact && prev?.sigLabels === sigLabels) {
     prev.setScale(scale);
     prev.material.color.setHex(modeColor ?? COLORS.deformed);
     ctx.resultsParent.add(ctx.deformedGroup);
@@ -255,27 +265,19 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   // Build EI map for particular solution (only for static deformed — modes don't need it)
   let eiMap: Map<number, ElementEI> | undefined;
-  if (staticDeformed) {
+  if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
-      const mat = modelStore.materials.get(elem.materialId);
-      const sec = modelStore.sections.get(elem.sectionId);
-      if (mat && sec) {
-        const E = mat.e * 1000; // MPa → kN/m²
-        const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
-        eiMap.set(id, {
-          EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
-          EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
-        });
-      }
+      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId));
+      if (ei) eiMap.set(id, ei);
     }
   }
 
   ctx.deformedGroup = createDeformedLines(
-    modelStore.elements,
+    visibleElements(),
     getProjectedNodes(),
     displacements,
-    staticDeformed && r3d ? r3d.elementForces : [],
+    staticDeformed && exact && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     sigHand,
@@ -291,7 +293,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   */
   if (modelStore.plates.size > 0 || modelStore.quads.size > 0) {
     ctx.deformedGroup.add(createDeformedShells(
-      modelStore.plates, modelStore.quads, getProjectedNodes(), displacements, scale,
+      visiblePlates(), visibleQuads(), getProjectedNodes(), displacements, scale,
       modeColor ?? 0x22d3a5,
     ));
   }
@@ -301,6 +303,33 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   ctx.deformedGroup.userData.sigForces = sigForces;
   ctx.deformedGroup.userData.sigVer = sigVer;
   ctx.deformedGroup.userData.sigHand = sigHand;
+  ctx.deformedGroup.userData.sigExact = exact;
+  ctx.deformedGroup.userData.sigLabels = sigLabels;
+
+  // Displacement labels at the nodes that moved most, carried along by the scale control.
+  if (sigLabels) {
+    const nodes = getProjectedNodes();
+    const byId = new Map(displacements.map((d) => [d.nodeId, d]));
+    const labels = new THREE.Group();
+    labels.name = 'displacement-labels';
+    const placed: Array<{ sprite: THREE.Object3D; x: number; y: number; z: number; d: Displacement3D }> = [];
+    for (const { nodeId, magnitude } of nodesToLabel(displacements)) {
+      const n = nodes.get(nodeId), d = byId.get(nodeId);
+      if (!n || !d) continue;
+      const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
+      // Screen-sized: without a scale the sprite keeps the default 0.6 — 60 % of the viewport.
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
+      labels.add(sprite);
+      placed.push({ sprite, x: n.x, y: n.y, z: n.z ?? 0, d });
+    }
+    const place = (s: number) => {
+      for (const p of placed) p.sprite.position.set(p.x + p.d.ux * s, p.y + p.d.uy * s, p.z + p.d.uz * s);
+    };
+    place(scale);
+    ctx.deformedGroup.add(labels);
+    const setScale = ctx.deformedGroup.userData.setScale as ((s: number) => void) | undefined;
+    ctx.deformedGroup.userData.setScale = (s: number) => { setScale?.(s); place(s); };
+  }
 
   // Tint mode shapes with their distinctive color
   if (modeColor !== null) {
@@ -352,7 +381,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
-        modelStore.elements,
+        visibleElements(),
         projectedNodes,
         envDiagram,
         kind,
@@ -368,7 +397,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   } else {
     // Normal single diagram
     ctx.diagramGroup = createDiagramGroup3D(
-      modelStore.elements,
+      visibleElements(),
       projectedNodes,
       r3d.elementForces,
       kind,
@@ -385,7 +414,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const overlay3D = resultsStore.overlayResults3D;
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
-        modelStore.elements,
+        visibleElements(),
         projectedNodes,
         overlay3D.elementForces,
         kind,
@@ -952,7 +981,7 @@ export function syncReactions(ctx: ResultsSyncContext): void {
 
   for (const r of r3d.reactions) {
     const node = modelStore.nodes.get(r.nodeId);
-    if (!node) continue;
+    if (!node || viewVisibility.isNodeHidden(r.nodeId)) continue;
     const pos = projectNodeToScene(node, project2D);
     const arrow = createReactionArrow(
       pos,
@@ -1117,14 +1146,13 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
      report. `LABEL_SCREEN` is a fraction of the viewport height.
   */
   const spriteScale = modelSize * 0.025;
-  const LABEL_SCREEN = 0.038;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    for (const [id, node] of modelStore.nodes) {
+    for (const [id, node] of visibleNodes()) {
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
       sprite.position.set(
@@ -1139,11 +1167,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
 
   // Element labels
-  if (uiStore.showElementLabels3D && modelStore.elements.size > 0) {
+  if (uiStore.showElementLabels3D && visibleElements().size > 0) {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
-    for (const [id, elem] of modelStore.elements) {
+    for (const [, elem] of visibleElements()) {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1155,7 +1183,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(String(id), '#88ccff', 24, true);
+      const sprite = createTextSpriteCached(memberLabelText(viewState.memberLabel, elem, modelStore.sections, modelStore.materials), '#88ccff', 24, true);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
       sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);
@@ -1164,11 +1192,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
 
   // Length labels
-  if (uiStore.showLengths3D && modelStore.elements.size > 0) {
+  if (uiStore.showLengths3D && visibleElements().size > 0) {
     ctx.lengthLabelsGroup = new THREE.Group();
     ctx.lengthLabelsGroup.name = 'lengthLabels';
 
-    for (const [, elem] of modelStore.elements) {
+    for (const [, elem] of visibleElements()) {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1219,8 +1247,8 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       ctx.shellLabelsGroup!.add(sprite);
     };
 
-    for (const [id, p] of modelStore.plates) centroidLabel(p.nodes, String(id));
-    for (const [id, q] of modelStore.quads) centroidLabel(q.nodes, String(id));
+    for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
+    for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
     ctx.scene.add(ctx.shellLabelsGroup);
   }
 }

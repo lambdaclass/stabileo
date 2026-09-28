@@ -27,11 +27,15 @@
  * than buried in a `break`.
  */
 
+import { deflectionChecks } from '../store/serviceability';
+import { storyDrifts as computeStoryDrifts } from './story-drift';
+import { shouldEmbedFlat2DModelIn3D } from './solver-service';
+import { activeCombinations } from '../store/active-results';
 import { modelStore, resultsStore } from '../store';
 import type { ReportData, ReportConfig } from './pro-report';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { checkCrackWidth, checkDeflection } from './codes/argentina/serviceability';
+import { checkCrackWidth } from './codes/argentina/serviceability';
 import { estimateQuantitiesFromVerification } from './quantity-takeoff';
 import { computeBarMarks } from './bar-marks';
 import { buildStructuralGraph } from './structural-graph';
@@ -54,8 +58,6 @@ export const REPORT_COLUMN_STACK_CAP = 3;
  */
 export const REPORT_DRIFT_LIMIT = 0.015;
 
-/** Nodes within this many metres of each other in Y are read as the same story. */
-const STORY_Y_TOLERANCE = 0.05;
 
 type Translate = (key: string) => string;
 
@@ -137,33 +139,46 @@ function serializeCombinations(): ReportData['combinations'] {
 }
 
 /**
- * Crack width and deflection per verified member.
+ * Crack width per verified member; the deflection of every beam.
  *
- * `Ms` is the factored moment divided back by 1.4 — the service moment the serviceability checks
- * want, recovered from the ultimate one the design produced. Members that yield neither check are
- * dropped, so an empty section means "nothing was checkable", not "everything passed".
+ * `Ms` is the factored moment divided back by 1.4 — the service moment the crack check wants,
+ * recovered from the ultimate one the design produced. The deflection is each beam's own, relative
+ * to its chord, under the service loads `store/service-deflection.ts` chooses — the same number
+ * the verification tab shows. It was the largest vertical displacement of the whole model, the
+ * same for every beam. The verification set is concrete-only, so the beams it does not cover —
+ * the steel ones — contribute their deflection as rows of their own: the check
+ * (`store/serviceability.ts`) runs for every beam in the model, and a steel beam bends as much
+ * as a concrete one. Members that yield neither check are dropped, so an empty section means
+ * "nothing was checkable", not "everything passed".
  */
 function serviceabilityRows(
   verifications: readonly ElementVerification[],
-  results: AnalysisResults3D,
 ): ReportData['serviceability'] {
-  if (verifications.length === 0) return undefined;
-  const maxDisp = results.displacements.reduce((mx, d) => Math.max(mx, Math.abs(d.uz)), 0);
+  const deflections = deflectionChecks().rows;
+  const deflectionOf = (elementId: number) => {
+    const defl = deflections.get(elementId)?.check;
+    return defl
+      ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.span / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor }
+      : undefined;
+  };
   const rows = verifications.map((v) => {
     const Ms = v.Mu / 1.4;
     const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
       ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
       : undefined;
-    const L = elementLength(v.elementId) ?? 0;
-    const defl = (L > 0 && v.elementType === 'beam') ? checkDeflection(L, maxDisp) : undefined;
     return {
       elementId: v.elementId,
       elementType: v.elementType,
       crack: crack ? { wk: crack.wk, wkLimit: crack.wLimit, status: crack.status } : undefined,
-      deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined,
+      deflection: deflectionOf(v.elementId),
     };
-  }).filter((s) => s.crack || s.deflection);
-  return rows.length > 0 ? rows : undefined;
+  });
+  const covered = new Set(verifications.map((v) => v.elementId));
+  for (const [id] of deflections) {
+    if (!covered.has(id)) rows.push({ elementId: id, elementType: 'beam', crack: undefined, deflection: deflectionOf(id) });
+  }
+  const kept = rows.filter((s) => s.crack || s.deflection);
+  return kept.length > 0 ? kept : undefined;
 }
 
 /** The structural graph, built from the plain shapes `buildStructuralGraph` expects. */
@@ -323,11 +338,12 @@ function columnStacks(
   return out.length > 0 ? out : undefined;
 }
 
-/** The governing envelope of each member across every solved combination. */
+/** The governing envelope of each member across every active combination. */
 function comboForces(): ReportData['comboForces'] {
-  if (resultsStore.perCombo3D.size === 0 || modelStore.model.combinations.length === 0) return undefined;
+  const combos = activeCombinations();
+  if (resultsStore.perCombo3D.size === 0 || combos.length === 0) return undefined;
   const out = new Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>();
-  for (const combo of modelStore.model.combinations) {
+  for (const combo of combos) {
     const comboResults = resultsStore.perCombo3D.get(combo.id);
     if (!comboResults) continue;
     for (const ef of comboResults.elementForces) {
@@ -345,47 +361,11 @@ function comboForces(): ReportData['comboForces'] {
   return out.size > 0 ? out : undefined;
 }
 
-/**
- * Inter-story drift, from the story levels the nodes imply.
- *
- * Levels are the distinct Y coordinates within `STORY_Y_TOLERANCE`; anything closer than 0.1 m
- * apart is not a story and is skipped, which is what keeps a beam's own nodes from being read as
- * a 40 mm floor with an enormous drift ratio.
- */
+/** Inter-story drift on the columns, the same computation the verification tab shows. */
 function storyDrifts(results: AnalysisResults3D): ReportData['storyDrifts'] {
-  const yLevels: number[] = [];
-  for (const [, node] of modelStore.nodes) {
-    if (!yLevels.some((lv) => Math.abs(lv - node.y) < STORY_Y_TOLERANCE)) yLevels.push(node.y);
-  }
-  yLevels.sort((a, b) => a - b);
-  if (yLevels.length < 2) return undefined;
-
-  const drifts: NonNullable<ReportData['storyDrifts']> = [];
-  for (let i = 1; i < yLevels.length; i++) {
-    const level = yLevels[i], prevLevel = yLevels[i - 1];
-    const storyH = level - prevLevel;
-    if (storyH < 0.1) continue;
-    let maxUxCur = 0, maxUzCur = 0, maxUxPrev = 0, maxUzPrev = 0;
-    for (const d of results.displacements) {
-      const node = modelStore.nodes.get(d.nodeId);
-      if (!node) continue;
-      if (Math.abs(node.y - level) < STORY_Y_TOLERANCE) {
-        maxUxCur = Math.max(maxUxCur, Math.abs(d.ux));
-        maxUzCur = Math.max(maxUzCur, Math.abs(d.uz));
-      } else if (Math.abs(node.y - prevLevel) < STORY_Y_TOLERANCE) {
-        maxUxPrev = Math.max(maxUxPrev, Math.abs(d.ux));
-        maxUzPrev = Math.max(maxUzPrev, Math.abs(d.uz));
-      }
-    }
-    const deltaX = Math.abs(maxUxCur - maxUxPrev), deltaZ = Math.abs(maxUzCur - maxUzPrev);
-    const ratioX = deltaX / storyH, ratioZ = deltaZ / storyH;
-    const maxRatio = Math.max(ratioX, ratioZ);
-    drifts.push({
-      level, height: storyH, driftX: deltaX, driftZ: deltaZ, ratioX, ratioZ,
-      status: maxRatio > REPORT_DRIFT_LIMIT ? 'fail'
-        : maxRatio > REPORT_DRIFT_LIMIT * 0.8 ? 'warn' : 'ok',
-    });
-  }
+  const drifts = computeStoryDrifts(modelStore.nodes, modelStore.elements.values(), results.displacements, {
+    limit: REPORT_DRIFT_LIMIT, embedded2D: shouldEmbedFlat2DModelIn3D(modelStore.model),
+  });
   return drifts.length > 0 ? drifts : undefined;
 }
 
@@ -433,7 +413,7 @@ export function buildProReportData(opts: {
     combinations: serializeCombinations(),
     advancedResults,
     diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
-    serviceability: serviceabilityRows(verifications, results),
+    serviceability: serviceabilityRows(verifications),
     screenshot,
     t,
     config,

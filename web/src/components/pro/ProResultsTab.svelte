@@ -1,8 +1,15 @@
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   import { untrack } from 'svelte';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { publishCombinations3D } from '../../lib/store/active-results';
+  import ProResultScopes from './ProResultScopes.svelte';
+  import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
+  import ProDeflectionTable from './ProDeflectionTable.svelte';
+  import ProStoryDriftTable from './ProStoryDriftTable.svelte';
+  import { deformedView } from '../../lib/store/deformed-view.svelte';
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
@@ -22,7 +29,7 @@
     type SourceKind,
   } from '../../lib/engine/result-query';
   import {
-    SHELL_CONTOUR_COMPONENTS, SHELL_COMPONENT_GROUP_LABELS, principalStresses,
+    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, principalStresses,
     shellComponentStats, type ShellComponentGroup,
   } from '../../lib/engine/shell-stress';
 
@@ -120,10 +127,13 @@
   const hasCombinations = $derived(resultsStore.hasCombinations3D);
 
   // View mode
+  // The view, the case and the combination are the results store's; the controls only show and
+  // set them. A local copy drifted: after a solve, or from another panel, the buttons and the
+  // selects named one thing while the viewport showed another.
   type ViewMode = 'single' | 'combo' | 'envelope';
-  let viewMode = $state<ViewMode>('single');
-  let selectedCaseId = $state<number | null>(null);
-  let selectedComboId = $state<number | null>(null);
+  const viewMode = $derived<ViewMode>(resultsStore.activeView);
+  /** Per table: the result set on screen, or read across the active combinations. */
+  let tableModes = $state<Record<'reactions' | 'forces' | 'displacements', TableMode>>({ reactions: 'current', forces: 'current', displacements: 'current' });
 
   function handleSolve() {
     solveError = null;
@@ -142,9 +152,10 @@
         try {
           const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
           if (typeof comboResult === 'string') {
-            console.warn('Combinations warning:', comboResult);
+            // Refused (an empty active list, say): said, not only logged.
+            uiStore.toast(comboResult, 'info');
           } else if (comboResult) {
-            resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
+            publishCombinations3D(comboResult);
             // Sync BOTH the local toggle and the store view: setting only the
             // local viewMode left activeView='single', so the Envelope button
             // rendered active while the query card/CSV honestly said 'Case'.
@@ -162,31 +173,22 @@
   }
 
   function switchView(mode: ViewMode) {
-    viewMode = mode;
-    if (mode === 'envelope') {
-      resultsStore.activeView = 'envelope';
-    } else if (mode === 'combo' && selectedComboId !== null) {
-      resultsStore.activeComboId = selectedComboId;
-      resultsStore.activeView = 'combo';
-    } else if (mode === 'single') {
-      if (selectedCaseId !== null) {
-        resultsStore.activeCaseId = selectedCaseId;
-      } else {
-        resultsStore.activeView = 'single';
-      }
+    if (mode === 'combo') {
+      const id = resultsStore.activeComboId ?? comboKeys[0] ?? null;
+      if (id === null) return;
+      resultsStore.activeComboId = id;
     }
+    resultsStore.activeView = mode;
   }
 
   function onCaseChange(e: Event) {
-    const id = Number((e.target as HTMLSelectElement).value);
-    selectedCaseId = id;
-    resultsStore.activeCaseId = id;
+    const v = (e.target as HTMLSelectElement).value;
+    if (v === '') { resultsStore.activeCaseId = null; resultsStore.activeView = 'single'; return; }
+    resultsStore.activeCaseId = Number(v);
   }
 
   function onComboChange(e: Event) {
-    const id = Number((e.target as HTMLSelectElement).value);
-    selectedComboId = id;
-    resultsStore.activeComboId = id;
+    resultsStore.activeComboId = Number((e.target as HTMLSelectElement).value);
     resultsStore.activeView = 'combo';
   }
 
@@ -367,6 +369,9 @@
     { id: 'reactions', labelKey: 'pro.reactionsTitle', count: () => results?.reactions.length ?? 0 },
     { id: 'forces', labelKey: 'pro.forcesTitle', count: () => results?.elementForces.length ?? 0 },
     { id: 'displacements', labelKey: 'pro.displacementsTitle', count: () => results?.displacements.length ?? 0 },
+    // Relative to each member's chord — the number a span limit is written for.
+    { id: 'deflections', labelKey: 'defl.title', count: () => (results ? [...modelStore.elements.values()].filter(e => e.type === 'frame').length : 0) },
+    { id: 'drift', labelKey: 'drift.title', count: () => !results ? 0 : modelStore.model.loadCases.filter((c) => (c.type || '').toUpperCase() === 'E').length },
     { id: 'shells', labelKey: 'pro.shellStresses', count: () => shellRows.length },
     // These two are computed inside the markup as `{@const}`, so the counts are
     // taken from the same source rather than from a binding that is not in
@@ -518,10 +523,10 @@
             <label class="pro-viz-label">{t('pro.shellComponent')}</label>
             <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
               {#each shellGroups as [group, comps]}
-                <optgroup label={SHELL_COMPONENT_GROUP_LABELS[group]}>
+                <optgroup label={t(shellGroupLabelKey(group))}>
                   {#each comps as c}
                     {@const st = shellStats?.[c.key]?.status}
-                    <option value={c.key}>{c.label} ({c.unit}){st === 'negligible' ? ' — ≈0' : st === 'uniform' ? ' — uniform' : ''}</option>
+                    <option value={c.key}>{t(shellComponentLabelKey(c.key))} ({c.unit}){st === 'negligible' ? ' — ≈0' : st === 'uniform' ? ` — ${t('shell.uniform')}` : ''}</option>
                   {/each}
                 </optgroup>
               {/each}
@@ -543,6 +548,13 @@
             oninput={onDeformedScaleInput}
           />
           <span class="pro-viz-val">{Math.round(resultsStore.deformedScale)}×</span>
+        </div>
+        <div class="pro-viz-row">
+          <label class="pro-viz-label">{t('annot.deformed')}</label>
+          <select class="pro-viz-sel" value={deformedView.exact ? 'exact' : 'quick'} onchange={(e) => (deformedView.exact = (e.target as HTMLSelectElement).value === 'exact')} data-testid="pr-deformed-mode" title={t('annot.deformedHint')}>
+            <option value="exact">{t('annot.exact')}</option>
+            <option value="quick">{t('annot.quick')}</option>
+          </select>
         </div>
         {:else if DIAGRAM_KINDS.includes(resultsStore.diagramType)}
           <div class="pro-viz-row">
@@ -579,7 +591,16 @@
           {t('config.showConstraintForces')}
         </label>
       </div>
+      <div class="pro-viz-row">
+        <label class="pro-viz-check" title={t('annot.valuesHint')}>
+          <input type="checkbox" bind:checked={resultsStore.showDiagramValues} data-testid="pr-show-values" />
+          {t('config.showValues')}
+        </label>
+        <button class="pro-viz-png" onclick={() => window.dispatchEvent(new CustomEvent('stabileo-export-png'))} title={t('annot.pngHint')} data-testid="pr-export-png">{t('annot.png')}</button>
+      </div>
     </div>
+
+    <ProResultScopes />
 
     <!-- View mode selector -->
     {#if hasCombinations}
@@ -589,16 +610,16 @@
         <button class="pro-view-btn" class:active={viewMode === 'envelope'} onclick={() => switchView('envelope')}>{t('pro.viewEnvelope')}</button>
 
         {#if viewMode === 'single' && caseKeys.length > 0}
-          <select class="pro-view-sel" onchange={onCaseChange}>
+          <select class="pro-view-sel" value={resultsStore.activeCaseId ?? ''} onchange={onCaseChange} data-testid="pr-case-select">
+            {#if resultsStore.singleResults3D}<option value="">{t('pro.queryAllLoads')}</option>{/if}
             {#each caseKeys as cid}
-              {@const lc = modelStore.loadCases.find(c => c.id === cid)}
-              <option value={cid}>{lc ? lc.name : `${t('pro.caseN')}${cid}`}</option>
+              <option value={cid}>{resultCaseName(cid, modelStore.loadCases, t('svc.settlementCase'), t('pro.caseN'))}</option>
             {/each}
           </select>
         {/if}
 
         {#if viewMode === 'combo' && comboKeys.length > 0}
-          <select class="pro-view-sel" onchange={onComboChange}>
+          <select class="pro-view-sel" value={resultsStore.activeComboId ?? ''} onchange={onComboChange} data-testid="pr-combo-select">
             {#each comboKeys as cid}
               {@const cb = modelStore.combinations.find(c => c.id === cid)}
               <option value={cid}>{cb ? cb.name : `${t('pro.comboN')}${cid}`}</option>
@@ -743,6 +764,8 @@
       {/if}
 
       {#if resSection === 'reactions'}
+        <ProResultTableModes kind="reactions" bind:mode={tableModes.reactions} />
+        {#if tableModes.reactions === 'current'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -771,9 +794,12 @@
             </tbody>
           </table>
         </div>
+        {/if}
       {/if}
 
       {#if resSection === 'forces'}
+        <ProResultTableModes kind="forces" bind:mode={tableModes.forces} />
+        {#if tableModes.forces === 'current'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -813,9 +839,12 @@
             </tbody>
           </table>
         </div>
+        {/if}
       {/if}
 
       {#if resSection === 'displacements'}
+        <ProResultTableModes kind="displacements" bind:mode={tableModes.displacements} />
+        {#if tableModes.displacements === 'current'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
@@ -844,9 +873,18 @@
             </tbody>
           </table>
         </div>
+        {/if}
       {/if}
 
       
+      <!-- Outside the shell block below: a frame with no plates has deflections too. -->
+      {#if resSection === 'deflections'}
+        <ProDeflectionTable />
+      {/if}
+      {#if resSection === 'drift'}
+        <ProStoryDriftTable />
+      {/if}
+
       {#if shellRows.length}
       {#if resSection === 'shells'}
           <div class="shell-table-legend">{t('pro.shellTableLegend')}</div>
@@ -1446,4 +1484,8 @@
     font-style: italic;
   }
 
+  .pro-viz-png {
+    margin-left: auto; padding: 1px 7px; font-size: 0.62rem; color: var(--st-text-2); background: var(--st-surface-2);
+    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
+  }
 </style>

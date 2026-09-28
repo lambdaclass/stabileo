@@ -21,6 +21,7 @@ and re-run the converter.
 | `INPRES-CIRSOC-103_Parte_III-Reglamento.pdf` | 2018 | 73 | 4,078,821 | `b703b62b63124a110b1fdfccaf886055092fe3cad52f3eb57a21f15c30939870` |
 | `INPRES-CIRSOC-103_Parte_IV-Reglamento.pdf` | 2005 | 82 | 803,847 | `e30b2301505da0049d736a093a0a49e8b05db1b0019ac730df308bd7c4f720ff` |
 | `INPRES-CIRSOC-103_Parte_V-Reglamento.pdf` | 2018 | 67 | 3,195,936 | `c93e7fe008e473b8ef0b8440abeb9d4c5b21970315ada4991646d24af1c91eb7` |
+| `CIRSOC 104-2005.pdf` | 2005 | 112 | 10,142,125 | `e1e6d178ddb40f999ffddb6d54698bcf27f318ab4e256fd5e6210453be41753f` |
 
 ## Extraction method and quality
 
@@ -44,6 +45,8 @@ Conversion is `pdftotext -layout -enc UTF-8`, split per page, with:
 | INPRES-CIRSOC 103 Parte III (2018) | 10 | 143 | 66 | 4 | 3 |
 | INPRES-CIRSOC 103 Parte IV (2005) | 16 | 79 | 68 | 12 | 2 |
 | INPRES-CIRSOC 103 Parte V (2018) | 6 | 117 | 57 | 4 | 6 |
+| CIRSOC 104 (2005), nieve · pp. 1–88 | 20 | 25 | 81 | 1 | 6 |
+| CIRSOC 104 (2005), hielo · pp. 89–112 | 8 | 33 | 21 | 1 | 2 |
 
 ### Known extraction limitations — read before citing
 
@@ -62,6 +65,14 @@ Conversion is `pdftotext -layout -enc UTF-8`, split per page, with:
    cell and each carries its clause/table reference.
 4. **`Preliminares` chapter** holds cover pages, the resolution text and the index that
    precede Chapter 1. It is kept for completeness, not for citation.
+5. **CIRSOC 104** was converted with `pypdf`'s layout mode (no poppler on that machine); the
+   converter picks it when `pdftotext` is absent. The PDF holds two regulations whose chapters
+   both number from 1, snow (pages 1–88) and ice (89–112), converted as two directories. Its
+   index pages are named in `convert.py`, and its Figuras, Tablas and Anexo a la Tabla 1.9
+   are sections whose row numbers are not read as clauses. Two figure pages (44 and 49) carry
+   rotated text only; Figura 2 (C_s) was read from its labels and its vector paths, as
+   `web/src/lib/codes/cirsoc104/snow.ts` records. Tablas 1.1 a 1.15 have 166 rows, one per
+   p_g value on those pages.
 
 ## Legal status verified against the supplied texts
 
@@ -76,6 +87,7 @@ Conversion is `pdftotext -layout -enc UTF-8`, split per page, with:
 | INPRES-CIRSOC 103 Parte III | 2018 | *Edición Julio 2018* | Masonry; out of scope |
 | INPRES-CIRSOC 103 Parte IV | 2005 | *Edición Julio 2005* | Steel; out of scope |
 | INPRES-CIRSOC 103 Parte V | 2018 | *Edición Julio 2018* | Welding; out of scope |
+| CIRSOC 104 | 2005 | *Edición Julio 2005* | No instrument held; the app makes no claim about its status |
 
 ### Correction to an earlier claim
 

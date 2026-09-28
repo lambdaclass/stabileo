@@ -28,7 +28,8 @@ export type RegulationId =
   | 'cirsoc-201'   // reinforced concrete
   | 'cirsoc-301'   // structural steel
   | 'inpres-cirsoc-103-i'    // seismic — general
-  | 'inpres-cirsoc-103-ii';  // seismic — reinforced concrete
+  | 'inpres-cirsoc-103-ii'   // seismic — reinforced concrete
+  | 'cirsoc-104';            // snow and ice
 
 /** An edition is part of the regulation's identity, never a modifier of it. */
 export type RegulationEdition = '2005' | '2018' | '2024' | '2025';
@@ -133,6 +134,13 @@ export const REGULATIONS: readonly RegulationInfo[] = [
     id: 'cirsoc-102', edition: '2005', name: 'CIRSOC 102',
     title: 'Reglamento Argentino de Acción del Viento sobre las Construcciones',
     inForce: null, textAvailable: false,
+  },
+  {
+    id: 'cirsoc-104', edition: '2005', name: 'CIRSOC 104',
+    title: 'Reglamento Argentino de Acción de la Nieve y del Hielo sobre las Construcciones',
+    // The text says it is edición julio 2005; the app holds no instrument for its status.
+    inForce: null,
+    textAvailable: true, textKey: 'cirsoc-104-2005',
   },
   {
     id: 'cirsoc-200', edition: '2024', name: 'CIRSOC 200',

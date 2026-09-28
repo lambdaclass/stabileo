@@ -105,6 +105,29 @@
     <circle cx="16" cy="7" r="2" />
     <circle cx="10" cy="12" r="2" />
     <circle cx="15" cy="17" r="2" />
+  {:else if name === 'transform'}
+    <!-- A shape and its copy, moved: repeat, mirror, rotate and move all make one. -->
+    <rect x="3.5" y="11.5" width="8" height="8" rx="1" />
+    <rect x="12.5" y="4.5" width="8" height="8" rx="1" stroke-dasharray="2 1.6" />
+    <path d="M8 9.5V7.5a2 2 0 0 1 2-2h1M9.5 4l1.8 1.5-1.8 1.5" />
+  {:else if name === 'edit'}
+    <!-- Scissors over a member: cut, merge and clean up are edits to what is drawn. -->
+    <circle cx="6" cy="18" r="2.4" />
+    <circle cx="6" cy="6" r="2.4" />
+    <path d="M8 7.4L20 16.5M8 16.6L20 7.5" />
+  {:else if name === 'groups'}
+    <!-- Three joints inside one dashed boundary: a named set. -->
+    <rect x="3" y="4" width="18" height="16" rx="3" stroke-dasharray="2.4 1.8" />
+    <circle cx="8.5" cy="9.5" r="1.8" />
+    <circle cx="15.5" cy="9.5" r="1.8" />
+    <circle cx="12" cy="15.5" r="1.8" />
+  {:else if name === 'code'}
+    <!-- Angle brackets: the model written as text. -->
+    <path d="M8.5 7L4 12l4.5 5M15.5 7L20 12l-4.5 5M13.5 5.5l-3 13" />
+  {:else if name === 'eye'}
+    <!-- An eye: how the model is looked at, not what it is. -->
+    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+    <circle cx="12" cy="12" r="2.8" />
   {:else if name === 'data'}
     <!-- A table, because that is literally what the panel shows. -->
     <rect x="3.5" y="4.5" width="17" height="15" rx="1" />

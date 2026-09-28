@@ -65,6 +65,17 @@ export function mergeCoincidentNodes(tol = MERGE_TOL): CleanupReport {
   if (groups.length === 0) return report;
   const to = new Map<number, number>();
   for (const g of groups) for (const id of g.slice(1)) to.set(id, g[0]!);
+  mergeNodesInto(to, report);
+  return report;
+}
+
+/**
+ * Rename every reference to a node in `to`'s keys to its value, and remove the renamed nodes:
+ * member ends, shell corners, supports, nodal loads, constraints, connectors, footings and
+ * groups. Two supports landing on one node cannot both stay; the first is kept. One undo step.
+ */
+export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupReport = empty()): CleanupReport {
+  if (to.size === 0) return report;
   const r = (id: number) => to.get(id) ?? id;
 
   modelStore.batch(() => {
@@ -84,7 +95,7 @@ export function mergeCoincidentNodes(tol = MERGE_TOL): CleanupReport {
       const d = l.data as { nodeId?: number };
       return d.nodeId !== undefined && to.has(d.nodeId) ? ({ ...l, data: { ...l.data, nodeId: r(d.nodeId) } } as Load) : l;
     }));
-    modelStore.remapNodeReferences(to);
+    modelStore.remapNodeReferences(new Map(to));
     for (const g of modelStore.model.groups.values()) {
       if (g.members.nodes?.some((n) => to.has(n))) {
         modelStore.setGroupMembers(g.id, { ...g.members, nodes: [...new Set(g.members.nodes.map(r))] });

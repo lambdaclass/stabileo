@@ -42,6 +42,14 @@
           <div class="shortcut"><kbd>G</kbd> {t('help.toggleGrid')}</div>
           <div class="shortcut"><kbd>H</kbd> {t('help.toggleAxes')}</div>
           <div class="shortcut"><kbd>F</kbd> {t('help.fitModel')}</div>
+          {#if uiStore.analysisMode === 'pro' || uiStore.analysisMode === '3d'}
+            <div class="shortcut"><kbd>Alt+Z</kbd> {t('view.zoomSelection')}</div>
+            <div class="shortcut"><kbd>Alt+N</kbd> {t('view.labelNodes')}</div>
+            <div class="shortcut"><kbd>Alt+B</kbd> {t('view.labelMembers')}</div>
+            <div class="shortcut"><kbd>Alt+M</kbd> {t('view.memberLabelShows')}</div>
+            <div class="shortcut"><kbd>Alt+L</kbd> {t('view.labelLengths')}</div>
+            <div class="shortcut"><kbd>Alt+P</kbd> {t('view.labelShells')}</div>
+          {/if}
           {#if uiStore.analysisMode !== '3d'}
             <div class="shortcut"><kbd>+</kbd> {t('help.zoomIn')}</div>
             <div class="shortcut"><kbd>-</kbd> {t('help.zoomOut')}</div>

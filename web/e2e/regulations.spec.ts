@@ -222,18 +222,20 @@ test.describe('@smoke project regulations — code-neutral roles', () => {
 test.describe('@smoke pending load-regulation change', () => {
   test('R5 — changing a load role stages it pending and does NOT apply', async ({ pro: page }) => {
     await openRegulations(page);
-    await page.getByTestId('role-select-wind').selectOption('cirsoc102-2005');
+    // A new project has no seismic regulation; choosing one is a load-affecting change. (The
+    // wind role's other CIRSOC edition, 2005, is reserved: its text is not supplied.)
+    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
 
     const banner = page.getByTestId('pending-load-change');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText(/must be regenerated/i);
     await expect(banner).toContainText(/new structural solve/i);
-    await expect(page.getByTestId('role-state-wind')).toHaveText('Pending');
+    await expect(page.getByTestId('role-state-seismic')).toHaveText('Pending');
   });
 
   test('R5b — Review changes in Loads navigates to the Loads workflow', async ({ pro: page }) => {
     await openRegulations(page);
-    await page.getByTestId('role-select-wind').selectOption('cirsoc102-2005');
+    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
     await page.getByTestId('pending-review-in-loads').click();
     // The preview and Apply live in Loads, not in Design.
     await expect(page.getByRole('button', { name: /Auto-generate from code/i })).toBeVisible();
@@ -241,11 +243,13 @@ test.describe('@smoke pending load-regulation change', () => {
 
   test('R5c — Cancel change reverts to the applied binding', async ({ pro: page }) => {
     await openRegulations(page);
-    await page.getByTestId('role-select-wind').selectOption('cirsoc102-2005');
-    await expect(page.getByTestId('role-state-wind')).toHaveText('Pending');
+    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
+    await expect(page.getByTestId('role-state-seismic')).toHaveText('Pending');
     await page.getByTestId('pending-cancel').click();
     await expect(page.getByTestId('pending-load-change')).toBeHidden();
-    await expect(page.getByTestId('role-state-wind')).toHaveText('Applied');
+    // Back to what was applied: no seismic regulation.
+    await expect(page.getByTestId('role-state-seismic')).toHaveCount(0);
+    await expect(page.getByTestId('role-select-seismic')).toHaveValue('');
   });
 
   test('R5d — a design-only change applies in place, with no pending banner', async ({ pro: page }) => {

@@ -221,3 +221,22 @@ describe('every key resolves in the three offered languages', () => {
     }
   });
 });
+
+describe('Lb is the number the checker receives', () => {
+  it('reads the chain and the declared length from the same map the checker does', () => {
+    const lengths = new Map([
+      [10, { L: 9, Lb: 9, source: 'chain' as const, chain: [10, 11] }],
+      [20, { L: 4, Lb: 1.5, source: 'declared' as const, chain: [20] }],
+    ]);
+    const rows = assumptionRows(inventory(), lengths);
+    const a = rows.find((r) => r.elementId === 10)!, b = rows.find((r) => r.elementId === 20)!;
+    // A chain only lengthens, and it is still the app's deduction.
+    expect(a.lbM).toBe(9);
+    expect(a.lbSource).toBe('assumed');
+    expect(a.lbBasis).toBe('chain');
+    expect(a.lbChain).toEqual([10, 11]);
+    // Only the user shortens, and it says so.
+    expect(b.lbM).toBe(1.5);
+    expect(b.lbSource).toBe('user');
+  });
+});

@@ -8,7 +8,7 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { translation, rotation, reflection, type Affine, type Vec3 } from '../../lib/model/edit/affine';
+  import { translation, rotation, reflection, type Affine, type Vec3, repeatOffsets, parseSpacings } from '../../lib/model/edit/affine';
   import { copyTransformed, type EditReport } from '../../lib/model/edit/transformed-copy';
   import { transformInPlace } from '../../lib/model/edit/transform-in-place';
   import type { EditWarning } from '../../lib/model/edit/transform-fields';
@@ -20,6 +20,9 @@
 
   let mode = $state<Mode>('repeat');
   let count = $state(1);
+  /** Unequal steps along the offset's direction, e.g. "6; 7,5; 6". Blank: equal steps. */
+  let spacingText = $state('');
+  const spacings = $derived(mode === 'repeat' && spacingText.trim() ? parseSpacings(spacingText) : null);
   let d = $state<Vec3>([0, 0, 3]);
   let point = $state<Vec3>([0, 0, 0]);
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>('Z');
@@ -59,10 +62,11 @@
 
   const axisVec = $derived<Vec3>(axis === 'X' ? [1, 0, 0] : axis === 'Y' ? [0, 1, 0] : axis === 'Z' ? [0, 0, 1] : axisCustom);
   const canCopy = $derived(mode !== 'move' && asCopy);
-  const copies = $derived(mode === 'mirror' ? 1 : Math.floor(count));
+  const copies = $derived(mode === 'mirror' ? 1 : spacings ? spacings.length : Math.floor(count));
   const countOk = $derived(!canCopy || mode === 'mirror' || (copies >= 1 && copies <= MAX_COPIES));
   const axisOk = $derived(mode === 'repeat' || mode === 'move' || Math.hypot(...axisVec) > 1e-9);
-  const canRun = $derived(size > 0 && countOk && axisOk);
+  const spacingOk = $derived(mode !== 'repeat' || !spacingText.trim() || (spacings !== null && Math.hypot(...d) > 1e-9));
+  const canRun = $derived(size > 0 && countOk && axisOk && spacingOk);
 
   /** Centre of the selected nodes: where a mirror plane or an axis is most often wanted. */
   function centreOfSelection() {
@@ -77,7 +81,7 @@
 
   function transforms(): Affine[] {
     switch (mode) {
-      case 'repeat': return Array.from({ length: copies }, (_, k) => translation([d[0] * (k + 1), d[1] * (k + 1), d[2] * (k + 1)]));
+      case 'repeat': return repeatOffsets(d, copies, spacings ?? undefined).map((o) => translation(o));
       case 'polar': return Array.from({ length: copies }, (_, k) => rotation(point, axisVec, angle * (k + 1)));
       case 'mirror': return [reflection(point, axisVec)];
       case 'rotate': return asCopy
@@ -98,7 +102,11 @@
     const leftHand = uiStore.axisConvention3D === 'leftHand';
     if (mode === 'move' || !asCopy) {
       const r = transformInPlace(set, T[0]!, { leftHand });
-      message = [tp('transform.movedDone', { n: r.movedNodes, stretched: r.stretchedMembers }), warningsText(r.warnings)].filter(Boolean).join(' ');
+      message = [
+        tp('transform.movedDone', { n: r.movedNodes, stretched: r.stretchedMembers }),
+        r.welded > 0 ? tp('transform.welded', { n: r.welded }) : '',
+        warningsText(r.warnings),
+      ].filter(Boolean).join(' ');
       return;
     }
     const r: EditReport = copyTransformed(set, T, {
@@ -121,20 +129,25 @@
   }
 </script>
 
-<div class="tp" data-testid="transform-panel">
-  <div class="tp-modes" role="tablist">
+<div class="pk tp" data-testid="transform-panel">
+  <section class="pk-card">
+  <div class="pk-tabs" role="tablist">
     {#each MODES as m (m)}
-      <button role="tab" class="tp-mode" class:on={mode === m} aria-selected={mode === m} onclick={() => (mode = m)} data-testid="tp-mode-{m}">
+      <button role="tab" class:on={mode === m} aria-selected={mode === m} onclick={() => (mode = m)} data-testid="tp-mode-{m}">
         {t(`transform.mode.${m}`)}
       </button>
     {/each}
   </div>
   <p class="tp-lead">{t(`transform.lead.${mode}`)}</p>
-  <p class="tp-sel" data-testid="tp-selection">
+  <p class="pk-hint" data-testid="tp-selection">
     {size === 0 ? t('transform.nothingSelected') : tp('transform.selected', {
       n: set.nodes.size, e: set.elements.size, s: set.quads.size + set.plates.size,
     })}
   </p>
+  </section>
+
+  <section class="pk-card">
+  <h4 class="pk-heading">{t('kit.parameters')}</h4>
 
   {#if mode === 'rotate'}
     <label class="tp-check"><input type="checkbox" bind:checked={asCopy} data-testid="tp-copy" /> {t('transform.asCopy')}</label>
@@ -148,6 +161,15 @@
       <input type="number" min="1" max={MAX_COPIES} step="1" bind:value={count} data-testid="tp-count" />
     </label>
     {#if !countOk}<p class="tp-err">{tp('transform.tooMany', { max: MAX_COPIES })}</p>{/if}
+  {/if}
+
+  {#if mode === 'repeat'}
+    <label class="tp-field">
+      <span title={t('transform.spacingsHint')}>{t('transform.spacings')}</span>
+      <input type="text" placeholder="6; 7,5; 6" bind:value={spacingText} data-testid="tp-spacings" />
+    </label>
+    {#if !spacingOk}<p class="tp-err">{t('transform.spacingsInvalid')}</p>{/if}
+    {#if spacings}<p class="pk-hint">{tp('transform.spacingsApplied', { n: spacings.length })}</p>{/if}
   {/if}
 
   {#if mode === 'repeat' || mode === 'move'}
@@ -192,6 +214,10 @@
     {/if}
   {/if}
 
+  </section>
+
+  <section class="pk-card">
+  <h4 class="pk-heading">{t('kit.options')}</h4>
   {#if canCopy}
     <label class="tp-check"><input type="checkbox" bind:checked={withLoads} /> {t('transform.withLoads')}</label>
     <label class="tp-check"><input type="checkbox" bind:checked={withSupports} /> {t('transform.withSupports')}</label>
@@ -209,19 +235,15 @@
     <p class="tp-note">{t('transform.keepsConnections')}</p>
   {/if}
 
-  <button class="tp-go" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
-  {#if message}<p class="tp-done" data-testid="tp-done">{message}</p>{/if}
-  <p class="tp-note">{t('transform.weldNote')}</p>
+  <div class="pk-row pk-row-end">
+    <button class="pk-btn pk-btn-primary" disabled={!canRun} onclick={run} data-testid="tp-run">{t(`transform.run.${mode}`)}</button>
+  </div>
+  {#if message}<p class="pk-ok" data-testid="tp-done">{message}</p>{/if}
+  <p class="pk-hint">{t('transform.weldNote')}</p>
+  </section>
 </div>
 
 <style>
-  .tp { display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.72rem; }
-  .tp-modes { display: flex; flex-wrap: wrap; gap: 4px; }
-  .tp-mode {
-    padding: 3px 8px; font-size: 0.68rem; color: var(--st-text-2); background: var(--st-surface-2);
-    border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer;
-  }
-  .tp-mode.on { color: var(--st-text); border-color: var(--st-accent); }
   .tp-lead { margin: 0; color: var(--st-text-2); }
   .tp-sel { margin: 0; color: var(--st-text-3); }
   .tp-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--st-text-2); }
@@ -241,12 +263,7 @@
     align-self: flex-start; padding: 2px 6px; font-size: 0.62rem; color: var(--st-interactive);
     background: transparent; border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer;
   }
-  .tp-go {
-    align-self: flex-start; padding: 5px 14px; font-size: 0.72rem; font-weight: 600; color: var(--st-text);
-    background: var(--st-surface-3); border: 1px solid var(--st-accent); border-radius: 4px; cursor: pointer;
-  }
-  .tp-go:disabled { opacity: 0.35; cursor: not-allowed; }
   .tp-err { margin: 0; color: var(--st-warn); }
   .tp-done { margin: 0; color: var(--st-ok); }
-  .tp-note { margin: 0; color: var(--st-text-3); font-style: italic; font-size: 0.64rem; }
+  .tp-note { margin: 0; color: var(--st-text-3); font-size: 0.64rem; }
 </style>

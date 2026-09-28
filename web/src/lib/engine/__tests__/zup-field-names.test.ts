@@ -224,7 +224,6 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
 
   it('3D section-stress and verification seams should preserve standard My/Mz identity', () => {
     const sectionStress3D = readFileSync(new URL('../section-stress-3d.ts', import.meta.url), 'utf8');
-    const verificationTab = readFileSync(new URL('../../../components/pro/ProVerificationTab.svelte', import.meta.url), 'utf8');
     const autoVerify = readFileSync(new URL('../auto-verify.ts', import.meta.url), 'utf8');
     const proReportInputs = readFileSync(new URL('../pro-report-inputs.ts', import.meta.url), 'utf8');
 
@@ -233,11 +232,6 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(sectionStress3D, 'section-stress-3d.ts should add Mz on the z/Iz term (width, weak)').toContain('sigma += Mz * z / Iz');
     expect(sectionStress3D, 'section-stress-3d.ts must not keep the pre-PR[12] pairing').not.toContain('sigma += Mz * y / Iz');
 
-    expect(verificationTab, 'ProVerificationTab.svelte should keep Mu on the strong-axis mz envelope').toContain('MuMax = _mzMax');
-    expect(verificationTab, 'ProVerificationTab.svelte should keep Muy on the weak-axis my envelope').toContain('MuyMax = _myMax');
-    expect(verificationTab, 'ProVerificationTab.svelte should keep steel Muz on mz').toContain('MuzMax = _mzM');
-    expect(verificationTab, 'ProVerificationTab.svelte should not sort My/Mz by magnitude').not.toContain('MuMax = Math.max(_mzMax, _myMax)');
-    expect(verificationTab, 'ProVerificationTab.svelte should not sort steel My/Mz by magnitude').not.toContain('MuzMax = Math.max(_mzM, _myM)');
 
     // Columns keep Mz=Mu, My=Muy (identity intact); beams are axis-aware but
     // moments are never magnitude-sorted into a single Mu (see auto-verify.ts).

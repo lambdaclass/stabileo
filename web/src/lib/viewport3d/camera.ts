@@ -128,8 +128,11 @@ export function zoomToFit(
 
 // ─── setView ────────────────────────────────────────────────
 
+/** The six faces of the model's bounding box, and the isometric. `side` is `right`, kept for old callers. */
+export type PresetView = 'top' | 'bottom' | 'front' | 'back' | 'right' | 'left' | 'side' | 'iso';
+
 export function setView(
-  view: 'top' | 'front' | 'side' | 'iso',
+  view: PresetView,
   camera: THREE.Camera,
   controls: OrbitControls,
   nodes: Map<number, NodePosition>,
@@ -170,12 +173,29 @@ export function setView(
         setCameraUp(camera);
       }
       break;
+    case 'bottom':
+      // From below, tipped the same degree as the plan so Z stays a valid up (see 'top').
+      {
+        const tip = 0.018;
+        camera.position.set(center.x, center.y - dist * Math.sin(tip), center.z - dist * Math.cos(tip));
+        setCameraUp(camera);
+      }
+      break;
     case 'front':
       camera.position.set(center.x, center.y - dist, center.z);
       setCameraUp(camera);
       break;
+    case 'back':
+      camera.position.set(center.x, center.y + dist, center.z);
+      setCameraUp(camera);
+      break;
     case 'side':
+    case 'right':
       camera.position.set(center.x + dist, center.y, center.z);
+      setCameraUp(camera);
+      break;
+    case 'left':
+      camera.position.set(center.x - dist, center.y, center.z);
       setCameraUp(camera);
       break;
     case 'iso':

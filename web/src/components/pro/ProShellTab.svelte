@@ -5,7 +5,8 @@
   import ProStairSection from './ProStairSection.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import { meshQuadRegion } from '../../lib/model/edit/mesh-region';
+  import { meshQuadRegion, exceedsDivisionCap, type MeshDensity } from '../../lib/model/edit/mesh-region';
+  import { MAX_DIVISIONS_PER_AXIS } from '../../lib/engine/shell-mesh-gen';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -103,7 +104,12 @@
       meshError = t('pro.err4Corners');
       return;
     }
-    if (meshMode === 'targetSize' ? meshTargetSize <= 0 : (meshNx < 1 || meshNy < 1)) {
+    // `<` and `<=` are both false against Infinity and NaN, so the bare
+    // comparisons let a non-finite field through to the mesh generator.
+    const badTarget = !(meshTargetSize > 0) || !Number.isFinite(meshTargetSize);
+    const badDivs = !Number.isFinite(meshNx) || !Number.isFinite(meshNy)
+      || meshNx < 1 || meshNy < 1;
+    if (meshMode === 'targetSize' ? badTarget : badDivs) {
       meshError = meshMode === 'targetSize' ? t('pro.errTargetSize') : t('pro.errSubdivisions');
       return;
     }
@@ -116,11 +122,25 @@
       return;
     }
 
+    const density: MeshDensity = meshMode === 'targetSize'
+      ? { mode: 'targetSize', size: meshTargetSize }
+      : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy };
+    // Said, not silently capped: the mesher would otherwise hand back a coarser
+    // grid than the one asked for.
+    if (exceedsDivisionCap(cornerIds.map((id) => modelStore.nodes.get(id)!), density)) {
+      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
+      return;
+    }
+
     // One implementation for this mesher and for hole filling: `model/edit/mesh-region.ts`.
     const res = meshQuadRegion(cornerIds as [number, number, number, number], {
-      density: meshMode === 'targetSize' ? { mode: 'targetSize', size: meshTargetSize } : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy },
+      density,
       materialId: meshMaterialId, thickness: meshThickness, splitBeams: meshSplitBeams,
     });
+    if ('refused' in res) {
+      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
+      return;
+    }
     const newNodes = res.newNodes, quadCount = res.quadCount, splitCount = res.splitCount;
 
     meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))

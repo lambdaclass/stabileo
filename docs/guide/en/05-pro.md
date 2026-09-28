@@ -102,7 +102,16 @@ one which displacements and rotations are restrained. A roller moves freely with
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, E earthquake,
   S snow) and a button to show or hide it in the viewer. **Self-weight** is **on by default** in PRO
   and is computed for members and plates.
-- **Combinations:** manual, or generated automatically (strength and service combinations).
+- **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
+  (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
+  gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
+  D + 0.75 L + 0.45 W + 0.75 (Lr or S or R)). When
+  generating them, wind and earthquake can be taken in both senses: each case also enters with the
+  opposite sign. **Project rules** are your own combinations written in actions (for example
+  1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
+  CIRSOC 101's, and can be saved as a template for another project.
+  PRO examples load with CIRSOC 101-2025's strength combinations built from their cases (except
+  the offshore platform, whose waves are not a CIRSOC 103 earthquake).
 - **Add load:** nodal (in global axes), distributed and point loads on members (in the member's
   local axes), and **surface** loads on quadrilateral plates: in kN/m², vertical (a positive value
   acts downward) and shared among the plate's four nodes.
@@ -111,12 +120,26 @@ one which displacements and rotations are restrained. A roller moves freely with
 
 - **Dead loads** from the layers of the construction (CIRSOC 101, Table 3.1).
 - **Live loads** from the occupancy of each space, with the reduction for tributary area.
-- **Wind** to CIRSOC 102.
+- **Wind** to CIRSOC 102-2025, with the four load cases of Fig. 2.4-8: case 1 in each direction,
+  case 2 with the torsional moment of the ±0.15 B eccentricity, and cases 3 and 4 in both
+  directions at once. You can ask for case 1 only, or cases 1 and 3 for exempt buildings (§2.4.7).
+  Wind from −X and −Y is generated as cases of its own. Roof pressure is applied on the roof
+  members, normal to each. The enclosure can be classified from the openings, and the dialog shows
+  q_z against height.
+  The dialog names both CIRSOC 102 editions: 2025 is applied; 2005 is shown but cannot be chosen
+  until its text is supplied, and is not replaced by 2025's. For the service combinations you can
+  add B.4.2's **service wind Wa**: the 50-year speed from the map of Figure C AB.4.2-1 and a
+  recurrence (5 to 500 years), converted by that figure's factor.
+- **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
+  minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
+  unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are
+  not generated.
 - **Earthquake** to INPRES-CIRSOC 103 (static method). This part is enabled when the project has a
   seismic regulation assigned; if it has none, the dialog says so.
 
 Area loads become line loads on the horizontal members, multiplied by the tributary width entered
-in the dialog, the same for all of them; wind is applied as forces per level. It first shows the
+in the dialog, the same for all of them; wind is applied as forces per level, and torsion as forces spread over the level's nodes that add
+up to that moment. It first shows the
 load plan for review, and applies it when you confirm. Load cases of type D, L, W and E also have a
 **§** button that opens the dialog for that case directly.
 
@@ -199,6 +222,10 @@ In the **Results** panel:
   list of elements, with filters, and exports it to CSV.
 - **Raw forces report:** reactions, displacements and forces per member and per station, as Excel,
   PDF or HTML.
+- **Story drift:** for each seismic case, each story's drift with the elastic displacements
+  multiplied by Cd/γr (INPRES-CIRSOC 103, 6.4), against the Table 6.4 limit for the destination
+  group and whether non-structural elements can be damaged. Cd and the group come from the
+  project's seismic settings.
 
 ### Advanced
 
@@ -216,6 +243,10 @@ PRO's advanced analyses:
   with p-y curves, and **contact or gap**.
 - **Staged construction** and **creep and shrinkage**.
 - **3D influence lines**, **multi-case solver**, **section analyser** and **constrained analysis**.
+- **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
+  in order, and each member keeps its largest and smallest forces with the train's position. The
+  lane load is created as an ordinary load case on the same members. The envelope does not enter
+  the combinations or the design.
 - The **Rigid diaphragm** option for the whole model.
 
 These analyses use the members' axis, without their offsets, and the hinges of the **Hinge i** and
@@ -229,6 +260,16 @@ the members (and from the rigid members that the **Rigid diaphragm** option adds
 **Report** builds a printable **calculation report**: model data, load details, results, the
 advanced analyses you ran, material quantities and diagnostics, with an optional letterhead (logo,
 company, engineer, revision). It also exports to Excel.
+
+## The Design tab
+
+### Other codes
+
+In the **Design** tab, **Other codes** checks the members to **AISC 360**, **EN 1993-1-1**,
+**AISI S100** (lipped C sections), **ACI 318** and **EN 1992-1-1**, under the active combinations.
+Choosing a code shows one notice of what it covers. Members the code cannot describe are left out
+with the reason, and a check that is missing part of what the code requires reads as incomplete,
+never as a pass. Concrete is checked with the reinforcement stated on each member.
 
 ## The theory behind it
 

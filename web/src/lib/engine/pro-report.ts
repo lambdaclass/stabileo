@@ -7,6 +7,7 @@ import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
+import { formatPDeltaFactor } from './pdelta-result';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
@@ -73,22 +74,22 @@ export interface ReportData {
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
   // Story drift results
   storyDrifts?: Array<{
     level: number; height: number;
-    driftX: number; driftZ: number;
-    ratioX: number; ratioZ: number;
+    driftX: number; driftY: number;
+    ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string } }>;
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number } }>;
   // Upgraded joint detail opts (detailing-aware, multiple types)
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
@@ -1225,8 +1226,11 @@ export function generateReportHtml(data: ReportData): string {
         for (const s of svcItems) {
           const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
           const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
-          const deflR = s.deflection ? `1/${Math.round(1 / s.deflection.ratio)}` : '—';
-          const deflLim = s.deflection ? `1/${Math.round(1 / s.deflection.limit)}` : '—';
+          // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
+          // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
+          const sod = s.deflection?.spanOverDelta;
+          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `L/${Math.round(sod)}` : 'L/∞') : '—';
+          const deflLim = s.deflection?.limitDivisor ? `L/${s.deflection.limitDivisor}` : '—';
           const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
           const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
           html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
@@ -1334,11 +1338,14 @@ export function generateReportHtml(data: ReportData): string {
 
     if (adv.pdelta && wants('pdelta')) {
       html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
+      if (adv.pdelta.isStable !== undefined) {
+        html.push(`<p>${escHtml(tr(adv.pdelta.isStable ? 'advanced.stable' : 'advanced.unstable'))}</p>`);
+      }
       html.push(`<table><tbody>`);
       html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
       html.push(`<tr><td>${escHtml(tr('report.iterations'))}</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
-      if (adv.pdelta.b2Factor != null) {
-        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${fmtNum(adv.pdelta.b2Factor, 3)}</td></tr>`);
+      if (adv.pdelta.b2Factor !== undefined) {
+        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${formatPDeltaFactor(adv.pdelta.b2Factor)}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }
@@ -1346,12 +1353,18 @@ export function generateReportHtml(data: ReportData): string {
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       if (adv.modal.totalMass != null) {
-        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 0)} kg</p>`);
+        // The engine reports mass in tonnes (kN·s²/m). The label said kg.
+        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 1)} t</p>`);
       }
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th></tr></thead><tbody>`);
+      if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead><tbody>`);
+      let cx = 0, cy = 0;
+      const pct = (v?: number) => (v != null ? `${(v * 100).toFixed(1)} %` : '—');
       for (let i = 0; i < adv.modal.modes.length; i++) {
         const m = adv.modal.modes[i];
-        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td></tr>`);
+        cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
+        const has = m.massRatioX != null;
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td><td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }
@@ -1380,11 +1393,11 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.driftTitle'))}</h2>`);
     html.push(`<p>${escHtml(tr('report.driftLimit'))}</p>`);
-    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δz (mm)</th><th>Δx/h</th><th>Δz/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
       const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';
-      html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftZ * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioZ.toFixed(4)}</td><td>${statusStr}</td></tr>`);
+      html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }

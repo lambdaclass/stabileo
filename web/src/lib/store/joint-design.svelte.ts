@@ -44,6 +44,7 @@
  * obsolete node is `notDesigned` too, because for THIS model nothing was designed there.
  */
 
+import { activePerCombo3D } from './active-results';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import {
@@ -73,7 +74,7 @@ function createJointDesignStore() {
    * combination list is empty would be refusing over a modelling choice.
    */
   function combos(): ComboResults[] {
-    const perCombo = resultsStore.perCombo3D;
+    const perCombo = activePerCombo3D();
     if (perCombo && perCombo.size > 0) {
       const names = modelStore.model.combinations ?? [];
       return [...perCombo.entries()].map(([id, r]) => ({

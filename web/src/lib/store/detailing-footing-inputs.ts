@@ -25,6 +25,8 @@
  * Nothing was rewritten. The bodies are the ones that were in the store, moved verbatim.
  */
 
+import { activePerCombo3D } from './active-results';
+import { SETTLEMENT_CASE_ID } from '../engine/settlement-case';
 import { modelStore, type ProvidedReinforcement } from './model.svelte';
 import { verificationStore } from './verification.svelte';
 import { resultsStore } from './results.svelte';
@@ -60,7 +62,7 @@ export function collectFootingReactions(): Map<number, NodeReactions> {
   const comboNameOf = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
 
   const factored = new Map<number, CombinationReaction[]>();
-  for (const [comboId, res] of resultsStore.perCombo3D) {
+  for (const [comboId, res] of activePerCombo3D()) {
     for (const r of res.reactions ?? []) {
       if (!wanted.has(r.nodeId)) continue;
       const list = factored.get(r.nodeId) ?? [];
@@ -80,7 +82,8 @@ export function collectFootingReactions(): Map<number, NodeReactions> {
       const list = cases.get(r.nodeId) ?? [];
       list.push({
         caseId,
-        caseType: caseTypeOf.get(caseId) ?? 'D',
+        // The imposed settlement is a self-straining action (T), not dead load.
+        caseType: caseId === SETTLEMENT_CASE_ID ? 'T' : caseTypeOf.get(caseId) ?? 'D',
         fz: r.fz, mx: r.mx, my: r.my,
       });
       cases.set(r.nodeId, list);
@@ -285,8 +288,9 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
     [];
   const indexForces = (list: readonly ElementForces3D[]) =>
     new Map(list.map((f) => [f.elementId, f]));
-  if (resultsStore.perCombo3D.size > 0) {
-    for (const [comboId, res] of resultsStore.perCombo3D) {
+  const solved = activePerCombo3D();
+  if (solved.size > 0) {
+    for (const [comboId, res] of solved) {
       sets.push({
         id: comboId,
         name: comboNameOf.get(comboId) ?? `Combinación ${comboId}`,

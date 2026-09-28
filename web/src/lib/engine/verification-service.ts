@@ -3,7 +3,7 @@
  * and verification orchestration for PRO mode.
  *
  * Phase 1 (current): Eliminates the divergence between ProDesignTab (station-based)
- * and ProVerificationTab (endpoint-only) by routing both through the same
+ * and the former verification tab (endpoint-only) by routing both through the same
  * station-based force extraction and CIRSOC JS verification.
  *
  * Phase 2 target (requires solver changes — not implemented here):
@@ -20,6 +20,7 @@
  */
 
 import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D } from './types-3d';
+import { steelSectionConstants } from './steel/section-constants';
 import type { LoadCombination } from '../store/model.svelte';
 import {
   extractElementStations,
@@ -190,7 +191,7 @@ function wasmMemberToStationResult(
  * demands when available (the preferred path).
  *
  * This replaces the two divergent verification calls that previously lived in
- * ProDesignTab (station-aware) and ProVerificationTab (endpoint-only).
+ * ProDesignTab (station-aware) and the former verification tab (endpoint-only).
  *
  * @param results3D Solver analysis results
  * @param model Model data (elements, nodes, sections, materials, supports)
@@ -220,7 +221,6 @@ import {
   normalizeCirsoc201, buildDesignSummary,
   type MemberDesignResult as MemberResult,
 } from './design-check-results';
-import { DESIGN_CODES, type DesignCodeId } from './codes/index';
 
 /**
  * Run the complete CIRSOC design pipeline: verification + normalization + store update.
@@ -248,8 +248,7 @@ export function runCirsocDesign(
   // (e.g. an all-steel model, nothing checkable by CIRSOC 201) returns a null
   // summary so callers surface an error instead of a "0 members" success.
   if (normalized.length === 0) return { normalized, concrete, summary: null };
-  const codeInfo = DESIGN_CODES.find(c => c.id === 'cirsoc');
-  const summary = buildDesignSummary(normalized, 'cirsoc', codeInfo?.label ?? 'CIRSOC');
+  const summary = buildDesignSummary(normalized, 'cirsoc', 'CIRSOC 201/301');
   return { normalized: summary.results, concrete, summary };
 }
 
@@ -382,6 +381,11 @@ export function runSteelVerification(
    * `Cb = 1` — which the clause permits — rather than a worse estimate.
    */
   stationDiagrams?: Map<number, ElementStationResult>,
+  /**
+   * The length the checker uses per member, and the unbraced length for lateral-torsional
+   * buckling (`engine/steel/unbraced-length.ts`). Absent: both are the element's own length.
+   */
+  lengths?: ReadonlyMap<number, { L: number; Lb: number; chain?: readonly number[] }>,
 ): SteelVerification[] {
   const verifs: SteelVerification[] = [];
 
@@ -400,172 +404,354 @@ export function runSteelVerification(
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L <= 0) continue;
 
-    // Use station demands when available (same path as RC), fallback to endpoints
-    let NuMax: number, MuStrongMax: number, MuWeakMax: number, VuMax: number;
-    const sd = stationDemands?.get(ef.elementId);
-    if (sd) {
-      const dems = sd.demands;
-      // Use absValue, not the signed value: `value` is signed (compression n<0,
-      // hogging Mz-<0), so Math.max(signed, ...) collapses a compression-only or
-      // hogging-only governing demand to 0 — silently designing the member as
-      // unloaded. Matches the RC path in auto-verify.ts.
-      NuMax = Math.max(
-        dems.find(d => d.category === 'N_compression')?.absValue ?? 0,
-        dems.find(d => d.category === 'N_tension')?.absValue ?? 0,
-      );
-      MuStrongMax = Math.max(
-        dems.find(d => d.category === 'My+')?.absValue ?? 0,
-        dems.find(d => d.category === 'My-')?.absValue ?? 0,
-      );
-      MuWeakMax = Math.max(
-        dems.find(d => d.category === 'Mz+')?.absValue ?? 0,
-        dems.find(d => d.category === 'Mz-')?.absValue ?? 0,
-      );
-      VuMax = Math.max(
-        dems.find(d => d.category === 'Vy')?.absValue ?? 0,
-        dems.find(d => d.category === 'Vz')?.absValue ?? 0,
-      );
-    } else {
-      // Endpoint fallback (same as legacy path)
-      NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      MuStrongMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      MuWeakMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-      VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-    }
-
-    /*
-     * ── The DEMAND side of the axis mapping, which crosses the same way ──
-     *
-     * The inertia swap below (`Iz ← section.iy`) exists because the checker's names and
-     * this app's names cross — and the demands must cross with them, because each moment
-     * is rated against the capacity of the axis it bends about:
-     *
-     *   solver `my` bends over the section depth and pairs with `iy` — the STRONG axis of
-     *   an unrolled tall section (types-3d.ts; solver-service forces local z = global up,
-     *   «gravity → My») — so it is the checker's `Muz`, the moment the lateral-torsional
-     *   buckling check runs on. Solver `mz` pairs with `iz`, the weak axis → `Muy`.
-     *
-     * This used to send `Muz ← mz` and `Muy ← my` straight through while the inertias were
-     * already crossed, and both directions of the error were live. A gravity-loaded IPE
-     * beam carries its whole moment in `my` with `mz ≡ 0`: the strong-axis check (with
-     * LTB) ran on zero and passed vacuously — a 6 m unbraced IPE 200 at 7 kN·m is past its
-     * elastic-LTB capacity and reported ratio 0,00 — while the real moment was rated
-     * against the WEAK-axis modulus (φMn 9,01 kN·m against 44,34 kN·m strong), reporting
-     * ratio 2,22 FAIL on a beam at 45 % of its true capacity.
-     *
-     * `VuMax` does not cross: the checker's single shear check rates the web area against
-     * the larger of the two shear components, and an envelope of both is conservative
-     * regardless of which axis produced it.
-     */
-
-    /*
-     * ── Inputs are required, not invented ────────────────────────────
-     *
-     * This block used to fill every missing property with a guess: `Fu = 1.25·Fy`, `h = 0.3`,
-     * `b = 0.15`, `tw = b/10`, `tf = b/15`, `Iy = Iz`, `J = 0`. Seven substitutions, none of
-     * them sourced, feeding a checker whose output is a capacity.
-     *
-     * A guessed thickness is not a conservative simplification — it decides the section
-     * classification and the shear area — and `Iy = Iz` was the worst of them: it substituted
-     * one principal inertia for the other, which on an IPE 200 is a factor of 13.7.
-     *
-     * So the element is SKIPPED when an input is missing, which is what this loop already does
-     * for a member with no section, no material, or a concrete strength. Skipping is not silence:
-     * `steelInputCompleteness()` below reports exactly which elements were left out and why, so a
-     * surface can say it instead of a user wondering where their steel went.
-     */
-    const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
-    if (gaps.length > 0) continue;
-
-    /*
-     * ── Cb from the moment diagram, F.1.1 ────────────────────────────
-     *
-     * The stations already exist for the RC path; this reads the strong-axis moment (`my`, which is
-     * what `Muz` feeds — see the demand mapping above) across every combo and takes the envelope of
-     * |M| per station. The envelope rather than one combo, because `Lb` here is the whole member
-     * and the governing diagram is the one that produced `MuStrongMax`.
-     *
-     * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
-     * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
-     * which this app cannot do), and for a shape with no axis of symmetry.
-     *
-     * Absent stations leave `Cb` undefined and the checker falls back to 1,0, which the clause
-     * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
-     */
-    const diagram: StationMoment[] = [];
-    const stationsForElement = stationDiagrams?.get(ef.elementId);
-    if (stationsForElement) {
-      const byT = new Map<number, number>();
-      for (const combo of stationsForElement.comboResults) {
-        for (const st of combo.stations) {
-          const prev = byT.get(st.t) ?? 0;
-          if (Math.abs(st.my) > Math.abs(prev)) byT.set(st.t, st.my);
-        }
-      }
-      for (const [t, m] of byT) diagram.push({ t, m });
-    }
-    const grad = momentGradient({
-      stations: diagram,
-      shape: (section as { shape?: string }).shape,
-      // A free cantilever end is a topology fact this loop does not have; left undefined rather
-      // than guessed, which keeps `Cb = 1` for those members via the diagram path.
-    });
-
-    const sdp: SteelDesignParams = {
-      Fy: material.fy!,
-      Fu: (material as SteelMaterialData).fu!,
-      E: (material as SteelMaterialData).e!,
-      A: (section as SteelSectionData).a!,
-      /*
-       * ── The axis mapping, which is a SWAP and not a typo ───────────
-       *
-       * `SteelDesignParams` documents `Iz` as «inercia eje fuerte» and `Iy` as «eje debil».
-       * This app's convention is the other way round: `section.iy` is about Y horizontal — the
-       * `b·h³/12` term, so the STRONG axis of a tall section — and `section.iz` is about Z
-       * vertical, the weak one. See `data/section-shapes.ts`, whose `case 'rect'` labels both.
-       *
-       * The two names therefore cross. This used to pass them straight through, and the
-       * consequence was not cosmetic: `checkSteelFlexure` takes `ry = √(Iy/A)` as the WEAK-axis
-       * radius of gyration and sets `Lp = 1.76·ry·√(E/Fy)` from it. Fed the strong axis, `ry` came
-       * out √13.7 ≈ 3.7× too large on an IPE 200, `Lp` with it, and a beam that needed a
-       * lateral-torsional reduction was judged to be inside the plateau — unconservative.
-       *
-       * Compression was unaffected, because it takes `max(KLrx, KLry)` and a maximum does not
-       * care which name each came under. Only the narrative in `steps` was mislabelled there.
-       */
-      Iz: (section as SteelSectionData).iy!,   // checker's STRONG  <- app's strong
-      Iy: (section as SteelSectionData).iz!,   // checker's WEAK    <- app's weak
-      h: section.h!,
-      b: section.b!,
-      tw: (section as SteelSectionData).tw!,
-      tf: (section as SteelSectionData).tf!,
-      /*
-       * `Lb = L`: the member is assumed unbraced over its whole length.
-       *
-       * Left as it is, deliberately. It is the one remaining assumption here that cannot be
-       * removed by requiring an input, because the model has nowhere to record a brace — and
-       * replacing it with a guessed fraction of `L` would be exactly the invention the rest of
-       * this block just stopped making. It is conservative for flexure on its own, which is why
-       * it is tolerable; it is documented as
-       * `steel.assume.unbracedLengthIsMemberLength`, and the workflow's verification stage names
-       * it as a blocker. See `docs/handoffs/m2-lb-assumption.md` for where a real `Lb` would come
-       * from.
-       */
-      L, Lb: L,
-      // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
-      // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
-      ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
-      J: (section as SteelSectionData).j ?? 0,
-    };
-
-    verifs.push(verifySteelElement({
-      // Muz/Muy are the CHECKER's names (strong/weak); the values come from the solver's
-      // my/mz channels — the same cross the inertias take above.
-      elementId: ef.elementId, Nu: NuMax, Muz: MuStrongMax, Muy: MuWeakMax, Vu: VuMax, params: sdp,
-    }));
+    const demand = steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId));
+    const e3 = elem as { kStrong?: number; kWeak?: number };
+    const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
+    const len = lengths?.get(ef.elementId);
+    const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
+    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(len ?? { L, Lb: L }), ...k }, segment);
+    if (v) verifs.push(v);
   }
 
   return verifs;
+}
+
+/**
+ * What one steel member has to carry: the governing compression and tension apart, the two
+ * moments, the shear, and the strong-axis moment diagram for Cb.
+ *
+ * Compression and tension are kept APART. They used to be folded into one magnitude,
+ * `max(|N_compression|, |N_tension|)`, and handed to a checker that reads a positive `Nu` as
+ * compression — so every tension member was checked for buckling under its tensile force. A
+ * slender brace that only ever pulls failed a compression check it never faces, and a search for
+ * the lightest passing profile would have climbed the catalogue to satisfy it.
+ */
+export interface SteelMemberDemand {
+  /** Largest compression, kN, ≥ 0. */
+  Nc: number;
+  /** Largest tension, kN, ≥ 0. */
+  Nt: number;
+  MuStrong: number;
+  MuWeak: number;
+  Vu: number;
+  /** Strong-axis |M| envelope per station, for F.1.1. Empty: Cb = 1. */
+  diagram: StationMoment[];
+}
+
+export function steelDemandOf(
+  ef: AnalysisResults3D['elementForces'][number],
+  sd?: ElementDesignDemands,
+  stations?: ElementStationResult,
+): SteelMemberDemand {
+  let Nc: number, Nt: number, MuStrong: number, MuWeak: number, Vu: number;
+  if (sd) {
+    const dems = sd.demands;
+    // absValue, not the signed value: `value` is signed (compression n<0, hogging Mz-<0), so a
+    // max over signed values collapses a compression-only or hogging-only demand to 0.
+    const abs = (c: string) => dems.find(d => d.category === c)?.absValue ?? 0;
+    Nc = abs('N_compression');
+    Nt = abs('N_tension');
+    MuStrong = Math.max(abs('My+'), abs('My-'));
+    MuWeak = Math.max(abs('Mz+'), abs('Mz-'));
+    Vu = Math.max(abs('Vy'), abs('Vz'));
+  } else {
+    // Endpoint fallback. Solver axial force is + tension.
+    Nc = Math.max(0, -ef.nStart, -ef.nEnd);
+    Nt = Math.max(0, ef.nStart, ef.nEnd);
+    MuStrong = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+    MuWeak = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+    Vu = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+  }
+  const diagram: StationMoment[] = stations ? stationMomentEnvelope(stations) : [];
+  return { Nc, Nt, MuStrong, MuWeak, Vu, diagram };
+}
+
+/**
+ * The signed strong-axis envelope of one element's stations: per station, the `my` with the
+ * largest |my| across every combo, sign kept. This is the diagram Cb reads (`my` is the strong
+ * axis — see the demand mapping in `checkSteelMember`). The envelope rather than one combo,
+ * because `Lb` spans the whole unbraced length and the governing diagram is the one that
+ * produced `MuStrongMax`.
+ */
+function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
+  const byT = new Map<number, number>();
+  for (const combo of stations.comboResults) {
+    for (const st of combo.stations) {
+      const prev = byT.get(st.t);
+      // The first value seen STANDS, zeros included — a dropped zero endpoint would silently
+      // extend the neighbour's value to the segment's edge; later combos win on |my| only.
+      if (prev === undefined || Math.abs(st.my) > Math.abs(prev)) byT.set(st.t, st.my);
+    }
+  }
+  return [...byT].map(([t, m]) => ({ t, m }));
+}
+
+/**
+ * The strong-axis moment diagram over the whole UNBRACED SEGMENT, in segment-normalised `t` —
+ * what F.1.1's `Cb` is written about («Mmáx … en el segmento no arriostrado»).
+ *
+ * ── Why this exists ─────────────────────────────────────────
+ *
+ * `Lb` is the CHAIN length for a member split into collinear elements at pass-through nodes
+ * (`engine/steel/unbraced-length.ts`), but the station diagrams are element-local. Reading Cb
+ * from one element of a chain mismatches the length the checker buckles over, and the error is
+ * unconservative where the gradient is steep: the end element of a beam with a midspan point
+ * load reads 1,667 (its half of the triangle falls linearly to zero) where the segment read is
+ * 1,316.
+ *
+ * ── How the segment diagram is assembled ────────────────────
+ *
+ * Each chain element's envelope is placed along the chain at its geometric offset. An element
+ * drawn against the chain direction (nodeJ first) is read back-to-front AND negated: its local
+ * y axis points the other way, so the same physical moment carries the opposite sign and only
+ * the negation keeps the stitched diagram continuous. The quarter points and the maximum are
+ * then read over the segment — `tStart`/`tEnd` — which is the whole chain, except when a
+ * declared `Lb` is SHORTER than the chain: then the read is bounded to a window of that length
+ * centred on the element that declared it. The app does not know where along the member the
+ * braces are; centring on the declaring element is the read the data supports, and it keeps the
+ * segment aligned with the element whose demand the checker rates.
+ *
+ * Returns undefined when there is no chain to stitch or no diagrams to read — the caller then
+ * falls back to the element-local diagram, which is the segment itself in that case.
+ */
+export interface SteelSegmentDiagram {
+  stations: StationMoment[];
+  tStart: number;
+  tEnd: number;
+}
+
+export function steelSegmentDiagram(
+  elementId: number,
+  lengths: { Lb: number; chain?: readonly number[] } | undefined,
+  stationDiagrams: ReadonlyMap<number, ElementStationResult> | undefined,
+  model: {
+    elements: ReadonlyMap<number, { nodeI: number; nodeJ: number }>;
+    nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>;
+  },
+): SteelSegmentDiagram | undefined {
+  const chain = lengths?.chain;
+  if (!chain || chain.length < 2 || !stationDiagrams || !lengths) return undefined;
+
+  const elems: Array<{ id: number; nodeI: number; nodeJ: number; L: number }> = [];
+  for (const id of chain) {
+    const e = model.elements.get(id);
+    if (!e) return undefined;
+    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+    if (!a || !b) return undefined;
+    const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    if (L <= 0) return undefined;
+    elems.push({ id, nodeI: e.nodeI, nodeJ: e.nodeJ, L });
+  }
+  const total = elems.reduce((s, e) => s + e.L, 0);
+
+  /** The node two consecutive chain elements share. */
+  const shared = (a: { nodeI: number; nodeJ: number }, b: { nodeI: number; nodeJ: number }) =>
+    (a.nodeI === b.nodeI || a.nodeI === b.nodeJ) ? a.nodeI : a.nodeJ;
+
+  const stations: StationMoment[] = [];
+  let prefix = 0;
+  let selfStart = 0;
+  let selfLen = 0;
+  for (let i = 0; i < elems.length; i++) {
+    const e = elems[i]!;
+    // The node the chain ENTERS this element through: the one shared with the previous element
+    // (or, for the first, the one NOT shared with the next). An element entered through nodeJ
+    // is traversed against its own drawing direction.
+    const prev = elems[i - 1], next = elems[i + 1];
+    const entry = prev ? shared(prev, e) : next && shared(e, next) === e.nodeI ? e.nodeJ : e.nodeI;
+    const reversed = entry === e.nodeJ;
+    const env = stationDiagrams.get(e.id);
+    if (env) {
+      for (const s of stationMomentEnvelope(env)) {
+        stations.push({
+          t: (prefix + (reversed ? 1 - s.t : s.t) * e.L) / total,
+          m: reversed ? -s.m : s.m,
+        });
+      }
+    }
+    if (e.id === elementId) { selfStart = prefix; selfLen = e.L; }
+    prefix += e.L;
+  }
+
+  let tStart = 0, tEnd = 1;
+  if (lengths.Lb > 0 && lengths.Lb < total - 1e-9) {
+    const w = lengths.Lb / total;
+    const mid = (selfStart + selfLen / 2) / total;
+    tStart = Math.max(0, Math.min(mid - w / 2, 1 - w));
+    tEnd = tStart + w;
+  }
+  return { stations, tStart, tEnd };
+}
+
+/** The largest utilisation of a steel verification, over every limit state it ran. */
+export function steelGoverningRatio(v: SteelVerification): number {
+  return Math.max(
+    v.flexureZ.ratio, v.shear.ratio,
+    v.flexureY?.ratio ?? 0, v.tension?.ratio ?? 0, v.compression?.ratio ?? 0, v.interaction?.ratio ?? 0,
+  );
+}
+
+/**
+ * Check one steel member for a demand, with a given section and material.
+ *
+ * Returns null when an input the checker needs is missing (`missingSteelInputs`). The section is
+ * a parameter so a profile search can ask "would this one pass?" with the same computation the
+ * verification runs. When the member sees both compression and tension, both are checked and
+ * the worse is returned.
+ */
+export function checkSteelMember(
+  elementId: number,
+  demand: SteelMemberDemand,
+  section: SteelSectionData & { shape?: string },
+  material: SteelMaterialData,
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number },
+  /**
+   * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
+   * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
+   * is the segment itself when `Lb` is the element's own length.
+   */
+  segment?: SteelSegmentDiagram,
+): SteelVerification | null {
+  const { MuStrong: MuStrongMax, MuWeak: MuWeakMax, Vu: VuMax, diagram } = demand;
+  const { L, Lb } = lengths;
+  /*
+   * ── The DEMAND side of the axis mapping, which crosses the same way ──
+   *
+   * The inertia swap below (`Iz ← section.iy`) exists because the checker's names and
+   * this app's names cross — and the demands must cross with them, because each moment
+   * is rated against the capacity of the axis it bends about:
+   *
+   *   solver `my` bends over the section depth and pairs with `iy` — the STRONG axis of
+   *   an unrolled tall section (types-3d.ts; solver-service forces local z = global up,
+   *   «gravity → My») — so it is the checker's `Muz`, the moment the lateral-torsional
+   *   buckling check runs on. Solver `mz` pairs with `iz`, the weak axis → `Muy`.
+   *
+   * This used to send `Muz ← mz` and `Muy ← my` straight through while the inertias were
+   * already crossed, and both directions of the error were live. A gravity-loaded IPE
+   * beam carries its whole moment in `my` with `mz ≡ 0`: the strong-axis check (with
+   * LTB) ran on zero and passed vacuously — a 6 m unbraced IPE 200 at 7 kN·m is past its
+   * elastic-LTB capacity and reported ratio 0,00 — while the real moment was rated
+   * against the WEAK-axis modulus (φMn 9,01 kN·m against 44,34 kN·m strong), reporting
+   * ratio 2,22 FAIL on a beam at 45 % of its true capacity.
+   *
+   * `VuMax` does not cross: the checker's single shear check rates the web area against
+   * the larger of the two shear components, and an envelope of both is conservative
+   * regardless of which axis produced it.
+   */
+
+  /*
+   * ── Inputs are required, not invented ────────────────────────────
+   *
+   * This block used to fill every missing property with a guess: `Fu = 1.25·Fy`, `h = 0.3`,
+   * `b = 0.15`, `tw = b/10`, `tf = b/15`, `Iy = Iz`, `J = 0`. Seven substitutions, none of
+   * them sourced, feeding a checker whose output is a capacity.
+   *
+   * A guessed thickness is not a conservative simplification — it decides the section
+   * classification and the shear area — and `Iy = Iz` was the worst of them: it substituted
+   * one principal inertia for the other, which on an IPE 200 is a factor of 13.7.
+   *
+   * So the element is SKIPPED when an input is missing, which is what this loop already does
+   * for a member with no section, no material, or a concrete strength. Skipping is not silence:
+   * `steelInputCompleteness()` below reports exactly which elements were left out and why, so a
+   * surface can say it instead of a user wondering where their steel went.
+   */
+  const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
+  if (gaps.length > 0) return null;
+
+  /*
+   * ── Cb from the moment diagram, F.1.1 ────────────────────────────
+   *
+   * F.1.1 is written about the UNBRACED SEGMENT, so the diagram read is the one `segment`
+   * carries — stitched from every element of the chain by `steelSegmentDiagram` — and only the
+   * element-local envelope when there is no chain, where the element IS the segment. Reading an
+   * end element of a chain instead would pair a steep local gradient with the chain's `Lb` and
+   * overstate Cb (1,667 against 1,316 on a midspan point load), which raises the LTB capacity
+   * on the unsafe side.
+   *
+   * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
+   * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
+   * which this app cannot do), and for a shape with no axis of symmetry.
+   *
+   * Absent stations leave `Cb` undefined and the checker falls back to 1,0, which the clause
+   * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
+   */
+  const grad = momentGradient({
+    stations: segment?.stations ?? diagram,
+    tStart: segment?.tStart,
+    tEnd: segment?.tEnd,
+    shape: (section as { shape?: string }).shape,
+    // A free cantilever end is a topology fact this loop does not have; left undefined rather
+    // than guessed, which keeps `Cb = 1` for those members via the diagram path.
+  });
+
+  const sdp: SteelDesignParams = {
+    Fy: material.fy!,
+    Fu: (material as SteelMaterialData).fu!,
+    E: (material as SteelMaterialData).e!,
+    A: (section as SteelSectionData).a!,
+    /*
+     * ── The axis mapping, which is a SWAP and not a typo ───────────
+     *
+     * `SteelDesignParams` documents `Iz` as «inercia eje fuerte» and `Iy` as «eje debil».
+     * This app's convention is the other way round: `section.iy` is about Y horizontal — the
+     * `b·h³/12` term, so the STRONG axis of a tall section — and `section.iz` is about Z
+     * vertical, the weak one. See `data/section-shapes.ts`, whose `case 'rect'` labels both.
+     *
+     * The two names therefore cross. This used to pass them straight through, and the
+     * consequence was not cosmetic: `checkSteelFlexure` takes `ry = √(Iy/A)` as the WEAK-axis
+     * radius of gyration and sets `Lp = 1.76·ry·√(E/Fy)` from it. Fed the strong axis, `ry` came
+     * out √13.7 ≈ 3.7× too large on an IPE 200, `Lp` with it, and a beam that needed a
+     * lateral-torsional reduction was judged to be inside the plateau — unconservative.
+     *
+     * Compression was unaffected, because it takes `max(KLrx, KLry)` and a maximum does not
+     * care which name each came under. Only the narrative in `steps` was mislabelled there.
+     */
+    Iz: (section as SteelSectionData).iy!,   // checker's STRONG  <- app's strong
+    Iy: (section as SteelSectionData).iz!,   // checker's WEAK    <- app's weak
+    h: section.h!,
+    b: section.b!,
+    tw: (section as SteelSectionData).tw!,
+    tf: (section as SteelSectionData).tf!,
+    /*
+     * `L` and `Lb` come from the caller (`engine/steel/unbraced-length.ts`): a member split into
+     * elements at nodes where nothing else attaches is ONE unbraced length, because such a node
+     * has nothing to brace it with; a declared `lb` replaces the lateral-torsional one. Nothing
+     * here treats a member that frames in as a brace — that is the code's provision to make, not
+     * geometry's (`docs/handoffs/m2-lb-assumption.md`), so the default stays the conservative
+     * whole length it always was.
+     */
+    L, Lb,
+    // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
+    // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
+    ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
+    // J, Cw, Zx and Zy from the section's own data or geometry (`steel/section-constants.ts`):
+    // the catalogue's rolled shapes carry no J, which dropped F.2-4's torsional term, and the
+    // checker's own Z formula is an I-shape's applied to every shape.
+    ...(() => {
+      const k = steelSectionConstants(section as never);
+      return {
+        J: k.J,
+        ...(k.Cw !== undefined ? { Cw: k.Cw } : {}),
+        ...(k.Zx !== undefined ? { Zx: k.Zx } : {}),
+        ...(k.Zy !== undefined ? { Zy: k.Zy } : {}),
+      };
+    })(),
+    // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).
+    ...(lengths.Kx !== undefined ? { Kx: lengths.Kx } : {}),
+    ...(lengths.Ky !== undefined ? { Ky: lengths.Ky } : {}),
+  };
+
+
+  const run = (Nu: number) => verifySteelElement({
+    // Muz/Muy are the CHECKER's names (strong/weak); the values come from the solver's
+    // my/mz channels — the same cross the inertias take above. The checker's axial sign is
+    // + compression.
+    elementId, Nu, Muz: MuStrongMax, Muy: MuWeakMax, Vu: VuMax, params: sdp,
+  });
+  const runs: SteelVerification[] = [];
+  if (demand.Nc > 0 || demand.Nt === 0) runs.push(run(demand.Nc));
+  if (demand.Nt > 0) runs.push(run(-demand.Nt));
+  return runs.reduce((worst, v) => (steelGoverningRatio(v) > steelGoverningRatio(worst) ? v : worst));
 }
 
 // ─── Unified VerificationReport ──────────────────────────────

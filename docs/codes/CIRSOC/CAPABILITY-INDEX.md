@@ -30,7 +30,7 @@ Provenance identifiers used in code are `<code> <edition> §<clause>`, e.g.
 | One-way slab reduction limit | §4.7.6 | implemented | Tributary width ≤ 1.5 × span |
 | Roof minimum imposed loads | §4.8 | implemented | |
 | Rain loads | Ch. 5 | *unsupported* | Needs drainage/scupper geometry the model does not carry |
-| Snow loads | — | *unsupported* | CIRSOC 104 was not supplied |
+| Snow loads | CIRSOC 104-2005 Cap. 3, 4, 6.1, 10 | implemented | Balanced and unbalanced (gable) roof snow, low-slope minimum, rain on snow; partial loads, drifts, projections, sliding snow, curved and sawtooth roofs and ice are not generated and are named as such |
 | Risk / importance category | §1.5 | implemented | Drives wind and seismic importance |
 
 ## CIRSOC 102 (2025) — wind

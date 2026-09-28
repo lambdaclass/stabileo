@@ -32,6 +32,8 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
+import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
+import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -66,6 +68,11 @@ export interface Material {
   nu: number;
   rho: number; // kN/m³
   fy?: number; // MPa (yield stress for stress verification)
+  /**
+   * Coefficient of thermal expansion, 1/°C. Absent: the family's (`engine/thermal-alpha.ts`),
+   * and the engine's 1,2·10⁻⁵ when the family cannot be told.
+   */
+  alpha?: number;
   /**
    * Which catalogued grade this material came from, when it came from one.
    *
@@ -488,6 +495,27 @@ export interface Element extends Element3DMetadata {
    * sees straight members and is not told about this.
    */
   arc?: { id: number; spec: import('../model/curved-member').ArcSpec };
+  /**
+   * Stated unbraced length for lateral-torsional buckling, m — where the member is braced
+   * against it more often than its geometry shows. Replaces the deduced `Lb`, never `L`; see
+   * `engine/steel/unbraced-length.ts`. Absent: deduced.
+   */
+  unbracedLength?: number;
+  /**
+   * Effective-length factors for flexural buckling, about the section's strong and weak axes.
+   * Absent: 1,0 — right for a braced frame, and for a sway frame analysed with the direct
+   * analysis method; a sway frame checked on a first-order analysis needs the user's K.
+   */
+  kStrong?: number;
+  kWeak?: number;
+}
+
+/** A camera the user named: where it stands and what it looks at, in scene coordinates. */
+export interface SavedView {
+  id: number;
+  name: string;
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -635,6 +663,12 @@ export interface LoadCase {
   id: number;
   type: LoadCaseType;
   name: string;
+  /**
+   * Cases of one type sharing this key are patterns of one action — the balanced and the
+   * unbalanced snow of one roof — and a combination takes one of them, not their sum
+   * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
+   */
+  alternatives?: string;
 }
 
 export interface LoadCombination {
@@ -749,6 +783,15 @@ export interface StructureModel {
    * group, so a new project starts without one.
    */
   massSource?: MassSource;
+  /**
+   * Which combinations feed design and reports, and named envelopes. Absent means every
+   * combination is active and there are no named envelopes. See `engine/result-scopes.ts`.
+   */
+  resultScopes?: ResultScopes;
+  /** The project's own combination rules (`engine/loads/combination-rules.ts`). Absent: none. */
+  combinationRules?: CombinationRule[];
+  /** Named camera views, to come back to a part of the model. Absent: none saved. */
+  views?: SavedView[];
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -1121,6 +1164,8 @@ function createModelStore() {
   let _pushUndoSilent: (() => void) | null = null;
   /** Foundation-channel history push. See `_setHistoryPush` and `restoreFoundationOnly`. */
   let _pushUndoFoundation: (() => void) | null = null;
+  /** History push for a named view: undoable, but not a model edit — the solve survives it. */
+  let _pushUndoView: (() => void) | null = null;
   /** Called after a reinforcement transaction commits, with the written ids. */
   let _onReinforcementCommit: ((written: Set<number>) => void) | null = null;
   /**
@@ -1270,6 +1315,11 @@ function createModelStore() {
       // which is what they did — pushed a snapshot that undo then restored through the
       // reinforcement path, so Ctrl+Z appeared to do nothing to a footing at all.
       _pushUndoFoundation = () => fn('foundation');
+      // Named views get the same treatment: a camera is part of the project, so it is
+      // undoable, but it changes nothing the analysis reads, so undoing one must not
+      // retire the solve. Tagging these 'structural' — which is what they did — routed
+      // undo/redo through the full restore(), which bumps modelVersion and clears results.
+      _pushUndoView = () => fn('views');
     },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
@@ -1424,6 +1474,23 @@ function createModelStore() {
       _onFoundationChange?.();
     },
 
+    /**
+     * Restore ONLY the named views.
+     *
+     * The mirror of `restoreFoundationOnly`, for the same reason: a view is a camera, it
+     * changes nothing the analysis reads, so undoing a view save/rename/remove must not
+     * bump `modelVersion` or fire `_onMutation` — that would retire a valid solve, the
+     * exact failure that routing view entries through the full `restore()` produced.
+     *
+     * A view edit fires no invalidation hook at all: nothing downstream is computed from
+     * `model.views`, so there is nothing stale to drop.
+     */
+    restoreViewsOnly(s: ModelSnapshot): void {
+      const next = s.views ? (JSON.parse(JSON.stringify(s.views)) as SavedView[]) : undefined;
+      if (JSON.stringify(model.views ?? null) === JSON.stringify(next ?? null)) return;
+      model.views = next;
+    },
+
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
     bumpModelVersion() { modelVersion++; _onMutation?.(); },
 
@@ -1488,6 +1555,9 @@ function createModelStore() {
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
+    get resultScopes() { return model.resultScopes; },
+    get combinationRules() { return model.combinationRules ?? []; },
+    get views(): readonly SavedView[] { return model.views ?? []; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1555,6 +1625,15 @@ function createModelStore() {
         // never stated one round-trip unchanged.
         ...(snap.massSource
           ? { massSource: JSON.parse(JSON.stringify(snap.massSource)) as ModelSnapshot['massSource'] }
+          : {}),
+        ...(snap.resultScopes
+          ? { resultScopes: JSON.parse(JSON.stringify(snap.resultScopes)) as ModelSnapshot['resultScopes'] }
+          : {}),
+        ...(snap.combinationRules && snap.combinationRules.length > 0
+          ? { combinationRules: JSON.parse(JSON.stringify(snap.combinationRules)) as ModelSnapshot['combinationRules'] }
+          : {}),
+        ...(snap.views && snap.views.length > 0
+          ? { views: JSON.parse(JSON.stringify(snap.views)) as ModelSnapshot['views'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1739,6 +1818,9 @@ function createModelStore() {
       ? new Map(s.groups.map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as ModelGroup]))
       : new Map();
     model.massSource = normalizeMassSource(s.massSource);
+    model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
+    model.combinationRules = s.combinationRules ? JSON.parse(JSON.stringify(s.combinationRules)) : undefined;
+    model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2877,6 +2959,9 @@ function createModelStore() {
       // project's groups holding ids that now mean different entities.
       model.groups = new Map();
       model.massSource = undefined;
+      model.resultScopes = undefined;
+      model.combinationRules = undefined;
+      model.views = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3195,10 +3280,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = ''): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
       return id;
     },
 
@@ -3219,6 +3304,41 @@ function createModelStore() {
     },
 
     /**
+     * Save, rename or delete a named view.
+     *
+     * A view changes nothing the analysis reads, so it is not a structural edit: it is undoable
+     * (it is part of the project) but it does not retire the results the way `_pushUndo` does for
+     * a model edit — saving a camera must not throw away a solve.
+     */
+    saveView(name: string, position: SavedView['position'], target: SavedView['target']): number {
+      const id = (model.views ?? []).reduce((m, v) => Math.max(m, v.id), 0) + 1;
+      _pushUndoView?.();
+      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target } }];
+      return id;
+    },
+    renameView(id: number, name: string): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, name } : v));
+    },
+    removeView(id: number): void {
+      _pushUndoView?.();
+      const next = (model.views ?? []).filter((v) => v.id !== id);
+      model.views = next.length > 0 ? next : undefined;
+    },
+
+    /** State the project's combination rules; an empty list withdraws them. */
+    setCombinationRules(rules: CombinationRule[]): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.combinationRules = rules.length > 0 ? JSON.parse(JSON.stringify(rules)) : undefined;
+    },
+
+    /** State the active combination list and named envelopes, or withdraw them (`null`). */
+    setResultScopes(scopes: ResultScopes | null): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.resultScopes = scopes ? JSON.parse(JSON.stringify(scopes)) : undefined;
+    },
+
+    /**
      * State the mass source, or withdraw it (`null`) so the mass is self-weight alone again.
      *
      * Bumps the model version: the mass is part of what a modal result describes, so a result
@@ -3228,6 +3348,23 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
+    },
+
+    /**
+     * The case of this type and name, created when missing — what a load generator applies
+     * into. Its alternatives group is set either way: a case reused from an earlier generation
+     * (or an older project) carried none, and its snow patterns kept adding up.
+     */
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
+        ?? model.loadCases.find((c) => c.type === type && c.name === name);
+      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
+      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+        if (!_undoBatching) _pushUndo?.();
+        found.alternatives = opts.alternatives;
+        model.loadCases = [...model.loadCases];
+      }
+      return found.id;
     },
 
     updateLoadCase(id: number, name: string): void {
@@ -3252,6 +3389,11 @@ function createModelStore() {
     removeCombination(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.combinations = model.combinations.filter(c => c.id !== id);
+      // An active list or a named envelope naming it would come to mean the combination that
+      // takes this number next.
+      if (model.resultScopes) {
+        model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)));
+      }
     },
 
     updateCombination(id: number, data: Partial<{ name: string; factors: Array<{ caseId: number; factor: number }> }>): void {
@@ -3324,7 +3466,7 @@ function createModelStore() {
      *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      return solveCombinations3DFn(
+      const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
@@ -3333,12 +3475,14 @@ function createModelStore() {
           connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
+      // The active list is a PRO definition; Basic keeps enveloping every combination.
+      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      return solveCombinations3DParallelFn(
+      const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
           plates: isPro ? model.plates : undefined,
@@ -3347,6 +3491,8 @@ function createModelStore() {
           connectors: isPro ? model.connectors : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
+      // The active list is a PRO definition; Basic keeps enveloping every combination.
+      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Compute influence line: move unit load P=1 (downward) across elements */

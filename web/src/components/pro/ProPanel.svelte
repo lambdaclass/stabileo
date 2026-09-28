@@ -43,14 +43,14 @@
   import ProEditPanel from './ProEditPanel.svelte';
   import ProGroupsPanel from './ProGroupsPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
+  import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
-  import { exportReportAs } from '../../lib/pro/report-export';
+  import { exportReportAs, reportVerification } from '../../lib/pro/report-export';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { computeStationDemands as computeStationDemandsService, runUnifiedVerification } from '../../lib/engine/verification-service';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProExampleMenu from './ProExampleMenu.svelte';
@@ -63,12 +63,14 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
+  import ProInstabilityReport from './ProInstabilityReport.svelte';
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
+  import ProOtherCodesPanel from './ProOtherCodesPanel.svelte';
   /*
    * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
    * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
@@ -84,7 +86,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -92,6 +94,8 @@
   /** Verification results — derived from verificationStore (single source of truth).
    *  No longer a local $state — reads directly from the store. */
   const verificationsRef = $derived(verificationStore.concrete);
+  /** The verification the report prints, taken when its dialog opens; the store is left alone. */
+  let reportVerifications = $state<ElementVerification[] | null>(null);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
@@ -161,21 +165,6 @@
     solving = false;
   }
 
-  /** Auto-run CIRSOC verification on current results via unified service. */
-  function autoVerify(): ElementVerification[] {
-    const results = resultsStore.results3D;
-    if (!results) return [];
-    const stationData = resultsStore.hasCombinations3D
-      ? computeStationDemandsService(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
-      : undefined;
-    return runUnifiedVerification(
-      results,
-      { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
-      resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
-      stationData?.demands,
-    );
-  }
-
   async function handleOpenReportDialog() {
     // Auto-solve if no results yet
     if (!resultsStore.results3D) {
@@ -184,13 +173,8 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Re-verify CIRSOC against the CURRENT model state — writes to
-    // verificationStore, which updates verificationsRef (derived) automatically.
-    // (Always, not just when the store is empty: a prior run may have left
-    // verifications from a since-edited model, which would put stale results in
-    // the report next to current model data.)
-    const concrete = autoVerify();
-    verificationStore.setConcrete(concrete);
+    // Re-verified against the current model, for the report only — see `reportVerification`.
+    reportVerifications = reportVerification();
 
     showReportDialog = true;
   }
@@ -201,7 +185,7 @@
     showReportDialog = false;
     exportReportAs({
       config,
-      verifications: verificationsRef,
+      verifications: reportVerifications ?? verificationsRef,
       advancedResults: advancedResultsRef,
       t,
     });
@@ -255,6 +239,7 @@
     // `pro.tabConnections` would have put "Uniones metálicas" on the ribbon and "Conexiones"
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
+    otherCodes: 'proRibbon.groupOtherCodes',
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
     // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
@@ -264,6 +249,7 @@
     edit: 'edit.title',
     groups: 'groups.title',
     code: 'code.title',
+    view: 'view.title',
   };
 </script>
 
@@ -310,6 +296,8 @@
 
   <!-- Tab content -->
   <div class="pro-content">
+    <!-- Above every tab: a failed solve's mechanism is news wherever the user is. -->
+    <ProInstabilityReport />
     <!--
       The grid scrolls; the head above it does not.
       ────────────────────────────────────────────
@@ -349,6 +337,8 @@
           <ProGroupsPanel />
         {:else if activeTab === 'code'}
           <ProCodePanel />
+        {:else if activeTab === 'view'}
+          <ProViewPanel />
         {:else if activeTab === 'project'}
           <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
         {:else if activeTab === 'nodes'}
@@ -379,6 +369,8 @@
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
+        {:else if activeTab === 'otherCodes'}
+          <ProOtherCodesPanel />
         {:else if activeTab === 'ai'}
       <AiDrawer docked />
     {:else if activeTab === 'diagnostics'}

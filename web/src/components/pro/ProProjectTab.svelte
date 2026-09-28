@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { proNav } from '../../lib/store/pro-nav.svelte';
+  import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
+  let regulationsEl: HTMLElement | undefined = $state();
+  $effect(() => { if (proNav.regulationsOpen) regulationsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
   import { t, tp } from '../../lib/i18n';
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
@@ -237,6 +241,14 @@
     instant they were pressed, with the difference between "pestaña" and
     "sesión" explained nowhere a reader would meet it.
   -->
+  <!-- The project's regulations, where the loads that need them are made — not only in Design. -->
+  <section class="pp-card" data-testid="pp-regulations">
+    <details bind:open={proNav.regulationsOpen} bind:this={regulationsEl}>
+      <summary class="pp-heading">{t('regulations.title')}</summary>
+      <ProjectRegulationsPanel />
+    </details>
+  </section>
+
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.fileSection')}</h4>
     <div class="pp-grid">

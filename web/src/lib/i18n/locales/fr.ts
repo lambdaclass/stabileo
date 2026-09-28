@@ -3148,7 +3148,7 @@ const fr: Translations = {
   'autoLoad.sysWalls': 'Voiles',
   'autoLoad.sysOther': 'Autre',
   'autoLoad.dirX': 'Direction X',
-  'autoLoad.dirZ': 'Direction Z',
+  'autoLoad.dirZ': 'Direction Y',
   'autoLoad.preview': 'Aperçu sismique',
   'autoLoad.options': 'Options',
   'autoLoad.genCombos': 'Générer combinaisons selon norme',

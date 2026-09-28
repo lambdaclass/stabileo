@@ -1,0 +1,394 @@
+{
+  "key": "cirsoc-104-2005",
+  "code": "CIRSOC 104",
+  "edition": "2005",
+  "title": "Reglamento Argentino de Acción de la Nieve sobre las Construcciones",
+  "source_file": "CIRSOC 104-2005.pdf",
+  "sha256": "e1e6d178ddb40f999ffddb6d54698bcf27f318ab4e256fd5e6210453be41753f",
+  "bytes": 10142125,
+  "pages": 112,
+  "toc_pages_skipped": 6,
+  "extraction_method": "pypdf layout mode (embedded text layer, no OCR)",
+  "pages_ok": 81,
+  "pages_sparse": 1,
+  "pages_empty": 6,
+  "chapters": [
+    {
+      "number": "0",
+      "title": "Preliminares",
+      "file": "0-preliminares.md",
+      "pages": [
+        1,
+        16
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 1",
+      "title": "REQUISITOS GENERALES",
+      "file": "capitulo-1-requisitos-generales.md",
+      "pages": [
+        17,
+        18
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 2",
+      "title": "CARGAS DE NIEVE A NIVEL DEL",
+      "file": "capitulo-2-cargas-de-nieve-a-nivel-del.md",
+      "pages": [
+        19,
+        20
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 3",
+      "title": "CARGAS DE NIEVE SOBRE CUBIERTAS",
+      "file": "capitulo-3-cargas-de-nieve-sobre-cubiertas.md",
+      "pages": [
+        21,
+        22
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 4",
+      "title": "CARGAS DE NIEVE SOBRE CUBIERTAS",
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md",
+      "pages": [
+        23,
+        26
+      ],
+      "clause_count": 5
+    },
+    {
+      "number": "CAPÍTULO 5",
+      "title": "CARGAS PARCIALES",
+      "file": "capitulo-5-cargas-parciales.md",
+      "pages": [
+        27,
+        28
+      ],
+      "clause_count": 2
+    },
+    {
+      "number": "CAPÍTULO 6",
+      "title": "CARGAS DE NIEVE NO BALANCEADAS",
+      "file": "capitulo-6-cargas-de-nieve-no-balanceadas.md",
+      "pages": [
+        29,
+        30
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "CAPÍTULO 7",
+      "title": "NIEVE ACUMULADA POR ARRASTRE DEL",
+      "file": "capitulo-7-nieve-acumulada-por-arrastre-del.md",
+      "pages": [
+        31,
+        32
+      ],
+      "clause_count": 2
+    },
+    {
+      "number": "CAPÍTULO 8",
+      "title": "SALIENTES DE CUBIERTA",
+      "file": "capitulo-8-salientes-de-cubierta.md",
+      "pages": [
+        33,
+        34
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 9",
+      "title": "NIEVE CAÍDA POR DESLIZAMIENTO",
+      "file": "capitulo-9-nieve-caida-por-deslizamiento.md",
+      "pages": [
+        35,
+        36
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 10",
+      "title": "CARGA DE LLUVIA SOBRE NIEVE",
+      "file": "capitulo-10-carga-de-lluvia-sobre-nieve.md",
+      "pages": [
+        37,
+        38
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 11",
+      "title": "INESTABILIDAD POR ACUMULACIÓN DE",
+      "file": "capitulo-11-inestabilidad-por-acumulacion-de.md",
+      "pages": [
+        39,
+        40
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "CAPÍTULO 12",
+      "title": "CUBIERTAS EXISTENTES",
+      "file": "capitulo-12-cubiertas-existentes.md",
+      "pages": [
+        41,
+        42
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "FIGURAS",
+      "title": "",
+      "file": "figuras.md",
+      "pages": [
+        43,
+        50
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "TABLAS",
+      "title": "",
+      "file": "tablas.md",
+      "pages": [
+        51,
+        70
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "ANEXO A LA TABLA 1.9",
+      "title": "",
+      "file": "anexo-a-la-tabla-1-9.md",
+      "pages": [
+        71,
+        70
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "ANEXO A",
+      "title": "LA TABLA 1.9",
+      "file": "anexo-a-la-tabla-1-9.md",
+      "pages": [
+        71,
+        82
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "APÉNDICE A",
+      "title": "CATEGORÍAS DE EXPOSICIÓN",
+      "file": "apendice-a-categorias-de-exposicion.md",
+      "pages": [
+        83,
+        84
+      ],
+      "clause_count": 4
+    },
+    {
+      "number": "APÉNDICE B",
+      "title": "CLASIFICACIÓN DE EDIFICIOS Y OTRAS",
+      "file": "apendice-b-clasificacion-de-edificios-y-otras.md",
+      "pages": [
+        85,
+        86
+      ],
+      "clause_count": 0
+    },
+    {
+      "number": "APÉNDICE C",
+      "title": "COMBINACIONES DE CARGA QUE",
+      "file": "apendice-c-combinaciones-de-carga-que.md",
+      "pages": [
+        87,
+        88
+      ],
+      "clause_count": 0
+    }
+  ],
+  "clauses": [
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.1",
+      "title": "INTRODUCCIÓN",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.2",
+      "title": "CAMPO DE VALIDEZ",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.3",
+      "title": "SIMBOLOGÍA",
+      "page": 17,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 1",
+      "id": "1.4",
+      "title": "DEFINICIONES",
+      "page": 18,
+      "file": "capitulo-1-requisitos-generales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.1",
+      "title": "FACTOR DE EXPOSICIÓN, Ce.",
+      "page": 21,
+      "file": "capitulo-3-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.2",
+      "title": "FACTOR TÉRMICO, Ct",
+      "page": 21,
+      "file": "capitulo-3-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.3",
+      "title": "FACTOR DE IMPORTANCIA, Ι",
+      "page": 21,
+      "file": "capitulo-3-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 3",
+      "id": "3.4",
+      "title": "VALORES MÍNIMOS DE p                                                          f PARA CUBIERTAS CON BAJA PENDIENTE",
+      "page": 21,
+      "file": "capitulo-3-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.1",
+      "title": "FACTOR DE PENDIENTE PARA CUBIERTA CÁLIDA, Cs",
+      "page": 23,
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.2",
+      "title": "FACTOR DE PENDIENTE PARA CUBIERTA FRÍA, Cs",
+      "page": 24,
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.3",
+      "title": "FACTOR DE PENDIENTE PARA CUBIERTAS CURVAS",
+      "page": 24,
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.4",
+      "title": "FACTOR DE PENDIENTE PARA CUBIERTAS DE PLACAS CON",
+      "page": 24,
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 4",
+      "id": "4.5",
+      "title": "DIQUES DE HIELO Y CARÁMBANOS(*) A LO LARGO DE ALEROS",
+      "page": 24,
+      "file": "capitulo-4-cargas-de-nieve-sobre-cubiertas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.1",
+      "title": "SISTEMAS DE VIGAS CONTINUAS",
+      "page": 27,
+      "file": "capitulo-5-cargas-parciales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 5",
+      "id": "5.2",
+      "title": "OTROS SISTEMAS ESTRUCTURALES",
+      "page": 27,
+      "file": "capitulo-5-cargas-parciales.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.1",
+      "title": "CARGAS DE NIEVE NO BALANCEADAS SOBRE CUBIERTAS A DOS Y",
+      "page": 29,
+      "file": "capitulo-6-cargas-de-nieve-no-balanceadas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.2",
+      "title": "CARGAS DE NIEVE NO BALANCEADAS SOBRE CUBIERTAS CURVAS",
+      "page": 29,
+      "file": "capitulo-6-cargas-de-nieve-no-balanceadas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.3",
+      "title": "CARGAS DE NIEVE NO BALANCEADAS SOBRE CUBIERTAS DE",
+      "page": 30,
+      "file": "capitulo-6-cargas-de-nieve-no-balanceadas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 6",
+      "id": "6.4",
+      "title": "CARGAS DE NIEVE NO BALANCEADAS SOBRE CÚPULAS",
+      "page": 30,
+      "file": "capitulo-6-cargas-de-nieve-no-balanceadas.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.1",
+      "title": "CUBIERTA MÁS BAJA DE UNA ESTRUCTURA",
+      "page": 31,
+      "file": "capitulo-7-nieve-acumulada-por-arrastre-del.md"
+    },
+    {
+      "chapter": "CAPÍTULO 7",
+      "id": "7.2",
+      "title": "ESTRUCTURAS ADYACENTES Y CARACTERÍSTICAS ESPECIALES DEL",
+      "page": 32,
+      "file": "capitulo-7-nieve-acumulada-por-arrastre-del.md"
+    },
+    {
+      "chapter": "APÉNDICE A",
+      "id": "1",
+      "title": "Exposición A",
+      "page": 83,
+      "file": "apendice-a-categorias-de-exposicion.md"
+    },
+    {
+      "chapter": "APÉNDICE A",
+      "id": "2",
+      "title": "Exposición B",
+      "page": 83,
+      "file": "apendice-a-categorias-de-exposicion.md"
+    },
+    {
+      "chapter": "APÉNDICE A",
+      "id": "3",
+      "title": "Exposición C",
+      "page": 83,
+      "file": "apendice-a-categorias-de-exposicion.md"
+    },
+    {
+      "chapter": "APÉNDICE A",
+      "id": "4",
+      "title": "Exposición D",
+      "page": 83,
+      "file": "apendice-a-categorias-de-exposicion.md"
+    }
+  ]
+}

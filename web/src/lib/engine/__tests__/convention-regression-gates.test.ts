@@ -195,15 +195,6 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).toContain('if (isVertical)');
   });
 
-  it('ProVerificationTab.svelte preserves axis identity', () => {
-    const src = readSource('../../../components/pro/ProVerificationTab.svelte');
-    expect(src, 'MuMax = _mzMax').toContain('MuMax = _mzMax');
-    expect(src, 'MuyMax = _myMax').toContain('MuyMax = _myMax');
-    // Must NOT sort by magnitude
-    expect(src).not.toContain('MuMax = Math.max(_mzMax, _myMax)');
-    expect(src).not.toContain('MuzMax = Math.max(_mzM, _myM)');
-  });
-
   it('the report\'s combo summary computes Mu from mzStart/mzEnd only', () => {
     // F5 moved this out of `ProPanel.svelte`, where the assembly used to live, into
     // `pro-report-inputs.ts`. The claim is unchanged: the report's per-combination Mu is the
