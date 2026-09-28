@@ -173,9 +173,9 @@ describe('the "Validation models" group of the PRO examples', () => {
  * out after minutes; it assembles them sparse now, and the fourteen take seconds.
  *
  * Ten of them do not reach a second-order equilibrium: the model, as it stands, buckles below
- * their load, sideways in a top chord. What is asserted is that the P-Delta and the buckling
- * analysis say the same thing, combination by combination: stable exactly where the first
- * buckling factor is above one. Whether the chord should be that free is a question for the
+ * their load, sideways in a top chord. They publish no forces and are listed. What is asserted is
+ * that the P-Delta and the buckling analysis say the same thing, combination by combination:
+ * stable exactly where the first buckling factor is above one. Whether the chord should be that free is a question for the
  * comparison of displacements, not for statics.
  */
 describe('validation-04 with its own combinations', () => {
@@ -185,20 +185,21 @@ describe('validation-04 with its own combinations', () => {
     const cases = modelStore.model.loadCases;
     const r = solveCombinations3D(md() as never, cases, modelStore.combinations, true, false);
     if (!r || typeof r === 'string') throw new Error(String(r));
-    expect(r.perCombo.size).toBe(SHAPE['validation-04'].combinations);
+    // The unstable ones publish no forces and are listed instead.
+    expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(SHAPE['validation-04'].combinations);
     const base = buildSolverInput3D({ ...md(), loads: [] } as never, false, false)!;
     const caseLoads = caseSolverLoads3D(md() as never, cases, true, false);
     let stable = 0;
     for (const combo of modelStore.combinations) {
-      const so = r.perCombo.get(combo.id)!.secondOrder!;
       const lambda = (solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1) as { modes: Array<{ loadFactor: number }> }).modes[0]!.loadFactor;
-      expect(so.stable, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
-      if (so.stable) {
-        stable++;
-        expect(so.converged).toBe(true);
-        expect(so.b2).toBeGreaterThan(1);
-        expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
-      }
+      const res = r.perCombo.get(combo.id);
+      expect(!!res, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
+      if (!res) { expect(r.unstable).toContain(combo.id); continue; }
+      stable++;
+      const so = res.secondOrder!;
+      expect(so.converged && so.stable).toBe(true);
+      expect(so.b2).toBeGreaterThan(1);
+      expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
     }
     expect(stable).toBe(4);
   }, 300_000);

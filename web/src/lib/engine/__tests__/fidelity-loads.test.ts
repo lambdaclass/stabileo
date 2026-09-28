@@ -8,6 +8,7 @@ import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
 import type { AnalysisResults3D } from '../types-3d';
+import { t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -172,5 +173,31 @@ describe('P-Delta per combination', () => {
     expect(Math.abs(m(r.perCombo.get(combo)!) - exact) / exact).toBeLessThan(0.01);
     expect(m(r.perCase.get(1)!)).toBeCloseTo(0.12 * 4, 9);
     expect(r.perCombo.get(combo)!.secondOrder).toMatchObject({ stable: true });
+  });
+
+  it('a combination past the critical load publishes no forces and is listed', () => {
+    // The same column: 60 kN is under its weak-axis critical load, three times that is past it.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0.12, -60, 0, 0, 0, 1);
+    const under = modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const past = modelStore.addCombination('3.0 D', [{ caseId: 1, factor: 3 }]);
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(r.perCombo.has(under)).toBe(true);
+    expect(r.perCombo.has(past)).toBe(false);
+    expect(r.unstable).toEqual([past]);
+  });
+
+  it('with every combination past it, the solve says so', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0.12, -180, 0, 0, 0, 1);
+    modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    expect(modelStore.solveCombinations3D(false, false, true)).toBe(t('svc.pdeltaNoneStable'));
   });
 });

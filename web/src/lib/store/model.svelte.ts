@@ -3546,7 +3546,7 @@ function createModelStore() {
 
     /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
      *  Shell elements are only included when isPro=true. */
-    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
