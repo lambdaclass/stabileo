@@ -14,8 +14,10 @@
  * ── The rule ─────────────────────────────────────────────────────
  *
  * Permanent and gravity symbols (D, L, Lr, S, R, F, H, T) sum all their cases: two dead-load
- * cases are both always there. Directional symbols (W, E) are alternatives: each case of the
- * symbol gets a combination of its own, never alongside another case of the same symbol.
+ * cases are both always there — except cases that share an `alternatives` group, which are
+ * patterns of one action (the balanced and unbalanced snow of one roof) and enter one at a
+ * time. Directional symbols (W, E) are alternatives: each case of the symbol gets a
+ * combination of its own, never alongside another case of the same symbol.
  *
  * ── Both senses ──────────────────────────────────────────────────
  *
@@ -64,35 +66,56 @@ export interface ExpandOptions {
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  const bySymbol = new Map<LoadSymbol, Array<{ id: number; name: string }>>();
+  type Case = { id: number; name: string; alternatives?: string };
+  const bySymbol = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
     const s = symbolOfType(c.type);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name }]);
+    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives }]);
   }
+  /** One way of taking a term: the cases it adds, their sign, and what names it. */
+  type Pick = { cases: Case[]; sense: 1 | -1; label: string };
   const out: CaseCombination[] = [];
   for (const spec of specs) {
     const terms = spec.terms.filter((t) => t.factor !== 0);
     if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
-    const alt = terms.find((t) => ALTERNATIVE.has(t.symbol));
-    const choices = alt ? bySymbol.get(alt.symbol)! : [null];
-    const reversible = !!alt && !!opts.bothSenses?.[alt.symbol as 'W' | 'E'];
-    for (const choice of choices) {
-      for (const sense of reversible ? [1, -1] : [1]) {
-        const factors: CaseCombination['factors'] = [];
-        for (const t of terms) {
-          const ids = t.symbol === alt?.symbol ? [choice!] : bySymbol.get(t.symbol)!;
-          const f = t.symbol === alt?.symbol ? sense * t.factor : t.factor;
-          for (const c of ids) factors.push({ caseId: c.id, factor: f });
-        }
-        const which = choice && (choices.length > 1 || reversible)
-          ? `${reversible ? (sense > 0 ? '+' : '−') : ''}${choice.name}` : '';
-        const named = which ? `${spec.label} (${which})` : spec.label;
-        out.push({ name: named, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
+    /*
+     * Each term offers one or more picks, and a combination takes one pick of every term.
+     * A directional symbol (W, Wa, E) offers each of its cases on its own, and each sense when
+     * asked. Any other symbol always adds its plain cases, and one case of each alternatives
+     * group: the balanced and unbalanced snow patterns of one roof are one snow, three ways,
+     * and adding them was snow three times over. A second directional symbol in the same rule
+     * is taken one case at a time too; it used to sum every direction of it.
+     */
+    const slots: Array<{ factor: number; picks: Pick[] }> = [];
+    for (const t of terms) {
+      const all = bySymbol.get(t.symbol)!;
+      if (ALTERNATIVE.has(t.symbol)) {
+        const senses: Array<1 | -1> = opts.bothSenses?.[t.symbol as 'W' | 'E'] ? [1, -1] : [1];
+        const named = all.length > 1 || senses.length > 1;
+        slots.push({ factor: t.factor, picks: all.flatMap((c) => senses.map((sense) => ({
+          cases: [c], sense, label: named ? `${senses.length > 1 ? (sense > 0 ? '+' : '−') : ''}${c.name}` : '',
+        }))) });
+        continue;
       }
+      const plain = all.filter((c) => !c.alternatives);
+      if (plain.length > 0) slots.push({ factor: t.factor, picks: [{ cases: plain, sense: 1, label: '' }] });
+      const groups = new Map<string, Case[]>();
+      for (const c of all) if (c.alternatives) groups.set(c.alternatives, [...(groups.get(c.alternatives) ?? []), c]);
+      for (const g of groups.values()) {
+        slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 ? c.name : '' })) });
+      }
+    }
+    let combos: Pick[][] = [[]];
+    for (const slot of slots) combos = combos.flatMap((chosen) => slot.picks.map((p) => [...chosen, p]));
+    for (const chosen of combos) {
+      const factors: CaseCombination['factors'] = [];
+      chosen.forEach((p, i) => { for (const c of p.cases) factors.push({ caseId: c.id, factor: p.sense * slots[i]!.factor }); });
+      const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
+      out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
     }
   }
   return out;

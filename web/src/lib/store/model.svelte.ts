@@ -661,6 +661,12 @@ export interface LoadCase {
   id: number;
   type: LoadCaseType;
   name: string;
+  /**
+   * Cases of one type sharing this key are patterns of one action — the balanced and the
+   * unbalanced snow of one roof — and a combination takes one of them, not their sum
+   * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
+   */
+  alternatives?: string;
 }
 
 export interface LoadCombination {
@@ -3221,10 +3227,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = ''): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
       return id;
     },
 

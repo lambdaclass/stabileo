@@ -47,6 +47,7 @@ import {
 import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
 import { SERVICE_WIND_FACTOR, type ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import { snowLoadCases } from './snow-loads';
+import { expandCombinations, type ExpandOptions } from './combination-cases';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
@@ -198,6 +199,8 @@ export interface PlannedCase {
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
+  /** Patterns of one action, taken one at a time in a combination (see LoadCase.alternatives). */
+  alternatives?: string;
 }
 
 export interface PlannedDistributed {
@@ -697,9 +700,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       }
       if ((sn.roofSlopeDeg ?? out.geometry.slopeDeg) < 1.2) unsupportedKeys.push(msg('snow.note.ponding'));
       unsupportedKeys.push(msg('snow.note.notCovered'));
+      // Balanced and unbalanced are the same snow on the same roof, three ways: alternatives.
+      const alternatives = out.cases.length > 1 ? SNOW_PATTERNS : undefined;
       for (const c of out.cases) {
         const index = cases.length;
-        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams });
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}) });
         for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'S', caseIndex: index, q: d.q });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
         snowPlanned = true;
@@ -876,18 +881,19 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   };
 }
 
+/** The alternatives group of the snow patterns the planner generates for one roof. */
+const SNOW_PATTERNS = 'snow-roof';
+
 // ─── Delta, for the before/after preview ─────────────────────────
 
 /**
- * How many combinations applying the plan adds: a combination with a wind or seismic term
- * becomes one per direction the plan has a case for (`combination-cases.ts`).
+ * How many combinations applying the plan adds — counted by the expansion Apply runs
+ * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
+ * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-function plannedCombinationCount(plan: LoadPlan): number {
-  const per = (sym: string) => plan.cases.filter((c) => c.type === sym).length;
-  return plan.combinations.reduce((n, c) => {
-    const alt = c.terms.find((t) => t.factor !== 0 && (t.symbol === 'W' || t.symbol === 'E'));
-    return n + (alt ? Math.max(1, per(alt.symbol)) : 1);
-  }, 0);
+function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses']): number {
+  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}) }));
+  return expandCombinations(plan.combinations, cases, { bothSenses }).length;
 }
 
 
@@ -964,7 +970,7 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean },
+  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses'] },
 ): PlanDelta {
   const replace = options.replaceExisting;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
@@ -1002,12 +1008,12 @@ export function describePlanDelta(
   const after = replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinationCount(plan), cases: afterTypes,
+        combinations: plannedCombinationCount(plan, options.bothSenses), cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinationCount(plan),
+        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses),
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 
