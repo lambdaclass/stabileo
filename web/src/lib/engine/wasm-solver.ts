@@ -5,6 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { mergeAllHingedJoints2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
@@ -452,6 +453,39 @@ export function serializeInput3D(input: SolverInput3D): string {
   return JSON.stringify(input3DToWireObject(input));
 }
 
+/**
+ * B₂, the amplification of the displacements that matter. The engine takes the
+ * largest ratio over every degree of freedom, and a DOF that barely moves in
+ * the linear solution turns that into anything: 247 for a building whose first
+ * buckling factor is 2. Here it is taken over the nodal translations the
+ * second-order analysis changes (increment at least 5 % of the largest one),
+ * and among them those whose linear value is at least 5 % of the largest such
+ * value: near its critical load a column's axial shortening dwarfs its
+ * lateral deflection, but only the deflection is amplified. The same
+ * definition the engine adopts in #224; stability is judged on it.
+ */
+function amplifyByPeakDisplacement(result: any): any {
+  if (!result?.results || !result?.linearResults) return result;
+  const KEYS = ['ux', 'uy', 'uz'] as const;
+  const lin = new Map<number, any>(((result.linearResults.displacements ?? []) as any[]).map((d) => [d.nodeId, d]));
+  const pairs: Array<[number, number]> = [];
+  for (const d of (result.results.displacements ?? []) as any[]) {
+    const l = lin.get(d.nodeId);
+    if (l) for (const k of KEYS) pairs.push([l[k] ?? 0, d[k] ?? 0]);
+  }
+  const dMax = Math.max(0, ...pairs.map(([l, p]) => Math.abs(p - l)));
+  let b2 = 1;
+  if (dMax > 1e-15) {
+    const changed = pairs.filter(([l, p]) => Math.abs(p - l) >= 0.05 * dMax);
+    const lMax = Math.max(0, ...changed.map(([l]) => Math.abs(l)));
+    if (lMax > 1e-15) {
+      b2 = Math.max(0, ...changed.filter(([l]) => Math.abs(l) >= 0.05 * lMax).map(([l, p]) => Math.abs(p / l)));
+    }
+  }
+  if (!Number.isFinite(b2)) return result;
+  return { ...result, b2Factor: b2, isStable: !!result.converged && b2 < 100 };
+}
+
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -486,15 +520,17 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
 /** Solve 2D P-Delta analysis via WASM. */
 export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
-  return JSON.parse(resultJson);
+  return amplifyByPeakDisplacement(JSON.parse(resultJson));
 }
 
 /** Solve 2D buckling analysis via WASM. */
 export function solveBuckling(input: SolverInput, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  // A joint where every member is hinged leaves a rotation that is its own
+  // spurious first mode; see orphan-rotations-2d.ts.
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolveBuckling2d(json, numModes);
   return JSON.parse(resultJson);
 }
@@ -506,6 +542,7 @@ export function solveModal(
   numModes = 6,
 ) {
   if (!wasmReady || !wasmSolveModal2d) throw new Error('WASM solver not initialized.');
+  input = mergeAllHingedJoints2D(input);
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(input.nodes),
@@ -534,6 +571,7 @@ export function solveSpectral(config: {
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral2d) throw new Error('WASM solver not available.');
+  config = { ...config, solver: mergeAllHingedJoints2D(config.solver) };
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -619,7 +657,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  return result;
+  return amplifyByPeakDisplacement(result);
 }
 
 /** Solve 3D modal analysis via WASM. */
