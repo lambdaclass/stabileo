@@ -4,6 +4,7 @@
  * offset stays offset-free (no accidental slot bleed).
  */
 import { describe, it, expect } from 'vitest';
+import { deflateSync, inflateSync } from 'fflate';
 import { compressSnapshot, decompressSnapshot } from '../url-sharing';
 import type { ModelSnapshot } from '../../store/history.svelte';
 
@@ -37,17 +38,23 @@ describe('shell offset URL round-trip', () => {
     expect(q.offset).toEqual({ frame: 'local', x: 0, y: 0, z: -0.1 });
   });
 
-  it('preserves shellFamily + offset together', () => {
-    const out = decompressSnapshot(compressSnapshot(snap({ shellFamily: 'MITC4', offset: { frame: 'global', x: 0.05, y: 0, z: 0 } })));
-    const q = out!.quads!.find(([id]) => id === 7)![1] as any;
-    expect(q.shellFamily).toBe('MITC4');
+  it('an older link with a shell family in slot 4 keeps its offset, and the family is dropped', () => {
+    // Links written before the family was removed carry it as a string ahead of the offset:
+    // write one by putting the string back into a current link's payload.
+    const link = compressSnapshot(snap({ offset: { frame: 'global', x: 0.05, y: 0, z: 0 } }));
+    const compact = JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(link.slice(2), 'base64url'))));
+    expect(compact.qu[0][4]).toBe(0);
+    compact.qu[0][4] = 'MITC4';
+    const old = '2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url');
+    const q = decompressSnapshot(old)!.quads!.find(([id]) => id === 7)![1] as any;
     expect(q.offset).toEqual({ frame: 'global', x: 0.05, y: 0, z: 0 });
+    expect(q.shellFamily).toBeUndefined();
   });
 
-  it('a quad without an offset decodes without one', () => {
+  it('a quad without an offset decodes without one, and with no family', () => {
     const out = decompressSnapshot(compressSnapshot(snap({ shellFamily: 'MITC4' })));
     const q = out!.quads!.find(([id]) => id === 7)![1] as any;
     expect(q.offset).toBeUndefined();
-    expect(q.shellFamily).toBe('MITC4');
+    expect(q.shellFamily).toBeUndefined();
   });
 });

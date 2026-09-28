@@ -191,7 +191,6 @@ export interface SolverPlateElement {
   nodes: [number, number, number]; // 3 node IDs
   materialId: number;
   thickness: number; // m
-  shellFamily?: ShellFamily;
 }
 
 /** MITC4 quadrilateral shell element (4-node shell) */
@@ -200,7 +199,6 @@ export interface SolverQuadElement {
   nodes: [number, number, number, number]; // 4 node IDs
   materialId: number;
   thickness: number; // m
-  shellFamily?: ShellFamily;
 }
 
 /** Degenerated-continuum curved shell (4-node, captures curvature via covariant
