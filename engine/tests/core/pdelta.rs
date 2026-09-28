@@ -406,3 +406,23 @@ fn pdelta_3d_inclined_roller_matches_linear_without_axial_load() {
     let (p, l) = (sum(&pd.results.reactions), sum(&lin.reactions));
     for i in 0..3 { assert!((p[i] - l[i]).abs() < 1e-3, "ΣR[{i}] P-Δ {:.4} vs linear {:.4}", p[i], l[i]); }
 }
+
+#[test]
+fn pdelta_b2_does_not_depend_on_the_scale_of_the_lateral_load() {
+    // With the gravity fixed, the sway is linear in the lateral load, and so is
+    // its second-order increment: B₂ is the same for 20 kN and for 20 µN.
+    let big = pdelta::solve_pdelta_2d(&make_portal_frame(4.0, 6.0, E, A, IZ, 20.0, -300.0), 50, 1e-10).unwrap();
+    for lateral in [2e-3, 2e-6, 2e-9] {
+        let small = pdelta::solve_pdelta_2d(&make_portal_frame(4.0, 6.0, E, A, IZ, lateral, -300.0), 50, 1e-10).unwrap();
+        assert!((small.b2_factor - big.b2_factor).abs() < 1e-3 * big.b2_factor,
+            "lateral {lateral}: B2 = {:.5}, with 20 kN B2 = {:.5}", small.b2_factor, big.b2_factor);
+    }
+}
+
+#[test]
+fn pdelta_b2_is_one_under_symmetric_gravity() {
+    // No sway at all: nothing is amplified, whatever the solver's round-off does.
+    let pd = pdelta::solve_pdelta_2d(&make_portal_frame(4.0, 6.0, E, A, IZ, 0.0, -300.0), 50, 1e-10).unwrap();
+    assert!(pd.converged && pd.is_stable);
+    assert!((pd.b2_factor - 1.0).abs() < 1e-2, "B2 = {:.5} with no lateral load", pd.b2_factor);
+}

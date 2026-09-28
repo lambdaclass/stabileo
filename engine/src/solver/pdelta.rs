@@ -1,6 +1,5 @@
 use crate::types::*;
 use crate::linalg::*;
-use std::rc::Rc;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
@@ -8,6 +7,7 @@ use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     compute_plate_stresses, compute_quad_stresses,
     build_reactions_2d_inclined, build_reactions_3d_inclined};
 use super::constraints::FreeConstraintSystem;
+use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 
 /// The linear pass's structured diagnostics that describe the model, not the
 /// linear solution: pre-solve gates, constraints, conditioning of K.
@@ -34,33 +34,6 @@ fn model_solver_diagnostics(linear: &[SolverDiagnostic]) -> Vec<SolverDiagnostic
 /// Free DOFs threshold for sparse path in P-Delta iterations.
 const SPARSE_THRESHOLD: usize = 64;
 
-/// The symbolic factorization of the last matrix, with the pattern it was
-/// computed for.
-///
-/// The CSC matrix is built from the dense one by dropping zeros, so its
-/// pattern follows the values: a member carrying no axial force in the first
-/// iteration adds no geometric terms, and the same member compressed in the
-/// next adds entries the first pattern did not have. Reusing that first
-/// symbolic factorization regardless tripped an assertion inside the numeric
-/// one — an "unreachable" panic for any 3D model whose axial forces moved
-/// between iterations. It is reused now only while the pattern is the same.
-struct SymbolicCache {
-    col_ptr: Vec<usize>,
-    row_idx: Vec<usize>,
-    sym: Rc<SymbolicCholesky>,
-}
-
-fn symbolic_for(cache: &mut Option<SymbolicCache>, k: &CscMatrix) -> Rc<SymbolicCholesky> {
-    if let Some(c) = cache.as_ref() {
-        if c.col_ptr == k.col_ptr && c.row_idx == k.row_idx {
-            return c.sym.clone();
-        }
-    }
-    let sym = Rc::new(symbolic_cholesky(k));
-    *cache = Some(SymbolicCache { col_ptr: k.col_ptr.clone(), row_idx: k.row_idx.clone(), sym: sym.clone() });
-    sym
-}
-
 /// Right-hand side of the free equations with the restrained DOFs at their
 /// prescribed values: F_f − K_fr · u_r, with K the current (K + K_G).
 ///
@@ -70,13 +43,15 @@ fn symbolic_for(cache: &mut Option<SymbolicCache>, k: &CscMatrix) -> Rc<Symbolic
 /// loads as well came back without it. The linear pass had it; its
 /// displacements carry the prescribed values, which is where u_r comes from.
 fn rhs_with_prescribed(k: &[f64], n: usize, nf: usize, f_f: &[f64], u: &[f64]) -> Vec<f64> {
+    let u_r = &u[nf..n];
     let mut rhs = f_f.to_vec();
-    for j in nf..n {
-        let uj = u[j];
-        if uj == 0.0 { continue; }
-        for (i, r) in rhs.iter_mut().enumerate() {
-            *r -= k[i * n + j] * uj;
-        }
+    if u_r.iter().all(|&v| v == 0.0) {
+        return rhs;
+    }
+    // Row i of K_fr is the contiguous slice k[i·n + nf .. (i+1)·n] (K is
+    // row-major), so no n_f × n_r block is copied out on every iteration.
+    for (i, r) in rhs.iter_mut().enumerate() {
+        *r -= k[i * n + nf..(i + 1) * n].iter().zip(u_r).map(|(a, b)| a * b).sum::<f64>();
     }
     rhs
 }
@@ -134,6 +109,96 @@ fn k_with_geometric_3d(input: &SolverInput3D, dof_num: &DofNumbering, asm: &Asse
     for it in its { apply_inclined_transform(&mut kg, &mut unused, n, &it.dofs, &it.r); }
     for (a, b) in k.iter_mut().zip(&kg) { *a += b; }
     k
+}
+
+/// The converged (or last) state of the P-Δ iteration.
+struct Iteration {
+    /// Full displacement vector in the assembly's frame.
+    u: Vec<f64>,
+    iterations: usize,
+    converged: bool,
+    /// Whether the last solve needed LU because Cholesky failed on K + K_G.
+    indefinite: bool,
+}
+
+/// Solve the free (optionally constraint-reduced) system: sparse or dense
+/// Cholesky, then LU. The flag says whether Cholesky failed — K + K_G is then
+/// not positive definite. `None` when LU cannot solve it either.
+fn solve_spd_or_lu(
+    k_solve: Vec<f64>,
+    f_solve: &[f64],
+    ns: usize,
+    symbolic: &mut Option<SparseSymbolicCache>,
+) -> Option<(Vec<f64>, bool)> {
+    if ns >= SPARSE_THRESHOLD {
+        let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
+        if let Some(factor) = numeric_cholesky(cached_symbolic(symbolic, &k_csc), &k_csc) {
+            return Some((sparse_cholesky_solve(&factor, f_solve), false));
+        }
+    } else {
+        let mut k_work = k_solve.clone();
+        if let Some(u) = cholesky_solve(&mut k_work, f_solve, ns) {
+            return Some((u, false));
+        }
+    }
+    let mut k_work = k_solve;
+    let mut f_work = f_solve.to_vec();
+    lu_solve(&mut k_work, &mut f_work, ns).map(|u| (u, true))
+}
+
+/// The P-Δ iteration, shared by 2D and 3D: (K + K_G(u))·u = F with the
+/// restrained DOFs held at their values in `u0`. `k_total` forms K + K_G in
+/// the assembly's frame from the current displacements. `Err` carries the
+/// iteration count when K + K_G could not be solved at all.
+#[allow(clippy::too_many_arguments)]
+fn iterate(
+    u0: Vec<f64>,
+    n: usize,
+    nf: usize,
+    f_f: &[f64],
+    cs: &Option<FreeConstraintSystem>,
+    max_iter: usize,
+    tolerance: f64,
+    k_total: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Iteration, usize> {
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let mut symbolic: Option<SparseSymbolicCache> = None;
+    let mut state = Iteration { u: u0, iterations: 0, converged: false, indefinite: false };
+
+    for iter in 0..max_iter {
+        state.iterations = iter + 1;
+        let k = k_total(&state.u);
+
+        let k_ff = extract_submatrix(&k, n, &free_idx, &free_idx);
+        let f_eff = rhs_with_prescribed(&k, n, nf, f_f, &state.u);
+        let (k_solve, f_solve) = match cs {
+            Some(cs) => (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_eff)),
+            None => (k_ff, f_eff),
+        };
+        let (u_indep, indefinite) = solve_spd_or_lu(k_solve, &f_solve, ns, &mut symbolic)
+            .ok_or(state.iterations)?;
+        state.indefinite = indefinite;
+        let u_f = match cs {
+            Some(cs) => cs.expand_solution(&u_indep),
+            None => u_indep,
+        };
+
+        // The restrained DOFs keep their prescribed values.
+        let (mut diff_norm, mut u_norm) = (0.0f64, 0.0f64);
+        for (new, old) in u_f[..nf].iter().zip(&state.u[..nf]) {
+            diff_norm += (new - old).powi(2);
+            u_norm += new.powi(2);
+        }
+        state.u[..nf].copy_from_slice(&u_f[..nf]);
+
+        let (diff_norm, u_norm) = (diff_norm.sqrt(), u_norm.sqrt());
+        if u_norm > 1e-20 && diff_norm / u_norm < tolerance {
+            state.converged = true;
+            break;
+        }
+    }
+    Ok(state)
 }
 
 /// Restrained rows of (K + K_G)·u − F: the reactions of the system that was
@@ -230,7 +295,6 @@ pub fn solve_pdelta_2d(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let mut u_prev = vec![0.0; n];
     // Initialize with linear displacements, reported in global axes and
@@ -245,107 +309,22 @@ pub fn solve_pdelta_2d(
     }
     for it in &asm.inclined_transforms_2d { rotate_inclined_f_2d(&mut u_prev, &it.dofs, &it.r); }
 
-    let mut converged = false;
-    let mut iterations = 0;
-    let mut u_current = u_prev.clone();
-    let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<SymbolicCache> = None;
-    // Whether the last solve needed LU because Cholesky failed on K + K_G.
-    let mut indefinite = false;
-
-    for iter in 0..max_iter {
-        iterations = iter + 1;
-        indefinite = false;
-
-        // Compute geometric stiffness from current axial forces
-        let k_total = k_with_geometric_2d(input, &dof_num, &asm, &u_current);
-
-        // Extract Kff (with K_G) and optionally apply constraint transform
-        let k_ff = extract_submatrix(&k_total, n, &free_idx, &free_idx);
-        let k_solve = if let Some(ref cs) = cs {
-            cs.reduce_matrix(&k_ff)
-        } else {
-            k_ff
-        };
-        let f_eff = rhs_with_prescribed(&k_total, n, nf, &f_f, &u_current);
-        let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_eff) } else { f_eff };
-
-        let u_indep = if use_sparse {
-            let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic_for(&mut symbolic, &k_csc);
-            match numeric_cholesky(&sym, &k_csc) {
-                Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
-                None => {
-                    indefinite = true;
-                    let mut k_work = k_solve;
-                    let mut f_work = f_solve.clone();
-                    match lu_solve(&mut k_work, &mut f_work, ns) {
-                        Some(u) => u,
-                        None => {
-                            return Ok(PDeltaResult {
-                                results: linear_results.clone(),
-                                iterations,
-                                converged: false,
-                                is_stable: false,
-                                b2_factor: f64::INFINITY,
-                                linear_results,
-                            });
-                        }
-                    }
-                }
-            }
-        } else {
-            let mut k_work = k_solve.clone();
-            match cholesky_solve(&mut k_work, &f_solve, ns) {
-                Some(u) => u,
-                None => {
-                    indefinite = true;
-                    let mut k_work = k_solve;
-                    let mut f_work = f_solve.clone();
-                    match lu_solve(&mut k_work, &mut f_work, ns) {
-                        Some(u) => u,
-                        None => {
-                            return Ok(PDeltaResult {
-                                results: linear_results.clone(),
-                                iterations,
-                                converged: false,
-                                is_stable: false,
-                                b2_factor: f64::INFINITY,
-                                linear_results,
-                            });
-                        }
-                    }
-                }
-            }
-        };
-
-        let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
-        } else {
-            u_indep
-        };
-
-        // The restrained DOFs keep their prescribed values.
-        let mut u_new = u_current.clone();
-        u_new[..nf].copy_from_slice(&u_f[..nf]);
-
-        // Check convergence
-        let mut diff_norm = 0.0;
-        let mut u_norm = 0.0;
-        for i in 0..nf {
-            diff_norm += (u_new[i] - u_current[i]).powi(2);
-            u_norm += u_new[i].powi(2);
+    let Iteration { u: u_current, iterations, converged, indefinite } = match iterate(
+        u_prev.clone(), n, nf, &f_f, &cs, max_iter, tolerance,
+        |u| k_with_geometric_2d(input, &dof_num, &asm, u),
+    ) {
+        Ok(state) => state,
+        Err(iterations) => {
+            return Ok(PDeltaResult {
+                results: linear_results.clone(),
+                iterations,
+                converged: false,
+                is_stable: false,
+                b2_factor: f64::INFINITY,
+                linear_results,
+            });
         }
-        diff_norm = diff_norm.sqrt();
-        u_norm = u_norm.sqrt();
-
-        u_current = u_new;
-
-        if u_norm > 1e-20 && diff_norm / u_norm < tolerance {
-            converged = true;
-            break;
-        }
-    }
+    };
 
     let its = &asm.inclined_transforms_2d;
     let u_global = to_global_2d(&u_current, its);
@@ -436,7 +415,6 @@ pub fn solve_pdelta_3d(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let mut u_prev = vec![0.0; n];
     for d in &linear_results.displacements {
@@ -447,103 +425,22 @@ pub fn solve_pdelta_3d(
     }
     for it in &asm.inclined_transforms { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
 
-    let mut converged = false;
-    let mut iterations = 0;
-    let mut u_current = u_prev.clone();
-    let use_sparse = ns >= SPARSE_THRESHOLD;
-    let mut symbolic: Option<SymbolicCache> = None;
-    // Whether the last solve needed LU because Cholesky failed on K + K_G.
-    let mut indefinite = false;
-
-    for iter in 0..max_iter {
-        iterations = iter + 1;
-        indefinite = false;
-
-        let k_total = k_with_geometric_3d(input, &dof_num, &asm, &u_current);
-
-        let k_ff = extract_submatrix(&k_total, n, &free_idx, &free_idx);
-        let k_solve = if let Some(ref cs) = cs {
-            cs.reduce_matrix(&k_ff)
-        } else {
-            k_ff
-        };
-        let f_eff = rhs_with_prescribed(&k_total, n, nf, &f_f, &u_current);
-        let f_solve = if let Some(ref cs) = cs { cs.reduce_vector(&f_eff) } else { f_eff };
-
-        let u_indep = if use_sparse {
-            let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-            let sym = symbolic_for(&mut symbolic, &k_csc);
-            match numeric_cholesky(&sym, &k_csc) {
-                Some(factor) => sparse_cholesky_solve(&factor, &f_solve),
-                None => {
-                    indefinite = true;
-                    let mut k_work = k_solve;
-                    let mut f_work = f_solve.clone();
-                    match lu_solve(&mut k_work, &mut f_work, ns) {
-                        Some(u) => u,
-                        None => {
-                            return Ok(PDeltaResult3D {
-                                results: linear_results.clone(),
-                                iterations,
-                                converged: false,
-                                is_stable: false,
-                                b2_factor: f64::INFINITY,
-                                linear_results,
-                            });
-                        }
-                    }
-                }
-            }
-        } else {
-            let mut k_work = k_solve.clone();
-            match cholesky_solve(&mut k_work, &f_solve, ns) {
-                Some(u) => u,
-                None => {
-                    indefinite = true;
-                    let mut k_work = k_solve;
-                    let mut f_work = f_solve.clone();
-                    match lu_solve(&mut k_work, &mut f_work, ns) {
-                        Some(u) => u,
-                        None => {
-                            return Ok(PDeltaResult3D {
-                                results: linear_results.clone(),
-                                iterations,
-                                converged: false,
-                                is_stable: false,
-                                b2_factor: f64::INFINITY,
-                                linear_results,
-                            });
-                        }
-                    }
-                }
-            }
-        };
-
-        let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
-        } else {
-            u_indep
-        };
-
-        let mut u_new = u_current.clone();
-        u_new[..nf].copy_from_slice(&u_f[..nf]);
-
-        let mut diff_norm = 0.0;
-        let mut u_norm = 0.0;
-        for i in 0..nf {
-            diff_norm += (u_new[i] - u_current[i]).powi(2);
-            u_norm += u_new[i].powi(2);
+    let Iteration { u: u_current, iterations, converged, indefinite } = match iterate(
+        u_prev.clone(), n, nf, &f_f, &cs, max_iter, tolerance,
+        |u| k_with_geometric_3d(input, &dof_num, &asm, u),
+    ) {
+        Ok(state) => state,
+        Err(iterations) => {
+            return Ok(PDeltaResult3D {
+                results: linear_results.clone(),
+                iterations,
+                converged: false,
+                is_stable: false,
+                b2_factor: f64::INFINITY,
+                linear_results,
+            });
         }
-        diff_norm = diff_norm.sqrt();
-        u_norm = u_norm.sqrt();
-
-        u_current = u_new;
-
-        if u_norm > 1e-20 && diff_norm / u_norm < tolerance {
-            converged = true;
-            break;
-        }
-    }
+    };
 
     let its = &asm.inclined_transforms;
     let u_global = to_global_3d(&u_current, its);
