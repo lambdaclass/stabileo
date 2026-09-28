@@ -84,6 +84,44 @@ describe('relative to the chord, against closed forms', () => {
     expect(d.x).toBeCloseTo(xm, 2);
   });
 
+  it('fixed at both ends, triangular load: qL⁴/768EI at midspan', () => {
+    // The fixed-fixed particular solution of a linearly varying load used to carry
+    // (qJ − qI)(L + x)/120L, whose fourth derivative leaves a constant term the load
+    // does not have; the midspan of a pure triangle came out 0.6× the true value.
+    member('fixed', 'fixed');
+    modelStore.addDistributedLoad3D(beam, 0, 0, 0, -q);
+    const d = solveAndRead();
+    // v(x) = w·x²(L − x)²(x + 2L)/(120·L·EI). The midspan reads wL⁴/768EI; the peak is
+    // off-centre — the load is not symmetric — at x = L·(√105 − 5)/10, between samples.
+    expect(d.max / ((q * L ** 4) / (768 * ei().EIy))).toBeCloseTo(1, 2);
+    expect(d.x).toBeCloseTo(L * (Math.sqrt(105) - 5) / 10, 2);
+  });
+
+  it('fixed at both ends, trapezoidal load: the uniform and triangular parts superpose', () => {
+    // qI = q, qJ = 2q = uniform q + triangle peaking at q. The midspan reads
+    // qL⁴/384EI + qL⁴/768EI = qL⁴/256EI; the peak sits ~1 % off-centre, between samples.
+    member('fixed', 'fixed');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -2 * q);
+    const d = solveAndRead();
+    expect(d.max / ((q * L ** 4) / (256 * ei().EIy))).toBeCloseTo(1, 2);
+    expect(d.x).toBeCloseTo(L / 2, 1);
+  });
+
+  it('simply supported, triangular load: the released-end slopes read the end curvatures', () => {
+    // v(x) = w·x·(3x⁴ − 10L²x² + 7L⁴)/(360·L·EI); the peak is at x = L·√(1 − √(8/15)).
+    // The end rotations that build this curve come from the particular solution's end
+    // curvatures (7wL³/360EI and wL³/45EI against wL²/30 and wL²/20), so a wrong
+    // particularVpp shows up here too.
+    member('pinned', 'roller');
+    modelStore.addDistributedLoad3D(beam, 0, 0, 0, -q);
+    const d = solveAndRead();
+    const EI = ei().EIy;
+    const xm = L * Math.sqrt(1 - Math.sqrt(8 / 15));
+    const exact = (q * xm * (3 * xm ** 4 - 10 * L * L * xm ** 2 + 7 * L ** 4)) / (360 * L * EI);
+    expect(d.max / exact).toBeCloseTo(1, 4);
+    expect(d.x).toBeCloseTo(xm, 2);
+  });
+
   it('a cantilever is measured from the tangent at its root: the tip reads PL³/3EI', () => {
     const tip = member('fixed', 'free');
     modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);

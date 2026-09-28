@@ -71,7 +71,8 @@ fn make_input(
         loads,
         constraints: vec![],
         connectors: HashMap::new(),
-    }
+
+        solver_options: None,    }
 }
 
 fn make_frame(n_stories: usize, n_bays: usize) -> SolverInput {
@@ -222,7 +223,8 @@ fn make_input_3d(
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-    }
+
+        solver_options: None,    }
 }
 
 fn make_frame_3d(n_stories: usize, n_bays: usize) -> SolverInput3D {
@@ -542,7 +544,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 

@@ -97,8 +97,8 @@ function particularVpp(dist: readonly DistLoad[], pts: readonly PointLoad[], L: 
   const L2 = L * L;
   for (const dl of dist) {
     if (isFullLength(dl, L)) {
-      vpp0 += L2 * (4 * dl.qI + dl.qJ) / (60 * EI);
-      vppL += L2 * (dl.qI + 4 * dl.qJ) / (60 * EI);
+      vpp0 += L2 * (3 * dl.qI + 2 * dl.qJ) / (60 * EI);
+      vppL += L2 * (2 * dl.qI + 3 * dl.qJ) / (60 * EI);
     } else {
       simpson(dl, (xl, dP) => { const r = pointVpp(dP, xl, L, EI); vpp0 += r.vpp0; vppL += r.vppL; });
     }
@@ -121,7 +121,7 @@ function particular(x: number, dist: readonly DistLoad[], pts: readonly PointLoa
   for (const dl of dist) {
     if (isFullLength(dl, L)) {
       const Lmx = L - x;
-      vp += x * x * Lmx * Lmx * (dl.qI / 24 + (dl.qJ - dl.qI) * (L + x) / (120 * L)) / EI;
+      vp += x * x * Lmx * Lmx * (dl.qI / 24 + (dl.qJ - dl.qI) * (x + 2 * L) / (120 * L)) / EI;
     } else {
       simpson(dl, (xl, dP) => { vp += pointDeflection(dP, xl, x, L, EI); });
     }
