@@ -1,4 +1,5 @@
 // Render loads on Canvas 2D
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { createLabelCollector, type LabelCollector, type SegmentObstacle } from './label-layout';
 
 import { canvasTheme } from './theme';
@@ -50,7 +51,7 @@ interface PointLoadOnElemInfo {
 /**
  * Compute the world-space direction vector for a load with angle/isGlobal settings.
  * Returns the unit direction in which the force acts (world coords).
- * - Local angle=0: perpendicular to element (screen-up for horizontal beams = (-sinθ, cosθ))
+ * - Local angle=0: the drawn local +z (up for any non-vertical member, +X for a vertical one)
  * - Global angle=0: +Z global (vertical up) = screen (0, 1)
  * - With angle: rotate from base direction by angle degrees CCW
  */
@@ -70,8 +71,10 @@ export function computeLoadDirection(
     };
   } else {
     // Local: angle=0 → element-perpendicular (-sinθ, cosθ); rotate CCW in local frame
-    const localPerpDx = -sinTheta;
-    const localPerpDy = cosTheta;
+    // The drawn local z, which local loads are given in (transverse-sign-2d.ts).
+    const zs = transverseSign(cosTheta, sinTheta);
+    const localPerpDx = -sinTheta * zs;
+    const localPerpDy = cosTheta * zs;
     const localAxialDx = cosTheta;
     const localAxialDy = sinTheta;
     // Rotated: cos(a) * perp + sin(a) * axial
@@ -623,6 +626,7 @@ export function drawThermalLoads(
     const ty = sDy / sLen;
     const nx = -ty; // perpendicular (screen left side of element direction)
     const ny = tx;
+    const nx0 = nx, ny0 = ny;
 
     const nSymbols = Math.max(2, Math.round(sLen / SYMBOL_SPACING_PX));
 
@@ -685,6 +689,13 @@ export function drawThermalLoads(
 
     // Draw gradient ΔTg: + on one side, - on other
     if (Math.abs(load.dtGradient) > 0.01) {
+      /*
+       * ΔTg = ΔT(bottom) − ΔT(top), top the drawn local z: the hot side of a
+       * positive gradient is −z. `n` is that side for a member whose drawn z
+       * is the solver's; the others turn it over (transverse-sign-2d.ts).
+       */
+      const zs = transverseSign(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y);
+      const nx = zs * nx0, ny = zs * ny0;
       const topSign = load.dtGradient > 0 ? '+' : '−';
       const botSign = load.dtGradient > 0 ? '−' : '+';
       const topColor = load.dtGradient > 0 ? '#e5482a' : '#4a8fd4';
