@@ -111,11 +111,18 @@ function inputRef(input: SolverInput3D, id: number): MemberRef | null {
   } catch { return null; }
 }
 
-/** The input without `off`: members out, the nodes only they held out, with their loads. */
+/**
+ * The input without `off`: members out, and the free nodes only they held out, with their loads.
+ *
+ * A supported node stays even when every member at it is out. The loads that slack members carry
+ * are at their end nodes already (`transverseToNodes`), and at an anchor whose guys all went slack
+ * that share is the support's to take: dropping the node would drop the load from the solve.
+ */
 function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverInput3D {
   if (off.size === 0) return { ...input, supports: new Map(input.supports) };
   const elements = new Map([...input.elements].filter(([id]) => !off.has(id)));
   const used = new Set<number>();
+  for (const s of input.supports.values()) used.add(s.nodeId);
   for (const e of elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
   for (const q of input.quads?.values() ?? []) q.nodes.forEach((n: number) => used.add(n));
   for (const p of input.plates?.values() ?? []) p.nodes.forEach((n: number) => used.add(n));
