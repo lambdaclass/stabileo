@@ -357,6 +357,7 @@ fn validation_truss_settlement_effect() {
     })];
 
     let input_settle = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_settle,
     constraints: vec![],

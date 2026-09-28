@@ -264,6 +264,7 @@ fn validation_effective_length_braced() {
         node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_braced = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

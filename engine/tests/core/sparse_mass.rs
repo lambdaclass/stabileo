@@ -181,7 +181,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -265,7 +265,7 @@ fn make_frame_with_released_beam(n_stories: usize, n_bays: usize) -> SolverInput
         supports: sups, loads: vec![], constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
