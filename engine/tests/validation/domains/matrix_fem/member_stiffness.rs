@@ -145,6 +145,7 @@ fn validation_stiffness_carry_over() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: vec![], constraints: vec![],
         connectors: std::collections::HashMap::new(), };

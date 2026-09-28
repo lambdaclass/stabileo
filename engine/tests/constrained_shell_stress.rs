@@ -78,7 +78,7 @@ fn make_plate(nx: usize, ny: usize, extra_nodes: &[(usize, f64, f64, f64)], cons
         supports, loads, constraints, left_hand: None,
         plates: HashMap::new(), quads, quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![], connectors: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -170,7 +170,7 @@ fn constrained_frame_only_model_has_no_shell_stresses() {
             master_node: 2, slave_node: 3, offset_x: 0.0, offset_y: 0.0, offset_z: 0.5, releases: vec![false; 6],
         })],
         left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
-        solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(), solver_options: None,
     };
     let r = linear::solve_3d(&input).expect("constrained frame solve failed");
     assert!(r.quad_stresses.is_empty(), "frame-only model must have no quad stresses");
