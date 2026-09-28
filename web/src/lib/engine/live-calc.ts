@@ -14,8 +14,9 @@ import { modelStore, resultsStore, uiStore } from '../store';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
-import { initSolver, isWasmReady } from './wasm-solver';
+import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D } from './governing-case';
+import { allLoadsResult3D } from './shell-combos';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
@@ -246,8 +247,20 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     if (!comboResult) return t('results.emptyModelError');
     if (modelStore.modelVersion !== solveEpoch) return null;
 
-    // Use first per-case result as the "single" baseline view
-    const firstCaseResult = comboResult.perCase.values().next().value;
+    // The "single" baseline is every load at factor 1 — what the case selector and the query
+    // panel call "All loads", and what the deflection check reads as unfactored. It was the
+    // first case alone (usually the dead load), so both showed the dead load under that name.
+    // The solve is linear, so the sum of the cases is exact.
+    // The engine's combination carries only displacements, reactions and member forces;
+    // allLoadsResult3D puts back the shell stresses (the floor design reads them), constraint
+    // forces and the solve's diagnostics.
+    const caseIds = [...comboResult.perCase.keys()];
+    const combined = caseIds.length > 1
+      ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
+      : null;
+    const firstCaseResult = combined
+      ? allLoadsResult3D(combined, comboResult.perCase)
+      : comboResult.perCase.get(caseIds[0]);
     if (!firstCaseResult) return t('results.emptyModelError');
 
     resultsStore.setResults3D(firstCaseResult);
@@ -277,8 +290,10 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
         const comboError = await runComboSolve();
         if (comboError) {
           console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
-          const fallback = await runSingleSolve();
-          if (!fallback) uiStore.toast(comboError, 'info');
+          await runSingleSolve();
+          // Said either way: with the fallback the model is solved, but without the
+          // combinations asked for — an empty active list, for one, is refused here.
+          uiStore.toast(comboError, 'info');
         }
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
