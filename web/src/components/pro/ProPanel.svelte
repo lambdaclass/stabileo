@@ -8,7 +8,7 @@
    * things inside it had nothing to do with routing sixteen tabs:
    *
    *   the example catalogue      → `lib/data/pro-examples.ts`      (data, no markup)
-   *   the example overlay        → `ProExampleMenu.svelte`         (fixed overlay + its styling)
+   *   the example gallery        → `ProExampleGallery.svelte`      (in the Project tab)
    *   the report assembly        → `lib/engine/pro-report-inputs.ts` (nine readings of the model)
    *
    * plus 110 lines of CSS styling nothing, which were `css_unused_selector` warnings on every
@@ -37,7 +37,7 @@
    * branch has already fixed twice.
    */
   import { t } from '../../lib/i18n';
-  import { migrateSelfWeightIfNeeded, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
+  import { selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
@@ -55,7 +55,6 @@
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
-  import ProExampleMenu from './ProExampleMenu.svelte';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
   import ProProjectTab from './ProProjectTab.svelte';
@@ -103,8 +102,6 @@
   let showReportDialog = $state(false);
   let solving = $state(false);
   let solveError = $state<string | null>(null);
-  let showExampleMenu = $state(false);
-  let exampleButtonEl = $state<HTMLButtonElement | null>(null);
   /* A shell carries load, so a plates-only raft is a model. This read
      `elements.size > 0` and would not arm Calcular; see `hasLoadCarrying3D`. */
   const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
@@ -113,7 +110,6 @@
   // Expose action handlers for App.svelte's top strip via bind:this
   export function solve() { handleSolve(); }
   export function report() { handleOpenReportDialog(); }
-  export function examples(btnEl: HTMLButtonElement) { exampleButtonEl = btnEl; showExampleMenu = !showExampleMenu; }
   export function isSolving() { return solving; }
   export function canSolve() { return hasModel && !solving; }
   export function canReport() { return modelStore.nodes.size > 0; }
@@ -197,9 +193,8 @@
   $effect(selfWeightRuleEffect);
 
   async function loadProExample(ex: ProExample) {
-    uiStore.includeSelfWeight = true;
+    // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`).
     await ex.load();
-    migrateSelfWeightIfNeeded({ quiet: true });
     // Label overlays off on arrival, whatever the preset: they are unreadable on the large
     // models and unnecessary on the small ones. Grid and axes stay user-controlled.
     uiStore.showLengths3D = false;
@@ -208,7 +203,6 @@
     tabManager.syncActiveTabName();
     resultsStore.clear();
     resultsStore.clear3D();
-    showExampleMenu = false;
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 200);
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
@@ -389,14 +383,6 @@
     {/if}
   </div>
 </div>
-
-<ProExampleMenu
-  open={showExampleMenu}
-  groups={exampleGroups}
-  anchor={exampleButtonEl}
-  onpick={loadProExample}
-  onclose={() => showExampleMenu = false}
-/>
 
 <ProReportDialog
   open={showReportDialog}

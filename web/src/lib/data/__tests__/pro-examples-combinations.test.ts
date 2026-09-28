@@ -10,7 +10,7 @@ import '../../store/index';
 import { initSolver } from '../../engine/wasm-solver';
 import { PRO_EXAMPLES } from '../pro-examples';
 
-const byFixture = (id: string) => PRO_EXAMPLES.find((e) => new RegExp(`['"]${id}['"]`).test(String(e.load)))!;
+const byFixture = (id: string) => PRO_EXAMPLES.find((e) => e.id === id)!;
 const wFactors = () => {
   const w = new Set(modelStore.model.loadCases.filter((c) => c.type === 'W').map((c) => c.id));
   return new Set(modelStore.combinations.flatMap((c) => c.factors.filter((f) => w.has(f.caseId) && f.factor !== 0).map((f) => Math.abs(f.factor))));

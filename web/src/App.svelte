@@ -1534,7 +1534,6 @@
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
-          onExamples={(btn) => { uiStore.proPanelVisible = true; proPanelRef?.examples(btn); }}
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
           onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
           canSolve={proPanelRef?.canSolve() ?? false}

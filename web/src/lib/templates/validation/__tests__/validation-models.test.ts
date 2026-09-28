@@ -145,19 +145,24 @@ describe.each([...SHELL_DRILLING.keys()])('%s, about the shells\' normals (engin
   });
 });
 
-describe('the "Validation models" group of the PRO examples', () => {
-  it('has one card per model, in id order, and each loads its own model as it is', async () => {
-    const cards = PRO_EXAMPLES.filter((e) => e.group === 'validation');
-    expect(cards.map((e) => e.nameKey)).toEqual(ids.map((id) => `ex.${id}`));
+describe('the validation models, as regression fixtures', () => {
+  it('are not PRO examples: the gallery shows examples of its own', () => {
+    // They reproduce another program's structures one to one, which is what a regression
+    // needs and what a gallery should not show; the examples derived from them are their own.
+    const ids = new Set(PRO_EXAMPLES.map((e) => e.id));
+    for (const id of Object.keys(VALIDATION_MODELS)) expect(ids.has(id), id).toBe(false);
+  });
+
+  it('each loads its own model as it is', async () => {
     uiStore.analysisMode = 'pro';
     try {
-      for (const [k, card] of cards.entries()) {
-        await card.load();
-        expect(modelStore.elements.size, card.nameKey).toBe(SHAPE[ids[k]!].members);
+      for (const id of ids) {
+        await loadValidationModel(id);
+        expect(modelStore.elements.size, id).toBe(SHAPE[id].members);
         // No regulation combinations are generated over the model's own.
-        expect(modelStore.combinations.length, card.nameKey).toBe(SHAPE[ids[k]!].combinations);
+        expect(modelStore.combinations.length, id).toBe(SHAPE[id].combinations);
         // The stated self-weight rule is the model's, not one a migration invented.
-        const code = codeToModel(await validationModelCode(ids[k]!)).snapshot!;
+        const code = codeToModel(await validationModelCode(id)).snapshot!;
         expect(modelStore.analysis?.selfWeight).toEqual((code as { analysis?: { selfWeight?: unknown } }).analysis?.selfWeight);
       }
     } finally {
