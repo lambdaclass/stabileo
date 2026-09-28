@@ -924,7 +924,7 @@ export interface InfluenceLineResult {
  * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
  * adds its field here.
  */
-const VIEW_CHANNEL_FIELDS = ['views', 'grid'] as const;
+const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics'] as const;
 
 function createModelStore() {
   /**
