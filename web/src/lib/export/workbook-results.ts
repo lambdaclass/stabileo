@@ -252,6 +252,15 @@ function oneWaySheet(sources: readonly WorkbookSource[]): WorkbookSheet | null {
   return { name: 'OneWay', rows };
 }
 
+/** Members specified as cables: tension, horizontal thrust, sag and equivalent (Ernst) modulus. */
+function cablesSheet(sources: readonly WorkbookSource[]): WorkbookSheet | null {
+  const with_ = sources.filter((s) => s.results.nonlinear?.cables?.length);
+  if (with_.length === 0) return null;
+  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'member', 'tension [kN]', 'horizontalThrust [kN]', 'sag [m]', 'ernstModulus [kN/m²]']];
+  for (const s of with_) for (const c of s.results.nonlinear!.cables!) rows.push([...src(s), c.elementId, c.tension, c.horizontalThrust, c.sag, c.ernstModulus]);
+  return { name: 'Cables', rows };
+}
+
 /** The result sheets, in the order the Conventions sheet lists them. */
 export function resultSheets(input: ResultSheetsInput): WorkbookSheet[] {
   const all: Array<WorkbookSheet | null> = [
@@ -267,6 +276,7 @@ export function resultSheets(input: ResultSheetsInput): WorkbookSheet[] {
     staticsSheet(input.statics),
     secondOrderSheet(input),
     oneWaySheet(input.sources),
+    cablesSheet(input.sources),
   ];
   return all.filter((s): s is WorkbookSheet => !!s);
 }

@@ -464,6 +464,11 @@ export interface NonlinearReport {
    * lifting supports it leaves pulling. Each case had its own active set; the sum need not.
    */
   signViolations?: { members: number[]; supports: number[] };
+  /**
+   * Members specified as cables: their tension, horizontal thrust, sag under their own weight,
+   * and the equivalent (Ernst) modulus the solve settled on, in kN/m². A slack cable reads zero.
+   */
+  cables?: Array<{ elementId: number; tension: number; horizontalThrust: number; sag: number; ernstModulus: number }>;
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────
