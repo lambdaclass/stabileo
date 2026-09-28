@@ -90,3 +90,29 @@ describe('an imposed settlement in a 2D combination', () => {
     expect(uz(r.perCombo.get(k)! as never, m)).toBeCloseTo(SETTLE, 9);
   });
 });
+
+describe('the 2D settlement case', () => {
+  beforeEach(() => { uiStore.analysisMode = '2d'; });
+
+  it('is solved on the same structure as the load cases: a sliding joint included', async () => {
+    const { validateAndSolve2D } = await import('../solver-service');
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), m = modelStore.addNode(L, 0), c = modelStore.addNode(2 * L, 0);
+    const e1 = modelStore.addElement(a, m, 'frame'), e2 = modelStore.addElement(m, c, 'frame');
+    // The first span slides vertically where it meets the settled support.
+    modelStore.updateElement(e1, { releaseJ: { mz: false, slide: 'z', slideAxis: 'global' } } as never);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addSupport(m, 'rollerX', undefined, { dz: SETTLE });
+    modelStore.addSupport(c, 'rollerX');
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    const d = modelStore.addLoadCase('D', 'D');
+    modelStore.addDistributedLoad(e2, -10, -10, undefined, undefined, d);
+    modelStore.addCombination('1.2D', [{ caseId: d, factor: 1.2 }]);
+    const r = modelStore.solveCombinations(false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const alone = validateAndSolve2D({ ...modelStore.model, loads: [] } as never, false);
+    if (!alone || typeof alone === 'string') throw new Error(String(alone));
+    const ry = (x: { reactions: Array<{ nodeId: number; rz?: number; rx?: number; my?: number }> }, n: number) => x.reactions.find((q) => q.nodeId === n);
+    expect(ry(r.perCase.get(SETTLEMENT_CASE_ID)! as never, a)).toEqual(ry(alone as never, a));
+  });
+});
