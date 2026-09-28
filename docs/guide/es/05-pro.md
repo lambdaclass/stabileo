@@ -32,6 +32,17 @@ Para empezar:
 **Exportar** (los resultados en Excel o CSV, el reporte, y la vista en DXF o SVG). Ver el
 [capítulo 1](01-primeros-pasos.md#guardar-abrir-y-compartir).
 
+**Libro del proyecto.** **Exportar → Libro del proyecto** escribe un archivo de Excel con una
+carátula (los datos del proyecto, la fecha, la versión y las unidades), las convenciones, el modelo
+y todos los casos y combinaciones: reacciones, desplazamientos, esfuerzos de extremo, esfuerzos,
+flechas y tensiones en las **estaciones** que elijas (5, 13 o las críticas: cuartos, posiciones de
+carga y corte nulo), los máximos con el lugar donde ocurren, la envolvente de cada nudo y extremo de
+barra con la combinación que la gobierna, la estática y el estado de segundo orden. Los números van
+con todos sus dígitos y con el signo del solver, que es el que muestran los diagramas. Las hojas del
+modelo usan los nombres y columnas de la importación desde Excel, así que se pueden volver a leer.
+Si el libro es más grande de lo que un archivo de Excel maneja bien (una hoja con más filas de las
+que admite, o más de cuatro millones de celdas), sale como un zip con un CSV por hoja. El Excel del diálogo de reporte es el mismo libro, con las secciones que marques.
+
 **Datos del proyecto.** Comitente, obra, número de obra, ubicación, las revisiones con su fecha
 y descripción, y quién proyectó, revisó y aprobó, con fechas. Se guardan con el proyecto y los
 imprime la carátula del reporte.
