@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { positiveInput } from '../../lib/utils/positive-input';
   /**
    * The declared design lengths of the selected steel members: Lb, and K about each axis.
    *
@@ -28,9 +29,10 @@
   const lbNow = $derived(now((id) => lengths.get(id)?.Lb, ' m', 3));
   const kNow = $derived(`${now((id) => modelStore.elements.get(id)?.kStrong ?? 1, '', 2)} / ${now((id) => modelStore.elements.get(id)?.kWeak ?? 1, '', 2)}`);
 
-  let lb = $state('');
-  let kStrong = $state('');
-  let kWeak = $state('');
+  // Number inputs: bind:value gives a number, or null when empty.
+  let lb = $state<number | null>(null);
+  let kStrong = $state<number | null>(null);
+  let kWeak = $state<number | null>(null);
 
   function write(patch: Partial<Pick<Element, Field>>) {
     modelStore.batch(() => {
@@ -38,20 +40,20 @@
     });
   }
 
-  const positive = (s: string) => { const v = parseFloat(s.replace(',', '.')); return v > 0 ? v : undefined; };
+  const positive = positiveInput;
 
   function declareLb() {
     const v = positive(lb);
     if (v === undefined) return;
     write({ unbracedLength: v });
-    lb = '';
+    lb = null;
   }
 
   function declareK() {
     const s = positive(kStrong), w = positive(kWeak);
     if (s === undefined && w === undefined) return;
     write({ ...(s !== undefined ? { kStrong: s } : {}), ...(w !== undefined ? { kWeak: w } : {}) });
-    kStrong = ''; kWeak = '';
+    kStrong = null; kWeak = null;
   }
 
   const anyDeclared = (f: Field) => selected.some((id) => modelStore.elements.get(id)?.[f] !== undefined);

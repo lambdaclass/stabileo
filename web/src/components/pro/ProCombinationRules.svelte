@@ -12,7 +12,7 @@
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { presentSymbols } from '../../lib/engine/loads/combination-cases';
   import {
-    RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, type CombinationRule,
+    RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
   import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
 
@@ -50,8 +50,8 @@
   function seed() {
     const present = presentSymbols(modelStore.model.loadCases);
     const specs = [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
-    let n = rules.length;
-    write([...rules, ...specs.map((s) => specToRule(s, `r${++n}`))]);
+    const ids = freshRuleIds(rules, specs.length);
+    write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);
   }
 
   function exportTemplate() {
@@ -64,8 +64,8 @@
     if (!f) return;
     const parsed = rulesFromTemplate(await f.text());
     if (!parsed || parsed.rules.length === 0) { uiStore.toast(t('combos.rules.importFailed'), 'error'); return; }
-    let n = rules.length;
-    write([...rules, ...parsed.rules.map((r) => ({ ...r, id: `r${++n}` }))]);
+    const ids = freshRuleIds(rules, parsed.rules.length);
+    write([...rules, ...parsed.rules.map((r, i) => ({ ...r, id: ids[i]! }))]);
     uiStore.toast(tp('combos.rules.imported', { n: parsed.rules.length }), 'success');
   }
 </script>
