@@ -281,3 +281,128 @@ fn pdelta_3d_heated_strut_is_softened_by_its_thermal_compression() {
     let want = amplification_expected();
     assert!((amp - want).abs() / want < 0.03, "amplification {amp:.4}, expected ≈ {want:.4}");
 }
+
+// ─── Review of #224: inclined supports, past Pcr, constraints ───────
+
+/// A portal whose right foot sits on a 30° inclined roller. With a lateral
+/// load and no gravity the columns carry only the small axial forces the sway
+/// induces, so the second-order solution is the linear one to within a
+/// fraction of a percent — in global axes, like every other analysis path.
+fn inclined_portal(settle_dz: Option<f64>) -> dedaliano_engine::types::SolverInput {
+    let mut input = make_portal_frame(4.0, 6.0, E, A, IZ, 10.0, 0.0);
+    let s = input.supports.values_mut().find(|s| s.node_id == 4).unwrap();
+    s.support_type = "inclinedRoller".into();
+    s.angle = Some(std::f64::consts::PI / 6.0);
+    s.dz = settle_dz;
+    input
+}
+
+fn assert_matches_linear(pd: &pdelta::PDeltaResult, label: &str) {
+    let lin = &pd.linear_results;
+    let scale = lin.displacements.iter().map(|d| d.ux.abs().max(d.uz.abs())).fold(0.0, f64::max);
+    for b in &lin.displacements {
+        let a = pd.results.displacements.iter().find(|d| d.node_id == b.node_id).unwrap();
+        for (p, l, what) in [(a.ux, b.ux, "ux"), (a.uz, b.uz, "uz")] {
+            assert!((p - l).abs() <= 5e-3 * scale,
+                "{label}: node {} {what}: P-Δ {p:.4e} vs linear {l:.4e}", b.node_id);
+        }
+    }
+    let m_scale = lin.element_forces.iter().map(|f| f.m_start.abs().max(f.m_end.abs())).fold(0.0, f64::max);
+    for b in &lin.element_forces {
+        let a = pd.results.element_forces.iter().find(|f| f.element_id == b.element_id).unwrap();
+        assert!((a.m_start - b.m_start).abs() <= 5e-3 * m_scale && (a.m_end - b.m_end).abs() <= 5e-3 * m_scale,
+            "{label}: element {} moments: P-Δ ({:.3},{:.3}) vs linear ({:.3},{:.3})",
+            b.element_id, a.m_start, a.m_end, b.m_start, b.m_end);
+    }
+    let (rx, rz) = pd.results.reactions.iter().fold((0.0, 0.0), |(x, z), r| (x + r.rx, z + r.rz));
+    let (lx, lz) = lin.reactions.iter().fold((0.0, 0.0), |(x, z), r| (x + r.rx, z + r.rz));
+    assert!((rx - lx).abs() < 1e-2 && (rz - lz).abs() < 1e-2,
+        "{label}: ΣR P-Δ ({rx:.4},{rz:.4}) vs linear ({lx:.4},{lz:.4})");
+}
+
+#[test]
+fn pdelta_inclined_roller_matches_linear_without_gravity() {
+    let pd = pdelta::solve_pdelta_2d(&inclined_portal(None), 30, 1e-8).unwrap();
+    assert!(pd.converged, "should converge");
+    assert_matches_linear(&pd, "inclined roller");
+}
+
+#[test]
+fn pdelta_inclined_roller_settlement_matches_linear_without_gravity() {
+    let pd = pdelta::solve_pdelta_2d(&inclined_portal(Some(-0.01)), 30, 1e-8).unwrap();
+    assert!(pd.converged, "should converge");
+    assert_matches_linear(&pd, "inclined roller settled");
+}
+
+#[test]
+fn pdelta_past_the_critical_load_is_not_stable() {
+    // At P = 1.5·Pcr the linearised second-order system is indefinite; LU
+    // still solves it, and the sway comes back reversed: u ≈ u_lin/(1 − 1.5).
+    // That is a column past buckling, not an amplification of 2.
+    let (input, _) = cantilever_column(1.5);
+    let pd = pdelta::solve_pdelta_2d(&input, 50, 1e-8).unwrap();
+    assert!(!pd.is_stable, "P/Pcr = 1.5 reported stable with B2 = {:.3}", pd.b2_factor);
+}
+
+#[test]
+fn pdelta_constraint_forces_see_the_settlement() {
+    use dedaliano_engine::types::*;
+    // The beam is made axially rigid by tying the two top nodes' ux; the only
+    // action is the right foot settling. With no gravity the second-order
+    // constraint force is the linear one.
+    let mut input = make_portal_frame(4.0, 6.0, E, A, IZ, 0.0, 0.0);
+    settle(&mut input, 4, -0.01);
+    input.supports.values_mut().find(|s| s.node_id == 4).unwrap().dx = Some(0.005);
+    input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![0] }));
+    let lin = dedaliano_engine::solver::linear::solve_2d(&input).unwrap();
+    let pd = pdelta::solve_pdelta_2d(&input, 30, 1e-8).unwrap();
+    assert!(pd.converged);
+    assert!(!lin.constraint_forces.is_empty(), "the linear pass reports the tie's force");
+    let force = |cf: &[ConstraintForce]| cf.iter().map(|c| c.force.abs()).fold(0.0, f64::max);
+    let (fl, fp) = (force(&lin.constraint_forces), force(&pd.results.constraint_forces));
+    assert!(fl > 1.0 && (fp - fl).abs() / fl < 5e-3, "constraint force: P-Δ {fp:.4} vs linear {fl:.4}");
+}
+
+#[test]
+fn pdelta_reactions_balance_the_loads_once_the_frame_sways() {
+    // Horizontal equilibrium does not change with the deformed geometry: the
+    // base shears still add up to the lateral load. K·u alone leaves out the
+    // P·Δ/h shear K_G carries at each column base.
+    let input = make_portal_frame(4.0, 6.0, E, A, IZ, 20.0, -300.0);
+    let pd = pdelta::solve_pdelta_2d(&input, 50, 1e-10).unwrap();
+    assert!(pd.converged && pd.is_stable);
+    let rx: f64 = pd.results.reactions.iter().map(|r| r.rx).sum();
+    let rz: f64 = pd.results.reactions.iter().map(|r| r.rz).sum();
+    assert!((rx + 20.0).abs() < 1e-6, "ΣRx = {rx:.6}, lateral load 20");
+    assert!((rz - 600.0).abs() < 1e-6, "ΣRz = {rz:.6}, gravity 600");
+}
+
+#[test]
+fn pdelta_3d_inclined_roller_matches_linear_without_axial_load() {
+    use dedaliano_engine::types::*;
+    // A beam fixed at one end and resting on a roller whose normal leans 30°
+    // in the xz plane at the other; transverse loads only, so P-Δ is linear.
+    // The settlement is what the restrained normal slot has to carry.
+    let fixed = vec![true; 6];
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: SEG / 2 + 1, fx: 0.0, fy: 2.0, fz: -5.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
+    let mut input = make_3d_beam(SEG, L_STRUT, E, 0.3, A, IZ, 2.0 * IZ, 1.5e-4, fixed.clone(), Some(fixed), loads);
+    let (s, c) = (std::f64::consts::PI / 6.0).sin_cos();
+    let end = input.supports.values_mut().find(|s| s.node_id == SEG + 1).unwrap();
+    (end.rx, end.ry, end.rz, end.rrx, end.rry, end.rrz) = (false, false, false, true, false, false);
+    (end.normal_x, end.normal_y, end.normal_z, end.is_inclined) = (Some(s), Some(0.0), Some(c), Some(true));
+    // And it settles: the roller's surface drops 5 mm vertically.
+    end.dz = Some(-0.005);
+    let pd = pdelta::solve_pdelta_3d(&input, 30, 1e-8).unwrap();
+    assert!(pd.converged && pd.is_stable, "converged {} stable {}", pd.converged, pd.is_stable);
+    let lin = &pd.linear_results;
+    let scale = lin.displacements.iter().map(|d| d.ux.abs().max(d.uy.abs()).max(d.uz.abs())).fold(0.0, f64::max);
+    for b in &lin.displacements {
+        let a = pd.results.displacements.iter().find(|d| d.node_id == b.node_id).unwrap();
+        for (p, l, what) in [(a.ux, b.ux, "ux"), (a.uy, b.uy, "uy"), (a.uz, b.uz, "uz")] {
+            assert!((p - l).abs() <= 5e-3 * scale, "node {} {what}: P-Δ {p:.4e} vs linear {l:.4e}", b.node_id);
+        }
+    }
+    let sum = |rs: &[Reaction3D]| rs.iter().fold([0.0; 3], |t, r| [t[0] + r.fx, t[1] + r.fy, t[2] + r.fz]);
+    let (p, l) = (sum(&pd.results.reactions), sum(&lin.reactions));
+    for i in 0..3 { assert!((p[i] - l[i]).abs() < 1e-3, "ΣR[{i}] P-Δ {:.4} vs linear {:.4}", p[i], l[i]); }
+}
