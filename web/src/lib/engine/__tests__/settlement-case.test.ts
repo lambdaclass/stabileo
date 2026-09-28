@@ -116,3 +116,22 @@ describe('the 2D settlement case', () => {
     expect(ry(r.perCase.get(SETTLEMENT_CASE_ID)! as never, a)).toEqual(ry(alone as never, a));
   });
 });
+
+describe('a settlement in the Advanced multi-case solve', () => {
+  it('is applied once, as in the combination solve', async () => {
+    const { buildSolverInput3D } = await import('../solver-service');
+    const { solveMultiCase3D, solve3D } = await import('../wasm-solver');
+    const { addSettlementToMultiCase3D, withoutSettlement } = await import('../settlement-case');
+    uiStore.analysisMode = 'pro';
+    beam();
+    const input = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.supports) } as never, false, false)!;
+    const loadsOf = (id: number) => buildSolverInput3D({ ...modelStore.model, loads: modelStore.model.loads.filter((l) => (l.data as { caseId?: number }).caseId === id) } as never, false, false)!.loads;
+    const combos = [{ name: '1.2D + 1.6L', factors: { D: 1.2, L: 1.6 } }];
+    const r = solveMultiCase3D({ solver: input, loadCases: [{ name: 'D', loads: loadsOf(dead) }, { name: 'L', loads: loadsOf(live) }], combinations: combos });
+    const settle = solve3D({ ...buildSolverInput3D(modelStore.model as never, false, false)!, loads: [] });
+    if (typeof settle === 'string') throw new Error(settle);
+    const out = addSettlementToMultiCase3D(r, settle, combos, 'Settlement');
+    expect(out.caseResults.map((c: { name: string }) => c.name)).toEqual(['D', 'L', 'Settlement']);
+    expect(uz(out.combinationResults[0].results, mid)).toBeCloseTo(SETTLE, 9);
+  });
+});
