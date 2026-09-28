@@ -4,8 +4,9 @@
 //! Measures only the solve phase (assembly is done once at setup). Families:
 //! simply-supported MITC4 plates under uniform pressure (10×10, 20×20, 30×30,
 //! 50×50) and 3D building frames (~1.5k and ~4.3k free DOFs). The results
-//! feed the `ITERATIVE_THRESHOLD` auto-selection constant in
-//! `solver/linear.rs`.
+//! informed the original `ITERATIVE_THRESHOLD` constant. These kernel
+//! benchmarks omit the unshifted Cholesky stability check now required by
+//! `solver/linear.rs`; they do not measure current end-to-end PCG speedups.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use dedaliano_engine::linalg::{

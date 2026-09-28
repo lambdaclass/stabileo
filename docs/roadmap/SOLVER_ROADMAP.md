@@ -717,6 +717,15 @@ Solver-side infrastructure for code-based automatic load generation.
 
 Handle 100k+ DOF models in-browser, scale to millions of DOFs on native/server, and enable topology optimization inner loops.
 
+**Review correction (2026-09-28):** The PCG speedups recorded below are historical
+measurements without the load-independent stability check. Successful PCG now
+requires an unshifted Cholesky check, cached across prepared load cases; this
+adds factorization time and storage. Omitting `solverOptions` keeps direct
+solving, while an explicit object opts into hybrid dispatch. A cheaper validated
+stability check and a new end-to-end crossover measurement remain open; the
+original kernel timings do not establish current application speedups. See
+[solver method selection](../SOLVER_REFERENCE.md#4-solver-method-selection-linear-static).
+
 **What:**
 - **Iterative solvers:** ~~preconditioned CG (Jacobi, SSOR, IC(0))~~ — DONE (2026-09-21): `engine/src/linalg/pcg.rs` + `preconditioner.rs`, verified fallback to the direct chain, JSON `solverOptions` contract, PCG telemetry in `timings`; ~~hybrid direct-iterative with automatic selection~~ — DONE (2026-09-21): measured crossover `ITERATIVE_THRESHOLD = 1_000` free DOFs in `solver/linear.rs` (`engine/benches/pcg_bench.rs`, Apple M3: PCG-IC(0) 72×/181× faster than direct on 1.5k/4.3k-DOF 3D frames). Shifted-IC (`"ics"`, Ajiz-Jennings pivot restoration, infallible build, restored-pivot telemetry) and MIC (`"mic"`, diagonal compensation) added 2026-09-22; neither IC variant converges on thin-shell MITC4 patterns (measured: strict IC(0) needs α ≥ 1e-2–1e-1·max_diag to factorize; pivot restoration builds but breaks down numerically; MIC fails to build — harnesses `diagnose_ic0_shift_sweep` / `diagnose_shifted_ic_sweep` / `diagnose_ic_restore_policy` in `engine/tests/sparse_shell_gates.rs`). Root cause of the shell "stall" found 2026-09-22: the fixed 50-iteration stagnation safeguard was aborting legitimate slow convergence (measured plateaus ≈ 3.2·√n iterations); safeguard now scales as `max(50, 8·√n)` and the Auto chain degrades ICS → Jacobi → SSOR on *verified convergence*. PCG-Jacobi converges on all measured MITC4 shells and beats direct 3.5–6.7× end-to-end up to 50×50 (15.4k DOFs). Still open: GMRES/MINRES for indefinite/non-symmetric systems, algebraic multigrid (AMG) preconditioner for million-DOF models.
 - **Direct solver improvements:** multi-frontal solver with tree-level parallelism (MUMPS/PaStiX-style), nested dissection ordering via METIS/SCOTCH, supernodal Cholesky for cache utilization; ~~sparse mass matrix for fully-sparse eigensolver paths~~ — DONE (2026-09-22): `assemble_mass_matrix_2d_sparse/3d_sparse` consumed by modal/buckling/harmonic sparse paths (`SparseShiftInvertOp` and buckling's −Kg are now `CscMatrix`, O(nnz) matvec replaces the O(n²) dense one); Craig-Bampton interior eigensolve remains dense

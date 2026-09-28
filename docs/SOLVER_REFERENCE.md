@@ -94,9 +94,10 @@ JSON. Omitting it preserves the legacy behavior exactly.
 ```
 
 - `method`:
-  - `"auto"` (default): dense solve below 64 free DOFs, sparse Cholesky up to
-    1,000 free DOFs, and PCG above that (`ITERATIVE_THRESHOLD`, measured
-    crossover — see `engine/benches/pcg_bench.rs`, 2026-09-21, Apple M3).
+  - `"auto"` (default within an explicitly supplied `solverOptions` object):
+    dense solve below 64 free DOFs, sparse Cholesky below 1,000 free DOFs,
+    and PCG at or above 1,000 (`ITERATIVE_THRESHOLD`). Omitting the object
+    entirely keeps the legacy direct path at every size.
   - `"direct"`: force the direct chain (dense → sparse Cholesky →
     regularized Cholesky → dense LU).
   - `"pcg"`: force a preconditioned conjugate gradient attempt.
@@ -123,10 +124,24 @@ Note: PCG's stagnation safeguard scales with the problem size
 plateaus on MITC4 shells grow as ≈3.2·√n, so a fixed window aborts
 legitimate slow convergence on large meshes.
 
-Every PCG result is verified against the true relative residual
-(‖Ku − f‖/‖f‖ ≤ 1e-6); if no preconditioner in the chain converges, the
-solver falls back to the direct chain and reports it — a PCG result is never
-returned unverified.
+Before attempting PCG, the solver checks the original, unshifted stiffness
+matrix with sparse Cholesky. Residual convergence alone cannot establish
+stability: a load that does not excite a mechanism can still produce a small
+residual and plausible displacement. If the unshifted check fails, the solver
+uses the existing direct chain, retaining its regularization diagnostics and
+mechanism errors. A shifted factor does not authorize PCG on the original K.
+The check and fallback factors are cached across prepared load cases.
+
+Every PCG result is then verified against the true relative residual
+(‖Ku − f‖/‖f‖ ≤ 1e-6); if no preconditioner converges, the solver reuses the
+direct factors and reports the fallback.
+
+This stability check incurs sparse factorization time and storage even when
+PCG converges. The original PCG kernel benchmarks exclude that cost and do
+not represent current end-to-end speedups. `timings.symbolicMs`, `numericMs`
+and `nnzL` include the check, including on successful PCG solves. Automatic
+selection remains opt-in pending a cheaper validated stability check and a
+new end-to-end crossover measurement.
 
 How to read the outcome:
 

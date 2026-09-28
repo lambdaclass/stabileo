@@ -31,8 +31,8 @@ const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 /// Free DOFs threshold: use sparse solver when n_free >= this.
 pub(crate) const SPARSE_THRESHOLD: usize = 64;
 
-/// Free-DOF count above which Auto mode tries the iterative PCG solver before
-/// the direct chain.
+/// Free-DOF count at which explicitly requested Auto mode tries PCG after
+/// checking stability with unshifted Cholesky. Missing options remain direct.
 ///
 // Reevaluated 2026-09-22 twice. First (Phase 3, `diagnose_shifted_ic_sweep`
 // and `diagnose_pcg_attempt_overhead` in engine/tests/sparse_shell_gates.rs):
@@ -43,10 +43,10 @@ pub(crate) const SPARSE_THRESHOLD: usize = 64;
 // "stall" on shells was the fixed 50-iteration stagnation safeguard aborting
 // legitimate slow convergence — the CG plateau grows like ~3.2·√nf (426
 // iterations at 50×50). With the window scaled to max(50, 8·√n), PCG-Jacobi
-// converges and Auto WINS on shells: −71% (20×20), −75% (30×30) and −85%
-// (50×50) end-to-end vs direct. 1_000 stays: below it the direct solve is
-// already milliseconds and the PCG attempt adds variance with no relevant
-// absolute savings.
+// converges. Those historical speedups excluded the load-independent stability
+// check now required before accepting PCG. They are not current end-to-end
+// performance claims. Retain 1_000 as the opt-in dispatch boundary; a new
+// crossover requires measuring the stability check as well as iteration.
 const ITERATIVE_THRESHOLD: usize = 1_000;
 
 /// Linear solver method selected via `SolverOptions`.
@@ -114,7 +114,7 @@ fn resolve_solver_options(
     diags: &mut Vec<SolverDiagnostic>,
 ) -> ResolvedSolverOptions {
     let mut resolved = ResolvedSolverOptions {
-        method: SolverMethod::Auto,
+        method: if input_opts.is_some() { SolverMethod::Auto } else { SolverMethod::Direct },
         precond: PreconditionerChoice::Auto,
         tol: 1e-8,
         max_iter: 1000usize.max(nf / 4),
@@ -209,6 +209,14 @@ fn validate_solver_options(input_opts: &Option<SolverOptions>, diags: &mut Vec<S
     }
 }
 
+fn pcg_stability_fallback_diagnostic() -> SolverDiagnostic {
+    SolverDiagnostic {
+        category: "fallback".into(),
+        message: "Unshifted Cholesky could not verify structural stability; using the direct solver chain instead of PCG".into(),
+        severity: "warning".into(),
+    }
+}
+
 /// Outcome of a verified PCG solve.
 struct PcgOutcome {    u: Vec<f64>,
     iterations: usize,
@@ -272,6 +280,8 @@ fn build_pcg_preconditioner<'a>(
 /// never trusted blindly). On total failure a warning is pushed and None is
 /// returned — the caller falls back to the direct solver chain. Failed
 /// attempts are bounded by the PCG size-scaled stagnation safeguard.
+/// The caller must first verify unshifted K_ff with sparse Cholesky: convergence
+/// for one RHS cannot detect a mechanism that that load does not excite.
 fn try_pcg_solve(
     k_ff: &CscMatrix,
     f_f: &[f64],
@@ -452,8 +462,8 @@ enum PreparedPath2D {
     /// Sparse Cholesky of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
     Sparse(Box<PreparedSparse2D>),
     /// Iterative PCG on the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD,
-    /// explicit "pcg" or Auto above ITERATIVE_THRESHOLD); the direct chain is
-    /// factored lazily if PCG fails verified convergence.
+    /// explicit "pcg" or Auto above ITERATIVE_THRESHOLD); the direct chain
+    /// supplies a cached stability check and fallback.
     Pcg(Box<PreparedPcg2D>),
     /// Sparse Cholesky failed even with diagonal-shift regularization:
     /// dense LU of the dense K_ff (legacy fallback semantics).
@@ -495,8 +505,8 @@ struct PreparedSparse2D {
 /// Iterative PCG form of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
 /// The PCG preconditioner chain is built per solve (cheap next to assembly);
 /// the direct chain (unregularized sparse Cholesky, then dense LU — same
-/// semantics as `PreparedPath2D::Sparse` → `SparseDenseLu`) is factored lazily
-/// and only if PCG fails verified convergence.
+/// semantics as `PreparedPath2D::Sparse` → `SparseDenseLu`) also supplies the
+/// load-independent stability check, cached across all load cases.
 struct PreparedPcg2D {
     k_ff: CscMatrix,
     /// Full n×n K (reactions via sym_mat_vec, cross-block for prescribed DOFs).
@@ -735,8 +745,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         let cond_report = sparse_conditioning_2d(&stiff.k_ff, nf);
 
         // Solver options (PCG dispatch): explicit "pcg" or Auto above the
-        // iterative threshold. PCG skips the Cholesky factorization entirely;
-        // the direct chain is factored lazily if PCG fails verification.
+        // iterative threshold. The first solve factors unshifted K_ff to
+        // check stability; subsequent cases reuse that check and fallback.
         let mut pcg_diags_base: Vec<SolverDiagnostic> = Vec::new();
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut pcg_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
@@ -1396,12 +1406,24 @@ impl PreparedStatic2D<'_> {
 
                 let mut solver_diags = p.solver_diags_base.clone();
 
-                // Iterative solve with verified convergence; the preconditioner
-                // chain degrades on the TRUE relative residual (≤ 1e-6).
-                let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
+                // A compatible (or zero) RHS can converge on a singular K.
+                // Check the ORIGINAL matrix independently of the loads, once
+                // per prepared structure, and reuse this factor for fallback.
+                let direct = p.direct.get_or_init(|| {
+                    let sym = Rc::new(symbolic_cholesky(&p.k_ff));
+                    PcgDirectFallback2D {
+                        num: numeric_cholesky(&sym, &p.k_ff),
+                        dense_lu: std::cell::OnceCell::new(),
+                    }
+                });
+                let pcg = if direct.num.is_some() {
+                    try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
+                } else {
+                    solver_diags.push(pcg_stability_fallback_diagnostic());
+                    None
+                };
 
-                // On PCG failure, factor the direct chain lazily (shared across
-                // load cases): unregularized sparse Cholesky, then dense LU.
+                // On failure, reuse unregularized sparse Cholesky or try LU.
                 let mut used_lu_fallback = false;
                 let (u_f, pcg_meta): (Vec<f64>, Option<(usize, &'static str)>) = match pcg {
                     Some(outcome) => {
@@ -1416,13 +1438,6 @@ impl PreparedStatic2D<'_> {
                         (outcome.u, Some((outcome.iterations, outcome.preconditioner)))
                     }
                     None => {
-                        let direct = p.direct.get_or_init(|| {
-                            let sym = Rc::new(symbolic_cholesky(&p.k_ff));
-                            PcgDirectFallback2D {
-                                num: numeric_cholesky(&sym, &p.k_ff),
-                                dense_lu: std::cell::OnceCell::new(),
-                            }
-                        });
                         match &direct.num {
                             Some(num) => {
                                 solver_diags.push(SolverDiagnostic {
@@ -1967,8 +1982,9 @@ struct SparseDenseLuPrepared3D {
 /// Iterative PCG form of the triplet-assembled K_ff. The preconditioner chain
 /// is built per solve (cheap next to assembly); the direct chain (sparse
 /// Cholesky with the drilling-shift ladder, then dense LU on bad residual —
-/// same semantics as `SparsePrepared3D`) is factored lazily and only if PCG
-/// fails verified convergence.
+/// same semantics as `SparsePrepared3D`) also supplies the load-independent
+/// stability check, cached across all load cases. A shifted factor cannot
+/// establish stability of the original matrix and must not authorize PCG.
 struct PcgPrepared3D {
     k_ff: CscMatrix,
     k_full: CscMatrix,
@@ -2148,8 +2164,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         let conditioning_us = now_micros().saturating_sub(t0);
 
         // Solver options (PCG dispatch): explicit "pcg" or Auto above the
-        // iterative threshold. PCG skips the Cholesky factorization entirely;
-        // the direct chain is factored lazily if PCG fails verification.
+        // iterative threshold. The first solve factors unshifted K_ff to
+        // check stability; subsequent cases reuse that check and fallback.
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut solver_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
             || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
@@ -3020,6 +3036,10 @@ impl PreparedStatic3D {
         loads: &[SolverLoad3D],
         p: &PcgPrepared3D,
     ) -> Result<AnalysisResults3D, String> {
+        // Cache the load-independent check/fallback outside the per-case
+        // timer. Its symbolic/numeric timings are accounted for below, just
+        // as on the direct prepared path (without counting them twice).
+        let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
@@ -3038,13 +3058,18 @@ impl PreparedStatic3D {
         // Iterative solve with verified convergence; the preconditioner chain
         // degrades on the TRUE relative residual (≤ 1e-6).
         let t0 = now_micros();
-        let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
+        let pcg = if matches!(&direct.num, Some((_, false, _))) {
+            try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
+        } else {
+            solver_diags.push(pcg_stability_fallback_diagnostic());
+            None
+        };
         let pcg_us = now_micros().saturating_sub(t0);
 
         let mut used_residual_fallback = false;
-        let mut direct_symbolic_us = 0u64;
-        let mut direct_numeric_us = 0u64;
-        let mut direct_nnz_l = 0usize;
+        let direct_symbolic_us = direct.symbolic_us;
+        let direct_numeric_us = direct.numeric_us;
+        let direct_nnz_l = direct.nnz_l;
         let mut direct_regularized = false;
         let mut direct_max_perturbation = 0.0f64;
 
@@ -3067,11 +3092,8 @@ impl PreparedStatic3D {
                     Some((outcome.iterations, outcome.true_rel_residual, outcome.preconditioner)),
                 )
             } else {
-                // PCG failed verification — factor the direct chain lazily.
-                let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
-                direct_symbolic_us = direct.symbolic_us;
-                direct_numeric_us = direct.numeric_us;
-                direct_nnz_l = direct.nnz_l;
+                // PCG failed stability or residual verification — reuse the
+                // cached direct chain, retaining its warnings and errors.
 
                 // Dense LU last resort (shared by both failure modes).
                 let dense_lu = |direct: &PcgDirectFallback3D, f_f: &[f64]| -> Result<Vec<f64>, String> {

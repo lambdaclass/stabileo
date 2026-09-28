@@ -10,7 +10,10 @@ use std::collections::HashMap;
 
 /// 2D continuous beam: 30 frame elements (93 DOFs, 90 free ≥ sparse threshold).
 fn make_beam_2d() -> SolverInput {
-    let n_elem = 30;
+    make_beam_2d_n(30)
+}
+
+fn make_beam_2d_n(n_elem: usize) -> SolverInput {
     let mut nodes = HashMap::new();
     for i in 0..=n_elem {
         nodes.insert(
@@ -505,6 +508,46 @@ fn auto_mode_small_models_stay_direct() {
     let legacy = linear::solve_2d(&make_beam_2d()).unwrap();
     assert_eq!(solver_path_2d(&legacy), "sparse_cholesky");
     assert!(legacy.solver_diagnostics.is_empty());
+}
+
+#[test]
+fn omitted_options_keep_large_models_on_direct_path() {
+    let mut beam = make_beam_2d_n(340);
+    let legacy = linear::solve_2d(&beam).unwrap();
+    assert!(legacy.solver_run_meta.as_ref().unwrap().n_free_dofs >= 1000);
+    assert_eq!(solver_path_2d(&legacy), "sparse_cholesky");
+    assert!(legacy.solver_diagnostics.is_empty());
+    // An explicitly supplied empty object still opts into auto selection.
+    set_opts_2d(&mut beam, serde_json::json!({}));
+    assert!(solver_path_2d(&linear::solve_2d(&beam).unwrap()).starts_with("pcg_"));
+
+    let mut plate = make_ss_plate_3d_n(15);
+    let legacy = linear::solve_3d(&plate).unwrap();
+    assert!(legacy.solver_run_meta.as_ref().unwrap().n_free_dofs >= 1000);
+    assert_eq!(solver_path_3d(&legacy), "sparse_cholesky");
+    set_opts_3d(&mut plate, serde_json::json!({}));
+    assert!(solver_path_3d(&linear::solve_3d(&plate).unwrap()).starts_with("pcg_"));
+}
+
+#[test]
+fn pcg_rejects_an_unloaded_free_component_even_with_zero_rhs() {
+    let mut input = make_beam_2d();
+    // This unsupported beam has rigid-body modes with positive diagonals.
+    // No load excites those modes, so a small residual cannot detect them.
+    input.nodes.insert("100".into(), SolverNode { id: 100, x: 0.0, z: 10.0 });
+    input.nodes.insert("101".into(), SolverNode { id: 101, x: 1.0, z: 10.0 });
+    input.elements.insert("100".into(), SolverElement {
+        id: 100, elem_type: "frame".into(), node_i: 100, node_j: 101,
+        material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+    });
+    for zero_rhs in [false, true] {
+        if zero_rhs { input.loads.clear(); }
+        for method in ["direct", "pcg"] {
+            set_opts_2d(&mut input, serde_json::json!({"method": method}));
+            let error = linear::solve_2d(&input).expect_err("free component must be rejected");
+            assert!(error.contains("mechanism"), "{method}, zero_rhs={zero_rhs}: {error}");
+        }
+    }
 }
 
 #[test]
