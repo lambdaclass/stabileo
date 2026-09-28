@@ -358,6 +358,7 @@ fn validation_stiffmod_mixed_cross_sections() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

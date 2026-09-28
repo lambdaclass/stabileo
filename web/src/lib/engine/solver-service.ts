@@ -1,9 +1,11 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { supportDofs3D } from './support-dofs-3d';
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
+import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
@@ -1151,7 +1153,31 @@ function solveCombinations2DFallback(
 
 /** Build a SolverInput3D from model data. Returns null if model is empty. */
 /** Build only the loads array for a 3D solver input (avoids rebuilding all structural Maps per case). */
-export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, leftHand: boolean): SolverLoad3D[] {
+/*
+ * ── The axis convention never reaches the analysis ──
+ *
+ * "Left-hand" negates each member's local y. That is a legitimate way to draw
+ * and label a member, and a wrong way to solve one: the rotation matrix it
+ * builds is improper, and applied to the rotational DOFs — pseudovectors — it
+ * changed the answer (a 50 kN·m nodal moment moved a node 1,33 mm instead of
+ * 5,02, and a reaction changed sign). So the analysis, its loads included, is
+ * always right-handed, and the convention is a drawing choice: which side of a
+ * member its diagrams are drawn on, and how its local axes are shown
+ * (`diagram-render-3d`, the axis gizmo). The deformed shape and the free-body
+ * arrows are physical and ignore it too.
+ *
+ * ── Except for what the user types in local axes ──
+ *
+ * A 3D member load entered in local axes (qY of a distributed load, Py of a
+ * point load) is entered along the y the user SEES, and under the left-hand
+ * convention that is the negated one. So those y components change sign here,
+ * on their way into the right-handed analysis — the one place the convention
+ * reaches it, and as a statement about input, not about the stiffness. The
+ * load arrows are drawn along the same displayed axis (`scene-sync`).
+ */
+export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, userLeftHand: boolean): SolverLoad3D[] {
+  const leftHand = false;
+  const ySign = userLeftHand ? -1 : 1;
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
 
@@ -1250,7 +1276,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
       const d = l.data as DistributedLoad3D;
       solverLoads.push({
         type: 'distributed',
-        data: { elementId: d.elementId, qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, a: d.a, b: d.b },
+        data: { elementId: d.elementId, qYI: ySign * d.qYI, qYJ: ySign * d.qYJ, qZI: d.qZI, qZJ: d.qZJ, a: d.a, b: d.b },
       });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
@@ -1317,7 +1343,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
       const d = l.data as PointLoadOnElement3D;
       solverLoads.push({
         type: 'pointOnElement',
-        data: { elementId: d.elementId, a: d.a, py: d.py, pz: d.pz },
+        data: { elementId: d.elementId, a: d.a, py: ySign * d.py, pz: d.pz },
       });
     } else if (l.type === 'surface3d') {
       if (model.quads) {
@@ -1401,59 +1427,13 @@ export function hasLoadCarrying3D(model: ModelData): boolean {
 export function buildSolverInput3D(
   model: ModelData,
   includeSelfWeight = false,
-  leftHand = false,
+  userLeftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
-  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, leftHand);
-
-  // Convert support types to SolverSupport3D booleans
-  const supportTo3D = (s: Support): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } => {
-    if (project2DToXZ && is2DSupportType(s.type)) {
-      switch (s.type) {
-        case 'fixed':
-          return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-        case 'pinned':
-          return { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true };
-        case 'rollerX':
-          return { rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true };
-        case 'rollerY':
-        case 'rollerZ':
-          return { rx: true, ry: true, rz: false, rrx: true, rry: false, rrz: true };
-        case 'spring':
-          return { rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
-      }
-    }
-
-    switch (s.type) {
-      case 'fixed':
-      case 'fixed3d':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-      case 'pinned':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: false };
-      case 'pinned3d':
-        return { rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
-      case 'rollerX':
-        return { rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: false };
-      case 'rollerY':
-        return { rx: true, ry: false, rz: true, rrx: true, rry: true, rrz: false };
-      case 'rollerXZ':
-        return { rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
-      case 'rollerXY':
-        return { rx: false, ry: false, rz: true, rrx: false, rry: false, rrz: false };
-      case 'rollerYZ':
-        return { rx: true, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-      case 'spring':
-      case 'spring3d':
-        return { rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-      case 'custom3d':
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-      default:
-        return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-    }
-  };
+  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, userLeftHand);
 
   const input: SolverInput3D = {
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, mapModelNodeToSolver3D(n, project2DToXZ)])),
@@ -1564,7 +1544,7 @@ export function buildSolverInput3D(
           const r = s.dofRestraints;
           dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
         } else {
-          dofs = supportTo3D(s);
+          dofs = supportDofs3D(s, project2DToXZ);
         }
         const supportDz = s.dz ?? s.dy;
         const supportDry = s.dry ?? s.drz;
@@ -1612,7 +1592,7 @@ export function buildSolverInput3D(
     curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     constraints: model.constraints ?? [],
     connectors: model.connectors,
-    leftHand,
+    leftHand: false, // see buildSolverLoads3D: the analysis is always right-handed
   };
 
   // Analytical member offsets (genuine 3D only): ephemerally expand offset
@@ -1654,6 +1634,13 @@ export function buildSolverInput3D(
       }
     }
   }
+
+  /*
+   * Rotations nothing resists — a node met only by truss bars, or where every
+   * member end releases its moments — get the vanishing spring the plane
+   * solver already gives them. See `orphan-rotations-3d.ts`.
+   */
+  stabiliseOrphanRotations3D(input);
 
   return input;
 }

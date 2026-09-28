@@ -13,7 +13,9 @@
   import SectionStressPanel from '../SectionStressPanel.svelte';
   import DataTable from '../DataTable.svelte';
   import StepWizard from '../dsm/StepWizard.svelte';
+  import FmWizard from '../fm/FmWizard.svelte';
   import { dsmStepsStore } from '../../lib/store/dsmSteps.svelte';
+  import { fmStepsStore } from '../../lib/store/fmSteps.svelte';
   import { uiStore } from '../../lib/store/ui.svelte';
   import SheetGrab from '../SheetGrab.svelte';
   import AiDrawer from '../AiDrawer.svelte';
@@ -255,6 +257,8 @@
       -->
       {#if dsmStepsStore.isOpen}
         <StepWizard />
+      {:else if fmStepsStore.isOpen}
+        <FmWizard />
       {:else}
         <DataTable bind:activeTab={dataTab} />
       {/if}

@@ -265,3 +265,69 @@ fn validation_poe_equilibrium() {
     assert_close(sum_ry, p1 + p2 + p3, 0.02,
         "PoE equilibrium: ΣR = ΣP");
 }
+
+// ================================================================
+// Point couples, against closed forms and with their signs
+// ================================================================
+//
+// The couple tests above check only ΣRy = 0, or absolute values on a
+// symmetric beam, and passed while the equivalent loads of a couple carried
+// the wrong sign on their moment terms. These check the numbers.
+
+/// Cantilever, couple M (counter-clockwise) at a: the wall takes exactly −M,
+/// the tip rotates M·a/EI and rises M·a·(L − a/2)/EI.
+#[test]
+fn validation_poe_couple_on_cantilever() {
+    let (l, m, a) = (5.0, 6.0, 2.0);
+    let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a, p: 0.0, px: None, my: Some(m),
+    })];
+    let input = make_beam(1, l, E, A, IZ, "fixed", None, loads);
+    let results = linear::solve_2d(&input).unwrap();
+    let ei = E * 1000.0 * IZ;
+    let wall = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    assert!((wall.my + m).abs() < 1e-9, "wall moment {} want {}", wall.my, -m);
+    assert!(wall.rz.abs() < 1e-9, "no vertical reaction: {}", wall.rz);
+    let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    assert!((tip.ry - m * a / ei).abs() < 1e-12, "tip rotation {}", tip.ry);
+    assert!((tip.uz - m * a * (l - a / 2.0) / ei).abs() < 1e-12, "tip deflection {}", tip.uz);
+}
+
+/// Simple beam, couple M at a: reactions ±M/L — A up, B down for a
+/// counter-clockwise couple — wherever the couple sits.
+#[test]
+fn validation_poe_couple_on_simple_beam() {
+    let (l, m) = (5.0, 6.0);
+    for &a in &[1.0, 2.0, 3.5] {
+        let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a, p: 0.0, px: None, my: Some(m),
+        })];
+        let input = make_beam(1, l, E, A, IZ, "pinned", Some("rollerX"), loads);
+        let results = linear::solve_2d(&input).unwrap();
+        let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+        let rb = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+        assert!((ra - m / l).abs() < 1e-9, "a = {a}: R_A {ra} want {}", m / l);
+        assert!((rb + m / l).abs() < 1e-9, "a = {a}: R_B {rb} want {}", -m / l);
+    }
+}
+
+/// Fixed-fixed, couple M at a: every reaction, with its sign, from
+/// equilibrium — ΣM about the left support must vanish.
+#[test]
+fn validation_poe_couple_fixed_fixed_equilibrium() {
+    let (l, m, a) = (5.0, 6.0, 2.0);
+    let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a, p: 0.0, px: None, my: Some(m),
+    })];
+    let input = make_beam(1, l, E, A, IZ, "fixed", Some("fixed"), loads);
+    let results = linear::solve_2d(&input).unwrap();
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+    let sum_m = r1.my + r2.my + r2.rz * l + m;
+    assert!(sum_m.abs() < 1e-9, "ΣM about the left support: {sum_m}");
+    // Closed forms: R_A = 6Mab/L³ upward, M_A = M·b(2a−b)/L², M_B = M·a(2b−a)/L².
+    let b = l - a;
+    assert!((r1.rz - 6.0 * m * a * b / l.powi(3)).abs() < 1e-9);
+    assert!((r1.my - m * b * (2.0 * a - b) / (l * l)).abs() < 1e-9);
+    assert!((r2.my - m * a * (2.0 * b - a) / (l * l)).abs() < 1e-9);
+}

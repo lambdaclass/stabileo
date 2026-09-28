@@ -50,9 +50,11 @@ export function withMassSource(
   loadCases: ReadonlyArray<{ id: number; name: string; type: string }>,
   stated: MassSource | null | undefined,
   input: SolverInput3D,
+  userLeftHand = false,
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport; factors: ResolvedFactor[] } {
   const factors = resolveMassFactors(loadCases, stated);
-  const cases = caseMassLoads(model, factors, input.leftHand ?? false);
+  // The analysis input is always right-handed; local loads still follow the displayed Y.
+  const cases = caseMassLoads(model, factors, userLeftHand);
   const r = applyMassSource(input, massDensities(model.materials), cases);
   return { ...r, factors };
 }

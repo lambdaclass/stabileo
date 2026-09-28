@@ -129,6 +129,7 @@ fn validation_rigid_body_3d_frame_6_zero_eigenvalues() {
     });
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: HashMap::new(), // No supports!
         loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],

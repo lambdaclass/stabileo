@@ -1131,7 +1131,7 @@ const ja: Translations = {
   'dsm.step9.globalDisp': '{u_e} 全体 — 要素の変位',
   'dsm.step9.localDisp': '{u_e} 局所 — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — 固定端反力前の力',
-  'dsm.step9.fixedEndForces': '{f_FE} — 固定端反力',
+  'dsm.step9.fixedEndForces': '{f_eq} — 固定端反力',
   'dsm.step9.finalForces': '{f} 最終 — 要素の内力',
   'dsm.step9.force': '力',
   'dsm.step9.nodeI': '節点 i',

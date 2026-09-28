@@ -127,13 +127,13 @@
         <input type="number" bind:value={uiStore.supportDx} step="0.001" />
       </label>
       <label class="ft-input-group" title={t('float.prescribedDy')}>
-        <span>dy:</span>
+        <span>dz:</span>
         <input type="number" bind:value={uiStore.supportDy} step="0.001" />
       </label>
     {/if}
     {#if uiStore.supportType === 'fixed'}
       <label class="ft-input-group" title={t('float.prescribedDrz')}>
-        <span>dθz:</span>
+        <span>dθy:</span>
         <input type="number" bind:value={uiStore.supportDrz} step="0.001" />
       </label>
     {/if}

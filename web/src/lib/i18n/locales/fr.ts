@@ -1125,7 +1125,7 @@ const fr: Translations = {
   'dsm.step9.globalDisp': '{u_e} global — Déplacements de l\'élément',
   'dsm.step9.localDisp': '{u_e} local — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Efforts avant FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — Efforts d\'encastrement parfait',
+  'dsm.step9.fixedEndForces': '{f_eq} — Efforts d\'encastrement parfait',
   'dsm.step9.finalForces': '{f} final — Efforts internes de l\'élément',
   'dsm.step9.force': 'Effort',
   'dsm.step9.nodeI': 'Nœud i',

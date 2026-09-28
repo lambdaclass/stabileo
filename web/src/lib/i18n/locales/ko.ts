@@ -1131,7 +1131,7 @@ const ko: Translations = {
   'dsm.step9.globalDisp': '{u_e} 전체 — 요소 변위',
   'dsm.step9.localDisp': '{u_e} 국부 — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — 고정단력 적용 전 힘',
-  'dsm.step9.fixedEndForces': '{f_FE} — 고정단력',
+  'dsm.step9.fixedEndForces': '{f_eq} — 고정단력',
   'dsm.step9.finalForces': '{f} 최종 — 요소 내력',
   'dsm.step9.force': '힘',
   'dsm.step9.nodeI': '절점 i',
