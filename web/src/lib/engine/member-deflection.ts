@@ -25,6 +25,10 @@
  * 5·M·L²/(48·E·I) when the ends did not move, or — in the report — take the largest vertical
  * displacement of the whole model for every beam. See `ProVerificationTab.svelte` and
  * `pro-report-inputs.ts`.
+ *
+ * A span with a free end — a cantilever, an overhang — is measured from the tangent at its
+ * other end instead: the chord to a free tip is not a rigid-body line when the root does not
+ * move, and it subtracted the dominant linear part of genuine bending (~5× under a tip load).
  */
 
 import { computeLocalAxes3D } from './local-axes-3d';
@@ -134,6 +138,11 @@ export interface LocalCurve {
   xi: number[];
   /** Local axial, and transverse in the local Y and Z planes, at each sample (m). */
   u: number[]; v: number[]; w: number[];
+  /**
+   * dv/dx and dw/dx at the two ends. The particular solution has zero end slopes, so these are
+   * the Hermite end slopes — the rotation the chord of a free-ended span must be replaced by.
+   */
+  sv0: number; svL: number; sw0: number; swL: number;
 }
 
 /**
@@ -192,7 +201,7 @@ export function memberLocalCurve(
     sZJ = 3 * dw / (2 * L) + thYI / 2 - L * vppZ.vppL / 4;
   }
 
-  const out: LocalCurve = { L, ex, ey, ez, xi: [], u: [], v: [], w: [] };
+  const out: LocalCurve = { L, ex, ey, ez, xi: [], u: [], v: [], w: [], sv0: sYI, svL: sYJ, sw0: sZI, swL: sZJ };
   for (let i = 0; i <= segments; i++) {
     const xi = i / segments, x = xi * L, xi2 = xi * xi, xi3 = xi2 * xi;
     const N1 = 1 - 3 * xi2 + 2 * xi3, N2 = (xi - 2 * xi2 + xi3) * L, N3 = 3 * xi2 - 2 * xi3, N4 = (-xi2 + xi3) * L;
@@ -218,16 +227,26 @@ export interface ChordDeflection {
 }
 
 /**
- * The deflection of a curve relative to the chord of its displaced ends.
+ * The deflection of a curve relative to its baseline.
+ *
+ * The baseline is the chord of the displaced ends — the rigid-body part of the motion, which a
+ * span limit is not written for. A span with a free end is the exception (`free`): there the
+ * chord to the free tip is not a rigid-body line, because the other end — the root — does not
+ * move. The rigid-body baseline of a cantilever is the tangent at its root, and measured from
+ * it the tip reads its true bending deflection: PL³/3EI under a tip load, where the chord left
+ * only 0.064·PL³/EI. CIRSOC 201's Table 9.5(b) has the cantilever rows that number is for.
  *
  * The largest sampled value is refined with the parabola through it and its neighbours, so the
  * peak between two samples is not missed by the sampling.
  */
-export function chordDeflection(c: LocalCurve): ChordDeflection {
+export function chordDeflection(c: LocalCurve, free?: { start?: boolean; end?: boolean }): ChordDeflection {
   const n = c.xi.length;
-  const rel = (arr: number[], i: number) => arr[i]! - (arr[0]! + c.xi[i]! * (arr[n - 1]! - arr[0]!));
-  const vr = c.xi.map((_, i) => rel(c.v, i));
-  const wr = c.xi.map((_, i) => rel(c.w, i));
+  const base = (arr: number[], s0: number, sL: number, i: number) =>
+    free?.end ? arr[0]! + c.xi[i]! * c.L * s0
+    : free?.start ? arr[n - 1]! + (c.xi[i]! - 1) * c.L * sL
+    : arr[0]! + c.xi[i]! * (arr[n - 1]! - arr[0]!);
+  const vr = c.xi.map((_, i) => c.v[i]! - base(c.v, c.sv0, c.svL, i));
+  const wr = c.xi.map((_, i) => c.w[i]! - base(c.w, c.sw0, c.swL, i));
   const res = vr.map((v, i) => Math.hypot(v, wr[i]!));
   const peak = (a: number[]) => {
     let k = 0;

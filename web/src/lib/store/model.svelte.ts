@@ -1307,7 +1307,11 @@ function createModelStore() {
       // which is what they did — pushed a snapshot that undo then restored through the
       // reinforcement path, so Ctrl+Z appeared to do nothing to a footing at all.
       _pushUndoFoundation = () => fn('foundation');
-      _pushUndoView = () => fn('structural');
+      // Named views get the same treatment: a camera is part of the project, so it is
+      // undoable, but it changes nothing the analysis reads, so undoing one must not
+      // retire the solve. Tagging these 'structural' — which is what they did — routed
+      // undo/redo through the full restore(), which bumps modelVersion and clears results.
+      _pushUndoView = () => fn('views');
     },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
@@ -1460,6 +1464,23 @@ function createModelStore() {
         : undefined;
       model.footingMatPreferences = nextPrefs;
       _onFoundationChange?.();
+    },
+
+    /**
+     * Restore ONLY the named views.
+     *
+     * The mirror of `restoreFoundationOnly`, for the same reason: a view is a camera, it
+     * changes nothing the analysis reads, so undoing a view save/rename/remove must not
+     * bump `modelVersion` or fire `_onMutation` — that would retire a valid solve, the
+     * exact failure that routing view entries through the full `restore()` produced.
+     *
+     * A view edit fires no invalidation hook at all: nothing downstream is computed from
+     * `model.views`, so there is nothing stale to drop.
+     */
+    restoreViewsOnly(s: ModelSnapshot): void {
+      const next = s.views ? (JSON.parse(JSON.stringify(s.views)) as SavedView[]) : undefined;
+      if (JSON.stringify(model.views ?? null) === JSON.stringify(next ?? null)) return;
+      model.views = next;
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
