@@ -282,6 +282,16 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   {
     group: 'validation',
     groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-03',
+    descKey: 'ex.validation-03.desc',
+    purposeKey: 'ex.validation-03.purpose',
+    tags: ['pro.tagValidation', 'pro.tagShells'],
+    stats: { nodes: '230', members: '97', shells: '156' },
+    load: () => loadValidationModel('validation-03'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
     nameKey: 'ex.validation-06',
     descKey: 'ex.validation-06.desc',
     purposeKey: 'ex.validation-06.purpose',

@@ -27,6 +27,7 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 /** What each model is, as counts: nodes, members, supports, cases, combinations. */
 const SHAPE: Record<ValidationModelId, { nodes: number; members: number; supports: number; cases: number; combinations: number }> = {
   'validation-02': { nodes: 56, members: 119, supports: 6, cases: 2, combinations: 1 },
+  'validation-03': { nodes: 230, members: 97, supports: 38, cases: 1, combinations: 0 },
   'validation-06': { nodes: 18, members: 25, supports: 3, cases: 3, combinations: 0 },
   'validation-07': { nodes: 40, members: 76, supports: 8, cases: 2, combinations: 1 },
 };
@@ -39,6 +40,39 @@ const md = () => ({
 });
 
 const ids = Object.keys(VALIDATION_MODELS) as ValidationModelId[];
+
+/** Models with shells, and the moment components the engine's drilling penalty leaves exact. */
+const SHELL_DRILLING = new Map<ValidationModelId, { balanced: Array<'mx' | 'my' | 'mz'> }>([
+  // Walls in planes x = constant: the normal is X.
+  ['validation-03', { balanced: ['my', 'mz'] }],
+]);
+
+/** Every case solved (through one combination per case when the model has none) and checked. */
+async function statics(id: ValidationModelId) {
+  await loadValidationModel(id);
+  const cases = modelStore.model.loadCases;
+  const combinations = modelStore.combinations.length
+    ? modelStore.combinations
+    : cases.map((c, i) => ({ id: 1000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
+  const r = solveCombinations3D(md() as never, cases, combinations as never, true, false);
+  if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
+  const rows = staticsCheck({
+    model: md() as never,
+    reactionsByCase: new Map(cases.map((c) => [c.id, r.perCase.get(c.id)!.reactions])),
+    includeSelfWeight: true,
+    caseNames: new Map(cases.map((c) => [c.id, c.name])),
+    caseTypes: new Map(cases.map((c) => [c.id, c.type])),
+  } as never);
+  expect(rows).toHaveLength(cases.length);
+  return rows;
+}
+
+/** The force and moment scales of a row, the way the check itself scales its differences. */
+function scales(row: { applied: Record<string, number>; reactions: Record<string, number> }) {
+  const f = Math.max(1e-9, ...(['fx', 'fy', 'fz'] as const).map((k) => Math.abs(row.applied[k]!)));
+  const m = Math.max(1e-9, ...(['mx', 'my', 'mz'] as const).map((k) => Math.abs(row.applied[k]!)));
+  return { f, m };
+}
 
 describe.each(ids)('%s', (id) => {
   it('parses without an error', async () => {
@@ -73,28 +107,31 @@ describe.each(ids)('%s', (id) => {
   });
 
   it('balances every case in six components', async () => {
-    await loadValidationModel(id);
-    const cases = modelStore.model.loadCases;
-    // A model with no combinations of its own is solved case by case through one combination per
-    // case; the combinations are not what is checked here, the cases are.
-    const combinations = modelStore.combinations.length
-      ? modelStore.combinations
-      : cases.map((c, i) => ({ id: 1000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
-    const r = solveCombinations3D(md() as never, cases, combinations as never, true, false);
-    if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
-    const rows = staticsCheck({
-      model: md() as never,
-      reactionsByCase: new Map(cases.map((c) => [c.id, r.perCase.get(c.id)!.reactions])),
-      includeSelfWeight: true,
-      caseNames: new Map(cases.map((c) => [c.id, c.name])),
-      caseTypes: new Map(cases.map((c) => [c.id, c.type])),
-    } as never);
-    expect(rows).toHaveLength(cases.length);
-    for (const row of rows) {
+    for (const row of await statics(id)) {
       expect(row.uncovered, `${row.caseName}: every load kind is accounted for`).toEqual([]);
-      expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
+      if (SHELL_DRILLING.has(id)) {
+        // Forces, and the moments about the in-plane axes of the shells, balance exactly; the
+        // moment about the shells' normal is short by the engine's drilling penalty (M14, pinned
+        // below). What is asserted is everything that defect does not touch.
+        const d = row.difference, sc = scales(row);
+        for (const k of ['fx', 'fy', 'fz'] as const) expect(Math.abs(d[k]) / sc.f, `${row.caseName} ${k}`).toBeLessThan(1e-9);
+        for (const k of SHELL_DRILLING.get(id)!.balanced) expect(Math.abs(d[k]) / sc.m, `${row.caseName} ${k}`).toBeLessThan(1e-9);
+      } else {
+        expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
+      }
     }
   });
+});
+
+/**
+ * M14 in the engine's pending list: the quad's drilling stabilisation stiffens the rotation about
+ * the shell normal with α·Nᵢ·Nⱼ alone, uncoupled from the in-plane translations, so a rigid
+ * rotation about the normal meets a restoring moment. The element acts as a weak spring to ground
+ * about its normal, and the reactions come short of the loads by that moment: 7·10⁻⁷ of it on the
+ * walls of model 03. Fixing the engine makes this pass, and then it and SHELL_DRILLING go.
+ */
+it.fails('validation-03 balances about the walls\' normal too (engine defect M14)', async () => {
+  for (const row of await statics('validation-03')) expect(row.worstRelative).toBeLessThan(1e-9);
 });
 
 describe('the "Validation models" group of the PRO examples', () => {
