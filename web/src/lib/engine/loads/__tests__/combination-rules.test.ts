@@ -54,3 +54,13 @@ describe('ids for new rules', () => {
     expect(new Set([...ids, 'r1', 'r3']).size).toBe(5);
   });
 });
+
+describe('service wind in project rules', () => {
+  it('survives seeding and a template round trip', async () => {
+    const { RULE_SYMBOLS } = await import('../combination-rules');
+    expect(RULE_SYMBOLS).toContain('Wa');
+    const rule: CombinationRule = { id: 'r1', purpose: 'service', terms: [{ symbol: 'D', factor: 1 }, { symbol: 'Wa', factor: 1 }] };
+    const back = rulesFromTemplate(rulesToTemplate([rule], 'Obra'))!;
+    expect(back.rules[0]!.terms).toEqual(rule.terms);
+  });
+});
