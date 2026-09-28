@@ -105,7 +105,9 @@ test.describe('arming the analysis', () => {
     await armSectionAnalysis(page);
     await queryAtMidspan(page);
 
-    await page.locator('.ssp-close').first().click();
+    // Floating, the panel carries its own ✕; docked in Advanced, the header
+    // above it does ("Back"), and the panel draws none.
+    await page.locator('.ssp-close, [data-testid="adv-close"]').first().click();
     await expect(page.locator('.ssp-panel')).toHaveCount(0);
     /*
      * Stress mode has no visible control of its own, so being left in it is
