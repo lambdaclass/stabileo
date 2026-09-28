@@ -8,7 +8,7 @@
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 
 let wasmReady = false;
@@ -95,6 +95,7 @@ let wasmSolveStaged3d: ((json: string) => string) | null = null;
 
 // Cable solver
 let wasmSolveCable2d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
+let wasmSolveCable3d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
 
 // Harmonic solvers
 let wasmSolveHarmonic2d: ((json: string) => string) | null = null;
@@ -263,6 +264,7 @@ export async function initSolver(): Promise<void> {
 
     // Cable
     wasmSolveCable2d = wasm.solve_cable_2d ?? null;
+    wasmSolveCable3d = wasm.solve_cable_3d ?? null;
 
     // Harmonic
     wasmSolveHarmonic2d = wasm.solve_harmonic_2d ?? null;
@@ -1224,6 +1226,49 @@ export function solveCable2D(
   if (!wasmReady || !wasmSolveCable2d) throw new Error('WASM cable 2D solver not available.');
   const payload = { solver: JSON.parse(serializeInput2D(input)), densities };
   return JSON.parse(wasmSolveCable2d(JSON.stringify(payload), maxIter, tolerance));
+}
+
+/** One cable element of a 3D cable analysis, SI units (kN, m). */
+export interface CableForce3D {
+  elementId: number;
+  tension: number;
+  horizontalThrust: number;
+  sag: number;
+  /** The equivalent (Ernst) modulus the iteration settled on, kN/m². */
+  ernstModulus: number;
+  /** The engine takes the chord as the unstretched length: there is no pretension. */
+  unstretchedLength: number;
+}
+
+/** A 3D input whose members may also be typed `cable`: a truss that only `solveCable3D` treats as
+ *  one, with its sag and tension-only stiffness. The other analyses take it as a truss. */
+export type SolverInputCable3D = Omit<SolverInput3D, 'elements'> & {
+  elements: Map<number, Omit<SolverElement3D, 'type'> & { type: SolverElement3D['type'] | 'cable' }>;
+};
+
+export interface CableAnalysis3D {
+  results: AnalysisResults3D;
+  iterations: number;
+  converged: boolean;
+  cableForces: CableForce3D[];
+}
+
+/**
+ * Solve a 3D cable analysis via WASM: the members typed `cable` carry tension only, and their own
+ * weight, from the densities, softens them (Ernst's equivalent modulus) and sets the sag they
+ * report. It is not applied to them as a load. The rest of the model is linear. Same payload as
+ * the 2D one, `{ solver, densities }`, with densities in kg/m³.
+ */
+export function solveCable3D(
+  input: SolverInputCable3D,
+  maxIter = 50,
+  tolerance = 1e-6,
+  densities: Record<string, number> = {},
+): CableAnalysis3D {
+  if (!wasmReady || !wasmSolveCable3d) throw new Error('WASM cable 3D solver not available.');
+  // The wire form does not look at the member type; it passes `cable` through to the engine.
+  const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities };
+  return JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
 }
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────
