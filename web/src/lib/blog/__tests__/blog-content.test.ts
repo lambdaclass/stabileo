@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { POSTS, findPost } from '..';
-import { readingMinutes, type Block } from '../types';
+import { readingMinutes, wordCount, type Block, type PostBody } from '../types';
 import { PUBLIC_LOCALES, dictFor } from '../../i18n/store.svelte';
 
 const LOCALES = PUBLIC_LOCALES;
@@ -120,7 +120,9 @@ describe('blog posts', () => {
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
                   ? `embed:${b.mode ?? 'basic'}:${b.query}`
-                  : b.k,
+                  : b.k === 'link'
+                    ? `link:${b.slug}`
+                    : b.k,
           );
         for (const locale of LOCALES) {
           expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
@@ -132,6 +134,18 @@ describe('blog posts', () => {
         expect(en.length).toBeGreaterThan(0);
         for (const locale of LOCALES) {
           expect(numericCells(post.i18n[locale].blocks), `${locale} table numbers differ`).toEqual(en);
+        }
+      });
+
+      it('links only to posts that exist, and never to itself', () => {
+        // A link block whose slug resolves to nothing renders nothing — so the
+        // failure has to be caught here, where it is loud, and not on the page.
+        for (const locale of LOCALES) {
+          for (const b of post.i18n[locale].blocks) {
+            if (b.k !== 'link') continue;
+            expect(findPost(b.slug), `${locale}: no post "${b.slug}"`).toBeTruthy();
+            expect(b.slug).not.toBe(post.slug);
+          }
         }
       });
 
@@ -168,5 +182,83 @@ describe('the determinism-boundary post keeps the solver’s numbers', () => {
       '203.9', '125.3', '1.63',
       '189.8', '313.7', '0.61',
     ]);
+  });
+});
+
+describe('the bars-or-finite-elements post keeps the engine’s numbers', () => {
+  const post = findPost('bars-or-finite-elements');
+  const tables = () => post!.i18n.en.blocks.filter((b) => b.k === 'table') as Extract<Block, { k: 'table' }>[];
+
+  it('exists', () => {
+    expect(post).toBeTruthy();
+  });
+
+  it('shows a straight bar giving the closed form however it is split', () => {
+    // The whole first argument: 2, 4, 10 or 50 frame elements, one number,
+    // and it is 5qL⁴/384EI. A row that differs is not a rounding tweak — it
+    // would mean the matrix is not exact, and the section would be false.
+    const [hermite] = tables();
+    const values = hermite.rows.map((r) => r[1]);
+    expect(new Set(values)).toEqual(new Set(['1.5625']));
+    const q = 10, L = 6, EI = 30000e3 * (0.2 * 0.6 ** 3) / 12;
+    expect(((5 * q * L ** 4) / (384 * EI)) * 1000).toBeCloseTo(1.5625, 6);
+  });
+
+  it('quotes the slenderness table as the engine reported it', () => {
+    const slender = tables()[1];
+    expect(slender.rows.map((r) => r.slice(2, 4))).toEqual([
+      ['12.500', '12.567'],
+      ['1.5625', '1.5961'],
+      ['0.19531', '0.21206'],
+      ['0.042188', '0.052145'],
+      ['0.012500', '0.019017'],
+    ]);
+    // The frame column is the closed form, 5qL⁴/384EI, to the digits printed.
+    const q = 10, L = 6, E = 30000e3, b = 0.2;
+    for (const r of slender.rows) {
+      const h = Number(r[1]);
+      const eb = ((5 * q * L ** 4) / (384 * E * (b * h ** 3) / 12)) * 1000;
+      const decimals = r[2].split('.')[1]?.length ?? 0;
+      expect(Math.abs(Number(r[2]) - eb)).toBeLessThanOrEqual(0.5 * 10 ** -decimals + 1e-12);
+    }
+    // The percentage column is what a calculator gives from the two columns
+    // beside it. It was computed from unrounded output while those columns
+    // were rounded, and four rows of five disagreed with a reader's check.
+    for (const r of slender.rows) {
+      const low = (1 - Number(r[2]) / Number(r[3])) * 100;
+      expect(`${low.toFixed(1)} %`).toBe(r[4]);
+    }
+    // Bars always below shells — the post's central claim, asserted rather
+    // than left to prose — and the gap widens as the beam gets deeper.
+    const gaps = slender.rows.map((r) => 1 - Number(r[2]) / Number(r[3]));
+    for (const g of gaps) expect(g).toBeGreaterThan(0);
+    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeGreaterThan(gaps[i - 1]);
+  });
+
+  it('adds up the hand check at L/h = 3', () => {
+    // Euler-Bernoulli plus Timoshenko's shear term, qL²/(8κGA) with κ = 5/6.
+    // The reader is told to do this with a calculator, so the test does too.
+    const q = 10, L = 6, b = 0.2, h = 2, E = 30000e3, nu = 0.2;
+    const eb = (5 * q * L ** 4) / (384 * (E * b * h ** 3) / 12);
+    const shear = (q * L ** 2) / (8 * (5 / 6) * (E / (2 * (1 + nu))) * b * h);
+    expect((eb * 1000).toFixed(4)).toBe('0.0422');
+    expect((shear * 1000).toFixed(4)).toBe('0.0108');
+    expect(((eb + shear) * 1000).toFixed(4)).toBe('0.0530');
+    expect(tables()[2].rows.map((r) => r[1])).toEqual(['0.0422', '0.0530', '0.0521', '0.0523']);
+  });
+
+  it('keeps each wall ratio consistent with its own displacements', () => {
+    for (const row of tables()[3].rows) {
+      const ratio = Number(row[3]) / Number(row[2]);
+      expect(ratio.toFixed(2), row[0]).toBe(row[4].split(' ')[0]);
+    }
+  });
+});
+
+describe('reading time', () => {
+  it('counts the linked post\u2019s title a link block renders', () => {
+    const body = { title: 'One', excerpt: 'Two', blocks: [{ k: 'link', slug: 'other', t: 'Read next:' }] } as unknown as PostBody;
+    expect(wordCount(body)).toBe(4);
+    expect(wordCount(body, () => 'The other post')).toBe(7);
   });
 });

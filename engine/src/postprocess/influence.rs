@@ -83,9 +83,11 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
         connectors: HashMap::new(),
     };
 
-    // Prepare once; per-point failures (or a prepare failure) yield 0.0
-    // ordinates, exactly like the previous per-point full solves.
-    let prepared = prepare_static_2d(&base).ok();
+    // Prepare once. A prepare failure is the model's, and it is returned: it
+    // used to be `.ok()`-ed into an influence line of zeros, handed back as
+    // `Ok` — a structure the solver refused (E ≤ 0, a collapsed shell)
+    // presented as one that nothing loads. Per-point failures still yield 0.0.
+    let prepared = prepare_static_2d(&base)?;
 
     // Pre-compute node positions
     let node_pos: HashMap<usize, (f64, f64)> = input.solver.nodes.values()
@@ -95,8 +97,18 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     let mut points = Vec::new();
 
     for elem in input.solver.elements.values() {
-        let (nix, niy) = *node_pos.get(&elem.node_i).unwrap();
-        let (njx, njy) = *node_pos.get(&elem.node_j).unwrap();
+        // A missing node is a caller error, not a crash. `prepare` above
+        // validates and would already have refused it; this used to `unwrap`
+        // on the `None` — panicking, which in WASM takes the whole module down
+        // with it — so it stays an error rather than an assumption.
+        let (Some(&(nix, niy)), Some(&(njx, njy))) =
+            (node_pos.get(&elem.node_i), node_pos.get(&elem.node_j))
+        else {
+            return Err(format!(
+                "Element {} references a node that does not exist (nodes {} and {})",
+                elem.id, elem.node_i, elem.node_j
+            ));
+        };
         let dx = njx - nix;
         let dy = njy - niy;
         let l = (dx * dx + dy * dy).sqrt();
@@ -113,7 +125,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
 
             let loads = influence_unit_loads_2d(elem, a, t, cos_theta, sin_theta);
 
-            let value = match prepared.as_ref().and_then(|p| p.solve_loads(&loads).ok()) {
+            let value = match prepared.solve_loads(&loads).ok() {
                 Some(result) => {
                     extract_value(&input.quantity, input.target_node_id, input.target_element_id, input.target_position, &result)
                 }
@@ -315,9 +327,11 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
         connectors: HashMap::new(),
     };
 
-    // Prepare once; per-point failures (or a prepare failure) yield 0.0
-    // ordinates, exactly like the previous per-point full solves.
-    let prepared = prepare_static_3d(&base).ok();
+    // Prepare once. A prepare failure is the model's, and it is returned: it
+    // used to be `.ok()`-ed into an influence line of zeros, handed back as
+    // `Ok` — a structure the solver refused (E ≤ 0, a collapsed shell)
+    // presented as one that nothing loads. Per-point failures still yield 0.0.
+    let prepared = prepare_static_3d(&base)?;
 
     let node_pos: HashMap<usize, (f64, f64, f64)> = input.solver.nodes.values()
         .map(|n| (n.id, (n.x, n.y, n.z)))
@@ -330,8 +344,16 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
             continue; // only traverse frame elements
         }
 
-        let (nix, niy, niz) = *node_pos.get(&elem.node_i).unwrap();
-        let (njx, njy, njz) = *node_pos.get(&elem.node_j).unwrap();
+        // See the 2D path: a dangling reference returns an error rather than
+        // panicking the module.
+        let (Some(&(nix, niy, niz)), Some(&(njx, njy, njz))) =
+            (node_pos.get(&elem.node_i), node_pos.get(&elem.node_j))
+        else {
+            return Err(format!(
+                "Element {} references a node that does not exist (nodes {} and {})",
+                elem.id, elem.node_i, elem.node_j
+            ));
+        };
         let dx = njx - nix;
         let dy = njy - niy;
         let dz = njz - niz;
@@ -359,7 +381,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
 
             let loads = influence_unit_loads_3d(elem.id, a, g_local_y, g_local_z);
 
-            let value = match prepared.as_ref().and_then(|p| p.solve_loads(&loads).ok()) {
+            let value = match prepared.solve_loads(&loads).ok() {
                 Some(result) => extract_value_3d(
                     &input.quantity,
                     input.target_node_id,

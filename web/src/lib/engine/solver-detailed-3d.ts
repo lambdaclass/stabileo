@@ -8,9 +8,10 @@
 
 import type {
   SolverInput3D, SolverSupport3D,
-  SolverDistributedLoad3D, SolverPointLoad3D,
+  SolverDistributedLoad3D, SolverPointLoad3D, SolverThermalLoad3D, SolverElement3D,
 } from './types-3d';
 import { t } from '../i18n';
+import { solveAllowingNullModes } from './dense-solve';
 
 // Re-export the same DSMStepData interface so the StepWizard can display both 2D and 3D
 export type {
@@ -131,7 +132,32 @@ function relJ3D(elem: { releaseMyEnd: boolean; releaseMzEnd: boolean; releaseTEn
  * DOF mapping: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz
  * Spring DOFs are NOT restrained (spring stiffness is added to K).
  */
+/** R for an inclined support: rows (n, e2, e3), the analysis solver's own construction. */
+function inclinedFrame(sup: SolverSupport3D): number[][] | null {
+  if (!sup.isInclined) return null;
+  const nx = sup.normalX ?? 0, ny = sup.normalY ?? 0, nz = sup.normalZ ?? 0;
+  const len = Math.hypot(nx, ny, nz);
+  if (len < 1e-12) return null;
+  const e1 = [nx / len, ny / len, nz / len];
+  const ref = Math.abs(e1[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  let e3 = [e1[1] * ref[2] - e1[2] * ref[1], e1[2] * ref[0] - e1[0] * ref[2], e1[0] * ref[1] - e1[1] * ref[0]];
+  const l3 = Math.hypot(e3[0], e3[1], e3[2]);
+  e3 = e3.map((v) => v / l3);
+  const e2 = [e3[1] * e1[2] - e3[2] * e1[1], e3[2] * e1[0] - e3[0] * e1[2], e3[0] * e1[1] - e3[1] * e1[0]];
+  return [e1, e2, e3];
+}
+
 function isDofRestrained3D(sup: SolverSupport3D, dof: number): boolean {
+  /*
+   * An inclined support restrains the translation along its normal, in the
+   * node's own axes (n, e2, e3) — it used to be read as its plain flags, which
+   * an inclined support leaves false, so it restrained nothing at all.
+   */
+  if (inclinedFrame(sup)) {
+    if (dof === 0) return true;
+    if (dof < 3) return false;
+    return [sup.rrx, sup.rry, sup.rrz][dof - 3];
+  }
   const springVal = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz][dof];
   if (springVal !== undefined && springVal > 0) return false;
 
@@ -254,43 +280,6 @@ function adjustFEFForHinges(
 
 // ─── LU Solver ───────────────────────────────────────────────────
 
-function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
-  const a = new Float64Array(A);
-  const bw = new Float64Array(b);
-
-  let maxDiag = 0;
-  for (let i = 0; i < n; i++) maxDiag = Math.max(maxDiag, Math.abs(A[i * n + i]));
-  const singularityTol = Math.max(1e-10, maxDiag * 1e-12);
-
-  for (let k = 0; k < n - 1; k++) {
-    let maxVal = Math.abs(a[k * n + k]);
-    let maxRow = k;
-    for (let i = k + 1; i < n; i++) {
-      const val = Math.abs(a[i * n + k]);
-      if (val > maxVal) { maxVal = val; maxRow = i; }
-    }
-    if (maxVal < singularityTol) throw new Error(t('detailed3d.singularMatrix'));
-    if (maxRow !== k) {
-      for (let j = 0; j < n; j++) {
-        const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
-      }
-      const tmp = bw[k]; bw[k] = bw[maxRow]; bw[maxRow] = tmp;
-    }
-    for (let i = k + 1; i < n; i++) {
-      const factor = a[i * n + k] / a[k * n + k];
-      for (let j = k + 1; j < n; j++) a[i * n + j] -= factor * a[k * n + j];
-      bw[i] -= factor * bw[k];
-    }
-  }
-  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error(t('detailed3d.singularHypostatic'));
-  const x = new Float64Array(n);
-  for (let i = n - 1; i >= 0; i--) {
-    let sum = bw[i];
-    for (let j = i + 1; j < n; j++) sum -= a[i * n + j] * x[j];
-    x[i] = sum / a[i * n + i];
-  }
-  return x;
-}
 
 // ─── Utility ─────────────────────────────────────────────────────
 
@@ -399,6 +388,10 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         T: float64ToMatrix(T, nDof, nDof),
         kGlobal: float64ToMatrix(kGlobal, nDof, nDof),
         dofIndices: dofs, dofLabels: dLabels,
+        releases: elem.type === 'frame' ? {
+          myStart: !!elem.releaseMyStart, myEnd: !!elem.releaseMyEnd, mzStart: !!elem.releaseMzStart,
+          mzEnd: !!elem.releaseMzEnd, tStart: !!elem.releaseTStart, tEnd: !!elem.releaseTEnd,
+        } : undefined,
       });
 
       for (let i = 0; i < dofs.length; i++) {
@@ -435,6 +428,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         T: float64ToMatrix(T, nDof, nDof),
         kGlobal: float64ToMatrix(kGlobal, nDof, nDof),
         dofIndices: dofs, dofLabels: dLabels,
+        releases: undefined,
       });
 
       for (let i = 0; i < nDof; i++) {
@@ -461,40 +455,38 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     }
   }
 
-  // Artificial rotational springs at all-hinged nodes (same logic as solver-3d.ts)
+  /*
+   * ── Rotations no element resists ───────────────────────────────
+   *
+   * A node's rotation is resisted only by the frame ends joined to it. Where
+   * none resists it in some direction — every end released about that axis,
+   * or the node reached only by truss bars in a model that also has frames —
+   * that direction of the node's 3×3 rotation block has no stiffness at all,
+   * and the matrix is singular for a reason that has nothing to do with the
+   * structure's stability. The analysis solver adds a vanishing spring there
+   * (1e-10 of the largest diagonal); so does this, wherever the block is
+   * singular. Checking the block itself, rather than counting releases,
+   * covers a release about ONE axis on a skew member, which counting missed.
+   */
   if (dofsPerNode >= 6) {
     let maxDiagK = 0;
     for (let i = 0; i < nTotal; i++) maxDiagK = Math.max(maxDiagK, Math.abs(K[i * nTotal + i]));
     const artificialK = maxDiagK > 0 ? maxDiagK * 1e-10 : 1e-6;
-
-    const nodeHingeCount = new Map<number, number>();
-    const nodeFrameCount = new Map<number, number>();
-    for (const elem of input.elements.values()) {
-      if (elem.type !== 'frame') continue;
-      nodeFrameCount.set(elem.nodeI, (nodeFrameCount.get(elem.nodeI) ?? 0) + 1);
-      nodeFrameCount.set(elem.nodeJ, (nodeFrameCount.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.releaseMyStart || elem.releaseMzStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
-      if (elem.releaseMyEnd || elem.releaseMzEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
-    }
-
-    const rotRestrainedNodes = new Set<number>();
-    for (const sup of input.supports.values()) {
-      if (sup.rrx) rotRestrainedNodes.add(sup.nodeId);
-      if (sup.rry) rotRestrainedNodes.add(sup.nodeId);
-      if (sup.rrz) rotRestrainedNodes.add(sup.nodeId);
-      if (sup.krx && sup.krx > 0) rotRestrainedNodes.add(sup.nodeId);
-      if (sup.kry && sup.kry > 0) rotRestrainedNodes.add(sup.nodeId);
-      if (sup.krz && sup.krz > 0) rotRestrainedNodes.add(sup.nodeId);
-    }
-
-    for (const [nodeId, hinges] of nodeHingeCount) {
-      const frames = nodeFrameCount.get(nodeId) ?? 0;
-      if (hinges >= frames && frames >= 1 && !rotRestrainedNodes.has(nodeId)) {
-        for (let rd = 3; rd <= 5; rd++) {
-          const idx = globalDof(nodeId, rd);
-          if (idx !== undefined && idx < nFree) K[idx * nTotal + idx] += artificialK;
+    const tol = Math.max(maxDiagK * 1e-9, 1e-12);
+    for (const nodeId of nodeOrder) {
+      const dofs = [3, 4, 5].map((d) => globalDof(nodeId, d)).filter((d): d is number => d !== undefined && d < nFree);
+      if (dofs.length === 0) continue;
+      /* Cholesky of the free rotation block; a pivot under tol means a direction without stiffness. */
+      const m = dofs.map((a) => dofs.map((b) => K[a * nTotal + b]));
+      let singular = false;
+      for (let k = 0; k < m.length && !singular; k++) {
+        if (m[k][k] < tol) { singular = true; break; }
+        for (let i = k + 1; i < m.length; i++) {
+          const f = m[i][k] / m[k][k];
+          for (let j = k; j < m.length; j++) m[i][j] -= f * m[k][j];
         }
       }
+      if (singular) for (const d of dofs) K[d * nTotal + d] += artificialK;
     }
   }
 
@@ -516,7 +508,7 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       const vals = [fx, fy, fz, mx, my, mz];
       for (let d = 0; d < dofsPerNode; d++) {
         if (d < vals.length && Math.abs(vals[d]) > 1e-15) {
-          addLC(nodeId, d, vals[d], `Carga nodal en nodo ${nodeId}, DOF ${d}`);
+          addLC(nodeId, d, vals[d], `${t('detailed.lc.nodal').replace('{id}', String(nodeId))} · ${['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'][d]}`);
         }
       }
 
@@ -525,6 +517,81 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
 
     } else if (load.type === 'pointOnElement') {
       assemblePointLoadDetailed(input, load.data, globalDof, allDofLabels, dofsPerNode, F, loadContributions);
+    }
+  }
+
+  /*
+   * Thermal loads, once per element: equivalent loads into global axes.
+   * A truss bar takes its uniform part as a pair of axial forces — it used
+   * to be skipped altogether, so a heated space truss showed no load at all.
+   */
+  for (const elem of input.elements.values()) {
+    if (elem.type === 'truss') {
+      const nTh = trussThermalForce3D(input, elem);
+      if (!nTh) continue;
+      const nI = input.nodes.get(elem.nodeI)!;
+      const nJ = input.nodes.get(elem.nodeJ)!;
+      const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, nJ.z - nI.z);
+      const ex = [(nJ.x - nI.x) / L, (nJ.y - nI.y) / L, (nJ.z - nI.z) / L];
+      const desc = t('detailed.thermalLoadDesc').replace('{id}', String(elem.id));
+      const names = ['ux', 'uy', 'uz'];
+      for (let d = 0; d < 3; d++) {
+        addLC(elem.nodeI, d, -nTh * ex[d], `${desc}, I ${names[d]}`);
+        addLC(elem.nodeJ, d, nTh * ex[d], `${desc}, J ${names[d]}`);
+      }
+      continue;
+    }
+    if (elem.type !== 'frame') continue;
+    const nodeI = input.nodes.get(elem.nodeI)!;
+    const nodeJ = input.nodes.get(elem.nodeJ)!;
+    const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+      ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+    const axes = computeLocalAxes3D(nodeI, nodeJ, localY, elem.rollAngle, input.leftHand);
+    const fLocal = thermalEquivalent3D(input, elem, axes.L);
+    if (!fLocal) continue;
+    const T = frameTransformationMatrix3D(axes.ex, axes.ey, axes.ez);
+    const desc = t('detailed.thermalLoadDesc').replace('{id}', String(elem.id));
+    const names = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+    [elem.nodeI, elem.nodeJ].forEach((nodeId, n) => {
+      for (let d = 0; d < dofsPerNode; d++) {
+        let v = 0;
+        for (let k = 0; k < 12; k++) v += T[k * 12 + n * 6 + d] * fLocal[k];
+        addLC(nodeId, d, v, `${desc}, ${n === 0 ? 'I' : 'J'} ${names[d]}`);
+      }
+    });
+  }
+
+  /*
+   * ── Inclined supports: their node into its own axes ─────────────
+   *
+   * K and F were assembled in global axes; at an inclined support the three
+   * translational rows and columns are rotated by R (n, e2, e3), so that the
+   * restrained normal is a DOF of its own — the analysis solver's treatment.
+   * The load vector gains one contribution row per rotated DOF, saying so.
+   */
+  const inclined3D: Array<{ nodeId: number; R: number[][]; dofs: number[] }> = [];
+  for (const sup of input.supports.values()) {
+    const R = inclinedFrame(sup);
+    if (!R) continue;
+    const dofs = [0, 1, 2].map((d) => globalDof(sup.nodeId, d)!);
+    if (dofs.some((d) => d === undefined)) continue;
+    inclined3D.push({ nodeId: sup.nodeId, R, dofs });
+    for (let i = 0; i < nTotal; i++) {
+      const v = dofs.map((d) => K[i * nTotal + d]);
+      for (let a = 0; a < 3; a++) K[i * nTotal + dofs[a]] = R[a][0] * v[0] + R[a][1] * v[1] + R[a][2] * v[2];
+    }
+    for (let j = 0; j < nTotal; j++) {
+      const v = dofs.map((d) => K[d * nTotal + j]);
+      for (let a = 0; a < 3; a++) K[dofs[a] * nTotal + j] = R[a][0] * v[0] + R[a][1] * v[1] + R[a][2] * v[2];
+    }
+    const fv = dofs.map((d) => F[d]);
+    for (let a = 0; a < 3; a++) {
+      const rotated = R[a][0] * fv[0] + R[a][1] * fv[1] + R[a][2] * fv[2];
+      const delta = rotated - F[dofs[a]];
+      F[dofs[a]] = rotated;
+      if (Math.abs(delta) > 1e-15) {
+        loadContributions.push({ dofIndex: dofs[a], dofLabel: allDofLabels[dofs[a]], source: t('detailed.lc.inclinedFrame').replace('{id}', String(sup.nodeId)), value: delta });
+      }
     }
   }
 
@@ -571,10 +638,22 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
   }
 
   // ─── Step 7: Solve ────────────────────────────────────────────
+  /** Free DOFs no stiffness governs and no load excites — see dense-solve.ts. */
+  let nullModes: string[] = [];
   let uf: Float64Array;
   const uAll = new Float64Array(nTotal);
   if (nFree > 0) {
-    uf = solveLU(KffArr, FfMod, nFree);
+    {
+      const sol = solveAllowingNullModes(KffArr, FfMod, nFree, t('detailed3d.singularHypostatic'));
+      uf = sol.x;
+      /* Every DOF that moves in a mode, not only the one the elimination freed. */
+      const moving = new Set<number>();
+      for (const mode of sol.modes) {
+        const peak = Math.max(...Array.from(mode, Math.abs));
+        mode.forEach((v, k) => { if (Math.abs(v) > 1e-6 * peak) moving.add(k); });
+      }
+      nullModes = [...moving].sort((p, q) => p - q).map((k) => allDofLabels[k]);
+    }
     for (let i = 0; i < nFree; i++) uAll[i] = uf[i];
   } else {
     uf = new Float64Array(0);
@@ -588,6 +667,13 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     for (let j = 0; j < nFree; j++) sum += K[(nFree + i) * nTotal + j] * uf[j];
     for (let j = 0; j < nRestr; j++) sum += K[(nFree + i) * nTotal + (nFree + j)] * uR[j];
     reactionsRaw[i] = sum - F[nFree + i];
+  }
+
+  /* Step 9 needs displacements in global axes: turn the inclined nodes back. */
+  const uGlobalAll = new Float64Array(uAll);
+  for (const f of inclined3D) {
+    const v = f.dofs.map((d) => uAll[d]);
+    for (let a = 0; a < 3; a++) uGlobalAll[f.dofs[a]] = f.R[0][a] * v[0] + f.R[1][a] * v[1] + f.R[2][a] * v[2];
   }
 
   // ─── Step 9: Internal forces ──────────────────────────────────
@@ -622,8 +708,8 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       // Get global displacements (12 DOFs)
       const uGlob = new Float64Array(12);
       for (let d = 0; d < 6; d++) {
-        const iI = globalDof(elem.nodeI, d); uGlob[d] = iI !== undefined ? uAll[iI] : 0;
-        const iJ = globalDof(elem.nodeJ, d); uGlob[6 + d] = iJ !== undefined ? uAll[iJ] : 0;
+        const iI = globalDof(elem.nodeI, d); uGlob[d] = iI !== undefined ? uGlobalAll[iI] : 0;
+        const iJ = globalDof(elem.nodeJ, d); uGlob[6 + d] = iJ !== undefined ? uGlobalAll[iJ] : 0;
       }
 
       // Transform to local: u_local = T * u_global
@@ -690,6 +776,9 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         }
       }
 
+      const th = thermalEquivalent3D(input, elem, L);
+      if (th) for (let i = 0; i < 12; i++) fef[i] += th[i];
+
       // Final local forces = raw - FEF
       const fFinal = new Float64Array(12);
       for (let i = 0; i < 12; i++) fFinal[i] = fRaw[i] - fef[i];
@@ -705,8 +794,8 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
       // Truss: 6-component arrays [ux1,uy1,uz1,ux2,uy2,uz2]
       const uGlob = new Float64Array(6);
       for (let d = 0; d < 3; d++) {
-        const iI = globalDof(elem.nodeI, d); uGlob[d] = iI !== undefined ? uAll[iI] : 0;
-        const iJ = globalDof(elem.nodeJ, d); uGlob[3 + d] = iJ !== undefined ? uAll[iJ] : 0;
+        const iI = globalDof(elem.nodeI, d); uGlob[d] = iI !== undefined ? uGlobalAll[iI] : 0;
+        const iJ = globalDof(elem.nodeJ, d); uGlob[3 + d] = iJ !== undefined ? uGlobalAll[iJ] : 0;
       }
 
       // Transform to local using T
@@ -727,13 +816,16 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         fRaw[i] = sum;
       }
 
+      /* Its only equivalent load is thermal: −N_T at I, +N_T at J, along the bar. */
+      const nTh = trussThermalForce3D(input, elem);
+      const eq = [-nTh, 0, 0, nTh, 0, 0];
       elementForcesSteps.push({
         elementId: elem.id,
         uGlobal: Array.from(uGlob),
         uLocal: Array.from(uLoc),
         fLocalRaw: Array.from(fRaw),
-        fixedEndForces: [0, 0, 0, 0, 0, 0],
-        fLocalFinal: Array.from(fRaw), // No FEF for trusses (no distributed loads on trusses)
+        fixedEndForces: eq,
+        fLocalFinal: Array.from(fRaw, (v, k) => v - eq[k]),
       });
     }
   }
@@ -761,6 +853,10 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
     dofLabels: allDofLabels,
     freeDofLabels,
     restrDofLabels,
+    nullModes,
+    /* 2D's in-plane frames; the 3D inclined ones are below. */
+    nodeFrames: [],
+    nodeFrames3D: inclined3D.map((f) => ({ nodeId: f.nodeId, R: f.R })),
   };
 }
 
@@ -849,6 +945,56 @@ function assembleDistLoadDetailed(
 }
 
 // ─── Point load on element assembly helper (with step tracking) ──
+
+/**
+ * Thermal equivalent loads for one frame element, local 12-vector — the
+ * analysis solver's `fef_thermal_3d` convention (α = 12e-6, h = √(12 I / A)),
+ * with the same per-axis hinge condensation the other loads get.
+ *
+ * Thermal loads were not read at all: the wizard showed a load vector
+ * without them and solved a different structure from the one analysed.
+ */
+function thermalEquivalent3D(
+  input: SolverInput3D, elem: SolverElement3D, L: number,
+): Float64Array | null {
+  const f = new Float64Array(12);
+  let any = false;
+  const mat = input.materials.get(elem.materialId)!;
+  const sec = input.sections.get(elem.sectionId)!;
+  const E = mat.e * 1000;
+  const alpha = 12e-6;
+  const hy = sec.a > 1e-15 ? Math.sqrt(12 * sec.iz / sec.a) : 0.1;
+  const hz = sec.a > 1e-15 ? Math.sqrt(12 * sec.iy / sec.a) : 0.1;
+  for (const load of input.loads) {
+    if (load.type !== 'thermal' || load.data.elementId !== elem.id) continue;
+    any = true;
+    const tl = load.data as SolverThermalLoad3D;
+    const fx = E * sec.a * alpha * (tl.dtUniform ?? 0);
+    f[0] += -fx; f[6] += fx;
+    const mz = hy > 1e-12 ? E * sec.iz * alpha * (tl.dtGradientY ?? 0) / hy : 0;
+    const my = hz > 1e-12 ? E * sec.iy * alpha * (tl.dtGradientZ ?? 0) / hz : 0;
+    if (mz) {
+      const [vi, mi, vj, mj] = adjustFEFForHinges(0, -mz, 0, mz, L, elem.releaseMzStart, elem.releaseMzEnd);
+      f[1] += vi; f[5] += mi; f[7] += vj; f[11] += mj;
+    }
+    if (my) {
+      /* In the z-plane's 2D sign (θy = −dw/dx), then flipped back like every other z load. */
+      const [vi, mi, vj, mj] = adjustFEFForHinges(0, my, 0, -my, L, elem.releaseMyStart, elem.releaseMyEnd);
+      f[2] += vi; f[4] += -mi; f[8] += vj; f[10] += -mj;
+    }
+  }
+  return any ? f : null;
+}
+
+/** E·A·α·ΔT of a truss bar's uniform temperature change (α as the analysis solver uses, 12e-6). */
+function trussThermalForce3D(input: SolverInput3D, elem: SolverElement3D): number {
+  let dt = 0;
+  for (const l of input.loads) if (l.type === 'thermal' && l.data.elementId === elem.id) dt += l.data.dtUniform ?? 0;
+  if (!dt) return 0;
+  const mat = input.materials.get(elem.materialId)!;
+  const sec = input.sections.get(elem.sectionId)!;
+  return mat.e * 1000 * sec.a * 12e-6 * dt;
+}
 
 function assemblePointLoadDetailed(
   input: SolverInput3D,

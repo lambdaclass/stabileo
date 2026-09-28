@@ -250,3 +250,240 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     expect(Math.round(back!.width)).toBe(Math.round(small!.width));
   });
 });
+
+/*
+ * The calculator is an advanced function, and behaves like one.
+ *
+ * It was not in the registry that drives that panel, and the two symptoms the
+ * reader reported both followed from it: nothing could make it the RUNNING
+ * analysis, so it never got the header naming what you are in nor the ✕ that
+ * leaves it; and `shown()` was never asked about it, so it stayed on screen
+ * beside whatever else you opened. Every other entry hides while another one
+ * runs — the panel shows one thing at a time — which is what made this one look
+ * like a stray disclosure rather than a function you enter.
+ */
+test.describe('@smoke the calculator behaves like the other advanced functions', () => {
+  test('opening it makes it the running analysis, with a name and a way out', async ({ page }) => {
+    await openFlex(page);
+    const running = page.getByTestId('adv-running');
+    await expect(running).toBeVisible();
+    await expect(running).toHaveAttribute('data-adv', 'cirsocFlex');
+    // Its own button is gone while it is the thing running: the header replaces it.
+    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+
+    await page.getByTestId('adv-close').click();
+    await expect(running).toHaveCount(0);
+    await expect(page.getByTestId('adv-flex')).toBeVisible();
+  });
+
+  test('it explains itself, like every other entry in the panel', async ({ page }) => {
+    /* It was the only button in Advanced with no `?` — no way to ask what it
+       does before pressing it. */
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.getByTestId('rb-cmd-advanced').click();
+    const row = page.getByTestId('adv-flex').locator('..');
+    const help = row.getByRole('button', { name: '?' });
+    await expect(help).toBeVisible();
+    await help.click();
+    await expect(page.getByText(/CIRSOC FLEX/i).first()).toBeVisible();
+  });
+
+  test('it hides while another advanced function is running', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('adv-close').click();
+
+    // Kinematic analysis is the first entry and needs no solved model.
+    const kin = page.getByRole('button', { name: /cinem|kinematic/i }).first();
+    await kin.click();
+    await expect(page.getByTestId('adv-running')).toBeVisible();
+    /* The defect: the calculator used to stay on screen underneath whatever
+       else was open, which no other entry in this panel can do. */
+    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+  });
+});
+
+/*
+ * The sheet's own shape.
+ *
+ * This panel is for checking against CIRSOC FLEX, which only works if the two
+ * lay the same things out under the same names and numbers. The sheets number
+ * their sections, tabulate the whole interaction diagram as six named states,
+ * and state the verdict as two resistant components rather than one ratio.
+ */
+test.describe('@smoke laid out like the workbook', () => {
+  test('opens with the general data the sheet prints first', async ({ page }) => {
+    await openFlex(page);
+    const general = page.getByTestId('flex-general');
+    await expect(general).toBeVisible();
+    /* Es, εy and β1 are what every later number is built on; the sheet puts
+       them on the page so they can be read rather than inferred. */
+    await expect(general).toContainText('200,000');
+    await expect(general).toContainText('β1');
+    await expect(general).toContainText('0.850');
+  });
+
+  test('verifying a column states the safety condition the way the sheet does',
+    async ({ page }) => {
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCR');
+      await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+      const safety = page.getByTestId('flex-safety');
+      await expect(safety).toBeVisible();
+      /* Both components and both magnitudes: a single ratio hides where on the
+         diagram the resistance was read. */
+      for (const label of ['Pu res', 'Mu res', 'MV sol', 'MV res', 'MV res / MV sol']) {
+        await expect(safety).toContainText(label);
+      }
+    });
+
+  test('tabulates the six characteristic points, for both edges', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+
+    const tables = page.getByTestId('flex-characteristic');
+    await expect(tables).toHaveCount(2);      // bottom compressed, then top
+
+    const first = tables.first();
+    await expect(first).toContainText(/Axial limit|Límite/i);
+    await expect(first).toContainText(/Pure flexural|flexión pura/i);
+    await expect(first).toContainText(/Maximum tensile|Máxima resistencia/i);
+    // Six named states, and a φ column that is the point of the table.
+    await expect(first.locator('tbody tr')).toHaveCount(6);
+    await expect(first).toContainText('0.65');
+    await expect(first).toContainText('0.90');
+  });
+
+  test('a beam gets neither, because its sheet prints neither', async ({ page }) => {
+    /* FSR and FST have no interaction diagram and no axial component; showing
+       an empty version of either would be inventing a section of the sheet. */
+    await openFlex(page);
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+    await expect(page.getByTestId('flex-characteristic')).toHaveCount(0);
+    await expect(page.getByTestId('flex-safety')).toHaveCount(0);
+  });
+});
+
+test.describe('@smoke the figure the sheet puts under its results', () => {
+  test('a column gets the interaction diagram, with both markers', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+
+    await expect(page.getByTestId('flex-diagram')).toBeVisible();
+    /* Red for what is asked, magenta for what the section gives at that same
+       eccentricity. The pair says WHERE the section is short, which a single
+       ratio cannot. */
+    await expect(page.getByTestId('flex-diagram-dem')).toBeVisible();
+    await expect(page.getByTestId('flex-diagram-res')).toBeVisible();
+  });
+
+  test('a beam gets none, because a beam has no axial component', async ({ page }) => {
+    await openFlex(page);
+    await expect(page.getByTestId('flex-diagram')).toHaveCount(0);
+  });
+
+  test('with no demand typed, the curve is drawn and nothing is marked on it',
+    async ({ page }) => {
+      /* The sizing sheets head their chart "para las armaduras necesarias" and
+         plot no solicitation; the verification sheet says to enter zeros when
+         you do not want one plotted. */
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCR');
+      for (const label of ['Pu [kN]', 'Mu [kN·m]']) {
+        await page.getByText(label, { exact: true }).locator('..').locator('input').fill('0');
+      }
+      await expect(page.getByTestId('flex-diagram')).toBeVisible();
+      await expect(page.getByTestId('flex-diagram-dem')).toHaveCount(0);
+    });
+});
+
+test.describe('@smoke the biaxial sheet asks for areas when verifying', () => {
+  test('percentages to size, areas to check — and it shows the split it derived',
+    async ({ page }) => {
+      await openFlex(page);
+      await page.getByTestId('flex-case').selectOption('FCO');
+      /* Sizing: the total is what is being found, so the positions are shares. */
+      await expect(page.getByTestId('fco-as1')).toHaveCount(0);
+
+      await page.getByRole('button', { name: /VERIFY|VERIFICA/i }).first().click();
+      /* Checking: the steel is known, so the sheet asks for it directly. */
+      await expect(page.getByTestId('fco-as1')).toBeVisible();
+      await expect(page.getByTestId('fco-as2')).toBeVisible();
+      await expect(page.getByTestId('fco-as3')).toBeVisible();
+
+      await page.getByTestId('fco-as1').fill('12');
+      await page.getByTestId('fco-as2').fill('4');
+      await page.getByTestId('fco-as3').fill('4');
+      /* 12 + 4 + 4 = 20, so 60 / 20 / 20 — shown rather than taken on trust,
+         because it is the split a reader compares against the sheet's own. */
+      const derived = page.getByTestId('fco-derived-pct');
+      await expect(derived).toContainText('20.000');
+      await expect(derived).toContainText('60.0');
+    });
+});
+
+/*
+ * The figures and rows found missing by laying the panel beside the workbook:
+ * FCO's surface cut, the uncapped curve every column chart carries, and the
+ * verification sheets' own inputs and numbering.
+ */
+test.describe('@smoke what each sheet draws and asks for', () => {
+  test('FCO draws the surface cut: eight per-cent contours and the adopted one', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCO');
+    await expect(page.getByTestId('flex-surface-cut')).toBeVisible();
+    await expect(page.getByTestId('flex-cut-grid')).toHaveCount(8);
+    await expect(page.getByTestId('flex-cut-result')).toHaveCount(1);
+    await expect(page.getByTestId('flex-cut-dem')).toBeVisible();
+    /* The biaxial sheet has no (M, P) diagram; drawing one would be ours, not its. */
+    await expect(page.getByTestId('flex-diagram')).toHaveCount(0);
+    /* 4.2 prints Pu (max) for the 8 % ceiling when sizing: 2 487,42 kN. */
+    await expect(page.getByTestId('flex-minmax')).toContainText('2487.42');
+  });
+
+  test('FCO-VERIF: φMn / Mu at the fixed axial load, the cut with the resistance on it', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCO');
+    await page.getByTestId('flex-mode-verify').click();
+    await expect(page.getByTestId('flex-sheet-rows')).toContainText('1.0004');
+    await expect(page.getByTestId('flex-cut-res')).toBeVisible();
+    await expect(page.getByTestId('flex-positioning')).toBeVisible();
+    await expect(page.getByTestId('flex-minmax')).toContainText('1437.23');
+  });
+
+  test('every column diagram carries the uncapped curve too', async ({ page }) => {
+    await openFlex(page);
+    for (const id of ['FCR', 'FCR-CIR']) {
+      await page.getByTestId('flex-case').selectOption(id);
+      await expect(page.getByTestId('flex-diagram-uncapped'), id).toBeVisible();
+      await expect(page.getByTestId('flex-diagram-capped'), id).toBeVisible();
+    }
+  });
+
+  test('FCR-VERIF: Ast is the levels summed, and the sections are numbered as the sheet numbers them', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR');
+    await page.getByTestId('flex-mode-verify').click();
+    const rows = page.getByTestId('flex-sheet-rows');
+    await expect(rows).toContainText('21.336');
+    const panel = page.getByTestId('flex-panel');
+    await expect(panel).toContainText(/5 · (Safety|Condición)/i);
+    await expect(panel).toContainText(/6 · (Characteristic|Puntos)/i);
+    await expect(page.getByTestId('flex-eccentricity')).toContainText('0.200');
+    await expect(page.getByTestId('flex-points-diagram')).toBeVisible();
+  });
+
+  test('FCR-CIR-VERIF asks for one bar’s area and the count, as the sheet does', async ({ page }) => {
+    await openFlex(page);
+    await page.getByTestId('flex-case').selectOption('FCR-CIR');
+    await page.getByTestId('flex-mode-verify').click();
+    await expect(page.getByTestId('flex-asi')).toHaveValue('7.21');
+    await expect(page.getByTestId('flex-circ-derived')).toContainText('86.520');
+    await expect(page.getByTestId('flex-bar-location')).toBeVisible();
+    /* The sheet's own MV res / MV sol for this section: 0,9997. */
+    await expect(page.getByTestId('flex-safety')).toContainText('0.9997');
+    await expect(page.getByTestId('flex-panel')).toContainText(/4 · (Safety|Condición)/i);
+  });
+});

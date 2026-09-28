@@ -21,6 +21,8 @@ export interface KinematicResult3D {
   diagnosis: string;
   /** Whether the structure can be solved */
   isSolvable: boolean;
+  /** The engine's validation message when the model's data was refused before analysis. */
+  invalidInput?: string;
 }
 
 // ─── Static Degree ───────────────────────────────────────────────
