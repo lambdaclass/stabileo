@@ -29,6 +29,7 @@ const SHAPE: Record<ValidationModelId, { nodes: number; members: number; support
   'validation-01': { nodes: 1153, members: 552, supports: 25, cases: 2, combinations: 1 },
   'validation-02': { nodes: 56, members: 119, supports: 6, cases: 2, combinations: 1 },
   'validation-03': { nodes: 230, members: 97, supports: 38, cases: 1, combinations: 0 },
+  'validation-05': { nodes: 150, members: 450, supports: 6, cases: 3, combinations: 2 },
   'validation-06': { nodes: 18, members: 25, supports: 3, cases: 3, combinations: 0 },
   'validation-07': { nodes: 40, members: 76, supports: 8, cases: 2, combinations: 1 },
 };

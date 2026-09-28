@@ -22,6 +22,7 @@ export const VALIDATION_MODELS = {
   'validation-01': () => import('./validation-01.stabileo.txt?raw'),
   'validation-02': () => import('./validation-02.stabileo.txt?raw'),
   'validation-03': () => import('./validation-03.stabileo.txt?raw'),
+  'validation-05': () => import('./validation-05.stabileo.txt?raw'),
   'validation-06': () => import('./validation-06.stabileo.txt?raw'),
   'validation-07': () => import('./validation-07.stabileo.txt?raw'),
 } as const;
