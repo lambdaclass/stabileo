@@ -27,6 +27,7 @@
 import type { Element, Load, Support } from './model.svelte';
 import { EMBED_XZ_DOF_PERMUTATION } from '../engine/expand-joints-3d';
 import { buildSolverLoads3D, shouldEmbedFlat2DModelIn3D, type ModelData } from '../engine/solver-service';
+import { memberThermalScale } from '../engine/thermal-alpha';
 
 type Dofs = { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
 
@@ -78,10 +79,16 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
         case 'pointOnElement':
           loads.push({ type: 'pointOnElement3d', data: { id, elementId: d.elementId, a: d.a, py: d.py, pz: d.pz, ...c } } as Load);
           break;
-        case 'thermal':
-          // The space mapping sends ΔTg as −dtGradientZ; the model keeps ΔTg.
-          loads.push({ type: 'thermal', data: { id, elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: -(d.dtGradientZ ?? 0), ...c } } as Load);
+        case 'thermal': {
+          // The space mapping sends ΔTg as −dtGradientZ; the model keeps ΔTg. The wire also
+          // carries the material's α as a factor on both (thermal-alpha.ts), which the solve
+          // applies again: the model keeps the plain temperatures, or the rewrite would scale
+          // them by α/α_engine a second time (0.83 on concrete).
+          const el = model.elements.get(d.elementId);
+          const k = memberThermalScale(el ? model.materials.get(el.materialId) : undefined);
+          loads.push({ type: 'thermal', data: { id, elementId: d.elementId, dtUniform: d.dtUniform / k, dtGradient: -(d.dtGradientZ ?? 0) / k, ...c } } as Load);
           break;
+        }
         default:
           break;
       }
