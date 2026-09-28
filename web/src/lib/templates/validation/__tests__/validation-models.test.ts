@@ -26,6 +26,7 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
 /** What each model is, as counts: nodes, members, supports, cases, combinations. */
 const SHAPE: Record<ValidationModelId, { nodes: number; members: number; supports: number; cases: number; combinations: number }> = {
+  'validation-02': { nodes: 56, members: 119, supports: 6, cases: 2, combinations: 1 },
   'validation-06': { nodes: 18, members: 25, supports: 3, cases: 3, combinations: 0 },
   'validation-07': { nodes: 40, members: 76, supports: 8, cases: 2, combinations: 1 },
 };

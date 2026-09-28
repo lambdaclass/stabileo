@@ -1,0 +1,255 @@
+stabileo-model 1
+# Validation model 2: a light steel warehouse, three portal frames with pitched roof trusses,
+# purlins and longitudinal bracing trusses. All joints are rigid.
+# Z up: the source model is Y up, and (x, y, z) becomes (x, -z, y). SI units, exact factors
+# from inches and kips. Members keep the source numbering; the physical members it grouped
+# them into are not modelled, and loads stated along one are applied to each of its members.
+# The source states G = 11200 ksi apart from E; nu is set to E/(2G) - 1 so that G is exact.
+# Member end offsets are global and equal at both ends, as stated. Beta angles are roll angles.
+name "Validación 02 · Nave liviana con cerchas"
+mode pro
+axes zUpStrongAxis
+
+# Materials
+material 1 name="Acero" e=199947.9615 nu=0.2946428571 rho=76.81953992 alpha=1.17e-5
+
+# Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
+section 1 name="W10X88" a=0.01677416 iy=0.0002222675813 iz=7.450542518e-5 j=3.134222722e-6 shearAreas={"basis":"declared","asY":0.004215475696,"asZ":0.008771376141}
+section 2 name="2L 2½×2½×¼" a=0.001535480874 iy=5.853419156e-7 iz=1.092625653e-6 j=2.063814199e-8 shearAreas={"basis":"declared","asY":0.0005376333205,"asZ":0.0005376333205}
+section 3 name="2L 2×2×¼" a=0.001218062087 iy=2.8936968e-7 iz=5.606945447e-7 j=1.637176899e-8 shearAreas={"basis":"declared","asY":0.0004301066795,"asZ":0.0004301066795}
+section 4 name="C6X8.2" a=0.001541932468 iy=5.452631834e-6 iz=2.859509797e-7 j=3.06346336e-8 shearAreas={"basis":"declared","asY":0.0007741920308,"asZ":0.0005665020611}
+
+# Nodes: id x y z
+node 1 0 0 0
+node 2 7.3152 0 0
+node 3 0 0 3.6576
+node 4 7.3152 0 3.6576
+node 5 0 0 5.0292
+node 6 7.3152 0 5.0292
+node 7 3.6576 0 5.4864
+node 8 1.2192 0 5.1816
+node 9 2.4384 0 5.334
+node 10 4.8768 0 5.334
+node 11 6.096 0 5.1816
+node 12 1.2192 0 3.6576
+node 13 2.4384 0 3.6576
+node 14 3.6576 0 3.6576
+node 15 4.8768 0 3.6576
+node 16 6.096 0 3.6576
+node 17 0 -5.4864 0
+node 18 0 -5.4864 3.6576
+node 19 0 -10.9728 0
+node 20 0 -10.9728 3.6576
+node 21 0 -5.4864 5.0292
+node 22 0 -10.9728 5.0292
+node 23 1.2192 -5.4864 5.1816
+node 24 1.2192 -10.9728 5.1816
+node 25 3.6576 -5.4864 5.4864
+node 26 4.8768 -5.4864 5.334
+node 27 3.6576 -10.9728 5.4864
+node 28 4.8768 -10.9728 5.334
+node 29 7.3152 -5.4864 5.0292
+node 30 7.3152 -5.4864 3.6576
+node 31 7.3152 -10.9728 5.0292
+node 32 7.3152 -10.9728 3.6576
+node 33 7.3152 -5.4864 0
+node 34 7.3152 -10.9728 0
+node 35 2.4384 -5.4864 5.334
+node 36 2.4384 -10.9728 5.334
+node 37 6.096 -5.4864 5.1816
+node 38 6.096 -10.9728 5.1816
+node 39 1.2192 -5.4864 3.6576
+node 40 1.2192 -10.9728 3.6576
+node 41 2.4384 -5.4864 3.6576
+node 42 2.4384 -10.9728 3.6576
+node 43 3.6576 -5.4864 3.6576
+node 44 3.6576 -10.9728 3.6576
+node 45 4.8768 -5.4864 3.6576
+node 46 4.8768 -10.9728 3.6576
+node 47 6.096 -5.4864 3.6576
+node 48 6.096 -10.9728 3.6576
+node 49 7.3152 -8.2296 3.6576
+node 50 7.3152 -8.2296 5.0292
+node 51 7.3152 -2.7432 3.6576
+node 52 7.3152 -2.7432 5.0292
+node 53 0 -2.7432 3.6576
+node 54 0 -2.7432 5.0292
+node 55 0 -8.2296 3.6576
+node 56 0 -8.2296 5.0292
+
+# Members: id type nodeI nodeJ
+member 1 frame 19 20 materialId=1 sectionId=1
+member 2 frame 22 24 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 3 frame 34 32 materialId=1 sectionId=1
+member 4 frame 31 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 5 frame 20 40 materialId=1 sectionId=2 rollAngle=180
+member 6 frame 22 40 materialId=1 sectionId=2
+member 7 frame 40 24 materialId=1 sectionId=2
+member 8 frame 24 42 materialId=1 sectionId=2
+member 9 frame 42 36 materialId=1 sectionId=2
+member 10 frame 36 44 materialId=1 sectionId=2
+member 11 frame 44 27 materialId=1 sectionId=2
+member 12 frame 31 48 materialId=1 sectionId=2
+member 13 frame 48 38 materialId=1 sectionId=2
+member 14 frame 38 46 materialId=1 sectionId=2
+member 15 frame 46 28 materialId=1 sectionId=2
+member 16 frame 28 44 materialId=1 sectionId=2
+member 17 frame 17 18 materialId=1 sectionId=1
+member 18 frame 1 3 materialId=1 sectionId=1
+member 19 frame 21 23 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 20 frame 5 8 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 21 frame 33 30 materialId=1 sectionId=1
+member 22 frame 2 4 materialId=1 sectionId=1
+member 23 frame 29 37 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 24 frame 6 11 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 25 frame 18 39 materialId=1 sectionId=2 rollAngle=180
+member 26 frame 3 12 materialId=1 sectionId=2 rollAngle=180
+member 27 frame 21 39 materialId=1 sectionId=2
+member 28 frame 5 12 materialId=1 sectionId=2
+member 29 frame 39 23 materialId=1 sectionId=2
+member 30 frame 12 8 materialId=1 sectionId=2
+member 31 frame 23 41 materialId=1 sectionId=2
+member 32 frame 8 13 materialId=1 sectionId=2
+member 33 frame 41 35 materialId=1 sectionId=2
+member 34 frame 13 9 materialId=1 sectionId=2
+member 35 frame 35 43 materialId=1 sectionId=2
+member 36 frame 9 14 materialId=1 sectionId=2
+member 37 frame 43 25 materialId=1 sectionId=2
+member 38 frame 14 7 materialId=1 sectionId=2
+member 39 frame 29 47 materialId=1 sectionId=2
+member 40 frame 6 16 materialId=1 sectionId=2
+member 41 frame 47 37 materialId=1 sectionId=2
+member 42 frame 16 11 materialId=1 sectionId=2
+member 43 frame 37 45 materialId=1 sectionId=2
+member 44 frame 11 15 materialId=1 sectionId=2
+member 45 frame 45 26 materialId=1 sectionId=2
+member 46 frame 15 10 materialId=1 sectionId=2
+member 47 frame 26 43 materialId=1 sectionId=2
+member 48 frame 10 14 materialId=1 sectionId=2
+member 49 frame 32 49 materialId=1 sectionId=3 rollAngle=180
+member 50 frame 30 51 materialId=1 sectionId=3 rollAngle=180
+member 51 frame 20 55 materialId=1 sectionId=3 rollAngle=180
+member 52 frame 18 53 materialId=1 sectionId=3 rollAngle=180
+member 53 frame 31 50 materialId=1 sectionId=3
+member 54 frame 29 52 materialId=1 sectionId=3
+member 55 frame 22 56 materialId=1 sectionId=3
+member 56 frame 21 54 materialId=1 sectionId=3
+member 57 frame 31 49 materialId=1 sectionId=3
+member 58 frame 49 50 materialId=1 sectionId=3
+member 59 frame 50 30 materialId=1 sectionId=3
+member 60 frame 6 51 materialId=1 sectionId=3
+member 61 frame 51 52 materialId=1 sectionId=3
+member 62 frame 52 30 materialId=1 sectionId=3
+member 63 frame 22 55 materialId=1 sectionId=3
+member 64 frame 55 56 materialId=1 sectionId=3
+member 65 frame 56 18 materialId=1 sectionId=3
+member 66 frame 5 53 materialId=1 sectionId=3
+member 67 frame 53 54 materialId=1 sectionId=3
+member 68 frame 54 18 materialId=1 sectionId=3
+member 69 frame 38 37 materialId=1 sectionId=4 rollAngle=7.19963 offset={"frame":"global","i":{"x":-0.000128053338,"y":0.0,"z":0.076821792},"j":{"x":-0.000128053338,"y":0.0,"z":0.076821792}}
+member 70 frame 28 26 materialId=1 sectionId=4 rollAngle=7.19963 offset={"frame":"global","i":{"x":-0.000128053338,"y":0.0,"z":0.076821792},"j":{"x":-0.000128053338,"y":0.0,"z":0.076821792}}
+member 71 frame 27 25 materialId=1 sectionId=4 offset={"frame":"global","i":{"x":-0.00975487,"y":0.0,"z":0.0762},"j":{"x":-0.00975487,"y":0.0,"z":0.0762}}
+member 72 frame 36 35 materialId=1 sectionId=4 rollAngle=352.8 offset={"frame":"global","i":{"x":-0.0192278508,"y":0.0,"z":0.074376534},"j":{"x":-0.0192278508,"y":0.0,"z":0.074376534}}
+member 73 frame 24 23 materialId=1 sectionId=4 rollAngle=352.8 offset={"frame":"global","i":{"x":-0.0192278508,"y":0.0,"z":0.074376534},"j":{"x":-0.0192278508,"y":0.0,"z":0.074376534}}
+member 74 frame 37 11 materialId=1 sectionId=4 rollAngle=7.19963 offset={"frame":"global","i":{"x":-0.000128053338,"y":0.0,"z":0.076821792},"j":{"x":-0.000128053338,"y":0.0,"z":0.076821792}}
+member 75 frame 26 10 materialId=1 sectionId=4 rollAngle=7.19963 offset={"frame":"global","i":{"x":-0.000128053338,"y":0.0,"z":0.076821792},"j":{"x":-0.000128053338,"y":0.0,"z":0.076821792}}
+member 76 frame 25 7 materialId=1 sectionId=4 offset={"frame":"global","i":{"x":-0.00975487,"y":0.0,"z":0.0762},"j":{"x":-0.00975487,"y":0.0,"z":0.0762}}
+member 77 frame 23 8 materialId=1 sectionId=4 rollAngle=352.8 offset={"frame":"global","i":{"x":-0.0192278508,"y":0.0,"z":0.074376534},"j":{"x":-0.0192278508,"y":0.0,"z":0.074376534}}
+member 78 frame 35 9 materialId=1 sectionId=4 rollAngle=352.8 offset={"frame":"global","i":{"x":-0.0192278508,"y":0.0,"z":0.074376534},"j":{"x":-0.0192278508,"y":0.0,"z":0.074376534}}
+member 79 frame 20 22 materialId=1 sectionId=1
+member 80 frame 24 36 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 81 frame 36 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 82 frame 32 31 materialId=1 sectionId=1
+member 83 frame 38 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 84 frame 28 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 85 frame 40 42 materialId=1 sectionId=2 rollAngle=180
+member 86 frame 42 44 materialId=1 sectionId=2 rollAngle=180
+member 87 frame 44 46 materialId=1 sectionId=2 rollAngle=180
+member 88 frame 46 48 materialId=1 sectionId=2 rollAngle=180
+member 89 frame 48 32 materialId=1 sectionId=2 rollAngle=180
+member 90 frame 18 21 materialId=1 sectionId=1
+member 91 frame 3 5 materialId=1 sectionId=1
+member 92 frame 23 35 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 93 frame 35 25 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 94 frame 8 9 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 95 frame 9 7 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 96 frame 30 29 materialId=1 sectionId=1
+member 97 frame 4 6 materialId=1 sectionId=1
+member 98 frame 37 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 99 frame 26 25 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 100 frame 11 10 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 101 frame 10 7 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272},"j":{"x":-0.0022592284,"y":0.0,"z":-0.0180738272}}
+member 102 frame 39 41 materialId=1 sectionId=2 rollAngle=180
+member 103 frame 41 43 materialId=1 sectionId=2 rollAngle=180
+member 104 frame 43 45 materialId=1 sectionId=2 rollAngle=180
+member 105 frame 45 47 materialId=1 sectionId=2 rollAngle=180
+member 106 frame 47 30 materialId=1 sectionId=2 rollAngle=180
+member 107 frame 12 13 materialId=1 sectionId=2 rollAngle=180
+member 108 frame 13 14 materialId=1 sectionId=2 rollAngle=180
+member 109 frame 14 15 materialId=1 sectionId=2 rollAngle=180
+member 110 frame 15 16 materialId=1 sectionId=2 rollAngle=180
+member 111 frame 16 4 materialId=1 sectionId=2 rollAngle=180
+member 112 frame 49 30 materialId=1 sectionId=3 rollAngle=180
+member 113 frame 51 4 materialId=1 sectionId=3 rollAngle=180
+member 114 frame 55 18 materialId=1 sectionId=3 rollAngle=180
+member 115 frame 53 3 materialId=1 sectionId=3 rollAngle=180
+member 116 frame 50 29 materialId=1 sectionId=3
+member 117 frame 52 6 materialId=1 sectionId=3
+member 118 frame 56 21 materialId=1 sectionId=3
+member 119 frame 54 5 materialId=1 sectionId=3
+
+# Supports: id node type
+support 1 1 fixed3d
+support 2 2 fixed3d
+support 3 17 fixed3d
+support 4 19 fixed3d
+support 5 33 fixed3d
+support 6 34 fixed3d
+
+# Load cases: id type name
+case 1 D "DEAD LOAD"
+case 2 L "WIND LOAD"
+
+# Combinations: id name case*factor ...
+combination 1001 "COMBINATION 1" 1*1.4 2*1.6
+
+# Loads: type id fields. Each stated over the whole physical member (0 to its length).
+load distributed3d 1 elementId=2 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 2 elementId=80 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 3 elementId=81 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 4 elementId=4 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 5 elementId=83 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 6 elementId=84 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 7 elementId=19 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 8 elementId=92 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 9 elementId=93 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 10 elementId=20 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 11 elementId=94 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 12 elementId=95 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 13 elementId=23 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 14 elementId=98 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 15 elementId=99 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 16 elementId=24 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 17 elementId=100 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 18 elementId=101 qYI=0 qYJ=0 qZI=-4.378170881 qZJ=-4.378170881 frame="global" caseId=1
+load distributed3d 19 elementId=2 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 20 elementId=80 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 21 elementId=81 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 22 elementId=19 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 23 elementId=92 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 24 elementId=93 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 25 elementId=20 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 26 elementId=94 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 27 elementId=95 qYI=0 qYJ=0 qZI=-2.189085441 qZJ=-2.189085441 caseId=2
+load distributed3d 28 elementId=4 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 29 elementId=83 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 30 elementId=84 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 31 elementId=23 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 32 elementId=98 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 33 elementId=99 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 34 elementId=24 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 35 elementId=100 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+load distributed3d 36 elementId=101 qYI=0 qYJ=0 qZI=2.918786425 qZJ=2.918786425 caseId=2
+
+# Project settings
+analysis {"selfWeight":[{"caseId":1,"direction":"Z","factor":-1}]}

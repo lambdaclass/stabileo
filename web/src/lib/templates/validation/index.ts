@@ -19,6 +19,7 @@ import { codeToModel } from '../../model/code/format';
 import { mergeCode } from '../../model/code/apply';
 
 export const VALIDATION_MODELS = {
+  'validation-02': () => import('./validation-02.stabileo.txt?raw'),
   'validation-06': () => import('./validation-06.stabileo.txt?raw'),
   'validation-07': () => import('./validation-07.stabileo.txt?raw'),
 } as const;
