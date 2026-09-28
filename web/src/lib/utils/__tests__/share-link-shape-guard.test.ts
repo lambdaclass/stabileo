@@ -21,10 +21,12 @@
  * would pass the cases above and break every legacy link still in the wild.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import LZString from 'lz-string';
 import { decompressSnapshot } from '../url-sharing';
 import { modelStore } from '../../store/model.svelte';
+
+afterEach(() => modelStore.clear());
 
 const NEXT_ID = { node: 9, element: 9, material: 9, section: 9, support: 9, load: 9 };
 
@@ -59,11 +61,13 @@ describe('a legacy share link that lies about its shapes', () => {
     expect(decompressSnapshot(v1Link({ ...validLegacySnapshot(), nextId: 7 }))).toBeNull();
   });
 
-  it('never reaches restore() with a shape it cannot map over', () => {
-    const snapshot = decompressSnapshot(v1Link({ ...validLegacySnapshot(), nodes: 5 }));
-    expect(snapshot).toBeNull();
-    // Nothing to restore: the decoder is the boundary, so the model is never
-    // handed a snapshot whose families are not lists.
+  it('is refused when an optional family it would map over is not a list', () => {
+    // restore() maps these whenever they are present, so they are checked
+    // too; an old link simply does not carry them.
+    expect(decompressSnapshot(v1Link({ ...validLegacySnapshot(), loadCases: 1 }))).toBeNull();
+    expect(decompressSnapshot(v1Link({ ...validLegacySnapshot(), plates: 5 }))).toBeNull();
+    expect(decompressSnapshot(v1Link({ ...validLegacySnapshot(), groups: {} }))).toBeNull();
+    expect(decompressSnapshot(v1Link({ ...validLegacySnapshot(), provenance: { assumptions: 5 } }))).toBeNull();
   });
 });
 

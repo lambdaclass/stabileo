@@ -41,7 +41,8 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
   for (const key of tupleFamilies) {
     if (!entries(value[key])) return null;
   }
-  for (const key of ['plates', 'quads', 'connectors'] as const) {
+  // Groups travel only in the legacy format; restore() maps them the same way.
+  for (const key of ['plates', 'quads', 'connectors', 'groups'] as const) {
     if (value[key] !== undefined && !entries(value[key])) return null;
   }
   if (!records(value.loads) || !value.loads.every(load => typeof load.type === 'string' && record(load.data))) return null;
