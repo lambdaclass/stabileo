@@ -17,7 +17,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { activePerCombo3D, activeCombinations } from './active-results';
-import { computeStationDemands, steelDemandOf } from '../engine/verification-service';
+import { computeStationDemands, steelDemandOf, steelSegmentDiagram } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
 import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict, type OptimiseCriteria } from '../engine/steel/profile-optimise';
 import { deflectionChecks } from './serviceability';
@@ -106,7 +106,13 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
     if (!ef || !e) continue;
     const len = lengths.get(id);
     const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
-    members.push({ elementId: id, demand: steelDemandOf(ef, demands.get(id), stations.get(id)), lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k } });
+    members.push({
+      elementId: id,
+      demand: steelDemandOf(ef, demands.get(id), stations.get(id)),
+      lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k },
+      // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
+      segment: steelSegmentDiagram(id, len, stations, md as never),
+    });
     const m = modelStore.materials.get(e.materialId);
     if (m) materialOf.set(id, m);
   }
