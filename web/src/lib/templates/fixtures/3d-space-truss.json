@@ -15,9 +15,9 @@
       "id": 1,
       "name": "IPN 300",
       "a": 0.0069,
-      "iy": 0.000098,
-      "iz": 0.00000451,
-      "j": 1e-7,
+      "iy": 9.8e-05,
+      "iz": 4.51e-06,
+      "j": 1e-07,
       "b": 0.125,
       "h": 0.3
     },
@@ -25,9 +25,9 @@
       "id": 2,
       "name": "L 80x80x8",
       "a": 0.00123,
-      "iy": 0.0000008,
-      "iz": 0.0000008,
-      "j": 1e-7,
+      "iy": 8e-07,
+      "iz": 8e-07,
+      "j": 1e-07,
       "b": 0.08,
       "h": 0.08
     }
@@ -668,6 +668,86 @@
       "type": "truss",
       "nodeI": 8,
       "nodeJ": 9,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 54,
+      "type": "truss",
+      "nodeI": 2,
+      "nodeJ": 11,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 55,
+      "type": "truss",
+      "nodeI": 3,
+      "nodeJ": 12,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 56,
+      "type": "truss",
+      "nodeI": 4,
+      "nodeJ": 13,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 57,
+      "type": "truss",
+      "nodeI": 5,
+      "nodeJ": 14,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 58,
+      "type": "truss",
+      "nodeI": 6,
+      "nodeJ": 15,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 59,
+      "type": "truss",
+      "nodeI": 7,
+      "nodeJ": 16,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 60,
+      "type": "truss",
+      "nodeI": 8,
+      "nodeJ": 17,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 61,
+      "type": "truss",
+      "nodeI": 9,
+      "nodeJ": 18,
       "materialId": 1,
       "sectionId": 2,
       "hingeStart": false,

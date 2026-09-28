@@ -15,7 +15,7 @@ import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
-import { computeGoverning2D } from './governing-case';
+import { computeGoverning2D, computeGoverning3D } from './governing-case';
 import { allLoadsResult3D } from './shell-combos';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
@@ -75,9 +75,20 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
       await liveCalc2D(isStale);
     }
     if (isStale()) return;
+    const is3DMode = analysisMode === '3d' || analysisMode === 'pro';
+    // What was on screen before the edit cleared it: diagram, case, combination.
+    // Only onto results: a solve that published none (WASM not ready, an error,
+    // NaN displacements) leaves the view waiting for the next one.
+    if (resultsStore.pendingView) {
+      if (is3DMode ? resultsStore.results3D : resultsStore.results) resultsStore.restoreView(is3DMode);
+      return;
+    }
     // Restore the diagram type the user was viewing before clear() reset it to 'none'.
-    // Only restore if it's a valid diagram for the current mode.
-    if (prevDiagram && prevDiagram !== 'none') {
+    // Only restore if it's a valid diagram for the current mode — and only if
+    // nothing is showing: a diagram picked while the solve was running (a slow
+    // space model under Explore) is the user's latest choice, and restoring
+    // the one captured when the solve was queued put it back to the deformed shape.
+    if (prevDiagram && prevDiagram !== 'none' && resultsStore.diagramType === 'none') {
       const is3D = analysisMode === '3d' || analysisMode === 'pro';
       const validList: readonly string[] = is3D ? VALID_3D_DIAGRAMS : VALID_2D_DIAGRAMS;
       if (validList.includes(prevDiagram)) {
@@ -112,6 +123,23 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   }
 
   resultsStore.setResults3D(r, true);
+
+  /*
+   * The combinations, when what was on screen was one of them (or a case, or
+   * the envelope): the 3D live calc skips them otherwise, as the model may be
+   * large, but re-solving a combination's view to the unit-factor loads would
+   * show a different state under the same controls.
+   */
+  const v = resultsStore.pendingView;
+  if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
+    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (combo && typeof combo !== 'string') {
+      resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+      const comboNames = new Map<number, string>();
+      for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+      resultsStore.setGoverning3D(computeGoverning3D(combo.perCombo, comboNames));
+    }
+  }
 }
 
 async function liveCalc2D(isStale: () => boolean): Promise<void> {
@@ -179,6 +207,7 @@ export async function runGlobalSolve(): Promise<void> {
   } else {
     await globalSolve2D(isStale);
   }
+  if (!isStale()) resultsStore.restoreView(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
