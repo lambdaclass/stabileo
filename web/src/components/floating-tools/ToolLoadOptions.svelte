@@ -12,11 +12,14 @@
   const LOAD_GLYPH = { nodal: 'loadPoint', distributed: 'loadDistributed', thermal: 'loadThermal' } as const;
 </script>
 
-<label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
-  <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>{t('float.selfWeightLabel')}</span>
-</label>
-<span class="ft-sep">|</span>
+<!-- Basic switches self-weight in its loads panel; PRO has no other switch. -->
+{#if uiStore.appMode !== 'basico'}
+  <label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
+    <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
+    <span>{t('float.selfWeightLabel')}</span>
+  </label>
+  <span class="ft-sep">|</span>
+{/if}
 <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor(uiStore.activeLoadCaseId)}"></span>
 <select class="ft-case-select"
   value={String(uiStore.activeLoadCaseId)}
