@@ -163,3 +163,16 @@ describe('fill refuses degenerate or occupied faces', () => {
     expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
   });
 });
+
+describe('hole filling past the mesher’s cap', () => {
+  it('is refused, and nothing is built, rather than coarsened in silence', () => {
+    // One 12 m bay: a 1 mm element asks for 12 000 per side.
+    const n = [modelStore.addNode(0, 0, 3), modelStore.addNode(12, 0, 3), modelStore.addNode(12, 12, 3), modelStore.addNode(0, 12, 3)];
+    const els = [0, 1, 2, 3].map((k) => modelStore.addElement(n[k]!, n[(k + 1) % 4]!, 'frame'));
+    historyStore.clear();
+    const before = { quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size };
+    const r = fillHoles(els, 1, 0.15, { density: { mode: 'targetSize', size: 0.001 } });
+    expect(r).toEqual({ refused: 'tooManyDivisions' });
+    expect({ quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size }).toEqual(before);
+  });
+});

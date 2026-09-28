@@ -24,6 +24,9 @@ export interface MeshRegionOptions {
 
 export interface MeshRegionResult { newNodes: number; quadCount: number; quads: number[]; splitCount: number }
 
+/** A request past the cap, refused before anything is built. */
+export interface MeshRegionRefusal { refused: 'tooManyDivisions' }
+
 /** Subdivisions for a region, from its own edge lengths when meshing by element size. */
 export function divisionsFor(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, d: MeshDensity): { nx: number; ny: number } {
   if (d.mode === 'fixedDivisions') return { nx: Math.max(1, Math.floor(d.nx)), ny: Math.max(1, Math.floor(d.ny)) };
@@ -39,15 +42,18 @@ export function divisionsFor(corners: ReadonlyArray<{ x: number; y: number; z?: 
  * makes. `buildBilinearQuadGrid` caps each axis at MAX_DIVISIONS_PER_AXIS so
  * no input can hang the tab, but a cap applied silently hands the user a
  * coarser mesh than they asked for — 300 divisions, or a 1 mm target on a
- * 1 m edge, came back as 256 cells. Callers ask first and say so instead.
+ * 1 m edge, came back as 256 cells. `meshQuadRegion` refuses such a request
+ * itself, so no caller can forget to ask; a caller that meshes several regions
+ * asks first, so that it refuses before building any of them.
  */
 export function exceedsDivisionCap(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, d: MeshDensity): boolean {
   const { nx, ny } = divisionsFor(corners, d);
   return nx > MAX_DIVISIONS_PER_AXIS || ny > MAX_DIVISIONS_PER_AXIS;
 }
 
-export function meshQuadRegion(cornerIds: [number, number, number, number], o: MeshRegionOptions): MeshRegionResult {
+export function meshQuadRegion(cornerIds: [number, number, number, number], o: MeshRegionOptions): MeshRegionResult | MeshRegionRefusal {
   const corners = cornerIds.map((id) => modelStore.nodes.get(id)!);
+  if (exceedsDivisionCap(corners, o.density)) return { refused: 'tooManyDivisions' };
   const { nx, ny } = divisionsFor(corners, o.density);
   const out: MeshRegionResult = { newNodes: 0, quadCount: 0, quads: [], splitCount: 0 };
   modelStore.batch(() => {

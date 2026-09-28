@@ -3949,6 +3949,7 @@ const pt: Translations = {
   'edit.refused.sameMember': 'Escolha duas barras diferentes.',
   'edit.refused.notCoplanar': 'As barras não estão num mesmo plano.',
   'edit.refused.noHoles': 'As barras não fecham nenhum vão.',
+  'edit.refused.tooManyDivisions': 'Um vão precisaria de mais de 256 elementos por lado com este tamanho — nada foi preenchido. Use um tamanho de elemento maior.',
   'edit.fillTitle': 'Preencher vãos',
   'edit.fillMaterial': 'Material da placa',
   'edit.thickness': 'e [m]',

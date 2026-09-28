@@ -73,8 +73,8 @@ describe('decomposeRectilinear', () => {
 });
 
 describe('pairWallLines', () => {
-  it('only a positive, finite length takes part: a NaN or infinite segment is neither paired nor kept', () => {
-    const { paired, unpaired } = pairWallLines(
+  it('only a positive, finite length takes part: a NaN or infinite segment is neither paired nor kept, but it is recorded', () => {
+    const { paired, unpaired, degenerate } = pairWallLines(
       [
         { a: { x: 0, y: 2.0 }, b: { x: 6, y: 2.0 } },
         { a: { x: 0, y: 2.2 }, b: { x: 6, y: 2.2 } },
@@ -86,6 +86,8 @@ describe('pairWallLines', () => {
     );
     expect(paired.length).toBe(1);
     expect(unpaired).toEqual([]);
+    // Dropped from both, but not without a trace: the caller reports them.
+    expect(degenerate).toEqual([2, 3]);
   });
 
   it('pairs parallel faces into a centerline with the gap as thickness', () => {

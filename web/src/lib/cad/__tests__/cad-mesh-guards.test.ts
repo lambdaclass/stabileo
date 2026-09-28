@@ -21,6 +21,7 @@ import {
   buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS, type MeshVec3,
 } from '../../engine/shell-mesh-gen';
 import { exceedsDivisionCap } from '../../model/edit/mesh-region';
+import { meshSettingsValid } from '../draft';
 
 describe('sanitizeDivisions — the one guard every mesher uses', () => {
   it('gives the caller\u2019s fallback for a count that is not a number', () => {
@@ -126,5 +127,24 @@ describe('a request beyond the cap is said, not silently coarsened', () => {
   it('a target size that would need more cells than the cap is flagged', () => {
     expect(exceedsDivisionCap(square, { mode: 'targetSize', size: 0.001 })).toBe(true); // 1000 per side
     expect(exceedsDivisionCap(square, { mode: 'targetSize', size: 0.01 })).toBe(false); // 100 per side
+  });
+});
+
+describe('target-size meshing past the cap is said too', () => {
+  it('structuredBreakpoints counts the gaps it had to coarsen', () => {
+    const r = structuredBreakpoints(0, 10, { mode: 'targetSize', target: 0.001 });
+    expect(r.lines.length).toBe(MAX_DIVISIONS_PER_AXIS + 1);
+    expect(r.capped).toBe(1);
+    expect(structuredBreakpoints(0, 10, { mode: 'targetSize', target: 0.5 }).capped).toBe(0);
+  });
+});
+
+describe('the wizard judges only the mesh setting it uses', () => {
+  it('ignores the division count when slabs are meshed by size, or not meshed', () => {
+    expect(meshSettingsValid({ meshSlabs: true, meshMode: 'targetSize', meshDivisions: 300, meshTargetSize: 0.5 })).toBe(true);
+    expect(meshSettingsValid({ meshSlabs: false, meshMode: 'fixedDivisions', meshDivisions: Infinity, meshTargetSize: 0 })).toBe(true);
+    expect(meshSettingsValid({ meshSlabs: true, meshMode: 'fixedDivisions', meshDivisions: 300, meshTargetSize: 0.5 })).toBe(false);
+    expect(meshSettingsValid({ meshSlabs: true, meshMode: 'fixedDivisions', meshDivisions: 4, meshTargetSize: NaN })).toBe(true);
+    expect(meshSettingsValid({ meshSlabs: true, meshMode: 'targetSize', meshDivisions: 4, meshTargetSize: 0 })).toBe(false);
   });
 });

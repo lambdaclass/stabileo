@@ -36,7 +36,7 @@ import { ROOM_CATEGORY_LOADS } from './rooms';
 import type { SectionScheduleEntry, SpecSource } from './types';
 import type { MemberOffset } from '../model/element-3d-metadata';
 import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
-import { buildBilinearQuadGrid, sanitizeDivisions } from '../engine/shell-mesh-gen';
+import { buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from '../engine/shell-mesh-gen';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
 
@@ -44,6 +44,22 @@ const NO_RELEASE = { my: false, mz: false, t: false };
 
 /** Saint-Venant torsion constant for a solid rectangle (b × h), matching the
  *  backend rc-frame generator so sections are consistent across the app. */
+/**
+ * Whether the wizard's slab-mesh settings can be meshed — judged on the setting
+ * in use only. The division count used to be checked in every mode, so a value
+ * left over from fixed-divisions mode kept "Generate" disabled after switching
+ * to target size, or to no slab mesh, with the field that would fix it hidden.
+ */
+export function meshSettingsValid(s: {
+  meshSlabs: boolean; meshMode: 'targetSize' | 'fixedDivisions'; meshDivisions: number; meshTargetSize: number;
+}): boolean {
+  if (!s.meshSlabs) return true;
+  if (s.meshMode === 'targetSize') return Number.isFinite(s.meshTargetSize) && s.meshTargetSize > 0;
+  // `Infinity >= 1` is true, and a number field accepts "1e999"; and no more
+  // than the mesher makes, which it would otherwise cap in silence.
+  return Number.isFinite(s.meshDivisions) && s.meshDivisions >= 1 && s.meshDivisions <= MAX_DIVISIONS_PER_AXIS;
+}
+
 export function rectJ(b: number, h: number): number {
   const long = Math.max(b, h);
   const short = Math.min(b, h);
@@ -501,6 +517,8 @@ export function generateRcDraft(
   }
   const forcedX = [...axisX], forcedY = [...axisY];
   let meshSlivers = 0;
+  /** Spans a small target would have cut finer than the mesher's cap. */
+  let meshCapped = 0;
 
   /** Mesh an axis-aligned panel with the chosen mode + forced structural lines,
    *  cutting the given openings; emits quads and accumulates slivers. */
@@ -516,14 +534,19 @@ export function generateRcDraft(
     });
     for (const cell of res.cells) emitCell(cell, z, thickness);
     meshSlivers += res.slivers;
+    meshCapped += res.capped;
     return res.droppedByOpening;
   };
 
   /** Bilinear divisions for a NON-axis-aligned quad edge of physical length L.
-   *  Capped at 256/axis like structuredBreakpoints so a tiny target can't
+   *  Capped at MAX_DIVISIONS_PER_AXIS like structuredBreakpoints, and counted, so a tiny target cannot
    *  explode the per-quad cell count. */
-  const bilinearDivs = (L: number): number =>
-    meshMode === 'targetSize' ? Math.min(256, Math.max(1, Math.round(L / effTarget))) : fixedN;
+  const bilinearDivs = (L: number): number => {
+    if (meshMode !== 'targetSize') return fixedN;
+    const wanted = Math.round(L / effTarget);
+    if (wanted > MAX_DIVISIONS_PER_AXIS) meshCapped++;
+    return sanitizeDivisions(wanted, 1);
+  };
 
   const cutOpenings = new Set<number>();      // opening indices cut from a slab
   const approxOpenings = new Set<number>();   // cut but boundary not exact
@@ -628,6 +651,9 @@ export function generateRcDraft(
   }
   if (meshSlivers > 0) {
     warnings.push({ severity: 'warning', message: `meshSlivers:${meshSlivers}` });
+  }
+  if (meshCapped > 0) {
+    warnings.push({ severity: 'warning', message: `meshCapped:${meshCapped}` });
   }
 
   // ── Walls / tabiques ──────────────────────────────────────

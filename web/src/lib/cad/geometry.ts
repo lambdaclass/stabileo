@@ -3,7 +3,7 @@
 // or metres alike, with tolerances passed in by the caller).
 
 import type { CadBBox, CadPt } from './types';
-import { sanitizeDivisions } from '../engine/shell-mesh-gen';
+import { sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from '../engine/shell-mesh-gen';
 
 export function dist(a: CadPt, b: CadPt): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -231,7 +231,7 @@ export function structuredBreakpoints(
     forced?: number[]; openingEdges?: number[];
     snapTol?: number; minRatio?: number;
   },
-): { lines: number[]; slivers: number } {
+): { lines: number[]; slivers: number; capped: number } {
   const snapTol = opts.snapTol ?? 0.03;
   // Sanitize the target cell size: a non-finite or ≤0 value (e.g. a cleared or
   // zeroed wizard field) would make `round(gap / target)` Infinity/NaN and the
@@ -239,8 +239,9 @@ export function structuredBreakpoints(
   // tab. Fall back to the 1 m default so meshing always terminates.
   const rawTarget = opts.target ?? 1.0;
   const target = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : 1.0;
+  let capped = 0;
   const minRatio = opts.minRatio ?? 0.75;
-  if (hi - lo <= snapTol) return { lines: [lo, hi], slivers: 0 };
+  if (hi - lo <= snapTol) return { lines: [lo, hi], slivers: 0, capped: 0 };
 
   // Tagged hard lines by structural priority: bound 1, opening 2, forced 3.
   const tagged: Array<{ v: number; p: number }> = [{ v: lo, p: 1 }, { v: hi, p: 1 }];
@@ -272,7 +273,7 @@ export function structuredBreakpoints(
     // Set holds a single value and the loop spins at flat memory — the tab
     // freezes with nothing to report. NaN fails the other way (the loop is
     // skipped entirely and the span is never divided), so both fall back to the
-    // documented default of 2. Capped at 256 like the targetSize path below.
+    // documented default of 2. Capped at MAX_DIVISIONS_PER_AXIS like the targetSize path below.
     const nn = sanitizeDivisions(opts.fixed ?? 2, 2);
     const set = new Set(hard);
     for (let i = 1; i < nn; i++) set.add(lo + (i * (hi - lo)) / nn);
@@ -292,9 +293,11 @@ export function structuredBreakpoints(
     for (let i = 0; i < hard.length - 1; i++) {
       const a = hard[i], b = hard[i + 1], gap = b - a;
       // Cap subdivisions per structural gap so a pathologically small target
-      // can't generate millions of cells (memory blow-up). 256 cells across a
-      // single bay is already far finer than any RC analysis needs.
-      const nSub = Math.min(256, Math.max(1, Math.round(gap / target)));
+      // can't generate millions of cells (memory blow-up) — the mesher's one
+      // cap, and counted, so the caller can say the mesh came out coarser.
+      const wanted = Math.round(gap / target);
+      if (wanted > MAX_DIVISIONS_PER_AXIS) capped++;
+      const nSub = sanitizeDivisions(wanted, 1);
       for (let k = 1; k < nSub; k++) lines.push(a + (k * gap) / nSub);
       lines.push(b);
     }
@@ -304,7 +307,7 @@ export function structuredBreakpoints(
   for (let i = 0; i < lines.length - 1; i++) {
     if (lines[i + 1] - lines[i] < target * minRatio - 1e-9) slivers++;
   }
-  return { lines, slivers };
+  return { lines, slivers, capped };
 }
 
 /** Opening edge coordinates (rectilinear openings only) for breakpoint forcing. */
@@ -340,7 +343,7 @@ export interface StructuredMeshOpts {
  * target*minRatio) so the caller can warn.
  */
 export function generateStructuredMesh(opts: StructuredMeshOpts):
-  { cells: Rect[]; droppedByOpening: number; slivers: number } {
+  { cells: Rect[]; droppedByOpening: number; slivers: number; capped: number } {
   const tol = opts.snapTolerance ?? 0.03;
   const target = opts.targetSize ?? 1.0;
   const minRatio = opts.minSizeRatio ?? 0.75;
@@ -364,7 +367,7 @@ export function generateStructuredMesh(opts: StructuredMeshOpts):
   }
   // Sliver count: distinct sliver-causing lines in either axis (only meaningful
   // where a kept cell uses that thin gap; report the axis totals — conservative).
-  return { cells, droppedByOpening, slivers: bx.slivers + by.slivers };
+  return { cells, droppedByOpening, slivers: bx.slivers + by.slivers, capped: bx.capped + by.capped };
 }
 
 /**
@@ -425,7 +428,7 @@ interface SegFrame {
 export function pairWallLines(
   segments: Segment[],
   opts: { minGap: number; maxGap: number; angleTol?: number; minOverlapRatio?: number },
-): { paired: PairedWall[]; unpaired: number[] } {
+): { paired: PairedWall[]; unpaired: number[]; degenerate: number[] } {
   const angleTol = opts.angleTol ?? 0.035; // ~2°
   const minOverlapRatio = opts.minOverlapRatio ?? 0.5;
 
@@ -495,8 +498,13 @@ export function pairWallLines(
   }
 
   const unpaired: number[] = [];
-  for (let i = 0; i < segments.length; i++) if (!used[i] && usable(i)) unpaired.push(i);
-  return { paired, unpaired };
+  // Neither paired nor kept, but not without a trace: the caller reports them.
+  const degenerate: number[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (!usable(i)) degenerate.push(i);
+    else if (!used[i]) unpaired.push(i);
+  }
+  return { paired, unpaired, degenerate };
 }
 
 /**

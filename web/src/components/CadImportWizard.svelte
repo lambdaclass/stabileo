@@ -12,7 +12,7 @@
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent, cadImportProblem } from '../lib/cad/parse';
-  import { MAX_DIVISIONS_PER_AXIS } from '../lib/engine/shell-mesh-gen';
+  import { meshSettingsValid } from '../lib/cad/draft';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
   import {
     drawCadPreview, drawSemanticPreview, planBBox, ROLE_COLORS,
@@ -484,13 +484,9 @@
   const assumptionsValid = $derived(
     nFloors >= 1 && storyHeight > 0 && colB > 0 && colH > 0 && beamB > 0 && beamH > 0 &&
     slabThickness > 0 && wallThickness > 0 && deadLoad >= 0 && liveLoad >= 0 &&
-    // `Infinity >= 1` is true, and a number field accepts "1e999", so the bare
-    // comparison let a non-finite division count reach the mesher.
-    // And no more than the mesher makes, which it would otherwise cap in silence.
-    Number.isFinite(meshDivisions) && meshDivisions >= 1 && meshDivisions <= MAX_DIVISIONS_PER_AXIS && snapTolerance > 0 &&
-    // When meshing slabs by target size, the size must be a positive number —
-    // a cleared/zeroed field would otherwise drive an unbounded mesh loop.
-    (!meshSlabs || meshMode !== 'targetSize' || (meshTargetSize > 0 && Number.isFinite(meshTargetSize))),
+    snapTolerance > 0 &&
+    // The slab mesh setting in use, and only that one (draft.ts, meshSettingsValid).
+    meshSettingsValid({ meshSlabs, meshMode, meshDivisions, meshTargetSize }),
   );
 
   const classifiedCount = $derived(
@@ -696,6 +692,14 @@
                   {/each}
                   {#each Object.entries(doc.malformed) as [type, count]}
                     <div class="warn-line">⚠ {t('cad.warn.malformedEntity').replace('{type}', type).replace('{n}', String(count))}</div>
+                  {/each}
+                  {#each Object.entries(doc.incompleteBlocks) as [name, b]}
+                    <div class="warn-line">⚠ {t('cad.warn.incompleteBlock').replace('{name}', name)
+                      .replace('{list}', Object.entries(b.refused).map(([type, n]) => `${n} × ${type}`).join(', '))
+                      .replace('{n}', String(b.inserts))}</div>
+                  {/each}
+                  {#each Object.entries(doc.degenerate) as [type, count]}
+                    <div class="warn-line">ℹ {t('cad.warn.degenerateEntity').replace('{type}', type).replace('{n}', String(count))}</div>
                   {/each}
                 {:else}
                   <h3>{t('cad.layerRoles')}</h3>

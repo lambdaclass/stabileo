@@ -137,6 +137,10 @@
       density,
       materialId: meshMaterialId, thickness: meshThickness, splitBeams: meshSplitBeams,
     });
+    if ('refused' in res) {
+      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
+      return;
+    }
     const newNodes = res.newNodes, quadCount = res.quadCount, splitCount = res.splitCount;
 
     meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))
