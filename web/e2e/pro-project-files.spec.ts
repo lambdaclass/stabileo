@@ -80,7 +80,9 @@ test.describe('@slow PRO project files', () => {
     const openBtn = page.getByTestId('pp-open');
     await expect(openBtn, 'PRO exposes Open').toBeVisible();
     await expect(openBtn).toBeEnabled();
-    await expect(openBtn).toHaveAttribute('title', /.+/);
+    // HelpTip replaced the native title; keyboard focus exposes its explanation.
+    await openBtn.focus();
+    await expect(openBtn).toHaveAccessibleDescription(/.+/);
 
     await openFixtureFromPro(page);
 
