@@ -370,12 +370,15 @@ const GOLDEN_MODAL_FRAME_OMEGA: [f64; 6] = [
 /// factorization changes summation order vs the simplicial code (~1e-9..1e-8
 /// relative on λ). Cross-checked against the dense path at capture time
 /// (worst rel diff 1.1e-8; the dense cross-check below pins this at 1e-6).
+// Re-captured when the shell drilling term was corrected (θz penalised against the
+// membrane's rotation, not alone): the bending modes moved by 1e-8 to 6e-7, inside
+// Lanczos' convergence, because the rz/membrane block the iteration sees changed.
 const GOLDEN_MODAL_SHELL_LAMBDA: [f64; 5] = [
-    9.395776201211125e2,
-    6.439919269545047e3,
-    6.439919377132709e3,
-    1.666449276704999e4,
-    3.138785841334025e4,
+    9.395776261876782e2,
+    6.439919365076275e3,
+    6.439919476849175e3,
+    1.666449370605010e4,
+    3.138787552250755e4,
 ];
 
 #[test]
