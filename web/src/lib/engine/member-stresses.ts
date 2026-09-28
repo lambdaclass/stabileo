@@ -15,7 +15,7 @@
  * MPa, tension positive.
  */
 import { analyzeSectionBending, type CanonicalGeometry } from './wasm-solver';
-import { extractForcesAtStation } from './station-forces';
+import { extractForcesAtStation, stationTs, type StationSpec } from './station-forces';
 import { analyzeDrawn, compositeStress } from '../section/drawn-properties';
 import { catalogueOutline } from '../section/canonical';
 import type { DrawnSection } from '../section/drawn';
@@ -80,12 +80,10 @@ export function sectionStressModel(sec: SectionLike): SectionStressModel | null 
   return f;
 }
 
-/** The stations of one member, `n` equally spaced (ends included), with σmax and σmin at each. */
-export function memberStationStresses(ef: ElementForces3D, model: SectionStressModel, n = 5): StationStress[] {
+/** The stations of one member, `n` equally spaced (ends included) or the critical ones, with σmax and σmin at each. */
+export function memberStationStresses(ef: ElementForces3D, model: SectionStressModel, n: StationSpec = 5): StationStress[] {
   const out: StationStress[] = [];
-  const k = Math.max(2, Math.floor(n));
-  for (let i = 0; i < k; i++) {
-    const t = i / (k - 1);
+  for (const t of stationTs(ef, n)) {
     const s = extractForcesAtStation(ef, t);
     const r = model(s.n, s.my, s.mz);
     out.push({ elementId: ef.elementId, x: t * ef.length, sigmaMax: r.max, sigmaMin: r.min, basis: model.basis });

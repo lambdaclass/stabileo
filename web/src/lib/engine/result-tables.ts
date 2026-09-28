@@ -25,7 +25,7 @@
 import type { AnalysisResults3D } from './types-3d';
 import type { Quantity } from '../utils/units';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
-import { extractForcesAtStation } from './station-forces';
+import { extractForcesAtStation, stationTs, type StationSpec } from './station-forces';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -59,8 +59,11 @@ export interface TableOptions {
   entities?: ReadonlySet<number> | null;
   /** Add the resultant columns: |u|; |F| and |M|; V = √(Vy² + Vz²) and M = √(My² + Mz²). */
   resultant?: boolean;
-  /** Members: this many equally spaced stations along each, ends included. 2 (or absent): the ends. */
-  stations?: number;
+  /**
+   * Members: this many equally spaced stations along each, ends included, or the critical ones
+   * (`station-forces.ts#buildCriticalStations`). 2 (or absent): the ends.
+   */
+  stations?: StationSpec;
 }
 
 /** The columns a table has under `opts`. */
@@ -87,19 +90,20 @@ export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions
   if (kind === 'displacements') return r.displacements.filter((d) => keep(d.nodeId)).map((d) => fin({ entity: d.nodeId, values: [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] }));
   if (kind === 'reactions') return r.reactions.filter((x) => keep(x.nodeId)).map((x) => fin({ entity: x.nodeId, values: [x.fx, x.fy, x.fz, x.mx, x.my, x.mz] }));
   const out: Row[] = [];
-  const n = Math.max(2, Math.floor(opts.stations ?? 2));
+  const spec = opts.stations ?? 2;
+  const ends = spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
-    if (n === 2) {
+    if (ends) {
       out.push(fin({ entity: f.elementId, end: 'i', x: 0, values: [f.nStart, f.vyStart, f.vzStart, f.mxStart, f.myStart, f.mzStart] }));
       out.push(fin({ entity: f.elementId, end: 'j', x: f.length, values: [f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd] }));
       continue;
     }
-    for (let k = 0; k < n; k++) {
-      const t = k / (n - 1);
+    const ts = stationTs(f, spec);
+    ts.forEach((t, k) => {
       const s = extractForcesAtStation(f, t);
-      out.push(fin({ entity: f.elementId, ...(k === 0 ? { end: 'i' as const } : k === n - 1 ? { end: 'j' as const } : {}), x: t * f.length, values: [s.n, s.vy, s.vz, s.torsion, s.my, s.mz] }));
-    }
+      out.push(fin({ entity: f.elementId, ...(k === 0 ? { end: 'i' as const } : k === ts.length - 1 ? { end: 'j' as const } : {}), x: t * f.length, values: [s.n, s.vy, s.vz, s.torsion, s.my, s.mz] }));
+    });
   }
   return out;
 }
