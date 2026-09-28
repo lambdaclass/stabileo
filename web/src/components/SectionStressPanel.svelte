@@ -912,10 +912,25 @@
   <div class="ssp-panel" class:docked={docked}
     style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px; max-height:calc(100vh - ${uiStore.floatingToolsTopOffset}px - 45vh - 16px)` : ''}"
   >
-    <div class="ssp-header">
-      <span class="ssp-title">{t('stress.panelTitle')} {is3D ? '3D ' : ''}{isRotated2D ? `${t('stress.rotSuffix').replace('{angle}', String(querySec?.rotation))} ` : ''}</span>
-      <button class="ssp-close" onclick={close} title={t('stress.close')}>&#x2715;</button>
-    </div>
+      <!--
+        Docked, the panel above already names what is running and carries its ✕.
+        Drawing them again put the same title twice — once in the accent colour
+        of the running-analysis header and once in grey immediately beneath it,
+        each with its own close button. Floating, this header is the only one
+        there is, so it keeps both.
+      -->
+    {#if !docked}
+      <div class="ssp-header">
+        <span class="ssp-title">{t('stress.panelTitle')} {is3D ? '3D ' : ''}{isRotated2D ? `${t('stress.rotSuffix').replace('{angle}', String(querySec?.rotation))} ` : ''}</span>
+        <button class="ssp-close" onclick={close} title={t('stress.close')}>&#x2715;</button>
+      </div>
+    {:else if is3D || isRotated2D}
+      <!-- Docked, the qualifier is the only part the header above cannot say:
+           whether this is the 3-D reading, and whether the section is rotated. -->
+      <div class="ssp-header">
+        <span class="ssp-title">{is3D ? '3D ' : ''}{isRotated2D ? t('stress.rotSuffix').replace('{angle}', String(querySec?.rotation)) : ''}</span>
+      </div>
+    {/if}
 
     <div class="ssp-body">
       {#if canonicalState?.shearCentre && (Math.abs(canonicalState.shearCentre[0]) > 1e-4 || Math.abs(canonicalState.shearCentre[1]) > 1e-4)}
@@ -1320,12 +1335,14 @@
   <div class="ssp-panel ssp-amorphous-warning" class:docked={docked}
     style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px` : ''}"
   >
-    <div class="ssp-header">
-      <span class="ssp-title">{t('stress.panelTitle')}</span>
-      <!-- Same `close()` as the main header: closing from the warning variant
-           left the pointer stuck in stress mode exactly as the other one did. -->
-      <button class="ssp-close" onclick={close}>&#x2715;</button>
-    </div>
+    {#if !docked}
+      <div class="ssp-header">
+        <span class="ssp-title">{t('stress.panelTitle')}</span>
+        <!-- Same `close()` as the main header: closing from the warning variant
+             left the pointer stuck in stress mode exactly as the other one did. -->
+        <button class="ssp-close" onclick={close}>&#x2715;</button>
+      </div>
+    {/if}
     <div class="ssp-amorph-msg">
       <span class="ssp-amorph-icon">⚠</span>
       {#if unavailableReason?.kind === 'noGeometryData'}

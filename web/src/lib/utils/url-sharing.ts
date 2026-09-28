@@ -12,6 +12,8 @@ import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
 import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
+import { CODE_HASH, readCodeFragment } from '../model/code/share';
+import { mergeCode } from '../model/code/apply';
 
 /**
  * The wire schema tag.
@@ -763,6 +765,19 @@ function restoreMeta(snapshot: ModelSnapshot): void {
 export function loadFromURLHash(): 'data' | 'embed' | null {
   const hash = location.hash;
   if (!hash) return null;
+
+  // A PRO link carries the model code (`model/code/share.ts`).
+  if (hash.startsWith(CODE_HASH)) {
+    const r = readCodeFragment(hash);
+    if (!r.snapshot) return null;
+    modelStore.clear();
+    const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
+    if (snapshot.analysisMode) uiStore.analysisMode = snapshot.analysisMode;
+    modelStore.restore(snapshot);
+    queueMicrotask(() => window.dispatchEvent(new Event('stabileo-restore-camera-3d')));
+    history.replaceState(null, '', location.pathname + location.search);
+    return 'data';
+  }
 
   let mode: 'data' | 'embed' | null = null;
   let compressed: string | null = null;

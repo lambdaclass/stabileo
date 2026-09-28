@@ -27,14 +27,15 @@ function md() {
   };
 }
 
-function checkPerCase(selfWeight: boolean) {
-  const r = solveCombinations3D(md() as never, modelStore.model.loadCases, modelStore.model.combinations, selfWeight, false);
+function checkPerCase(selfWeight: boolean, leftHand = false) {
+  const r = solveCombinations3D(md() as never, modelStore.model.loadCases, modelStore.model.combinations, selfWeight, leftHand);
   if (!r || typeof r === 'string') throw new Error(String(r));
   const reactionsByCase = new Map<number | null, any>([...r.perCase].map(([id, res]) => [id, res.reactions]));
   return staticsCheck({
     model: md() as never,
     reactionsByCase,
     includeSelfWeight: selfWeight,
+    leftHand,
     caseTypes: new Map(modelStore.model.loadCases.map((c) => [c.id, c.type])),
   });
 }
@@ -62,7 +63,7 @@ describe('every case balances, self-weight on the permanent case only', () => {
     }
   });
 
-  it('a member with end offsets and a rotated section: loads act on the tilted flexible segment', () => {
+  it.each([false, true])('a member with end offsets and a rotated section balances (leftHand=%s)', (leftHand) => {
     // The solve replaces an offset member's ends by node + offset, so the segment tilts and its
     // local loads are stated in the tilted frame. The frame also composes the section rotation.
     modelStore.clear();
@@ -87,7 +88,7 @@ describe('every case balances, self-weight on the permanent case only', () => {
     modelStore.addDistributedLoad3D(2, 2, 1, -8, -3, 0.5, 3.2, 1);
     modelStore.addPointLoadOnElement3D(2, 1.5, 3, -4, 1);
     for (const sw of [false, true]) {
-      for (const row of checkPerCase(sw)) {
+      for (const row of checkPerCase(sw, leftHand)) {
         expect(row.worstRelative, `self-weight ${sw}`).toBeLessThan(1e-6);
       }
     }

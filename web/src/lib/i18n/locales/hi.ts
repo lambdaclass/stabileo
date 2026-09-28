@@ -1125,7 +1125,7 @@ const hi: Translations = {
   'dsm.step9.globalDisp': '{u_e} वैश्विक — तत्व विस्थापन',
   'dsm.step9.localDisp': '{u_e} स्थानीय — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — FEF से पहले बल',
-  'dsm.step9.fixedEndForces': '{f_FE} — स्थिर-सिरा बल',
+  'dsm.step9.fixedEndForces': '{f_eq} — स्थिर-सिरा बल',
   'dsm.step9.finalForces': '{f} अंतिम — तत्व आंतरिक बल',
   'dsm.step9.force': 'बल',
   'dsm.step9.nodeI': 'नोड i',

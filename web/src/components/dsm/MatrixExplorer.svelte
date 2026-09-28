@@ -3,6 +3,8 @@
   import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MatrixDisplay from './MatrixDisplay.svelte';
+  import VectorDisplay from './VectorDisplay.svelte';
+  import { matrixWhy } from './dsm-text';
 
   let { data, editable = false }: { data: DSMStepData; editable?: boolean } = $props();
 
@@ -23,6 +25,13 @@
 
   // Tab state for element matrices
   let activeTab = $state<'kLocal' | 'T' | 'kGlobal'>('kLocal');
+  const why = $derived(elem ? matrixWhy(elem, is3D) : '');
+  /* The short route's second half: solve and read reactions, on one screen. */
+  let showSolve = $state(true);
+  function fmtV(v: number, digits: number): string {
+    if (Math.abs(v) < 1e-12) return '0';
+    return Math.abs(v) < 1e-3 || Math.abs(v) >= 1e6 ? v.toExponential(digits - 1) : v.toFixed(digits);
+  }
 </script>
 
 <div class="explorer">
@@ -103,6 +112,7 @@
             {t('dsm.explorer.trussLocalNote')}
           {/if}
         </div>
+        {#if why}<div class="matrix-note matrix-why" data-testid="dsm-explorer-why">{why}</div>{/if}
       {:else if activeTab === 'T'}
         <MatrixDisplay
           title={t('dsm.explorer.transformationMatrix').replace('{rows}', String(elem.T.length)).replace('{cols}', String(elem.T[0]?.length))}
@@ -158,9 +168,49 @@
       </div>
     {/if}
   {/if}
+
+  <!--
+    The rest of the short route: the free part of the system, its solution,
+    and the reactions — [Kff]{uf} = {Ff} ⇒ {uf} ⇒ {R}. The nine steps say
+    the same with an explanation per line; this is for the reader who wants
+    the matrices and nothing between them.
+  -->
+  <button class="solve-toggle" onclick={() => (showSolve = !showSolve)} data-testid="dsm-explorer-solve-toggle">
+    {showSolve ? '▼' : '▶'} {t('dsm.explorer.solveTitle')}
+  </button>
+  {#if showSolve}
+    <div class="solve-section" data-testid="dsm-explorer-solve">
+      {#if data.Kff.length > 0}
+        <MatrixDisplay title={t('dsm.explorer.kff').replaceAll('{n}', String(data.Kff.length))} matrix={data.Kff}
+          rowLabels={data.freeDofLabels} colLabels={data.freeDofLabels} precision={is3D ? 0 : 1} compact />
+        <!-- Load and displacement side by side, one row per free DOF: the pair the system relates. -->
+        <table class="fu-table" data-testid="dsm-explorer-fu">
+          <thead><tr><th>GDL</th><th>{'{Ff}'}</th><th>{'{uf} = [Kff]⁻¹{Ff}'}</th></tr></thead>
+          <tbody>
+            {#each data.freeDofLabels as lbl, k (lbl)}
+              <tr><td>{lbl}</td><td>{fmtV(data.FfMod[k], 3)}</td><td>{fmtV(data.uFree[k], 4)}</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+      {#if data.reactionsRaw.length > 0}
+        <VectorDisplay title={'{R} = [Krf]{uf} + [Krr]{ur} − {Fr}'} vector={data.reactionsRaw} labels={data.restrDofLabels} precision={3} />
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
+  .matrix-why { color: var(--st-text-2); border-left: 2px solid var(--st-accent); padding-left: 6px; }
+  .solve-toggle {
+    align-self: flex-start; background: none; border: 1px solid var(--st-hair); border-radius: 4px;
+    color: var(--st-text-2); font-size: 0.7rem; padding: 2px 8px; cursor: pointer; font-family: inherit;
+  }
+  .solve-section { display: flex; flex-direction: column; gap: 8px; }
+  .fu-table { border-collapse: collapse; font-family: var(--st-mono); font-size: 0.66rem; }
+  .fu-table th { color: var(--st-text-3); font-weight: 500; text-align: right; padding: 2px 8px; }
+  .fu-table th:first-child, .fu-table td:first-child { text-align: left; color: var(--st-text-3); }
+  .fu-table td { text-align: right; padding: 1px 8px; color: var(--st-text); }
   .explorer {
     display: flex;
     flex-direction: column;

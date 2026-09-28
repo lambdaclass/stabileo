@@ -274,6 +274,7 @@ fn validation_ghali_3_portal_sway_stiffness() {
         },
     );
     let input_rigid = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -619,6 +620,7 @@ fn validation_ghali_6_stiffness_modification() {
             }));
         }
         SolverInput {
+            solver_options: None,
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: HashMap::new(), }
@@ -970,6 +972,7 @@ fn validation_ghali_8_settlement_continuous() {
     );
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -1175,6 +1178,7 @@ fn validation_ghali_8_settlement_continuous() {
     }
 
     let input2 = SolverInput {
+        solver_options: None,
         nodes: nodes_map2,
         materials: mats_map2,
         sections: secs_map2,
