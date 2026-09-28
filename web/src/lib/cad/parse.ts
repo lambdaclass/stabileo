@@ -38,16 +38,16 @@ const CLOSE_EPS = 1e-9;
  * truthy, and an INSERT transformed it into a NaN box.
  */
 function bboxOfPoints(pts: CadPt[]): CadBBox | null {
-  const finite = pts.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
-  if (finite.length === 0) return null;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of finite) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, any = false;
+  for (const p of pts) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    any = true;
     if (p.x < minX) minX = p.x;
     if (p.y < minY) minY = p.y;
     if (p.x > maxX) maxX = p.x;
     if (p.y > maxY) maxY = p.y;
   }
-  return { minX, minY, maxX, maxY };
+  return any ? { minX, minY, maxX, maxY } : null;
 }
 
 function mergeBBox(a: CadBBox | null, b: CadBBox | null): CadBBox | null {
@@ -77,39 +77,51 @@ function entityBBox(e: CadEntity): CadBBox | null {
 }
 
 /**
- * Bounding box of a block's local geometry (lines/polylines/circles/arcs).
+ * Bounding box of a block's local geometry (lines/polylines/circles/arcs), and
+ * the pieces refused for unusable numbers.
  *
- * The same rules as the entities outside a block: a piece with an unreadable
- * or missing number is refused and counted through `refuse`, not quietly
- * dropped from the box — a column symbol with a bad circle used to come out
- * the size of whatever was left of it, or NaN when nothing was.
+ * The refusals are the block's, not the drawing's: a definition nobody INSERTs
+ * — an unused symbol, an anonymous dimension block, *Paper_Space — never puts
+ * anything in the model, and counting its pieces reported losses that were not
+ * losses. They are reported through the inserts that use the block (see
+ * `incompleteBlocks`). A piece with no size (one vertex, radius 0) is skipped,
+ * as outside a block.
  */
-function blockLocalBBox(entities: Array<Record<string, unknown>>, refuse: (kind: string) => void): CadBBox | null {
+interface BlockInfo { bbox: CadBBox | null; refused: Record<string, number> }
+
+function blockLocalBBox(entities: Array<Record<string, unknown>>): BlockInfo {
   const pts: CadPt[] = [];
+  const refused: Record<string, number> = {};
+  const refuse = (kind: string) => { refused[kind] = (refused[kind] ?? 0) + 1; };
   for (const ent of entities ?? []) {
     const type = ent.type as string;
     if (type === 'LINE' || type === 'LWPOLYLINE' || type === 'POLYLINE') {
       const vs = ent.vertices as Array<{ x: number; y: number }> | undefined;
-      if (!vs || vs.length < 2 || !vs.every((v) => allFinite(v.x, v.y))) { refuse(type); continue; }
+      if (!vs || !vs.every((v) => allFinite(v.x, v.y)) || (type === 'LINE' && vs.length < 2)) { refuse(type); continue; }
       for (const v of vs) pts.push({ x: v.x, y: v.y });
     } else if (type === 'CIRCLE' || type === 'ARC') {
       const c = ent.center as { x: number; y: number } | undefined;
       const r = ent.radius as number | undefined;
-      if (!c || !allFinite(c.x, c.y, r) || !(r! > 0)) { refuse(type); continue; }
+      if (!c || !allFinite(c.x, c.y, r) || r! < 0) { refuse(type); continue; }
+      if (r === 0) continue;
       pts.push({ x: c.x - r!, y: c.y - r! }, { x: c.x + r!, y: c.y + r! });
     }
   }
-  return bboxOfPoints(pts);
+  return { bbox: bboxOfPoints(pts), refused };
 }
 
-/** Transform a block-local bbox by an INSERT's scale/rotation/position. */
+/**
+ * Transform a block-local bbox by an INSERT's scale/rotation/position. Null
+ * when a corner overflows: a box of the corners that did not would be smaller
+ * than the symbol, not an approximation of it.
+ */
 function transformBlockBBox(
   local: CadBBox,
   at: CadPt,
   xScale: number,
   yScale: number,
   rotationDeg: number,
-): CadBBox {
+): CadBBox | null {
   const rad = (rotationDeg * Math.PI) / 180;
   const cos = Math.cos(rad), sin = Math.sin(rad);
   const corners: CadPt[] = [
@@ -121,7 +133,8 @@ function transformBlockBBox(
     const sx = p.x * xScale, sy = p.y * yScale;
     return { x: at.x + sx * cos - sy * sin, y: at.y + sx * sin + sy * cos };
   });
-  return bboxOfPoints(corners)!;
+  if (!corners.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return null;
+  return bboxOfPoints(corners);
 }
 
 /**
@@ -166,6 +179,8 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
     bbox: null,
     unsupported: {},
     malformed: {},
+    degenerate: {},
+    incompleteBlocks: {},
     warnings: [],
   };
 
@@ -178,10 +193,12 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
   }
   if (!dxf) return { ...empty, warnings: ['parseError'] };
 
-  const doc: CadDocument = { ...empty, unsupported: {}, malformed: {}, warnings: [], entities: [] };
+  const doc: CadDocument = { ...empty, unsupported: {}, malformed: {}, degenerate: {}, incompleteBlocks: {}, warnings: [], entities: [] };
 
   /** Refuse an entity of a supported type whose numbers are not usable. */
   const refuse = (kind: string) => { doc.malformed[kind] = (doc.malformed[kind] ?? 0) + 1; };
+  /** Skip readable geometry with no size — a leftover, not damage. */
+  const skipDegenerate = (kind: string) => { doc.degenerate[kind] = (doc.degenerate[kind] ?? 0) + 1; };
 
   // Unit suggestion from $INSUNITS (number). Never trusted blindly.
   const insunits = dxf.header?.['$INSUNITS'];
@@ -192,12 +209,14 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
     }
   }
 
-  // Pre-compute block bounding boxes for INSERT expansion.
-  const blockBoxes = new Map<string, CadBBox>();
-  for (const [name, block] of Object.entries(dxf.blocks ?? {})) {
-    const local = blockLocalBBox((block as unknown as { entities?: Array<Record<string, unknown>> }).entities ?? [], refuse);
-    if (local) blockBoxes.set(name, local);
-  }
+  // Block bounding boxes for INSERT expansion, computed for the blocks an
+  // INSERT actually uses, once each.
+  const blocks = (dxf.blocks ?? {}) as unknown as Record<string, { entities?: Array<Record<string, unknown>> }>;
+  const blockInfo = new Map<string, BlockInfo>();
+  const infoOf = (name: string): BlockInfo | undefined => {
+    if (!blockInfo.has(name) && blocks[name]) blockInfo.set(name, blockLocalBBox(blocks[name].entities ?? []));
+    return blockInfo.get(name);
+  };
 
   for (const entity of dxf.entities ?? []) {
     const layer = String(entity.layer ?? '0');
@@ -225,10 +244,12 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'LWPOLYLINE':
       case 'POLYLINE': {
         const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
-        if (!vs || vs.length < 2) { refuse(type); break; }
+        if (!vs) { refuse(type); break; }
         // One bad vertex condemns the outline: a polyline is a shape, and a
         // shape with a hole where a corner should be is not a smaller shape.
         if (!vs.every((v) => allFinite(v.x, v.y))) { refuse(type); break; }
+        // Readable, but a single point: a leftover of the export, not damage.
+        if (vs.length < 2) { skipDegenerate(type); break; }
         let pts: CadPt[] = vs.map((v) => ({ x: v.x, y: v.y }));
         // Closed when the shape flag is set, or first == last point.
         let closed = e.shape === true;
@@ -244,6 +265,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
           pts = pts.slice(0, -1);
         }
         if (pts.length >= 2) doc.entities.push({ kind: 'polyline', layer, pts, closed });
+        else skipDegenerate(type);
         break;
       }
       case 'ARC': {
@@ -254,9 +276,11 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
         // A non-finite radius is the worst of these: entityBBox computes
         // `center.x - r`, so one bad arc poisons the whole drawing extent
         // through Math.min/Math.max, which do NOT skip NaN the way the
-        // comparisons in bboxOfPoints do. And a radius is a size: missing,
-        // zero or negative is not one — a negative one drew an inverted box.
-        if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle) || !(r > 0)) { refuse('ARC'); break; }
+        // comparisons in bboxOfPoints do. A missing or negative radius is not
+        // a size — a negative one drew an inverted box. Zero is a readable
+        // radius of nothing: skipped as a leftover, not refused as damage.
+        if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle) || r < 0) { refuse('ARC'); break; }
+        if (r === 0) { skipDegenerate('ARC'); break; }
         doc.entities.push({
           kind: 'arc', layer,
           center: { x: e.center.x, y: e.center.y },
@@ -267,7 +291,8 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
       case 'CIRCLE': {
         if (!e.center) { refuse('CIRCLE'); break; }
         const r = e.radius;
-        if (!allFinite(e.center.x, e.center.y, r) || !(r > 0)) { refuse('CIRCLE'); break; }
+        if (!allFinite(e.center.x, e.center.y, r) || r < 0) { refuse('CIRCLE'); break; }
+        if (r === 0) { skipDegenerate('CIRCLE'); break; }
         doc.entities.push({
           kind: 'circle', layer,
           center: { x: e.center.x, y: e.center.y },
@@ -284,10 +309,18 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
         if (!allFinite(e.position.x, e.position.y, xScale, yScale, rotation)) { refuse('INSERT'); break; }
         const at: CadPt = { x: e.position.x, y: e.position.y };
         const blockName = String(e.name ?? '');
-        const local = blockBoxes.get(blockName);
-        const bbox = local
-          ? transformBlockBBox(local, at, xScale, yScale, rotation)
-          : undefined;
+        const info = infoOf(blockName);
+        // A block that lost pieces places its inserts but does not size them:
+        // whether the lost piece was the outline or a detail cannot be told
+        // from what is left, and sizing from the remainder made a column the
+        // size of its inner circle.
+        if (info && Object.keys(info.refused).length > 0) {
+          const inc = doc.incompleteBlocks[blockName] ??= { inserts: 0, refused: info.refused };
+          inc.inserts++;
+          doc.entities.push({ kind: 'insert', layer, at, blockName, bbox: undefined });
+          break;
+        }
+        const bbox = info?.bbox ? transformBlockBBox(info.bbox, at, xScale, yScale, rotation) ?? undefined : undefined;
         doc.entities.push({ kind: 'insert', layer, at, blockName, bbox });
         break;
       }

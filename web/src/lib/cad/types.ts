@@ -63,13 +63,20 @@ export interface CadDocument {
   /** Counts of entity types present in the file but not representable in the
    *  IR (HATCH, SPLINE, DIMENSION, ELLIPSE, …). Surfaced as warnings. */
   unsupported: Record<string, number>;
-  /** Counts, by entity type, of entities whose type IS representable but whose
-   *  numbers are unusable — non-finite or missing coordinates, a radius that is
-   *  not a positive size — in the drawing or inside a block definition: a
-   *  corrupt or truncated DXF. Kept apart from
+  /** Counts, by entity type, of drawing entities whose type IS representable
+   *  but whose numbers are unusable — non-finite or missing coordinates, a
+   *  negative radius: a corrupt or truncated DXF. Kept apart from
    *  `unsupported` because the distinction matters to the reader: there the
    *  importer cannot read the shape, here the file does not carry one. */
   malformed: Record<string, number>;
+  /** Counts, by entity type, of readable geometry with no size — a polyline of
+   *  one vertex, a circle or arc of radius 0. Common leftovers of CAD exports:
+   *  skipped and counted, but not a sign of a damaged file. */
+  degenerate: Record<string, number>;
+  /** Blocks INSERTed in the drawing whose definition lost pieces to unusable
+   *  numbers. Their inserts are kept at their insertion point without a size:
+   *  which piece set the symbol's size cannot be known from what is left. */
+  incompleteBlocks: Record<string, { inserts: number; refused: Record<string, number> }>;
   warnings: string[];
 }
 
