@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { shellRef } from '../../lib/engine/model-findings';
@@ -100,8 +101,7 @@
     >
       <option value="single">{t('results.simpleLoads')}</option>
       {#each caseKeys as id}
-        {@const lc = modelStore.model.loadCases.find((c) => c.id === id)}
-        <option value={`case_${id}`}>{lc?.name ?? `${t('results.caseFallback')} ${id}`}</option>
+        <option value={`case_${id}`}>{resultCaseName(id, modelStore.model.loadCases, t('svc.settlementCase'), `${t('results.caseFallback')} `)}</option>
       {/each}
       {#each modelStore.combinations as combo}
         <option value={`combo_${combo.id}`}>{combo.name}</option>

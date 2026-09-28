@@ -21,7 +21,7 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
-import { addSettlementCase, hasSettlement, withoutSettlement } from './settlement-case';
+import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
@@ -1013,7 +1013,33 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
 
 // ─── 2D: solveCombinations2D ─────────────────────────────────────
 
+/**
+ * The plane combinations, with a settlement solved once and added once, as in 3D
+ * (`settlement-case.ts`). Each case used to be solved on supports carrying the prescribed
+ * displacement, so 1.2 D + 1.6 L moved a 10 mm settlement by 28 mm.
+ */
 export function solveCombinations2D(
+  model: ModelData,
+  loadCases: LoadCase[],
+  combinations: LoadCombination[],
+  includeSelfWeight = false,
+): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+  if (!hasSettlement(model.supports.values())) return solveCombinations2DCore(model, loadCases, combinations, includeSelfWeight);
+  const solved = solveCombinations2DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight);
+  if (!solved || typeof solved === 'string') return solved;
+  const input = buildSolverInput2D({ ...model, loads: [] }, false);
+  if (!input) return t('svc.emptyModel');
+  let settlement: AnalysisResults | string;
+  try {
+    settlement = solveStructure(input);
+  } catch (err: any) {
+    return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', err?.message ?? String(err));
+  }
+  if (typeof settlement === 'string') return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
+  return addSettlementCase2D(solved, settlement, combinations) ?? t('svc.envelopeError');
+}
+
+function solveCombinations2DCore(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],

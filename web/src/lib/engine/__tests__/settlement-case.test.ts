@@ -68,3 +68,25 @@ describe('an imposed settlement in a combination', () => {
     });
   }
 });
+
+describe('an imposed settlement in a 2D combination', () => {
+  beforeEach(() => { uiStore.analysisMode = '2d'; });
+
+  it('is applied once too', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), m = modelStore.addNode(L, 0), c = modelStore.addNode(2 * L, 0);
+    const e1 = modelStore.addElement(a, m, 'frame'), e2 = modelStore.addElement(m, c, 'frame');
+    modelStore.addSupport(a, 'pinned');
+    modelStore.addSupport(m, 'rollerX', undefined, { dz: SETTLE });
+    modelStore.addSupport(c, 'rollerX');
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    const d = modelStore.addLoadCase('D', 'D'), l = modelStore.addLoadCase('L', 'L');
+    for (const e of [e1, e2]) modelStore.addDistributedLoad(e, -10, -10, undefined, undefined, d);
+    modelStore.addDistributedLoad(e1, -5, -5, undefined, undefined, l);
+    const k = modelStore.addCombination('1.2D + 1.6L', [{ caseId: d, factor: 1.2 }, { caseId: l, factor: 1.6 }]);
+    const r = modelStore.solveCombinations(false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    // Not 2.8 × 10 mm at the settled support.
+    expect(uz(r.perCombo.get(k)! as never, m)).toBeCloseTo(SETTLE, 9);
+  });
+});
