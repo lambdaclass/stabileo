@@ -6,7 +6,7 @@
  * to 1e-9 relative, except where the peak lies between samples and the parabolic refinement
  * carries it.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -14,6 +14,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { serviceSets, serviceDeflections } from '../service-deflection';
+import { runGlobalSolve } from '../../engine/live-calc';
 import { eiOf } from '../../engine/member-deflection';
 
 const L = 6, q = 10, P = 20;
@@ -83,17 +84,15 @@ describe('relative to the chord, against closed forms', () => {
     expect(d.x).toBeCloseTo(xm, 2);
   });
 
-  it('a cantilever is measured from its chord, not from where it started', () => {
+  it('a cantilever is measured at its tip, from its support: PL³/3EI', () => {
+    // Relative to the chord (which runs through the tip) the peak is about a fifth of this, and a
+    // span limit for a cantilever is written for the tip. See chordDeflection.
     const tip = member('fixed', 'free');
     modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
     const d = solveAndRead();
     const EI = ei().EIy;
-    // v(x) = P x²(3L − x)/6EI; relative to the chord x·v(L)/L, largest where 6Lx − 3x² − 2L² = 0.
-    const v = (x: number) => (P * x * x * (3 * L - x)) / (6 * EI);
-    const xm = L * (1 - 1 / Math.sqrt(3));
-    const exact = Math.abs(v(xm) - (xm / L) * v(L));
-    expect(d.max / exact).toBeCloseTo(1, 5);
-    expect(d.max).toBeLessThan(v(L) / 2); // the absolute tip displacement is not the number
+    expect(d.max / ((P * L ** 3) / (3 * EI))).toBeCloseTo(1, 5);
+    expect(d.x).toBeCloseTo(L, 6);
   });
 
   it('a member that moves without bending has no deflection', () => {
@@ -139,5 +138,26 @@ describe('under which loads', () => {
     publishCombinations3D(r2);
     expect(serviceSets().basis).toBe('factored');
     expect(serviceSets().sets.map((x) => x.id)).toEqual([service, strength]);
+  });
+});
+
+describe('the unfactored basis after a PRO solve', () => {
+  afterEach(() => { vi.restoreAllMocks(); uiStore.analysisMode = '2d'; });
+
+  it('is every load case at factor 1, not the first case alone', async () => {
+    member('pinned', 'roller');
+    const dead = modelStore.addLoadCase('Defl D', 'D');
+    const live = modelStore.addLoadCase('Defl L', 'L');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
+    modelStore.addDistributedLoad3D(beam, 0, 0, -2 * q, -2 * q, undefined, undefined, live);
+    modelStore.addCombination('1.2D+1.6L', [{ caseId: dead, factor: 1.2 }, { caseId: live, factor: 1.6 }]);
+    uiStore.analysisMode = 'pro';
+    // The worker pool is not there under vitest; the same solve, in-process.
+    vi.spyOn(modelStore, 'solveCombinations3DParallel').mockImplementation(async (w, l, p) => modelStore.solveCombinations3D(w, l, p));
+    await runGlobalSolve();
+    const s = serviceSets();
+    expect(s.basis).toBe('unfactored');
+    const d = serviceDeflections([beam], s.sets).get(beam)!;
+    expect(d.max / ((5 * 3 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });

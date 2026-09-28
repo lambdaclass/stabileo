@@ -220,12 +220,21 @@ export interface ChordDeflection {
 /**
  * The deflection of a curve relative to the chord of its displaced ends.
  *
+ * A cantilever is the exception: with one end free, the chord runs through the tip it is
+ * meant to measure, and the peak relative to it is about a fifth of the tip's deflection
+ * (PL³/3EI under a tip load). A span limit for a cantilever is written for the tip relative
+ * to its support, so with `supportedEnd` the reference is that end's displaced position —
+ * a whole-frame translation still drops out, and the support's rotation, which the tip
+ * really undergoes, stays in.
+ *
  * The largest sampled value is refined with the parabola through it and its neighbours, so the
  * peak between two samples is not missed by the sampling.
  */
-export function chordDeflection(c: LocalCurve): ChordDeflection {
+export function chordDeflection(c: LocalCurve, supportedEnd?: 'I' | 'J'): ChordDeflection {
   const n = c.xi.length;
-  const rel = (arr: number[], i: number) => arr[i]! - (arr[0]! + c.xi[i]! * (arr[n - 1]! - arr[0]!));
+  const rel = supportedEnd
+    ? (arr: number[], i: number) => arr[i]! - arr[supportedEnd === 'I' ? 0 : n - 1]!
+    : (arr: number[], i: number) => arr[i]! - (arr[0]! + c.xi[i]! * (arr[n - 1]! - arr[0]!));
   const vr = c.xi.map((_, i) => rel(c.v, i));
   const wr = c.xi.map((_, i) => rel(c.w, i));
   const res = vr.map((v, i) => Math.hypot(v, wr[i]!));

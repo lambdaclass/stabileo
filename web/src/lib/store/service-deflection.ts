@@ -49,6 +49,21 @@ export function serviceSets(): ServiceSets {
 
 export type MemberDeflection = ChordDeflection & { setName: string };
 
+/**
+ * The nodes nothing but one member holds: no support, no second member, shell or connector.
+ * A member ending at one is a cantilever from its other end.
+ */
+function freeNodes(): Set<number> {
+  const count = new Map<number, number>();
+  const add = (id: number) => count.set(id, (count.get(id) ?? 0) + 1);
+  for (const e of modelStore.elements.values()) { add(e.nodeI); add(e.nodeJ); }
+  for (const p of modelStore.plates.values()) p.nodes.forEach(add);
+  for (const q of modelStore.quads.values()) q.nodes.forEach(add);
+  for (const c of modelStore.connectors.values()) { add(c.nodeI); add(c.nodeJ); }
+  const supported = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+  return new Set([...count].filter(([id, k]) => k === 1 && !supported.has(id)).map(([id]) => id));
+}
+
 /** Each member's largest chord deflection over the result sets, and the set that produced it. */
 export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSets['sets']): Map<number, MemberDeflection> {
   const out = new Map<number, MemberDeflection>();
@@ -57,6 +72,7 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
   // The solver works in its own right-handed frame whatever triad is displayed; the curve is read
   // in that frame too.
   const leftHand = false;
+  const free = freeNodes();
   const indexed = sets.map((s) => ({
     name: s.name,
     disp: new Map(s.results.displacements.map((d) => [d.nodeId, d])),
@@ -72,13 +88,16 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
     const localY = elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined
       ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
     const roll = (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0);
+    // A cantilever is measured from its support (member-deflection.ts, chordDeflection).
+    const freeI = free.has(elem.nodeI), freeJ = free.has(elem.nodeJ);
+    const supportedEnd = freeJ && !freeI ? 'I' : freeI && !freeJ ? 'J' : undefined;
     let best: MemberDeflection | null = null;
     for (const s of indexed) {
       const dI = s.disp.get(elem.nodeI), dJ = s.disp.get(elem.nodeJ), ef = s.forces.get(elementId);
       if (!dI || !dJ || !ef) continue;
       const curve = memberLocalCurve(pI, pJ, dI, dJ, ef, ei, localY, roll, leftHand, 40);
       if (!curve) continue;
-      const d = chordDeflection(curve);
+      const d = chordDeflection(curve, supportedEnd);
       if (!best || d.max > best.max) best = { ...d, setName: s.name };
     }
     if (best) out.set(elementId, best);
