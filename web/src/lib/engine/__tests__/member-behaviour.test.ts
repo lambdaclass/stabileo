@@ -132,6 +132,22 @@ describe('lifting supports', () => {
     modelStore.addNodalLoad3D(ns[1]!, 0, 0, -100, 0, 0, 0, 1);
     const r = solve();
     expect(Math.abs(disp(r, ns[1]!).uz)).toBeLessThan(1e-9);
+    expect(r.reactions.every((r) => r.fz > -1e-6)).toBe(true);
+    expect(r.reactions.reduce((s, r) => s + r.fz, 0)).toBeCloseTo(90, 6);
+    expect(disp(r, ns[2]!).uz).toBeGreaterThan(0);
+  });
+
+  it('still releases a pulling support when another support has a multilinear spring', () => {
+    const ns = overhang();
+    const p = pulling(ns);
+    const sup = [...modelStore.supports.values()].find((s) => s.nodeId === p)!;
+    modelStore.updateSupport(sup.id, { uplift: true });
+    const first = [...modelStore.supports.values()].find((s) => s.nodeId === ns[0])!;
+    modelStore.updateSupport(first.id, { curves: { x: [[0.01, 100], [0.05, 150]] } });
+    const r = solve();
+    expect(disp(r, p).uz).toBeGreaterThan(0);
+    expect(Math.abs(r.reactions.find((r) => r.nodeId === p)?.fz ?? 0)).toBeLessThan(1e-6);
+    expect(r.reactions.reduce((s, r) => s + r.fz, 0)).toBeCloseTo(80, 5);
   });
 });
 
@@ -152,6 +168,53 @@ describe('stiffness modifiers', () => {
 });
 
 describe('multilinear springs', () => {
+  function springModel(load: number, points: Array<[number, number]>) {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0), c = modelStore.addNode(0, 3, 0);
+    modelStore.addElement(a, b, 'truss'); modelStore.addElement(a, c, 'truss');
+    modelStore.addSupport(b, 'fixed3d'); modelStore.addSupport(c, 'fixed3d');
+    const s = modelStore.addSupport(a, 'custom3d', undefined, { dofRestraints: { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false } });
+    modelStore.updateSupport(s, { curves: { z: points } });
+    modelStore.addNodalLoad3D(a, 0, 0, load, 0, 0, 0, 1);
+    return a;
+  }
+
+  it('refuses an overloaded plateau spring instead of publishing the last iteration', () => {
+    springModel(-120, [[0.01, 100], [0.05, 100]]);
+    const r = validateAndSolve3D(md());
+    expect(typeof r).toBe('string');
+    expect(r).toContain('did not converge');
+  });
+
+  it('refuses a combination that exceeds the spring capacity even when its case converges', () => {
+    springModel(-80, [[0.01, 100], [0.05, 100]]);
+    const r = solveCombinations3D(md(), modelStore.model.loadCases, [{ id: 1, name: 'Overload', factors: [{ caseId: 1, factor: 1.5 }] }]);
+    expect(typeof r).toBe('string');
+    expect(r).toContain('did not converge');
+  });
+
+  it.each([-120, 120])('recovers spring reactions in equilibrium with %s kN', (load) => {
+    const node = springModel(load, [[0.01, 100], [0.05, 150]]);
+    const r = solve();
+    expect(disp(r, node).uz).toBeCloseTo(Math.sign(load) * 0.026, 4);
+    expect(r.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo(-load, 5);
+    const b = solveCombinations3D(md(), modelStore.model.loadCases, [{ id: 1, name: 'Service', factors: [{ caseId: 1, factor: 1 }] }]);
+    if (!b || typeof b === 'string') throw new Error(String(b));
+    expect(b.perCombo.get(1)!.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo(-load, 5);
+  });
+
+  it('keeps ordinary support reactions as well as curved spring reactions', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    const s = modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false } });
+    modelStore.updateSupport(s, { curves: { z: [[0.01, 100], [0.05, 150]] } });
+    modelStore.addNodalLoad3D(b, 0, 0, -120, 0, 0, 0, 1);
+    const r = solve();
+    expect(r.reactions.find((r) => r.nodeId === a)!.fz).toBeGreaterThan(0);
+    expect(r.reactions.find((r) => r.nodeId === b)!.fz).toBeGreaterThan(0);
+    expect(r.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo(120, 5);
+  });
+
   it('a bilinear vertical spring: past its first branch the node follows the second', () => {
     // 10 000 kN/m up to 100 kN at 10 mm, then 1 250 kN/m to 150 kN at 50 mm. Under 120 kN:
     // 10 mm + 20 kN / 1 250 kN/m = 26 mm.

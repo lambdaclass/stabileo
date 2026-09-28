@@ -52,6 +52,15 @@ export interface TimeHistorySpec {
 
 export const emptyGround = (): GroundSpec => ({ source: 'none', scale: 1 });
 
+/** Initialise the parameters displayed by the editor as soon as a source is selected. */
+export function withGroundSource(g: GroundSpec, source: GroundSource): GroundSpec {
+  return {
+    ...g, source,
+    ...(source === 'sine' ? { sine: g.sine ?? { ampG: 0.3, freqHz: 2 } } : {}),
+    ...(source === 'spectrum' ? { spectrum: g.spectrum ?? { seed: 1, duration: 20 } } : {}),
+  };
+}
+
 export function defaultTimeHistory(): TimeHistorySpec {
   return {
     dt: 0.01, nSteps: 200, method: 'newmark', alpha: -0.1, damping: 0.05,
@@ -93,6 +102,13 @@ export function forceRecords(forces: ForceSpec[], dt: number, nSteps: number) {
 
 /** The `TimeHistoryInput3D` fields other than `solver`, from the spec. */
 export function timeHistoryInput(spec: TimeHistorySpec, densities: Map<number, number>, spectrumSa: ((T: number) => number) | null): Record<string, unknown> {
+  // An enabled but incomplete direction must never silently disappear from a run.
+  for (const [dir, g] of Object.entries(spec.ground)) {
+    if ((g.source === 'sine' && !g.sine) || (g.source === 'record' && !g.record)
+      || (g.source === 'spectrum' && (!g.spectrum || !spectrumSa))) {
+      throw new Error(`Missing ground motion data for ${dir.toUpperCase()}`);
+    }
+  }
   const gx = groundSeries(spec.ground.x, spec.dt, spec.nSteps, spectrumSa);
   const gy = groundSeries(spec.ground.y, spec.dt, spec.nSteps, spectrumSa);
   const gz = groundSeries(spec.ground.z, spec.dt, spec.nSteps, spectrumSa);

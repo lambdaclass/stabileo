@@ -7,7 +7,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { parseGroundRecord, recordSummary, RecordError, type AccelUnit } from '../../../lib/engine/dynamics/accelerogram';
   import { G } from '../../../lib/engine/dynamics/requests';
-  import { groundSeries, type GroundSpec } from '../../../lib/engine/dynamics/time-history-spec';
+  import { groundSeries, withGroundSource, type GroundSource, type GroundSpec } from '../../../lib/engine/dynamics/time-history-spec';
   import { errorText } from '../../../lib/utils/error-text';
   import TimeSeriesChart from './TimeSeriesChart.svelte';
 
@@ -43,7 +43,7 @@
 <div class="gm" data-testid="th-ground-{dir}">
   <div class="gm-row">
     <span class="gm-dir">{dir.toUpperCase()}</span>
-    <select bind:value={g.source} data-testid="th-src-{dir}">
+    <select value={g.source} onchange={(e) => (g = withGroundSource(g, e.currentTarget.value as GroundSource))} data-testid="th-src-{dir}">
       <option value="none">{t('pro.th.none')}</option>
       <option value="sine">{t('pro.th.source.sine')}</option>
       <option value="record">{t('pro.th.source.record')}</option>

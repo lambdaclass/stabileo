@@ -126,9 +126,9 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   if (hasMembers && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
   const lifted = new Set<number>();
-  let last: { results: AnalysisResults3D; slack: number[]; converged: boolean } | null = null;
+  const maxIterations = Math.max(MAX_ITER, 2 * upliftNodes.length);
 
-  for (let it = 1; it <= MAX_ITER; it++) {
+  for (let it = 1; it <= maxIterations; it++) {
     const supports = new Map(input.supports);
     for (const [n, c] of curved) {
       const s = supports.get(n);
@@ -145,38 +145,60 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     let results: AnalysisResults3D, slack: number[] = [], memberConverged = true;
     if (hasMembers) {
       const r = solveContact3D({ solver: trial, elementBehaviors: behaviours });
+      if (r.converged !== true) throw new Error('One-way member analysis did not converge');
       results = r.results as AnalysisResults3D;
       memberConverged = r.converged !== false;
       slack = ((r.elementStatus ?? []) as Array<{ elementId: number; status: string }>).filter((x) => x.status === 'inactive').map((x) => x.elementId);
     } else if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
       const r = solveSSI3D({ solver: trial, soilSprings: live });
-      results = r.results as AnalysisResults3D;
+      if (r.converged !== true) throw new Error('Multilinear spring analysis did not converge');
+      // SSI returns spring forces separately and omits all support reactions. Recover the
+      // complete result with its converged secant stiffnesses, including ordinary supports.
+      // The uplift iteration below also needs those reactions to release pulling restraints.
+      const settled = new Map(supports);
+      for (const s of r.springResults as Array<{ nodeId: number; direction: number; secantStiffness: number }>) {
+        const support = settled.get(s.nodeId);
+        const key = (['kx', 'ky', 'kz'] as const)[s.direction];
+        if (!support || !key || !Number.isFinite(s.secantStiffness) || s.secantStiffness < 0) {
+          throw new Error('Invalid converged spring stiffness');
+        }
+        settled.set(s.nodeId, { ...support, [key]: s.secantStiffness });
+      }
+      const complete = solve3D({ ...trial, supports: settled });
+      if (typeof complete === 'string') throw new Error(complete);
+      results = complete;
       memberConverged = r.converged !== false;
     } else {
       const r = solve3D(trial);
       if (typeof r === 'string') throw new Error(r);
       results = r;
     }
-    last = { results, slack, converged: memberConverged };
 
-    let changed = false;
     const reaction = new Map(results.reactions.map((r) => [r.nodeId, r.fz]));
     const disp = new Map(results.displacements.map((d) => [d.nodeId, d.uz]));
     const scale = Math.max(1e-9, ...results.reactions.map((r) => Math.abs(r.fz)));
+    // Pivot one restraint at a time. Releasing every pulling support together can remove
+    // more restraints than necessary and turn a stable contact problem into a mechanism.
+    // Restore the deepest penetration first; otherwise release the largest tensile reaction.
+    let restore: number | undefined, release: number | undefined;
+    let penetration = -1e-9, pulling = -1e-6 * scale;
     for (const n of upliftNodes) {
-      if (!lifted.has(n)) {
-        // A multilinear vertical spring pulls when its node goes up; any other support when its
-        // reaction is downward.
-        const pulls = curved.get(n)?.z?.length ? (disp.get(n) ?? 0) > 1e-9 : (reaction.get(n) ?? 0) < -1e-6 * scale;
-        if (pulls) { lifted.add(n); changed = true; }
-      } else if ((disp.get(n) ?? 0) < -1e-9) { lifted.delete(n); changed = true; }
+      if (lifted.has(n)) {
+        const u = disp.get(n) ?? 0;
+        if (u < penetration) { penetration = u; restore = n; }
+      } else {
+        const r = reaction.get(n) ?? 0;
+        if (r < pulling) { pulling = r; release = n; }
+      }
     }
-    if (!changed) {
+    if (restore !== undefined) lifted.delete(restore);
+    else if (release !== undefined) lifted.add(release);
+    else {
       return { results, report: { converged: memberConverged, iterations: it, lifted: [...lifted], slack } };
     }
   }
-  return { results: last!.results, report: { converged: false, iterations: MAX_ITER, lifted: [...lifted], slack: last!.slack } };
+  throw new Error(`Lifting support analysis did not converge after ${maxIterations} iterations`);
 }
 
 // ─── The solve-only sections for stiffness modifiers ──────────────

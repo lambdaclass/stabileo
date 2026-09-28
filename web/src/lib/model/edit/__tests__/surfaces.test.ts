@@ -53,8 +53,15 @@ describe('surfaces', () => {
   });
 
   it('refuses what cannot be built', () => {
+    expect(surfaceMesh('cone', { ...SURFACE_DEFAULTS.cone, topRadius: 0 })).toBeNull();
+    expect(surfaceMesh('sphericalZone', { ...SURFACE_DEFAULTS.sphericalZone, toDeg: 90 })).toBeNull();
     expect(surfaceMesh('sphericalCap', { ...SURFACE_DEFAULTS.sphericalCap, rise: 10 })).toBeNull();
     expect(surfaceMesh('hyperboloid', { ...SURFACE_DEFAULTS.hyperboloid, bottomRadius: 3 })).toBeNull();
+  });
+
+  it('rejects oversized surface grids before creating their nodes', () => {
+    expect(surfaceMesh('cylinder', { ...SURFACE_DEFAULTS.cylinder, around: 720, along: 500 })).toBeNull();
+    expect(surfaceMesh('sphericalCap', { ...SURFACE_DEFAULTS.sphericalCap, size: 0.001 })).toBeNull();
   });
 });
 
