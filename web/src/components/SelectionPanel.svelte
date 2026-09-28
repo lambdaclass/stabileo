@@ -16,7 +16,7 @@
    */
   import { uiStore, modelStore } from '../lib/store';
   import { selectAll, invertSelection, selectByIds } from '../lib/model/select-ops';
-  import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial } from '../lib/engine/design/member-grouping';
+  import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial, groupByElevation, groupByPlane, groupByFrameLine, groupByKind, memberKindOf } from '../lib/engine/design/member-grouping';
   import { t, tp } from '../lib/i18n';
 
   /**
@@ -74,12 +74,31 @@
    * selected ones. Seeded by the selection, so "every beam running this way" is two clicks.
    */
   const seedMembers = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
-  function like(kind: 'parallel' | 'connected' | 'section' | 'material') {
+  function like(kind: 'parallel' | 'connected' | 'section' | 'material' | 'level' | 'plane' | 'frame' | 'kind') {
     const model = modelStore.model as never;
     let ids: number[] = [];
+    const seeds = new Set(seedMembers);
+    const refuse = (key?: string) => { byIdNote = t(key ?? 'selection.likeNone'); };
     if (kind === 'parallel') ids = groupByParallel(model, seedMembers);
     else if (kind === 'connected') ids = groupByConnectivity(model, seedMembers, 1, false);
-    else {
+    else if (kind === 'level') {
+      // The storey the selected members sit on: its beams, and the columns rising from it.
+      const g = groupByElevation(model);
+      if (!g.available) return refuse(g.refusedKey);
+      const bands = g.bands.filter((b) => [...b.beamIds, ...b.columnsRisingIds].some((id) => seeds.has(id)));
+      ids = [...new Set(bands.flatMap((b) => [...b.beamIds, ...b.columnsRisingIds, ...b.slopedBeamIds]))];
+    } else if (kind === 'plane') {
+      const g = groupByPlane(model);
+      if (!g.available) return refuse(g.refusedKey);
+      ids = [...new Set(g.planes.filter((p) => p.elementIds.some((id) => seeds.has(id))).flatMap((p) => p.elementIds))];
+    } else if (kind === 'frame') {
+      const g = groupByFrameLine(model);
+      if (!g.available) return refuse(g.refusedKey);
+      ids = [...new Set(g.lines.filter((l) => l.elementIds.some((id) => seeds.has(id))).flatMap((l) => l.elementIds))];
+    } else if (kind === 'kind') {
+      const kinds = new Set(seedMembers.map((id) => memberKindOf(model, id)).filter((k) => k !== null));
+      ids = [...new Set([...kinds].flatMap((k) => groupByKind(model, k!)))];
+    } else {
       const set = new Set<number>();
       for (const id of seedMembers) {
         const e = modelStore.elements.get(id)!;
@@ -177,6 +196,10 @@
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('connected')} data-testid="sel-like-connected">{t('selection.likeConnected')}</button>
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('section')} data-testid="sel-like-section">{t('selection.likeSection')}</button>
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('material')} data-testid="sel-like-material">{t('selection.likeMaterial')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('kind')} data-testid="sel-like-kind">{t('selection.likeKind')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('level')} data-testid="sel-like-level">{t('selection.likeLevel')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('plane')} data-testid="sel-like-plane">{t('selection.likePlane')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('frame')} data-testid="sel-like-frame">{t('selection.likeFrame')}</button>
     </div>
   </div>
 

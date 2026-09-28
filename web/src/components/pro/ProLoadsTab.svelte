@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
+  import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
+  import ProCombinationRules from './ProCombinationRules.svelte';
+  import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
+  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
+  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
@@ -256,7 +262,7 @@
 
   // ─── Combination Generator with Review Modal ──────────
 
-  type ComboTemplate = 'lrfd' | 'service';
+  type ComboTemplate = 'lrfd' | 'service' | 'project';
 
   interface CandidateCombo {
     name: string;
@@ -264,11 +270,17 @@
     exists: boolean;
     selected: boolean;
     template: ComboTemplate;
+    /** The generated combination, so service ones reach the service envelope. */
+    generated: CaseCombination;
   }
 
   let showComboModal = $state(false);
   let candidateCombos = $state<CandidateCombo[]>([]);
   let activeTemplate = $state<ComboTemplate>('lrfd');
+  const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
+  const hasSeismicCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'E'));
+  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
+  let bothSenses = $state(true);
 
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
@@ -284,145 +296,31 @@
   }
 
   function buildCandidates(template: ComboTemplate): CandidateCombo[] {
-    if (template === 'service') return buildServiceCandidates();
-    return buildLRFDCandidates();
+    return candidatesFrom(template);
   }
 
-  /** Build service/ASD combination candidates (ASCE 7-22 §2.4). */
-  function buildServiceCandidates(): CandidateCombo[] {
+  /**
+   * Candidates from the regulation's generators, onto this model's cases.
+   *
+   * Strength: CIRSOC 101-2025 §2.3.2 (1,0 W, with strength-level wind). Service: the
+   * characteristic combinations. Both come from the same code as the regulation dialog, and
+   * expand one wind or seismic direction at a time (`combination-cases.ts`). This tab used to
+   * carry its own tables: one labelled ASCE 7-22 with 1,6 W, which neither code prints now,
+   * and an ASD set labelled "service", which is allowable-stress design and not serviceability.
+   */
+  function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
-    const byType: Record<string, number[]> = {};
-    for (const lc of cases) { const t2 = (lc.type || '').toUpperCase(); if (!byType[t2]) byType[t2] = []; byType[t2].push(lc.id); }
-    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
-    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
-    function mkF(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
-      return cases.map(lc => { const m = pairs.find(([id]) => id === lc.id); return { caseId: lc.id, factor: m ? m[1] : 0 }; });
-    }
-    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
-      const factors = mkF(pairs); return { name, factors, exists: comboExists(factors), selected: false, template: 'service' };
-    }
-    const out: CandidateCombo[] = [];
-    if (D.length === 0) return out;
-    // S1: D
-    out.push(mk('D', D.map(id => [id, 1.0])));
-    // S2: D + L
-    if (L.length > 0) out.push(mk('D + L', [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 1.0] as [number, number])]));
-    // S3: D + Lr (or S)
-    if (Lr.length > 0) out.push(mk('D + Lr', [...D.map(id => [id, 1.0] as [number, number]), ...Lr.map(id => [id, 1.0] as [number, number])]));
-    else if (S2.length > 0) out.push(mk('D + S', [...D.map(id => [id, 1.0] as [number, number]), ...S2.map(id => [id, 1.0] as [number, number])]));
-    // S4: D + 0.75L + 0.75Lr (or S)
-    if (L.length > 0 && (Lr.length > 0 || S2.length > 0)) {
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 0.75] as [number, number])];
-      if (Lr.length > 0) pairs.push(...Lr.map(id => [id, 0.75] as [number, number]));
-      else pairs.push(...S2.map(id => [id, 0.75] as [number, number]));
-      out.push(mk('D + 0.75L + 0.75' + (Lr.length > 0 ? 'Lr' : 'S'), pairs));
-    }
-    // S5: D + W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      out.push(mk(`D + ${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [wId, 1.0]]));
-    }
-    // S6: D + 0.7E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
-      out.push(mk(`D + 0.7${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [eId, 0.7]]));
-    }
-    // S7: D + 0.75L + 0.75W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 0.75] as [number, number]));
-      pairs.push([wId, 0.75]);
-      out.push(mk(`D + 0.75L + 0.75${sn}`, pairs));
-    }
-    // S8: 0.6D + W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
-      out.push(mk(`0.6D + ${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [wId, 1.0]]));
-    }
-    // S9: 0.6D + 0.7E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
-      out.push(mk(`0.6D + 0.7${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [eId, 0.7]]));
-    }
-    for (const c of out) c.selected = !c.exists;
-    return out;
-  }
-
-  /** Build LRFD ultimate combination candidates (ASCE 7-22 §2.3). */
-  function buildLRFDCandidates(): CandidateCombo[] {
-    const cases = modelStore.model.loadCases;
-    const byType: Record<string, number[]> = {};
-    for (const lc of cases) {
-      const t2 = (lc.type || '').toUpperCase();
-      if (!byType[t2]) byType[t2] = [];
-      byType[t2].push(lc.id);
-    }
-    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
-    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
-
-    function mkFactors(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
-      return cases.map(lc => {
-        const match = pairs.find(([id]) => id === lc.id);
-        return { caseId: lc.id, factor: match ? match[1] : 0 };
-      });
-    }
-    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
-      const factors = mkFactors(pairs);
-      return { name, factors, exists: comboExists(factors), selected: false, template: 'lrfd' as ComboTemplate };
-    }
-
-    const out: CandidateCombo[] = [];
-    if (D.length === 0) return out;
-
-    // 1. 1.4D
-    out.push(mk('1.4D', D.map(id => [id, 1.4])));
-
-    // 2. 1.2D + 1.6L + 0.5(Lr or S)
-    if (L.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
-      if (Lr.length > 0) out.push(mk('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]));
-      else if (S2.length > 0) out.push(mk('1.2D + 1.6L + 0.5S', [...base, ...S2.map(id => [id, 0.5] as [number, number])]));
-      else out.push(mk('1.2D + 1.6L', base));
-    }
-
-    // 3. 1.2D + 1.6(Lr or S) + L
-    if (Lr.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
-      out.push(mk(L.length > 0 ? '1.2D + 1.6Lr + L' : '1.2D + 1.6Lr', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
-    } else if (S2.length > 0) {
-      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S2.map(id => [id, 1.6] as [number, number])];
-      out.push(mk(L.length > 0 ? '1.2D + 1.6S + L' : '1.2D + 1.6S', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
-    }
-
-    // 4. 1.2D + L + 1.6W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
-      pairs.push([wId, 1.6]);
-      out.push(mk(`1.2D + L + 1.6${sn}`, pairs));
-    }
-    // 5. 1.2D + L + E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
-      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
-      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
-      pairs.push([eId, 1.0]);
-      out.push(mk(`1.2D + L + ${sn}`, pairs));
-    }
-    // 6. 0.9D + 1.6W (per wind direction)
-    for (const wId of W) {
-      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
-      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
-    }
-    // 7. 0.9D + E (per seismic direction)
-    for (const eId of E2) {
-      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
-      out.push(mk(`0.9D + ${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]));
-    }
-
-    // Default selection: check only those that don't already exist
+    const present = presentSymbols(cases);
+    // The project's rules carry their own factors: W is written as the engineer means it.
+    const specs = template === 'project'
+      ? modelStore.combinationRules.map(ruleToSpec)
+      : template === 'service'
+      ? generateServiceCombinations({ present })
+      : generateCombinations({ present });
+    const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
+      const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
+      return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
+    });
     for (const c of out) c.selected = !c.exists;
     return out;
   }
@@ -440,7 +338,7 @@
   function applySelectedCombos() {
     const toAdd = candidateCombos.filter(c => c.selected);
     if (toAdd.length === 0) { showComboModal = false; return; }
-    const prefix = activeTemplate === 'service' ? 'S' : 'U';
+    const prefix = activeTemplate === 'service' ? 'S' : activeTemplate === 'project' ? 'P' : 'U';
     // Continue numbering from the highest existing index for this prefix (not a
     // count): counting reuses a number after an earlier combo is deleted, which
     // produces duplicate names like two "U3: …".
@@ -450,10 +348,7 @@
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
     }, 0);
     modelStore.batch(() => {
-      for (const c of toAdd) {
-        n++;
-        modelStore.addCombination(`${prefix}${n}: ${c.name}`, c.factors);
-      }
+      addGeneratedCombinations(toAdd.map((c) => ({ ...c.generated, name: c.name })), () => `${prefix}${++n}: `);
     });
     showComboModal = false;
     const label = activeTemplate === 'service' ? t('pro.serviceCombosGenerated') : t('pro.combosGenerated');
@@ -510,6 +405,7 @@
       case 'D': return 'dead';
       case 'L': return 'live';
       case 'W': return 'wind';
+      case 'S': return 'snow';
       case 'E': return 'seismic';
       default: return null;
     }
@@ -597,8 +493,8 @@
         {#each loadCases as lc}
           {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
           <tr class:active={uiStore.activeLoadCaseId === lc.id} onclick={() => { uiStore.activeLoadCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
-            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span></td>
-            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
+            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W' || lc.type === 'Wa'} class:type-e={lc.type === 'E'}></span></td>
+            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="Wa">Wa</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
             <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
             <td class="lc-count">{caseLoadCount}</td>
             <!--
@@ -629,6 +525,7 @@
         <option value="L">L</option>
         <option value="Lr">Lr</option>
         <option value="W">W</option>
+        <option value="Wa">Wa</option>
         <option value="E">E</option>
         <option value="S">S</option>
         <option value="">{t('pro.caseTypeOther')}</option>
@@ -689,6 +586,7 @@
             {t('pro.generateService')}
           </button>
         </div>
+        <ProCombinationRules onGenerate={() => openComboGenerator('project')} />
       </div>
     {/if}
   </div>
@@ -909,10 +807,17 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
       <div class="combo-modal-header">
-        <h3>{activeTemplate === 'service' ? t('pro.generateService') : t('pro.generateLRFD')}</h3>
-        <span class="combo-modal-sub">{activeTemplate === 'service' ? 'ASCE 7 §2.4 / CIRSOC 101 ASD' : 'ASCE 7 §2.3 / CIRSOC 101 LRFD'}</span>
+        <h3>{activeTemplate === 'service' ? t('pro.generateService') : activeTemplate === 'project' ? t('combos.rules.generate') : t('pro.generateLRFD')}</h3>
+        <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : activeTemplate === 'project' ? t('combos.rules.sub') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
+      {#if hasWindCases || hasSeismicCases}
+        <label class="combo-wind-basis" data-testid="combo-both-senses">
+          <input type="checkbox" bind:checked={bothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('combos.bothSenses')}</span>
+        </label>
+        <p class="combo-senses-hint">{t('combos.bothSensesHint')}</p>
+      {/if}
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
           {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
@@ -1227,4 +1132,6 @@
   .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
   .pro-delete-btn:hover { color: var(--st-danger); }
   .pro-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 30px 10px; font-size: 0.78rem; }
+  .combo-senses-hint { margin: 0; padding: 0 12px 6px; font-size: 0.62rem; color: var(--st-text-3); }
+  .combo-wind-basis { display: flex; gap: 6px; align-items: center; padding: 6px 12px; font-size: 0.68rem; color: var(--st-text-2); border-bottom: 1px solid var(--st-hair); }
 </style>

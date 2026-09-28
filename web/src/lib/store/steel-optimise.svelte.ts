@@ -68,10 +68,11 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
     const e = modelStore.elements.get(id);
     if (!ef || !e) continue;
     const len = lengths.get(id);
+    const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
       elementId: id,
       demand: steelDemandOf(ef, demands.get(id), stations.get(id)),
-      lengths: len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length },
+      lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),
     });

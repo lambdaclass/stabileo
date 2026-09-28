@@ -18,7 +18,7 @@
  * see the whole surface a demo may point at without grepping the markup.
  */
 
-import { modelStore, resultsStore, uiStore } from '../store';
+import { modelStore, resultsStore, uiStore, tourStore } from '../store';
 
 /**
  * Which ribbon commands are somewhere ELSE on a phone.
@@ -91,10 +91,13 @@ export const ANCHORS = {
  * fit it, and at the moment the store changes there is nothing laid out yet.
  */
 export async function loadExample(id: string): Promise<void> {
-  await modelStore.loadExample(id);
-  resultsStore.clear();
-  resultsStore.clear3D();
-  resultsStore.forgetView();
+  // Held: a step that solves or arms a mode must not run before the model it acts on is there.
+  await tourStore.hold((async () => {
+    await modelStore.loadExample(id);
+    resultsStore.clear();
+    resultsStore.clear3D();
+    resultsStore.forgetView();
+  })());
   setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
 }
 

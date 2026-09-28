@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tourStore } from '../lib/store/tour.svelte';
+  import { tourStore, actionAdvances } from '../lib/store/tour.svelte';
   import { t } from '../lib/i18n';
   import { onMount, onDestroy, untrack } from 'svelte';
 
@@ -323,19 +323,20 @@
             <!-- Action button replaces "Esperando..." when available -->
             <button
               class="tour-action"
+              disabled={tourStore.isBusy}
               onclick={() => {
                 step.actionButton!.action();
-                if (step.actionButton!.advanceAfter !== false) {
+                // A step that advances itself when its condition holds is left to do so (`actionAdvances`).
+                if (actionAdvances(step, step.actionButton!.advanceAfter)) {
                   /*
-                   * Only once the step's own condition holds. This advanced
+                   * And only once the step's own condition holds. This advanced
                    * blindly after 100 ms, and an action that is async — a
                    * solve on a slow machine — is not done by then: the next
                    * step started without the results it was built on. The
                    * section walkthrough's "arm" step then armed stress mode
                    * with no results, the viewport dropped it back to elements,
                    * and "click the beam" never registered a click (CI, under
-                   * software GL, lost that race almost every time). A step
-                   * with `autoAdvance` still moves on when the results arrive.
+                   * software GL, lost that race almost every time).
                    */
                   setTimeout(() => { if (tourStore.canAdvance) tourStore.next(); }, 100);
                 }
@@ -349,6 +350,7 @@
               {#each step.multiAction as ma}
                 <button
                   class="tour-action"
+                  disabled={tourStore.isBusy}
                   onclick={() => {
                     ma.action();
                     if (ma.advanceAfter !== false) {
@@ -363,7 +365,7 @@
             <button
               class="tour-next"
               onclick={() => tourStore.next()}
-              disabled={step.waitFor ? !tourStore.canAdvance : false}
+              disabled={step.waitFor ? !tourStore.canAdvance : tourStore.isBusy}
             >
               {step.waitFor && !tourStore.canAdvance ? t('tour.waiting') : t('tour.next')}
             </button>

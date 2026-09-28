@@ -11,6 +11,7 @@ Design rules (mirrors the run brief):
 from __future__ import annotations
 
 import hashlib
+import shutil
 import json
 import os
 import re
@@ -19,8 +20,8 @@ import sys
 import unicodedata
 from dataclasses import dataclass, field, asdict
 
-SRC = "/Users/bauti/Claude/stabileo/docs/codes/CIRSOC"
-OUT = "/Users/bauti/Claude/stabileo/docs/codes/CIRSOC/markdown"
+SRC = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(SRC, "markdown")
 
 DOCS = [
     ("CIRSOC 101-2025.pdf", "cirsoc-101-2025", "CIRSOC 101", "2025",
@@ -41,6 +42,15 @@ DOCS = [
      "Reglamento Argentino para Construcciones Sismorresistentes - Parte IV: Construcciones de Acero"),
     ("INPRES-CIRSOC-103_Parte_V-Reglamento.pdf", "inpres-cirsoc-103-v", "INPRES-CIRSOC 103 Parte V", "2018",
      "Reglamento Argentino para Construcciones Sismorresistentes - Parte V: Soldadura de Estructuras de Acero Sismorresistentes"),
+    # One PDF, two regulations whose chapters are both numbered from 1: snow (pages 1-88) and ice
+    # (89-112). Their index pages read as ordinary text under pypdf, so they are named here.
+    ("CIRSOC 104-2005.pdf", "cirsoc-104-2005", "CIRSOC 104", "2005",
+     "Reglamento Argentino de Acción de la Nieve sobre las Construcciones",
+     {"first": 1, "last": 88, "toc": list(range(11, 17)),
+      "sections": {43: "FIGURAS", 51: "TABLAS", 71: "ANEXO A LA TABLA 1.9"}}),
+    ("CIRSOC 104-2005.pdf", "cirsoc-104-2005-hielo", "CIRSOC 104 (hielo)", "2005",
+     "Reglamento Argentino de Acción del Hielo sobre las Construcciones",
+     {"first": 89, "last": 112, "toc": [91, 92]}),
 ]
 
 CHAP_RE = re.compile(r"^\s*(CAP[IÍ]TULO|AP[EÉ]NDICE|ANEXO)\s+([0-9IVXA-Z]+)\.?\s*[-.:]?\s*(.*)$", re.I)
@@ -86,8 +96,23 @@ class ChapterOut:
     file: str = ""
 
 
+def have_pdftotext() -> bool:
+    return shutil.which("pdftotext") is not None
+
+
+def page_count(pdf: str) -> int:
+    if shutil.which("pdfinfo"):
+        info = subprocess.run(["pdfinfo", pdf], capture_output=True).stdout.decode("utf-8", "replace")
+        return int(re.search(r"^Pages:\s+(\d+)", info, re.M).group(1))
+    from pypdf import PdfReader
+    return len(PdfReader(pdf).pages)
+
+
 def read_pages(pdf: str, npages: int) -> list[str]:
-    """One pdftotext -layout call, split on form feed."""
+    """One pdftotext -layout call, split on form feed; pypdf's layout mode where poppler is absent."""
+    if not have_pdftotext():
+        from pypdf import PdfReader
+        return [p.extract_text(extraction_mode="layout") or "" for p in PdfReader(pdf).pages]
     raw = subprocess.run(
         ["pdftotext", "-layout", "-enc", "UTF-8", pdf, "-"],
         capture_output=True, check=True,
@@ -138,17 +163,31 @@ def is_toc_page(lines: list[str]) -> bool:
     return hits / len(body) > 0.55
 
 
-def main() -> None:
-    os.makedirs(OUT, exist_ok=True)
-    inventory = []
+EXTRACTOR = "pdftotext -layout"
 
-    for fname, key, code, edition, title in DOCS:
+
+def main() -> None:
+    """`convert.py [key ...]` converts only those documents and keeps the others' inventory rows."""
+    global EXTRACTOR
+    EXTRACTOR = "pdftotext -layout" if have_pdftotext() else "pypdf layout mode"
+    os.makedirs(OUT, exist_ok=True)
+    only = set(sys.argv[1:])
+    inv_path = os.path.join(OUT, "inventory.json")
+    inventory = []
+    if only and os.path.exists(inv_path):
+        with open(inv_path, encoding="utf-8") as fh:
+            inventory = [m for m in json.load(fh) if m.get("key") not in only]
+
+    for entry in DOCS:
+        fname, key, code, edition, title = entry[:5]
+        opts = entry[5] if len(entry) > 5 else {}
+        if only and key not in only:
+            continue
         pdf = os.path.join(SRC, fname)
         if not os.path.exists(pdf):
             print(f"MISSING {fname}", file=sys.stderr)
             continue
-        info = subprocess.run(["pdfinfo", pdf], capture_output=True).stdout.decode("utf-8", "replace")
-        npages = int(re.search(r"^Pages:\s+(\d+)", info, re.M).group(1))
+        npages = page_count(pdf)
         pages = read_pages(pdf, npages)
 
         docdir = os.path.join(OUT, key)
@@ -166,31 +205,41 @@ def main() -> None:
             if cur is None:
                 return
             cur.last_page = last_page
-            fn = f"{slug(cur.number)}-{slug(cur.title)}.md"
+            fn = f"{slug(cur.number)}-{slug(cur.title)}.md" if cur.title else f"{slug(cur.number)}.md"
             cur.file = fn
             with open(os.path.join(docdir, fn), "w", encoding="utf-8") as fh:
-                fh.write(f"# {code} ({edition}) — {cur.number}. {cur.title}\n\n")
+                fh.write(f"# {code} ({edition}) — {cur.number}" + (f". {cur.title}" if cur.title else "") + "\n\n")
                 fh.write(f"> Source: `{fname}` · PDF pages {cur.first_page}–{cur.last_page}\n")
-                fh.write(f"> Extraction: `pdftotext -layout` text layer, verbatim. "
+                fh.write(f"> Extraction: `{EXTRACTOR}` text layer, verbatim. "
                          f"No text was rewritten or inferred.\n\n")
                 fh.write("\n".join(cur_lines).strip() + "\n")
             chapters.append(cur)
             cur, cur_lines = None, []
 
         nonlocal_last = None
+        first, last = opts.get("first", 1), opts.get("last", len(pages))
+        toc_set = set(opts.get("toc", []))
+        forced = opts.get("sections", {})
         for idx, ptext in enumerate(pages, start=1):
+            if idx < first or idx > last:
+                continue
             chars = len(ptext.strip())
             stats.append(PageStat(idx, chars, "empty" if chars == 0 else ("sparse" if chars < 120 else "ok")))
             lines = clean_page(ptext)
-            if is_toc_page(lines):
+            if idx in toc_set or is_toc_page(lines):
                 toc_pages += 1
                 continue
+            if idx in forced:
+                # A section the document opens without a CAPÍTULO/ANEXO heading of its own.
+                flush(idx - 1)
+                cur = ChapterOut(key=key, number=forced[idx], title="", first_page=idx, last_page=idx)
+                cur_lines = []
 
             for line in lines:
                 m = CHAP_RE.match(line)
-                if m and len(line.strip()) < 90:
+                if m and len(re.sub(r"\s+", " ", line.strip())) < 90:
                     num = m.group(2)
-                    ttl = (m.group(3) or "").strip(" .-:")
+                    ttl = re.sub(r"\s+", " ", (m.group(3) or "")).strip(" .-:")
                     kind = m.group(1).upper()
                     ordv = chapter_ordinal(num)
                     # Reject inline cross-references ("...ver el CAPÍTULO 20 y la clase...").
@@ -211,14 +260,16 @@ def main() -> None:
                     cur = ChapterOut(key=key, number="0", title="Preliminares", first_page=idx, last_page=idx)
                     cur_lines = []
                 cm = CLAUSE_RE.match(line)
-                if cm and not TOC_LINE.search(line):
+                # Inside a table section a leading number is a row number, not a clause.
+                verbatim = cur is not None and cur.number in forced.values()
+                if cm and not verbatim and not TOC_LINE.search(line):
                     cur.clauses.append({"id": cm.group(1), "title": cm.group(2).strip(), "page": idx})
                     cur_lines.append(f"\n<a id=\"c{cm.group(1)}\"></a>\n### {cm.group(1)} {cm.group(2).strip()}  <sub>p.{idx}</sub>\n")
                 else:
                     cur_lines.append(line)
             cur_lines.append(f"\n<!-- page {idx} -->\n")
 
-        flush(len(pages))
+        flush(min(last, len(pages)))
 
         meta = {
             "key": key, "code": code, "edition": edition, "title": title,
@@ -227,7 +278,7 @@ def main() -> None:
             "bytes": os.path.getsize(pdf),
             "pages": npages,
             "toc_pages_skipped": toc_pages,
-            "extraction_method": "pdftotext -layout (embedded text layer, no OCR)",
+            "extraction_method": f"{EXTRACTOR} (embedded text layer, no OCR)",
             "pages_ok": sum(1 for s in stats if s.confidence == "ok"),
             "pages_sparse": sum(1 for s in stats if s.confidence == "sparse"),
             "pages_empty": sum(1 for s in stats if s.confidence == "empty"),
@@ -248,7 +299,9 @@ def main() -> None:
         print(f"{key}: {npages}p -> {len(chapters)} chapters, {len(meta['clauses'])} clauses, "
               f"{meta['pages_sparse']} sparse, {meta['pages_empty']} empty")
 
-    with open(os.path.join(OUT, "inventory.json"), "w", encoding="utf-8") as fh:
+    order = [d[1] for d in DOCS]
+    inventory.sort(key=lambda m: order.index(m["key"]) if m.get("key") in order else len(order))
+    with open(inv_path, "w", encoding="utf-8") as fh:
         json.dump(inventory, fh, ensure_ascii=False, indent=2)
 
 

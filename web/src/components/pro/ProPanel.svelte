@@ -63,12 +63,14 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
+  import ProInstabilityReport from './ProInstabilityReport.svelte';
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
+  import ProOtherCodesPanel from './ProOtherCodesPanel.svelte';
   /*
    * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
    * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
@@ -84,7 +86,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code' | 'view';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -237,6 +239,7 @@
     // `pro.tabConnections` would have put "Uniones metálicas" on the ribbon and "Conexiones"
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
+    otherCodes: 'proRibbon.groupOtherCodes',
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
     // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
@@ -293,6 +296,8 @@
 
   <!-- Tab content -->
   <div class="pro-content">
+    <!-- Above every tab: a failed solve's mechanism is news wherever the user is. -->
+    <ProInstabilityReport />
     <!--
       The grid scrolls; the head above it does not.
       ────────────────────────────────────────────
@@ -364,6 +369,8 @@
           <ProGeneratorsPanel />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
+        {:else if activeTab === 'otherCodes'}
+          <ProOtherCodesPanel />
         {:else if activeTab === 'ai'}
       <AiDrawer docked />
     {:else if activeTab === 'diagnostics'}

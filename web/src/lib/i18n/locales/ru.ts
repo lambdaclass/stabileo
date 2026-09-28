@@ -3139,7 +3139,7 @@ const ru: Translations = {
   'autoLoad.sysWalls': 'Стены',
   'autoLoad.sysOther': 'Прочее',
   'autoLoad.dirX': 'Направление X',
-  'autoLoad.dirZ': 'Направление Z',
+  'autoLoad.dirZ': 'Направление Y',
   'autoLoad.preview': 'Предпросмотр сейсмики',
   'autoLoad.options': 'Параметры',
   'autoLoad.genCombos': 'Сгенерировать комбинации по нормам',

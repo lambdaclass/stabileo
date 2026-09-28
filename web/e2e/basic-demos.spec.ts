@@ -314,6 +314,14 @@ test.describe('@smoke the cards do not contradict the screen', () => {
  * where the member is instead of guessing — still clicking the canvas, which is
  * the point of the test, just not blindly. If the retries stop absorbing it,
  * that is the signal to do that work, not to raise them.
+ *
+ * The trail did name it once CI kept it: every failing run clicked with the viewport in
+ * `mode=elements`, not `stress`. The card's Solve button forced the next card 100 ms after the
+ * click, ahead of its own "wait for results": on CI's runners the solve took longer, so the card
+ * that arms the section analysis ran with no results yet, and the viewport disarms that mode when
+ * there are none. A step that advances itself is now left to do so (`TourOverlay.svelte`). The
+ * walkthrough also holds while its example loads (`tourStore.hold`), a race of the same kind that
+ * the trace ruled out as this one's cause.
  */
 test.describe('@smoke the section walkthrough', () => {
   test.describe.configure({ retries: 2 });

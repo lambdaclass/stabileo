@@ -38,7 +38,8 @@ import { clause, type ClauseRef } from '../regulation';
 import { msg, type EngineMessage } from '../message';
 
 /** The load symbols of §2.2, as used by the combinations. */
-export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'E' | 'F' | 'H' | 'T';
+/** `Wa`: wind for a recurrence shorter than the risk category's (CIRSOC 102-2025 B.4), service only. */
+export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' | 'H' | 'T';
 
 export interface CombinationTerm {
   symbol: LoadSymbol;
@@ -48,8 +49,8 @@ export interface CombinationTerm {
 export interface LoadCombinationSpec {
   /** 1..7 as printed, with a suffix when one printed combination expands to several. */
   id: string;
-  /** Which of the seven printed combinations this came from. */
-  basic: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  /** Which of the seven printed combinations this came from. Absent for a project's own rule. */
+  basic?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   terms: CombinationTerm[];
   /**
    * Canonical notation, e.g. `1.2 D + 1.6 L + 0.5 Lr`.
@@ -63,6 +64,8 @@ export interface LoadCombinationSpec {
   refs: ClauseRef[];
   /** Notes attached by an exception that was applied. Translated at the boundary. */
   notes: EngineMessage[];
+  /** Strength (§2.3.2) or service (`service-combinations.ts`). Absent means strength. */
+  purpose?: 'strength' | 'service';
 }
 
 export interface CombinationInputs {
@@ -70,6 +73,8 @@ export interface CombinationInputs {
   present: {
     L: boolean; Lr: boolean; S: boolean; R: boolean;
     W: boolean; E: boolean; F: boolean; H: boolean;
+    /** A service-level wind case exists (B.4.2's D + Wa). Absent: false. */
+    Wa?: boolean;
   };
   /**
    * Governing Lo from Table 4.1, in kN/m². Drives Exception 1. When several occupancies
@@ -156,7 +161,7 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
   ];
 
   const push = (
-    basic: LoadCombinationSpec['basic'],
+    basic: NonNullable<LoadCombinationSpec['basic']>,
     suffix: string,
     terms: CombinationTerm[],
     refs: ClauseRef[],

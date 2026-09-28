@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { thermalAlphaOf } from '../../lib/engine/thermal-alpha';
   /**
    * The PRO materials tab: the list of materials, and one way to add to it.
    *
@@ -182,6 +183,18 @@
     regulationsStore.noteChange('detailingSpec');
   }
 
+  /** α in 10⁻⁶/°C. Blank goes back to the family's value. */
+  function setAlpha(id: number, raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === '') { modelStore.updateMaterial(id, { alpha: undefined }); return; }
+    const v = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(v) || v <= 0 || v > 100) {
+      uiStore.toast(t('materials.alphaInvalid'), 'error');
+      return;
+    }
+    modelStore.updateMaterial(id, { alpha: v * 1e-6 });
+  }
+
   function removeMat(id: number) {
     const ok = modelStore.removeMaterial(id);
     if (!ok) uiStore.toast(t('table.cannotDeleteMaterial'), 'error');
@@ -228,6 +241,7 @@
             <th class="sym">{t('field.poisson')}</th>
             <th class="sym">{t('field.density')}</th>
             <th class="sym">f<sub>y</sub></th>
+            <th class="sym" title={t('materials.alphaHelp')}>α (10⁻⁶/°C)</th>
             <th class="sym" title={t('materials.aggregateHelp')}>{t('materials.aggregateShort')}</th>
             <th title={t('material.spacingMarginHelp')}>{t('material.spacingMarginShort')}</th>
             <th></th>
@@ -242,6 +256,18 @@
               <td class="col-num">{m.nu}</td>
               <td class="col-num">{m.rho}</td>
               <td class="col-num">{m.fy ?? '—'}</td>
+              <td class="col-num">
+                <!-- Blank: the family's value, shown as the placeholder so the number used is
+                     always on screen (`engine/thermal-alpha.ts`). -->
+                <input
+                  class="agg-input" type="text" inputmode="decimal"
+                  data-testid={`mat-alpha-${m.id}`}
+                  aria-label={t('materials.alpha')}
+                  value={m.alpha !== undefined ? +(m.alpha * 1e6).toFixed(3) : ''}
+                  placeholder={String(+(thermalAlphaOf(m) * 1e6).toFixed(2))}
+                  onchange={(e) => setAlpha(m.id, e.currentTarget.value)}
+                />
+              </td>
               <td class="col-num">
                 {#if takesConcreteDetailing(m)}
                 <!-- Maximum nominal coarse-aggregate size: a MIX property, so it lives on

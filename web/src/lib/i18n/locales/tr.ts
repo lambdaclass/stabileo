@@ -3147,7 +3147,7 @@ const tr: Translations = {
   'autoLoad.sysWalls': 'Perdeler',
   'autoLoad.sysOther': 'Diğer',
   'autoLoad.dirX': 'X yönü',
-  'autoLoad.dirZ': 'Z yönü',
+  'autoLoad.dirZ': 'Y yönü',
   'autoLoad.preview': 'Deprem ön izleme',
   'autoLoad.options': 'Seçenekler',
   'autoLoad.genCombos': 'Standarda göre kombinasyonları oluştur',

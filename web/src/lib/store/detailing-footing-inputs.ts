@@ -26,6 +26,7 @@
  */
 
 import { activePerCombo3D } from './active-results';
+import { SETTLEMENT_CASE_ID } from '../engine/settlement-case';
 import { modelStore, type ProvidedReinforcement } from './model.svelte';
 import { verificationStore } from './verification.svelte';
 import { resultsStore } from './results.svelte';
@@ -81,7 +82,8 @@ export function collectFootingReactions(): Map<number, NodeReactions> {
       const list = cases.get(r.nodeId) ?? [];
       list.push({
         caseId,
-        caseType: caseTypeOf.get(caseId) ?? 'D',
+        // The imposed settlement is a self-straining action (T), not dead load.
+        caseType: caseId === SETTLEMENT_CASE_ID ? 'T' : caseTypeOf.get(caseId) ?? 'D',
         fz: r.fz, mx: r.mx, my: r.my,
       });
       cases.set(r.nodeId, list);

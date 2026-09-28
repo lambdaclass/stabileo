@@ -199,17 +199,9 @@ describe('the experimental warnings cannot be conditioned away', () => {
     const { CIRSOC301_JS_ASSUMPTIONS } = await import('../../engine/design/adapters/cirsoc301-capabilities');
     expect(CIRSOC301_JS_ASSUMPTIONS.length).toBeGreaterThan(0);
     for (const key of CIRSOC301_JS_ASSUMPTIONS) expect(steelEs[key]).toBeTruthy();
-    const banner = read('components/pro/steel/SteelExperimentalBanner.svelte');
-    expect(banner).toContain('CIRSOC301_JS_ASSUMPTIONS');
-  });
-
-  it('sits above the CIRSOC 301 table rather than below it', () => {
-    const tab = read('components/pro/ProVerificationTab.svelte');
-    const banner = tab.indexOf('<SteelExperimentalBanner />');
-    const table = tab.indexOf('{#each steelVerifications as sv}');
-    expect(banner).toBeGreaterThan(0);
-    expect(table).toBeGreaterThan(0);
-    expect(banner).toBeLessThan(table);
+    // The steel workflow lists them; the unmounted verification tab that carried a banner of
+    // its own, and the table the banner sat above, are gone.
+    expect(read('components/pro/ProSteelWorkflowTab.svelte')).toContain('CIRSOC301_JS_ASSUMPTIONS');
   });
 });
 

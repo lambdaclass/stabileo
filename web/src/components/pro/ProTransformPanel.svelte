@@ -8,7 +8,7 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { translation, rotation, reflection, type Affine, type Vec3 } from '../../lib/model/edit/affine';
+  import { translation, rotation, reflection, type Affine, type Vec3, repeatOffsets, parseSpacings } from '../../lib/model/edit/affine';
   import { copyTransformed, type EditReport } from '../../lib/model/edit/transformed-copy';
   import { transformInPlace } from '../../lib/model/edit/transform-in-place';
   import type { EditWarning } from '../../lib/model/edit/transform-fields';
@@ -20,6 +20,9 @@
 
   let mode = $state<Mode>('repeat');
   let count = $state(1);
+  /** Unequal steps along the offset's direction, e.g. "6; 7,5; 6". Blank: equal steps. */
+  let spacingText = $state('');
+  const spacings = $derived(mode === 'repeat' && spacingText.trim() ? parseSpacings(spacingText) : null);
   let d = $state<Vec3>([0, 0, 3]);
   let point = $state<Vec3>([0, 0, 0]);
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>('Z');
@@ -59,10 +62,11 @@
 
   const axisVec = $derived<Vec3>(axis === 'X' ? [1, 0, 0] : axis === 'Y' ? [0, 1, 0] : axis === 'Z' ? [0, 0, 1] : axisCustom);
   const canCopy = $derived(mode !== 'move' && asCopy);
-  const copies = $derived(mode === 'mirror' ? 1 : Math.floor(count));
+  const copies = $derived(mode === 'mirror' ? 1 : spacings ? spacings.length : Math.floor(count));
   const countOk = $derived(!canCopy || mode === 'mirror' || (copies >= 1 && copies <= MAX_COPIES));
   const axisOk = $derived(mode === 'repeat' || mode === 'move' || Math.hypot(...axisVec) > 1e-9);
-  const canRun = $derived(size > 0 && countOk && axisOk);
+  const spacingOk = $derived(mode !== 'repeat' || !spacingText.trim() || (spacings !== null && Math.hypot(...d) > 1e-9));
+  const canRun = $derived(size > 0 && countOk && axisOk && spacingOk);
 
   /** Centre of the selected nodes: where a mirror plane or an axis is most often wanted. */
   function centreOfSelection() {
@@ -77,7 +81,7 @@
 
   function transforms(): Affine[] {
     switch (mode) {
-      case 'repeat': return Array.from({ length: copies }, (_, k) => translation([d[0] * (k + 1), d[1] * (k + 1), d[2] * (k + 1)]));
+      case 'repeat': return repeatOffsets(d, copies, spacings ?? undefined).map((o) => translation(o));
       case 'polar': return Array.from({ length: copies }, (_, k) => rotation(point, axisVec, angle * (k + 1)));
       case 'mirror': return [reflection(point, axisVec)];
       case 'rotate': return asCopy
@@ -98,7 +102,11 @@
     const leftHand = uiStore.axisConvention3D === 'leftHand';
     if (mode === 'move' || !asCopy) {
       const r = transformInPlace(set, T[0]!, { leftHand });
-      message = [tp('transform.movedDone', { n: r.movedNodes, stretched: r.stretchedMembers }), warningsText(r.warnings)].filter(Boolean).join(' ');
+      message = [
+        tp('transform.movedDone', { n: r.movedNodes, stretched: r.stretchedMembers }),
+        r.welded > 0 ? tp('transform.welded', { n: r.welded }) : '',
+        warningsText(r.warnings),
+      ].filter(Boolean).join(' ');
       return;
     }
     const r: EditReport = copyTransformed(set, T, {
@@ -153,6 +161,15 @@
       <input type="number" min="1" max={MAX_COPIES} step="1" bind:value={count} data-testid="tp-count" />
     </label>
     {#if !countOk}<p class="tp-err">{tp('transform.tooMany', { max: MAX_COPIES })}</p>{/if}
+  {/if}
+
+  {#if mode === 'repeat'}
+    <label class="tp-field">
+      <span title={t('transform.spacingsHint')}>{t('transform.spacings')}</span>
+      <input type="text" placeholder="6; 7,5; 6" bind:value={spacingText} data-testid="tp-spacings" />
+    </label>
+    {#if !spacingOk}<p class="tp-err">{t('transform.spacingsInvalid')}</p>{/if}
+    {#if spacings}<p class="pk-hint">{tp('transform.spacingsApplied', { n: spacings.length })}</p>{/if}
   {/if}
 
   {#if mode === 'repeat' || mode === 'move'}
