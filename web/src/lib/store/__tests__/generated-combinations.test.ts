@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
+import { historyStore } from '../history.svelte';
 import '../index';
 import { addGeneratedCombinations, SERVICE_ENVELOPE_NAME } from '../generated-combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
@@ -43,5 +44,35 @@ describe('adding generated combinations', () => {
     const strength = expandCombinations(generateCombinations({ present: presentSymbols(cases) }), cases);
     modelStore.batch(() => { addGeneratedCombinations(strength); });
     expect(modelStore.resultScopes).toBeUndefined();
+  });
+});
+
+describe('generating again once a list is stated', () => {
+  beforeEach(() => { modelStore.setResultScopes(null); });
+
+  it('puts later strength combinations in the design’s list', () => {
+    const cases = model();
+    const present = presentSymbols(cases);
+    const strength = expandCombinations(generateCombinations({ present }), cases);
+    const service = expandCombinations(generateServiceCombinations({ present }), cases);
+    modelStore.batch(() => { addGeneratedCombinations([...strength, ...service]); });
+    // Replace existing, then strength only: the list must not be left empty.
+    modelStore.batch(() => {
+      for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+      addGeneratedCombinations(strength);
+    });
+    const active = activeComboIds(modelStore.resultScopes, modelStore.combinations);
+    expect(active.length).toBe(strength.length);
+  });
+
+  it('undo gives the SLS envelope back its earlier combinations', () => {
+    const cases = model();
+    const present = presentSymbols(cases);
+    const service = expandCombinations(generateServiceCombinations({ present }), cases);
+    modelStore.batch(() => { addGeneratedCombinations(service); });
+    const before = JSON.stringify(modelStore.resultScopes);
+    addGeneratedCombinations(service); // outside a batch, as the Auto-loads dialog calls it
+    historyStore.undo();
+    expect(JSON.stringify(modelStore.resultScopes)).toBe(before);
   });
 });
