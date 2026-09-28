@@ -1909,9 +1909,10 @@ function createModelStore() {
     },
 
     /** Reverse a member (I ↔ J) without changing the structure; see reverse-element.ts. */
-    reverseElement(id: number): void {
+    /** `undo: false` when the caller already recorded the step (the member card). */
+    reverseElement(id: number, opts: { undo?: boolean } = {}): void {
       if (!model.elements.has(id)) return;
-      if (!_undoBatching) _pushUndo?.();
+      if (!_undoBatching && opts.undo !== false) _pushUndo?.();
       modelVersion++;
       _onMutation?.();
       reverseElementInModel(model, id);
@@ -1919,10 +1920,15 @@ function createModelStore() {
     },
 
     updateNodeZ(id: number, z: number): void {
-      const node = model.nodes.get(id);
-      if (node) {
+      if (model.nodes.has(id)) {
         if (!_undoBatching) _pushUndo?.();
-        model.nodes.set(id, { ...node, z });
+        // A depth given to one node of a standing plane model makes it a space
+        // one; without the rewrite every other y is read as a depth and the
+        // frame lies down. In the plane model's coordinates z is the depth, so
+        // after the rewrite it is y.
+        const rewrote = (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates();
+        const node = model.nodes.get(id)!;
+        model.nodes.set(id, rewrote ? { ...node, y: z } : { ...node, z });
         model.nodes = new Map(model.nodes);
       }
     },
@@ -2142,8 +2148,9 @@ function createModelStore() {
     // ─── 3D Load CRUD ─────────────────────────────────────────────
 
     addNodalLoad3D(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number {
-      this.ensureSpaceCoordinates();
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -2154,8 +2161,9 @@ function createModelStore() {
     },
 
     addDistributedLoad3D(elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number {
-      this.ensureSpaceCoordinates();
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
       if (a !== undefined && a > 0) data.a = a;
@@ -2168,8 +2176,9 @@ function createModelStore() {
     },
 
     addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number): number {
-      this.ensureSpaceCoordinates();
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -2936,8 +2945,15 @@ function createModelStore() {
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {
-      // A move in the space workspace is in space coordinates.
-      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') this.ensureSpaceCoordinates();
+      // A move in the space workspace is in space coordinates. When this is the
+      // edit that rewrites a standing plane model, the caller read the node
+      // before the rewrite — (x, y, z) in the plane model's own coordinates — so
+      // they are mapped the way the nodes were: (x, y, z) → (x, z, y). Callers
+      // that move several nodes, or that work in space coordinates from the
+      // start (the 3D drag), call ensureSpaceCoordinates() before reading.
+      if ((uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates()) {
+        [y, z] = [z ?? 0, y];
+      }
       const node = model.nodes.get(id);
       if (node) {
         modelVersion++;

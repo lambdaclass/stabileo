@@ -74,7 +74,8 @@
   function reverse() {
     if (elemId === null) return;
     record();
-    modelStore.reverseElement(elemId);
+    // The card's first change recorded the step; the rest belong to it.
+    modelStore.reverseElement(elemId, { undo: false });
   }
 
   function reset() {

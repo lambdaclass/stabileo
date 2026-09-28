@@ -65,3 +65,50 @@ describe('a standing plane model edited in 3D', () => {
     expect([...modelStore.nodes.values()].some((n) => n.y > 0)).toBe(true);
   });
 });
+
+describe('edits whose arguments were read before the rewrite', () => {
+  const standing = async () => {
+    await modelStore.loadExample('portal-frame');
+    uiStore.analysisMode = '3d';
+    expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
+    return [...modelStore.nodes.values()].map((n) => ({ ...n }));
+  };
+
+  it('a node table edit of X keeps the node where it stood', async () => {
+    const before = await standing();
+    const top = before.find((n) => n.y > 0)!;
+    // What NodesTable.updateNodeX passes: the new x, and the y it read.
+    historyStore.pushState();
+    modelStore.updateNode(top.id, top.x + 1, modelStore.getNode(top.id)!.y);
+    expect(modelStore.nodes.get(top.id)).toMatchObject({ x: top.x + 1, y: 0, z: top.y });
+    for (const n of before.filter((n) => n.id !== top.id)) {
+      expect(modelStore.nodes.get(n.id)).toMatchObject({ x: n.x, y: 0, z: n.y });
+    }
+  });
+
+  it('an edit of Z does not lay the frame down', async () => {
+    const before = await standing();
+    const top = before.find((n) => n.y > 0)!;
+    historyStore.pushState();
+    modelStore.updateNodeZ(top.id, 0.5);
+    // Every other node still stands at its height; none of them read y as depth.
+    for (const n of before.filter((n) => n.id !== top.id)) {
+      expect(modelStore.nodes.get(n.id)).toMatchObject({ x: n.x, y: 0, z: n.y });
+    }
+    expect(uiStore.viewportPresentation3D).toBe('native3d');
+  });
+
+  it.each([
+    ['nodal', () => modelStore.addNodalLoad3D([...modelStore.nodes.keys()][1], 1, 0, 0, 0, 0, 0)],
+    ['distributed', () => modelStore.addDistributedLoad3D([...modelStore.elements.keys()][0], 0, 0, -1, -1)],
+    ['point on member', () => modelStore.addPointLoadOnElement3D([...modelStore.elements.keys()][0], 1, 0, -1)],
+  ])('undo of a %s space load stands the plane model back up', async (_label, add) => {
+    const before = await standing();
+    const loads = JSON.stringify(modelStore.model.loads);
+    add();
+    historyStore.undo();
+    expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
+    expect([...modelStore.nodes.values()].map((n) => ({ ...n }))).toEqual(before);
+    expect(JSON.stringify(modelStore.model.loads)).toBe(loads);
+  });
+});
