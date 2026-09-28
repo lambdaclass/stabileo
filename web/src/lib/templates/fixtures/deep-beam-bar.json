@@ -1,0 +1,104 @@
+{
+ "name": "Viga de gran canto como barra — 6 m × 2 m (L/h = 3)",
+ "materials": [
+  {
+   "id": 1,
+   "name": "Hormigón E = 30 000 MPa (sin peso propio)",
+   "e": 30000,
+   "nu": 0.2,
+   "rho": 0
+  }
+ ],
+ "sections": [
+  {
+   "id": 1,
+   "name": "Rectangular 20×200",
+   "a": 0.4,
+   "iy": 0.133333333,
+   "iz": 0.001333333,
+   "j": 0.0,
+   "b": 0.2,
+   "h": 2.0,
+   "shape": "rect"
+  }
+ ],
+ "nodes": [
+  {
+   "id": 1,
+   "x": 0,
+   "y": 0,
+   "z": 0
+  },
+  {
+   "id": 2,
+   "x": 3,
+   "y": 0,
+   "z": 0
+  },
+  {
+   "id": 3,
+   "x": 6,
+   "y": 0,
+   "z": 0
+  }
+ ],
+ "elements": [
+  {
+   "id": 1,
+   "type": "frame",
+   "nodeI": 1,
+   "nodeJ": 2,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  },
+  {
+   "id": 2,
+   "type": "frame",
+   "nodeI": 2,
+   "nodeJ": 3,
+   "materialId": 1,
+   "sectionId": 1,
+   "hingeStart": false,
+   "hingeEnd": false
+  }
+ ],
+ "supports": [
+  {
+   "id": 1,
+   "nodeId": 1,
+   "type": "pinned"
+  },
+  {
+   "id": 2,
+   "nodeId": 3,
+   "type": "rollerX"
+  }
+ ],
+ "loads": [
+  {
+   "type": "distributed",
+   "data": {
+    "id": 1,
+    "elementId": 1,
+    "qI": -10.0,
+    "qJ": -10.0
+   }
+  },
+  {
+   "type": "distributed",
+   "data": {
+    "id": 2,
+    "elementId": 2,
+    "qI": -10.0,
+    "qJ": -10.0
+   }
+  }
+ ],
+ "plates": [],
+ "quads": [],
+ "constraints": [],
+ "loadCases": [],
+ "combinations": []
+}

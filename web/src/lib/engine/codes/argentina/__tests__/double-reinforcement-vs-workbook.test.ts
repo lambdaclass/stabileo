@@ -130,7 +130,7 @@ describe('above the singly-reinforced limit, both propose top steel', () => {
    * the two accounts for the second layer.
    */
   for (const Mu of [90, 100, 110]) {
-    it(`Mu = ${Mu} kN·m: one layer, so within 2 % of the sheet`, () => {
+    it(`Mu = ${Mu} kN·m: one layer, so the sheet's own closed form`, () => {
       const w = workbookDouble(G.b, G.h, G.ds, G.dPrime, G.fc, G.fy, Mu);
       const r = solveFlex({
         mode: 'design', kase: 'FSR', fc: G.fc, fy: G.fy, b: G.b, h: G.h,
@@ -143,16 +143,18 @@ describe('above the singly-reinforced limit, both propose top steel', () => {
       expect(AsPrime, 'top steel is proposed').toBeGreaterThan(0);
 
       /*
-       * Close, because it is the same clauses. Not equal, because the sheet
-       * works the stress block in closed form and this works the strain
-       * distribution — and where they part, ours must be the heavier.
+       * Equal, to 1e-12. This was a 2 % band on the belief that the closed
+       * form and strain compatibility differ; they do not, once the pair is
+       * balanced as the sheet balances it — A′s on top, A′s·f′s/fy below —
+       * and εt is held at exactly 5 ‰. The band was hiding the unbalanced
+       * pair, which let εt fall to 4,96 ‰.
        */
       expect(Math.abs(As / w.AsCm2 - 1), `As: ours ${As.toFixed(3)}, sheet ${w.AsCm2.toFixed(3)}`)
-        .toBeLessThan(0.02);
+        .toBeLessThan(1e-9);
       expect(Math.abs(AsPrime / w.AsPrimeCm2 - 1),
         `A's: ours ${AsPrime.toFixed(3)}, sheet ${w.AsPrimeCm2.toFixed(3)}`)
-        .toBeLessThan(0.02);
-      expect(As, 'never lighter than the sheet').toBeGreaterThanOrEqual(w.AsCm2);
+        .toBeLessThan(1e-9);
+      expect(r.epsilonT!).toBeCloseTo(0.005, 9);
     });
   }
 

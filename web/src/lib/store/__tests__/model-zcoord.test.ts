@@ -1,5 +1,5 @@
 // Tests for Z-coordinate preservation in node manipulation functions
-// Replicates the pure logic of splitElementAtPoint, mirrorNodes, rotateNodes
+// The split replicates the pure logic of splitElementAtPoint; mirror and rotate run the edit layer.
 // to verify Z is preserved for 3D models.
 
 import { describe, it, expect } from 'vitest';
@@ -80,74 +80,28 @@ describe('splitElementAtPoint — Z coordinate', () => {
   });
 });
 
-// ─── mirrorNodes: Z preservation ──────────────────────────
+// ─── Mirror and rotate in place: Z preservation ───────────
+// These used to replicate the store's own mirrorNodes / rotateNodes. Those are gone: the context
+// menu mirrors and rotates through the edit layer, and this runs that code.
 
-describe('mirrorNodes — Z coordinate', () => {
-  function mirrorNode(n: Node, cx: number, cy: number, axis: 'x' | 'y'): Node {
-    if (axis === 'x') {
-      return { id: n.id, x: 2 * cx - n.x, y: n.y, ...(n.z !== undefined ? { z: n.z } : {}) };
-    } else {
-      return { id: n.id, x: n.x, y: 2 * cy - n.y, ...(n.z !== undefined ? { z: n.z } : {}) };
-    }
-  }
+import { beforeEach } from 'vitest';
+import { modelStore } from '../model.svelte';
+import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../../model/edit/transform-in-place';
 
-  it('preserves Z when mirroring about X axis in 3D', () => {
-    const n: Node = { id: 1, x: 3, y: 5, z: 7 };
-    const result = mirrorNode(n, 0, 0, 'x');
-    expect(result.z).toBe(7);
-    expect(result.x).toBe(-3);
-    expect(result.y).toBe(5);
+describe('mirror and rotate in place — Z coordinate', () => {
+  beforeEach(() => modelStore.clear());
+  const setup = () => [modelStore.addNode(0, 0, 3), modelStore.addNode(4, 2, 5)];
+
+  it('a mirror normal to X keeps every z', () => {
+    const [a, b] = setup();
+    mirrorSelectionInPlace([a!, b!], 'x');
+    expect(modelStore.nodes.get(a!)).toMatchObject({ x: 4, y: 0, z: 3 });
+    expect(modelStore.nodes.get(b!)).toMatchObject({ x: 0, y: 2, z: 5 });
   });
 
-  it('preserves Z when mirroring about Y axis in 3D', () => {
-    const n: Node = { id: 1, x: 3, y: 5, z: 7 };
-    const result = mirrorNode(n, 0, 0, 'y');
-    expect(result.z).toBe(7);
-    expect(result.x).toBe(3);
-    expect(result.y).toBe(-5);
-  });
-
-  it('omits Z for 2D nodes', () => {
-    const n: Node = { id: 1, x: 3, y: 5 };
-    const result = mirrorNode(n, 0, 0, 'x');
-    expect(result.z).toBeUndefined();
-  });
-});
-
-// ─── rotateNodes: Z preservation ──────────────────────────
-
-describe('rotateNodes — Z coordinate', () => {
-  function rotateNode(n: Node, cx: number, cy: number, angleDeg: number): Node {
-    const rad = angleDeg * Math.PI / 180;
-    const cosA = Math.cos(rad);
-    const sinA = Math.sin(rad);
-    const dx = n.x - cx;
-    const dy = n.y - cy;
-    return {
-      id: n.id,
-      x: cx + dx * cosA - dy * sinA,
-      y: cy + dx * sinA + dy * cosA,
-      ...(n.z !== undefined ? { z: n.z } : {}),
-    };
-  }
-
-  it('preserves Z when rotating a 3D node by 90 degrees', () => {
-    const n: Node = { id: 1, x: 1, y: 0, z: 5 };
-    const result = rotateNode(n, 0, 0, 90);
-    expect(result.z).toBe(5);
-    expect(result.x).toBeCloseTo(0, 10);
-    expect(result.y).toBeCloseTo(1, 10);
-  });
-
-  it('preserves Z when rotating a 3D node by 45 degrees', () => {
-    const n: Node = { id: 1, x: 2, y: 0, z: 10 };
-    const result = rotateNode(n, 0, 0, 45);
-    expect(result.z).toBe(10);
-  });
-
-  it('omits Z for 2D nodes', () => {
-    const n: Node = { id: 1, x: 1, y: 0 };
-    const result = rotateNode(n, 0, 0, 90);
-    expect(result.z).toBeUndefined();
+  it('a rotation about the vertical keeps every z', () => {
+    const [a, b] = setup();
+    rotateSelectionInPlace([a!, b!], 90);
+    for (const [id, z] of [[a!, 3], [b!, 5]] as const) expect(modelStore.nodes.get(id)!.z).toBeCloseTo(z, 12);
   });
 });

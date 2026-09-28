@@ -297,3 +297,100 @@ describe('the template we ship', () => {
     }
   });
 });
+
+/*
+ * ── Where the height goes ───────────────────────────────────────────
+ *
+ * Z is the vertical everywhere a reader can see: the viewport labels its axes
+ * X and Z, the results export heads its 2-D column `Z (m)`. The template was
+ * the last surface asking for the height in Y, because Y is where a FLAT model
+ * stores it — `projectNodeToScene` renders that y as scene Z, and
+ * `shouldProjectModelToXZ` needs z ≈ 0 to recognise the model as flat at all.
+ *
+ * Which storage slot a height lands in is not something a person filling in a
+ * spreadsheet should have to know, so the columns are read by meaning and
+ * mapped here. Nothing pinned that mapping before: the whole suite passed
+ * unchanged when it was rewritten, which is exactly what a missing test looks
+ * like.
+ */
+describe('Nodes — Z is the vertical, in 2-D and 3-D alike', () => {
+  const nodes = (...rows: Array<Array<unknown>>) =>
+    parseWorkbook({ Nodes: aoa(['id', 'x [m]', 'y [m]', 'z [m]'], ...rows) }).model.nodes;
+
+  it('puts a height given as Z into the slot a flat model keeps it in', () => {
+    // A portal: two feet on the ground, two corners four metres up, Y empty.
+    const out = nodes([1, 0, '', 0], [2, 6, '', 0], [3, 6, '', 4], [4, 0, '', 4]);
+    expect(out.length).toBe(4);
+    expect(out.map((n) => n.y)).toEqual([0, 0, 4, 4]);
+    /* And z stays zero, which is what makes it a flat model rather than a
+       three-dimensional one lying in a plane. */
+    expect(out.every((n) => n.z === 0)).toBe(true);
+  });
+
+  it('leaves a workbook that fills Y exactly as it was', () => {
+    // A plan drawn on the ground is a real model, not a legacy shim.
+    const out = nodes([1, 0, 0, ''], [2, 6, 0, ''], [3, 6, 4, '']);
+    expect(out.map((n) => [n.y, n.z])).toEqual([[0, 0], [0, 0], [4, 0]]);
+  });
+
+  it('stores a genuinely 3-D row as written, interpreting nothing', () => {
+    const out = nodes([1, 1, 2, 3]);
+    expect(out[0]).toMatchObject({ x: 1, y: 2, z: 3 });
+  });
+
+  it('treats an explicit zero as a value, not as a blank', () => {
+    /* `0` and `''` are different answers: the first says "on the axis", the
+       second says "not given". A falsy check here would silently turn a
+       ground-level 3-D node into a flat one. */
+    const out = nodes([1, 5, 0, 0]);
+    expect(out[0]).toMatchObject({ x: 5, y: 0, z: 0 });
+  });
+
+  it('reports a row with no position instead of placing it at the origin', () => {
+    const r = parseWorkbook({ Nodes: aoa(['id', 'x [m]', 'y [m]', 'z [m]'], [1, 3, '', '']) });
+    expect(r.model.nodes.length).toBe(0);
+    expect(r.problems.some((p) => p.sheet === 'Nodes' && p.row === 2)).toBe(true);
+  });
+
+  it('still refuses a row with no id or no x', () => {
+    expect(parseWorkbook({ Nodes: aoa(['id', 'x [m]', 'y [m]', 'z [m]'], ['', 1, '', 2]) })
+      .model.nodes.length).toBe(0);
+    expect(parseWorkbook({ Nodes: aoa(['id', 'x [m]', 'y [m]', 'z [m]'], [1, '', '', 2]) })
+      .model.nodes.length).toBe(0);
+  });
+
+  it('the template’s own example rows import as the frame they draw', () => {
+    /* The template teaches by its examples before it teaches by its help, so
+       the shape it ships has to be the shape the importer reads. */
+    const sheet = SHEETS.find((s) => s.name === 'Nodes')!;
+    const out = parseWorkbook({
+      Nodes: aoa(sheet.columns.map((c) => headerFor(c)), ...sheet.examples),
+    }).model.nodes;
+    expect(out.length).toBe(sheet.examples.length);
+    expect(out.some((n) => n.y > 0), 'the example frame has height').toBe(true);
+    expect(out.every((n) => n.z === 0), 'and is flat').toBe(true);
+  });
+});
+
+describe('one coordinate convention for the entire Nodes sheet', () => {
+  it.each([false, true])('preserves spatial coordinates with blank Y regardless of row order (reverse=%s)', (reverse) => {
+    const book = goodBook();
+    const rows = [[1, 0, 0, 0], [2, 0, '', 3], [3, 4, 2, 3]];
+    book.Nodes = aoa(['id', 'x', 'y', 'z'], ...(reverse ? rows.reverse() : rows));
+    const result = parseWorkbook(book);
+    expect(result.problems).toEqual([]);
+    expect(result.model.nodes.find(n => n.id === 2)).toEqual({ id: 2, x: 0, y: 0, z: 3 });
+    expect(result.model.nodes.find(n => n.id === 3)).toEqual({ id: 3, x: 4, y: 2, z: 3 });
+  });
+
+  it('an explicit zero Y selects native XYZ even if every other Y is blank', () => {
+    const result = parseWorkbook({ Nodes: aoa(['id', 'x', 'y', 'z'], [1, 0, '', 3], [2, 4, 0, 3]) });
+    expect(result.model.nodes.map(n => [n.y, n.z])).toEqual([[0, 3], [0, 3]]);
+  });
+
+  it.each([['invalid', 3, 'y'], ['', 'invalid', 'z'], [2, 'invalid', 'z']])('rejects malformed coordinates Y=%s Z=%s', (y, z, column) => {
+    const result = parseWorkbook({ Nodes: aoa(['id', 'x', 'y', 'z'], [1, 0, y, z]) });
+    expect(result.model.nodes).toEqual([]);
+    expect(result.problems).toContainEqual(expect.objectContaining({ sheet: 'Nodes', row: 2, column }));
+  });
+});

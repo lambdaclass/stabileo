@@ -48,6 +48,14 @@ export interface DedalFile {
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   axisConvention3D?: 'rightHand' | 'leftHand';
   viewportPresentation3D?: ViewportPresentation3D;
+  /**
+   * Whether the model is solved with its own weight.
+   *
+   * Optional because files written before this existed do not carry it, and those must
+   * keep opening. The restore below tells "absent" from "false" and leaves the toggle
+   * alone in the first case rather than asserting a value the file never stated.
+   */
+  includeSelfWeight?: boolean;
 }
 
 /** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
@@ -199,6 +207,18 @@ export function buildProjectFile(): DedalFile {
     analysisMode: uiStore.analysisMode,
     axisConvention3D: uiStore.axisConvention3D,
     viewportPresentation3D: uiStore.viewportPresentation3D,
+    /*
+     * Self-weight belongs to the model, not to the session.
+     *
+     * It was not saved, and the default is ON, so a project solved without its own weight
+     * reopened with it — quietly. On the reconstructed frame that is ΣRz 1500 kN becoming
+     * 1965: a 31 % heavier structure, the same file name, and nothing said. Every number
+     * downstream moves with it, including the D/C the drawings were accepted on.
+     *
+     * The share link has carried this since it was written (see url-sharing.ts). The `.ded`
+     * is the format people actually keep, and it was the one dropping it.
+     */
+    includeSelfWeight: uiStore.includeSelfWeight,
   });
 }
 
@@ -272,6 +292,9 @@ export function deserializeProject(text: string): boolean {
   if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
+  // `!== undefined`, not truthiness: `false` is the value that most needs restoring, and a
+  // plain `if (data.includeSelfWeight)` would drop exactly the case this fixes.
+  if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   noteAxisConventionMigrationIfNeeded(data.snapshot, data.analysisMode);

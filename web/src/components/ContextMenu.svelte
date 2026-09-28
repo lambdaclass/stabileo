@@ -1,8 +1,11 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../lib/model/edit/transform-in-place';
+  import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
 
   let subdivCount = $state(2);
+  const is3D = () => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
   function handleContextAction(action: string) {
     const ctx = uiStore.contextMenu;
@@ -25,24 +28,30 @@
       uiStore.editingElementId = ctx.elementId;
       uiStore.editScreenPos = { x: ctx.x, y: ctx.y };
     } else if (action === 'add-support' && ctx.nodeId != null) {
-      modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
+      /* In 3D the 2D tool's 'pinned' meant restraining ux, uy, uz, rx and ry — nearly fixed. */
+      if (is3D()) addSupportFromTool3D(ctx.nodeId);
+      else modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
+      resultsStore.clear();
     } else if (action === 'add-load' && ctx.nodeId != null) {
-      modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue);
+      if (is3D()) {
+        /* As the load tool would place it; a 2D nodal load became a horizontal fy in 3D. */
+        const d = uiStore.nodalLoadDir3D, v = uiStore.loadValue;
+        modelStore.addNodalLoad3D(ctx.nodeId, d === 'fx' ? v : 0, d === 'fy' ? v : 0, d === 'fz' ? v : 0,
+          d === 'mx' ? v : 0, d === 'my' ? v : 0, d === 'mz' ? v : 0, uiStore.activeLoadCaseId);
+      } else {
+        modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue, 0, uiStore.activeLoadCaseId);
+      }
+      resultsStore.clear();
     } else if (action === 'select-node' && ctx.nodeId != null) {
       uiStore.selectNode(ctx.nodeId);
     } else if (action === 'select-element' && ctx.elementId != null) {
       uiStore.selectElement(ctx.elementId);
-    } else if (action === 'mirror-x') {
-      modelStore.mirrorNodes(uiStore.selectedNodes, 'x');
+    } else if (action === 'mirror-x' || action === 'mirror-y') {
+      // The edit layer's in-place mirror: member frames, offsets and local loads follow.
+      mirrorSelectionInPlace(uiStore.selectedNodes, action === 'mirror-x' ? 'x' : 'y', { leftHand: uiStore.axisConvention3D === 'leftHand' });
       resultsStore.clear();
-    } else if (action === 'mirror-y') {
-      modelStore.mirrorNodes(uiStore.selectedNodes, 'y');
-      resultsStore.clear();
-    } else if (action === 'rotate-90') {
-      modelStore.rotateNodes(uiStore.selectedNodes, 90);
-      resultsStore.clear();
-    } else if (action === 'rotate-neg90') {
-      modelStore.rotateNodes(uiStore.selectedNodes, -90);
+    } else if (action === 'rotate-90' || action === 'rotate-neg90') {
+      rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
       resultsStore.clear();
     } else if (action === 'rotate-local-axes' && ctx.elementId != null) {
       modelStore.rotateElementLocalAxes(ctx.elementId, 90);
