@@ -263,7 +263,7 @@ levante, y reemplazan el apoyo que tuviera el nodo.
   casos. Sin esas barras los dos métodos dan lo mismo. Cada combinación puede resolverse además
   **lineal** o con **P-Delta**.
   Una combinación con P-Delta cuya carga la estructura no puede llevar en segundo orden (pandea
-  antes) queda marcada inestable y no publica esfuerzos. Los modelos grandes pasan por el mismo
+  antes) no publica esfuerzos, y un aviso la nombra. Los modelos grandes pasan por el mismo
   solver disperso que el análisis lineal: las catorce combinaciones de un edificio de mil nudos y
   dos mil quinientas barras tardan unos segundos.
 - **Combinaciones:** manuales, o generadas automáticamente. Las últimas son las de CIRSOC

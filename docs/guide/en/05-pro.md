@@ -255,7 +255,7 @@ springs can act one way, so the raft can lift, and they replace any support the 
   then the members whose state in the sum contradicts the cases' are listed. Without such members
   both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
   A P-Delta combination whose load the structure cannot carry to second order (it buckles below
-  it) is marked unstable and publishes no forces. Large models go through the same sparse solver as
+  it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
   the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
   half thousand members take a few seconds.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
