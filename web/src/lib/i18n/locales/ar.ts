@@ -986,7 +986,6 @@ const ar: Translations = {
   'float.selectSupportsHint': 'انقر على مسند لتحديده',
   'float.elementRigid': 'صلب (إطار)',
   'float.elementTruss': 'مفصلي (جمالون)',
-  'float.elementHint': 'انقر على عقدتين لإنشاء عنصر',
   'float.supportFixedShort': 'تثبيت',
   'float.supportPinnedShort': 'مفصل',
   'float.supportRoller': 'متحرك',

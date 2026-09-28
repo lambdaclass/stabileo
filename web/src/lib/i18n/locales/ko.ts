@@ -986,7 +986,6 @@ const ko: Translations = {
   'float.selectSupportsHint': '지점을 클릭하여 선택하세요',
   'float.elementRigid': '강접 (frame)',
   'float.elementTruss': '힌지접 (truss)',
-  'float.elementHint': '두 절점을 클릭하여 부재를 생성하세요',
   'float.supportFixedShort': '고정',
   'float.supportPinnedShort': '핀',
   'float.supportRoller': '이동단',

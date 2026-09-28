@@ -980,7 +980,6 @@ const tr: Translations = {
   'float.selectSupportsHint': 'Seçmek için bir mesnete tıklayın',
   'float.elementRigid': 'Rijit (çerçeve)',
   'float.elementTruss': 'Mafsallı (kafes)',
-  'float.elementHint': 'Eleman oluşturmak için iki düğüme tıklayın',
   'float.supportFixedShort': 'Ankastre',
   'float.supportPinnedShort': 'Sabit m.',
   'float.supportRoller': 'Hareketli',

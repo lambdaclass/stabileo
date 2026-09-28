@@ -986,7 +986,6 @@ const id: Translations = {
   'float.selectSupportsHint': 'Klik tumpuan untuk memilihnya',
   'float.elementRigid': 'Kaku (frame)',
   'float.elementTruss': 'Sendi (truss)',
-  'float.elementHint': 'Klik dua titik simpul untuk membuat batang',
   'float.supportFixedShort': 'Jepit',
   'float.supportPinnedShort': 'Sendi',
   'float.supportRoller': 'Rol',

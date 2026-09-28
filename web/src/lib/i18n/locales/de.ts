@@ -985,7 +985,6 @@ const de: Translations = {
   'float.selectSupportsHint': 'Klicken Sie auf ein Auflager, um es auszuwählen',
   'float.elementRigid': 'Biegesteif (Rahmen)',
   'float.elementTruss': 'Gelenkig (Fachwerk)',
-  'float.elementHint': 'Klicken Sie auf zwei Knoten, um einen Stab zu erstellen',
   'float.supportFixedShort': 'Einsp.',
   'float.supportPinnedShort': 'Gel.',
   'float.supportRoller': 'Rolle',

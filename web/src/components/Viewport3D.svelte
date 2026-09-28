@@ -1728,7 +1728,11 @@
       uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
-      if (nodeId === pendingElementNodeI) return; // same node
+      if (nodeId === pendingElementNodeI) {
+        // The last node again ends a polyline; single members wait for a second node.
+        if (uiStore.memberChains) cancelPendingElement();
+        return;
+      }
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
@@ -1736,8 +1740,14 @@
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 
-      // Clean up
-      cancelPendingElement();
+      if (uiStore.memberChains) {
+        // Polyline: the next member starts where this one ends.
+        nodesInstanced.restoreColor(pendingElementNodeI);
+        pendingElementNodeI = nodeId;
+        nodesInstanced.setColor(nodeId, 0x00ff00);
+      } else {
+        cancelPendingElement();
+      }
     }
   }
 

@@ -980,7 +980,6 @@ const zh: Translations = {
   'float.selectSupportsHint': '点击支座进行选择',
   'float.elementRigid': '刚性（框架）',
   'float.elementTruss': '铰接（桁架）',
-  'float.elementHint': '点击两个节点创建杆件',
   'float.supportFixedShort': '固定',
   'float.supportPinnedShort': '铰支',
   'float.supportRoller': '滚动',
