@@ -26,6 +26,7 @@ import { modelStore } from '../store/model.svelte';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
+import { loadValidationModel } from '../templates/validation';
 
 /**
  * Load an example with the strength combinations of CIRSOC 101-2025 (§2.3.2) built from its
@@ -46,7 +47,7 @@ async function loadWithRegulationCombinations(id: string): Promise<void> {
 }
 
 export type ExampleGroup =
-  | 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
+  | 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl' | 'validation';
 
 /**
  * Which display preferences an example wants on arrival.
@@ -81,7 +82,7 @@ export interface ProExampleGroup {
 
 /** The order the groups are shown in: what most projects are, down to what stresses the app. */
 export const PRO_EXAMPLE_GROUP_ORDER: readonly ExampleGroup[] =
-  ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl'] as const;
+  ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl', 'validation'] as const;
 
 export const PRO_EXAMPLES: readonly ProExample[] = [
   {
@@ -265,6 +266,19 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     load: () => loadWithRegulationCombinations('xl-diagrid-tower'),
   },
   // Sagrada Familia removed upstream — fixture no longer available
+
+  // The validation models load as they are, with their own cases and combinations: reproducing
+  // the source structure is the point, so no regulation combinations are generated for them.
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-06',
+    descKey: 'ex.validation-06.desc',
+    purposeKey: 'ex.validation-06.purpose',
+    tags: ['pro.tagValidation', 'pro.tagSteel'],
+    stats: { nodes: '18', members: '25' },
+    load: () => loadValidationModel('validation-06'),
+  },
 ];
 
 /**
