@@ -340,6 +340,7 @@ const pt: Translations = {
   'app.modePro': 'PRO',
   'app.modelData': 'Dados do Modelo',
   'app.noValidCoords': 'Nenhuma coordenada válida encontrada',
+  'app.sharedLinkBroken': 'Não foi possível abrir o link compartilhado: está danificado ou incompleto.',
   'app.nodesImported': '{n} nós importados',
   'app.properties': 'Propriedades',
   'app.restore': 'Restaurar',

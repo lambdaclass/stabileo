@@ -172,6 +172,7 @@ const en: Record<string, string> = {
   'app.cancel': 'Cancel',
   'app.nodesImported': '{n} nodes imported',
   'app.noValidCoords': 'No valid coordinates found',
+  'app.sharedLinkBroken': 'The shared link could not be opened: it is damaged or incomplete.',
   'app.modeBasic': 'Basic',
   'app.modeEdu': 'Education',
   'app.modePro': 'PRO',
