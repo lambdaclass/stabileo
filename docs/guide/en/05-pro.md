@@ -241,8 +241,8 @@ springs can act one way, so the raft can lift, and they replace any support the 
 
 - **Rigid link:** a slave node follows a master node as if they were joined by an infinitely
   rigid member.
-- **Diaphragm:** the nodes of a plane move together in that plane. It is the usual assumption of
-  a slab that is rigid in its own plane. **Auto-detect diaphragms** groups the nodes by level
+- **Diaphragm:** the nodes of a plane move together in that plane and turn together about its
+  normal. It is the usual assumption of a slab that is rigid in its own plane. **Auto-detect diaphragms** groups the nodes by level
   (within 5 cm) and takes the node nearest the centre as the master.
 - **Equal DOF:** two nodes share one or more degrees of freedom (DOF).
 - **Eccentric connection**, **linear MPC** (multi-point constraint: a linear relation between
@@ -256,7 +256,8 @@ springs can act one way, so the raft can lift, and they replace any support the 
 - **Self-weight:** a load of a case. Each row says which case it goes into, along which global
   direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
   members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
-  plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
+  a column or an inclined member the part along the member stays in it, so its axial force grows
+  towards the lower end. On plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
   that case's factor. A project saved before this rule opens with self-weight in its first D case,
   and a notice says so; if it had several D cases, the notice recalls that the weight used to be
   counted in each of them.
@@ -384,7 +385,9 @@ separates:
 - **Information:** empty load cases, a model without loads.
 
 After solving, the engine also reports the **mesh quality** of the plates (aspect ratio, warping,
-very small angles).
+very small angles). A coarse or distorted mesh makes slabs and walls stiffer than they are: refine
+it until the result you are after stops changing. On the validation models, the deflection of a
+slab moved by about 20 % between the original mesh and the same mesh subdivided twice.
 
 ## The Analyse tab
 
