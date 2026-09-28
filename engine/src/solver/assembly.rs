@@ -3025,6 +3025,7 @@ mod tests {
         SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![], constraints: vec![], connectors: HashMap::new(),
+            solver_options: None,
         }
     }
 

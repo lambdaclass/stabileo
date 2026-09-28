@@ -63,7 +63,7 @@
  */
 
 import {
-  test as proTest, expect, designAll, loadModel, bootPro, SOLID_FAMILIES,
+  test as proTest, expect, designAll, loadModel, bootPro, SOLID_FAMILIES, turnRolledBeams,
   type RebarSceneCensus,
 } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -253,7 +253,8 @@ async function prepare(page: Page): Promise<Omit<PreparedProject, 'context'>> {
   // and a stale revision would be restored by every observer in this worker.
   await page.evaluate(() => window.__stabileoActions.autosaveDiscard());
 
-  await stage('load + solve', () => loadModel(page, BUILDING));
+  // Five beams turned, so the building carries provisional proposals (`ROLLED_BEAMS`).
+  await stage('load + solve', async () => { await loadModel(page, BUILDING); await turnRolledBeams(page); });
   await stage('design all', () => designAll(page));
 
   // Beams and columns come from `cmd-generate-detailing`; slabs, walls and footings come from

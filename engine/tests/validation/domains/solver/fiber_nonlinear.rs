@@ -92,6 +92,7 @@ fn cantilever_fiber_2d(
     }
 
     let solver = SolverInput {
+        solver_options: None,
         nodes,
         materials,
         sections,
@@ -454,6 +455,7 @@ fn symmetric_section_symmetric_response() {
     })];
 
     let solver = SolverInput {
+        solver_options: None,
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![],
         connectors: HashMap::new(),
@@ -767,7 +769,7 @@ fn cantilever_fiber_2d_meshed(
         supports,
         loads,
         constraints: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     };
 
     let mut fiber_sections = HashMap::new();
