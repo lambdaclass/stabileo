@@ -732,7 +732,7 @@ pub fn quad_geometric_stiffness(
 /// Compute quad element stresses at centroid from nodal displacements (local).
 ///
 /// Thermal strains are subtracted before applying the constitutive law:
-/// ε_mech = ε_total − α·ΔT_uniform (membrane), κ_mech = κ_total − α·ΔT_gradient/t (bending).
+/// ε_mech = ε_total − α·ΔT_uniform (membrane), κ_mech = κ_total + α·ΔT_gradient/t (bending).
 /// Without this correction a fully restrained shell under ΔT reports σ = 0
 /// instead of σ = −E·α·ΔT/(1−ν).
 pub fn quad_stresses(
@@ -788,8 +788,9 @@ pub fn quad_stresses(
     let kappa_th = alpha * dt_gradient / t;
     eps_xx -= eps_th;
     eps_yy -= eps_th;
-    kappa_xx -= kappa_th;
-    kappa_yy -= kappa_th;
+    // Free thermal engineering curvature is -alpha*dt_gradient/t.
+    kappa_xx += kappa_th;
+    kappa_yy += kappa_th;
 
     // Stresses
     let c = e / (1.0 - nu * nu);
@@ -966,7 +967,8 @@ pub fn quad_stress_at_nodes(
     let c = e / (1.0 - nu * nu);
     let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
 
-    // Thermal strain/curvature to subtract (mechanical strain drives stress)
+    // Subtract membrane thermal strain; add alpha*dt_gradient/t to engineering
+    // curvature: a hotter +z face freely curls down (negative w,xx and w,yy).
     let eps_th = alpha * dt_uniform;
     let kappa_th = alpha * dt_gradient / t;
 
@@ -1013,8 +1015,8 @@ pub fn quad_stress_at_nodes(
         // Subtract thermal strains before constitutive law
         eps_xx -= eps_th;
         eps_yy -= eps_th;
-        kappa_xx -= kappa_th;
-        kappa_yy -= kappa_th;
+        kappa_xx += kappa_th;
+        kappa_yy += kappa_th;
 
         gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
         gp_syy[gp] = c * (nu * eps_xx + eps_yy);

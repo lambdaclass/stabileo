@@ -683,8 +683,9 @@ pub fn quad9_stresses(
     let kappa_th = alpha * dt_gradient / t;
     eps_xx -= eps_th;
     eps_yy -= eps_th;
-    kappa_xx -= kappa_th;
-    kappa_yy -= kappa_th;
+    // Free thermal engineering curvature is -alpha*dt_gradient/t.
+    kappa_xx += kappa_th;
+    kappa_yy += kappa_th;
 
     let c = e / (1.0 - nu * nu);
     let sigma_xx = c * (eps_xx + nu * eps_yy);
@@ -824,7 +825,8 @@ pub fn quad9_stress_at_nodes(
     let c = e / (1.0 - nu * nu);
     let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
 
-    // Thermal strain/curvature to subtract (mechanical strain drives stress)
+    // Subtract membrane thermal strain; add alpha*dt_gradient/t to engineering
+    // curvature: a hotter +z face freely curls down (negative w,xx and w,yy).
     let eps_th = alpha * dt_uniform;
     let kappa_th = alpha * dt_gradient / t;
 
@@ -871,8 +873,8 @@ pub fn quad9_stress_at_nodes(
         // Subtract thermal strains before constitutive law
         eps_xx -= eps_th;
         eps_yy -= eps_th;
-        kappa_xx -= kappa_th;
-        kappa_yy -= kappa_th;
+        kappa_xx += kappa_th;
+        kappa_yy += kappa_th;
 
         gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
         gp_syy[gp] = c * (nu * eps_xx + eps_yy);

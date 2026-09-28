@@ -261,12 +261,7 @@ fn build_b_matrix_at_point(
         //     ∂(u_rot)/∂η = ζ * half_h * dn_deta[i] * (θ × d_i)
         //     ∂(u_rot)/∂ζ = half_h * N_i * (θ × d_i)
 
-        // Degenerated shell rotation: u_rot = ζ·(h/2)·N_i·(d_i × θ_i)
-        // d × θ for θ_x=1: [0, d_z, -d_y]
-        // d × θ for θ_y=1: [-d_z, 0, d_x]
-        // d × θ for θ_z=1: [d_y, -d_x, 0]
-        // Note: sign convention doesn't affect K = B^T D B (quadratic form).
-
+        // Degenerated shell rotation: u_rot = ζ·(h/2)·N_i·(θ_i × d_i)
         // A rotation vector θ turns the director by θ × d, as it turns every other vector in the
         // model (frames and MITC4 included). These were d × θ: every rotation DOF of this element
         // had the opposite sign to the one it shares a node with.
@@ -463,7 +458,7 @@ fn build_b_matrix_covariant(
         let di = i * 6;
         let d = &dirs[i];
 
-        // d × θ convention (matches build_b_matrix_at_point)
+        // θ × d convention (matches build_b_matrix_at_point)
         let cross_rx = [0.0, -d[2], d[1]];     // e_x × d
         let cross_ry = [d[2], 0.0, -d[0]];     // e_y × d
         let cross_rz = [-d[1], d[0], 0.0];     // e_z × d
@@ -627,7 +622,7 @@ fn shear_b_covariant(
         let di = i * 6;
         let d = &dirs[i];
 
-        // d × θ convention (matches build_b_matrix_at_point)
+        // θ × d convention (matches build_b_matrix_at_point)
         // A rotation vector θ turns the director by θ × d, as it turns every other vector in the
         // model (frames and MITC4 included). These were d × θ: every rotation DOF of this element
         // had the opposite sign to the one it shares a node with.

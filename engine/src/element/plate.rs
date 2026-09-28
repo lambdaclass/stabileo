@@ -21,11 +21,11 @@ pub struct PlateStressLocal {
     pub sigma_yy: f64,
     /// Membrane shear stress τ_xy (kN/m²).
     pub tau_xy: f64,
-    /// Bending moment m_x (kN·m/m).
+    /// Bending moment m_x (kN·m/m), positive for bottom-face tension (sagging).
     pub mx: f64,
-    /// Bending moment m_y (kN·m/m).
+    /// Bending moment m_y (kN·m/m), positive for bottom-face tension (sagging).
     pub my: f64,
-    /// Twisting moment m_xy (kN·m/m).
+    /// Twisting moment m_xy (kN·m/m), with the same sign convention as MITC4/9.
     pub mxy: f64,
     /// Maximum principal stress (kN/m²).
     pub sigma_1: f64,
@@ -785,35 +785,37 @@ pub fn plate_stress_recovery(
         0.0,              0.0,              db_coeff * (1.0 - nu) / 2.0,
     ];
 
-    // Moments m = D_bending * kappa  (kN·m / m)
+    // DKT B returns the physical through-thickness strain gradient (-Hessian(w)).
+    // Negate its stress resultants for public sagging-positive moments, matching
+    // MITC4/9 and the reinforcement design convention. Keep B and thermal loads as-is.
     let mut mom = [0.0; 3];
     for i in 0..3 {
         for j in 0..3 {
             mom[i] += d_bend[i * 3 + j] * kappa[j];
         }
     }
-    let mx = mom[0];
-    let my = mom[1];
-    let mxy = mom[2];
+    let mx = -mom[0];
+    let my = -mom[1];
+    let mxy = -mom[2];
 
     // -----------------------------------------------------------------------
     // Combined top/bottom fibre stresses and principal / von Mises
     // -----------------------------------------------------------------------
     // Bending stress at extreme fibre (z = ±t/2):
-    //   sigma_bending = ±6 * M / t²
+    //   sigma_bending = ∓6 * M / t² (M is sagging-positive)
     let bend_xx = 6.0 * mx / (t * t);
     let bend_yy = 6.0 * my / (t * t);
     let bend_xy = 6.0 * mxy / (t * t);
 
-    // Top fibre (z = +t/2): membrane + bending.
-    let sx_top = sigma_xx + bend_xx;
-    let sy_top = sigma_yy + bend_yy;
-    let txy_top = tau_xy + bend_xy;
+    // Top fibre (z = +t/2): membrane - bending.
+    let sx_top = sigma_xx - bend_xx;
+    let sy_top = sigma_yy - bend_yy;
+    let txy_top = tau_xy - bend_xy;
 
-    // Bottom fibre (z = -t/2): membrane - bending.
-    let sx_bot = sigma_xx - bend_xx;
-    let sy_bot = sigma_yy - bend_yy;
-    let txy_bot = tau_xy - bend_xy;
+    // Bottom fibre (z = -t/2): membrane + bending.
+    let sx_bot = sigma_xx + bend_xx;
+    let sy_bot = sigma_yy + bend_yy;
+    let txy_bot = tau_xy + bend_xy;
 
     // Principal stresses and von Mises on both faces; report worst case.
     let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
@@ -966,20 +968,21 @@ pub fn plate_stress_at_nodes(
             }
         }
 
-        let mx = mom[0];
-        let my = mom[1];
-        let mxy = mom[2];
+        // DKT curvature is physical; public moments are sagging-positive.
+        let mx = -mom[0];
+        let my = -mom[1];
+        let mxy = -mom[2];
 
         let bend_xx = 6.0 * mx / (t * t);
         let bend_yy = 6.0 * my / (t * t);
         let bend_xy = 6.0 * mxy / (t * t);
 
-        let sx_top = sigma_xx + bend_xx;
-        let sy_top = sigma_yy + bend_yy;
-        let txy_top = tau_xy + bend_xy;
-        let sx_bot = sigma_xx - bend_xx;
-        let sy_bot = sigma_yy - bend_yy;
-        let txy_bot = tau_xy - bend_xy;
+        let sx_top = sigma_xx - bend_xx;
+        let sy_top = sigma_yy - bend_yy;
+        let txy_top = tau_xy - bend_xy;
+        let sx_bot = sigma_xx + bend_xx;
+        let sy_bot = sigma_yy + bend_yy;
+        let txy_bot = tau_xy + bend_xy;
 
         let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
         let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sx_bot, sy_bot, txy_bot);
