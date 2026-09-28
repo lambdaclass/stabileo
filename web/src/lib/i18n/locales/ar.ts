@@ -1131,7 +1131,7 @@ const ar: Translations = {
   'dsm.step9.globalDisp': '{u_e} شامل — إزاحات العنصر',
   'dsm.step9.localDisp': '{u_e} محلي — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — القوى قبل FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — قوى التثبيت الكامل',
+  'dsm.step9.fixedEndForces': '{f_eq} — قوى التثبيت الكامل',
   'dsm.step9.finalForces': '{f} نهائي — القوى الداخلية للعنصر',
   'dsm.step9.force': 'القوة',
   'dsm.step9.nodeI': 'العقدة i',

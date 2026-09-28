@@ -97,7 +97,7 @@ fn strip(kind: Kind) -> (SolverInput3D, Vec<Vec<usize>>) {
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     let input = SolverInput3D {
         nodes, materials, sections: HashMap::new(), elements: HashMap::new(), supports, loads: vec![],
-        constraints: vec![], left_hand: None,
+        constraints: vec![], left_hand: None, solver_options: None,
         plates, quads, quad9s, solid_shells: HashMap::new(), curved_shells: curved,
         curved_beams: vec![], connectors: HashMap::new(),
     };

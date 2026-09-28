@@ -1,10 +1,12 @@
 <script lang="ts">
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
+  import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
@@ -200,7 +202,7 @@
     const y = parseFloat(coordY);
     const z = parseFloat(coordZ);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
@@ -1298,6 +1300,7 @@
     resultsStore.overlayResults3D;
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
+    uiStore.unitSystem; // value labels are in the chosen units
     syncDiagrams3D();
     invalidate();
   });
@@ -1617,7 +1620,7 @@
 
     // Full 3D snap: snap all coordinates to grid
     const snapped = uiStore.snapWorld3D(pos.x, pos.y, pos.z);
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
@@ -1676,8 +1679,9 @@
       // Second click → create element
       if (nodeId === pendingElementNodeI) return; // same node
 
-      historyStore.pushState();
-      const elemId = modelStore.addElement(pendingElementNodeI, nodeId, uiStore.elementCreateType);
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
+      // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
+      const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 
@@ -1710,46 +1714,10 @@
 
     const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
-    historyStore.pushState();
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
     if (is3D) {
-      // Per-DOF 3D support creation
-      const dofRestraints = {
-        tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz,
-        rx: uiStore.sup3dRx, ry: uiStore.sup3dRy, rz: uiStore.sup3dRz,
-      };
-
-      // Determine visual type for gizmo
-      const allFixed = dofRestraints.tx && dofRestraints.ty && dofRestraints.tz &&
-                       dofRestraints.rx && dofRestraints.ry && dofRestraints.rz;
-      const onlyTrans = dofRestraints.tx && dofRestraints.ty && dofRestraints.tz &&
-                        !dofRestraints.rx && !dofRestraints.ry && !dofRestraints.rz;
-      const noneFixed = !dofRestraints.tx && !dofRestraints.ty && !dofRestraints.tz &&
-                        !dofRestraints.rx && !dofRestraints.ry && !dofRestraints.rz;
-
-      const type: import('../lib/store/model.svelte.ts').SupportType =
-        allFixed ? 'fixed3d' : onlyTrans ? 'pinned3d' : noneFixed ? 'spring3d' : 'custom3d';
-
-      // Collect springs for unchecked DOFs that have stiffness values
-      let springs: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number } | undefined;
-      const hasSpring = (!dofRestraints.tx && uiStore.sup3dKx > 0) ||
-                        (!dofRestraints.ty && uiStore.sup3dKy > 0) ||
-                        (!dofRestraints.tz && uiStore.sup3dKz > 0) ||
-                        (!dofRestraints.rx && uiStore.sup3dKrx > 0) ||
-                        (!dofRestraints.ry && uiStore.sup3dKry > 0) ||
-                        (!dofRestraints.rz && uiStore.sup3dKrz > 0);
-      if (hasSpring || noneFixed) {
-        springs = {};
-        if (!dofRestraints.tx && uiStore.sup3dKx > 0) springs.kx = uiStore.sup3dKx;
-        if (!dofRestraints.ty && uiStore.sup3dKy > 0) springs.ky = uiStore.sup3dKy;
-        if (!dofRestraints.tz && uiStore.sup3dKz > 0) springs.kz = uiStore.sup3dKz;
-        if (!dofRestraints.rx && uiStore.sup3dKrx > 0) springs.krx = uiStore.sup3dKrx;
-        if (!dofRestraints.ry && uiStore.sup3dKry > 0) springs.kry = uiStore.sup3dKry;
-        if (!dofRestraints.rz && uiStore.sup3dKrz > 0) springs.krz = uiStore.sup3dKrz;
-      }
-
-      const opts: any = { dofRestraints, dofFrame: uiStore.supportFrame3D };
-      const supId = modelStore.addSupport(nodeId, type, springs, opts);
+      const supId = addSupportFromTool3D(nodeId);
       uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
@@ -1778,7 +1746,7 @@
       const nodeId = findNodeHit(e);
       if (nodeId === null) return;
 
-      historyStore.pushState();
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       if (is3D) {
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
@@ -1804,15 +1772,20 @@
       const elemId = findElementHit(e);
       if (elemId === null) return;
 
-      historyStore.pushState();
+      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       if (is3D) {
-        const qY = uiStore.loadValue;
-        const qZ = uiStore.loadValueZ;
-        modelStore.addDistributedLoad3D(elemId, qY, uiStore.loadValueJ, qZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
+        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
+    } else if (uiStore.loadType === 'thermal') {
+      // The button was offered in 3D with no branch here: a click did nothing.
+      const elemId = findElementHit(e);
+      if (elemId === null) return;
+      historyStore.pushState();
+      modelStore.addThermalLoad(elemId, uiStore.thermalDT, uiStore.thermalDTg, uiStore.activeLoadCaseId);
+      uiStore.toast(t('viewport3d.thermalLoadApplied').replace('{id}', String(elemId)), 'success');
     }
   }
 
@@ -2646,7 +2619,7 @@
             const ef = r3d.elementForces.find(f => f.elementId === elemId);
             if (!ef) break;
             const val = evaluateDiagramAt(ef, kind, t);
-            const formatted = formatDiagramValue3D(val, kind);
+            const formatted = formatDiagramValue3D(val, kind, uiStore.unitSystem);
             const posLabel = `x=${(t * ef.length).toFixed(2)}m`;
             diagramTooltip = `Elem ${elemId} (${posLabel}): ${formatted}`;
             break;

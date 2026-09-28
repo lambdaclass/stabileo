@@ -1125,7 +1125,7 @@ const ru: Translations = {
   'dsm.step9.globalDisp': '{u_e} глоб. — Перемещения элемента',
   'dsm.step9.localDisp': '{u_e} мест. — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_local} — Усилия до защемляющих сил',
-  'dsm.step9.fixedEndForces': '{f_FE} — Защемляющие усилия',
+  'dsm.step9.fixedEndForces': '{f_eq} — Защемляющие усилия',
   'dsm.step9.finalForces': '{f} итог — Внутренние усилия элемента',
   'dsm.step9.force': 'Усилие',
   'dsm.step9.nodeI': 'Узел i',

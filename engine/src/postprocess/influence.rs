@@ -73,6 +73,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
 
     // Build base input (no loads)
     let base = SolverInput {
+        solver_options: None,
         nodes: input.solver.nodes.clone(),
         materials: input.solver.materials.clone(),
         sections: input.solver.sections.clone(),
@@ -310,6 +311,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     };
 
     let base = SolverInput3D {
+        solver_options: None,
         nodes: input.solver.nodes.clone(),
         materials: input.solver.materials.clone(),
         sections: input.solver.sections.clone(),

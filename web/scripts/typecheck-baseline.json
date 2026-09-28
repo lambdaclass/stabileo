@@ -1,5 +1,5 @@
 {
-	"total": 472,
+	"total": 468,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -953,30 +953,6 @@
 			"file": "src/lib/engine/reinforcement-svg.ts",
 			"code": "TS6133",
 			"message": "'totalLength' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-detailed.ts",
-			"code": "TS2339",
-			"message": "Property 'drz' does not exist on type 'SolverSupport'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-detailed.ts",
-			"code": "TS2339",
-			"message": "Property 'dy' does not exist on type 'SolverSupport'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-detailed.ts",
-			"code": "TS2339",
-			"message": "Property 'fy' does not exist on type 'SolverNodalLoad'.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/solver-detailed.ts",
-			"code": "TS2339",
-			"message": "Property 'mz' does not exist on type 'SolverNodalLoad'.",
 			"count": 1
 		},
 		{

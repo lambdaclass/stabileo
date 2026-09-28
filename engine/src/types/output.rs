@@ -162,6 +162,13 @@ pub enum DiagnosticCode {
     DenseLu,
     /// Sparse Cholesky failed, fell back to dense LU.
     SparseFallbackDenseLu,
+    /// Preconditioned conjugate gradient was used.
+    PcgSolve,
+    /// PCG did not converge or failed residual verification, fell back to the
+    /// direct solver chain.
+    PcgFallbackDirect,
+    /// Unrecognized or invalid value in `solverOptions`; the default applies.
+    UnknownSolverOption,
     /// Diagonal shift applied to stabilize factorization.
     DiagonalRegularization,
     /// Sparse fill ratio (nnz(L) / nnz(K_ff)).
@@ -261,6 +268,26 @@ pub struct StructuredDiagnostic {
     /// Threshold that was exceeded (if applicable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub threshold: Option<f64>,
+    /// What `element_ids` number: "frame", "plate", "quad", "quad9",
+    /// "solid_shell" or "curved_shell". Frames, plates and quads keep
+    /// independent id counters, so "element 7" alone does not say which one —
+    /// a consumer that assumed frames selected the wrong member for a
+    /// collapsed quad. Absent where the diagnostic names no element.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub element_kind: Option<ElementKind>,
+}
+
+/// The element family a diagnostic's `element_ids` number. An enum, not a string, so a
+/// typo or a new family cannot silently read as a frame on the other side of the boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ElementKind {
+    Frame,
+    Plate,
+    Quad,
+    Quad9,
+    SolidShell,
+    CurvedShell,
 }
 
 impl StructuredDiagnostic {
@@ -276,6 +303,7 @@ impl StructuredDiagnostic {
             phase: None,
             value: None,
             threshold: None,
+            element_kind: None,
         }
     }
 
@@ -304,6 +332,13 @@ impl StructuredDiagnostic {
         self
     }
 
+    /// Attach one element, and the family its id belongs to — see `element_kind`.
+    pub fn with_element(mut self, kind: ElementKind, id: usize) -> Self {
+        self.element_ids = vec![id];
+        self.element_kind = Some(kind);
+        self
+    }
+
     /// Attach node IDs.
     pub fn with_nodes(mut self, ids: Vec<usize>) -> Self {
         self.node_ids = ids;
@@ -315,8 +350,8 @@ impl StructuredDiagnostic {
 impl From<&StructuredDiagnostic> for SolverDiagnostic {
     fn from(sd: &StructuredDiagnostic) -> Self {
         let category = match sd.code {
-            DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu => "solver_path",
-            DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::DiagonalRegularization | DiagnosticCode::CholeskyFailedLuFallback => "fallback",
+            DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu | DiagnosticCode::PcgSolve | DiagnosticCode::UnknownSolverOption => "solver_path",
+            DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::PcgFallbackDirect | DiagnosticCode::DiagonalRegularization | DiagnosticCode::CholeskyFailedLuFallback => "fallback",
             DiagnosticCode::SparseFillRatio => "performance",
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
@@ -404,7 +439,8 @@ pub struct SolverRunMeta {
     /// Git SHA of the build (set via DEDALIANO_BUILD_SHA env var; "dev" if unset).
     pub build_sha: String,
     /// Which solver path actually executed: "sparse_cholesky", "dense_lu",
-    /// or "sparse_fallback_dense_lu".
+    /// "sparse_fallback_dense_lu", "fully_restrained", "pcg_ic0", "pcg_ssor",
+    /// "pcg_jacobi", "pcg_none", or "pcg_fallback_sparse_cholesky".
     pub solver_path: String,
     /// Number of free (unconstrained) DOFs solved for.
     pub n_free_dofs: usize,
@@ -464,6 +500,12 @@ pub struct SolveTimings {
     pub nnz_l: usize,
     pub pivot_perturbations: usize,
     pub max_perturbation: f64,
+    /// PCG iterations performed (present only when the PCG path ran).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pcg_iterations: Option<usize>,
+    /// PCG final relative residual ‖r‖/‖b‖ (present only when the PCG path ran).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pcg_final_residual: Option<f64>,
 }
 
 // ==================== Solver Run Artifact ====================

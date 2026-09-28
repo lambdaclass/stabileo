@@ -209,6 +209,7 @@ fn validation_geom_weakest_governs() {
         SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input_weak = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems, supports: sups, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };

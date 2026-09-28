@@ -13,50 +13,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { modelStore } from '../../store/model.svelte';
-import { resultsStore } from '../../store/results.svelte';
-import { detailingStore } from '../../store/detailing.svelte';
 import { designRunStore } from '../../store/design-run.svelte';
-import { verificationStore } from '../../store/verification.svelte';
-import { isSolverReady } from '../../engine/wasm-solver';
-import {
-  DEFAULT_DESIGN_FAMILIES, availableDesignFamilies, initialDesignSelection,
-  pruneDesignSelection, DESIGN_FAMILIES, totalsOf,
-  type DesignFamily, type DesignRunReport,
-} from '../../engine/design/design-families';
-import { applyVariant, ROLLED_BEAMS, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
-import '../../engine/design/adapters/cirsoc201-adapter';
-import '../../engine/design/adapters/unsupported-adapter';
-
-/** Load and solve, ready for a design run. */
-async function ready(example: string, variant?: Variant) {
-  modelStore.clear();
-  resultsStore.clear();
-  detailingStore.clear();
-  designRunStore.resetMarks();
-  verificationStore.clear();
-  await modelStore.loadExample(example);
-  expect(isSolverReady()).toBe(true);
-  if (variant) applyVariant(variant);
-  const solved = await modelStore.solveCombinations3DParallel(true, false, true);
-  const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
-  resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-}
-
-function familyOf(report: DesignRunReport, f: DesignFamily) {
-  return report.families.find((x) => x.family === f)!;
-}
-
-/** Every family that produced steel in the persisted detailing. */
-function familiesWithSteel(): Set<string> {
-  const out = new Set<string>();
-  for (const a of modelStore.model.detailing?.assemblies ?? []) {
-    for (const rec of a.families ?? []) {
-      if ((rec.barIds ?? []).length > 0) out.add(rec.family);
-    }
-  }
-  return out;
-}
+import { DEFAULT_DESIGN_FAMILIES, availableDesignFamilies, initialDesignSelection, pruneDesignSelection, DESIGN_FAMILIES } from '../../engine/design/design-families';
+import { ready, familyOf, familiesWithSteel } from './design-families-fixture';
 
 // ─── The default ─────────────────────────────────────────────────
 
@@ -176,75 +135,5 @@ describe('the run covers exactly the families chosen', () => {
     const report = designRunStore.designFamilies(['column', 'footing']);
     expect(familyOf(report, 'footing').state).toBe('noElements');
     expect(report.ok).toBe(true);
-  }, 300_000);
-});
-
-// ─── Equivalence and idempotence ─────────────────────────────────
-
-describe('the global command is the individual commands', () => {
-  it('reaches the same steel as running each pass by hand', async () => {
-    /**
-     * The rule that stops two implementations drifting. The global path calls `autoDesign`,
-     * `generate` and `generateFloors` — the same functions the individual buttons call — so
-     * the two must land on the same families with the same bar counts.
-     */
-    await ready('pro-edificio-7p');
-    designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
-    const viaGlobal = (modelStore.model.detailing?.assemblies ?? [])
-      .flatMap((a) => a.bars).length;
-    const globalFamilies = [...familiesWithSteel()].sort();
-
-    await ready('pro-edificio-7p');
-    designRunStore.designAll();
-    detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
-    detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025', families: ['slab', 'wall'] });
-    const viaButtons = (modelStore.model.detailing?.assemblies ?? [])
-      .flatMap((a) => a.bars).length;
-
-    expect(globalFamilies).toEqual([...familiesWithSteel()].sort());
-    expect(viaGlobal).toBe(viaButtons);
-  }, 600_000);
-
-  it('running it twice does not duplicate steel', async () => {
-    await ready('pro-edificio-7p');
-    designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
-    const first = (modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.bars);
-    designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
-    const second = (modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.bars);
-
-    expect(second.length).toBe(first.length);
-    // Ids are stable, so a repeat cannot append a second copy under new names either.
-    expect(second.map((b) => b.id).sort()).toEqual(first.map((b) => b.id).sort());
-  }, 600_000);
-});
-
-// ─── The report ──────────────────────────────────────────────────
-
-describe('the run reports what happened, family by family', () => {
-  it('counts processed, designed, refused and not-modelled members', async () => {
-    // With five beams turned about their axis, so that some are refused by the secondary-axis
-    // refusal. The building as committed has none: its last five came from a shell drilling
-    // defect (117 before that, from transposed inertias). See beam-reinforcement-audit.test.ts.
-    // A refusal is a design outcome either way, and the report must say so rather than
-    // presenting a silent zero.
-    await ready('pro-edificio-7p', ROLLED_BEAMS);
-    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
-
-    const beams = familyOf(report, 'beam');
-    expect(beams.processed).toBeGreaterThan(100);
-    expect(beams.refused, 'refusals are counted, not swallowed').toBeGreaterThan(0);
-    expect(beams.refused).toBeLessThanOrEqual(ROLLED_BEAMS.rollBeams.ids.length);
-    expect(beams.designed, 'and the beams that DID design are counted too').toBeGreaterThan(100);
-    expect(beams.designed + beams.refused + beams.notModelled).toBe(beams.processed);
-
-    const totals = totalsOf(report);
-    expect(totals.processed).toBeGreaterThan(beams.processed);
-    expect(totals.refused).toBeGreaterThanOrEqual(beams.refused);
-  }, 300_000);
-
-  it('lists the families in selector order, whatever order they ran in', async () => {
-    await ready('rc-qa-diagnostic');
-    const report = designRunStore.designFamilies(['slab', 'column']);
-    expect(report.families.map((f) => f.family)).toEqual([...DESIGN_FAMILIES]);
   }, 300_000);
 });

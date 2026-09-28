@@ -1130,7 +1130,7 @@ const de: Translations = {
   'dsm.step9.globalDisp': '{u_e} global — Elementverschiebungen',
   'dsm.step9.localDisp': '{u_e} lokal — [T]·{u_e}',
   'dsm.step9.forcesBeforeFEF': '[k]·{u_lokal} — Kräfte vor FEF',
-  'dsm.step9.fixedEndForces': '{f_FE} — Einspannkräfte',
+  'dsm.step9.fixedEndForces': '{f_eq} — Einspannkräfte',
   'dsm.step9.finalForces': '{f} final — Schnittgrößen des Elements',
   'dsm.step9.force': 'Kraft',
   'dsm.step9.nodeI': 'Knoten i',
