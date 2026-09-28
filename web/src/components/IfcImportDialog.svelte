@@ -8,6 +8,8 @@
   let members = $state<IfcMember[]>([]);
   let mappingResult = $state<IfcMappingResult | null>(null);
   let snapTolerance = $state(0.01);
+  /** IfcMember — braces, purlins, struts — as truss members, or as frames. */
+  let membersAsTruss = $state(true);
   let error = $state<string | null>(null);
   let loading = $state(false);
   let fileName = $state('');
@@ -57,7 +59,7 @@
       return;
     }
     try {
-      mappingResult = mapIfcToModel(members, { snapTolerance });
+      mappingResult = mapIfcToModel(members, { snapTolerance, membersAsTruss });
       error = null;
     } catch (e: any) {
       error = e.message || t('ifc.mapError');
@@ -77,9 +79,14 @@
     if (!mappingResult) return;
     const m = mappingResult;
 
+    // The import replaces the open model: it is asked, not done.
+    const hasModel = modelStore.nodes.size > 0 || modelStore.elements.size > 0;
+    if (hasModel && !confirm(t('ifc.replaceConfirm'))) return;
+
     historyStore.pushState();
     modelStore.clear();
     resultsStore.clear();
+    modelStore.model.name = fileName.replace(/\.ifc$/i, '') || modelStore.model.name;
 
     // Map temp IDs to real node IDs
     const idMap = new Map<number, number>();
@@ -99,7 +106,6 @@
       });
       matIds.push(id);
     }
-    const matId = matIds[0] ?? 1;
 
     // Add sections
     const secIds: number[] = [];
@@ -116,22 +122,24 @@
         tf: sec.tf,
         t: sec.t,
         shape: sec.shape as any,
+        ...(sec.profileFamily ? { profileFamily: sec.profileFamily } : {}),
       });
       secIds.push(id);
     }
-    const secId = secIds[0] ?? 1;
 
-    // Add elements
+    // Each element with its own material and section.
     for (const e of m.elements) {
       const ni = idMap.get(e.nodeI)!;
       const nj = idMap.get(e.nodeJ)!;
       const eid = modelStore.addElement(ni, nj, e.type);
-      if (matId !== 1) modelStore.updateElementMaterial(eid, matId);
-      if (secId !== 1) modelStore.updateElementSection(eid, secId);
+      const matId = matIds[e.material] ?? matIds[0];
+      const secId = secIds[e.section] ?? secIds[0];
+      if (matId !== undefined) modelStore.updateElementMaterial(eid, matId);
+      if (secId !== undefined) modelStore.updateElementSection(eid, secId);
     }
 
-    // Switch to 3D mode
-    uiStore.analysisMode = '3d';
+    // IFC is imported in PRO and stays there. Setting the mode to '3d' here used to switch the
+    // app to Basic — its ribbon, its panel and its URL — with the PRO button left unresponsive.
 
     uiStore.toast(t('ifc.imported').replace('{n}', String(m.nodes.length)).replace('{e}', String(m.elements.length)), 'success');
 
@@ -168,6 +176,10 @@
               <label>{t('ifc.snapTolerance')}</label>
               <input type="number" step="0.001" min="0.001" value={snapTolerance} onchange={handleToleranceChange} />
             </div>
+            <label class="ifc-field">
+              <input type="checkbox" bind:checked={membersAsTruss} onchange={remapModel} />
+              {t('ifc.membersAsTruss')}
+            </label>
           </div>
 
           {#if members.length > 0}

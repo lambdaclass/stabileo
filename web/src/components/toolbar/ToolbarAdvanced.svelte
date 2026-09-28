@@ -4,6 +4,7 @@
   import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
   import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
   import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
+  import { publishCombinations3D } from '../../lib/store/active-results';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
@@ -541,7 +542,7 @@
       if (typeof result === 'string') {
         uiStore.toast(result, 'error');
       } else if (result) {
-        resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
+        publishCombinations3D(result);
         const nCombos = result.perCombo.size;
         const nCases = result.perCase.size;
         uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');

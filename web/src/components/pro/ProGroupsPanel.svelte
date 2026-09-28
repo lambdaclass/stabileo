@@ -69,19 +69,26 @@
   }
 </script>
 
-<div class="gp" data-testid="groups-panel">
-  <div class="gp-new">
+<div class="pk gp" data-testid="groups-panel">
+  <section class="pk-card">
+  <h4 class="pk-heading">{t('groups.newTitle')}</h4>
+  <p class="pk-hint">{t('groups.explain')}</p>
+  <div class="pk-row">
     <input class="gp-name" placeholder={t('groups.namePlaceholder')} bind:value={name} data-testid="gp-name" />
     <select bind:value={kind} data-testid="gp-kind">
       <option value="selection">{t('groups.kind.selection')}</option>
       <option value="floor">{t('groups.kind.floor')}</option>
     </select>
-    <button onclick={create} disabled={selectionSize === 0} data-testid="gp-create">{t('groups.createFromSelection')}</button>
+    <button class="pk-btn pk-btn-primary" onclick={create} disabled={selectionSize === 0} data-testid="gp-create">{t('groups.createFromSelection')}</button>
   </div>
-  <p class="gp-hint">{selectionSize === 0 ? t('groups.selectFirst') : tp('groups.selectionSize', { n: selectionSize })}</p>
+  <p class="pk-hint">{selectionSize === 0 ? t('groups.selectFirst') : tp('groups.selectionSize', { n: selectionSize })}</p>
+  </section>
+
+  <section class="pk-card">
+  <h4 class="pk-heading">{tp('groups.listTitle', { n: groups.length })}</h4>
 
   {#if groups.length === 0}
-    <p class="gp-empty">{t('groups.none')}</p>
+    <p class="pk-hint">{t('groups.none')}</p>
   {:else}
     <ul class="gp-list">
       {#each groups as g (g.id)}
@@ -98,40 +105,30 @@
           </div>
           {#if editable}
             <div class="gp-actions">
-              <button onclick={() => { renaming = g.id; renameText = g.name; }}>{t('groups.rename')}</button>
-              <button onclick={() => combine(g, 'add')} disabled={selectionSize === 0}>{t('groups.addSelection')}</button>
-              <button onclick={() => combine(g, 'remove')} disabled={selectionSize === 0}>{t('groups.removeSelection')}</button>
-              <button class="gp-del" onclick={() => modelStore.removeGroup(g.id)}>{t('groups.delete')}</button>
+              <button class="pk-btn" onclick={() => { renaming = g.id; renameText = g.name; }}>{t('groups.rename')}</button>
+              <button class="pk-btn" onclick={() => combine(g, 'add')} disabled={selectionSize === 0}>{t('groups.addSelection')}</button>
+              <button class="pk-btn" onclick={() => combine(g, 'remove')} disabled={selectionSize === 0}>{t('groups.removeSelection')}</button>
+              <button class="pk-btn gp-del" onclick={() => modelStore.removeGroup(g.id)}>{t('groups.delete')}</button>
             </div>
           {:else}
-            <p class="gp-hint">{t('groups.readOnly')}</p>
+            <p class="pk-hint">{t('groups.readOnly')}</p>
           {/if}
         </li>
       {/each}
     </ul>
   {/if}
+  </section>
 </div>
 
 <style>
-  .gp { display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.72rem; }
-  .gp-new { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .gp-name, select {
-    padding: 3px 6px; font-size: 0.68rem; background: var(--st-surface); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; color: var(--st-text-2);
-  }
   .gp-name { flex: 1; min-width: 120px; }
-  button {
-    padding: 3px 8px; font-size: 0.66rem; color: var(--st-text); background: var(--st-surface-3);
-    border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
-  }
-  button:disabled { opacity: 0.35; cursor: not-allowed; }
-  .gp-hint, .gp-empty { margin: 0; color: var(--st-text-3); font-size: 0.64rem; font-style: italic; }
   .gp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .gp-item { padding: 6px 8px; background: var(--st-surface-2); border: 1px solid var(--st-surface-3); border-radius: 4px; display: flex; flex-direction: column; gap: 4px; }
+  .gp-item { padding: 6px 8px; background: var(--st-surface-3); border: 1px solid var(--st-hair); border-radius: var(--st-radius); display: flex; flex-direction: column; gap: 5px; }
   .gp-head { display: flex; align-items: center; gap: 8px; }
-  .gp-title { background: transparent; border: none; padding: 0; color: var(--st-interactive); font-weight: 600; text-align: left; }
-  .gp-kind { color: var(--st-text-3); font-size: 0.62rem; font-family: monospace; }
+  .gp-title { background: transparent; border: none; padding: 0; color: var(--st-interactive); font-weight: 600; text-align: left; cursor: pointer; font-size: 0.72rem; }
+  .gp-kind { color: var(--st-text-3); font-size: 0.62rem; font-family: var(--st-mono); }
   .gp-count { margin-left: auto; color: var(--st-text-3); font-size: 0.62rem; }
   .gp-actions { display: flex; gap: 4px; flex-wrap: wrap; }
-  .gp-del { border-color: var(--st-danger); }
+  .gp-actions :global(.pk-btn) { min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.64rem; }
+  .gp-actions :global(.gp-del) { border-color: var(--st-danger); }
 </style>

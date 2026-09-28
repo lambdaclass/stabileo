@@ -13,6 +13,7 @@
 // Reinforcement is written exclusively through `modelStore.reinforcementTransaction`,
 // so one command is one undo step, results survive, and no structural solve fires.
 
+import { activePerCombo3D, activeCombinations } from './active-results';
 import { modelStore } from './model.svelte';
 import { requestAutosave } from './autosave-service';
 import { regulationsStore } from './regulations.svelte';
@@ -139,7 +140,7 @@ function createDesignRunStore() {
     try {
       const md = modelData();
       const stationData = computeStationDemands(
-        resultsStore.perCombo3D, modelStore.model.combinations, md as never,
+        activePerCombo3D(), activeCombinations(), md as never,
       );
       if (stationData.demands.size === 0) return fail('design.error.noDemands');
 

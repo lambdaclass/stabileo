@@ -25,6 +25,7 @@
  * Nothing was rewritten. The bodies are the ones that were in the store, moved verbatim.
  */
 
+import { activePerCombo3D } from './active-results';
 import { modelStore, type ProvidedReinforcement } from './model.svelte';
 import { verificationStore } from './verification.svelte';
 import { resultsStore } from './results.svelte';
@@ -60,7 +61,7 @@ export function collectFootingReactions(): Map<number, NodeReactions> {
   const comboNameOf = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
 
   const factored = new Map<number, CombinationReaction[]>();
-  for (const [comboId, res] of resultsStore.perCombo3D) {
+  for (const [comboId, res] of activePerCombo3D()) {
     for (const r of res.reactions ?? []) {
       if (!wanted.has(r.nodeId)) continue;
       const list = factored.get(r.nodeId) ?? [];
@@ -285,8 +286,9 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
     [];
   const indexForces = (list: readonly ElementForces3D[]) =>
     new Map(list.map((f) => [f.elementId, f]));
-  if (resultsStore.perCombo3D.size > 0) {
-    for (const [comboId, res] of resultsStore.perCombo3D) {
+  const solved = activePerCombo3D();
+  if (solved.size > 0) {
+    for (const [comboId, res] of solved) {
       sets.push({
         id: comboId,
         name: comboNameOf.get(comboId) ?? `Combinación ${comboId}`,

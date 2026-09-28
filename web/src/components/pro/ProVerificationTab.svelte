@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
   /**
    * DORMANT COMPONENT — not currently rendered in the active UI.
    *
@@ -26,7 +27,7 @@
   import type { SlabDesignResult, FramingContext, FrameLineElevationOpts, ColumnStackElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { buildStructuralGraph, getElementFramingContext, type StructuralGraph } from '../../lib/engine/structural-graph';
   import { computeBarMarks, type BarMark } from '../../lib/engine/bar-marks';
-  import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
+  import { checkCrackWidth } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { estimateQuantitiesFromVerification } from '../../lib/engine/quantity-takeoff';
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
@@ -36,7 +37,12 @@
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
+  import { memberLengths } from '../../lib/engine/steel/unbraced-length';
+  import { storyDrifts as storyDrifts3D, type StoryDrift } from '../../lib/engine/story-drift';
+  import { shouldEmbedFlat2DModelIn3D } from '../../lib/engine/solver-service';
+  import type { DeflectionBasis } from '../../lib/store/service-deflection';
+  import { deflectionChecks } from '../../lib/store/serviceability';
   // xlsx on demand: 875 KB that only matters once someone exports a schedule.
   // Through the loader in lib/export/excel.ts rather than a bare `import()`,
   // so a chunk that fails to arrive is reported here the same way it is there
@@ -118,6 +124,9 @@
   // Store serviceability results per element
   let crackResults = $state<Map<number, CrackResult>>(new Map());
   let deflectionResults = $state<Map<number, DeflectionResult>>(new Map());
+  /** Under which loads the deflections were read, for the line that says so. */
+  let deflectionBasis = $state<DeflectionBasis | null>(null);
+  let deflectionBasisNames = $state<string[]>([]);
   let quantities = $state<QuantitySummary | null>(null);
 
   // ── Manual reinforcement overrides (session-local) ──
@@ -183,16 +192,7 @@
   let slabDesigns = $state<Array<{ quadId: number; spanX: number; spanZ: number; thickness: number; fc: number; designX: SlabDesignResult; designZ: SlabDesignResult }>>([]);
 
   // Story drift results
-  interface StoryDriftResult {
-    level: number;      // floor elevation (m)
-    height: number;     // story height (m)
-    driftX: number;     // max lateral displacement X (m)
-    driftZ: number;     // max lateral displacement Z (m)
-    ratioX: number;     // drift ratio Δ/h
-    ratioZ: number;
-    status: 'ok' | 'warn' | 'fail';
-  }
-  let storyDrifts = $state<StoryDriftResult[]>([]);
+  let storyDrifts = $state<StoryDrift[]>([]);
   const driftLimit = 0.015; // CIRSOC 103 §5.2.8: 0.015 for RC, 0.020 for steel
 
   // Detail view tabs
@@ -338,7 +338,7 @@
     // This replaces the old endpoint-only force extraction loop — see §13.1 of SOLVER_APP_COVERAGE_MAP.md
     const governing = resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null;
     const stationData = resultsStore.hasCombinations3D
-      ? computeStationDemands(resultsStore.perCombo3D, modelStore.model.combinations, { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
+      ? computeStationDemands(activePerCombo3D(), activeCombinations(), { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports })
       : undefined;
     const verifs = runUnifiedVerification(
       results,
@@ -370,6 +370,8 @@
        * clause permits.
        */
       stationData?.stations,
+      // A member split at nodes where nothing arrives is one unbraced length; a stated `Lb` wins.
+      memberLengths(modelStore.model),
     );
     steelVerifications = steelVerifs;
 
@@ -409,42 +411,20 @@
         );
         newCracks.set(v.elementId, crack);
 
-        // TEMPORARY Phase 1 bridge — midspan deflection estimate (Bug #3 from §13.2)
-        // Solver only returns endpoint displacements; midspan is estimated from beam equation.
-        // Phase 2 target: solver provides midspan displacement directly (or check_serviceability WASM).
-        const elem = modelStore.elements.get(v.elementId);
-        if (elem) {
-          const nodeI = modelStore.nodes.get(elem.nodeI);
-          const nodeJ = modelStore.nodes.get(elem.nodeJ);
-          if (nodeI && nodeJ) {
-            const dx = nodeJ.x - nodeI.x;
-            const dy = nodeJ.y - nodeI.y;
-            const dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-            const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            // First try endpoint displacements (valid for cantilevers/overhangs)
-            const di = results!.displacements.find(d => d.nodeId === elem.nodeI);
-            const dj = results!.displacements.find(d => d.nodeId === elem.nodeJ);
-            let maxDisp = Math.max(
-              Math.abs(di?.uy ?? 0), Math.abs(dj?.uy ?? 0),
-              Math.abs(di?.uz ?? 0), Math.abs(dj?.uz ?? 0),
-            );
-            // TEMPORARY Phase 1 estimate: 5·Ms·L²/(48·E·Ig) (uniform load equivalent)
-            // Only used when endpoint displacements are negligible (simply-supported beams).
-            if (maxDisp < L / 10000) {
-              const sec = modelStore.sections.get(elem.sectionId);
-              const mat = modelStore.materials.get(elem.materialId);
-              if (sec?.iz && mat?.e) {
-                const E = mat.e * 1000; // MPa → kPa
-                const Ig = sec.iz; // m⁴
-                maxDisp = (5 * Ms * L * L) / (48 * E * Ig);
-              }
-            }
-            if (L > 0 && maxDisp > 0) {
-              newDefl.set(v.elementId, checkDeflection(L, maxDisp));
-            }
-          }
-        }
       }
+    }
+
+    // Deflection: every beam's own bending — relative to the chord of its displaced ends — under
+    // service loads, concrete and steel alike: the same run the Deflections table shows. It used
+    // to read a node's absolute displacement, or estimate the midspan with 5·Ms·L²/(48·E·Ig) when
+    // the ends did not move. See `store/service-deflection.ts`.
+    const svc = deflectionChecks();
+    deflectionBasis = svc.basis;
+    deflectionBasisNames = svc.names;
+    for (const [id, row] of svc.rows) {
+      const d = row.deflection;
+      row.check.steps.unshift(tp('pro.deflChordStep', { x: d.x.toFixed(2), set: d.setName || t(`pro.deflSet.${svc.basis}`) }));
+      newDefl.set(id, row.check);
     }
     crackResults = newCracks;
     deflectionResults = newDefl;
@@ -492,61 +472,12 @@
     }
     slabDesigns = slabResults;
 
-    // ─── Story drift computation ───
-    const drifts: StoryDriftResult[] = [];
-    if (results) {
-      // Group nodes by Y elevation (story level)
-      const yTol = 0.05; // 5cm tolerance
-      const yLevels: number[] = [];
-      for (const [, node] of modelStore.nodes) {
-        const y = node.y;
-        if (!yLevels.some(lv => Math.abs(lv - y) < yTol)) {
-          yLevels.push(y);
-        }
-      }
-      yLevels.sort((a, b) => a - b);
-
-      if (yLevels.length >= 2) {
-        // For each level (except base), compute max lateral drift
-        for (let i = 1; i < yLevels.length; i++) {
-          const level = yLevels[i];
-          const prevLevel = yLevels[i - 1];
-          const storyH = level - prevLevel;
-          if (storyH < 0.1) continue;
-
-          // Find max horizontal displacements at this level and previous
-          let maxUxCur = 0, maxUzCur = 0;
-          let maxUxPrev = 0, maxUzPrev = 0;
-          for (const d of results.displacements) {
-            const node = modelStore.nodes.get(d.nodeId);
-            if (!node) continue;
-            if (Math.abs(node.y - level) < yTol) {
-              maxUxCur = Math.max(maxUxCur, Math.abs(d.ux));
-              maxUzCur = Math.max(maxUzCur, Math.abs(d.uz));
-            } else if (Math.abs(node.y - prevLevel) < yTol) {
-              maxUxPrev = Math.max(maxUxPrev, Math.abs(d.ux));
-              maxUzPrev = Math.max(maxUzPrev, Math.abs(d.uz));
-            }
-          }
-          const deltaX = Math.abs(maxUxCur - maxUxPrev);
-          const deltaZ = Math.abs(maxUzCur - maxUzPrev);
-          const ratioX = deltaX / storyH;
-          const ratioZ = deltaZ / storyH;
-          const maxRatio = Math.max(ratioX, ratioZ);
-
-          drifts.push({
-            level,
-            height: storyH,
-            driftX: deltaX,
-            driftZ: deltaZ,
-            ratioX,
-            ratioZ,
-            status: maxRatio > driftLimit ? 'fail' : maxRatio > driftLimit * 0.8 ? 'warn' : 'ok',
-          });
-        }
-      }
-    }
-    storyDrifts = drifts;
+    // ─── Story drift, on the columns, in the model's own vertical (engine/story-drift.ts) ───
+    storyDrifts = results
+      ? storyDrifts3D(modelStore.nodes, modelStore.elements.values(), results.displacements, {
+          limit: driftLimit, embedded2D: shouldEmbedFlat2DModelIn3D(modelStore.model),
+        })
+      : [];
 
     verifications = verifs;
 
@@ -672,6 +603,11 @@
     if (s === 'ok') return '✓';
     if (s === 'fail') return '✗';
     return '⚠';
+  }
+
+  /** A deflection as the span it is a fraction of: L/δ, with δ the total (immediate + long-term). */
+  function spanOver(dr: DeflectionResult): string {
+    return dr.deltaTotal > 0 ? `L/${Math.round(dr.span / dr.deltaTotal)}` : 'L/∞';
   }
 
   function statusClass(s: 'ok' | 'fail' | 'warn'): string {
@@ -1187,6 +1123,7 @@
           {@const deflOk = [...deflectionResults.values()].filter(d => d.status === 'ok').length}
           {@const deflFail = [...deflectionResults.values()].filter(d => d.status === 'fail').length}
           <span class="svc-badge">{t('pro.deflection')}: <span class="status-ok">{deflOk} ✓</span>{#if deflFail > 0} <span class="status-fail">{deflFail} ✗</span>{/if}</span>
+          {#if deflectionBasis}<span class="svc-basis" data-testid="defl-basis">{deflectionBasis === 'service' ? tp('pro.deflBasisService', { names: deflectionBasisNames.join(', ') }) : t(`pro.deflBasis.${deflectionBasis}`)}</span>{/if}
         {/if}
       </div>
     {/if}
@@ -1238,7 +1175,7 @@
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
                 <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:var(--st-info)">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
-                <td class="col-sls">{#if crackResults.has(v.elementId) || deflectionResults.has(v.elementId)}{@const cr = crackResults.get(v.elementId)}{@const dr = deflectionResults.get(v.elementId)}{#if cr}<span class={statusClass(cr.status)} title="w_k={cr.wk.toFixed(2)}mm / {cr.wLimit.toFixed(2)}mm">{cr.wk.toFixed(2)}</span>{/if}{#if cr && dr}<br>{/if}{#if dr}<span class={statusClass(dr.status)} title="L/{Math.round(1/dr.ratio)} vs L/{Math.round(1/dr.limit)}">L/{Math.round(1/dr.ratio)}</span>{/if}{:else}<span class="dim-text">—</span>{/if}</td>
+                <td class="col-sls">{#if crackResults.has(v.elementId) || deflectionResults.has(v.elementId)}{@const cr = crackResults.get(v.elementId)}{@const dr = deflectionResults.get(v.elementId)}{#if cr}<span class={statusClass(cr.status)} title="w_k={cr.wk.toFixed(2)}mm / {cr.wLimit.toFixed(2)}mm">{cr.wk.toFixed(2)}</span>{/if}{#if cr && dr}<br>{/if}{#if dr}<span class={statusClass(dr.status)} title="{spanOver(dr)} vs L/{dr.limitDivisor}">{spanOver(dr)}</span>{/if}{:else}<span class="dim-text">—</span>{/if}</td>
                 <td class="col-status">
                   <span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span>
                   {#if v.slender && v.slender.isSlender}<br><span class="slender-badge" title="k·Lu/r={v.slender.klu_r.toFixed(1)}, δns={v.slender.delta_ns.toFixed(2)}">δ={v.slender.delta_ns.toFixed(2)}</span>{/if}
@@ -1817,9 +1754,9 @@
               <th>{t('pro.driftLevel')}</th>
               <th>h piso (m)</th>
               <th>Δx (mm)</th>
-              <th>Δz (mm)</th>
+              <th>Δy (mm)</th>
               <th>Δx/h</th>
-              <th>Δz/h</th>
+              <th>Δy/h</th>
               <th></th>
             </tr>
           </thead>
@@ -1829,9 +1766,9 @@
                 <td class="col-num">{d.level.toFixed(2)}</td>
                 <td class="col-num">{d.height.toFixed(2)}</td>
                 <td class="col-num">{(d.driftX * 1000).toFixed(2)}</td>
-                <td class="col-num">{(d.driftZ * 1000).toFixed(2)}</td>
+                <td class="col-num">{(d.driftY * 1000).toFixed(2)}</td>
                 <td class="col-num">{d.ratioX < 0.0001 ? '<0.0001' : d.ratioX.toFixed(4)}</td>
-                <td class="col-num">{d.ratioZ < 0.0001 ? '<0.0001' : d.ratioZ.toFixed(4)}</td>
+                <td class="col-num">{d.ratioY < 0.0001 ? '<0.0001' : d.ratioY.toFixed(4)}</td>
                 <td class="col-status"><span class={'status-' + d.status}>{d.status === 'ok' ? '✓' : d.status === 'fail' ? '✗' : '⚠'}</span></td>
               </tr>
             {/each}
@@ -2121,6 +2058,7 @@
   .col-status { text-align: center; font-size: 0.85rem; }
   .slender-badge { font-size: 0.55rem; color: var(--st-warn); font-family: monospace; }
   .svc-badge { font-size: 0.68rem; color: var(--st-text-2); margin-right: 10px; }
+  .svc-basis { font-size: 0.62rem; color: var(--st-text-3); }
   .col-sls { font-family: monospace; font-size: 0.6rem; text-align: center; white-space: nowrap; }
   .dim-text { color: var(--st-hair-strong); }
   .slender-factors { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 4px 0 6px; font-size: 0.65rem; font-family: monospace; color: var(--st-text-2); }

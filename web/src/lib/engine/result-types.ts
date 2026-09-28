@@ -208,41 +208,6 @@ export function getSpectralAcceleration(spectrum: DesignSpectrum, T: number): nu
   return pts[pts.length - 1].sa;
 }
 
-/** CIRSOC 103 elastic design spectrum (simplified) */
-export function cirsoc103Spectrum(
-  zone: 1 | 2 | 3 | 4,
-  soilType: 'I' | 'II' | 'III',
-): DesignSpectrum {
-  const as: Record<number, number> = { 1: 0.04, 2: 0.10, 3: 0.18, 4: 0.35 };
-  const Ca: Record<string, number> = { 'I': 1.0, 'II': 1.2, 'III': 1.5 };
-  const Cv: Record<string, number> = { 'I': 1.0, 'II': 1.4, 'III': 2.0 };
-  const Ts: Record<string, number> = { 'I': 0.3, 'II': 0.5, 'III': 0.8 };
-  const T0 = 0.1 * Ts[soilType];
-
-  const a = as[zone];
-  const ca = Ca[soilType];
-  const cv = Cv[soilType];
-  const ts = Ts[soilType];
-  const t0 = T0;
-
-  const SaMax = 2.5 * a * ca;
-  const points: Array<{ period: number; sa: number }> = [
-    { period: 0, sa: a * ca },
-    { period: t0, sa: SaMax },
-    { period: ts, sa: SaMax },
-  ];
-
-  for (let T = ts + 0.1; T <= 6; T += 0.1) {
-    points.push({ period: T, sa: a * cv * ts / T });
-  }
-
-  return {
-    name: `CIRSOC 103 Zona ${zone}, Suelo ${soilType}`,
-    points,
-    inG: true,
-  };
-}
-
 export interface SpectralConfig {
   direction: 'X' | 'Y';
   spectrum: DesignSpectrum;

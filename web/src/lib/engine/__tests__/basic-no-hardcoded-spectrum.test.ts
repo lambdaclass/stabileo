@@ -70,14 +70,16 @@ describe('Basic cannot launch the hardcoded CIRSOC spectrum', () => {
     const wasm = await import('../wasm-solver');
     expect(typeof wasm.solveSpectral).toBe('function');
     expect(typeof wasm.solveSpectral3D).toBe('function');
+    // PRO's spectrum is the regulation's own (codes/cirsoc103/spectrum.ts); the invented
+    // table `cirsoc103Spectrum` used to be, with wrong coefficients and a jump at Ts, is gone.
     const resultTypes = await import('../result-types');
-    expect(typeof resultTypes.cirsoc103Spectrum).toBe('function');
+    expect('cirsoc103Spectrum' in resultTypes).toBe(false);
   });
 
-  it('PRO keeps its own selectable-zone spectral workflow', () => {
+  it('PRO keeps its own selectable-zone spectral workflow, on the regulation spectrum', () => {
     const pro = read('../../../components/pro/ProAdvancedTab.svelte');
-    expect(pro).toContain('cirsoc103Spectrum');
-    // Zone and soil come from state there, not from literals.
-    expect(pro).toMatch(/cirsoc103Spectrum\(\s*seismicZone\s*,\s*soilType\s*\)/);
+    expect(pro).not.toContain('cirsoc103Spectrum');
+    // Zone and site come from state there, not from literals.
+    expect(pro).toMatch(/designSpectrum\(\{\s*zone:\s*seismicZone\s*,\s*site:\s*siteClass\s*\}\)/);
   });
 });

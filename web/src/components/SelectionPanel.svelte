@@ -16,6 +16,7 @@
    */
   import { uiStore, modelStore } from '../lib/store';
   import { selectAll, invertSelection, selectByIds } from '../lib/model/select-ops';
+  import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial } from '../lib/engine/design/member-grouping';
   import { t, tp } from '../lib/i18n';
 
   /**
@@ -64,6 +65,30 @@
       elements: new Set(uiStore.selectedElements),
       shells: new Set(uiStore.selectedShells),
     }));
+  }
+
+  /*
+   * ── Like what is selected ─────────────────────────────────────────
+   * The member groupings design already has (`member-grouping.ts`), offered where selection
+   * lives: members parallel to, connected to, or sharing the section or material of the
+   * selected ones. Seeded by the selection, so "every beam running this way" is two clicks.
+   */
+  const seedMembers = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
+  function like(kind: 'parallel' | 'connected' | 'section' | 'material') {
+    const model = modelStore.model as never;
+    let ids: number[] = [];
+    if (kind === 'parallel') ids = groupByParallel(model, seedMembers);
+    else if (kind === 'connected') ids = groupByConnectivity(model, seedMembers, 1, false);
+    else {
+      const set = new Set<number>();
+      for (const id of seedMembers) {
+        const e = modelStore.elements.get(id)!;
+        for (const x of kind === 'section' ? groupBySection(model, e.sectionId) : groupByMaterial(model, e.materialId)) set.add(x);
+      }
+      ids = [...set];
+    }
+    uiStore.setSelection(new Set(), new Set(ids), true);
+    byIdNote = tp('selection.likeCount', { n: ids.length });
   }
 
   function doSelectByIds() {
@@ -145,6 +170,15 @@
     <button class="sel-op" onclick={() => uiStore.clearSelection()} data-testid="sel-none">{t('selection.none')}</button>
     <button class="sel-op" onclick={doInvert} data-testid="sel-invert">{t('selection.invert')}</button>
   </div>
+  <div class="sel-like" data-testid="sel-like">
+    <span class="sel-like-label">{tp('selection.like', { n: seedMembers.length })}</span>
+    <div class="sel-ops">
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('parallel')} data-testid="sel-like-parallel">{t('selection.likeParallel')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('connected')} data-testid="sel-like-connected">{t('selection.likeConnected')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('section')} data-testid="sel-like-section">{t('selection.likeSection')}</button>
+      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('material')} data-testid="sel-like-material">{t('selection.likeMaterial')}</button>
+    </div>
+  </div>
 
   <div class="sel-byid">
     <label for="sel-id-list">{t('selection.byId')}</label>
@@ -172,7 +206,9 @@
 <style>
   .sel-panel { padding: 4px 2px; }
 
-  .sel-ops { display: flex; gap: 6px; margin-top: 8px; }
+  .sel-ops { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .sel-like { margin-top: 10px; }
+  .sel-like-label { font-size: 0.7rem; color: var(--st-text-3); }
   .sel-op {
     flex: 1;
     padding: 0.32rem 0.4rem;

@@ -1,0 +1,82 @@
+/*
+ * The PRO panel kit: one card per decision, the Project tab's look, for every panel that is a
+ * sequence of commands and settings rather than a table.
+ *
+ * The Project tab set it — cards on `--st-surface-2`, a mono uppercase heading with a hairline,
+ * quiet outlined buttons — and the panels added after it each picked their own: headings in
+ * three styles, content against the header, and native selects and checkboxes the browser paints
+ * white on a dark panel. These classes are the Project tab's, generalised; the rules at the end
+ * make any control a panel does not style match the rest.
+ */
+
+.pk { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.75rem 0 1.1rem; font-size: 0.72rem; color: var(--st-text-2); }
+
+.pk-card {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  padding: 0.6rem 0.7rem 0.7rem;
+  background: var(--st-surface-2);
+  border: 1px solid var(--st-hair);
+  border-radius: var(--st-radius-lg);
+}
+
+.pk-heading {
+  font-family: var(--st-mono); font-size: 0.66rem; font-weight: 400;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--st-text-2);
+  margin: 0 0 0.15rem; padding-bottom: 0.15rem; border-bottom: 1px solid var(--st-hair);
+}
+
+.pk-row { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+.pk-row-end { justify-content: flex-end; }
+.pk-grow { flex: 1; min-width: 0; }
+.pk-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
+.pk-warn { margin: 0; font-size: 0.66rem; color: var(--st-warn); }
+.pk-ok { margin: 0; font-size: 0.66rem; color: var(--st-ok); }
+.pk-label { color: var(--st-text-3); font-size: 0.66rem; }
+.pk-check { display: flex; gap: 0.4rem; align-items: center; cursor: pointer; }
+
+.pk-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+  min-height: 26px; padding: 0.25rem 0.6rem;
+  background: none; border: 1px solid var(--st-hair); border-radius: var(--st-radius);
+  color: var(--st-text-2); font-family: var(--st-sans); font-size: 0.7rem; cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.pk-btn:hover:not(:disabled) { background: var(--st-surface-3); border-color: var(--st-hair-strong); color: var(--st-text); }
+.pk-btn:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
+.pk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pk-btn.on { border-color: var(--st-accent); color: var(--st-text); background: var(--st-selected-bg); }
+.pk-btn-primary { border-color: var(--st-accent); color: var(--st-text); }
+.pk-btn-icon { min-width: 26px; padding: 0.2rem; }
+
+/* Segmented choice (Repeat / Polar / Mirror …). */
+.pk-tabs { display: flex; gap: 2px; padding: 2px; background: var(--st-surface-3); border-radius: var(--st-radius); flex-wrap: wrap; }
+.pk-tabs button {
+  flex: 1; min-height: 24px; padding: 0.2rem 0.5rem; border: 1px solid transparent; border-radius: var(--st-radius);
+  background: none; color: var(--st-text-2); font-size: 0.68rem; cursor: pointer;
+}
+.pk-tabs button.on { background: var(--st-surface-2); border-color: var(--st-accent); color: var(--st-text); }
+
+/* ── Controls a panel leaves unstyled ─────────────────────────────────────
+   `color-scheme` makes the browser draw the native parts — a select's open list, the checkbox,
+   the number spinner — for a dark surface; without it they came out white. The field styles
+   are wrapped in :where() so any component rule wins over them. */
+.pro-panel { color-scheme: dark; }
+:where(.pro-panel) select,
+:where(.pro-panel) input[type='text'],
+:where(.pro-panel) input[type='number'],
+:where(.pro-panel) input:not([type]),
+:where(.pro-panel) textarea {
+  background: var(--st-surface-3);
+  color: var(--st-text);
+  border: 1px solid var(--st-hair-strong);
+  border-radius: var(--st-radius);
+  font-family: var(--st-sans);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.35rem;
+}
+:where(.pro-panel) select { cursor: pointer; }
+:where(.pro-panel) select:focus-visible,
+:where(.pro-panel) input:focus-visible,
+:where(.pro-panel) textarea:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 0; }
+:where(.pro-panel) input[type='checkbox'],
+:where(.pro-panel) input[type='radio'] { accent-color: var(--st-accent); }

@@ -376,6 +376,30 @@ export function groupByConnectivity(
   return [...out].sort((a, b) => a - b);
 }
 
+/**
+ * Members parallel to any member of a seed set, within `tolDeg` degrees — the direction, not the
+ * line: every beam of a grid running the same way, every column of a building.
+ */
+export function groupByParallel(model: ContextModelData, seed: Iterable<number>, tolDeg = 0.5): number[] {
+  const dirOf = (id: number): [number, number, number] | null => {
+    const e = model.elements.get(id);
+    const a = e && model.nodes.get(e.nodeI), b = e && model.nodes.get(e.nodeJ);
+    if (!a || !b) return null;
+    const d: [number, number, number] = [b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)];
+    const L = Math.hypot(...d);
+    return L > 0 ? [d[0] / L, d[1] / L, d[2] / L] : null;
+  };
+  const cosTol = Math.cos((tolDeg * Math.PI) / 180);
+  const seeds = [...seed].map(dirOf).filter((d): d is [number, number, number] => d !== null);
+  if (seeds.length === 0) return [];
+  const out: number[] = [];
+  for (const id of model.elements.keys()) {
+    const d = dirOf(id);
+    if (d && seeds.some((s) => Math.abs(s[0] * d[0] + s[1] * d[1] + s[2] * d[2]) >= cosTol)) out.push(id);
+  }
+  return out.sort((a, b) => a - b);
+}
+
 /** Attribute selectors: same section / material / kind. */
 export function groupBySection(model: ContextModelData, sectionId: number): number[] {
   return [...model.elements].filter(([, e]) => e.sectionId === sectionId).map(([id]) => id).sort((a, b) => a - b);

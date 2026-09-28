@@ -115,3 +115,81 @@ export function plasticMoments(
   }
   return out;
 }
+
+/**
+ * Zp about the section's own weak axis, m³, for the 3-D analysis.
+ *
+ * Not turned by `sec.rotation`, unlike `plasticModulus`: in 3-D the section's rotation reaches the
+ * engine as a roll of the member's local axes (solver-service: roll = element roll + section
+ * rotation), so the local y and z already follow the profile and its Mp about them are the
+ * profile's own. Turning the outline as well would turn it twice.
+ */
+export function plasticModulusWeak(sec: Section): { zp: number; source: MpSource } {
+  try {
+    const r = resolveCanonicalSection(sec);
+    if (isGeometryBacked(r)) {
+      const zp = analyzeSectionPlastic({ geometry: r.geometry }).zz;
+      if (Number.isFinite(zp) && zp > 0) return { zp, source: 'geometry' };
+    }
+  } catch {
+    // As above: fall through to what the section declares.
+  }
+  const i = sec.iz;
+  if ((sec.shape === 'rect' || sec.shape === undefined) && sec.b && sec.h && Math.abs(sec.h * sec.b ** 3 / 12 - i) <= 1e-3 * i) {
+    return { zp: (sec.h * sec.b ** 2) / 4, source: 'rectangle' };
+  }
+  const b = sec.b && sec.b > 0 ? sec.b : Math.sqrt((12 * i) / sec.a);
+  return { zp: SHAPE_FACTOR_ESTIMATE * (i / (b / 2)), source: 'estimated' };
+}
+
+/** Both plastic moments of a section, kN·m — `[Mp about y (strong), Mp about z (weak)]`, the engine's 3-D `mpOverrides` pair. */
+export interface SectionMp3D extends SectionMp { mpz: number; zpz: number; sourceZ: MpSource }
+
+/**
+ * Mp about both axes of every section the model's members use, for the 3-D plastic analysis.
+ *
+ * The engine's 3-D fallback is the same rectangle, `b·h²/4` and `h·b²/4`, and it reads a
+ * section's material from a `materialId` the section does not have — so every section was
+ * analysed with the default 250 MPa. Here the material is the first member's, as in 2-D.
+ */
+export function plasticMoments3D(
+  sections: Map<number, Section>,
+  materials: Map<number, Material>,
+  elements: Map<number, Element>,
+): SectionMp3D[] {
+  return plasticMoments(sections, materials, elements).map((m) => {
+    const sec = sections.get(m.sectionId)!;
+    // The profile's own axes: see `plasticModulusWeak` for why 3-D does not turn the outline.
+    const s = plasticModulus({ ...sec, rotation: 0 });
+    const w = plasticModulusWeak(sec);
+    return { ...m, zp: s.zp, mp: m.fy * 1000 * s.zp, source: s.source, zpz: w.zp, mpz: m.fy * 1000 * w.zp, sourceZ: w.source };
+  });
+}
+
+/**
+ * The engine's 3-D plastic payload: sections with their members' material, dimensions only when
+ * present, and Mp about both axes as `mpOverrides`; plus the sections whose Mp rests on an
+ * assumption, so a surface can say so.
+ */
+export function plasticInput3D(
+  sections: Map<number, Section>,
+  materials: Map<number, Material>,
+  elements: Map<number, Element>,
+): { sections: Record<string, unknown>; materials: Record<string, { fy: number }>; mpOverrides: Record<string, [number, number]>; assumed: string[] } {
+  const mps = plasticMoments3D(sections, materials, elements);
+  const out: Record<string, unknown> = {};
+  const mpOverrides: Record<string, [number, number]> = {};
+  for (const m of mps) {
+    const sec = sections.get(m.sectionId)!;
+    const member = [...elements.values()].find((e) => e.sectionId === m.sectionId)!;
+    out[String(m.sectionId)] = {
+      a: sec.a, iy: sec.iy ?? sec.iz, iz: sec.iz, materialId: member.materialId,
+      ...(sec.b ? { b: sec.b } : {}), ...(sec.h ? { h: sec.h } : {}),
+    };
+    mpOverrides[String(m.sectionId)] = [m.mp, m.mpz];
+  }
+  const mats: Record<string, { fy: number }> = {};
+  for (const [id, mat] of materials) mats[String(id)] = { fy: mat.fy && mat.fy > 0 ? mat.fy : DEFAULT_FY };
+  const assumed = mps.filter((m) => m.fyAssumed || m.source === 'estimated' || m.sourceZ === 'estimated').map((m) => m.name);
+  return { sections: out, materials: mats, mpOverrides, assumed };
+}

@@ -22,6 +22,7 @@
  * Nothing was rewritten. The bodies are the ones that were in the store, moved verbatim.
  */
 
+import { activeCombinations } from './active-results';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import {
@@ -129,7 +130,7 @@ export function factoredAreaLoads(): Map<number, number> {
     byCase.set(quadId, per);
   }
 
-  const combos = modelStore.model.combinations;
+  const combos = activeCombinations();
   const out = new Map<number, number>();
   for (const [quadId, per] of byCase) {
     if (combos.length === 0) {
