@@ -49,6 +49,11 @@ let ownVersion = -1;
 const is3D = () => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
+function restoreBaseline(snap: ModelSnapshot): void {
+  modelStore.restore(snap);
+  if (snap.presentation3D) uiStore.viewportPresentation3D = snap.presentation3D;
+}
+
 function scaleLoads(snap: ModelSnapshot): void {
   const loads = modelStore.model.loads;
   for (let i = 0; i < loads.length; i++) {
@@ -92,7 +97,7 @@ function scaledSection(sec: Section, fa: number, fi: number): Section {
 function apply(): void {
   const snap = baseline;
   if (!snap) return;
-  modelStore.restore(snap);
+  restoreBaseline(snap);
   const m = modelStore.model;
   scaleLoads(snap);
 
@@ -119,6 +124,11 @@ function apply(): void {
     }
     m.elements.set(id, { ...el, ...patch });
   }
+
+  // A space support disables the standing-plane projection. Convert the
+  // geometry and its existing loads/supports before applying space overrides.
+  // Each slider starts from the original presentation as well as its model.
+  if (is3D() && Object.keys(supportTypes).length > 0) modelStore.ensureSpaceCoordinates();
 
   for (const [key, r] of Object.entries(releases)) {
     const el = m.elements.get(Number(key));
@@ -161,7 +171,7 @@ export const whatIf = {
   /** Enter: remember the model and whether live calc was on, and turn it on. */
   open(): void {
     if (baseline) return;
-    baseline = modelStore.snapshot();
+    baseline = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
     loadFactors = modelStore.model.loads.map(() => 1);
     all = { ...ONE };
     members = {};
@@ -187,7 +197,7 @@ export const whatIf = {
     if (!snap) return;
     const was = liveWasOn;
     uiStore.liveCalc = was;
-    modelStore.restore(snap);
+    restoreBaseline(snap);
     if (!was) {
       // Live calc is off again, so nothing re-solves the restored model on
       // its own; solve it once, after the edit has cleared the old results.

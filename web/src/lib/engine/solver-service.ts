@@ -173,6 +173,16 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
 
 // ─── 2D: validateAndSolve2D ───────────────────────────────────────
 
+function axialEquivalentLoads(qI: number, qJ: number, a: number, b: number, length: number): [number, number] {
+  // Integrate q(x) against the axial shape functions, 1-x/L and x/L.
+  // Signed first moments remain valid when q crosses zero or its resultant
+  // vanishes, unlike a centroid computed from absolute load magnitudes.
+  const span = b - a;
+  const total = (qI + qJ) * span / 2;
+  const fJ = (a * total + span * span * (qI + 2 * qJ) / 6) / length;
+  return [total - fJ, fJ];
+}
+
 /** Build only the solver loads array for a 2D input. Shared by
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
@@ -304,14 +314,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
         if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
           const loadA = d.a ?? 0;
           const loadB = d.b ?? L;
-          const loadSpan = loadB - loadA;
-          const totalAxial = (qIAxialLocal + qJAxialLocal) * loadSpan / 2;
-          const sumQ = Math.abs(qIAxialLocal) + Math.abs(qJAxialLocal);
-          const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(qIAxialLocal) + 2 * Math.abs(qJAxialLocal)) / (3 * sumQ) : loadSpan / 2;
-          const centroidFromNodeI = loadA + centroidFromA;
-          const tC = centroidFromNodeI / L;
-          const fI = totalAxial * (1 - tC);
-          const fJ = totalAxial * tC;
+          const [fI, fJ] = axialEquivalentLoads(qIAxialLocal, qJAxialLocal, loadA, loadB, L);
           solverLoads.push(
           { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
           { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
@@ -1226,14 +1229,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
         const L3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d + dz3d * dz3d);
         const loadA = d.a ?? 0;
         const loadB = d.b ?? L3d;
-        const loadSpan = loadB - loadA;
-        const totalAxial = (projI.qAxial + projJ.qAxial) * loadSpan / 2;
-        const sumQ = Math.abs(projI.qAxial) + Math.abs(projJ.qAxial);
-        const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(projI.qAxial) + 2 * Math.abs(projJ.qAxial)) / (3 * sumQ) : loadSpan / 2;
-        const centroidFromNodeI = loadA + centroidFromA;
-        const tC = centroidFromNodeI / L3d;
-        const fI = totalAxial * (1 - tC);
-        const fJ = totalAxial * tC;
+        const [fI, fJ] = axialEquivalentLoads(projI.qAxial, projJ.qAxial, loadA, loadB, L3d);
         solverLoads.push(
           { type: 'nodal', data: { nodeId: elem.nodeI, fx: fI * axes.ex[0], fy: fI * axes.ex[1], fz: fI * axes.ex[2], mx: 0, my: 0, mz: 0 } },
           { type: 'nodal', data: { nodeId: elem.nodeJ, fx: fJ * axes.ex[0], fy: fJ * axes.ex[1], fz: fJ * axes.ex[2], mx: 0, my: 0, mz: 0 } },

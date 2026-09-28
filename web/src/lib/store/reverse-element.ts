@@ -27,10 +27,11 @@ import { hasExplicitLocalY } from '../model/element-3d-metadata';
 interface ReversibleModel {
   nodes: Map<number, { x: number; y: number; z?: number }>;
   elements: Map<number, Element>;
+  sections: Map<number, { rotation?: number }>;
   loads: Load[];
 }
 
-export function reverseElementInModel(model: ReversibleModel, id: number): boolean {
+export function reverseElementInModel(model: ReversibleModel, id: number, is3D = false): boolean {
   const el = model.elements.get(id);
   if (!el) return false;
   const ni = model.nodes.get(el.nodeI), nj = model.nodes.get(el.nodeJ);
@@ -49,7 +50,12 @@ export function reverseElementInModel(model: ReversibleModel, id: number): boole
     if (el.jointJ) next.jointI = { dof: [...el.jointJ.dof] as typeof el.jointJ.dof }; else delete next.jointI;
     if (el.jointI) next.jointJ = { dof: [...el.jointI.dof] as typeof el.jointI.dof }; else delete next.jointJ;
   }
-  if (el.rollAngle) next.rollAngle = -el.rollAngle;
+  // The solver rotates by rollAngle + section.rotation. Compensate on this
+  // member so reversing it does not rotate every member sharing the section.
+  const sectionRotation = is3D ? (model.sections.get(el.sectionId)?.rotation ?? 0) : 0;
+  if (el.rollAngle !== undefined || sectionRotation !== 0) {
+    next.rollAngle = -(el.rollAngle ?? 0) - 2 * sectionRotation;
+  }
   if (el.offset) {
     const turn = (v?: { x: number; y: number; z: number }) => {
       if (!v) return undefined;
@@ -106,6 +112,12 @@ export function reverseElementInModel(model: ReversibleModel, id: number): boole
         const sy = explicitY ? 1 : -1, sz = explicitY ? -1 : 1;
         return { type: 'pointOnElement3d', data: { ...p, a: L - p.a, py: sy * p.py, pz: sz * p.pz } };
       }
+      case 'thermal':
+        // An explicit Y reference keeps Y and reverses Z. The temperature
+        // difference must follow those faces, while uniform heating stays put.
+        return is3D && explicitY
+          ? { type: 'thermal', data: { ...l.data, dtGradient: -l.data.dtGradient } }
+          : l;
       default:
         return l;
     }

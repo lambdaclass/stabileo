@@ -1915,7 +1915,7 @@ function createModelStore() {
       if (!_undoBatching && opts.undo !== false) _pushUndo?.();
       modelVersion++;
       _onMutation?.();
-      reverseElementInModel(model, id);
+      reverseElementInModel(model, id, uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
       model.elements = new Map(model.elements);
     },
 

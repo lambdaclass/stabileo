@@ -113,7 +113,7 @@ function createTabManager() {
       // Explore started from — the one the user built.
       modelSnapshot: whatIf.baseline ?? modelStore.snapshot(),
       analysisMode: uiStore.analysisMode,
-      viewportPresentation3D: uiStore.viewportPresentation3D,
+      viewportPresentation3D: whatIf.baseline?.presentation3D ?? uiStore.viewportPresentation3D,
       // Results visualization
       diagramType: resultsStore.diagramType,
       deformedScale: resultsStore.deformedScale,
