@@ -9,6 +9,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Backend tests
+        run: cargo test --locked -p dedaliano-backend
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -197,7 +207,50 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-  web:
+  # The web suite runs as two jobs in parallel. It used to be one job that built
+  # the app and then ran both Vitest passes back to back: 11–16 min, most of it
+  # the unit pass waiting on its longest files. The unit pass needs the WASM
+  # engine and nothing else, so it shards two ways here; the production-build
+  # tests need Chromium and the built app, so they stay with the build.
+  web-unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build WASM engine
+        working-directory: engine
+        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Unit + integration tests (shard ${{ matrix.shard }}/2)
+        working-directory: web
+        run: npx vitest run --project unit --shard=${{ matrix.shard }}/2
+
+  web-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -208,6 +261,10 @@ jobs:
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
 
       - uses: actions/setup-node@v4
         with:
@@ -233,12 +290,22 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: Run web tests
+      - name: Production-build tests
         working-directory: web
-        run: npm run test
+        run: npx vitest run --project build
 
+  # Five shards, each running whole spec files chosen by measured duration
+  # (web/scripts/e2e-shard.mjs). One runner took 40 min for the smoke suite:
+  # 569 tests of ~3 s each, serially — `workers: 1` stays, for the WebGL
+  # determinism the config explains, so the parallelism is across runners.
+  # `playwright --shard` splits by test count in file order and put the three
+  # heaviest files in one shard (12.6 vs 7.8 min); by duration it is 7.5 each.
   e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
 
@@ -297,13 +364,14 @@ jobs:
       # The blog spec is tagged `@smoke` directly, so the public pages are not
       # entirely unguarded here. `npx playwright test --grep @landing` is the
       # local command for the rest.
-      - name: E2E smoke suite
+      - name: E2E smoke suite (shard ${{ matrix.shard }}/5)
         working-directory: web
-        run: npx playwright test --grep @smoke
+        run: npx playwright test --grep @smoke $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 5)
 
       # Heavier suite (408-member model): main + opt-in label only.
+      # The slow and visual suites are small; they run once, in shard 1.
       - name: E2E slow suite
-        if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: matrix.shard == 1 && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
         working-directory: web
         run: npx playwright test --grep "@slow" --grep-invert "visual baselines"
 
@@ -321,14 +389,14 @@ jobs:
       # baselines have proven stable. To intentionally refresh them, run the job once
       # with UPDATE_SNAPSHOTS=1.
       - name: E2E visual baselines (non-blocking comparison)
-        if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: matrix.shard == 1 && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
         continue-on-error: true
         working-directory: web
         run: npx playwright test --grep "visual baselines" ${{ vars.UPDATE_SNAPSHOTS == '1' && '--update-snapshots' || '' }}
 
       # Uploaded for diagnostics: on a mismatch this carries the actual/diff images.
       - name: Upload Linux screenshot baselines / diffs
-        if: always()
+        if: always() && matrix.shard == 1
         uses: actions/upload-artifact@v4
         with:
           name: linux-screenshot-baselines
@@ -350,7 +418,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-${{ matrix.shard }}
           path: |
             web/e2e/.report
             web/e2e/.artifacts

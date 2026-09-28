@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
     TWO_D_DISPLACEMENT_LABELS,
     TWO_D_REACTION_LABELS,
@@ -9,6 +10,19 @@
     get2DDisplayReactionVertical,
     get2DDisplayRotation,
   } from '../../lib/geometry/coordinate-system';
+
+  /*
+   * Display units. The table used to print mm, kN and kN·m whatever the unit
+   * setting — honestly labelled, but not converted. Displacements are mm in SI
+   * and in in Imperial; rotations stay mrad.
+   */
+  const imperial = $derived(uiStore.unitSystem === 'Imperial');
+  const uDisp = $derived(imperial ? 'in' : 'mm');
+  const uF = $derived(unitLabel('force', uiStore.unitSystem));
+  const uM = $derived(unitLabel('moment', uiStore.unitSystem));
+  const dsp = (m: number) => (imperial ? toDisplay(m, 'displacement', 'Imperial') : m * 1000).toFixed(4);
+  const frc = (kN: number, digits = 4) => toDisplay(kN, 'force', uiStore.unitSystem).toFixed(digits);
+  const mom = (kNm: number, digits = 4) => toDisplay(kNm, 'moment', uiStore.unitSystem).toFixed(digits);
 
   let resultsSubTab = $state<'displacements' | 'reactions' | 'forces' | 'diagnostics'>('displacements');
 
@@ -103,15 +117,15 @@
     {#if resultsSubTab === 'displacements'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>ux (mm)</th><th>uy (mm)</th><th>uz (mm)</th><th>rx (mrad)</th><th>ry (mrad)</th><th>rz (mrad)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>ux ({uDisp})</th><th>uy ({uDisp})</th><th>uz ({uDisp})</th><th>rx (mrad)</th><th>ry (mrad)</th><th>rz (mrad)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{(d.ux * 1000).toFixed(4)}</td>
-              <td class="num">{(d.uy * 1000).toFixed(4)}</td>
-              <td class="num">{(d.uz * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(d.ux)}</td>
+              <td class="num">{dsp(d.uy)}</td>
+              <td class="num">{dsp(d.uz)}</td>
               <td class="num">{(d.rx * 1000).toFixed(4)}</td>
               <td class="num">{(d.ry * 1000).toFixed(4)}</td>
               <td class="num">{(d.rz * 1000).toFixed(4)}</td>
@@ -123,18 +137,18 @@
     {:else if resultsSubTab === 'reactions'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Rz (kN)</th><th>Mx (kN&middot;m)</th><th>My (kN&middot;m)</th><th>Mz (kN&middot;m)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>Rx ({uF})</th><th>Ry ({uF})</th><th>Rz ({uF})</th><th>Mx ({uM})</th><th>My ({uM})</th><th>Mz ({uM})</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{r.fx.toFixed(4)}</td>
-              <td class="num">{r.fy.toFixed(4)}</td>
-              <td class="num">{r.fz.toFixed(4)}</td>
-              <td class="num">{(-r.mx).toFixed(4)}</td>
-              <td class="num">{(-r.my).toFixed(4)}</td>
-              <td class="num">{(-r.mz).toFixed(4)}</td>
+              <td class="num">{frc(r.fx)}</td>
+              <td class="num">{frc(r.fy)}</td>
+              <td class="num">{frc(r.fz)}</td>
+              <td class="num">{mom(-r.mx)}</td>
+              <td class="num">{mom(-r.my)}</td>
+              <td class="num">{mom(-r.mz)}</td>
             </tr>
           {/each}
         </tbody>
@@ -143,24 +157,24 @@
     {:else if resultsSubTab === 'forces'}
       <table>
         <thead>
-          <tr><th>{t('table.elemLabel')}</th><th>Ni</th><th>Nj</th><th>Vyi</th><th>Vyj</th><th>Vzi</th><th>Vzj</th><th>Mxi</th><th>Mxj</th><th>Myi</th><th>Myj</th><th>Mzi</th><th>Mzj</th></tr>
+          <tr><th>{t('table.elemLabel')}</th><th>Ni ({uF})</th><th>Nj ({uF})</th><th>Vyi ({uF})</th><th>Vyj ({uF})</th><th>Vzi ({uF})</th><th>Vzj ({uF})</th><th>Mxi ({uM})</th><th>Mxj ({uM})</th><th>Myi ({uM})</th><th>Myj ({uM})</th><th>Mzi ({uM})</th><th>Mzj ({uM})</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.elementForces as ef}
             <tr>
               <td class="id-cell">{ef.elementId}</td>
-              <td class="num">{ef.nStart.toFixed(2)}</td>
-              <td class="num">{ef.nEnd.toFixed(2)}</td>
-              <td class="num">{ef.vyStart.toFixed(2)}</td>
-              <td class="num">{ef.vyEnd.toFixed(2)}</td>
-              <td class="num">{ef.vzStart.toFixed(2)}</td>
-              <td class="num">{ef.vzEnd.toFixed(2)}</td>
-              <td class="num">{(-ef.mxStart).toFixed(2)}</td>
-              <td class="num">{(-ef.mxEnd).toFixed(2)}</td>
-              <td class="num">{(-ef.myStart).toFixed(2)}</td>
-              <td class="num">{(-ef.myEnd).toFixed(2)}</td>
-              <td class="num">{(-ef.mzStart).toFixed(2)}</td>
-              <td class="num">{(-ef.mzEnd).toFixed(2)}</td>
+              <td class="num">{frc(ef.nStart, 2)}</td>
+              <td class="num">{frc(ef.nEnd, 2)}</td>
+              <td class="num">{frc(ef.vyStart, 2)}</td>
+              <td class="num">{frc(ef.vyEnd, 2)}</td>
+              <td class="num">{frc(ef.vzStart, 2)}</td>
+              <td class="num">{frc(ef.vzEnd, 2)}</td>
+              <td class="num">{mom(-ef.mxStart, 2)}</td>
+              <td class="num">{mom(-ef.mxEnd, 2)}</td>
+              <td class="num">{mom(-ef.myStart, 2)}</td>
+              <td class="num">{mom(-ef.myEnd, 2)}</td>
+              <td class="num">{mom(-ef.mzStart, 2)}</td>
+              <td class="num">{mom(-ef.mzEnd, 2)}</td>
             </tr>
           {/each}
         </tbody>
@@ -172,14 +186,14 @@
     {#if resultsSubTab === 'displacements'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_DISPLACEMENT_LABELS.horizontal} (mm)</th><th>{TWO_D_DISPLACEMENT_LABELS.vertical} (mm)</th><th>{TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_DISPLACEMENT_LABELS.horizontal} ({uDisp})</th><th>{TWO_D_DISPLACEMENT_LABELS.vertical} ({uDisp})</th><th>{TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{(d.ux * 1000).toFixed(4)}</td>
-              <td class="num">{(get2DDisplayDisplacementVertical(d) * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(d.ux)}</td>
+              <td class="num">{dsp(get2DDisplayDisplacementVertical(d))}</td>
               <td class="num">{(get2DDisplayRotation(d) * 1000).toFixed(4)}</td>
             </tr>
           {/each}
@@ -189,15 +203,15 @@
     {:else if resultsSubTab === 'reactions'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_REACTION_LABELS.horizontal} (kN)</th><th>{TWO_D_REACTION_LABELS.vertical} (kN)</th><th>{TWO_D_REACTION_LABELS.moment} (kN&middot;m)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_REACTION_LABELS.horizontal} ({uF})</th><th>{TWO_D_REACTION_LABELS.vertical} ({uF})</th><th>{TWO_D_REACTION_LABELS.moment} ({uM})</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{r.rx.toFixed(4)}</td>
-              <td class="num">{get2DDisplayReactionVertical(r).toFixed(4)}</td>
-              <td class="num">{(-get2DDisplayMoment(r)).toFixed(4)}</td>
+              <td class="num">{frc(r.rx)}</td>
+              <td class="num">{frc(get2DDisplayReactionVertical(r))}</td>
+              <td class="num">{mom(-get2DDisplayMoment(r))}</td>
             </tr>
           {/each}
         </tbody>
@@ -206,18 +220,18 @@
     {:else if resultsSubTab === 'forces'}
       <table>
         <thead>
-          <tr><th>{t('table.elemLabel')}</th><th>Ni (kN)</th><th>Nj (kN)</th><th>Vi (kN)</th><th>Vj (kN)</th><th>Mi (kN&middot;m)</th><th>Mj (kN&middot;m)</th></tr>
+          <tr><th>{t('table.elemLabel')}</th><th>Ni ({uF})</th><th>Nj ({uF})</th><th>Vi ({uF})</th><th>Vj ({uF})</th><th>Mi ({uM})</th><th>Mj ({uM})</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.elementForces as ef}
             <tr>
               <td class="id-cell">{ef.elementId}</td>
-              <td class="num">{ef.nStart.toFixed(4)}</td>
-              <td class="num">{ef.nEnd.toFixed(4)}</td>
-              <td class="num">{ef.vStart.toFixed(4)}</td>
-              <td class="num">{ef.vEnd.toFixed(4)}</td>
-              <td class="num">{(-ef.mStart).toFixed(4)}</td>
-              <td class="num">{(-ef.mEnd).toFixed(4)}</td>
+              <td class="num">{frc(ef.nStart)}</td>
+              <td class="num">{frc(ef.nEnd)}</td>
+              <td class="num">{frc(ef.vStart)}</td>
+              <td class="num">{frc(ef.vEnd)}</td>
+              <td class="num">{mom(-ef.mStart)}</td>
+              <td class="num">{mom(-ef.mEnd)}</td>
             </tr>
           {/each}
         </tbody>

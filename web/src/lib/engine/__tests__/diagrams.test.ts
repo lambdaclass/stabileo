@@ -349,3 +349,31 @@ describe('Diagrams: metadata (max/min, point count)', () => {
     expect(mid.y).toBeCloseTo(2, 2);
   });
 });
+
+/*
+ * A point couple on a member, against statics done by hand.
+ *
+ * The end forces here are the ones equilibrium dictates, not a solver's, so
+ * the test is about the diagram alone: with them, M must close to zero where
+ * the structure says it is zero. The couple used to enter with the wrong
+ * sign, which doubled it instead of cancelling it.
+ */
+describe('a point couple on a member', () => {
+  const base = { mEnd: 0, vEnd: 0, nStart: 0, nEnd: 0, qI: 0, qJ: 0, length: 5 };
+
+  it('cantilever with only a couple: M = −6 up to it, 0 past it', () => {
+    /* Wall at I takes −6 kN·m; nothing else acts. */
+    const ef = { ...base, mStart: -6, vStart: 0, pointLoads: [{ a: 2, p: 0, my: 6 }] };
+    expect(computeDiagramValueAt('moment', 0.2, ef)).toBeCloseTo(-6, 9);
+    expect(computeDiagramValueAt('moment', 0.9, ef)).toBeCloseTo(0, 9);
+    expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(0, 9);
+  });
+
+  it('simple beam: jumps by +M at the couple and closes at the far support', () => {
+    /* R_A = M/L = 1.2 up, so vStart = 1.2; M(a⁻) = −2.4, M(a⁺) = +3.6, M(L) = 0. */
+    const ef = { ...base, mStart: 0, vStart: 1.2, pointLoads: [{ a: 2, p: 0, my: 6 }] };
+    expect(computeDiagramValueAt('moment', 0.39, ef)).toBeCloseTo(-1.2 * 1.95, 9);
+    expect(computeDiagramValueAt('moment', 0.41, ef)).toBeCloseTo(-1.2 * 2.05 + 6, 9);
+    expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(0, 9);
+  });
+});

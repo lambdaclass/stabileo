@@ -35,7 +35,8 @@ test.describe('@smoke PRO — the Project panel', () => {
     await page.getByTestId('pp-share').click();
 
     const url = await page.evaluate(() => navigator.clipboard.readText());
-    expect(url, 'the clipboard carries a data link').toContain('#data=');
+    // PRO shares the model as code (`#code=`, see lib/model/code/share.ts): readable, and shorter.
+    expect(url, 'the clipboard carries a model-code link').toContain('#code=');
   });
 
   test('the importers exist once, under Import', async ({ pro: page }) => {

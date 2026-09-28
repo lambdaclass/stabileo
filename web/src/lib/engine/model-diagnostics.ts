@@ -6,6 +6,8 @@ import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
 import type { Constraint3D, ConnectorElement } from './types-3d';
 import { addConstraintConnectivity } from './constraint-connectivity';
+import { concreteStrengthConflict } from './steel/material-family';
+import { catalogueGradeFamily } from './steel/grade-family';
 
 interface LoadEntry {
   type: string;
@@ -290,9 +292,168 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
     }
   }
 
+  // ─── Members that lie on top of each other ─────────────────────
+  out.push(...overlappingCollinearWarnings(m.elements, m.nodes));
+
+  // ─── Surfaces: repeated, and out of plane ──────────────────────
+  out.push(...surfaceWarnings(m.plates, m.quads, m.nodes));
+
   // ─── Transverse load on an axial-only (truss) member ───────────
   out.push(...transverseOnTrussWarnings(m.loads, m.elements, m.nodes));
 
+  // ─── A concrete whose strength field holds a steel number ──────
+  out.push(...concreteStrengthWarnings(m.materials, m.elements));
+
+  return out;
+}
+
+/** Tolerances. Relative to member length, so they mean the same on a bolt and on a bridge. */
+const COLLINEAR_TOL = 1e-6;   // sine of the angle between two directions
+const OVERLAP_TOL = 1e-4;     // fraction of the shorter member that must actually overlap
+
+/**
+ * Two members sharing the same line and the same stretch of it.
+ *
+ * Not the same as a duplicate element, which `checkModel` already catches by node pair.
+ * These have DIFFERENT end nodes, so nothing upstream notices them: a 6 m beam and a 3 m
+ * beam laid over its first half are two load paths where the drawing shows one, and the
+ * structure comes out stiffer than anything that will be built.
+ *
+ * Grouped by the line each member lies on before anything is compared, so this costs
+ * O(n log n) and not the O(n²) that a model of a few thousand members would feel.
+ */
+export function overlappingCollinearWarnings(
+  elements: ModelData['elements'],
+  nodes: ModelData['nodes'],
+): SolverDiagnostic[] {
+  const out: SolverDiagnostic[] = [];
+  type Seg = { id: number; t0: number; t1: number; ends: string };
+  const lines = new Map<string, Seg[]>();
+
+  for (const el of elements.values()) {
+    const a = nodes.get(el.nodeI);
+    const b = nodes.get(el.nodeJ);
+    if (!a || !b) continue;
+    const az = a.z ?? 0, bz = b.z ?? 0;
+    let d: [number, number, number] = [b.x - a.x, b.y - a.y, bz - az];
+    const L = Math.hypot(d[0], d[1], d[2]);
+    if (L < 1e-9) continue;
+    d = [d[0] / L, d[1] / L, d[2] / L];
+    // One direction per line, not two: a member drawn J→I is on the same line as I→J.
+    const flip = d[0] < -COLLINEAR_TOL
+      || (Math.abs(d[0]) <= COLLINEAR_TOL && d[1] < -COLLINEAR_TOL)
+      || (Math.abs(d[0]) <= COLLINEAR_TOL && Math.abs(d[1]) <= COLLINEAR_TOL && d[2] < 0);
+    if (flip) d = [-d[0], -d[1], -d[2]];
+
+    // The line's own identity: its direction, plus the foot of the perpendicular from
+    // the origin. Two members are on the same line exactly when both agree.
+    const dot = a.x * d[0] + a.y * d[1] + az * d[2];
+    const foot: [number, number, number] = [a.x - dot * d[0], a.y - dot * d[1], az - dot * d[2]];
+    const q = (v: number): string => (Math.round(v / 1e-6) * 1e-6).toFixed(6);
+    const key = `${q(d[0])},${q(d[1])},${q(d[2])}|${q(foot[0])},${q(foot[1])},${q(foot[2])}`;
+
+    const tA = a.x * d[0] + a.y * d[1] + az * d[2];
+    const tB = b.x * d[0] + b.y * d[1] + bz * d[2];
+    const ends = el.nodeI < el.nodeJ ? `${el.nodeI}-${el.nodeJ}` : `${el.nodeJ}-${el.nodeI}`;
+    const seg: Seg = { id: el.id, t0: Math.min(tA, tB), t1: Math.max(tA, tB), ends };
+    const bucket = lines.get(key);
+    if (bucket) bucket.push(seg); else lines.set(key, [seg]);
+  }
+
+  for (const segs of lines.values()) {
+    if (segs.length < 2) continue;
+    segs.sort((x, y) => x.t0 - y.t0);
+    for (let i = 0; i < segs.length - 1; i++) {
+      for (let j = i + 1; j < segs.length; j++) {
+        // Sorted by start, so once a segment starts after this one ends, so do the rest.
+        if (segs[j]!.t0 >= segs[i]!.t1) break;
+        // Two members on the SAME node pair are a duplicate, and `checkModel` already
+        // says so. They also overlap completely, so without this they would be reported
+        // twice under two names — one defect, two warnings, and the reader deciding
+        // whether they are the same thing.
+        if (segs[i]!.ends === segs[j]!.ends) continue;
+        const over = Math.min(segs[i]!.t1, segs[j]!.t1) - segs[j]!.t0;
+        const shorter = Math.min(segs[i]!.t1 - segs[i]!.t0, segs[j]!.t1 - segs[j]!.t0);
+        // Members meeting end to end share a point, not a stretch. That is a connection.
+        if (over > OVERLAP_TOL * shorter) {
+          out.push(diag('warning', 'MODEL_OVERLAPPING_MEMBERS', 'diag.model.overlappingMembers', {
+            elementIds: [segs[i]!.id, segs[j]!.id],
+            details: { overlapLength: +over.toFixed(4) },
+          }));
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** A quad this far out of its own plane, as a fraction of its mean edge, is a modelling error. */
+const WARP_TOL = 0.01;
+
+/**
+ * Repeated surfaces, and quads whose four corners are not coplanar.
+ *
+ * A warped quad is the quiet one. The formulation assumes a flat element, so four corners
+ * that do not share a plane are silently projected onto one — the element solves, reports
+ * stresses, and describes a surface nobody drew. Nothing downstream can tell, which is
+ * precisely why it has to be said here.
+ *
+ * Plates are triangles and three points always share a plane, so only their repetition
+ * can be wrong. Quads can be both.
+ */
+export function surfaceWarnings(
+  plates: ModelData['plates'],
+  quads: ModelData['quads'],
+  nodes: ModelData['nodes'],
+): SolverDiagnostic[] {
+  const out: SolverDiagnostic[] = [];
+  const seen = new Map<string, number>();
+  const keyOf = (ids: readonly number[]): string => [...ids].sort((a, b) => a - b).join('-');
+
+  for (const p of plates?.values() ?? []) {
+    const k = `P${keyOf(p.nodes)}`;
+    const first = seen.get(k);
+    if (first !== undefined) {
+      out.push(diag('warning', 'MODEL_DUPLICATE_SURFACE', 'diag.model.duplicateSurface', {
+        nodeIds: [...p.nodes], details: { surfaceId: p.id, sameAs: first },
+      }));
+    } else seen.set(k, p.id);
+  }
+
+  for (const q of quads?.values() ?? []) {
+    const k = `Q${keyOf(q.nodes)}`;
+    const first = seen.get(k);
+    if (first !== undefined) {
+      out.push(diag('warning', 'MODEL_DUPLICATE_SURFACE', 'diag.model.duplicateSurface', {
+        nodeIds: [...q.nodes], details: { surfaceId: q.id, sameAs: first },
+      }));
+    } else seen.set(k, q.id);
+
+    const pts = q.nodes.map((id) => nodes.get(id));
+    if (pts.some((n) => !n)) continue;
+    const P = pts.map((n) => [n!.x, n!.y, n!.z ?? 0] as [number, number, number]);
+    const u: [number, number, number] = [P[1]![0] - P[0]![0], P[1]![1] - P[0]![1], P[1]![2] - P[0]![2]];
+    const v: [number, number, number] = [P[2]![0] - P[0]![0], P[2]![1] - P[0]![1], P[2]![2] - P[0]![2]];
+    const n: [number, number, number] = [
+      u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0],
+    ];
+    const nLen = Math.hypot(n[0], n[1], n[2]);
+    if (nLen < 1e-12) continue; // degenerate, and already someone else's warning
+    const w: [number, number, number] = [P[3]![0] - P[0]![0], P[3]![1] - P[0]![1], P[3]![2] - P[0]![2]];
+    const outOfPlane = Math.abs(w[0] * n[0] + w[1] * n[1] + w[2] * n[2]) / nLen;
+    let per = 0;
+    for (let i = 0; i < 4; i++) {
+      const a = P[i]!, b = P[(i + 1) % 4]!;
+      per += Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    }
+    const meanEdge = per / 4;
+    if (meanEdge > 1e-9 && outOfPlane > WARP_TOL * meanEdge) {
+      out.push(diag('warning', 'MODEL_WARPED_QUAD', 'diag.model.warpedQuad', {
+        nodeIds: [...q.nodes],
+        details: { surfaceId: q.id, outOfPlane: +outOfPlane.toFixed(5), meanEdge: +meanEdge.toFixed(4) },
+      }));
+    }
+  }
   return out;
 }
 
@@ -319,6 +480,41 @@ export function transverseOnTrussWarnings(
         details: { loadId: load.data.id },
       }));
     }
+  }
+  return out;
+}
+
+/**
+ * Materials that look like concrete while their `fy` reads as steel.
+ *
+ * `fy` carries f'c for a concrete, and 420 — the rebar grade — is the number an engineer
+ * reaches for first. Nothing fails afterwards: the material is filed as steel, the concrete
+ * design finds no member to design, and the one message it could give says the building is
+ * made of steel. Said here, once per material, because this is the only place that sees the
+ * cause rather than the empty table it leaves.
+ *
+ * Only materials a member uses: an unused one changes no result, and a library of presets
+ * would otherwise warn about entries nobody picked.
+ */
+export function concreteStrengthWarnings(
+  materials: ModelData['materials'],
+  elements: ModelData['elements'],
+): SolverDiagnostic[] {
+  const users = new Map<number, number[]>();
+  for (const el of elements.values()) {
+    const list = users.get(el.materialId);
+    if (list) list.push(el.id); else users.set(el.materialId, [el.id]);
+  }
+  const out: SolverDiagnostic[] = [];
+  for (const [id, elementIds] of users) {
+    const mat = materials.get(id);
+    const conflict = concreteStrengthConflict(mat, catalogueGradeFamily);
+    if (!mat || !conflict) continue;
+    out.push(diag('warning', 'MODEL_CONCRETE_FY_SUSPECT',
+      conflict === 'gradeSaysConcrete' ? 'diag.model.concreteGradeFyOutOfRange' : 'diag.model.concreteFyReadAsSteel', {
+        elementIds,
+        details: { material: mat.name, E: mat.e, fy: mat.fy, members: elementIds.length },
+      }));
   }
   return out;
 }

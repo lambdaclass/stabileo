@@ -14,8 +14,7 @@
    */
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import PublicLink from './PublicLink.svelte';
-  import { POSTS, formatPostDate } from '../../lib/blog';
-  import { readingMinutes } from '../../lib/blog/types';
+  import { POSTS, formatPostDate, postReadingMinutes } from '../../lib/blog';
 
   const latest = $derived(POSTS[0]);
   const body = $derived(latest?.i18n[publicI18n.locale]);
@@ -40,7 +39,7 @@
           <p class="blog-latest-meta">
             {formatPostDate(latest.date, publicI18n.locale)}
             <span aria-hidden="true">·</span>
-            {tp('blog.readingTime', { n: readingMinutes(body) })}
+            {tp('blog.readingTime', { n: postReadingMinutes(latest, publicI18n.locale) })}
           </p>
           <p class="blog-latest-excerpt">{body.excerpt}</p>
           <PublicLink to={`/blog/${latest.slug}`} class="link-arrow">{t('landing.blogReadLatest')}</PublicLink>
