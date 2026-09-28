@@ -6,8 +6,10 @@
    * Nothing is passed to `{@html}`, so a post cannot inject markup into the
    * page — see the note on the content model in src/lib/blog/types.ts.
    */
-  import type { Block } from '../../lib/blog';
+  import { findPost, type Block } from '../../lib/blog';
+  import { publicI18n } from '../../lib/i18n/store.svelte';
   import PostEmbed from './PostEmbed.svelte';
+  import PublicLink from '../landing/PublicLink.svelte';
 
   let { blocks }: { blocks: Block[] } = $props();
 </script>
@@ -29,6 +31,16 @@
     <blockquote class="post-quote">{block.t}</blockquote>
   {:else if block.k === 'note'}
     <aside class="post-note">{block.t}</aside>
+  {:else if block.k === 'link'}
+    {@const target = findPost(block.slug)}
+    <!-- A slug that resolves to nothing renders nothing: the content test
+         fails on it long before a reader could meet a dead link. -->
+    {#if target}
+      <aside class="post-link">
+        <span class="post-link-lead">{block.t}</span>
+        <PublicLink to={`/blog/${target.slug}`} class="link-arrow">{target.i18n[publicI18n.locale].title}</PublicLink>
+      </aside>
+    {/if}
   {:else if block.k === 'embed'}
     <PostEmbed query={block.query} mode={block.mode} label={block.label} />
   {:else if block.k === 'table'}

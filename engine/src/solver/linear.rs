@@ -1293,6 +1293,12 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     // ── Input validation (before assembly) ──
     validate_input_3d(&input)?;
 
+    // An element that cannot be integrated over — collapsed, or folded onto
+    // itself — is refused by name, before it fails downstream as "Singular
+    // stiffness matrix — structure is a mechanism". Only those: see
+    // `refuse_broken_elements` for why not every gate `Error`.
+    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
+
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -2888,6 +2894,25 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         }
     }
 
+    // 1b. Referential integrity — curved beam → node, material, section.
+    // Curved beams are expanded into frames before most paths validate, and
+    // `expand_curved_beams_3d` leaves one it cannot resolve in place rather
+    // than panic — so this is where such a beam is refused, on the input as
+    // given or on the expanded one alike.
+    for (i, cb) in input.curved_beams.iter().enumerate() {
+        for (role, nid) in [("start", cb.node_start), ("mid", cb.node_mid), ("end", cb.node_end)] {
+            if !node_ids.contains(&nid) {
+                return Err(format!("Curved beam {}: {} node {} does not exist", i, role, nid));
+            }
+        }
+        if !mat_ids.contains(&cb.material_id) {
+            return Err(format!("Curved beam {}: material {} does not exist", i, cb.material_id));
+        }
+        if !sec_ids.contains(&cb.section_id) {
+            return Err(format!("Curved beam {}: section {} does not exist", i, cb.section_id));
+        }
+    }
+
     // 2. Referential integrity — support → node
     for sup in input.supports.values() {
         if !node_ids.contains(&sup.node_id) {
@@ -2903,6 +2928,18 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
     // guaranteed by the type system; only existence of the referenced ids needs checking.
     // Assembly and mass indexing dereference these ids directly (e.g. node_by_id[&plate.nodes[0]]),
     // so a dangling reference here would otherwise panic deep inside modal/TH/harmonic 3D.
+    // Thickness is a physical property, not an activation flag. In particular,
+    // t=0 makes MITC4's EAS matrix singular and its stiffness vanish; a frame
+    // surrounding the shell can still factorize and hide that invalid input.
+    for (kind, id, thickness) in input.plates.values().map(|p| ("Plate", p.id, p.thickness))
+        .chain(input.quads.values().map(|q| ("Quad", q.id, q.thickness)))
+        .chain(input.quad9s.values().map(|q| ("Quad9", q.id, q.thickness)))
+        .chain(input.curved_shells.values().map(|c| ("Curved shell", c.id, c.thickness)))
+    {
+        if !thickness.is_finite() || thickness <= 0.0 {
+            return Err(format!("{} {}: thickness must be finite and > 0 (got {})", kind, id, thickness));
+        }
+    }
     for p in input.plates.values() {
         for &nid in &p.nodes {
             if !node_ids.contains(&nid) {
@@ -3646,10 +3683,21 @@ pub fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
     let cb_node_map: std::collections::HashMap<usize, SolverNode3D> =
         result.nodes.values().map(|n| (n.id, n.clone())).collect();
 
+    // A beam naming a node that does not exist is left as it is, not expanded.
+    // This runs before validation on most paths, and indexing the map panicked
+    // on it — in WASM, the end of the module. Left in `curved_beams`, it is
+    // what `validate_input_3d` then refuses by name.
+    let mut unresolved = Vec::new();
+
     for cb in &input.curved_beams {
-        let n_start = cb_node_map[&cb.node_start].clone();
-        let n_mid = cb_node_map[&cb.node_mid].clone();
-        let n_end = cb_node_map[&cb.node_end].clone();
+        let (Some(n_start), Some(n_mid), Some(n_end)) = (
+            cb_node_map.get(&cb.node_start).cloned(),
+            cb_node_map.get(&cb.node_mid).cloned(),
+            cb_node_map.get(&cb.node_end).cloned(),
+        ) else {
+            unresolved.push(cb.clone());
+            continue;
+        };
 
         let expansion = crate::element::expand_curved_beam(
             cb,
@@ -3720,8 +3768,9 @@ pub fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
 
     // Idempotent: the expanded model no longer carries curved-beam definitions,
     // so a second call (e.g. prepare_static_3d after solve_3d already expanded)
-    // is a no-op clone instead of a double expansion.
-    result.curved_beams = Vec::new();
+    // is a no-op clone instead of a double expansion. Only the unresolved ones
+    // stay, for validation to refuse.
+    result.curved_beams = unresolved;
     result
 }
 

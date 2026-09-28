@@ -10,7 +10,6 @@
    * so a 10 km floor does not ask for twenty thousand line segments.
    */
   const GRID_EXTENTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
-  import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
   import HelpTip from '../HelpTip.svelte';
@@ -33,8 +32,6 @@
   let showStructureSub = $state(false);
   let showResultsSub = $state(false);
 
-  const us = $derived(uiStore.unitSystem);
-  const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
 
   // Listen for tour events to auto-open/close config section
   $effect(() => {
@@ -177,7 +174,7 @@
             </HelpTip>
           </label>
           <div class="input-group">
-            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (${ul('length')})`}:</label></HelpTip>
+            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (m)`}:</label></HelpTip>
             <input
               type="number"
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}

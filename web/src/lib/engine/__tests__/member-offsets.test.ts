@@ -270,15 +270,18 @@ describe('member-offsets: shared world-vector resolver (viz ↔ solver parity)',
     expect(rotated.i!.z).toBeCloseTo(viaRoll.i!.z, 12);
   });
 
-  it('honors the leftHand convention (ey negated → mirrored local-y offset)', () => {
+  it('ignores the axis convention, as the solver does (it is always right-handed)', () => {
+    // The left-hand convention is a drawing choice; the analysis never sees it
+    // (see buildSolverLoads3D). A preview that mirrored the offset would show a
+    // member acting somewhere the solver does not put it.
     const rh = resolveOffsetWorldVectors(
       { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } } }, pI, pJ, undefined, false,
     )!;
     const lh = resolveOffsetWorldVectors(
       { offset: { frame: 'local', i: { x: 0, y: 0.5, z: 0 } } }, pI, pJ, undefined, true,
     )!;
-    expect(lh.i!.x).toBeCloseTo(-rh.i!.x, 12);
-    expect(lh.i!.y).toBeCloseTo(-rh.i!.y, 12);
-    expect(lh.i!.z).toBeCloseTo(-rh.i!.z, 12);
+    expect(lh.i!.x).toBeCloseTo(rh.i!.x, 12);
+    expect(lh.i!.y).toBeCloseTo(rh.i!.y, 12);
+    expect(lh.i!.z).toBeCloseTo(rh.i!.z, 12);
   });
 });
