@@ -122,6 +122,25 @@ export function allRows(kind: TableKind, sources: readonly Source[], opts: Table
 /** A value, where it is, and under which source. */
 export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; source: Source }
 
+/**
+ * Whether `v` at `(entity, x)` takes the place of the current extreme `e`: beyond it by more than
+ * round-off in the direction `sign` (+1 for a maximum, −1 for a minimum), or tied with it and at a
+ * lower entity or position.
+ *
+ * Ties are common (a symmetric structure, two members of one row) and were broken by which came
+ * first, and the engine assembles over hash maps whose order changes from one process to the
+ * next: the last digit moved, and the table named a different member for the same value each
+ * run. Within 1e-9 of the value two results are the same result, and the lowest id is named.
+ */
+export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number | undefined, e: { value: number; entity: number; x?: number } | null): boolean {
+  if (!e) return true;
+  const tol = 1e-9 * Math.max(Math.abs(v), Math.abs(e.value), 1e-12);
+  const d = sign * (v - e.value);
+  if (d > tol) return true;
+  if (d < -tol) return false;
+  return entity < e.entity || (entity === e.entity && (x ?? 0) < (e.x ?? 0));
+}
+
 /** For each column, the largest and the smallest value over every row of every source. */
 export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions = {}): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
@@ -131,8 +150,8 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
     for (const row of rowsOf(kind, s.results, opts)) {
       row.values.forEach((v, c) => {
         if (!Number.isFinite(v)) return;
-        if (!max[c] || v > max[c]!.value) max[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
-        if (!min[c] || v < min[c]!.value) min[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
+        if (beatsExtreme(1, v, row.entity, row.x, max[c]!)) max[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
+        if (beatsExtreme(-1, v, row.entity, row.x, min[c]!)) min[c] = { value: v, entity: row.entity, end: row.end, x: row.x, source: s };
       });
     }
   }
@@ -155,8 +174,10 @@ export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: 
         continue;
       }
       row.values.forEach((v, c) => {
-        if (v > e!.max[c]!.value) e!.max[c] = { value: v, source: s };
-        if (v < e!.min[c]!.value) e!.min[c] = { value: v, source: s };
+        // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
+        const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
+        if (v - e!.max[c]!.value > tol(e!.max[c]!.value)) e!.max[c] = { value: v, source: s };
+        if (e!.min[c]!.value - v > tol(e!.min[c]!.value)) e!.min[c] = { value: v, source: s };
       });
     }
   }

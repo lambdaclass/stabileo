@@ -10,7 +10,7 @@
  * Signs are the solver's everywhere, which is also what the screen shows; the Conventions sheet
  * states them.
  */
-import { rowsOf, summaryRows, envelopeRows, COLUMNS, type Source, type TableKind } from '../engine/result-tables';
+import { rowsOf, summaryRows, envelopeRows, beatsExtreme, COLUMNS, type Source, type TableKind } from '../engine/result-tables';
 import { stationTs, type StationSpec } from '../engine/station-forces';
 import { memberStationStresses, type SectionStressModel } from '../engine/member-stresses';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
@@ -165,8 +165,9 @@ function shellMaximaRows(input: ResultSheetsInput): WorkbookSheet['rows'] {
       SHELL_MAXIMA.forEach(([, , get], i) => {
         const v = get(r);
         if (v === undefined || !Number.isFinite(v)) return;
-        if (!best[i]!.max || v > best[i]!.max!.v) best[i]!.max = { v, r, s };
-        if (!best[i]!.min || v < best[i]!.min!.v) best[i]!.min = { v, r, s };
+        const b = best[i]!;
+        if (beatsExtreme(1, v, r.id, 0, b.max && { value: b.max.v, entity: b.max.r.id })) b.max = { v, r, s };
+        if (beatsExtreme(-1, v, r.id, 0, b.min && { value: b.min.v, entity: b.min.r.id })) b.min = { v, r, s };
       });
     }
   }

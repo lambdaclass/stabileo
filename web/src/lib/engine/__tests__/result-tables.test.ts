@@ -138,3 +138,17 @@ describe('solved: max by type reads along the member, and the Excel sheet is no 
     expect(h[4]).toBeCloseTo(0, 6);
   });
 });
+
+describe('ties within round-off', () => {
+  it('name the lowest entity, whichever came first and whichever is larger in the last digit', async () => {
+    const { beatsExtreme } = await import('../result-tables');
+    // 8047 and 11007 carry the same value to 1e-15: 8047 is named in either order.
+    const a = { value: 12.5, entity: 11007 };
+    expect(beatsExtreme(1, 12.5 * (1 - 1e-15), 8047, 0, a)).toBe(true);
+    const b = { value: 12.5 * (1 - 1e-15), entity: 8047 };
+    expect(beatsExtreme(1, 12.5, 11007, 0, b)).toBe(false);
+    // Beyond round-off the larger value wins, whoever holds it.
+    expect(beatsExtreme(1, 12.6, 11007, 0, b)).toBe(true);
+    expect(beatsExtreme(-1, -3, 5, 0, { value: -2, entity: 1 })).toBe(true);
+  });
+});
