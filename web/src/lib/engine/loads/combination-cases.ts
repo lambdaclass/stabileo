@@ -62,6 +62,12 @@ export function presentSymbols(cases: ReadonlyArray<{ type?: string }>): Combina
 export interface ExpandOptions {
   /** Symbols whose cases also enter with the opposite sign. */
   bothSenses?: Partial<Record<'W' | 'E', boolean>>;
+  /**
+   * Which wind cases the reversed sign is exact for (`store/wind-reversal.ts`). A wind case is
+   * a pressure pattern: horizontal forces reverse with the wind, roof suction does not — times
+   * −1 it becomes pressure the code never prescribes. Absent: every case of a reversed symbol.
+   */
+  reversible?: (caseId: number) => boolean;
 }
 
 export function expandCombinations(
@@ -94,10 +100,12 @@ export function expandCombinations(
     for (const t of terms) {
       const all = bySymbol.get(t.symbol)!;
       if (ALTERNATIVE.has(t.symbol)) {
-        const senses: Array<1 | -1> = opts.bothSenses?.[t.symbol as 'W' | 'E'] ? [1, -1] : [1];
-        const named = all.length > 1 || senses.length > 1;
-        slots.push({ factor: t.factor, picks: all.flatMap((c) => senses.map((sense) => ({
-          cases: [c], sense, label: named ? `${senses.length > 1 ? (sense > 0 ? '+' : '−') : ''}${c.name}` : '',
+        const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
+        const sensesOf = (c: Case): Array<1 | -1> =>
+          reverse && (t.symbol !== 'W' || !opts.reversible || opts.reversible(c.id)) ? [1, -1] : [1];
+        const named = all.length > 1 || all.some((c) => sensesOf(c).length > 1);
+        slots.push({ factor: t.factor, picks: all.flatMap((c) => sensesOf(c).map((sense) => ({
+          cases: [c], sense, label: named ? `${sensesOf(c).length > 1 ? (sense > 0 ? '+' : '−') : ''}${c.name}` : '',
         }))) });
         continue;
       }

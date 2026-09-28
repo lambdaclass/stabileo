@@ -131,3 +131,19 @@ describe('cases that are alternatives of one another', () => {
     }
   });
 });
+
+describe('reversing a wind case by sign', () => {
+  const w = [
+    { id: 1, type: 'D', name: 'D' },
+    { id: 4, type: 'W', name: 'Lateral' },
+    { id: 5, type: 'W', name: 'Roof suction +X' },
+  ];
+  const spec = [{ id: 'w', label: '1.2 D + 1.0 W', terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'W', factor: 1 }] }] as never;
+
+  it('is only done for the cases it is exact for', () => {
+    // Reversing roof suction turns it into pressure the code never prescribes.
+    const out = expandCombinations(spec, w, { bothSenses: { W: true }, reversible: (id) => id === 4 });
+    const signs = out.map((c) => c.factors.find((f) => f.caseId !== 1)!).map((f) => `${f.caseId}:${Math.sign(f.factor)}`).sort();
+    expect(signs).toEqual(['4:-1', '4:1', '5:1']);
+  });
+});

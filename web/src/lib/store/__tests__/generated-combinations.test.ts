@@ -95,3 +95,23 @@ describe('snow patterns from an earlier generation', () => {
     expect(out).toHaveLength(3);
   });
 });
+
+describe('which wind cases can be reversed by sign', () => {
+  it('horizontal forces only: yes; loads on the members (roof suction): no', async () => {
+    const { windCaseReversible } = await import('../wind-reversal');
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4), c = modelStore.addNode(6, 0, 5);
+    const col = modelStore.addElement(a, b, 'frame'), raf = modelStore.addElement(b, c, 'frame');
+    void col;
+    const lateral = modelStore.addLoadCase('Lateral', 'W');
+    modelStore.addNodalLoad3D(b, 5, 0, 0, 0, 0, 0, lateral);
+    const roof = modelStore.addLoadCase('Roof +X', 'W');
+    modelStore.addDistributedLoad3D(raf, 0, 0, 0.8, 0.8, undefined, undefined, roof);
+    const up = modelStore.addLoadCase('Uplift', 'W');
+    modelStore.addNodalLoad3D(c, 0, 0, 3, 0, 0, 0, up);
+    const model = modelStore.model;
+    expect(windCaseReversible(model, lateral)).toBe(true);
+    expect(windCaseReversible(model, roof)).toBe(false);
+    expect(windCaseReversible(model, up)).toBe(false);
+  });
+});
