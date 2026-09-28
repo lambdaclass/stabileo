@@ -15,77 +15,77 @@ axes zUpStrongAxis
 material 1 name="Acero" e=204999.7502 nu=0.3 rho=77.00005227 alpha=0.000012
 
 # Sections: A, Iy, Iz, J and the shear areas, as declared
-section 1 name="W14X61" a=0.01154836375 iy=0.0002663881124 iz=4.453676254e-5 j=9.115468459e-7 shearAreas={"basis":"declared","asY":0.003362896254,"asZ":0.005548237195}
-section 2 name="W30X90" a=0.01696770751 iy=0.001502595446 iz=4.786661394e-5 j=1.182097213e-6 shearAreas={"basis":"declared","asY":0.008945143252,"asZ":0.005457056883}
-section 3 name="W30X108" a=0.02045157249 iy=0.001860554472 iz=6.076978814e-5 j=2.076994718e-6 shearAreas={"basis":"declared","asY":0.01047804306,"asZ":0.00686433096}
-section 4 name="W14X30" a=0.005709666246 iy=0.0001211233448 iz=8.158136101e-6 j=1.581679397e-7 shearAreas={"basis":"declared","asY":0.002403866359,"asZ":0.0022288001}
-section 5 name="W14X43" a=0.008129016246 iy=0.0001781470502 iz=1.881366075e-5 j=4.37042977e-7 shearAreas={"basis":"declared","asY":0.002695801173,"asZ":0.003647213071}
-section 6 name="W14X22" a=0.004187088252 iy=8.283005369e-5 iz=2.913619979e-6 j=8.657613831e-8 shearAreas={"basis":"declared","asY":0.002032899175,"asZ":0.00144082135}
-section 7 name="W14X53" a=0.01006449625 iy=0.0002251812012 iz=2.401655357e-5 j=8.074889895e-7 shearAreas={"basis":"declared","asY":0.003318057961,"asZ":0.004575877113}
-section 8 name="L50306" a=0.003690315065 iy=6.13496333e-6 iz=3.588994543e-6 j=1.1160205e-7 shearAreas={"basis":"declared","asY":0.0016129,"asZ":0.00096774}
-section 9 name="W10X22" a=0.004187088252 iy=4.911530822e-5 iz=4.745038093e-6 j=9.947930764e-8 shearAreas={"basis":"declared","asY":0.00157935165,"asZ":0.00178059714}
-section 10 name="L60406" a=0.004658055065 iy=1.121245711e-5 iz=7.907193536e-6 j=1.408683097e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00129032}
-section 11 name="W10X19" a=0.003625799126 iy=4.008308756e-5 iz=1.7856328e-6 j=9.698192023e-8 shearAreas={"basis":"declared","asY":0.001645157969,"asZ":0.001365898692}
-section 12 name="W10X26" a=0.004909667686 iy=5.993732529e-5 iz=5.86886326e-6 j=1.673250373e-7 shearAreas={"basis":"declared","asY":0.001727738463,"asZ":0.002183855057}
-section 13 name="L60356" a=0.004438700874 iy=1.070487418e-5 iz=5.475716019e-6 j=1.342346432e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00112903}
-section 14 name="L40406" a=0.003690315065 iy=3.62839215e-6 iz=7.811863799e-6 j=1.1160205e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.00129032}
-section 15 name="L30304" a=0.001858060874 iy=1.035785998e-6 iz=2.303659074e-6 j=2.497388653e-8 shearAreas={"basis":"declared","asY":0.00064516,"asZ":0.00064516}
-section 16 name="L30303" a=0.001406448843 iy=8.02491498e-7 iz=1.726717001e-6 j=1.069019914e-8 shearAreas={"basis":"declared","asY":0.0004851603418,"asZ":0.0004851603418}
-section 17 name="L35304" a=0.002038705655 iy=1.593047428e-6 iz=2.307494398e-6 j=2.740190396e-8 shearAreas={"basis":"declared","asY":0.000752686641,"asZ":0.00064516}
-section 18 name="HSSP6.625X0.188" a=0.002277414782 iy=7.658658072e-6 iz=7.658658072e-6 j=1.531731614e-5 shearAreas={"basis":"declared","asY":0.001163784668,"asZ":0.001163784668}
-section 19 name="HSSP12.750X0.25" a=0.005909665502 iy=7.492165661e-5 iz=7.492165661e-5 j=0.0001498433132 shearAreas={"basis":"declared","asY":0.002982133008,"asZ":0.002982133008}
-section 20 name="HSSP8.625X0.188" a=0.002980639126 iy=1.719035756e-5 iz=1.719035756e-5 j=3.438071512e-5 shearAreas={"basis":"declared","asY":0.001508618229,"asZ":0.001508618229}
-section 21 name="W10X12" a=0.002283866375 iy=2.239325038e-5 iz=9.073845356e-7 j=2.276785829e-8 shearAreas={"basis":"declared","asY":0.001209868503,"asZ":0.0007153355228}
-section 22 name="W10X15" a=0.002845155502 iy=2.867834586e-5 iz=1.202908864e-6 j=4.328806916e-8 shearAreas={"basis":"declared","asY":0.001482384086,"asZ":0.0009290072104}
-section 23 name="W14X68" a=0.0129032 iy=0.0003005190893 iz=5.03640025e-5 j=1.252856587e-6 shearAreas={"basis":"declared","asY":0.003748379563,"asZ":0.006193381197}
-section 24 name="W14X34" a=0.0064516 iy=0.0001415186847 iz=9.698191899e-6 j=2.368356835e-7 shearAreas={"basis":"declared","asY":0.002574188406,"asZ":0.00264186423}
-section 25 name="W14X74" a=0.01406448751 iy=0.0003309039834 iz=5.577501103e-5 j=1.610815569e-6 shearAreas={"basis":"declared","asY":0.004122572314,"asZ":0.006820031339}
-section 26 name="W14X48" a=0.009096756246 iy=0.00020145601 iz=2.139429591e-5 j=6.03535587e-7 shearAreas={"basis":"declared","asY":0.003027090663,"asZ":0.004109867859}
-section 27 name="L80608" a=0.008774176246 iy=3.688603313e-5 iz=3.344114902e-5 j=4.717289457e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.00258064}
-section 28 name="L60608" a=0.007445146375 iy=1.657269663e-5 iz=3.330555116e-5 j=4.00275878e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.00258064}
-section 29 name="L60358" a=0.00580644 iy=1.381368044e-5 iz=7.441762637e-6 j=3.121735692e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.001505373282}
-section 30 name="L60606" a=0.005651601748 iy=1.280897497e-5 iz=2.487193627e-5 j=1.709150336e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00193548}
-section 31 name="L40408" a=0.0048387 iy=4.629707673e-6 iz=1.049602331e-5 j=2.60144641e-7 shearAreas={"basis":"declared","asY":0.001720426718,"asZ":0.001720426718}
-section 32 name="L40404" a=0.002490317532 iy=2.53015433e-6 iz=5.180987971e-6 j=3.34719429e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.000860213359}
-section 33 name="L60408" a=0.00612902 iy=1.44807012e-5 iz=1.067270541e-5 j=3.295165535e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.001720426718}
-section 34 name="L806010" a=0.010851591 iy=4.503651843e-5 iz=4.207224456e-5 j=9.115902126e-7 shearAreas={"basis":"declared","asY":0.004301066564,"asZ":0.0032258}
-section 35 name="L604010" a=0.007561275372 iy=1.75393696e-5 iz=1.352317394e-5 j=6.351864819e-7 shearAreas={"basis":"declared","asY":0.0032258,"asZ":0.002150533282}
-section 36 name="L40308" a=0.00419354 iy=2.017455114e-6 iz=1.040768306e-5 j=2.254586971e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.001720426718}
-section 37 name="L40405" a=0.003096768123 iy=3.096432164e-6 iz=6.504588551e-6 j=6.524444075e-8 shearAreas={"basis":"declared","asY":0.001076987097,"asZ":0.001076987097}
-section 38 name="L40304" a=0.002180640874 iy=2.305265528e-6 iz=2.325414273e-6 j=2.930962951e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.00064516}
-section 39 name="L80808" a=0.010116109 iy=4.048606405e-5 iz=7.094729304e-5 j=5.438757566e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.003440853436}
-section 40 name="L60608" a=0.007445146375 iy=1.657269663e-5 iz=3.011250434e-5 j=4.00275878e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.00258064}
-section 41 name="W10X17" a=0.003219348252 iy=3.408935439e-5 iz=1.481783851e-6 j=6.493210373e-8 shearAreas={"basis":"declared","asY":0.001563867856,"asZ":0.001138291928}
-section 42 name="W12X22" a=0.004180636812 iy=6.493210239e-5 iz=1.93963838e-6 j=1.21955813e-7 shearAreas={"basis":"declared","asY":0.00206322165,"asZ":0.001473293742}
-section 43 name="W14X90" a=0.01709674 iy=0.0004158151942 iz=0.0001506757761 j=1.689899564e-6 shearAreas={"basis":"declared","asY":0.003974185502,"asZ":0.008855674629}
-section 44 name="W14X82" a=0.01548384 iy=0.000366699886 iz=6.160225099e-5 j=2.110293399e-6 shearAreas={"basis":"declared","asY":0.004705151715,"asZ":0.007428187004}
-section 45 name="L70408" a=0.006787083495 iy=2.218609528e-5 iz=1.075436977e-5 j=3.648962406e-7 shearAreas={"basis":"declared","asY":0.003010746564,"asZ":0.001720426718}
-section 46 name="L40354" a=0.002348382468 iy=1.742551107e-6 iz=5.154885384e-6 j=3.156421735e-8 shearAreas={"basis":"declared","asY":0.000752686641,"asZ":0.000860213359}
-section 47 name="L80408" a=0.007483856246 iy=3.204386871e-5 iz=1.08206857e-5 j=4.02357058e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.001720426718}
-section 48 name="L50506" a=0.004709668123 iy=7.280334503e-6 iz=1.468278011e-5 j=1.424292009e-7 shearAreas={"basis":"declared","asY":0.0016129,"asZ":0.0016129}
-section 49 name="W30X116" a=0.02206447249 iy=0.002052020928 iz=6.82619538e-5 j=2.676367995e-6 shearAreas={"basis":"declared","asY":0.01093546249,"asZ":0.007677212404}
-section 50 name="L40354" a=0.002348382468 iy=2.425444088e-6 iz=3.55332032e-6 j=3.156421735e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.000752686641}
-section 51 name="W12X30" a=0.005670956375 iy=9.906307929e-5 iz=8.449497622e-6 j=1.902177562e-7 shearAreas={"basis":"declared","asY":0.00206322165,"asZ":0.002467718419}
-section 52 name="W30X124" a=0.02354834 iy=0.002231000441 iz=7.533788803e-5 j=3.325688995e-6 shearAreas={"basis":"declared","asY":0.0113980416,"asZ":0.008399773072}
-section 53 name="W24X94" a=0.01787093249 iy=0.001123824849 iz=4.536922539e-5 j=2.189377394e-6 shearAreas={"basis":"declared","asY":0.008073854603,"asZ":0.006826697201}
-section 54 name="W24X104" a=0.01980641249 iy=0.001290317419 iz=0.0001078039392 j=1.964612242e-6 shearAreas={"basis":"declared","asY":0.007774178123,"asZ":0.008257842007}
-section 55 name="HSSP10.750X0.25" a=0.004967731877 iy=4.412053111e-5 iz=4.412053111e-5 j=8.824106223e-5 shearAreas={"basis":"declared","asY":0.002520326834,"asZ":0.002520326834}
-section 56 name="W12X26" a=0.004935474062 iy=8.491121082e-5 iz=7.200803345e-6 j=1.248694326e-7 shearAreas={"basis":"declared","asY":0.001810318956,"asZ":0.002121404897}
-section 57 name="W24X62" a=0.01174191249 iy=0.0006451587097 iz=1.435998418e-5 j=7.117557537e-7 shearAreas={"basis":"declared","asY":0.006574826165,"asZ":0.003572892457}
-section 58 name="W14X26" a=0.004961280437 iy=0.0001019766993 iz=3.708621939e-6 j=1.490108546e-7 shearAreas={"basis":"declared","asY":0.002286769539,"asZ":0.001817241234}
-section 59 name="W8X18" a=0.003393541748 iy=2.576472588e-5 iz=3.317364375e-6 j=7.159180763e-8 shearAreas={"basis":"declared","asY":0.001207868637,"asZ":0.001490282339}
-section 60 name="W8X24" a=0.004567732751 iy=3.442233763e-5 iz=7.617034771e-6 j=1.440160674e-7 shearAreas={"basis":"declared","asY":0.001253449102,"asZ":0.002236498697}
-section 61 name="L35305" a=0.002516124062 iy=1.942465452e-6 iz=2.910447561e-6 j=5.301111082e-8 shearAreas={"basis":"declared","asY":0.0009423637001,"asZ":0.0008077403034}
-section 62 name="L30305" a=0.002296769563 iy=1.258616122e-6 iz=2.900810031e-6 j=4.838962332e-8 shearAreas={"basis":"declared","asY":0.0008077403034,"asZ":0.0008077403034}
-section 63 name="L40305" a=0.002696768689 iy=2.818664565e-6 iz=2.93512252e-6 j=5.681702893e-8 shearAreas={"basis":"declared","asY":0.001076987097,"asZ":0.0008077403034}
-section 64 name="L40356" a=0.003458057686 iy=3.475578609e-6 iz=5.383418577e-6 j=1.045781452e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.00112903}
-section 65 name="L50304" a=0.002503220874 iy=4.253590744e-6 iz=2.347049594e-6 j=3.36453756e-8 shearAreas={"basis":"declared","asY":0.001075266641,"asZ":0.00064516}
-section 66 name="L35356" a=0.0032258 iy=2.385139253e-6 iz=5.352811014e-6 j=9.755424037e-8 shearAreas={"basis":"declared","asY":0.00112903,"asZ":0.00112903}
-section 67 name="L70406" a=0.00516128 iy=1.711710455e-5 iz=7.945884971e-6 j=1.560867846e-7 shearAreas={"basis":"declared","asY":0.00225806,"asZ":0.00129032}
-section 68 name="PIP6625X188D1A1" a=0.002452779448 iy=8.20301121e-6 iz=8.20301121e-6 j=1.640602242e-5 shearAreas={"basis":"declared","asY":0.002451607969,"asZ":0.002451607969}
-section 69 name="HSSP8.625X0.25" a=0.003961282314 iy=2.251811949e-5 iz=2.251811949e-5 j=4.503623898e-5 shearAreas={"basis":"declared","asY":0.002026637854,"asZ":0.002026637854}
-section 70 name="L50354" a=0.002670962314 iy=4.483682757e-6 iz=3.575739218e-6 j=3.589996033e-8 shearAreas={"basis":"declared","asY":0.001075266641,"asZ":0.000752686641}
-section 71 name="L50505" a=0.003961282314 iy=6.186768776e-6 iz=1.222194423e-5 j=8.345850534e-8 shearAreas={"basis":"declared","asY":0.001346233813,"asZ":0.001346233813}
+section 1 name="W14X61" declared=true a=0.01154836375 iy=0.0002663881124 iz=4.453676254e-5 j=9.115468459e-7 shearAreas={"basis":"declared","asY":0.003362896254,"asZ":0.005548237195}
+section 2 name="W30X90" declared=true a=0.01696770751 iy=0.001502595446 iz=4.786661394e-5 j=1.182097213e-6 shearAreas={"basis":"declared","asY":0.008945143252,"asZ":0.005457056883}
+section 3 name="W30X108" declared=true a=0.02045157249 iy=0.001860554472 iz=6.076978814e-5 j=2.076994718e-6 shearAreas={"basis":"declared","asY":0.01047804306,"asZ":0.00686433096}
+section 4 name="W14X30" declared=true a=0.005709666246 iy=0.0001211233448 iz=8.158136101e-6 j=1.581679397e-7 shearAreas={"basis":"declared","asY":0.002403866359,"asZ":0.0022288001}
+section 5 name="W14X43" declared=true a=0.008129016246 iy=0.0001781470502 iz=1.881366075e-5 j=4.37042977e-7 shearAreas={"basis":"declared","asY":0.002695801173,"asZ":0.003647213071}
+section 6 name="W14X22" declared=true a=0.004187088252 iy=8.283005369e-5 iz=2.913619979e-6 j=8.657613831e-8 shearAreas={"basis":"declared","asY":0.002032899175,"asZ":0.00144082135}
+section 7 name="W14X53" declared=true a=0.01006449625 iy=0.0002251812012 iz=2.401655357e-5 j=8.074889895e-7 shearAreas={"basis":"declared","asY":0.003318057961,"asZ":0.004575877113}
+section 8 name="L50306" declared=true a=0.003690315065 iy=6.13496333e-6 iz=3.588994543e-6 j=1.1160205e-7 shearAreas={"basis":"declared","asY":0.0016129,"asZ":0.00096774}
+section 9 name="W10X22" declared=true a=0.004187088252 iy=4.911530822e-5 iz=4.745038093e-6 j=9.947930764e-8 shearAreas={"basis":"declared","asY":0.00157935165,"asZ":0.00178059714}
+section 10 name="L60406" declared=true a=0.004658055065 iy=1.121245711e-5 iz=7.907193536e-6 j=1.408683097e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00129032}
+section 11 name="W10X19" declared=true a=0.003625799126 iy=4.008308756e-5 iz=1.7856328e-6 j=9.698192023e-8 shearAreas={"basis":"declared","asY":0.001645157969,"asZ":0.001365898692}
+section 12 name="W10X26" declared=true a=0.004909667686 iy=5.993732529e-5 iz=5.86886326e-6 j=1.673250373e-7 shearAreas={"basis":"declared","asY":0.001727738463,"asZ":0.002183855057}
+section 13 name="L60356" declared=true a=0.004438700874 iy=1.070487418e-5 iz=5.475716019e-6 j=1.342346432e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00112903}
+section 14 name="L40406" declared=true a=0.003690315065 iy=3.62839215e-6 iz=7.811863799e-6 j=1.1160205e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.00129032}
+section 15 name="L30304" declared=true a=0.001858060874 iy=1.035785998e-6 iz=2.303659074e-6 j=2.497388653e-8 shearAreas={"basis":"declared","asY":0.00064516,"asZ":0.00064516}
+section 16 name="L30303" declared=true a=0.001406448843 iy=8.02491498e-7 iz=1.726717001e-6 j=1.069019914e-8 shearAreas={"basis":"declared","asY":0.0004851603418,"asZ":0.0004851603418}
+section 17 name="L35304" declared=true a=0.002038705655 iy=1.593047428e-6 iz=2.307494398e-6 j=2.740190396e-8 shearAreas={"basis":"declared","asY":0.000752686641,"asZ":0.00064516}
+section 18 name="HSSP6.625X0.188" declared=true a=0.002277414782 iy=7.658658072e-6 iz=7.658658072e-6 j=1.531731614e-5 shearAreas={"basis":"declared","asY":0.001163784668,"asZ":0.001163784668}
+section 19 name="HSSP12.750X0.25" declared=true a=0.005909665502 iy=7.492165661e-5 iz=7.492165661e-5 j=0.0001498433132 shearAreas={"basis":"declared","asY":0.002982133008,"asZ":0.002982133008}
+section 20 name="HSSP8.625X0.188" declared=true a=0.002980639126 iy=1.719035756e-5 iz=1.719035756e-5 j=3.438071512e-5 shearAreas={"basis":"declared","asY":0.001508618229,"asZ":0.001508618229}
+section 21 name="W10X12" declared=true a=0.002283866375 iy=2.239325038e-5 iz=9.073845356e-7 j=2.276785829e-8 shearAreas={"basis":"declared","asY":0.001209868503,"asZ":0.0007153355228}
+section 22 name="W10X15" declared=true a=0.002845155502 iy=2.867834586e-5 iz=1.202908864e-6 j=4.328806916e-8 shearAreas={"basis":"declared","asY":0.001482384086,"asZ":0.0009290072104}
+section 23 name="W14X68" declared=true a=0.0129032 iy=0.0003005190893 iz=5.03640025e-5 j=1.252856587e-6 shearAreas={"basis":"declared","asY":0.003748379563,"asZ":0.006193381197}
+section 24 name="W14X34" declared=true a=0.0064516 iy=0.0001415186847 iz=9.698191899e-6 j=2.368356835e-7 shearAreas={"basis":"declared","asY":0.002574188406,"asZ":0.00264186423}
+section 25 name="W14X74" declared=true a=0.01406448751 iy=0.0003309039834 iz=5.577501103e-5 j=1.610815569e-6 shearAreas={"basis":"declared","asY":0.004122572314,"asZ":0.006820031339}
+section 26 name="W14X48" declared=true a=0.009096756246 iy=0.00020145601 iz=2.139429591e-5 j=6.03535587e-7 shearAreas={"basis":"declared","asY":0.003027090663,"asZ":0.004109867859}
+section 27 name="L80608" declared=true a=0.008774176246 iy=3.688603313e-5 iz=3.344114902e-5 j=4.717289457e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.00258064}
+section 28 name="L60608" declared=true a=0.007445146375 iy=1.657269663e-5 iz=3.330555116e-5 j=4.00275878e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.00258064}
+section 29 name="L60358" declared=true a=0.00580644 iy=1.381368044e-5 iz=7.441762637e-6 j=3.121735692e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.001505373282}
+section 30 name="L60606" declared=true a=0.005651601748 iy=1.280897497e-5 iz=2.487193627e-5 j=1.709150336e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00193548}
+section 31 name="L40408" declared=true a=0.0048387 iy=4.629707673e-6 iz=1.049602331e-5 j=2.60144641e-7 shearAreas={"basis":"declared","asY":0.001720426718,"asZ":0.001720426718}
+section 32 name="L40404" declared=true a=0.002490317532 iy=2.53015433e-6 iz=5.180987971e-6 j=3.34719429e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.000860213359}
+section 33 name="L60408" declared=true a=0.00612902 iy=1.44807012e-5 iz=1.067270541e-5 j=3.295165535e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.001720426718}
+section 34 name="L806010" declared=true a=0.010851591 iy=4.503651843e-5 iz=4.207224456e-5 j=9.115902126e-7 shearAreas={"basis":"declared","asY":0.004301066564,"asZ":0.0032258}
+section 35 name="L604010" declared=true a=0.007561275372 iy=1.75393696e-5 iz=1.352317394e-5 j=6.351864819e-7 shearAreas={"basis":"declared","asY":0.0032258,"asZ":0.002150533282}
+section 36 name="L40308" declared=true a=0.00419354 iy=2.017455114e-6 iz=1.040768306e-5 j=2.254586971e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.001720426718}
+section 37 name="L40405" declared=true a=0.003096768123 iy=3.096432164e-6 iz=6.504588551e-6 j=6.524444075e-8 shearAreas={"basis":"declared","asY":0.001076987097,"asZ":0.001076987097}
+section 38 name="L40304" declared=true a=0.002180640874 iy=2.305265528e-6 iz=2.325414273e-6 j=2.930962951e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.00064516}
+section 39 name="L80808" declared=true a=0.010116109 iy=4.048606405e-5 iz=7.094729304e-5 j=5.438757566e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.003440853436}
+section 40 name="L60608" declared=true a=0.007445146375 iy=1.657269663e-5 iz=3.011250434e-5 j=4.00275878e-7 shearAreas={"basis":"declared","asY":0.00258064,"asZ":0.00258064}
+section 41 name="W10X17" declared=true a=0.003219348252 iy=3.408935439e-5 iz=1.481783851e-6 j=6.493210373e-8 shearAreas={"basis":"declared","asY":0.001563867856,"asZ":0.001138291928}
+section 42 name="W12X22" declared=true a=0.004180636812 iy=6.493210239e-5 iz=1.93963838e-6 j=1.21955813e-7 shearAreas={"basis":"declared","asY":0.00206322165,"asZ":0.001473293742}
+section 43 name="W14X90" declared=true a=0.01709674 iy=0.0004158151942 iz=0.0001506757761 j=1.689899564e-6 shearAreas={"basis":"declared","asY":0.003974185502,"asZ":0.008855674629}
+section 44 name="W14X82" declared=true a=0.01548384 iy=0.000366699886 iz=6.160225099e-5 j=2.110293399e-6 shearAreas={"basis":"declared","asY":0.004705151715,"asZ":0.007428187004}
+section 45 name="L70408" declared=true a=0.006787083495 iy=2.218609528e-5 iz=1.075436977e-5 j=3.648962406e-7 shearAreas={"basis":"declared","asY":0.003010746564,"asZ":0.001720426718}
+section 46 name="L40354" declared=true a=0.002348382468 iy=1.742551107e-6 iz=5.154885384e-6 j=3.156421735e-8 shearAreas={"basis":"declared","asY":0.000752686641,"asZ":0.000860213359}
+section 47 name="L80408" declared=true a=0.007483856246 iy=3.204386871e-5 iz=1.08206857e-5 j=4.02357058e-7 shearAreas={"basis":"declared","asY":0.003440853436,"asZ":0.001720426718}
+section 48 name="L50506" declared=true a=0.004709668123 iy=7.280334503e-6 iz=1.468278011e-5 j=1.424292009e-7 shearAreas={"basis":"declared","asY":0.0016129,"asZ":0.0016129}
+section 49 name="W30X116" declared=true a=0.02206447249 iy=0.002052020928 iz=6.82619538e-5 j=2.676367995e-6 shearAreas={"basis":"declared","asY":0.01093546249,"asZ":0.007677212404}
+section 50 name="L40354" declared=true a=0.002348382468 iy=2.425444088e-6 iz=3.55332032e-6 j=3.156421735e-8 shearAreas={"basis":"declared","asY":0.000860213359,"asZ":0.000752686641}
+section 51 name="W12X30" declared=true a=0.005670956375 iy=9.906307929e-5 iz=8.449497622e-6 j=1.902177562e-7 shearAreas={"basis":"declared","asY":0.00206322165,"asZ":0.002467718419}
+section 52 name="W30X124" declared=true a=0.02354834 iy=0.002231000441 iz=7.533788803e-5 j=3.325688995e-6 shearAreas={"basis":"declared","asY":0.0113980416,"asZ":0.008399773072}
+section 53 name="W24X94" declared=true a=0.01787093249 iy=0.001123824849 iz=4.536922539e-5 j=2.189377394e-6 shearAreas={"basis":"declared","asY":0.008073854603,"asZ":0.006826697201}
+section 54 name="W24X104" declared=true a=0.01980641249 iy=0.001290317419 iz=0.0001078039392 j=1.964612242e-6 shearAreas={"basis":"declared","asY":0.007774178123,"asZ":0.008257842007}
+section 55 name="HSSP10.750X0.25" declared=true a=0.004967731877 iy=4.412053111e-5 iz=4.412053111e-5 j=8.824106223e-5 shearAreas={"basis":"declared","asY":0.002520326834,"asZ":0.002520326834}
+section 56 name="W12X26" declared=true a=0.004935474062 iy=8.491121082e-5 iz=7.200803345e-6 j=1.248694326e-7 shearAreas={"basis":"declared","asY":0.001810318956,"asZ":0.002121404897}
+section 57 name="W24X62" declared=true a=0.01174191249 iy=0.0006451587097 iz=1.435998418e-5 j=7.117557537e-7 shearAreas={"basis":"declared","asY":0.006574826165,"asZ":0.003572892457}
+section 58 name="W14X26" declared=true a=0.004961280437 iy=0.0001019766993 iz=3.708621939e-6 j=1.490108546e-7 shearAreas={"basis":"declared","asY":0.002286769539,"asZ":0.001817241234}
+section 59 name="W8X18" declared=true a=0.003393541748 iy=2.576472588e-5 iz=3.317364375e-6 j=7.159180763e-8 shearAreas={"basis":"declared","asY":0.001207868637,"asZ":0.001490282339}
+section 60 name="W8X24" declared=true a=0.004567732751 iy=3.442233763e-5 iz=7.617034771e-6 j=1.440160674e-7 shearAreas={"basis":"declared","asY":0.001253449102,"asZ":0.002236498697}
+section 61 name="L35305" declared=true a=0.002516124062 iy=1.942465452e-6 iz=2.910447561e-6 j=5.301111082e-8 shearAreas={"basis":"declared","asY":0.0009423637001,"asZ":0.0008077403034}
+section 62 name="L30305" declared=true a=0.002296769563 iy=1.258616122e-6 iz=2.900810031e-6 j=4.838962332e-8 shearAreas={"basis":"declared","asY":0.0008077403034,"asZ":0.0008077403034}
+section 63 name="L40305" declared=true a=0.002696768689 iy=2.818664565e-6 iz=2.93512252e-6 j=5.681702893e-8 shearAreas={"basis":"declared","asY":0.001076987097,"asZ":0.0008077403034}
+section 64 name="L40356" declared=true a=0.003458057686 iy=3.475578609e-6 iz=5.383418577e-6 j=1.045781452e-7 shearAreas={"basis":"declared","asY":0.00129032,"asZ":0.00112903}
+section 65 name="L50304" declared=true a=0.002503220874 iy=4.253590744e-6 iz=2.347049594e-6 j=3.36453756e-8 shearAreas={"basis":"declared","asY":0.001075266641,"asZ":0.00064516}
+section 66 name="L35356" declared=true a=0.0032258 iy=2.385139253e-6 iz=5.352811014e-6 j=9.755424037e-8 shearAreas={"basis":"declared","asY":0.00112903,"asZ":0.00112903}
+section 67 name="L70406" declared=true a=0.00516128 iy=1.711710455e-5 iz=7.945884971e-6 j=1.560867846e-7 shearAreas={"basis":"declared","asY":0.00225806,"asZ":0.00129032}
+section 68 name="PIP6625X188D1A1" declared=true a=0.002452779448 iy=8.20301121e-6 iz=8.20301121e-6 j=1.640602242e-5 shearAreas={"basis":"declared","asY":0.002451607969,"asZ":0.002451607969}
+section 69 name="HSSP8.625X0.25" declared=true a=0.003961282314 iy=2.251811949e-5 iz=2.251811949e-5 j=4.503623898e-5 shearAreas={"basis":"declared","asY":0.002026637854,"asZ":0.002026637854}
+section 70 name="L50354" declared=true a=0.002670962314 iy=4.483682757e-6 iz=3.575739218e-6 j=3.589996033e-8 shearAreas={"basis":"declared","asY":0.001075266641,"asZ":0.000752686641}
+section 71 name="L50505" declared=true a=0.003961282314 iy=6.186768776e-6 iz=1.222194423e-5 j=8.345850534e-8 shearAreas={"basis":"declared","asY":0.001346233813,"asZ":0.001346233813}
 
 # Nodes: id x y z
 node 1001 0.762 -0.4572 0

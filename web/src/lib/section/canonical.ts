@@ -68,6 +68,8 @@ export type PropertiesOnlyReason =
   | { kind: 'missingDimensions'; missing: string[] }
   | { kind: 'unknownFamily'; family: string }
   | { kind: 'noGeometry' }
+  /** Its properties are declared (`Section.declared`): the name is not looked up. */
+  | { kind: 'declared' }
   /** A drawn section whose parts do not make a section (overlapping materials, a stray hole). */
   | { kind: 'drawnInvalid' };
 
@@ -192,6 +194,9 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
       buildSectionGeometry({ kind: 'custom', outer: sec.polygon, holes: sec.holes ?? [] }),
     );
   }
+
+  // ── Declared properties: the name is a label, not a lookup ─────
+  if (sec.declared) return propertiesOnly(sec, { kind: 'declared' });
 
   const profile = catalogueProfile(sec);
   const mm = (v: number) => v / 1000;

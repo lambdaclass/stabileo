@@ -14,11 +14,11 @@ material 1 name="Acero" e=205000 nu=0.3 rho=76.8195 alpha=0.000012
 material 2 name="Hormigón" e=21718.5 nu=0.17 rho=23.5616 alpha=0.00001
 
 # Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
-section 1 name="W14X82" a=0.01548384 iy=0.000366699886 iz=6.160225099e-5 j=2.110293399e-6 shearAreas={"basis":"declared","asY":0.004705151715,"asZ":0.007428187004}
-section 2 name="W10X45" a=0.008580628123 iy=0.0001032253935 iz=2.222675876e-5 j=6.285094487e-7 shearAreas={"basis":"declared","asY":0.002280640655,"asZ":0.004277217986}
-section 3 name="W21X44" a=0.00838708 iy=0.0003508830918 iz=8.615990827e-6 j=3.204981898e-7 shearAreas={"basis":"declared","asY":0.004674184434,"asZ":0.002516060842}
-section 4 name="W16X50" a=0.009483851877 iy=0.0002742965095 iz=1.548380935e-5 j=6.32671759e-7 shearAreas={"basis":"declared","asY":0.00399612089,"asZ":0.003831380749}
-section 5 name="W12X19" a=0.003593541311 iy=5.411008533e-5 iz=1.565030156e-6 j=7.492165959e-8 shearAreas={"basis":"declared","asY":0.001849673633,"asZ":0.001207279283}
+section 1 name="W14X82" declared=true a=0.01548384 iy=0.000366699886 iz=6.160225099e-5 j=2.110293399e-6 shearAreas={"basis":"declared","asY":0.004705151715,"asZ":0.007428187004}
+section 2 name="W10X45" declared=true a=0.008580628123 iy=0.0001032253935 iz=2.222675876e-5 j=6.285094487e-7 shearAreas={"basis":"declared","asY":0.002280640655,"asZ":0.004277217986}
+section 3 name="W21X44" declared=true a=0.00838708 iy=0.0003508830918 iz=8.615990827e-6 j=3.204981898e-7 shearAreas={"basis":"declared","asY":0.004674184434,"asZ":0.002516060842}
+section 4 name="W16X50" declared=true a=0.009483851877 iy=0.0002742965095 iz=1.548380935e-5 j=6.32671759e-7 shearAreas={"basis":"declared","asY":0.00399612089,"asZ":0.003831380749}
+section 5 name="W12X19" declared=true a=0.003593541311 iy=5.411008533e-5 iz=1.565030156e-6 j=7.492165959e-8 shearAreas={"basis":"declared","asY":0.001849673633,"asZ":0.001207279283}
 
 # Nodes: id x y z
 node 1 3.6 -5 0
