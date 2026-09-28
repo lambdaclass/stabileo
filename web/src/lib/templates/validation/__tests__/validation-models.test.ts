@@ -29,6 +29,7 @@ const SHAPE: Record<ValidationModelId, { nodes: number; members: number; support
   'validation-01': { nodes: 1153, members: 552, supports: 25, cases: 2, combinations: 1 },
   'validation-02': { nodes: 56, members: 119, supports: 6, cases: 2, combinations: 1 },
   'validation-03': { nodes: 230, members: 97, supports: 38, cases: 1, combinations: 0 },
+  'validation-04': { nodes: 1149, members: 2482, supports: 56, cases: 22, combinations: 14 },
   'validation-05': { nodes: 150, members: 450, supports: 6, cases: 3, combinations: 2 },
   'validation-06': { nodes: 18, members: 25, supports: 3, cases: 3, combinations: 0 },
   'validation-07': { nodes: 40, members: 76, supports: 8, cases: 2, combinations: 1 },
@@ -51,14 +52,17 @@ const SHELL_DRILLING = new Map<ValidationModelId, { balanced: Array<'mx' | 'my' 
   ['validation-03', { balanced: ['my', 'mz'] }],
 ]);
 
-/** Every case solved (through one combination per case when the model has none) and checked. */
+/**
+ * Every case solved and checked. The cases are what is checked, so the solve goes through one
+ * combination per case rather than the model's own: a model whose combinations are solved with
+ * P-Delta (04) would otherwise spend its time on them, and the engine's 3D P-Delta assembles a
+ * dense matrix that a model of that size does not fit (M15).
+ */
 async function statics(id: ValidationModelId) {
   await loadValidationModel(id);
   const cases = modelStore.model.loadCases;
-  const combinations = modelStore.combinations.length
-    ? modelStore.combinations
-    : cases.map((c, i) => ({ id: 1000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
-  const r = solveCombinations3D(md() as never, cases, combinations as never, true, false);
+  const combinations = cases.map((c, i) => ({ id: 100000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
+  const r = solveCombinations3D({ ...md(), analysis: { ...modelStore.analysis, perCombination: undefined } } as never, cases, combinations as never, true, false);
   if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
   const rows = staticsCheck({
     model: md() as never,
@@ -93,9 +97,11 @@ describe.each(ids)('%s', (id) => {
     expect(modelStore.supports.size).toBe(s.supports);
     expect(modelStore.model.loadCases.length).toBe(s.cases);
     expect(modelStore.combinations.length).toBe(s.combinations);
-    // The source's numbering is kept: ids run from 1 with no gaps.
-    expect([...modelStore.nodes.keys()].sort((a, b) => a - b)).toEqual(Array.from({ length: s.nodes }, (_, i) => i + 1));
-    expect([...modelStore.elements.keys()].sort((a, b) => a - b)).toEqual(Array.from({ length: s.members }, (_, i) => i + 1));
+    // The source's numbering is kept: the store holds exactly the ids the file states.
+    const code = codeToModel(await validationModelCode(id)).snapshot as unknown as { nodes: Array<[number, unknown]>; elements: Array<[number, unknown]> };
+    const sorted = (xs: Iterable<number>) => [...xs].sort((a, b) => a - b);
+    expect(sorted(modelStore.nodes.keys())).toEqual(sorted(code.nodes.map(([k]) => k)));
+    expect(sorted(modelStore.elements.keys())).toEqual(sorted(code.elements.map(([k]) => k)));
     // Z up: nothing lies below the supports.
     const zMin = Math.min(...[...modelStore.nodes.values()].map((n) => n.z ?? 0));
     const zSup = Math.min(...[...modelStore.supports.values()].map((sp) => modelStore.nodes.get(sp.nodeId)!.z ?? 0));
