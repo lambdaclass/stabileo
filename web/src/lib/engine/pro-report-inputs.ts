@@ -143,37 +143,46 @@ function serializeCombinations(): ReportData['combinations'] {
 }
 
 /**
- * Crack width and deflection per verified member.
+ * Crack width per verified member; the deflection of every beam.
  *
  * `Ms` is the factored moment divided back by 1.4 — the service moment the crack check wants,
  * recovered from the ultimate one the design produced. The deflection is each beam's own, relative
  * to its chord, under the service loads `store/service-deflection.ts` chooses — the same number
  * the verification tab shows. It was the largest vertical displacement of the whole model, the
- * same for every beam. Members that yield neither check are dropped, so an empty section means
+ * same for every beam. The verification set is concrete-only, so the beams it does not cover —
+ * the steel ones — contribute their deflection as rows of their own: the check
+ * (`store/serviceability.ts`) runs for every beam in the model, and a steel beam bends as much
+ * as a concrete one. Members that yield neither check are dropped, so an empty section means
  * "nothing was checkable", not "everything passed".
  */
 function serviceabilityRows(
   verifications: readonly ElementVerification[],
 ): ReportData['serviceability'] {
-  if (verifications.length === 0) return undefined;
-  const beams = verifications.filter((v) => v.elementType === 'beam').map((v) => v.elementId);
-  const deflections = deflectionChecks(beams).rows;
+  const deflections = deflectionChecks().rows;
+  const deflectionOf = (elementId: number) => {
+    const defl = deflections.get(elementId)?.check;
+    return defl
+      ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.span / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor }
+      : undefined;
+  };
   const rows = verifications.map((v) => {
     const Ms = v.Mu / 1.4;
     const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
       ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
       : undefined;
-    const defl = deflections.get(v.elementId)?.check;
     return {
       elementId: v.elementId,
       elementType: v.elementType,
       crack: crack ? { wk: crack.wk, wkLimit: crack.wLimit, status: crack.status } : undefined,
-      deflection: defl
-        ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.span / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor }
-        : undefined,
+      deflection: deflectionOf(v.elementId),
     };
-  }).filter((s) => s.crack || s.deflection);
-  return rows.length > 0 ? rows : undefined;
+  });
+  const covered = new Set(verifications.map((v) => v.elementId));
+  for (const [id] of deflections) {
+    if (!covered.has(id)) rows.push({ elementId: id, elementType: 'beam', crack: undefined, deflection: deflectionOf(id) });
+  }
+  const kept = rows.filter((s) => s.crack || s.deflection);
+  return kept.length > 0 ? kept : undefined;
 }
 
 /** The structural graph, built from the plain shapes `buildStructuralGraph` expects. */

@@ -14,6 +14,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { serviceSets, serviceDeflections } from '../service-deflection';
+import { deflectionChecks } from '../serviceability';
 import { eiOf } from '../../engine/member-deflection';
 
 const L = 6, q = 10, P = 20;
@@ -109,6 +110,40 @@ describe('relative to the chord, against closed forms', () => {
     const own = (P * L ** 3) / (3 * ei().EIy);
     expect(drop).toBeGreaterThan(1.5 * own);
     expect(d.max / own).toBeCloseTo(1, 4);
+  });
+
+  it('a cantilever under uniform load reads qL⁴/8EI at the tip', () => {
+    member('fixed', 'free');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q);
+    const d = solveAndRead();
+    expect(d.max / ((q * L ** 4) / (8 * ei().EIy))).toBeCloseTo(1, 5);
+    expect(d.x).toBeCloseTo(L, 9);
+  });
+
+  it('a cantilever whose tip is past L/360 fails the check', () => {
+    const tip = member('fixed', 'free');
+    // P chosen so the true tip deflection is exactly twice the limit — a cantilever the chord
+    // reading passed (0.19 of the tip, times the long-term factor, stays under it). A
+    // cantilever's limit is taken over twice its length (`deflection-limits.ts`): 2L/360.
+    const EI = ei().EIy;
+    const p = (2 * ((2 * L) / 360)) * (3 * EI) / L ** 3;
+    modelStore.addNodalLoad3D(tip, 0, 0, -p, 0, 0, 0);
+    solveAndRead();
+    const row = deflectionChecks([beam]).rows.get(beam)!;
+    expect(row.deflection.max / ((p * L ** 3) / (3 * EI))).toBeCloseTo(1, 5);
+    expect(row.check.status).toBe('fail');
+  });
+
+  it('a cantilever drawn tip-to-root reads the same, from the tangent at its far-end root', () => {
+    modelStore.clear();
+    const tipN = modelStore.addNode(0, 0, 0), root = modelStore.addNode(L, 0, 0);
+    beam = modelStore.addElement(tipN, root, 'frame');
+    modelStore.addSupport(root, 'fixed3d');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addNodalLoad3D(tipN, 0, 0, -P, 0, 0, 0);
+    const d = solveAndRead();
+    expect(d.max / ((P * L ** 3) / (3 * ei().EIy))).toBeCloseTo(1, 5);
+    expect(d.x).toBeCloseTo(0, 9);
   });
 
   it('a member that moves without bending has no deflection', () => {
