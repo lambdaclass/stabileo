@@ -5,7 +5,8 @@
   import ProStairSection from './ProStairSection.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import { meshQuadRegion } from '../../lib/model/edit/mesh-region';
+  import { meshQuadRegion, exceedsDivisionCap, type MeshDensity } from '../../lib/model/edit/mesh-region';
+  import { MAX_DIVISIONS_PER_AXIS } from '../../lib/engine/shell-mesh-gen';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
@@ -121,9 +122,19 @@
       return;
     }
 
+    const density: MeshDensity = meshMode === 'targetSize'
+      ? { mode: 'targetSize', size: meshTargetSize }
+      : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy };
+    // Said, not silently capped: the mesher would otherwise hand back a coarser
+    // grid than the one asked for.
+    if (exceedsDivisionCap(cornerIds.map((id) => modelStore.nodes.get(id)!), density)) {
+      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
+      return;
+    }
+
     // One implementation for this mesher and for hole filling: `model/edit/mesh-region.ts`.
     const res = meshQuadRegion(cornerIds as [number, number, number, number], {
-      density: meshMode === 'targetSize' ? { mode: 'targetSize', size: meshTargetSize } : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy },
+      density,
       materialId: meshMaterialId, thickness: meshThickness, splitBeams: meshSplitBeams,
     });
     const newNodes = res.newNodes, quadCount = res.quadCount, splitCount = res.splitCount;

@@ -36,7 +36,7 @@ import { ROOM_CATEGORY_LOADS } from './rooms';
 import type { SectionScheduleEntry, SpecSource } from './types';
 import type { MemberOffset } from '../model/element-3d-metadata';
 import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
-import { buildBilinearQuadGrid } from '../engine/shell-mesh-gen';
+import { buildBilinearQuadGrid, sanitizeDivisions } from '../engine/shell-mesh-gen';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
 
@@ -482,10 +482,7 @@ export function generateRcDraft(
   // through `bilinearDivs` below. Infinity passes `Math.max(1, Math.round(...))`
   // unchanged; undefined and NaN come out NaN, which skips subdivision entirely
   // instead of falling back. 4 is the wizard's own default.
-  const rawDivisions = a.meshDivisions ?? 4;
-  const fixedN = a.meshSlabs
-    ? (Number.isFinite(rawDivisions) ? Math.min(256, Math.max(1, Math.round(rawDivisions))) : 4)
-    : 1;
+  const fixedN = a.meshSlabs ? sanitizeDivisions(a.meshDivisions, 4) : 1;
   // When meshing is disabled, force one cell by using a huge target.
   const effTarget = a.meshSlabs ? target : 1e6;
 

@@ -12,6 +12,7 @@
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent } from '../lib/cad/parse';
+  import { MAX_DIVISIONS_PER_AXIS } from '../lib/engine/shell-mesh-gen';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
   import {
     drawCadPreview, drawSemanticPreview, planBBox, ROLE_COLORS,
@@ -481,7 +482,8 @@
     slabThickness > 0 && wallThickness > 0 && deadLoad >= 0 && liveLoad >= 0 &&
     // `Infinity >= 1` is true, and a number field accepts "1e999", so the bare
     // comparison let a non-finite division count reach the mesher.
-    Number.isFinite(meshDivisions) && meshDivisions >= 1 && snapTolerance > 0 &&
+    // And no more than the mesher makes, which it would otherwise cap in silence.
+    Number.isFinite(meshDivisions) && meshDivisions >= 1 && meshDivisions <= MAX_DIVISIONS_PER_AXIS && snapTolerance > 0 &&
     // When meshing slabs by target size, the size must be a positive number —
     // a cleared/zeroed field would otherwise drive an unbounded mesh loop.
     (!meshSlabs || meshMode !== 'targetSize' || (meshTargetSize > 0 && Number.isFinite(meshTargetSize))),

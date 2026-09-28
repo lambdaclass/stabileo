@@ -4440,6 +4440,7 @@ const en: Record<string, string> = {
   'pro.errMaterial': 'Material not found',
   'pro.errThickness': 'Thickness must be > 0',
   'pro.errSubdivisions': 'Subdivisions must be >= 1',
+  'pro.errTooManyDivisions': 'More than {max} subdivisions per side — use a larger target size or fewer subdivisions',
 
   // ─── PRO: Advanced ───
   'pro.wasmNotReady': 'WASM not available — initializing solver...',

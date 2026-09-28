@@ -3416,6 +3416,7 @@ const pt: Translations = {
   'pro.err4Nodes': 'Insira 4 IDs de nó válidos e distintos',
   'pro.errMaterial': 'Material não encontrado',
   'pro.errSubdivisions': 'As subdivisões devem ser >= 1',
+  'pro.errTooManyDivisions': 'Mais de {max} subdivisões por lado — use um tamanho-alvo maior ou menos subdivisões',
   'pro.errTargetSize': 'O tamanho alvo deve ser > 0',
   'pro.errThickness': 'A espessura deve ser > 0',
   'pro.errorInTab': 'Erro na aba «{tab}»:',

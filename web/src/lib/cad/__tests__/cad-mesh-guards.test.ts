@@ -8,13 +8,38 @@
 // held a single value, memory stayed flat, and the tab froze with no error —
 // measured at 20 million iterations still running.
 //
-// Every test here carries an explicit short timeout on purpose: if a guard is
-// ever removed these assertions would not fail, they would hang, and a hung
-// suite is a far worse signal than a red one.
+// The guard lives in one place, `sanitizeDivisions`, and is pinned there
+// first: those assertions touch no loop, so a broken guard fails them in
+// milliseconds. The tests after it drive the real loops with non-finite input.
+// A timeout cannot rescue those: Vitest enforces it with a timer, and a timer
+// never runs while a synchronous loop holds the thread — a guard bypassed in a
+// loop would hang the suite, not fail it, and only the CI job's own timeout
+// would stop it. That is why the helper is tested on its own.
 import { describe, it, expect } from 'vitest';
 import { structuredBreakpoints } from '../geometry';
-import { buildBilinearQuadGrid, type MeshVec3 } from '../../engine/shell-mesh-gen';
+import {
+  buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS, type MeshVec3,
+} from '../../engine/shell-mesh-gen';
+import { exceedsDivisionCap } from '../../model/edit/mesh-region';
 
+describe('sanitizeDivisions — the one guard every mesher uses', () => {
+  it('gives the caller\u2019s fallback for a count that is not a number', () => {
+    expect(sanitizeDivisions(Infinity, 2)).toBe(2);
+    expect(sanitizeDivisions(-Infinity, 4)).toBe(4);
+    expect(sanitizeDivisions(NaN, 1)).toBe(1);
+    expect(sanitizeDivisions(undefined, 4)).toBe(4);
+  });
+
+  it('rounds, and keeps the count between 1 and the cap', () => {
+    expect(sanitizeDivisions(3.6, 1)).toBe(4);
+    expect(sanitizeDivisions(0, 1)).toBe(1);
+    expect(sanitizeDivisions(-7, 1)).toBe(1);
+    expect(sanitizeDivisions(1e9, 1)).toBe(MAX_DIVISIONS_PER_AXIS);
+  });
+});
+
+/** Marks a guard that fails slowly — a huge but finite count — as failed once it
+ *  returns. It cannot interrupt an infinite loop; see the header. */
 const GUARD_TIMEOUT = 5_000;
 
 const FLAT: [MeshVec3, MeshVec3, MeshVec3, MeshVec3] = [
@@ -88,4 +113,18 @@ describe('buildBilinearQuadGrid — non-finite divisions cannot run away', () =>
     expect(r.nodeGrid.length).toBe(3);
     expect(r.nodeGrid[0].length).toBe(3);
   }, GUARD_TIMEOUT);
+});
+
+describe('a request beyond the cap is said, not silently coarsened', () => {
+  const square = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+
+  it('fixed divisions past the cap are flagged, at the cap are not', () => {
+    expect(exceedsDivisionCap(square, { mode: 'fixedDivisions', nx: 300, ny: 4 })).toBe(true);
+    expect(exceedsDivisionCap(square, { mode: 'fixedDivisions', nx: MAX_DIVISIONS_PER_AXIS, ny: 4 })).toBe(false);
+  });
+
+  it('a target size that would need more cells than the cap is flagged', () => {
+    expect(exceedsDivisionCap(square, { mode: 'targetSize', size: 0.001 })).toBe(true); // 1000 per side
+    expect(exceedsDivisionCap(square, { mode: 'targetSize', size: 0.01 })).toBe(false); // 100 per side
+  });
 });

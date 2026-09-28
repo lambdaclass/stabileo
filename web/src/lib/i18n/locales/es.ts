@@ -4433,6 +4433,7 @@ const es: Record<string, string> = {
   'pro.errMaterial': 'Material no encontrado',
   'pro.errThickness': 'El espesor debe ser > 0',
   'pro.errSubdivisions': 'Las subdivisiones deben ser >= 1',
+  'pro.errTooManyDivisions': 'Más de {max} subdivisiones por lado — usá un tamaño objetivo mayor o menos subdivisiones',
 
   // ─── PRO: Advanced ───
   'pro.wasmNotReady': 'WASM no disponible — inicializando solver...',

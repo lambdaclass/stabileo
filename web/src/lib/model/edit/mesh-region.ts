@@ -8,7 +8,7 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import { buildBilinearQuadGrid } from '../../engine/shell-mesh-gen';
+import { buildBilinearQuadGrid, MAX_DIVISIONS_PER_AXIS } from '../../engine/shell-mesh-gen';
 import { findCoincidentNode } from '../../engine/mesh-weld';
 import { splitAtNodes } from './cut-members';
 
@@ -32,6 +32,18 @@ export function divisionsFor(corners: ReadonlyArray<{ x: number; y: number; z?: 
     nx: Math.max(1, Math.round(len(corners[0]!, corners[1]!) / d.size)),
     ny: Math.max(1, Math.round(len(corners[0]!, corners[3]!) / d.size)),
   };
+}
+
+/**
+ * Whether a region would need more subdivisions per side than the mesher
+ * makes. `buildBilinearQuadGrid` caps each axis at MAX_DIVISIONS_PER_AXIS so
+ * no input can hang the tab, but a cap applied silently hands the user a
+ * coarser mesh than they asked for — 300 divisions, or a 1 mm target on a
+ * 1 m edge, came back as 256 cells. Callers ask first and say so instead.
+ */
+export function exceedsDivisionCap(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, d: MeshDensity): boolean {
+  const { nx, ny } = divisionsFor(corners, d);
+  return nx > MAX_DIVISIONS_PER_AXIS || ny > MAX_DIVISIONS_PER_AXIS;
 }
 
 export function meshQuadRegion(cornerIds: [number, number, number, number], o: MeshRegionOptions): MeshRegionResult {

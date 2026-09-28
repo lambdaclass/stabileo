@@ -3,6 +3,7 @@
 // or metres alike, with tolerances passed in by the caller).
 
 import type { CadBBox, CadPt } from './types';
+import { sanitizeDivisions } from '../engine/shell-mesh-gen';
 
 export function dist(a: CadPt, b: CadPt): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -272,10 +273,7 @@ export function structuredBreakpoints(
     // freezes with nothing to report. NaN fails the other way (the loop is
     // skipped entirely and the span is never divided), so both fall back to the
     // documented default of 2. Capped at 256 like the targetSize path below.
-    const rawFixed = opts.fixed ?? 2;
-    const nn = Number.isFinite(rawFixed)
-      ? Math.min(256, Math.max(1, Math.round(rawFixed)))
-      : 2;
+    const nn = sanitizeDivisions(opts.fixed ?? 2, 2);
     const set = new Set(hard);
     for (let i = 1; i < nn; i++) set.add(lo + (i * (hi - lo)) / nn);
     lines = [...set].sort((a, b) => a - b);
