@@ -9,6 +9,7 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import { axialShares, giveBackAxialShares } from './axial-shares';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 
 let wasmReady = false;
@@ -474,7 +475,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return stripStabilisedReactions(wasmSolve3d(wire), input);
+    return giveBackAxialShares(stripStabilisedReactions(wasmSolve3d(wire), input), axialShares(input.loads));
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
@@ -625,6 +626,10 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
+  // The axial part of member loads, given back to the members (`axial-shares.ts`).
+  const shares = axialShares(input.loads);
+  if (result?.results) giveBackAxialShares(result.results, shares);
+  if (result?.linearResults) giveBackAxialShares(result.linearResults, shares);
   return result;
 }
 

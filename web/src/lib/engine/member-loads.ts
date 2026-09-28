@@ -17,7 +17,9 @@
  * ── What the engine is given ───────────────────────────────────────
  *
  * The engine's member load is local and transverse. The axial part goes to the end nodes by
- * statics, as the app already did for 2D-style loads. On a member that carries no bending (a
+ * statics, as the app already did for 2D-style loads, tagged with its member and end so the
+ * member's axial force is given it back after the solve (`axial-shares.ts`): the engine's member
+ * never sees it, and would otherwise carry the average of the axial force along its length. On a member that carries no bending (a
  * truss, or a one-way member in the active-set loop) the transverse part goes to the end nodes
  * too, as the reactions of a simply supported span: the engine's truss assembly drops a
  * transverse member load, and the load would otherwise vanish.
@@ -104,20 +106,24 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
   const yI = dot(gI, ey), yJ = dot(gJ, ey), zI = dot(gI, ez), zJ = dot(gJ, ez);
   const xI = dot(gI, ex), xJ = dot(gJ, ex);
   const tiny = (v: number) => Math.abs(v) < 1e-12;
-  const toNodes = (vI: Vec3, vJ: Vec3) => {
+  const toNodes = (vI: Vec3, vJ: Vec3, axial = false) => {
     let fI: Vec3 = [0, 0, 0], fJ: Vec3 = [0, 0, 0];
     for (const p of trapezoidPieces(vI, vJ, a, b)) {
       const r = toEnds(p.force, p.s, L);
       fI = add(fI, r.fI); fJ = add(fJ, r.fJ);
     }
-    if (fI.some((v) => !tiny(v))) out.push(nodal(m.nodeI, fI, m.armI));
-    if (fJ.some((v) => !tiny(v))) out.push(nodal(m.nodeJ, fJ, m.armJ));
+    // The axial part says which member it came from: the member itself never sees it, and its
+    // end forces are given it back after the solve (`axial-shares.ts`).
+    const tag = (l: SolverLoad3D, end: 'i' | 'j', f: Vec3): SolverLoad3D =>
+      axial && l.type === 'nodal' ? { type: 'nodal', data: { ...l.data, axialOf: { elementId: m.elementId, end, p: dot(f, ex) } } } : l;
+    if (fI.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeI, fI, m.armI), 'i', fI));
+    if (fJ.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeJ, fJ, m.armJ), 'j', fJ));
   };
   if (!(tiny(yI) && tiny(yJ) && tiny(zI) && tiny(zJ))) {
     if (axialOnly) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
     else out.push({ type: 'distributed', data: { elementId: m.elementId, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
   }
-  if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ));
+  if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ), true);
   return out;
 }
 

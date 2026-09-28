@@ -16,6 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { solve, solve3D, solvePDelta, solveBuckling, solveBuckling3D, solvePDelta3D, solvePlastic } from '../wasm-solver';
+import { axialShares } from '../axial-shares';
 import { solveDetailed } from '../solver-detailed';
 import { solveDetailed3D } from '../solver-detailed-3d';
 import { solveForceMethod } from '../force-method/solve';
@@ -246,11 +247,15 @@ function compare3D(input: SolverInput3D) {
       expect(Math.abs(got - x[k]) / scale(ld < 3 ? 0 : 3), `${k}@${x.nodeId}: ${got} vs ${x[k]}`).toBeLessThan(1e-9);
     });
   }
-  /* Axial forces too: the one end force a truss bar has. */
+  /* Axial forces too: the one end force a truss bar has. The axial part of a member load reaches
+     both solvers at the nodes, and `solve3D` gives it back to the member (`axial-shares.ts`): the
+     direct solution is given the same share before the two are compared. */
+  const shares = axialShares(input.loads);
   const sN = Math.max(1e-6, ...r.elementForces.map((e) => Math.abs(e.nStart)));
   for (const e of r.elementForces) {
     const f = d.elementForces.find((x) => x.elementId === e.elementId)!.fLocalFinal;
-    expect(Math.abs(-f[0] - e.nStart) / sN, `N@${e.elementId}: ${-f[0]} vs ${e.nStart}`).toBeLessThan(1e-6);
+    const want = -f[0] + (shares.get(e.elementId)?.i ?? 0);
+    expect(Math.abs(want - e.nStart) / sN, `N@${e.elementId}: ${want} vs ${e.nStart}`).toBeLessThan(1e-6);
   }
   return r;
 }

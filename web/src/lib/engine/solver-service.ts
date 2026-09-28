@@ -27,6 +27,7 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos';
+import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -2047,6 +2048,20 @@ function solveCombinations3DCore(
       if (id != null) perCombo.set(id, cr.results);
     }
 
+    // The axial part of member loads, given back to the members (`axial-shares.ts`): to each
+    // case from its own loads, to each combination with its factors, and the envelope, which
+    // the engine took over the uncorrected combinations, taken again.
+    const caseShares = new Map(mcLoadCases.map((c) => [caseNameToId.get(c.name)!, axialShares(c.loads)] as const));
+    if ([...caseShares.values()].some((m) => m.size > 0)) {
+      for (const [id, r] of perCase) giveBackAxialShares(r, caseShares.get(id) ?? new Map());
+      for (const combo of combinations) {
+        const r = perCombo.get(combo.id);
+        if (r) giveBackAxialShares(r, combineShares(combo.factors, caseShares));
+      }
+      const again = computeEnvelope3D([...perCombo.values()]);
+      if (again) mcResult.envelope = again;
+    }
+
     // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
     // they are linear in displacement → recombine per-combo + envelope from the
     // per-case results (which DO carry them). No solver change.
@@ -2279,6 +2294,9 @@ const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id'
 export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(l.data)) data[k] = typeof v === 'number' && !LOAD_KEYS_KEPT.has(k) ? v * f : v;
+  // The axial share a nodal load carries for its member (`axial-shares.ts`) is a magnitude too.
+  const ax = (l.data as { axialOf?: { elementId: number; end: 'i' | 'j'; p: number } }).axialOf;
+  if (ax) data.axialOf = { ...ax, p: ax.p * f };
   return { ...l, data } as unknown as SolverLoad3D;
 }
 
