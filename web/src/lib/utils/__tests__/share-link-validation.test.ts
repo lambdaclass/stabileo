@@ -44,7 +44,11 @@ beforeEach(() => {
   modelStore.restore(initial);
   uiStore.analysisMode = 'pro';
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  modelStore.clear();
+  uiStore.analysisMode = '2d';
+});
 
 it('repairs every counter while preserving optional collections and larger counters', () => {
   const payload = {
@@ -72,6 +76,16 @@ it('repairs every counter while preserving optional collections and larger count
   expect(() => modelStore.restore(snapshot)).not.toThrow();
   const repaired = prepareSharedSnapshot({ ...payload, nextId: {} })!;
   expect(repaired.nextId).toMatchObject({ footing: 15, soilProfile: 16 });
+});
+
+it('rejects a legacy link whose groups are not id-keyed entries', () => {
+  // Groups travel only in the legacy format; restore() maps them as `[k, v]`.
+  for (const groups of [5, {}, [null], [[1, null]]]) {
+    const encoded = formats[0].encode({ ...legacy(), groups });
+    expect(decompressSnapshot(encoded), JSON.stringify(groups)).toBeNull();
+    expect(loadFromShareLink('#data=' + encoded)).toBe(false);
+  }
+  expect(decompressSnapshot(formats[0].encode({ ...legacy(), groups: [[1, { id: 1, name: 'g', members: [1] }]] }))).not.toBeNull();
 });
 
 describe.each(formats)('$name share boundary', ({ name, fixture, encode }) => {
@@ -134,13 +148,18 @@ describe.each(formats)('$name share boundary', ({ name, fixture, encode }) => {
     expect(loadFromShareLink('#data=' + encode(fixture()))).toBe(true);
   });
 
-  it.each(['2d', '3d', 'pro', 'edu', 'unknown'])('handles mode %s in both public loaders', mode => {
+  // A link is written only from '2d', '3d' or 'pro' (generateShareURL), so
+  // 'edu' in a link is as foreign as 'unknown': the model loads, the mode stays.
+  it.each(['2d', '3d', 'pro', 'edu', 'unknown', 'PRO'])('handles mode %s in both public loaders', mode => {
+    const written = mode === '2d' || mode === '3d' || mode === 'pro';
+    uiStore.analysisMode = written ? 'edu' : 'pro';
+    const before = uiStore.analysisMode;
     const encoded = encode({ ...fixture(), ...(isLegacy ? { analysisMode: mode } : { m: mode }) });
     expect(loadFromShareLink('#data=' + encoded)).toBe(true);
-    expect(uiStore.analysisMode).toBe(mode === 'unknown' ? 'pro' : mode);
-    uiStore.analysisMode = 'pro';
+    expect(uiStore.analysisMode).toBe(written ? mode : before);
+    uiStore.analysisMode = before;
     location.hash = '#data=' + encoded;
     expect(loadFromURLHash()).toBe('data');
-    expect(uiStore.analysisMode).toBe(mode === 'unknown' ? 'pro' : mode);
+    expect(uiStore.analysisMode).toBe(written ? mode : before);
   });
 });
