@@ -2123,7 +2123,7 @@ const es: Record<string, string> = {
   'float.selectSupportsHint': 'Clickeá un apoyo para seleccionarlo',
   'float.elementRigid': 'Rígida (pórtico)',
   'float.elementTruss': 'Articulada (reticulado)',
-  'float.elementHint': 'Clickeá dos nodos para crear una barra',
+  'float.elementHint': 'Clickeá dos puntos (nodos, barras o lugares vacíos) para crear una barra; seguí para encadenar, Esc para terminar',
   'float.supportFixedShort': 'Empot.',
   'float.supportPinnedShort': 'Artic.',
   'float.supportRoller': 'Móvil',
