@@ -986,7 +986,6 @@ const ja: Translations = {
   'float.selectSupportsHint': '支点をクリックして選択',
   'float.elementRigid': '剛接合（frame）',
   'float.elementTruss': 'ピン接合（truss）',
-  'float.elementHint': '2つの節点をクリックして部材を作成',
   'float.supportFixedShort': '固定',
   'float.supportPinnedShort': 'ピン',
   'float.supportRoller': 'ローラー',

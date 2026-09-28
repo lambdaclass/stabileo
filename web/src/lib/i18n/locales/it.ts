@@ -980,7 +980,6 @@ const it: Translations = {
   'float.selectSupportsHint': 'Clicca un vincolo per selezionarlo',
   'float.elementRigid': 'Rigido (telaio)',
   'float.elementTruss': 'Incernierato (traliccio)',
-  'float.elementHint': 'Clicca due nodi per creare un\'asta',
   'float.supportFixedShort': 'Incastro',
   'float.supportPinnedShort': 'Cern.',
   'float.supportRoller': 'Carrello',

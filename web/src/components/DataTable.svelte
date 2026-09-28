@@ -246,6 +246,8 @@
     height: 0;
   }
   .dt-tool-options :global(.ft-sup-btn.ft-primary) { font-size: 0.76rem; gap: 0.25rem; }
+  /* A second row of main choices (the member tool's drawing mode), between the two breaks. */
+  .dt-tool-options :global(.ft-primary.ft-second) { order: -1; }
   /* Rigid / pinned are radio labels: shown as the same wide buttons. */
   .dt-tool-options :global(.ft-opt-radio.ft-primary) {
     border: 1px solid var(--st-hair-strong);

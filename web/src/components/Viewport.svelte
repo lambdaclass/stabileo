@@ -1740,14 +1740,24 @@
        * Nothing is created until a member is: the first click only remembers
        * the point (Esc leaves no stray node), and the second makes whatever
        * nodes are missing — splitting a member where an end lands on one, as
-       * the node tool does — and the member, as one undo step. The chain then
-       * continues from the second end.
+       * the node tool does — and the member, as one undo step. In polyline
+       * mode the chain then continues from the second end, until Esc or a
+       * click on that end again; in single-line mode each member stands alone.
        */
       const end = memberEndAt(world.x, world.y, snapped.x, snapped.y);
       if (!pendingNode) {
         pendingNode = { x: end.x, y: end.y };
         if (end.nodeId !== undefined) uiStore.selectNode(end.nodeId);
-      } else if (Math.hypot(end.x - pendingNode.x, end.y - pendingNode.y) > 1e-6) {
+      } else if (overlapsExistingMember(pendingNode, end)) {
+        // A member already runs there: a second one on top of it would be a
+        // duplicate. Nothing is made, so no empty undo step is left either;
+        // the chain goes on from this end.
+        uiStore.toast(t('float.memberOverlaps'), 'info');
+        pendingNode = uiStore.memberChains ? { x: end.x, y: end.y } : null;
+      } else if (Math.hypot(end.x - pendingNode.x, end.y - pendingNode.y) <= 1e-6) {
+        // The last point again: the chain is finished.
+        pendingNode = null;
+      } else {
         const from = pendingNode;
         let made: { i: number; j: number } | null = null;
         modelStore.batch(() => {
@@ -1762,7 +1772,7 @@
           resultsStore.clear();
           uiStore.selectNode((made as { i: number; j: number }).j);
         }
-        pendingNode = { x: end.x, y: end.y };
+        pendingNode = uiStore.memberChains ? { x: end.x, y: end.y } : null;
       }
     } else if (uiStore.currentTool === 'support') {
       // Support: find nearest existing node using raw world coords (not snapped,
@@ -2616,8 +2626,18 @@
   function memberEndAt(wx: number, wy: number, sx: number, sy: number): { x: number; y: number; nodeId?: number } {
     const near = findNearestNode(wx, wy, 0.5);
     if (near) return { x: near.x, y: near.y, nodeId: near.id };
+    /*
+     * A point on a member within 1 cm of a node IS that node: the split would
+     * reuse it anyway (splitMember's tolerance), and deciding it here keeps the
+     * two ends of a member from ever resolving to one node, which would make
+     * nothing and still leave an undo step.
+     */
+    const asNode = (p: { x: number; y: number }) => {
+      const n = findNearestNode(p.x, p.y, 0.01);
+      return n ? { x: n.x, y: n.y, nodeId: n.id } : p;
+    };
     const mid = findNearestMidpoint(wx, wy, 0.4);
-    if (mid) return { x: mid.x, y: mid.y };
+    if (mid) return asNode({ x: mid.x, y: mid.y });
     const onBar = findNearestElement(wx, wy, 0.3);
     if (onBar) {
       const ni = getProjectedNode(onBar.nodeI), nj = getProjectedNode(onBar.nodeJ);
@@ -2625,10 +2645,34 @@
         const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
         const px = uiStore.snapToGrid ? sx : wx, py = uiStore.snapToGrid ? sy : wy;
         const t = lenSq > 1e-10 ? ((px - ni.x) * dx + (py - ni.y) * dy) / lenSq : -1;
-        if (t >= 0.05 && t <= 0.95) return { x: ni.x + t * dx, y: ni.y + t * dy };
+        if (t >= 0.05 && t <= 0.95) return asNode({ x: ni.x + t * dx, y: ni.y + t * dy });
       }
     }
     return { x: sx, y: sy };
+  }
+
+  /**
+   * True when a member from `a` to `b` would lie along an existing one over a
+   * length: collinear with it and sharing more than a point. Joining two nodes
+   * that a member (or a run of split members) already joins is the common
+   * case; the result would be a second member on top of the first.
+   */
+  function overlapsExistingMember(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
+    const ux = b.x - a.x, uy = b.y - a.y, len = Math.hypot(ux, uy);
+    if (len < 1e-9) return false;
+    const tol = 1e-6 * Math.max(1, len);
+    for (const e of modelStore.elements.values()) {
+      const ni = getProjectedNode(e.nodeI), nj = getProjectedNode(e.nodeJ);
+      if (!ni || !nj) continue;
+      // Both member ends on the new member's line.
+      const off = (p: { x: number; y: number }) => Math.abs((p.x - a.x) * uy - (p.y - a.y) * ux) / len;
+      if (off(ni) > tol || off(nj) > tol) continue;
+      // Their positions along it, and the length the two share.
+      const s = (p: { x: number; y: number }) => ((p.x - a.x) * ux + (p.y - a.y) * uy) / len;
+      const lo = Math.max(0, Math.min(s(ni), s(nj))), hi = Math.min(len, Math.max(s(ni), s(nj)));
+      if (hi - lo > tol) return true;
+    }
+    return false;
   }
 
   /**

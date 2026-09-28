@@ -980,7 +980,6 @@ const hi: Translations = {
   'float.selectSupportsHint': 'आधार चुनने के लिए क्लिक करें',
   'float.elementRigid': 'दृढ़ (फ्रेम)',
   'float.elementTruss': 'कीलित (ट्रस)',
-  'float.elementHint': 'सदस्य बनाने के लिए दो नोड पर क्लिक करें',
   'float.supportFixedShort': 'स्थिर',
   'float.supportPinnedShort': 'कील',
   'float.supportRoller': 'रोलर',

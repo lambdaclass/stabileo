@@ -2,6 +2,12 @@
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { isMode3D } from '../../lib/store/file';
+
+  const hintKey = $derived(
+    (uiStore.memberDrawMode === 'polyline' ? 'float.elementHintPolyline' : 'float.elementHintSingle')
+      + (isMode3D(uiStore.analysisMode) ? '3d' : ''),
+  );
 </script>
 
 <label class="ft-opt-radio ft-primary">
@@ -14,7 +20,17 @@
 </label>
 <span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
-<span class="ft-hint">{t('float.elementHint')}</span>
+<label class="ft-opt-radio ft-primary ft-second" title={t('float.memberSingleTip')}>
+  <input type="radio" name="ft-memberMode" value="single" checked={uiStore.memberDrawMode === 'single'} onchange={() => uiStore.memberDrawMode = 'single'} data-testid="member-mode-single" />
+  <ToolGlyph name="lineSingle" /><span>{t('float.memberSingle')}</span>
+</label>
+<label class="ft-opt-radio ft-primary ft-second" title={t('float.memberPolylineTip')}>
+  <input type="radio" name="ft-memberMode" value="polyline" checked={uiStore.memberDrawMode === 'polyline'} onchange={() => uiStore.memberDrawMode = 'polyline'} data-testid="member-mode-polyline" />
+  <ToolGlyph name="polyline" /><span>{t('float.memberPolyline')}</span>
+</label>
+<span class="ft-break" aria-hidden="true"></span>
+<span class="ft-sep">|</span>
+<span class="ft-hint">{t(hintKey)}</span>
 
 <style>
   /* A row break for the phone's layout (DataTable); nothing on a desktop. */

@@ -980,7 +980,6 @@ const fr: Translations = {
   'float.selectSupportsHint': 'Cliquez sur un appui pour le sélectionner',
   'float.elementRigid': 'Rigide (cadre)',
   'float.elementTruss': 'Articulé (treillis)',
-  'float.elementHint': 'Cliquez sur deux nœuds pour créer une barre',
   'float.supportFixedShort': 'Encast.',
   'float.supportPinnedShort': 'Art.',
   'float.supportRoller': 'Rouleau',

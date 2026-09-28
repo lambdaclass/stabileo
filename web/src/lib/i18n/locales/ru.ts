@@ -980,7 +980,6 @@ const ru: Translations = {
   'float.selectSupportsHint': 'Кликните по опоре для выбора',
   'float.elementRigid': 'Жёсткий (frame)',
   'float.elementTruss': 'Шарнирный (truss)',
-  'float.elementHint': 'Кликните по двум узлам для создания стержня',
   'float.supportFixedShort': 'Заделка',
   'float.supportPinnedShort': 'Шарн.',
   'float.supportRoller': 'Подвижн.',
