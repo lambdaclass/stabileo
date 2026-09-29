@@ -48,6 +48,49 @@ export interface JointDemands {
   combinationsConsidered: number;
   /** Members that meet here and had no forces in any result. */
   membersWithoutForces: number[];
+  /**
+   * What the bolts carry at the same instant: axial and resultant shear of ONE member end in ONE
+   * combination, for the members the joint connects. A member that runs straight through the
+   * node (a continuous column) is left out, since its axial force passes the node without
+   * reaching the bolts; when every member runs through (a splice) all of them count.
+   *
+   * The J.3.7 interaction reads these pairs. It read the governing axial and the governing shear,
+   * which could come from different members and different combinations, so a column's pass-
+   * through N was paired with a beam's V from another combination.
+   */
+  boltPairs: BoltPair[];
+}
+
+export interface BoltPair {
+  elementId: number;
+  end: 'I' | 'J';
+  comboId: number | null;
+  comboName: string | null;
+  tensionKN: number;
+  shearKN: number;
+}
+
+interface NodeXYZ { x: number; y: number; z?: number }
+
+/** Members that continue straight through the node: two collinear ones on opposite sides. */
+function throughMembers(nodeId: number, elementIds: readonly number[], elements: ReadonlyMap<number, ElemData>, nodes?: ReadonlyMap<number, NodeXYZ>): Set<number> {
+  const out = new Set<number>();
+  const at = nodes?.get(nodeId);
+  if (!at) return out;
+  const dir = (id: number): number[] | null => {
+    const e = elements.get(id); if (!e) return null;
+    const far = nodes!.get(e.nodeI === nodeId ? e.nodeJ : e.nodeI); if (!far) return null;
+    const d = [far.x - at.x, far.y - at.y, (far.z ?? 0) - (at.z ?? 0)];
+    const L = Math.hypot(d[0]!, d[1]!, d[2]!);
+    return L > 0 ? d.map((v) => v / L) : null;
+  };
+  for (let i = 0; i < elementIds.length; i++) {
+    for (let j = i + 1; j < elementIds.length; j++) {
+      const a = dir(elementIds[i]!), b = dir(elementIds[j]!);
+      if (a && b && a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]! < -0.9999) { out.add(elementIds[i]!); out.add(elementIds[j]!); }
+    }
+  }
+  return out;
 }
 
 /** One combination's results, as much of them as this module reads. */
@@ -73,11 +116,16 @@ export function jointDemands(
   elementIds: readonly number[],
   elements: ReadonlyMap<number, ElemData>,
   combos: readonly ComboResults[],
+  nodes?: ReadonlyMap<number, NodeXYZ>,
 ): JointDemands {
   let axial: GoverningDemand | null = null;
   let shear: GoverningDemand | null = null;
   let moment: GoverningDemand | null = null;
   const seen = new Set<number>();
+  const through = throughMembers(nodeId, elementIds, elements, nodes);
+  const boltMembers = new Set(elementIds.filter((id) => !through.has(id)));
+  if (boltMembers.size === 0) for (const id of elementIds) boltMembers.add(id);
+  const boltPairs: BoltPair[] = [];
 
   const better = (cur: GoverningDemand | null, next: GoverningDemand): GoverningDemand =>
     cur === null || next.value > cur.value ? next : cur;
@@ -127,6 +175,9 @@ export function jointDemands(
       moment = better(moment, {
         component: 'moment', value: Math.hypot(at('my'), at('mz')), ...base,
       });
+      if (boltMembers.has(elementId)) {
+        boltPairs.push({ ...base, tensionKN: Math.abs(at('n')), shearKN: Math.hypot(at('vy'), at('vz')) });
+      }
     }
   }
 
@@ -144,6 +195,7 @@ export function jointDemands(
     moment: moment && moment.value > 0 ? moment : null,
     combinationsConsidered: combos.length,
     membersWithoutForces: elementIds.filter((id) => !seen.has(id)),
+    boltPairs,
   };
 }
 

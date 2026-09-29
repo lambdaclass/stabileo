@@ -39,6 +39,8 @@ export interface JointDesignInput {
   elementIds: readonly number[];
   elements: ReadonlyMap<number, { id: number; nodeI: number; nodeJ: number }>;
   combos: readonly ComboResults[];
+  /** Node positions, to tell a member that runs through the joint from one that ends at it. */
+  nodes?: ReadonlyMap<number, { x: number; y: number; z?: number }>;
   /** Where the joint is, metres. */
   originM?: { x: number; y: number; z: number };
   /** What the user chose. Absent means nothing has been designed yet. */
@@ -83,18 +85,22 @@ function worst(states: readonly JointDesignState[]): JointDesignState {
 }
 
 export function designJoint(input: JointDesignInput): JointDesign {
-  const demands = jointDemands(input.nodeId, input.elementIds, input.elements, input.combos);
+  const demands = jointDemands(input.nodeId, input.elementIds, input.elements, input.combos, input.nodes);
 
-  const bolts = designBoltedJoint(
-    input.bolts ?? null,
-    input.plate ?? {},
-    {
-      // The demands the analysis produced, not numbers a user typed. J.3.6 checks shear and
-      // tension separately, and `joint-demands` names which component feeds which.
-      shearKN: boltShearDemandKN(demands) ?? undefined,
-      tensionKN: boltTensionDemandKN(demands) ?? undefined,
-    },
-  );
+  /*
+   * The bolts are checked for each pair that acts at the same instant (one member end, one
+   * combination), and the worst pair governs. The governing axial and the governing shear came
+   * from different members and combinations, and J.3.7 paired them as if they acted together.
+   */
+  const worstRatio = (d: ReturnType<typeof designBoltedJoint>) => Math.max(0, ...d.checks.map((c) => c.ratio ?? 0));
+  const pairs = demands.boltPairs.filter((p) => p.tensionKN > 0 || p.shearKN > 0);
+  let bolts = designBoltedJoint(input.bolts ?? null, input.plate ?? {}, pairs.length > 0
+    ? { shearKN: pairs[0]!.shearKN, tensionKN: pairs[0]!.tensionKN }
+    : { shearKN: boltShearDemandKN(demands) ?? undefined, tensionKN: boltTensionDemandKN(demands) ?? undefined });
+  for (const p of pairs.slice(1)) {
+    const next = designBoltedJoint(input.bolts ?? null, input.plate ?? {}, { shearKN: p.shearKN, tensionKN: p.tensionKN });
+    if (worstRatio(next) > worstRatio(bolts)) bolts = next;
+  }
 
   const plate = plateForLayout({
     layout: input.bolts ?? null,

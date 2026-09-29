@@ -249,6 +249,7 @@ function createJointDesignStore() {
         nodeId,
         elementIds,
         elements: modelStore.elements as never,
+        nodes: modelStore.nodes as never,
         combos: combos(),
         originM: node ? { x: node.x, y: node.y, z: (node as { z?: number }).z ?? 0 } : undefined,
         bolts: c.bolts ?? null,
