@@ -7801,6 +7801,7 @@ const es: Record<string, string> = {
   'floorLoad.plan': "Paños en planta",
   'floorLoad.summary': "{panels} paños, {area} m², {total} kN sobre {beams} vigas.",
   'floorLoad.skip.nonConvex': "{n} paños no convexos quedan sin cargar: dividilos con una viga o cargalos a mano.",
+  'floorLoad.skip.islands': "{n} paños con un anillo de vigas adentro que no los toca quedan sin cargar: uní el anillo al paño con una viga o cargalos a mano.",
   'floorLoad.skip.crossings': "{n} cruces de vigas sin nodo: no se cargan los paños de los conjuntos conectados afectados.",
   'floorLoad.skip.open': "{n} vigas con un extremo libre no cierran ningún paño.",
   'floorLoad.skip.trusses': "{n} barras articuladas no toman carga transversal y quedan afuera.",

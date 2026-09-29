@@ -25,7 +25,10 @@
  * ── What is not done ──────────────────────────────────────────────
  *
  * A panel that is not convex (an L) has a nearest-side pattern with curved boundaries, and it is
- * not loaded: it is reported, to be split with a beam or loaded by hand. Beams that cross in plan
+ * not loaded: it is reported, to be split with a beam or loaded by hand. So is a panel with a
+ * closed ring of beams inside it that does not touch it (a framed opening, an island): the
+ * nearest-side pattern around a hole is not the convex one either, and loading its full area put
+ * the hole's load on the perimeter beams while the ring's own panel was loaded again. Beams that cross in plan
  * without a shared node invalidate their connected components, which are reported and not loaded.
  *
  * Pure: no store.
@@ -75,7 +78,7 @@ export interface FloorPanel {
   polygon: P2[];
   area: number;
   loaded: boolean;
-  reason?: 'nonConvex' | 'crossing';
+  reason?: 'nonConvex' | 'crossing' | 'island';
 }
 
 export interface FloorLoadResult {
@@ -86,14 +89,14 @@ export interface FloorLoadResult {
   perBeam: Map<number, number>;
   loadedArea: number;
   totalKN: number;
-  skipped: { trusses: number; notHorizontal: number; otherLevel: number; open: number; crossings: number; nonConvex: number };
+  skipped: { trusses: number; notHorizontal: number; otherLevel: number; open: number; crossings: number; nonConvex: number; islands: number };
 }
 
 const EPS = 1e-9;
 
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const tol = input.tol ?? 1e-3;
-  const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, nonConvex: 0 };
+  const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, nonConvex: 0, islands: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
   const pos = (id: number) => input.nodes.get(id);
 
@@ -172,6 +175,22 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     }));
   }
 
+  // The pieces of the beam graph, and one node of each: a piece lying inside another's panel is
+  // an island in it (see the header).
+  const component = new Map<number, number>();
+  const representative: Array<[number, number]> = [];
+  for (const u of adj.keys()) {
+    if (component.has(u)) continue;
+    const c = representative.length;
+    representative.push([c, u]);
+    component.set(u, c);
+    const stack = [u];
+    while (stack.length > 0) {
+      const x = stack.pop()!;
+      for (const y of adj.get(x)!.keys()) if (!component.has(y)) { component.set(y, c); stack.push(y); }
+    }
+  }
+
   // ── Faces: each directed edge once; the face on its left ──
   const used = new Set<string>();
   const faces: number[][] = [];
@@ -203,6 +222,10 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
     res.panels.push(panel);
     if (cycle.some((n) => invalid.has(n))) { panel.reason = 'crossing'; continue; }
+    const own = component.get(cycle[0]!);
+    if (representative.some(([c, n]) => c !== own && insidePolygon(xy(n), poly))) {
+      panel.reason = 'island'; skipped.islands++; continue;
+    }
     if (!isConvex(sides.map((s) => s.a))) { panel.reason = 'nonConvex'; skipped.nonConvex++; continue; }
     panel.loaded = true;
     res.loadedArea += area;
@@ -403,6 +426,16 @@ const along = (e: Side, p: P2) => (p[0] - e.a[0]) * e.u[0] + (p[1] - e.a[1]) * e
 const dist = (e: Side, p: P2) => (p[0] - e.a[0]) * e.n[0] + (p[1] - e.a[1]) * e.n[1];
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const round = (v: number) => Math.round(v * 1e6) / 1e6;
+
+/** Strictly inside a simple polygon, by the crossing count. */
+function insidePolygon(pt: P2, poly: P2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!, [xj, yj] = poly[j]!;
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
 
 function signedArea(p: P2[]): number {
   let a = 0;
