@@ -9,7 +9,7 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
-import { axialShares, giveBackAxialShares } from './axial-shares';
+import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 
 let wasmReady = false;
@@ -475,7 +475,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return giveBackAxialShares(stripStabilisedReactions(wasmSolve3d(wire), input), axialShares(input.loads));
+    return finishSolve3D(wasmSolve3d(wire), input);
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
@@ -622,15 +622,8 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
   const json = serializeInput3D(input);
   const result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
-  // Same as `solve3D`: a node that only gained a vanishing spring is not a
-  // support, and its zero reaction row is not a result.
-  if (result?.results) stripStabilisedReactions(result.results, input);
-  if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  // The axial part of member loads, given back to the members (`axial-shares.ts`).
-  const shares = axialShares(input.loads);
-  if (result?.results) giveBackAxialShares(result.results, shares);
-  if (result?.linearResults) giveBackAxialShares(result.linearResults, shares);
-  return result;
+  // Same as `solve3D` (`solve-finish.ts`).
+  return finishPDelta3D(result, input);
 }
 
 /** Solve 3D modal analysis via WASM. */

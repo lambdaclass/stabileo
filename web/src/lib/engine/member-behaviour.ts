@@ -29,6 +29,8 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { stripStabilisedReactions } from './stabilised-reactions';
+import { finishSolve3D } from './solve-finish';
+import { massDensities } from './dynamics/requests';
 
 /**
  * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
@@ -203,12 +205,14 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   const cables = new Set<number>();
   for (const e of model.elements.values()) if (input.elements.has(e.id) && (e as El).behaviour === 'cable') cables.add(e.id);
   if (cables.size && soilSprings.length) throw new Error('multilinear springs and cables cannot be solved together');
-  // Their own weight sets their sag and softens them, from the density in kg/m³. It is not a load
-  // to the engine: the self-weight already in the loads carries it.
+  // Their own weight sets their sag and softens them, from the density in kg/m³ (the one
+  // conversion the dynamic analyses use too). It is not a load to the engine: the self-weight
+  // already in the loads carries it.
+  const kgPerM3 = massDensities(model.materials as Map<number, { rho?: number }>);
   const densities: Record<string, number> = {};
   for (const id of cables) {
-    const m = model.materials.get(input.elements.get(id)!.materialId) as { rho?: number } | undefined;
-    if (m?.rho) densities[String(input.elements.get(id)!.materialId)] = (m.rho * 1000) / 9.80665;
+    const mid = input.elements.get(id)!.materialId;
+    if ((kgPerM3.get(mid) ?? 0) > 0) densities[String(mid)] = kgPerM3.get(mid)!;
   }
 
   // One-way members and cables as trusses, their transverse loads at their end nodes.
@@ -226,7 +230,8 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     const r = solveCable3D(typed, 50, 1e-8, densities);
     if (!r.converged) throw new Error('the cable analysis did not converge');
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
-    return r.results;
+    // Finished as a linear solve is: the other members keep the axial part of their loads.
+    return finishSolve3D(r.results, typed);
   };
 
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
@@ -255,7 +260,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     let results: AnalysisResults3D;
     if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
-      results = solveSSI3D({ solver: trial, soilSprings: live }).results as AnalysisResults3D;
+      results = finishSolve3D(solveSSI3D({ solver: trial, soilSprings: live }).results as AnalysisResults3D, trial);
     } else {
       results = linearSolve(trial);
     }
