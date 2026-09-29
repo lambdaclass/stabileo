@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PickKind from './PickKind.svelte';
   import ProAnalysisRules from './ProAnalysisRules.svelte';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
@@ -649,6 +650,8 @@
             <div class="target-sel">
               <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="nodes" /></div>
           {/if}
         </div>
       </div>
@@ -684,6 +687,8 @@
             <div class="target-sel">
               <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
           {/if}
         </div>
       </div>
@@ -703,6 +708,8 @@
             <div class="target-sel">
               <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
           {/if}
         </div>
       </div>

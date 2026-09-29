@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PickKind from './PickKind.svelte';
   /**
    * A floor load: an area load on a level, a floor group or the selected beams, carried to the
    * beams by tributary area (`engine/loads/floor-loads.ts`). The plan shows the panels found and
@@ -91,9 +92,12 @@
   <p class="fl-hint">{t('floorLoad.hint')}</p>
   <div class="fl-grid">
     <label for="fl-target">{t('floorLoad.target')}</label>
-    <select id="fl-target" bind:value={targetKey} data-testid="fl-target">
-      {#each targets as x (x.key)}<option value={x.key}>{x.label}</option>{/each}
-    </select>
+    <span class="fl-target">
+      <select id="fl-target" bind:value={targetKey} data-testid="fl-target">
+        {#each targets as x (x.key)}<option value={x.key}>{x.label}</option>{/each}
+      </select>
+      {#if targetKey === 'sel'}<PickKind kind="elements" />{/if}
+    </span>
     <label for="fl-q">{t('floorLoad.q')}</label>
     <span><input id="fl-q" type="number" min="0" step="0.5" bind:value={q} data-testid="fl-q" /> kN/m²</span>
     <label for="fl-case">{t('floorLoad.case')}</label>
@@ -144,6 +148,7 @@
 </div>
 
 <style>
+  .fl-target { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .fl { display: flex; flex-direction: column; gap: 6px; font-size: 0.68rem; color: var(--st-text-2); }
   .fl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   .fl-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }

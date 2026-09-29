@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PickKind from './PickKind.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
@@ -135,6 +136,8 @@
       <button class="pro-btn pro-btn-selection" onclick={addFromSelection}>
         {t('pro.addToSelection').replace('{n}', String(uiStore.selectedNodes.size))}
       </button>
+    {:else}
+      <PickKind kind="nodes" />
     {/if}
   </div>
 
