@@ -30,11 +30,11 @@ const steelEs: Record<string, string> = {
 
   // ─── Motivos ───
   'steel.reason.noDemands': 'Resolvé el modelo y definí combinaciones antes de mirar el acero.',
-  'steel.reason.noMetallicAuthority': 'No hay un reglamento de diseño de estructuras metálicas utilizable vinculado al proyecto.',
+  'steel.reason.noMetallicAuthority': 'No hay un código de diseño metálico utilizable ligado al proyecto.',
   // CIRSOC 301 excluye por nombre los conformados en frío (Cap. A): los rige CIRSOC 303-2009,
   // cuyo texto no está disponible. Es una razón permanente, distinta de «falta el código».
   'steel.reason.coldFormedOutOfScope': 'Sección conformada en frío: CIRSOC 301 la excluye y remite a CIRSOC 303, que no está disponible.',
-  'steel.reason.designNotRun': 'Hay un reglamento de estructuras metálicas declarado, pero no se corrió ningún diseño.',
+  'steel.reason.designNotRun': 'Hay un código metálico declarado, pero no se corrió ningún diseño.',
 
   // ─── Avisos ───
   'steel.notice.noAuthorityBound': 'Ningún código metálico puede producir resultados en esta versión. Los miembros de acero se listan, no se verifican.',
@@ -104,7 +104,7 @@ const steelEs: Record<string, string> = {
   'steel.capability.steelMemberSchedules': 'Planilla y cómputo metálico',
 
   // ─── Regulaciones ───
-  'regulations.problem.experimentalAdapter': '{name} está declarado como experimental: se registra como el reglamento del proyecto, pero la app no produce ningún resultado bajo él.',
+  'regulations.problem.experimentalAdapter': '{name} está declarado como experimental: se registra como el código del proyecto, pero la app no produce ningún resultado bajo él.',
 
   // ─── Generadores: roles ───
   'generator.role.chord': 'Cordón',
@@ -584,7 +584,7 @@ const steelEs: Record<string, string> = {
   'steel.e4.gap.shearCentre': 'Centro de corte: r̄o y H se construyen sobre él, y la app no puede ubicarlo para esta forma.',
   'steel.e4.notImplemented': 'Pandeo torsional no disponible. Gobierna en ángulos, tes y cruciformes — justamente las secciones cuyos ejes esta app ya advierte — así que la ausencia es una limitación, no un descarte.',
   // ─── §F.6.2, pandeo local del ala en flexión de eje menor ───
-  'steel.f62.outOfScope': 'F.6 cubre secciones doble te y perfiles U flexados alrededor del eje menor. Esta sección no es una de ellas.',
+  'steel.f62.outOfScope': 'F.6 cubre secciones doble te y canales flexadas alrededor del eje menor. Esta sección no es una de ellas.',
   'steel.f62.geometryUnavailable': 'Falta el ancho o el espesor del ala, así que ni la esbeltez λf se puede formar.',
   'steel.f62.classificationUnavailable': 'La geometría está: λf, Sy y Fcr se calculan. Lo que no se puede es elegir la rama, porque λpf y λrf son la Tabla B.4.1b caso 14, que es una imagen en el PDF fuente.',
   'steel.f62.branch.notApplicableCompact': 'ala compacta: el pandeo local no es aplicable (F.6.2(a))',

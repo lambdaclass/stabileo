@@ -819,12 +819,6 @@ const id: Translations = {
   'feedback.toastSecurityWait': 'Menunggu verifikasi keamanan...',
   'feedback.toastLinkCopied': 'Tautan disalin',
   'feedback.reportBug': 'Laporkan Bug / Saran',
-  'feedback.leaderboardTitle': 'Papan Peringkat Kontributor',
-  'feedback.leaderboardDesc': 'Pengguna yang melaporkan bug nyata atau mengirim saran yang diimplementasikan.',
-  'feedback.reportCount': '{n} laporan',
-  'feedback.reportCountPlural': '{n} laporan',
-  'feedback.leaderboardEmpty': 'Belum ada kontribusi yang tercatat. Jadilah yang pertama mengirim feedback dengan nama Anda!',
-  'feedback.leaderboardUpdated': 'Diperbarui: {date}',
   'feedback.communityTelegram': 'Komunitas Telegram',
   'feedback.buyCoffee': 'Traktir saya kopi',
 

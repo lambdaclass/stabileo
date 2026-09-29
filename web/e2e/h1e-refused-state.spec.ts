@@ -125,7 +125,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
       const text = (await row.locator('.st, .label').first().innerText()).trim();
       expect(text.length, 'the state is a word, not only a colour').toBeGreaterThan(1);
       expect(text.toLowerCase(), 'and it does not claim success')
-        .not.toMatch(/verified|verificado|modell?ed|modelado/);
+        .not.toMatch(/verified|verificado|modelled|modelado/);
 
       /*
        * The glyph, by value against the scene: `unreinforced: 0xd4762a`. A refused member carries

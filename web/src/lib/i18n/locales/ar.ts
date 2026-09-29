@@ -819,12 +819,6 @@ const ar: Translations = {
   'feedback.toastSecurityWait': 'في انتظار التحقق الأمني...',
   'feedback.toastLinkCopied': 'تم نسخ الرابط',
   'feedback.reportBug': 'إبلاغ عن خلل / اقتراح',
-  'feedback.leaderboardTitle': 'لوحة المتصدرين للمساهمين',
-  'feedback.leaderboardDesc': 'المستخدمون الذين أبلغوا عن أخطاء حقيقية أو أرسلوا اقتراحات تم تنفيذها.',
-  'feedback.reportCount': '{n} تقرير',
-  'feedback.reportCountPlural': '{n} تقارير',
-  'feedback.leaderboardEmpty': 'لا توجد مساهمات مسجلة بعد. كن أول من يرسل ملاحظات باسمك!',
-  'feedback.leaderboardUpdated': 'آخر تحديث: {date}',
   'feedback.communityTelegram': 'مجتمع تيليغرام',
   'feedback.buyCoffee': 'اشترِ لي قهوة',
 

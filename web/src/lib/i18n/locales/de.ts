@@ -847,12 +847,6 @@ const de: Translations = {
   'feedback.toastSecurityWait': 'Warte auf Sicherheitsüberprüfung...',
   'feedback.toastLinkCopied': 'Link kopiert',
   'feedback.reportBug': 'Fehler / Vorschlag melden',
-  'feedback.leaderboardTitle': 'Beitragende-Rangliste',
-  'feedback.leaderboardDesc': 'Benutzer, die echte Fehler gemeldet oder umgesetzte Vorschläge eingereicht haben.',
-  'feedback.reportCount': '{n} Bericht',
-  'feedback.reportCountPlural': '{n} Berichte',
-  'feedback.leaderboardEmpty': 'Noch keine Beiträge. Seien Sie der Erste, der Feedback mit Ihrem Namen sendet!',
-  'feedback.leaderboardUpdated': 'Aktualisiert: {date}',
   'feedback.communityTelegram': 'Telegram-Community',
   'feedback.buyCoffee': 'Kaffee spendieren',
 

@@ -813,12 +813,6 @@ const ru: Translations = {
   'feedback.toastSecurityWait': 'Ожидание проверки безопасности...',
   'feedback.toastLinkCopied': 'Ссылка скопирована',
   'feedback.reportBug': 'Сообщить об ошибке / Предложение',
-  'feedback.leaderboardTitle': 'Таблица лидеров',
-  'feedback.leaderboardDesc': 'Пользователи, сообщившие о реальных ошибках или отправившие предложения, которые были реализованы.',
-  'feedback.reportCount': '{n} отчёт',
-  'feedback.reportCountPlural': '{n} отчётов',
-  'feedback.leaderboardEmpty': 'Пока нет зарегистрированных вкладов. Будьте первым, кто отправит обратную связь с указанием имени!',
-  'feedback.leaderboardUpdated': 'Обновлено: {date}',
   'feedback.communityTelegram': 'Сообщество Telegram',
   'feedback.buyCoffee': 'Угостите меня кофе',
 

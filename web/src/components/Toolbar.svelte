@@ -2,7 +2,7 @@
   import { uiStore, historyStore } from '../lib/store';
   import { loadFile } from '../lib/store/file';
   import { t } from '../lib/i18n';
-  import { type DrawPlane, PROJECTION_COLLAPSE_ERROR } from '../lib/geometry/plane-projection';
+  import { type DrawPlane } from '../lib/geometry/plane-projection';
   /*
    * The conversion itself lives in the store now, shared with the dialog the
    * ribbon opens. Two copies of "replace the model, remember the original,
@@ -38,11 +38,7 @@
 
   function selectPlane(plane: DrawPlane) {
     const outcome = projectOnto(plane);
-    if (!outcome.ok) {
-      // The builder's one failure is an English sentence at the source; show its translation.
-      uiStore.toast(outcome.error === PROJECTION_COLLAPSE_ERROR ? t('switch2d.allCollapse') : outcome.error, 'error');
-      return;
-    }
+    if (!outcome.ok) { uiStore.toast(outcome.error, 'error'); return; }
     show2DPlaneModal = false;
   }
 

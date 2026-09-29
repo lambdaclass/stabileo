@@ -813,12 +813,6 @@ const zh: Translations = {
   'feedback.toastSecurityWait': '正在等待安全验证...',
   'feedback.toastLinkCopied': '链接已复制',
   'feedback.reportBug': '报告 Bug / 建议',
-  'feedback.leaderboardTitle': '贡献者排行榜',
-  'feedback.leaderboardDesc': '报告了真实 Bug 或提交了已实现建议的用户。',
-  'feedback.reportCount': '{n} 个报告',
-  'feedback.reportCountPlural': '{n} 个报告',
-  'feedback.leaderboardEmpty': '尚无贡献记录。成为第一个提交反馈的人吧！',
-  'feedback.leaderboardUpdated': '更新时间：{date}',
   'feedback.communityTelegram': 'Telegram 社区',
   'feedback.buyCoffee': '请我喝杯咖啡',
 

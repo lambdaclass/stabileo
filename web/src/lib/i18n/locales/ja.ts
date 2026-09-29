@@ -819,12 +819,6 @@ const ja: Translations = {
   'feedback.toastSecurityWait': 'セキュリティ検証を待っています...',
   'feedback.toastLinkCopied': 'リンクをコピーしました',
   'feedback.reportBug': 'バグ / 提案を報告',
-  'feedback.leaderboardTitle': 'コントリビューターリーダーボード',
-  'feedback.leaderboardDesc': '実際のバグを報告した、または実装された提案を送信したユーザー。',
-  'feedback.reportCount': '{n} 件のレポート',
-  'feedback.reportCountPlural': '{n} 件のレポート',
-  'feedback.leaderboardEmpty': 'まだ貢献の記録はありません。名前付きで最初のフィードバックを送信しましょう！',
-  'feedback.leaderboardUpdated': '更新日：{date}',
   'feedback.communityTelegram': 'Telegramコミュニティ',
   'feedback.buyCoffee': 'コーヒーをおごってください',
 

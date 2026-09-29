@@ -819,12 +819,6 @@ const ko: Translations = {
   'feedback.toastSecurityWait': '보안 확인 대기 중...',
   'feedback.toastLinkCopied': '링크 복사됨',
   'feedback.reportBug': '버그 보고 / 제안',
-  'feedback.leaderboardTitle': '기여자 순위표',
-  'feedback.leaderboardDesc': '실제 버그를 보고하거나 구현된 제안을 보낸 사용자.',
-  'feedback.reportCount': '보고서 {n}건',
-  'feedback.reportCountPlural': '보고서 {n}건',
-  'feedback.leaderboardEmpty': '아직 등록된 기여가 없습니다. 이름과 함께 첫 번째 피드백을 보내세요!',
-  'feedback.leaderboardUpdated': '업데이트: {date}',
   'feedback.communityTelegram': '텔레그램 커뮤니티',
   'feedback.buyCoffee': '커피 한 잔 사주기',
 

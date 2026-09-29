@@ -2,7 +2,6 @@
   import { generateShareURL } from '../lib/utils/url-sharing';
   import { uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
-  import { LEADERBOARD, LAST_UPDATED } from '../lib/data/leaderboard';
 
   // Turnstile site keys: test key for localhost, real key for production
   const TURNSTILE_SITE_KEY = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
@@ -18,7 +17,6 @@
 
   let isOpen = $state(false);
   let showForm = $state(false);
-  let showLeaderboard = $state(false);
   let feedbackType = $state<'bug' | 'sugerencia' | 'otro'>('bug');
   let feedbackText = $state('');
   let feedbackName = $state('');
@@ -50,7 +48,6 @@
     isOpen = !isOpen;
     if (!isOpen) {
       showForm = false;
-      showLeaderboard = false;
       cleanupTurnstile();
     }
   }
@@ -72,15 +69,6 @@
     feedbackType = 'bug';
     submitResult = null;
     cleanupTurnstile();
-  }
-
-  function openLeaderboard() {
-    showLeaderboard = true;
-    showForm = false;
-  }
-
-  function closeLeaderboard() {
-    showLeaderboard = false;
   }
 
   function renderTurnstile() {
@@ -238,39 +226,11 @@
             </button>
           {/if}
         </div>
-      {:else if showLeaderboard}
-        <!-- Leaderboard view -->
-        <div class="feedback-form">
-          <div class="form-header">
-            <span class="form-title">{t('feedback.leaderboardTitle')}</span>
-            <button class="form-close" onclick={closeLeaderboard}>&times;</button>
-          </div>
-          <p class="lb-description">{t('feedback.leaderboardDesc')}</p>
-          {#if LEADERBOARD.filter(e => e.feedbacks > 0).length > 0}
-            <div class="leaderboard-list">
-              {#each LEADERBOARD.filter(e => e.feedbacks > 0) as entry}
-                <div class="leaderboard-entry">
-                  <span class="lb-badge">{entry.badge}</span>
-                  <span class="lb-name">{entry.name}</span>
-                  <span class="lb-count">{entry.feedbacks !== 1 ? t('feedback.reportCountPlural').replace('{n}', String(entry.feedbacks)) : t('feedback.reportCount').replace('{n}', String(entry.feedbacks))}</span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <p class="lb-empty">{t('feedback.leaderboardEmpty')}</p>
-          {/if}
-          <div class="lb-updated">{t('feedback.leaderboardUpdated').replace('{date}', LAST_UPDATED)}</div>
-        </div>
       {:else}
         <!-- Menu options -->
         <button class="menu-item" onclick={openBugForm}>
           <span class="menu-icon">&#128027;</span>
           <span>{t('feedback.reportBug')}</span>
-        </button>
-
-        <button class="menu-item" onclick={openLeaderboard}>
-          <span class="menu-icon">&#127942;</span>
-          <span>{t('feedback.leaderboardTitle')}</span>
         </button>
 
         {#if SHOW_TELEGRAM}
@@ -290,7 +250,7 @@
     </div>
   {/if}
 
-  <button class="fab" onclick={toggleOpen} title={t('feedback.fab')} aria-label={t('feedback.fab')}>
+  <button class="fab" onclick={toggleOpen} title="Feedback" aria-label="Feedback">
     {#if isOpen}
       <span class="fab-icon">&times;</span>
     {:else}
@@ -544,64 +504,6 @@
     color: #e94560;
     margin: 0;
     line-height: 1.35;
-  }
-
-  /* Leaderboard */
-  .leaderboard-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  .leaderboard-entry {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.5rem;
-    background: rgba(78, 205, 196, 0.06);
-    border-radius: 5px;
-    font-size: 0.82rem;
-  }
-
-  .lb-badge {
-    font-size: 1.1rem;
-    flex-shrink: 0;
-  }
-
-  .lb-name {
-    flex: 1;
-    color: #ddd;
-  }
-
-  .lb-count {
-    font-family: 'Courier New', monospace;
-    color: #4ecdc4;
-    font-size: 0.72rem;
-    white-space: nowrap;
-  }
-
-  .lb-description {
-    color: #888;
-    font-size: 0.72rem;
-    line-height: 1.45;
-    margin: 0;
-    padding: 0 0.1rem 0.2rem;
-  }
-
-  .lb-empty {
-    color: #666;
-    font-size: 0.78rem;
-    text-align: center;
-    padding: 0.5rem;
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  .lb-updated {
-    font-size: 0.65rem;
-    color: #555;
-    text-align: right;
-    padding-top: 0.3rem;
   }
 
   @media (max-width: 640px) {

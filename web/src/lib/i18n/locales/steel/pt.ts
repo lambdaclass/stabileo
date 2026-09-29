@@ -384,7 +384,7 @@ const steelPt: Record<string, string> = {
 
   // ─── Perfis conformados a frio (M2) ───
   'steel.coldFormed.title': 'Perfis conformados a frio (C/Z)',
-  'steel.coldFormed.scope.parametricGeometryAvailable': 'A geometria paramétrica está disponível: uma seção se especifica com altura, mesa, enrijecedor e espessura, e daí saem suas propriedades e seu contorno.',
+  'steel.coldFormed.scope.parametricGeometryAvailable': 'A geometria paramétrica está disponível: uma seção se especifica com altura, mesa, aba e espessura, e daí saem suas propriedades e seu contorno.',
   'steel.coldFormed.scope.tabulatedCatalogueUnavailable': 'Não há catálogo tabelado: o app não traz a lista de medidas comerciais, porque é um dado de siderúrgica e não de norma.',
   'steel.coldFormed.scope.cirsoc301Excludes': 'A CIRSOC 301 exclui estas seções pelo nome e remete à CIRSOC 303.',
   'steel.coldFormed.scope.cirsoc303NotIncorporated': 'A CIRSOC 303 não está incorporada ao app.',
@@ -563,7 +563,7 @@ const steelPt: Record<string, string> = {
   'steel.cb.basis.unityNoDiagram': 'Cb = 1 — sem diagrama de momentos para ler',
   'steel.cb.basis.unityOutOfScope': 'Cb = 1 — F.1.1 não cobre este caso',
   'steel.cb.reason.computed': 'Cb = 12,5·Mmáx / (2,5·Mmáx + 3·MA + 4·MB + 3·MC), com os momentos a ¼, ½ e ¾ do segmento sem travamento.',
-  'steel.cb.reason.cantilever': 'F.1.1: para barras em balanço cujo extremo livre não esteja travado, deve-se adotar Cb = 1 em todos os casos.',
+  'steel.cb.reason.cantilever': 'F.1.1: «Para miembros en voladizo, cuando el extremo libre no esté arriostrado, se deberá tomar Cb = 1 para todos los casos».',
   'steel.cb.reason.noDiagram': 'Não há estações suficientes para ler o diagrama. A norma permite adotar Cb = 1 conservadoramente.',
   'steel.cb.reason.zeroMoment': 'O segmento não tem momento em nenhuma estação, então F.1.1 é indeterminada. Cb = 1.',
   'steel.cb.reason.singlySymmetricDoubleCurvature': 'Seção de simples simetria em curvatura dupla: a F.1(4) exige verificar a flambagem lateral com torção para AMBAS as mesas, e o app calcula um único Mn. A F.1.1 não se aplica.',

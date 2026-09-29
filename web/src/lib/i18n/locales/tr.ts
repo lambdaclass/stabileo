@@ -842,12 +842,6 @@ const tr: Translations = {
   'feedback.toastSecurityWait': 'Güvenlik doğrulaması bekleniyor...',
   'feedback.toastLinkCopied': 'Bağlantı kopyalandı',
   'feedback.reportBug': 'Hata Bildir / Öneri',
-  'feedback.leaderboardTitle': 'Katkıda Bulunanlar Sıralaması',
-  'feedback.leaderboardDesc': 'Gerçek hata bildiren veya uygulanan öneriler gönderen kullanıcılar.',
-  'feedback.reportCount': '{n} rapor',
-  'feedback.reportCountPlural': '{n} rapor',
-  'feedback.leaderboardEmpty': 'Henüz katkı yok. Adınızla geri bildirim gönderen ilk kişi olun!',
-  'feedback.leaderboardUpdated': 'Güncelleme: {date}',
   'feedback.communityTelegram': 'Telegram Topluluğu',
   'feedback.buyCoffee': 'Bana bir kahve ısmarla',
 
