@@ -167,6 +167,12 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       ...(built.j !== null ? { j: built.j } : {}),
       b: built.b,
       h: built.h,
+      // The profile's own thicknesses, or none: a previous make-up's (a drawn welded I, say) would
+      // otherwise stay, and a section whose dimensions differ from its profile's is not that
+      // profile (`canonical.ts`).
+      tw: single && resolved.profile.tw != null ? resolved.profile.tw / 1000 : undefined,
+      tf: single && resolved.profile.tf != null ? resolved.profile.tf / 1000 : undefined,
+      t: undefined,
       /*
        * `shape` for a single profile only, and this is not stylistic.
        *

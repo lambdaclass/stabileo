@@ -39,3 +39,28 @@ describe('sections CSV', () => {
     expect(r.disagreements[0]!.gap).toBeCloseTo(0.002 / 0.0099 - 1, 6);
   });
 });
+
+(hasCanonicalGeometryExport() ? describe : describe.skip)('a row named like a catalogue profile', () => {
+  it('is its own dimensions, not the catalogue profile of that name', () => {
+    // An I 400 mm deep named "IPE 300": the name used to look up the IPE 300 and store h = 0.4 m
+    // beside the IPE 300's area.
+    const r = importSectionsCsv('name,shape,h,b,tw,tf\nIPE 300,I,400,200,10,15\n');
+    expect(r.refused).toEqual([]);
+    const s = r.sections[0]!;
+    expect(s.h).toBeCloseTo(0.4, 12);
+    // Sharp-cornered plates: 2 × 200 × 15 + 370 × 10 mm².
+    expect(s.a).toBeCloseTo(2 * 0.2 * 0.015 + 0.37 * 0.01, 9);
+  });
+
+  it('with the catalogue\'s own dimensions it still takes the profile', () => {
+    const r = importSectionsCsv('name,shape,h,b,tw,tf\nIPE 300,I,300,150,7.1,10.7\n');
+    // The rolled IPE 300 is 53.8 cm², fillets included.
+    expect(r.sections[0]!.a).toBeCloseTo(53.8e-4, 5);
+  });
+
+  it('a row that draws no section is refused by line, and the rest are imported', () => {
+    const r = importSectionsCsv('name,shape,h,b,tw,tf\nBad,I,100,100,5,60\nGood,I,300,150,7,10\n');
+    expect(r.refused).toEqual([{ line: 2, kind: 'badGeometry' }]);
+    expect(r.sections.map((s) => s.name)).toEqual(['Good']);
+  });
+});

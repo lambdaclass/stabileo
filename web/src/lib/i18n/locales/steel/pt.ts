@@ -668,6 +668,7 @@ const steelPt: Record<string, string> = {
   'csvSections.refused.unknownShape': 'Linha {line}: a forma "{value}" não é uma das aceitas.',
   'csvSections.refused.missing': 'Linha {line}: faltam medidas para o contorno ({fields}).',
   'csvSections.refused.notANumber': 'Linha {line}: {field} = "{value}" não é um número.',
+  'csvSections.refused.badGeometry': "Linha {line}: as medidas não formam uma seção (por exemplo, uma mesa mais grossa que meia altura).",
   'drawn.buildMode': 'Forma de construir',
   'drawn.modeTemplate': 'Modelo',
   'drawn.modeDraw': 'Desenhar',

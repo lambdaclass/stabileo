@@ -656,6 +656,7 @@ const steelEn: Record<string, string> = {
   'csvSections.refused.unknownShape': 'Line {line}: the shape "{value}" is not one of the accepted ones.',
   'csvSections.refused.missing': 'Line {line}: dimensions for the outline are missing ({fields}).',
   'csvSections.refused.notANumber': 'Line {line}: {field} = "{value}" is not a number.',
+  'csvSections.refused.badGeometry': "Line {line}: the dimensions draw no section (a flange thicker than half the depth, for instance).",
   'drawn.buildMode': 'Way of building',
   'drawn.modeTemplate': 'Template',
   'drawn.modeDraw': 'Draw',

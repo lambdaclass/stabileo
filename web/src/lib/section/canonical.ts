@@ -120,7 +120,17 @@ function rolledReason(family: string): PropertiesOnlyReason {
 function catalogueProfile(sec: Section): SteelProfile | undefined {
   if (!sec.name) return undefined;
   const target = sec.name.trim().toUpperCase();
-  return ALL_PROFILES.find((p) => p.name.trim().toUpperCase() === target);
+  const p = ALL_PROFILES.find((q) => q.name.trim().toUpperCase() === target);
+  // A section that carries dimensions of its own, other than the profile's, is not that profile:
+  // a CSV row named "IPE 300" with h = 400 mm solved as the IPE 300 while storing h = 0.4 m.
+  // The name looks up dimensions only when the section has none, or the same ones.
+  return p && ownDimensionsDiffer(sec, p) ? undefined : p;
+}
+
+function ownDimensionsDiffer(sec: Section, p: SteelProfile): boolean {
+  const s = sec as { h?: number; b?: number; tw?: number; tf?: number };
+  const off = (own: number | undefined, mm: number | undefined, tol: number) => own != null && mm != null && Math.abs(own * 1000 - mm) > tol;
+  return off(s.h, p.h, 0.5) || off(s.b, p.b, 0.5) || off(s.tw, p.tw, 0.05) || off(s.tf, p.tf, 0.05);
 }
 
 const propertiesOnly = (

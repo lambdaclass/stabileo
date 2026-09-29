@@ -670,6 +670,7 @@ const steelEs: Record<string, string> = {
   'csvSections.refused.unknownShape': 'Línea {line}: la forma "{value}" no es una de las admitidas.',
   'csvSections.refused.missing': 'Línea {line}: faltan medidas para el contorno ({fields}).',
   'csvSections.refused.notANumber': 'Línea {line}: {field} = "{value}" no es un número.',
+  'csvSections.refused.badGeometry': "Línea {line}: las medidas no forman una sección (por ejemplo, un ala más gruesa que media altura).",
   'drawn.buildMode': 'Forma de construir',
   'drawn.modeTemplate': 'Plantilla',
   'drawn.modeDraw': 'Dibujar',

@@ -22,8 +22,8 @@
 
 {#if names.length}
   <div class="dc" role="status" data-testid="design-incomplete">
-    <strong>{t('design.incomplete.title')}</strong>
-    <span>{t('design.incomplete.body').replace('{names}', names.join(', '))}</span>
+    <strong>{t('pro.designIncomplete.title')}</strong>
+    <span>{t('pro.designIncomplete.body').replace('{names}', names.join(', '))}</span>
   </div>
 {/if}
 
