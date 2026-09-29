@@ -54,16 +54,19 @@ export function specificationRows(m: StructureModel, t: T): SpecRow[] {
     if (s.isInclined) add('support', t('spec.list.inclined'), '', s.id);
     const springs = (['kx', 'ky', 'kz', 'krx', 'kry', 'krz'] as const).filter((k) => (s[k] ?? 0) > 0);
     if (springs.length) add('support', t('spec.list.springs'), springs.join(' · '), s.id);
+    const curves = (s as { curves?: Record<string, unknown> }).curves;
+    if (curves) add('support', t('spec.list.curves'), Object.keys(curves).filter((k) => curves[k]).join(' · '), s.id);
   }
 
-  const shells: Array<[string, { id: number; curved?: boolean; offset?: unknown }]> = [
+  const shells: Array<[string, { id: number; curved?: boolean; offset?: { frame: 'global' | 'local'; x: number; y: number; z: number } }]> = [
     ...[...m.quads.values()].map((q) => ['q', q] as [string, typeof q]),
     ...[...m.plates.values()].map((p) => ['p', p] as [string, typeof p]),
   ];
   for (const [k, sh] of shells) {
     const key = `${k}${sh.id}`;
     if ((sh as { curved?: boolean }).curved) add('shell', t('pro.shellCurvature'), t('pro.curvedShell'), sh.id, key);
-    if ((sh as { offset?: unknown }).offset) add('shell', t('pro.shellOffset'), '', sh.id, key);
+    const off = sh.offset;
+    if (off) add('shell', t('pro.shellOffset'), `${off.frame === 'local' ? 'x, y, n' : 'X, Y, Z'} = ${[off.x, off.y, off.z].map((v) => +v.toFixed(4)).join(', ')} m`, sh.id, key);
   }
   return [...rows.values()];
 }

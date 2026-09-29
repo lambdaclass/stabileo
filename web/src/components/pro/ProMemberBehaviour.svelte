@@ -11,6 +11,9 @@
   import { JOINT3D_DOF_LABELS } from '../../lib/store/model.svelte';
   import { CIRSOC201_STIFFNESS, presetModifiers, type StiffnessPreset, type StiffnessModifiers } from '../../lib/engine/member-behaviour';
 
+  /** Which part: the stiffness factors, or the ends (global joints and semi-rigid ends). */
+  let { part }: { part: 'stiffness' | 'ends' } = $props();
+
   const ids = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
   const first = $derived(ids.length ? modelStore.elements.get(ids[0]!) : undefined);
   const same = <T,>(f: (id: number) => T) => { const v = ids.map(f); return v.every((x) => JSON.stringify(x) === JSON.stringify(v[0])) ? v[0] : undefined; };
@@ -61,14 +64,24 @@
     });
   }
 
+  /*
+   * One factor, on every selected member, each keeping its other three. It used to write the
+   * first member's four factors onto the whole selection, so a mixed selection lost its own.
+   */
   function setCustom(k: keyof typeof custom, v: number) {
     if (!(v > 0)) return;
     custom = { ...custom, [k]: v };
-    setStiffness({ ...custom });
+    modelStore.batch(() => {
+      for (const id of ids) {
+        const s = modelStore.elements.get(id)?.stiffness;
+        const own = s && !s.preset ? { a: s.a ?? 1, iy: s.iy ?? 1, iz: s.iz ?? 1, j: s.j ?? 1 } : { a: 1, iy: 1, iz: 1, j: 1 };
+        modelStore.updateElement(id, { stiffness: { ...own, [k]: v } });
+      }
+    });
   }
 </script>
 
-{#if ids.length > 0}
+{#if ids.length > 0 && part === 'stiffness'}
   <div class="mb" data-testid="member-behaviour">
     <label class="mb-row">{t('behaviour.stiffness')}
       <select value={presetNow} onchange={(e) => setPreset(e.currentTarget.value)} data-testid="mb-stiffness">
@@ -87,6 +100,9 @@
       </div>
     {/if}
     {#if presetNow !== 'none' && presetNow !== 'mixed'}<p class="mb-hint">{t('behaviour.stiffnessHint')}</p>{/if}
+  </div>
+{:else if ids.length > 0 && part === 'ends'}
+  <div class="mb" data-testid="member-ends">
     <div class="mb-joints">
       <span>{t('behaviour.releases')}</span>
       {#each ['i', 'j'] as const as end (end)}
@@ -121,8 +137,7 @@
 {/if}
 
 <style>
-  .mb { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--st-hair); font-size: 0.68rem; color: var(--st-text-2); }
-  .mb-title { font-weight: 600; color: var(--st-text); font-size: 0.7rem; }
+  .mb { display: flex; flex-direction: column; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); }
   .mb-row { display: flex; gap: 8px; align-items: center; }
   .mb-wrap { flex-wrap: wrap; }
   .mb-row input { width: 56px; }

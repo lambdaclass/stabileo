@@ -66,6 +66,22 @@
   function typeLabel(type: string): string {
     return supportTypes.find(st => st.value === type)?.label ?? type;
   }
+
+  /** What a support adds to its type: it lifts off, it has springs or curves, it is inclined. */
+  function supportTags(s: { uplift?: boolean; isInclined?: boolean; curves?: unknown; kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }): string[] {
+    const tags: string[] = [];
+    if (s.uplift) tags.push(t('support.uplift'));
+    if (s.curves) tags.push(t('spec.list.curves'));
+    else if (['kx', 'ky', 'kz', 'krx', 'kry', 'krz'].some((k) => ((s as Record<string, number | undefined>)[k] ?? 0) > 0)) tags.push(t('spec.list.springs'));
+    if (s.isInclined) tags.push(t('spec.list.inclined'));
+    return tags;
+  }
+  function openSpec(id: number) {
+    uiStore.specSection = 'supports';
+    uiStore.proActiveTab = 'specifications';
+    uiStore.clearSelection();
+    uiStore.selectSupport(id, true);
+  }
 </script>
 
 <div class="pro-sup">
@@ -129,7 +145,7 @@
           <th>ID</th>
           <th>{t('pro.thNode')}</th>
           <th>{t('pro.thType')}</th>
-          <th title={t('support.upliftHint')}>{t('support.uplift')}</th>
+          <th></th>
           <th></th>
         </tr>
       </thead>
@@ -138,32 +154,23 @@
           <tr class:selected={uiStore.selectedSupports.has(s.id)} onclick={() => { uiStore.selectMode = 'supports'; uiStore.selectSupport(s.id, false); }}>
             <td class="col-id">{s.id}</td>
             <td class="col-num">{s.nodeId}</td>
-            <td>
-              <select class="pro-select-inline" value={s.type} onchange={(e) => modelStore.updateSupport(s.id, { type: e.currentTarget.value })}>
-                {#each supportTypes as st}
-                  <option value={st.value}>{st.label}</option>
-                {/each}
-              </select>
-            </td>
-            <td><input type="checkbox" checked={!!s.uplift} title={t('support.upliftHint')}
-                       onclick={(e) => e.stopPropagation()}
-                       onchange={(e) => modelStore.updateSupport(s.id, { uplift: e.currentTarget.checked })}
-                       data-testid="sup-uplift-{s.id}" /></td>
+            <!-- What the support is, read here; edited in its one place, Specifications › Supports. -->
+            <td class="sup-kind">{supportTypes.find((st) => st.value === s.type)?.label ?? s.type}{#each supportTags(s) as tag (tag)}<span class="sup-tag">{tag}</span>{/each}</td>
+            <td><button class="pro-edit-btn" title={t('spec.supports.open')} aria-label={t('spec.supports.open')}
+                  onclick={(e) => { e.stopPropagation(); openSpec(s.id); }} data-testid="sup-spec-{s.id}">✎</button></td>
             <td><button class="pro-delete-btn" onclick={() => removeSupport(s.id)}>×</button></td>
           </tr>
         {/each}
       </tbody>
     </table>
   </div>
-  <!-- Restraints, springs, curves, the inclined normal and the foundation springs are edited in
-       Specifications › Supports, over the selected supports. -->
-  <button class="pro-sup-spec" onclick={() => { uiStore.specSection = 'supports'; uiStore.proActiveTab = 'specifications'; }} data-testid="sup-open-spec">
-    {t('spec.supports.open')}
-  </button>
 </div>
 
 <style>
-  .pro-sup-spec { margin: 6px 10px; align-self: flex-start; font-size: 0.66rem; }
+  .sup-kind { white-space: nowrap; }
+  .sup-tag { margin-left: 4px; padding: 0 4px; border: 1px solid var(--st-hair); border-radius: 3px; font-size: 0.58rem; color: var(--st-text-3); }
+  .pro-edit-btn { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.72rem; }
+  .pro-edit-btn:hover { color: var(--st-accent); }
 
 
   .pro-sup { display: flex; flex-direction: column; height: 100%; }

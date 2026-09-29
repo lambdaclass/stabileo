@@ -192,6 +192,13 @@
       A dropdown offering only one or the other would silently drop that
       combination the first time such a model was opened and saved.
     -->
+    {#if uiStore.analysisMode === 'pro'}
+      <!-- In PRO a member's ends have one editor, Specifications › Members; this opens it. -->
+      <button class="ee-btn ee-spec" data-testid="element-editor-ends"
+        onclick={() => { const id = elemId!; close(); uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; uiStore.setSelection(new Set(), new Set([id])); }}>
+        {t('pro.endOpenSpec')}
+      </button>
+    {:else}
     <div class="rel">
       <div class="rel-title">{t('editor.releases')}</div>
 
@@ -257,6 +264,7 @@
         </div>
       </div>
     {/if}
+    {/if}
 
     <div class="info">
       {t('editor.nodesLabel')}: {elem.nodeI} → {elem.nodeJ}
@@ -271,6 +279,7 @@
 {/if}
 
 <style>
+  .ee-spec { align-self: flex-start; margin: 4px 0; }
   .field {
     display: flex;
     align-items: center;

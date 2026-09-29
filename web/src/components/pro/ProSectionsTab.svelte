@@ -29,15 +29,21 @@
     return base;
   }
 
-  /** Every section whose shape gives shear areas deforms in shear, or none does. One undo step. */
+  /**
+   * Every section whose shape gives shear areas deforms in shear, or none of those does. One undo
+   * step. Off removes only the areas taken from geometry: areas someone typed are data, and
+   * leaving a whole model out of shear is the analysis switch's job (Specifications › Analysis),
+   * which deletes nothing.
+   */
   function shearForAll(on: boolean) {
     modelStore.batch(() => {
       for (const s of modelStore.sections.values()) {
         if (on && !s.shearAreas && geometricShearAreas(s)) modelStore.updateSection(s.id, { shearAreas: { basis: 'geometry' } });
-        if (!on && s.shearAreas) modelStore.updateSection(s.id, { shearAreas: undefined });
+        if (!on && s.shearAreas?.basis === 'geometry') modelStore.updateSection(s.id, { shearAreas: undefined });
       }
     });
   }
+  const shearOffForModel = $derived(modelStore.analysis?.shearDeformation === 'none');
 
   /** Which section's detail is open. One at a time: it is a lot of numbers. */
   let expandedId = $state<number | null>(null);
@@ -226,6 +232,9 @@
         <button type="button" onclick={() => shearForAll(false)} data-testid="sec-shear-all-off">{t('shear.allOff')}</button>
       </span>
     </div>
+    {#if shearOffForModel}
+      <p class="sec-note" data-testid="sec-shear-overridden">{t('shear.overridden')}</p>
+    {/if}
     <div class="sec-table-wrap">
       <!--
         ── The same shape as Basic's list ───────────────────────────
@@ -313,6 +322,7 @@
 />
 
 <style>
+  .sec-note { margin: 2px 10px; font-size: 0.62rem; color: var(--st-warn); }
   .csv-import { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 0.66rem; color: var(--st-text-2); cursor: pointer; }
   .csv-import input { width: 9rem; font-size: 0.62rem; }
   .csv-report { padding: 4px 8px; font-size: 0.64rem; color: var(--st-text-2); }

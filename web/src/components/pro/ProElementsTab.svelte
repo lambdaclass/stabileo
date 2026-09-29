@@ -94,6 +94,27 @@
   }
   let drawNodeI = $state<number | null>(null);
 
+  /*
+   * What a member end is, read from every field that can release it: fixed, pinned (both
+   * bending moments released), semi-rigid, or partly released (anything else). The table shows
+   * it; the ends are edited in one place, Specifications › Members.
+   */
+  function endKind(id: number, end: 'i' | 'j'): 'fixed' | 'pinned' | 'semi' | 'partial' {
+    const e = modelStore.elements.get(id);
+    if (!e) return 'fixed';
+    if (e.semiRigid?.[end]) return 'semi';
+    const r = end === 'i' ? e.releaseI : e.releaseJ;
+    const joint = (end === 'i' ? e.jointI : e.jointJ)?.dof?.some(Boolean);
+    if (!r?.my && !r?.mz && !r?.t && !joint) return 'fixed';
+    if (r?.my && r?.mz && !r?.t && !joint) return 'pinned';
+    return 'partial';
+  }
+  function openEnds(id: number) {
+    uiStore.specSection = 'members';
+    uiStore.proActiveTab = 'specifications';
+    uiStore.setSelection(new Set(), new Set([id]));
+  }
+
   // Sync rows from store on mount. Preserve unsaved rows (id === null).
   $effect(() => {
     const storeElems = [...modelStore.elements.values()];
@@ -419,18 +440,21 @@
                 {/each}
               </select>
             </td>
-            <td class="col-hinge">
-              <button class="hinge-btn" class:hinged={row.hingeI} onclick={() => {
-                row.hingeI = !row.hingeI;
-                if (row.id !== null) commitRow(idx);
-              }}>{row.hingeI ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
-            </td>
-            <td class="col-hinge">
-              <button class="hinge-btn" class:hinged={row.hingeJ} onclick={() => {
-                row.hingeJ = !row.hingeJ;
-                if (row.id !== null) commitRow(idx);
-              }}>{row.hingeJ ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
-            </td>
+            {#each ['i', 'j'] as const as end (end)}
+              <td class="col-hinge">
+                {#if row.id === null}
+                  <!-- A member not made yet: its ends are set here, pinned or fixed. -->
+                  <button class="hinge-btn" class:hinged={end === 'i' ? row.hingeI : row.hingeJ} onclick={() => {
+                    if (end === 'i') row.hingeI = !row.hingeI; else row.hingeJ = !row.hingeJ;
+                  }}>{(end === 'i' ? row.hingeI : row.hingeJ) ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
+                {:else}
+                  <!-- The end as it is, and the way to its one editor: Specifications › Members. -->
+                  {@const k = endKind(row.id, end)}
+                  <button class="hinge-btn" class:hinged={k !== 'fixed'} title={t('pro.endOpenSpec')}
+                    onclick={() => openEnds(row.id!)} data-testid="elem-end-{end}-{row.id}">{t(`pro.end.${k}`)}</button>
+                {/if}
+              </td>
+            {/each}
             <td class="col-actions">
               <button class="pro-delete-btn" onclick={() => deleteRow(idx)}>×</button>
             </td>

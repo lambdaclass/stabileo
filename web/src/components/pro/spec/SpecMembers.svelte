@@ -88,7 +88,8 @@
     </section>
 
     <section>
-      <h5>{t('spec.members.releases')}</h5>
+      <h5>{t('spec.members.ends')}</h5>
+      <h6>{t('spec.members.releases')}</h6>
       <div class="sm-grid">
         <span></span>{#each DOFS as k (k)}<span class="sm-h">{k === 't' ? 'T' : k === 'my' ? 'My' : 'Mz'}</span>{/each}
         {#each ['i', 'j'] as const as end (end)}
@@ -102,6 +103,7 @@
         {/each}
       </div>
       <p class="sm-hint">{t('spec.members.releasesHint')}</p>
+      <ProMemberBehaviour part="ends" />
     </section>
 
     <section>
@@ -116,6 +118,11 @@
     </section>
 
     <section>
+      <h5>{t('behaviour.stiffness')}</h5>
+      <ProMemberBehaviour part="stiffness" />
+    </section>
+
+    <section>
       <h5>{t('spec.members.offsets')}</h5>
       <MemberOffsetEditor />
     </section>
@@ -125,7 +132,6 @@
       <ProSteelLbEditor steelIds={allIds} />
     </section>
 
-    <ProMemberBehaviour />
   </div>
 {/if}
 
@@ -135,6 +141,7 @@
   .sm-title { font-weight: 600; color: var(--st-text); font-size: 0.72rem; }
   section { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--st-hair); padding-top: 6px; }
   h5 { margin: 0; font-size: 0.66rem; font-weight: 600; color: var(--st-text); }
+  h6 { margin: 2px 0 0; font-size: 0.62rem; font-weight: 600; color: var(--st-text-2); }
   .sm-grid { display: grid; grid-template-columns: 16px repeat(3, 32px); gap: 2px 6px; align-items: center; }
   .sm-h { font-family: var(--st-mono); font-size: 0.62rem; color: var(--st-text-3); }
   .sm-row { display: flex; gap: 6px; align-items: center; }
