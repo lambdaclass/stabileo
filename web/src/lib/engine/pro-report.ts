@@ -114,6 +114,12 @@ export interface ReportData {
     ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
+  /** The Design panel's verification, member by member (`reportDesignChecks`). */
+  designChecks?: Array<{
+    elementId: number; elementType: string; section: string;
+    status: 'ok' | 'warn' | 'fail' | 'none'; worstUtilization: number; checks: number;
+    governing?: string; demand?: number; capacity?: number; unit?: string; comboName?: string;
+  }>;
   /** What the story drift was checked against: C_d, the group, Tabla 6.4's limit, the cases. */
   storyDriftBasis?: { cd: number; group: string; limit: number; cases: string[] };
   // Load combination definitions (for reference table + governing combo column)
@@ -489,6 +495,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('modelData')) tocEntries.push({ label: tr('report.modelData'), anchor: 'sec-model-data' });
   if (showSection('results')) tocEntries.push({ label: tr('report.results'), anchor: 'sec-results' });
   if (showSection('verification') && verifications.length > 0) tocEntries.push({ label: tr('report.verification'), anchor: 'sec-verification' });
+  if (showSection('verification') && verifications.length === 0) tocEntries.push({ label: tr('report.design.title'), anchor: 'sec-design' });
   if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: '4. ' + (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
@@ -1424,6 +1431,26 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
     html.push(`</tbody></table>`);
+  }
+
+  // ─── The Design panel's verification ──────────────────
+  if (showSection('verification') && verifications.length === 0) {
+    const checks = data.designChecks ?? [];
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-design">${escHtml(tr('report.design.title'))}</h1>`);
+    if (checks.length === 0) {
+      html.push(`<p>${escHtml(tr('report.design.none'))}</p>`);
+    } else {
+      html.push(`<p>${escHtml(tr('report.design.basis'))}</p>`);
+      html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.sectionLabel') || 'Section')}</th><th>${escHtml(tr('report.design.governing'))}</th><th>${escHtml(tr('report.design.demand'))}</th><th>${escHtml(tr('report.design.capacity'))}</th><th>u</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+      for (const c of checks) {
+        const cls = c.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : c.status === 'warn' ? ' style="color:#f0a500"' : '';
+        const st = c.status === 'ok' ? '✓ OK' : c.status === 'fail' ? `✗ ${tr('report.fail')}` : c.status === 'warn' ? `⚠ ${tr('report.attention')}` : '—';
+        const num = (v: number | undefined) => (v === undefined ? '—' : fmtNum(v));
+        html.push(`<tr${cls}><td>${c.elementId}</td><td>${escHtml(c.elementType)}</td><td>${escHtml(c.section)}</td><td>${escHtml(c.governing ?? '—')}${c.comboName ? ` <span class="muted">(${escHtml(c.comboName)})</span>` : ''}</td><td class="num">${num(c.demand)} ${escHtml(c.unit ?? '')}</td><td class="num">${num(c.capacity)} ${escHtml(c.unit ?? '')}</td><td class="num">${Number.isFinite(c.worstUtilization) ? c.worstUtilization.toFixed(3) : '∞'}</td><td>${st}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
   }
 
   // ─── Diagnostics ──────────────────────────────────────

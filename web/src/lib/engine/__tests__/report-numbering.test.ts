@@ -50,3 +50,18 @@ describe('report numbering', () => {
     expect(html).toContain('1.25 Dead + Live');
   });
 });
+
+describe('the design section', () => {
+  it('prints the Design panel\'s checks, and says so when there are none', () => {
+    const none = generateReportHtml({ ...data, config: { ...config, sections: { ...config.sections, verification: true } } });
+    expect(none).toContain(en['report.design.none']);
+    const html = generateReportHtml({
+      ...data, config: { ...config, sections: { ...config.sections, verification: true } },
+      designChecks: [{ elementId: 7, elementType: 'beam', section: 'V 20×50', status: 'ok', worstUtilization: 0.84, checks: 6, governing: 'Bottom Span (My+)', demand: 80.2, capacity: 95.5, unit: 'kN·m', comboName: 'U2' }],
+    } as never);
+    expect(html).toContain('V 20×50');
+    expect(html).toContain('0.840');
+    expect(html).toContain('Bottom Span (My+)');
+    expect(html).not.toContain(en['report.design.none']);
+  });
+});

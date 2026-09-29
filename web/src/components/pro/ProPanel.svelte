@@ -51,8 +51,7 @@
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
-  import { exportReportAs, reportVerification } from '../../lib/pro/report-export';
-  import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { exportReportAs } from '../../lib/pro/report-export';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProReportDialog from './ProReportDialog.svelte';
@@ -94,11 +93,6 @@
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
   const activeTab = $derived(uiStore.proActiveTab as ProTab);
-  /** Verification results — derived from verificationStore (single source of truth).
-   *  No longer a local $state — reads directly from the store. */
-  const verificationsRef = $derived(verificationStore.concrete);
-  /** The verification the report prints, taken when its dialog opens; the store is left alone. */
-  let reportVerifications = $state<ElementVerification[] | null>(null);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
@@ -173,8 +167,6 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Re-verified against the current model, for the report only — see `reportVerification`.
-    reportVerifications = reportVerification();
 
     showReportDialog = true;
   }
@@ -185,7 +177,8 @@
     showReportDialog = false;
     exportReportAs({
       config,
-      verifications: reportVerifications ?? verificationsRef,
+      // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
+      verifications: [],
       advancedResults: advancedResultsRef,
       t,
     });
