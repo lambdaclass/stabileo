@@ -230,5 +230,11 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  *
  * Re-recorded once more (was `792b6f88ea1fc3a4`) when self-weight became a member load; the
  * member-by-member check is in the test above.
+ *
+ * And again (was `c05971b8f79bb372`) when the column check moved to the design curve: it solved
+ * Pn(c) = Pu and took φ·Mn there, which read φMn up to 50 % high at high axial load. Only
+ * columns moved, 21 of them (1–15, 17–19, 27–29), each still VERIFIED and now with more steel:
+ * their certified utilization rose from 0,86–1,00 to 0,95–1,00 as the search took the next
+ * layout. The counts, 395 verified and 13 provisional, are unchanged.
  */
-const RECORDED_FINGERPRINT = 'c05971b8f79bb372';
+const RECORDED_FINGERPRINT = 'c23ac6b57251ce0b';

@@ -1393,6 +1393,8 @@ export function computeColumnCapacity(
   const b1 = beta1(fc);
   const NuAbs = Math.abs(Nu);
   const MuAbs = Math.abs(Mu);
+  /** Compression positive. Below this (a negative number) the section cannot carry the tension. */
+  let phiPtMax = -Infinity;
   const sectionDepth = axis === 'z' ? h : b;
   const sectionWidth = axis === 'z' ? b : h;
 
@@ -1445,28 +1447,38 @@ export function computeColumnCapacity(
       return { N: Cc + Nsteel, M: Mc + Msteel, epsTmax: Math.abs(epsTmax) };
     }
 
-    // Find c that gives N = NuAbs (bisection)
-    // Search range: c from 0.01·h to 5·h
+    /*
+     * The point of the design curve where φ(c)·Pn(c) = Pu, and φ·Mn there.
+     *
+     * This solved Pn(c) = Pu, the NOMINAL curve, then took φ·Mn at that c. The design curve is
+     * φPn, so the point sat at a smaller c than it should, where Mn is larger: on a 30×30 with
+     * 8Ø16 in H-25 it gave 71,7 kN·m at Pu = 1200 kN against a correct 47,7.
+     *
+     * Pu carries its sign (compression positive): a column in tension was checked as if the same
+     * force compressed it, and read the same capacity. In tension the bisection finds the c at
+     * which the section, cracked through most of its depth, carries that tension.
+     *
+     * φ follows CIRSOC 201-2025 Tabla 21.2.2: 0,65 up to εty, 0,90 from εty + 0,003.
+     */
+    const epsY = fy / 200000;
+    const epsTC = epsY + 0.003;
+    const phiOf = (epsT: number) => epsT >= epsTC ? 0.9 : epsT >= epsY ? 0.65 + 0.25 * (epsT - epsY) / (epsTC - epsY) : 0.65;
+    const phiN = (c: number) => { const f = sectionForces(c); return phiOf(f.epsTmax) * f.N; };
     let cLow = 0.001;
     let cHigh = sectionDepth * 5;
-    const targetN = NuAbs; // kN (compression positive)
-    for (let iter = 0; iter < 50; iter++) {
+    const targetN = Math.min(Nu, phiPn); // kN, compression positive; the axial cap is checked below
+    for (let iter = 0; iter < 60; iter++) {
       const cMid = (cLow + cHigh) / 2;
-      const { N } = sectionForces(cMid);
-      if (N < targetN) cLow = cMid;
+      if (phiN(cMid) < targetN) cLow = cMid;
       else cHigh = cMid;
-      if (Math.abs(cHigh - cLow) < 0.0001) break;
+      if (Math.abs(cHigh - cLow) < 1e-5) break;
     }
     const cSolved = (cLow + cHigh) / 2;
     cNeutral = +cSolved.toFixed(4);
     const result = sectionForces(cSolved);
-
-    // φ from max tension strain
-    const epsY = fy / 200000;
-    let phi: number;
-    if (result.epsTmax >= 0.005) phi = 0.9;
-    else if (result.epsTmax >= epsY) phi = 0.65 + 0.25 * (result.epsTmax - epsY) / (0.005 - epsY);
-    else phi = 0.65;
+    const phi = phiOf(result.epsTmax);
+    // The tension the section can carry at all: every bar yielded, φ = 0,90 (compression positive).
+    phiPtMax = -0.9 * fy_kPa * barData.reduce((sum, bd) => sum + bd.area_m2, 0);
 
     phiMn = phi * Math.abs(result.M);
   } else {
@@ -1482,11 +1494,16 @@ export function computeColumnCapacity(
     // Direct capacity check: φMn IS the moment capacity at the applied Nu.
     // Check Mu ≤ φMn(Nu). The ratio is capacity/demand (≥1 = OK).
     // Also check Nu ≤ φPn (axial limit).
-    if (NuAbs > phiPn + 0.1) {
+    if (Nu > phiPn + 0.1) {
       // Axial overload — section fails regardless of moment
       ratio = phiPn > 0.01 ? +(phiPn / NuAbs).toFixed(3) : 0;
+    } else if (Nu < phiPtMax - 0.1) {
+      // Tension beyond what the yielded bars carry
+      ratio = +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else if (MuAbs < 0.01) {
-      ratio = phiPn > 0.01 ? +(phiPn / NuAbs).toFixed(3) : 999;
+      ratio = Nu >= 0
+        ? (phiPn > 0.01 ? +(phiPn / Math.max(NuAbs, 1e-9)).toFixed(3) : 999)
+        : +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else {
       // Direct: capacity/demand for moment at this axial load
       ratio = phiMn > 0.01 ? +(phiMn / MuAbs).toFixed(3) : 0;
@@ -1581,6 +1598,20 @@ export function computeBiaxialCapacity(
     // Uniaxial eccentric capacity: φPn at eccentricity e = Mu/Nu
     // For strain-compatible: if Mn(c@Nu) ≥ Mu, section is adequate → φPnx = Nu
     // Otherwise: φPnx = Nu · (φMn / Mu) — ratio of capacity to demand
+    if (Nu <= 0.01) {
+      /*
+       * Bresler's reciprocal load is a compression method. Under tension (or no axial force) the
+       * two moments are checked on the load contour at that axial force, linearly:
+       * Muz/φMnz + Muy/φMny ≤ 1, with each φMn taken where φPn equals the (signed) Nu.
+       */
+      const demand = (Muz > 0.01 ? Muz / Math.max(capZ.phiMn, 1e-9) : 0) + (Muy > 0.01 ? Muy / Math.max(capY.phiMn, 1e-9) : 0);
+      const axial = Nu < -0.01 ? 1 / Math.max(capZ.ratio, 1e-9) : 0;
+      const d = Math.max(demand, axial);
+      const ratio = d > 1e-6 ? +(1 / d).toFixed(3) : 999;
+      let status: 'ok' | 'warn' | 'fail' = 'ok';
+      if (!rhoOk) status = 'fail'; else if (ratio < 1.0) status = 'fail'; else if (ratio < 1.18) status = 'warn';
+      return { phiPn: +phiPn0.toFixed(1), phiPn0: +phiPn0.toFixed(1), phiPnx: 0, phiPny: 0, ratio, rhoPercent, rhoOk, method: 'bresler', geometryAware, strainCompatible, status };
+    }
     phiPnx = (Muz > 0.01 && capZ.phiMn > 0.01) ? Nu * (capZ.phiMn / Muz) : phiPn0;
     phiPny = (Muy > 0.01 && capY.phiMn > 0.01) ? Nu * (capY.phiMn / Muy) : phiPn0;
     // Clamp to phiPn0
@@ -2273,10 +2304,12 @@ export function verifyProvidedReinforcement(
       } | null = null;
       let count = 0;
       for (const t of allTuples) {
-        const Nu = Math.abs(t.n);
+        // Compression positive: the solver's n is positive in tension. The column check read
+        // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
+        const Nu = -t.n;
         const Mprim = Math.abs(tupleMoment(t, axes.flexure)) * deltaNs;
         const Msec = Math.abs(tupleMoment(t, axes.secondaryFlexure)) * deltaNs;
-        if (Nu < 0.01 && Mprim < 0.01 && Msec < 0.01) continue;
+        if (Math.abs(Nu) < 0.01 && Mprim < 0.01 && Msec < 0.01) continue;
         count++;
         const isBiax = Mprim > 0.1 && Msec > 0.1;
         // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
