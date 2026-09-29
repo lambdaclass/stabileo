@@ -164,10 +164,10 @@ describe('shear across the web', () => {
   it('sends a shear along b against the side walls, not the webs', () => {
     const ctx = { elementId: 1, section: RHS } as never;
     // Across: 300 kN on 1200 mm² is the same utilisation as 600 kN on the 2400 mm² the checker reads.
-    expect((AISC360.forces!(ctx, demand(300, 0)) as { vy: number }).vy).toBeCloseTo(600e3, 3);
-    expect((EC3.forces!(ctx, demand(300, 0)) as { vEd: number }).vEd).toBeCloseTo(600e3, 3);
+    expect((AISC360.forces!(ctx, demand(300, 0), {}) as { vy: number }).vy).toBeCloseTo(600e3, 3);
+    expect((EC3.forces!(ctx, demand(300, 0), {}) as { vEd: number }).vEd).toBeCloseTo(600e3, 3);
     // Along the webs it is unchanged.
-    expect((AISC360.forces!(ctx, demand(0, 300)) as { vy: number }).vy).toBeCloseTo(300e3, 3);
+    expect((AISC360.forces!(ctx, demand(0, 300), {}) as { vy: number }).vy).toBeCloseTo(300e3, 3);
   });
 
   it('gives an I its flanges for the shear across the web', () => {

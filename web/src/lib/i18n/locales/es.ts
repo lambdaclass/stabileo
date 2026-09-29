@@ -5457,6 +5457,7 @@ const es: Record<string, string> = {
   'pro.deflChordStep': "δ relativa a la cuerda, máxima en x = {x} m ({set})",
   'pro.deflBasis.service': "envolvente de servicio",
   'pro.deflBasis.unfactored': "Flechas con todas las cargas sin mayorar (no hay envolvente de servicio definida).",
+  'pro.deflBasis.gravity': "Flechas con las cargas gravitatorias sumadas sin mayorar (D + L + Lr + S) y con cada caso por separado: no hay envolvente de servicio definida.",
   'pro.deflBasis.factored': "Flechas con las combinaciones activas, mayoradas: resultado conservador. Definí una envolvente de servicio.",
   'pro.deflBasis.shown': "Flechas con el resultado en pantalla.",
   'pro.deflBasisService': "Flechas con las envolventes de servicio: {names}.",

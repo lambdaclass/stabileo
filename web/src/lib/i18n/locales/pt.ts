@@ -4735,6 +4735,7 @@ const pt: Translations = {
   'pro.deflChordStep': "δ relativa à corda, máxima em x = {x} m ({set})",
   'pro.deflBasis.service': "envoltória de serviço",
   'pro.deflBasis.unfactored': "Flechas com todas as cargas sem majorar (não há envoltória de serviço definida).",
+  'pro.deflBasis.gravity': "Flechas com as cargas gravitacionais somadas sem majorar (D + L + Lr + S) e com cada caso separadamente: não há envoltória de serviço definida.",
   'pro.deflBasis.factored': "Flechas com as combinações ativas, majoradas: resultado conservador. Defina uma envoltória de serviço.",
   'pro.deflBasis.shown': "Flechas com o resultado na tela.",
   'pro.deflBasisService': "Flechas com as envoltórias de serviço: {names}.",

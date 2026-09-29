@@ -5464,6 +5464,7 @@ const en: Record<string, string> = {
   'pro.deflChordStep': "δ relative to the chord, largest at x = {x} m ({set})",
   'pro.deflBasis.service': "service envelope",
   'pro.deflBasis.unfactored': 'Deflections under all loads, unfactored (no service envelope is defined).',
+  'pro.deflBasis.gravity': "Deflections under the gravity cases added unfactored (D + L + Lr + S) and under each case on its own: no service envelope is defined.",
   'pro.deflBasis.factored': "Deflections under the active combinations, factored: a conservative result. Define a service envelope.",
   'pro.deflBasis.shown': 'Deflections from the result on screen.',
   'pro.deflBasisService': "Deflections under the service envelopes: {names}.",
