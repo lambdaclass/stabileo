@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
-  import MathEquation from './MathEquation.svelte';
   import StepBlocks from '../steps/StepBlocks.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { staticClassificationBlocks, dofSketch } from '../../lib/engine/steps/dsm-extras';
@@ -67,15 +67,15 @@
 
   {#if is3D}
     {#if dofsPerNode === 6}
-      <MathEquation equation={eqFrame3D} displayMode />
+      <FitMath tex={eqFrame3D} narrow />
     {:else}
-      <MathEquation equation={eqTruss3D} displayMode />
+      <FitMath tex={eqTruss3D} narrow />
     {/if}
   {:else}
     {#if dofsPerNode === 3}
-      <MathEquation equation={eqFrame2D} displayMode />
+      <FitMath tex={eqFrame2D} narrow />
     {:else}
-      <MathEquation equation={eqTruss2D} displayMode />
+      <FitMath tex={eqTruss2D} narrow />
     {/if}
   {/if}
 
@@ -113,7 +113,7 @@
 
 <style>
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0 0 0.3rem; }
   .free { color: var(--st-value); font-weight: 600; }
   .restr { color: var(--st-accent); font-weight: 600; }

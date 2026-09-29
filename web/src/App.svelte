@@ -174,13 +174,11 @@
     wizardOnlyWasOpen = w;
   });
 
-  let wizardWasOpen = false;
   $effect(() => {
     const open = dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen;
-    const basic = uiStore.appMode === 'basico';
-    if (open && basic) basicPanel = 'data';
-    if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';
-    wizardWasOpen = open;
+    // A step-by-step solution is an advanced function: it opens in the Advanced
+    // panel, and closing it leaves the list of functions there.
+    if (open && uiStore.appMode === 'basico') basicPanel = 'advanced';
   });
 
   /**

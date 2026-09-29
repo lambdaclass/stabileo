@@ -160,6 +160,9 @@
    * count of open outputs is the trigger — it rises only when one opens, so
    * this never fights a user who has scrolled up to read something.
    */
+  /* A step-by-step solution is on screen in the Advanced panel. */
+  const stepsOpen = $derived(panel === 'advanced' && (dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen));
+
   let dockedOutputs = $state<HTMLElement | null>(null);
   const openOutputs = $derived(
     (uiStore.showKinematicPanel ? 1 : 0) +
@@ -220,7 +223,7 @@
     </header>
   {/if}
 
-  <div class="bp-body">
+  <div class="bp-body" class:bp-steps={stepsOpen}>
     {#if panel === 'edu'}
       <!--
         The same panel Educational mode shows, in Basic's own right-hand
@@ -234,6 +237,19 @@
       <SelectionPanel />
     {:else if panel === 'results'}
       <ToolbarResults hideDiagrams flat />
+    {:else if panel === 'advanced' && dsmStepsStore.isOpen}
+      <!--
+        The step-by-step solutions are advanced functions: they open in this
+        panel, with the same "← Back" as the rest, and the panel's ✕ is their
+        only close.
+      -->
+      <StepWizard />
+    {:else if panel === 'advanced' && fmStepsStore.isOpen}
+      <FmWizard />
+    {:else if panel === 'advanced' && explainedSteps.view === 'catalog'}
+      <StepsCatalog />
+    {:else if panel === 'advanced' && explainedSteps.view === 'doc'}
+      <StepDocView />
     {:else if panel === 'advanced'}
       <ToolbarAdvanced flat />
       <!--
@@ -253,22 +269,7 @@
     {:else if panel === 'ai'}
       <AiDrawer docked />
     {:else if panel === 'data'}
-      <!--
-        Model data and the step-by-step wizard used to live in a SECOND right
-        sidebar with its own toggle, so opening one while the other was up gave
-        two stacked panels on the same edge. One panel, one edge.
-      -->
-      {#if dsmStepsStore.isOpen}
-        <StepWizard />
-      {:else if fmStepsStore.isOpen}
-        <FmWizard />
-      {:else if explainedSteps.view === 'catalog'}
-        <StepsCatalog />
-      {:else if explainedSteps.view === 'doc'}
-        <StepDocView />
-      {:else}
-        <DataTable bind:activeTab={dataTab} />
-      {/if}
+      <DataTable bind:activeTab={dataTab} />
     {/if}
   </div>
 </aside>
@@ -319,6 +320,9 @@
     overflow-y: auto;
     padding: 0.65rem;
   }
+
+  /* A step-by-step view lays out its own header, tabs and footer, and scrolls its own body. */
+  .bp-body.bp-steps { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 
   /* A 5 px target on the panel's leading edge; the visible rule stays 1 px. */
   .bp-resize {

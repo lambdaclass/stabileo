@@ -1,5 +1,6 @@
 <script lang="ts">
   import Prose from './Prose.svelte';
+  import StepsHeader from './StepsHeader.svelte';
   /**
    * The "Explained step by step" catalog: the methods by group, each with
    * what it does (behind its ?), what the structure must be to try it,
@@ -65,10 +66,8 @@
 </script>
 
 <div class="sc" data-testid="steps-catalog">
-  <header class="sc-head">
-    <h3>{t('steps.catalog.title')}</h3>
-    <button class="sc-close" onclick={() => explainedSteps.close()} aria-label={t('steps.view.close')} title={t('steps.view.close')}>×</button>
-  </header>
+  <StepsHeader backLabel={t('adv.back')} backTitle={t('adv.backToList')} onBack={() => explainedSteps.close()}
+    name={t('steps.catalog.title')} backTestid="steps-catalog-back" />
   <p class="sc-intro">{t('steps.catalog.intro')}</p>
 
   <div class="sc-body">
@@ -110,10 +109,7 @@
 
 <style>
   .sc { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--st-text); }
-  .sc-head { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem 0.2rem; }
-  .sc-head h3 { margin: 0; font-size: 1rem; }
-  .sc-close { background: transparent; border: none; color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
-  .sc-intro { margin: 0 0.75rem 0.4rem; font-size: 0.78rem; color: var(--st-text-2); line-height: 1.4; }
+  .sc-intro { margin: 0.55rem 0.75rem 0.4rem; font-size: 0.78rem; color: var(--st-text-2); line-height: 1.4; }
   .sc-body { flex: 1 1 auto; overflow-y: auto; padding: 0 0.75rem 0.8rem; min-height: 0; }
   .sc-group { margin-top: 0.7rem; }
   .sc-group h4 {

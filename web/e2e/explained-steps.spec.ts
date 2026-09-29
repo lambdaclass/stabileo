@@ -124,6 +124,34 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
+  test('every step-by-step view opens in Advanced, with the same back row, title, tabs and footer', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await openCatalog(page);
+    const panelTitle = page.getByTestId('bp-title');
+    await expect(panelTitle).toHaveText(/Advanced|Avanzado|Avançado/);
+    // The panel's ✕ is the only close: the catalog has a back row, no second ✕.
+    await expect(page.getByTestId('steps-catalog').locator('button', { hasText: '×' })).toHaveCount(0);
+    for (const [open, back] of [['steps-open-crossSway', 'steps-back'], ['steps-open-dsm', 'dsm-back'], ['steps-open-fm', 'fm-back']] as const) {
+      await page.getByTestId(open).click();
+      await expect(panelTitle).toHaveText(/Advanced|Avanzado|Avançado/);
+      await expect(page.locator('.sh-name')).toBeVisible();
+      await expect(page.locator('.sf-title h3')).toBeVisible();
+      await expect(page.locator('.sf-nav button').first()).toBeVisible();
+      await expect(page.locator('.sf-foot')).toBeVisible();
+      await page.locator('.sf-foot button').last().click();
+      await expect(page.locator('.sf-step')).toBeVisible();
+      await page.getByTestId(back).click();
+      await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    }
+    // And from the catalog, back to the list of advanced functions.
+    await page.getByTestId('steps-catalog-back').click();
+    await expect(page.getByTestId('adv-steps')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test('Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
     await boot(page);
     await page.getByTestId('rb-cmd-advanced').click();
@@ -151,6 +179,9 @@ test.describe('@smoke explained step by step', () => {
     await page.getByTestId('rb-cmd-node').click();
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
     await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.2);
+    // Drawing shows the model data; the document waits in Advanced and says the model changed.
+    await page.getByTestId('rb-cmd-advanced').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
     await expect(page.getByTestId('steps-refresh')).toBeVisible();
     await page.getByTestId('steps-refresh').click();
     await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
@@ -174,11 +205,13 @@ test.describe('@smoke explained step by step', () => {
         await expect(page.getByTestId('steps-doc')).toBeVisible();
         await expect(page.getByTestId('steps-error')).toHaveCount(0);
         for (let k = 0; k < (await page.getByTestId('steps-tab').count()); k++) await page.getByTestId('steps-next').click();
-        await page.getByTestId('steps-close').click();
+        // Back to the methods, and back again to the list of advanced functions.
+        await page.getByTestId('steps-back').click();
+        await page.getByTestId('steps-catalog-back').click();
         opened++;
       } else {
         await expect(page.getByTestId('steps-method-sections').locator('.sc-state.no')).toBeVisible();
-        await page.locator('.sc-close').click();
+        await page.getByTestId('steps-catalog-back').click();
       }
     }
     expect(opened).toBeGreaterThan(ids.length / 2);

@@ -36,6 +36,7 @@ export const es: Translations = {
   'steps.group.deformation': 'Deformaciones y energía',
 
   'steps.view.back': 'Métodos',
+  'steps.view.backToCatalog': 'Volver a la lista de métodos',
   'steps.view.close': 'Cerrar',
   'steps.view.step': 'Paso {n}',
   'steps.view.intro': 'Planteo',
@@ -141,6 +142,7 @@ export const en: Translations = {
   'steps.group.deformation': 'Deformations and energy',
 
   'steps.view.back': 'Methods',
+  'steps.view.backToCatalog': 'Back to the list of methods',
   'steps.view.close': 'Close',
   'steps.view.step': 'Step {n}',
   'steps.view.intro': 'Set-up',
@@ -246,6 +248,7 @@ export const pt: Translations = {
   'steps.group.deformation': 'Deformações e energia',
 
   'steps.view.back': 'Métodos',
+  'steps.view.backToCatalog': 'Voltar à lista de métodos',
   'steps.view.close': 'Fechar',
   'steps.view.step': 'Passo {n}',
   'steps.view.intro': 'Enunciado',
