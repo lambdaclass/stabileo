@@ -20,10 +20,8 @@
  * below is deliberately scoped to the `design.*` namespace, which this PR
  * fully repaired (0 missing / 0 extra across all 14 dicts).
  *
- * TODO: widen this to full key parity across every namespace once the
- * pre-existing `landing.*` (and other) translation debt is paid down. Until
- * then, that debt is tracked by the `it.todo` below rather than silently
- * un-tested.
+ * Full key parity for es, en and pt is checked further down; the other locales
+ * still carry that older debt.
  */
 import { describe, it, expect } from 'vitest';
 import en from '../locales/en';
@@ -102,12 +100,43 @@ describe('locale design.* key parity', () => {
 	}
 });
 
-describe('locale full key parity (future work)', () => {
-	// Tracks the pre-existing, PR78-unrelated drift so it isn't invisible: ~790
-	// missing non-design keys (mostly landing.* marketing copy) in ar/de/fr/hi/
-	// id/it/ja/ko/pt/ru/tr/zh, and 31 missing landing.* keys in es. Flip this to
-	// a real `it` once that debt is paid down and delete this todo.
-	it.todo(
-		'every locale should have full key parity with en (blocked on ~790 pre-existing missing non-design keys per locale, 31 in es — see report)'
-	);
+/*
+ * es, en and pt: every key, not only design.*. Portuguese had 787 keys missing, most of the CAD
+ * wizard, the RC workspace, the footing panels and the PRO report, and all of them rendered in
+ * English to a Portuguese reader. The other 11 locales still carry the older debt and stay out.
+ *
+ * The one allow-list: Portuguese keys that the Basic PR "draw members point to point"
+ * (basic/draw-members) adds itself. Adding them here too would only make the two branches
+ * conflict. When that branch is merged the keys exist and the second test below fails: delete
+ * the JSON file and its import then.
+ */
+import steelEn from '../locales/steel/en';
+import steelEs from '../locales/steel/es';
+import steelPt from '../locales/steel/pt';
+import pendingPt from './pt-pending-from-basic-draw-members.json';
+
+describe('locale full key parity: es, en, pt', () => {
+	const main = { en, pt } as Record<string, Translations>;
+	const steel = { en: steelEn, pt: steelPt } as Record<string, Translations>;
+	const pending: Record<string, Set<string>> = { en: new Set(), pt: new Set(pendingPt as string[]) };
+
+	for (const code of ['en', 'pt']) {
+		it(`${code} has every es key, and none es lacks`, () => {
+			const missing = [
+				...Object.keys(es).filter((k) => !(k in main[code]) && !pending[code].has(k)),
+				...Object.keys(steelEs).filter((k) => !(k in steel[code])),
+			];
+			const extra = [
+				...Object.keys(main[code]).filter((k) => !(k in es)),
+				...Object.keys(steel[code]).filter((k) => !(k in steelEs)),
+			];
+			expect({ missing, extra }).toEqual({ missing: [], extra: [] });
+		});
+	}
+
+	it('the pt keys left to basic/draw-members are still missing (delete the list once it lands)', () => {
+		const arrived = (pendingPt as string[]).filter((k) => k in pt);
+		expect(arrived).toEqual([]);
+		expect((pendingPt as string[]).every((k) => k in es)).toBe(true);
+	});
 });
