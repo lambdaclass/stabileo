@@ -115,3 +115,26 @@ describe('which wind cases can be reversed by sign', () => {
     expect(windCaseReversible(model, up)).toBe(false);
   });
 });
+
+describe('wind on the members, by the direction it acts in', () => {
+  it('a horizontal member load reverses; a vertical component, or a load on the roof, does not', async () => {
+    const { windCaseReversible } = await import('../wind-reversal');
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4), c = modelStore.addNode(6, 0, 4);
+    const col = modelStore.addElement(a, b, 'frame'), beam = modelStore.addElement(b, c, 'frame');
+    // Façade wind on the column: both its local transverse axes are horizontal.
+    const facade = modelStore.addLoadCase('Façade +X', 'W');
+    modelStore.addDistributedLoad3D(col, 0.7, 0.7, 0.4, 0.4, undefined, undefined, facade);
+    modelStore.addPointLoadOnElement3D(col, 2, 0.5, 0.2, facade);
+    // On the horizontal beam local z is vertical: that is roof suction or pressure.
+    const roof = modelStore.addLoadCase('Roof', 'W');
+    modelStore.addDistributedLoad3D(beam, 0, 0, 0.8, 0.8, undefined, undefined, roof);
+    // Local y of a beam along X is horizontal: a lateral line load on it reverses.
+    const side = modelStore.addLoadCase('Side', 'W');
+    modelStore.addDistributedLoad3D(beam, 0.5, 0.5, 0, 0, undefined, undefined, side);
+    const model = modelStore.model;
+    expect(windCaseReversible(model, facade)).toBe(true);
+    expect(windCaseReversible(model, roof)).toBe(false);
+    expect(windCaseReversible(model, side)).toBe(true);
+  });
+});
