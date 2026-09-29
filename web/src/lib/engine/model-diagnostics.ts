@@ -8,6 +8,7 @@ import type { Constraint3D, ConnectorElement } from './types-3d';
 import { addConstraintConnectivity } from './constraint-connectivity';
 import { concreteStrengthConflict } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
+import { semiRigidNotAligned } from './expand-semi-rigid-3d';
 
 interface LoadEntry {
   type: string;
@@ -110,6 +111,12 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   if (m.supports.size === 0) {
     out.push(diag('error', 'MODEL_NO_SUPPORTS', 'diag.model.noSupports'));
   }
+
+  // ─── Semi-rigid ends the solve cannot honour ───
+  // Their connector acts in global axes; a member whose bending axes are not global ones keeps
+  // its ends rigid, which a reader has to know before trusting the result.
+  const rigidAnyway = semiRigidNotAligned(m.elements.values(), m.nodes);
+  if (rigidAnyway.length) out.push(diag('warning', 'MODEL_SEMIRIGID_NOT_ALIGNED', 'diag.model.semiRigidNotAligned', { elementIds: rigidAnyway }));
 
   // ─── Coincident nodes ──────────────────────────
   const nodeArr = [...m.nodes.values()];

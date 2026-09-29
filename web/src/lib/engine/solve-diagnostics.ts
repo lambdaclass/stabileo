@@ -16,6 +16,7 @@ import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
 import { checkModel } from './model-diagnostics';
 import type { SolverDiagnostic } from './types';
+import { readSolverDiagnostic } from './engine-diagnostics';
 
 /** Max diagnostics surfaced at once, so a noisy model cannot bury the UI. */
 const MAX_TOASTS = 2;
@@ -28,7 +29,7 @@ const MAX_TOASTS = 2;
  */
 export function reportSolverDiagnostics(diags?: SolverDiagnostic[]): void {
   if (!diags) return;
-  const important = diags.filter((d) => d.severity === 'error' || d.severity === 'warning');
+  const important = diags.filter((d) => d.severity === 'error' || d.severity === 'warning').map((d) => readSolverDiagnostic(d, t));
   for (const d of important.slice(0, MAX_TOASTS)) {
     const msg = t(d.message) !== d.message ? t(d.message) : d.message;
     uiStore.toast(msg, d.severity === 'error' ? 'error' : 'info');

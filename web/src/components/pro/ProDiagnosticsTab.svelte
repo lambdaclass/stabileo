@@ -159,6 +159,7 @@
     -->
     <p class="diag-notify-kind" data-testid="diag-kind" data-kind={diagnosticsWarning.kind}>
       {t(`pro.diagKind${diagnosticsWarning.kind === 'empty' ? 'Empty'
+        : diagnosticsWarning.kind === 'clean' ? 'Clean'
         : diagnosticsWarning.kind === 'incomplete' ? 'Incomplete' : 'Blocking'}`)}
     </p>
     {#if diagnosticsWarning.dismissed}
@@ -281,6 +282,7 @@
   /* Each category reads differently without depending on the colour to say which. */
   .diag-notify-kind[data-kind='blocking'] { color: var(--st-danger); font-weight: 600; }
   .diag-notify-kind[data-kind='incomplete'] { color: var(--st-warn); }
+  .diag-notify-kind[data-kind='clean'] { color: var(--st-text-3); }
   .diag-notify-state {
     margin: 0.35rem 0 0;
     font-size: 0.72rem; font-weight: 600; color: var(--st-warn);

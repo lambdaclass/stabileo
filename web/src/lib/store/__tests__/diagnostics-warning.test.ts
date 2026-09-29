@@ -76,6 +76,14 @@ describe('the diagnostics warning', () => {
     expect(diagnosticsWarning.kind).toBe('incomplete');
   });
 
+  it('says a model with no error is clean, not incomplete', () => {
+    const [a, b] = [modelStore.addNode(0, 0, 0), modelStore.addNode(0, 0, 3)];
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    expect(diagnosticsWarning.count).toBe(0);
+    expect(diagnosticsWarning.kind).toBe('clean');
+  });
+
   it('hides for the diagnostics the user dismissed', () => {
     twoNodesNoSupports();
     expect(diagnosticsWarning.visible).toBe(true);
