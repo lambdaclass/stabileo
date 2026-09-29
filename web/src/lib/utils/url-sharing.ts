@@ -12,7 +12,7 @@ import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
 import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
-import { CODE_HASH, readCodeFragment } from '../model/code/share';
+import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
 
 /**
@@ -678,11 +678,35 @@ export function generateShareURL(): { url: string; length: number } | null {
 
   const mode = uiStore.analysisMode;
   snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
+  // A model the compact format would change (every PRO addition: behaviours, sections' own
+  // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
+  // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
+  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
   const url = `${location.origin}${location.pathname}#data=${compressed}`;
   return { url, length: compressed.length };
+}
+
+/**
+ * What the compact format does not carry. It predates PRO: a model that states any of these
+ * (usually one made in PRO and shared from Basic) opens as another structure from `#data=`.
+ */
+const LOST_TOP = ['analysis', 'grid', 'dynamics', 'deflectionLimits', 'projectInfo', 'notes', 'massSource', 'resultScopes', 'combinationRules'] as const;
+const LOST_ELEMENT = ['behaviour', 'stiffness', 'semiRigid', 'unbracedLength', 'kStrong', 'kWeak'] as const;
+const LOST_SECTION = ['shearAreas', 'declared', 'drawn'] as const;
+const LOST_SUPPORT = ['uplift', 'curves', 'isInclined'] as const;
+
+/** Whether the compact format would open as a different model. */
+export function compactLoses(snapshot: ModelSnapshot): boolean {
+  const s = snapshot as unknown as Record<string, unknown>;
+  const stated = (v: unknown) => v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0);
+  if (LOST_TOP.some((k) => stated(s[k]))) return true;
+  if (Array.isArray(s.groups) && s.groups.length > 0) return true;
+  const any = (list: unknown, keys: readonly string[]) =>
+    Array.isArray(list) && list.some(([, v]) => v && keys.some((k) => stated((v as Record<string, unknown>)[k])));
+  return any(s.elements, LOST_ELEMENT) || any(s.sections, LOST_SECTION) || any(s.supports, LOST_SUPPORT);
 }
 
 /**
@@ -842,6 +866,18 @@ export function parseShareURL(url: string): { compressed: string; mode: 'data' |
  * Returns true if successfully loaded, false otherwise.
  */
 export function loadFromShareLink(url: string): boolean {
+  // A link that carries the model code (PRO's, and any model the compact format would change).
+  const i = url.indexOf(CODE_HASH);
+  if (i >= 0) {
+    const r = readCodeFragment(url.slice(i));
+    if (!r.snapshot) return false;
+    modelStore.clear();
+    const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
+    if (snapshot.analysisMode) uiStore.analysisMode = snapshot.analysisMode;
+    modelStore.restore(snapshot);
+    queueMicrotask(() => window.dispatchEvent(new Event('stabileo-restore-camera-3d')));
+    return true;
+  }
   const parsed = parseShareURL(url);
   if (!parsed) return false;
 

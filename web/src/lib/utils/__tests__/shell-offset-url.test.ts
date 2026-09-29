@@ -58,3 +58,15 @@ describe('shell offset URL round-trip', () => {
     expect(q.shellFamily).toBeUndefined();
   });
 });
+
+describe('which link a model gets', () => {
+  it('a plain frame shares compact; one with a cable, a section of its own or an analysis rule does not', async () => {
+    const { compactLoses } = await import('../url-sharing');
+    const base = snap({});
+    expect(compactLoses(base)).toBe(false);
+    const withEl = { ...base, elements: [[1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, behaviour: 'cable' }]] } as never;
+    expect(compactLoses(withEl)).toBe(true);
+    expect(compactLoses({ ...base, sections: [[1, { id: 1, name: 'W', a: 0.01, iz: 1e-5, declared: true }]] } as never)).toBe(true);
+    expect(compactLoses({ ...base, analysis: { perCombination: 'pdelta' } } as never)).toBe(true);
+  });
+});

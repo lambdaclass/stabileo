@@ -37,7 +37,7 @@ type Axes = { localYx?: number; localYy?: number; localYz?: number; rollAngle?: 
 /** The global axes a member's local y and z lie along, or null when they do not. */
 function bendingAxes(nI: P3, nJ: P3, e: Axes): { ay: number; az: number } | null {
   const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-  const axes = computeLocalAxes3D({ x: nI.x, y: nI.y, z: nI.z ?? 0 }, { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 }, localY, e.rollAngle ?? 0, false);
+  const axes = computeLocalAxes3D({ id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 }, { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 }, localY, e.rollAngle ?? 0, false);
   const ay = globalAxis(axes.ey), az = globalAxis(axes.ez);
   return ay === null || az === null ? null : { ay, az };
 }
