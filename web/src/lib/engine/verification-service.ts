@@ -608,7 +608,7 @@ export function checkSteelMember(
   demand: SteelMemberDemand,
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number },
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
   /**
    * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
    * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
@@ -684,8 +684,10 @@ export function checkSteelMember(
     tStart: segment?.tStart,
     tEnd: segment?.tEnd,
     shape: (section as { shape?: string }).shape,
-    // A free cantilever end is a topology fact this loop does not have; left undefined rather
-    // than guessed, which keeps `Cb = 1` for those members via the diagram path.
+    // A cantilever's free end, from the model's topology (`memberLengths`): F.1.1 sets Cb = 1.
+    // Left out, the diagram path computed Cb on cantilevers and raised their capacity by up to
+    // two thirds.
+    cantileverFreeEnd: lengths.freeEnd === true,
   });
 
   const sdp: SteelDesignParams = {

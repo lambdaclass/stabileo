@@ -115,7 +115,7 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
       elementId: id,
       // As the check reads it: a tension-only brace is not sized for buckling.
       demand: maskAxialDemand(steelDemandOf(ef, demands.get(id), stations.get(id)), e.behaviour),
-      lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k },
+      lengths: { ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),
     });
