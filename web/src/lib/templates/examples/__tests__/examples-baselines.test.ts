@@ -10,7 +10,8 @@
  * small share of the moment about their normals to ground (M14 in the engine's list).
  * `STABILEO_UPDATE_BASELINES=1` re-records after a deliberate change.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { setLocale } from '../../../i18n';
 import { fileURLToPath } from 'node:url';
 import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
@@ -25,7 +26,10 @@ import { CODE_EXAMPLES } from '../index';
 
 const BASELINES = fileURLToPath(new URL('../baselines/', import.meta.url));
 
-beforeAll(async () => { await initSolver(); });
+// The baselines carry the case and combination names in Spanish, the language the examples are
+// written in; an example opens with its names in the app's language (`example-names.ts`).
+beforeAll(async () => { await initSolver(); setLocale('es'); });
+afterAll(() => setLocale('en'));
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); historyStore.clear(); });
 
 describe.each(Object.keys(CODE_EXAMPLES))('%s', (id) => {

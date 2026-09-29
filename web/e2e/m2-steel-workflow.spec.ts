@@ -471,7 +471,7 @@ test.describe('the two new stages, and the four that were folded in', () => {
     await expect(scope).toBeVisible();
     // Bolt layout is computed; plate, weld and batten geometry are not, and each says so.
     await expect(scope).toContainText('J.3');
-    await expect(scope).toContainText('no disponible');
+    await expect(scope).toContainText('not available');
     await expect(scope).not.toContainText('GEOMETRY_UNAVAILABLE');
   });
 
