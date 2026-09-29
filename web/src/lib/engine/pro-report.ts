@@ -114,6 +114,8 @@ export interface ReportData {
     ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
+  /** What the story drift was checked against: C_d, the group, Tabla 6.4's limit, the cases. */
+  storyDriftBasis?: { cd: number; group: string; limit: number; cases: string[] };
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
@@ -1409,7 +1411,12 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.driftTitle'))}</h2>`);
-    html.push(`<p>${escHtml(tr('report.driftLimit'))}</p>`);
+    const b = data.storyDriftBasis;
+    html.push(`<p>${escHtml(b
+      ? (tr('report.driftBasis') || '')
+          .replace('{cd}', String(b.cd)).replace('{group}', b.group)
+          .replace('{limit}', (b.limit * 100).toFixed(2)).replace('{cases}', b.cases.join(', '))
+      : tr('report.driftLimit'))}</p>`);
     html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
