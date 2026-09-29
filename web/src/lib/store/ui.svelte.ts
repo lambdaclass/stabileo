@@ -587,9 +587,19 @@ function createUIStore() {
    *  independent id counters but share the selectedElements set, so ids kept
    *  across that boundary would be reinterpreted as the other entity type
    *  (wrong highlight, wrong Delete target). */
+  /*
+   * The member selection set aside while shells are picked, and given back when members are again.
+   * Crossing to shells must empty the shared set (above), but a reader moving between
+   * Specifications › Members and Surfaces lost the members they had picked every time.
+   */
+  let elementsAside: Set<number> | null = null;
   function applySelectMode(v: SelectMode) {
-    if (v !== selectMode && (v === 'shells' || selectMode === 'shells')) {
+    if (v !== selectMode && v === 'shells') {
+      elementsAside = selectedElements.size ? new Set(selectedElements) : null;
       selectedElements = new Set();
+    } else if (v !== selectMode && selectMode === 'shells') {
+      selectedElements = elementsAside ?? new Set();
+      elementsAside = null;
     }
     selectMode = v;
     // The set follows the primary kind whenever multi is off, so the two can

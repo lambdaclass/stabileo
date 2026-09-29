@@ -40,7 +40,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-specifications').click();
-    await page.getByTestId('spec-section-supports').click();
+    await page.getByTestId('spec-section-surfaces').click();
     await expect(page.getByTestId('fs-apply')).toBeDisabled();
     const before = await page.evaluate(() => window.__stabileo.modelCensus().supports);
     await page.evaluate(() => window.__stabileoActions.selectShells([]));

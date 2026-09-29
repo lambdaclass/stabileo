@@ -5,6 +5,7 @@
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
+  import ProFoundationSprings from '../ProFoundationSprings.svelte';
 
   /* ── Curvature, on a shell that already exists ─────────────────────
    *
@@ -52,6 +53,25 @@
   let offY = $state(0);
   let offZ = $state(0);
   const selectedShellKeys = $derived([...uiStore.selectedShells]);
+  const shellOf = (key: string) => {
+    const id = parseInt(key.slice(1));
+    return key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+  };
+  /*
+   * The fields show what the selection holds: its offset when every shell has the same, "mixed"
+   * when they differ. They used to open at zero whatever the shells carried, so reading an offset
+   * meant overwriting it.
+   */
+  const current = $derived.by(() => {
+    const offs = selectedShellKeys.map((k) => JSON.stringify(shellOf(k)?.offset ?? null));
+    if (!offs.length) return { mixed: false, off: null as null | { frame: 'global' | 'local'; x: number; y: number; z: number } };
+    return offs.every((o) => o === offs[0]) ? { mixed: false, off: JSON.parse(offs[0]!) } : { mixed: true, off: null };
+  });
+  $effect(() => {
+    const c = current;
+    if (c.off) { offFrame = c.off.frame; offX = c.off.x; offY = c.off.y; offZ = c.off.z; }
+    else if (!c.mixed) { offX = 0; offY = 0; offZ = 0; }
+  });
 
   function eachSelectedShell(fn: (kind: 'plate' | 'quad', id: number) => void) {
     for (const key of uiStore.selectedShells) {
@@ -68,16 +88,13 @@
   /** Quick preset: offset along the shell normal by ±half its thickness so the
    *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
   function applyHalfThickness(sign: 1 | -1) {
+    // Each shell by its own thickness: a slab and its thicker drop panel both get their face
+    // on the node plane. The first shell's used to be applied to all.
     offFrame = 'local';
-    offX = 0; offY = 0;
-    // Use the first selected shell's thickness as the reference.
-    const key = [...uiStore.selectedShells][0];
-    if (!key) return;
-    const id = parseInt(key.slice(1));
-    const shell = key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
-    const t = shell?.thickness ?? 0.2;
-    offZ = sign * t / 2;
-    applyShellOffset();
+    modelStore.batch(() => eachSelectedShell((kind, id) => {
+      const shell = kind === 'plate' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+      if (shell) modelStore.setShellOffset(kind, id, { frame: 'local', x: 0, y: 0, z: sign * shell.thickness / 2 });
+    }));
   }
 </script>
 
@@ -103,7 +120,7 @@
     {#if selectedShellKeys.length === 0}
       <p class="sf-hint">{t('pro.shellOffsetSelect')}</p>
     {:else}
-      <div>{selectedShellKeys.length} {t('pro.selected')}</div>
+      <div>{selectedShellKeys.length} {t('pro.selected')}{#if current.mixed} · <span data-testid="shell-offset-mixed">{t('behaviour.mixed')}</span>{/if}</div>
     {/if}
     <label class="sf-row">{t('pro.offsetFrame')}
       <select bind:value={offFrame}>
@@ -113,9 +130,9 @@
     </label>
     <div class="sf-row">
       <span>{offFrame === 'local' ? 'x, y, n (m)' : 'X, Y, Z (m)'}</span>
-      <input type="number" bind:value={offX} step="0.01" />
-      <input type="number" bind:value={offY} step="0.01" />
-      <input type="number" bind:value={offZ} step="0.01" data-testid="shell-offset-z" />
+      <input type="number" bind:value={offX} step="0.01" aria-label={offFrame === 'local' ? 'x' : 'X'} />
+      <input type="number" bind:value={offY} step="0.01" aria-label={offFrame === 'local' ? 'y' : 'Y'} />
+      <input type="number" bind:value={offZ} step="0.01" data-testid="shell-offset-z" aria-label={offFrame === 'local' ? 'n' : 'Z'} />
     </div>
     {#if offFrame === 'local'}
       <div class="sf-row">
@@ -128,6 +145,11 @@
       <button disabled={selectedShellKeys.length === 0} onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
     </div>
     <p class="sf-warn">{t('pro.shellOffsetWarn')}</p>
+  </section>
+
+  <!-- On the selected shells, as the rest of this section: here the pointer picks shells. -->
+  <section>
+    <ProFoundationSprings />
   </section>
 </div>
 

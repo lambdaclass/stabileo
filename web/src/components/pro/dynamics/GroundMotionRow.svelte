@@ -5,7 +5,7 @@
    * kept as read and drawn, with its peak.
    */
   import { t, tp } from '../../../lib/i18n';
-  import { parseGroundRecord, recordSummary, RecordError, type AccelUnit } from '../../../lib/engine/dynamics/accelerogram';
+  import { parseGroundRecord, recordSummary, recordWarnings, RecordError, type AccelUnit, type RecordWarning } from '../../../lib/engine/dynamics/accelerogram';
   import { G } from '../../../lib/engine/dynamics/requests';
   import { groundSeries, type GroundSpec } from '../../../lib/engine/dynamics/time-history-spec';
   import { errorText } from '../../../lib/utils/error-text';
@@ -37,6 +37,11 @@
 
   const series = $derived(showChart ? groundSeries(g, dt, nSteps, spectrumSa) : null);
   const times = $derived(series ? series.map((_, k) => k * dt) : []);
+  function warningText(w: RecordWarning): string {
+    if (w.code === 'pgaHigh' || w.code === 'pgaLow') return tp(`pro.th.warn.${w.code}`, { pga: fmt(w.pgaG) });
+    if (w.code === 'undersampled') return tp('pro.th.warn.undersampled', { recordDt: fmt(w.recordDt, 4), kept: fmt(w.keptPct, 0) });
+    return tp('pro.th.warn.truncated', { run: fmt(w.runS, 2), record: fmt(w.recordS, 2) });
+  }
   const fmt = (v: number, d = 3) => (Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
 </script>
 
@@ -73,6 +78,11 @@
     {#if g.record}
       {@const s = recordSummary(g.record)}
       <p class="gm-hint" data-testid="th-record-{dir}">{g.record.name}: {tp('pro.th.recordSummary', { points: s.points, duration: fmt(s.duration, 2), pga: fmt(s.pga / G) })}</p>
+      <!-- What the run will do to the record: a unit that reads wrong, a dt that loses its peak, a
+           run shorter than the record. The warnings were lost in the move to this row. -->
+      {#each recordWarnings(g.record, dt, nSteps) as w (w.code)}
+        <p class="gm-warn" data-testid="th-warn-{dir}-{w.code}">{warningText(w)}</p>
+      {/each}
     {/if}
   {:else if g.source === 'spectrum'}
     <div class="gm-row">
@@ -87,6 +97,7 @@
 </div>
 
 <style>
+  .gm-warn { margin: 2px 0 0; font-size: 0.62rem; color: var(--st-warn); }
   .gm { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; border-top: 1px solid var(--st-surface-3); font-size: 0.66rem; color: var(--st-text-2); }
   .gm-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .gm-row input[type='number'] { width: 56px; }

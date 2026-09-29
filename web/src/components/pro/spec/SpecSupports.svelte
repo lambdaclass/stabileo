@@ -2,14 +2,13 @@
   /**
    * Specifications › Supports: the selected supports' type and uplift over the whole selection,
    * one undo step per change; the full editor (restraints, springs, curves, inclined) for one
-   * support at a time; and the foundation-spring generator for selected shells.
+   * support at a time. Foundation springs, made on selected shells, are under Surfaces.
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import type { Support, SupportType } from '../../../lib/store/model.svelte';
   import { supportTypeOptions } from '../../../lib/pro/support-types';
   import ProSupportEditor from '../ProSupportEditor.svelte';
-  import ProFoundationSprings from '../ProFoundationSprings.svelte';
 
   const is3D = $derived(uiStore.analysisMode !== '2d');
   const types = $derived(supportTypeOptions(is3D, t));
@@ -50,7 +49,6 @@
       <p class="ss-hint">{t('spec.supports.oneForDetail')}</p>
     {/if}
   {/if}
-  <ProFoundationSprings />
 </div>
 
 <style>
