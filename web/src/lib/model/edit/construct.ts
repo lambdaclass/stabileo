@@ -28,9 +28,8 @@ function addMember(i: number, j: number, spec: MemberSpec): number {
   return id;
 }
 
-/** A member from `nodeId` to the foot of its perpendicular on `elementId`. */
-export function perpendicularMember(nodeId: number, elementId: number, spec: MemberSpec):
-  { elementId: number; footNode: number } | { refused: ConstructRefusal } {
+/** Where the perpendicular from `nodeId` meets `elementId`, as a parameter along it, or why not. */
+function perpendicularFoot(nodeId: number, elementId: number): { t: number; from: Vec3; foot: Vec3 } | { refused: ConstructRefusal } {
   const e = modelStore.elements.get(elementId), n = modelStore.nodes.get(nodeId);
   if (!e || !n) return { refused: 'sameMember' };
   const a = pv(modelStore.nodes.get(e.nodeI)!), b = pv(modelStore.nodes.get(e.nodeJ)!), p = pv(n);
@@ -39,9 +38,41 @@ export function perpendicularMember(nodeId: number, elementId: number, spec: Mem
   const foot: Vec3 = [a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2]];
   if (Math.hypot(p[0] - foot[0], p[1] - foot[1], p[2] - foot[2]) <= CUT_TOL) return { refused: 'alreadyOnMember' };
   if (t <= 1e-6 || t >= 1 - 1e-6) return { refused: 'footAtEnd' };
+  return { t, from: p, foot };
+}
+
+const midOf = (id: number): Vec3 | null => {
+  const e = modelStore.elements.get(id);
+  const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
+  if (!a || !b) return null;
+  const pa = pv(a), pb = pv(b);
+  return [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2];
+};
+
+/**
+ * The member a construction would add, as its two end points, without adding it: what the Edit
+ * panel draws before the button is pressed. Null when the construction would be refused.
+ */
+export function constructionPreview(
+  kind: 'perpendicular' | 'midpoints', a: number, b: number,
+): [Vec3, Vec3] | null {
+  if (kind === 'perpendicular') {
+    const f = perpendicularFoot(a, b);
+    return 'refused' in f ? null : [f.from, f.foot];
+  }
+  if (a === b) return null;
+  const ma = midOf(a), mb = midOf(b);
+  return ma && mb ? [ma, mb] : null;
+}
+
+/** A member from `nodeId` to the foot of its perpendicular on `elementId`. */
+export function perpendicularMember(nodeId: number, elementId: number, spec: MemberSpec):
+  { elementId: number; footNode: number } | { refused: ConstructRefusal } {
+  const f = perpendicularFoot(nodeId, elementId);
+  if ('refused' in f) return f;
   let out: { elementId: number; footNode: number } = { elementId: -1, footNode: -1 };
   modelStore.batch(() => {
-    const r = modelStore.splitMember(elementId, [t], { reuseNodeTol: CUT_TOL })!;
+    const r = modelStore.splitMember(elementId, [f.t], { reuseNodeTol: CUT_TOL })!;
     out = { footNode: r.nodeIds[0]!, elementId: addMember(nodeId, r.nodeIds[0]!, spec) };
   });
   return out;

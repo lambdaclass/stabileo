@@ -67,10 +67,41 @@ quadrilateral**. It is given a material and a thickness.
 > **How plates connect to members:** only through **shared nodes**. A beam running under a slab
 > without sharing nodes with it is not connected. The panel warns when a plate has a loose corner.
 
-**Repeat selection.** Copies the selected nodes and members N times with a given offset. It can
-join the copies with members (the columns between floors, for instance) and copy the supports too.
-It copies nodes, members and supports, not plates or loads, and it does not merge nodes: a copy
-landing on an existing node leaves two in the same place.
+**Grid and levels.** The building's axes are typed as bays from an origin ("6; 7.5; 6" or "3x6"),
+named A, B, C… one way and 1, 2, 3… the other, and the levels as storey heights from a base
+elevation. They are saved with the project and travel in the model code. The **active level** is
+the plane new nodes land on and where the axes are drawn with their names; the pointer snaps to
+the intersections and to the axes. The grid can also be **read off the model** (a level at every
+elevation with nodes and an axis at every coordinate with columns), and **columns and beams
+between axes** are created over a range of axes and levels in one undo step.
+
+**Transform.** Repeat, polar repeat, mirror, rotate and move the selection, as copies or in place.
+Copies that land on an existing node are welded to it, which is what connects repeated bays, and
+they carry loads, supports and groups when asked. While the numbers change, the result shows in
+the model before it is applied. The point, the mirror plane and the rotation can be picked with
+clicks: one point, two points of the mirror plane, or centre, from and to for the rotation.
+**Move by two points** takes a base point and the destination; Ctrl (⌘ on a Mac) on the second
+click copies instead of moving.
+
+**Placing.** Everything that goes into the model (a paste, a generated structure, a template, a
+copy of a group, an IFC or a DXF) follows the pointer as a **ghost** before it goes in:
+
+- the pointer snaps to a node, or to the active level's plane with the grid;
+- **Tab** changes the insertion point, **R** turns 90° (Shift+R back) and **F** mirrors;
+- the placement bar takes typed coordinates and **Enter** places there; **Esc** cancels;
+- **Shift+click** places and keeps placing copies;
+- the bar says how many nodes will weld onto the model; those nodes keep the model's support.
+
+While placing, the model is view-only. Each placement is one undo step, what was placed is
+selected, and undo brings back the previous selection.
+
+**Copy and paste.** Ctrl+C, Ctrl+X and Ctrl+V (⌘ on a Mac) copy, cut and paste the selection with
+its supports, loads and groups, and its sections and materials by definition. Ctrl+V pastes with
+the ghost; Ctrl+Shift+V pastes in place. What is copied goes to the clipboard as model code, so it
+can be pasted into another project or another tab. In text fields the keys do what they always do.
+
+**Edit.** When splitting members into N parts, the cut points show on the selected members before
+they are split.
 
 ### Properties
 
@@ -112,6 +143,12 @@ one which displacements and rotations are restrained. A roller moves freely with
   CIRSOC 101's, and can be saved as a template for another project.
   PRO examples load with CIRSOC 101-2025's strength combinations built from their cases (except
   the offshore platform, whose waves are not a CIRSOC 103 earthquake).
+- **Floor:** an area load on a level, a floor group or the selected beams is carried to the beams
+  by tributary area. Panels are the closed regions the beams bound in plan; two way, each point
+  loads the nearest beam (on a rectangular panel, the 45° triangles and trapezoids), and one way,
+  the strips load the two beams they reach. Each beam gets partial linear loads that add up to the
+  load times the area. A plan shows the panels before applying; non-convex panels are reported
+  and left unloaded.
 - **Add load:** nodal (in global axes), distributed and point loads on members (in the member's
   local axes), and **surface** loads on quadrilateral plates: in kN/m², vertical (a positive value
   acts downward) and shared among the plate's four nodes.
@@ -145,16 +182,31 @@ load plan for review, and applies it when you confirm. Load cases of type D, L, 
 
 ### Generators
 
-**Metallic structures** generates the **geometry** of typical steel structures:
+**Metallic structures** generates the **geometry** of typical structures:
 
 - **Truss:** trapezoidal, parallel-chord, Pratt, arched, or a rolled portal, with several web
   patterns, half trusses and subdivided diagonals.
 - **Lattice column.**
 - **Shed:** span, frame spacing, number of frames, lattice or solid-web columns, purlins, and roof,
   truss and wall bracing.
+- **Structures:** space frame by bays (X, Y and storeys), plane frame, floor grid, continuous
+  beam, space truss, lattice girder with X or K bracing, Howe roof truss, sawtooth roof, barrel
+  vault, circular beam and dome. Bays are typed as "6; 7.5; 6".
 
-Besides the geometry, it assigns a profile to each kind of member and a steel grade. The generator
-**replaces the current model** (a single undo brings it back).
+It assigns a profile to each kind of member, a steel grade and the supports (the generator's,
+none, pinned or fixed). The structure can go:
+
+- as a **new model**, replacing the current one (a single undo brings it back);
+- **at a point:** coordinates, rotation, the XZ or YZ plane, or along a grid axis, and the
+  insertion point picked on a schema; the ghost shows in the model while the data change;
+- **at a node**, with the mouse.
+
+Inserted into a model, it stays a **generated group**: **Edit parameters** changes its data and
+**Regenerate in place** rebuilds it in one step. Members that still exist keep their number, their
+loads and any section changed on them by hand.
+
+**Templates:** a piece of the model is saved by name and placed again with the ghost; it is shared
+by copying its code.
 
 ## Importing models
 
@@ -172,7 +224,10 @@ From **Project**:
   4. a preview before applying.
 
   The result is a **draft** of the structure, flagged as unreviewed, with the list of assumptions
-  that were used. Slabs and walls are generated as plates.
+  that were used. Slabs and walls are generated as plates. When a model is open, the draft can be
+  **inserted** into it with the ghost instead of replacing it.
+- **IFC.** Members of a BIM model with their sections and materials. With a model open it can be
+  **inserted** with the ghost or **replace** the model; either is undone in one step.
 
 ## Before solving: diagnostics
 

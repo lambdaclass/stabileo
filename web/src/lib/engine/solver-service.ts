@@ -997,14 +997,11 @@ export function solveCombinations2D(
   if (!hasSettlement(model.supports.values())) return solveCombinations2DCore(model, loadCases, combinations, includeSelfWeight);
   const solved = solveCombinations2DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight);
   if (!solved || typeof solved === 'string') return solved;
-  const input = buildSolverInput2D({ ...model, loads: [] }, false);
-  if (!input) return t('svc.emptyModel');
-  let settlement: AnalysisResults | string;
-  try {
-    settlement = solveStructure(input);
-  } catch (err: any) {
-    return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', err?.message ?? String(err));
-  }
+  // Through the same solve as the load cases (validateAndSolve2D): sliding joints expanded,
+  // helper nodes pruned, the model checks run. A bare solve of the input treated a sliding
+  // joint as rigid, so the settlement acted on a different structure than the loads.
+  const settlement = validateAndSolve2D({ ...model, loads: [] }, false);
+  if (!settlement) return t('svc.emptyModel');
   if (typeof settlement === 'string') return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
   return addSettlementCase2D(solved, settlement, combinations) ?? t('svc.envelopeError');
 }

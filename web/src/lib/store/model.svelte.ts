@@ -682,7 +682,7 @@ export interface LoadCombination {
  *
  * ── Why this is one schema and not several ─────────────────────────
  *
- * The model carries no storeys, no grid lines and no user groups: `member-grouping.ts`
+ * Before groups the model carried no storeys and no user sets: `member-grouping.ts`
  * DERIVES its bands from coordinates and refuses the grouping when the geometry cannot
  * support one honestly. That is the right answer for something nobody stated, and the
  * wrong one for something a user did state.
@@ -792,6 +792,8 @@ export interface StructureModel {
   combinationRules?: CombinationRule[];
   /** Named camera views, to come back to a part of the model. Absent: none saved. */
   views?: SavedView[];
+  /** The structural grid and the named levels (`model/grid.ts`). Absent: none defined. */
+  grid?: import('../model/grid').StructuralGrid;
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -903,6 +905,13 @@ export interface InfluenceLineResult {
   /** Data points: loadPosition (global x along structure) → quantity value */
   points: Array<{ x: number; y: number; elementId: number; t: number; value: number }>;
 }
+
+/**
+ * The model fields recorded through the views undo channel (`_pushUndoView`), which undo restores
+ * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
+ * adds its field here.
+ */
+const VIEW_CHANNEL_FIELDS = ['views', 'grid'] as const;
 
 function createModelStore() {
   /**
@@ -1475,20 +1484,29 @@ function createModelStore() {
     },
 
     /**
-     * Restore ONLY the named views.
+     * Restore ONLY what the views channel records (`VIEW_CHANNEL_FIELDS`): the named views and
+     * the rest of the project data the analysis does not read.
      *
      * The mirror of `restoreFoundationOnly`, for the same reason: a view is a camera, it
      * changes nothing the analysis reads, so undoing a view save/rename/remove must not
      * bump `modelVersion` or fire `_onMutation` — that would retire a valid solve, the
      * exact failure that routing view entries through the full `restore()` produced.
      *
-     * A view edit fires no invalidation hook at all: nothing downstream is computed from
-     * `model.views`, so there is nothing stale to drop.
+     * Every setter that records through `_pushUndoView` has its field restored here. It used to
+     * restore `model.views` alone, so undoing a grid edit, recorded on the same channel, left
+     * the grid in place.
+     *
+     * These edits fire no invalidation hook at all: nothing the solve computes reads them, so
+     * there is nothing stale to drop.
      */
     restoreViewsOnly(s: ModelSnapshot): void {
-      const next = s.views ? (JSON.parse(JSON.stringify(s.views)) as SavedView[]) : undefined;
-      if (JSON.stringify(model.views ?? null) === JSON.stringify(next ?? null)) return;
-      model.views = next;
+      const m = model as unknown as Record<string, unknown>;
+      const snap = s as unknown as Record<string, unknown>;
+      for (const k of VIEW_CHANNEL_FIELDS) {
+        const next = snap[k] !== undefined ? JSON.parse(JSON.stringify(snap[k])) : undefined;
+        if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
+        m[k] = next;
+      }
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
@@ -1558,6 +1576,7 @@ function createModelStore() {
     get resultScopes() { return model.resultScopes; },
     get combinationRules() { return model.combinationRules ?? []; },
     get views(): readonly SavedView[] { return model.views ?? []; },
+    get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1634,6 +1653,9 @@ function createModelStore() {
           : {}),
         ...(snap.views && snap.views.length > 0
           ? { views: JSON.parse(JSON.stringify(snap.views)) as ModelSnapshot['views'] }
+          : {}),
+        ...(snap.grid && (snap.grid.axes.length > 0 || snap.grid.levels.length > 0)
+          ? { grid: JSON.parse(JSON.stringify(snap.grid)) as ModelSnapshot['grid'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1821,6 +1843,7 @@ function createModelStore() {
     model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
     model.combinationRules = s.combinationRules ? JSON.parse(JSON.stringify(s.combinationRules)) : undefined;
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
+    model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2402,6 +2425,16 @@ function createModelStore() {
       model.groups = new Map(model.groups);
     },
 
+    /** Replace a group's kind-specific data (`null` removes it). */
+    setGroupData(id: number, data: Record<string, unknown> | null): void {
+      const g = model.groups.get(id);
+      if (!g) return;
+      if (!_undoBatching) _pushUndo?.();
+      const { data: _old, ...rest } = g;
+      model.groups.set(id, data ? { ...rest, data: JSON.parse(JSON.stringify(data)) as Record<string, unknown> } : rest);
+      model.groups = new Map(model.groups);
+    },
+
     removeGroup(id: number): void {
       if (!model.groups.has(id)) return;
       if (!_undoBatching) _pushUndo?.();
@@ -2962,6 +2995,7 @@ function createModelStore() {
       model.resultScopes = undefined;
       model.combinationRules = undefined;
       model.views = undefined;
+      model.grid = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3324,6 +3358,15 @@ function createModelStore() {
       _pushUndoView?.();
       const next = (model.views ?? []).filter((v) => v.id !== id);
       model.views = next.length > 0 ? next : undefined;
+    },
+
+    /**
+     * State the grid and levels; `null` or an empty one withdraws them. Undoable, and not a model
+     * edit: the solve survives it, as it survives a named view.
+     */
+    setGrid(grid: import('../model/grid').StructuralGrid | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.grid = grid && (grid.axes.length > 0 || grid.levels.length > 0) ? JSON.parse(JSON.stringify(grid)) : undefined;
     },
 
     /** State the project's combination rules; an empty list withdraws them. */

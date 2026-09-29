@@ -71,10 +71,42 @@ cuadrilátero**. Se le asigna material y espesor.
 > viga que pasa por debajo de una losa sin compartir nodos con ella no está conectada. El panel
 > avisa cuando una placa tiene una esquina suelta.
 
-**Repetir selección.** Copia los nodos y barras seleccionados N veces con un desplazamiento dado.
-Puede unir las copias con barras (por ejemplo, las columnas entre pisos) y copiar también los
-apoyos. Copia nodos, barras y apoyos, no placas ni cargas, y no fusiona nodos: si una copia cae
-sobre un nodo existente, quedan dos superpuestos.
+**Grilla y niveles.** Los ejes del edificio se cargan como vanos a partir de un origen ("6; 7,5; 6"
+o "3x6"), con nombres A, B, C… en un sentido y 1, 2, 3… en el otro, y los niveles como alturas de
+piso desde una cota base. Se guardan con el proyecto y viajan en el código de modelo. El **nivel
+activo** es el plano donde caen los nodos nuevos y donde se dibujan los ejes con sus nombres; el
+cursor se engancha a las intersecciones y a los ejes. También se puede **leer la grilla del
+modelo** (un nivel en cada cota con nodos y un eje en cada coordenada con columnas) y crear
+**columnas y vigas entre ejes** en un rango de ejes y niveles, en un solo paso de deshacer.
+
+**Transformar.** Repetir, repetir en polar, espejar, girar y mover la selección, como copias o en
+el lugar. Las copias que caen sobre un nodo existente se sueldan a él, que es lo que conecta los
+vanos repetidos, y copian cargas, apoyos y grupos si se pide. Mientras se cambian los números, el
+resultado se ve en el modelo antes de aplicarlo. El punto, el plano de espejo y el giro se pueden
+tomar con clics: un punto, dos puntos del plano de espejo, o centro, desde y hasta para el giro.
+**Mover por dos puntos** toma un punto base y el destino; con Ctrl (⌘ en Mac) en el segundo clic
+copia en vez de mover.
+
+**Colocar.** Todo lo que se inserta en el modelo (pegar, una estructura generada, una plantilla,
+una copia de un grupo, un IFC o un DXF) sigue al cursor como un **fantasma** antes de entrar:
+
+- el cursor se engancha a un nodo, o al plano del nivel activo con la grilla;
+- **Tab** cambia el punto de inserción, **R** gira 90° (Shift+R al revés) y **F** espeja;
+- en la barra de colocación se escriben las coordenadas y **Enter** coloca ahí; **Esc** cancela;
+- **Shift+clic** coloca y deja seguir colocando copias;
+- la barra dice cuántos nodos se van a soldar al modelo; en esos nodos queda el apoyo del modelo.
+
+Mientras se coloca, el modelo sólo se mira. Cada colocación es un paso de deshacer, lo colocado
+queda seleccionado y deshacer devuelve la selección anterior.
+
+**Copiar y pegar.** Ctrl+C, Ctrl+X y Ctrl+V (⌘ en Mac) copian, cortan y pegan la selección con
+sus apoyos, cargas y grupos, y con sus secciones y materiales por definición. Ctrl+V pega con el
+fantasma; Ctrl+Shift+V pega en el mismo lugar. Lo copiado va al portapapeles como código de
+modelo, así que se puede pegar en otro proyecto o en otra pestaña. En campos de texto las teclas
+hacen lo de siempre.
+
+**Editar.** Al dividir barras en N partes, los puntos de corte se ven en las barras
+seleccionadas antes de dividir.
 
 ### Propiedades
 
@@ -115,6 +147,13 @@ su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y
   proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
   Los ejemplos de PRO se cargan con las combinaciones últimas de CIRSOC 101-2025 armadas desde
   sus casos (salvo la plataforma offshore, cuyo oleaje no es un sismo de CIRSOC 103).
+- **Piso:** una carga por unidad de superficie sobre un nivel, un grupo de planta o las vigas
+  seleccionadas se reparte a las vigas por área tributaria. Los paños son las regiones cerradas
+  que forman las vigas en planta; en dos direcciones cada punto carga la viga más cercana (en un
+  paño rectangular son los triángulos y trapecios a 45°) y en una dirección las fajas cargan las
+  dos vigas a las que llegan. Cada viga recibe cargas lineales parciales cuya suma es la carga
+  por el área. Una planta muestra los paños antes de aplicar; los paños no convexos se informan
+  y no se cargan.
 - **Agregar carga:** nodal (en ejes globales), distribuida y puntual sobre barras (en ejes
   locales de la barra), y **de superficie** sobre placas cuadriláteras: en kN/m², vertical (un
   valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
@@ -151,16 +190,31 @@ diálogo directamente para ese caso.
 
 ### Generadores
 
-**Estructuras metálicas** genera la **geometría** de estructuras típicas de acero:
+**Estructuras metálicas** genera la **geometría** de estructuras típicas:
 
 - **Cercha:** trapezoidal, de cordones paralelos, Pratt, en arco o pórtico de alma llena, con
   distintos patrones de diagonales, media cercha y diagonales subdivididas.
 - **Columna reticulada.**
 - **Nave:** luz, separación entre pórticos, cantidad de pórticos, columnas reticuladas o de alma
   llena, correas y arriostramientos de cubierta, de cercha y de muro.
+- **Estructuras:** pórtico espacial por vanos (X, Y y pisos), pórtico plano, emparrillado, viga
+  continua, reticulado espacial, viga reticulada en X o en K, cabriada Howe, diente de sierra,
+  bóveda cilíndrica, viga circular y cúpula. Los vanos se escriben como "6; 7,5; 6".
 
-Además de la geometría, asigna un perfil a cada tipo de barra y un acero. El generador
-**reemplaza el modelo actual** (se deshace con un solo paso).
+Asigna un perfil a cada tipo de barra, un acero y los apoyos (los del generador, ninguno,
+articulados o empotrados). La estructura puede ir:
+
+- como **modelo nuevo**, que reemplaza al actual (se deshace con un solo paso);
+- **en un punto:** coordenadas, giro, plano XZ o YZ, o sobre un eje de la grilla, y el punto de
+  inserción elegido en un esquema; el fantasma se ve en el modelo mientras se cambian los datos;
+- **en un nodo**, con el mouse.
+
+Insertada en un modelo, queda como un **grupo generado**: con **Editar parámetros** se cambian
+sus datos y **Regenerar en el lugar** la rehace en un paso. Las barras que siguen existiendo
+conservan su número, sus cargas y la sección que se les haya cambiado a mano.
+
+**Plantillas:** una parte del modelo se guarda con un nombre y se vuelve a colocar con el
+fantasma; se comparte copiando su código.
 
 ## Importar modelos
 
@@ -178,7 +232,10 @@ Desde **Proyecto**:
   4. una vista previa antes de aplicar.
 
   El resultado es un **borrador** de la estructura, marcado como no revisado, con la lista de
-  supuestos que se usaron. Las losas y los tabiques se generan como placas.
+  supuestos que se usaron. Las losas y los tabiques se generan como placas. Si ya hay un modelo,
+  el borrador se puede **insertar** en él con el fantasma en vez de reemplazarlo.
+- **IFC.** Barras de un modelo BIM con sus secciones y materiales. Con un modelo abierto se puede
+  **insertar** con el fantasma o **reemplazar** el modelo; las dos cosas se deshacen en un paso.
 
 ## Antes de calcular: diagnósticos
 
