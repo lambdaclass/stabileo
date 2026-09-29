@@ -90,7 +90,10 @@ describe('what the compact link keeps', () => {
     expect(compactLoses(custom)).toBe(true);
     expect(compactLoses(snap({ curved: { radius: 3 } }))).toBe(true);
     expect(compactLoses({ ...base, views: [{ id: 1, name: 'v', position: { x: 0, y: 0, z: 5 }, target: { x: 0, y: 0, z: 0 } }] } as never)).toBe(true);
-    expect(compactLoses({ ...base, materials: [[1, { id: 1, name: 'A36', e: 200000, nu: 0.3, rho: 78.5, fu: 400, gradeId: 'astm-a36' }]] } as never)).toBe(true);
+    // A steel grade and its fu travel in the compact link, so they no longer force the code link.
+    const graded = { ...base, materials: [[1, { id: 1, name: 'A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250, fu: 400, gradeId: 'astm-a36', standard: 'ASTM A36', region: 'US' }]] } as never;
+    expect(compactLoses(graded)).toBe(false);
+    expect(decompressSnapshot(compressSnapshot(graded))!.materials[0]![1]).toMatchObject({ fu: 400, gradeId: 'astm-a36', standard: 'ASTM A36', region: 'US', fy: 250 });
   });
 });
 
@@ -98,7 +101,7 @@ describe('the Basic examples', () => {
   it('stay on the compact link, which is shorter', async () => {
     const { compactLoses } = await import('../url-sharing');
     const { modelStore } = await import('../../store/model.svelte');
-    for (const name of ['simply-supported', 'portal-frame', 'spring-support', 'thermal', 'settlement', '3d-portal-frame', '3d-grid-slab', 'pipe-rack']) {
+    for (const name of ['simply-supported', 'portal-frame', 'spring-support', 'thermal', 'settlement', '3d-portal-frame', '3d-grid-slab', 'pipe-rack', '3d-nave-industrial']) {
       await modelStore.loadExample(name);
       expect(compactLoses(modelStore.snapshot()), name).toBe(false);
     }

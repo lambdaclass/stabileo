@@ -219,8 +219,20 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
   // Materials: [[id, name, e, nu, rho, fy?], ...]
   c.mt = snapshot.materials.map(([, v]) => {
-    const arr: (string | number)[] = [v.id, v.name, r(v.e), r(v.nu), r(v.rho)];
+    const arr: (string | number | null | Record<string, unknown>)[] = [v.id, v.name, r(v.e), r(v.nu), r(v.rho)];
     if ((v as any).fy != null) arr.push(r((v as any).fy));
+    // The grade and its ultimate strength, which steel design reads: without them a shared steel
+    // model arrived with no fu and no grade, and the link switched to code form to carry them.
+    const m = v as { fu?: number; gradeId?: string; standard?: string; region?: string };
+    const extra: Record<string, unknown> = {};
+    if (m.fu != null) extra.fu = r(m.fu);
+    if (m.gradeId) extra.g = m.gradeId;
+    if (m.standard) extra.st = m.standard;
+    if (m.region) extra.rg = m.region;
+    if (Object.keys(extra).length > 0) {
+      if (arr.length === 5) arr.push(null);
+      arr.push(extra);
+    }
     return arr;
   });
 
@@ -410,9 +422,16 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     nodes: (c.n as number[][]).map(a => [a[0], { id: a[0], x: a[1], y: a[2], ...(a[3] !== undefined ? { z: a[3] } : {}) }]),
 
     // Materials
-    materials: (c.mt as (string | number)[][]).map(a => [
+    materials: (c.mt as unknown[][]).map(a => [
       a[0] as number,
-      { id: a[0] as number, name: a[1] as string, e: a[2] as number, nu: a[3] as number, rho: a[4] as number, ...(a[5] != null ? { fy: a[5] as number } : {}) },
+      {
+        id: a[0] as number, name: a[1] as string, e: a[2] as number, nu: a[3] as number, rho: a[4] as number,
+        ...(a[5] != null ? { fy: a[5] as number } : {}),
+        ...(() => {
+          const x = (a as unknown[])[6] as { fu?: number; g?: string; st?: string; rg?: string } | undefined;
+          return x ? { ...(x.fu != null ? { fu: x.fu } : {}), ...(x.g ? { gradeId: x.g } : {}), ...(x.st ? { standard: x.st } : {}), ...(x.rg ? { region: x.rg } : {}) } : {};
+        })(),
+      },
     ]),
 
     // Sections — handle iy/iz convention migration
