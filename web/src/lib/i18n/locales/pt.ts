@@ -1405,6 +1405,7 @@ const pt: Translations = {
   'detailing.constructible.reverified': '{done} de {total} elementos verificados novamente com a geometria final',
   'detailing.constructible.hashes': '{matching} de {total} certificados coincidem com a geometria construída',
   'detailing.floorRun.shellDemandNotPerCombination': 'A solicitação da casca é tirada do estado resolvido, não de uma combinação de dimensionamento nomeada: o aplicativo não expõe os resultados de casca por combinação elemento a elemento, por isso não se atribui nenhuma combinação determinante. Inventar o nome de uma combinação seria pior do que não indicar nenhuma.',
+  'detailing.floorRun.shellDemandEnveloped': "Os momentos de lajes e paredes são a envoltória, com sinal, das combinações de projeto: cada face é dimensionada para a pior. O registro não nomeia uma combinação governante por face.",
   'detailing.floorRun.slabUnsupported': 'Laje {panel}: {reason}',
   'detailing.floorRun.slabPunchingNoCaller': 'A laje {panel} apoia o(s) pilar(es) {columns}: o cisalhamento em duas direções (punção) no nó laje-pilar NÃO estava verificado quando este registro foi produzido, porque não existia nenhum chamador laje-pilar que derivasse a solicitação do salto da força axial do pilar no nó. Agora existe; regenere o detalhamento do pavimento para obter a verificação.',
   'detailing.pairClass.cageSpacing': 'Duas peças de uma mesma armadura transversal (Tabela 9.7.6.2.2)',

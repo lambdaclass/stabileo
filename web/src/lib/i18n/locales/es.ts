@@ -6868,6 +6868,7 @@ const es: Record<string, string> = {
   'detailing.constructible.reverified': '{done} de {total} elementos reverificados con la geometría final',
   'detailing.constructible.hashes': '{matching} de {total} certificados coinciden con la geometría construida',
   'detailing.floorRun.shellDemandNotPerCombination': 'La solicitación de la cáscara se toma del estado resuelto, no de una combinación de diseño nombrada: la aplicación no expone los resultados de cáscara por combinación elemento por elemento, por lo que no se atribuye ninguna combinación gobernante. Inventar el nombre de una combinación sería peor que no indicar ninguna.',
+  'detailing.floorRun.shellDemandEnveloped': "Los momentos de losas y tabiques son la envolvente, con signo, de las combinaciones de diseño: cada cara se diseña para la peor. El registro no nombra una combinación gobernante por cara.",
   'detailing.floorRun.slabUnsupported': 'Losa {panel}: {reason}',
   /** Se conserva para registros PERSISTIDOS antes de que existiera el colector losa-columna. */
   'detailing.floorRun.slabPunchingNoCaller': 'La losa {panel} soporta la(s) columna(s) {columns}: el corte en dos direcciones (punzonado) en el nudo losa-columna NO estaba verificado cuando se produjo este registro, porque no existía ningún llamador losa-columna que derivara la solicitación del salto de la fuerza axial de la columna en el nudo. Ahora existe; regenerar el despiece del piso para obtener la verificación.',

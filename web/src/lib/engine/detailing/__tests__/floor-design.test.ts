@@ -722,3 +722,28 @@ describe('§25.4.3.1 — hooked development of dowels', () => {
     expect(d.unsupported[0]).toMatch(/no se pudo verificar/);
   });
 });
+
+describe('slab design over the combinations', () => {
+  const base = {
+    panelId: 'P1', lx: 5, ly: 5, thickness: 0.15, cover: 0.025, supportedSides: 4,
+    fc: 25, fy: 420, maxAggregateSizeMm: 19, edition: '2025' as const, qu: 10,
+  };
+
+  it('designs the bottom for the sagging combination and the top for the hogging one', () => {
+    const sag = { mx: 20, my: 18, mxy: 0 }, hog = { mx: -15, my: -12, mxy: 0 };
+    const both = designSlabPanel({ ...base, moments: sag, momentSets: [sag, hog] });
+    const onlySag = designSlabPanel({ ...base, moments: sag });
+    const top = (r: typeof both) => r.layers.filter((l) => l.face === 'top').reduce((a, l) => a + l.asProvided, 0);
+    const bottom = (r: typeof both) => r.layers.filter((l) => l.face === 'bottom').reduce((a, l) => a + l.asProvided, 0);
+    expect(bottom(both)).toBeCloseTo(bottom(onlySag), 9);
+    expect(top(both)).toBeGreaterThan(top(onlySag));
+  });
+
+  it('includes φ in the steel: As ≥ Mu/(0,9·0,9·d·fy)', () => {
+    const r = designSlabPanel({ ...base, moments: { mx: 30, my: 0, mxy: 0 } });
+    const d = 0.15 - 0.025 - 0.006;
+    const needed = 30 * 1000 / (0.81 * d * 420e6); // m²/m
+    const bx = r.layers.find((l) => l.face === 'bottom' && l.direction === 'x')!;
+    expect(bx.asProvided).toBeGreaterThanOrEqual(needed - 1e-9);
+  });
+});

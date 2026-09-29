@@ -6878,6 +6878,7 @@ const en: Record<string, string> = {
   'detailing.constructible.reverified': '{done} of {total} members reverified at final geometry',
   'detailing.constructible.hashes': '{matching} of {total} certificates match the built geometry',
   'detailing.floorRun.shellDemandNotPerCombination': 'The shell demand is taken from the solved state, not from a named design combination: the app does not expose per-combination shell results element by element, so no governing combination is attributed. An invented combination name would be worse than none.',
+  'detailing.floorRun.shellDemandEnveloped': "The slab and wall moments are the signed envelope of the design combinations: each face is designed for the worst. The record does not name a governing combination per face.",
   'detailing.floorRun.slabUnsupported': 'Slab {panel}: {reason}',
   /**
    * Retained for records PERSISTED before the slab-column collector existed.
