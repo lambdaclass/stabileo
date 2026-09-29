@@ -17,6 +17,7 @@
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
+  import { withSolveSections } from '../../lib/engine/member-behaviour';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
@@ -455,12 +456,13 @@
          */
         const { sections, materials, mpOverrides, assumed } = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
         nlAssumed = assumed;
+        // Members with stiffness modifiers solve on sections of their own (`withSolveSections`).
         nlResult = solvePlastic3D({
           solver: input,
-          sections,
+          sections: withSolveSections(sections, input, modelStore.elements),
           materials,
           maxHinges: nlMaxHinges,
-          mpOverrides,
+          mpOverrides: withSolveSections(mpOverrides, input, modelStore.elements),
         });
         nlVersion = modelStore.modelVersion;
       } else if (nlType === 'corotational') {
@@ -477,7 +479,7 @@
         }
         nlResult = solveFiberNonlinear3D({
           solver: input,
-          fiberSections,
+          fiberSections: withSolveSections(fiberSections, input, modelStore.elements),
           nIntegrationPoints: nlFiberIntPts,
           maxIter: nlMaxIter,
           tolerance: nlTol,

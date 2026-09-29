@@ -3476,6 +3476,8 @@ const es: Record<string, string> = {
   'svc.emptyModel': 'Modelo vac\u00EDo',
   'svc.solverError': 'Error al resolver: {n}',
   'svc.solver3dError': 'Error al resolver 3D: {n}',
+  'svc.semiRigidInvalid': 'Barra {n}: un extremo semirrígido necesita una rigidez al giro de cero o más.',
+  'svc.semiRigidNotAligned': 'Barra {n}: los extremos semirrígidos valen solo para barras según los ejes globales. Quitalos, o usá una liberación de extremo.',
   'svc.mechanism3d': 'La estructura es un mecanismo: con estos vínculos puede moverse sin deformarse y las cargas la mueven (los desplazamientos no tienen límite). Revisá los apoyos y las articulaciones.',
 
   // ─── Critical Section Reasons ───
@@ -5127,7 +5129,8 @@ const es: Record<string, string> = {
   'edit.refused.sameMember': 'Elegí dos barras distintas.',
   'edit.refused.notCoplanar': 'Las barras no están en un mismo plano.',
   'edit.refused.noHoles': 'Las barras no encierran ningún hueco.',
-  'edit.refused.tooManyDivisions': 'Un hueco necesitaría más de 256 elementos por lado con este tamaño — no se rellenó nada. Usá un tamaño de elemento mayor.',
+  'edit.refused.tooManyDivisions': 'Un hueco necesitaría más elementos de los que genera el mallador (256 por lado, 20 000 en total) con este tamaño — no se rellenó nada. Usá un tamaño de elemento mayor.',
+  'edit.refused.cannotMesh': 'El mallador no puede mallar uno de los huecos (sus esquinas no están en un plano, o la grilla se pliega) — no se rellenó nada.',
   'edit.fillTitle': 'Rellenar huecos',
   'edit.fillMaterial': 'Material de la placa',
   'edit.thickness': 'e [m]',

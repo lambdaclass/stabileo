@@ -12,10 +12,10 @@
 import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
-import { meshQuadRegion, exceedsDivisionCap, type MeshDensity } from './mesh-region';
+import { meshQuadRegion, regionMesh, type MeshDensity } from './mesh-region';
 import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
-export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions';
+export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions' | 'cannotMesh';
 
 export interface MemberSpec { type: 'frame' | 'truss'; materialId: number; sectionId: number }
 
@@ -218,7 +218,7 @@ function planFill(
       if (ids.length === elements.length) continue;
       const r = planFill(ids, density, tol);
       if ('refused' in r) {
-        if (r.refused === 'tooManyDivisions') return r;
+        if (r.refused === 'tooManyDivisions' || r.refused === 'cannotMesh') return r;
         continue;
       }
       planes.push(...r);
@@ -269,8 +269,10 @@ function planFill(
     const taken = tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)));
     return { f, tris, taken, quad: f.length === 4 && convex(polygon) };
   });
-  if (steps.some((p) => !p.taken && p.quad && exceedsDivisionCap(p.f.map((id) => modelStore.nodes.get(id)!), density))) {
-    return { refused: 'tooManyDivisions' };
+  for (const p of steps) {
+    if (p.taken || !p.quad) continue;
+    const planned = regionMesh(p.f.map((id) => modelStore.nodes.get(id)!), density);
+    if ('refused' in planned) return planned;
   }
   return [steps];
 }
@@ -299,7 +301,7 @@ export function fillHoles(
       if (taken) { report.skippedExisting++; continue; }
       if (quad) {
         const m = meshQuadRegion(f as [number, number, number, number], { density, materialId, thickness, splitBeams: true });
-        if ('refused' in m) continue; // planFill refused these already
+        if ('refused' in m) continue; // planFill asked the mesher for each of these already
         report.quads.push(...m.quads);
         continue;
       }

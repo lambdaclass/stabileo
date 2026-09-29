@@ -8,7 +8,8 @@ import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
 import * as wasmSolver from '../wasm-solver';
-import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D } from '../solver-service';
+import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
+import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
 import { modelHasJoints3D } from '../expand-joints-3d';
 
@@ -336,5 +337,69 @@ describe('semi-rigid limits and analysis guards', () => {
     expect(modelHasJoints3D(modelStore.elements.values())).toBe(true);
     modelStore.updateElement(e, { semiRigid: undefined });
     expect(modelStore.hasJoint3D()).toBe(false);
+  });
+});
+
+describe('factored loads in the nonlinear combinations', () => {
+  it('scale the temperature of a quad, not its material coefficient', () => {
+    const l = { type: 'quadThermal', data: { elementId: 7, dtUniform: 10, dtGradient: 4, alpha: 1.2e-5 } } as never;
+    expect((scaleSolverLoad(l, 1.2) as unknown as { data: Record<string, number> }).data).toEqual({ elementId: 7, dtUniform: 12, dtGradient: 4.8, alpha: 1.2e-5 });
+  });
+});
+
+describe('semi-rigid ends the solve cannot model', () => {
+  it('a member not along global axes is refused, not solved with rigid ends', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 2);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, 1);
+    modelStore.updateElement(e, { semiRigid: { i: { ky: 5000, kz: 5000 } } });
+    const r = validateAndSolve3D(md());
+    expect(typeof r).toBe('string');
+    expect(r).toContain(String(e));
+  });
+
+  it('a negative stiffness is an error message, from the single solve and the combinations', () => {
+    const { e } = loadedCantilever();
+    modelStore.updateElement(e, { semiRigid: { i: { ky: -500, kz: 5000 } } });
+    expect(() => validateAndSolve3D(md())).not.toThrow();
+    expect(typeof validateAndSolve3D(md())).toBe('string');
+    const combos = [{ id: 1, name: 'C', factors: [{ caseId: 1, factor: 1 }] }];
+    expect(() => solveCombinations3D(md(), modelStore.model.loadCases, combos)).not.toThrow();
+    expect(typeof solveCombinations3D(md(), modelStore.model.loadCases, combos)).toBe('string');
+  });
+});
+
+describe('a settlement in a model that is not linear', () => {
+  it('is its own case, out of the load cases, and in every combination once — loaded or not', () => {
+    // A lifting support that stays down, and a settlement at the one next to it.
+    const ns = [0, 4, 8].map((x) => modelStore.addNode(x, 0, 0));
+    for (let i = 1; i < ns.length; i++) modelStore.addElement(ns[i - 1]!, ns[i]!, 'frame');
+    modelStore.addSupport(ns[0]!, 'custom3d' as never, undefined, { dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: true } });
+    modelStore.addSupport(ns[1]!, 'pinned3d' as never, undefined, { dz: -0.001 });
+    const lifting = modelStore.addSupport(ns[2]!, 'pinned3d' as never);
+    modelStore.updateSupport(lifting, { uplift: true });
+    modelStore.addNodalLoad3D(ns[2]!, 0, 0, -50, 0, 0, 0, 1);
+    const empty = modelStore.addLoadCase('L', 'L');
+    const combos = [
+      { id: 1, name: 'D', factors: [{ caseId: 1, factor: 1 }] },
+      { id: 2, name: 'L', factors: [{ caseId: empty, factor: 1 }] },
+    ];
+    const b = solveCombinations3D(md(), modelStore.model.loadCases, combos);
+    if (!b || typeof b === 'string') throw new Error(String(b));
+    const uz = (r: ReturnType<typeof solve> | undefined) => r?.displacements.find((d) => d.nodeId === ns[1])?.uz;
+    expect(uz(b.perCase.get(1))).toBeCloseTo(0, 9);
+    expect(uz(b.perCase.get(SETTLEMENT_CASE_ID))).toBeCloseTo(-0.001, 9);
+    expect(uz(b.perCombo.get(1))).toBeCloseTo(-0.001, 9);
+    expect(uz(b.perCombo.get(2))).toBeCloseTo(-0.001, 9);
+  });
+
+  it('with one-way members is refused: their solver does not impose it', () => {
+    bracedBay('tensionOnly');
+    const right = [...modelStore.supports.values()].find((s) => s.type === 'pinned3d' && s.nodeId !== 1)!;
+    modelStore.updateSupport(right.id, { dz: -0.01 });
+    expect(validateAndSolve3D(md())).toEqual(expect.stringContaining('settlement'));
+    const combos = [{ id: 1, name: 'D', factors: [{ caseId: 1, factor: 1 }] }];
+    expect(solveCombinations3D(md(), modelStore.model.loadCases, combos)).toEqual(expect.stringContaining('settlement'));
   });
 });

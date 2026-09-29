@@ -1,7 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
-import { expandSemiRigid3D } from './expand-semi-rigid-3d';
+import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D } from './member-behaviour';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
@@ -25,7 +25,7 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
-import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement } from './settlement-case';
+import { addSettlementCase, addSettlementCase2D, hasSettlement, SETTLEMENT_CASE_ID, withoutSettlement } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
@@ -1684,6 +1684,20 @@ export function buildSolverInput3D(
   return input;
 }
 
+/**
+ * `buildSolverInput3D` for the solves: what it refuses — a semi-rigid end it cannot model — comes
+ * back as the solve's error message, as every other refusal does, rather than as an exception
+ * thrown past the solve's own error handling.
+ */
+function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): SolverInput3D | string | null {
+  try {
+    return buildSolverInput3D(...args);
+  } catch (err) {
+    if (!(err instanceof SemiRigidError)) throw err;
+    return t(err.code === 'invalid' ? 'svc.semiRigidInvalid' : 'svc.semiRigidNotAligned').replace('{n}', String(err.elementId));
+  }
+}
+
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
 
 /**
@@ -1790,7 +1804,7 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
     return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
   }
 
-  const input = buildSolverInput3D(model, includeSelfWeight, leftHand);
+  const input = buildSolveInput3D(model, includeSelfWeight, leftHand);
   if (!input) return t('svc.emptyModel');
   return input;
 }
@@ -1909,8 +1923,9 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
  * the structure without prescribed displacements.
  */
 function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: LoadCombination[], leftHand: boolean): Bundle3D | string {
-  const input = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const input = buildSolveInput3D({ ...model, loads: [] }, false, leftHand);
   if (!input) return t('svc.emptyModel');
+  if (typeof input === 'string') return input;
   let settlement: AnalysisResults3D | string;
   try {
     settlement = solve3DEngine(input);
@@ -1957,8 +1972,9 @@ function solveCombinations3DCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, false, leftHand);
   if (!baseInput) return t('svc.emptyModel');
+  if (typeof baseInput === 'string') return baseInput;
 
   // Build per-case load arrays — reuse baseInput structure, only build loads per case
   const mcLoadCases: Array<{ name: string; loads: SolverLoad3D[] }> = [];
@@ -2087,6 +2103,11 @@ function solveCombinations3DFallback(
 /**
  * Combinations for a model that is not linear (one-way members, lifting supports): every case
  * and every combination solved on its own, with its own factored loads. See `member-behaviour.ts`.
+ *
+ * A settlement cannot be added afterwards here, as the linear path does: it is solved inside
+ * every combination, once, with the combination's loads — a combination with no load still
+ * carries it. The load cases are solved without it, and the settlement alone is published as its
+ * own case (`SETTLEMENT_CASE_ID`), so the tables read as the linear path's do.
  */
 function solveCombinations3DNonlinear(
   model: ModelData,
@@ -2097,26 +2118,32 @@ function solveCombinations3DNonlinear(
 ): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
   noteStructuralSolve();
   if (combinations.length === 0) return t('svc.needCombination');
-  const base = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const settled = hasSettlement(model.supports.values());
+  const base = buildSolveInput3D({ ...model, supports: settled ? withoutSettlement(model.supports) : model.supports, loads: [] }, false, leftHand);
   if (!base) return t('svc.emptyModel');
+  if (typeof base === 'string') return base;
+  const settledBase = settled ? buildSolveInput3D({ ...model, loads: [] }, false, leftHand) : base;
+  if (!settledBase) return t('svc.emptyModel');
+  if (typeof settledBase === 'string') return settledBase;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = new Map<number, SolverLoad3D[]>();
   for (const lc of loadCases) {
     const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
     caseLoads.set(lc.id, buildSolverLoads3D(model, loads, includeSelfWeight && lc.type === 'D', leftHand));
   }
-  const run = (loads: SolverLoad3D[]): AnalysisResults3D => {
-    const r = solveNonlinear3D(model, { ...base, loads }).results;
+  const run = (loads: SolverLoad3D[], on: SolverInput3D = base): AnalysisResults3D => {
+    const r = solveNonlinear3D(model, { ...on, loads }).results;
     if (hasShells) postProcessShellStresses(r, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
     return r;
   };
   try {
     const perCase = new Map<number, AnalysisResults3D>();
     for (const [id, loads] of caseLoads) if (loads.length > 0) perCase.set(id, run(loads));
+    if (settled) perCase.set(SETTLEMENT_CASE_ID, run([], settledBase));
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
       const loads = combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
-      if (loads.length > 0) perCombo.set(combo.id, run(loads));
+      if (loads.length > 0 || settled) perCombo.set(combo.id, run(loads, settledBase));
     }
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
     const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2127,8 +2154,12 @@ function solveCombinations3DNonlinear(
   }
 }
 
-/** A solver load times a factor: every magnitude scales, positions and ids do not. */
-const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id', 'a', 'b', 'caseId']);
+/**
+ * A solver load times a factor: every magnitude scales, positions, ids and material data do not.
+ * A quad's thermal load carries its material's α, and an edge load its edge index; a quad's
+ * self-weight scales through its gravity, so its density stays too, or the factor went in twice.
+ */
+const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id', 'a', 'b', 'caseId', 'alpha', 'edge', 'density']);
 export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(l.data)) data[k] = typeof v === 'number' && !LOAD_KEYS_KEPT.has(k) ? v * f : v;
@@ -2171,8 +2202,9 @@ async function solveCombinations3DParallelCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, false, leftHand);
   if (!baseInput) return t('svc.emptyModel');
+  if (typeof baseInput === 'string') return baseInput;
 
   // Plain-object wire form of the base structure (shared across all cases).
   // Built straight from the Maps — the old JSON.parse(serializeInput3D(...))

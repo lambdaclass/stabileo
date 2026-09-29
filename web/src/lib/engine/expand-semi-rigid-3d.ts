@@ -6,8 +6,9 @@
  *
  * A zero-length connector acts in global axes (the engine takes local x = X, local y = −Z,
  * local z = Y for it), so the member's bending axes must lie along global axes; a member that is
- * not aligned keeps its end rigid and is reported. The model is not touched: the helpers exist in
- * the solver input only and their results are pruned like the joints'.
+ * not aligned is refused (`SemiRigidError`) — solving it with rigid ends, as it once was, gave
+ * a stiffer structure and said nothing. The model is not touched: the helpers exist in the
+ * solver input only and their results are pruned like the joints'.
  */
 import type { SolverInput3D } from './types-3d';
 import type { Constraint3D } from './types-3d';
@@ -16,6 +17,15 @@ import { computeLocalAxes3D } from './local-axes-3d';
 
 export interface SemiRigidEnd { ky: number; kz: number }
 export interface SemiRigid { i?: SemiRigidEnd; j?: SemiRigidEnd }
+
+/** A semi-rigid end the expansion cannot model; the solves turn it into their error message. */
+export class SemiRigidError extends Error {
+  constructor(readonly code: 'invalid' | 'notAligned', readonly elementId: number) {
+    super(code === 'invalid'
+      ? `Member ${elementId}: semi-rigid stiffness must be finite and nonnegative`
+      : `Member ${elementId}: semi-rigid ends need a member along the global axes`);
+  }
+}
 
 export function modelHasSemiRigid(elements: Iterable<Element>): boolean {
   for (const e of elements) if (e.semiRigid?.i || e.semiRigid?.j) return true;
@@ -31,11 +41,10 @@ const globalAxis = (v: readonly number[]) => {
 /** Stiffness about global X, Y, Z on a zero-length connector's own fields. */
 const CONNECTOR_ROT = ['kMoment', 'kBendZ', 'kBendY'] as const;
 
-export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<number, Element>): { helpers: Set<number>; notAligned: number[] } {
+export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<number, Element>): { helpers: Set<number> } {
   const helpers = new Set<number>();
-  const notAligned: number[] = [];
   const els = [...modelElements.values()].filter((e) => e.semiRigid?.i || e.semiRigid?.j).sort((a, b) => a.id - b.id);
-  if (els.length === 0) return { helpers, notAligned };
+  if (els.length === 0) return { helpers };
   let nextNode = Math.max(0, ...input.nodes.keys()) + 1;
   const connectors = new Map(input.connectors ?? []);
   let nextConn = Math.max(0, ...connectors.keys()) + 1;
@@ -49,12 +58,12 @@ export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<numbe
     const localY = se.localYx !== undefined && se.localYy !== undefined && se.localYz !== undefined ? { x: se.localYx, y: se.localYy, z: se.localYz } : undefined;
     const axes = computeLocalAxes3D(nI, nJ, localY, se.rollAngle ?? 0, false);
     const ay = globalAxis(axes.ey), az = globalAxis(axes.ez);
-    if (ay === null || az === null) { notAligned.push(e.id); continue; }
+    if (ay === null || az === null) throw new SemiRigidError('notAligned', e.id);
     for (const end of ['i', 'j'] as const) {
       const spec = e.semiRigid?.[end];
       if (!spec) continue;
       if (![spec.ky, spec.kz].every((k) => Number.isFinite(k) && k >= 0)) {
-        throw new Error(`Member ${e.id}: semi-rigid stiffness must be finite and nonnegative`);
+        throw new SemiRigidError('invalid', e.id);
       }
       const node = end === 'i' ? nI : nJ;
       const helper = nextNode++;
@@ -75,5 +84,5 @@ export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<numbe
   }
   input.constraints = constraints;
   input.connectors = connectors as never;
-  return { helpers, notAligned };
+  return { helpers };
 }

@@ -25,6 +25,7 @@
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D } from './types-3d';
 import { solve3D, solveContact3D, solveSSI3D } from './wasm-solver';
+import { hasSettlement } from './settlement-case';
 
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive';
 
@@ -130,6 +131,9 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
   if (hasMembers && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
+  // The engine's contact solver assembles the structure itself and imposes no prescribed
+  // displacement: a settlement with one-way members was dropped without a word.
+  if (hasMembers && hasSettlement(input.supports.values())) throw new Error('a support settlement cannot be solved with one-way members');
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
   const normals = new Map<number, [number, number, number]>();
   for (const n of upliftNodes) {
@@ -258,4 +262,21 @@ export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData):
     }
     input.elements.set(id, { ...el, sectionId: sid });
   }
+}
+
+/**
+ * A per-section payload (plastic moments, fiber sections) extended to the solve-only sections
+ * `applyStiffnessModifiers` made: each one gets its model section's entry. A modifier changes a
+ * member's stiffness, not its strength, and an engine that looks a member's section up by id
+ * found nothing for them — the pushover took their Mp as infinite and never hinged them.
+ */
+export function withSolveSections<T>(bySection: Record<string, T>, input: SolverInput3D, modelElements: Map<number, { sectionId: number }>): Record<string, T> {
+  const out = { ...bySection };
+  for (const [id, el] of input.elements) {
+    const own = modelElements.get(id)?.sectionId;
+    if (own === undefined || own === el.sectionId || String(el.sectionId) in out) continue;
+    const entry = bySection[String(own)];
+    if (entry !== undefined) out[String(el.sectionId)] = entry;
+  }
+  return out;
 }

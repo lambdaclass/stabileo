@@ -109,6 +109,21 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await expect(page.getByTestId('th-scale-y')).toHaveValue('0.5');
   });
 
+  test('a record read in the wrong unit is flagged, and choosing its unit reads it again', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByTestId('adv-chip-timehistory').click();
+    await page.getByTestId('th-src-x').selectOption('record');
+    // A table in cm/s², a 500 gal peak, read while the unit still says g: 500 g.
+    const table = Array.from({ length: 50 }, (_, k) => `${(k * 0.01).toFixed(2)} ${k === 10 ? 500 : 0}`).join('\n');
+    await page.getByTestId('th-file-x').setInputFiles({ name: 'gal.txt', mimeType: 'text/plain', buffer: Buffer.from(table) });
+    await expect(page.getByTestId('th-warning-x-pgaHigh')).toBeVisible();
+    await page.getByTestId('th-unit-x').selectOption('cm/s2');
+    await expect(page.getByTestId('th-warning-x-pgaHigh')).toHaveCount(0);
+    await expect(page.getByTestId('th-record-x')).toContainText(/0[.,]51/);
+  });
+
   test('time-history undo and redo update the editor and survive closing it', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await page.getByTestId('pr-stage-analyse').click();

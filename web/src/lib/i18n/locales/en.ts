@@ -3483,6 +3483,8 @@ const en: Record<string, string> = {
   'svc.emptyModel': 'Empty model',
   'svc.solverError': 'Error solving: {n}',
   'svc.solver3dError': 'Error solving 3D: {n}',
+  'svc.semiRigidInvalid': 'Member {n}: a semi-rigid end needs a rotational stiffness of zero or more.',
+  'svc.semiRigidNotAligned': 'Member {n}: semi-rigid ends apply only to members along the global axes. Remove them, or use an end release.',
   'svc.mechanism3d': 'The structure is a mechanism: with these restraints it can move without deforming, and the loads move it (the displacements are unbounded). Check the supports and the releases.',
 
   // ─── Critical Section Reasons ───
@@ -5134,7 +5136,8 @@ const en: Record<string, string> = {
   'edit.refused.sameMember': 'Pick two different members.',
   'edit.refused.notCoplanar': 'The members are not in one plane.',
   'edit.refused.noHoles': 'The members bound no closed hole.',
-  'edit.refused.tooManyDivisions': 'A hole would need more than 256 elements per side at this size — nothing was filled. Use a larger element size.',
+  'edit.refused.tooManyDivisions': 'A hole would need more elements than the mesher makes (256 per side, 20 000 in all) at this size — nothing was filled. Use a larger element size.',
+  'edit.refused.cannotMesh': 'The mesher cannot mesh one of the holes (its corners are not in one plane, or the grid folds) — nothing was filled.',
   'edit.fillTitle': 'Fill holes',
   'edit.fillMaterial': 'Plate material',
   'edit.thickness': 't [m]',
