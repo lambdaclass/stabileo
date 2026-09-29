@@ -31,3 +31,22 @@ describe.each(['pro-simple-shed', 'pipe-rack'])('%s', (id) => {
     for (const row of covered) expect(row.current, `${id}: ${row.currentName}`).not.toBeNull();
   });
 });
+
+describe('proposals belong to the project they were made on', () => {
+  it('are dropped when another project opens, and Apply writes nothing then', async () => {
+    await PRO_EXAMPLES.find((e) => e.id === 'pipe-rack')!.load();
+    const r = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D([...r.perCase.values()][0]!);
+    publishCombinations3D(r);
+    steelOptimise.run('section');
+    const keys = steelOptimise.rows.map((row) => row.key);
+    expect(keys.length).toBeGreaterThan(0);
+    await PRO_EXAMPLES.find((e) => e.id === 'pro-simple-shed')!.load();
+    const before = JSON.stringify([...modelStore.sections.values()]);
+    expect(steelOptimise.rows).toEqual([]);
+    steelOptimise.apply(keys);
+    expect(JSON.stringify([...modelStore.sections.values()])).toBe(before);
+    expect(steelOptimise.applied).toEqual([]);
+  });
+});

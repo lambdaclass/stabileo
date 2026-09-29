@@ -171,14 +171,22 @@ function createSteelOptimise() {
   let error = $state<string | null>(null);
   /** The criteria of the last run, which the re-verification applies again. */
   let lastSettings: OptimiseSettings = {};
+  /**
+   * The project and the model version the proposals were made on. Proposals outlived a project
+   * change and an edit, and "Apply" then wrote another project's picks by section id onto
+   * whatever carried that id now.
+   */
+  let ranOn = $state<{ epoch: number; version: number } | null>(null);
+  let appliedEpoch = $state<number | null>(null);
+  const fresh = () => ranOn !== null && ranOn.epoch === modelStore.loadEpoch && ranOn.version === modelStore.modelVersion;
 
   return {
-    get rows() { return rows; },
-    get applied() { return applied; },
+    get rows() { return fresh() ? rows : []; },
+    get applied() { return appliedEpoch === modelStore.loadEpoch ? applied : []; },
     get error() { return error; },
     /** Picks written, and no solve since: the model is designed but not re-verified. */
-    get awaitingReverify() { return applied.length > 0 && applied.every((a) => a.status === 'unchecked'); },
-    get converged() { return applied.length > 0 && applied.every((a) => a.status === 'holds'); },
+    get awaitingReverify() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'unchecked'); },
+    get converged() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'holds'); },
     get appliedAt() { return appliedAt; },
 
     /** Propose the lightest passing profile per group, against the analysis on hand. */
@@ -201,6 +209,7 @@ function createSteelOptimise() {
         });
       }
       rows = out;
+      ranOn = { epoch: modelStore.loadEpoch, version: modelStore.modelVersion };
     },
 
     /**
@@ -211,6 +220,7 @@ function createSteelOptimise() {
      * of its own for the new profile, reusing one that already is that profile.
      */
     apply(keys: readonly string[]): void {
+      if (!fresh()) { rows = []; return; }
       const chosen = rows.filter((r) => keys.includes(r.key) && r.result.chosen && r.result.chosen.profile.name !== r.currentName);
       if (chosen.length === 0) return;
       modelStore.batch(() => {
@@ -233,7 +243,9 @@ function createSteelOptimise() {
       });
       applied = chosen.map((r) => ({ key: r.key, scope: r.scope, profileName: r.result.chosen!.profile.name, elementIds: r.elementIds, status: 'unchecked' as const }));
       appliedAt = modelStore.modelVersion;
+      appliedEpoch = modelStore.loadEpoch;
       rows = [];
+      ranOn = null;
     },
 
     /**
@@ -242,6 +254,7 @@ function createSteelOptimise() {
      */
     recheck(): void {
       error = null;
+      if (appliedEpoch !== modelStore.loadEpoch) { applied = []; appliedAt = null; return; }
       if (!resultsStore.results3D) { error = 'opt.needSolve'; return; }
       applied = applied.map((a) => {
         const p = byName.get(a.profileName);
