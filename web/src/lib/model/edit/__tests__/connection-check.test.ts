@@ -51,6 +51,67 @@ describe('finding what touches without a connection', () => {
 });
 
 describe('connecting', () => {
+  it('leaves crossings between old members alone and connects every crossing of the new member', () => {
+    const bar = (x1: number, y1: number, x2: number, y2: number) =>
+      modelStore.addElement(modelStore.addNode(x1, y1), modelStore.addNode(x2, y2));
+    bar(-1, -1, -1, 3);
+    bar(0, -1, -2, 3);
+    const added = bar(-3, 0, 3, 0);
+    modelStore.addDistributedLoad(added, -10, -10);
+    historyStore.clear();
+    const checkConnected = () => {
+      expect(modelStore.elements.size).toBe(7);
+      expect(modelStore.nodes.size).toBe(8);
+      expect([...modelStore.nodes.values()].some((n) => Math.abs(n.x + 1) < 1e-8 && Math.abs(n.y - 1) < 1e-8)).toBe(false);
+      for (const x of [-1, -0.5]) {
+        const node = [...modelStore.nodes.values()].find((n) => Math.abs(n.x - x) < 1e-8 && Math.abs(n.y) < 1e-8)!;
+        expect(node).toBeDefined();
+        expect([...modelStore.elements.values()].filter((e) => e.nodeI === node.id || e.nodeJ === node.id)).toHaveLength(4);
+      }
+      expect(modelStore.loads).toHaveLength(3);
+    };
+    connectMember(added);
+    checkConnected();
+    expect(historyStore.undoCount).toBe(1);
+    historyStore.undo();
+    expect(modelStore.elements.size).toBe(3);
+    expect(modelStore.nodes.size).toBe(6);
+    expect(modelStore.loads).toHaveLength(1);
+    historyStore.redo();
+    checkConnected();
+  });
+
+  it('joining nodes preserves unrelated duplicate and zero-length members and their loads', () => {
+    const source = modelStore.addNode(0, 0), target = modelStore.addNode(0, 0);
+    const a = modelStore.addNode(10, 0), b = modelStore.addNode(14, 0), c = modelStore.addNode(10, 0);
+    const members = [modelStore.addElement(a, b), modelStore.addElement(b, a), modelStore.addElement(a, c)];
+    for (const id of members) modelStore.addDistributedLoad(id, -10, -10);
+    const loads = JSON.stringify(modelStore.loads);
+    historyStore.clear();
+    joinNodes(source, target);
+    expect([...modelStore.elements.keys()]).toEqual(members);
+    expect(JSON.stringify(modelStore.loads)).toBe(loads);
+    expect(modelStore.nodes.has(source)).toBe(false);
+    expect(historyStore.undoCount).toBe(1);
+    historyStore.undo();
+    expect(modelStore.nodes.has(source)).toBe(true);
+    historyStore.redo();
+    expect([...modelStore.elements.keys()]).toEqual(members);
+    expect(JSON.stringify(modelStore.loads)).toBe(loads);
+  });
+
+  it('keeps the unaffected member and its loads even when its id is higher', () => {
+    const a = modelStore.addNode(0, 0), source = modelStore.addNode(4, 0), target = modelStore.addNode(4, 0);
+    const changed = modelStore.addElement(a, source);
+    const untouched = modelStore.addElement(target, a);
+    modelStore.addDistributedLoad(untouched, -10, -10);
+    const loads = JSON.stringify(modelStore.loads);
+    joinNodes(source, target);
+    expect(modelStore.elements.has(changed)).toBe(false);
+    expect(modelStore.elements.has(untouched)).toBe(true);
+    expect(JSON.stringify(modelStore.loads)).toBe(loads);
+  });
+
   it('cuts both members at the crossing, around one new node', () => {
     const { post } = crossed();
     connectMember(post);

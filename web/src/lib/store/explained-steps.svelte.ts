@@ -22,6 +22,7 @@ let methodId = $state<string | null>(null);
 let doc = $state.raw<StepDoc | null>(null);
 let error = $state.raw<Txt | null>(null);
 let builtAt = $state(-1);
+let builtWithSelfWeight = $state(false);
 let step = $state(0);
 /** A wizard was opened from the catalog: closing it returns there. */
 let returnToCatalog = $state(false);
@@ -65,6 +66,7 @@ function build(id: string): void {
     error = tx('steps.view.failed');
   }
   builtAt = modelStore.modelVersion;
+  builtWithSelfWeight = uiStore.includeSelfWeight;
   step = 0;
 }
 
@@ -77,7 +79,9 @@ export const explainedSteps = {
   /** 0 is the set-up (intro), then the steps from 1. */
   get step() { return step; },
   set step(v: number) { step = Math.max(0, Math.min(v, doc ? doc.steps.length : 0)); },
-  get stale() { return view === 'doc' && builtAt !== modelStore.modelVersion; },
+  get stale() {
+    return view === 'doc' && (builtAt !== modelStore.modelVersion || builtWithSelfWeight !== uiStore.includeSelfWeight);
+  },
 
   openCatalog(): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; },
   get returnToCatalog() { return returnToCatalog; },

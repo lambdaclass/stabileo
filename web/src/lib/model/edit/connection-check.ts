@@ -96,10 +96,13 @@ export function membersCrossing(elementId: number): number[] {
 /** Join `nodeId` into `targetId`: everything on it moves to the target. Members left with both ends there, or doubled, go. */
 export function joinNodes(nodeId: number, targetId: number): { droppedSupports: number } {
   let droppedSupports = 0;
+  if (nodeId === targetId || !modelStore.nodes.has(nodeId) || !modelStore.nodes.has(targetId)) return { droppedSupports };
+  const affected = new Set([...modelStore.elements.values()]
+    .filter((e) => e.nodeI === nodeId || e.nodeJ === nodeId).map((e) => e.id));
   modelStore.batch(() => {
     droppedSupports = mergeNodesInto(new Map([[nodeId, targetId]])).droppedSupports;
-    removeZeroLengthMembers();
-    removeDuplicateMembers();
+    removeZeroLengthMembers(MERGE_TOL, affected);
+    removeDuplicateMembers(affected);
   });
   return { droppedSupports };
 }
@@ -116,7 +119,7 @@ export function connectMember(elementId: number): void {
     const on = nodesOnMember(elementId);
     let segments = [elementId];
     if (crossed.length) {
-      const r = intersectMembers([elementId, ...crossed]);
+      const r = intersectMembers([elementId, ...crossed], elementId);
       segments = r.cut.find((c) => c.elementId === elementId)?.segments ?? segments;
     }
     if (on.length) splitAtNodes(segments, on);

@@ -182,6 +182,7 @@ export function readBeam(ctx: MethodContext): Beam | null {
 /** What both methods need from the model. */
 export function appliesContinuous(ctx: MethodContext): Applicability {
   const no = (key: string, params?: Record<string, string | number>): Applicability => ({ ok: false, reason: tx(key, params) });
+  if ((ctx.input.constraints?.length ?? 0) > 0 || (ctx.input.connectors?.size ?? 0) > 0) return no('steps.req.constraints');
   const r = beamLine(ctx.pm);
   if (!r.ok) {
     // A spring or an inclined roller fails the support-type test; say what it is.

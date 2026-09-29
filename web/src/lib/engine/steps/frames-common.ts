@@ -705,6 +705,7 @@ export type Ready = { ok: true; fk: FrameKin } | { ok: false; reason: Txt };
 export function readFrame(ctx: MethodContext): Ready {
   const pm = ctx.pm;
   const fail = (k: string, p?: Record<string, string | number>): Ready => ({ ok: false, reason: tx(k, p) });
+  if ((ctx.input.constraints?.length ?? 0) > 0 || (ctx.input.connectors?.size ?? 0) > 0) return fail('steps.req.constraints');
   if (pm.members.size === 0) return fail('steps.req.noMembers');
   // A hinge at a member end is harmless where the rotation is free anyway: a
   // pinned support or roller that only this member reaches, which the methods

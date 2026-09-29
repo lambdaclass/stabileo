@@ -169,6 +169,22 @@ test.describe('@smoke explained step by step', () => {
     await expect(panel).not.toContainText(/Envolvente|Envelope|Envoltória/);
   });
 
+  test('a document offers to refresh after changing self-weight in the loads panel', async ({ page }) => {
+    await boot(page);
+    await openCatalog(page);
+    await page.getByTestId('steps-example-threeMoments').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
+    await page.getByTestId('rb-cmd-load').click();
+    const selfWeight = page.locator('.selfweight-row input');
+    await selfWeight.setChecked(!(await selfWeight.isChecked()));
+    await page.getByTestId('rb-cmd-advanced').click();
+    await expect(page.getByTestId('steps-refresh')).toBeVisible();
+    await page.getByTestId('steps-refresh').click();
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
+  });
+
   test('a document says when the model has changed, and updates', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
