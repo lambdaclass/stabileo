@@ -346,3 +346,12 @@ describe('MODELADO says what it is actually waiting for', () => {
     }
   });
 });
+
+describe('detailing with open conflicts', () => {
+  it('is not done while bars conflict, and is once they are resolved', () => {
+    const conflicted = rcStages(r({ ...COMPLETE, documented: false, detailingConflicts: 7322 }));
+    expect(conflicted.find((s) => s.id === 'detailing')!.complete).toBe(false);
+    const clean = rcStages(r({ ...COMPLETE, documented: false, detailingConflicts: 0 }));
+    expect(clean.find((s) => s.id === 'detailing')!.complete).toBe(true);
+  });
+});

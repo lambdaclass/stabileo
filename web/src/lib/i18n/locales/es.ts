@@ -6705,6 +6705,7 @@ const es: Record<string, string> = {
   // Qué va a producir la corrida que está por ejecutarse. Tres afirmaciones que nunca se
   // funden: ver `design-convergence.ts`.
   'detailing.convergence.converged': 'Documentación constructiva de {families}: los {applicable} elementos detallados y verificados.',
+  'detailing.convergence.openConflicts': "El último despiece tiene {n} conflictos de barras abiertos: no es documentación constructiva hasta resolverlos.",
   'detailing.convergence.proposal': 'Propuesta provisional de {families}: los {applicable} elementos detallados, {provisional} con una propuesta sin verificar.',
   'detailing.convergence.incomplete': 'Detallado técnico de {families}: {detailed} de {applicable} elementos. No es documentación constructiva.',
   'detailing.convergence.emptyScope': 'Ninguna familia seleccionada. Tildá las familias a diseñar antes de que esto pueda documentar algo.',

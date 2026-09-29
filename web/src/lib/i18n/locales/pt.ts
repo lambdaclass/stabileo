@@ -6994,6 +6994,7 @@ const pt: Translations = {
   'design.cmd.scopeIs': "Escopo: {families}",
   'design.cmd.scopeNone': "Sem escopo: escolha ao menos uma família",
   'detailing.convergence.converged': 'Documentação construtiva de {families}: os {applicable} elementos detalhados e verificados.',
+  'detailing.convergence.openConflicts': "O último detalhamento deixou {n} conflitos de barras abertos: não é documentação construtiva até resolvê-los.",
   'detailing.convergence.proposal': 'Proposta provisória de {families}: os {applicable} elementos detalhados, {provisional} com uma proposta não verificada.',
   'detailing.convergence.incomplete': 'Detalhamento técnico de {families}: {detailed} de {applicable} elementos. Não é documentação construtiva.',
   'detailing.convergence.emptyScope': 'Nenhuma família selecionada. Marque as famílias a dimensionar antes que isto possa documentar algo.',

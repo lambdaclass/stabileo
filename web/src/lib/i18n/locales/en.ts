@@ -6712,6 +6712,7 @@ const en: Record<string, string> = {
   // What the run about to be pressed will produce. Three claims, never merged: see
   // `design-convergence.ts`.
   'detailing.convergence.converged': 'Construction documentation for {families}: all {applicable} members detailed and verified.',
+  'detailing.convergence.openConflicts': "The last detailing run left {n} bar conflicts open: it is not construction documentation until they are resolved.",
   'detailing.convergence.proposal': 'Provisional proposal for {families}: all {applicable} members detailed, {provisional} carrying an unverified proposal.',
   'detailing.convergence.incomplete': 'Technical detailing for {families}: {detailed} of {applicable} members. Not construction documentation.',
   'detailing.convergence.emptyScope': 'No family selected. Tick the families to design before anything can be documented.',
