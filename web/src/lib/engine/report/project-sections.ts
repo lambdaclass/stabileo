@@ -49,13 +49,15 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {
     const cols = columnsOf(kind, { resultant: true });
-    const summ = summaryRows(kind, sources, { resultant: true });
+    // The extremes along the members, at 13 stations: at the ends alone a simply supported
+    // beam's largest moment read 0. The envelope table below stays per member end.
+    const summ = summaryRows(kind, sources, { resultant: true, ...(kind === 'forces' ? { stations: 13 } : {}) });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.summary'))}</h3>`);
     out.push(`<table><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
     for (const s of summ) {
       out.push(`<tr><td>${esc(s.column.label)} (${esc(s.column.unit)})</td>`
-        + (s.max ? `<td class="num">${num(s.max.value)}</td><td>${esc(whereOf(s.max))}</td><td>${esc(s.max.source.name)}</td>` : '<td colspan="3">—</td>')
-        + (s.min ? `<td class="num">${num(s.min.value)}</td><td>${esc(whereOf(s.min))}</td><td>${esc(s.min.source.name)}</td>` : '<td colspan="3">—</td>')
+        + (s.max ? `<td class="num">${num(s.max.value)}</td><td>${esc(whereOf(s.max, kind === 'forces'))}</td><td>${esc(s.max.source.name)}</td>` : '<td colspan="3">—</td>')
+        + (s.min ? `<td class="num">${num(s.min.value)}</td><td>${esc(whereOf(s.min, kind === 'forces'))}</td><td>${esc(s.min.source.name)}</td>` : '<td colspan="3">—</td>')
         + `</tr>`);
     }
     out.push(`</tbody></table>`);

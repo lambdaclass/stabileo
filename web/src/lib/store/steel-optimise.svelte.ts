@@ -80,9 +80,13 @@ export interface AppliedRow { key: string; scope: OptimiseScope; profileName: st
 
 const byName = new Map(ALL_PROFILES.map((p) => [p.name, p]));
 
-/** A section that is exactly one catalogue profile — the only kind this search can replace. */
-function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown } | undefined): SteelProfile | null {
-  if (!sec || sec.composition) return null;
+/**
+ * A section that is exactly one catalogue profile — the only kind this search can replace. A
+ * declared section (its own properties under a catalogue-looking name) or a drawn one is not,
+ * whatever its name.
+ */
+function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown } | undefined): SteelProfile | null {
+  if (!sec || sec.composition || sec.declared || sec.drawn) return null;
   const p = byName.get(sec.name);
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
 }
@@ -219,7 +223,9 @@ function createSteelOptimise() {
             modelStore.updateSection(r.sectionId, fields);
           } else {
             const rotation = modelStore.sections.get(r.sectionId)?.rotation;
-            const existing = [...modelStore.sections.values()].find((s) => s.name === p.name && !s.composition && (s.rotation ?? 0) === (rotation ?? 0));
+            // Reused only when it is that catalogue profile: a declared or drawn section of the
+            // same name carries other properties.
+            const existing = [...modelStore.sections.values()].find((s) => s.name === p.name && !s.composition && !s.declared && !(s as { drawn?: unknown }).drawn && (s.rotation ?? 0) === (rotation ?? 0));
             const sid = existing?.id ?? modelStore.addSection({ ...fields, ...(rotation ? { rotation } : {}) } as never);
             for (const id of r.elementIds) modelStore.updateElementSection(id, sid);
           }
