@@ -8,8 +8,9 @@ import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
 import * as wasmSolver from '../wasm-solver';
-import { validateAndSolve3D, solveCombinations3D } from '../solver-service';
-import { presetModifiers, CIRSOC201_STIFFNESS } from '../member-behaviour';
+import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D } from '../solver-service';
+import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
+import { modelHasJoints3D } from '../expand-joints-3d';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -143,7 +144,7 @@ describe('lifting supports', () => {
     const sup = [...modelStore.supports.values()].find((s) => s.nodeId === p)!;
     modelStore.updateSupport(sup.id, { uplift: true });
     const first = [...modelStore.supports.values()].find((s) => s.nodeId === ns[0])!;
-    modelStore.updateSupport(first.id, { curves: { x: [[0.01, 100], [0.05, 150]] } });
+    modelStore.updateSupport(first.id, { dofRestraints: { ...first.dofRestraints!, tx: false }, curves: { x: [[0.01, 100], [0.05, 150]] } });
     const r = solve();
     expect(disp(r, p).uz).toBeGreaterThan(0);
     expect(Math.abs(r.reactions.find((r) => r.nodeId === p)?.fz ?? 0)).toBeLessThan(1e-6);
@@ -244,5 +245,96 @@ describe('semi-rigid ends', () => {
     // What the spring adds is the base rotation P·L/kθ carried to the tip.
     expect(semi - rigid).toBeCloseTo((P * L * L) / k, 6);
     void E; void sec; void mat;
+  });
+});
+
+function loadedCantilever() {
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
+  const e = modelStore.addElement(a, b, 'frame');
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addNodalLoad3D(b, 0, 0, 10, 0, 0, 0, 1);
+  return { a, b, e };
+}
+const freeDofs = { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false };
+
+describe('inclined lifting supports', () => {
+  it.each([[0, 0, 1], [1, 0, 1], [-1, 0, -1]])('releases a pulling normal (%s, %s, %s)', (nx, ny, nz) => {
+    const { b } = loadedCantilever();
+    const free = disp(solve(), b);
+    const s = modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: freeDofs });
+    modelStore.updateSupport(s, { isInclined: true, normalX: nx, normalY: ny, normalZ: nz, uplift: true });
+    const r = solveNonlinear3D(md(), buildSolverInput3D(md())!);
+    expect(r.report).toMatchObject({ converged: true, lifted: [b] });
+    expect(disp(r.results, b).uz).toBeCloseTo(free.uz, 8);
+    expect(disp(r.results, b).ux).toBeCloseTo(free.ux, 8);
+    expect(r.results.reactions.find((r) => r.nodeId === b)?.fz ?? 0).toBeCloseTo(0, 6);
+    const combo = solveCombinations3D(md(), modelStore.model.loadCases, [{id: 1, name: 'Uplift', factors: [{caseId: 1, factor: 1}]}]);
+    if (!combo || typeof combo === 'string') throw new Error(String(combo));
+    expect(disp(combo.perCombo.get(1)!, b).uz).toBeCloseTo(free.uz, 8);
+    modelStore.model.loads = [];
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, 1);
+    const bearing = solveNonlinear3D(md(), buildSolverInput3D(md())!);
+    expect(bearing.report.lifted).toEqual([]);
+    expect(bearing.results.reactions.find((r) => r.nodeId === b)!.fz).toBeGreaterThan(0);
+  });
+
+  it('refuses an ambiguous mixed inclined restraint', () => {
+    const { b } = loadedCantilever();
+    const s = modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { ...freeDofs, tx: true } });
+    modelStore.updateSupport(s, { isInclined: true, normalX: 1, normalY: 0, normalZ: 1, uplift: true });
+    expect(validateAndSolve3D(md())).toContain('cannot also have translational restraints');
+  });
+});
+
+describe('fixed DOFs with stored spring curves', () => {
+  it('fixity takes precedence, freeing the DOF restores the curve', () => {
+    const { b } = loadedCantilever();
+    const s = modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: freeDofs });
+    const curves = { z: [[0.01, 100], [0.05, 150]] as Array<[number, number]> };
+    modelStore.updateSupport(s, { curves });
+    const spring = disp(solve(), b).uz;
+    expect(spring).toBeGreaterThan(0);
+    modelStore.updateSupport(s, { dofRestraints: { ...freeDofs, tz: true } });
+    expect(disp(solve(), b).uz).toBeCloseTo(0, 10);
+    expect(modelStore.supports.get(s)!.curves).toEqual(curves);
+    modelStore.updateSupport(s, { dofRestraints: freeDofs });
+    expect(disp(solve(), b).uz).toBeCloseTo(spring, 10);
+  });
+});
+
+describe('semi-rigid limits and analysis guards', () => {
+  it('zero stiffness releases rotation and exposes a cantilever mechanism', () => {
+    const { e } = loadedCantilever();
+    modelStore.updateElement(e, { semiRigid: { i: { ky: 0, kz: 5000 } } });
+    const input = buildSolverInput3D(md())!;
+    expect([...input.connectors!.values()][0]!.kBendZ).toBe(0);
+    const result = validateAndSolve3D(md());
+    // The constrained solver may return its failed equilibrium diagnostics instead of an
+    // error string for a mechanism. It must not return the former stable fixed-end answer.
+    expect(result).not.toBeNull();
+    if (typeof result !== 'string') expect(result).toHaveProperty('equilibrium.equilibriumOk', false);
+  });
+
+  it('zero stiffness on a stable beam matches an explicit end release', () => {
+    const { b, e } = loadedCantilever();
+    modelStore.model.loads = [];
+    modelStore.addSupport(b, 'pinned3d');
+    modelStore.addDistributedLoad3D(e, 0, 0, -10, -10, undefined, undefined, 1);
+    modelStore.updateElement(e, { semiRigid: { i: { ky: 0, kz: 5000 } } });
+    const semi = solve();
+    modelStore.updateElement(e, { semiRigid: undefined });
+    modelStore.setElementJoint(e, 'i', [false, false, false, false, true, false]);
+    const released = solve();
+    for (const r of released.reactions) expect(semi.reactions.find((s) => s.nodeId === r.nodeId)!.fz).toBeCloseTo(r.fz, 6);
+  });
+
+  it.each(['i', 'j'] as const)('the advanced guard recognises a semi-rigid %s end', (end) => {
+    const { e } = loadedCantilever();
+    expect(modelStore.hasJoint3D()).toBe(false);
+    modelStore.updateElement(e, { semiRigid: { [end]: { ky: 50, kz: 50 } } });
+    expect(modelStore.hasJoint3D()).toBe(true);
+    expect(modelHasJoints3D(modelStore.elements.values())).toBe(true);
+    modelStore.updateElement(e, { semiRigid: undefined });
+    expect(modelStore.hasJoint3D()).toBe(false);
   });
 });

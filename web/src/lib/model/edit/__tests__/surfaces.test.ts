@@ -63,6 +63,29 @@ describe('surfaces', () => {
     expect(surfaceMesh('cylinder', { ...SURFACE_DEFAULTS.cylinder, around: 720, along: 500 })).toBeNull();
     expect(surfaceMesh('sphericalCap', { ...SURFACE_DEFAULTS.sphericalCap, size: 0.001 })).toBeNull();
   });
+
+  it.each([
+    ['cone', { topRadius: 0.0001 }],
+    ['sphericalZone', { toDeg: 89.9999 }],
+    ['cylinder', { height: 0.0001 }],
+    ['hypar', { lx: 0.0001 }],
+  ] as const)('rejects %s cells that collapse at placement tolerance', (kind, params) => {
+    expect(surfaceMesh(kind, { ...SURFACE_DEFAULTS[kind], ...params })).toBeNull();
+  });
+
+  it('keeps small end rings whose corner spacing survives welding', async () => {
+    const { modelStore } = await import('../../../store/model.svelte');
+    const { insertFragment } = await import('../transformed-copy');
+    const { surfaceFragment } = await import('../surfaces');
+    const { translation } = await import('../affine');
+    for (const [kind, params] of [['cone', { topRadius: 0.001 }], ['sphericalZone', { toDeg: 89.99 }]] as const) {
+      modelStore.clear();
+      const m = surfaceMesh(kind, { ...SURFACE_DEFAULTS[kind], ...params });
+      expect(m).not.toBeNull();
+      insertFragment(surfaceFragment(m!, 1, 0.15), [translation([0, 0, 0])]);
+      expect([...modelStore.quads.values()].every((q) => new Set(q.nodes).size === 4)).toBe(true);
+    }
+  });
 });
 
 describe('a curved surface in the model', () => {

@@ -30,7 +30,6 @@ const globalAxis = (v: readonly number[]) => {
 
 /** Stiffness about global X, Y, Z on a zero-length connector's own fields. */
 const CONNECTOR_ROT = ['kMoment', 'kBendZ', 'kBendY'] as const;
-const RIGID = 1e12;
 
 export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<number, Element>): { helpers: Set<number>; notAligned: number[] } {
   const helpers = new Set<number>();
@@ -54,6 +53,9 @@ export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<numbe
     for (const end of ['i', 'j'] as const) {
       const spec = e.semiRigid?.[end];
       if (!spec) continue;
+      if (![spec.ky, spec.kz].every((k) => Number.isFinite(k) && k >= 0)) {
+        throw new Error(`Member ${e.id}: semi-rigid stiffness must be finite and nonnegative`);
+      }
       const node = end === 'i' ? nI : nJ;
       const helper = nextNode++;
       input.nodes.set(helper, { id: helper, x: node.x, y: node.y, z: node.z });
@@ -64,8 +66,9 @@ export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<numbe
       releases[3 + az] = true;
       constraints.push({ type: 'eccentricConnection', masterNode: node.id, slaveNode: helper, offsetX: 0, offsetY: 0, offsetZ: 0, releases } as Constraint3D);
       const c: Record<string, number> = { kAxial: 0, kShear: 0, kShearZ: 0, kMoment: 0, kBendY: 0, kBendZ: 0 };
-      c[CONNECTOR_ROT[ay]] = spec.ky > 0 ? spec.ky : RIGID;
-      c[CONNECTOR_ROT[az]] = spec.kz > 0 ? spec.kz : RIGID;
+      // Zero is a released rotation, not an unspecified rigid connection.
+      c[CONNECTOR_ROT[ay]] = spec.ky;
+      c[CONNECTOR_ROT[az]] = spec.kz;
       const id = nextConn++;
       connectors.set(id, { id, nodeI: node.id, nodeJ: helper, ...c } as never);
     }

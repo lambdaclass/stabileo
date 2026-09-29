@@ -117,14 +117,37 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   for (const s of model.supports.values()) {
     const c = (s as { curves?: Curves }).curves;
     if (!c || !hasCurves(s as never)) continue;
-    curved.set(s.nodeId, c);
+    const active: Curves = {};
     for (const d of ['x', 'y', 'z'] as const) {
       const pts = c[d];
-      if (pts && pts.length) soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      // A stored curve is dormant while its DOF is fixed, just like a linear spring.
+      // Keep it in the model so freeing the DOF restores the user's curve.
+      if (pts?.length && input.supports.get(s.nodeId)?.[FREE[d]] === false) {
+        active[d] = pts;
+        soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      }
     }
+    if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
   if (hasMembers && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
+  const normals = new Map<number, [number, number, number]>();
+  for (const n of upliftNodes) {
+    const s = input.supports.get(n);
+    if (!s?.isInclined) { normals.set(n, [0, 0, 1]); continue; }
+    const v = [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0];
+    const length = Math.hypot(...v);
+    // Uplift chooses the side above the support plane. A vertical plane has no such side.
+    if (!v.every(Number.isFinite) || length < 1e-12 || Math.abs(v[2]!) / length < 1e-9) {
+      throw new Error('Lifting inclined supports need a normal with a vertical component');
+    }
+    // The normal reaction must be isolated from other translational restraints at this node.
+    if (s.rx || s.ry || s.rz || s.kx || s.ky || s.kz || curved.has(n)) {
+      throw new Error('Lifting inclined supports cannot also have translational restraints or springs');
+    }
+    const sign = Math.sign(v[2]!);
+    normals.set(n, v.map((x) => sign * x / length) as [number, number, number]);
+  }
   const lifted = new Set<number>();
   const maxIterations = Math.max(MAX_ITER, 2 * upliftNodes.length);
 
@@ -139,7 +162,9 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     }
     for (const n of lifted) {
       const s = supports.get(n);
-      if (s) supports.set(n, { ...s, rz: false, kz: undefined, dz: undefined });
+      if (s) supports.set(n, s.isInclined
+        ? { ...s, isInclined: false }
+        : { ...s, rz: false, kz: undefined, dz: undefined });
     }
     const trial: SolverInput3D = { ...input, supports };
     let results: AnalysisResults3D, slack: number[] = [], memberConverged = true;
@@ -175,9 +200,13 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       results = r;
     }
 
-    const reaction = new Map(results.reactions.map((r) => [r.nodeId, r.fz]));
-    const disp = new Map(results.displacements.map((d) => [d.nodeId, d.uz]));
-    const scale = Math.max(1e-9, ...results.reactions.map((r) => Math.abs(r.fz)));
+    const project = (id: number, x: number, y: number, z: number) => {
+      const n = normals.get(id) ?? [0, 0, 1];
+      return n[0]! * x + n[1]! * y + n[2]! * z;
+    };
+    const reaction = new Map(results.reactions.map((r) => [r.nodeId, project(r.nodeId, r.fx, r.fy, r.fz)]));
+    const disp = new Map(results.displacements.map((d) => [d.nodeId, project(d.nodeId, d.ux, d.uy, d.uz)]));
+    const scale = Math.max(1e-9, ...[...reaction.values()].map(Math.abs));
     // Pivot one restraint at a time. Releasing every pulling support together can remove
     // more restraints than necessary and turn a stable contact problem into a mechanism.
     // Restore the deepest penetration first; otherwise release the largest tensile reaction.

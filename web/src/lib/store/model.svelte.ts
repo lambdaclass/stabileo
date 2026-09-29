@@ -3166,10 +3166,10 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
-    /** True if any element carries a Basic 3D internal joint (released DOF). */
+    /** True if any member end needs helper nodes, including semi-rigid connections. */
     hasJoint3D(): boolean {
       for (const e of model.elements.values()) {
-        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ) || e.semiRigid?.i || e.semiRigid?.j) return true;
       }
       return false;
     },

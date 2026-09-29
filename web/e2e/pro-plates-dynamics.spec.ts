@@ -154,6 +154,23 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await expect(page.getByTestId('adv-modal-row-0')).toBeVisible();
   });
 
+  test('advanced analyses refuse semi-rigid ends instead of treating them as rigid', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-elements').click();
+    await page.evaluate(() => window.__stabileoActions.selectElements([1]));
+    await page.getByTestId('mb-semi-i-on').check();
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
+    await expect(page.getByTestId('adv-modal-row-0')).toHaveCount(0);
+    await page.getByTestId('adv-chip-timehistory').click();
+    await page.getByTestId('th-run').click();
+    await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
+    await expect(page.getByTestId('th-chart')).toHaveCount(0);
+  });
+
   test('pushover: the capacity curve, the step slider and the hinges on the model', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await page.getByTestId('pr-stage-analyse').click();
