@@ -2065,7 +2065,7 @@
             {t('app.viewKinematic')}
           </button>
         {/if}
-        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title="Dismiss">&times;</button>
+        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title={t('toast.dismiss')}>&times;</button>
       </div>
     {/each}
   </div>

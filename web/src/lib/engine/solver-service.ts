@@ -26,7 +26,7 @@ import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlemen
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
 import { noteStructuralSolve } from '../utils/solve-counter';
@@ -1715,10 +1715,10 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   for (const elem of model.elements.values()) {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
-    if (!ni) return `Element ${elem.id}: node ${elem.nodeI} not found`;
-    if (!nj) return `Element ${elem.id}: node ${elem.nodeJ} not found`;
-    if (!model.materials.has(elem.materialId)) return `Element ${elem.id}: material ${elem.materialId} not found`;
-    if (!model.sections.has(elem.sectionId)) return `Element ${elem.id}: section ${elem.sectionId} not found`;
+    if (!ni) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeI });
+    if (!nj) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeJ });
+    if (!model.materials.has(elem.materialId)) return tp('svc.elemMaterialMissing', { id: elem.id, mat: elem.materialId });
+    if (!model.sections.has(elem.sectionId)) return tp('svc.elemSectionMissing', { id: elem.id, sec: elem.sectionId });
     const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L < 1e-6) {
@@ -1734,15 +1734,15 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // it here, mirroring the element check above.
   for (const plate of (model.plates?.values() ?? [])) {
     for (const nid of plate.nodes) {
-      if (!model.nodes.has(nid)) return `Plate ${plate.id}: node ${nid} not found`;
+      if (!model.nodes.has(nid)) return tp('svc.plateNodeMissing', { id: plate.id, node: nid });
     }
-    if (!model.materials.has(plate.materialId)) return `Plate ${plate.id}: material ${plate.materialId} not found`;
+    if (!model.materials.has(plate.materialId)) return tp('svc.plateMaterialMissing', { id: plate.id, mat: plate.materialId });
   }
   for (const quad of (model.quads?.values() ?? [])) {
     for (const nid of quad.nodes) {
-      if (!model.nodes.has(nid)) return `Quad ${quad.id}: node ${nid} not found`;
+      if (!model.nodes.has(nid)) return tp('svc.quadNodeMissing', { id: quad.id, node: nid });
     }
-    if (!model.materials.has(quad.materialId)) return `Quad ${quad.id}: material ${quad.materialId} not found`;
+    if (!model.materials.has(quad.materialId)) return tp('svc.quadMaterialMissing', { id: quad.id, mat: quad.materialId });
   }
 
   // Check graph connectivity (plate/quad adjacency + connector edges +

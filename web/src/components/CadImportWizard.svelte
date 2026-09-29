@@ -10,7 +10,7 @@
   // provenance tag with the full assumption list (including the v1
   // one-plan-replicated-to-all-floors assumption).
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
-  import { t } from '../lib/i18n';
+  import { t, tp } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent, cadImportProblem } from '../lib/cad/parse';
   import { meshSettingsValid } from '../lib/cad/draft';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
@@ -272,7 +272,7 @@
     // numeric fallback past Z. Floors default just above the highest range.
     const used = new Set(floorRegions.map((r) => r.label));
     let k = 0, label: string;
-    do { label = `Plan ${k < 26 ? String.fromCharCode(65 + k) : `#${k + 1}`}`; k++; } while (used.has(label));
+    do { label = tp('cad.floorRegionLabel', { id: k < 26 ? String.fromCharCode(65 + k) : `#${k + 1}` }); k++; } while (used.has(label));
     const nextFloor = floorRegions.length ? Math.max(...floorRegions.map((r) => r.toFloor)) + 1 : 1;
     floorRegions = [...floorRegions, { ...sanitizeWin(cropWin), fromFloor: nextFloor, toFloor: nextFloor, label }];
   }

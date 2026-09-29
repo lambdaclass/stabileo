@@ -151,7 +151,7 @@
       </div>
       <div class="property-row">
         <span>{t('prop.type')}:</span>
-        <span>{elem.type === 'frame' ? 'Frame' : 'Truss'}</span>
+        <span>{elem.type === 'frame' ? t('table.frame') : t('table.truss')}</span>
       </div>
       <div class="property-row">
         <span>{t('prop.nodes')}:</span>
@@ -273,7 +273,7 @@
                   resultsStore.clear();
                 }} />
             </label>
-            <button class="btn-small" style="font-size: 0.6rem; padding: 2px 6px;" onclick={() => { modelStore.updateElementLocalY(elemId, undefined, undefined, undefined); resultsStore.clear(); }} title={t('prop.autoDetectLocalY')}>Auto</button>
+            <button class="btn-small" style="font-size: 0.6rem; padding: 2px 6px;" onclick={() => { modelStore.updateElementLocalY(elemId, undefined, undefined, undefined); resultsStore.clear(); }} title={t('prop.autoDetectLocalY')}>{t('generator.ui.rotationAuto')}</button>
           </div>
         </div>
       {/if}
@@ -379,7 +379,7 @@
               </div>
               {#if stress.ratio !== null}
                 <div class="property-row">
-                  <span>Ratio:</span>
+                  <span>{t('flex.out.ratio')}:</span>
                   <span class:ratio-ok={stress.ratio <= 1} class:ratio-warn={stress.ratio > 1}>{(stress.ratio * 100).toFixed(1)}%</span>
                 </div>
               {/if}

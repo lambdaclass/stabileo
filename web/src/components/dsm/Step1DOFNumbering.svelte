@@ -28,10 +28,12 @@
 
   const is3D = $derived(dofsPerNode > 3);
   // DOF name labels per type
-  const eqFrame2D = '\\text{Cada nodo tiene: } u_x, \\; u_z, \\; \\theta_y';
-  const eqTruss2D = '\\text{Cada nodo tiene: } u_x, \\; u_z';
-  const eqFrame3D = '\\text{Cada nodo tiene: } u_x, \\; u_y, \\; u_z, \\; \\theta_x, \\; \\theta_y, \\; \\theta_z';
-  const eqTruss3D = '\\text{Cada nodo tiene: } u_x, \\; u_y, \\; u_z';
+  // The lead-in is prose inside KaTeX, so it comes from the dictionary like any other label.
+  const lead = $derived(`\\text{${t('dsm.step1.eachNodeHas').trim()} } `);
+  const eqFrame2D = $derived(`${lead}u_x, \\; u_z, \\; \\theta_y`);
+  const eqTruss2D = $derived(`${lead}u_x, \\; u_z`);
+  const eqFrame3D = $derived(`${lead}u_x, \\; u_y, \\; u_z, \\; \\theta_x, \\; \\theta_y, \\; \\theta_z`);
+  const eqTruss3D = $derived(`${lead}u_x, \\; u_y, \\; u_z`);
 
   // Map local DOF index to display name
   const dofName2D = ['ux', 'uz', 'θy'];
@@ -88,7 +90,7 @@
           <th>{t('dsm.step1.nodeHeader')}</th>
           <th>{t('dsm.step1.localDof')}</th>
           <th>{t('dsm.step1.globalIndex')}</th>
-          <th>Label</th>
+          <th>{t('dsm.step8.label')}</th>
           <th>{t('dsm.step1.state')}</th>
         </tr>
       </thead>

@@ -247,7 +247,7 @@
       return true;
     } catch (e: any) {
       console.error(`[${context}] WASM initialization failed:`, e);
-      uiStore.toast(e?.message || 'WASM solver initialization failed.', 'error');
+      uiStore.toast(e?.message || t('toast.solverInitFailed'), 'error');
       return false;
     }
   }
@@ -874,7 +874,7 @@
   {#if pdR}
     <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
       P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
-      {pdR.converged ? `${pdR.iterations} iter` : 'no conv.'} |
+      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
       {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>
   {/if}
