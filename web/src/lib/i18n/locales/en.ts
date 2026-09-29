@@ -8056,5 +8056,7 @@ const en: Record<string, string> = {
   'cad.assume.planMapItem': '{label} → floors {from}–{to}',
   'cad.assume.perFloorPlans': 'Per-floor plans (geometry differs by floor): {map}. Columns/members that do not continue between adjacent plans are hanging and were pruned after composition ({members} member(s), {shells} shell(s), {nodes} node(s)).',
   'cad.floorRegionLabel': 'Plan {id}',
+  'float.loadGlobalXDir': 'Load along the global X axis (horizontal on inclined members too)',
+  'float.loadAxialDir': 'Load along the member (local i axis)',
 };
 export default en;

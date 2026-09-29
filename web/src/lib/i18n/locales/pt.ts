@@ -7122,5 +7122,7 @@ const pt: Translations = {
   'cad.assume.planMapItem': '{label} → pavimentos {from}–{to}',
   'cad.assume.perFloorPlans': 'Plantas por pavimento (a geometria muda conforme o pavimento): {map}. Pilares e barras que não continuam entre plantas vizinhas ficam soltos e foram removidos após a composição ({members} barra(s), {shells} casca(s), {nodes} nó(s)).',
   'cad.floorRegionLabel': 'Planta {id}',
+  'float.loadGlobalXDir': 'Carga na direção do eixo global X (horizontal também em barras inclinadas)',
+  'float.loadAxialDir': 'Carga ao longo da barra (eixo local i)',
 };
 export default pt;

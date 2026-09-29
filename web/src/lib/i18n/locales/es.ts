@@ -962,7 +962,7 @@ const es: Record<string, string> = {
   'config.localAxesAlways': 'Todos',
   'config.localAxesNever': 'Ninguno',
   'config.showGrid': 'Mostrar grilla',
-  'config.snapGrid': 'Ajustar nodos a la grilla',
+  'config.snapGrid': 'Snap nodos a grilla',
   'config.memberDims': 'Cotas al dibujar barras',
   'config.gridSize': 'Grilla',
   'config.gridSizeXZ': 'Grilla xz (m)',
@@ -1313,7 +1313,7 @@ const es: Record<string, string> = {
   'dxf.meters': 'Metros (m)',
   'dxf.centimeters': 'Centímetros (cm)',
   'dxf.millimeters': 'Milímetros (mm)',
-  'dxf.snapTolerance': 'Tolerancia de ajuste (m):',
+  'dxf.snapTolerance': 'Tolerancia de snap (m):',
   'dxf.layersDetected': 'Capas detectadas',
   'dxf.noLayers': 'Sin capas definidas',
   'dxf.parsedEntities': 'Entidades interpretadas',
@@ -8045,5 +8045,7 @@ const es: Record<string, string> = {
   'cad.assume.planMapItem': '{label} → pisos {from}–{to}',
   'cad.assume.perFloorPlans': 'Plantas por piso (la geometría cambia según el piso): {map}. Las columnas y barras que no continúan entre plantas vecinas quedan colgadas y se eliminaron después de componer ({members} barra(s), {shells} cáscara(s), {nodes} nodo(s)).',
   'cad.floorRegionLabel': 'Planta {id}',
+  'float.loadGlobalXDir': 'Carga en dirección del eje global X (horizontal también en barras inclinadas)',
+  'float.loadAxialDir': 'Carga a lo largo de la barra (eje local i)',
 };
 export default es;

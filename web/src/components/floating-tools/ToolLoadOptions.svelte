@@ -78,14 +78,25 @@
     <input type="number" bind:value={uiStore.loadValue} step="1" />
     <span class="ft-unit">{uiStore.nodalLoadDir === 'my' ? 'kN\u00b7m' : 'kN'}</span>
   </label>
-  <span class="ft-sep">|</span>
-  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Z</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title={t('float.loadPerpDir')}>⊥</button>
-  <label class="ft-input-group">
-    <span>α:</span>
-    <input type="number" bind:value={uiStore.loadAngle} step="5" />
-    <span class="ft-unit">°</span>
-  </label>
+  {#if uiStore.nodalLoadDir !== 'my'}
+    <!--
+      Which axes the force is in, for a load placed on a member. The pair names
+      the chosen force: Fx is global X (horizontal) or along the member, Fz is
+      global Z (vertical) or perpendicular to it. A couple is the same in any
+      axes, so My has no pair.
+    -->
+    {@const alongX = uiStore.nodalLoadDir === 'fx'}
+    <span class="ft-sep">|</span>
+    <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true}
+      title={alongX ? t('float.loadGlobalXDir') : t('float.loadGlobalYDir')} data-testid="load-axes-global">{alongX ? 'X' : 'Z'}</button>
+    <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false}
+      title={alongX ? t('float.loadAxialDir') : t('float.loadPerpDir')} data-testid="load-axes-member">{alongX ? '∥' : '⊥'}</button>
+    <label class="ft-input-group">
+      <span>α:</span>
+      <input type="number" bind:value={uiStore.loadAngle} step="5" />
+      <span class="ft-unit">°</span>
+    </label>
+  {/if}
   {/if}
 {:else if uiStore.loadType === 'thermal'}
   <label class="ft-input-group">

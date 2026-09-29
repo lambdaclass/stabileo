@@ -1884,16 +1884,28 @@
               t = Math.max(0.01, Math.min(0.99, t));
               const a = t * Math.sqrt(lenSq);
 
-              const angle = uiStore.loadAngle !== 0 ? uiStore.loadAngle : undefined;
-              const isGlobal = uiStore.loadIsGlobal ? true : undefined;
               const dir = uiStore.nodalLoadDir;
               const v = uiStore.loadValue;
-              // Map direction to the correct component:
-              // fx/fi → axial (px), fz/fj → perpendicular (p), my → moment
-              const p = dir === 'fz' ? v : 0;
-              const px = dir === 'fx' ? v : 0;
-              const my = dir === 'my' ? v : 0;
-              modelStore.addPointLoadOnElement(nearElem.id, a, p, { px: px || undefined, mz: my || undefined, angle, isGlobal, caseId: activeCaseId });
+              /*
+               * A point load on a member is a force along a direction (p, with
+               * its angle, in global or member axes) plus an optional axial
+               * component (px). Fx in global axes is horizontal: the global
+               * direction turned 90° from Z, so it stays horizontal on an
+               * inclined member. Fi (member axes) is along the member. Fz/Fj is
+               * the global vertical or the perpendicular; My is a couple, the
+               * same in any axes.
+               */
+              const userAngle = uiStore.loadAngle;
+              if (dir === 'my') {
+                modelStore.addPointLoadOnElement(nearElem.id, a, 0, { mz: v || undefined, caseId: activeCaseId });
+              } else if (dir === 'fx' && !uiStore.loadIsGlobal) {
+                modelStore.addPointLoadOnElement(nearElem.id, a, 0, { px: v || undefined, caseId: activeCaseId });
+              } else {
+                const angle = (dir === 'fx' ? 90 : 0) + userAngle;
+                modelStore.addPointLoadOnElement(nearElem.id, a, v, {
+                  angle: angle !== 0 ? angle : undefined, isGlobal: uiStore.loadIsGlobal ? true : undefined, caseId: activeCaseId,
+                });
+              }
             }
           }
         }
