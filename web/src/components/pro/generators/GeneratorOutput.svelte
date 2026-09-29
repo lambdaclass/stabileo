@@ -125,7 +125,10 @@
     const g = build(st.supportMode);
     if (!g || !generatedData(editingGroupId)) return;
     const r = regenerate(editingGroupId, g, meta(), topology?.members.map((m) => m.role) ?? []);
-    if (r) st.result = tp('generator.out.regenerated', { kept: r.kept, added: r.added, removed: r.removed, keptSections: r.keptSections });
+    if (r) {
+      st.result = tp('generator.out.regenerated', { kept: r.kept, added: r.added, removed: r.removed, keptSections: r.keptSections })
+        + (r.welded + r.duplicates > 0 ? ` ${tp('generator.out.regeneratedJoined', { welded: r.welded, duplicates: r.duplicates })}` : '');
+    }
     onRegenerated?.();
   }
 

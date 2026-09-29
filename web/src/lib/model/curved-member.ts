@@ -218,6 +218,14 @@ export function buildArc(
   startNode?: number,
   endNode?: number,
 ): number[] {
+  /*
+   * An odd count puts no generated point on the middle one, so a node picked there was left
+   * beside the arc joined to nothing. When one is there, the count goes up to the next even
+   * number, and the arc passes through it.
+   */
+  if (spec.segments % 2 === 1 && (target.nodeAt?.(spec.through.x, spec.through.y, spec.through.z) ?? null) !== null) {
+    spec = { ...spec, segments: spec.segments + 1 };
+  }
   const pts = arcPoints(spec);
   const ids: number[] = [];
   for (let i = 0; i < pts.length; i++) {

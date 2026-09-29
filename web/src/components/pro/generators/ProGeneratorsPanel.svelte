@@ -316,21 +316,26 @@
       ...(material ? { material } : {}),
     };
     const g = emitModel(withSupportMode(topology, supports), opts);
-    const r = applyGeneratedModel(g, {
-      source: SOURCE[kind],
-      // The clock is read HERE and nowhere below: every module under this one takes the
-      // timestamp as a parameter so its output is reproducible.
-      atIso: new Date().toISOString(),
-      params: paramsOf(),
-      name: opts.name,
+    const taper = kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on;
+    let r!: ReturnType<typeof applyGeneratedModel>;
+    const tapered: { r: ReturnType<typeof taperSupportedColumns> | null } = { r: null };
+    // The frame and its tapered columns are one undo step: undoing only the taper left a shed
+    // nobody asked for.
+    modelStore.batch(() => {
+      r = applyGeneratedModel(g, {
+        source: SOURCE[kind],
+        // The clock is read HERE and nowhere below: every module under this one takes the
+        // timestamp as a parameter so its output is reproducible.
+        atIso: new Date().toISOString(),
+        params: paramsOf(),
+        name: opts.name,
+      });
+      if (taper) tapered.r = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000);
     });
     lastResult = matchesPreview(g, r)
       ? tp('generator.ui.generated', { nodes: r.nodes, elements: r.elements, name: opts.name })
       : tp('generator.ui.mismatch', { promised: g.json.elements.length, got: r.elements });
-    if (kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on) {
-      const tr = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000);
-      lastResult += ` ${tp('generator.ui.taperedColumns', { n: tr.tapered.length, notI: tr.notI })}`;
-    }
+    if (tapered.r) lastResult += ` ${tp('generator.ui.taperedColumns', { n: tapered.r.tapered.length, notI: tapered.r.notI })}`;
     uiStore.toast(lastResult, matchesPreview(g, r) ? 'success' : 'error');
   }
 </script>

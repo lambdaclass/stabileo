@@ -107,14 +107,20 @@ export function insertGenerated(g: GeneratedModel, T: Affine, meta: GeneratedMet
   return { ...report, groupId };
 }
 
-export interface RegenerateReport { kept: number; added: number; removed: number; resized: number; keptSections: number }
+export interface RegenerateReport {
+  kept: number; added: number; removed: number; resized: number; keptSections: number;
+  /** Nodes of the structure that landed on a model node and became it. */
+  welded: number;
+  /** Members that already existed end for end, and were not made twice. */
+  duplicates: number;
+}
 
 /** Replace the group's structure by `g`, in place. One undo step. */
 export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMeta, roles: readonly string[] = []): RegenerateReport | null {
   const old = generatedData(groupId);
   if (!old) return null;
   const T = old.transform;
-  const out: RegenerateReport = { kept: 0, added: 0, removed: 0, resized: 0, keptSections: 0 };
+  const out: RegenerateReport = { kept: 0, added: 0, removed: 0, resized: 0, keptSections: 0, welded: 0, duplicates: 0 };
   modelStore.batch(() => {
     const frag = fragmentFromJSONModel(g.json);
     // A profile the old generation already used is that section, by name: the model's copy has
@@ -140,11 +146,31 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
     for (const n of modelStore.nodes.values()) if (!owned.has(n.id)) index.add(n.id, [n.x, n.y, n.z ?? 0]);
     const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
 
+    /*
+     * A node of the structure that now lands on a model node welds onto it, as it does on
+     * insertion; moving it there instead left two coincident nodes and nothing joining them.
+     * Only a node that carries nothing but the structure is welded: one with a load, a
+     * connector, a footing or a member the user drew on it is moved, as before.
+     */
+    const oldMembers = new Set(old.elements.filter((e) => e !== null).map((e) => e!.id));
+    const onlyTheStructure = (id: number) =>
+      ![...modelStore.elements.values()].some((e) => (e.nodeI === id || e.nodeJ === id) && !oldMembers.has(e.id))
+      && !modelStore.loads.some((l) => (l.type === 'nodal' || l.type === 'nodal3d') && l.data.nodeId === id)
+      && ![...modelStore.connectors.values()].some((c) => c.nodeI === id || c.nodeJ === id)
+      && ![...modelStore.footings.values()].some((f) => f.nodeId === id);
+    const retired: number[] = [];
     const nodes: GeneratedData['nodes'] = [];
     g.json.nodes.forEach((n, k) => {
       const p = applyPoint(T, [n.x, n.y, n.z ?? 0]);
       const prev = old.nodes[k];
       if (prev?.owned && modelStore.nodes.has(prev.id)) {
+        const hit = index.find(p, pos);
+        if (hit !== null && onlyTheStructure(prev.id)) {
+          nodes.push({ id: hit, owned: false });
+          retired.push(prev.id);
+          out.welded++;
+          return;
+        }
         modelStore.updateNode(prev.id, p[0], p[1], p[2]);
         nodes.push(prev);
         return;
@@ -166,12 +192,19 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       return next;
     };
 
+    // Member ends the model already joins, outside this structure: a new member there is that one.
+    const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+    const pairs = new Set<string>();
+    for (const el of modelStore.elements.values()) if (!oldMembers.has(el.id)) pairs.add(pairKey(el.nodeI, el.nodeJ));
+
     const elements: GeneratedData['elements'] = [];
     const elementMap = new Map<number, number>();
     g.json.elements.forEach((e, k) => {
       const role = roles[k] ?? '';
       const src = frag.elements[k]!;
       const i2 = nodeOf(e.nodeI), j2 = nodeOf(e.nodeJ);
+      if (i2 === j2 || pairs.has(pairKey(i2, j2))) { elements.push(null); out.duplicates++; return; }
+      pairs.add(pairKey(i2, j2));
       const a = g.json.nodes[e.nodeI - 1]!, b = g.json.nodes[e.nodeJ - 1]!;
       const o = carriedOrientation(T, src, a, b, modelStore.nodes.get(i2)!, modelStore.nodes.get(j2)!, modelStore.sections.get(secOf(e.sectionId)), false);
       const newSec = secOf(e.sectionId);
@@ -214,13 +247,14 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       if (c) modelStore.addSupportEntry(c);
     }
 
-    // Nodes the old generation owned and the new one does not use.
+    // Nodes the old generation owned and the new one does not use, and the ones welded away.
     const used = new Set<number>();
     for (const el of modelStore.elements.values()) { used.add(el.nodeI); used.add(el.nodeJ); }
     for (let k = g.json.nodes.length; k < old.nodes.length; k++) {
       const n = old.nodes[k]!;
       if (n.owned && modelStore.nodes.has(n.id) && !used.has(n.id)) modelStore.removeNode(n.id);
     }
+    for (const id of retired) if (modelStore.nodes.has(id) && !used.has(id)) modelStore.removeNode(id);
 
     modelStore.refreshCanonicalSections();
     modelStore.setGroupMembers(groupId, {

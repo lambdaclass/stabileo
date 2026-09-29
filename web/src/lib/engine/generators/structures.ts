@@ -329,9 +329,10 @@ const BUILDERS: Record<StructureKind, (p: StructureParams) => Topology | null> =
   },
 
   circularBeam: (p) => {
-    const R = num(p, 'radius'), th = (num(p, 'angle') * Math.PI) / 180, n = num(p, 'segments');
-    const b = new Builder();
     const closed = Math.abs(num(p, 'angle') - 360) < 1e-9;
+    // A closed ring in two segments is two members between the same two nodes: three at least.
+    const R = num(p, 'radius'), th = (num(p, 'angle') * Math.PI) / 180, n = closed ? Math.max(3, num(p, 'segments')) : num(p, 'segments');
+    const b = new Builder();
     const at = (i: number) => { const a = (i * th) / n; return b.node(R * Math.sin(a), R - R * Math.cos(a), 0); };
     for (let i = 1; i <= n; i++) b.member(at(i - 1), closed && i === n ? at(0) : at(i), 'beam');
     if (closed) { for (let i = 0; i < n; i += Math.max(1, Math.round(n / 4))) b.support(at(i), 'fixed'); }

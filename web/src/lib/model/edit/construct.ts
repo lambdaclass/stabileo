@@ -13,6 +13,7 @@ import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
 import { meshQuadRegion, type MeshDensity } from './mesh-region';
+import { applyMesh, modelPoints } from './mesh-apply';
 import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
 export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles';
@@ -94,7 +95,11 @@ export function midpointMember(a: number, b: number, spec: MemberSpec):
 
 // ─── Filling holes ────────────────────────────────────────────────
 
-export interface FillReport { quads: number[]; plates: number[]; skippedExisting: number }
+export interface FillReport {
+  quads: number[]; plates: number[]; skippedExisting: number;
+  /** Closed outlines inside another, left open as openings in the shell around them. */
+  openings: number;
+}
 
 /** The plane of a set of points, or null when they do not share one within `tol`. */
 function planeOf(points: Vec3[], tol: number): { o: Vec3; n: Vec3; u: Vec3; v: Vec3 } | null {
@@ -215,7 +220,7 @@ export function fillHoles(
       const k = Math.round((a.z ?? 0) / tol);
       (levels.get(k) ?? levels.set(k, []).get(k)!).push(e!.id);
     }
-    const total: FillReport = { quads: [], plates: [], skippedExisting: 0 };
+    const total: FillReport = { quads: [], plates: [], skippedExisting: 0, openings: 0 };
     let any = false;
     modelStore.batch(() => {
       for (const ids of levels.values()) {
@@ -225,7 +230,7 @@ export function fillHoles(
         const r = fillHoles(ids, materialId, thickness, opts);
         if ('refused' in r) continue;
         any = true;
-        total.quads.push(...r.quads); total.plates.push(...r.plates); total.skippedExisting += r.skippedExisting;
+        total.quads.push(...r.quads); total.plates.push(...r.plates); total.skippedExisting += r.skippedExisting; total.openings += r.openings;
       }
     });
     return any ? total : { refused: levels.size === 0 ? 'notCoplanar' : 'noHoles' };
@@ -268,13 +273,56 @@ export function fillHoles(
     occupied.push([projected[0]!, projected[1]!, projected[2]!]);
     if (projected.length === 4) occupied.push([projected[0]!, projected[2]!, projected[3]!]);
   }
-  const report: FillReport = { quads: [], plates: [], skippedExisting: 0 };
+  /*
+   * A closed outline inside another, joined to it by nothing (the beams around a stair well),
+   * is an opening in the face around it. That face used to be filled across the opening and the
+   * opening filled again, two shells over the same ground. The face around it is meshed with the
+   * opening as a hole, and the opening stays open.
+   */
+  const inside = (p: [number, number], poly: Array<[number, number]>) => {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i]!, b = poly[j]!;
+      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  };
+  const holesOf = new Map<number, number[]>();
+  const openingFaces = new Set<number>();
+  faces.forEach((f, i) => {
+    const poly = f.map((id) => uv.get(id)!);
+    faces.forEach((g, j) => {
+      if (i === j || g.some((id) => f.includes(id)) || !g.every((id) => inside(uv.get(id)!, poly))) return;
+      (holesOf.get(i) ?? holesOf.set(i, []).get(i)!).push(j);
+      openingFaces.add(j);
+    });
+  });
+  const at3 = (id: number): Vec3 => pv(modelStore.nodes.get(id)!);
+  const edgeMin = (f: number[]) => Math.min(...f.map((id, k) => {
+    const p = at3(id), q = at3(f[(k + 1) % f.length]!);
+    return norm([q[0] - p[0], q[1] - p[1], q[2] - p[2]]);
+  }));
+
+  const report: FillReport = { quads: [], plates: [], skippedExisting: 0, openings: 0 };
   modelStore.batch(() => {
-    for (const f of faces) {
+    for (const [i, f] of faces.entries()) {
+      if (openingFaces.has(i)) { report.openings++; continue; }
       const polygon = f.map((id) => uv.get(id)!);
       const tris = earClip(polygon);
       if (tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)))) {
         report.skippedExisting++;
+        continue;
+      }
+      // Its own openings: the ones not inside another of them.
+      const within = holesOf.get(i) ?? [];
+      const holes = within.filter((j) => !within.some((k) => holesOf.get(k)?.includes(j))).map((j) => faces[j]!);
+      if (holes.length > 0) {
+        const size = density.mode === 'targetSize' ? density.size : Math.min(edgeMin(f), ...holes.map(edgeMin));
+        const m = applyMesh(
+          { outer: { kind: 'polygon', points: f.map(at3) }, holes: holes.map((g) => ({ kind: 'polygon' as const, points: g.map(at3) })), size, element: 'quad', fixedPoints: modelPoints() },
+          { materialId, thickness, splitBeams: true },
+        );
+        if (m) { report.quads.push(...m.quads); report.plates.push(...m.plates); }
         continue;
       }
       if (f.length === 4 && convex(f.map((id) => uv.get(id)!))) {

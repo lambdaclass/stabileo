@@ -271,6 +271,10 @@ export function validateTrussParams(p: TrussParams): ParamProblem[] {
   if (p.kind === 'trapezoidal' && p.endDepthM === 0 && p.riseM === 0) {
     bad('riseM', 'generator.problem.trussHasNoDepth');
   }
+  // Two chords bent to the same arc are that depth apart everywhere: at 0 they are one chord.
+  if (p.kind === 'arch' && p.archCurve === 'parallelChord' && p.endDepthM === 0) {
+    bad('endDepthM', 'generator.problem.trussHasNoDepth');
+  }
   return out;
 }
 
@@ -326,14 +330,26 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
     bottomIdx.push(nodes.length);
     nodes.push({ i: nodes.length, x: stations[i], y: 0, z: bottom[i] });
   }
+  /*
+   * Where the chords meet (a pointed bearing, end depth 0) they share the node. Two coincident
+   * nodes left the top chord and the web attached to a node with no support and no member
+   * joining it to the bearing, so the truss hung from its bottom chord alone: about seven
+   * times the deflection of the same truss with its chords joined.
+   */
   for (let i = 0; i < stations.length; i++) {
+    if (Math.abs(top[i] - bottom[i]) < 1e-9) { topIdx.push(bottomIdx[i]); continue; }
     topIdx.push(nodes.length);
     nodes.push({ i: nodes.length, x: stations[i], y: 0, z: top[i] });
   }
 
   const members: GenMember[] = [];
   const chord = (a: number, b: number) => members.push({ a, b, role: 'chord', type: p.chordContinuity });
-  const web = (a: number, b: number, role: MemberRole) => members.push({ a, b, role, type: p.webContinuity });
+  // At a shared bearing node the end diagonal would lie on a chord: it is left out.
+  const onChord = (a: number, b: number) => members.some((m) => m.role === 'chord' && ((m.a === a && m.b === b) || (m.a === b && m.b === a)));
+  const web = (a: number, b: number, role: MemberRole) => {
+    if (a === b || onChord(a, b)) return;
+    members.push({ a, b, role, type: p.webContinuity });
+  };
 
   for (let i = 0; i < panels; i++) {
     chord(bottomIdx[i], bottomIdx[i + 1]);
@@ -370,6 +386,7 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
 
   // Diagonals, mirrored about midspan so the web is symmetric. Asymmetric bracing on a
   // symmetric truss under symmetric load is a modelling accident, not a design.
+  const firstDiagonal = members.length;
   for (let i = 0; i < panels; i++) {
     const leftOfCentre = p.halfTruss ? true : (i < panels / 2);
     if (p.webPattern === 'warren') {
@@ -420,17 +437,19 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
    * checks it on the solver rather than trusting the argument.
    */
   if (p.subdivideDiagonals && subdivisionApplies(p)) {
-    // The diagonals are the last `panels` members pushed, in panel order.
-    const firstDiagonal = members.length - panels;
+    // The diagonals follow the posts, in panel order; a pointed truss has none in its end
+    // panels, so each is found by the panel it spans.
     const added: GenMember[] = [];
     for (let i = 0; i < panels; i++) {
-      const d = members[firstDiagonal + i];
-      if (!d || d.role !== 'diagonal') continue;
+      const at = members.findIndex((m, k) => k >= firstDiagonal && m.role === 'diagonal'
+        && Math.min(nodes[m.a].x, nodes[m.b].x) === stations[i] && Math.max(nodes[m.a].x, nodes[m.b].x) === stations[i + 1]);
+      if (at < 0) continue;
+      const d = members[at];
 
       // Which end of the main diagonal is on the top chord. Either orientation occurs —
       // Pratt descends inward on the left half and rises on the right — so it is read off
       // the member rather than assumed from the pattern.
-      const aIsTop = topIdx.includes(d.a);
+      const aIsTop = topIdx.includes(d.a) && !bottomIdx.includes(d.a);
       const topEnd = aIsTop ? d.a : d.b;
       const botEnd = aIsTop ? d.b : d.a;
 
@@ -465,7 +484,7 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
        * That is measured: the first version of this block used `p.webContinuity` here and all
        * three web patterns failed to solve.
        */
-      members[firstDiagonal + i] = { a: topEnd, b: mIdx, role: 'diagonal', type: 'frame' };
+      members[at] = { a: topEnd, b: mIdx, role: 'diagonal', type: 'frame' };
       added.push({ a: mIdx, b: botEnd, role: 'diagonal', type: 'frame' });
 
       const chordAt = members.findIndex(

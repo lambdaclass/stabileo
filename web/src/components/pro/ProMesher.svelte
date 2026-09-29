@@ -62,6 +62,7 @@
     if (!input || !mesh) return;
     const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);
     if (!r) return;
+    if (r.occupied) { message = t('mesher.occupied'); return; }
     message = tp('mesher.applied', { quads: r.quads.length, plates: r.plates.length, nodes: r.newNodes, split: r.splitCount });
   }
 

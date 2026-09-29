@@ -89,7 +89,8 @@
   function doFill() {
     const r = fillHoles(scope, fillMaterial, fillThickness, fillSize > 0 ? { density: { mode: 'targetSize', size: fillSize } } : {});
     if ('refused' in r) { refusal(r); return; }
-    message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting });
+    message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting })
+      + (r.openings > 0 ? ` ${tp('edit.filledOpenings', { n: r.openings })}` : '');
   }
   let renumberShells = $state(false);
   let renumberOnlySel = $state(false);

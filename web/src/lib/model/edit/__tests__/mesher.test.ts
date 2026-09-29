@@ -124,6 +124,21 @@ describe('into the model', () => {
     expect(modelStore.nodes.size).toBe(n0);
   });
 
+  it('refuses to mesh a region that already has shells in its plane, and adds nothing', () => {
+    const input = { outer: { kind: 'polygon' as const, points: rect(3, 3) }, holes: [], size: 1, element: 'quad' as const };
+    applyMesh(input, { materialId: 1, thickness: 0.2, splitBeams: false });
+    const quads = modelStore.quads.size, nodes = modelStore.nodes.size, undo = historyStore.undoCount;
+    const again = applyMesh(input, { materialId: 1, thickness: 0.2, splitBeams: false })!;
+    expect(again.occupied).toBe(true);
+    expect(modelStore.quads.size).toBe(quads);
+    expect(modelStore.nodes.size).toBe(nodes);
+    expect(historyStore.undoCount).toBe(undo);
+    // The same outline one metre up is another region.
+    const up = applyMesh({ ...input, outer: { kind: 'polygon', points: rect(3, 3).map((p) => [p[0], p[1], p[2] + 1] as Vec3) } }, { materialId: 1, thickness: 0.2, splitBeams: false })!;
+    expect(up.occupied).toBeUndefined();
+    expect(up.quads).toHaveLength(9);
+  });
+
   it('a clamped circular plate deflects q·a⁴/(64·D) at the centre', () => {
     const a = 2, t = 0.1, E = 30_000, nu = 0.2, q = 10;
     const mat = modelStore.addMaterial({ name: 'H', e: E, nu, rho: 0 });
