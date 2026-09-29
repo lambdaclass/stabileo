@@ -282,6 +282,12 @@ it) publishes no forces, and a notice names it. Large models go through the same
 the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
 half thousand members take a few seconds.
 
+P-Delta repeats until the displacements stop changing. Some programs instead stop after a fixed
+number of iterations (two, for instance), whether or not the result has settled; a model solved
+that way can differ from Stabileo's by a few percent in the members that sway most, and it
+still gives forces for a combination in which Stabileo finds no second-order equilibrium.
+Stabileo keeps the converged result.
+
 **Shear deformation** is on by default, and each section then decides with its shear areas. Off,
 every member deforms in bending only, whatever its section says.
 

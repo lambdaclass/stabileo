@@ -293,6 +293,12 @@ en segundo orden (pandea antes) no publica esfuerzos, y un aviso la nombra. Los 
 pasan por el mismo solver disperso que el análisis lineal: las catorce combinaciones de un edificio
 de mil nudos y dos mil quinientas barras tardan unos segundos.
 
+El P-Delta se repite hasta que los desplazamientos dejan de cambiar. Algunos programas, en cambio,
+cortan después de un número fijo de iteraciones (dos, por ejemplo), haya convergido o no el
+resultado; un modelo resuelto así puede diferir del de Stabileo en unos pocos por ciento en las
+barras que más se desplazan, y da esfuerzos en una combinación en la que Stabileo no encuentra
+equilibrio de segundo orden. Stabileo se queda con el resultado convergido.
+
 La **deformación por corte** está activada de entrada, y entonces cada sección decide con sus áreas
 de corte. Apagada, todas las barras se deforman sólo por flexión, diga lo que diga su sección.
 
