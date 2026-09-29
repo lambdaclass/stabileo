@@ -95,4 +95,21 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.getByTestId('steps-tab').nth(1)).toHaveClass(/on/);
     expect(errors).toEqual([]);
   });
+
+  test('Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
+    await boot(page);
+    await page.getByTestId('rb-cmd-advanced').click();
+    const panel = page.locator('.advanced-grid');
+    const groups = await panel.locator('[data-testid^=adv-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    expect(groups).toEqual(['adv-group-structure', 'adv-group-buckling', 'adv-group-dynamics', 'adv-group-moving', 'adv-group-learn', 'adv-group-design']);
+    // Every entry sits under a header: the first thing in the list is one.
+    const firstChild = await panel.evaluate((el) => el.firstElementChild?.getAttribute('data-testid'));
+    expect(firstChild).toBe('adv-group-structure');
+    // Each header comes right before its own entries.
+    const order = await panel.evaluate((el) => [...el.children].map((c) => c.getAttribute('data-testid') ?? c.textContent?.trim().slice(0, 24) ?? ''));
+    const b = order.indexOf('adv-group-buckling'), m = order.indexOf('adv-group-moving');
+    expect(order[b + 1]).toMatch(/P-?Δ|P-Delta/i);
+    expect(order[m + 1]).toMatch(/influen/i);
+    await expect(panel).not.toContainText(/Envolvente|Envelope|Envoltória/);
+  });
 });
