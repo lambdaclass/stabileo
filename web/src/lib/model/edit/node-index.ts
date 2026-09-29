@@ -1,10 +1,11 @@
-/** Shared node welding tolerance and spatial lookup. Pure: no store. */
+/** The spatial lookup every node weld uses. Pure: no store. */
 import type { Vec3 } from './affine';
 
-/** The default weld tolerance; the one in force is `weldTolerance()`. */
-export const DEFAULT_WELD = 1e-4;
-
-/** A spatial hash for the weld: cells of the weld tolerance, neighbours checked. */
+/**
+ * A spatial hash for the weld: cells of the weld tolerance, neighbours checked. Callers pass
+ * `weldTolerance()`, the one tolerance every weld reads; a fixed 0,1 mm of their own welded one
+ * step of a workflow and not the next.
+ */
 export class NodeIndex {
   private cells = new Map<string, number[]>();
   constructor(private tol: number) {}

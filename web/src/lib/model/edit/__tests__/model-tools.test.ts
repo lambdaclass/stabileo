@@ -96,3 +96,104 @@ describe('reversing a member', () => {
     }
   });
 });
+
+describe('reversing a member leaves every load where it acts', () => {
+  const solve = () => { const r = modelStore.solve3D(false, false, true); if (!r || typeof r === 'string') throw new Error(String(r)); return r; };
+  const same = (before: ReturnType<typeof solve>, after: ReturnType<typeof solve>) => {
+    for (const r of before.reactions) {
+      const x = after.reactions.find((y) => y.nodeId === r.nodeId)!;
+      for (const k of ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const) expect(x[k]).toBeCloseTo(r[k], 6);
+    }
+    for (const d of before.displacements) {
+      const x = after.displacements.find((y) => y.nodeId === d.nodeId)!;
+      for (const k of ['ux', 'uy', 'uz'] as const) expect(x[k]).toBeCloseTo(d[k], 9);
+    }
+  };
+
+  it('a temperature gradient: the hot face stays the hot face', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addSupport(b, 'fixed3d');
+    modelStore.addThermalLoad(e, 10, 20);
+    const before = solve();
+    flipMembers([e]);
+    same(before, solve());
+  });
+
+  it.each([
+    ['a flat model, in its drawn axes', 'flat'],
+    ['a model in the XY plane', 'plane'],
+    ['a space model', 'space'],
+  ] as const)('plane member loads in %s: along the length, and in the same direction', (_name, kind) => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    if (kind === 'flat') {
+      modelStore.addSupport(a, 'fixed');
+      modelStore.addSupport(b, 'rollerX');
+    } else {
+      modelStore.addSupport(a, 'fixed3d');
+      modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { tx: false, ty: true, tz: true, rx: true, ry: false, rz: false } });
+    }
+    if (kind === 'space') {
+      // A post out of the plane makes the model a space one.
+      const c = modelStore.addNode(0, 0, 3);
+      modelStore.addElement(a, c, 'frame');
+      modelStore.addSupport(c, 'fixed3d');
+    }
+    modelStore.addDistributedLoad(e, -10, -4, 0, false, undefined, 1, 5);
+    modelStore.addDistributedLoad(e, -3, -3, 30, false);
+    modelStore.addPointLoadOnElement(e, 2, -7, { px: 3 });
+    modelStore.addPointLoadOnElement(e, 4, -5, { angle: 20 });
+    const before = solve();
+    flipMembers([e]);
+    same(before, solve());
+  });
+});
+
+describe('repeated properties', () => {
+  const props = () => repeatedProperties({ nodes: modelStore.nodes, elements: modelStore.elements, quads: modelStore.quads, plates: modelStore.plates, supports: modelStore.supports, materials: modelStore.materials, sections: modelStore.sections } as never);
+
+  it('are the same in everything but id: a rotated section, or another α, is not a repeat', () => {
+    const base = { a: 0.00538, iz: 8.36e-5, iy: 6.04e-6, j: 2.01e-7, b: 0.15, h: 0.3, shape: 'I' as const, tw: 0.0071, tf: 0.0107 };
+    // The same profile added twice, and once more turned 90°. (The name counts: it is what finds
+    // the catalogue outline a section's stresses are read on.)
+    const s1 = modelStore.addSection({ name: 'IPE 300', ...base } as never);
+    const s2 = modelStore.addSection({ name: 'IPE 300', ...base, rotation: 90 } as never);
+    const s3 = modelStore.addSection({ name: 'IPE 300', ...base } as never);
+    expect(props().sections).toEqual([[s1, s3]]);
+    void s2;
+    const m1 = modelStore.addMaterial({ name: 'A', e: 200000, nu: 0.3, rho: 78.5, fy: 250 } as never);
+    const m2 = modelStore.addMaterial({ name: 'B', e: 200000, nu: 0.3, rho: 78.5, fy: 250, alpha: 1e-5 } as never);
+    expect(props().materials.some((g) => g.includes(m1) && g.includes(m2))).toBe(false);
+  });
+});
+
+describe('renumbering what refers to members, shells and nodes', () => {
+  it('moves a deflection rule, a saved view’s hidden members and shells, and a time-history force with them', () => {
+    // Drawn right to left, so numbering by position reverses them.
+    const n = [3, 2, 1, 0].map((k) => modelStore.addNode(k * 2, 0, 0));
+    const e = [0, 1, 2].map((k) => modelStore.addElement(n[k]!, n[k + 1]!, 'frame'));
+    const c = [[0, 5], [1, 5], [1, 6], [0, 6]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const c2 = [[4, 5], [5, 5], [5, 6], [4, 6]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const qRight = modelStore.addQuad(c2 as [number, number, number, number], 1, 0.2);
+    modelStore.addQuad(c as [number, number, number, number], 1, 0.2);
+    const tracked = e[0]!, trackedNode = n[0]!;
+    const at = (id: number) => { const el = modelStore.elements.get(id)!; return modelStore.nodes.get(el.nodeI)!.x + modelStore.nodes.get(el.nodeJ)!.x; };
+    const where = at(tracked);
+    modelStore.setDeflectionLimits({ rules: [{ id: 1, scope: { kind: 'members', ids: [tracked] }, n: 500, direction: 'resultant' }] });
+    modelStore.saveView('v', { x: 0, y: 0, z: 10 }, { x: 0, y: 0, z: 0 }, { hidden: { elements: [tracked], shells: [`q${qRight}`] } } as never);
+    modelStore.setDynamics({ timeHistory: { dt: 0.01, nSteps: 10, method: 'newmark', alpha: 0, damping: 0.05,
+      ground: { x: { source: 'none', scale: 1 }, y: { source: 'none', scale: 1 }, z: { source: 'none', scale: 1 } },
+      forces: [{ nodeId: trackedNode, dir: 'z', kind: 'step', amplitude: 1 }] } });
+    const r = renumber({ nodes: true, members: true, shells: true, order: 'xyz' });
+    expect('refused' in r).toBe(false);
+    const newTracked = [...modelStore.elements.keys()].find((id) => at(id) === where)!;
+    const newNode = [...modelStore.nodes.values()].find((p) => p.x === 6 && p.y === 0)!.id;
+    const newQuad = [...modelStore.quads.values()].find((q) => modelStore.nodes.get(q.nodes[0])!.x === 4)!.id;
+    expect(newTracked).not.toBe(tracked);
+    expect(modelStore.deflectionLimits!.rules[0]!.scope).toEqual({ kind: 'members', ids: [newTracked] });
+    expect(modelStore.model.views![0]!.display!.hidden).toEqual({ elements: [newTracked], shells: [`q${newQuad}`] });
+    expect(modelStore.model.dynamics!.timeHistory!.forces[0]!.nodeId).toBe(newNode);
+  });
+});

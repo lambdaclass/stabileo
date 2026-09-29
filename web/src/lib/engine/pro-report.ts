@@ -118,7 +118,7 @@ export interface ReportData {
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number } }>;
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number; over?: string } }>;
   // Upgraded joint detail opts (detailing-aware, multiple types)
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
@@ -1254,9 +1254,12 @@ export function generateReportHtml(data: ReportData): string {
           const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
           // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
           // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
+          // Both over the length the check used — 2L for a cantilever — or the row read
+          // "L/200 vs L/360 ✓" for a cantilever that passed against 2L/360.
+          const over = s.deflection?.over ?? 'L';
           const sod = s.deflection?.spanOverDelta;
-          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `L/${Math.round(sod)}` : 'L/∞') : '—';
-          const deflLim = s.deflection?.limitDivisor ? `L/${s.deflection.limitDivisor}` : '—';
+          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `${over}/${Math.round(sod)}` : `${over}/∞`) : '—';
+          const deflLim = s.deflection?.limitDivisor ? `${over}/${s.deflection.limitDivisor}` : '—';
           const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
           const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
           html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);

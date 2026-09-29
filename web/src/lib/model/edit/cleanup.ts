@@ -133,13 +133,18 @@ export function removeDuplicateMembers(): CleanupReport {
   return report;
 }
 
-export function removeZeroLengthMembers(tol = weldTolerance()): CleanupReport {
-  const report = empty();
-  const zero = [...modelStore.elements.values()].filter((e) => {
+/** Members shorter than the weld tolerance: what the edit panel counts and the clean-up removes. */
+export function zeroLengthMembers(tol = weldTolerance()): number[] {
+  return [...modelStore.elements.values()].filter((e) => {
     if (e.nodeI === e.nodeJ) return true;
     const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
     return !!a && !!b && Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) <= tol;
   }).map((e) => e.id);
+}
+
+export function removeZeroLengthMembers(tol = weldTolerance()): CleanupReport {
+  const report = empty();
+  const zero = zeroLengthMembers(tol);
   if (zero.length === 0) return report;
   modelStore.batch(() => { for (const id of zero) { modelStore.removeElement(id); report.removedZeroLength++; } });
   return report;
