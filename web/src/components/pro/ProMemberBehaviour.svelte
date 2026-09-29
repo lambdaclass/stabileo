@@ -74,7 +74,7 @@
       <select value={presetNow} onchange={(e) => setPreset(e.currentTarget.value)} data-testid="mb-stiffness">
         {#if presetNow === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
         <option value="none">{t('behaviour.stiffness.none')}</option>
-        {#each PRESETS as p (p)}<option value={p}>{tp(`behaviour.preset.${p}`, { f: String(CIRSOC201_STIFFNESS[p]).replace('.', ',') })}</option>{/each}
+        {#each PRESETS as p (p)}<option value={p}>{tp(`behaviour.preset.${p}`, { f: CIRSOC201_STIFFNESS[p].toLocaleString(t('file.htmlLang')) })}</option>{/each}
         <option value="custom">{t('behaviour.stiffness.custom')}</option>
       </select>
     </label>

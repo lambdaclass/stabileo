@@ -9,7 +9,7 @@
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
@@ -682,7 +682,7 @@
           </div>
           {#if uiStore.selectedElements.size > 0}
             <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
           {/if}
         </div>
@@ -701,7 +701,7 @@
           </div>
           {#if uiStore.selectedElements.size > 0}
             <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
           {/if}
         </div>
@@ -758,7 +758,7 @@
     {#if distLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.distLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Elem</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -788,7 +788,7 @@
     {#if pointLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Elem</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
         <tbody>
           {#each pointLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>

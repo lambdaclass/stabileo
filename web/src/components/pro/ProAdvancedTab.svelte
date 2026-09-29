@@ -856,9 +856,9 @@
   let advView = $state<string | null>(null);
 
   const ADV_VIEWS = $derived([
-        { id: 'timehistory', label: 'Time History' },
+        { id: 'timehistory', label: t('adv.view.timeHistory') },
         { id: 'harmonic', label: t('pro.harmonicTitle') },
-        { id: 'nolineal', label: 'No lineal' },
+        { id: 'nolineal', label: t('adv.view.nonlinear') },
         { id: 'imperfections', label: t('pro.imperfectionsTitle') },
         { id: 't', label: `${t('pro.winklerFoundation')} · ${t('adv.experimental')}` },
         { id: 'ssi', label: `${t('pro.ssiTitle')} · ${t('adv.experimental')}` },
@@ -930,9 +930,9 @@
     <!-- ── 2. Modal ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving}>Modal</button>
+        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving}>{t('pro.adv.modal')}</button>
         <label class="adv-label">
-          Modos:
+          {t('adv.modes')}:
           <input type="number" class="adv-num" bind:value={numModes} min={1} max={50} />
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
@@ -1047,9 +1047,9 @@
     <!-- ── 4. Buckling ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleBuckling} disabled={!hasModel || solving}>Pandeo</button>
+        <button class="adv-run-btn" onclick={handleBuckling} disabled={!hasModel || solving}>{t('pro.adv.buckling')}</button>
         <label class="adv-label">
-          Modos:
+          {t('adv.modes')}:
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
@@ -1159,11 +1159,11 @@
       {#if advView === 'nolineal'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">Tipo: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">Corotacional</option><option value="fiber">Fibra</option></select></label>
+          <label class="adv-label">{t('adv.type')}: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">{t('adv.nl.corotational')}</option><option value="fiber">{t('adv.nl.fiber')}</option></select></label>
           {#if nlType === 'pushover'}
             <label class="adv-label">{t('pro.maxHinges')}: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
           {:else}
-            <label class="adv-label">Max iter: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
+            <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
             <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={nlIncrements} min={1} max={200} /></label>
           {/if}

@@ -30,6 +30,7 @@ import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import { finishSolve3D } from './solve-finish';
+import { t } from '../i18n';
 import { massDensities } from './dynamics/requests';
 
 /**
@@ -200,11 +201,11 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       if (pts && pts.length) soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
     }
   }
-  if (oneWay.size && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
+  if (oneWay.size && soilSprings.length) throw new Error(t('behaviour.err.springsAndOneWay'));
   // Cables go to the engine's cable solve, which lets them go slack itself.
   const cables = new Set<number>();
   for (const e of model.elements.values()) if (input.elements.has(e.id) && (e as El).behaviour === 'cable') cables.add(e.id);
-  if (cables.size && soilSprings.length) throw new Error('multilinear springs and cables cannot be solved together');
+  if (cables.size && soilSprings.length) throw new Error(t('behaviour.err.springsAndCables'));
   // Their own weight sets their sag and softens them, from the density in kg/m³ (the one
   // conversion the dynamic analyses use too). It is not a load to the engine: the self-weight
   // already in the loads carries it.
@@ -228,7 +229,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     if (cables.size === 0) return solve3D(trial);
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
     const r = solveCable3D(typed, 50, 1e-8, densities);
-    if (!r.converged) throw new Error('the cable analysis did not converge');
+    if (!r.converged) throw new Error(t('behaviour.err.cableNoConvergence'));
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
     // Finished as a linear solve is: the other members keep the axial part of their loads.
     return finishSolve3D(r.results, typed);

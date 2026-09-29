@@ -26,6 +26,7 @@
  */
 
 import { modelStore } from '../store/model.svelte';
+import { t } from '../i18n';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
@@ -96,7 +97,7 @@ function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined):
   const gravity = { caseId: deadCase, direction: 'Z' as const, factor: -1 };
   if (rule === 'all') { modelStore.adoptAnalysis({ selfWeight: [gravity] }); return; }
   const quads = [...modelStore.quads.keys()], plates = [...modelStore.plates.keys()];
-  const groupId = modelStore.addGroup('Losa (peso propio)', 'custom', { elements: [], quads, plates } as never);
+  const groupId = modelStore.addGroup(t('pro.examples.slabWeightGroup'), 'custom', { elements: [], quads, plates } as never);
   modelStore.adoptAnalysis({ selfWeight: [{ ...gravity, groupId }] });
 }
 

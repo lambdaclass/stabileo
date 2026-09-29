@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../../lib/i18n';
   /**
    * The drawing of a drawn section: every part in its material's colour, holes dashed, the
    * centroid, the shear centre, the principal axes and the overall dimensions, with the selected
@@ -109,7 +110,7 @@
   viewBox="0 0 {W} {H}" class="canvas" data-testid="drawn-canvas"
   onpointermove={move} onpointerup={up} onpointerleave={up}
   onpointerdown={() => onSelect(null)}
-  role="img" aria-label="section drawing"
+  role="img" aria-label={t('section.drawingAria')}
 >
   <defs>
     {#each used as m (m)}

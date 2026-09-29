@@ -303,7 +303,7 @@
 
   <div class="pro-cst-form">
     <div class="pro-cst-row">
-      <label>Tipo:
+      <label>{t('adv.type')}:
         <select bind:value={selectedKind} class="pro-select-sm">
           {#each constraintKinds as ck}
             <option value={ck.value}>{ck.label}</option>
