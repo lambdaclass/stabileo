@@ -104,8 +104,8 @@ d('drawn sections through the engine', () => {
 
   it('a catalogue profile with a cover plate on its top flange', () => {
     const name = 'IPE 300';
-    const outline = catalogueOutline(name);
-    if (!outline) return;
+    // The profile must be in the catalogue: a test that returned here passed with nothing checked.
+    expect(catalogueOutline(name)).toBeTruthy();
     const ipe: DrawnPart = { id: 1, shape: { kind: 'profile', name }, at: [0, 0], rotationDeg: 0 };
     const plate0 = rect(2, 0.2, 0.012, [0, 0]);
     const at = attachOffset(plate0, ipe, 'top', 'centre', catalogueOutline)!;

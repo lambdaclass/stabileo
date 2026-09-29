@@ -21,7 +21,7 @@ async function openLoads(page: Page) {
 
 const rules = (page: Page) => page.evaluate(() => window.__stabileo.analysisSettings());
 
-test.describe('PRO analysis rules', () => {
+test.describe('@smoke PRO analysis rules', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('self-weight is a row of its own, and its factor is the model\'s', async ({ pro: page }) => {

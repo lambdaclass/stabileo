@@ -60,6 +60,13 @@ test.describe('@smoke PRO optimiser criteria', () => {
     const rows = page.getByTestId('opt-rows').locator('tbody tr');
     await expect(rows.first()).toBeVisible();
     const ratios = await rows.locator('td:nth-child(6)').allInnerTexts();
-    for (const r of ratios) if (r !== '—') expect(Number(r.replace(/[^\d.]/g, ''))).toBeLessThanOrEqual(80);
+    const numeric = ratios.filter((r) => r !== '—');
+    // At least one proposal, or the test would pass on a table of dashes.
+    expect(numeric.length).toBeGreaterThan(0);
+    for (const r of numeric) expect(Number(r.replace(/[^\d.]/g, ''))).toBeLessThanOrEqual(80);
+    // And the depth limit held: every HEB proposed is at most 400 mm deep.
+    const proposed = (await rows.locator('td:nth-child(5)').allInnerTexts()).map((s) => s.match(/HEB\s*(\d+)/)?.[1]).filter(Boolean);
+    expect(proposed.length).toBeGreaterThan(0);
+    for (const h of proposed) expect(Number(h)).toBeLessThanOrEqual(400);
   });
 });

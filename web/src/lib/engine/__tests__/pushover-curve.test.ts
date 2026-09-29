@@ -63,6 +63,15 @@ describe('pushover curve', () => {
     expect(res.collapseFactor).toBeCloseTo((4 * MP) / (H * h), 3);
   });
 
+  // What the defect gives today, bounded, so a different failure (a throw, another value) is not
+  // taken for the known one by the it.fails above: 13.312 where 13.333 is exact.
+  it('stops just short of it, by the simultaneous-hinge stop and nothing else', () => {
+    const { res } = portal();
+    const exact = (4 * MP) / (H * h);
+    expect(res.collapseFactor).toBeGreaterThan(exact * 0.995);
+    expect(res.collapseFactor).toBeLessThan(exact);
+  });
+
   it('says when the run stopped at a joint where every end yielded at once', () => {
     const { res } = portal();
     expect(stoppedAtJoint(res, modelStore.elements)).toBe(2);

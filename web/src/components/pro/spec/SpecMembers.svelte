@@ -46,7 +46,8 @@
     modelStore.batch(() => {
       for (const id of ids) {
         const e = modelStore.elements.get(id)!;
-        const cur: Release = { my: false, mz: false, t: false, ...(end === 'i' ? e.releaseI : e.releaseJ) };
+        const was = end === 'i' ? e.releaseI : e.releaseJ;
+        const cur: Release = { ...was, my: was?.my ?? false, mz: was?.mz ?? false, t: was?.t ?? false };
         cur[k] = on;
         const any = cur.my || cur.mz || cur.t || cur.slide !== undefined;
         modelStore.updateElement(id, end === 'i' ? { releaseI: any ? cur : undefined } : { releaseJ: any ? cur : undefined });

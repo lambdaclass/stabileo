@@ -294,6 +294,16 @@ jobs:
         working-directory: web
         run: npx vitest run --project build
 
+      # The two gates every PR body names. They were run on the author's machine only: the type
+      # baseline and the svelte-check errors of the guarded paths now fail the job here too.
+      - name: Typecheck against its baseline
+        working-directory: web
+        run: npm run typecheck
+
+      - name: svelte-check on the guarded paths
+        working-directory: web
+        run: npm run check:gate
+
   # Five shards, each running whole spec files chosen by measured duration
   # (web/scripts/e2e-shard.mjs). One runner took 40 min for the smoke suite:
   # 569 tests of ~3 s each, serially — `workers: 1` stays, for the WebGL

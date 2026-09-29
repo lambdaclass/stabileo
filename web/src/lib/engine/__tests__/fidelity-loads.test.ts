@@ -293,3 +293,24 @@ describe('cases and combinations that share a name', () => {
     expect(warned.filter((w) => /Multi-case 3D failed/.test(w))).toEqual([]);
   });
 });
+
+describe('shear deformation, for the whole analysis', () => {
+  it('off: no member carries shear areas to the engine, and a short cantilever reads PL³/3EI', () => {
+    // A 1 m cantilever, deep enough that shear adds to its tip deflection.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(1, 0, 0);
+    const sec = modelStore.addSection({ name: 'R', a: 0.06, iy: 0.06 * 0.3 ** 2 / 12, iz: 0.2 * 0.3 ** 3 / 12 / 3, j: 1e-4, shearAreas: { basis: 'declared', asY: 0.05, asZ: 0.05 } } as never);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.updateElementSection(e, sec);
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, 1);
+    const tip = () => Math.abs(solve().displacements.find((d) => d.nodeId === b)!.uz);
+    const withShear = tip();
+    modelStore.setAnalysis({ shearDeformation: 'none' });
+    const input = modelStore.buildSolverInput3D(false, false);
+    for (const s of input!.sections.values()) { expect((s as { asY?: number }).asY).toBeUndefined(); expect((s as { asZ?: number }).asZ).toBeUndefined(); }
+    const E = [...modelStore.materials.values()][0]!.e * 1000, I = modelStore.sections.get(sec)!.iy!;
+    const bending = (10 * 1 ** 3) / (3 * E * I);
+    expect(tip() / bending).toBeCloseTo(1, 6);
+    expect(withShear).toBeGreaterThan(bending * 1.001);
+  });
+});

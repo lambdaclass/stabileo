@@ -143,6 +143,13 @@ describe.each([...SHELL_DRILLING.keys()])('%s, about the shells\' normals (engin
   it.fails('balances every moment too', async () => {
     for (const row of await statics(id)) expect(row.worstRelative).toBeLessThan(1e-9);
   });
+  // The gap as measured (about 1e-6 to 7e-6 of the load), so the it.fails above is not satisfied
+  // by some other failure.
+  it('misses by the drilling penalty\'s share and no more', async () => {
+    const worst = Math.max(...(await statics(id)).map((r) => r.worstRelative as number));
+    expect(worst).toBeGreaterThan(1e-8);
+    expect(worst).toBeLessThan(1e-4);
+  });
 });
 
 describe('the validation models, as regression fixtures', () => {

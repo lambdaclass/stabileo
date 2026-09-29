@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import * as XLSX from 'xlsx';
 import { test, expect } from './fixtures';
 
-test.describe('PRO project workbook', () => {
+test.describe('@smoke PRO project workbook', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('downloads the model and every result at the stations asked for', async ({ pro: page }) => {
