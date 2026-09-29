@@ -15,6 +15,11 @@
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
+  import {
+    withNotionalLoads, creepSteps, concreteMaterials, stagedLoadsByCase, stagedStagesPayload,
+    stagedRefusal, plasticForSolve, pushoverNonSteel,
+  } from '../../lib/engine/advanced-analyses';
+  import { caseSolverLoads3D } from '../../lib/engine/solver-service';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
@@ -25,13 +30,11 @@
     solveSpectral3D as wasmSpectral3D,
     solvePlastic3D,
     solveCorotational3D,
-    solveFiberNonlinear3D,
     solveWinkler3D,
     solveSSI3D,
     solveStaged3D,
-    solveCreepShrinkage3D,
     solveHarmonic3D,
-    solveWithImperfections3D,
+    solve3D,
     computeInfluenceLine3D,
     analyzeSection,
   } from '../../lib/engine/wasm-solver';
@@ -187,7 +190,7 @@
       const t0 = performance.now();
       res = wasmPDelta3D(input);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = `P-Delta: ${res}`; solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: String(res) }); solving = false; return; }
       pdeltaElapsed = elapsed;
       pdeltaResult = res;
       if (res.results) {
@@ -195,7 +198,7 @@
       }
       advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor } };
     } catch (e: any) {
-      solveError = `P-Delta: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -240,7 +243,7 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
@@ -262,7 +265,7 @@
         advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
-      solveError = `Modal: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -354,14 +357,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = `Buckling: ${res}`; solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
-      solveError = `Buckling: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -403,19 +406,18 @@
       harmonicElapsed = elapsed;
       harmResult = res;
     } catch (e: any) {
-      solveError = `Harmónico: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.harmonic'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
 
   // ─── 7. Nonlinear ─────────────────────────────────────────────
 
-  let nlType = $state<'pushover' | 'corotational' | 'fiber'>('pushover');
+  let nlType = $state<'pushover' | 'corotational'>('pushover');
   let nlMaxHinges = $state(20);
   let nlMaxIter = $state(50);
   let nlTol = $state(1e-6);
   let nlIncrements = $state(10);
-  let nlFiberIntPts = $state(5);
   let nlResult = $state<any | null>(null);
   /** Sections whose Mp rests on an assumption (fy absent, or Zp estimated from A and I). */
   let nlAssumed = $state<string[]>([]);
@@ -445,7 +447,23 @@
          * dimensions stay absent, and Mp about both axes comes from the section's own geometry
          * (`plastic-moments.ts`), through the `mpOverrides` the engine already honours.
          */
-        const { sections, materials, mpOverrides, assumed } = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
+        /*
+         * Hinges form at Mp = fy·Zp, a steel section's plastic moment. A concrete member's `fy`
+         * holds f'c, and f'c·Zp is no plastic moment at all, so a model with concrete members is
+         * refused by name rather than pushed over on numbers that mean nothing.
+         */
+        const nonSteel = pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never);
+        if (nonSteel.length > 0) {
+          solveError = tp('adv.pushoverNonSteel', { materials: nonSteel.join(', ') });
+          solving = false;
+          return;
+        }
+        // Keyed by the sections the solve uses: a member with stiffness modifiers is solved on a
+        // section of its own, which had no Mp and took it as infinite.
+        const { sections, materials, mpOverrides, assumed } = plasticForSolve(
+          plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements),
+          input, (id) => modelStore.elements.get(id)?.sectionId,
+        );
         nlAssumed = assumed;
         nlResult = solvePlastic3D({
           solver: input,
@@ -455,29 +473,13 @@
           mpOverrides,
         });
         nlVersion = modelStore.modelVersion;
-      } else if (nlType === 'corotational') {
-        nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
       } else {
-        const fiberSections: Record<string, any> = {};
-        for (const [id, sec] of modelStore.sections) {
-          const member = [...modelStore.elements.values()].find((e) => e.sectionId === id);
-          if (!member) continue;
-          fiberSections[String(id)] = {
-            a: sec.a, iy: sec.iy ?? sec.iz, iz: sec.iz, materialId: member.materialId,
-            ...(sec.b ? { b: sec.b } : {}), ...(sec.h ? { h: sec.h } : {}),
-          };
-        }
-        nlResult = solveFiberNonlinear3D({
-          solver: input,
-          fiberSections,
-          nIntegrationPoints: nlFiberIntPts,
-          maxIter: nlMaxIter,
-          tolerance: nlTol,
-          nIncrements: nlIncrements,
-        });
+        nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
       }
+      // The fibre analysis was offered here and never ran: the engine needs fibre sections and
+      // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
-      solveError = `No lineal: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -498,16 +500,17 @@
     solveError = null;
     solving = true;
     try {
-      let input = buildInput();
-      imperfResult = solveWithImperfections3D({
-        solver: input,
-        imperfections: {
-          // Gravity axis 2 = Z, which is vertical in this app's 3D models.
-          notionalLoads: [{ ratio: imperfRatio, direction: imperfDir === 'X' ? 0 : 1, gravityAxis: 2 }],
-        },
-      });
+      /*
+       * The notional loads are built here from each node's whole downward load: nodal loads,
+       * member loads lumped to their ends, self-weight. The engine builds them from NODAL loads
+       * only, so a frame loaded along its members took a fraction of its sway force or none
+       * (78 % short on the seven-storey building). The input with them is solved as it stands.
+       */
+      const { input: withN, totalH } = withNotionalLoads(buildInput(), imperfRatio, imperfDir);
+      imperfResult = { ...solve3D(withN), notionalTotal: totalH };
+      if (imperfResult.displacements) resultsStore.setResults3D(imperfResult);
     } catch (e: any) {
-      solveError = `Imperfecciones: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -515,8 +518,10 @@
   // ─── 8. Winkler Foundation ─────────────────────────────────────
 
   let winklerElementId = $state<number | null>(null);
-  let winklerKy = $state(1000);
-  let winklerKz = $state(0);
+  // Both directions carried: with kz = 0 the member rested on nothing vertically and the solve
+  // was singular. kN/m per metre of member, about the member's local axes.
+  let winklerKy = $state(10000);
+  let winklerKz = $state(10000);
   let winklerSprings = $state<{ elementId: number; ky: number; kz: number }[]>([]);
   let winklerResult = $state<any | null>(null);
 
@@ -547,7 +552,7 @@
       winklerResult = res;
       if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
-      solveError = `Winkler: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -615,7 +620,7 @@
       ssiResult = res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
-      solveError = `SSI: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -625,7 +630,7 @@
   // ─── 11. Staged Construction ───────────────────────────────────
 
   let stages = $state<{
-    name: string; elementsAdded: number[]; elementsRemoved: number[]; loadIndices: number[];
+    name: string; elementsAdded: number[]; elementsRemoved: number[]; caseIds: number[];
     platesAdded: number[]; platesRemoved: number[];
     quadsAdded: number[]; quadsRemoved: number[];
   }[]>([]);
@@ -641,7 +646,10 @@
       // A stage that adds nothing builds nothing, so the first one starts with
       // the whole model and later stages are cut back from it by hand.
       elementsAdded: stages.length === 0 ? [...elementIds] : [],
-      elementsRemoved: [], loadIndices: [],
+      elementsRemoved: [],
+      // A stage names the load CASES it applies. It took indices into the solver's internal list,
+      // empty by default, so a stage applied no load at all. The first one starts with every case.
+      caseIds: stages.length === 0 ? modelStore.model.loadCases.map((c) => c.id) : [],
       /*
        * Slabs and walls follow the members: the first stage starts with all of
        * them, later stages start empty. They used to reach the engine and be
@@ -667,29 +675,31 @@
     solveError = null;
     solving = true;
     try {
-      const input = buildInput();
+      const base = buildInput();
+      const refusal = stagedRefusal(base);
+      if (refusal) { solveError = t(refusal); solving = false; return; }
+      // The loads case by case, so a stage can name cases; the engine takes indices into this list.
+      const md = {
+        nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+        loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+        connectors: modelStore.connectors, analysis: modelStore.analysis, groups: modelStore.model.groups,
+      };
+      const cases = caseSolverLoads3D(md as never, modelStore.model.loadCases, uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+      const { loads, indicesOf } = stagedLoadsByCase(cases);
+      const input = { ...base, loads };
+      const supportNodes = [...new Set([...modelStore.supports.values()].map((sp) => sp.nodeId))];
       const res = solveStaged3D({
         solver: input,
-        // `StagedInput3D` names these `name` / `elementsAdded` /
-        // `elementsRemoved`; the old payload sent neither the name (required)
-        // nor the right field names, so no stage ever built anything.
-        stages: stages.map(s => ({
-          name: s.name,
-          elementsAdded: s.elementsAdded,
-          elementsRemoved: s.elementsRemoved,
-          loadIndices: s.loadIndices,
-          // Shells carry their OWN ids: a plate and a member can share a
-          // number, so one combined list would activate the wrong thing.
-          platesAdded: s.platesAdded,
-          platesRemoved: s.platesRemoved,
-          quadsAdded: s.quadsAdded,
-          quadsRemoved: s.quadsRemoved,
-        })),
+        // The model's supports enter with the first stage; the engine keeps only the supports a
+        // stage names, so springs and supports that are not fully fixed were dropped before.
+        stages: stagedStagesPayload(stages, indicesOf, supportNodes),
       });
       stagedResult = res;
-      if (res.results) resultsStore.setResults3D(res.results);
+      // The finished structure reaches the viewport; the panel lists each stage's peak.
+      if (res.finalResults) resultsStore.setResults3D(res.finalResults);
     } catch (e: any) {
-      solveError = `Etapas: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -717,24 +727,23 @@
     solveError = null;
     solving = true;
     try {
+      /*
+       * By the effective-modulus method, on the ordinary linear solve (`advanced-analyses.ts`):
+       * the engine computed φ and then solved every step with the original modulus, so creep
+       * never reached a displacement; it gave every material, steel included, the panel's
+       * parameters; and it read f'c as fcm. Only concrete creeps now, each with its own f'c.
+       */
       const input = buildInput();
-      // EC2 creep parameters are per MATERIAL, and the steps are keyed on
-      // `tDays`. The old payload sent one `concrete` block and a `time` field,
-      // neither of which the engine knows.
-      const creepParams: Record<string, unknown> = {};
-      for (const [id] of modelStore.materials) {
-        creepParams[String(id)] = {
-          fc: creepFc, rh: creepRH, h0: creepH0,
-          t0: creepAge, cementClass: creepCementClass,
-        };
-      }
-      creepResult = solveCreepShrinkage3D({
-        solver: input,
-        creepParams,
-        timeSteps: creepTimeSteps.map(s => ({ tDays: s.time })),
-      });
+      const settingsOf = new Map([...concreteMaterials(modelStore.materials as never)].map(([id, m]) => [id, {
+        fck: (m as { fy?: number }).fy ?? creepFc, rh: creepRH, h0: creepH0, t0: creepAge, cement: creepCementClass,
+      }]));
+      if (settingsOf.size === 0) { solveError = t('adv.creepNoConcrete'); solving = false; return; }
+      const steps = creepSteps(input, settingsOf, creepTimeSteps.map((s) => s.time), solve3D);
+      creepResult = { steps };
+      const last = steps[steps.length - 1];
+      if (last) resultsStore.setResults3D(last.results);
     } catch (e: any) {
-      solveError = `Fluencia: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -770,7 +779,7 @@
         gravityDirection: 'z',
       });
     } catch (e: any) {
-      solveError = `Influence Line 3D: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.influence3d'), error: errorText(e, 'Error') });
     }
     solving = false;
   }
@@ -843,7 +852,7 @@
       }
       secResult = analyzeSection({ polygons: [{ vertices }] });
     } catch (e: any) {
-      solveError = `Section: ${errorText(e, 'Error')}`;
+      solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, 'Error') });
     }
   }
 
@@ -887,6 +896,8 @@
   <div class="adv-wip-banner">
     {t('pro.advancedWip')}
   </div>
+  <!-- What every analysis here loads: the unfactored sum of the cases, which none of them said. -->
+  <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
   {#if solveError}
     <div class="adv-error">{solveError}</div>
@@ -940,14 +951,14 @@
       {#if modalResult}
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
-          {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
+          {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
+            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
@@ -976,7 +987,7 @@
     <!-- ── 3. Spectral ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult}>Espectral</button>
+        <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult}>{t('pro.spectralTitle')}</button>
         <label class="adv-label">
           <select class="adv-sel" bind:value={spectralCombination}>
             <option value="CQC">CQC</option>
@@ -1027,7 +1038,7 @@
         </div>
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
+            <thead><tr><th>{t('adv.mode')}</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
             <tbody>
               {#each (spectralResult.X?.perMode ?? []) as pm, i}
                 <tr>
@@ -1059,7 +1070,7 @@
         {/if}
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>&#x03BB;cr</th></tr></thead>
+            <thead><tr><th>{t('adv.mode')}</th><th>&#x03BB;cr</th></tr></thead>
             <tbody>
               {#each bucklingResult.modes as mode, i}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'bucklingMode' && resultsStore.activeBucklingMode === i}
@@ -1118,9 +1129,9 @@
         <div class="adv-form">
           <label class="adv-label">f min (Hz): <input type="number" class="adv-num" bind:value={harmFMin} min={0.01} max={100} step={0.1} /></label>
           <label class="adv-label">f max (Hz): <input type="number" class="adv-num" bind:value={harmFMax} min={0.1} max={500} step={1} /></label>
-          <label class="adv-label">Puntos: <input type="number" class="adv-num" bind:value={harmNPoints} min={10} max={2000} step={10} /></label>
+          <label class="adv-label">{t('adv.points')}: <input type="number" class="adv-num" bind:value={harmNPoints} min={10} max={2000} step={10} /></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={harmDamping} min={0} max={1} step={0.01} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={harmDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={harmDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
           <!-- The sweep is read at ONE node: without it the engine has nothing to report. -->
           <label class="adv-label">{t('pro.responseNode')}:
             <select class="adv-sel" bind:value={harmNodeId}>
@@ -1159,16 +1170,13 @@
       {#if advView === 'nolineal'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">{t('adv.type')}: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">{t('adv.nl.corotational')}</option><option value="fiber">{t('adv.nl.fiber')}</option></select></label>
+          <label class="adv-label">{t('adv.type')}: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">{t('adv.nl.corotational')}</option></select></label>
           {#if nlType === 'pushover'}
             <label class="adv-label">{t('pro.maxHinges')}: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
             <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={nlIncrements} min={1} max={200} /></label>
-          {/if}
-          {#if nlType === 'fiber'}
-            <label class="adv-label">Pts int: <input type="number" class="adv-num" bind:value={nlFiberIntPts} min={2} max={20} /></label>
           {/if}
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
@@ -1205,7 +1213,7 @@
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.imperfRatio')}: <input type="number" class="adv-num adv-num-wide" bind:value={imperfRatio} min={0.0001} max={0.1} step={0.0005} /></label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={imperfDir}><option value="X">X</option><option value="Y">Y</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={imperfDir}><option value="X">X</option><option value="Y">Y</option></select></label>
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
@@ -1221,8 +1229,8 @@
       {/if}
       {/if}
 
-    <!-- ─── Divider: Modelado especial ─── -->
-    <div class="adv-divider">Modelado especial</div>
+    <!-- ─── Divider: special modelling ─── -->
+    <div class="adv-divider">{t('adv.specialModelling')}</div>
 
     <!-- ── 8. Winkler Foundation ── -->
       {#if advView === 't'}
@@ -1241,7 +1249,7 @@
         </div>
         {#if winklerSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>Elem</th><th>ky</th><th>kz</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.member')}</th><th>ky</th><th>kz</th><th></th></tr></thead>
             <tbody>
               {#each winklerSprings as s, i}
                 <tr>
@@ -1281,7 +1289,7 @@
               {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
             </select>
           </label>
-          <label class="adv-label">Dir: <select class="adv-sel" bind:value={ssiDirection}><option value="Y">Y</option><option value="Z">Z</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={ssiDirection}><option value="Y">Y</option><option value="Z">Z</option></select></label>
           <label class="adv-label">{t('pro.ssiCurve')}:
             <select class="adv-sel" bind:value={ssiCurveType}>
               <option value="softClay">{t('pro.softClay')}</option>
@@ -1314,7 +1322,7 @@
         </div>
         {#if ssiSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>Nodo</th><th>Dir</th><th>Curva</th><th>L</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.node')}</th><th>{t('adv.direction')}</th><th>{t('adv.curve')}</th><th>L</th><th></th></tr></thead>
             <tbody>
               {#each ssiSprings as s, i}
                 <tr>
@@ -1348,6 +1356,7 @@
     <!-- ── 11. Staged Construction ── -->
       {#if advView === 't9'}
       <div class="adv-panel">
+        <p class="adv-hint" data-testid="staged-engine-note">{t('adv.stagedNote')}</p>
         <button class="adv-btn-sm" onclick={addStage}>{t('pro.addStage')}</button>
         {#each stages as stage, i}
           <div class="adv-stage-card">
@@ -1388,7 +1397,12 @@
               <label class="adv-label">{t('pro.removeElemIds')} <input type="text" class="adv-text" value={stage.elementsRemoved.join(',')} oninput={(e) => { stage.elementsRemoved = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n > 0); stages = [...stages]; }} /></label>
             </div>
             <div class="adv-form">
-              <label class="adv-label">{t('pro.loadIndices')}: <input type="text" class="adv-text" value={stage.loadIndices.join(',')} oninput={(e) => { stage.loadIndices = (e.target as HTMLInputElement).value.split(',').map(Number).filter(n => !isNaN(n) && n >= 0); stages = [...stages]; }} /></label>
+              <span class="adv-label">{t('adv.stageCases')}:
+                {#each modelStore.model.loadCases as lc (lc.id)}
+                  <label class="adv-check"><input type="checkbox" checked={stage.caseIds.includes(lc.id)}
+                    onchange={(e) => { const on = (e.target as HTMLInputElement).checked; stage.caseIds = on ? [...stage.caseIds, lc.id] : stage.caseIds.filter((c) => c !== lc.id); stages = [...stages]; }} /> {lc.name}</label>
+                {/each}
+              </span>
             </div>
           </div>
         {/each}
@@ -1416,8 +1430,7 @@
       {#if advView === 't10'}
       <div class="adv-panel">
         <div class="adv-form">
-          <label class="adv-label">f'c (MPa): <input type="number" class="adv-num" bind:value={creepFc} min={10} max={100} step={5} /></label>
-          <label class="adv-label">HR (%): <input type="number" class="adv-num" bind:value={creepRH} min={20} max={100} step={5} /></label>
+          <label class="adv-label">{t('adv.relativeHumidity')}: <input type="number" class="adv-num" bind:value={creepRH} min={20} max={100} step={5} /></label>
           <label class="adv-label">h0 (mm): <input type="number" class="adv-num" bind:value={creepH0} min={50} max={2000} step={10} /></label>
         </div>
         <div class="adv-form">
@@ -1442,8 +1455,8 @@
           <div class="adv-inline">
             t={fmtNum(last.tDays)} d — {t('pro.creepCoeff')}: {fmtNum(last.creepCoefficient)}
             — {t('pro.shrinkageStrain')}: {last.shrinkageStrain.toExponential(2)}
-            {#if last.displacements?.length}
-              — {t('pro.finalMaxDisp')}: {fmtNum(Math.max(...last.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
+            {#if last.results?.displacements?.length}
+              — {t('pro.finalMaxDisp')}: {fmtNum(Math.max(...last.results.displacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
             {/if}
           </div>
         {/if}
