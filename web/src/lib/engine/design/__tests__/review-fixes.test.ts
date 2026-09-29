@@ -258,10 +258,10 @@ describe('column tie checks use the per-axis effective depth', () => {
     // Primary (Vz): width b=0.6, depth from h=0.3. Secondary (Vy): width h=0.3,
     // depth from b=0.6 — previously ALSO from h (understated).
     expect(primary!.capacity).toBeCloseTo(
-      computeShearCapacity(8, 2, 0.15, 0.6, dTieFor(0.3), 25, 420, 500).phiVn, 1,
+      computeShearCapacity(8, 2, 0.15, 0.6, dTieFor(0.3), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
     );
     expect(secondary!.capacity).toBeCloseTo(
-      computeShearCapacity(8, 2, 0.15, 0.3, dTieFor(0.6), 25, 420, 500).phiVn, 1,
+      computeShearCapacity(8, 2, 0.15, 0.3, dTieFor(0.6), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
     );
   });
 });

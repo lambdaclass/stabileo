@@ -236,5 +236,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * columns moved, 21 of them (1–15, 17–19, 27–29), each still VERIFIED and now with more steel:
  * their certified utilization rose from 0,86–1,00 to 0,95–1,00 as the search took the next
  * layout. The counts, 395 verified and 13 provisional, are unchanged.
+ *
+ * And (was `c23ac6b57251ce0b`) when shear followed CIRSOC 201-2025: Vc = [0,17·√f'c + Nu/(6·Ag)]
+ * with the gross area, Av,min and row (c) of Tabla 22.5.5.1 below it, and the §22.5.1.2 limit on
+ * Vs. 191 beams moved, every one still VERIFIED, their certified utilization within ±0,11 of
+ * before; the counts are unchanged.
  */
-const RECORDED_FINGERPRINT = 'c23ac6b57251ce0b';
+const RECORDED_FINGERPRINT = '99271275a69883ab';

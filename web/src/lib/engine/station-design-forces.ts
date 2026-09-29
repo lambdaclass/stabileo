@@ -1311,27 +1311,51 @@ export function computeFlexureCapacity(
 export function computeShearCapacity(
   stirrupDia: number, legs: number, spacing: number,
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
-): { phiVn: number; phiVc: number; VsProv: number; phi: number } {
+  /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
+  opts: { Ag?: number; rhoW?: number } = {},
+): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean } {
   const phi = 0.75; // φ for shear per CIRSOC 201
+  /*
+   * CIRSOC 201-2025, the way the code writes it (it read the 2005 expressions):
+   *
+   *   Av ≥ Av,min (9.6.3.4):  Vc = [0,17·√f'c + Nu/(6·Ag)]·bw·d                    Tabla 22.5.5.1 (a)
+   *   Av < Av,min:            Vc = [0,66·λs·ρw^⅓·√f'c + Nu/(6·Ag)]·bw·d            Tabla 22.5.5.1 (c)
+   *                           λs = √(2/(1 + 0,004·d)) ≤ 1, d in mm
+   *   0 ≤ Vc ≤ 0,42·√f'c·bw·d,  Nu/(6·Ag) ≤ 0,05·f'c
+   *   Av,min = max(0,062·√f'c, 0,35)·bw·s/fyt
+   *   Vs ≤ 0,66·√f'c·bw·d, the section limit of §22.5.1.2.
+   *
+   * Without the section limit a 20×40 H-20 beam with Ø12 4 legs c/5 was certified for 700 kN
+   * where the section takes about 197; without Av,min and row (c) a 30×60 H-30 with Ø6 c/25
+   * passed at 0,77 where it fails.
+   */
+  const bw = b * 1000, dmm = d * 1000;              // mm
+  const Ag = (opts.Ag ?? b * d) * 1e6;              // mm²
+  const sq = Math.sqrt(fc);
+  const axial = Math.min(Nu * 1000 / (6 * Ag), 0.05 * fc); // MPa, compression positive
 
-  // Vc = (1/6)·√f'c·bw·d (kN)
-  const Ag = b * d * 1000; // approximate for Vc modification (m² → use b*h ideally)
-  const Vc0 = (1 / 6) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000;
-  let Vc: number;
-  if (Nu > 0) {
-    Vc = (1 + Nu / (14 * b * d * 1000)) * Vc0; // simplified Ag = b*d for beam
-  } else if (Nu < 0) {
-    Vc = Math.max(0, (1 + 0.3 * Nu / (b * d * 1000)) * Vc0);
-  } else {
-    Vc = Vc0;
-  }
-  const phiVc = phi * Vc;
-
-  // Vs from provided stirrups: Vs = (Av · fy · d) / s
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
   const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
   const Av = legs * legArea; // cm²
-  const VsProv = (Av / spacing) * fy * d / 10; // kN (Av in cm², spacing in m, fy MPa, d m)
+  const AvMin = Math.max(0.062 * sq, 0.35) * bw * (spacing * 1000) / fy / 100; // cm²
+  const avBelowMin = Av < AvMin;
+
+  let vc: number; // MPa
+  if (avBelowMin) {
+    const lambdaS = Math.min(1, Math.sqrt(2 / (1 + 0.004 * dmm)));
+    const rhoW = Math.max(0, opts.rhoW ?? 0);
+    vc = 0.66 * lambdaS * Math.cbrt(rhoW) * sq + axial;
+  } else {
+    vc = 0.17 * sq + axial;
+  }
+  vc = Math.min(Math.max(vc, 0), 0.42 * sq);
+  const Vc = vc * bw * dmm / 1000; // kN
+  const phiVc = phi * Vc;
+
+  const VsRaw = (Av / spacing) * fy * d / 10; // kN (Av in cm², spacing in m, fy MPa, d m)
+  const VsMax = 0.66 * sq * bw * dmm / 1000;
+  const capped = VsRaw > VsMax;
+  const VsProv = Math.min(VsRaw, VsMax);
 
   const phiVn = phi * (Vc + VsProv);
 
@@ -1339,7 +1363,7 @@ export function computeShearCapacity(
     phiVn: +phiVn.toFixed(2),
     phiVc: +phiVc.toFixed(2),
     VsProv: +VsProv.toFixed(2),
-    phi,
+    phi, avBelowMin, capped,
   };
 }
 
@@ -2140,9 +2164,14 @@ export function verifyProvidedReinforcement(
     }
 
     // ─── Shear: support and span regions, on the GOVERNING shear axis ───
-    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number] }> = [
-      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd] },
-      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] },
+    // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
+    // end, conservatively), the bottom along the span.
+    const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
+    const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
+    const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
+    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
+      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
+      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
     ];
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
@@ -2158,7 +2187,8 @@ export function verifyProvidedReinforcement(
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
-        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n);
+        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n,
+          { Ag: section.b * section.h, rhoW: ss.rhoW });
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
       }
@@ -2414,6 +2444,10 @@ export function verifyProvidedReinforcement(
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
       const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
+      // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
+      // the sides), over the gross section; used only where the ties are below Av,min.
+      const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
+      const colRhoW = colArea / 3 / (section.b * section.h * 1e4);
       const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
         { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
@@ -2429,7 +2463,8 @@ export function verifyProvidedReinforcement(
           if (!provided.stirrups) continue;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n);
+          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n,
+            { Ag: section.b * section.h, rhoW: colRhoW });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }
