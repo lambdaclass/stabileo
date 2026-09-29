@@ -1326,6 +1326,7 @@ function createModelStore() {
         touched = true;
       }
       if (touched) model.groups = new Map(model.groups);
+      replaceInSelfWeight(elementId, segmentIds);
 
       const segmentAt = (nodeId: number) => (nodeId === elem.nodeJ ? segmentIds[count - 1]! : segmentIds[0]!);
       for (const sup of model.supports.values()) {
@@ -1347,6 +1348,22 @@ function createModelStore() {
     } finally {
       _undoBatching = outerBatching;
     }
+  }
+
+  /**
+   * The self-weight rule's own member lists follow their members as a group does: a split member
+   * is replaced by its segments, a deleted one leaves the list. Without this a split member's
+   * pieces lost their weight, and a deleted id came to mean whatever member took the number next.
+   */
+  function replaceInSelfWeight(elementId: number, replacements: number[] = []): void {
+    const sw = model.analysis?.selfWeight;
+    if (!sw?.some((x) => x.elements?.includes(elementId))) return;
+    model.analysis = {
+      ...model.analysis,
+      selfWeight: sw.map((x) => (x.elements?.includes(elementId)
+        ? { ...x, elements: [...new Set(x.elements.flatMap((e) => (e === elementId ? replacements : [e])))] }
+        : x)),
+    };
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -2511,6 +2528,7 @@ function createModelStore() {
        * group that vanished is a question.
        */
       replaceInGroups('elements', id);
+      replaceInSelfWeight(id);
       model.loads = model.loads.filter(l =>
         !((l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
@@ -3383,6 +3401,11 @@ function createModelStore() {
       // takes that number next.
       if (model.massSource?.kind === 'custom') {
         model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
+      }
+      // And the self-weight rule: a row for a case that no longer exists would still load the
+      // single solve (which takes every stated row) and not the combinations.
+      if (model.analysis?.selfWeight?.some((s) => s.caseId === id)) {
+        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.filter((s) => s.caseId !== id) };
       }
       // Likewise a named envelope that takes the case on its own.
       if (model.resultScopes) {

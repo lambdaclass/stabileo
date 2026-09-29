@@ -247,3 +247,26 @@ describe('P-Delta per combination, through the entry PRO\'s Solve takes', () => 
     expect(par.unstable).toEqual([past]);
   });
 });
+
+describe('the self-weight rule follows the model', () => {
+  it('deleting its case deletes its rows, and the single solve no longer counts them', () => {
+    const { a } = beam(6, 'simple');
+    const pp = modelStore.addLoadCase('PP', 'D');
+    modelStore.setAnalysis({ selfWeight: [{ caseId: pp, direction: 'Z', factor: -1 }] });
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, 1);
+    modelStore.removeLoadCase(pp);
+    expect(modelStore.analysis?.selfWeight).toEqual([]);
+    expect(sumFz(solve())).toBeCloseTo(10, 9);
+  });
+
+  it('a member listed by id: split, its segments are listed; deleted, it leaves the list', () => {
+    const { e, w } = beam(6, 'simple');
+    modelStore.setAnalysis({ selfWeight: [{ caseId: 1, direction: 'Z', factor: -1, elements: [e] }] });
+    const r = modelStore.splitElementAtPoint(e, 0.5);
+    if (!r) throw new Error('no split');
+    expect([...modelStore.analysis!.selfWeight![0]!.elements!].sort()).toEqual([r.elemA, r.elemB].sort());
+    expect(sumFz(solve())).toBeCloseTo(w * 6, 9);
+    modelStore.removeElement(r.elemB);
+    expect(modelStore.analysis!.selfWeight![0]!.elements).toEqual([r.elemA]);
+  });
+});
