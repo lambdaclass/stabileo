@@ -96,7 +96,7 @@ node 88 24 0 0
 node 89 -12 20.78460969 0
 node 90 -12 -20.78460969 0
 
-material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 gradeId="iram-f24"
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 material 2 name="Cable de acero" e=160000 nu=0.3 rho=78.5 alpha=0.000012
 section 1 name="L 76.2x76.2x9.5" profileFamily="L" shape="L" a=0.001364 iy=7.19991e-7 iz=7.19991e-7 b=0.0762 h=0.0762 t=0.0095
 section 2 name="L 38.1x38.1x3.2" profileFamily="L" shape="L" a=0.000237 iy=3.1747e-8 iz=3.1747e-8 b=0.0381 h=0.0381 t=0.0032

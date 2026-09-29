@@ -44,10 +44,13 @@ test.describe('@smoke PRO direct analysis', () => {
 
 test.describe('@smoke PRO optimiser criteria', () => {
   test('a target ratio and a depth limit shape the proposal', async ({ pro: page }) => {
-    await page.evaluate(async () => {
-      await window.__stabileoActions.loadExample('3d-portal-frame');
-      await window.__stabileoActions.solve();
-    });
+    // A gallery steel example, opened through its card: its steel declares the grade and both
+    // strengths the check needs (a bare fixture carries no fu, and nothing was checked).
+    await page.getByTestId('pr-project').click();
+    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('pp-gallery').locator('[data-example="pipe-rack"] .pp-ex').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
+    await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
     const opt = page.getByTestId('steel-optimise');

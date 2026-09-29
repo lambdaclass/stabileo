@@ -6,6 +6,7 @@
  * drops empty cases and states the self-weight rule and the combinations.
  */
 import { modelStore } from '../store/model.svelte';
+import { gradeById } from './structural-grades';
 
 type Fix = () => void;
 
@@ -29,9 +30,10 @@ function tensionOnly(ids: number[]): void {
 }
 
 /*
- * The steel grade, declared. The fixtures name their steels (Acero A36, S275, S355) but declare
- * no grade, and steel design checks only a declared one: an example opened in PRO read "no grade
- * declared" under every member. Their yield stress already is the grade's.
+ * The steel grade, declared, with the ultimate strength it states. The fixtures name their
+ * steels (Acero A36, S275, S355) but declare no grade and carry no fu, and steel design checks
+ * only a declared grade with both strengths: an example opened in PRO had nothing to check. Their
+ * yield stress already is the grade's; it is kept, and filled from the grade only when missing.
  */
 const GRADE_BY_NAME: Array<[RegExp, string]> = [
   [/\bA36\b/i, 'astm-a36'],
@@ -43,7 +45,9 @@ export function declareSteelGrades(): void {
   for (const m of modelStore.materials.values()) {
     if ((m as { gradeId?: string }).gradeId) continue;
     const hit = GRADE_BY_NAME.find(([re]) => re.test(m.name));
-    if (hit) modelStore.updateMaterial(m.id, { gradeId: hit[1] } as never);
+    const grade = hit ? gradeById(hit[1]) : undefined;
+    if (!hit || !grade) continue;
+    modelStore.updateMaterial(m.id, { gradeId: hit[1], fu: (m as { fu?: number }).fu ?? grade.fu, fy: m.fy ?? grade.fy } as never);
   }
 }
 

@@ -29,7 +29,10 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
 
     // Every steel material declares its grade, so steel design can check the members.
     for (const m of modelStore.materials.values()) {
-      if (/acero|steel/i.test(m.name) && !/cable/i.test(m.name)) expect((m as { gradeId?: string }).gradeId, `${id}: ${m.name}`).toBeTruthy();
+      if (/acero|steel/i.test(m.name) && !/cable/i.test(m.name)) {
+        expect((m as { gradeId?: string }).gradeId, `${id}: ${m.name}`).toBeTruthy();
+        expect((m as { fu?: number }).fu, `${id}: ${m.name} fu`).toBeGreaterThan(0);
+      }
     }
 
     // A combination's name adds up what it holds: none names a load type the model has no case of.

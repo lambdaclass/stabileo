@@ -46,7 +46,7 @@ class Model {
     return id;
   }
 
-  material(name: string, f: { e: number; nu: number; rho: number; alpha: number; fy?: number; gradeId?: string }): number {
+  material(name: string, f: { e: number; nu: number; rho: number; alpha: number; fy?: number; fu?: number; gradeId?: string }): number {
     const id = ++this.n.material;
     this.body.push(`material ${id} ${fmt({ name, ...f })}`);
     return id;
@@ -169,7 +169,7 @@ class Model {
 }
 
 // The grade declared, so steel design can check the members (IRAM-IAS U 500-503: F-24 is 240 MPa).
-const STEEL = { e: 200000, nu: 0.3, rho: 77, alpha: 1.2e-5, fy: 240, gradeId: 'iram-f24' };
+const STEEL = { e: 200000, nu: 0.3, rho: 77, alpha: 1.2e-5, fy: 240, fu: 370, gradeId: 'iram-f24' };
 const concrete = (fc: number) => ({ e: Math.round(4700 * Math.sqrt(fc)), nu: 0.2, rho: 25, alpha: 1e-5, fy: fc });
 const GRAVITY = (caseId: number) => ({ caseId, direction: 'Z', factor: -1 });
 const range = (n: number) => Array.from({ length: n }, (_, k) => k);

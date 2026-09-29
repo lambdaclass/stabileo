@@ -228,7 +228,7 @@ node 220 23.4 31.875 6.5
 node 221 23.4 33.75 6.5
 node 222 23.4 35.625 6.5
 
-material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 gradeId="iram-f24"
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 section 1 name="HEB 400" profileFamily="HEB" shape="H" a=0.0198 iy=0.0005768 iz=0.0001082 b=0.3 h=0.4 tw=0.0135 tf=0.024
 section 2 name="HEB 160" profileFamily="HEB" shape="H" a=0.00543 iy=0.00002492 iz=0.00000889 b=0.16 h=0.16 tw=0.008 tf=0.013
 section 3 name="L 76.2x76.2x9.5" profileFamily="L" shape="L" a=0.001364 iy=7.19991e-7 iz=7.19991e-7 b=0.0762 h=0.0762 t=0.0095

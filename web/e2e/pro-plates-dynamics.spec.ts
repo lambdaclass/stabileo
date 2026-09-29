@@ -114,7 +114,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('pr-cmd-advanced').click();
     await page.getByTestId('modal-auto').check();
-    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await page.getByTestId('adv-run-modal').click();
     await expect(page.getByTestId('modal-auto-note')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('adv-modal-row-0')).toBeVisible();
   });

@@ -930,7 +930,7 @@
     <!-- ── 2. Modal ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving}>{t('pro.adv.modal')}</button>
+        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving} data-testid="adv-run-modal">{t('pro.adv.modal')}</button>
         <label class="adv-label">
           {t('adv.modes')}:
           <input type="number" class="adv-num" bind:value={numModes} min={1} max={50} />
