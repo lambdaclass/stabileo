@@ -56,7 +56,11 @@ export function serviceSets(): ServiceSets {
 }
 
 export type MemberDeflection = ChordDeflection & {
+  /** The set of the largest resultant (`max`, `x`). */
   setName: string;
+  /** The sets of the largest local y and local z deflections, which `maxV` and `maxW` are. */
+  setNameV?: string;
+  setNameW?: string;
   /** Measured as a cantilever, from the tangent at its root. */
   cantilever?: boolean;
   /** The span measured: its elements in order, one for a member drawn as one element. */
@@ -95,6 +99,13 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
     const parts = span.elements.map((id) => memberGeometry(id, embed)).filter((g): g is NonNullable<typeof g> => !!g);
     if (parts.length !== span.elements.length) continue;
     let best: MemberDeflection | null = null;
+    /*
+     * Each direction keeps its own governing set. A rule along local z reads maxW, and the set
+     * with the largest resultant need not be the one with the largest w: a wind set sways a beam
+     * sideways more than gravity bends it, and its small w passed a check the gravity set fails.
+     */
+    let bestV: { v: number; set: string } | null = null;
+    let bestW: { w: number; set: string } | null = null;
     for (const s of indexed) {
       const curve = spanCurve(span, parts, s, leftHand);
       if (!curve) continue;
@@ -112,8 +123,13 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
         }
       }
       if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements, ...(span.free ? { cantilever: true } : {}) };
+      if (!bestV || d.maxV > bestV.v) bestV = { v: d.maxV, set: s.name };
+      if (!bestW || d.maxW > bestW.w) bestW = { w: d.maxW, set: s.name };
     }
-    if (best) for (const id of span.elements) out.set(id, best);
+    if (best) {
+      const merged: MemberDeflection = { ...best, maxV: bestV!.v, maxW: bestW!.w, setNameV: bestV!.set, setNameW: bestW!.set };
+      for (const id of span.elements) out.set(id, merged);
+    }
   }
   return out;
 }

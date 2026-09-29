@@ -192,6 +192,26 @@ describe('under which loads', () => {
   });
 });
 
+describe('each direction reads its own governing set', () => {
+  it('a sideways set with the larger resultant does not hide the gravity set\'s larger w', () => {
+    member('pinned', 'roller');
+    const g = modelStore.addLoadCase('G', 'D');
+    const w = modelStore.addLoadCase('W', 'W');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, g);
+    // Sideways, and a little of it down: the resultant is the wind set's, the local z the gravity set's.
+    modelStore.addDistributedLoad3D(beam, 3 * q, 3 * q, -0.1 * q, -0.1 * q, undefined, undefined, w);
+    modelStore.addCombination('G', [{ caseId: g, factor: 1 }]);
+    modelStore.addCombination('W', [{ caseId: w, factor: 1 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    publishCombinations3D(r);
+    const d = serviceDeflections([beam], serviceSets().sets).get(beam)!;
+    expect(d.setName).toBe('W');
+    expect(d.setNameW).toBe('G');
+    expect(d.maxW / ((5 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
+  });
+});
+
 describe('over the physical member, not the element', () => {
   /** A 6 m simply supported beam along X drawn as `n` elements; returns their ids. */
   function cutBeam(n: number): number[] {
