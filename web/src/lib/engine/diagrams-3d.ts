@@ -132,7 +132,7 @@ export function evaluateDiagramAt(
   switch (kind) {
     case 'momentZ': {
       let value = ef.mzStart - ef.vyStart * x;
-      for (const dl of ef.distributedLoadsY) {
+      for (const dl of ef.distributedLoadsY ?? []) {
         const a = dl.a;
         const b = dl.b;
         const span = b - a;
@@ -144,14 +144,14 @@ export function evaluateDiagramAt(
         value -= dl.qI * (s * (x - a) - s * s / 2)
                + dq / span * (s * s / 2 * (x - a) - s * s * s / 3);
       }
-      for (const pl of ef.pointLoadsY) {
+      for (const pl of ef.pointLoadsY ?? []) {
         if (pl.a < x - 1e-10) value -= pl.p * (x - pl.a);
       }
       return value;
     }
     case 'momentY': {
       let value = ef.myStart + ef.vzStart * x;
-      for (const dl of ef.distributedLoadsZ) {
+      for (const dl of ef.distributedLoadsZ ?? []) {
         const a = dl.a;
         const b = dl.b;
         const span = b - a;
@@ -163,14 +163,14 @@ export function evaluateDiagramAt(
         value += dl.qI * (s * (x - a) - s * s / 2)
                + dq / span * (s * s / 2 * (x - a) - s * s * s / 3);
       }
-      for (const pl of ef.pointLoadsZ) {
+      for (const pl of ef.pointLoadsZ ?? []) {
         if (pl.a < x - 1e-10) value += pl.p * (x - pl.a);
       }
       return value;
     }
     case 'shearY': {
       let value = ef.vyStart;
-      for (const dl of ef.distributedLoadsY) {
+      for (const dl of ef.distributedLoadsY ?? []) {
         const a = dl.a;
         const b = dl.b;
         const span = b - a;
@@ -181,14 +181,14 @@ export function evaluateDiagramAt(
         const s = xClamp - a;
         value += dl.qI * s + dq * s * s / (2 * span);
       }
-      for (const pl of ef.pointLoadsY) {
+      for (const pl of ef.pointLoadsY ?? []) {
         if (pl.a < x - 1e-10) value += pl.p;
       }
       return value;
     }
     case 'shearZ': {
       let value = ef.vzStart;
-      for (const dl of ef.distributedLoadsZ) {
+      for (const dl of ef.distributedLoadsZ ?? []) {
         const a = dl.a;
         const b = dl.b;
         const span = b - a;
@@ -199,7 +199,7 @@ export function evaluateDiagramAt(
         const s = xClamp - a;
         value += dl.qI * s + dq * s * s / (2 * span);
       }
-      for (const pl of ef.pointLoadsZ) {
+      for (const pl of ef.pointLoadsZ ?? []) {
         if (pl.a < x - 1e-10) value += pl.p;
       }
       return value;

@@ -45,8 +45,11 @@ describe('the report at project scale', () => {
 
   it('carries the envelope across the result sets, with the extremes and where they are', () => {
     expect(html).toContain('id="sec-envelope"');
-    // Member 150 under C2: My = 300 at end i; the summary names it.
-    expect(html).toMatch(/300\.000<\/td><td>150·i<\/td><td>C2<\/td>/);
+    // Member 150 under C2: My = 300 at end i; the summary, read along the members, names it
+    // with its station.
+    // (The records are synthetic, their shear not matched to their moments, so the value along
+    // the member is not the end's 300; where and under which set is what this checks.)
+    expect(html).toMatch(/<td>My \(kN·m\)<\/td><td class="num">[\d.]+<\/td><td>150 @ [\d.]+<\/td><td>C2<\/td>/);
     expect((html.match(/<td rowspan="2">\d+·[ij]<\/td><td>Max<\/td>/g) ?? []).length).toBe(2 * N);
   });
 

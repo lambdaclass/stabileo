@@ -45,6 +45,9 @@ describe('PRO examples load with CIRSOC 101-2025 combinations', () => {
 
   it('keeps the offshore platform as stated', async () => {
     await byFixture('offshore-platform').load();
-    expect(modelStore.combinations.some((c) => c.name.startsWith('U3: 1.2D + L + 1.6W'))).toBe(true);
+    // Its own seven, not the regulation's; the empty operating-crane case is dropped, so U3 is
+    // named from what it now adds up.
+    expect(modelStore.combinations.map((c) => c.name.split(':')[0])).toEqual(['U1', 'U2', 'U3', 'U4', 'U5', 'U6', 'U7']);
+    expect(modelStore.combinations.some((c) => c.name === 'U3: 1.2D + 1.6W')).toBe(true);
   });
 });
