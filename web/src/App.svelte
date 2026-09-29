@@ -671,6 +671,9 @@
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
+      // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with
+      // the self-weight it was computed with rather than the session's.
+      if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;
@@ -962,7 +965,10 @@
       // the banner, so "this is not your newest save" is on screen and not only in a toast.
       if (!savedWorkspace) {
         void loadAutosave().then((result) => {
-          if (result.value && result.value.snapshot.nodes.length > 0) {
+          // Offered when it holds work: nodes, or project data stated before the first node.
+          const s = result.value?.snapshot as unknown as Record<string, unknown> | undefined;
+          const holdsWork = !!s && ((s.nodes as unknown[]).length > 0 || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => s[k] != null));
+          if (result.value && holdsWork) {
             autosaveData = result.value;
             autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
           }

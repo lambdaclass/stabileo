@@ -33,18 +33,42 @@
     spectrumSa?: ((T: number) => number) | null;
   } = $props();
 
-  // The run as project data: read from the model, written back (coalesced) as it is edited.
-  let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(modelStore.dynamics?.timeHistory ?? defaultTimeHistory())));
+  /*
+   * The run as project data: read from the model, written back (coalesced) as it is edited.
+   *
+   * Only an edit writes. Opening the panel on a project with no run used to store the default and
+   * push an undo step. And the draft follows the project: when the model is replaced under it
+   * (a file, a tab, an undo) the draft is re-read and a pending write is dropped, so one project's
+   * run is never written into another.
+   */
+  const stored = () => modelStore.dynamics?.timeHistory ?? defaultTimeHistory();
+  let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(stored())));
+  let epoch = modelStore.loadEpoch;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; } };
+  $effect(() => {
+    const e = modelStore.loadEpoch;
+    untrack(() => {
+      if (e === epoch) return;
+      epoch = e;
+      cancel();
+      spec = JSON.parse(JSON.stringify(stored()));
+    });
+  });
   $effect(() => {
     const snapshot = JSON.stringify(spec);
     untrack(() => {
-      if (snapshot === JSON.stringify(modelStore.dynamics?.timeHistory ?? null)) return;
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) }), 600);
+      if (snapshot === JSON.stringify(stored())) return;
+      cancel();
+      const at = epoch;
+      saveTimer = setTimeout(() => { saveTimer = null; if (modelStore.loadEpoch === at) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) }); }, 600);
     });
   });
-  onDestroy(() => { if (saveTimer) { clearTimeout(saveTimer); modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) }); } });
+  onDestroy(() => {
+    if (!saveTimer) return;
+    cancel();
+    if (modelStore.loadEpoch === epoch) modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) });
+  });
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);

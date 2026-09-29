@@ -73,8 +73,15 @@ export function resetAutosaveService(): void {
  * stored project with an empty one: the single autosave slot is shared across modes, and an
  * empty write would destroy a pending save whose restore banner the current mode is hiding.
  */
+function statesProjectData(): boolean {
+  const m = modelStore.model as unknown as Record<string, unknown>;
+  return ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => m[k] !== undefined && m[k] !== null);
+}
+
 export function requestAutosave(reason: AutosaveReason): Promise<AutosaveWriteResult | null> {
-  if (modelStore.nodes.size === 0) return Promise.resolve(null);
+  // A project with no nodes yet can still hold work: its grid and levels, its analysis rules, its
+  // data. It is saved when it states any of that.
+  if (modelStore.nodes.size === 0 && !statesProjectData()) return Promise.resolve(null);
   if (inFlight) {
     // Keep the newest reason: it is the one a reader wants to see attached to the record.
     pendingReason = reason;

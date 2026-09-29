@@ -37,6 +37,17 @@ import type { ModelSnapshot } from './history.svelte';
 import { exportRecordStore } from './export-record.svelte';
 import { designRunStore } from './design-run.svelte';
 import { documentScope } from './document-scope.svelte';
+import { reportFigures } from './report-figures.svelte';
+import { directAnalysis } from './direct-analysis.svelte';
+
+/**
+ * What the session holds for the project on screen and must not carry to another: the report's
+ * figures (pictures of this model) and the direct analysis (its settings and its run).
+ */
+function forgetSessionProjectState(): void {
+  reportFigures.clear();
+  directAnalysis.reset();
+}
 
 /** The provenance fields of a snapshot, taken from the live session. */
 export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits'> {
@@ -69,6 +80,7 @@ export function hydrateProjectProvenance(s: Pick<ModelSnapshot, 'exports' | 'man
    * new project export a subset the previous one chose — see `document-scope.svelte.ts`.
    */
   documentScope.reset();
+  forgetSessionProjectState();
 }
 
 /**
@@ -81,4 +93,5 @@ export function resetProjectProvenance(): void {
   exportRecordStore.reset();
   designRunStore.hydrateManual([]);
   documentScope.reset();
+  forgetSessionProjectState();
 }

@@ -67,6 +67,8 @@ class DirectAnalysisStore {
   }
 
   clear() { this.result = null; this.version = -1; this.error = null; }
+  /** A new project: the default settings and no run. */
+  reset() { this.clear(); this.settings = { ...DEFAULT_DIRECT_SETTINGS }; }
 }
 
 export const directAnalysis = new DirectAnalysisStore();

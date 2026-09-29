@@ -1033,6 +1033,12 @@ function createModelStore() {
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
+  /**
+   * Bumped whenever the whole model is replaced (restore: a file, a tab, an undo; or clear). A panel
+   * that holds a draft of project data compares it to know the project under it changed, and must
+   * not write its draft there.
+   */
+  let loadEpoch = $state(0);
 
   /** DOF-name → index map for migrating pre-rename persisted constraints. */
   const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
@@ -1366,6 +1372,17 @@ function createModelStore() {
     };
   }
 
+  /**
+   * The analysis rules a solve reads. Basic has its own self-weight toggle and no rule of its own:
+   * a model that visited PRO carries a stated rule (`selfWeight: []` when it had none), and it
+   * silenced Basic's toggle. Basic reads the rest of the settings and its toggle for self-weight.
+   */
+  function analysisFor(isPro: boolean): StructureModel['analysis'] {
+    if (isPro || !model.analysis?.selfWeight) return model.analysis;
+    const { selfWeight: _stated, ...rest } = model.analysis;
+    return Object.keys(rest).length ? rest : undefined;
+  }
+
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
     let touched = false;
     for (const [gid, g] of model.groups) {
@@ -1573,6 +1590,7 @@ function createModelStore() {
      * there is nothing stale to drop.
      */
     restoreViewsOnly(s: ModelSnapshot): void {
+      loadEpoch++;
       const m = model as unknown as Record<string, unknown>;
       const snap = s as unknown as Record<string, unknown>;
       for (const k of VIEW_CHANNEL_FIELDS) {
@@ -1593,6 +1611,17 @@ function createModelStore() {
      * the inner call became its own undo step — a composite command could not nest a helper
      * that batched.
      */
+    /**
+     * Mutations that are not the user's edit and take no undo step: what a loaded model is given
+     * so it reads under the current rules (the self-weight migration). Undoing past them would
+     * bring back a model the app then fixes again, pushing a new step and clearing redo.
+     */
+    withoutUndo(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+    },
+
     batch(fn: () => void): void {
       if (_undoBatching) { fn(); return; }
       _pushUndo?.();
@@ -1636,6 +1665,7 @@ function createModelStore() {
     },
 
     get modelVersion() { return modelVersion; },
+    get loadEpoch() { return loadEpoch; },
 
     get model() { return model; },
     get nodes() { return model.nodes; },
@@ -1825,6 +1855,7 @@ function createModelStore() {
     },
 
     restore(rawSnapshot: ModelSnapshot): void {
+      loadEpoch++;
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
       // Every family below is copied ONE level deep (`{ ...v }`), which is enough to stop the
@@ -1919,8 +1950,10 @@ function createModelStore() {
       model.combinations = s.combinations
         ? s.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) }))
         : [];
-      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
-      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
+      // `shellFamily` was a field nothing read, removed in PRO 18; older files still carry it.
+      const shell = <T,>(v: T): T => { const { shellFamily: _gone, ...rest } = v as T & { shellFamily?: unknown }; return rest as T; };
+      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, shell({ ...v })] as [number, Plate])) : new Map();
+      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, shell({ ...v })] as [number, Quad])) : new Map();
     /*
      * Groups come back whole, `data` included.
      *
@@ -3051,6 +3084,7 @@ function createModelStore() {
     },
 
     clear(): void {
+      loadEpoch++;
       if (!_undoBatching) _pushUndo?.();
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();
@@ -3568,10 +3602,10 @@ function createModelStore() {
     // ─── 3D Analysis ──────────────────────────────────────────────
 
     /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean } = {}): SolverInput3D | null {
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -3586,7 +3620,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3601,7 +3635,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3616,7 +3650,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3632,7 +3666,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,

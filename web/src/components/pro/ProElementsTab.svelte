@@ -66,7 +66,9 @@
     const startId = Number(arcStart);
     const endId = Number(arcEnd);
     const arcId = Date.now();
-    const made = buildArc(
+    // The whole arc, nodes, members and tags, is one undo step.
+    let made!: ReturnType<typeof buildArc>;
+    modelStore.batch(() => { made = buildArc(
       { start: arcPts[0], through: arcPts[1], end: arcPts[2], segments: arcSegments },
       {
         addNode: (x, y, z) => modelStore.addNode(x, y, z),
@@ -87,7 +89,7 @@
         },
       },
       arcId, startId, endId,
-    );
+    ); });
     if (made.length === 0) arcError = t('pro.arcFailed');
   }
   let drawNodeI = $state<number | null>(null);

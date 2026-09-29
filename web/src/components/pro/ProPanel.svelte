@@ -69,6 +69,7 @@
   import ProShellTab from './ProShellTab.svelte';
   import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
   import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
+  import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
@@ -196,6 +197,9 @@
   async function loadProExample(ex: ProExample) {
     // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`).
     await ex.load();
+    // A new project: nothing of the previous one's session state (figures, direct analysis,
+    // export records) belongs to it.
+    resetProjectProvenance();
     // Label overlays off on arrival, whatever the preset: they are unreadable on the large
     // models and unnecessary on the small ones. Grid and axes stay user-controlled.
     uiStore.showLengths3D = false;
