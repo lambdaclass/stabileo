@@ -394,14 +394,14 @@
   /**
    * The grades whose threads-excluded shear value the table does not carry.
    *
-   * `BOLT_TABLE` gives `FvExcl: 0` for 4.6 and 5.6, and `checkBoltGroup` falls back to
+   * `BOLT_TABLE` gives `FvExcl: 0` for 4.6, and `checkBoltGroup` falls back to
    * `FvIncl` when it is zero. That fallback is correct — the conservative value is the right
    * one to use — but it is SILENT, and it is tied to a checkbox the user is actively
    * ticking. So the warning sits beside the result, conditioned on the grade, and not only in
    * the gap list at the bottom: a gap that lives only in a footnote is one nobody reads at the
    * moment it matters.
    */
-  const GRADES_WITHOUT_FV_EXCL: BoltGrade[] = ['4.6', '5.6'];
+  const GRADES_WITHOUT_FV_EXCL: BoltGrade[] = ['4.6'];
   const fvExclUnavailable = $derived(GRADES_WITHOUT_FV_EXCL.includes(boltGrade));
 
   /**
@@ -1291,7 +1291,7 @@
 
         <div class="conn-form-grid">
           <label>∅ (mm) <input type="number" class="conn-inp" bind:value={boltDia} min={6} max={36} step={2} /></label>
-          <label>{t('conn.grade')} <select class="conn-sel" bind:value={boltGrade}><option value="4.6">4.6</option><option value="5.6">5.6</option><option value="8.8">8.8</option><option value="10.9">10.9</option></select></label>
+          <label>{t('conn.grade')} <select class="conn-sel" bind:value={boltGrade}><option value="4.6">4.6</option><option value="8.8">8.8</option><option value="10.9">10.9</option></select></label>
           <label>n <input type="number" class="conn-inp" bind:value={boltCount} min={1} max={50} /></label>
           <label>{t('conn.shearPlanes')} <input type="number" class="conn-inp" bind:value={boltShearPlanes} min={1} max={2} /></label>
           <label>t (mm) <input type="number" class="conn-inp" bind:value={boltPlateThickness} min={3} max={50} /></label>
