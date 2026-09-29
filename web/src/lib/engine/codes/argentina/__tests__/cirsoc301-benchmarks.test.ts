@@ -106,6 +106,18 @@ describe('§E — compression', () => {
     expect(stocky.Fcr).toBeCloseTo(0.658 ** (235 / stocky.Fe) * 235, 6);
   });
 
+  it('takes φc = 0.85 (E.1): an IPE 300 of 4 m in F-24 carries 528 kN by hand', () => {
+    // A = 53.8 cm², weak I = 604 cm⁴ → ry = 33.5 mm, KL/r = 119.4 ≤ 4.71·√(E/Fy) = 137.4.
+    // Fe = π²·E/(KL/r)² = 138.5 MPa; Fcr = 0.658^(235/138.5)·235 = 115.5 MPa;
+    // Pn = 115.5·5380/1000 = 621.4 kN; φPn = 0.85·621.4 = 528.2 kN. It read 0.90 (559 kN).
+    const r = checkSteelCompression(IPE200({ A: 53.8e-4, Iz: 8356e-8, Iy: 604e-8, h: 0.300, b: 0.150, tw: 0.0071, tf: 0.0107 }), 100);
+    expect(r.KLr).toBeCloseTo(119.4, 1);
+    expect(r.Fcr).toBeCloseTo(115.5, 0);
+    expect(r.phiPn).toBeCloseTo(0.85 * r.Fcr * 5380 / 1000, 6);
+    expect(r.phiPn).toBeGreaterThan(527);
+    expect(r.phiPn).toBeLessThan(529.5);
+  });
+
   it('and capacity falls as the member lengthens', () => {
     // Monotonic, which no single-point test would catch.
     const caps = [1, 2, 4, 8].map((L) => checkSteelCompression(IPE200({ L }), 100).phiPn);

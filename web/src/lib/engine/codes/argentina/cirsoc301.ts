@@ -299,7 +299,9 @@ export function checkSteelCompression(params: SteelDesignParams, Pu: number): St
     steps.push(`  Fcr = 0.877·Fe = 0.877·${fmt(Fe, 1)} = ${fmt(Fcr, 1)} MPa`);
   }
 
-  const phi = 0.90;
+  // E.1: φc = 0,85. It read 0,90, the AISC 360 value, which the CIRSOC 301 text does not
+  // adopt; the clause map already stated 0,85, so the check was 5,9 % on the unsafe side of it.
+  const phi = 0.85;
   const Pn = Fcr * Ag_mm2 / 1000; // kN
   const phiPn = phi * Pn;
 

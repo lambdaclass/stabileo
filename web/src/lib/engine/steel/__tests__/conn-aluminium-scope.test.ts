@@ -36,7 +36,7 @@ const KEY = 'conn.gap.aluminium.scope';
  */
 const PROPOSED: Record<'es' | 'en' | 'pt', string> = {
   es: 'Modelos con miembros de aluminio: sus nudos quedan fuera de esta lista, y el inventario metálico tampoco los lista — los nombra en un aviso, porque las tablas de bulones y electrodos son de acero.',
-  en: 'Models with aluminium members: their joints fall outside this list, and the metallic inventory does not list them either — it names them in a notice, because the bolt and electrode tables are steel’s.',
+  en: 'Models with aluminum members: their joints fall outside this list, and the steel inventory does not list them either — it names them in a notice, because the bolt and electrode tables are steel’s.',
   pt: 'Modelos com membros de alumínio: seus nós ficam fora desta lista, e o inventário metálico também não os lista — ele os nomeia em um aviso, porque as tabelas de parafusos e eletrodos são de aço.',
 };
 
