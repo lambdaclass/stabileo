@@ -3,6 +3,8 @@
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
+  import ProFoundationSprings from './ProFoundationSprings.svelte';
+  import ProSupportEditor from './ProSupportEditor.svelte';
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
@@ -142,6 +144,7 @@
           <th>ID</th>
           <th>{t('pro.thNode')}</th>
           <th>{t('pro.thType')}</th>
+          <th title={t('support.upliftHint')}>{t('support.uplift')}</th>
           <th></th>
         </tr>
       </thead>
@@ -157,41 +160,36 @@
                 {/each}
               </select>
             </td>
+            <td><input type="checkbox" checked={!!s.uplift} title={t('support.upliftHint')}
+                       onclick={(e) => e.stopPropagation()}
+                       onchange={(e) => modelStore.updateSupport(s.id, { uplift: e.currentTarget.checked })}
+                       data-testid="sup-uplift-{s.id}" /></td>
             <td><button class="pro-delete-btn" onclick={() => removeSupport(s.id)}>×</button></td>
           </tr>
-          {#if s.type === 'custom3d'}
+          {#if s.type === 'custom3d' || s.type === 'spring3d' || s.isInclined}
             <tr class="param-row">
-              <td colspan="4">
-                <div class="dof-grid-inline">
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.tx ?? true} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, tx: e.currentTarget.checked } })} /> ux</label>
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.ty ?? true} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, ty: e.currentTarget.checked } })} /> uy</label>
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.tz ?? true} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, tz: e.currentTarget.checked } })} /> uz</label>
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.rx ?? false} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, rx: e.currentTarget.checked } })} /> rx</label>
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.ry ?? false} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, ry: e.currentTarget.checked } })} /> ry</label>
-                  <label class="dof-check"><input type="checkbox" checked={s.dofRestraints?.rz ?? false} onchange={(e) => modelStore.updateSupport(s.id, { dofRestraints: { ...s.dofRestraints ?? { tx:true,ty:true,tz:true,rx:false,ry:false,rz:false }, rz: e.currentTarget.checked } })} /> rz</label>
-                </div>
-              </td>
+              <td colspan="5"><ProSupportEditor support={s} /></td>
             </tr>
-          {:else if s.type === 'spring3d' || s.type === 'spring'}
+          {:else if s.type === 'spring'}
             <tr class="param-row">
-              <td colspan="4">
+              <td colspan="5">
                 <div class="spring-grid-inline">
                   <label class="spring-field">kx <input type="text" value={s.kx ?? ''} placeholder="kN/m" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kx: parseFloat(e.currentTarget.value) || 0 })} /></label>
                   <label class="spring-field">ky <input type="text" value={s.ky ?? ''} placeholder="kN/m" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { ky: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                  <label class="spring-field">kz <input type="text" value={s.kz ?? ''} placeholder="kN/m" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kz: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                  {#if is3D}
-                    <label class="spring-field">krx <input type="text" value={s.krx ?? ''} placeholder="kN·m/rad" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { krx: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                    <label class="spring-field">kry <input type="text" value={s.kry ?? ''} placeholder="kN·m/rad" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kry: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                    <label class="spring-field">krz <input type="text" value={s.krz ?? ''} placeholder="kN·m/rad" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { krz: parseFloat(e.currentTarget.value) || 0 })} /></label>
-                  {/if}
+                  <label class="spring-field">kz <input type="text" value={s.kz ?? ''} placeholder="kN·m/rad" class="pro-input-sm" onchange={(e) => modelStore.updateSupport(s.id, { kz: parseFloat(e.currentTarget.value) || 0 })} /></label>
                 </div>
               </td>
+            </tr>
+          {:else}
+            <tr class="param-row">
+              <td colspan="5"><details><summary>{t('support.more')}</summary><ProSupportEditor support={s} /></details></td>
             </tr>
           {/if}
         {/each}
       </tbody>
     </table>
   </div>
+  <ProFoundationSprings />
 </div>
 
 <style>

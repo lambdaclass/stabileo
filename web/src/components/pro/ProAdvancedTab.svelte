@@ -6,7 +6,7 @@
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import {
-    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS,
+    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
@@ -17,6 +17,9 @@
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
+  import { withSolveSections } from '../../lib/engine/member-behaviour';
+  import { pushoverFrames } from '../../lib/engine/pushover-curve';
+  import PushoverView from './nonlinear/PushoverView.svelte';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import {
     isSolverReady,
@@ -47,19 +50,18 @@
   import { errorText } from '../../lib/utils/error-text';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
-    designSpectrum, isBlocked, spectrumPoints, RISK_FACTOR,
+    designSpectrum, isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
     type SeismicZone, type SiteClass, type DestinationGroup,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
-  import { applyRigidDiaphragm, detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number }>; totalMass?: number };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -125,9 +127,7 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  let useDiaphragm = $state(false);
-
-  /** `withoutSettlement`: the supports without their prescribed displacements (see handleMultiCase). */
+  /** `stripSettlement`: the supports without their prescribed displacements (see handleMultiCase). */
   function buildInput(stripSettlement = false) {
     // These analyses build with expandMemberOffsets:false, which ALSO skips
     // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
@@ -154,12 +154,9 @@
     return input;
   }
 
-  function maybeApplyDiaphragm(input: any) {
-    if (!useDiaphragm) return input;
-    const levels = detectFloorLevels(input.nodes);
-    if (!levels || levels.length === 0) return input;
-    return applyRigidDiaphragm(input, { levels });
-  }
+
+
+  const diaphragmCount = $derived(modelStore.constraints.filter((c) => c.type === 'diaphragm').length);
 
   /** What the last dynamic run took as mass. Shown beside the mass-source table. */
   let massReport = $state<MassSourceReport | null>(null);
@@ -179,7 +176,9 @@
     };
     const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
     massReport = ms.report;
-    const input = maybeApplyDiaphragm(ms.input);
+    // Rigid diaphragms are the model's own constraints (Constraints › Auto-detect); this panel used
+    // to add a second, transient set of its own behind a checkbox.
+    const input = ms.input;
     return { input, densities: densitiesFor(input, ms.densities) };
   }
 
@@ -193,7 +192,6 @@
     pdeltaElapsed = null;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
       res = wasmPDelta3D(input);
@@ -215,6 +213,9 @@
 
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
+  /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
+  let modalAuto = $state(false);
+  let modalAutoNote = $state<string | null>(null);
 
   const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
   /*
@@ -237,8 +238,16 @@
       const { input, densities } = buildDynamicInput();
       let res: any;
       const t0 = performance.now();
-      res = wasmModal3D(input, densities, numModes);
       modalConstrained = (input.constraints?.length ?? 0) > 0;
+      modalAutoNote = null;
+      if (modalAuto && !modalConstrained) {
+        const r = modalUntilMass((n) => wasmModal3D(input, densities, n), numModes);
+        res = r.result;
+        if (typeof res !== 'string') modalAutoNote = tp(r.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: r.modes, x: (r.x * 100).toFixed(1), y: (r.y * 100).toFixed(1) });
+      } else {
+        res = wasmModal3D(input, densities, numModes);
+        if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
+      }
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
@@ -287,6 +296,8 @@
   let destinationGroup = $state<DestinationGroup>(seismicSettings?.destinationGroup ?? 'B');
   /** Response modification factor. 1 = the elastic spectrum, unreduced. */
   let spectralR = $state<number>(settingsR ?? 1);
+  /** Damping ratio for the modal combination (CQC correlation). The spectrum is the code's. */
+  let spectralXi = $state(0.05);
   const fromProject = seismicSettings?.zone !== undefined;
   const codeSpectrum = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
 
@@ -325,7 +336,7 @@
       // One run per horizontal direction: the engine combines a single direction at a time.
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
-        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor });
+        const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
         if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
         byDir[direction] = res;
       }
@@ -348,7 +359,6 @@
     bucklingElapsed = null;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
@@ -418,13 +428,14 @@
   let nlResult = $state<any | null>(null);
   /** Sections whose Mp rests on an assumption (fy absent, or Zp estimated from A and I). */
   let nlAssumed = $state<string[]>([]);
-  // Displacements never sit at the top level: the incremental solvers
-  // (corotational, fiber) nest them under `.results`, and pushover nests
-  // them under each step's `.results` — so read the last step's.
+  /** The model version the nonlinear result describes. */
+  let nlVersion = $state(0);
+  // Displacements never sit at the top level: the incremental solvers (corotational, fiber) nest
+  // them under `.results`. Pushover gives each step's increment, so the state at collapse is
+  // their sum; the last step's alone is only the last increment.
   const nlDisplacements = $derived(
     nlResult?.results?.displacements
-      ?? nlResult?.steps?.[nlResult.steps.length - 1]?.results?.displacements
-      ?? []
+      ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : [])
   );
 
   function handleNonlinear() {
@@ -432,7 +443,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
 
       if (nlType === 'pushover') {
         /*
@@ -446,13 +456,15 @@
          */
         const { sections, materials, mpOverrides, assumed } = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
         nlAssumed = assumed;
+        // Members with stiffness modifiers solve on sections of their own (`withSolveSections`).
         nlResult = solvePlastic3D({
           solver: input,
-          sections,
+          sections: withSolveSections(sections, input, modelStore.elements),
           materials,
           maxHinges: nlMaxHinges,
-          mpOverrides,
+          mpOverrides: withSolveSections(mpOverrides, input, modelStore.elements),
         });
+        nlVersion = modelStore.modelVersion;
       } else if (nlType === 'corotational') {
         nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
       } else {
@@ -467,7 +479,7 @@
         }
         nlResult = solveFiberNonlinear3D({
           solver: input,
-          fiberSections,
+          fiberSections: withSolveSections(fiberSections, input, modelStore.elements),
           nIntegrationPoints: nlFiberIntPts,
           maxIter: nlMaxIter,
           tolerance: nlTol,
@@ -497,7 +509,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       imperfResult = solveWithImperfections3D({
         solver: input,
         imperfections: {
@@ -621,22 +632,26 @@
 
   // ─── 10. Contact / Gap ─────────────────────────────────────────
 
-  let contactBehaviors = $state<Map<number, 'normal' | 'tensionOnly' | 'compressionOnly'>>(new Map());
+  /*
+   * The behaviours are the members' own (`Element.behaviour`), the same ones the Members panel
+   * sets and every solve honours. This section used to keep a list of its own that nothing else
+   * read, so a tension-only brace set here was linear everywhere else.
+   */
+  const contactBehaviors = $derived(new Map([...modelStore.elements.values()]
+    .filter((e) => e.behaviour === 'tensionOnly' || e.behaviour === 'compressionOnly')
+    .map((e) => [e.id, e.behaviour as 'tensionOnly' | 'compressionOnly'])));
   let contactElementId = $state<number | null>(null);
   let contactBehavior = $state<'normal' | 'tensionOnly' | 'compressionOnly'>('tensionOnly');
   let contactResult = $state<any | null>(null);
 
   function setContactBehavior() {
     if (contactElementId == null) return;
-    const next = new Map(contactBehaviors);
-    next.set(contactElementId, contactBehavior);
-    contactBehaviors = next;
+    const id = contactElementId, b = contactBehavior;
+    modelStore.batch(() => modelStore.updateElement(id, { behaviour: b === 'normal' ? undefined : b }));
   }
 
   function removeContactBehavior(eid: number) {
-    const next = new Map(contactBehaviors);
-    next.delete(eid);
-    contactBehaviors = next;
+    modelStore.batch(() => modelStore.updateElement(eid, { behaviour: undefined }));
   }
 
   const contactEntries = $derived([...contactBehaviors.entries()]);
@@ -812,7 +827,6 @@
     solving = true;
     try {
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       ilResult = computeInfluenceLine3D({
         solver: input,
         quantity: IL_QUANTITY[ilResponse],
@@ -865,8 +879,7 @@
       // combination solve (settlement-case.ts): each case on the settled supports counted it
       // Σ factors times.
       const settled = hasSettlement(modelStore.supports.values());
-      let input = buildInput(settled);
-      input = maybeApplyDiaphragm(input);
+      const input = buildInput(settled);
       const byId = new Map(cases.map(c => [c.id, c.name]));
       const combinations = modelStore.combinations.map(cb => ({
         name: cb.name,
@@ -882,7 +895,7 @@
         combinations,
       });
       if (settled && result) {
-        const settlement = solve3D({ ...maybeApplyDiaphragm(buildInput()), loads: [] });
+        const settlement = solve3D({ ...buildInput(), loads: [] });
         if (typeof settlement === 'string') throw new Error(settlement);
         result = addSettlementToMultiCase3D(result, settlement, combinations, t('svc.settlementCase'));
       }
@@ -989,7 +1002,6 @@
       // PRO is a 3D workspace — `analysisMode` reads 'pro' here, never '3d',
       // so branching on it sent every PRO model down the 2D path.
       let input = buildInput();
-      input = maybeApplyDiaphragm(input);
       // Like Winkler, this export returns AnalysisResults3D itself.
       const res = solveConstrained3D({ solver: input, constraints });
       constrainedResult = res;
@@ -1032,10 +1044,7 @@
   {/if}
   <!-- Global options -->
   <div class="adv-header">
-    <label class="adv-check">
-      <input type="checkbox" bind:checked={useDiaphragm} />
-      {t('pro.rigidDiaphragm')}
-    </label>
+    <span class="adv-hint" data-testid="adv-diaphragms">{tp('pro.diaphragmsFromModel', { n: diaphragmCount })}</span>
     {#if !wasmAvailable}
       <span class="adv-wasm-warn">{t('pro.wasmNotReady')}</span>
     {/if}
@@ -1096,6 +1105,7 @@
           Modos:
           <input type="number" class="adv-num" bind:value={numModes} min={1} max={50} />
         </label>
+        <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
       {#if modalResult}
         <div class="adv-inline">
@@ -1103,6 +1113,7 @@
           {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
+        {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
@@ -1162,6 +1173,10 @@
         <label class="adv-label" title={t('spectral.rHint')}>
           R:
           <input type="number" class="adv-num" min="1" step="0.5" bind:value={spectralR} data-testid="spectral-r" />
+        </label>
+        <label class="adv-label" title={t('spectral.xiHint')}>
+          ξ:
+          <input type="number" class="adv-num" min="0" max="0.3" step="0.01" bind:value={spectralXi} data-testid="spectral-xi" />
         </label>
       </div>
       <div class="adv-hint" data-testid="spectral-basis">
@@ -1262,7 +1277,8 @@
       {/if}
 
       {#if advView === 'timehistory'}
-        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)} />
+        <TimeHistoryPanel {buildDynamicInput} disabled={!hasModel || solving || !wasmAvailable} onError={(m) => (solveError = m)}
+          spectrumSa={isBlocked(codeSpectrum) ? null : (T) => spectralOrdinate(T, codeSpectrum as never)} />
       {/if}
 
     <!-- ── 6b. Harmonic Response ── -->
@@ -1347,6 +1363,9 @@
             — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
         </div>
+        {#if nlType === 'pushover' && nlResult.steps?.length}
+          <PushoverView result={nlResult} modelVersion={nlVersion} />
+        {/if}
       {/if}
       {/if}
 

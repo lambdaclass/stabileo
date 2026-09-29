@@ -26,7 +26,10 @@ import { jointHasRelease } from '../store/model.svelte';
 
 /** Any element in the model carries a released 3D internal joint. */
 export function modelHasJoints3D(elements: Iterable<Element>): boolean {
-  for (const e of elements) if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+  // Semi-rigid ends expand the same way (coincident helper nodes), so they count as joints for
+  // everything that has to know helpers exist: pruning their results, and the analyses that
+  // refuse helper nodes.
+  for (const e of elements) if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ) || e.semiRigid?.i || e.semiRigid?.j) return true;
   return false;
 }
 

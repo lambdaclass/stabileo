@@ -1,29 +1,18 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import DataTable from '../DataTable.svelte';
   import ProStairSection from './ProStairSection.svelte';
   import { t, tp } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import { meshQuadRegion, exceedsDivisionCap, type MeshDensity } from '../../lib/model/edit/mesh-region';
-  import { MAX_DIVISIONS_PER_AXIS } from '../../lib/engine/shell-mesh-gen';
+  import ProMesher from './ProMesher.svelte';
+  import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
   /* The two creators' state is gone with them — see the note on `newNodeIds`.
      Three corners make a triangle and four make a quad, so one set serves. */
 
-  // --- Quick mesh generator state ---
-  let meshCorners = $state<[string, string, string, string]>(['', '', '', '']);
-  let meshMode = $state<'targetSize' | 'fixedDivisions'>('targetSize');
-  let meshTargetSize = $state(1.0);
-  let meshNx = $state(2);
-  let meshNy = $state(2);
-  let meshMaterialId = $state(1);
-  let meshThickness = $state(0.2);
-  let meshSplitBeams = $state(true); // split surrounding beams so nodes are shared
-  let meshError = $state<string | null>(null);
-  let meshSuccess = $state<string | null>(null);
+
 
   // --- Error states ---
 
@@ -62,90 +51,9 @@
 
   let showShellInfo = $state(true);
 
-  function validateNodeIds(ids: string[], count: number): number[] | null {
-    const parsed = ids.slice(0, count).map(s => parseInt(s));
-    if (parsed.some(isNaN)) return null;
-    if (new Set(parsed).size !== count) return null;
-    if (parsed.some(id => !modelStore.nodes.has(id))) return null;
-    return parsed;
-  }
+
 
   /** Get Vec3 positions from node IDs */
-
-
-
-
-
-
-  /**
-   * Quick mesh generator: given 4 corner node IDs defining a rectangular region
-   * and nx x ny subdivisions, creates intermediate nodes and quad elements.
-   *
-   * Corner ordering:
-   *   n3 --- n2
-   *   |       |
-   *   n0 --- n1
-   *
-   * Bilinear interpolation is used to place intermediate nodes, so corners
-   * don't need to form a perfect rectangle — any quadrilateral works.
-   *
-   * Nodes are welded to existing coincident nodes (no duplicates). When
-   * "split surrounding beams" is on, any beam passing through a mesh node is
-   * split there (via splitElementAtPoint, which redistributes loads + preserves
-   * releases) so the beam and shell SHARE that node and load transfer is
-   * continuous along the edge — the model coupling is purely shared-node.
-   */
-  function generateMesh() {
-    meshError = null;
-    meshSuccess = null;
-
-    const cornerIds = validateNodeIds(meshCorners, 4);
-    if (!cornerIds) {
-      meshError = t('pro.err4Corners');
-      return;
-    }
-    // `<` and `<=` are both false against Infinity and NaN, so the bare
-    // comparisons let a non-finite field through to the mesh generator.
-    const badTarget = !(meshTargetSize > 0) || !Number.isFinite(meshTargetSize);
-    const badDivs = !Number.isFinite(meshNx) || !Number.isFinite(meshNy)
-      || meshNx < 1 || meshNy < 1;
-    if (meshMode === 'targetSize' ? badTarget : badDivs) {
-      meshError = meshMode === 'targetSize' ? t('pro.errTargetSize') : t('pro.errSubdivisions');
-      return;
-    }
-    if (!modelStore.materials.has(meshMaterialId)) {
-      meshError = t('pro.errMaterial');
-      return;
-    }
-    if (meshThickness <= 0) {
-      meshError = t('pro.errThickness');
-      return;
-    }
-
-    const density: MeshDensity = meshMode === 'targetSize'
-      ? { mode: 'targetSize', size: meshTargetSize }
-      : { mode: 'fixedDivisions', nx: meshNx, ny: meshNy };
-    // Said, not silently capped: the mesher would otherwise hand back a coarser
-    // grid than the one asked for.
-    if (exceedsDivisionCap(cornerIds.map((id) => modelStore.nodes.get(id)!), density)) {
-      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
-      return;
-    }
-
-    // One implementation for this mesher and for hole filling: `model/edit/mesh-region.ts`.
-    const res = meshQuadRegion(cornerIds as [number, number, number, number], {
-      density,
-      materialId: meshMaterialId, thickness: meshThickness, splitBeams: meshSplitBeams,
-    });
-    if ('refused' in res) {
-      meshError = t('pro.errTooManyDivisions').replace('{max}', String(MAX_DIVISIONS_PER_AXIS));
-      return;
-    }
-    const newNodes = res.newNodes, quadCount = res.quadCount, splitCount = res.splitCount;
-
-    meshSuccess = t('pro.meshSuccess').replace('{nodes}', String(newNodes)).replace('{quads}', String(quadCount))
-      + (meshSplitBeams ? ' ' + t('pro.meshSplitInfo').replace('{n}', String(splitCount)) : '');
-  }
 
   // Collapse states for sections
   /*
@@ -277,27 +185,6 @@
   let showMeshGen = $state(false);
   let showCurv = $state(false);
 
-
-  // ─── Viewport node-pick → creator fields ───
-  // When the user picks nodes in the 3D viewport, mirror the buffer into the
-  // matching creator's node inputs (so the typed-ID path and pick path share
-  // the same fields and validation). The writes (and the recommendation calls,
-  // which READ those same fields) are wrapped in untrack so this effect depends
-  // ONLY on shellNodePick — otherwise writing plateNodes here while
-  // updatePlateRecommendation reads it would self-trigger (effect_update_depth).
-  $effect(() => {
-    const pick = uiStore.shellNodePick;
-    const ids = pick.picked;
-    const target = pick.target;
-    untrack(() => {
-      /* The creator is one now — see `newNodeIds`, which mirrors picks for
-         itself. What is left here is the mesh generator's own corners. */
-      if (target === 'mesh') {
-        meshCorners = [String(ids[0] ?? ''), String(ids[1] ?? ''), String(ids[2] ?? ''), String(ids[3] ?? '')];
-      }
-    });
-  });
-
   /* ── Curvature, on a shell that already exists ─────────────────────
    *
    * The `curved` flag was settable only while CREATING a quad, so "is this a
@@ -372,18 +259,8 @@
     applyShellOffset();
   }
 
-  function isPicking(target: 'plate' | 'quad' | 'mesh'): boolean {
-    return uiStore.shellNodePick.active && uiStore.shellNodePick.target === target;
-  }
-  function pickBtnLabel(target: 'plate' | 'quad' | 'mesh', cap: number): string {
-    const p = uiStore.shellNodePick;
-    if (p.active && p.target === target) return `${t('pro.picking')} ${p.picked.length}/${cap} — ${t('pro.cancel')}`;
-    return `\u{1F4CD} ${t('pro.pickNodes')}`;
-  }
-  function togglePick(target: 'plate' | 'quad' | 'mesh', cap: number) {
-    if (isPicking(target)) uiStore.cancelShellNodePick();
-    else uiStore.startShellNodePick(target, cap);
-  }
+
+
 </script>
 
 <div class="pro-shells">
@@ -560,66 +437,9 @@
       </button>
       {#if showMeshGen}
         <div class="section-body">
-          <div class="mesh-hint">
-            {t('pro.meshHint')}
-          </div>
-          <div class="input-row">
-            <label>{t('pro.corners')}:</label>
-            <input type="text" bind:value={meshCorners[0]} placeholder="N0" class="node-input" />
-            <input type="text" bind:value={meshCorners[1]} placeholder="N1" class="node-input" />
-            <input type="text" bind:value={meshCorners[2]} placeholder="N2" class="node-input" />
-            <input type="text" bind:value={meshCorners[3]} placeholder="N3" class="node-input" />
-          </div>
-          <div class="input-row">
-            <button class="pro-btn pro-btn-pick" class:picking={isPicking('mesh')} onclick={() => togglePick('mesh', 4)}>
-              {pickBtnLabel('mesh', 4)}
-            </button>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.meshMode')}:</label>
-            <select bind:value={meshMode} class="mat-select">
-              <option value="targetSize">{t('pro.meshModeTarget')}</option>
-              <option value="fixedDivisions">{t('pro.meshModeFixed')}</option>
-            </select>
-          </div>
-          {#if meshMode === 'targetSize'}
-            <div class="input-row">
-              <label>{t('pro.meshTargetSize')}:</label>
-              <input type="number" bind:value={meshTargetSize} min="0.1" max="20" step="0.25" class="sub-input" />
-              <span class="x-label">m</span>
-            </div>
-            <div class="input-row mesh-note">{t('pro.meshTargetNote')}</div>
-          {:else}
-            <div class="input-row">
-              <label>{t('pro.subdivisions')}:</label>
-              <input type="number" bind:value={meshNx} min="1" max="50" class="sub-input" />
-              <span class="x-label">&times;</span>
-              <input type="number" bind:value={meshNy} min="1" max="50" class="sub-input" />
-            </div>
-          {/if}
-          <div class="input-row">
-            <label>{t('pro.thMaterial')}:</label>
-            <select bind:value={meshMaterialId} class="mat-select">
-              {#each materials as m}
-                <option value={m.id}>{m.name}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="input-row">
-            <label>{t('pro.thickness')}:</label>
-            <input type="number" bind:value={meshThickness} step="0.01" min="0.001" class="thick-input" />
-          </div>
-          <label class="mesh-check">
-            <input type="checkbox" bind:checked={meshSplitBeams} />
-            {t('pro.meshSplitBeams')}
-          </label>
-          {#if meshError}
-            <div class="field-error">{meshError}</div>
-          {/if}
-          {#if meshSuccess}
-            <div class="field-success">{meshSuccess}</div>
-          {/if}
-          <button class="pro-btn pro-btn-accent" onclick={generateMesh}>{t('pro.generateMesh')}</button>
+          <ProMesher />
+          <div class="mesh-hint" style="margin-top: 8px; font-weight: 600;">{t('surface.title')}</div>
+          <ProSurfaces />
 
           <!-- How shells connect & transfer load (lives with the mesh tool, the
                place where node-sharing actually matters) -->

@@ -91,6 +91,31 @@ export function cumulativeMassRatios(modes: ReadonlyArray<{ massRatioX?: number;
   return out;
 }
 
+/** The mass that participates in X and Y over all the modes given. */
+export function totalMassRatios(modes: ReadonlyArray<{ massRatioX?: number; massRatioY?: number }>): { x: number; y: number } {
+  const c = cumulativeMassRatios(modes);
+  return { x: c.x[c.x.length - 1] ?? 0, y: c.y[c.y.length - 1] ?? 0 };
+}
+
+/**
+ * Modes until `target` of the mass participates in X and in Y: solve with `start` modes, double
+ * until the target is reached, the model has no more modes to give, or `max`.
+ */
+export function modalUntilMass<R extends { modes?: Array<{ massRatioX?: number; massRatioY?: number }> }>(
+  solve: (n: number) => R | string, start: number, target = 0.9, max = 200,
+): { result: R | string; modes: number; reached: boolean; x: number; y: number } {
+  let n = Math.max(1, Math.floor(start));
+  for (;;) {
+    const res = solve(n);
+    if (typeof res === 'string') return { result: res, modes: 0, reached: false, x: 0, y: 0 };
+    const got = res.modes?.length ?? 0;
+    const tot = totalMassRatios(res.modes ?? []);
+    const reached = tot.x >= target && tot.y >= target;
+    if (reached || got < n || n >= max) return { result: res, modes: got, reached, ...tot };
+    n = Math.min(max, n * 2);
+  }
+}
+
 /** The two horizontal directions a building is excited in. Z is vertical in this app. */
 export const HORIZONTAL_DIRECTIONS = ['X', 'Y'] as const;
 export type HorizontalDirection = (typeof HORIZONTAL_DIRECTIONS)[number];
@@ -133,7 +158,8 @@ export interface TimeHistoryOptions {
  * The engine ignores `method` and switches to HHT-α only when `alpha` is present, so choosing
  * HHT in the panel without sending α ran average-acceleration Newmark under an HHT label.
  */
-export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown> {
+/** The integration part of a time-history input: shared by every way of building one. */
+export function integrationFields(o: Pick<TimeHistoryOptions, 'densities' | 'dt' | 'nSteps' | 'method' | 'alpha' | 'dampingXi'>): Record<string, unknown> {
   const hht = o.method === 'hht';
   if (hht && (o.alpha === undefined || !isValidHhtAlpha(o.alpha))) {
     throw new Error(`HHT-α needs α in [${HHT_ALPHA_RANGE.min.toFixed(3)}, 0]`);
@@ -147,6 +173,12 @@ export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown
     gamma: 0.5,
     ...(hht ? { alpha: o.alpha } : {}),
     dampingXi: o.dampingXi,
+  };
+}
+
+export function timeHistoryFields(o: TimeHistoryOptions): Record<string, unknown> {
+  return {
+    ...integrationFields(o),
     groundAccelX: o.direction === 'X' ? o.groundAccel : undefined,
     groundAccelY: o.direction === 'Y' ? o.groundAccel : undefined,
     groundAccelZ: o.direction === 'Z' ? o.groundAccel : undefined,
