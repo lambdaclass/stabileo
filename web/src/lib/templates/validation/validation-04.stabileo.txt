@@ -4,8 +4,9 @@ stabileo-model 1
 # Z up: the source model is Y up, and (x, y, z) becomes (x, -z, y). SI units, exact factors from
 # inches, feet, pounds and kips. Members and nodes keep the source numbering.
 # Sections are given by their declared properties, one per distinct profile and spacing.
-# The source solves every case and combination with two P-Delta iterations; here the cases are
-# linear and each combination is solved with P-Delta on its own factored loads.
+# The source solves its cases and combinations to second order with a fixed number of iterations;
+# here the cases are linear and each combination is solved with P-Delta, converged, on its own
+# factored loads.
 # The code check the source runs is not reproduced.
 name "Validación 04 · Nave industrial con puente grúa"
 mode pro
