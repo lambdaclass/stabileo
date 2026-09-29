@@ -50,7 +50,7 @@ describe('round trip', () => {
     });
   }
 
-  it('carries the rare fields: offsets, joints, curve tags, groups with data, a mass source', () => {
+  it('carries the rare fields: offsets, joints, curve tags, groups with data, a mass source, a time history', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0.5);
     const e = modelStore.addElement(a, b, 'frame');
     modelStore.updateElement(e, {
@@ -63,6 +63,15 @@ describe('round trip', () => {
     modelStore.addGroup('Pieza P-1', 'precastPiece', { elements: [e] }, { data: { mould: 'M4', rules: { lift: [1, 3] } } });
     modelStore.setMassSource({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high' } });
     modelStore.addDistributedLoad3D(e, 0, 0, -3, -7, 0.5, 3, 1);
+    modelStore.setDynamics({ timeHistory: {
+      dt: 0.01, nSteps: 300, method: 'hht', alpha: -0.05, damping: 0.03,
+      ground: {
+        x: { source: 'spectrum', scale: 0.8, spectrum: { seed: 7, duration: 20 } },
+        y: { source: 'record', scale: 1, record: { times: [0, 0.02, 0.04], accel: [0, 0.4, -0.2], format: 'at2', name: 'rec.AT2' } as never },
+        z: { source: 'none', scale: 1 },
+      },
+      forces: [{ nodeId: b, dir: 'z', kind: 'step', amplitude: -5, from: 0.5 }],
+    } });
     roundTrip();
   });
 

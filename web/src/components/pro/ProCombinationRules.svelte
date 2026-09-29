@@ -22,7 +22,7 @@
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  const nextId = () => `r${rules.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, '')) || 0), 0) + 1}`;
+  const nextId = () => freshRuleIds(rules, 1)[0]!;
   const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s)?.factor ?? 0;
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }

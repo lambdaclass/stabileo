@@ -55,9 +55,15 @@ spreadsheet, which also lets you set the roll of each member's local axes.
 **Plates.** A plate is defined by its nodes: **three nodes make a triangle and four a
 quadrilateral**. It is given a material and a thickness.
 
-- **Mesh generator:** from four corners (counter-clockwise), it generates a mesh of quadrilaterals
-  by target size or by number of divisions. It can split the boundary beams so they share the edge
-  nodes.
+- **Mesh generator:** the outline is a polygon of existing nodes or a circle (centre and radius),
+  with polygonal or circular holes. Each side takes its own number of divisions and a bias that
+  gathers the elements towards one end; the rest is meshed by target size. It makes quadrilaterals
+  or triangles, keeps the nodes already on the boundary (so a wall and a slab meet node to node)
+  and can split the boundary beams. A circular plate is meshed with an O-grid, with no degenerate
+  triangles at the centre. A preview shows the mesh before it is created.
+- **Surfaces:** cylinder, cone, spherical cap and zone, hyperboloid (tower) and hyperbolic
+  paraboloid, as curved shells. They are placed with the ghost, like a generator, or along an axis
+  marked with two points.
 - **Curved shell (cáscara):** for quadrilaterals whose four nodes do not lie in one plane. The panel
   measures how far the fourth node is out of plane and suggests when to use it.
 - **Stair:** an inclined slab with the steps applied as load.
@@ -67,10 +73,41 @@ quadrilateral**. It is given a material and a thickness.
 > **How plates connect to members:** only through **shared nodes**. A beam running under a slab
 > without sharing nodes with it is not connected. The panel warns when a plate has a loose corner.
 
-**Repeat selection.** Copies the selected nodes and members N times with a given offset. It can
-join the copies with members (the columns between floors, for instance) and copy the supports too.
-It copies nodes, members and supports, not plates or loads, and it does not merge nodes: a copy
-landing on an existing node leaves two in the same place.
+**Grid and levels.** The building's axes are typed as bays from an origin ("6; 7.5; 6" or "3x6"),
+named A, B, C… one way and 1, 2, 3… the other, and the levels as storey heights from a base
+elevation. They are saved with the project and travel in the model code. The **active level** is
+the plane new nodes land on and where the axes are drawn with their names; the pointer snaps to
+the intersections and to the axes. The grid can also be **read off the model** (a level at every
+elevation with nodes and an axis at every coordinate with columns), and **columns and beams
+between axes** are created over a range of axes and levels in one undo step.
+
+**Transform.** Repeat, polar repeat, mirror, rotate and move the selection, as copies or in place.
+Copies that land on an existing node are welded to it, which is what connects repeated bays, and
+they carry loads, supports and groups when asked. While the numbers change, the result shows in
+the model before it is applied. The point, the mirror plane and the rotation can be picked with
+clicks: one point, two points of the mirror plane, or centre, from and to for the rotation.
+**Move by two points** takes a base point and the destination; Ctrl (⌘ on a Mac) on the second
+click copies instead of moving.
+
+**Placing.** Everything that goes into the model (a paste, a generated structure, a template, a
+copy of a group, an IFC or a DXF) follows the pointer as a **ghost** before it goes in:
+
+- the pointer snaps to a node, or to the active level's plane with the grid;
+- **Tab** changes the insertion point, **R** turns 90° (Shift+R back) and **F** mirrors;
+- the placement bar takes typed coordinates and **Enter** places there; **Esc** cancels;
+- **Shift+click** places and keeps placing copies;
+- the bar says how many nodes will weld onto the model; those nodes keep the model's support.
+
+While placing, the model is view-only. Each placement is one undo step, what was placed is
+selected, and undo brings back the previous selection.
+
+**Copy and paste.** Ctrl+C, Ctrl+X and Ctrl+V (⌘ on a Mac) copy, cut and paste the selection with
+its supports, loads and groups, and its sections and materials by definition. Ctrl+V pastes with
+the ghost; Ctrl+Shift+V pastes in place. What is copied goes to the clipboard as model code, so it
+can be pasted into another project or another tab. In text fields the keys do what they always do.
+
+**Edit.** When splitting members into N parts, the cut points show on the selected members before
+they are split.
 
 ### Properties
 
@@ -78,12 +115,40 @@ landing on an existing node leaves two in the same place.
 rolled and cold-formed profiles) or custom definitions. For sections, **Build section** makes
 parametric shapes, and catalogue profiles can be rotated and combined into built-up sections.
 
+**Shear deformation.** Each section can include it, with shear areas computed from its geometry or
+typed in. One button turns it on or off for every section at once. Without it, members are solved
+with Euler-Bernoulli theory.
+
+**Member behaviour.** With members selected, the members panel lets you:
+
+- make them work **in tension only** or **in compression only**, or leave them **inactive** (out of
+  every analysis, without deleting them);
+- apply **stiffness modifiers** for cracked inertia, with the values of CIRSOC 201-2025 (Table
+  6.6.3.1.1(a): columns 0.70 Ig, uncracked walls 0.70 and cracked walls 0.35, beams 0.35, slabs
+  0.25) or your own;
+- release any of the six degrees of freedom at each end;
+- make an end **semi-rigid**, with a rotational stiffness in kN·m/rad.
+
+Inactive members and stiffness modifiers apply to every analysis. Tension or compression only is
+resolved by **Solve**, iterating until each member works as set.
+
 ### Conditions
 
 **Supports.** **Fixed 3D**, **Pinned 3D**, rollers in each plane (**Roller XZ**, **XY** and **YZ**),
 **Spring 3D** (with a stiffness for each degree of freedom) and **Custom**, where you tick one by
 one which displacements and rotations are restrained. A roller moves freely within its plane:
 **Roller XZ**, for instance, is restrained only along Y.
+
+Each support also has an editor of its own: which degrees of freedom are fixed, a spring on each
+one (linear or **multilinear**, with a displacement–force curve typed as "mm kN;" pairs), whether
+the support **lifts off** (takes compression only), and an **inclined frame**, set by two points or
+by pointing at a node. A support that lifts off is resolved by **Solve**: if it pulls, it is
+released and the model is solved again.
+
+**Foundation springs.** On the selected shells of a slab or raft, this creates vertical springs
+k = ks·A at each node, with each node's tributary area (a quarter of every quadrilateral and a third
+of every triangle around it). ks is typed in or taken from the project's geotechnical profile. The
+springs can act one way, so the raft can lift, and they replace any support the node had.
 
 **Constraints.** Relations between nodes:
 
@@ -112,6 +177,12 @@ one which displacements and rotations are restrained. A roller moves freely with
   CIRSOC 101's, and can be saved as a template for another project.
   PRO examples load with CIRSOC 101-2025's strength combinations built from their cases (except
   the offshore platform, whose waves are not a CIRSOC 103 earthquake).
+- **Floor:** an area load on a level, a floor group or the selected beams is carried to the beams
+  by tributary area. Panels are the closed regions the beams bound in plan; two way, each point
+  loads the nearest beam (on a rectangular panel, the 45° triangles and trapezoids), and one way,
+  the strips load the two beams they reach. Each beam gets partial linear loads that add up to the
+  load times the area. A plan shows the panels before applying; non-convex panels are reported
+  and left unloaded.
 - **Add load:** nodal (in global axes), distributed and point loads on members (in the member's
   local axes), and **surface** loads on quadrilateral plates: in kN/m², vertical (a positive value
   acts downward) and shared among the plate's four nodes.
@@ -145,16 +216,31 @@ load plan for review, and applies it when you confirm. Load cases of type D, L, 
 
 ### Generators
 
-**Metallic structures** generates the **geometry** of typical steel structures:
+**Metallic structures** generates the **geometry** of typical structures:
 
 - **Truss:** trapezoidal, parallel-chord, Pratt, arched, or a rolled portal, with several web
   patterns, half trusses and subdivided diagonals.
 - **Lattice column.**
 - **Shed:** span, frame spacing, number of frames, lattice or solid-web columns, purlins, and roof,
   truss and wall bracing.
+- **Structures:** space frame by bays (X, Y and storeys), plane frame, floor grid, continuous
+  beam, space truss, lattice girder with X or K bracing, Howe roof truss, sawtooth roof, barrel
+  vault, circular beam and dome. Bays are typed as "6; 7.5; 6".
 
-Besides the geometry, it assigns a profile to each kind of member and a steel grade. The generator
-**replaces the current model** (a single undo brings it back).
+It assigns a profile to each kind of member, a steel grade and the supports (the generator's,
+none, pinned or fixed). The structure can go:
+
+- as a **new model**, replacing the current one (a single undo brings it back);
+- **at a point:** coordinates, rotation, the XZ or YZ plane, or along a grid axis, and the
+  insertion point picked on a schema; the ghost shows in the model while the data change;
+- **at a node**, with the mouse.
+
+Inserted into a model, it stays a **generated group**: **Edit parameters** changes its data and
+**Regenerate in place** rebuilds it in one step. Members that still exist keep their number, their
+loads and any section changed on them by hand.
+
+**Templates:** a piece of the model is saved by name and placed again with the ghost; it is shared
+by copying its code.
 
 ## Importing models
 
@@ -172,7 +258,10 @@ From **Project**:
   4. a preview before applying.
 
   The result is a **draft** of the structure, flagged as unreviewed, with the list of assumptions
-  that were used. Slabs and walls are generated as plates.
+  that were used. Slabs and walls are generated as plates. When a model is open, the draft can be
+  **inserted** into it with the ghost instead of replacing it.
+- **IFC.** Members of a BIM model with their sections and materials. With a model open it can be
+  **inserted** with the ghost or **replace** the model; either is undone in one step.
 
 ## Before solving: diagnostics
 
@@ -231,14 +320,28 @@ In the **Results** panel:
 
 PRO's advanced analyses:
 
-- **P-Delta**, **modal**, **spectral** and **buckling**. Spectral uses a simplified
-  INPRES-CIRSOC 103 spectrum by seismic zone and soil type, combines the modes by CQC (complete
-  quadratic combination) or SRSS (square root of the sum of squares), and needs a modal run first.
-- **Time history** (Newmark or HHT-α, with a sinusoidal ground acceleration generated by the program
-  or your own accelerogram pasted as a list of values) and **harmonic response**.
+- **P-Delta**, **modal**, **spectral** and **buckling**. Modal can ask for modes **up to 90 % of
+  the mass**: it adds modes until the cumulative participating mass reaches 90 % in X and in Y, or
+  says so when the model has no more. With constraints the mass fractions are not reliable, and
+  this option is not offered. Spectral uses a simplified INPRES-CIRSOC 103 spectrum by seismic zone
+  and soil type, combines the modes by CQC (complete quadratic combination, with the ξ you set) or
+  SRSS (square root of the sum of squares), and needs a modal run first.
+- **Time history**, with Newmark or HHT-α. The settings are saved with the project and travel in
+  the model code. Each direction (X, Y and Z, at once) has its own ground acceleration, with a
+  scale factor: sinusoidal, a record read from a file (PEER .AT2, a time–acceleration table or a
+  single column) or **spectrum-compatible** with the project's INPRES-CIRSOC 103 spectrum, an
+  artificial accelerogram generated from a seed and a duration. Each record can be plotted, with
+  its peak acceleration. **Nodal forces in time**, sinusoidal or step, can be added too, with or
+  without ground motion. Damping is Rayleigh, with a single ξ fitted to the first two modes.
+- **Harmonic response**.
 - **Non-linear:** **pushover** (successive formation of plastic hinges under the model's loads, with
   the same Mp as Basic mode's [plastic collapse](04-advanced-tools.md#plastic-collapse)),
-  corotational (large displacements) and fibre.
+  corotational (large displacements) and fibre. Pushover shows the **capacity curve**: base shear
+  against the displacement of a control node, with one point per hinge formed. A slider walks the
+  steps; each one lists its new hinges with their moments, and the model shows the deformed shape
+  and every hinge formed up to that step. When the run stops because every member end at a joint
+  yielded at once, the panel says so: the structure may carry more, and the collapse factor is
+  read as a lower bound.
 - **Geometric imperfections**, **foundation on Winkler springs**, **soil-structure interaction**
   with p-y curves, and **contact or gap**.
 - **Staged construction** and **creep and shrinkage**.
@@ -247,13 +350,12 @@ PRO's advanced analyses:
   in order, and each member keeps its largest and smallest forces with the train's position. The
   lane load is created as an ordinary load case on the same members. The envelope does not enter
   the combinations or the design.
-- The **Rigid diaphragm** option for the whole model.
 
 These analyses use the members' axis, without their offsets, and the hinges of the **Hinge i** and
 **Hinge j** columns. Sliding joints and per-degree-of-freedom releases set when editing a member are
 taken into account by **Solve**; before an advanced analysis, the program asks for them to be
-removed. **Modal** and **spectral** work with the model's members: stiffness and mass come from
-the members (and from the rigid members that the **Rigid diaphragm** option adds, when it is on).
+removed. **Modal** and **spectral** work with the model's members and shells and with its
+diaphragms, which are set in **Constraints** (the panel says how many there are).
 
 ### Report
 

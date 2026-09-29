@@ -30,11 +30,8 @@ const R102_B42 = clause('cirsoc-102', '2025', 'B.4.2', 'servicio');
 import type { CombinationInputs, CombinationTerm, LoadCombinationSpec } from './combinations';
 
 /** One decimal as the regulation prints factors, more when the factor has them (0,75; 0,45). */
-const factorText = (f: number) => (Math.round(f * 10) === f * 10 ? f.toFixed(1) : String(+f.toFixed(3)));
+import { combinationLabel } from './combinations';
 
-function label(terms: CombinationTerm[]): string {
-  return terms.filter((t) => t.factor !== 0).map((t) => `${factorText(t.factor)} ${t.symbol}`).join(' + ');
-}
 
 /** The characteristic combinations for the loads `present`. */
 export function generateServiceCombinations(inputs: Pick<CombinationInputs, 'present'>): LoadCombinationSpec[] {
@@ -43,7 +40,7 @@ export function generateServiceCombinations(inputs: Pick<CombinationInputs, 'pre
   const out: LoadCombinationSpec[] = [];
   const note = msg('loads.service.basis');
   const add = (id: string, basic: LoadCombinationSpec['basic'], terms: CombinationTerm[]) => {
-    out.push({ id: `S${id}`, basic, terms, label: label(terms), refs: [], notes: [note], purpose: 'service' });
+    out.push({ id: `S${id}`, basic, terms, label: combinationLabel(terms), refs: [], notes: [note], purpose: 'service' });
   };
   const D: CombinationTerm = { symbol: 'D', factor: 1 };
   const L: CombinationTerm = { symbol: 'L', factor: 1 };
@@ -55,7 +52,7 @@ export function generateServiceCombinations(inputs: Pick<CombinationInputs, 'pre
     const w = (f: number): CombinationTerm => ({ symbol: 'W', factor: f });
     const b42 = [msg('loads.service.windB42')];
     const addW = (id: string, terms: CombinationTerm[]) =>
-      out.push({ id: `S${id}`, terms, label: label(terms), refs: [R102_B42], notes: b42, purpose: 'service' });
+      out.push({ id: `S${id}`, terms, label: combinationLabel(terms), refs: [R102_B42], notes: b42, purpose: 'service' });
     addW('5', [{ symbol: 'D', factor: 0.6 }, w(0.6)]);
     const companions = roof.length > 0 ? roof : [null];
     for (const r of companions) {
@@ -66,7 +63,7 @@ export function generateServiceCombinations(inputs: Pick<CombinationInputs, 'pre
   if (p.Wa) {
     const wa: CombinationTerm = { symbol: 'Wa', factor: 1 };
     const addWa = (id: string, terms: CombinationTerm[]) =>
-      out.push({ id: `S${id}`, terms, label: label(terms), refs: [R102_B42], notes: [msg('loads.service.windB42')], purpose: 'service' });
+      out.push({ id: `S${id}`, terms, label: combinationLabel(terms), refs: [R102_B42], notes: [msg('loads.service.windB42')], purpose: 'service' });
     addWa('7', [D, wa]);
     if (p.L) addWa('8', [D, { symbol: 'L', factor: 0.5 }, wa]);
   }

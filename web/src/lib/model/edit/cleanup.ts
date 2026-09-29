@@ -17,6 +17,7 @@
 
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
+import { generatedMetadata } from './generated-metadata';
 
 export const MERGE_TOL = 1e-4;
 
@@ -97,6 +98,14 @@ export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupR
     }));
     modelStore.remapNodeReferences(new Map(to));
     for (const g of modelStore.model.groups.values()) {
+      const data = generatedMetadata(g);
+      if (data && data.nodes.some((n) => to.has(n.id))) {
+        const owned = new Set(data.nodes.filter((n) => n.owned).map((n) => n.id));
+        const nodes = data.nodes.map((n) => ({ id: r(n.id), owned: n.owned && owned.has(r(n.id)) }));
+        modelStore.setGroupData(g.id, { ...data, nodes });
+        modelStore.setGroupMembers(g.id, { ...g.members, nodes: [...new Set(nodes.filter((n) => n.owned).map((n) => n.id))] });
+        continue;
+      }
       if (g.members.nodes?.some((n) => to.has(n))) {
         modelStore.setGroupMembers(g.id, { ...g.members, nodes: [...new Set(g.members.nodes.map(r))] });
       }
