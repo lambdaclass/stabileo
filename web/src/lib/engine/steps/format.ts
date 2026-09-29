@@ -27,10 +27,16 @@ export function numText(v: number, sig = 4): string {
   const a = Math.abs(v);
   const e = Math.floor(Math.log10(a));
   if (e >= 6 || e <= -4) {
-    const m = v / 10 ** e;
-    return `${trim(m.toPrecision(sig))}·10^${e}`.replace('-', '−');
+    const m = trim((v / 10 ** e).toPrecision(sig)).replace('-', '−');
+    return `${m}·10${superscript(e)}`;
   }
   return trim(roundSig(v, sig)).replace('-', '−');
+}
+
+const SUP: Record<string, string> = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+/** An exponent as superscript characters, for plain text: 10⁻⁴. */
+export function superscript(e: number): string {
+  return String(e).split('').map((c) => SUP[c] ?? c).join('');
 }
 
 /** A number inside a sum or product: wrapped in parentheses when negative. */

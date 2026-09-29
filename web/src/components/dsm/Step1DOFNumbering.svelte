@@ -79,7 +79,7 @@
     {/if}
   {/if}
 
-  {#if extras.length}<div class="extras"><StepBlocks blocks={extras} /></div>{/if}
+  {#if extras.length}<div class="extras"><StepBlocks blocks={extras} narrow /></div>{/if}
 
   <div class="dof-table-scroll">
     <table class="dof-table">

@@ -39,7 +39,7 @@
     <details class="fem-section" open>
       <summary>{t('steps.dsm.fem.title')}</summary>
       <p class="fem-intro">{t('steps.dsm.fem.intro')}</p>
-      <StepBlocks blocks={femBlocks} />
+      <StepBlocks blocks={femBlocks} narrow />
     </details>
   {/if}
 

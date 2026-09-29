@@ -9,6 +9,7 @@
    * the same way.
    */
   import type { Sketch, SketchColor } from '../../lib/engine/steps/sketch';
+  import { numText } from '../../lib/engine/steps/format';
 
   let { sketch }: { sketch: Sketch } = $props();
 
@@ -28,13 +29,15 @@
     const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
     const w = Math.max(x1 - x0, 1e-6), h = Math.max(z1 - z0, 0);
     const dimsRoom = sketch.dims ? 34 : 0;
-    const innerW = W - 2 * PAD - (sketch.dims && h > 1e-6 ? dimsRoom : 0);
+    // A diagram stands off the members by up to its px, and its values sit past that.
+    const diaRoom = sketch.diagram ? (sketch.diagram.px ?? 34) + 22 : 0;
+    const innerW = W - 2 * (PAD + diaRoom) - (sketch.dims && h > 1e-6 ? dimsRoom : 0);
     const flat = h < 1e-6 * Math.max(1, w);
-    const H = sketch.height ?? (flat ? 150 + dimsRoom : Math.min(360, Math.max(190, (innerW * h) / w + 2 * PAD + dimsRoom)));
-    const innerH = H - 2 * PAD - dimsRoom;
+    const H = sketch.height ?? (flat ? 150 + dimsRoom + 2 * diaRoom : Math.min(380, Math.max(190, (innerW * h) / w + 2 * (PAD + diaRoom) + dimsRoom)));
+    const innerH = H - 2 * (PAD + diaRoom) - dimsRoom;
     const k = flat ? innerW / w : Math.min(innerW / w, innerH / Math.max(h, 1e-6));
-    const ox = PAD + (sketch.dims && !flat ? dimsRoom : 0) + (innerW - w * k) / 2;
-    const oy = PAD + (flat ? innerH / 2 : (innerH - h * k) / 2) + h * k;
+    const ox = PAD + diaRoom + (sketch.dims && !flat ? dimsRoom : 0) + (innerW - w * k) / 2;
+    const oy = PAD + diaRoom + (flat ? innerH / 2 : (innerH - h * k) / 2) + h * k;
     return { x0, z0, k, ox, oy, H, flat };
   });
   const sx = (x: number) => fit.ox + (x - fit.x0) * fit.k;
@@ -80,7 +83,7 @@
 
   const fmt = (v: number) => {
     const a = Math.abs(v);
-    if (a >= 1000 || (a > 0 && a < 0.01)) return v.toExponential(2).replace('e', '·10^').replace('+', '');
+    if (a >= 1000 || (a > 0 && a < 0.01)) return numText(v, 3);
     return (Math.round(v * 100) / 100).toString().replace('-', '−');
   };
 

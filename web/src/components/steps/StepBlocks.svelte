@@ -9,16 +9,37 @@
   import StepBlocks from './StepBlocks.svelte';
   import { tp, t } from '../../lib/i18n';
   import { isTxt, type Block, type Cell, type Txt } from '../../lib/engine/steps/doc';
-  import { numText } from '../../lib/engine/steps/format';
+  import { num, numText } from '../../lib/engine/steps/format';
 
-  let { blocks, detail = true }: { blocks: Block[]; detail?: boolean } = $props();
+  let { blocks, detail = true, narrow = false }: { blocks: Block[]; detail?: boolean; narrow?: boolean } = $props();
+
+  /*
+   * Two results side by side (FEM_ij = …, \qquad FEM_ji = …) read well on a
+   * page and run off a side panel. On a narrow panel the expressions a
+   * `\qquad` separates at the top level are stacked, one per line.
+   */
+  function stack(tex: string): string {
+    if (!narrow || !tex.includes('\\qquad')) return tex;
+    const parts: string[] = [];
+    let depth = 0, last = 0;
+    for (let i = 0; i < tex.length; i++) {
+      const c = tex[i];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (depth === 0 && tex.startsWith('\\qquad', i)) { parts.push(tex.slice(last, i)); last = i + 6; }
+    }
+    parts.push(tex.slice(last));
+    if (parts.length < 2) return tex;
+    const clean = parts.map((p) => p.trim().replace(/,$/, '').replace(/^\\;|\\;$/g, '').trim()).filter(Boolean);
+    return `\\begin{gathered} ${clean.join(' \\\\ ')} \\end{gathered}`;
+  }
 
   const say = (x: Txt | string) => (typeof x === 'string' ? x : tp(x.key, x.params));
 
   function matrixTex(name: string, rows: number[][], scale?: number): string {
     const s = scale && scale !== 1 ? scale : 1;
-    const body = rows.map((r) => r.map((v) => numText(v / s).replace('−', '-').replace(/·10\^(-?\d+)/, ' \\cdot 10^{$1}')).join(' & ')).join(' \\\\ ');
-    const factor = s !== 1 ? `${numText(s).replace('−', '-').replace(/·10\^(-?\d+)/, ' \\cdot 10^{$1}')} \\cdot ` : '';
+    const body = rows.map((r) => r.map((v) => num(v / s)).join(' & ')).join(' \\\\ ');
+    const factor = s !== 1 ? `${num(s)} \\cdot ` : '';
     return `${name} = ${factor}\\begin{bmatrix} ${body} \\end{bmatrix}`;
   }
 
@@ -42,15 +63,15 @@
   {#if b.kind === 'p'}
     {#if detail || !b.detail}<p class="sb-p" class:detail={b.detail}>{say(b.text)}</p>{/if}
   {:else if b.kind === 'eq'}
-    <div class="sb-eq"><MathEquation equation={b.tex} displayMode /></div>
+    <div class="sb-eq"><MathEquation equation={stack(b.tex)} displayMode /></div>
     {#if b.note && detail}<p class="sb-note-small">{say(b.note)}</p>{/if}
   {:else if b.kind === 'calc'}
     <div class="sb-calc">
       {#if b.label}<div class="sb-calc-label">{say(b.label)}</div>{/if}
-      <div class="sb-row"><span class="sb-tag">{t('steps.view.formula')}</span><div class="sb-math"><MathEquation equation={b.formula} displayMode /></div></div>
-      {#if b.subst}<div class="sb-row"><span class="sb-tag">{t('steps.view.subst')}</span><div class="sb-math"><MathEquation equation={b.subst} displayMode /></div></div>{/if}
-      <div class="sb-row result"><span class="sb-tag">{t('steps.view.result')}</span><div class="sb-math"><MathEquation equation={b.result} displayMode /></div></div>
-      {#if b.check}<div class="sb-row check"><span class="sb-tag">{t('steps.view.check')}</span><div class="sb-math"><MathEquation equation={b.check} displayMode /></div></div>{/if}
+      <div class="sb-row"><span class="sb-tag">{t('steps.view.formula')}</span><div class="sb-math"><MathEquation equation={stack(b.formula)} displayMode /></div></div>
+      {#if b.subst}<div class="sb-row"><span class="sb-tag">{t('steps.view.subst')}</span><div class="sb-math"><MathEquation equation={stack(b.subst)} displayMode /></div></div>{/if}
+      <div class="sb-row result"><span class="sb-tag">{t('steps.view.result')}</span><div class="sb-math"><MathEquation equation={stack(b.result)} displayMode /></div></div>
+      {#if b.check}<div class="sb-row check"><span class="sb-tag">{t('steps.view.check')}</span><div class="sb-math"><MathEquation equation={stack(b.check)} displayMode /></div></div>{/if}
     </div>
   {:else if b.kind === 'table'}
     <div class="sb-scroll">
@@ -63,7 +84,7 @@
   {:else if b.kind === 'matrix'}
     {#if b.rowLabels || b.colLabels}
       <div class="sb-scroll">
-        <div class="sb-mname"><MathEquation equation={`${b.name} =${b.scale && b.scale !== 1 ? ` ${numText(b.scale).replace('−', '-')} \\cdot` : ''}`} /></div>
+        <div class="sb-mname"><MathEquation equation={`${b.name} =${b.scale && b.scale !== 1 ? ` ${num(b.scale)} \\cdot` : ''}`} /></div>
         <table class="sb-table sb-matrix">
           {#if b.colLabels}<thead><tr><th></th>{#each b.colLabels as c}<th>{c}</th>{/each}</tr></thead>{/if}
           <tbody>{#each b.rows as r, i}<tr>{#if b.rowLabels}<th>{b.rowLabels[i]}</th>{:else if b.colLabels}<th></th>{/if}{#each r as v}<td>{numText(v / (b.scale ?? 1))}</td>{/each}</tr>{/each}</tbody>
@@ -83,7 +104,7 @@
   {:else if b.kind === 'sub'}
     <section class="sb-sub">
       <h4>{say(b.title)}</h4>
-      <StepBlocks blocks={b.blocks} {detail} />
+      <StepBlocks blocks={b.blocks} {detail} {narrow} />
     </section>
   {:else if b.kind === 'compare'}
     <div class="sb-scroll">
@@ -117,6 +138,8 @@
   .sb-math { overflow-x: auto; min-width: 0; }
   .sb-math :global(.math-eq.display) { margin: 0.2rem 0; text-align: left; }
   .sb-row.result .sb-tag { color: var(--st-accent); }
+  :global(.sb-narrow) .sb-row { grid-template-columns: 1fr; gap: 0; }
+  :global(.sb-narrow) .sb-tag { margin-top: 0.25rem; }
   .sb-row.check .sb-tag { color: #2fb36b; }
   .sb-scroll { overflow-x: auto; max-width: 100%; }
   .sb-table { border-collapse: collapse; margin: 0.45rem auto; font-size: 0.76rem; color: var(--st-text); }

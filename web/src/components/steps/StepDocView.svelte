@@ -13,6 +13,9 @@
   const step = $derived(explainedSteps.step);
   let detail = $state(true);
   let body: HTMLElement | undefined = $state();
+  let bodyW = $state(0);
+  /* A side panel: stack side-by-side expressions and put the calculation tags above. */
+  const narrow = $derived(bodyW > 0 && bodyW < 560);
 
   const say = (x: Txt) => tp(x.key, x.params);
   function go(k: number) {
@@ -50,13 +53,13 @@
       <label class="sd-detail"><input type="checkbox" bind:checked={detail} /> {t('steps.view.detail')}</label>
     </nav>
 
-    <div class="sd-body" bind:this={body}>
+    <div class="sd-body" class:sb-narrow={narrow} bind:this={body} bind:clientWidth={bodyW}>
       {#if step === 0}
-        <StepBlocks blocks={doc.intro} {detail} />
+        <StepBlocks blocks={doc.intro} {detail} {narrow} />
       {:else}
         {@const s = doc.steps[step - 1]}
         <h4 class="sd-step"><span class="sd-num">{tp('steps.view.step', { n: step })}</span> {say(s.title)}</h4>
-        <StepBlocks blocks={s.blocks} {detail} />
+        <StepBlocks blocks={s.blocks} {detail} {narrow} />
       {/if}
     </div>
 
