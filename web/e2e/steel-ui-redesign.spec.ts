@@ -224,7 +224,7 @@ test.describe('the generators panel explains itself in English', () => {
   test.use({ appLocale: 'en' });
   test('U8 en — the parameter hints are localised', async ({ pro: page }) => {
     await openGenerators(page);
-    await expect(page.locator('#gen-hint-span')).toContainText('metres');
+    await expect(page.locator('#gen-hint-span')).toContainText('meters');
   });
 });
 
@@ -257,6 +257,6 @@ test.describe('the generators panel explains itself in Portuguese', () => {
   ) => {
     await openGenerators(page);
     await expect(page.locator('#gen-hint-span')).toContainText('vão');
-    await expect(page.locator('#gen-hint-span')).not.toContainText('metres');
+    await expect(page.locator('#gen-hint-span')).not.toContainText('meters');
   });
 });

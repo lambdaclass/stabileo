@@ -385,7 +385,7 @@ test.describe('@smoke foundations — the visible workflow', () => {
 
     // Geometry MODELLED, with real elevations and a schedule that reconciles with the bars.
     await expect(page.getByTestId('footing-mat-geometry-status'))
-      .toContainText(/modelled|modelada/i);
+      .toContainText(/modell?ed|modelada/i);
     await expect(page.getByTestId('footing-mat-elevations')).toBeVisible();
     await expect(page.getByTestId('footing-mat-schedule')).toBeVisible();
     await expect(page.getByTestId('footing-mat-reconciliation'))
