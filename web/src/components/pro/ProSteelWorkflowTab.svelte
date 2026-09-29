@@ -464,7 +464,7 @@
                 <td>
                   <span class="id">#{row.elementId}</span>
                   <span class="name">{row.memberName}</span>
-                  <span class="fam">{row.family}</span>
+                  <span class="fam">{t(`steel.family.${row.family}`)}</span>
                   {#if row.familyCaveatKey}
                     <!-- Inferred, and said so: a family shown without its caveat is a guess made fact. -->
                     <span class="caveat" data-testid={`steel-grade-inferred-${row.elementId}`}

@@ -388,7 +388,7 @@
 
     {:else if selectedKind === 'linearMPC'}
       <div class="pro-cst-row">
-        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coef; ... (ej: 1:ux:1; 2:ux:-1)" class="pro-input-wide" /></label>
+        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder={t('pro.mpcPlaceholder')} class="pro-input-wide" /></label>
       </div>
       <div class="pro-cst-hint">{t('pro.formatHint')}</div>
     {/if}

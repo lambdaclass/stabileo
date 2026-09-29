@@ -32,6 +32,7 @@ import { storyDrifts as computeStoryDrifts } from './story-drift';
 import { shouldEmbedFlat2DModelIn3D } from './solver-service';
 import { activeCombinations, activePerCombo3D } from '../store/active-results';
 import { modelStore, resultsStore } from '../store';
+import { i18n } from '../i18n';
 import type { ReportData, ReportConfig } from './pro-report';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
@@ -402,7 +403,7 @@ export function buildProReportData(opts: {
 
   const data: ReportData = {
     projectName: modelStore.model.name || 'Estructura',
-    date: new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
+    date: new Date().toLocaleDateString(i18n.locale, { year: 'numeric', month: 'long', day: 'numeric' }),
     provenance: modelStore.model.provenance,
     nodes: [...modelStore.nodes.values()],
     elements: [...modelStore.elements.values()],

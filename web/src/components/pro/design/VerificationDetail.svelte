@@ -85,7 +85,7 @@
         <OutcomeBadge flag="provisional" />
         <span class="muted">
           {t('design.changed.provisionalTitle')} — u = {fmtUtil(outcome.provisional.worstUtilization)},
-          {outcome.provisional.failingCheckCount} failing
+          {tp('rcUi.failingChecks', { n: outcome.provisional.failingCheckCount })}
         </span>
       </div>
     {/if}
@@ -102,7 +102,7 @@
           <span>{t('design.advice.proposed')}: <span class="mono">{(a.proposedB * 1000).toFixed(0)}×{(a.proposedH * 1000).toFixed(0)}</span></span>
           <span>{t('design.advice.driver')}: <span class="mono">{a.driver}</span></span>
           {#if a.screenedUtilization !== undefined}
-            <span class="muted">screen u ≈ {a.screenedUtilization.toFixed(2)}</span>
+            <span class="muted">{t('rcUi.screenU')} ≈ {a.screenedUtilization.toFixed(2)}</span>
           {/if}
         </div>
         {#each a.rationale as r}<div class="reason">{tp(r.key, r.params)}</div>{/each}

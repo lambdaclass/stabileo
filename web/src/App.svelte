@@ -1241,7 +1241,7 @@
         <span class="autosave-text">
           {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
           {#if autosaveStamp.timestamp}
-            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
+            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString(i18n.locale)})</span>
           {/if}
         </span>
         {#if autosaveStamp.older}

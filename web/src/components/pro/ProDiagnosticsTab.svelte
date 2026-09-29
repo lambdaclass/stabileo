@@ -1,6 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, i18n } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
@@ -109,9 +109,17 @@
     }
   }
 
+  /**
+   * A diagnostic's details as a reader sees them: named in the app's language where there is a
+   * name (a symbol such as E or Iz stays a symbol), ids as integers, and other numbers to four
+   * figures in the app's number format. `toFixed(3)` printed «caseId: 1.000», which reads as
+   * one thousand in Spanish and Portuguese.
+   */
   function formatDetails(details: Record<string, unknown>): string {
+    const label = (k: string) => { const key = `diag.detail.${k}`; const v = t(key); return v === key ? k : v; };
+    const num = (v: number) => Number.isInteger(v) ? String(v) : Number(v.toPrecision(4)).toLocaleString(i18n.locale);
     return Object.entries(details)
-      .map(([k, v]) => `${k}: ${typeof v === 'number' ? (v as number).toFixed(3) : v}`)
+      .map(([k, v]) => `${label(k)}: ${typeof v === 'number' ? num(v) : Array.isArray(v) ? v.join(', ') : v}`)
       .join(' | ');
   }
 </script>
