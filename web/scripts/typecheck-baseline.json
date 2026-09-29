@@ -1,5 +1,5 @@
 {
-	"total": 467,
+	"total": 466,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -966,12 +966,6 @@
 			"code": "TS2339",
 			"message": "Property 'curved' does not exist on type '{ id: number; nodes: [number, number, number, number]; materialId: number; thickness: number; }'.",
 			"count": 2
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6133",
-			"message": "'Ag' is declared but its value is never read.",
-			"count": 1
 		},
 		{
 			"file": "src/lib/engine/station-design-forces.ts",
