@@ -17,8 +17,11 @@
 
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
+import { WELD_TOL } from '../../engine/mesh-weld';
 
-export const MERGE_TOL = 1e-4;
+/* One tolerance for "two nodes in one place", defined in engine/mesh-weld so the
+ * diagnostics that flag it and this command that repairs it can never disagree. */
+export const MERGE_TOL = WELD_TOL;
 
 export interface CleanupReport {
   mergedNodes: number;

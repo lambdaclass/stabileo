@@ -6,6 +6,7 @@ import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
 import type { Constraint3D, ConnectorElement } from './types-3d';
 import { addConstraintConnectivity } from './constraint-connectivity';
+import { WELD_TOL } from './mesh-weld';
 import { concreteStrengthConflict } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
 
@@ -112,12 +113,15 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   }
 
   // ─── Coincident nodes ──────────────────────────
+  // Flag at the weld tolerance, not wider: the clean-up merges at WELD_TOL, so a
+  // finding raised beyond it could not be cleared — and legitimate close nodes
+  // (a fine mesh, an intentional gap) would read as defects.
   const nodeArr = [...m.nodes.values()];
   for (let i = 0; i < nodeArr.length; i++) {
     for (let j = i + 1; j < nodeArr.length; j++) {
       const a = nodeArr[i], b = nodeArr[j];
       const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z ?? 0) - (b.z ?? 0);
-      if (dx * dx + dy * dy + dz * dz < 1e-6) {
+      if (dx * dx + dy * dy + dz * dz < WELD_TOL * WELD_TOL) {
         out.push(diag('warning', 'MODEL_COINCIDENT_NODES', 'diag.model.coincidentNodes', {
           nodeIds: [a.id, b.id],
           details: { x: a.x, y: a.y, z: a.z ?? 0 },

@@ -1,0 +1,104 @@
+/**
+ * Duplicate-node prevention: a path that wants "a node here" welds to the one
+ * already there instead of stacking a twin that looks joined and analyses as a
+ * cut, with no visible symptom.
+ *
+ * Pinned here:
+ *  - `subdivideElement` reuses a node at the cut — the midpoint a secondary
+ *    frames into — instead of leaving the girder on a new twin;
+ *  - `addNodeWelded`, the one canonical weld interactive entry points use,
+ *    reuses within the weld tolerance and creates beyond it, and a weld is not
+ *    an undo step;
+ *  - `checkModel` flags coincidence at the same tolerance the clean-up merges
+ *    at, so every finding the Fix button can clear, and legitimate close nodes
+ *    are not flagged.
+ */
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { modelStore } from '../model.svelte';
+import { historyStore } from '../history.svelte';
+import { checkCurrentModel } from '../../engine/solve-diagnostics';
+import { mergeCoincidentNodes } from '../../model/edit/cleanup';
+
+beforeAll(async () => {
+  // The history store wires itself into the model store on a microtask.
+  await new Promise((r) => setTimeout(r, 0));
+});
+
+beforeEach(() => {
+  modelStore.clear();
+  historyStore.clear();
+});
+
+const codes = () => new Set(checkCurrentModel().map((d) => d.code));
+
+describe('subdivideElement welds the cut', () => {
+  it('a girder subdivided where a secondary frames in keeps the shared node', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    const b = modelStore.addNode(6, 0, 0);
+    const girder = modelStore.addElement(a, b, 'frame');
+    const mid = modelStore.addNode(3, 0, 0);
+    const c = modelStore.addNode(3, 3, 0);
+    const secondary = modelStore.addElement(mid, c, 'frame');
+    historyStore.clear();
+
+    modelStore.subdivideElement(girder, 2);
+
+    // No twin at the midpoint, and the girder's segments land on the
+    // secondary's node: connected, not coincident.
+    expect(modelStore.nodes.size).toBe(4);
+    const spans = [...modelStore.elements.values()]
+      .filter((e) => e.id !== secondary)
+      .map((e) => [e.nodeI, e.nodeJ].sort((x, y) => x - y).join('-'))
+      .sort();
+    const pair = (x: number, y: number) => [x, y].sort((p, q) => p - q).join('-');
+    expect(spans).toEqual([pair(a, mid), pair(mid, b)].sort());
+    expect(modelStore.elements.get(secondary)!.nodeI).toBe(mid);
+    // One command, one undo step.
+    expect(historyStore.undoCount).toBe(1);
+  });
+
+  it('still creates the cut nodes where nothing frames in', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    const b = modelStore.addNode(6, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.subdivideElement(e, 3);
+    expect(modelStore.nodes.size).toBe(4);
+    expect(modelStore.elements.size).toBe(3);
+  });
+});
+
+describe('addNodeWelded', () => {
+  it('returns the node already at the position, and creates one past the tolerance', () => {
+    const a = modelStore.addNode(1, 2, 3);
+    expect(modelStore.addNodeWelded(1, 2, 3)).toBe(a);
+    expect(modelStore.addNodeWelded(1 + 5e-5, 2, 3)).toBe(a); // within 1e-4
+    const b = modelStore.addNodeWelded(1 + 5e-4, 2, 3); // beyond it
+    expect(b).not.toBe(a);
+    expect(modelStore.nodes.size).toBe(2);
+  });
+
+  it('a weld is not an undo step — nothing changed', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    historyStore.clear();
+    expect(modelStore.addNodeWelded(0, 0, 0)).toBe(a);
+    expect(historyStore.undoCount).toBe(0);
+  });
+});
+
+describe('detection and repair use one tolerance', () => {
+  it('a coincident pair is flagged, and the merge clears the finding', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    const b = modelStore.addNode(0, 0, 5e-5);
+    expect(codes().has('MODEL_COINCIDENT_NODES')).toBe(true);
+    mergeCoincidentNodes();
+    expect(modelStore.nodes.has(b)).toBe(false);
+    expect(modelStore.nodes.has(a)).toBe(true);
+    expect(codes().has('MODEL_COINCIDENT_NODES')).toBe(false);
+  });
+
+  it('close-but-legitimate nodes the clean-up cannot merge are not flagged', () => {
+    modelStore.addNode(0, 0, 0);
+    modelStore.addNode(0, 0, 5e-4); // 0.5 mm apart: beyond the weld tolerance
+    expect(codes().has('MODEL_COINCIDENT_NODES')).toBe(false);
+  });
+});

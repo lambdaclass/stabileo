@@ -172,9 +172,11 @@
     const pastedElements: number[] = [];
 
     modelStore.batch(() => {
-      // Create new nodes
+      // Create new nodes, welded: the paste offset is fixed, so a second paste —
+      // or a member already drawn at the offset — would otherwise stack a twin
+      // node that looks joined and analyses as a cut.
       for (const n of clip.nodes) {
-        const newId = modelStore.addNode(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
+        const newId = modelStore.addNodeWelded(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
         idMap.set(n.origId, newId);
       }
 
@@ -184,6 +186,8 @@
         const nj = idMap.get(el.origNodeJ);
         // `continue`, not `return`: returning here abandoned every element and support after it.
         if (ni == null || nj == null) continue;
+        // Two clipboard nodes welded onto the same existing node: no zero-length member.
+        if (ni === nj) continue;
         const matId = modelStore.materials.has(el.materialId) ? el.materialId : 1;
         const secId = modelStore.sections.has(el.sectionId) ? el.sectionId : 1;
         const newElemId = modelStore.addElement(ni, nj, el.type);

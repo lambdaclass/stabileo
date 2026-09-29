@@ -702,14 +702,19 @@
     const lines = importText.trim().split('\n').filter(l => l.trim());
     let created = 0;
     const nodeIds: number[] = [];
-    for (const line of lines) {
-      const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        const id = modelStore.addNode(parts[0], parts[1]);
-        nodeIds.push(id);
-        created++;
+    // One undo step for the whole import, and each point welds to a node already
+    // at its coordinates: a wireframe listing repeats shared vertices line to
+    // line, and a blind addNode per line stacked twins on the same point.
+    modelStore.batch(() => {
+      for (const line of lines) {
+        const parts = line.trim().split(/[,;\t\s]+/).map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          const id = modelStore.addNodeWelded(parts[0], parts[1]);
+          nodeIds.push(id);
+          created++;
+        }
       }
-    }
+    });
     // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
     // or just create elements between consecutive pairs if requested
     if (created > 0) {

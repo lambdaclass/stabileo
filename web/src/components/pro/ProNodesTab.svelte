@@ -55,8 +55,9 @@
     if (x === null || y === null || z === null) return;
 
     if (row.id === null) {
-      // New node
-      const realId = modelStore.addNode(x, y, z);
+      // New node — or the one already at these coordinates: a twin in the same
+      // place looks joined and analyses as a cut.
+      const realId = modelStore.addNodeWelded(x, y, z);
       rows[idx] = { ...rows[idx], id: realId };
     } else {
       // Update existing node. `updateNode` pushes no undo of its own — its callers are expected
@@ -104,31 +105,35 @@
     const newRows: NodeRow[] = [];
     const newNodeIds: number[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const parts = lines[i].split('\t').map(s => s.trim());
-      if (parts.length < 2) {
-        pasteError = t('pro.pasteRowError').replace('{n}', String(i + 1)).replace('{cols}', '2').replace('{names}', 'X, Y');
-        return;
+    // One undo step for the whole paste; each row welds to a node already at its
+    // coordinates (an earlier pasted row counts) instead of stacking a twin.
+    modelStore.batch(() => {
+      for (let i = 0; i < lines.length; i++) {
+        const parts = lines[i].split('\t').map(s => s.trim());
+        if (parts.length < 2) {
+          pasteError = t('pro.pasteRowError').replace('{n}', String(i + 1)).replace('{cols}', '2').replace('{names}', 'X, Y');
+          return;
+        }
+
+        const x = parseNumber(parts[0]);
+        const y = parseNumber(parts[1]);
+        const z = parts.length >= 3 ? parseNumber(parts[2]) : 0;
+
+        if (x === null || y === null) {
+          pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
+          return;
+        }
+
+        const realId = modelStore.addNodeWelded(x, y, z ?? 0);
+        newNodeIds.push(realId);
+        newRows.push({
+          id: realId,
+          x: String(x),
+          y: String(y),
+          z: String(z ?? 0),
+        });
       }
-
-      const x = parseNumber(parts[0]);
-      const y = parseNumber(parts[1]);
-      const z = parts.length >= 3 ? parseNumber(parts[2]) : 0;
-
-      if (x === null || y === null) {
-        pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
-        return;
-      }
-
-      const realId = modelStore.addNode(x, y, z ?? 0);
-      newNodeIds.push(realId);
-      newRows.push({
-        id: realId,
-        x: String(x),
-        y: String(y),
-        z: String(z ?? 0),
-      });
-    }
+    });
 
     // Add new rows to the table
     rows = [...rows.filter(r => r.id !== null), ...newRows];

@@ -9,6 +9,7 @@
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
+  import { findCoincidentNode } from '../lib/engine/mesh-weld';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
@@ -204,8 +205,10 @@
     const y = parseFloat(coordY);
     const z = parseFloat(coordZ);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
+    // Welded: typing the coordinates of an existing node selects it rather than
+    // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNode(x, y, z);
+    const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
     showCoordDialog = false;
@@ -1671,6 +1674,16 @@
 
     // Full 3D snap: snap all coordinates to grid
     const snapped = uiStore.snapWorld3D(pos.x, pos.y, pos.z);
+    // Duplicate-coincident-node guard, the 2D node tool's rule (Viewport.svelte):
+    // a click that lands on an existing node — by raycast, or because grid snap
+    // warped the placement point onto one — selects it instead of creating a
+    // twin in the same place. Two nodes in one place analyse as a cut.
+    const onExisting = findNodeHit(e)
+      ?? findCoincidentNode(modelStore.nodes.values(), snapped.x, snapped.y, snapped.z, 0.01);
+    if (onExisting !== null) {
+      uiStore.selectNode(onExisting, e.shiftKey);
+      return;
+    }
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
