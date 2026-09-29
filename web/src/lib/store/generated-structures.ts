@@ -82,11 +82,17 @@ export function generatedGroups() {
  * `roles` are the generated members' roles in emitted order (the topology's), so that a
  * regeneration can match a column to a column and a beam to a beam.
  */
-export function insertGenerated(g: GeneratedModel, T: Affine, meta: GeneratedMeta, roles: readonly string[] = []): EditReport & { groupId: number } {
+export function insertGenerated(
+  g: GeneratedModel, T: Affine, meta: GeneratedMeta, roles: readonly string[] = [],
+  opts: { withSupports?: boolean } = {},
+): EditReport & { groupId: number } {
+  // The placement bar's "with supports": unticked, the structure is placed without them, and
+  // does not record them as its own either, so a regeneration does not bring them back.
+  const withSupports = opts.withSupports ?? true;
   let report!: EditReport;
   let groupId = 0;
   modelStore.batch(() => {
-    report = insertFragment(fragmentFromJSONModel(g.json), [T], { withSupports: true, withLoads: false });
+    report = insertFragment(fragmentFromJSONModel(g.json), [T], { withSupports, withLoads: false });
     modelStore.refreshCanonicalSections();
     const created = new Set(report.nodes);
     const nm = report.maps[0]!.nodes, em = report.maps[0]!.elements;
@@ -97,7 +103,7 @@ export function insertGenerated(g: GeneratedModel, T: Affine, meta: GeneratedMet
     });
     const data: GeneratedData = {
       ...meta, transform: T, nodes, elements,
-      supportNodes: g.json.supports.map((s) => s.nodeId - 1),
+      supportNodes: withSupports ? g.json.supports.map((s) => s.nodeId - 1) : [],
     };
     groupId = modelStore.addGroup(meta.name, GENERATED_KIND, {
       nodes: nodes.filter((n) => n.owned).map((n) => n.id),
@@ -108,6 +114,28 @@ export function insertGenerated(g: GeneratedModel, T: Affine, meta: GeneratedMet
 }
 
 export interface RegenerateReport { kept: number; added: number; removed: number; resized: number; keptSections: number }
+
+/**
+ * A place for each point: its level (distinct heights, lowest first, within 1 mm) and its rank
+ * within the level by plan position (x, then y). Two generations of one structure give the same
+ * place to the same member of the frame, whatever order the generator emitted them in.
+ */
+function placeKeys(points: readonly Vec3[]): string[] {
+  const mm = (v: number) => Math.round(v * 1000);
+  const levels = [...new Set(points.map((p) => mm(p[2])))].sort((a, b) => a - b);
+  const levelOf = (p: Vec3) => levels.indexOf(mm(p[2]));
+  const order = points.map((p, i) => ({ p, i })).sort((a, b) =>
+    levelOf(a.p) - levelOf(b.p) || mm(a.p[0]) - mm(b.p[0]) || mm(a.p[1]) - mm(b.p[1]) || a.i - b.i);
+  const keys: string[] = new Array(points.length);
+  const seen = new Map<number, number>();
+  for (const { p, i } of order) {
+    const lv = levelOf(p);
+    const n = seen.get(lv) ?? 0;
+    seen.set(lv, n + 1);
+    keys[i] = `${lv}:${n}`;
+  }
+  return keys;
+}
 
 /** Replace the group's structure by `g`, in place. One undo step. */
 export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMeta, roles: readonly string[] = []): RegenerateReport | null {
@@ -140,11 +168,32 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
     for (const n of modelStore.nodes.values()) if (!owned.has(n.id)) index.add(n.id, [n.x, n.y, n.z ?? 0]);
     const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
 
+    /*
+     * Which old node or member a new one takes the place of: the k-th of its level, not the k-th
+     * emitted. The generators emit level by level, so with a bay added the flat order shifted
+     * every level after the first — the second storey's first column took the place of the
+     * first storey's new last column, carrying its id, its hand-picked section and its loads to
+     * the ground floor. Levels are ranked by height and, within one, places by plan position;
+     * a geometry that only changes size (taller storeys, wider bays) keeps every place.
+     */
+    const newPts = g.json.nodes.map((n) => applyPoint(T, [n.x, n.y, n.z ?? 0]) as Vec3);
+    const newNodeKey = placeKeys(newPts);
+    // Places are ranked over every node of the old generation, shared ones included (a copy that
+    // welded onto its neighbour's column does not own it, but it is still that column's place);
+    // only the nodes it owned are taken over.
+    const oldAll = old.nodes.flatMap((n) => {
+      const m = modelStore.nodes.get(n.id);
+      return m ? [{ n, p: [m.x, m.y, m.z ?? 0] as Vec3 }] : [];
+    });
+    const oldByKey = new Map(placeKeys(oldAll.map((o) => o.p)).flatMap((key, i) =>
+      oldAll[i]!.n.owned ? [[key, oldAll[i]!.n] as const] : []));
+
     const nodes: GeneratedData['nodes'] = [];
-    g.json.nodes.forEach((n, k) => {
-      const p = applyPoint(T, [n.x, n.y, n.z ?? 0]);
-      const prev = old.nodes[k];
-      if (prev?.owned && modelStore.nodes.has(prev.id)) {
+    g.json.nodes.forEach((_n, k) => {
+      const p = newPts[k]!;
+      const prev = oldByKey.get(newNodeKey[k]!);
+      if (prev) {
+        oldByKey.delete(newNodeKey[k]!);
         modelStore.updateNode(prev.id, p[0], p[1], p[2]);
         nodes.push(prev);
         return;
@@ -155,27 +204,64 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
     });
     const nodeOf = (jsonId: number) => nodes[jsonId - 1]!.id;
 
-    // Old members by role, in order: the new k-th column takes the place of the old k-th column.
-    const pool = new Map<string, Array<{ id: number; sectionId: number; role?: string }>>();
+    // Old members by role and place: a new column takes the place of the old column that was at
+    // the same place of the same level (see placeKeys above).
     const usedOld = new Set<number>();
-    for (const e of old.elements) if (e) (pool.get(e.role ?? '') ?? pool.set(e.role ?? '', []).get(e.role ?? '')!).push(e);
-    const takeOld = (role: string) => {
-      const list = pool.get(role) ?? pool.get('');
-      const next = list?.shift();
-      if (next) usedOld.add(next.id);
-      return next;
+    const midpoint = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.min(a[2], b[2])];
+    const oldMembers = old.elements.flatMap((e) => {
+      const m = e ? modelStore.elements.get(e.id) : undefined;
+      const a = m && modelStore.nodes.get(m.nodeI), b = m && modelStore.nodes.get(m.nodeJ);
+      return e && a && b ? [{ e, role: e.role ?? '', at: midpoint([a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]) }] : [];
+    });
+    const oldMemberByKey = new Map<string, { id: number; sectionId: number; role?: string }>();
+    for (const role of new Set(oldMembers.map((o) => o.role))) {
+      const of = oldMembers.filter((o) => o.role === role);
+      placeKeys(of.map((o) => o.at)).forEach((key, i) => oldMemberByKey.set(`${role}|${key}`, of[i]!.e));
+    }
+    const takeOld = (k: number) => {
+      const key = newMemberKey.get(k);
+      const prev = key !== undefined ? oldMemberByKey.get(key) : undefined;
+      if (!prev) return undefined;
+      oldMemberByKey.delete(key!);
+      usedOld.add(prev.id);
+      return prev;
     };
 
     const elements: GeneratedData['elements'] = [];
     const elementMap = new Map<number, number>();
+    const ownedElements = new Set(old.elements.flatMap((e) => e ? [e.id] : []));
+    const pairKey = (a: number, b: number) => a < b ? `${a}-${b}` : `${b}-${a}`;
+    const existingPairs = new Map([...modelStore.elements.values()]
+      .filter((e) => !ownedElements.has(e.id)).map((e) => [pairKey(e.nodeI, e.nodeJ), e.id]));
+    // Places of the new members this generation will own: one landing on a member it does not
+    // own is shared and has no place, as the old generation's shared members have none.
+    const newMemberKey = new Map<number, string>();
+    const ownsMember = (k: number) => {
+      const e = g.json.elements[k]!, i2 = nodeOf(e.nodeI), j2 = nodeOf(e.nodeJ);
+      return i2 !== j2 && !existingPairs.has(pairKey(i2, j2));
+    };
+    for (const role of new Set(g.json.elements.map((_e, k) => roles[k] ?? ''))) {
+      const ks = g.json.elements.map((_e, k) => k).filter((k) => (roles[k] ?? '') === role && ownsMember(k));
+      const at = ks.map((k) => midpoint(newPts[g.json.elements[k]!.nodeI - 1]!, newPts[g.json.elements[k]!.nodeJ - 1]!));
+      placeKeys(at).forEach((key, i) => newMemberKey.set(ks[i]!, `${role}|${key}`));
+    }
+
     g.json.elements.forEach((e, k) => {
       const role = roles[k] ?? '';
       const src = frag.elements[k]!;
       const i2 = nodeOf(e.nodeI), j2 = nodeOf(e.nodeJ);
+      // Insertion leaves shared members to their existing owner. Regeneration must do the
+      // same, including when two copied frames share a column along their common edge.
+      const existing = existingPairs.get(pairKey(i2, j2));
+      if (i2 === j2 || existing !== undefined) {
+        elements.push(null);
+        if (existing !== undefined) elementMap.set(e.id, existing);
+        return;
+      }
       const a = g.json.nodes[e.nodeI - 1]!, b = g.json.nodes[e.nodeJ - 1]!;
       const o = carriedOrientation(T, src, a, b, modelStore.nodes.get(i2)!, modelStore.nodes.get(j2)!, modelStore.sections.get(secOf(e.sectionId)), false);
       const newSec = secOf(e.sectionId);
-      const prev = takeOld(role);
+      const prev = takeOld(k);
       const cur = prev ? modelStore.elements.get(prev.id) : undefined;
       if (prev && cur) {
         const unedited = cur.sectionId === prev.sectionId;
@@ -187,6 +273,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
         modelStore.updateElement(prev.id, patch);
         elements.push({ id: prev.id, sectionId: unedited ? newSec : prev.sectionId, ...(role ? { role } : {}) });
         elementMap.set(e.id, prev.id);
+        existingPairs.set(pairKey(i2, j2), prev.id);
         out.kept++;
         return;
       }
@@ -194,6 +281,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       modelStore.updateElement(id, { materialId: matOf(e.materialId), sectionId: newSec, ...o.fields });
       elements.push({ id, sectionId: newSec, ...(role ? { role } : {}) });
       elementMap.set(e.id, id);
+      existingPairs.set(pairKey(i2, j2), id);
       out.added++;
     });
     for (const prev of old.elements) {
@@ -217,9 +305,9 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
     // Nodes the old generation owned and the new one does not use.
     const used = new Set<number>();
     for (const el of modelStore.elements.values()) { used.add(el.nodeI); used.add(el.nodeJ); }
-    for (let k = g.json.nodes.length; k < old.nodes.length; k++) {
-      const n = old.nodes[k]!;
-      if (n.owned && modelStore.nodes.has(n.id) && !used.has(n.id)) modelStore.removeNode(n.id);
+    const kept = new Set(nodes.map((n) => n.id));
+    for (const n of old.nodes) {
+      if (n.owned && !kept.has(n.id) && modelStore.nodes.has(n.id) && !used.has(n.id)) modelStore.removeNode(n.id);
     }
 
     modelStore.refreshCanonicalSections();

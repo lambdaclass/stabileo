@@ -304,6 +304,7 @@ fn validation_stiffness_parallel_springs() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![],
         connectors: std::collections::HashMap::new(), };
@@ -371,6 +372,7 @@ fn validation_stiffness_spring_effect() {
         secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
 
         let input = SolverInput {
+            solver_options: None,
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: std::collections::HashMap::new(), };

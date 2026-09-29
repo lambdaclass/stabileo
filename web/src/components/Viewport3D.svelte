@@ -1721,6 +1721,23 @@
   let ghost: PlacementGhost | null = null;
   let ghostFragment: unknown = null;
 
+  /*
+   * The placement target, once per animation frame: every mousemove ran a recursive raycast and
+   * bumped the revision, where the ordinary hover is throttled the same way.
+   */
+  let pendingPlacementHover: MouseEvent | null = null;
+  let placementHoverFrame = 0;
+  function schedulePlacementHover(e: MouseEvent) {
+    pendingPlacementHover = e;
+    if (placementHoverFrame) return;
+    placementHoverFrame = requestAnimationFrame(() => {
+      placementHoverFrame = 0;
+      const ev = pendingPlacementHover;
+      pendingPlacementHover = null;
+      if (ev && placementStore.active && placementStore.follow) placementHover(ev);
+    });
+  }
+
   /** The pointer's target while placing: a node under it, else the snapped working-plane point. */
   function placementHover(e: MouseEvent) {
     const nodeId = findNodeHit(e);
@@ -1739,6 +1756,8 @@
     if (!scene) return;
     if (!placementStore.active || !placementStore.fragment) {
       ghost?.hide();
+      // The next placement sets its fragment again, even if it is this one (a second paste).
+      ghostFragment = null;
       invalidate();
       return;
     }
@@ -2124,7 +2143,8 @@
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      if (moved < 5 && placementStore.follow) { placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
+      // At the click itself, not a frame late.
+      if (moved < 5 && placementStore.follow) { pendingPlacementHover = null; placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
       return;
     }
 
@@ -2665,7 +2685,7 @@
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
 
-    if (placementStore.active) { if (placementStore.follow) placementHover(e); return; }
+    if (placementStore.active) { if (placementStore.follow) schedulePlacementHover(e); return; }
 
     // Schedule the expensive hover/diagram raycast on the next animation frame.
     // During orbit we clear any stale hover and skip entirely — recursive raycasts
@@ -2676,6 +2696,9 @@
     if (draggedNodeId3D !== null && dragStartWorld3D) {
       const newWorld = getGroundIntersection(e);
       if (newWorld) {
+        // The drag works in space coordinates: a standing plane model is
+        // rewritten in them before any node is read (undo was pushed on press).
+        modelStore.ensureSpaceCoordinates();
         const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
         const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
         const delta = snappedVec.clone().sub(dragStartWorld3D);

@@ -39,7 +39,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -50,6 +50,8 @@ import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
 // below), never during module initialisation.
+import { materializeStandingPlaneModel } from './materialize-space';
+import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
@@ -627,7 +629,7 @@ export interface ThermalLoad {
   id: number;
   elementId: number;
   dtUniform: number;  // °C (uniform temperature change)
-  dtGradient: number; // °C (temperature difference top-bottom)
+  dtGradient: number; // °C, ΔT(bottom face) − ΔT(top face), top = drawn local z (the course's ∇T·h)
   caseId?: number;
 }
 
@@ -691,6 +693,12 @@ export interface LoadCase {
   id: number;
   type: LoadCaseType;
   name: string;
+  /**
+   * Cases of one type sharing this key are patterns of one action — the balanced and the
+   * unbalanced snow of one roof — and a combination takes one of them, not their sum
+   * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
+   */
+  alternatives?: string;
 }
 
 export interface LoadCombination {
@@ -2007,8 +2015,26 @@ function createModelStore() {
       model.provenance = { ...model.provenance, status: 'reviewed' as ModelProvenance['status'] };
     },
 
+    /**
+     * Before an edit that makes a standing plane model a space one: rewrite it
+     * in space coordinates as it is shown (materialize-space.ts). A no-op
+     * outside the space workspace, or when the model is not a standing plane one.
+     */
+    ensureSpaceCoordinates(): boolean {
+      if (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro') return false;
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
+      const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
+      if (changed) {
+        modelVersion++;
+        _onMutation?.();
+      }
+      uiStore.useNative3DPresentation();
+      return changed;
+    },
+
     addNode(x: number, y: number, z?: number): number {
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.node++;
       const node: Node = { id, x, y };
       if (z !== undefined && z !== 0) node.z = z;
@@ -2045,11 +2071,27 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
+    /** Reverse a member (I ↔ J) without changing the structure; see reverse-element.ts. */
+    /** `undo: false` when the caller already recorded the step (the member card). */
+    reverseElement(id: number, opts: { undo?: boolean } = {}): void {
+      if (!model.elements.has(id)) return;
+      if (!_undoBatching && opts.undo !== false) _pushUndo?.();
+      modelVersion++;
+      _onMutation?.();
+      reverseElementInModel(model, id, uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+      model.elements = new Map(model.elements);
+    },
+
     updateNodeZ(id: number, z: number): void {
-      const node = model.nodes.get(id);
-      if (node) {
+      if (model.nodes.has(id)) {
         if (!_undoBatching) _pushUndo?.();
-        model.nodes.set(id, { ...node, z });
+        // A depth given to one node of a standing plane model makes it a space
+        // one; without the rewrite every other y is read as a depth and the
+        // frame lies down. In the plane model's coordinates z is the depth, so
+        // after the rewrite it is y.
+        const rewrote = (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates();
+        const node = model.nodes.get(id)!;
+        model.nodes.set(id, rewrote ? { ...node, y: z } : { ...node, z });
         model.nodes = new Map(model.nodes);
       }
     },
@@ -2176,6 +2218,8 @@ function createModelStore() {
 
     addSupport(nodeId: number, type: SupportType, springs?: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }, opts?: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
+      // A space support on a standing plane model makes it a space one.
+      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)) this.ensureSpaceCoordinates();
       // Remove existing support on this node (only one support per node allowed)
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === nodeId) {
@@ -2267,7 +2311,9 @@ function createModelStore() {
     // ─── 3D Load CRUD ─────────────────────────────────────────────
 
     addNodalLoad3D(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number {
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -2278,7 +2324,9 @@ function createModelStore() {
     },
 
     addDistributedLoad3D(elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number {
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
       if (a !== undefined && a > 0) data.a = a;
@@ -2291,7 +2339,9 @@ function createModelStore() {
     },
 
     addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number): number {
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -3078,6 +3128,15 @@ function createModelStore() {
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {
+      // A move in the space workspace is in space coordinates. When this is the
+      // edit that rewrites a standing plane model, the caller read the node
+      // before the rewrite — (x, y, z) in the plane model's own coordinates — so
+      // they are mapped the way the nodes were: (x, y, z) → (x, z, y). Callers
+      // that move several nodes, or that work in space coordinates from the
+      // start (the 3D drag), call ensureSpaceCoordinates() before reading.
+      if ((uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates()) {
+        [y, z] = [z ?? 0, y];
+      }
       const node = model.nodes.get(id);
       if (node) {
         modelVersion++;
@@ -3201,10 +3260,10 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
-    /** True if any element carries a Basic 3D internal joint (released DOF). */
+    /** True if any member end needs helper nodes, including semi-rigid connections. */
     hasJoint3D(): boolean {
       for (const e of model.elements.values()) {
-        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ) || e.semiRigid?.i || e.semiRigid?.j) return true;
       }
       return false;
     },
@@ -3319,10 +3378,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = ''): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
       return id;
     },
 
@@ -3424,6 +3483,23 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
+    },
+
+    /**
+     * The case of this type and name, created when missing — what a load generator applies
+     * into. Its alternatives group is set either way: a case reused from an earlier generation
+     * (or an older project) carried none, and its snow patterns kept adding up.
+     */
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
+        ?? model.loadCases.find((c) => c.type === type && c.name === name);
+      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
+      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+        if (!_undoBatching) _pushUndo?.();
+        found.alternatives = opts.alternatives;
+        model.loadCases = [...model.loadCases];
+      }
+      return found.id;
     },
 
     updateLoadCase(id: number, name: string): void {

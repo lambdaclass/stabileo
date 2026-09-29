@@ -115,3 +115,28 @@ describe('pushover curve', () => {
     expect(pts).toEqual([[0, 0, 0.8], [0, 0, 9.2]]);
   });
 });
+
+describe('pushover with stiffness modifiers', () => {
+  it('the modified columns still form hinges: the sway mechanism does not depend on stiffness', async () => {
+    const { withSolveSections } = await import('../member-behaviour');
+    const { res: plain } = portal();
+    for (const id of [1, 3]) modelStore.updateElement(id, { stiffness: { preset: 'column', iy: 0.7, iz: 0.7 } } as never);
+    const input = buildSolverInput3D({
+      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+      quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
+      connectors: modelStore.connectors,
+    } as never, false, false, { expandMemberOffsets: false })!;
+    expect(input.elements.get(1)!.sectionId).not.toBe(1);
+    const I = 1e-4;
+    const res = solvePlastic3D({
+      solver: input,
+      sections: withSolveSections({ 1: { a: 0.005, iy: I, iz: I, materialId: 1 } }, input, modelStore.elements),
+      materials: { 1: { fy: 250 } },
+      maxHinges: 20,
+      mpOverrides: withSolveSections({ 1: [MP, MP] as [number, number] }, input, modelStore.elements),
+    });
+    expect(res.hinges.some((h: { elementId: number }) => h.elementId === 1 || h.elementId === 3)).toBe(true);
+    expect(res.collapseFactor).toBeCloseTo(plain.collapseFactor, 1);
+  });
+});

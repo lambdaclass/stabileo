@@ -68,3 +68,70 @@ describe('an imposed settlement in a combination', () => {
     });
   }
 });
+
+describe('an imposed settlement in a 2D combination', () => {
+  beforeEach(() => { uiStore.analysisMode = '2d'; });
+
+  it('is applied once too', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), m = modelStore.addNode(L, 0), c = modelStore.addNode(2 * L, 0);
+    const e1 = modelStore.addElement(a, m, 'frame'), e2 = modelStore.addElement(m, c, 'frame');
+    modelStore.addSupport(a, 'pinned');
+    modelStore.addSupport(m, 'rollerX', undefined, { dz: SETTLE });
+    modelStore.addSupport(c, 'rollerX');
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    const d = modelStore.addLoadCase('D', 'D'), l = modelStore.addLoadCase('L', 'L');
+    for (const e of [e1, e2]) modelStore.addDistributedLoad(e, -10, -10, undefined, undefined, d);
+    modelStore.addDistributedLoad(e1, -5, -5, undefined, undefined, l);
+    const k = modelStore.addCombination('1.2D + 1.6L', [{ caseId: d, factor: 1.2 }, { caseId: l, factor: 1.6 }]);
+    const r = modelStore.solveCombinations(false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    // Not 2.8 × 10 mm at the settled support.
+    expect(uz(r.perCombo.get(k)! as never, m)).toBeCloseTo(SETTLE, 9);
+  });
+});
+
+describe('the 2D settlement case', () => {
+  beforeEach(() => { uiStore.analysisMode = '2d'; });
+
+  it('is solved on the same structure as the load cases: a sliding joint included', async () => {
+    const { validateAndSolve2D } = await import('../solver-service');
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), m = modelStore.addNode(L, 0), c = modelStore.addNode(2 * L, 0);
+    const e1 = modelStore.addElement(a, m, 'frame'), e2 = modelStore.addElement(m, c, 'frame');
+    // The first span slides vertically where it meets the settled support.
+    modelStore.updateElement(e1, { releaseJ: { mz: false, slide: 'z', slideAxis: 'global' } } as never);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addSupport(m, 'rollerX', undefined, { dz: SETTLE });
+    modelStore.addSupport(c, 'rollerX');
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    const d = modelStore.addLoadCase('D', 'D');
+    modelStore.addDistributedLoad(e2, -10, -10, undefined, undefined, d);
+    modelStore.addCombination('1.2D', [{ caseId: d, factor: 1.2 }]);
+    const r = modelStore.solveCombinations(false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const alone = validateAndSolve2D({ ...modelStore.model, loads: [] } as never, false);
+    if (!alone || typeof alone === 'string') throw new Error(String(alone));
+    const ry = (x: { reactions: Array<{ nodeId: number; rz?: number; rx?: number; my?: number }> }, n: number) => x.reactions.find((q) => q.nodeId === n);
+    expect(ry(r.perCase.get(SETTLEMENT_CASE_ID)! as never, a)).toEqual(ry(alone as never, a));
+  });
+});
+
+describe('a settlement in the Advanced multi-case solve', () => {
+  it('is applied once, as in the combination solve', async () => {
+    const { buildSolverInput3D } = await import('../solver-service');
+    const { solveMultiCase3D, solve3D } = await import('../wasm-solver');
+    const { addSettlementToMultiCase3D, withoutSettlement } = await import('../settlement-case');
+    uiStore.analysisMode = 'pro';
+    beam();
+    const input = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.supports) } as never, false, false)!;
+    const loadsOf = (id: number) => buildSolverInput3D({ ...modelStore.model, loads: modelStore.model.loads.filter((l) => (l.data as { caseId?: number }).caseId === id) } as never, false, false)!.loads;
+    const combos = [{ name: '1.2D + 1.6L', factors: { D: 1.2, L: 1.6 } }];
+    const r = solveMultiCase3D({ solver: input, loadCases: [{ name: 'D', loads: loadsOf(dead) }, { name: 'L', loads: loadsOf(live) }], combinations: combos });
+    const settle = solve3D({ ...buildSolverInput3D(modelStore.model as never, false, false)!, loads: [] });
+    if (typeof settle === 'string') throw new Error(settle);
+    const out = addSettlementToMultiCase3D(r, settle, combos, 'Settlement');
+    expect(out.caseResults.map((c: { name: string }) => c.name)).toEqual(['D', 'L', 'Settlement']);
+    expect(uz(out.combinationResults[0].results, mid)).toBeCloseTo(SETTLE, 9);
+  });
+});

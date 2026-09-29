@@ -24,6 +24,7 @@
 
 import type { AnalysisResults3D } from './types-3d';
 import type { Quantity } from '../utils/units';
+import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { extractForcesAtStation } from './station-forces';
 
@@ -198,6 +199,7 @@ export function whereOf(r: { entity: number; end?: 'i' | 'j'; x?: number }, stat
 
 /** A table as CSV, first line a header. Values are written in full precision. */
 export function toCsv(header: readonly string[], rows: ReadonlyArray<ReadonlyArray<string | number>>): string {
-  const cell = (v: string | number) => (typeof v === 'number' ? String(v) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  return [header, ...rows].map((r) => r.map(cell).join(',')).join('\n');
+  // csvCell also neutralises formula injection: case and combination names are user-editable
+  // and travel in shared .ded files, and a spreadsheet evaluates a cell starting with = + - @.
+  return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n');
 }

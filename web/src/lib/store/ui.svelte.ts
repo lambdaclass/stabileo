@@ -38,6 +38,13 @@ export type TouchDensity = 'compact' | 'comfortable';
  * because this store cannot import that module without closing an import cycle.
  */
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
+
+/** The four modes the app has. */
+export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
+export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
+export function isAnalysisMode(v: unknown): v is AnalysisMode {
+  return (ANALYSIS_MODES as readonly unknown[]).includes(v);
+}
 export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
@@ -430,7 +437,7 @@ function createUIStore() {
   let liveCalcError = $state<string | null>(null);
 
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
-  let analysisMode = $state<'2d' | '3d' | 'pro' | 'edu'>('2d');
+  let analysisMode = $state<AnalysisMode>('2d');
 
   // 2D drawing plane: controls which 3D plane is shown in 2D mode.
   // 'xy' = default 2D convention (X horizontal, Y vertical)
@@ -1009,7 +1016,12 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
-    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') {
+    set analysisMode(v: AnalysisMode) {
+      // The union says nothing at runtime, and the value often comes from outside
+      // the program (a link, a .ded, an autosave, a tab). Every reader compares it
+      // with `===`, so a string outside the union would leave the app in none of
+      // its modes: keep the current one instead.
+      if (!isAnalysisMode(v)) return;
       analysisMode = v;
       // When switching into a 3D-capable mode with a flat 2D model already loaded,
       // keep the model upright in the XZ plane instead of dropping it flat on XY.

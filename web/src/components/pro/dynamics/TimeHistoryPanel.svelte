@@ -36,15 +36,45 @@
   // The run as project data: read from the model, written back (coalesced) as it is edited.
   let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(modelStore.dynamics?.timeHistory ?? defaultTimeHistory())));
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const storedSpec = () => JSON.stringify(modelStore.dynamics?.timeHistory ?? defaultTimeHistory());
+  let observed = storedSpec();
+  let pending: string | null = null;
+  function cancelSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    pending = null;
+  }
+  function save(snapshot: string) {
+    cancelSave();
+    observed = snapshot;
+    if (snapshot !== storedSpec()) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) });
+  }
+  // Undo, redo and project loading replace the stored spec without editing this component.
+  $effect(() => {
+    const snapshot = storedSpec();
+    untrack(() => {
+      if (snapshot === observed) return;
+      cancelSave();
+      observed = snapshot;
+      spec = JSON.parse(snapshot);
+    });
+  });
   $effect(() => {
     const snapshot = JSON.stringify(spec);
     untrack(() => {
-      if (snapshot === JSON.stringify(modelStore.dynamics?.timeHistory ?? null)) return;
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) }), 600);
+      cancelSave();
+      if (snapshot === observed) return;
+      pending = snapshot;
+      saveTimer = setTimeout(() => save(snapshot), 600);
     });
   });
-  onDestroy(() => { if (saveTimer) { clearTimeout(saveTimer); modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) }); } });
+  onDestroy(() => {
+    // Flush only an unsaved edit of the same project state. Never overwrite an undo/load
+    // that happened just before destruction, before the synchronisation effect could run.
+    const snapshot = pending;
+    cancelSave();
+    if (snapshot !== null && storedSpec() === observed) save(snapshot);
+  });
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
@@ -71,7 +101,7 @@
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);
-      modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) });
+      save(JSON.stringify(spec));
     } catch (e) {
       onError(`${t('pro.th.title')}: ${errorText(e, 'Error')}`);
     } finally {
