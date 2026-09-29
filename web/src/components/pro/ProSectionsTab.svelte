@@ -6,6 +6,18 @@
   import { toSectionFields, type SectionChoice } from '../../lib/section/section-choice';
   import { resolveDrawingGeometry as drawingGeometry } from '../../lib/section/drawing';
   import { solverProperties } from '../../lib/section/state';
+  import ProShearAreas from './section/ProShearAreas.svelte';
+  import { geometricShearAreas } from '../../lib/section/shear-areas';
+
+  /** Every section whose shape gives shear areas deforms in shear, or none does. One undo step. */
+  function shearForAll(on: boolean) {
+    modelStore.batch(() => {
+      for (const s of modelStore.sections.values()) {
+        if (on && !s.shearAreas && geometricShearAreas(s)) modelStore.updateSection(s.id, { shearAreas: { basis: 'geometry' } });
+        if (!on && s.shearAreas) modelStore.updateSection(s.id, { shearAreas: undefined });
+      }
+    });
+  }
 
   /** Which section's detail is open. One at a time: it is a lot of numbers. */
   let expandedId = $state<number | null>(null);
@@ -166,6 +178,11 @@
   <div class="sec-list">
     <div class="sec-list-header">
       <span class="sec-count">{t('pro.nSections').replace('{n}', String(sections.length))}</span>
+      <span class="sec-shear-all">
+        {t('shear.all')}
+        <button type="button" onclick={() => shearForAll(true)} data-testid="sec-shear-all-on">{t('shear.allOn')}</button>
+        <button type="button" onclick={() => shearForAll(false)} data-testid="sec-shear-all-off">{t('shear.allOff')}</button>
+      </span>
     </div>
     <div class="sec-table-wrap">
       <!--
@@ -223,6 +240,7 @@
                           <span title={row.note ?? ''}>{row.value}</span>
                         </div>
                       {/each}
+                      <ProShearAreas section={s} />
                     </div>
                   </div>
                 </td>
@@ -246,6 +264,8 @@
 />
 
 <style>
+  .sec-shear-all { display: flex; gap: 4px; align-items: center; margin-left: auto; font-size: 0.62rem; color: var(--st-text-3); }
+  .sec-shear-all button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
   /* ── The detail, in Basic's visual language ────────────────────── */
   .col-actions { text-align: right; white-space: nowrap; }
 

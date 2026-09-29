@@ -213,3 +213,125 @@ describe('accelerograms', () => {
     expect(Math.abs(ux[nSteps - 1])).toBe(0);
   });
 });
+
+describe('modes until 90 % of the mass', () => {
+  // A fake model whose k-th mode carries 30 %, 20 %, 15 %, … of the mass in both directions.
+  const shares = [0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01, 0.01];
+  const solve = (n: number) => ({ modes: shares.slice(0, n).map((f) => ({ massRatioX: f, massRatioY: f })) });
+
+  it('doubles until both directions pass the target', async () => {
+    const { modalUntilMass } = await import('../dynamics/requests');
+    const r = modalUntilMass(solve, 2);
+    // 2 → 4 (75 %) → 8 (96 %).
+    expect(r.modes).toBe(8);
+    expect(r.reached).toBe(true);
+    expect(r.x).toBeCloseTo(0.96, 9);
+  });
+
+  it('stops when the model has no more modes, and says it fell short', async () => {
+    const { modalUntilMass } = await import('../dynamics/requests');
+    const short = (n: number) => ({ modes: shares.slice(0, Math.min(n, 3)).map((f) => ({ massRatioX: f, massRatioY: f })) });
+    const r = modalUntilMass(short, 2);
+    expect(r.modes).toBe(3);
+    expect(r.reached).toBe(false);
+  });
+});
+
+describe('time history as project data', () => {
+  const peak = (a: number[]) => Math.max(...a.map(Math.abs));
+  const girder = (res: any) => res.nodeHistories.find((h: any) => h.nodeId === 2);
+
+  it('sends the defaults shown after selecting a harmonic direction and preserves custom values', async () => {
+    const { withGroundSource, timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y = withGroundSource(spec.ground.y, 'sine');
+    const fields = timeHistoryInput(spec, new Map(), null);
+    expect(fields.groundAccelY).toEqual(fields.groundAccelX);
+    spec.ground.y.sine = { ampG: 0.1, freqHz: 4 };
+    expect(withGroundSource(withGroundSource(spec.ground.y, 'none'), 'sine').sine).toEqual({ ampG: 0.1, freqHz: 4 });
+  });
+
+  it('initialises a selected spectrum record without requiring a parameter edit', async () => {
+    const { withGroundSource, timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y = withGroundSource(spec.ground.y, 'spectrum');
+    expect(spec.ground.y.spectrum).toEqual({ seed: 1, duration: 20 });
+    const fields = timeHistoryInput(spec, new Map(), () => 0.3);
+    expect((fields.groundAccelY as number[]).some((v) => Math.abs(v) > 0)).toBe(true);
+  });
+
+  it.each(['sine', 'record', 'spectrum'] as const)('refuses incomplete %s data even when another direction can run', async (source) => {
+    const { timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y.source = source;
+    expect(() => timeHistoryInput(spec, new Map(), () => 0.3)).toThrow('Missing ground motion data for Y');
+  });
+
+  it('scales each direction, and a direction set to none sends nothing', async () => {
+    const { groundSeries, emptyGround } = await import('../dynamics/time-history-spec');
+    const g = { source: 'sine' as const, scale: 1, sine: { ampG: 0.2, freqHz: 1.5 } };
+    const base = groundSeries(g, 0.01, 50, null)!;
+    const twice = groundSeries({ ...g, scale: 2 }, 0.01, 50, null)!;
+    expect(base.length).toBe(51);
+    twice.forEach((v, k) => expect(v).toBeCloseTo(2 * base[k]!, 12));
+    expect(groundSeries(emptyGround(), 0.01, 50, null)).toBeNull();
+    // Spectrum-compatible without a spectrum to match: nothing, not a zero record.
+    expect(groundSeries({ source: 'spectrum', scale: 1, spectrum: { seed: 1, duration: 5 } }, 0.01, 50, null)).toBeNull();
+  });
+
+  it('writes the nodal forces at each step, summed per node', async () => {
+    const { forceRecords } = await import('../dynamics/time-history-spec');
+    const r = forceRecords([
+      { nodeId: 2, dir: 'x', kind: 'step', amplitude: 10, from: 0.02 },
+      { nodeId: 2, dir: 'x', kind: 'sine', amplitude: 4, freqHz: 5 },
+      { nodeId: 3, dir: 'z', kind: 'step', amplitude: -3 },
+    ], 0.01, 5)!;
+    expect(r.length).toBe(6);
+    expect(r[1]!.loads.find((l) => l.nodeId === 2)!.fx).toBeCloseTo(4 * Math.sin(2 * Math.PI * 5 * 0.01), 12);
+    expect(r[2]!.loads.find((l) => l.nodeId === 2)!.fx).toBeCloseTo(10 + 4 * Math.sin(2 * Math.PI * 5 * 0.02), 12);
+    expect(r[0]!.loads.find((l) => l.nodeId === 3)!.fz).toBe(-3);
+    expect(forceRecords([], 0.01, 5)).toBeUndefined();
+  });
+
+  it('runs X and Y at once: each direction answers as it does alone', async () => {
+    const { timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const { input, densities } = sdofFrame();
+    const sine = (ampG: number, freqHz: number) => ({ source: 'sine' as const, scale: 1, sine: { ampG, freqHz } });
+    const none = { source: 'none' as const, scale: 1 };
+    const spec = (x: any, y: any) => ({ ...defaultTimeHistory(), dt: 0.005, nSteps: 200, damping: 0.02, ground: { x, y, z: none } });
+    const run = (s: any) => girder(solveTimeHistory3D({ solver: input, ...timeHistoryInput(s, densities, null) } as never));
+    const xOnly = run(spec(sine(0.2, 2), none));
+    const yOnly = run(spec(none, sine(0.1, 3)));
+    const both = run(spec(sine(0.2, 2), sine(0.1, 3)));
+    expect(peak(xOnly.ux)).toBeGreaterThan(0);
+    expect(peak(yOnly.uy)).toBeGreaterThan(0);
+    // A linear model: the two directions superpose.
+    both.ux.forEach((v: number, k: number) => expect(v).toBeCloseTo(xOnly.ux[k] + yOnly.ux[k], 9));
+    both.uy.forEach((v: number, k: number) => expect(v).toBeCloseTo(xOnly.uy[k] + yOnly.uy[k], 9));
+  });
+
+  it('a suddenly applied force doubles the static displacement, with no ground motion', async () => {
+    const { timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const { input, densities } = sdofFrame();
+    const T = swayModeX(solveModal3D(input as never, densities, 4)).period;
+    const k = GIRDER_MASS_T * (2 * Math.PI / T) ** 2;
+    const F = 50;
+    const none = { source: 'none' as const, scale: 1 };
+    const dt = T / 80;
+    const s = {
+      ...defaultTimeHistory(), dt, nSteps: 240, damping: 0.001,
+      ground: { x: none, y: none, z: none },
+      forces: [{ nodeId: 2, dir: 'x' as const, kind: 'step' as const, amplitude: F }],
+    };
+    const fields = timeHistoryInput(s, densities, null);
+    expect(fields.groundAccelX).toBeUndefined();
+    const ux = girder(solveTimeHistory3D({ solver: input, ...fields } as never)).ux;
+    expect(peak(ux) / (F / k)).toBeCloseTo(2, 1);
+  });
+
+  it('refuses a run with neither ground motion nor forces', async () => {
+    const { timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const none = { source: 'none' as const, scale: 1 };
+    expect(() => timeHistoryInput({ ...defaultTimeHistory(), ground: { x: none, y: none, z: none } }, new Map(), null)).toThrow();
+  });
+});

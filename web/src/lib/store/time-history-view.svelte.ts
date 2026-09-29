@@ -6,6 +6,9 @@
  * step index, and produces the displacement field at that step in the shape the 3D deformed-shape
  * renderer already draws.
  *
+ * A pushover's steps are shown through it too, as frames indexed by step (`pushover-curve.ts`):
+ * `source` says whose frames these are, so each panel reads only its own.
+ *
  * Its own store, not a slot in `resultsStore`: scrubbing is not a solve, and `setResults3D` resets
  * the deformed scale and counts as a structural solve. Nothing here touches the static results.
  */
@@ -30,6 +33,7 @@ export interface TimeHistoryResult3D {
 function createTimeHistoryView() {
   // Raw: nodes × 12 series × steps is too much to proxy, and it is only ever replaced whole.
   let result = $state.raw<TimeHistoryResult3D | null>(null);
+  let source = $state<'timeHistory' | 'pushover'>('timeHistory');
   /** The model version the result describes; a scrub over an edited model would be a lie. */
   let modelVersion = $state<number | null>(null);
   let step = $state(0);
@@ -62,6 +66,7 @@ function createTimeHistoryView() {
 
   return {
     get result() { return result; },
+    get source() { return source; },
     get modelVersion() { return modelVersion; },
     get step() { return step; },
     get shown() { return shown; },
@@ -70,9 +75,10 @@ function createTimeHistoryView() {
     get lastStep() { return Math.max(0, (result?.timeSteps.length ?? 1) - 1); },
     get time() { return result?.timeSteps[step] ?? 0; },
 
-    set(r: TimeHistoryResult3D, version: number) {
+    set(r: TimeHistoryResult3D, version: number, from: 'timeHistory' | 'pushover' = 'timeHistory') {
       stop();
       result = r;
+      source = from;
       peak = peakOf(r);
       modelVersion = version;
       step = 0;
@@ -80,6 +86,7 @@ function createTimeHistoryView() {
     clear() {
       stop();
       result = null;
+      source = 'timeHistory';
       peak = 0;
       modelVersion = null;
       step = 0;

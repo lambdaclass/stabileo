@@ -18,6 +18,7 @@
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
 import { WELD_TOL } from '../../engine/mesh-weld';
+import { generatedMetadata } from './generated-metadata';
 
 /* One tolerance for "two nodes in one place", defined in engine/mesh-weld so the
  * diagnostics that flag it and this command that repairs it can never disagree. */
@@ -100,6 +101,14 @@ export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupR
     }));
     modelStore.remapNodeReferences(new Map(to));
     for (const g of modelStore.model.groups.values()) {
+      const data = generatedMetadata(g);
+      if (data && data.nodes.some((n) => to.has(n.id))) {
+        const owned = new Set(data.nodes.filter((n) => n.owned).map((n) => n.id));
+        const nodes = data.nodes.map((n) => ({ id: r(n.id), owned: n.owned && owned.has(r(n.id)) }));
+        modelStore.setGroupData(g.id, { ...data, nodes });
+        modelStore.setGroupMembers(g.id, { ...g.members, nodes: [...new Set(nodes.filter((n) => n.owned).map((n) => n.id))] });
+        continue;
+      }
       if (g.members.nodes?.some((n) => to.has(n))) {
         modelStore.setGroupMembers(g.id, { ...g.members, nodes: [...new Set(g.members.nodes.map(r))] });
       }

@@ -1,7 +1,11 @@
 <script lang="ts">
-  import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
+  import { modelStore, uiStore, resultsStore } from '../lib/store';
   import { mapIfcToModel, type IfcMember, type IfcMappingResult } from '../lib/ifc/ifc-mapper';
   import { t } from '../lib/i18n';
+  import { fragmentFromIfc } from '../lib/ifc/ifc-fragment';
+  import { insertFragment } from '../lib/model/edit/transformed-copy';
+  import { IDENTITY } from '../lib/model/edit/affine';
+  import { placementStore } from '../lib/store/placement.svelte';
 
   let { open = false, file = null as File | null, onclose = (() => {}) as () => void } = $props();
 
@@ -75,74 +79,30 @@
     }
   }
 
+  const hasModel = $derived(modelStore.nodes.size > 0 || modelStore.elements.size > 0);
+
+  /** Replace the open model with the file, as one undo step. */
   function handleImport() {
     if (!mappingResult) return;
     const m = mappingResult;
-
     // The import replaces the open model: it is asked, not done.
-    const hasModel = modelStore.nodes.size > 0 || modelStore.elements.size > 0;
     if (hasModel && !confirm(t('ifc.replaceConfirm'))) return;
-
-    historyStore.pushState();
-    modelStore.clear();
+    modelStore.batch(() => {
+      modelStore.clear();
+      modelStore.model.name = fileName.replace(/\.ifc$/i, '') || modelStore.model.name;
+      insertFragment(fragmentFromIfc(m), [{ A: IDENTITY, t: [0, 0, 0] }]);
+    });
     resultsStore.clear();
-    modelStore.model.name = fileName.replace(/\.ifc$/i, '') || modelStore.model.name;
-
-    // Map temp IDs to real node IDs
-    const idMap = new Map<number, number>();
-    for (const n of m.nodes) {
-      const realId = modelStore.addNode(n.x, n.y, n.z);
-      idMap.set(n.id, realId);
-    }
-
-    // Add materials
-    const matIds: number[] = [];
-    for (const mat of m.materials) {
-      const id = modelStore.addMaterial({
-        name: mat.name,
-        e: mat.e,
-        nu: mat.nu,
-        rho: mat.rho,
-      });
-      matIds.push(id);
-    }
-
-    // Add sections
-    const secIds: number[] = [];
-    for (const sec of m.sections) {
-      const id = modelStore.addSection({
-        name: sec.name,
-        a: sec.a,
-        iz: sec.iz,
-        iy: sec.iy,
-        j: sec.j,
-        h: sec.h,
-        b: sec.b,
-        tw: sec.tw,
-        tf: sec.tf,
-        t: sec.t,
-        shape: sec.shape as any,
-        ...(sec.profileFamily ? { profileFamily: sec.profileFamily } : {}),
-      });
-      secIds.push(id);
-    }
-
-    // Each element with its own material and section.
-    for (const e of m.elements) {
-      const ni = idMap.get(e.nodeI)!;
-      const nj = idMap.get(e.nodeJ)!;
-      const eid = modelStore.addElement(ni, nj, e.type);
-      const matId = matIds[e.material] ?? matIds[0];
-      const secId = secIds[e.section] ?? secIds[0];
-      if (matId !== undefined) modelStore.updateElementMaterial(eid, matId);
-      if (secId !== undefined) modelStore.updateElementSection(eid, secId);
-    }
-
     // IFC is imported in PRO and stays there. Setting the mode to '3d' here used to switch the
     // app to Basic — its ribbon, its panel and its URL — with the PRO button left unresponsive.
-
     uiStore.toast(t('ifc.imported').replace('{n}', String(m.nodes.length)).replace('{e}', String(m.elements.length)), 'success');
+    onclose();
+  }
 
+  /** Insert the file into the open model with the ghost: pick where it goes, welds included. */
+  function handleInsert() {
+    if (!mappingResult) return;
+    placementStore.start({ fragment: fragmentFromIfc(mappingResult), label: fileName || 'IFC' });
     onclose();
   }
 </script>
@@ -239,12 +199,23 @@
 
       <div class="ifc-footer">
         <button class="ifc-btn-cancel" onclick={onclose}>{t('ifc.cancel')}</button>
+        {#if hasModel}
+          <button
+            class="ifc-btn-import"
+            disabled={!mappingResult || mappingResult.elements.length === 0}
+            onclick={handleInsert}
+            data-testid="ifc-insert"
+          >
+            {t('import.insertIntoModel')}
+          </button>
+        {/if}
         <button
-          class="ifc-btn-import"
+          class={hasModel ? 'ifc-btn-cancel' : 'ifc-btn-import'}
           disabled={!mappingResult || mappingResult.elements.length === 0}
           onclick={handleImport}
+          data-testid="ifc-replace"
         >
-          {t('ifc.importModel')}
+          {hasModel ? t('import.replaceModel') : t('ifc.importModel')}
         </button>
       </div>
     </div>

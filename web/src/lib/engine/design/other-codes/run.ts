@@ -94,9 +94,11 @@ export function runOtherCode(code: OtherCode, contexts: MemberContext[]): OtherC
       forces: batch.map((r) => code.forces(r.ctx, r.ctx.demands[k]!, r.base)),
     });
     if (!results) return { code: code.id, rows: [...rows.values()], errorKey: 'otherCodes.error.engine' };
+    // By id, once per round: a scan of the batch per result was quadratic in the members.
+    const byId = new Map(batch.map((b) => [b.ctx.elementId, b]));
     for (const res of results as Array<Record<string, unknown>>) {
       const id = Number(res.elementId);
-      const r = batch.find((b) => b.ctx.elementId === id);
+      const r = byId.get(id);
       if (!r) continue;
       const reading = code.read(res);
       keep(id, r.extra.length ? { ...reading, unevaluated: [...reading.unevaluated, ...r.extra] } : reading, r.ctx, k);

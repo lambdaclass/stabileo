@@ -12,6 +12,16 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import type { ModelGroup, GroupMembers } from '../../lib/store/model.svelte';
+  import { placementStore } from '../../lib/store/placement.svelte';
+  import { detach, fragmentOf } from '../../lib/model/edit/fragment';
+
+  /** Place a copy of the group with the ghost: its members, their supports and loads. */
+  function placeCopy(g: ModelGroup) {
+    const frag = detach(fragmentOf({
+      nodes: g.members.nodes ?? [], elements: g.members.elements ?? [], quads: g.members.quads ?? [], plates: g.members.plates ?? [],
+    }, { withLoads: true, withSupports: true }));
+    placementStore.start({ fragment: frag, label: tp('groups.placeCopyOf', { name: g.name }) });
+  }
 
   const EDITABLE = new Set(['selection', 'floor']);
 
@@ -100,7 +110,7 @@
             {:else}
               <button class="gp-title" onclick={() => select(g)} title={t('groups.selectMembers')}>{g.name}</button>
             {/if}
-            <span class="gp-kind">{editable ? t(`groups.kind.${g.kind}`) : g.kind}</span>
+            <span class="gp-kind">{editable || g.kind === 'generated' ? t(`groups.kind.${g.kind}`) : g.kind}</span>
             <span class="gp-count">{tp('groups.members', { n: count(g) })}</span>
           </div>
           {#if editable}
@@ -108,9 +118,13 @@
               <button class="pk-btn" onclick={() => { renaming = g.id; renameText = g.name; }}>{t('groups.rename')}</button>
               <button class="pk-btn" onclick={() => combine(g, 'add')} disabled={selectionSize === 0}>{t('groups.addSelection')}</button>
               <button class="pk-btn" onclick={() => combine(g, 'remove')} disabled={selectionSize === 0}>{t('groups.removeSelection')}</button>
+              <button class="pk-btn" onclick={() => placeCopy(g)} data-testid="gp-place-{g.id}">{t('groups.placeCopy')}</button>
               <button class="pk-btn gp-del" onclick={() => modelStore.removeGroup(g.id)}>{t('groups.delete')}</button>
             </div>
           {:else}
+            <div class="gp-actions">
+              <button class="pk-btn" onclick={() => placeCopy(g)} data-testid="gp-place-{g.id}">{t('groups.placeCopy')}</button>
+            </div>
             <p class="pk-hint">{t('groups.readOnly')}</p>
           {/if}
         </li>

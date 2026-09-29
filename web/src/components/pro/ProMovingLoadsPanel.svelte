@@ -10,6 +10,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { downloadText } from '../../lib/store/file';
+  import { errorText } from '../../lib/utils/error-text';
   import { toCsv } from '../../lib/engine/result-tables';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
   import { withoutSettlement } from '../../lib/engine/settlement-case';
@@ -46,7 +47,13 @@
     // The train alone: a support settlement is not part of a moving-load envelope, and solving
     // every position on the settled supports mixed its forces into every peak. The project's
     // axis convention, as the other solves use it.
-    const base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
+    let base: ReturnType<typeof buildSolverInput3D>;
+    try {
+      base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
+    } catch (e) {
+      // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
+      error = errorText(e, 'Error'); return;
+    }
     if (!base) { error = t('moving.noModel'); return; }
     const path = buildPath3D(base, pathIds);
     if (!path) { error = t('moving.notAChain'); return; }

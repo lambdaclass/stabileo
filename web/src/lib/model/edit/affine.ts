@@ -141,10 +141,26 @@ export function repeatOffsets(d: Vec3, count: number, spacings?: readonly number
   return spacings.map((s) => { at += s; return [u[0] * at, u[1] * at, u[2] * at] as Vec3; });
 }
 
-/** Spacings typed as "6; 7,5; 6" or "6 7.5 6": positive numbers, or null when any is not. */
+/**
+ * Spacings typed as "6; 7,5; 6", "6 7.5 6", "6, 7, 6" or "3x6" / "3 x 6" (three of 6): positive
+ * lengths, or null when any part is not one. A decimal comma is a decimal point ("7,5"), so a
+ * comma separates parts only when a space or the end follows it; parts are otherwise separated
+ * by semicolons, spaces or slashes.
+ */
 export function parseSpacings(text: string): number[] | null {
-  const parts = text.split(/[;\s]+/).map((x) => x.trim()).filter(Boolean);
+  const normal = text
+    .replace(/(\d)\s*([x*×])\s*(?=[\d.,])/gi, '$1$2') // "3 x 6" is one part, "3x6"
+    .replace(/,(?=\s|$)/g, ' ');                       // "6, 7, 6": the comma of a list
+  const parts = normal.trim().split(/[;\s/]+/).filter(Boolean);
   if (parts.length === 0) return null;
-  const out = parts.map((x) => Number(x.replace(',', '.')));
-  return out.every((v) => Number.isFinite(v) && v > 0) ? out : null;
+  const out: number[] = [];
+  for (const p of parts) {
+    const m = /^(?:(\d+)\s*[x*×])?(\d+(?:[.,]\d+)?|[.,]\d+)$/i.exec(p);
+    if (!m) return null;
+    const n = m[1] ? Number(m[1]) : 1;
+    const v = Number(m[2]!.replace(',', '.'));
+    if (!Number.isFinite(v) || !(v > 0) || n < 1 || n > 200) return null;
+    for (let i = 0; i < n; i++) out.push(v);
+  }
+  return out;
 }

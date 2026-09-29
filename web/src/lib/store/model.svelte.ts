@@ -138,6 +138,12 @@ export interface Section {
   j?: number;   // m⁴ — torsional constant Saint-Venant (3D only)
   rotation?: number;  // degrees — rotation of section profile around bar axis (0-360)
   /**
+   * Shear areas, so members deform in shear too (`section/shear-areas.ts`): from the geometry,
+   * always recomputed, or declared. Absent: flexural only, which is how every section solved
+   * before this existed.
+   */
+  shearAreas?: import('../section/shear-areas').ShearAreaSpec;
+  /**
    * Which catalogue family this section was picked from (IPE, W, UPN...).
    *
    * Same reasoning as `Material.gradeId`: recorded at selection time, never
@@ -483,6 +489,12 @@ export interface Element extends Element3DMetadata {
   jointJ?: Joint3D;
   // PRO: provided reinforcement for RC design verification
   reinforcement?: ProvidedReinforcement;
+  /** Inactive, tension only or compression only (`engine/member-behaviour.ts`). Absent: linear. */
+  behaviour?: import('../engine/member-behaviour').MemberBehaviour;
+  /** Factors on A, Iy, Iz and J for the analysis only; the section itself is not changed. */
+  stiffness?: import('../engine/member-behaviour').StiffnessModifiers;
+  /** Semi-rigid ends: rotational stiffness about local y and z, kN·m/rad (`engine/expand-semi-rigid-3d.ts`). */
+  semiRigid?: import('../engine/expand-semi-rigid-3d').SemiRigid;
   /**
    * The curve this member belongs to, when it was drawn as one.
    *
@@ -531,6 +543,13 @@ export interface Support {
   id: number;
   nodeId: number;
   type: SupportType;
+  /** Holds the node down, never up: released where its reaction would pull (`engine/member-behaviour.ts`). */
+  uplift?: boolean;
+  /**
+   * Multilinear springs: force against displacement per global direction, [m, kN] pairs from the
+   * origin, the same both ways. Solved by the engine's soil-structure iteration.
+   */
+  curves?: Partial<Record<'x' | 'y' | 'z', Array<[number, number]>>>;
   kx?: number; // kN/m
   ky?: number; // kN/m
   kz?: number; // kN·m/rad (2D rotation spring / 3D rotation-Z spring)
@@ -683,7 +702,7 @@ export interface LoadCombination {
  *
  * ── Why this is one schema and not several ─────────────────────────
  *
- * The model carries no storeys, no grid lines and no user groups: `member-grouping.ts`
+ * Before groups the model carried no storeys and no user sets: `member-grouping.ts`
  * DERIVES its bands from coordinates and refuses the grouping when the geometry cannot
  * support one honestly. That is the right answer for something nobody stated, and the
  * wrong one for something a user did state.
@@ -793,6 +812,10 @@ export interface StructureModel {
   combinationRules?: CombinationRule[];
   /** Named camera views, to come back to a part of the model. Absent: none saved. */
   views?: SavedView[];
+  /** The structural grid and the named levels (`model/grid.ts`). Absent: none defined. */
+  grid?: import('../model/grid').StructuralGrid;
+  /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -904,6 +927,13 @@ export interface InfluenceLineResult {
   /** Data points: loadPosition (global x along structure) → quantity value */
   points: Array<{ x: number; y: number; elementId: number; t: number; value: number }>;
 }
+
+/**
+ * The model fields recorded through the views undo channel (`_pushUndoView`), which undo restores
+ * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
+ * adds its field here.
+ */
+const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics'] as const;
 
 function createModelStore() {
   /**
@@ -1476,20 +1506,29 @@ function createModelStore() {
     },
 
     /**
-     * Restore ONLY the named views.
+     * Restore ONLY what the views channel records (`VIEW_CHANNEL_FIELDS`): the named views and
+     * the rest of the project data the analysis does not read.
      *
      * The mirror of `restoreFoundationOnly`, for the same reason: a view is a camera, it
      * changes nothing the analysis reads, so undoing a view save/rename/remove must not
      * bump `modelVersion` or fire `_onMutation` — that would retire a valid solve, the
      * exact failure that routing view entries through the full `restore()` produced.
      *
-     * A view edit fires no invalidation hook at all: nothing downstream is computed from
-     * `model.views`, so there is nothing stale to drop.
+     * Every setter that records through `_pushUndoView` has its field restored here. It used to
+     * restore `model.views` alone, so undoing a grid edit, recorded on the same channel, left
+     * the grid in place.
+     *
+     * These edits fire no invalidation hook at all: nothing the solve computes reads them, so
+     * there is nothing stale to drop.
      */
     restoreViewsOnly(s: ModelSnapshot): void {
-      const next = s.views ? (JSON.parse(JSON.stringify(s.views)) as SavedView[]) : undefined;
-      if (JSON.stringify(model.views ?? null) === JSON.stringify(next ?? null)) return;
-      model.views = next;
+      const m = model as unknown as Record<string, unknown>;
+      const snap = s as unknown as Record<string, unknown>;
+      for (const k of VIEW_CHANNEL_FIELDS) {
+        const next = snap[k] !== undefined ? JSON.parse(JSON.stringify(snap[k])) : undefined;
+        if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
+        m[k] = next;
+      }
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
@@ -1559,6 +1598,8 @@ function createModelStore() {
     get resultScopes() { return model.resultScopes; },
     get combinationRules() { return model.combinationRules ?? []; },
     get views(): readonly SavedView[] { return model.views ?? []; },
+    get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
+    get dynamics() { return model.dynamics; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1635,6 +1676,12 @@ function createModelStore() {
           : {}),
         ...(snap.views && snap.views.length > 0
           ? { views: JSON.parse(JSON.stringify(snap.views)) as ModelSnapshot['views'] }
+          : {}),
+        ...(snap.grid && (snap.grid.axes.length > 0 || snap.grid.levels.length > 0)
+          ? { grid: JSON.parse(JSON.stringify(snap.grid)) as ModelSnapshot['grid'] }
+          : {}),
+        ...(snap.dynamics?.timeHistory
+          ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1822,6 +1869,8 @@ function createModelStore() {
     model.resultScopes = s.resultScopes ? JSON.parse(JSON.stringify(s.resultScopes)) : undefined;
     model.combinationRules = s.combinationRules ? JSON.parse(JSON.stringify(s.combinationRules)) : undefined;
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
+    model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
+    model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -2421,6 +2470,16 @@ function createModelStore() {
       model.groups = new Map(model.groups);
     },
 
+    /** Replace a group's kind-specific data (`null` removes it). */
+    setGroupData(id: number, data: Record<string, unknown> | null): void {
+      const g = model.groups.get(id);
+      if (!g) return;
+      if (!_undoBatching) _pushUndo?.();
+      const { data: _old, ...rest } = g;
+      model.groups.set(id, data ? { ...rest, data: JSON.parse(JSON.stringify(data)) as Record<string, unknown> } : rest);
+      model.groups = new Map(model.groups);
+    },
+
     removeGroup(id: number): void {
       if (!model.groups.has(id)) return;
       if (!_undoBatching) _pushUndo?.();
@@ -2841,7 +2900,7 @@ function createModelStore() {
       model.supports = new Map(model.supports);
     },
 
-    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number }>): void {
+    updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean; curves: Support['curves']; isInclined: boolean; normalX: number; normalY: number; normalZ: number }>): void {
       if (!_undoBatching) _pushUndo?.();
       const sup = model.supports.get(id);
       if (!sup) return;
@@ -2876,11 +2935,13 @@ function createModelStore() {
         dofRestraints: data.dofRestraints ?? sup.dofRestraints,
         dofFrame: data.dofFrame ?? sup.dofFrame,
         dofLocalElementId: data.dofLocalElementId ?? sup.dofLocalElementId,
-        // Preserve inclined support fields
-        normalX: sup.normalX,
-        normalY: sup.normalY,
-        normalZ: sup.normalZ,
-        isInclined: sup.isInclined,
+        // Inclined support fields: kept unless stated
+        normalX: 'normalX' in data ? data.normalX : sup.normalX,
+        normalY: 'normalY' in data ? data.normalY : sup.normalY,
+        normalZ: 'normalZ' in data ? data.normalZ : sup.normalZ,
+        isInclined: 'isInclined' in data ? data.isInclined : sup.isInclined,
+        ...(('uplift' in data ? data.uplift : sup.uplift) ? { uplift: true } : {}),
+        ...((('curves' in data ? data.curves : sup.curves) && Object.keys(('curves' in data ? data.curves : sup.curves)!).length) ? { curves: JSON.parse(JSON.stringify('curves' in data ? data.curves : sup.curves)) } : {}),
       });
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
@@ -2981,6 +3042,8 @@ function createModelStore() {
       model.resultScopes = undefined;
       model.combinationRules = undefined;
       model.views = undefined;
+      model.grid = undefined;
+      model.dynamics = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3183,10 +3246,10 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
-    /** True if any element carries a Basic 3D internal joint (released DOF). */
+    /** True if any member end needs helper nodes, including semi-rigid connections. */
     hasJoint3D(): boolean {
       for (const e of model.elements.values()) {
-        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ) || e.semiRigid?.i || e.semiRigid?.j) return true;
       }
       return false;
     },
@@ -3345,6 +3408,21 @@ function createModelStore() {
       _pushUndoView?.();
       const next = (model.views ?? []).filter((v) => v.id !== id);
       model.views = next.length > 0 ? next : undefined;
+    },
+
+    /**
+     * State the grid and levels; `null` or an empty one withdraws them. Undoable, and not a model
+     * edit: the solve survives it, as it survives a named view.
+     */
+    setGrid(grid: import('../model/grid').StructuralGrid | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.grid = grid && (grid.axes.length > 0 || grid.levels.length > 0) ? JSON.parse(JSON.stringify(grid)) : undefined;
+    },
+
+    /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
     /** State the project's combination rules; an empty list withdraws them. */
