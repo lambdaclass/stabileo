@@ -740,6 +740,8 @@ export function checkSteelMember(
         ...(k.Cw !== undefined ? { Cw: k.Cw } : {}),
         ...(k.Zx !== undefined ? { Zx: k.Zx } : {}),
         ...(k.Zy !== undefined ? { Zy: k.Zy } : {}),
+        ...(k.c !== undefined ? { c: k.c } : {}),
+        ...(k.Sy !== undefined ? { Sy: k.Sy } : {}),
       };
     })(),
     // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).

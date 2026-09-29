@@ -36,6 +36,10 @@ export interface SteelSectionConstants {
   Cw?: number;
   Zx?: number;
   Zy?: number;
+  /** F.2's c: 1 for a doubly-symmetric I, (h₀/2)·√(I_weak/Cw) for a channel. */
+  c?: number;
+  /** Weak-axis elastic modulus to the flange tip; for a channel the centroid is near the web. */
+  Sy?: number;
 }
 
 /**
@@ -83,6 +87,25 @@ function computeConstants(sec: Sec): { value: SteelSectionConstants; engine: boo
   if (isIShape(sec) && plates(sec) && sec.iz && sec.iz > 0) {
     const h0 = sec.h! - sec.tf!;
     out.Cw = (sec.iz * h0 * h0) / 4;
+  }
+  /*
+   * A channel (UPN) had no Cw, so the checker took its simplified LTB branch and a UPN 120 read
+   * 941 %; and its weak-axis modulus was I/(b/2), as if the centroid sat mid-flange, which put
+   * φMn 41–43 % high. Thin-walled channel values (AISC Design Guide 9, parallel flanges):
+   *   Cw = tf·b'³·h₀²/12 · (3b'tf + 2h₀tw)/(6b'tf + h₀tw),  b' = b − tw/2,  h₀ = h − tf
+   *   c  = (h₀/2)·√(I_weak/Cw)                                            (F.2, channels)
+   *   Sy = I_weak / (b − x̄), x̄ the centroid from the back of the web.
+   * The rolled UPN's tapered flanges put the catalogue's Cw some 15 % lower and Sy 3 % lower.
+   */
+  if (sec.shape === 'U' && plates(sec) && sec.iz && sec.iz > 0) {
+    const b = sec.b!, h = sec.h!, tw = sec.tw!, tf = sec.tf!;
+    const h0 = h - tf, bp = b - tw / 2;
+    const Cw = (tf * bp ** 3 * h0 ** 2 / 12) * (3 * bp * tf + 2 * h0 * tw) / (6 * bp * tf + h0 * tw);
+    out.Cw = Cw;
+    out.c = (h0 / 2) * Math.sqrt(sec.iz / Cw);
+    const Af = b * tf, Aw = (h - 2 * tf) * tw;
+    const xBar = (2 * Af * (b / 2) + Aw * (tw / 2)) / (2 * Af + Aw);
+    out.Sy = sec.iz / (b - xBar);
   }
   try {
     const flat = { ...sec, rotation: 0 } as Section;

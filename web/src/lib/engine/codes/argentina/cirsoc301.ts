@@ -30,6 +30,8 @@ export interface SteelDesignParams {
   Zx?: number;   // modulo plastico eje fuerte (m³)
   Zy?: number;   // modulo plastico eje debil (m³)
   Sx?: number;   // modulo elastico eje fuerte (m³)
+  Sy?: number;   // modulo elastico eje debil al borde del ala (m³); en una U el baricentro esta cerca del alma
+  c?: number;    // factor c de F.2: 1 en una I doblemente simetrica, (h0/2)·√(Iy/Cw) en una U
   // Parametros de longitud
   L: number;     // longitud del elemento (m)
   Lb: number;    // longitud no arriostrada para pandeo lateral-torsional (m)
@@ -191,7 +193,7 @@ function computeSx(p: SteelDesignParams): number {
  * ya trae — no un dato nuevo.
  */
 function computeSy(p: SteelDesignParams): number {
-  return p.Iy / (p.b / 2);
+  return p.Sy ?? p.Iy / (p.b / 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -468,7 +470,7 @@ export function checkSteelFlexure(
     // Formula completa con constantes torsionales
     const J_mm4 = J * 1e12;
     const Cw_mm6 = Cw * 1e18;
-    const c = 1.0; // para secciones I doblemente simetricas
+    const c = params.c ?? 1.0; // 1 en secciones I doblemente simetricas; en una U, (h0/2)·√(Iy/Cw)
 
     // rts² = √(Iy·Cw) / Sx
     const Iy_mm4 = Iy * 1e12;
@@ -502,12 +504,15 @@ export function checkSteelFlexure(
   } else if (Lb <= Lr) {
     // Zona 2: pandeo lateral-torsional inelastico (interpolacion lineal)
     const Mr = 0.7 * Fy * Sx_mm3 / 1e6; // kN·m
-    Mn = Mp - (Mp - Mr) * ((Lb - Lp) / (Lr - Lp));
+    // F.2-2 multiplica por Cb: Mn = Cb·[Mp − (Mp − Mr)·(Lb − Lp)/(Lr − Lp)] ≤ Mp. Sin Cb el tramo
+    // inelastico quedaba del lado conservador hasta un 22 % aun con el diagrama leido.
+    const CbInel = params.Cb ?? 1.0;
+    Mn = CbInel * (Mp - (Mp - Mr) * ((Lb - Lp) / (Lr - Lp)));
     Mn = Math.min(Mn, Mp);
 
     steps.push(`  Lp < Lb ≤ Lr → pandeo lateral-torsional inelastico`);
     steps.push(`  Mr = 0.7·Fy·Sx = ${fmt(Mr)} kN·m`);
-    steps.push(`  Mn = Mp - (Mp - Mr)·(Lb - Lp)/(Lr - Lp) = ${fmt(Mn)} kN·m`);
+    steps.push(`  Mn = Cb·[Mp - (Mp - Mr)·(Lb - Lp)/(Lr - Lp)] ≤ Mp = ${fmt(Mn)} kN·m`);
   } else {
     // Zona 3: pandeo lateral-torsional elastico
     // Fcr = (Cb·π²·E / (Lb/rts)²) · √(1 + 0.078·(J·c/(Sx·ho))·(Lb/rts)²)
@@ -525,7 +530,7 @@ export function checkSteelFlexure(
       const rts = Math.sqrt(rts2);
       const Lb_mm = Lb * 1000;
       const LbRts2 = (Lb_mm / rts) * (Lb_mm / rts);
-      const c = 1.0;
+      const c = params.c ?? 1.0;
       const term = (J_mm4 * c) / (Sx_mm3 * ho_mm);
 
       const Fcr = (Cb * Math.PI * Math.PI * E / LbRts2) *
