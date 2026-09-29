@@ -45,6 +45,7 @@
   } from '../lib/viewport/spatial-queries';
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
+  import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -58,6 +59,8 @@
 
   // Element creation chain mode
   let pendingNode: { x: number; y: number } | null = null;
+  /** Where the member tool's next click would put the member's end (see memberEndAt). */
+  let memberPreviewEnd: { x: number; y: number } | null = null;
 
   // Node drag state
   let draggedNodeId: number | null = null;
@@ -904,9 +907,11 @@
       ctx.fillStyle = 'rgba(233, 69, 96, 0.5)';
       ctx.fill();
 
-      // Rubber band line to current mouse position
+      // Rubber band to where the click would put the end: the member that
+      // would be made, not the raw cursor.
       if (uiStore.currentTool === 'element') {
-        const mouseScreen = uiStore.worldToScreen(uiStore.worldX, uiStore.worldY);
+        const end = memberPreviewEnd ?? { x: uiStore.worldX, y: uiStore.worldY };
+        const mouseScreen = uiStore.worldToScreen(end.x, end.y);
         ctx.beginPath();
         ctx.moveTo(screen.x, screen.y);
         ctx.lineTo(mouseScreen.x, mouseScreen.y);
@@ -915,6 +920,9 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.setLineDash([]);
+        if (uiStore.showMemberDimensions) {
+          drawMemberDimensions(ctx, pendingNode, end, (x, y) => uiStore.worldToScreen(x, y), canvasTheme(), { width, height });
+        }
       }
     }
 
@@ -2117,6 +2125,7 @@
 
     // For tools that benefit from midpoint snap, update world coords accordingly
     const toolNow = uiStore.currentTool;
+    memberPreviewEnd = toolNow === 'element' && pendingNode ? memberEndAt(world.x, world.y, snapped.x, snapped.y) : null;
     if (toolNow === 'element' || toolNow === 'node' || toolNow === 'load') {
       const ms = snapWithMidpoint(world.x, world.y);
       uiStore.setMouse(mx, my, ms.x, ms.y);

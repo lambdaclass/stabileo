@@ -145,7 +145,7 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     const at = (fx: number, fy: number) => page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
     const u0 = await undos();
 
-    await page.getByTestId('member-mode-single').check();
+    await page.getByTestId('member-mode-single').click();
     await at(0.3, 0.6); await at(0.6, 0.6);
     await expect.poll(census).toEqual({ nodes: 2, members: 1 });
     // The third click starts another member instead of continuing this one.
@@ -155,7 +155,7 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     await at(0.8, 0.3);
     await expect.poll(census).toEqual({ nodes: 4, members: 2 });
 
-    await page.getByTestId('member-mode-polyline').check();
+    await page.getByTestId('member-mode-polyline').click();
     await at(0.3, 0.8); await at(0.5, 0.8);
     await expect.poll(census).toEqual({ nodes: 6, members: 3 });
     // The last point again ends the chain: the next click starts a new one.
@@ -206,12 +206,33 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
 
     // Single line: two nodes, one member, and the next click starts over.
     await page.getByTestId('rb-cmd-element').click();
-    await page.getByTestId('member-mode-single').check();
+    await page.getByTestId('member-mode-single').click();
     await click(base[0]); await click(base[2]);
     await expect.poll(members).toBe(m0 + 3);
     await click(base[1]);
     await page.waitForTimeout(200);
     expect(await members()).toBe(m0 + 3);
     expect(await undos()).toBe(u0 + 3);
+  });
+
+  test('the dimensions switch is one setting, in the member tool and in Settings', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    const stored = () => page.evaluate(() => localStorage.getItem('stabileo-member-dims'));
+    await page.getByTestId('rb-cmd-element').click();
+    const button = page.getByTestId('member-dims');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    expect(await stored()).toBe('false');
+
+    await page.getByTestId('rb-settings').click();
+    const box = page.getByTestId('cfg-member-dims');
+    await expect(box).not.toBeChecked();
+    await box.check();
+    expect(await stored()).toBe('true');
+    await page.getByTestId('rb-cmd-element').click();
+    await expect(page.getByTestId('member-dims')).toHaveAttribute('aria-pressed', 'true');
   });
 });
