@@ -468,6 +468,7 @@ const steelPt: Record<string, string> = {
   'steel.rows.state.outOfScope': 'fora do escopo',
   'steel.rows.state.authorityBlocked': 'bloqueado por autoridade',
   'steel.rows.missing.grade': 'Grau declarado',
+  'steel.rows.membersCount': "{n} barras",
   'steel.rows.why.grade': 'Sem grau não há norma de produto nem tabela de espessuras: a resistência vem do material, que não é o mesmo que um aço designado.',
   'steel.rows.missing.gradeUnresolved': 'Grau declarado mas não resolvível',
   'steel.rows.why.gradeUnresolved': 'O projeto guarda um grau que o catálogo atual não conhece — norma retirada, ou projeto de outra versão. Precisa ser escolhido de novo.',

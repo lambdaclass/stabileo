@@ -28,6 +28,25 @@ function tensionOnly(ids: number[]): void {
   for (const id of ids) modelStore.updateElement(id, { behaviour: 'tensionOnly' } as never);
 }
 
+/*
+ * The steel grade, declared. The fixtures name their steels (Acero A36, S275, S355) but declare
+ * no grade, and steel design checks only a declared one: an example opened in PRO read "no grade
+ * declared" under every member. Their yield stress already is the grade's.
+ */
+const GRADE_BY_NAME: Array<[RegExp, string]> = [
+  [/\bA36\b/i, 'astm-a36'],
+  [/\bS355\b/i, 'en-s355'],
+  [/\bS275\b/i, 'en-s275'],
+  [/\bF-?24\b/i, 'iram-f24'],
+];
+export function declareSteelGrades(): void {
+  for (const m of modelStore.materials.values()) {
+    if ((m as { gradeId?: string }).gradeId) continue;
+    const hit = GRADE_BY_NAME.find(([re]) => re.test(m.name));
+    if (hit) modelStore.updateMaterial(m.id, { gradeId: hit[1] } as never);
+  }
+}
+
 export const PRO_EXAMPLE_FIXES: Readonly<Record<string, Fix>> = {
   /*
    * The runway beam carried only its own dead load: there was no crane. One case now stands the

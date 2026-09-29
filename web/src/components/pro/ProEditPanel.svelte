@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { untrack } from 'svelte';
   /**
    * Cut, merge and clean up — the topology commands over the selection.
@@ -29,7 +30,7 @@
 
   let parts = $state(2);
   let message = $state<string | null>(null);
-  let fillMaterial = $state(1);
+  let fillMaterial = $state(defaultShellMaterial(modelStore.materials));
   let fillThickness = $state(0.15);
   /** Target element size, m; 0 fills each hole with one quad. */
   let fillSize = $state(1.0);

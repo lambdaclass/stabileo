@@ -27,6 +27,11 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
     expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(modelStore.combinations.length);
     expect(r.unstable ?? []).toEqual([]);
 
+    // Every steel material declares its grade, so steel design can check the members.
+    for (const m of modelStore.materials.values()) {
+      if (/acero|steel/i.test(m.name) && !/cable/i.test(m.name)) expect((m as { gradeId?: string }).gradeId, `${id}: ${m.name}`).toBeTruthy();
+    }
+
     const dead = modelStore.model.loadCases.find((c) => c.type === 'D')!;
     const d = r.perCase.get(dead.id)!;
     const [hx, hy, v] = resultant(d);

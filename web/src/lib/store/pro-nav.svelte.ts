@@ -9,10 +9,19 @@
 import { uiStore } from './ui.svelte';
 
 let regulationsOpen = $state(false);
+let projectInfoOpen = $state(false);
 
 export const proNav = {
   get regulationsOpen() { return regulationsOpen; },
   set regulationsOpen(v: boolean) { regulationsOpen = v; },
+  get projectInfoOpen() { return projectInfoOpen; },
+  set projectInfoOpen(v: boolean) { projectInfoOpen = v; },
+  /** The Project tab, with the project's data open (client, job, revisions, signatures). */
+  openProjectInfo() {
+    projectInfoOpen = true;
+    uiStore.proActiveTab = 'project';
+    uiStore.proPanelVisible = true;
+  },
   /** The Project tab, with its regulations section open and in view. */
   openRegulations() {
     regulationsOpen = true;

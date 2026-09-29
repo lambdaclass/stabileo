@@ -500,7 +500,7 @@
     // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
+      'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
       'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
       'otherCodes'];
     if (!VALID.includes(tab)) return;

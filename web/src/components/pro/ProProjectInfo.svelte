@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { proNav } from '../../lib/store/pro-nav.svelte';
   /**
    * The project's data (`model/project-info.ts`): client, job, site, revisions with dates, and who
    * designed, checked and approved it. Saved with the project; the report's cover prints it.
@@ -24,7 +25,7 @@
   const ROLES = ['designer', 'checker', 'approver'] as const;
 </script>
 
-<details class="pi" data-testid="project-info">
+<details class="pi" data-testid="project-info" bind:open={proNav.projectInfoOpen}>
   <summary class="pp-heading">{t('projectInfo.title')}{#if info.job} · {info.job}{/if}</summary>
   <div class="pi-grid">
     <label>{t('projectInfo.client')} <input value={info.client ?? ''} onchange={(e) => write({ client: e.currentTarget.value })} data-testid="pi-client" /></label>

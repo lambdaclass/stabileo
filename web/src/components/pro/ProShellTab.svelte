@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { modelStore, uiStore } from '../../lib/store';
   import DataTable from '../DataTable.svelte';
   import ProStairSection from './ProStairSection.svelte';
@@ -67,7 +68,7 @@
    * already answered.
    */
   let newNodeIds = $state<[string, string, string, string]>(['', '', '', '']);
-  let newMaterialId = $state(1);
+  let newMaterialId = $state(defaultShellMaterial(modelStore.materials));
   let newThickness = $state(0.2);
   let newCurved = $state(false);
   let newError = $state<string | null>(null);
@@ -313,10 +314,13 @@
       </div>
     </div>
 
-    <!-- Curvature and the offset of existing shells are specified in Specifications › Surfaces. -->
-    <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
-      {t('spec.surfaces.open')}
-    </button>
+    <!-- Curvature, offset and foundation springs of the selected shells are specified in
+         Specifications › Surfaces; like Members, offered with the selection and its count. -->
+    {#if uiStore.selectedShells.size > 0}
+      <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
+        {t('spec.surfaces.open').replace('{n}', String(uiStore.selectedShells.size))}
+      </button>
+    {/if}
 
     <!-- Stairs: the same plate, with its far edge lifted -->
     <ProStairSection />

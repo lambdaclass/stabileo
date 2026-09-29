@@ -456,6 +456,7 @@ const steelEn: Record<string, string> = {
   'steel.rows.state.outOfScope': 'out of scope',
   'steel.rows.state.authorityBlocked': 'authority blocked',
   'steel.rows.missing.grade': 'Declared grade',
+  'steel.rows.membersCount': "{n} members",
   'steel.rows.why.grade': 'With no grade there is no product standard and no thickness table: the strength comes from the material, which is not the same as a designated steel.',
   'steel.rows.missing.gradeUnresolved': 'Grade declared but unresolvable',
   'steel.rows.why.gradeUnresolved': 'The project stores a grade the current catalogue does not know — a withdrawn standard, or a project from another build. It has to be chosen again.',

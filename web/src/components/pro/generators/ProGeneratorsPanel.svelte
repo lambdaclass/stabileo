@@ -838,6 +838,8 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
+  /* The hint under a field: it had no rule of its own and took the page's body size. */
+  .gen-hint { margin: 0 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
 
   /* The material row reads like a profile row, because it is the same kind of choice. */
   .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }

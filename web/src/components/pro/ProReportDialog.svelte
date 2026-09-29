@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { proNav } from '../../lib/store/pro-nav.svelte';
   import { t } from '../../lib/i18n';
 
   import type { ReportConfig } from '../../lib/engine/pro-report';
@@ -78,7 +79,8 @@
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    if (file.size > 500_000) { alert(t('report.logoTooLarge')); return; }
+    logoError = null;
+    if (file.size > 500_000) { logoError = t('report.logoTooLarge'); input.value = ''; return; }
     const reader = new FileReader();
     reader.onload = () => {
       companyLogo = reader.result as string;
@@ -86,6 +88,7 @@
     reader.readAsDataURL(file);
   }
 
+  let logoError = $state<string | null>(null);
   function removeLogo() {
     companyLogo = null;
   }
@@ -157,7 +160,10 @@
               <img src={companyLogo} alt="Logo" class="rpt-logo-preview" />
               <button class="rpt-btn-sm rpt-btn-danger" onclick={removeLogo}>{t('report.removeLogo')}</button>
             {:else}
-              <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" />
+              <label class="rpt-file-btn">{t('report.chooseLogo')}
+                <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" data-testid="rpt-logo-file" />
+              </label>
+              {#if logoError}<span class="rpt-error" role="alert" data-testid="rpt-logo-error">{logoError}</span>{/if}
             {/if}
           </div>
         </div>
@@ -167,7 +173,9 @@
           <input type="text" bind:value={companyName} placeholder={t('report.companyNamePh')} class="rpt-input" />
         </div>
 
-        <p class="rpt-hint">{t('report.projectDataMoved')}</p>
+        <p class="rpt-hint">{t('report.projectDataMoved')}
+          <button type="button" class="rpt-link" onclick={() => { onclose(); proNav.openProjectInfo(); }} data-testid="rpt-open-project-info">{t('report.openProjectInfo')}</button>
+        </p>
       </details>
 
       <!-- Sections to include -->
@@ -294,7 +302,11 @@
   .rpt-logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .rpt-logo-area { display: flex; align-items: center; gap: 8px; }
   .rpt-logo-preview { max-height: 40px; max-width: 120px; border-radius: 4px; border: 1px solid var(--st-surface-3); }
-  .rpt-file-input { font-size: 11px; color: var(--st-text-2); }
+  .rpt-file-btn { position: relative; display: inline-flex; padding: 3px 10px; font-size: 11px; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 4px; cursor: pointer; }
+  .rpt-file-btn:focus-within { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
+  .rpt-file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .rpt-error { margin-left: 6px; font-size: 11px; color: var(--st-danger); }
+  .rpt-link { margin-left: 4px; padding: 0; background: none; border: none; color: var(--st-interactive); cursor: pointer; font-size: inherit; text-decoration: underline; }
   .rpt-checks { display: flex; flex-direction: column; gap: 6px; }
   .rpt-check { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .rpt-check input[type="checkbox"] { accent-color: var(--st-text-2); }

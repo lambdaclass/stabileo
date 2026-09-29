@@ -212,7 +212,21 @@
   </HelpTip>
 
   {#if showExamples}
-    <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
+    <!--
+      Over the viewport, not inside the panel: twenty-four cards of four lines each read as a
+      column of text in the panel's width; here they sit side by side, grouped.
+    -->
+    <div class="pg-overlay" role="dialog" aria-modal="true" aria-label={t('pro.exampleBtn')} tabindex="-1"
+      onkeydown={(e) => { if (e.key === 'Escape') showExamples = false; }}>
+      <button class="pg-backdrop" aria-label={t('pro.examples.cancel')} onclick={() => (showExamples = false)}></button>
+      <div class="pg-sheet">
+        <div class="pg-sheet-head">
+          <h3>{t('pro.exampleBtn')}</h3>
+          <button class="pg-close" onclick={() => (showExamples = false)} aria-label={t('pro.examples.cancel')} data-testid="pp-gallery-close">×</button>
+        </div>
+        <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
+      </div>
+    </div>
   {/if}
 
   <!--
@@ -524,6 +538,13 @@
 />
 
 <style>
+  .pg-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+  .pg-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); border: none; cursor: default; }
+  .pg-sheet { position: relative; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: 8px; padding: 12px 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+  .pg-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .pg-sheet-head h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
+  .pg-close { background: none; border: none; color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
+  @media (max-width: 767px) { .pg-sheet { width: 100vw; max-height: 100vh; border-radius: 0; } }
   /*
      The panel's own gutter.
      ────────────────────────────────────────────────────────────────

@@ -323,8 +323,12 @@
 
 <style>
   .sec-note { margin: 2px 10px; font-size: 0.62rem; color: var(--st-warn); }
-  .csv-import { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 0.66rem; color: var(--st-text-2); cursor: pointer; }
-  .csv-import input { width: 9rem; font-size: 0.62rem; }
+  /* The label is the button; the browser's own file control (its "Choose File" in the browser's
+     language, whatever the app's) stays out of sight. */
+  .csv-import { display: inline-flex; align-items: center; margin-left: 6px; padding: 4px 10px; font-size: 0.7rem; color: var(--st-text-2); cursor: pointer; border: 1px solid var(--st-hair); border-radius: 4px; position: relative; }
+  .csv-import:hover { border-color: var(--st-interactive); color: var(--st-text); }
+  .csv-import:focus-within { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
+  .csv-import input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .csv-report { padding: 4px 8px; font-size: 0.64rem; color: var(--st-text-2); }
   .csv-report p { margin: 1px 0; }
   .csv-report .warn { color: var(--st-warn); }

@@ -31,7 +31,7 @@ import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
 import { loadCodeExample, type CodeExampleId } from '../templates/examples';
-import { PRO_EXAMPLE_FIXES } from './pro-example-fixes';
+import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 
 export type ExampleGroup =
   | 'firstSteps' | 'buildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
@@ -115,6 +115,7 @@ async function loadExample(ex: ProExample): Promise<void> {
   else await modelStore.loadExample(ex.id);
   modelStore.batch(() => {
     PRO_EXAMPLE_FIXES[ex.id]?.();
+    declareSteelGrades();
     // A model written as code states its own self-weight rule; a fixture gets the example's.
     const stated = ex.source === 'code' ? modelStore.analysis?.selfWeight : undefined;
     const dead = stated?.[0]?.caseId ?? modelStore.model.loadCases.find((c) => (c.type || '').toUpperCase() === 'D')?.id;

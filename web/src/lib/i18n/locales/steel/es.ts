@@ -470,6 +470,7 @@ const steelEs: Record<string, string> = {
   'steel.rows.state.outOfScope': 'fuera de alcance',
   'steel.rows.state.authorityBlocked': 'bloqueado por autoridad',
   'steel.rows.missing.grade': 'Grado declarado',
+  'steel.rows.membersCount': "{n} barras",
   'steel.rows.why.grade': 'Sin grado no hay norma de producto ni tabla de espesores: la resistencia queda tomada del material, que no es lo mismo que un acero designado.',
   'steel.rows.missing.gradeUnresolved': 'Grado declarado pero no resoluble',
   'steel.rows.why.gradeUnresolved': 'El proyecto guarda un grado que el catálogo actual no conoce. Puede ser una norma retirada o un proyecto de otra versión; hay que volver a elegirlo.',

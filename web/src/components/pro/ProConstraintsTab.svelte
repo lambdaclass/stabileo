@@ -2,7 +2,7 @@
   import { modelStore } from '../../lib/store';
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import DataTable from '../DataTable.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
 
   /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
    *  '0,5' must read as 0.5, not silently truncate to 0 via parseFloat. */
@@ -291,13 +291,21 @@
   function connectorLabel(c: { kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }): string {
     return `kAxial=${fmtStiff(c.kAxial)}, kShear=${fmtStiff(c.kShear)}, kMoment=${fmtStiff(c.kMoment)}, kShearZ=${fmtStiff(c.kShearZ)}, kBendY=${fmtStiff(c.kBendY)}, kBendZ=${fmtStiff(c.kBendZ)}`;
   }
+  /** Clearing every link or connector at once asks first, in place. */
+  let asking = $state<'constraints' | 'connectors' | null>(null);
 </script>
 
 <div class="pro-cst">
   <div class="pro-cst-header">
     <span class="pro-cst-count">{t('pro.nConstraints').replace('{n}', String(constraints.length))}</span>
     {#if constraints.length > 0}
-      <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConstraints()}>{t('pro.clear')}</button>
+      {#if asking === 'constraints'}
+        <span class="pro-ask">{tp('pro.clearAsk', { n: modelStore.constraints.length })}
+          <button class="pro-btn pro-btn-clear" onclick={() => { modelStore.clearConstraints(); asking = null; }} data-testid="links-clear-yes">{t('pro.clearYes')}</button>
+          <button class="pro-btn" onclick={() => (asking = null)}>{t('pro.examples.cancel')}</button></span>
+      {:else}
+        <button class="pro-btn pro-btn-clear" onclick={() => (asking = 'constraints')} data-testid="links-clear">{t('pro.clear')}</button>
+      {/if}
     {/if}
   </div>
 
@@ -412,7 +420,13 @@
     <div class="pro-cst-header">
       <span class="pro-cst-count">{t('pro.nConnectors').replace('{n}', String(connectors.length))}</span>
       {#if connectors.length > 0}
-        <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConnectors()}>{t('pro.clear')}</button>
+        {#if asking === 'connectors'}
+          <span class="pro-ask">{tp('pro.clearAsk', { n: modelStore.model.connectors?.size ?? 0 })}
+            <button class="pro-btn pro-btn-clear" onclick={() => { modelStore.clearConnectors(); asking = null; }}>{t('pro.clearYes')}</button>
+            <button class="pro-btn" onclick={() => (asking = null)}>{t('pro.examples.cancel')}</button></span>
+        {:else}
+          <button class="pro-btn pro-btn-clear" onclick={() => (asking = 'connectors')}>{t('pro.clear')}</button>
+        {/if}
       {/if}
     </div>
 
@@ -626,6 +640,7 @@
   }
 
   .pro-btn-clear:hover { background: var(--st-surface-2); }
+  .pro-ask { display: inline-flex; gap: 4px; align-items: center; font-size: 0.66rem; color: var(--st-text-2); }
 
   .pro-cst-table-wrap { flex: 1; overflow: auto; }
 
