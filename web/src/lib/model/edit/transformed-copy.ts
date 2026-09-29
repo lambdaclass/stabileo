@@ -71,6 +71,8 @@ export interface EditReport {
   duplicates: number;
   /** Supports the fragment carried onto a welded node, where the model's own was kept. */
   supportKept: number;
+  /** Nodal loads the fragment carried onto a welded node, where the model's own were kept. */
+  loadKept: number;
   /** Materials, sections and load cases the fragment brought that the model did not have. */
   added: { materials: number; sections: number; loadCases: number };
   /** Per copy: fragment id → model id, for nodes (welded ones included) and members placed. */
@@ -124,7 +126,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
   const tol = opts.weldTol ?? DEFAULT_WELD;
   const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
-    nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0,
+    nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0, loadKept: 0,
     added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
   };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
@@ -152,7 +154,29 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       return c === undefined || frag.local ? l : { ...l, data: { ...l.data, caseId: defs.loadCase.get(c) ?? c } } as typeof l;
     }) : [];
 
+    /*
+     * Shells already on a set of corners, like `pairs` for members: a copy that lands on them —
+     * pasting in place — is a duplicate, not a second slab on the same nodes.
+     */
+    const shellKey = (nodes: readonly number[]) => [...nodes].sort((x, y) => x - y).join(',');
+    const shells = new Set([...modelStore.quads.values(), ...modelStore.plates.values()].map((s) => shellKey(s.nodes)));
+
     let prevNodeMap = new Map(frag.nodes.map((n) => [n.id, n.id]));
+    /** The fragment's node lands where it was: the same position in the model. */
+    const fragNode = new Map(frag.nodes.map((n) => [n.id, n]));
+    const sameSpot = (fragId: number, modelId: number) => {
+      const a = fragNode.get(fragId), b = modelStore.nodes.get(modelId);
+      return !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0)) <= tol;
+    };
+    /** The node already carries this load: the same kind, case and values. */
+    const loadKey = (l: { type: string; data: object }) => {
+      const { id: _id, ...rest } = l.data as Record<string, unknown>;
+      return `${l.type}|${JSON.stringify(Object.fromEntries(Object.entries(rest).sort(([x], [y]) => (x < y ? -1 : 1))))}`;
+    };
+    const carries = (nodeId: number, load: { type: string; data: object }) => {
+      const key = loadKey(load);
+      return modelStore.loads.some((m) => (m.data as { nodeId?: number }).nodeId === nodeId && loadKey(m) === key);
+    };
     transforms.forEach((T, k) => {
       const created = new Set<number>();
       const nodeMap = new Map<number, number>();
@@ -209,6 +233,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       const quadMap = new Map<number, number>();
       for (const q of frag.quads) {
         const corners = q.nodes.map((n) => nodeMap.get(n)!) as Quad['nodes'];
+        if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
+        shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = q;
         const nodes = (flip ? [corners[0], corners[3], corners[2], corners[1]] : corners) as Quad['nodes'];
         const off = carryOffset(offset);
@@ -219,6 +245,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       const plateMap = new Map<number, number>();
       for (const p of frag.plates) {
         const corners = p.nodes.map((n) => nodeMap.get(n)!) as Plate['nodes'];
+        if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
+        shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = p;
         const nodes = (flip ? [corners[0], corners[2], corners[1]] : corners) as Plate['nodes'];
         const off = carryOffset(offset);
@@ -240,10 +268,22 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
         if (!c) continue;
         if (c.warning) warn(c.warning);
-        // Only a local load copied onto its own source node is already present.
+        /*
+         * A load that lands back on its own source node is already there. A local fragment
+         * knows its source; the clipboard is detached, and pasting in place added every nodal
+         * load a second time — the node carried 2×F. For it, the source is the node with the
+         * same id, where the copy put it (the transform left it in place), already carrying the
+         * same load. A load welded onto any other node is kept: two bays sharing a node add
+         * their tributary loads.
+         */
         const onNode = (c.load?.data as { nodeId?: number } | undefined)?.nodeId;
         const sourceNode = (l.data as { nodeId?: number }).nodeId;
-        if (c.load && (onNode === undefined || !frag.local || onNode !== sourceNode)) modelStore.addLoadEntry(c.load);
+        if (c.load && onNode !== undefined && onNode === sourceNode && !created.has(onNode)
+          && (frag.local || (sameSpot(sourceNode, onNode) && carries(onNode, c.load)))) {
+          report.loadKept++;
+          continue;
+        }
+        if (c.load) modelStore.addLoadEntry(c.load);
       }
 
       for (const g of frag.groups) {
