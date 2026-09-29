@@ -6,8 +6,8 @@
  */
 import type { MethodContext } from './registry';
 import type { Block, Cell, CompareRow, Step, StepDoc, Txt } from './doc';
-import { tx } from './doc';
-import { num, par } from './format';
+import { tx, compareNoteFor } from './doc';
+import { num, par, settle } from './format';
 import type { PMember, PMemberLoad } from './plane-model';
 import { fixedEnd, fixedEndBlocks } from './fem';
 import type { FixedEnd } from './fem';
@@ -279,8 +279,10 @@ export function buildCross(ctx: MethodContext): StepDoc {
       if (jkind[i] === 'fixed') continue;
       const es = endsAt(i);
       const tot = es.reduce((a, e) => a + final[e], 0);
-      const ok = Math.abs(tot - Cstar[i]) <= 1e-6 * Math.max(1, scale);
-      blocks.push({ kind: 'eq', tex: `${es.map((e) => `\\hat M_{${endSym(e)}}`).join(' + ')} = ${es.map((e) => par(final[e])).join(' + ')} = ${num(tot)} \\;=\\; C^{*}_{${sups[i].name}} = ${num(Cstar[i])}${ok ? '\\ \\checkmark' : ''}`, note: tx('steps.m.crossBeams.jointCheck', { n: sups[i].name }) });
+      const st = settle(tot, Cstar[i], Math.max(1, scale));
+      // One end at the joint: its moment is the couple itself, with nothing to add up.
+      const sum = es.length > 1 ? ` = ${es.map((e) => par(final[e])).join(' + ')}` : '';
+      blocks.push({ kind: 'eq', tex: `${es.map((e) => `\\hat M_{${endSym(e)}}`).join(' + ')}${sum} ${st.rel} ${st.tex} = C^{*}_{${sups[i].name}}${st.ok ? '\\ \\checkmark' : ''}`, note: tx('steps.m.crossBeams.jointCheck', { n: sups[i].name }) });
     }
     steps.push({ title: tx('steps.m.crossBeams.s.final'), blocks });
   }
@@ -297,7 +299,7 @@ export function buildCross(ctx: MethodContext): StepDoc {
       rows.push({ label: `\\hat M_{${s.ji}}`, method: final[2 * k + 1], matrix: refEndMoment(b, ref, s, 'R'), unit: 'kN·m' });
     });
     rows.push(...reactionRows(b, ref, sol));
-    steps.push({ title: tx('steps.common.compare'), blocks: [{ kind: 'compare', rows, caption: tx('steps.m.crossBeams.compareCaption') }, { kind: 'p', text: tx('steps.common.compareNote') }] });
+    steps.push({ title: tx('steps.common.compare'), blocks: [{ kind: 'compare', rows, caption: tx('steps.m.crossBeams.compareCaption') }, { kind: 'p', text: compareNoteFor(rows) }] });
   }
   // 11. Diagrams.
   steps.push(diagramsStep(b, sol.pieces));

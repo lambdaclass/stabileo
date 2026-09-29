@@ -68,3 +68,15 @@ export type Applicability = { ok: true } | NotApplicable;
 
 export const tx = (key: string, params?: Record<string, string | number>): Txt => (params ? { key, params } : { key });
 export const isTxt = (v: unknown): v is Txt => typeof v === 'object' && v !== null && 'key' in v && typeof (v as Txt).key === 'string';
+
+/**
+ * What to say under a comparison: that the two agree, when every row does to
+ * round-off (as a share of the largest value of its unit), or where small
+ * differences come from when some do.
+ */
+export function compareNoteFor(rows: CompareRow[]): Txt {
+  const scale = new Map<string, number>();
+  for (const r of rows) scale.set(r.unit, Math.max(scale.get(r.unit) ?? 0, Math.abs(r.method), Math.abs(r.matrix)));
+  const agree = rows.every((r) => Math.abs(r.method - r.matrix) <= 1e-6 * Math.max(scale.get(r.unit) ?? 0, 1e-9));
+  return tx(agree ? 'steps.common.compareExact' : 'steps.common.compareNote');
+}

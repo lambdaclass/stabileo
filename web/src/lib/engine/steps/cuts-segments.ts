@@ -10,7 +10,7 @@
  * N(x) = N_i − ΣH; M tensions the −y face (the reference's sagging moment).
  */
 import type { Block, Cell, CompareRow, Step, Tex } from './doc';
-import { tx } from './doc';
+import { tx, compareNoteFor } from './doc';
 import { num, numText, par } from './format';
 import type { PMember } from './plane-model';
 import type { Sketch } from './sketch';
@@ -309,7 +309,7 @@ export function valuesStep(S: CutsCtx, cuts: Map<number, MemberCut>, reactions: 
       { kind: 'table', head: [tx('steps.common.member'), { tex: `x\\ [${UL}]` }, { tex: `N\\ [${UF}]` }, { tex: `V\\ [${UF}]` }, { tex: `M\\ [${UM}]` }, tx('steps.cuts.tab.where')], rows: tableRows, caption: tx('steps.cuts.tab.caption') },
       { kind: 'p', text: tx(solved && tree ? 'steps.cuts.tab.compareStatics' : 'steps.cuts.tab.compareRef') },
       { kind: 'compare', rows: cmp, caption: tx('steps.common.compare') },
-      { kind: 'p', text: tx('steps.common.compareNote'), detail: true },
+      { kind: 'p', text: compareNoteFor(cmp), detail: true },
     ],
   };
 }

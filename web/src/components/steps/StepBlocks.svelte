@@ -11,11 +11,9 @@
   import { tp, t } from '../../lib/i18n';
   import { isTxt, type Block, type Cell, type Txt } from '../../lib/engine/steps/doc';
   import { num, numText } from '../../lib/engine/steps/format';
-  import { narrowTex } from '../../lib/engine/steps/narrow-tex';
+  import FitMath from './FitMath.svelte';
 
   let { blocks, detail = true, narrow = false }: { blocks: Block[]; detail?: boolean; narrow?: boolean } = $props();
-
-  const stack = (tex: string) => (narrow ? narrowTex(tex) : tex);
 
   const say = (x: Txt | string) => (typeof x === 'string' ? x : tp(x.key, x.params));
 
@@ -26,12 +24,24 @@
     return `${name} = ${factor}\\begin{bmatrix} ${body} \\end{bmatrix}`;
   }
 
-  const diffOf = (a: number, b: number) => {
+  /*
+   * The difference between a method and the matrix solve, as a share of the
+   * largest value of the same unit in the table: a joint that one method
+   * holds still and the other moves by a hundredth of a millimetre is a small
+   * difference, not a 100 % one.
+   */
+  function unitScales(rows: { unit: string; method: number; matrix: number }[]): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const r of rows) out.set(r.unit, Math.max(out.get(r.unit) ?? 0, Math.abs(r.method), Math.abs(r.matrix)));
+    return out;
+  }
+  const diffOf = (a: number, b: number, scale: number, short: boolean) => {
     const d = a - b;
-    const scale = Math.max(Math.abs(a), Math.abs(b));
     if (scale < 1e-9) return '0';
     const rel = Math.abs(d) / scale;
-    return rel < 1e-9 ? '0' : `${numText(d, 3)} (${(rel * 100).toFixed(rel < 0.001 ? 4 : 2)} %)`;
+    if (rel < 1e-9) return '0';
+    const pct = `${(rel * 100).toFixed(rel < 0.001 ? 4 : 2)} %`;
+    return short ? pct : `${numText(d, 3)} (${pct})`;
   };
 </script>
 
@@ -46,21 +56,21 @@
   {#if b.kind === 'p'}
     {#if detail || !b.detail}<p class="sb-p" class:detail={b.detail}><Prose text={say(b.text)} /></p>{/if}
   {:else if b.kind === 'eq'}
-    <div class="sb-eq"><MathEquation equation={stack(b.tex)} displayMode /></div>
+    <div class="sb-eq"><FitMath tex={b.tex} {narrow} /></div>
     {#if b.note && detail}<p class="sb-note-small"><Prose text={say(b.note)} /></p>{/if}
   {:else if b.kind === 'calc'}
     <div class="sb-calc">
       {#if b.label}<div class="sb-calc-label"><Prose text={say(b.label)} /></div>{/if}
-      <div class="sb-row"><span class="sb-tag">{t('steps.view.formula')}</span><div class="sb-math"><MathEquation equation={stack(b.formula)} displayMode /></div></div>
-      {#if b.subst}<div class="sb-row"><span class="sb-tag">{t('steps.view.subst')}</span><div class="sb-math"><MathEquation equation={stack(b.subst)} displayMode /></div></div>{/if}
-      <div class="sb-row result"><span class="sb-tag">{t('steps.view.result')}</span><div class="sb-math"><MathEquation equation={stack(b.result)} displayMode /></div></div>
-      {#if b.check}<div class="sb-row check"><span class="sb-tag">{t('steps.view.check')}</span><div class="sb-math"><MathEquation equation={stack(b.check)} displayMode /></div></div>{/if}
+      <div class="sb-row"><span class="sb-tag">{t('steps.view.formula')}</span><div class="sb-math"><FitMath tex={b.formula} {narrow} /></div></div>
+      {#if b.subst}<div class="sb-row"><span class="sb-tag">{t('steps.view.subst')}</span><div class="sb-math"><FitMath tex={b.subst} {narrow} /></div></div>{/if}
+      <div class="sb-row result"><span class="sb-tag">{t('steps.view.result')}</span><div class="sb-math"><FitMath tex={b.result} {narrow} /></div></div>
+      {#if b.check}<div class="sb-row check"><span class="sb-tag">{t('steps.view.check')}</span><div class="sb-math"><FitMath tex={b.check} {narrow} /></div></div>{/if}
     </div>
   {:else if b.kind === 'table'}
     <div class="sb-scroll">
       <table class="sb-table">
         <thead><tr>{#each b.head as h}<th>{@render cell(h)}</th>{/each}</tr></thead>
-        <tbody>{#each b.rows as r}<tr>{#each r as c}<td>{@render cell(c)}</td>{/each}</tr>{/each}</tbody>
+        <tbody>{#each b.rows as r}<tr>{#each r as c}<td class:words={isTxt(c) || (typeof c === 'string' && c.length > 14)}>{@render cell(c)}</td>{/each}</tr>{/each}</tbody>
       </table>
     </div>
     {#if b.caption}<p class="sb-caption"><Prose text={say(b.caption)} /></p>{/if}
@@ -74,7 +84,7 @@
         </table>
       </div>
     {:else}
-      <div class="sb-scroll sb-eq"><MathEquation equation={matrixTex(b.name, b.rows, b.scale)} displayMode /></div>
+      <div class="sb-eq"><FitMath tex={matrixTex(b.name, b.rows, b.scale)} {narrow} /></div>
     {/if}
     {#if b.caption}<p class="sb-caption"><Prose text={say(b.caption)} /></p>{/if}
   {:else if b.kind === 'fig'}
@@ -90,12 +100,19 @@
       <StepBlocks blocks={b.blocks} {detail} {narrow} />
     </section>
   {:else if b.kind === 'compare'}
+    {@const scales = unitScales(b.rows)}
     <div class="sb-scroll">
       <table class="sb-table sb-compare">
-        <thead><tr><th></th><th>{t('steps.view.compare.method')}</th><th>{t('steps.view.compare.matrix')}</th><th>{t('steps.view.compare.diff')}</th></tr></thead>
+        <thead><tr><th></th><th>{t(narrow ? 'steps.view.compare.methodShort' : 'steps.view.compare.method')}</th><th>{t(narrow ? 'steps.view.compare.matrixShort' : 'steps.view.compare.matrix')}</th><th>{t(narrow ? 'steps.view.compare.diffShort' : 'steps.view.compare.diff')}</th></tr></thead>
         <tbody>
           {#each b.rows as r}
-            <tr><th><MathEquation equation={r.label} /></th><td>{numText(r.method)} {r.unit}</td><td>{numText(r.matrix)} {r.unit}</td><td>{diffOf(r.method, r.matrix)}</td></tr>
+            {@const sc = scales.get(r.unit) ?? 0}
+            {#if narrow}
+              <!-- On a narrow panel the unit goes with the name, once, and the difference is its share. -->
+              <tr><th><MathEquation equation={r.label} /> <span class="sb-unit">{r.unit}</span></th><td>{numText(r.method)}</td><td>{numText(r.matrix)}</td><td>{diffOf(r.method, r.matrix, sc, true)}</td></tr>
+            {:else}
+              <tr><th><MathEquation equation={r.label} /></th><td>{numText(r.method)} {r.unit}</td><td>{numText(r.matrix)} {r.unit}</td><td>{diffOf(r.method, r.matrix, sc, false)}</td></tr>
+            {/if}
           {/each}
         </tbody>
       </table>
@@ -127,6 +144,10 @@
   .sb-scroll { overflow-x: auto; max-width: 100%; }
   .sb-table { border-collapse: collapse; margin: 0.45rem auto; font-size: 0.76rem; color: var(--st-text); }
   .sb-table th, .sb-table td { padding: 0.2rem 0.5rem; border-bottom: 1px solid var(--st-hair); text-align: center; white-space: nowrap; }
+  .sb-table td.words { white-space: normal; min-width: 6.5rem; text-align: left; }
+  .sb-unit { font-size: 0.66rem; font-weight: 400; color: var(--st-text-3); }
+  :global(.sb-narrow) .sb-table { font-size: 0.7rem; }
+  :global(.sb-narrow) .sb-table th, :global(.sb-narrow) .sb-table td { padding: 0.18rem 0.3rem; }
   .sb-table thead th { border-bottom: 1px solid var(--st-hair-strong); font-weight: 600; color: var(--st-text-2); }
   .sb-matrix td { font-variant-numeric: tabular-nums; }
   .sb-mname { text-align: center; margin-top: 0.3rem; }

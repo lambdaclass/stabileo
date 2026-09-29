@@ -9,7 +9,8 @@
    * the same way.
    */
   import type { Sketch, SketchColor } from '../../lib/engine/steps/sketch';
-  import { numText } from '../../lib/engine/steps/format';
+  import { numText, proseParts } from '../../lib/engine/steps/format';
+  import { tick } from 'svelte';
 
   let { sketch }: { sketch: Sketch } = $props();
 
@@ -18,7 +19,7 @@
    * pixel sizes in a narrow side panel as well as on a wide page.
    */
   let cw = $state(0);
-  const W = $derived(Math.max(280, Math.min(720, cw || 480)));
+  const W = $derived(Math.max(200, Math.min(720, cw || 480)));
   const PAD = $derived(W < 420 ? 38 : 46);
 
   const nodeById = $derived(new Map(sketch.nodes.map((n) => [n.id, n])));
@@ -176,16 +177,43 @@
   });
 
   const H = $derived(fit.H + (sketch.dims && fit.flat ? 26 : 0));
+
+  /*
+   * The figure is laid out in a box sized before anything is drawn, so a flat
+   * beam leaves room for loads on both sides and a value at a member's end can
+   * run past the edge. Once drawn, the view is fitted to what is there: empty
+   * bands go, and if a label runs past a side the whole figure is set a little
+   * smaller rather than cut.
+   */
+  let content = $state<SVGGElement>();
+  let box = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+  $effect(() => {
+    void sketch; void W; void H;
+    box = null;
+    tick().then(() => {
+      const g = content;
+      if (!g || typeof g.getBBox !== 'function') return;
+      const b = g.getBBox();
+      if (!(b.width > 0 && b.height > 0)) return;
+      const x0 = Math.min(0, b.x - 6), x1 = Math.max(W, b.x + b.width + 6);
+      const y0 = b.y - 10, y1 = b.y + b.height + 10;
+      box = { x: x0, y: y0, w: x1 - x0, h: Math.max(60, y1 - y0) };
+    });
+  });
+  const view = $derived(box ?? { x: 0, y: 0, w: W, h: H });
   const cls = (c?: SketchColor, fallback: SketchColor = 'structure') => `c-${c ?? fallback}`;
 </script>
 
+{#snippet words(text: string)}{#each proseParts(text) as p}{#if p.kind === 'sub'}<tspan baseline-shift="sub" font-size="75%">{p.text}</tspan>{:else if p.kind === 'sup'}<tspan baseline-shift="super" font-size="75%">{p.text}</tspan>{:else}<tspan>{p.text}</tspan>{/if}{/each}{/snippet}
+
 <div class="sk-wrap" bind:clientWidth={cw}>
-<svg class="step-sketch" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-hidden="true">
+<svg class="step-sketch" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} width={W} height={(W * view.h) / view.w} role="img" aria-hidden="true">
   <defs>
     <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
       <line x1="0" y1="0" x2="0" y2="6" class="c-muted" stroke-width="1.2" />
     </pattern>
   </defs>
+  <g bind:this={content}>
 
   <!-- Diagrams under the structure lines. -->
   {#each diagramDraw as d}
@@ -206,7 +234,7 @@
       class="member {m.style ?? 'solid'} {cls(m.color, m.style === 'highlight' ? 'accent' : 'structure')}" />
     {#if m.label}
       {@const n = sdir(-g.s, g.c)}
-      <text x={(sx(g.a.x) + sx(g.b.x)) / 2 + n.x * 12} y={(sz(g.a.z) + sz(g.b.z)) / 2 + n.y * 12 + 4} class="mlabel {cls(m.color, 'muted')}">{m.label}</text>
+      <text x={(sx(g.a.x) + sx(g.b.x)) / 2 + n.x * 12} y={(sz(g.a.z) + sz(g.b.z)) / 2 + n.y * 12 + 4} class="mlabel {cls(m.color, 'muted')}">{@render words(m.label)}</text>
     {/if}
   {/each}
 
@@ -243,7 +271,7 @@
   {#each sketch.nodes as n}
     <circle cx={sx(n.x)} cy={sz(n.z)} r="2.8" class="node" />
     {#if n.label}
-      <text x={sx(n.x) + 6} y={sz(n.z) - 6} class="nlabel">{n.label}</text>
+      <text x={sx(n.x) + 6} y={sz(n.z) - 6} class="nlabel">{@render words(n.label)}</text>
     {/if}
   {/each}
   {#each sketch.hinges ?? [] as h}
@@ -263,7 +291,7 @@
       <path d={a.line} class="arrow-line c-load" />
       <path d={a.head} class="arrow-head c-load" />
     {/each}
-    {#if l.label}<text x={l.label.x} y={l.label.y + 4} class="vlabel c-load">{l.label.text}</text>{/if}
+    {#if l.label}<text x={l.label.x} y={l.label.y + 4} class="vlabel c-load">{@render words(l.label.text)}</text>{/if}
   {/each}
 
   <!-- Point forces (loads, reactions, unknowns). -->
@@ -272,7 +300,7 @@
       {@const a = arrowPath(P(f.x, f.z), sdir(f.fx, f.fz))}
       <path d={a.line} class="arrow-line {cls(f.color, 'load')}" class:dashed={f.dashed} />
       <path d={a.head} class="arrow-head {cls(f.color, 'load')}" />
-      {#if f.label}<text x={a.tail.x} y={a.tail.y - 5} class="vlabel {cls(f.color, 'load')}">{f.label}</text>{/if}
+      {#if f.label}<text x={a.tail.x} y={a.tail.y - 5} class="vlabel {cls(f.color, 'load')}">{@render words(f.label)}</text>{/if}
     {/if}
   {/each}
 
@@ -282,7 +310,7 @@
       {@const g = coupleArc(P(c.x, c.z), c.m > 0)}
       <path d={g.arc} class="arrow-line {cls(c.color, 'moment')}" class:dashed={c.dashed} fill="none" />
       <path d={g.head} class="arrow-head {cls(c.color, 'moment')}" />
-      {#if c.label}<text x={g.labelAt.x} y={g.labelAt.y} class="vlabel {cls(c.color, 'moment')}">{c.label}</text>{/if}
+      {#if c.label}<text x={g.labelAt.x} y={g.labelAt.y} class="vlabel {cls(c.color, 'moment')}">{@render words(c.label)}</text>{/if}
     {/if}
   {/each}
 
@@ -295,14 +323,14 @@
         {@const g = coupleArc(p, true, 11)}
         <path d={g.arc} class="arrow-line {cls(d.color, 'dof')}" fill="none" />
         <path d={g.head} class="arrow-head {cls(d.color, 'dof')}" />
-        <text x={p.x + 14} y={p.y + 16} class="dlabel {cls(d.color, 'dof')}">{d.label}</text>
+        <text x={p.x + 14} y={p.y + 16} class="dlabel {cls(d.color, 'dof')}">{@render words(d.label)}</text>
       {:else}
         {@const dir = d.kind === 'ux' ? { x: 1, y: 0 } : { x: 0, y: -1 }}
         {@const tip = { x: p.x + dir.x * 30, y: p.y + dir.y * 30 }}
         {@const a = arrowPath(tip, dir, 26)}
         <path d={a.line} class="arrow-line {cls(d.color, 'dof')}" />
         <path d={a.head} class="arrow-head {cls(d.color, 'dof')}" />
-        <text x={tip.x + (d.kind === 'ux' ? 4 : 4)} y={tip.y + (d.kind === 'ux' ? -4 : 0)} class="dlabel {cls(d.color, 'dof')}">{d.label}</text>
+        <text x={tip.x + (d.kind === 'ux' ? 4 : 4)} y={tip.y + (d.kind === 'ux' ? -4 : 0)} class="dlabel {cls(d.color, 'dof')}">{@render words(d.label)}</text>
       {/if}
     {/if}
   {/each}
@@ -311,18 +339,18 @@
     {@const a = P(sketch.cut.a.x, sketch.cut.a.z)}
     {@const b = P(sketch.cut.b.x, sketch.cut.b.z)}
     <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class="cut c-accent" />
-    {#if sketch.cut.label}<text x={b.x + 4} y={b.y} class="vlabel c-accent">{sketch.cut.label}</text>{/if}
+    {#if sketch.cut.label}<text x={b.x + 4} y={b.y} class="vlabel c-accent">{@render words(sketch.cut.label)}</text>{/if}
   {/if}
 
   {#each diagramDraw as d}
-    {#each d.marks as mk}<text x={mk.x} y={mk.y} class="vlabel {cls(sketch.diagram?.color, 'diagram')}">{mk.text}</text>{/each}
+    {#each d.marks as mk}<text x={mk.x} y={mk.y} class="vlabel {cls(sketch.diagram?.color, 'diagram')}">{@render words(mk.text)}</text>{/each}
   {/each}
 
   {#each sketch.labels ?? [] as l}
     {@const p = P(l.x, l.z)}
     {@const dx = l.anchor?.includes('e') ? 8 : l.anchor?.includes('w') ? -8 : 0}
     {@const dy = l.anchor?.includes('n') ? -8 : l.anchor?.includes('s') ? 14 : 4}
-    <text x={p.x + dx} y={p.y + dy} class="vlabel {cls(l.color, 'muted')}" text-anchor={dx > 0 ? 'start' : dx < 0 ? 'end' : 'middle'}>{l.text}</text>
+    <text x={p.x + dx} y={p.y + dy} class="vlabel {cls(l.color, 'muted')}" text-anchor={dx > 0 ? 'start' : dx < 0 ? 'end' : 'middle'}>{@render words(l.text)}</text>
   {/each}
 
   <!-- Dimension lines. -->
@@ -331,11 +359,12 @@
     <line x1={d.a.x - (d.vertical ? 4 : 0)} y1={d.a.y - (d.vertical ? 0 : 4)} x2={d.a.x + (d.vertical ? 4 : 0)} y2={d.a.y + (d.vertical ? 0 : 4)} class="dim" />
     <line x1={d.b.x - (d.vertical ? 4 : 0)} y1={d.b.y - (d.vertical ? 0 : 4)} x2={d.b.x + (d.vertical ? 4 : 0)} y2={d.b.y + (d.vertical ? 0 : 4)} class="dim" />
     {#if d.vertical}
-      <text x={d.a.x - 5} y={(d.a.y + d.b.y) / 2 + 4} class="dimtext" text-anchor="end">{d.text}</text>
+      <text x={d.a.x - 5} y={(d.a.y + d.b.y) / 2 + 4} class="dimtext" text-anchor="end">{@render words(d.text)}</text>
     {:else}
-      <text x={(d.a.x + d.b.x) / 2} y={d.a.y - 4} class="dimtext">{d.text}</text>
+      <text x={(d.a.x + d.b.x) / 2} y={d.a.y - 4} class="dimtext">{@render words(d.text)}</text>
     {/if}
   {/each}
+  </g>
 </svg>
 </div>
 

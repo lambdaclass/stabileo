@@ -2,7 +2,7 @@
 import type { MethodContext } from './registry';
 import type { Applicability, Block, Cell, Step, StepDoc } from './doc';
 import { tx } from './doc';
-import { num, par } from './format';
+import { num, par, settle } from './format';
 import { beamLine, type BeamLine } from './beam-line';
 import { sketchOf } from './sketch';
 import {
@@ -147,7 +147,7 @@ export function buildMomentArea(ctx: MethodContext): StepDoc {
       { kind: 'calc', label: tx('steps.m.momentArea.areasCheck'), formula: '\\sum A_k = \\int_0^{L} \\frac{M}{EI}\\,dx, \\qquad \\sum A_k\\,\\bar{x}_k = \\int_0^{L} \\frac{M}{EI}\\,x\\,dx',
         subst: `\\sum A_k = ${num(totalA, 6)}, \\qquad \\sum A_k\\,\\bar{x}_k = ${num(totalAx, 6)}`,
         result: `\\int_0^{L} \\frac{M}{EI}\\,dx = ${num(intA, 6)}\\ ${U.rad}, \\qquad \\int_0^{L} \\frac{M}{EI}\\,x\\,dx = ${num(intAx, 6)}\\ \\mathrm{rad\\,m}`,
-        check: `\\checkmark` },
+        check: settle(totalA, intA, Math.abs(intA)).ok && settle(totalAx, intAx, Math.abs(intAx)).ok ? `\\sum A_k = \\int_0^{L} \\frac{M}{EI}\\,dx, \\qquad \\sum A_k\\,\\bar{x}_k = \\int_0^{L} \\frac{M}{EI}\\,x\\,dx\\ \\checkmark` : undefined },
     ],
   });
 

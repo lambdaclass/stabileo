@@ -6,7 +6,7 @@
  */
 import type { MethodContext } from './registry';
 import type { Block, Cell, CompareRow, Step, StepDoc, Tex, Txt } from './doc';
-import { tx } from './doc';
+import { tx, compareNoteFor } from './doc';
 import { num, numText, par, term } from './format';
 import type { SpanLoad } from './beam-line';
 import type { Sketch } from './sketch';
@@ -393,7 +393,7 @@ export function buildThreeMoments(ctx: MethodContext): StepDoc {
       if (k === spans.length - 1 || two(sups[k + 1])) rows.push({ label: symL(sups[k + 1]), method: Mb[k], matrix: refEndMoment(b, ref, s, 'R'), unit: 'kN·m' });
     });
     rows.push(...reactionRows(b, ref, sol));
-    steps.push({ title: tx('steps.common.compare'), blocks: [{ kind: 'compare', rows, caption: tx('steps.m.threeMoments.compareCaption') }, { kind: 'p', text: tx('steps.common.compareNote') }] });
+    steps.push({ title: tx('steps.common.compare'), blocks: [{ kind: 'compare', rows, caption: tx('steps.m.threeMoments.compareCaption') }, { kind: 'p', text: compareNoteFor(rows) }] });
   }
   // 9. Diagrams.
   steps.push(diagramsStep(b, sol.pieces));

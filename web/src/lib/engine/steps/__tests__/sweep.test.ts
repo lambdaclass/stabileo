@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import katex from 'katex';
-import { narrowTex } from '../narrow-tex';
+import { narrowTex, NARROW_LEVELS } from '../narrow-tex';
 import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
 import { planeModel } from '../plane-model';
@@ -85,8 +85,8 @@ function problems(m: ExplainedMethod, doc: StepDoc, opts: Record<string, boolean
     }
   }
   for (const tex of f.tex) {
-    // As written, and as laid out for a narrow panel.
-    for (const t of new Set([tex, narrowTex(tex)])) {
+    // As written, and as laid out for a narrow panel at every level of breaking.
+    for (const t of new Set([tex, ...Array.from({ length: NARROW_LEVELS + 1 }, (_, k) => narrowTex(tex, k))])) {
       try { katex.renderToString(t, { throwOnError: true, displayMode: true }); } catch (e) { out.push(`bad TeX: ${String(e).slice(0, 80)} in ${t.slice(0, 80)}`); }
     }
   }

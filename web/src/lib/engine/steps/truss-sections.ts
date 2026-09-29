@@ -204,7 +204,7 @@ export function buildSections(ctx: MethodContext): StepDoc {
       sub.push({
         kind: 'calc', label: tx(`${P}sections.arm`, { m: m.name }),
         formula: `d = \\left| (x_{\\mathrm{${pNear.name}}} - x_O)\\sin\\alpha - (z_{\\mathrm{${pNear.name}}} - z_O)\\cos\\alpha \\right|`,
-        subst: `d = \\left| (${num(pNear.x)} - ${par(O.x)})\\,${par(e.z)} - (${num(pNear.z)} - ${par(O.z)})\\,${par(e.x)} \\right|`,
+        subst: `d = \\left| (${num(pNear.x)} - ${par(O.x)}) \\cdot ${par(e.z)} - (${num(pNear.z)} - ${par(O.z)}) \\cdot ${par(e.x)} \\right|`,
         result: `\\boxed{d = ${num(Math.abs(arm))}\\ \\mathrm{m}}`,
       });
       const mEq = momentEq(pm, comps, O, cut.side);

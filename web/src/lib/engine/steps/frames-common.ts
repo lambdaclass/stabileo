@@ -8,8 +8,8 @@
  */
 import type { MethodContext } from './registry';
 import type { Block, Cell, CompareRow, Step, Txt } from './doc';
-import { tx } from './doc';
-import { num, numText, par, term } from './format';
+import { tx, compareNoteFor } from './doc';
+import { num, numText, par, settle, term } from './format';
 import type { PlaneModel, PMember, PMemberLoad } from './plane-model';
 import { hasSpecialSupports, hasThermal, loadsOn, nodalLoadAt, orientation } from './plane-model';
 import { fixedEnd, fixedEndBlocks, type FixedEnd } from './fem';
@@ -215,7 +215,7 @@ export function kinematicsStep(fk: FrameKin, md: Map<number, MemberData>, F: Map
     b.push({ kind: 'note', tone: 'info', text: tx('steps.frames.kin.noSway') });
     return { title: tx('steps.frames.kin.title'), blocks: b };
   }
-  b.push({ kind: 'p', text: tx('steps.frames.kin.modes', { n: nm }) });
+  b.push({ kind: 'p', text: nm === 1 ? tx('steps.frames.kin.modesOne') : tx('steps.frames.kin.modes', { n: nm }) });
   b.push({ kind: 'p', text: tx('steps.frames.kin.psiSign'), detail: true });
   fk.modes.forEach((mode, k) => {
     const rows: Cell[][] = [];
@@ -299,12 +299,13 @@ export function checkBlocks(fk: FrameKin, md: Map<number, MemberData>, M: Map<st
     const nn = nodeName(fk, n);
     const sum = at.reduce((s, x) => s + M.get(key(x.id, x.e))!, 0);
     const C = fk.couple.get(n) ?? 0;
+    const st = settle(sum, C, Math.max(...at.map((x) => Math.abs(M.get(key(x.id, x.e))!))));
     out.push({
       kind: 'calc', label: tx('steps.frames.check.joint', { n: nn }),
       formula: `${at.map((x) => Mt(md.get(x.id)!, x.e)).join(' + ')} = C_{${nn}}`,
-      subst: `${at.map((x) => par(M.get(key(x.id, x.e))!)).join(' + ')} = ${num(sum)}`,
-      result: `\\boxed{\\sum M_{${nn}} = ${num(sum)}\\ ${UM}}`,
-      check: `C_{${nn}} = ${num(C)}\\ ${UM}\\ \\checkmark`,
+      subst: `${at.map((x) => par(M.get(key(x.id, x.e))!)).join(' + ')} ${st.rel} ${st.tex}`,
+      result: `\\boxed{\\sum M_{${nn}} ${st.rel} ${st.tex}\\ ${UM}}`,
+      check: `C_{${nn}} = ${num(C)}\\ ${UM}${st.ok ? '\\ \\checkmark' : ''}`,
     });
   }
   fk.modes.forEach((mode, k) => {
@@ -317,12 +318,13 @@ export function checkBlocks(fk: FrameKin, md: Map<number, MemberData>, M: Map<st
       terms.push(`${par(p)}\\big(${par(mi)} + ${par(mj)}\\big)`);
       s += p * (mi + mj);
     }
+    const st = settle(-s, W, Math.max(Math.abs(W), ...[...mode.psi].map(([id, p]) => Math.abs(p * (M.get(key(id, 'i'))! + M.get(key(id, 'j'))!)))));
     out.push({
       kind: 'calc', label: tx('steps.frames.check.sway', { k: k + 1 }),
       formula: `-\\sum \\psi_{ij,${k + 1}}\\,(M_{ij} + M_{ji}) = W_{${k + 1}}`,
-      subst: `-\\big[${terms.join(' + ')}\\big] = ${num(-s)}`,
-      result: `\\boxed{${num(-s)}\\ ${UF}}`,
-      check: `W_{${k + 1}} = ${num(W)}\\ ${UF}\\ \\checkmark`,
+      subst: `-\\big[${terms.join(' + ')}\\big] ${st.rel} ${st.tex}`,
+      result: `\\boxed{${st.tex}\\ ${UF}}`,
+      check: `W_{${k + 1}} = ${num(W)}\\ ${UF}${st.ok ? '\\ \\checkmark' : ''}`,
     });
   });
   return out;
@@ -589,12 +591,15 @@ export function reactionsStep(fk: FrameKin, md: Map<number, MemberData>, sol: So
     const p = pm.nodes.get(n)!;
     Rx += r.rx; Rz += r.rz; Rm += (p.x - o.x) * r.rz - (p.z - o.z) * r.rx + r.my;
   }
+  const gx = settle(Rx + Lx, 0, Math.max(Math.abs(Rx), Math.abs(Lx)));
+  const gz = settle(Rz + Lz, 0, Math.max(Math.abs(Rz), Math.abs(Lz)));
+  const gm = settle(Rm + Lm, 0, Math.max(Math.abs(Rm), Math.abs(Lm)));
   b.push({
     kind: 'calc', label: tx('steps.frames.react.global', { n: o.name }),
     formula: `\\sum F_x = 0, \\quad \\sum F_z = 0, \\quad \\sum M_{${o.name}} = 0`,
-    subst: `${num(Rx)} ${term(Lx)}, \\quad ${num(Rz)} ${term(Lz)}, \\quad ${num(Rm)} ${term(Lm)}`,
-    result: `\\boxed{${num(Rx + Lx)},\\ ${num(Rz + Lz)},\\ ${num(Rm + Lm)}}`,
-    check: '\\checkmark',
+    subst: `\\sum F_x = ${num(Rx)} ${term(Lx)}, \\quad \\sum F_z = ${num(Rz)} ${term(Lz)}, \\quad \\sum M_{${o.name}} = ${num(Rm)} ${term(Lm)}`,
+    result: `\\boxed{\\sum F_x ${gx.rel} ${gx.tex}\\ ${UF}}, \\quad \\boxed{\\sum F_z ${gz.rel} ${gz.tex}\\ ${UF}}, \\quad \\boxed{\\sum M_{${o.name}} ${gm.rel} ${gm.tex}\\ ${UM}}`,
+    check: gx.ok && gz.ok && gm.ok ? `\\sum F_x = \\sum F_z = \\sum M_{${o.name}} = 0\\ \\checkmark` : undefined,
   });
   return { title: tx('steps.common.reactions'), blocks: b };
 }
@@ -622,7 +627,7 @@ export function compareStep(fk: FrameKin, md: Map<number, MemberData>, sol: Solu
     title: tx('steps.common.compare'),
     blocks: [
       { kind: 'compare', rows, caption: tx('steps.frames.compare.caption') },
-      { kind: 'p', text: tx('steps.common.compareNote') },
+      { kind: 'p', text: compareNoteFor(rows) },
       { kind: 'p', text: tx('steps.frames.compare.axial'), detail: true },
     ],
   };

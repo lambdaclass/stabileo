@@ -39,6 +39,21 @@ export function superscript(e: number): string {
   return String(e).split('').map((c) => SUP[c] ?? c).join('');
 }
 
+/**
+ * A computed value that should equal `target` (a joint's couple, zero): the
+ * relation to write and the value. Round-off is written as the target
+ * itself; a leftover within what an iteration was asked to reach (10⁻⁵ of
+ * the size of the terms) as ≈ the target; anything larger as it is, so a
+ * real error still shows.
+ */
+export function settle(v: number, target: number, scale: number): { rel: string; tex: string; ok: boolean } {
+  const d = Math.abs(v - target);
+  const s = Math.max(Math.abs(scale), Math.abs(target), 1e-9);
+  if (d <= 1e-9 * s) return { rel: '=', tex: num(target), ok: true };
+  if (d <= 1e-5 * s) return { rel: '\\approx', tex: num(target), ok: true };
+  return { rel: '=', tex: num(v), ok: false };
+}
+
 /** A number inside a sum or product: wrapped in parentheses when negative. */
 export function par(v: number, sig = 4): string {
   const s = num(v, sig);

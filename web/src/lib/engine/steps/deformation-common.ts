@@ -6,7 +6,7 @@
  */
 import type { MethodContext, MethodOption } from './registry';
 import type { Applicability, Block, Cell, CompareRow, Txt } from './doc';
-import { tx } from './doc';
+import { tx, compareNoteFor } from './doc';
 import { num, numText, par } from './format';
 import { beamLine, type BeamLine, type EndKind, type SpanLoad } from './beam-line';
 import { hasSpecialSupports, hasThermal, type PlaneModel, type PMember } from './plane-model';
@@ -139,7 +139,7 @@ export function intro(ctx: MethodContext, what: Txt, signs: string, extra: Block
 }
 
 export function compareBlock(rows: CompareRow[], extra?: Txt): Block[] {
-  const out: Block[] = [{ kind: 'compare', rows, caption: tx('steps.common.compareNote') }];
+  const out: Block[] = [{ kind: 'compare', rows, caption: compareNoteFor(rows) }];
   if (extra) out.push({ kind: 'note', tone: 'info', text: extra });
   return out;
 }
