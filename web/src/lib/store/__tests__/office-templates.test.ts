@@ -49,6 +49,27 @@ describe('office templates', () => {
     expect(historyStore.undoCount).toBe(undoBefore + 1);
   });
 
+  it('a drawn section of two materials keeps them, under the ids they take here', () => {
+    const concrete = modelStore.addMaterial({ name: 'H-25', e: 25000, nu: 0.2, rho: 24, fy: 25 } as never);
+    const steel = [...modelStore.materials.keys()][0]!;
+    modelStore.addSection({
+      name: 'Tubo relleno', a: 0.01, iy: 1e-5, iz: 1e-5,
+      drawn: { version: 1, refMaterialId: steel, parts: [{ id: 1, shape: { kind: 'circle', d: 0.2 }, at: [0, 0], rotationDeg: 0, materialId: concrete }], areas: [{ materialId: null, a: 0.004 }, { materialId: concrete, a: 0.03 }] },
+    } as never);
+    const tpl = parseTemplate(JSON.stringify(templateFromProject('Oficina')));
+
+    modelStore.clear();
+    // Two materials first, so the template's ids fall on other materials here.
+    modelStore.addMaterial({ name: 'Otro A', e: 1, nu: 0.2, rho: 1 } as never);
+    modelStore.addMaterial({ name: 'Otro B', e: 1, nu: 0.2, rho: 1 } as never);
+    applyTemplate(tpl);
+    const here = [...modelStore.materials.values()].find((m) => m.name === 'H-25')!.id;
+    const sec = [...modelStore.sections.values()].find((s) => s.name === 'Tubo relleno')!;
+    const drawn = (sec as unknown as { drawn: { parts: Array<{ materialId: number }>; areas: Array<{ materialId: number | null }> } }).drawn;
+    expect(drawn.parts[0]!.materialId).toBe(here);
+    expect(drawn.areas.map((x) => x.materialId)).toEqual([null, here]);
+  });
+
   it('refuses a file that is not a template', () => {
     expect(() => parseTemplate('{"a":1}')).toThrow(TemplateError);
     expect(() => parseTemplate('nope')).toThrow(TemplateError);
