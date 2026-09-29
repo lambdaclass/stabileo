@@ -1502,6 +1502,19 @@ function createModelStore() {
      * the inner call became its own undo step — a composite command could not nest a helper
      * that batched.
      */
+    /**
+     * Run edits as part of the last undo step instead of a new one: the
+     * follow-up the user was asked about right after an edit (join the node a
+     * drag left on another, connect the member just drawn where it crosses),
+     * so one undo takes back the edit and its follow-up together.
+     */
+    amendLastStep(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+      this.bumpModelVersion();
+    },
+
     batch(fn: () => void): void {
       if (_undoBatching) { fn(); return; }
       _pushUndo?.();

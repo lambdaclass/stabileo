@@ -46,6 +46,14 @@
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
+  import { drawMemberSnap } from '../lib/canvas/draw-member-snap';
+  import ConnectionPrompt from './ConnectionPrompt.svelte';
+  import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
+  import {
+    membersCrossing, nodesOnMember, nodeCoincidentWith, membersThroughNode,
+    connectMember, connectNodeToMembers, joinNodes,
+  } from '../lib/model/edit/connection-check';
+  import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -59,8 +67,10 @@
 
   // Element creation chain mode
   let pendingNode: { x: number; y: number } | null = null;
-  /** Where the member tool's next click would put the member's end (see memberEndAt). */
-  let memberPreviewEnd: { x: number; y: number } | null = null;
+  /** Where the member tool's next click would put an end, and what it catches (see memberEndAt). */
+  let memberSnapPreview: MemberSnap | null = null;
+  /** What a dragged node has caught (another node, a member), or null on the grid. */
+  let dragSnap: MemberSnap | null = null;
 
   // Node drag state
   let draggedNodeId: number | null = null;
@@ -784,7 +794,8 @@
 
     // Draw snap highlight when using tools that target nodes/elements
     const tool = uiStore.currentTool;
-    if ((tool === 'element' && uiStore.elementMode === 'create') || tool === 'support' || tool === 'load') {
+    // The member tool draws its own snap markers (drawMemberSnap, below).
+    if (tool === 'support' || tool === 'load') {
       const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.5);
       if (nearNode) {
         const s = uiStore.worldToScreen(nearNode.x, nearNode.y);
@@ -910,7 +921,7 @@
       // Rubber band to where the click would put the end: the member that
       // would be made, not the raw cursor.
       if (uiStore.currentTool === 'element') {
-        const end = memberPreviewEnd ?? { x: uiStore.worldX, y: uiStore.worldY };
+        const end = memberSnapPreview ?? { x: uiStore.worldX, y: uiStore.worldY };
         const mouseScreen = uiStore.worldToScreen(end.x, end.y);
         ctx.beginPath();
         ctx.moveTo(screen.x, screen.y);
@@ -921,9 +932,20 @@
         ctx.stroke();
         ctx.setLineDash([]);
         if (uiStore.showMemberDimensions) {
-          drawMemberDimensions(ctx, pendingNode, end, (x, y) => uiStore.worldToScreen(x, y), canvasTheme(), { width, height });
+          drawMemberDimensions(ctx, pendingNode, end, (x, y) => uiStore.worldToScreen(x, y), canvasTheme());
         }
       }
+    }
+
+    // What a dragged node has caught, as the member tool shows it.
+    if (draggedNodeId !== null && dragSnap) {
+      drawMemberSnap(ctx, dragSnap, null, t(`float.snap.${dragSnap.kind}`),
+        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height });
+    }
+    // What the member tool's next click catches: a marker on the point and its name by the cursor.
+    if (uiStore.currentTool === 'element' && memberSnapPreview) {
+      drawMemberSnap(ctx, memberSnapPreview, pendingNode, t(`float.snap.${memberSnapPreview.kind}`),
+        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height });
     }
 
     // Draw results
@@ -1767,21 +1789,22 @@
         pendingNode = null;
       } else {
         const from = pendingNode;
-        let made: { i: number; j: number } | null = null;
+        let made: { i: number; j: number; id: number } | null = null;
         modelStore.batch(() => {
           const i = realizeMemberEnd(from.x, from.y);
           const j = realizeMemberEnd(end.x, end.y);
-          if (i !== j) {
-            modelStore.addElement(i, j, uiStore.elementCreateType);
-            made = { i, j };
-          }
+          if (i !== j) made = { i, j, id: modelStore.addElement(i, j, uiStore.elementCreateType) };
         });
         if (made) {
+          const m = made as { i: number; j: number; id: number };
           resultsStore.clear();
-          uiStore.selectNode((made as { i: number; j: number }).j);
+          uiStore.selectNode(m.j);
+          askToConnectMember(m.id);
         }
         pendingNode = uiStore.memberChains ? { x: end.x, y: end.y } : null;
       }
+      // The model or the start changed: what the cursor catches now.
+      memberSnapPreview = memberEndAt(world.x, world.y, snapped.x, snapped.y);
     } else if (uiStore.currentTool === 'support') {
       // Support: find nearest existing node using raw world coords (not snapped,
       // to avoid grid-snapping moving the search point away from the actual node)
@@ -2125,7 +2148,7 @@
 
     // For tools that benefit from midpoint snap, update world coords accordingly
     const toolNow = uiStore.currentTool;
-    memberPreviewEnd = toolNow === 'element' && pendingNode ? memberEndAt(world.x, world.y, snapped.x, snapped.y) : null;
+    memberSnapPreview = toolNow === 'element' ? memberEndAt(world.x, world.y, snapped.x, snapped.y) : null;
     if (toolNow === 'element' || toolNow === 'node' || toolNow === 'load') {
       const ms = snapWithMidpoint(world.x, world.y);
       uiStore.setMouse(mx, my, ms.x, ms.y);
@@ -2144,6 +2167,7 @@
     // Block dragging in simplified 2D mode
     if (uiStore.simplified2DMode && draggedNodeId !== null) {
       draggedNodeId = null;
+      dragSnap = null;
       dragStartWorld = null;
       return;
     }
@@ -2164,8 +2188,12 @@
           }
         }
       } else {
+        // One node: it catches other nodes and members as it goes (shown, and
+        // asked about on release), or follows the grid.
         const orig = modelStore.getNode(draggedNodeId);
-        const moved = to3D(uiStore.drawPlane2D, snapped.x, snapped.y, orig ?? { x: 0, y: 0, z: 0 });
+        dragSnap = dragEndAt(draggedNodeId, world.x, world.y, snapped.x, snapped.y);
+        const to = dragSnap ?? snapped;
+        const moved = to3D(uiStore.drawPlane2D, to.x, to.y, orig ?? { x: 0, y: 0, z: 0 });
         modelStore.updateNode(draggedNodeId, moved.x, moved.y, moved.z || undefined);
       }
 
@@ -2298,8 +2326,12 @@
     if (draggedNodeId !== null) {
       if (!dragMoved) {
         historyStore.undo();
+      } else if (uiStore.selectedNodes.size <= 1) {
+        // A single node dropped: on another node, or on members, it asks.
+        askToConnectNode(draggedNodeId);
       }
       draggedNodeId = null;
+      dragSnap = null;
       dragMoved = false;
       dragStartWorld = null;
     }
@@ -2510,6 +2542,7 @@
       // Cancel any ongoing single-touch interaction
       isPanning = false;
       draggedNodeId = null;
+      dragSnap = null;
       boxSelect = null;
     }
   }
@@ -2627,37 +2660,53 @@
   }
 
   /**
-   * Where a member-tool click puts an end, without changing the model: an
-   * existing node near the cursor, else a point on a member under it (its
-   * midpoint when the cursor is near one, else the projection of the
-   * grid-snapped cursor), else the grid-snapped cursor itself.
+   * Where a member-tool click puts an end, and what it catches there (see
+   * lib/viewport/member-snap): a node, a crossing, a midpoint, the
+   * perpendicular foot from the start, a point on a member, the start's
+   * horizontal or vertical, or the grid. Nothing in the model changes.
    */
-  function memberEndAt(wx: number, wy: number, sx: number, sy: number): { x: number; y: number; nodeId?: number } {
-    const near = findNearestNode(wx, wy, 0.5);
-    if (near) return { x: near.x, y: near.y, nodeId: near.id };
-    /*
-     * A point on a member within 1 cm of a node IS that node: the split would
-     * reuse it anyway (splitMember's tolerance), and deciding it here keeps the
-     * two ends of a member from ever resolving to one node, which would make
-     * nothing and still leave an undo step.
-     */
-    const asNode = (p: { x: number; y: number }) => {
-      const n = findNearestNode(p.x, p.y, 0.01);
-      return n ? { x: n.x, y: n.y, nodeId: n.id } : p;
-    };
-    const mid = findNearestMidpoint(wx, wy, 0.4);
-    if (mid) return asNode({ x: mid.x, y: mid.y });
-    const onBar = findNearestElement(wx, wy, 0.3);
-    if (onBar) {
-      const ni = getProjectedNode(onBar.nodeI), nj = getProjectedNode(onBar.nodeJ);
-      if (ni && nj) {
-        const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
-        const px = uiStore.snapToGrid ? sx : wx, py = uiStore.snapToGrid ? sy : wy;
-        const t = lenSq > 1e-10 ? ((px - ni.x) * dx + (py - ni.y) * dy) / lenSq : -1;
-        if (t >= 0.05 && t <= 0.95) return asNode({ x: ni.x + t * dx, y: ni.y + t * dy });
-      }
+  function memberEndAt(wx: number, wy: number, sx: number, sy: number): MemberSnap {
+    const nodes = getProjectedNodes();
+    const members: SnapMember[] = [];
+    for (const e of modelStore.elements.values()) {
+      const a = nodes.get(e.nodeI), b = nodes.get(e.nodeJ);
+      if (a && b) members.push({ id: e.id, a, b });
     }
-    return { x: sx, y: sy };
+    const px = (n: number) => n / Math.max(uiStore.zoom, 1e-9);
+    return resolveMemberSnap({
+      cursor: { x: wx, y: wy },
+      grid: uiStore.snapToGrid && uiStore.showGrid ? { x: sx, y: sy } : null,
+      start: pendingNode,
+      nodes: nodes.values(),
+      members,
+      tol: { node: px(MEMBER_SNAP_PX.node), point: px(MEMBER_SNAP_PX.point), member: px(MEMBER_SNAP_PX.member), align: px(MEMBER_SNAP_PX.align) },
+    });
+  }
+
+  /**
+   * Where a dragged node goes when it catches something: another node or a
+   * point on a member, not counting the node itself and its own members.
+   * Null when it catches nothing, so it follows the grid.
+   */
+  function dragEndAt(nodeId: number, wx: number, wy: number, sx: number, sy: number): MemberSnap | null {
+    const all = getProjectedNodes();
+    const members: SnapMember[] = [];
+    for (const e of modelStore.elements.values()) {
+      if (e.nodeI === nodeId || e.nodeJ === nodeId) continue;
+      const a = all.get(e.nodeI), b = all.get(e.nodeJ);
+      if (a && b) members.push({ id: e.id, a, b });
+    }
+    all.delete(nodeId);
+    const px = (n: number) => n / Math.max(uiStore.zoom, 1e-9);
+    const snap = resolveMemberSnap({
+      cursor: { x: wx, y: wy },
+      grid: uiStore.snapToGrid && uiStore.showGrid ? { x: sx, y: sy } : null,
+      start: null,
+      nodes: all.values(),
+      members,
+      tol: { node: px(MEMBER_SNAP_PX.node), point: px(MEMBER_SNAP_PX.point), member: px(MEMBER_SNAP_PX.member), align: 0 },
+    });
+    return snap.kind === 'node' || snap.kind === 'midpoint' || snap.kind === 'intersection' || snap.kind === 'onMember' ? snap : null;
   }
 
   /**
@@ -2686,30 +2735,86 @@
 
   /**
    * The node at a member end, made if missing: the node already there, else
-   * a split of the member the point lies on (auto-split, as the node tool
-   * does), else a new node. Re-read from the model at the moment it is made,
-   * so a split made for one end cannot leave the other pointing at a member
-   * that no longer exists.
+   * the node that splitting each member through the point makes (one member,
+   * or two at a crossing; auto-split, as the node tool does), else a new
+   * node. Re-read from the model at the moment it is made, so a split made
+   * for one end cannot leave the other pointing at a member that no longer
+   * exists.
    */
   function realizeMemberEnd(x: number, y: number): number {
     const there = findNearestNode(x, y, 1e-6);
     if (there) return there.id;
     if (uiStore.autoSplitOnNodePlace) {
-      const bar = findNearestElement(x, y, 1e-6);
-      if (bar) {
+      const through: Array<{ id: number; t: number }> = [];
+      for (const bar of modelStore.elements.values()) {
         const ni = getProjectedNode(bar.nodeI), nj = getProjectedNode(bar.nodeJ);
-        if (ni && nj) {
-          const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
-          const t = lenSq > 1e-10 ? ((x - ni.x) * dx + (y - ni.y) * dy) / lenSq : -1;
-          if (t > 1e-6 && t < 1 - 1e-6) {
-            const r = modelStore.splitElementAtPoint(bar.id, t);
-            if (r) return r.nodeId;
-          }
-        }
+        if (!ni || !nj) continue;
+        const dx = nj.x - ni.x, dy = nj.y - ni.y, lenSq = dx * dx + dy * dy;
+        if (lenSq < 1e-10) continue;
+        const t = ((x - ni.x) * dx + (y - ni.y) * dy) / lenSq;
+        const off = Math.hypot(ni.x + t * dx - x, ni.y + t * dy - y);
+        if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6 * Math.max(1, Math.sqrt(lenSq))) through.push({ id: bar.id, t });
       }
+      // The first split makes the node; the next ones reuse it (within 1 cm).
+      let made: number | null = null;
+      for (const { id, t } of through) {
+        const r = modelStore.splitElementAtPoint(id, t);
+        if (r && made === null) made = r.nodeId;
+      }
+      if (made !== null) return made;
     }
     const p3d = to3D(uiStore.drawPlane2D, x, y, { x: 0, y: 0, z: 0 });
     return modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
+  }
+
+  /**
+   * A member just drawn that crosses others or runs over nodes without being
+   * connected to them: ask whether to connect it there.
+   */
+  function askToConnectMember(id: number) {
+    const crossed = membersCrossing(id);
+    const over = nodesOnMember(id);
+    if (!crossed.length && !over.length) return;
+    const parts: string[] = [];
+    if (crossed.length === 1) parts.push(t('connect.memberCrossesOne').replace('{o}', String(crossed[0])));
+    else if (crossed.length > 1) parts.push(t('connect.memberCrossesMany').replace('{n}', String(crossed.length)));
+    if (over.length === 1) parts.push(t('connect.memberOverNodeOne').replace('{o}', String(over[0])));
+    else if (over.length > 1) parts.push(t('connect.memberOverNodesMany').replace('{n}', String(over.length)));
+    connectionPrompt.ask({
+      message: t('connect.memberLead').replace('{e}', String(id)) + ' ' + parts.join(t('connect.and')) + t('connect.memberTail') + '.',
+      accept: t('connect.connect'),
+      decline: t('connect.leaveApart'),
+      run: () => connectMember(id),
+      stillApplies: () => modelStore.elements.has(id),
+    });
+  }
+
+  /** A node dropped on another node or on members: ask whether to join it there. */
+  function askToConnectNode(id: number) {
+    const onto = nodeCoincidentWith(id);
+    if (onto !== null) {
+      connectionPrompt.ask({
+        message: t('connect.nodeOnNode').replace('{a}', String(id)).replace('{b}', String(onto)),
+        accept: t('connect.joinNodes'),
+        decline: t('connect.keepApart'),
+        run: () => {
+          const r = joinNodes(id, onto);
+          if (r.droppedSupports) uiStore.toast(t('connect.droppedSupport'), 'info');
+        },
+        stillApplies: () => modelStore.nodes.has(id) && modelStore.nodes.has(onto),
+      });
+      return;
+    }
+    const through = membersThroughNode(id);
+    if (!through.length) return;
+    connectionPrompt.ask({
+      message: (through.length === 1 ? t('connect.nodeOnMemberOne').replace('{e}', String(through[0])) : t('connect.nodeOnMembersMany').replace('{n}', String(through.length)))
+        .replace('{a}', String(id)),
+      accept: t('connect.splitAndConnect'),
+      decline: t('connect.leaveApart'),
+      run: () => connectNodeToMembers(id),
+      stillApplies: () => modelStore.nodes.has(id),
+    });
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
@@ -2728,6 +2833,7 @@
 </script>
 
 <div class="viewport2d-wrapper">
+  <ConnectionPrompt />
   <canvas
     bind:this={canvas}
     onmousedown={handleMouseDown}
