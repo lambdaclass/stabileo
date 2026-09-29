@@ -37,7 +37,6 @@
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
-  import { buildSolverInput3D } from '../../lib/engine/solver-service';
   // Every solver below is a WASM export that throws a bare string, which has no
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
@@ -131,11 +130,9 @@
     // panel previously lacked.
     if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
     if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
-    const input = buildSolverInput3D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-        loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
-        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
-        connectors: modelStore.connectors },
+    // The store's builder, so these analyses read the project's rules (self-weight as stated, the
+    // shear-deformation switch, groups) exactly as Solve does; a copy of it here left them out.
+    const input = modelStore.buildSolverInput3D(
       uiStore.includeSelfWeight,
       uiStore.axisConvention3D === 'leftHand',
       // Advanced analyses run on the centerline: their wire payloads (modal/

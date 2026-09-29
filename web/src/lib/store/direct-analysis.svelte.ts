@@ -44,6 +44,8 @@ class DirectAnalysisStore {
           nodes: m.nodes, elements: m.elements, supports: m.supports, loads: m.loads,
           materials: m.materials, sections: m.sections, plates: m.plates, quads: m.quads,
           constraints: m.constraints, connectors: m.connectors,
+          // The project's rules, as Solve reads them: self-weight as stated, shear deformation, groups.
+          analysis: m.analysis, groups: m.groups,
         } as never,
         m.loadCases, combos,
         {
