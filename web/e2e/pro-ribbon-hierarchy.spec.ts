@@ -106,7 +106,7 @@ test.describe('@smoke Design — Concrete and Metallic are two sub-sections', ()
     await openStage(page, 'design');
     await page.getByTestId('pr-cmd-connections').click();
     // The panel heading follows the command that opens it: one place, one name.
-    await expect(page.getByTestId('pro-panel-title')).toHaveText(/metallic joints/i);
+    await expect(page.getByTestId('pro-panel-title')).toHaveText(/steel connections/i);
   });
 });
 

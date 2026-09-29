@@ -144,7 +144,7 @@ test.describe('the metallic surface', () => {
     await generateTruss(page);
     await openTab(page, 'steel');
 
-    await expect(page.getByTestId('steel-summary')).toContainText(/metallic members/i);
+    await expect(page.getByTestId('steel-summary')).toContainText(/steel members/i);
     const badges = page.getByTestId('steel-status-badge');
     const n = await badges.count();
     expect(n).toBeGreaterThan(0);

@@ -60,7 +60,7 @@ test.describe('@smoke joint detection is scoped to metallic participation', () =
        * has no joints when it has 84.
        */
       const purpose = page.getByTestId('conn-sec-joints-purpose');
-      await expect(purpose).toContainText(/metallic/i);
+      await expect(purpose).toContainText(/steel/i);
       await expect(purpose).toContainText(/none|no member|no joint/i);
       await expect(page.getByTestId('conn-joint-count')).toHaveText('0');
     });
@@ -102,7 +102,7 @@ test.describe('@smoke joint detection is scoped to metallic participation', () =
       const members = page.getByTestId('conn-joint-members');
       await expect(members).toBeVisible();
       await expect(page.getByTestId('conn-members-metallic')).toContainText(/E\d+/);
-      await expect(page.getByTestId('conn-members-metallic')).toContainText(/metallic/i);
+      await expect(page.getByTestId('conn-members-metallic')).toContainText(/steel/i);
     });
 });
 
@@ -147,7 +147,7 @@ test.describe('@smoke bolts and welds are gated, explained and never certified',
     await openSection(page, 'conn-sec-bolts');
     await openSection(page, 'conn-sec-welds');
     for (const id of ['conn-bolts-experimental', 'conn-welds-experimental']) {
-      await expect(page.getByTestId(id), id).toContainText(/not a certifiable verification/i);
+      await expect(page.getByTestId(id), id).toContainText(/not a certifiable design check/i);
     }
   });
 
@@ -238,7 +238,7 @@ test.describe('@smoke the five gaps are on screen, with enough to act on', () =>
   test('the list closes with the same statement the banner opens with', async ({ pro: page }) => {
     await openJoints(page);
     await expect(page.getByTestId('conn-gaps-not-certifiable'))
-      .toContainText(/not a certifiable verification/i);
+      .toContainText(/not a certifiable design check/i);
   });
 });
 

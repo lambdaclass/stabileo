@@ -101,7 +101,7 @@ test.describe('@slow every export records itself', () => {
 
     const retouch = page.getByTestId('export-record-retouch-0');
     await expect(retouch).toHaveAttribute('data-retouch', 'known');
-    await expect(retouch).toContainText('No member in this emission carried hand-edited');
+    await expect(retouch).toContainText('No member in this issue carried hand-edited');
   });
 });
 
