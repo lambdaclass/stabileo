@@ -5530,6 +5530,8 @@ const es: Record<string, string> = {
   'opt.ratio': "Uso",
   'opt.weight': "Peso",
   'opt.noneInFamily': "Ningún {family} verifica (el mejor llega a {best})",
+  'opt.notChecked': "Sin verificar: la verificación CIRSOC 301 no cubre la familia {family}",
+  'opt.onlySteel': "Sólo se optimizan barras de acero: {n} de aluminio o conformadas en frío quedaron fuera.",
   'opt.apply': "Aplicar {n}",
   'opt.applyHint': "Se escribe en el modelo como un solo paso de deshacer. Cambiar secciones cambia la rigidez: hay que recalcular.",
   'opt.awaiting': "{n} cambios aplicados — diseñado, sin re-verificar. Los perfiles se eligieron con los esfuerzos de antes del cambio.",

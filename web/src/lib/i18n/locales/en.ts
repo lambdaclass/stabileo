@@ -5537,6 +5537,8 @@ const en: Record<string, string> = {
   'opt.ratio': 'Utilization',
   'opt.weight': "Weight",
   'opt.noneInFamily': "No {family} passes (the best reaches {best})",
+  'opt.notChecked': "Not checked: the CIRSOC 301 check does not cover the {family} family",
+  'opt.onlySteel': "Only steel members are optimized: {n} aluminum or cold-formed members were left out.",
   'opt.apply': "Apply {n}",
   'opt.applyHint': "Written to the model as one undo step. Changing sections changes stiffness: solve again.",
   'opt.awaiting': '{n} changes applied — designed, not re-verified. The sections were chosen with the forces from before the change.',

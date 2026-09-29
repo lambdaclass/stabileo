@@ -4808,6 +4808,8 @@ const pt: Translations = {
   'opt.ratio': "Uso",
   'opt.weight': "Peso",
   'opt.noneInFamily': "Nenhum {family} verifica (o melhor chega a {best})",
+  'opt.notChecked': "Não verificado: a verificação CIRSOC 301 não cobre a família {family}",
+  'opt.onlySteel': "Só barras de aço são otimizadas: {n} de alumínio ou formadas a frio ficaram de fora.",
   'opt.apply': "Aplicar {n}",
   'opt.applyHint': "Escrito no modelo como um só passo de desfazer. Mudar seções muda a rigidez: é preciso recalcular.",
   'opt.awaiting': "{n} mudanças aplicadas — dimensionado, sem reverificar. Os perfis foram escolhidos com os esforços de antes da mudança.",

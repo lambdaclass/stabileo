@@ -24,6 +24,9 @@ import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { isDesigned, maskAxialDemand } from '../engine/design/behaviour-demands';
+import { materialFamilyOf } from '../engine/steel/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
+import { isColdFormedSection } from '../profiles/cold-formed-catalogue';
 
 export type OptimiseScope = 'section' | 'member' | 'group';
 
@@ -132,9 +135,13 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
  * Members of one group are checked against one material — the group's first — and members of a
  * section with different materials are split so that is always true.
  */
+/** Members the last grouping left out because the checker does not cover their material or section. */
+const outOfScope = new Set<number>();
+
 function groups(scope: OptimiseScope, ids?: readonly number[]) {
   const wanted = ids ? new Set(ids) : null;
   const out = new Map<string, { sectionId: number; materialId: number; profile: SteelProfile; elementIds: number[]; groupName?: string }>();
+  outOfScope.clear();
   /*
    * A named group is a design group: one profile for all its steel members. A member in two
    * groups is optimised with the first, so no member receives two answers.
@@ -149,6 +156,10 @@ function groups(scope: OptimiseScope, ids?: readonly number[]) {
     if (wanted && !wanted.has(e.id)) continue;
     const m = modelStore.materials.get(e.materialId);
     if (!m?.fy || m.fy <= 80) continue;
+    // The checker is CIRSOC 301's hot-rolled steel one: aluminium is out of its scope, and so is
+    // a cold-formed section (CIRSOC 303), whatever a catalogue lookup of its name returns.
+    if (materialFamilyOf(m as never, catalogueGradeFamily).family !== 'steel') { outOfScope.add(e.id); continue; }
+    if (isColdFormedSection(modelStore.sections.get(e.sectionId))) { outOfScope.add(e.id); continue; }
     const p = catalogueProfileOf(modelStore.sections.get(e.sectionId));
     if (!p) continue;
     const grp = groupOf.get(e.id);
@@ -177,6 +188,7 @@ function createSteelOptimise() {
    * whatever carried that id now.
    */
   let ranOn = $state<{ epoch: number; version: number } | null>(null);
+  let skipped = $state(0);
   let appliedEpoch = $state<number | null>(null);
   const fresh = () => ranOn !== null && ranOn.epoch === modelStore.loadEpoch && ranOn.version === modelStore.modelVersion;
 
@@ -188,6 +200,8 @@ function createSteelOptimise() {
     get awaitingReverify() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'unchecked'); },
     get converged() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'holds'); },
     get appliedAt() { return appliedAt; },
+    /** Members of the last run left out: aluminium or cold-formed, which the checker does not cover. */
+    get outOfScope() { return fresh() ? skipped : 0; },
 
     /** Propose the lightest passing profile per group, against the analysis on hand. */
     run(scope: OptimiseScope, ids?: readonly number[], settings: OptimiseSettings = {}): void {
@@ -209,6 +223,7 @@ function createSteelOptimise() {
         });
       }
       rows = out;
+      skipped = outOfScope.size;
       ranOn = { epoch: modelStore.loadEpoch, version: modelStore.modelVersion };
     },
 

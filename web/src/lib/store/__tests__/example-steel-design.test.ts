@@ -50,3 +50,20 @@ describe('proposals belong to the project they were made on', () => {
     expect(steelOptimise.applied).toEqual([]);
   });
 });
+
+describe('what the optimiser checks', () => {
+  it('leaves aluminium members out, and says how many', async () => {
+    await PRO_EXAMPLES.find((e) => e.id === 'pipe-rack')!.load();
+    const [first] = [...modelStore.materials.values()];
+    modelStore.updateMaterial(first!.id, { gradeId: 'alu-5083-h116', fy: 215 } as never);
+    const r = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D([...r.perCase.values()][0]!);
+    publishCombinations3D(r);
+    steelOptimise.run('member');
+    const aluMembers = [...modelStore.elements.values()].filter((e) => e.materialId === first!.id).map((e) => e.id);
+    expect(aluMembers.length).toBeGreaterThan(0);
+    expect(steelOptimise.rows.some((row) => row.elementIds.some((id) => aluMembers.includes(id)))).toBe(false);
+    expect(steelOptimise.outOfScope).toBe(aluMembers.length);
+  });
+});
