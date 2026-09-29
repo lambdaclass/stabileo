@@ -5284,6 +5284,7 @@ const en: Record<string, string> = {
   'groups.addSelection': 'Add selection',
   'groups.removeSelection': 'Remove selection',
   'groups.delete': 'Delete',
+  'groups.deleteSelfWeightShells': "A self-weight load covers this group and its shells. Change it under “Self-weight” before deleting the group.",
   'groups.readOnly': 'Managed by another part of the application; shown, not edited here.',
   'code.title': 'Code',
   'code.apply': 'Apply to the model',

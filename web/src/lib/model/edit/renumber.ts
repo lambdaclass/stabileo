@@ -174,6 +174,17 @@ export function renumber(opts: RenumberOptions): RenumberResult {
       ...(g.members.quads ? { quads: g.members.quads.map(rq) } : {}),
     },
   }]);
+  /*
+   * The references the project keeps by id outside the entities themselves: the self-weight rule's
+   * member list, deflection rules on chosen members, time-history forces at nodes, and what a
+   * saved view hides. Left alone they came to name whatever took the old number.
+   */
+  const s2 = snap as any;
+  if (s2.analysis?.selfWeight) s2.analysis = { ...s2.analysis, selfWeight: s2.analysis.selfWeight.map((w: any) => (w.elements ? { ...w, elements: w.elements.map(re) } : w)) };
+  if (s2.deflectionLimits?.rules) s2.deflectionLimits = { ...s2.deflectionLimits, rules: s2.deflectionLimits.rules.map((r: any) => (r.scope?.kind === 'members' ? { ...r, scope: { ...r.scope, ids: r.scope.ids.map(re) } } : r)) };
+  if (s2.dynamics?.timeHistory?.forces) s2.dynamics = { ...s2.dynamics, timeHistory: { ...s2.dynamics.timeHistory, forces: s2.dynamics.timeHistory.forces.map((f: any) => ({ ...f, nodeId: rn(f.nodeId) })) } };
+  const shellKey = (k: string) => (k[0] === 'p' ? `p${rp(Number(k.slice(1)))}` : k[0] === 'q' ? `q${rq(Number(k.slice(1)))}` : k);
+  if (Array.isArray(s2.views)) s2.views = s2.views.map((v: any) => (v.display?.hidden ? { ...v, display: { ...v.display, hidden: { elements: (v.display.hidden.elements ?? []).map(re), shells: (v.display.hidden.shells ?? []).map(shellKey) } } } : v));
   // Counters stay ahead of every id in use.
   const maxOf = (m: Map<number, number>) => Math.max(0, ...m.values());
   snap.nextId = {

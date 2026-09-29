@@ -1278,7 +1278,28 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const cuts = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const raw = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    /*
+     * Each cut, with the node it reuses. A cut that would reuse the member's own end (a column
+     * ending 0.05 mm past the beam, a cut 1.5 % along a short member) is no cut: it made a
+     * member from that node to itself. Two cuts on one node are one.
+     */
+    const pointAt = (t: number) => ({ x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) });
+    const cutAt: Array<{ t: number; id: number | null }> = [];
+    for (const t of raw) {
+      const p = pointAt(t);
+      let id: number | null = null;
+      if (opts.reuseNodeTol !== undefined) {
+        const tol = opts.reuseNodeTol;
+        for (const n of model.nodes.values()) {
+          if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
+        }
+      }
+      if (id === elem.nodeI || id === elem.nodeJ) continue;
+      if (id !== null && cutAt.some((k) => k.id === id)) continue;
+      cutAt.push({ t, id });
+    }
+    const cuts = cutAt.map((k) => k.t);
     if (cuts.length === 0) return null;
 
     if (!_undoBatching) _pushUndo?.();
@@ -1291,15 +1312,9 @@ function createModelStore() {
         : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
       const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
-      for (const t of cuts) {
-        const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
-        let id: number | null = null;
-        if (opts.reuseNodeTol !== undefined) {
-          const tol = opts.reuseNodeTol;
-          for (const n of model.nodes.values()) {
-            if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
-          }
-        }
+      for (const k of cutAt) {
+        const p = pointAt(k.t);
+        let id = k.id;
         if (id === null) {
           id = nextId.node++;
           model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
@@ -1363,13 +1378,29 @@ function createModelStore() {
    */
   function replaceInSelfWeight(elementId: number, replacements: number[] = []): void {
     const sw = model.analysis?.selfWeight;
-    if (!sw?.some((x) => x.elements?.includes(elementId))) return;
-    model.analysis = {
-      ...model.analysis,
-      selfWeight: sw.map((x) => (x.elements?.includes(elementId)
-        ? { ...x, elements: [...new Set(x.elements.flatMap((e) => (e === elementId ? replacements : [e])))] }
-        : x)),
-    };
+    if (sw?.some((x) => x.elements?.includes(elementId))) {
+      model.analysis = {
+        ...model.analysis,
+        selfWeight: sw.map((x) => (x.elements?.includes(elementId)
+          ? { ...x, elements: [...new Set(x.elements.flatMap((e) => (e === elementId ? replacements : [e])))] }
+          : x)),
+      };
+    }
+    // Deflection rules on chosen members, and what a saved view hides, follow the same way.
+    const rules = model.deflectionLimits?.rules;
+    if (rules?.some((r) => r.scope.kind === 'members' && r.scope.ids.includes(elementId))) {
+      model.deflectionLimits = {
+        ...model.deflectionLimits!,
+        rules: rules.map((r) => (r.scope.kind === 'members' && r.scope.ids.includes(elementId)
+          ? { ...r, scope: { ...r.scope, ids: [...new Set(r.scope.ids.flatMap((e) => (e === elementId ? replacements : [e])))] } }
+          : r)),
+      };
+    }
+    if (model.views?.some((v) => v.display?.hidden?.elements.includes(elementId))) {
+      model.views = model.views.map((v) => (v.display?.hidden?.elements.includes(elementId)
+        ? { ...v, display: { ...v.display, hidden: { ...v.display.hidden, elements: v.display.hidden.elements.flatMap((e) => (e === elementId ? replacements : [e])) } } }
+        : v));
+    }
   }
 
   /**
@@ -1616,6 +1647,9 @@ function createModelStore() {
      * so it reads under the current rules (the self-weight migration). Undoing past them would
      * bring back a model the app then fixes again, pushing a new step and clearing redo.
      */
+    /** A member's id references (self-weight lists, deflection rules, hidden in views) moved to `to`. */
+    followMember(elementId: number, to: number[]): void { replaceInSelfWeight(elementId, to); },
+
     withoutUndo(fn: () => void): void {
       if (_undoBatching) { fn(); return; }
       _undoBatching = true;
@@ -2529,11 +2563,43 @@ function createModelStore() {
       model.groups = new Map(model.groups);
     },
 
-    removeGroup(id: number): void {
-      if (!model.groups.has(id)) return;
+    /**
+     * Delete a group. A self-weight load or a deflection rule scoped to it keeps covering the
+     * members it held, now named one by one; deleting the group used to leave them pointing at
+     * nothing, so those members lost their weight and their limit without a word. A self-weight
+     * load that also covers the group's shells cannot be written as a member list, and the group
+     * stays: the answer says why.
+     */
+    removeGroup(id: number): 'removed' | 'selfWeightShells' | 'missing' {
+      const g = model.groups.get(id);
+      if (!g) return 'missing';
+      const sw = model.analysis?.selfWeight;
+      const holdsShells = (g.members.plates?.length ?? 0) + (g.members.quads?.length ?? 0) > 0;
+      if (holdsShells && sw?.some((x) => x.groupId === id)) return 'selfWeightShells';
       if (!_undoBatching) _pushUndo?.();
+      const members = [...(g.members.elements ?? [])];
+      if (sw?.some((x) => x.groupId === id)) {
+        model.analysis = {
+          ...model.analysis,
+          selfWeight: sw.map((x) => {
+            if (x.groupId !== id) return x;
+            const { groupId: _g, ...rest } = x;
+            return { ...rest, elements: [...members] };
+          }),
+        };
+      }
+      const rules = model.deflectionLimits?.rules;
+      if (rules?.some((r) => r.scope.kind === 'group' && r.scope.groupId === id)) {
+        model.deflectionLimits = {
+          ...model.deflectionLimits!,
+          rules: rules.map((r) => (r.scope.kind === 'group' && r.scope.groupId === id
+            ? { ...r, scope: { kind: 'members' as const, ids: [...members] } }
+            : r)),
+        };
+      }
       model.groups.delete(id);
       model.groups = new Map(model.groups);
+      return 'removed';
     },
 
     /** Groups an entity belongs to. */

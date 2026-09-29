@@ -119,7 +119,7 @@
               <button class="pk-btn" onclick={() => combine(g, 'add')} disabled={selectionSize === 0}>{t('groups.addSelection')}</button>
               <button class="pk-btn" onclick={() => combine(g, 'remove')} disabled={selectionSize === 0}>{t('groups.removeSelection')}</button>
               <button class="pk-btn" onclick={() => placeCopy(g)} data-testid="gp-place-{g.id}">{t('groups.placeCopy')}</button>
-              <button class="pk-btn gp-del" onclick={() => modelStore.removeGroup(g.id)}>{t('groups.delete')}</button>
+              <button class="pk-btn gp-del" onclick={() => { if (modelStore.removeGroup(g.id) === 'selfWeightShells') uiStore.toast(t('groups.deleteSelfWeightShells'), 'error'); }}>{t('groups.delete')}</button>
             </div>
           {:else}
             <div class="gp-actions">

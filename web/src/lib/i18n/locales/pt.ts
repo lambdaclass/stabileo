@@ -4108,6 +4108,7 @@ const pt: Translations = {
   'groups.addSelection': 'Adicionar seleção',
   'groups.removeSelection': 'Remover seleção',
   'groups.delete': 'Apagar',
+  'groups.deleteSelfWeightShells': "Um peso próprio cobre este grupo e suas placas. Altere-o em “Peso próprio” antes de apagar o grupo.",
   'groups.readOnly': 'Gerido por outra parte da aplicação; mostrado, não editado aqui.',
   'code.title': 'Código',
   'code.apply': 'Aplicar ao modelo',

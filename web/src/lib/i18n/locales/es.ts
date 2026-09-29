@@ -5277,6 +5277,7 @@ const es: Record<string, string> = {
   'groups.addSelection': 'Agregar selección',
   'groups.removeSelection': 'Quitar selección',
   'groups.delete': 'Borrar',
+  'groups.deleteSelfWeightShells': "Un peso propio cubre este grupo y sus placas. Cambialo en «Peso propio» antes de borrar el grupo.",
   'groups.readOnly': 'Lo administra otra parte de la aplicación; se muestra, no se edita acá.',
   'code.title': 'Código',
   'code.apply': 'Aplicar al modelo',

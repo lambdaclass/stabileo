@@ -201,6 +201,8 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
       }
 
       const interior = segs.slice(1).map((e) => e.nodeI);
+      // A self-weight list, deflection rule or view that named a segment names the merged member.
+      for (const e of segs.slice(1)) modelStore.followMember(e.id, [keep.id]);
       for (const e of segs.slice(1)) modelStore.removeElement(e.id);
       const offset = keep.offset || last.offset
         ? { frame: (keep.offset ?? last.offset)!.frame, ...(keep.offset?.i ? { i: keep.offset.i } : {}), ...(last.offset?.j ? { j: last.offset.j } : {}) }
@@ -208,6 +210,10 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
       const patch: Partial<Element> = {
         nodeJ: last.nodeJ, releaseJ: { ...(last.releaseJ ?? { my: false, mz: false, t: false }) },
         jointJ: last.jointJ, offset: offset && (offset.i || offset.j) ? offset : undefined, reinforcement: undefined,
+        // The J end is the last segment's, its spring included.
+        semiRigid: keep.semiRigid?.i || last.semiRigid?.j
+          ? { ...(keep.semiRigid?.i ? { i: keep.semiRigid.i } : {}), ...(last.semiRigid?.j ? { j: last.semiRigid.j } : {}) }
+          : undefined,
       };
       if (segs.some((e) => e.reinforcement)) report.reinforcementDropped++;
       modelStore.updateElement(keep.id, patch);
