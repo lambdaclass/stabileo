@@ -464,6 +464,8 @@ const steelEn: Record<string, string> = {
   'steel.rows.why.thickness': 'This grade tabulates strength by thickness band. With no thickness only the first band is readable, and that is the strongest: the value used would be the most favorable of several.',
   'steel.rows.missing.coldFormedAuthority': 'Design authority for cold-formed sections',
   'steel.rows.why.coldFormedAuthority': 'The geometry is complete. CIRSOC 301 excludes these sections by name and defers to CIRSOC 303, which is not incorporated, so no section data can unblock this.',
+  'steel.rows.missing.shapeScope': "CIRSOC 301 check of angles, tees and tubes",
+  'steel.rows.why.shapeScope': "This stage's member check is written for I and channel sections: it reads a web and flanges. No section datum extends it to an angle, a tee or a tube. Tubes can be checked with AISC 360 or EN 1993 under “Other codes”.",
   'steel.rows.prop.area': 'Area',
   'steel.rows.prop.area.why': 'Every limit state starts from the area.',
   'steel.rows.prop.strongInertia': 'Strong-axis inertia',

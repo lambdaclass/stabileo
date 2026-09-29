@@ -478,6 +478,8 @@ const steelEs: Record<string, string> = {
   'steel.rows.why.thickness': 'Este grado tabula la resistencia por banda de espesor. Sin espesor sólo se puede leer la primera banda, que es la más resistente: el valor usado sería el más favorable de varios.',
   'steel.rows.missing.coldFormedAuthority': 'Autoridad de cálculo para conformados en frío',
   'steel.rows.why.coldFormedAuthority': 'La geometría está completa. CIRSOC 301 excluye estas secciones por nombre y remite a CIRSOC 303, que no está incorporada, así que ningún dato de sección desbloquea esto.',
+  'steel.rows.missing.shapeScope': "Verificación CIRSOC 301 de ángulos, tes y tubos",
+  'steel.rows.why.shapeScope': "La verificación de barras de esta etapa está escrita para perfiles I y U: lee alma y alas. Ningún dato de la sección la habilita para un ángulo, una te o un tubo. Los tubos pueden verificarse con AISC 360 o EN 1993 en «Otras normas».",
   'steel.rows.prop.area': 'Área',
   'steel.rows.prop.area.why': 'Toda verificación arranca del área.',
   'steel.rows.prop.strongInertia': 'Inercia eje fuerte',
