@@ -14,7 +14,15 @@ export interface Baseline { maxima: Cell[][]; statics: Cell[][] }
 
 function sameRows(label: string, got: Cell[][], want: Cell[][]) {
   expect(got.length, `${label}: rows`).toBe(want.length);
-  const scale = (c: number) => Math.max(1e-12, ...want.slice(1).map((r) => (typeof r[c] === 'number' ? Math.abs(r[c] as number) : 0)));
+  const colScale = (c: number) => Math.max(1e-12, ...want.slice(1).map((r) => (typeof r[c] === 'number' ? Math.abs(r[c] as number) : 0)));
+  /*
+   * A residual is round-off, and its own column's scale is round-off too (1e-20 on several
+   * models): a harmless change in the order of a sum failed every baseline. It is held to the
+   * scale of the loads it is the residual of; a relative residual, to 1e-9 outright.
+   */
+  const head = want[0] ?? [];
+  const scale = (c: number) => head[c] === 'residual' ? colScale(head.indexOf('applied') >= 0 ? head.indexOf('applied') : c)
+    : head[c] === 'worstRelative' ? 1 : colScale(c);
   want.forEach((w, i) => {
     w.forEach((v, c) => {
       const g = got[i]![c];

@@ -270,3 +270,26 @@ describe('the self-weight rule follows the model', () => {
     expect(modelStore.analysis!.selfWeight![0]!.elements).toEqual([r.elemA]);
   });
 });
+
+describe('cases and combinations that share a name', () => {
+  it('solve in one multi-case pass, each under its own id', () => {
+    const { a } = beam(6, 'simple');
+    const c1 = modelStore.addLoadCase('CRANE', 'L'), c2 = modelStore.addLoadCase('CRANE', 'L');
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, c1);
+    modelStore.addNodalLoad3D(a, 0, 0, -20, 0, 0, 0, c2);
+    const k1 = modelStore.addCombination('U', [{ caseId: c1, factor: 1 }]);
+    const k2 = modelStore.addCombination('U', [{ caseId: c2, factor: 1 }]);
+    const warned: string[] = [];
+    const orig = console.warn;
+    console.warn = (...args: unknown[]) => { warned.push(args.map(String).join(' ')); };
+    try {
+      const r = modelStore.solveCombinations3D(false, false, true);
+      if (!r || typeof r === 'string') throw new Error(String(r));
+      expect(sumFz(r.perCase.get(c1)!)).toBeCloseTo(10, 9);
+      expect(sumFz(r.perCase.get(c2)!)).toBeCloseTo(20, 9);
+      expect(sumFz(r.perCombo.get(k1)!)).toBeCloseTo(10, 9);
+      expect(sumFz(r.perCombo.get(k2)!)).toBeCloseTo(20, 9);
+    } finally { console.warn = orig; }
+    expect(warned.filter((w) => /Multi-case 3D failed/.test(w))).toEqual([]);
+  });
+});

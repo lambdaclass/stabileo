@@ -89,7 +89,17 @@ const GROUP_KEYS: Record<ExampleGroup, string> = {
 /** Cases that carry nothing, dropped so no combination is built over an empty action. */
 function dropEmptyCases(keep: number | undefined): void {
   const loaded = new Set(modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1));
+  const before = new Map(modelStore.combinations.map((c) => [c.id, c.factors.length]));
   for (const c of [...modelStore.model.loadCases]) if (!loaded.has(c.id) && c.id !== keep) modelStore.removeLoadCase(c.id);
+  // A combination that lost a term to a dropped case is named from what it now adds up: the
+  // offshore platform's own "U2: 1.2D + 1.6L" otherwise listed an L it no longer had.
+  const typeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type || c.name]));
+  for (const c of modelStore.combinations) {
+    if (before.get(c.id) === c.factors.length) continue;
+    const label = c.name.includes(':') ? c.name.slice(0, c.name.indexOf(':')) : c.name;
+    const terms = c.factors.map((f) => `${+f.factor.toFixed(3)}${typeOf.get(f.caseId) ?? '?'}`).join(' + ');
+    modelStore.updateCombination(c.id, { name: `${label}: ${terms}` });
+  }
 }
 
 function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined): void {

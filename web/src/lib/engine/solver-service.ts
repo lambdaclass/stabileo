@@ -2003,11 +2003,17 @@ function solveCombinations3DCore(
   const mcLoadCases: Array<{ name: string; loads: SolverLoad3D[] }> = [];
   const caseNameToId = new Map<string, number>();
 
+  /*
+   * The engine keys cases and combinations by name and refuses a repeated one; a project may
+   * repeat names (a validation model has eight cases called CRANE), and the solve then fell back
+   * to one case at a time without a word. Each goes to the engine under its id.
+   */
+  const caseKey = (id: number) => `case#${id}`;
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
-    mcLoadCases.push({ name: lc.name, loads });
-    caseNameToId.set(lc.name, lc.id);
+    mcLoadCases.push({ name: caseKey(lc.id), loads });
+    caseNameToId.set(caseKey(lc.id), lc.id);
   }
 
   if (mcLoadCases.length === 0) return t('svc.noLoadsApplied');
@@ -2020,10 +2026,10 @@ function solveCombinations3DCore(
     const factors: Record<string, number> = {};
     for (const f of combo.factors) {
       const lc = loadCases.find(c => c.id === f.caseId);
-      if (lc) factors[lc.name] = f.factor;
+      if (lc) factors[caseKey(lc.id)] = (factors[caseKey(lc.id)] ?? 0) + f.factor;
     }
-    mcCombinations.push({ name: combo.name, factors });
-    comboNameToId.set(combo.name, combo.id);
+    mcCombinations.push({ name: `combo#${combo.id}`, factors });
+    comboNameToId.set(`combo#${combo.id}`, combo.id);
   }
 
   // Single WASM call: solves all cases, combines, computes envelope

@@ -32,6 +32,12 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
       if (/acero|steel/i.test(m.name) && !/cable/i.test(m.name)) expect((m as { gradeId?: string }).gradeId, `${id}: ${m.name}`).toBeTruthy();
     }
 
+    // A combination's name adds up what it holds: none names a load type the model has no case of.
+    const types = new Set(modelStore.model.loadCases.map((c) => c.type));
+    if (id === 'offshore-platform') {
+      for (const c of modelStore.combinations) for (const m of c.name.matchAll(/\d(?:\.\d+)?\s*([A-Z][a-z]?)\b/g)) expect(types, `${c.name}`).toContain(m[1]);
+    }
+
     const dead = modelStore.model.loadCases.find((c) => c.type === 'D')!;
     const d = r.perCase.get(dead.id)!;
     const [hx, hy, v] = resultant(d);

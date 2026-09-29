@@ -660,6 +660,8 @@ const COMMERCIAL: Record<string, Partial<Record<GradeRegion, CommercialPairing[]
   IPE: { EU: EN_ROLLED, AR: [F24('iramAcindar')] },
   HEA: { EU: EN_ROLLED, AR: [F24('iramAcindar')] },
   HEB: { EU: EN_ROLLED, AR: [F24('iramAcindar')] },
+  // The heavy series of the same family, added with the catalogue's HE M sections.
+  HEM: { EU: EN_ROLLED, AR: [F24('iramAcindar')] },
 
   /*
    * The wide-flange series, where the three regions genuinely differ.
