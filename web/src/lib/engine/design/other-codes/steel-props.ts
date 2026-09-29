@@ -28,8 +28,10 @@ export interface SteelProps {
   h: number; b: number;
   /** Web and flange (or wall) thickness, m. */
   tw: number; tf: number;
-  /** Area resisting shear along the web, m². */
+  /** Area resisting shear along the web (parallel to h), m². */
   Aw: number;
+  /** Area resisting shear across it (parallel to b): the flanges of an I, the side walls of a tube, m². */
+  AwWeak: number;
 }
 
 const isI = (s: Section) => s.shape === 'I' || s.shape === 'H';
@@ -47,12 +49,13 @@ export function steelProps(sec: Section): SteelProps | { skip: string } {
   if (!(h > 0 && b > 0)) return { skip: 'otherCodes.skip.noDimensions' };
   // `steelSectionConstants` names axes as CIRSOC does: Zx strong, Zy weak.
   const k = steelSectionConstants(sec as never);
-  let shape: SteelShape, tw: number, tf: number, Aw: number, Zy: number, Zz: number, Cw: number;
+  let shape: SteelShape, tw: number, tf: number, Aw: number, AwWeak: number, Zy: number, Zz: number, Cw: number;
   let J = k.J;
   if (isI(sec)) {
     if (!(sec.tw && sec.tf)) return { skip: 'otherCodes.skip.noThickness' };
     shape = 'I'; tw = sec.tw; tf = sec.tf;
     Aw = h * tw;
+    AwWeak = 2 * b * tf;
     // The geometry's own moduli when the section engine resolves them; else the plate sums.
     Zy = k.Zx ?? b * tf * (h - tf) + (tw * (h - 2 * tf) ** 2) / 4;
     Zz = k.Zy ?? (tf * b * b) / 2 + ((h - 2 * tf) * tw * tw) / 4;
@@ -61,6 +64,7 @@ export function steelProps(sec: Section): SteelProps | { skip: string } {
     if (!sec.t) return { skip: 'otherCodes.skip.noThickness' };
     shape = 'RHS'; tw = sec.t; tf = sec.t;
     Aw = 2 * h * sec.t;
+    AwWeak = 2 * b * sec.t;
     Zy = k.Zx ?? b * h * h / 4 - (b - 2 * sec.t) * (h - 2 * sec.t) ** 2 / 4;
     Zz = k.Zy ?? h * b * b / 4 - (h - 2 * sec.t) * (b - 2 * sec.t) ** 2 / 4;
     Cw = 0; // closed section: warping is negligible and the checkers take it as zero
@@ -71,6 +75,7 @@ export function steelProps(sec: Section): SteelProps | { skip: string } {
     if (!sec.t) return { skip: 'otherCodes.skip.noThickness' };
     shape = 'CHS'; tw = sec.t; tf = sec.t;
     Aw = A / 2;
+    AwWeak = A / 2;
     const D = h, d = D - 2 * sec.t;
     Zy = k.Zx ?? (D ** 3 - d ** 3) / 6;
     Zz = k.Zy ?? Zy;
@@ -83,6 +88,6 @@ export function steelProps(sec: Section): SteelProps | { skip: string } {
     shape, A, Iy, Iz, J, Cw, Zy, Zz,
     Sy: Iy / (h / 2), Sz: Iz / (b / 2),
     ry: Math.sqrt(Iy / A), rz: Math.sqrt(Iz / A),
-    h, b, tw, tf, Aw,
+    h, b, tw, tf, Aw, AwWeak,
   };
 }

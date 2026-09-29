@@ -224,8 +224,8 @@ describe('every key resolves in the three offered languages', () => {
 describe('Lb is the number the checker receives', () => {
   it('reads the chain and the declared length from the same map the checker does', () => {
     const lengths = new Map([
-      [10, { L: 9, Lb: 9, source: 'chain' as const, chain: [10, 11] }],
-      [20, { L: 4, Lb: 1.5, source: 'declared' as const, chain: [20] }],
+      [10, { L: 9, Lb: 9, source: 'chain' as const, chain: [10, 11], freeEnd: false }],
+      [20, { L: 4, Lb: 1.5, source: 'declared' as const, chain: [20], freeEnd: false }],
     ]);
     const rows = assumptionRows(inventory(), lengths);
     const a = rows.find((r) => r.elementId === 10)!, b = rows.find((r) => r.elementId === 20)!;

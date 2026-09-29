@@ -155,3 +155,24 @@ describe('steel members under other codes', () => {
     expect(run.rows[0]).toEqual({ elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.notSteel' });
   });
 });
+
+describe('shear across the web', () => {
+  // RHS 200×100×6: webs 2·h·t = 2400 mm², side walls 2·b·t = 1200 mm².
+  const RHS = { name: 'RHS 200x100x6', shape: 'RHS', a: 34.6e-4, iy: 1783e-8, iz: 601e-8, h: 0.2, b: 0.1, t: 0.006, j: 1519e-8 };
+  const demand = (vy: number, vz: number) => ({ forces: { n: 0, my: 0, mz: 0, vy, vz } }) as never;
+
+  it('sends a shear along b against the side walls, not the webs', () => {
+    const ctx = { elementId: 1, section: RHS } as never;
+    // Across: 300 kN on 1200 mm² is the same utilisation as 600 kN on the 2400 mm² the checker reads.
+    expect((AISC360.forces!(ctx, demand(300, 0)) as { vy: number }).vy).toBeCloseTo(600e3, 3);
+    expect((EC3.forces!(ctx, demand(300, 0)) as { vEd: number }).vEd).toBeCloseTo(600e3, 3);
+    // Along the webs it is unchanged.
+    expect((AISC360.forces!(ctx, demand(0, 300)) as { vy: number }).vy).toBeCloseTo(300e3, 3);
+  });
+
+  it('gives an I its flanges for the shear across the web', () => {
+    const p = steelProps(IPE300 as never);
+    if ('skip' in p) throw new Error('skip');
+    expect(p.AwWeak).toBeCloseTo(2 * 0.15 * 0.0107, 9);
+  });
+});
