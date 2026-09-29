@@ -55,7 +55,13 @@ export function withMassSource(
   const factors = resolveMassFactors(loadCases, stated);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
-  const r = applyMassSource(input, massDensities(model.materials), cases);
+  // A member solved on a section scaled by stiffness modifiers weighs with its own section's A.
+  const realArea = (id: number) => {
+    const own = model.elements.get(id)?.sectionId;
+    const solved = input.elements.get(id)?.sectionId;
+    return own !== undefined && own !== solved ? input.sections.get(own)?.a : undefined;
+  };
+  const r = applyMassSource(input, massDensities(model.materials), cases, realArea);
   return { ...r, factors };
 }
 

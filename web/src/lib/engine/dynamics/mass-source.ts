@@ -190,12 +190,21 @@ function triArea(input: SolverInput3D, nodes: readonly number[]): number {
   return 0.5 * Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!);
 }
 
+/**
+ * The area a member weighs with, m², when it differs from the one it is solved with.
+ *
+ * A member with stiffness modifiers is solved on a scaled section (`applyStiffnessModifiers`),
+ * and the engine's mass matrix takes ρ·A from that section, so a factor on A for stiffness
+ * changed the member's mass as well. The caller names the unscaled area.
+ */
+export type RealArea = (elementId: number) => number | undefined;
+
 /** Self-weight mass the densities carry, t. Densities in kg/m³. */
-export function densityMassT(input: SolverInput3D, densities: Map<number, number>): number {
+export function densityMassT(input: SolverInput3D, densities: Map<number, number>, realArea?: RealArea): number {
   let m = 0;
   for (const e of input.elements.values()) {
     const g = memberGeometry(input, e.id);
-    if (g) m += (densities.get(e.materialId) ?? 0) / 1000 * g.A * g.L;
+    if (g) m += (densities.get(e.materialId) ?? 0) / 1000 * (realArea?.(e.id) ?? g.A) * g.L;
   }
   for (const q of input.quads?.values() ?? []) m += (densities.get(q.materialId) ?? 0) / 1000 * q.thickness * quadArea(input, q.nodes);
   for (const p of input.plates?.values() ?? []) m += (densities.get(p.materialId) ?? 0) / 1000 * p.thickness * triArea(input, p.nodes);
@@ -212,6 +221,7 @@ export function applyMassSource(
   input: SolverInput3D,
   baseDensities: Map<number, number>,
   cases: ReadonlyArray<CaseMassLoads>,
+  realArea?: RealArea,
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport } {
   const memberW = new Map<number, number>();   // kN, downward positive
   const quadW = new Map<number, number>();
@@ -270,13 +280,18 @@ export function applyMassSource(
   const materials = new Map(input.materials);
   const densities = new Map(baseDensities);
   let nextMat = Math.max(0, ...materials.keys()) + 1;
-  const cloneMaterial = (baseId: number, addKgM3: number): number => {
+  // `scale` multiplies the base density: A_real / A_solved for a member whose section was scaled.
+  const cloneMaterial = (baseId: number, addKgM3: number, scale = 1): number => {
     const base = materials.get(baseId) as SolverMaterial | undefined;
     if (!base) throw new Error(`mass source: material ${baseId} is not in the analysis input`);
     const id = nextMat++;
     materials.set(id, { ...base, id });
-    densities.set(id, (baseDensities.get(baseId) ?? 0) + addKgM3);
+    densities.set(id, (baseDensities.get(baseId) ?? 0) * scale + addKgM3);
     return id;
+  };
+  const areaScale = (id: number, solvedA: number): number => {
+    const real = realArea?.(id);
+    return real !== undefined && solvedA > 0 && Math.abs(real - solvedA) > 1e-12 * solvedA ? real / solvedA : 1;
   };
 
   const elements = new Map(input.elements);
@@ -284,7 +299,15 @@ export function applyMassSource(
     const e = elements.get(id)!;
     const g = memberGeometry(input, id)!;
     if (!(g.A > 0) || !(g.L > 0)) continue;
-    elements.set(id, { ...e, materialId: cloneMaterial(e.materialId, w * 1000 / (G * g.L * g.A)) });
+    elements.set(id, { ...e, materialId: cloneMaterial(e.materialId, w * 1000 / (G * g.L * g.A), areaScale(id, g.A)) });
+  }
+  // Members whose weight follows a scaled area and that carry no added mass.
+  for (const [id, e] of input.elements) {
+    if (memberW.has(id)) continue;
+    const g = memberGeometry(input, id);
+    if (!g) continue;
+    const k = areaScale(id, g.A);
+    if (k !== 1) elements.set(id, { ...e, materialId: cloneMaterial(e.materialId, 0, k) });
   }
 
   const quads = input.quads ? new Map(input.quads) : undefined;
@@ -298,7 +321,7 @@ export function applyMassSource(
   }
 
   const out: SolverInput3D = { ...input, materials, elements, ...(quads ? { quads } : {}), ...(curvedShells ? { curvedShells } : {}) };
-  const selfWeightT = densityMassT(input, baseDensities);
+  const selfWeightT = densityMassT(input, baseDensities, realArea);
   let added = 0;
   for (const t of addedT.values()) added += t;
   return {
