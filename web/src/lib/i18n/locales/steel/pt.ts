@@ -477,7 +477,7 @@ const steelPt: Record<string, string> = {
   'steel.rows.missing.coldFormedAuthority': 'Autoridade de cálculo para perfis conformados a frio',
   'steel.rows.why.coldFormedAuthority': 'A geometria está completa. A CIRSOC 301 exclui estas seções pelo nome e remete à CIRSOC 303, que não está incorporada, então nenhum dado de seção desbloqueia isto.',
   'steel.rows.missing.shapeScope': "Verificação CIRSOC 301 de cantoneiras, tês e tubos",
-  'steel.rows.why.shapeScope': "A verificação de barras desta etapa foi escrita para perfis I e U: lê alma e mesas. Nenhum dado da seção a habilita para uma cantoneira, um tê ou um tubo. Os tubos podem ser verificados com AISC 360 ou EN 1993 em “Outras normas”.",
+  'steel.rows.why.shapeScope': "A verificação de barras desta etapa foi escrita para perfis I e U: lê alma e mesas. Nenhum dado da seção a habilita para uma cantoneira, um tê ou um tubo. Para tubos, “Outras normas” oferece AISC 360 e EN 1993.",
   'steel.rows.prop.area': 'Área',
   'steel.rows.prop.area.why': 'Toda verificação parte da área.',
   'steel.rows.prop.strongInertia': 'Inércia do eixo forte',
