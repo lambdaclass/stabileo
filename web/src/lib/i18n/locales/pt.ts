@@ -4303,6 +4303,7 @@ const pt: Translations = {
   'pro.slenderness': 'Esbeltez',
   'pro.softClay': 'Argila mole',
   'pro.solve': 'Calcular',
+  'adv.winklerAxes': "ky e kz atuam segundo os eixos locais y, z da barra, por metro de barra. Com um deles em zero a barra não se apoia nessa direção.",
   'adv.failed': "{analysis}: {error}",
   'adv.name.pdelta': "P-Delta",
   'adv.name.modal': "Modal",

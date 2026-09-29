@@ -4820,6 +4820,7 @@ const es: Record<string, string> = {
   'pro.unknownError': 'Error desconocido',
   'pro.solving': 'Calculando...',
   'pro.solve': 'Calcular',
+  'adv.winklerAxes': "ky y kz actúan según los ejes locales y, z de la barra, por metro de barra. Con uno solo en cero la barra no apoya en esa dirección.",
   'adv.failed': "{analysis}: {error}",
   'adv.name.pdelta': "P-Delta",
   'adv.name.modal': "Modal",

@@ -37,6 +37,8 @@
     solve3D,
     computeInfluenceLine3D,
     analyzeSection,
+    buildSectionGeometry,
+    analyzeSectionTorsion,
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
@@ -851,6 +853,16 @@
         vertices = sectionOutline();
       }
       secResult = analyzeSection({ polygons: [{ vertices }] });
+      /*
+       * J from the Saint-Venant solve on the section's own mesh. The polygon analyser's J read
+       * 7 % high on a solid rectangle and more than double on an I; the torsion solve agrees
+       * with Roark within its mesh.
+       */
+      try {
+        const g = buildSectionGeometry({ kind: 'custom', outer: vertices, holes: [] } as never).geometry;
+        const j = analyzeSectionTorsion({ geometry: g }).j;
+        if (Number.isFinite(j) && j > 0) secResult = { ...secResult, j };
+      } catch { /* keep the analyser's own value */ }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, 'Error') });
     }
@@ -1243,8 +1255,9 @@
               {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
             </select>
           </label>
-          <label class="adv-label">ky (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKy} min={0} step={100} /></label>
-          <label class="adv-label">kz: <input type="number" class="adv-num" bind:value={winklerKz} min={0} step={100} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>ky (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKy} min={0} step={100} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>kz (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKz} min={0} step={100} /></label>
+          <span class="adv-hint">{t('adv.winklerAxes')}</span>
           <button class="adv-btn-sm" onclick={addWinklerSpring} disabled={winklerElementId == null}>+</button>
         </div>
         {#if winklerSprings.length > 0}

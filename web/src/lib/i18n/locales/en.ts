@@ -4827,6 +4827,7 @@ const en: Record<string, string> = {
   'pro.unknownError': 'Unknown error',
   'pro.solving': 'Solving...',
   'pro.solve': 'Solve',
+  'adv.winklerAxes': "ky and kz act along the member's local y and z axes, per meter of member. With one of them at zero the member rests on nothing in that direction.",
   'adv.failed': "{analysis}: {error}",
   'adv.name.pdelta': "P-Delta",
   'adv.name.modal': "Modal",
