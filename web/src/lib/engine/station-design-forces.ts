@@ -28,6 +28,7 @@ import {
   requiredVsForTable, type TransverseSpacingLimits,
 } from '../codes/cirsoc201/transverse-spacing';
 import type { RegulationEdition } from '../codes/regulation';
+import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
 import { REBAR_DB, classifyElement } from './codes/argentina/cirsoc201';
 // Axis resolution + the shared utilization convention. Both modules import only
 // TYPES from this file, so there is no runtime import cycle.
@@ -452,9 +453,13 @@ export function continuingGroupsInto(
 
 /** Required development length per CIRSOC 201 §12.2.3 simplified. */
 export function requiredLd(barDia: number, fc: number, fy: number): number {
-  const db = barDia / 1000; // mm → m
-  const ldCalc = (fy * db) / (4 * 0.8 * Math.sqrt(fc)); // α=β=λ=1.0
-  return Math.max(ldCalc, 0.3); // minimum 300mm per §12.2.1
+  /*
+   * Tabla 25.4.2.3 through `deriveDevelopment`, the same source the detailing and the drawings
+   * read, on the favourable-spacing row they use. This was the 2005 fy·db/(3,2·√f'c), about
+   * half the table: 0,42 m for a Ø16 in H-25 against 0,64 m, which let a curtailed group count
+   * in a region it does not reach and passed anchorages the drawings then lengthened.
+   */
+  return deriveDevelopment({ diameterMm: barDia, fy, fc, favourableSpacing: true, edition: '2025' }).ldM;
 }
 
 /** Required hooked development length per CIRSOC 201 §12.5. */

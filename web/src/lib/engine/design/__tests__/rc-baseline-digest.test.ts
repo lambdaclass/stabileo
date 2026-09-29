@@ -241,5 +241,8 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * with the gross area, Av,min and row (c) of Tabla 22.5.5.1 below it, and the §22.5.1.2 limit on
  * Vs. 191 beams moved, every one still VERIFIED, their certified utilization within ±0,11 of
  * before; the counts are unchanged.
+ *
+ * And (was `99271275a69883ab`) when the check's development length became Tabla 25.4.2.3, the
+ * one the drawings read: 4 members moved, still VERIFIED, utilization down by 0,004–0,03.
  */
-const RECORDED_FINGERPRINT = '99271275a69883ab';
+const RECORDED_FINGERPRINT = 'a84e9893c41e5501';

@@ -4,6 +4,7 @@
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
+import { deriveDevelopment } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
 import { beta1, yieldStrain, phiFromStrain, ES_MPA } from './cirsoc201-basis';
@@ -1310,9 +1311,9 @@ function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia
 
   const bars = uniqueDias.map(db => {
     const dbM = db / 1000; // mm → m
-    // ld per CIRSOC 201 12.2.3 simplified: ld = (fy × db) / (4 × 0.8 × √f'c)
-    const ldCalc = (fy * dbM) / (4 * 0.8 * sqrtFc);
-    const ld = Math.max(ldCalc, 0.3); // minimum 300mm per 12.2.1
+    // ld from Tabla 25.4.2.3, the same source as the design check and the drawings. The 2005
+    // fy·db/(3,2·√f'c) printed about half of it in the report's detailing table.
+    const ld = deriveDevelopment({ diameterMm: db, fy, fc, favourableSpacing: true, edition: '2025' }).ldM;
     // ldh per CIRSOC 201 12.5: ldh = (0.24 × fy × db) / √f'c
     const ldhCalc = (0.24 * fy * dbM) / sqrtFc;
     const ldh = Math.max(ldhCalc, 8 * dbM, 0.15); // min 8db or 150mm per 12.5.1
