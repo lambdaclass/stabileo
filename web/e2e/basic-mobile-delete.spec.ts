@@ -27,6 +27,15 @@ test.describe('@smoke deleting on a phone', () => {
       if (await page.getByTestId('selection-delete').count()) break;
     }
     await expect(page.getByTestId('selection-delete')).toBeVisible();
+    // Over the model's lower right corner, and no row above the model: the
+    // drawing does not move when something is selected.
+    const del = (await page.getByTestId('selection-delete').boundingBox())!;
+    const canvasNow = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    expect(canvasNow.y).toBeCloseTo(box.y, 0);
+    expect(canvasNow.height).toBeCloseTo(box.height, 0);
+    expect(del.x + del.width).toBeGreaterThan(canvasNow.x + canvasNow.width - 60);
+    expect(del.y + del.height).toBeGreaterThan(canvasNow.y + canvasNow.height - 70);
+    await expect(page.getByTestId('tool-options-bar')).toHaveCount(0);
 
     await page.getByTestId('selection-delete').tap();
     await expect(page.getByTestId('selection-delete-confirm')).toBeVisible();
@@ -36,5 +45,22 @@ test.describe('@smoke deleting on a phone', () => {
 
     await page.getByRole('button', { name: /Deshacer|Undo|Desfazer/ }).first().tap();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(before);
+  });
+
+  test('the delete button rises with the sheet', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-model').tap();
+    await expect(page.getByTestId('dt-tab-nodes')).toBeVisible();
+    // Select a member (as the tables do), with the sheet open.
+    const ids = await page.evaluate(() => window.__stabileo.elementIds());
+    await page.evaluate((id) => window.__stabileoActions.selectElements([id]), ids[0]);
+    const del = page.getByTestId('selection-delete');
+    await expect(del).toBeVisible();
+    const sheetTop = await page.evaluate(() => document.querySelector('[data-testid=dt-tab-nodes]')!.getBoundingClientRect().top);
+    const b = (await del.boundingBox())!;
+    expect(b.y + b.height).toBeLessThan(sheetTop);
   });
 });

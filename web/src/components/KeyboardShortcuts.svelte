@@ -1,5 +1,6 @@
 <script lang="ts">
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
+  import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
   import { translation } from '../lib/model/edit/affine';
@@ -413,9 +414,10 @@
       return;
     }
 
-    // Enter: solve (both 2D and 3D)
+    // Enter: solve (both 2D and 3D); with a connection question open, it answers yes instead.
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (connectionPrompt.current) { connectionPrompt.accept(); return; }
       runSolve();
       return;
     }

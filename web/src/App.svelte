@@ -17,6 +17,7 @@
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
+  import { explainedSteps } from './lib/store/explained-steps.svelte';
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
@@ -171,13 +172,19 @@
    * `untrack` so switching panels by hand while a wizard is open does not
    * re-run this and yank the panel back.
    */
-  let wizardWasOpen = false;
+  /* A wizard opened from the explained step-by-step catalog goes back to the catalog when it closes. */
+  let wizardOnlyWasOpen = false;
   $effect(() => {
-    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen;
-    const basic = uiStore.appMode === 'basico';
-    if (open && basic) basicPanel = 'data';
-    if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';
-    wizardWasOpen = open;
+    const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    wizardOnlyWasOpen = w;
+  });
+
+  $effect(() => {
+    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen;
+    // A step-by-step solution is an advanced function: it opens in the Advanced
+    // panel, and closing it leaves the list of functions there.
+    if (open && uiStore.appMode === 'basico') basicPanel = 'advanced';
   });
 
   /**
@@ -2102,7 +2109,7 @@
             {t('app.viewKinematic')}
           </button>
         {/if}
-        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title="Dismiss">&times;</button>
+        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title={t('toast.dismiss')}>&times;</button>
       </div>
     {/each}
   </div>

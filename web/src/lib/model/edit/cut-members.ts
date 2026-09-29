@@ -105,39 +105,45 @@ export function crossing(a0: Vec3, a1: Vec3, b0: Vec3, b1: Vec3, tol = CUT_TOL):
 
 /**
  * Every pair of the given members that cross without sharing an end node, with where on each
- * (0…1). Swept on x so a few thousand members are not compared pairwise.
+ * (0…1). With an anchor, only the pairs that member is in. Swept on x so a few thousand members
+ * are not compared pairwise.
  */
-export function crossingPairs(elementIds: Iterable<number>): Array<{ a: number; b: number; s: number; t: number }> {
+export function crossingPairs(elementIds: Iterable<number>, anchorId?: number): Array<{ a: number; b: number; s: number; t: number }> {
   const ids = [...new Set(elementIds)].filter((id) => modelStore.elements.has(id));
   const seg = new Map(ids.map((id) => {
     const e = modelStore.elements.get(id)!;
     return [id, { a: v(modelStore.nodes.get(e.nodeI)!), b: v(modelStore.nodes.get(e.nodeJ)!), e }];
   }));
   const out: Array<{ a: number; b: number; s: number; t: number }> = [];
+  const pair = (a: number, b: number) => {
+    const P = seg.get(a)!, Q = seg.get(b)!;
+    if ([P.e.nodeI, P.e.nodeJ].some((n) => n === Q.e.nodeI || n === Q.e.nodeJ)) return;
+    const c = crossing(P.a, P.b, Q.a, Q.b);
+    if (c) out.push({ a, b, s: c.s, t: c.t });
+  };
+  if (anchorId !== undefined) {
+    if (seg.has(anchorId)) for (const id of ids) if (id !== anchorId) pair(anchorId, id);
+    return out;
+  }
   const order = ids.map((id) => ({ id, lo: Math.min(seg.get(id)!.a[0], seg.get(id)!.b[0]), hi: Math.max(seg.get(id)!.a[0], seg.get(id)!.b[0]) }))
     .sort((p, q) => p.lo - q.lo);
   for (let i = 0; i < order.length; i++) {
-    const P = seg.get(order[i]!.id)!;
-    for (let j = i + 1; j < order.length && order[j]!.lo <= order[i]!.hi + CUT_TOL; j++) {
-      const Q = seg.get(order[j]!.id)!;
-      const shared = [P.e.nodeI, P.e.nodeJ].some((n) => n === Q.e.nodeI || n === Q.e.nodeJ);
-      if (shared) continue;
-      const c = crossing(P.a, P.b, Q.a, Q.b);
-      if (c) out.push({ a: order[i]!.id, b: order[j]!.id, s: c.s, t: c.t });
-    }
+    for (let j = i + 1; j < order.length && order[j]!.lo <= order[i]!.hi + CUT_TOL; j++) pair(order[i]!.id, order[j]!.id);
   }
   return out;
 }
 
 /**
  * Cut the given members wherever two of them cross, so they share a node there.
+ * With an anchor, only cut crossings involving that member.
  *
  * A crossing at a member's END already has a node on that member and only cuts the other one;
  * two members meeting end to end are not a crossing at all.
  */
-export function intersectMembers(elementIds: Iterable<number>): CutReport {
+export function intersectMembers(elementIds: Iterable<number>, anchorId?: number): CutReport {
   const cuts = new Map<number, number[]>();
   const push = (id: number, t: number) => { if (t > END_T && t < 1 - END_T) (cuts.get(id) ?? cuts.set(id, []).get(id)!).push(t); };
-  for (const c of crossingPairs(elementIds)) { push(c.a, c.s); push(c.b, c.t); }
+  // All the cuts are gathered before any split: the anchor may cross several members.
+  for (const c of crossingPairs(elementIds, anchorId)) { push(c.a, c.s); push(c.b, c.t); }
   return applyCuts(cuts);
 }

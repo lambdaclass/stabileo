@@ -309,6 +309,19 @@ function createUIStore() {
 
   // Element creation type
   let elementCreateType = $state<'frame' | 'truss'>('frame');
+  /**
+   * How the member tool strings its clicks: `polyline` continues each member
+   * from the end of the last one, `single` makes one member per two clicks.
+   * PRO has no options strip to change it, so it keeps drawing single members.
+   */
+  let memberDrawMode = $state<'single' | 'polyline'>('polyline');
+  /**
+   * A tag with ΔX, ΔZ and the length while a 2D member is stretched. One
+   * setting, reached from the member tool and from Settings; persisted.
+   */
+  let showMemberDimensions = $state<boolean>(
+    !hasLocalStorage() || localStorage.getItem('stabileo-member-dims') !== 'false',
+  );
   let elementMode = $state<ElementMode>('create');
   let nodeMode = $state<NodeMode>('create');
   let jointType = $state<JointType>('hinge');
@@ -860,6 +873,16 @@ function createUIStore() {
 
     get elementCreateType() { return elementCreateType; },
     set elementCreateType(v: 'frame' | 'truss') { elementCreateType = v; },
+
+    get memberDrawMode() { return memberDrawMode; },
+    set memberDrawMode(v: 'single' | 'polyline') { memberDrawMode = v; },
+    /** The mode the member tool actually draws in (see memberDrawMode). */
+    get showMemberDimensions() { return showMemberDimensions; },
+    set showMemberDimensions(v: boolean) {
+      showMemberDimensions = v;
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-member-dims', String(v)); } catch { /* private mode */ } }
+    },
+    get memberChains() { return analysisMode !== 'pro' && memberDrawMode === 'polyline'; },
 
     get elementMode() { return elementMode; },
     set elementMode(v: ElementMode) { elementMode = v; },

@@ -115,7 +115,7 @@
       if (d.fx) parts.push(`Fx=${d.fx}`);
       if (get2DDisplayNodalLoadVertical(d)) parts.push(`Fz=${get2DDisplayNodalLoadVertical(d)}`);
       if (get2DDisplayNodalLoadMoment(d)) parts.push(`My=${get2DDisplayNodalLoadMoment(d)}`);
-      return parts.join(', ') || `Nodal ${i + 1}`;
+      return parts.join(', ') || t('whatif.nodalFallback').replace('{n}', String(i + 1));
     }
     if (l.type === 'distributed') {
       const d = l.data as { qI: number; qJ: number; elementId: number };
@@ -156,7 +156,7 @@
     <div class="wif-header">
       {#if !docked}<span class="wif-title">{t('whatif.title')}</span>{/if}
       <span class="wif-live">{t('whatif.liveNote')}</span>
-      <button class="wif-reset" onclick={() => whatIf.reset()} title={t('whatif.restoreOriginals')} data-testid="whatif-reset">Reset</button>
+      <button class="wif-reset" onclick={() => whatIf.reset()} title={t('whatif.restoreOriginals')} data-testid="whatif-reset">{t('whatif.reset')}</button>
       {#if !docked}
         <button class="wif-close" onclick={() => whatIf.close()} title={t('whatif.closeAndRestore')}>✕</button>
       {/if}

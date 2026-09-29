@@ -220,7 +220,7 @@ async function ensureWasmReady(context: string): Promise<void> {
     await initSolver();
   } catch (err: any) {
     console.error(`[${context}] WASM initialization failed:`, err);
-    throw new Error(err?.message || 'WASM solver initialization failed.');
+    throw new Error(err?.message || t('toast.solverInitFailed'));
   }
 }
 

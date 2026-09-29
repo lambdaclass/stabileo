@@ -20,6 +20,9 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
+  import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
+  import ConnectionPrompt from './ConnectionPrompt.svelte';
+  import { askToConnectMember } from '../lib/model/edit/connection-questions';
   import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
@@ -1866,16 +1869,28 @@
       uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
-      if (nodeId === pendingElementNodeI) return; // same node
+      if (nodeId === pendingElementNodeI) {
+        // The last node again ends a polyline; single members wait for a second node.
+        if (uiStore.memberChains) cancelPendingElement();
+        return;
+      }
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
       const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
+      // Across other members or over nodes without touching them: ask, as in 2D.
+      if (uiStore.appMode !== 'pro') askToConnectMember(elemId);
 
-      // Clean up
-      cancelPendingElement();
+      if (uiStore.memberChains) {
+        // Polyline: the next member starts where this one ends.
+        nodesInstanced.restoreColor(pendingElementNodeI);
+        pendingElementNodeI = nodeId;
+        nodesInstanced.setColor(nodeId, 0x00ff00);
+      } else {
+        cancelPendingElement();
+      }
     }
   }
 
@@ -3295,6 +3310,17 @@
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="vp-prompt" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
+    ontouchstart={(e) => e.stopPropagation()}><ConnectionPrompt /></div>
+  {#if uiStore.isMobile && uiStore.appMode === 'basico'}
+    <!-- The phone's delete button: over the model's lower right corner, level
+         with the axes; the canvas shrinks for the sheet, so it rises with it.
+         A press here is not a press on the model. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="vp-delete" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
+      ontouchstart={(e) => e.stopPropagation()}><SelectionDeleteButton floating /></div>
+  {/if}
   <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
        draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
        teardown/rebuild churn. -->
@@ -3640,6 +3666,17 @@
   }
   .lasso-path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; }
   .lasso-path polygon { fill: rgba(127, 212, 204, 0.12); stroke: #7fd4cc; stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+  /* The card positions itself; this only keeps presses on it off the model. */
+  .vp-prompt { display: contents; }
+
+  .vp-delete {
+    position: absolute;
+    right: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 11;
+  }
+
   .axis-gizmo {
     position: absolute;
     bottom: 8px;

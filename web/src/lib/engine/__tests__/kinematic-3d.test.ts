@@ -807,7 +807,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('isostatic');
     expect(result.degree).toBe(0);
-    expect(result.diagnosis).toMatch(/isost[aá]tic/i);
+    expect(result.diagnosis).toMatch(/statically determinate|isost[aá]tic/i);
   });
 
   it('32. Hyperstatic classification with correct degree', () => {
@@ -827,7 +827,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('hyperstatic');
     expect(result.degree).toBe(6);
-    expect(result.diagnosis).toMatch(/hyperst[aá]tic|hiperest[aá]tic/i);
+    expect(result.diagnosis).toMatch(/statically indeterminate|hyperst[aá]tic|hiperest[aá]tic/i);
     expect(result.diagnosis).toContain('6');
   });
 
