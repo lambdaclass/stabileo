@@ -170,6 +170,7 @@
 
     const idMap = new Map<number, number>();
     const pastedElements: number[] = [];
+    const existingNodes = new Set(modelStore.nodes.keys());
 
     modelStore.batch(() => {
       // Create new nodes, welded: the paste offset is fixed, so a second paste —
@@ -204,10 +205,10 @@
         pastedElements.push(newElemId);
       }
 
-      // Create supports
+      // Match copyTransformed: a reused node keeps its boundary conditions.
       for (const s of clip.supports) {
         const newNodeId = idMap.get(s.origNodeId);
-        if (newNodeId != null) {
+        if (newNodeId != null && !existingNodes.has(newNodeId)) {
           modelStore.addSupport(newNodeId, s.type);
         }
       }

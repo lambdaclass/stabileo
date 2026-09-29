@@ -1238,7 +1238,7 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const cuts = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const cuts = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
     if (cuts.length === 0) return null;
 
     if (!_undoBatching) _pushUndo?.();
@@ -1251,12 +1251,18 @@ function createModelStore() {
         : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
       const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
-      for (const t of cuts) {
+      const axisLength = Math.max(Math.abs(nj.x - ni.x), Math.abs(nj.y - ni.y), Math.abs((nj.z ?? 0) - (ni.z ?? 0)));
+      for (let k = 0; k < cuts.length; k++) {
+        const t = cuts[k];
         const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
         let id: number | null = null;
         if (opts.reuseNodeTol !== undefined) {
-          const tol = opts.reuseNodeTol;
+          // Keep the per-axis weld boxes disjoint, including at the member ends.
+          // Dense cuts must not reuse an endpoint or the same node for two cuts.
+          const gap = Math.min(t - fractions[k], fractions[k + 2] - t);
+          const tol = Math.min(opts.reuseNodeTol, axisLength * gap / 2);
           for (const n of model.nodes.values()) {
+            if (n.id === elem.nodeI || n.id === elem.nodeJ) continue;
             if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
           }
         }

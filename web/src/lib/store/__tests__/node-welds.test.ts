@@ -32,6 +32,41 @@ beforeEach(() => {
 const codes = () => new Set(checkCurrentModel().map((d) => d.code));
 
 describe('subdivideElement welds the cut', () => {
+  it.each([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]])(
+    'keeps dense cuts distinct along (%s, %s, %s), reusing an exact midpoint', (x, y, z) => {
+      const a = modelStore.addNode(0, 0, 0);
+      const b = modelStore.addNode(x * 0.0015, y * 0.0015, z * 0.0015);
+      const midpoint = modelStore.addNode(x * 0.00075, y * 0.00075, z * 0.00075);
+      const element = modelStore.addElement(a, b);
+      modelStore.addDistributedLoad(element, -10, -10);
+      historyStore.clear();
+
+      const check = () => {
+        expect(modelStore.nodes.size).toBe(21);
+        expect(modelStore.elements.size).toBe(20);
+        const members = [...modelStore.elements.values()];
+        expect(members.filter(e => e.nodeI === midpoint || e.nodeJ === midpoint)).toHaveLength(2);
+        const length = Math.hypot(x, y, z) * 0.0015 / 20;
+        for (const e of members) {
+          expect(e.nodeI).not.toBe(e.nodeJ);
+          const ni = modelStore.nodes.get(e.nodeI)!, nj = modelStore.nodes.get(e.nodeJ)!;
+          expect(Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0))).toBeCloseTo(length, 12);
+        }
+        expect(modelStore.loads).toHaveLength(20);
+        for (const load of modelStore.loads) expect(load.data).toMatchObject({ qI: -10, qJ: -10 });
+      };
+      modelStore.subdivideElement(element, 20);
+      check();
+      expect(historyStore.undoCount).toBe(1);
+      historyStore.undo();
+      expect(modelStore.elements.size).toBe(1);
+      expect(modelStore.nodes.size).toBe(3);
+      expect(modelStore.loads).toHaveLength(1);
+      historyStore.redo();
+      check();
+    },
+  );
+
   it('a girder subdivided where a secondary frames in keeps the shared node', () => {
     const a = modelStore.addNode(0, 0, 0);
     const b = modelStore.addNode(6, 0, 0);

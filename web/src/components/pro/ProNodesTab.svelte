@@ -39,8 +39,9 @@
   function parseNumber(s: string): number | null {
     // Accept both . and , as decimal separator
     const cleaned = s.trim().replace(',', '.');
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? null : n;
+    if (cleaned === '') return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
   }
 
   function addEmptyRow() {
@@ -49,6 +50,7 @@
 
   function commitRow(idx: number) {
     const row = rows[idx];
+    if (!row) return;
     const x = parseNumber(row.x);
     const y = parseNumber(row.y);
     const z = row.z.trim() === '' ? 0 : parseNumber(row.z);
@@ -65,6 +67,14 @@
       const id = row.id;
       modelStore.batch(() => modelStore.updateNode(id, x, y, z));
     }
+  }
+
+  function handleBlur(e: FocusEvent, idx: number) {
+    // A new row's blank Z is not an intentional zero while the user is still
+    // moving between its fields. Weld only on leaving the row or pressing Enter/Apply.
+    const rowElement = (e.currentTarget as HTMLElement).closest('tr');
+    if (rows[idx]?.id === null && e.relatedTarget instanceof Node && rowElement?.contains(e.relatedTarget)) return;
+    commitRow(idx);
   }
 
   function deleteRow(idx: number) {
@@ -102,42 +112,28 @@
     pasteError = null;
 
     const lines = text.trim().split('\n').filter(l => l.trim());
-    const newRows: NodeRow[] = [];
-    const newNodeIds: number[] = [];
-
-    // One undo step for the whole paste; each row welds to a node already at its
-    // coordinates (an earlier pasted row counts) instead of stacking a twin.
-    modelStore.batch(() => {
-      for (let i = 0; i < lines.length; i++) {
-        const parts = lines[i].split('\t').map(s => s.trim());
-        if (parts.length < 2) {
-          pasteError = t('pro.pasteRowError').replace('{n}', String(i + 1)).replace('{cols}', '2').replace('{names}', 'X, Y');
-          return;
-        }
-
-        const x = parseNumber(parts[0]);
-        const y = parseNumber(parts[1]);
-        const z = parts.length >= 3 ? parseNumber(parts[2]) : 0;
-
-        if (x === null || y === null) {
-          pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
-          return;
-        }
-
-        const realId = modelStore.addNodeWelded(x, y, z ?? 0);
-        newNodeIds.push(realId);
-        newRows.push({
-          id: realId,
-          x: String(x),
-          y: String(y),
-          z: String(z ?? 0),
-        });
+    const points: Array<[number, number, number]> = [];
+    // Validate before mutating, so an invalid row cannot leave a partial import.
+    for (let i = 0; i < lines.length; i++) {
+      const parts = lines[i].split('\t').map(s => s.trim());
+      if (parts.length < 2) {
+        pasteError = t('pro.pasteRowError').replace('{n}', String(i + 1)).replace('{cols}', '2').replace('{names}', 'X, Y');
+        return;
       }
-    });
+      const x = parseNumber(parts[0]);
+      const y = parseNumber(parts[1]);
+      const z = parts.length < 3 || parts[2] === '' ? 0 : parseNumber(parts[2]);
+      if (x === null || y === null || z === null) {
+        pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
+        return;
+      }
+      points.push([x, y, z]);
+    }
 
-    // Add new rows to the table
-    rows = [...rows.filter(r => r.id !== null), ...newRows];
-    pasteError = null;
+    // The effect reads the canonical coordinates of reused nodes, once per id.
+    if (points.length) modelStore.batch(() => {
+      for (const [x, y, z] of points) modelStore.addNodeWelded(x, y, z);
+    });
   }
 
   function handleRowClick(idx: number) {
@@ -228,7 +224,7 @@
                 data-col="x"
                 bind:value={row.x}
                 onkeydown={(e) => handleKeydown(e, idx)}
-                onblur={() => commitRow(idx)}
+                onblur={(e) => handleBlur(e, idx)}
                 placeholder="0"
               />
             </td>
@@ -238,7 +234,7 @@
                 data-col="y"
                 bind:value={row.y}
                 onkeydown={(e) => handleKeydown(e, idx)}
-                onblur={() => commitRow(idx)}
+                onblur={(e) => handleBlur(e, idx)}
                 placeholder="0"
               />
             </td>
@@ -248,7 +244,7 @@
                 data-col="z"
                 bind:value={row.z}
                 onkeydown={(e) => handleKeydown(e, idx)}
-                onblur={() => commitRow(idx)}
+                onblur={(e) => handleBlur(e, idx)}
                 placeholder="0"
               />
             </td>
