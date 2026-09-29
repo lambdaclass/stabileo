@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SectionStressResult } from '../../lib/engine/section-stress';
   import type { SectionStressResult3D } from '../../lib/engine/section-stress-3d';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -45,7 +45,7 @@
         <div class="ssp-stress-row">
           <span>&tau;<sub>T</sub> =</span>
           <span class="ssp-stress-val">{fmt(analysis3D.tauTorsion)} MPa</span>
-          <span class="ssp-stress-hint">(torsion{analysis3D.resolved.shape === 'RHS' || analysis3D.resolved.shape === 'CHS' ? ' Bredt' : ' St-Venant'})</span>
+          <span class="ssp-stress-hint">({tp('stress.torsionTheory', { theory: analysis3D.resolved.shape === 'RHS' || analysis3D.resolved.shape === 'CHS' ? 'Bredt' : 'St-Venant' })})</span>
         </div>
       {/if}
       <div class="ssp-stress-row">

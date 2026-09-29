@@ -74,4 +74,20 @@ test.describe('@smoke the phone results menu', () => {
       await expect(page.getByTestId('rb-pop-results')).toHaveCount(0);
     }
   });
+
+  test('two taps draw a member: the point goes where the finger lifts', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.getByTestId('rb-cmd-model').tap();
+    await page.getByTestId('dt-tab-elements').tap();
+    await expect(page.getByTestId('member-mode-polyline')).toBeVisible();
+    // Close the sheet over the drawing's lower half by tapping high on the canvas.
+    const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    await page.touchscreen.tap(box.x + box.width * 0.25, box.y + box.height * 0.4);
+    expect(await page.evaluate(() => window.__stabileo.nodeIds().length)).toBe(0);
+    await page.touchscreen.tap(box.x + box.width * 0.7, box.y + box.height * 0.4);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
+    expect(await page.evaluate(() => window.__stabileo.nodeIds().length)).toBe(2);
+  });
 });

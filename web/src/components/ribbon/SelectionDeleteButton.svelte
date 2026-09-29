@@ -13,6 +13,14 @@
   import { uiStore } from '../../lib/store';
   import { selectionSummary, deleteSelection, type SelectionKind } from '../../lib/actions/delete-selection';
 
+  /**
+   * `floating`: the phone's version, over the model's lower right corner
+   * (both viewports place it). It no longer rides in a row above the model:
+   * that row appeared with every selection and pushed the whole drawing down.
+   * Its confirmation opens upwards, since the button sits at the bottom.
+   */
+  let { floating = false }: { floating?: boolean } = $props();
+
   const summary = $derived.by(() => {
     // Read the selection sets so this re-derives when they change.
     void uiStore.selectedElements; void uiStore.selectedNodes; void uiStore.selectedSupports;
@@ -29,7 +37,12 @@
   let popStyle = $state('');
   function open() {
     const r = btn?.getBoundingClientRect();
-    if (r) popStyle = `top:${Math.round(r.bottom + 6)}px;right:${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
+    if (r) {
+      const right = `right:${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
+      popStyle = floating
+        ? `bottom:${Math.round(window.innerHeight - r.top + 6)}px;${right}`
+        : `top:${Math.round(r.bottom + 6)}px;${right}`;
+    }
     confirming = true;
   }
 
@@ -49,7 +62,7 @@
 <svelte:window onkeydown={(e) => { if (confirming && e.key === 'Escape') confirming = false; }} />
 
 {#if total > 0}
-  <div class="sd-wrap">
+  <div class="sd-wrap" class:floating>
     <button
       class="sd-btn"
       class:on={confirming}
@@ -92,6 +105,12 @@
   }
   .sd-btn:hover, .sd-btn.on { background: color-mix(in srgb, var(--st-danger) 14%, var(--st-surface-2)); }
   .sd-count { font-variant-numeric: tabular-nums; color: var(--st-text-2); }
+  /* Over the model: the viewport buttons' own skin, a little larger for a thumb. */
+  .floating .sd-btn {
+    min-height: 40px; min-width: 40px; padding: 0 8px; justify-content: center;
+    background: color-mix(in srgb, var(--st-surface) 92%, transparent);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  }
   .sd-pop {
     position: fixed; z-index: 400;
     width: max-content; max-width: min(280px, 80vw);

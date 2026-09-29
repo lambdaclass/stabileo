@@ -2,7 +2,7 @@
 // This module requires the web-ifc WASM to be available at /web-ifc.wasm
 
 import type { IfcMember } from './ifc-mapper';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { IDENTITY, axis2Placement3D, compose, extrusionAxis, type Frame, type V3 } from './ifc-geometry';
 
 /*
@@ -212,10 +212,10 @@ export async function parseIfc(data: ArrayBuffer, opts?: { wasmPath?: string }):
             members.push(m);
             memberByExpressId.set(id, m);
           } else {
-            warnings.push(`No se pudieron extraer puntos para "${name}"`);
+            warnings.push(tp('ifc.noPoints', { n: name }));
           }
         } catch (e: any) {
-          warnings.push(`Error procesando entidad ${id}: ${e.message}`);
+          warnings.push(tp('ifc.entityError', { id, msg: e.message }));
         }
       }
     } catch {

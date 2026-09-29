@@ -49,6 +49,23 @@ interface PointLoadOnElemInfo {
 }
 
 /**
+ * The axes a member load is given in, after its value: [Z] for global
+ * vertical, [X] for global horizontal (Z turned ±90°), [Z 30°] for another
+ * global direction, [⊥ 30°] for a direction turned from the perpendicular.
+ * Nothing for the plain perpendicular, the default. The vertical axis is Z:
+ * this used to say [Y], from when it was called that.
+ */
+export function axesLabel(isGlobal: boolean, angle: number): string {
+  const a = ((angle % 360) + 360) % 360;
+  if (isGlobal) {
+    if (a === 0) return ' [Z]';
+    if (a === 90 || a === 270) return ' [X]';
+    return ` [Z ${angle}°]`;
+  }
+  return angle !== 0 ? ` [⊥ ${angle}°]` : '';
+}
+
+/**
  * Compute the world-space direction vector for a load with angle/isGlobal settings.
  * Returns the unit direction in which the force acts (world coords).
  * - Local angle=0: the drawn local +z (up for any non-vertical member, +X for a vertical one)
@@ -287,7 +304,7 @@ export function drawDistributedLoads(
 
     const labelColor = loadColor;
     const casePrefix = load.caseName ? `${load.caseName}: ` : '';
-    const coordLabel = loadIsGlobal ? ' [Y]' : (loadAngle !== 0 ? ` [⊥ ${loadAngle}°]` : '');
+    const coordLabel = axesLabel(loadIsGlobal, loadAngle);
 
     /*
      * Labels are COLLECTED, not drawn.
@@ -490,7 +507,7 @@ export function drawPointLoadsOnElements(
     const base = dc.worldToScreen(wx, wy);
     const ptColor = load.caseColor ?? canvasTheme().accent;
     const ptCasePrefix = load.caseName ? `${load.caseName}: ` : '';
-    const coordLabel = loadIsGlobal ? ' [Y]' : (loadAngle !== 0 ? ` [⊥ ${loadAngle}°]` : '');
+    const coordLabel = axesLabel(loadIsGlobal, loadAngle);
 
     // 1) Draw perpendicular force (p)
     if (Math.abs(load.p) > 1e-10) {

@@ -115,14 +115,16 @@ export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupR
   return report;
 }
 
-/** Members joining the same two nodes: the lowest id stays. */
-export function removeDuplicateMembers(): CleanupReport {
+/** Members joining the same two nodes: the lowest id stays. With candidates, preserve all other members first. */
+export function removeDuplicateMembers(candidates?: ReadonlySet<number>): CleanupReport {
   const report = empty();
   const seen = new Map<string, number>();
   const dup: number[] = [];
-  for (const e of [...modelStore.elements.values()].sort((a, b) => a.id - b.id)) {
+  const members = [...modelStore.elements.values()].sort((a, b) =>
+    (candidates ? Number(candidates.has(a.id)) - Number(candidates.has(b.id)) : 0) || a.id - b.id);
+  for (const e of members) {
     const k = e.nodeI < e.nodeJ ? `${e.nodeI}-${e.nodeJ}` : `${e.nodeJ}-${e.nodeI}`;
-    if (seen.has(k)) dup.push(e.id); else seen.set(k, e.id);
+    if (seen.has(k) && (!candidates || candidates.has(e.id))) dup.push(e.id); else seen.set(k, e.id);
   }
   if (dup.length === 0) return report;
   const onDup = new Set(dup);
@@ -131,9 +133,10 @@ export function removeDuplicateMembers(): CleanupReport {
   return report;
 }
 
-export function removeZeroLengthMembers(tol = MERGE_TOL): CleanupReport {
+export function removeZeroLengthMembers(tol = MERGE_TOL, candidates?: ReadonlySet<number>): CleanupReport {
   const report = empty();
   const zero = [...modelStore.elements.values()].filter((e) => {
+    if (candidates && !candidates.has(e.id)) return false;
     if (e.nodeI === e.nodeJ) return true;
     const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
     return !!a && !!b && Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) <= tol;
