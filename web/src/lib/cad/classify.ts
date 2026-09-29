@@ -340,10 +340,13 @@ export function extractArchPlan(
   // Beams: pair parallel face lines (drawn beam edges) into centerlines with
   // width = gap; unpaired lines are taken as single-line beam axes.
   if (beamSegments.length > 0) {
-    const { paired: beamPairs, unpaired: beamSingles } = pairWallLines(beamSegments, {
+    const { paired: beamPairs, unpaired: beamSingles, degenerate: beamDegenerate } = pairWallLines(beamSegments, {
       minGap: BEAM_GAP_MIN_M,
       maxGap: BEAM_GAP_MAX_M,
     });
+    for (const i of beamDegenerate) {
+      plan.skipped.push({ kind: 'line', layer: beamSegments[i].layer, reason: 'degenerateSegment' });
+    }
     for (const p of beamPairs) {
       pushBeam(plan, p.a, p.b, p.thickness, 'paired', beamSegments[p.pair[0]]?.layer);
     }
@@ -356,10 +359,13 @@ export function extractArchPlan(
   }
 
   // Walls: double-line pairing first, leftovers as single centerlines.
-  const { paired, unpaired } = pairWallLines(wallSegments, {
+  const { paired, unpaired, degenerate } = pairWallLines(wallSegments, {
     minGap: WALL_GAP_MIN_M,
     maxGap: WALL_GAP_MAX_M,
   });
+  for (const i of degenerate) {
+    plan.skipped.push({ kind: 'line', layer: wallSegments[i].layer, reason: 'degenerateSegment' });
+  }
   for (const w of paired) {
     plan.walls.push({
       a: w.a, b: w.b, thickness: w.thickness, thicknessSource: 'paired',

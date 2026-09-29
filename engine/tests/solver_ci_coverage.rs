@@ -718,7 +718,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         solid_shells: HashMap::new(),
         curved_shells: HashMap::new(),
         curved_beams: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 

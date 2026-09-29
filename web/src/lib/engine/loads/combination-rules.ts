@@ -64,3 +64,18 @@ export function rulesFromTemplate(text: string): { name: string; rules: Combinat
   });
   return { name: typeof d.name === 'string' ? d.name : '', rules };
 }
+
+/**
+ * `count` rule ids not in use. Numbering from the list's length reused an id once a rule had
+ * been deleted — rules r1 and r3 left, and the next one was r3 again — and two rules with one
+ * id broke the keyed list and edited or removed both at once.
+ */
+export function freshRuleIds(rules: ReadonlyArray<{ id: string }>, count: number): string[] {
+  const used = new Set(rules.map((r) => r.id));
+  const out: string[] = [];
+  for (let n = 1; out.length < count; n++) {
+    const id = `r${n}`;
+    if (!used.has(id)) { out.push(id); used.add(id); }
+  }
+  return out;
+}

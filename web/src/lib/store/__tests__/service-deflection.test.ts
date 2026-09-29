@@ -6,7 +6,7 @@
  * to 1e-9 relative, except where the peak lies between samples and the parabolic refinement
  * carries it.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -15,6 +15,7 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { serviceSets, serviceDeflections } from '../service-deflection';
 import { deflectionChecks } from '../serviceability';
+import { runGlobalSolve } from '../../engine/live-calc';
 import { eiOf } from '../../engine/member-deflection';
 
 const L = 6, q = 10, P = 20;
@@ -80,6 +81,44 @@ describe('relative to the chord, against closed forms', () => {
     const exact = (P * a * (L * L - a * a) ** 1.5) / (9 * Math.sqrt(3) * L * EI);
     // The peak falls between samples; the parabola through the three around it recovers it to
     // about 1e-5 of the value (40 segments), which is what the check reads.
+    expect(d.max / exact).toBeCloseTo(1, 4);
+    expect(d.x).toBeCloseTo(xm, 2);
+  });
+
+  it('fixed at both ends, triangular load: qL⁴/768EI at midspan', () => {
+    // The fixed-fixed particular solution of a linearly varying load used to carry
+    // (qJ − qI)(L + x)/120L, whose fourth derivative leaves a constant term the load
+    // does not have; the midspan of a pure triangle came out 0.6× the true value.
+    member('fixed', 'fixed');
+    modelStore.addDistributedLoad3D(beam, 0, 0, 0, -q);
+    const d = solveAndRead();
+    // v(x) = w·x²(L − x)²(x + 2L)/(120·L·EI). The midspan reads wL⁴/768EI; the peak is
+    // off-centre — the load is not symmetric — at x = L·(√105 − 5)/10, between samples.
+    expect(d.max / ((q * L ** 4) / (768 * ei().EIy))).toBeCloseTo(1, 2);
+    expect(d.x).toBeCloseTo(L * (Math.sqrt(105) - 5) / 10, 2);
+  });
+
+  it('fixed at both ends, trapezoidal load: the uniform and triangular parts superpose', () => {
+    // qI = q, qJ = 2q = uniform q + triangle peaking at q. The midspan reads
+    // qL⁴/384EI + qL⁴/768EI = qL⁴/256EI; the peak sits ~1 % off-centre, between samples.
+    member('fixed', 'fixed');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -2 * q);
+    const d = solveAndRead();
+    expect(d.max / ((q * L ** 4) / (256 * ei().EIy))).toBeCloseTo(1, 2);
+    expect(d.x).toBeCloseTo(L / 2, 1);
+  });
+
+  it('simply supported, triangular load: the released-end slopes read the end curvatures', () => {
+    // v(x) = w·x·(3x⁴ − 10L²x² + 7L⁴)/(360·L·EI); the peak is at x = L·√(1 − √(8/15)).
+    // The end rotations that build this curve come from the particular solution's end
+    // curvatures (7wL³/360EI and wL³/45EI against wL²/30 and wL²/20), so a wrong
+    // particularVpp shows up here too.
+    member('pinned', 'roller');
+    modelStore.addDistributedLoad3D(beam, 0, 0, 0, -q);
+    const d = solveAndRead();
+    const EI = ei().EIy;
+    const xm = L * Math.sqrt(1 - Math.sqrt(8 / 15));
+    const exact = (q * xm * (3 * xm ** 4 - 10 * L * L * xm ** 2 + 7 * L ** 4)) / (360 * L * EI);
     expect(d.max / exact).toBeCloseTo(1, 4);
     expect(d.x).toBeCloseTo(xm, 2);
   });
@@ -247,5 +286,26 @@ describe('over the physical member, not the element', () => {
     if (!single || typeof single === 'string') throw new Error(String(single));
     resultsStore.setResults3D(single);
     expect(serviceDeflections(ids, serviceSets().sets).get(ids[1]!)!.span).toEqual([ids[1]]);
+  });
+});
+
+describe('the unfactored basis after a PRO solve', () => {
+  afterEach(() => { vi.restoreAllMocks(); uiStore.analysisMode = '2d'; });
+
+  it('is every load case at factor 1, not the first case alone', async () => {
+    member('pinned', 'roller');
+    const dead = modelStore.addLoadCase('Defl D', 'D');
+    const live = modelStore.addLoadCase('Defl L', 'L');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
+    modelStore.addDistributedLoad3D(beam, 0, 0, -2 * q, -2 * q, undefined, undefined, live);
+    modelStore.addCombination('1.2D+1.6L', [{ caseId: dead, factor: 1.2 }, { caseId: live, factor: 1.6 }]);
+    uiStore.analysisMode = 'pro';
+    // The worker pool is not there under vitest; the same solve, in-process.
+    vi.spyOn(modelStore, 'solveCombinations3DParallel').mockImplementation(async (w, l, p) => modelStore.solveCombinations3D(w, l, p));
+    await runGlobalSolve();
+    const s = serviceSets();
+    expect(s.basis).toBe('unfactored');
+    const d = serviceDeflections([beam], s.sets).get(beam)!;
+    expect(d.max / ((5 * 3 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });

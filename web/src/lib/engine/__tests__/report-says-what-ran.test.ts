@@ -50,6 +50,16 @@ function data(over: Partial<ReportData> = {}): ReportData {
 }
 
 describe('advanced analyses, and which of them the report claims', () => {
+  it.each([Infinity, null])('keeps a converged unstable P-Delta result explicit (B2=%s)', (b2Factor) => {
+    const html = generateReportHtml(data({
+      advancedResults: { pdelta: { converged: true, iterations: 3, isStable: false, b2Factor: b2Factor as number } },
+      config: cfg(),
+    }));
+    expect(html).toContain('<p>unstable</p>');
+    expect(html).toContain('∞');
+    expect(html).not.toContain('NaN');
+  });
+
   it('prints the ones that ran', () => {
     const html = generateReportHtml(data({ advancedResults: ADVANCED, config: cfg() }));
     expect(html).toContain('P-Delta');

@@ -12,6 +12,7 @@
   import { downloadText } from '../../lib/store/file';
   import { toCsv } from '../../lib/engine/result-tables';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
+  import { withoutSettlement } from '../../lib/engine/settlement-case';
   import { getPredefinedTrains, type LoadTrain } from '../../lib/engine/moving-loads';
   import {
     buildPath3D, sweepMovingLoad3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
@@ -42,7 +43,10 @@
 
   async function run() {
     error = null; result = null;
-    const base = buildSolverInput3D(modelStore.model as never, false, false);
+    // The train alone: a support settlement is not part of a moving-load envelope, and solving
+    // every position on the settled supports mixed its forces into every peak. The project's
+    // axis convention, as the other solves use it.
+    const base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
     if (!base) { error = t('moving.noModel'); return; }
     const path = buildPath3D(base, pathIds);
     if (!path) { error = t('moving.notAChain'); return; }

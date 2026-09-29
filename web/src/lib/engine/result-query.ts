@@ -147,7 +147,7 @@ const EXPORT_HEADER = [
   'threshold', 'extremeMode', 'element', 'end', 'value', 'unit',
 ] as const;
 
-function csvCell(s: string | number): string {
+export function csvCell(s: string | number): string {
   // Neutralize spreadsheet formula injection on string cells: combo/case
   // names are user-editable and shared via .ded files, and Excel evaluates
   // cells starting with = + - @ even when RFC4180-quoted. Numbers (e.g.

@@ -28,3 +28,4 @@ mod structural_dynamics_extended;
 mod time_history;
 mod time_history_extended;
 mod vibration_isolation_extended;
+mod spectral_normalization;

@@ -2599,6 +2599,9 @@
     if (draggedNodeId3D !== null && dragStartWorld3D) {
       const newWorld = getGroundIntersection(e);
       if (newWorld) {
+        // The drag works in space coordinates: a standing plane model is
+        // rewritten in them before any node is read (undo was pushed on press).
+        modelStore.ensureSpaceCoordinates();
         const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
         const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
         const delta = snappedVec.clone().sub(dragStartWorld3D);

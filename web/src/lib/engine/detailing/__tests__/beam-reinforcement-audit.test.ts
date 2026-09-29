@@ -1,5 +1,6 @@
 /**
- * Why 5 of the 119 beams in the flagship building carry a PROPOSAL and not a design.
+ * Why none of the 119 beams in the flagship building carries a PROPOSAL any more, and how
+ * many once did.
  *
  * ── The question this file answers ─────────────────────────────────
  *
@@ -70,6 +71,19 @@
  * them now exceeds 1.0 — with the axis corrected, no beam in this building bends harder about
  * its secondary axis than its primary one, which the earlier measurement claimed some did.
  *
+ * ── And why it is now 0 ────────────────────────────────────────────
+ *
+ * Those five were not biaxial either. Every shell element penalised its drilling rotation on
+ * its own, rather than against the membrane's rotation, so it resisted a rigid rotation about
+ * the normal — a spring to ground on every slab node, about the vertical. A beam sharing those
+ * nodes was held against turning in plan, and the spring put a weak-axis moment into it.
+ * With the drilling term corrected (Hughes–Brezzi, θz − ω), the five ratios fell from
+ * 0.106–0.244 to 0.010–0.028, and the building's largest is 0.028: nothing is near 0.10.
+ *
+ * The provisional path is still exercised, on the same building with five beams turned 20°
+ * about their own axis (`ROLLED_BEAMS`), which bend about both of their axes for a real
+ * reason. That second block is where every proposal-specific assertion now lives.
+ *
  * The threshold itself is deliberately NOT touched here, and neither is the verifier, and no
  * provisional member is ever counted as verified — the assertions below check all three.
  * `docs/audits/biaxial-beam-design.md` is the evidence for why real biaxial design was not
@@ -82,7 +96,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene } from './helpers/workspace-scene';
+import { workspaceScene, ROLLED_BEAMS, type Variant } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { memberKindOf } from '../../design/member-grouping';
@@ -136,14 +150,20 @@ function categorise(r: BeamRow): Category {
 // A whole-building test: 30 s rather than Vitest's 5 s default, for the reason set out in
 // `provisional-projections.test.ts` — under a full-suite pool these were failing on
 // contention with every assertion passing.
-describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, () => {
+interface Audit {
+  rows: BeamRow[];
+  byCategory: Map<Category, BeamRow[]>;
+  scene: SceneModel;
+  doc: DocumentModel;
+}
+
+/** Every beam of the flagship building, across the four places its steel could exist. */
+async function audit(variant?: Variant): Promise<Audit> {
   let rows: BeamRow[];
   let byCategory: Map<Category, BeamRow[]>;
   let scene: SceneModel;
   let doc: DocumentModel;
-
-  beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
+    const w = await workspaceScene('pro-edificio-7p', variant);
     scene = w.scene;
     doc = w.doc;
     const m = modelStore.model;
@@ -196,6 +216,17 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
       list.push(r);
       byCategory.set(c, list);
     }
+  return { rows, byCategory, scene, doc };
+}
+
+describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, () => {
+  let rows: BeamRow[];
+  let byCategory: Map<Category, BeamRow[]>;
+  let scene: SceneModel;
+  let doc: DocumentModel;
+
+  beforeAll(async () => {
+    ({ rows, byCategory, scene, doc } = await audit());
   }, 900_000);
 
   const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
@@ -205,19 +236,65 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     expect(rows.every((r) => r.designRan), 'the design run reached every beam').toBe(true);
   });
 
-  it('accounts for every beam as either verified or a provisional proposal', () => {
-    expect(of('provisional-biaxial').length).toBe(5);
-    expect(of('reinforced').length).toBe(114);
-    // The provisional set is the small, interesting one, so it is pinned by id: which
-    // members the biaxial path refuses is the fact an engineer acts on, and 114 verified
-    // ids would pin nothing a reader could check.
-    expect(of('provisional-biaxial').map((r) => r.elementId).sort((a, b) => a - b))
-      .toEqual([88, 151, 153, 157, 164]);
+  it('verifies every beam: none is a proposal', () => {
+    // None: the five that were provisional bent about their secondary axis only through the
+    // shell drilling defect (see the header). The path itself is covered below, on beams that
+    // genuinely bend about both axes.
+    expect(of('provisional-biaxial')).toEqual([]);
+    expect(of('reinforced').length).toBe(119);
     // The categories that would mean a defect rather than a limitation.
     expect(of('provisional-without-steel')).toEqual([]);
     expect(of('verified-geometry-lost')).toEqual([]);
     expect(of('verified-not-detailed')).toEqual([]);
     expect(of('detailed-but-filtered')).toEqual([]);
+    expect(of('workflow-error')).toEqual([]);
+  });
+
+  it('gives every beam concrete AND steel, rather than an empty member', () => {
+    // "Do not hide elements to disguise a limitation" was already satisfied — the concrete was
+    // always drawn. What was missing is the steel, and its absence was indistinguishable from
+    // reinforcement that went missing between the design and the screen.
+    for (const r of rows) {
+      expect(r.hasConcrete, `member ${r.elementId} is drawn`).toBe(true);
+      expect(r.steelInRecord, `member ${r.elementId} has steel in the model`).toBe(true);
+      expect(r.barsInScene, `member ${r.elementId} has steel in the scene`).toBeGreaterThan(0);
+    }
+    expect(scene.unreinforcedMembers, 'no beam or column is left bare').toEqual([]);
+  });
+
+  it('reaches the 3-D projection intact for every beam that has steel', () => {
+    // The check that would catch a lost projection: document steel and scene steel agree on
+    // WHICH members carry bars, for beams and columns alike.
+    const inDoc = new Set<number>();
+    for (const a of doc.assemblies) for (const b of a.bars) for (const id of b.ownerElementIds) inDoc.add(id);
+    const inScene = new Set<number>();
+    for (const b of scene.bars) for (const id of b.elementIds) inScene.add(id);
+    const missingFrom3D = [...inDoc].filter((id) => !inScene.has(id)).sort((a, b) => a - b);
+    expect(missingFrom3D, 'every member with steel in the document has steel in the scene').toEqual([]);
+  });
+});
+
+// The provisional path, on beams that bend about both axes for a real reason: see `ROLLED_BEAMS`.
+describe('beam reinforcement audit — pro-edificio-7p, five beams turned 20° about their axis', { timeout: 30_000 }, () => {
+  let byCategory: Map<Category, BeamRow[]>;
+  let scene: SceneModel;
+  let doc: DocumentModel;
+
+  beforeAll(async () => {
+    ({ byCategory, scene, doc } = await audit(ROLLED_BEAMS));
+  }, 900_000);
+
+  const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
+
+  it('proposes only among the turned beams, and for some of them', () => {
+    // Not necessarily all five: the slab holds a turned beam laterally, so its weak-axis
+    // moment is about (b/h)²·tan θ of the strong one, and which beams clear 10 % depends on
+    // their section. That the path runs, and that it runs for no beam left untouched, is the
+    // fact under test.
+    const ids = of('provisional-biaxial').map((r) => r.elementId);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(ROLLED_BEAMS.rollBeams.ids, `member ${id} was turned`).toContain(id);
+    expect(of('provisional-without-steel')).toEqual([]);
     expect(of('workflow-error')).toEqual([]);
   });
 
@@ -266,30 +343,7 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     }
   });
 
-  it('gives every beam concrete AND steel, rather than an empty member', () => {
-    // "Do not hide elements to disguise a limitation" was already satisfied — the concrete was
-    // always drawn. What was missing is the steel, and its absence was indistinguishable from
-    // reinforcement that went missing between the design and the screen.
-    for (const r of rows) {
-      expect(r.hasConcrete, `member ${r.elementId} is drawn`).toBe(true);
-      expect(r.steelInRecord, `member ${r.elementId} has steel in the model`).toBe(true);
-      expect(r.barsInScene, `member ${r.elementId} has steel in the scene`).toBeGreaterThan(0);
-    }
-    expect(scene.unreinforcedMembers, 'no beam or column is left bare').toEqual([]);
-  });
-
-  it('reaches the 3-D projection intact for every beam that has steel', () => {
-    // The check that would catch a lost projection: document steel and scene steel agree on
-    // WHICH members carry bars, for beams and columns alike.
-    const inDoc = new Set<number>();
-    for (const a of doc.assemblies) for (const b of a.bars) for (const id of b.ownerElementIds) inDoc.add(id);
-    const inScene = new Set<number>();
-    for (const b of scene.bars) for (const id of b.elementIds) inScene.add(id);
-    const missingFrom3D = [...inDoc].filter((id) => !inScene.has(id)).sort((a, b) => a - b);
-    expect(missingFrom3D, 'every member with steel in the document has steel in the scene').toEqual([]);
-  });
-
-  it('states the shared cause once, rather than five times', () => {
+  it('states the shared cause once, rather than once per beam', () => {
     const outcomes = new Map<number, DesignOutcomeSummary>();
     for (const [id] of modelStore.model.elements) {
       const o = verificationStore.outcomeFor(id);
@@ -310,19 +364,21 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
       });
     }
     const report = reportElementStatus(scene, outcomes);
-    expect(report.counts.PROVISIONAL, 'the workspace counts them as their own state').toBe(5);
+    const n = of('provisional-biaxial').length;
+    expect(n).toBeGreaterThan(1);
+    expect(report.counts.PROVISIONAL, 'the workspace counts them as their own state').toBe(n);
     expect(report.counts.MODELLED, 'and does not fold them into the modelled ones')
       .toBeGreaterThan(0);
-    expect(report.entries.filter((e) => e.status === 'PROVISIONAL').length).toBe(5);
+    expect(report.entries.filter((e) => e.status === 'PROVISIONAL').length).toBe(n);
 
     const groups = summariseStatusReasons(report.entries);
     const biaxial = groups.find((g) => g.reasonKey === 'design.reason.provisionalBiaxial');
     expect(biaxial, 'the shared cause is surfaced as one group').toBeTruthy();
     expect(biaxial!.status).toBe('PROVISIONAL');
-    expect(biaxial!.count).toBe(5);
+    expect(biaxial!.count).toBe(n);
     expect(biaxial!.ratioRange!.min).toBeGreaterThan(BIAXIAL_RATIO_THRESHOLD);
     // The group is a way IN: its ids are what the panel isolates on click.
-    expect(biaxial!.elementIds.length).toBe(5);
+    expect(biaxial!.elementIds.length).toBe(n);
   });
 
   it('carries the metadata an engineer needs to act on the proposal', () => {

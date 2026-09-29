@@ -19,10 +19,11 @@
  * The settlement case is kept in `perCase` under `SETTLEMENT_CASE_ID`, which no load case can
  * have, so a reader can show what the settlement alone does.
  */
-import { combineResults3D, computeEnvelope3D } from './wasm-solver';
+import { combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import { enrichComboShellStresses } from './shell-combos';
 import { postProcessShellStresses } from './solver-shells';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { AnalysisResults, FullEnvelope } from './types';
 
 /**
  * The case id the settlement is published under: one no load case will reach (they count up
@@ -88,4 +89,23 @@ export function addSettlementCase(
   if (!envelope) return null;
   if (shells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, withIt as never);
   return { perCase, perCombo, envelope };
+}
+
+type Bundle2D = { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope };
+
+/** `addSettlementCase` for a plane model: the settlement solved once, added once to every combination. */
+export function addSettlementCase2D(
+  bundle: Bundle2D,
+  settlement: AnalysisResults,
+  combinations: Array<{ id: number; factors: Array<{ caseId: number; factor: number }> }>,
+): Bundle2D | null {
+  const perCase = new Map(bundle.perCase);
+  perCase.set(SETTLEMENT_CASE_ID, settlement);
+  const perCombo = new Map<number, AnalysisResults>();
+  for (const combo of combinations) {
+    const combined = combineResults([...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }], perCase);
+    if (combined) perCombo.set(combo.id, combined);
+  }
+  const envelope = computeEnvelope([...perCombo.values()]);
+  return envelope ? { perCase, perCombo, envelope } : null;
 }

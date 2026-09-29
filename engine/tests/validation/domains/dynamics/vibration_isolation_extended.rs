@@ -148,6 +148,7 @@ fn validation_vib_iso_ext_single_dof_transmissibility() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -343,6 +344,7 @@ fn validation_vib_iso_ext_rubber_bearing_stiffness() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -470,6 +472,7 @@ fn validation_vib_iso_ext_steel_spring_isolator() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -613,6 +616,7 @@ fn validation_vib_iso_ext_inertia_block_foundation() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };
@@ -749,6 +753,7 @@ fn validation_vib_iso_ext_viscoelastic_damper() {
     })];
 
     let input = SolverInput {
+        solver_options: None,
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups, loads, constraints: vec![],
         connectors: HashMap::new(), };

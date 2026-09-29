@@ -527,6 +527,7 @@ fn capability_vm18_quarter_circle_out_of_plane() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -768,6 +769,7 @@ fn capability_vm44_roark_circular_ring() {
     ];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

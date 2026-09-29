@@ -47,6 +47,9 @@ describe('pure tables', () => {
 
   it('CSV quotes what needs quoting', () => {
     expect(toCsv(['a', 'b'], [['x, "y"', 1.5]])).toBe('a,b\n"x, ""y""",1.5');
+    // A name a shared project carries is not a formula the spreadsheet runs.
+    expect(toCsv(['combo'], [['=HYPERLINK("http://x","y")'], ['+1'], ['@SUM(A1)'], [-3]]))
+      .toBe('combo\n"\'=HYPERLINK(""http://x"",""y"")"\n\'+1\n\'@SUM(A1)\n-3');
   });
 });
 
