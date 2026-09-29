@@ -11,6 +11,7 @@
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
+  import { explainedSteps } from './lib/store/explained-steps.svelte';
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
@@ -165,9 +166,17 @@
    * `untrack` so switching panels by hand while a wizard is open does not
    * re-run this and yank the panel back.
    */
+  /* A wizard opened from the explained step-by-step catalog goes back to the catalog when it closes. */
+  let wizardOnlyWasOpen = false;
+  $effect(() => {
+    const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    wizardOnlyWasOpen = w;
+  });
+
   let wizardWasOpen = false;
   $effect(() => {
-    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen;
     const basic = uiStore.appMode === 'basico';
     if (open && basic) basicPanel = 'data';
     if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';

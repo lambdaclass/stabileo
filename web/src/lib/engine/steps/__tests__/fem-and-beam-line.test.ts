@@ -11,6 +11,7 @@ import { fixedEnd } from '../fem';
 import { beamLine } from '../beam-line';
 import { solveReference } from '../reference';
 import { num } from '../format';
+import katex from 'katex';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
 beforeEach(() => { modelStore.clear(); });
@@ -49,6 +50,27 @@ describe('fixed-end actions against the engine', () => {
       });
     }
   }
+
+  it('writes every formula and substitution as valid KaTeX, digits never glued to a number', () => {
+    for (const [, load] of cases) {
+      modelStore.clear();
+      const { fe } = fixedFixed(false, load);
+      for (const tm of fe.terms) {
+        for (const tex of [tm.formula.M, tm.formula.V, tm.subst.M, tm.subst.V]) {
+          expect(() => katex.renderToString(tex, { throwOnError: true })).not.toThrow();
+        }
+      }
+    }
+  });
+
+  it('keeps a coefficient apart from the value it multiplies', () => {
+    modelStore.clear();
+    const tri = fixedFixed(false, (e) => modelStore.addDistributedLoad(e, 0, -12)).fe.terms[0];
+    expect(tri.subst.V).toContain('3\\cdot(12)');
+    modelStore.clear();
+    const cp = fixedFixed(false, (e) => modelStore.addPointLoadOnElement(e, 2, 0, { my: 20 })).fe.terms[0];
+    expect(cp.subst.V).toContain('6\\cdot(20)');
+  });
 
   it('shows wL²/12 for a uniform load', () => {
     const { fe } = fixedFixed(false, (e) => modelStore.addDistributedLoad(e, -10, -10));

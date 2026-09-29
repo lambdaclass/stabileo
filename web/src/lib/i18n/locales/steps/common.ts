@@ -7,6 +7,15 @@
 import type { Translations } from '../../types';
 
 export const es: Translations = {
+  'steps.dsm.classification': 'Clasificación estática',
+  'steps.dsm.ghFrame': 'm barras de pórtico, m_t de reticulado, r reacciones, n nodos y c condiciones internas (articulaciones). El método de rigidez trabaja igual con cualquier grado: sus incógnitas son los desplazamientos.',
+  'steps.dsm.ghTruss': 'm barras, r reacciones y n nodos. El método de rigidez trabaja igual con cualquier grado: sus incógnitas son los desplazamientos.',
+  'steps.dsm.dofFigure': 'Numeración de los grados de libertad: en color los libres, en gris los restringidos por los apoyos.',
+  'steps.dsm.fem.title': 'Cargas en las barras: acciones de empotramiento perfecto',
+  'steps.dsm.fem.intro': 'Cada barra cargada se aísla empotrada en sus dos extremos bajo sus propias cargas. Sus momentos y reacciones de empotramiento, con el signo cambiado, son las cargas equivalentes que la barra transmite a los nudos.',
+  'steps.dsm.fem.member': 'Barra {id} ({name})',
+  'steps.dsm.fem.freeBody': 'Cuerpo libre de {name} empotrada en ambos extremos: las cargas del tramo, los momentos de empotramiento y las reacciones que los equilibran (antihorario y +y local positivos).',
+  'steps.dsm.fem.feq': 'Vector de cargas equivalentes de la barra en ejes locales (u, v, θ de cada extremo): las acciones de la barra empotrada sobre los nudos.',
   'steps.catalog.button': 'Paso a paso explicado',
   'steps.catalog.title': 'Paso a paso explicado',
   'steps.catalog.intro': 'Elegí un método para ver la resolución de tu estructura paso a paso. Cada uno dice qué tiene que cumplir el modelo y trae un ejemplo que lo cumple.',
@@ -27,6 +36,7 @@ export const es: Translations = {
   'steps.group.deformation': 'Deformaciones y energía',
 
   'steps.view.back': 'Métodos',
+  'steps.view.close': 'Cerrar',
   'steps.view.step': 'Paso {n}',
   'steps.view.intro': 'Planteo',
   'steps.view.prev': 'Anterior',
@@ -98,6 +108,15 @@ export const es: Translations = {
 };
 
 export const en: Translations = {
+  'steps.dsm.classification': 'Static classification',
+  'steps.dsm.ghFrame': 'm frame members, m_t truss members, r reactions, n nodes and c internal conditions (hinges). The stiffness method works the same whatever the degree: its unknowns are the displacements.',
+  'steps.dsm.ghTruss': 'm members, r reactions and n nodes. The stiffness method works the same whatever the degree: its unknowns are the displacements.',
+  'steps.dsm.dofFigure': 'Degree-of-freedom numbering: free ones in colour, those restrained by the supports in grey.',
+  'steps.dsm.fem.title': 'Member loads: fixed-end actions',
+  'steps.dsm.fem.intro': 'Each loaded member is isolated, fixed at both ends, under its own loads. Its fixed-end moments and reactions, with their sign changed, are the equivalent loads the member passes to the nodes.',
+  'steps.dsm.fem.member': 'Member {id} ({name})',
+  'steps.dsm.fem.freeBody': 'Free body of {name} fixed at both ends: the span loads, the fixed-end moments and the reactions balancing them (counter-clockwise and local +y positive).',
+  'steps.dsm.fem.feq': 'The member equivalent load vector in local axes (u, v, θ at each end): the actions of the fixed member on the nodes.',
   'steps.catalog.button': 'Explained step by step',
   'steps.catalog.title': 'Explained step by step',
   'steps.catalog.intro': 'Pick a method to see your structure solved step by step. Each one says what the model must be and comes with an example that is.',
@@ -118,6 +137,7 @@ export const en: Translations = {
   'steps.group.deformation': 'Deformations and energy',
 
   'steps.view.back': 'Methods',
+  'steps.view.close': 'Close',
   'steps.view.step': 'Step {n}',
   'steps.view.intro': 'Set-up',
   'steps.view.prev': 'Previous',
@@ -189,6 +209,15 @@ export const en: Translations = {
 };
 
 export const pt: Translations = {
+  'steps.dsm.classification': 'Classificação estática',
+  'steps.dsm.ghFrame': 'm barras de pórtico, m_t de treliça, r reações, n nós e c condições internas (rótulas). O método da rigidez funciona igual qualquer que seja o grau: suas incógnitas são os deslocamentos.',
+  'steps.dsm.ghTruss': 'm barras, r reações e n nós. O método da rigidez funciona igual qualquer que seja o grau: suas incógnitas são os deslocamentos.',
+  'steps.dsm.dofFigure': 'Numeração dos graus de liberdade: em cor os livres, em cinza os restringidos pelos apoios.',
+  'steps.dsm.fem.title': 'Cargas nas barras: ações de engastamento perfeito',
+  'steps.dsm.fem.intro': 'Cada barra carregada é isolada, engastada nas duas extremidades, sob suas próprias cargas. Seus momentos e reações de engastamento, com o sinal trocado, são as cargas equivalentes que a barra transmite aos nós.',
+  'steps.dsm.fem.member': 'Barra {id} ({name})',
+  'steps.dsm.fem.freeBody': 'Corpo livre de {name} engastada nas duas extremidades: as cargas do vão, os momentos de engastamento e as reações que os equilibram (anti-horário e +y local positivos).',
+  'steps.dsm.fem.feq': 'Vetor de cargas equivalentes da barra em eixos locais (u, v, θ de cada extremidade): as ações da barra engastada sobre os nós.',
   'steps.catalog.button': 'Passo a passo explicado',
   'steps.catalog.title': 'Passo a passo explicado',
   'steps.catalog.intro': 'Escolha um método para ver a sua estrutura resolvida passo a passo. Cada um diz o que o modelo precisa cumprir e traz um exemplo que cumpre.',
@@ -209,6 +238,7 @@ export const pt: Translations = {
   'steps.group.deformation': 'Deformações e energia',
 
   'steps.view.back': 'Métodos',
+  'steps.view.close': 'Fechar',
   'steps.view.step': 'Passo {n}',
   'steps.view.intro': 'Enunciado',
   'steps.view.prev': 'Anterior',

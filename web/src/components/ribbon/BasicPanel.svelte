@@ -14,6 +14,9 @@
   import DataTable from '../DataTable.svelte';
   import StepWizard from '../dsm/StepWizard.svelte';
   import FmWizard from '../fm/FmWizard.svelte';
+  import StepsCatalog from '../steps/StepsCatalog.svelte';
+  import StepDocView from '../steps/StepDocView.svelte';
+  import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { dsmStepsStore } from '../../lib/store/dsmSteps.svelte';
   import { fmStepsStore } from '../../lib/store/fmSteps.svelte';
   import { uiStore } from '../../lib/store/ui.svelte';
@@ -259,6 +262,10 @@
         <StepWizard />
       {:else if fmStepsStore.isOpen}
         <FmWizard />
+      {:else if explainedSteps.view === 'catalog'}
+        <StepsCatalog />
+      {:else if explainedSteps.view === 'doc'}
+        <StepDocView />
       {:else}
         <DataTable bind:activeTab={dataTab} />
       {/if}

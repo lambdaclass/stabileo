@@ -67,6 +67,8 @@ function distributed(L: number, a: number, b: number, wa: number, wb: number) {
 }
 
 const unit = { M: '\\mathrm{kN\\,m}', V: '\\mathrm{kN}' };
+/** A value put into a formula, always in parentheses: (50)(3)², as a hand calculation writes it. */
+const pp = (v: number) => `(${num(v)})`;
 
 /** The fixed-end actions of `loads` (all on member `m`), term by term. */
 export function fixedEnd(m: PMember, loads: PMemberLoad[], names: { i: string; j: string }): FixedEnd {
@@ -85,7 +87,7 @@ export function fixedEnd(m: PMember, loads: PMemberLoad[], names: { i: string; j
         terms.push({
           kind: 'uniform', label: tx('steps.fem.uniform', { w: num(wa) }), ...r,
           formula: { M: `${FEM(ij)} = +\\frac{wL^2}{12}, \\qquad ${FEM(ji)} = -\\frac{wL^2}{12}`, V: `V_{${ij}} = V_{${ji}} = \\frac{wL}{2}` },
-          subst: { M: `${FEM(ij)} = +\\frac{${par(wa)}(${num(L)})^2}{12}, \\qquad ${FEM(ji)} = -\\frac{${par(wa)}(${num(L)})^2}{12}`, V: `V_{${ij}} = V_{${ji}} = \\frac{${par(wa)}(${num(L)})}{2}` },
+          subst: { M: `${FEM(ij)} = +\\frac{${pp(wa)}(${num(L)})^2}{12}, \\qquad ${FEM(ji)} = -\\frac{${pp(wa)}(${num(L)})^2}{12}`, V: `V_{${ij}} = V_{${ji}} = \\frac{${pp(wa)}(${num(L)})}{2}` },
         });
         continue;
       }
@@ -101,8 +103,8 @@ export function fixedEnd(m: PMember, loads: PMemberLoad[], names: { i: string; j
             V: `V_{${ij}} = \\frac{${vi}\\,w_0L}{20}, \\qquad V_{${ji}} = \\frac{${vj}\\,w_0L}{20}`,
           },
           subst: {
-            M: `${FEM(ij)} = +\\frac{${par(w0)}(${num(L)})^2}{${mi}}, \\qquad ${FEM(ji)} = -\\frac{${par(w0)}(${num(L)})^2}{${mj}}`,
-            V: `V_{${ij}} = \\frac{${vi}${par(w0)}(${num(L)})}{20}, \\qquad V_{${ji}} = \\frac{${vj}${par(w0)}(${num(L)})}{20}`,
+            M: `${FEM(ij)} = +\\frac{${pp(w0)}(${num(L)})^2}{${mi}}, \\qquad ${FEM(ji)} = -\\frac{${pp(w0)}(${num(L)})^2}{${mj}}`,
+            V: `V_{${ij}} = \\frac{${vi}\\cdot${pp(w0)}(${num(L)})}{20}, \\qquad V_{${ji}} = \\frac{${vj}\\cdot${pp(w0)}(${num(L)})}{20}`,
           },
         });
         continue;
@@ -143,8 +145,8 @@ export function fixedEnd(m: PMember, loads: PMemberLoad[], names: { i: string; j
             V: `V_{${ij}} = \\frac{P\\,b^2(3a+b)}{L^3}, \\qquad V_{${ji}} = \\frac{P\\,a^2(a+3b)}{L^3}`,
           },
           subst: {
-            M: `${FEM(ij)} = +\\frac{${par(P)}(${num(a)})(${num(b)})^2}{(${num(L)})^2}, \\qquad ${FEM(ji)} = -\\frac{${par(P)}(${num(a)})^2(${num(b)})}{(${num(L)})^2}`,
-            V: `V_{${ij}} = \\frac{${par(P)}(${num(b)})^2\\big(3(${num(a)})+${num(b)}\\big)}{(${num(L)})^3}, \\qquad V_{${ji}} = \\frac{${par(P)}(${num(a)})^2\\big(${num(a)}+3(${num(b)})\\big)}{(${num(L)})^3}`,
+            M: `${FEM(ij)} = +\\frac{${pp(P)}(${num(a)})(${num(b)})^2}{(${num(L)})^2}, \\qquad ${FEM(ji)} = -\\frac{${pp(P)}(${num(a)})^2(${num(b)})}{(${num(L)})^2}`,
+            V: `V_{${ij}} = \\frac{${pp(P)}(${num(b)})^2\\big(3(${num(a)})+${num(b)}\\big)}{(${num(L)})^3}, \\qquad V_{${ji}} = \\frac{${pp(P)}(${num(a)})^2\\big(${num(a)}+3(${num(b)})\\big)}{(${num(L)})^3}`,
           },
         });
       }
@@ -161,8 +163,8 @@ export function fixedEnd(m: PMember, loads: PMemberLoad[], names: { i: string; j
             V: `V_{${ij}} = \\frac{6M_0\\,a\\,b}{L^3}, \\qquad V_{${ji}} = -V_{${ij}}`,
           },
           subst: {
-            M: `${FEM(ij)} = \\frac{${par(M0)}(${num(b)})\\big(2(${num(a)})-${num(b)}\\big)}{(${num(L)})^2}, \\qquad ${FEM(ji)} = \\frac{${par(M0)}(${num(a)})\\big(2(${num(b)})-${num(a)}\\big)}{(${num(L)})^2}`,
-            V: `V_{${ij}} = \\frac{6${par(M0)}(${num(a)})(${num(b)})}{(${num(L)})^3}`,
+            M: `${FEM(ij)} = \\frac{${pp(M0)}(${num(b)})\\big(2(${num(a)})-${num(b)}\\big)}{(${num(L)})^2}, \\qquad ${FEM(ji)} = \\frac{${pp(M0)}(${num(a)})\\big(2(${num(b)})-${num(a)}\\big)}{(${num(L)})^2}`,
+            V: `V_{${ij}} = \\frac{6\\cdot${pp(M0)}(${num(a)})(${num(b)})}{(${num(L)})^3}`,
           },
         });
       }

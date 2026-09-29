@@ -13,3 +13,4 @@ import { methods as cuts } from './cuts';
 registerMethods([...core, ...continuous, ...frames, ...trusses, ...deformation, ...cuts]);
 
 export { allMethods, methodsIn, methodById, GROUP_ORDER } from '../registry';
+export type { ExplainedMethod, MethodContext, MethodGroup } from '../registry';

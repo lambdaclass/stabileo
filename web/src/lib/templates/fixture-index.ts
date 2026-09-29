@@ -11,6 +11,8 @@ const fixtures2D: Record<string, FixtureLoader> = {
   'cantilever': () => import('./fixtures/cantilever.json'),
   'cantilever-point': () => import('./fixtures/cantilever-point.json'),
   'continuous-beam': () => import('./fixtures/continuous-beam.json'),
+  /* Unequal spans and loads with a fixed left end: moment distribution has something to distribute. */
+  'continuous-beam-unequal': () => import('./fixtures/continuous-beam-unequal.json'),
   'portal-frame': () => import('./fixtures/portal-frame.json'),
   /* The portal with its top held sideways: no sway, for moment distribution without sway. */
   'portal-frame-braced': () => import('./fixtures/portal-frame-braced.json'),

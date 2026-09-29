@@ -1,9 +1,8 @@
 <script lang="ts">
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
-  import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
-  import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
-  import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
+  import { explainedSteps } from '../../lib/store/explained-steps.svelte';
+  import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import { publishCombinations3D } from '../../lib/store/active-results';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
@@ -13,8 +12,6 @@
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
-  import { solveDetailed } from '../../lib/engine/solver-detailed';
-  import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -63,13 +60,9 @@
       labelKey: 'advHelp.plastic.label',
       textKey: 'advHelp.plastic.text',
     },
-    'dsm': {
-      labelKey: 'advHelp.dsm.label',
-      textKey: 'advHelp.dsm.text',
-    },
-    'fm': {
-      labelKey: 'advHelp.fm.label',
-      textKey: 'advHelp.fm.text',
+    'steps': {
+      labelKey: 'steps.catalog.title',
+      textKey: 'steps.catalog.intro',
     },
     'envelope': {
       labelKey: 'advHelp.envelope.label',
@@ -196,88 +189,15 @@
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
-    { key: 'dsm', labelKey: 'advanced.stepByStep',
-      isActive: () => dsmStepsStore.isOpen,
-      close: () => dsmStepsStore.close() },
-    /* Right under the stiffness wizard: the same panel, the other method. */
-    { key: 'fm', labelKey: 'advanced.stepByStepFlex',
-      isActive: () => fmStepsStore.isOpen,
-      close: () => fmStepsStore.close() },
+    /* One entry for every explained method: the catalog, a method's document, or one of the two wizards. */
+    { key: 'steps', labelKey: 'steps.catalog.title',
+      isActive: () => dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen,
+      close: () => { dsmStepsStore.close(); fmStepsStore.close(); explainedSteps.close(); } },
   ];
 
-  /*
-   * ── Opening the two step-by-step wizards ───────────────────────
-   *
-   * Both check first that the model is one they can show honestly — bars
-   * only, and small enough to print its matrices — and say which limit it
-   * crossed when it is not. See `step-by-step-scope.ts`.
-   */
-  function scopeRefusal(input: Parameters<typeof stepByStepScope>[0], is3DModel: boolean): boolean {
-    const v = stepByStepScope(input, is3DModel);
-    if (v.ok) return false;
-    uiStore.toast(t(`sbs.scope.${v.reason}`)
-      .replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
-    return true;
-  }
 
-  function showWizardPanel() {
-    if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-    else uiStore.rightSidebarOpen = true;
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-  }
 
-  function openDsm() {
-    if (dsmStepsStore.isOpen) {
-      dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
-      fmStepsStore.close();
-      dsmStepsStore.setStepData(data);
-      dsmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      uiStore.toast(errText(e, threeD ? 'toast.detailedSolver3dError' : 'toast.detailedSolverError'), 'error');
-    }
-  }
 
-  function openFm() {
-    if (fmStepsStore.isOpen) {
-      fmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
-      dsmStepsStore.close();
-      fmStepsStore.setResult(result);
-      fmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      if (e instanceof ForceMethodError) {
-        const dofs = e.dofs.length ? ` (${e.dofs.slice(0, 8).join(', ')}${e.dofs.length > 8 ? '…' : ''})` : '';
-        uiStore.toast(t(`fm.err.${e.key}`).replace('{gh}', String(e.gh)).replace('{max}', String(FM_MAX_GH)) + dofs, 'error');
-      } else {
-        uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
-      }
-    }
-  }
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
 
@@ -933,28 +853,18 @@
       {@render helpPanel('whatif')}
       {/if}
     {/if}
-    {#if shown('dsm')}
-      {#if !flat || active?.key !== 'dsm'}
+    {#if shown('steps')}
+      {#if !flat || active?.key !== 'steps'}
+    <!-- Every explained method behind one entry: the catalog lists them by group. -->
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={dsmStepsStore.isOpen} data-testid="adv-dsm"
-        onclick={openDsm}>
-        {t('advanced.stepByStep')}
+      <button class="adv-btn" style="flex:1" data-testid="adv-steps"
+        class:active={dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen}
+        onclick={openExplainedCatalog}>
+        {t('steps.catalog.button')}
       </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('steps', e)} class:active={advHelpKey === 'steps'}>?</button>
     </div>
-    {@render helpPanel('dsm')}
-      {/if}
-    {/if}
-    {#if shown('fm')}
-      {#if !flat || active?.key !== 'fm'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={fmStepsStore.isOpen} data-testid="adv-fm"
-        onclick={openFm}>
-        {t('advanced.stepByStepFlex')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('fm', e)} class:active={advHelpKey === 'fm'}>?</button>
-    </div>
-    {@render helpPanel('fm')}
+    {@render helpPanel('steps')}
       {/if}
     {/if}
 

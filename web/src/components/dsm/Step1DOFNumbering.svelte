@@ -2,8 +2,26 @@
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
+  import StepBlocks from '../steps/StepBlocks.svelte';
+  import { modelStore, uiStore } from '../../lib/store';
+  import { staticClassificationBlocks, dofSketch } from '../../lib/engine/steps/dsm-extras';
+  import type { Block } from '../../lib/engine/steps/doc';
 
   let { data }: { data: DSMStepData } = $props();
+
+  /*
+   * In 2D: the static classification with its formula, and the numbering
+   * drawn on the structure (the table below lists the same numbers).
+   */
+  const extras = $derived.by((): Block[] => {
+    if (data.dofNumbering.dofsPerNode > 3) return [];
+    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+    if (!input) return [];
+    return [
+      { kind: 'sub', title: { key: 'steps.dsm.classification' }, blocks: staticClassificationBlocks(input) },
+      { kind: 'fig', sketch: dofSketch(input, data.dofNumbering.dofs, data.dofNumbering.dofsPerNode), caption: { key: 'steps.dsm.dofFigure' } },
+    ];
+  });
 
   const { nFree, nTotal, dofsPerNode, dofs } = $derived(data.dofNumbering);
   const nRestr = $derived(nTotal - nFree);
@@ -60,6 +78,8 @@
       <MathEquation equation={eqTruss2D} displayMode />
     {/if}
   {/if}
+
+  {#if extras.length}<div class="extras"><StepBlocks blocks={extras} /></div>{/if}
 
   <div class="dof-table-scroll">
     <table class="dof-table">
