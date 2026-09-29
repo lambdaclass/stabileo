@@ -29,6 +29,7 @@
  * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
  * corner of a triangle), so the moment side agrees with the solve.
  */
+import { weightPerMetre } from './member-weight';
 import type { ModelData } from './solver-service';
 import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
 import { selfWeightFor, selfWeightScope } from './self-weight';
@@ -211,7 +212,7 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const line = memberLine(model, el);
         if (!mat || !sec || !line) continue;
         // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
-        const W = mat.rho * sec.a * line.ax.L * sw.factor;
+        const W = weightPerMetre(mat, sec, model.materials) * line.ax.L * sw.factor;
         const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
         addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
       }

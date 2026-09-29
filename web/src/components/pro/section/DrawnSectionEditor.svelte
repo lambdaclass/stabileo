@@ -14,7 +14,7 @@
   import {
     attachOffset, nextPartId, type DrawnSection, type DrawnPart, type DrawnShape, type DrawnIssue, type Pt,
   } from '../../../lib/section/drawn';
-  import { analyzeDrawn, type DrawnAnalysis } from '../../../lib/section/drawn-properties';
+  import { analyzeDrawn, materialAreas, type DrawnAnalysis } from '../../../lib/section/drawn-properties';
   import { dxfSectionParts } from '../../../lib/section/drawn-dxf';
   import { STARTERS, starterParts, type StarterId } from '../../../lib/section/drawn-starters';
   import type { SectionChoice } from '../../../lib/section/section-choice';
@@ -83,9 +83,14 @@
     if (!p || !nm) { args.onDraft(null); return; }
     const bb = p.bbox;
     const d = $state.snapshot(effective) as DrawnSection;
+    // More than one material: each one's real area, for weight and quantities (`drawn.ts`).
+    const regions = analysis?.assembled.regions ?? [];
+    const areas = regions.length > 1 ? materialAreas(analysis!.assembled) : undefined;
+    const { areas: _stale, ...rest } = d;
+    const withAreas: DrawnSection = areas ? { ...rest, areas } : rest;
     args.onDraft({
       kind: 'drawn', name: nm,
-      drawn: refId != null ? { ...d, refMaterialId: refId } : d,
+      drawn: refId != null ? { ...withAreas, refMaterialId: refId } : withAreas,
       props: { a: p.a, iy: p.iy, iz: p.iz, j: p.j, b: bb[2] - bb[0], h: bb[3] - bb[1] },
     });
   });

@@ -67,6 +67,12 @@ export interface DrawnSection {
   parts: DrawnPart[];
   /** The material the transformed properties are expressed in. */
   refMaterialId?: number;
+  /**
+   * The real area of each material, m², when the section has more than one: `a` is transformed
+   * (Σ n·Aᵢ) and right for stiffness, but weight and quantities are Σ ρᵢ·Aᵢ. A part with no
+   * material of its own is the member's (`null`).
+   */
+  areas?: Array<{ materialId: number | null; a: number }>;
 }
 
 /** How a catalogue profile's outline is looked up. Injected so this module stays pure. */

@@ -17,6 +17,7 @@ import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { globalDistributedToSolver, type MemberRef, type Vec3 } from './member-loads';
 import { plateSelfWeightLoads, quadSelfWeightLoads } from './solver-shells';
+import { weightPerMetre } from './member-weight';
 
 /** The self-weight loads of one case, or of a single solve of every load when `caseRef` is null. */
 export function selfWeightFor(
@@ -68,7 +69,7 @@ export function selfWeightSolverLoads(
       const sec = model.sections.get(el.sectionId);
       const m = memberRef(el.id);
       if (!mat || !sec || !m || !(m.axes.L > 1e-10)) continue;
-      const w = mat.rho * sec.a * s.factor;
+      const w = weightPerMetre(mat, sec, model.materials) * s.factor;
       if (w === 0) continue;
       const g: Vec3 = [dir[0] * w, dir[1] * w, dir[2] * w];
       out.push(...globalDistributedToSolver(m, g, g, 0, m.axes.L, axialOnly(el.id)));

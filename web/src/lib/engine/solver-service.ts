@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { weightPerMetre } from './member-weight';
 import { expandSemiRigid3D } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
@@ -240,7 +241,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
 
       const sinTheta = dy / L;
       const cosTheta = dx / L;
-      const w = mat.rho * sec.a;
+      const w = weightPerMetre(mat, sec, model.materials);
 
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
@@ -981,7 +982,7 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
       const sinTheta = dy / L, cosTheta = dx / L;
-      const w = mat.rho * sec.a;
+      const w = weightPerMetre(mat, sec, model.materials);
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
         solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });

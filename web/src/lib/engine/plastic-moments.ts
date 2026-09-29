@@ -56,7 +56,10 @@ export function plasticModulus(sec: Section): { zp: number; source: MpSource } {
   const alpha = ((sec.rotation ?? 0) * Math.PI) / 180;
   try {
     const r = resolveCanonicalSection(sec);
-    if (isGeometryBacked(r)) {
+    // A section of several materials is not integrated as one: its outline would put the whole
+    // area at the reference yield stress, a concrete core included. It takes the estimate from
+    // its transformed inertia instead.
+    if (isGeometryBacked(r) && !(r as { composite?: boolean }).composite) {
       const zp = analyzeSectionPlastic({ geometry: turned(r.geometry, alpha) }).zy;
       if (Number.isFinite(zp) && zp > 0) return { zp, source: 'geometry' };
     }
@@ -127,7 +130,7 @@ export function plasticMoments(
 export function plasticModulusWeak(sec: Section): { zp: number; source: MpSource } {
   try {
     const r = resolveCanonicalSection(sec);
-    if (isGeometryBacked(r)) {
+    if (isGeometryBacked(r) && !(r as { composite?: boolean }).composite) {
       const zp = analyzeSectionPlastic({ geometry: r.geometry }).zz;
       if (Number.isFinite(zp) && zp > 0) return { zp, source: 'geometry' };
     }

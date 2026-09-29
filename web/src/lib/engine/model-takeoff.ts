@@ -100,7 +100,11 @@ export function takeoffFromModel(model: TakeoffModel): ModelTakeoff {
 
     const a = at(nI), c = at(nJ);
     const L = Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
-    b.volume += sec.a * L;
+    // A section drawn in several materials puts each one's real area in its own bucket; its `a`
+    // is transformed and would count a concrete core as steel (`member-weight.ts`).
+    const areas = (sec as { drawn?: { areas?: Array<{ materialId: number | null; a: number }> } }).drawn?.areas;
+    if (areas?.length) for (const part of areas) (part.materialId == null ? b : bucket(part.materialId) ?? b).volume += part.a * L;
+    else b.volume += sec.a * L;
     b.memberLength += L;
     b.memberCount++;
   }
