@@ -221,3 +221,29 @@ describe('P-Delta per combination', () => {
     expect(modelStore.solveCombinations3D(false, false, true)).toBe(t('svc.pdeltaNoneStable'));
   });
 });
+
+describe('P-Delta per combination, through the entry PRO\'s Solve takes', () => {
+  /*
+   * PRO's Solve, live calc and the phone shell go through the parallel entry. It used to skip
+   * `perCombination`, so the same project gave second-order results from one button and linear
+   * ones from another.
+   */
+  it('the parallel solve takes the second-order moment and lists what has no equilibrium', async () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0.12, -60, 0, 0, 0, 1);
+    const under = modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const past = modelStore.addCombination('3.0 D', [{ caseId: 1, factor: 3 }]);
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    const sync = modelStore.solveCombinations3D(false, false, true);
+    const par = await modelStore.solveCombinations3DParallel(false, false, true);
+    if (!sync || typeof sync === 'string' || !par || typeof par === 'string') throw new Error('no solve');
+    const m = (x: AnalysisResults3D) => Math.max(Math.abs(forces(x, e).myStart), Math.abs(forces(x, e).mzStart));
+    expect(par.perCombo.get(under)!.secondOrder).toMatchObject({ stable: true });
+    expect(m(par.perCombo.get(under)!)).toBeCloseTo(m(sync.perCombo.get(under)!), 9);
+    expect(m(par.perCombo.get(under)!)).toBeGreaterThan(0.12 * 4 * 1.005);
+    expect(par.perCombo.has(past)).toBe(false);
+    expect(par.unstable).toEqual([past]);
+  });
+});

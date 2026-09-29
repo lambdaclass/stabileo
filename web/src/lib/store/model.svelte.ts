@@ -3605,7 +3605,7 @@ function createModelStore() {
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
-    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,

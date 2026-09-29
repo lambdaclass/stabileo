@@ -2320,8 +2320,15 @@ export async function solveCombinations3DParallel(
 ): Promise<Bundle3D | string | null> {
   const original = model;
   model = activeModel(model);
+  /*
+   * The same dispatch as `solveCombinations3DActive`, in the same order: this is the entry PRO's
+   * Solve takes, so a rule the sync path honours and this one skipped (P-Delta per combination
+   * was) made the result depend on which button solved the model. Only the linear core runs on
+   * the workers.
+   */
   const done = async (): Promise<Bundle3D | string | null> => {
     if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
+    if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
     const solved = await solveCombinations3DParallelCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
     if (!solved || typeof solved === 'string') return solved;
