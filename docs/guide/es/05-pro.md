@@ -521,6 +521,9 @@ En el panel de **Resultados**:
 - **Flechas:** cada barra se verifica contra la **regla** que le toca, por tipo, grupo o barras
   elegidas, con L/n y la dirección (resultante o un plano local). Sin regla, las vigas van a
   L/360. Un **voladizo** se mide desde la tangente en su empotramiento y su límite se toma sobre 2L.
+  Las flechas se leen de las **envolventes de servicio** si el proyecto define alguna; si no, de la
+  suma sin mayorar de los casos gravitatorios con carga (D, L, Lr, S) y de cada caso por separado.
+  El panel dice cuál de las dos lee.
 - **Tensiones en barras:** la mayor tracción y la mayor compresión de la sección en cada estación,
   sobre su geometría.
 - **Contornos de placas:** en los nodos o en el centro de cada elemento, sobre el rango de los
@@ -562,25 +565,37 @@ Los análisis avanzados de PRO:
 - **Respuesta armónica**.
 - **No lineal:** **pushover** (formación sucesiva de rótulas plásticas bajo las cargas del modelo,
   con el mismo cálculo de Mp que el [colapso plástico](04-funciones-avanzadas.md#colapso-plástico)
-  del modo Básico), corrotacional (grandes desplazamientos) y de fibras. El pushover muestra la
+  del modo Básico) y corrotacional (grandes desplazamientos). El pushover es para acero: un modelo
+  con barras de otro material se rechaza y el panel las nombra. El pushover muestra la
   **curva de capacidad**: el corte basal según el desplazamiento de un nodo de control, con un
   punto por cada rótula que se forma. Un deslizador recorre los pasos; en cada uno se ven las
   rótulas nuevas, con sus momentos, y en el modelo la deformada y todas las rótulas formadas hasta
   ese paso. Cuando el análisis se detiene porque plastificaron a la vez todos los extremos que
   llegan a un nudo, el panel lo avisa: la estructura puede resistir más y el factor de colapso se
   toma como un mínimo.
-- **Imperfecciones geométricas** y, como análisis **experimentales** cuyos datos quedan en el
-  panel, **fundación sobre resortes de Winkler** e **interacción suelo-estructura** con curvas p-y.
+- **Imperfecciones geométricas:** cargas nocionales iguales al desplome elegido por la carga vertical
+  total de cada nodo (cargas nodales, cargas de barra y peso propio). Como análisis
+  **experimentales** cuyos datos quedan en el panel, **fundación sobre resortes de Winkler**, con ky
+  y kz según los ejes locales de la barra, e **interacción suelo-estructura** con curvas p-y.
   Los resortes y curvas que guarda el modelo se definen en sus apoyos, en
   **Especificaciones › Apoyos**.
-- **Construcción por etapas** y **fluencia y retracción**.
-- **Líneas de influencia 3D** y el **analizador de sección**.
+- **Construcción por etapas:** cada etapa agrega o saca barras y placas y elige qué casos de carga
+  aplica; la primera arranca con todo el modelo y todos los casos, y los apoyos del modelo entran con
+  ella. El resultado final queda en la vista. Una barra agregada en una etapa posterior toma su
+  esfuerzo del desplazamiento acumulado, y el panel lo avisa; no admite cáscaras curvas ni conectores.
+- **Fluencia y retracción** por el método del módulo efectivo (EN 1992-1-1, Anexo B): las cargas se
+  resuelven con E/(1 + φ) y la retracción como un acortamiento sobre E/(1 + χ·φ). Sólo el hormigón
+  fluye, cada material con su f'c (fcm = f'c + 8); la humedad, el tamaño ficticio, la edad de carga
+  y el cemento son del panel.
+- **Líneas de influencia 3D** y el **analizador de sección**; la J del analizador sale de la
+  solución de Saint-Venant sobre la malla de la sección.
 - **Cargas móviles:** un tren de ejes (predefinido o propio) recorre las barras seleccionadas, en
   orden, y cada barra guarda sus esfuerzos máximos y mínimos con la posición del tren. La carga de
   carril se crea como un caso de carga común sobre las mismas barras. La envolvente no entra en las
   combinaciones ni en el diseño.
 
-Estos análisis usan el eje de las barras, sin su excentricidad, y las articulaciones de las
+Salvo que el análisis diga otra cosa, estos análisis cargan la suma de todos los casos, sin
+mayorar. Usan el eje de las barras, sin su excentricidad, y las articulaciones de las
 columnas **Vinc. i** y **Vinc. j**. Las deslizaderas y las liberaciones por grado de libertad que se
 definen al editar una barra se consideran en **Calcular**; antes de un análisis avanzado, el
 programa pide quitarlas. El **modal** trabaja con las barras y las placas del modelo; sus
@@ -591,8 +606,11 @@ con ellos da frecuencias y formas pero no razones de masa confiables.
 
 **Reporte** arma una **memoria de cálculo** imprimible: datos del modelo con todas las propiedades,
 detalle de cargas, resultados, el resumen de extremos (a lo largo de las barras) y la envolvente
-sobre las combinaciones, la estática, las flechas, los análisis avanzados que hayas corrido (cada
-uno se puede dejar afuera), las **figuras** que agregues desde la vista (cada una con su epígrafe y
+sobre las combinaciones, la estática, las flechas, la **verificación del diseño** tal como la hizo
+el panel de Diseño (cada barra con su armadura, la verificación que gobierna, solicitación,
+capacidad y utilización; el reporte no dimensiona por su cuenta), la **deriva de piso** con el mismo
+cálculo del panel, en condición D, los análisis avanzados que hayas corrido (cada uno se puede dejar
+afuera), las **figuras** que agregues desde la vista (cada una con su epígrafe y
 su escala), el cómputo de materiales y los diagnósticos. Las tablas van completas cualquiera sea el
 tamaño del modelo. La carátula imprime los datos del proyecto, a los que el diálogo lleva; el
 membrete de la oficina (logo y empresa) queda en el diálogo. También se exporta a Excel. Las

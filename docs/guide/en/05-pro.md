@@ -505,7 +505,9 @@ In the **Results** panel:
 - **Deflections:** each member is checked against the **rule** that applies to it, by kind, group
   or chosen members, with L/n and the direction (resultant or one local plane). With no rule,
   beams are checked at L/360. A **cantilever** is measured from the tangent at its root and its
-  limit is taken over 2L.
+  limit is taken over 2L. Deflections are read from the **service envelopes** when the project
+  defines any; otherwise from the unfactored sum of the loaded gravity cases (D, L, Lr, S) and from
+  each case on its own. The panel says which of the two it reads.
 - **Member stresses:** the largest tension and the largest compression on the section at each
   station, over its geometry.
 - **Shell contours:** at the nodes or at each element's centre, over the range of the results or a
@@ -545,24 +547,37 @@ PRO's advanced analyses:
   without ground motion. Damping is Rayleigh, with a single ξ fitted to the first two modes.
 - **Harmonic response**.
 - **Non-linear:** **pushover** (successive formation of plastic hinges under the model's loads, with
-  the same Mp as Basic mode's [plastic collapse](04-advanced-tools.md#plastic-collapse)),
-  corotational (large displacements) and fibre. Pushover shows the **capacity curve**: base shear
+  the same Mp as Basic mode's [plastic collapse](04-advanced-tools.md#plastic-collapse)) and
+  corotational (large displacements). Pushover is for steel: a model with members of another
+  material is refused, and the panel names them. Pushover shows the **capacity curve**: base shear
   against the displacement of a control node, with one point per hinge formed. A slider walks the
   steps; each one lists its new hinges with their moments, and the model shows the deformed shape
   and every hinge formed up to that step. When the run stops because every member end at a joint
   yielded at once, the panel says so: the structure may carry more, and the collapse factor is
   read as a lower bound.
-- **Geometric imperfections**, and, as **experimental** analyses whose data stays in the panel,
-  **foundation on Winkler springs** and **soil-structure interaction** with p-y curves. The springs
+- **Geometric imperfections:** notional loads equal to the chosen out-of-plumbness times each
+  node's total vertical load (nodal loads, member loads and self-weight). As **experimental**
+  analyses whose data stays in the panel, **foundation on Winkler springs**, with ky and kz along
+  the member's local axes, and **soil-structure interaction** with p-y curves. The springs
   and curves the model keeps are set on its supports, in **Specifications › Supports**.
-- **Staged construction** and **creep and shrinkage**.
-- **3D influence lines** and the **section analyser**.
+- **Staged construction:** each stage adds or removes members and shells and picks the load cases
+  it applies; the first starts with the whole model and every case, and the model's supports come
+  in with it. The final state is shown in the view. A member added in a later stage takes its force
+  from the cumulative displacement, and the panel says so; curved shells and connectors are not
+  accepted.
+- **Creep and shrinkage** by the effective-modulus method (EN 1992-1-1, Annex B): the loads are
+  solved with E/(1 + φ) and shrinkage as a shortening on E/(1 + χ·φ). Only concrete creeps, each
+  material with its own f'c (fcm = f'c + 8); humidity, notional size, age at loading and cement come
+  from the panel.
+- **3D influence lines** and the **section analyzer**; its J comes from the Saint-Venant solution on
+  the section's mesh.
 - **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
   in order, and each member keeps its largest and smallest forces with the train's position. The
   lane load is created as an ordinary load case on the same members. The envelope does not enter
   the combinations or the design.
 
-These analyses use the members' axis, without their offsets, and the hinges of the **Hinge i** and
+Unless the analysis says otherwise, these analyses load the unfactored sum of every case. They use
+the members' axis, without their offsets, and the hinges of the **Hinge i** and
 **Hinge j** columns. Sliding joints and per-degree-of-freedom releases set when editing a member are
 taken into account by **Solve**; before an advanced analysis, the program asks for them to be
 removed. **Modal** works with the model's members and shells; its diaphragms are set in
@@ -573,8 +588,10 @@ frequencies and shapes but not reliable mass ratios.
 
 **Report** builds a printable **calculation report**: model data with every property, load
 details, results, the summary of extremes (along the members) and the envelope over the
-combinations, the statics, the deflections, the advanced analyses you ran (each one can be left
-out), the **figures** you add from the view (each with its caption and scale), material quantities
+combinations, the statics, the deflections, the **design check** as the Design panel ran it (each
+member with its own reinforcement, the governing check, demand, capacity and utilization; the
+report does not size members on its own), the **story drift** with the panel's computation on
+condition D, the advanced analyses you ran (each one can be left out), the **figures** you add from the view (each with its caption and scale), material quantities
 and diagnostics. The tables are complete whatever the size of the model. The cover prints the
 project's data, which the dialog links to; the office letterhead (logo and company) stays in the
 dialog. It also exports to Excel. Figures and the report's choices belong to the session: opening
