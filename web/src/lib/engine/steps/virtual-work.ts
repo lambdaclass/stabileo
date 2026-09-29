@@ -7,7 +7,7 @@ import { solveReference } from './reference';
 import { countIndeterminacy } from '../force-method/primary';
 import {
   U, p, mm, baseApplies, intro, diagramOf, pickTarget, unitLoadInput, refAlong, memberWork,
-  axialTable, endValuesTable, unitSketch, frameIds, structureSketch, bendingBlocks, compareBlock,
+  axialTable, endValuesTable, unitSketch, frameIds, structureSketch, bendingBlocks, compareBlock, axialOn,
 } from './deformation-common';
 
 export function virtualWorkApplies(ctx: MethodContext): Applicability {
@@ -23,9 +23,11 @@ export function buildVirtualWork(ctx: MethodContext): StepDoc {
   const works = pm.memberOrder.map((id) => memberWork(pm, ref, virt, pm.members.get(id)!));
   const bend = works.reduce((s, w) => s + w.bending, 0);
   const ax = works.reduce((s, w) => s + w.axial, 0);
-  const delta = bend + ax;
-  const dirKey = tg.dir === 'x' ? 'steps.deformation.dir.x' : 'steps.deformation.dir.z';
   const hasFrames = works.some((w) => !w.member.truss);
+  // Without members that bend the axial term is the whole answer, so it stays in whatever the option says.
+  const withAxial = axialOn(ctx) || !hasFrames;
+  const delta = bend + (withAxial ? ax : 0);
+  const dirKey = tg.dir === 'x' ? 'steps.deformation.dir.x' : 'steps.deformation.dir.z';
   const gh = countIndeterminacy(input).gh;
   const steps: Step[] = [];
 
@@ -35,8 +37,10 @@ export function buildVirtualWork(ctx: MethodContext): StepDoc {
       p(tg.chosen ? 'steps.deformation.targetSelected' : 'steps.deformation.targetAuto', { n: tg.name }),
       { kind: 'note', tone: 'info', text: tx(dirKey, { n: tg.name }) },
       p('steps.deformation.targetHow', undefined, true),
-      { kind: 'eq', tex: `1 \\cdot \\delta_{${tg.name}} = \\sum \\int_0^{L} \\frac{M\\,m}{EI}\\,dx + \\sum \\int_0^{L} \\frac{N\\,n}{EA}\\,dx`, note: tx('steps.m.virtualWork.principle') },
+      { kind: 'eq', tex: `1 \\cdot \\delta_{${tg.name}} = \\sum \\int_0^{L} \\frac{M\\,m}{EI}\\,dx${withAxial ? ' + \\sum \\int_0^{L} \\frac{N\\,n}{EA}\\,dx' : ''}`, note: tx('steps.m.virtualWork.principle') },
       p('steps.m.virtualWork.principleWhy', undefined, true),
+      ...(withAxial ? [] : [{ kind: 'note', tone: 'info', text: tx('steps.deformation.axialOff') } as Block]),
+      ...(!hasFrames && !axialOn(ctx) ? [{ kind: 'note', tone: 'info', text: tx('steps.deformation.axialTrussAlways') } as Block] : []),
     ],
   });
 
@@ -69,10 +73,11 @@ export function buildVirtualWork(ctx: MethodContext): StepDoc {
   steps.push({
     title: tx('steps.m.virtualWork.s5'),
     blocks: [
-      p(hasFrames ? 'steps.deformation.axialLead' : 'steps.deformation.axialTruss'),
+      p(hasFrames ? (withAxial ? 'steps.deformation.axialLead' : 'steps.deformation.axialLeftOut') : 'steps.deformation.axialTruss'),
       axialTable(works, 'n'),
       { kind: 'eq', tex: `\\sum \\frac{N\\,n\\,L}{EA} = ${num(ax)}\\ ${U.m}` },
-      ...(hasFrames && Math.abs(delta) > 1e-15 && Math.abs(ax) > 1e-12 * Math.abs(delta) ? [p('steps.deformation.axialShare', { pct: numText((100 * ax) / delta, 3) })] : []),
+      ...(hasFrames && Math.abs(bend + ax) > 1e-15 && Math.abs(ax) > 1e-12 * Math.abs(bend + ax)
+        ? [p(withAxial ? 'steps.deformation.axialShare' : 'steps.deformation.axialShareOff', { pct: numText((100 * ax) / (bend + ax), 3) })] : []),
     ],
   });
 
@@ -80,11 +85,14 @@ export function buildVirtualWork(ctx: MethodContext): StepDoc {
     title: tx('steps.m.virtualWork.s6'),
     blocks: [
       { kind: 'calc', label: tx('steps.deformation.total'),
-        formula: `\\delta_{${tg.name}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx + \\sum \\frac{N\\,n\\,L}{EA}`,
-        subst: `\\delta_{${tg.name}} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${U.m}`,
+        formula: withAxial
+          ? `\\delta_{${tg.name}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx + \\sum \\frac{N\\,n\\,L}{EA}`
+          : `\\delta_{${tg.name}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx`,
+        subst: withAxial ? `\\delta_{${tg.name}} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${U.m}` : `\\delta_{${tg.name}} = ${num(delta)}\\ ${U.m}`,
         result: `\\boxed{\\delta_{${tg.name}} = ${num(mm(delta))}\\ ${U.mm}}` },
       p(delta >= 0 ? 'steps.deformation.senseSame' : 'steps.deformation.senseOpposite'),
-      ...compareBlock([{ label: `\\delta_{${tg.name}}`, method: mm(delta), matrix: mm(refAlong(ref, tg)), unit: 'mm' }], tx('steps.deformation.exactNote')),
+      ...compareBlock([{ label: `\\delta_{${tg.name}}`, method: mm(delta), matrix: mm(refAlong(ref, tg)), unit: 'mm' }],
+        tx(withAxial ? 'steps.deformation.exactNote' : 'steps.deformation.axialOffNote')),
     ],
   });
 

@@ -26,8 +26,11 @@ let step = $state(0);
 /** A wizard was opened from the catalog: closing it returns there. */
 let returnToCatalog = $state(false);
 
+/** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
+let options = $state<Record<string, Record<string, boolean>>>({});
+
 /** The model as the methods read it, or null when there is nothing to read. */
-export function methodContext(): MethodContext | null {
+export function methodContext(methodId?: string): MethodContext | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
   if (!input || input.elements.size === 0) return null;
   return {
@@ -35,14 +38,23 @@ export function methodContext(): MethodContext | null {
     pm: planeModel(input),
     ref: solveReference(input),
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
+    options: { ...(methodId ? optionsOf(methodId) : {}) },
   };
+}
+
+/** A method's assumptions: each as the reader set it, else its default. */
+function optionsOf(id: string): Record<string, boolean> {
+  const m = methodById(id);
+  const out: Record<string, boolean> = {};
+  for (const o of m?.options ?? []) out[o.id] = options[id]?.[o.id] ?? o.default;
+  return out;
 }
 
 function build(id: string): void {
   const m = methodById(id);
   doc = null; error = null;
   if (!m?.build) { error = tx('steps.view.failed'); return; }
-  const ctx = methodContext();
+  const ctx = methodContext(id);
   if (!ctx) { error = tx('steps.catalog.emptyModel'); return; }
   const ok = m.applies(ctx);
   if (!ok.ok) { error = ok.reason; return; }
@@ -73,6 +85,16 @@ export const explainedSteps = {
   leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
   openMethod(id: string): void { methodId = id; view = 'doc'; build(id); },
   refresh(): void { if (methodId) build(methodId); },
+  /** The open method's assumptions, as shown over its document. */
+  get options(): Record<string, boolean> { return methodId ? optionsOf(methodId) : {}; },
+  /** Switch one of the open method's assumptions; the document is rebuilt on the same step. */
+  setOption(id: string, on: boolean): void {
+    if (!methodId) return;
+    options = { ...options, [methodId]: { ...(options[methodId] ?? {}), [id]: on } };
+    const keep = step;
+    build(methodId);
+    this.step = keep;
+  },
   back(): void { this.openCatalog(); },
   close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; },
 };

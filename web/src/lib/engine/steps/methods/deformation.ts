@@ -28,10 +28,11 @@ import { doubleIntegrationApplies, buildDoubleIntegration } from '../double-inte
 import { momentAreaApplies, buildMomentArea } from '../moment-area';
 import { virtualWorkApplies, buildVirtualWork } from '../virtual-work';
 import { castiglianoApplies, buildCastigliano } from '../castigliano';
+import { AXIAL_OPTION } from '../deformation-common';
 
 export const methods: ExplainedMethod[] = [
   { id: 'doubleIntegration', group: 'deformation', example: 'simply-supported', applies: doubleIntegrationApplies, build: buildDoubleIntegration },
   { id: 'momentArea', group: 'deformation', example: 'simply-supported', applies: momentAreaApplies, build: buildMomentArea },
-  { id: 'virtualWork', group: 'deformation', example: 'portal-frame', applies: virtualWorkApplies, build: buildVirtualWork },
-  { id: 'castigliano', group: 'deformation', example: 'portal-frame', applies: castiglianoApplies, build: buildCastigliano },
+  { id: 'virtualWork', group: 'deformation', example: 'portal-frame', applies: virtualWorkApplies, build: buildVirtualWork, options: [AXIAL_OPTION] },
+  { id: 'castigliano', group: 'deformation', example: 'portal-frame', applies: castiglianoApplies, build: buildCastigliano, options: [AXIAL_OPTION] },
 ];

@@ -12,6 +12,7 @@ import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
 import { methods } from '../methods/deformation';
 import type { MethodContext } from '../registry';
+import type { SolverInput } from '../../types';
 import type { Block, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
@@ -369,6 +370,107 @@ describe('castigliano', () => {
     const r = method('castigliano').applies(ctxOf());
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason.key).toBe('steps.deformation.req.truss');
+  });
+});
+
+// ─── The axial term option ─────────────────────────────────────
+
+/** A context for an input as given, with options. */
+function ctxFor(input: SolverInput, options?: Record<string, boolean>, nodes: number[] = []): MethodContext {
+  return { input, pm: planeModel(input), ref: solveReference(input), selection: { nodes, members: [] }, options };
+}
+
+/** The same model with every cross-section area multiplied: axially rigid members, bending unchanged. */
+function stiffAxially(input: SolverInput, f: number): SolverInput {
+  return { ...input, sections: new Map([...input.sections].map(([id, sec]) => [id, { ...sec, a: sec.a * f }])) };
+}
+
+/** The largest difference of a document's comparison, relative to the largest matrix value of its unit. */
+function worstDiff(doc: StepDoc): number {
+  const rows = compareRows(doc);
+  const scale = new Map<string, number>();
+  for (const r of rows) scale.set(r.unit, Math.max(scale.get(r.unit) ?? 0, Math.abs(r.matrix)));
+  return Math.max(...rows.map((r) => Math.abs(r.method - r.matrix) / Math.max(scale.get(r.unit)!, 1e-3)));
+}
+
+/** A determinate frame: a fixed column with a beam on top, loaded along and across. */
+function lFrame() {
+  const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3);
+  modelStore.addElement(a, b); const e2 = modelStore.addElement(b, c);
+  modelStore.addSupport(a, 'fixed');
+  modelStore.addDistributedLoad(e2, -6, -6);
+  modelStore.addNodalLoad(c, 3, -10, 0);
+  return { c };
+}
+
+describe('the axial term option', () => {
+  for (const id of ['virtualWork', 'castigliano']) {
+    it(`${id} on the portal frame: on matches the matrix solve, off differs by a small amount`, async () => {
+      await modelStore.loadExample('portal-frame');
+      const input = modelStore.buildSolverInput(false)!;
+      const on = build(id, ctxFor(input, { axial: true }));
+      expectAgreement(on);
+      expect(worstDiff(build(id, ctxFor(input)))).toBeLessThan(1e-9); // the default is on
+      const off = build(id, ctxFor(input, { axial: false }));
+      const d = worstDiff(off);
+      expect(d).toBeGreaterThan(1e-4);
+      expect(d).toBeLessThan(5e-2);
+      expectWords(off);
+    });
+
+    it(`${id} with axially rigid members: on and off both match the matrix solve`, async () => {
+      await modelStore.loadExample('portal-frame');
+      const input = stiffAxially(modelStore.buildSolverInput(false)!, 1e5);
+      expect(worstDiff(build(id, ctxFor(input, { axial: true })))).toBeLessThan(1e-9);
+      expect(worstDiff(build(id, ctxFor(input, { axial: false })))).toBeLessThan(1e-5);
+    });
+  }
+
+  it('castigliano, first theorem on a determinate frame: on exact, off close, off exact when axially rigid', () => {
+    const { c } = lFrame();
+    const input = modelStore.buildSolverInput(false)!;
+    const on = build('castigliano', ctxFor(input, { axial: true }, [c]));
+    expectAgreement(on);
+    const off = build('castigliano', ctxFor(input, { axial: false }, [c]));
+    const d = worstDiff(off);
+    expect(d).toBeGreaterThan(1e-7);
+    expect(d).toBeLessThan(5e-2);
+    expectWords(off);
+    const rigid = stiffAxially(input, 1e5);
+    expect(worstDiff(build('castigliano', ctxFor(rigid, { axial: false }, [c])))).toBeLessThan(1e-5);
+  });
+
+  it('castigliano off on a closed frame: the redundants are cuts and the reactions still balance', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d); const e4 = modelStore.addElement(d, a);
+    modelStore.addSupport(a, 'pinned'); modelStore.addSupport(d, 'rollerX');
+    modelStore.addNodalLoad(b, 10, 0, 0);
+    modelStore.addDistributedLoad(e4, -5, -5);
+    const input = stiffAxially(modelStore.buildSolverInput(false)!, 1e5);
+    const off = build('castigliano', ctxFor(input, { axial: false }));
+    expect(worstDiff(off)).toBeLessThan(1e-5);
+    expectWords(off);
+  });
+
+  it('a truss keeps its axial term whatever the option says', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(2, 2);
+    modelStore.addElement(a, b, 'truss'); modelStore.addElement(a, c, 'truss'); modelStore.addElement(c, b, 'truss');
+    modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX');
+    modelStore.addNodalLoad(c, 5, -20, 0);
+    const doc = build('virtualWork', ctxFor(modelStore.buildSolverInput(false)!, { axial: false }));
+    expectAgreement(doc);
+    expectWords(doc);
+  });
+
+  it('the options have their words in the three languages', () => {
+    const withOptions = methods.filter((m) => m.options?.length);
+    expect(withOptions.map((m) => m.id).sort()).toEqual(['castigliano', 'virtualWork']);
+    for (const m of withOptions) for (const o of m.options!) {
+      expect(o).toEqual({ id: 'axial', default: true });
+      for (const k of ['label', 'help']) {
+        for (const [lang, d] of Object.entries(dicts)) expect(d[`steps.m.${m.id}.opt.${o.id}.${k}`], `${lang}: ${m.id}.${o.id}.${k}`).toBeTypeOf('string');
+      }
+    }
   });
 });
 

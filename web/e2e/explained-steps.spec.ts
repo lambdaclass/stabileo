@@ -74,4 +74,25 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.locator('.wizard')).toBeVisible();
     await expect(page.locator('.wizard .katex').filter({ hasText: /GH\s*=\s*3/ }).first()).toBeVisible();
   });
+
+  test('an assumption can be switched: Castigliano without the axial term', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await openCatalog(page);
+    await page.getByTestId('steps-example-castigliano').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    const box = page.getByTestId('steps-opt-axial');
+    await expect(box).toBeChecked();
+    await page.getByTestId('steps-opt-help-axial').click();
+    await expect(page.locator('.sd-opt-text')).toBeVisible();
+    // The document is rebuilt on the step the reader was on.
+    await page.getByTestId('steps-tab').nth(1).click();
+    await box.uncheck();
+    await expect(box).not.toBeChecked();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    await expect(page.getByTestId('steps-tab').nth(1)).toHaveClass(/on/);
+    expect(errors).toEqual([]);
+  });
 });

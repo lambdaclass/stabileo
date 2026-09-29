@@ -2,6 +2,21 @@
 import type { Translations } from '../../types';
 
 export const es: Translations = {
+  // ── The axial term option
+  'steps.deformation.axialOff': 'Resolución clásica: el término axial queda afuera y sólo cuenta la flexión.',
+  'steps.deformation.axialLeftOut': 'Con la opción del término axial apagada, Σ N·n·L/EA no entra en el desplazamiento. Se muestra igual, para ver cuánto aportaría:',
+  'steps.deformation.axialShareOff': 'Incluido, el término axial aportaría el {pct} % del desplazamiento.',
+  'steps.deformation.axialTrussAlways': 'En un reticulado el término axial es todo el desplazamiento, así que se incluye aunque la opción esté apagada.',
+  'steps.deformation.axialOffNote': 'La diferencia con el método matricial viene de haber dejado afuera el término axial, que el método matricial sí considera.',
+  'steps.m.virtualWork.opt.axial.label': 'Incluir el término axial (N·n·L/EA)',
+  'steps.m.virtualWork.opt.axial.help': 'Prendido, el desplazamiento suma el aporte del esfuerzo normal y el resultado coincide con el método matricial, que también lo considera. Es la opción más exacta. En la resolución a mano se suele despreciar, porque en pórticos y vigas su aporte es chico frente al de la flexión; apagalo para ver esa resolución clásica y cuánto cambia.',
+  'steps.m.castigliano.opt.axial.label': 'Incluir el término axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.help': 'Prendido, la energía de deformación suma el aporte del esfuerzo normal y el resultado coincide con el método matricial, que también lo considera. Es la opción más exacta. En la resolución a mano se suele despreciar, porque en pórticos y vigas su aporte es chico frente al de la flexión; apagalo para ver esa resolución clásica y cuánto cambia.',
+  'steps.m.castigliano.coefCaptionOff': 'Sólo el término de flexión de cada barra. Unidades: m/kN, rad/kN o rad/(kN·m) según las redundantes.',
+  'steps.m.castigliano.reactionsLead': 'Las reacciones, por superposición de las de la fundamental más las redundantes:',
+  'steps.m.castigliano.reactionsCaption': 'Reacciones en cada apoyo: fuerzas hacia +x y hacia arriba, momentos antihorarios.',
+  'steps.m.castigliano.f4Off': 'Desplazamiento',
+
   // ── Shared by the four methods
   'steps.deformation.assumptions': 'Hipótesis: material elástico lineal, desplazamientos pequeños (el equilibrio se plantea en la geometría sin deformar) y deformación por corte despreciable.',
   'steps.deformation.signs.beam': 'Convenciones: x a lo largo de la viga desde su extremo izquierdo; flecha v positiva hacia arriba; giro θ = dv/dx positivo antihorario; momento flector positivo si tracciona la fibra inferior; cargas positivas hacia abajo y pares antihorarios positivos.',
@@ -209,6 +224,21 @@ export const es: Translations = {
 };
 
 export const en: Translations = {
+  // ── The axial term option
+  'steps.deformation.axialOff': 'Classical solution: the axial term is left out and only bending counts.',
+  'steps.deformation.axialLeftOut': 'With the axial term option off, Σ N·n·L/EA does not enter the displacement. It is shown anyway, to see how much it would add:',
+  'steps.deformation.axialShareOff': 'If included, the axial term would contribute {pct} % of the displacement.',
+  'steps.deformation.axialTrussAlways': 'In a truss the axial term is the whole displacement, so it is included even with the option off.',
+  'steps.deformation.axialOffNote': 'The difference from the matrix method comes from leaving out the axial term, which the matrix method does include.',
+  'steps.m.virtualWork.opt.axial.label': 'Include the axial term (N·n·L/EA)',
+  'steps.m.virtualWork.opt.axial.help': 'When on, the displacement adds the contribution of the axial force and the result matches the matrix method, which includes it too. It is the more exact choice. Hand solutions usually neglect it, because in frames and beams it is small compared with bending; turn it off to see that classical solution and how much it changes.',
+  'steps.m.castigliano.opt.axial.label': 'Include the axial term (N²/2EA)',
+  'steps.m.castigliano.opt.axial.help': 'When on, the strain energy adds the contribution of the axial force and the result matches the matrix method, which includes it too. It is the more exact choice. Hand solutions usually neglect it, because in frames and beams it is small compared with bending; turn it off to see that classical solution and how much it changes.',
+  'steps.m.castigliano.coefCaptionOff': 'Bending term of each member only. Units: m/kN, rad/kN or rad/(kN·m) depending on the redundants.',
+  'steps.m.castigliano.reactionsLead': 'The reactions, by superposing those of the primary structure and the redundants:',
+  'steps.m.castigliano.reactionsCaption': 'Reactions at each support: forces towards +x and upward, moments counter-clockwise.',
+  'steps.m.castigliano.f4Off': 'Displacement',
+
   // ── Shared by the four methods
   'steps.deformation.assumptions': 'Assumptions: linear elastic material, small displacements (equilibrium is written on the undeformed geometry) and negligible shear deformation.',
   'steps.deformation.signs.beam': 'Conventions: x along the beam from its left end; deflection v positive upward; rotation θ = dv/dx positive counter-clockwise; bending moment positive when it puts the bottom fibre in tension; loads positive downward and couples positive counter-clockwise.',
@@ -416,6 +446,21 @@ export const en: Translations = {
 };
 
 export const pt: Translations = {
+  // ── The axial term option
+  'steps.deformation.axialOff': 'Solução clássica: o termo axial fica de fora e só conta a flexão.',
+  'steps.deformation.axialLeftOut': 'Com a opção do termo axial desligada, Σ N·n·L/EA não entra no deslocamento. Ele é mostrado mesmo assim, para ver quanto acrescentaria:',
+  'steps.deformation.axialShareOff': 'Se incluído, o termo axial contribuiria com {pct} % do deslocamento.',
+  'steps.deformation.axialTrussAlways': 'Numa treliça o termo axial é todo o deslocamento, por isso é incluído mesmo com a opção desligada.',
+  'steps.deformation.axialOffNote': 'A diferença em relação ao método matricial vem de deixar de fora o termo axial, que o método matricial considera.',
+  'steps.m.virtualWork.opt.axial.label': 'Incluir o termo axial (N·n·L/EA)',
+  'steps.m.virtualWork.opt.axial.help': 'Ligado, o deslocamento soma a contribuição do esforço normal e o resultado coincide com o método matricial, que também o considera. É a opção mais exata. Na solução à mão costuma ser desprezado, porque em pórticos e vigas sua contribuição é pequena frente à da flexão; desligue para ver essa solução clássica e quanto ela muda.',
+  'steps.m.castigliano.opt.axial.label': 'Incluir o termo axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.help': 'Ligado, a energia de deformação soma a contribuição do esforço normal e o resultado coincide com o método matricial, que também o considera. É a opção mais exata. Na solução à mão costuma ser desprezado, porque em pórticos e vigas sua contribuição é pequena frente à da flexão; desligue para ver essa solução clássica e quanto ela muda.',
+  'steps.m.castigliano.coefCaptionOff': 'Apenas o termo de flexão de cada barra. Unidades: m/kN, rad/kN ou rad/(kN·m) conforme os hiperestáticos.',
+  'steps.m.castigliano.reactionsLead': 'As reações, por superposição das da fundamental com os hiperestáticos:',
+  'steps.m.castigliano.reactionsCaption': 'Reações em cada apoio: forças para +x e para cima, momentos anti-horários.',
+  'steps.m.castigliano.f4Off': 'Deslocamento',
+
   // ── Shared by the four methods
   'steps.deformation.assumptions': 'Hipóteses: material elástico linear, pequenos deslocamentos (o equilíbrio é escrito na geometria indeformada) e deformação por cisalhamento desprezível.',
   'steps.deformation.signs.beam': 'Convenções: x ao longo da viga a partir da extremidade esquerda; flecha v positiva para cima; rotação θ = dv/dx positiva no sentido anti-horário; momento fletor positivo quando traciona a fibra inferior; cargas positivas para baixo e binários anti-horários positivos.',

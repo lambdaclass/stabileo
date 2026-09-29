@@ -4,7 +4,7 @@
  * and the member product integrals of frames, and the figures, tables and
  * comparison every document is built from.
  */
-import type { MethodContext } from './registry';
+import type { MethodContext, MethodOption } from './registry';
 import type { Applicability, Block, Cell, CompareRow, Txt } from './doc';
 import { tx } from './doc';
 import { num, numText, par } from './format';
@@ -30,6 +30,14 @@ export const texCell = (s: string): Cell => ({ tex: s });
 export const mm = (v: number) => v * 1000;
 /** A number squared, bracketed so a power of ten or a sign keeps its meaning. */
 export const sq = (v: number) => `(${num(v)})^2`;
+
+/**
+ * The axial term of the energy (Σ∫N²/2EA, and Σ N·n·L/EA in a displacement):
+ * on, the result matches the matrix solve, which includes it; off, the
+ * classical hand solution that keeps bending alone.
+ */
+export const AXIAL_OPTION: MethodOption = { id: 'axial', default: true };
+export const axialOn = (ctx: MethodContext): boolean => ctx.options?.[AXIAL_OPTION.id] ?? AXIAL_OPTION.default;
 
 /** What every method in this group needs of the model. */
 export function baseApplies(ctx: MethodContext, allowTruss: boolean): Applicability {

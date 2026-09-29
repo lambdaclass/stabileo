@@ -26,7 +26,16 @@ export interface MethodContext {
   ref: Reference | null;
   /** What is selected in the model: some methods work on a chosen member or node. */
   selection: { members: number[]; nodes: number[] };
+  /** The method's assumptions as the reader set them (see ExplainedMethod.options); absent ones take their default. */
+  options?: Record<string, boolean>;
 }
+
+/**
+ * An assumption the reader can switch, shown as a checkbox with a ? over the
+ * document: "include the axial term". Words: `steps.m.<method>.opt.<id>.label`
+ * and `.help`.
+ */
+export interface MethodOption { id: string; default: boolean }
 
 export interface ExplainedMethod {
   id: string;
@@ -38,6 +47,14 @@ export interface ExplainedMethod {
   build?(ctx: MethodContext): StepDoc;
   /** The stiffness and flexibility methods open their own wizard instead. */
   wizard?: 'dsm' | 'fm';
+  /** Assumptions the reader can switch; the document is rebuilt when one changes. */
+  options?: MethodOption[];
+}
+
+/** An option's value in a context: as set, else its default. */
+export function optionOn(ctx: MethodContext, m: ExplainedMethod, id: string): boolean {
+  const o = m.options?.find((x) => x.id === id);
+  return ctx.options?.[id] ?? o?.default ?? false;
 }
 
 const methods: ExplainedMethod[] = [];
