@@ -23,6 +23,7 @@ import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, 
 import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
+import { isDesigned, maskAxialDemand } from '../engine/design/behaviour-demands';
 
 export type OptimiseScope = 'section' | 'member' | 'group';
 
@@ -103,12 +104,13 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
   for (const id of ids) {
     const ef = forces.get(id);
     const e = modelStore.elements.get(id);
-    if (!ef || !e) continue;
+    if (!ef || !e || !isDesigned(e.behaviour)) continue;
     const len = lengths.get(id);
     const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
       elementId: id,
-      demand: steelDemandOf(ef, demands.get(id), stations.get(id)),
+      // As the check reads it: a tension-only brace is not sized for buckling.
+      demand: maskAxialDemand(steelDemandOf(ef, demands.get(id), stations.get(id)), e.behaviour),
       lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),

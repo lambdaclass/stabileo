@@ -14,6 +14,7 @@ import type { AnalysisResults3D } from '../../types-3d';
 import type { LoadCombination, Element, Section, Material, Node, Support } from '../../../store/model.svelte';
 import { classifyElement } from '../../codes/argentina/cirsoc201';
 import type { CheckReading, MemberContext, OtherCode, OtherCodeRow, OtherCodeRun } from './types';
+import { isDesigned, maskDemands } from '../behaviour-demands';
 
 export interface RunModel {
   nodes: Map<number, Node>;
@@ -43,8 +44,11 @@ export function memberContexts(
   for (const [id, e] of model.elements) {
     if (want && !want.has(id)) continue;
     const section = model.sections.get(e.sectionId), material = model.materials.get(e.materialId);
-    const d = demands.get(id);
-    if (!section || !material || !d) continue;
+    const behaviour = (e as { behaviour?: string }).behaviour;
+    const raw = demands.get(id);
+    if (!section || !material || !raw || !isDesigned(behaviour)) continue;
+    // Design follows the member's behaviour, as the CIRSOC check does.
+    const d = maskDemands(raw, behaviour);
     const len = lengths.get(id);
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
     const kind = a && b

@@ -33,6 +33,7 @@ import { runDesign, designMember, DEFAULT_RUN_MS } from '../engine/design/candid
 import { getDesignCode, type DesignCodeId } from '../engine/design/code-adapter';
 import { emptyRunSummary, type DesignRunSummary, type MemberDesignOutcome } from '../engine/design/outcome';
 import type { RunProgress } from '../engine/design/candidate-search';
+import { designDemands } from '../engine/design/behaviour-demands';
 import {
   DESIGN_FAMILIES, DEFAULT_DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult,
   isFrameFamily, needsFloorPass, needsFramePass,
@@ -139,9 +140,11 @@ function createDesignRunStore() {
     phase = 'demands';
     try {
       const md = modelData();
-      const stationData = computeStationDemands(
+      const computed = computeStationDemands(
         activePerCombo3D(), activeCombinations(), md as never,
       );
+      // Design follows the member's behaviour: inactive members out, one-way ones masked.
+      const stationData = { ...computed, demands: designDemands(computed.demands, (id) => modelStore.elements.get(id)?.behaviour) };
       if (stationData.demands.size === 0) return fail('design.error.noDemands');
 
       const orient = runOrientationDiagnostic(md, stationData.demands, modelStore.model.loads as never);

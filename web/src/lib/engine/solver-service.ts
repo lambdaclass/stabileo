@@ -2260,7 +2260,8 @@ function superposedReport(
     const b = (e as { behaviour?: string }).behaviour;
     const v = n.get(e.id);
     if (v === undefined) continue;
-    if ((b === 'tensionOnly' && v < -1e-9 * nMax) || (b === 'compressionOnly' && v > 1e-9 * nMax)) members.push(e.id);
+    // A cable is tension only too: compression in the sum is as much a contradiction for it.
+    if (((b === 'tensionOnly' || b === 'cable') && v < -1e-9 * nMax) || (b === 'compressionOnly' && v > 1e-9 * nMax)) members.push(e.id);
   }
   const rz = new Map(summed.reactions.map((r) => [r.nodeId, r.fz]));
   const scale = Math.max(1e-9, ...summed.reactions.map((r) => Math.abs(r.fz)));
