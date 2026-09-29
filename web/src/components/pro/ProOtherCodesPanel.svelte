@@ -12,6 +12,7 @@
    * showing numbers for a model that has moved on.
    */
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
+  import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
   import { t, tp } from '../../lib/i18n';
   import { activeCombinations, activePerCombo3D } from '../../lib/store/active-results';
   import { directAnalysis } from '../../lib/store/direct-analysis.svelte';
@@ -35,6 +36,8 @@
   let source = $state<'linear' | 'direct'>('linear');
   const direct = $derived(codeId === 'aisc360' && source === 'direct');
   let ranDirect = $state(false);
+  /** Active combinations the last check had no forces for. */
+  let missing = $state<number[]>([]);
 
   const code = $derived(otherCode(codeId)!);
   const solved = $derived(resultsStore.perCombo3D.size > 0);
@@ -45,8 +48,9 @@
     try {
       const forces = direct ? directAnalysis.forces() : activePerCombo3D();
       if (!forces) { run = null; failed = true; return; }
-      // Only the combinations the forces exist for: an unstable one publishes none.
+      // Only the combinations the forces exist for: an unstable one publishes none, and is named.
       const combos = activeCombinations().filter((c) => forces.has(c.id));
+      missing = activeCombinations().filter((c) => !forces.has(c.id)).map((c) => c.id);
       const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct });
       run = runOtherCode(code, ctxs);
       runOf = direct ? directAnalysis.result : resultsStore.perCombo3D;
@@ -135,6 +139,7 @@
     <p class="pk-warn" data-testid="other-codes-error">{t('otherCodes.error.engine')}</p>
   {:else if run}
     <section class="pk-card" data-testid="other-codes-results">
+      <ProDesignCompleteness {missing} />
       {#if run.errorKey}
         <p class="pk-warn">{t(run.errorKey)}</p>
       {/if}

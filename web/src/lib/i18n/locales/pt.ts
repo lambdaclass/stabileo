@@ -3384,6 +3384,8 @@ const pt: Translations = {
   'pro.diagHideTitle': 'Avisos',
   'pro.diagKindBlocking': 'Erros bloqueantes: a análise não pode ser executada até que sejam corrigidos.',
   'pro.diagKindClean': "Sem erros: o modelo tem o que a análise precisa.",
+  'design.incomplete.title': "Dimensionamento incompleto",
+  'design.incomplete.body': "Sem equilíbrio de segunda ordem, estas combinações não têm esforços e o dimensionamento não as inclui: {names}. Até resolvê-las (menos carga, mais rigidez ou revisar o modelo), um «verifica» vale só para as demais.",
   'pro.diagKindEmpty': 'Ainda não há modelo — não há nada a verificar.',
   'pro.diagKindIncomplete': 'Faltam ao modelo dados de que a análise precisa.',
   'pro.diagNone': 'Nenhum',

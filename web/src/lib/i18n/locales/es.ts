@@ -5037,6 +5037,8 @@ const es: Record<string, string> = {
   'pro.diagKindIncomplete': 'Al modelo le faltan datos que el análisis necesita.',
   'pro.diagKindBlocking': 'Errores bloqueantes: el análisis no puede correr hasta corregirlos.',
   'pro.diagKindClean': "Sin errores: el modelo tiene lo que el análisis necesita.",
+  'design.incomplete.title': "Diseño incompleto",
+  'design.incomplete.body': "Sin equilibrio de segundo orden, estas combinaciones no tienen esfuerzos y el diseño no las incluye: {names}. Hasta resolverlas (menos carga, más rigidez o revisar el modelo), un «verifica» vale sólo para las demás.",
   'pro.generateLRFD': 'Generar combinaciones LRFD',
   'pro.comboSubService': 'Gravitatorias a factor 1,0; con viento, CIRSOC 102-2025 B.4.2',
   'pro.comboSubStrength': 'CIRSOC 101-2025 §2.3.2',

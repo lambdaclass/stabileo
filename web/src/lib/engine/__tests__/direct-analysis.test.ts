@@ -129,3 +129,23 @@ describe('the design reads the direct analysis with K = 1', () => {
     expect(linear[0]).toMatchObject({ kStrong: 2, kWeak: 2 });
   });
 });
+
+describe('τb and the material', () => {
+  it('a concrete column is not given τb, however loaded: its fy is f\'c', async () => {
+    // A 0.4 × 0.4 concrete column, 3 m, under 1.5·f'c·Ag: past it τb would be zero, and its
+    // flexural stiffness with it.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    const e = modelStore.addElement(a, b, 'frame');
+    const mat = modelStore.addMaterial({ name: 'H-25', e: 25000, nu: 0.2, rho: 24, fy: 25 } as never);
+    const sec = modelStore.addSection({ name: 'C40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.0036 } as never);
+    modelStore.updateElementMaterial(e, mat);
+    modelStore.updateElementSection(e, sec);
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 1, 0, -1.5 * 25_000 * 0.16, 0, 0, 0);
+    const combo = modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const r = await runDirectAnalysis(data() as never, modelStore.model.loadCases, modelStore.model.combinations, { includeSelfWeight: false, settings: { notional: 0.002, tauB: 'iterate' } });
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.info.get(combo)!.stable).toBe(true);
+    expect(r.perCombo.get(combo)!.elementForces.find((f) => f.elementId === e)).toBeDefined();
+  });
+});

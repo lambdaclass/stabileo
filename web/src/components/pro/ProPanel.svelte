@@ -68,6 +68,7 @@
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
+  import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
@@ -365,8 +366,10 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'design'}
+          <ProDesignCompleteness />
           <ProRcWorkflowTab />
         {:else if activeTab === 'steel'}
+          <ProDesignCompleteness />
           <ProSteelWorkflowTab />
         {:else if activeTab === 'generators'}
           <ProGeneratorsPanel />
