@@ -84,8 +84,9 @@ describe('one-way shear', () => {
   });
 
   it('does not govern when the critical section falls outside the base', () => {
-    // A deep, small footing: (1.0 - 0.4)/2 = 0.30 < d = 0.52.
-    const r = checkOneWayShear(footing({ B: 1.0 }), 200);
+    // A deep, small footing: (1.0 - 0.4)/2 = 0.30 < d = 0.52, in both directions. (With L
+    // left at 2,5 m the strips along L reach 0,53 m past d, and they are checked now.)
+    const r = checkOneWayShear(footing({ B: 1.0, L: 1.0 }), 200);
     expect(r.status).toBe('OK');
     expect(r.Vu).toBe(0);
     expect(r.memo[0]).toMatch(/cae fuera de la zapata/);
@@ -572,5 +573,20 @@ describe('punching moment transfer', () => {
     // The axial force is explicitly stated not to contribute, so a reader does not have to
     // wonder whether it was forgotten.
     expect(memo).toMatch(/La fuerza axial no aporta momento/);
+  });
+});
+
+describe('one-way shear in both directions', () => {
+  it('gives the same verdict whichever way a rectangular base is turned', () => {
+    // 1,5 × 3,0 m, d = 0,40, column 30×30, 1200 kN: the long cantilever governs either way round.
+    const f = { B: 1.5, L: 3.0, d: 0.40, thickness: 0.48, columnB: 0.30, columnH: 0.30, factoredAxial: 1200 };
+    const q = 1200 / (1.5 * 3.0);
+    const a = checkOneWayShear(footing(f), q);
+    const b = checkOneWayShear(footing({ ...f, B: 3.0, L: 1.5 }), q);
+    expect(a.utilization).toBeCloseTo(b.utilization, 9);
+    expect(a.status).toBe(b.status);
+    // The long cantilever: a = (3,0 − 0,30)/2 − 0,40 = 0,95 m across the 1,5 m width.
+    expect(a.cantilever).toBeCloseTo(0.95, 9);
+    expect(a.Vu).toBeCloseTo(q * 0.95 * 1.5, 6);
   });
 });
