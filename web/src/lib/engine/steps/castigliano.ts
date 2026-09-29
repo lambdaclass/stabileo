@@ -12,7 +12,7 @@ import { solveForceMethod, solveSystem, ForceMethodError, FM_MAX_GH, type ForceM
 import {
   U, TOL, no, OK, p, texCell, mm, sq, baseApplies, intro, compareBlock, diagramOf, pickTarget,
   unitLoadInput, refAlong, memberWork, axialTable, endValuesTable, unitSketch, frameIds,
-  structureSketch, bendingBlocks, axialOn,
+  structureSketch, bendingBlocks, axialOn, axialShareWarning,
 } from './deformation-common';
 
 const fmCache = new WeakMap<SolverInput, ForceMethodResult | ForceMethodError | Error>();
@@ -141,6 +141,68 @@ const endsOf = (st: State, id: number) => {
   return { a: clean(b.samples[0].m), b: clean(b.samples[b.samples.length - 1].m) };
 };
 
+/**
+ * Which unknowns a square system cannot determine: Gaussian elimination with
+ * complete pivoting, stopping where every pivot left is below 1e-9 of the
+ * largest entry. The columns never pivoted are the unknowns left free.
+ */
+function undetermined(A: number[][]): number[] {
+  const n = A.length;
+  const M = A.map((r) => [...r]);
+  const cols = [...Array(n).keys()];
+  let big = 0;
+  for (const r of M) for (const v of r) big = Math.max(big, Math.abs(v));
+  if (!(big > 0)) return cols;
+  for (let k = 0; k < n; k++) {
+    let pi = k, pj = k;
+    for (let i = k; i < n; i++) for (let j = k; j < n; j++) if (Math.abs(M[i][j]) > Math.abs(M[pi][pj])) { pi = i; pj = j; }
+    if (!(Math.abs(M[pi][pj]) > 1e-9 * big)) return cols.slice(k);
+    [M[k], M[pi]] = [M[pi], M[k]];
+    for (const r of M) [r[k], r[pj]] = [r[pj], r[k]];
+    [cols[k], cols[pj]] = [cols[pj], cols[k]];
+    for (let i = k + 1; i < n; i++) {
+      const f = M[i][k] / M[k][k];
+      for (let j = k; j < n; j++) M[i][j] -= f * M[k][j];
+    }
+  }
+  return [];
+}
+
+/**
+ * The flexibility system of the classical solution, bending alone. A redundant
+ * that works only axially (the horizontal reaction of a beam, say) has no
+ * bending flexibility, so its equation would say nothing: it keeps its axial
+ * term, in its row and column, and the rest stays bending only. If even then
+ * the system cannot be solved, the full one is used.
+ */
+function bendingOnlySystem(fm: ForceMethodResult): { D: number[][]; D0: number[]; X: number[]; kept: Set<number>; fallback: boolean } {
+  const n = fm.redundants.length;
+  const bendingOf = (rows: TermRow[]) => rows.filter((q) => q.source !== 'axial').reduce((acc, q) => acc + q.value, 0);
+  const Db = fm.deltaTerms.map((r) => r.map(bendingOf));
+  const D0b = fm.delta0Terms.map(bendingOf);
+  const maxDiag = Math.max(0, ...Db.map((r, j) => Math.abs(r[j])));
+  const kept = new Set<number>();
+  // Negligible bending self-flexibility: against the other redundants' or against its own with the axial term.
+  for (let j = 0; j < n; j++) if (!(Math.abs(Db[j][j]) > 1e-9 * Math.max(maxDiag, Math.abs(fm.delta[j][j])))) kept.add(j);
+  const mixed = () => ({
+    D: Db.map((r, j) => r.map((v, k) => (kept.has(j) || kept.has(k) ? fm.delta[j][k] : v))),
+    D0: D0b.map((v, j) => (kept.has(j) ? fm.delta0[j] : v)),
+  });
+  let sys = mixed();
+  // A combination of redundants may still move nothing in bending: keep the axial term for those too.
+  for (let pass = 0; pass < n; pass++) {
+    const free = undetermined(sys.D);
+    if (!free.length) break;
+    for (const j of free) kept.add(j);
+    sys = mixed();
+  }
+  try {
+    const X = solveSystem(sys.D, sys.D0.map((v) => -v));
+    if (X.every(Number.isFinite) && !undetermined(sys.D).length) return { ...sys, X, kept, fallback: false };
+  } catch { /* the full system below */ }
+  return { D: fm.delta, D0: fm.delta0, X: fm.X, kept: new Set(fm.redundants.map((_, j) => j)), fallback: true };
+}
+
 export function buildCastigliano(ctx: MethodContext): StepDoc {
   const gh = countIndeterminacy(ctx.input).gh;
   return gh > 0 ? buildCastiglianoSecond(ctx) : buildCastiglianoFirst(ctx);
@@ -156,12 +218,17 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
   const Xs = fm.redundants.map((r) => `X_{${r.index}}`);
   // Without the axial term the coefficients keep their bending part alone, and the redundants follow from that system.
   const withAxial = axialOn(ctx);
-  const keep = (q: TermRow) => withAxial || q.source !== 'axial';
-  const sumOf = (rows: TermRow[]) => rows.filter(keep).reduce((acc, q) => acc + q.value, 0);
-  const D = withAxial ? fm.delta : fm.deltaTerms.map((r) => r.map(sumOf));
-  const D0 = withAxial ? fm.delta0 : fm.delta0Terms.map(sumOf);
-  const X = withAxial ? fm.X : solveSystem(D, D0.map((v) => -v));
-  const final: State = withAxial ? fm.final : superpose(fm, X);
+  const sys = withAxial ? null : bendingOnlySystem(fm);
+  const D = sys ? sys.D : fm.delta;
+  const D0 = sys ? sys.D0 : fm.delta0;
+  const X = sys ? sys.X : fm.X;
+  const final: State = sys ? superpose(fm, X) : fm.final;
+  // Which coefficients keep their axial part: all of them with the option on, those of the kept redundants without it.
+  const full = (j: number, k?: number) => !sys || sys.kept.has(j) || (k !== undefined && sys.kept.has(k));
+  const keptNames = sys && !sys.fallback ? [...sys.kept].sort((a, b) => a - b).map((j) => `X${fm.redundants[j].index}`) : [];
+  const axialNotes: Block[] = [];
+  if (sys?.fallback) axialNotes.push({ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialFallback') });
+  else if (keptNames.length) axialNotes.push({ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialKept', { list: keptNames.join(', ') }) });
 
   steps.push({
     title: tx('steps.m.castigliano.s1'),
@@ -208,6 +275,7 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
         { kind: 'eq', tex: '\\delta_{jk} = \\sum \\int \\frac{m_j\\,m_k}{EI}\\,dx, \\qquad \\delta_{j0} = \\sum \\int \\frac{m_j\\,M_0}{EI}\\,dx' } as Block,
         p('steps.m.castigliano.theoremWhy', undefined, true),
         { kind: 'note', tone: 'info', text: tx('steps.deformation.axialOff') } as Block,
+        ...axialNotes,
       ]),
       ...stateFigs,
     ],
@@ -216,24 +284,24 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
   // Coefficient integrals, per member.
   const ids = pm.memberOrder;
   const perMember = ids.length <= 6;
-  const rowsOf = (label: string, all: TermRow[], total: number, check: number): Cell[] => {
-    const terms = all.filter(keep);
+  const rowsOf = (label: string, all: TermRow[], total: number, check: number, whole: boolean): Cell[] => {
+    const terms = all.filter((q) => whole || q.source !== 'axial');
     const vals: number[] = [];
     if (perMember) for (const id of ids) vals.push(terms.filter((q) => q.elementId === id).reduce((s, q) => s + q.value, 0));
-    vals.push(terms.filter((q) => q.source === 'bending').reduce((s, q) => s + q.value, 0));
     // The primary's displacements include the axial strain, so they check the coefficients only when it is counted.
-    if (withAxial) vals.push(terms.filter((q) => q.source === 'axial').reduce((s, q) => s + q.value, 0), total, check);
+    if (withAxial) vals.push(terms.filter((q) => q.source === 'bending').reduce((s, q) => s + q.value, 0), terms.filter((q) => q.source === 'axial').reduce((s, q) => s + q.value, 0), total, check);
+    else vals.push(total);
     // Round-off of a term that vanishes (a member the unit state does not bend) reads as zero.
     const big = Math.max(...vals.map(Math.abs));
     return [texCell(label), ...vals.map((v) => (Math.abs(v) <= 1e-10 * big ? 0 : v))];
   };
   const coefRows: Cell[][] = [];
-  for (let j = 0; j < n; j++) for (let k = j; k < n; k++) coefRows.push(rowsOf(`\\delta_{${j + 1}${k + 1}}`, fm.deltaTerms[j][k], D[j][k], fm.deltaCheck[j][k]));
-  for (let j = 0; j < n; j++) coefRows.push(rowsOf(`\\delta_{${j + 1}0}`, fm.delta0Terms[j], D0[j], fm.delta0Check[j]));
+  for (let j = 0; j < n; j++) for (let k = j; k < n; k++) coefRows.push(rowsOf(`\\delta_{${j + 1}${k + 1}}`, fm.deltaTerms[j][k], D[j][k], fm.deltaCheck[j][k], full(j, k)));
+  for (let j = 0; j < n; j++) coefRows.push(rowsOf(`\\delta_{${j + 1}0}`, fm.delta0Terms[j], D0[j], fm.delta0Check[j], full(j)));
   const head: Cell[] = [tx('steps.m.castigliano.coefficient')];
   if (perMember) for (const id of ids) head.push(pm.members.get(id)!.name);
-  head.push(tx('steps.m.castigliano.sumBending'));
-  if (withAxial) head.push(tx('steps.m.castigliano.sumAxial'), texCell('\\Sigma'), tx('steps.m.castigliano.primaryDisp'));
+  if (withAxial) head.push(tx('steps.m.castigliano.sumBending'), tx('steps.m.castigliano.sumAxial'), texCell('\\Sigma'), tx('steps.m.castigliano.primaryDisp'));
+  else head.push(texCell('\\Sigma'));
 
   // δ11 by the product table, as a worked example: every unit state is linear on each member.
   const d11 = ids.map((id) => {
@@ -383,6 +451,7 @@ function buildCastiglianoFirst(ctx: MethodContext): StepDoc {
         subst: withAxial ? `\\delta_{${tg.name}} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${U.m}` : `\\delta_{${tg.name}} = ${num(delta)}\\ ${U.m}`,
         result: `\\boxed{\\delta_{${tg.name}} = ${num(mm(delta))}\\ ${U.mm}}` },
       p(delta >= 0 ? 'steps.deformation.senseSame' : 'steps.deformation.senseOpposite'),
+      ...(withAxial ? [] : axialShareWarning(bend, ax)),
       ...compareBlock([{ label: `\\delta_{${tg.name}}`, method: mm(delta), matrix: mm(refAlong(ref, tg)), unit: 'mm' }],
         tx(withAxial ? 'steps.deformation.exactNote' : 'steps.deformation.axialOffNote')),
     ],

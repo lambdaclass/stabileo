@@ -7,32 +7,15 @@
   import MathEquation from '../dsm/MathEquation.svelte';
   import StepSketch from './StepSketch.svelte';
   import StepBlocks from './StepBlocks.svelte';
+  import Prose from './Prose.svelte';
   import { tp, t } from '../../lib/i18n';
   import { isTxt, type Block, type Cell, type Txt } from '../../lib/engine/steps/doc';
   import { num, numText } from '../../lib/engine/steps/format';
+  import { narrowTex } from '../../lib/engine/steps/narrow-tex';
 
   let { blocks, detail = true, narrow = false }: { blocks: Block[]; detail?: boolean; narrow?: boolean } = $props();
 
-  /*
-   * Two results side by side (FEM_ij = …, \qquad FEM_ji = …) read well on a
-   * page and run off a side panel. On a narrow panel the expressions a
-   * `\qquad` separates at the top level are stacked, one per line.
-   */
-  function stack(tex: string): string {
-    if (!narrow || !tex.includes('\\qquad')) return tex;
-    const parts: string[] = [];
-    let depth = 0, last = 0;
-    for (let i = 0; i < tex.length; i++) {
-      const c = tex[i];
-      if (c === '{') depth++;
-      else if (c === '}') depth--;
-      else if (depth === 0 && tex.startsWith('\\qquad', i)) { parts.push(tex.slice(last, i)); last = i + 6; }
-    }
-    parts.push(tex.slice(last));
-    if (parts.length < 2) return tex;
-    const clean = parts.map((p) => p.trim().replace(/,$/, '').replace(/^\\;|\\;$/g, '').trim()).filter(Boolean);
-    return `\\begin{gathered} ${clean.join(' \\\\ ')} \\end{gathered}`;
-  }
+  const stack = (tex: string) => (narrow ? narrowTex(tex) : tex);
 
   const say = (x: Txt | string) => (typeof x === 'string' ? x : tp(x.key, x.params));
 
@@ -54,20 +37,20 @@
 
 {#snippet cell(c: Cell)}
   {#if typeof c === 'number'}{numText(c)}
-  {:else if typeof c === 'string'}{c}
-  {:else if isTxt(c)}{say(c)}
+  {:else if typeof c === 'string'}<Prose text={c} />
+  {:else if isTxt(c)}<Prose text={say(c)} />
   {:else}<MathEquation equation={c.tex} />{/if}
 {/snippet}
 
 {#each blocks as b}
   {#if b.kind === 'p'}
-    {#if detail || !b.detail}<p class="sb-p" class:detail={b.detail}>{say(b.text)}</p>{/if}
+    {#if detail || !b.detail}<p class="sb-p" class:detail={b.detail}><Prose text={say(b.text)} /></p>{/if}
   {:else if b.kind === 'eq'}
     <div class="sb-eq"><MathEquation equation={stack(b.tex)} displayMode /></div>
-    {#if b.note && detail}<p class="sb-note-small">{say(b.note)}</p>{/if}
+    {#if b.note && detail}<p class="sb-note-small"><Prose text={say(b.note)} /></p>{/if}
   {:else if b.kind === 'calc'}
     <div class="sb-calc">
-      {#if b.label}<div class="sb-calc-label">{say(b.label)}</div>{/if}
+      {#if b.label}<div class="sb-calc-label"><Prose text={say(b.label)} /></div>{/if}
       <div class="sb-row"><span class="sb-tag">{t('steps.view.formula')}</span><div class="sb-math"><MathEquation equation={stack(b.formula)} displayMode /></div></div>
       {#if b.subst}<div class="sb-row"><span class="sb-tag">{t('steps.view.subst')}</span><div class="sb-math"><MathEquation equation={stack(b.subst)} displayMode /></div></div>{/if}
       <div class="sb-row result"><span class="sb-tag">{t('steps.view.result')}</span><div class="sb-math"><MathEquation equation={stack(b.result)} displayMode /></div></div>
@@ -80,7 +63,7 @@
         <tbody>{#each b.rows as r}<tr>{#each r as c}<td>{@render cell(c)}</td>{/each}</tr>{/each}</tbody>
       </table>
     </div>
-    {#if b.caption}<p class="sb-caption">{say(b.caption)}</p>{/if}
+    {#if b.caption}<p class="sb-caption"><Prose text={say(b.caption)} /></p>{/if}
   {:else if b.kind === 'matrix'}
     {#if b.rowLabels || b.colLabels}
       <div class="sb-scroll">
@@ -93,17 +76,17 @@
     {:else}
       <div class="sb-scroll sb-eq"><MathEquation equation={matrixTex(b.name, b.rows, b.scale)} displayMode /></div>
     {/if}
-    {#if b.caption}<p class="sb-caption">{say(b.caption)}</p>{/if}
+    {#if b.caption}<p class="sb-caption"><Prose text={say(b.caption)} /></p>{/if}
   {:else if b.kind === 'fig'}
     <figure class="sb-fig">
       <StepSketch sketch={b.sketch} />
-      {#if b.caption}<figcaption>{say(b.caption)}</figcaption>{/if}
+      {#if b.caption}<figcaption><Prose text={say(b.caption)} /></figcaption>{/if}
     </figure>
   {:else if b.kind === 'note'}
-    <p class="sb-callout {b.tone}">{say(b.text)}</p>
+    <p class="sb-callout {b.tone}"><Prose text={say(b.text)} /></p>
   {:else if b.kind === 'sub'}
     <section class="sb-sub">
-      <h4>{say(b.title)}</h4>
+      <h4><Prose text={say(b.title)} /></h4>
       <StepBlocks blocks={b.blocks} {detail} {narrow} />
     </section>
   {:else if b.kind === 'compare'}
@@ -117,7 +100,7 @@
         </tbody>
       </table>
     </div>
-    {#if b.caption}<p class="sb-caption">{say(b.caption)}</p>{/if}
+    {#if b.caption}<p class="sb-caption"><Prose text={say(b.caption)} /></p>{/if}
   {/if}
 {/each}
 

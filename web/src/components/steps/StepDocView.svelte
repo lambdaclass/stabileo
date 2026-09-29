@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Prose from './Prose.svelte';
   /**
    * One method's explained solution: the set-up, then its numbered steps, one
    * at a time with a row to jump between them. "Explanations" shows or hides
@@ -35,11 +36,11 @@
   </header>
 
   {#if explainedSteps.error}
-    <p class="sd-error" data-testid="steps-error">{say(explainedSteps.error)}</p>
+    <p class="sd-error" data-testid="steps-error"><Prose text={say(explainedSteps.error)} /></p>
   {:else if doc}
     <div class="sd-title">
-      <h3>{say(doc.title)}</h3>
-      {#if doc.subtitle}<span class="sd-sub">{say(doc.subtitle)}</span>{/if}
+      <h3><Prose text={say(doc.title)} /></h3>
+      {#if doc.subtitle}<span class="sd-sub"><Prose text={say(doc.subtitle)} /></span>{/if}
     </div>
 
     {#if method?.options?.length}
@@ -55,7 +56,7 @@
             <button class="sd-opt-help" class:on={optHelp === o.id} onclick={() => (optHelp = optHelp === o.id ? null : o.id)}
               aria-expanded={optHelp === o.id} title={t('steps.catalog.help')} data-testid={`steps-opt-help-${o.id}`}>?</button>
           </div>
-          {#if optHelp === o.id}<p class="sd-opt-text">{t(`steps.m.${method.id}.opt.${o.id}.help`)}</p>{/if}
+          {#if optHelp === o.id}<p class="sd-opt-text"><Prose text={t(`steps.m.${method.id}.opt.${o.id}.help`)} /></p>{/if}
         {/each}
       </div>
     {/if}
@@ -80,7 +81,7 @@
         <StepBlocks blocks={doc.intro} {detail} {narrow} />
       {:else}
         {@const s = doc.steps[step - 1]}
-        <h4 class="sd-step"><span class="sd-num">{tp('steps.view.step', { n: step })}</span> {say(s.title)}</h4>
+        <h4 class="sd-step"><span class="sd-num">{tp('steps.view.step', { n: step })}</span> <Prose text={say(s.title)} /></h4>
         <StepBlocks blocks={s.blocks} {detail} {narrow} />
       {/if}
     </div>

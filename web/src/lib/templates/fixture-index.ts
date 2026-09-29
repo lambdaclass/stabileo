@@ -150,6 +150,11 @@ export function getFixture(name: string): FixtureLoader | undefined {
   return fixtures2D[name] ?? fixtures3D[name];
 }
 
+/** Every 2D example's name (the explained step-by-step sweep runs every method on each). */
+export function fixtureNames2D(): string[] {
+  return Object.keys(fixtures2D);
+}
+
 export function is2DFixture(name: string): boolean {
   return name in fixtures2D;
 }

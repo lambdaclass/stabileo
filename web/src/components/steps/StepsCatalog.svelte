@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Prose from './Prose.svelte';
   /**
    * The "Explained step by step" catalog: the methods by group, each with
    * what it does (behind its ?), what the structure must be to try it,
@@ -84,13 +85,13 @@
                 <button class="sc-help" class:on={help === m.id} onclick={() => (help = help === m.id ? null : m.id)}
                   aria-expanded={help === m.id} title={t('steps.catalog.help')} data-testid={`steps-help-${m.id}`}>?</button>
               </div>
-              {#if help === m.id}<p class="sc-helptext">{t(`steps.m.${m.id}.help`)}</p>{/if}
-              <p class="sc-req"><span>{t('steps.catalog.requiresLead')}</span> {t(`steps.m.${m.id}.requires`)}</p>
+              {#if help === m.id}<p class="sc-helptext"><Prose text={t(`steps.m.${m.id}.help`)} /></p>{/if}
+              <p class="sc-req"><span>{t('steps.catalog.requiresLead')}</span> <Prose text={t(`steps.m.${m.id}.requires`)} /></p>
               {#if v}
                 {#if v.ok}
                   <p class="sc-state ok">✓ {t('steps.catalog.ready')}</p>
                 {:else}
-                  <p class="sc-state no">{t('steps.catalog.notReady')} {say(v.reason)}</p>
+                  <p class="sc-state no">{t('steps.catalog.notReady')} <Prose text={say(v.reason)} /></p>
                 {/if}
               {/if}
               <div class="sc-actions">

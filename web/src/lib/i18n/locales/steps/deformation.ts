@@ -3,6 +3,9 @@ import type { Translations } from '../../types';
 
 export const es: Translations = {
   // ── The axial term option
+  'steps.deformation.axialBigShare': 'Para este desplazamiento, dejar afuera el término axial no es una buena aproximación: el esfuerzo normal aporta el {pct} % del total. Conviene prender la opción.',
+  'steps.m.castigliano.axialKept': 'Redundantes que trabajan sólo a esfuerzo normal: {list}. Sin el término axial su ecuación no dice nada, así que en sus filas y columnas se conserva; el resto de los coeficientes queda sólo con la flexión.',
+  'steps.m.castigliano.axialFallback': 'Sin el término axial el sistema no tiene solución única, así que se resuelve con los coeficientes completos, incluido el término axial.',
   'steps.deformation.axialOff': 'Resolución clásica: el término axial queda afuera y sólo cuenta la flexión.',
   'steps.deformation.axialLeftOut': 'Con la opción del término axial apagada, Σ N·n·L/EA no entra en el desplazamiento. Se muestra igual, para ver cuánto aportaría:',
   'steps.deformation.axialShareOff': 'Incluido, el término axial aportaría el {pct} % del desplazamiento.',
@@ -135,7 +138,7 @@ export const es: Translations = {
   'steps.m.momentArea.s4': 'Teoremas y tangente de referencia',
   'steps.m.momentArea.th1': 'Primer teorema: la variación del giro entre P y Q es el área de M/EI entre ellos.',
   'steps.m.momentArea.th2': 'Segundo teorema: la desviación de Q respecto de la tangente en P es el momento estático de esa área respecto de Q.',
-  'steps.m.momentArea.signs': 'Con el momento positivo si tracciona la fibra inferior, un área positiva hace crecer el giro en sentido antihorario, y t_Q/P es positiva cuando Q queda por encima de la tangente trazada en P.',
+  'steps.m.momentArea.signs': 'Con el momento positivo si tracciona la fibra inferior, un área positiva hace crecer el giro en sentido antihorario, y t_{Q/P} es positiva cuando Q queda por encima de la tangente trazada en P.',
   'steps.m.momentArea.tangentFixed': 'En el empotramiento {n} la tangente a la elástica es horizontal (θ = 0 y v = 0), y todas las demás se refieren a ella.',
   'steps.m.momentArea.tangentSimple': 'De entrada no se conoce ninguna tangente. Como {a} y {b} no se desplazan, la desviación de {b} respecto de la tangente en {a} da el giro en {a}.',
   'steps.m.momentArea.tBA': 'Desviación de {b} respecto de la tangente en {a}',
@@ -225,6 +228,9 @@ export const es: Translations = {
 
 export const en: Translations = {
   // ── The axial term option
+  'steps.deformation.axialBigShare': 'For this displacement, leaving out the axial term is not a good approximation: the axial force contributes {pct} % of the total. Turning the option on is advisable.',
+  'steps.m.castigliano.axialKept': 'Redundants that work in axial force only: {list}. Without the axial term their equations say nothing, so their rows and columns keep it; the other coefficients keep bending alone.',
+  'steps.m.castigliano.axialFallback': 'Without the axial term the system has no unique solution, so it is solved with the full coefficients, axial term included.',
   'steps.deformation.axialOff': 'Classical solution: the axial term is left out and only bending counts.',
   'steps.deformation.axialLeftOut': 'With the axial term option off, Σ N·n·L/EA does not enter the displacement. It is shown anyway, to see how much it would add:',
   'steps.deformation.axialShareOff': 'If included, the axial term would contribute {pct} % of the displacement.',
@@ -357,7 +363,7 @@ export const en: Translations = {
   'steps.m.momentArea.s4': 'Theorems and reference tangent',
   'steps.m.momentArea.th1': 'First theorem: the change of rotation between P and Q is the area of M/EI between them.',
   'steps.m.momentArea.th2': 'Second theorem: the deviation of Q from the tangent at P is the first moment of that area about Q.',
-  'steps.m.momentArea.signs': 'With the moment positive when it puts the bottom fibre in tension, a positive area increases the rotation counter-clockwise, and t_Q/P is positive when Q lies above the tangent drawn at P.',
+  'steps.m.momentArea.signs': 'With the moment positive when it puts the bottom fibre in tension, a positive area increases the rotation counter-clockwise, and t_{Q/P} is positive when Q lies above the tangent drawn at P.',
   'steps.m.momentArea.tangentFixed': 'At the fixed support {n} the tangent to the elastic curve is horizontal (θ = 0 and v = 0), and every other tangent is referred to it.',
   'steps.m.momentArea.tangentSimple': 'No tangent is known at the outset. Since {a} and {b} do not move, the deviation of {b} from the tangent at {a} gives the rotation at {a}.',
   'steps.m.momentArea.tBA': 'Deviation of {b} from the tangent at {a}',
@@ -447,6 +453,9 @@ export const en: Translations = {
 
 export const pt: Translations = {
   // ── The axial term option
+  'steps.deformation.axialBigShare': 'Para este deslocamento, deixar de fora o termo axial não é uma boa aproximação: o esforço normal contribui com {pct} % do total. Convém ligar a opção.',
+  'steps.m.castigliano.axialKept': 'Hiperestáticos que trabalham só a esforço normal: {list}. Sem o termo axial a sua equação não diz nada, por isso as suas linhas e colunas o conservam; os demais coeficientes ficam só com a flexão.',
+  'steps.m.castigliano.axialFallback': 'Sem o termo axial o sistema não tem solução única, por isso é resolvido com os coeficientes completos, incluído o termo axial.',
   'steps.deformation.axialOff': 'Solução clássica: o termo axial fica de fora e só conta a flexão.',
   'steps.deformation.axialLeftOut': 'Com a opção do termo axial desligada, Σ N·n·L/EA não entra no deslocamento. Ele é mostrado mesmo assim, para ver quanto acrescentaria:',
   'steps.deformation.axialShareOff': 'Se incluído, o termo axial contribuiria com {pct} % do deslocamento.',
@@ -579,7 +588,7 @@ export const pt: Translations = {
   'steps.m.momentArea.s4': 'Teoremas e tangente de referência',
   'steps.m.momentArea.th1': 'Primeiro teorema: a variação da rotação entre P e Q é a área de M/EI entre eles.',
   'steps.m.momentArea.th2': 'Segundo teorema: o desvio de Q em relação à tangente em P é o momento estático dessa área em relação a Q.',
-  'steps.m.momentArea.signs': 'Com o momento positivo quando traciona a fibra inferior, uma área positiva faz a rotação crescer no sentido anti-horário, e t_Q/P é positivo quando Q fica acima da tangente traçada em P.',
+  'steps.m.momentArea.signs': 'Com o momento positivo quando traciona a fibra inferior, uma área positiva faz a rotação crescer no sentido anti-horário, e t_{Q/P} é positivo quando Q fica acima da tangente traçada em P.',
   'steps.m.momentArea.tangentFixed': 'No engaste {n} a tangente à linha elástica é horizontal (θ = 0 e v = 0), e todas as outras se referem a ela.',
   'steps.m.momentArea.tangentSimple': 'De início nenhuma tangente é conhecida. Como {a} e {b} não se deslocam, o desvio de {b} em relação à tangente em {a} dá a rotação em {a}.',
   'steps.m.momentArea.tBA': 'Desvio de {b} em relação à tangente em {a}',

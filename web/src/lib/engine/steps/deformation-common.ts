@@ -39,6 +39,17 @@ export const sq = (v: number) => `(${num(v)})^2`;
 export const AXIAL_OPTION: MethodOption = { id: 'axial', default: true };
 export const axialOn = (ctx: MethodContext): boolean => ctx.options?.[AXIAL_OPTION.id] ?? AXIAL_OPTION.default;
 
+/**
+ * Left out, the axial term is a fair approximation only while it is a small
+ * share of the displacement; past a fifth (an arch, the sway of a braced
+ * frame) the document says plainly that it is not.
+ */
+export function axialShareWarning(bend: number, ax: number): Block[] {
+  const total = bend + ax;
+  if (!(Math.abs(total) > 1e-15) || Math.abs(ax) <= 0.2 * Math.abs(total)) return [];
+  return [{ kind: 'note', tone: 'warn', text: tx('steps.deformation.axialBigShare', { pct: numText((100 * ax) / total, 3) }) }];
+}
+
 /** What every method in this group needs of the model. */
 export function baseApplies(ctx: MethodContext, allowTruss: boolean): Applicability {
   const { pm, input } = ctx;

@@ -12,7 +12,8 @@ async function boot(page: Page) {
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
 }
 async function openCatalog(page: Page) {
-  await page.getByTestId('rb-cmd-advanced').click();
+  // Closing a document goes back to the Advanced panel, and the ribbon command toggles it.
+  if (!(await page.getByTestId('adv-steps').isVisible())) await page.getByTestId('rb-cmd-advanced').click();
   await page.getByTestId('adv-steps').click();
   await expect(page.getByTestId('steps-catalog')).toBeVisible();
 }
@@ -96,6 +97,33 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the compatibility matrix with the frame members held at their length', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await openCatalog(page);
+    await page.getByTestId('steps-open-compatibility').click();
+    const doc = page.getByTestId('steps-doc');
+    await expect(doc).toBeVisible();
+    const box = page.getByTestId('steps-opt-inextensible');
+    await expect(box).not.toBeChecked();
+    await box.check();
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    // The displacements that follow from the independent ones are marked †, down to the comparison.
+    await expect(doc).toContainText('†');
+    const n = await page.getByTestId('steps-tab').count();
+    let compared = false;
+    for (let k = 0; k < n; k++) {
+      await page.getByTestId('steps-next').click();
+      if (await doc.locator('.sb-compare').count()) compared = true;
+    }
+    expect(compared).toBe(true);
+    await box.uncheck();
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
   test('Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
     await boot(page);
     await page.getByTestId('rb-cmd-advanced').click();
@@ -111,5 +139,80 @@ test.describe('@smoke explained step by step', () => {
     expect(order[b + 1]).toMatch(/P-?Δ|P-Delta/i);
     expect(order[m + 1]).toMatch(/influen/i);
     await expect(panel).not.toContainText(/Envolvente|Envelope|Envoltória/);
+  });
+
+  test('a document says when the model has changed, and updates', async ({ page }) => {
+    await boot(page);
+    await openCatalog(page);
+    await page.getByTestId('steps-example-threeMoments').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
+    // Change the model: a node placed on the canvas.
+    await page.getByTestId('rb-cmd-node').click();
+    const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.2);
+    await expect(page.getByTestId('steps-refresh')).toBeVisible();
+    await page.getByTestId('steps-refresh').click();
+    await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
+  });
+
+  test('methods that work on a chosen member or node take the selection', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('truss'));
+    const ids = await page.evaluate(() => window.__stabileo.elementIds());
+    // Every member of the truss as the target: the method opens and walks, or says why not.
+    let opened = 0;
+    for (const id of ids) {
+      await page.evaluate((m) => window.__stabileoActions.selectElements([m]), id);
+      await openCatalog(page);
+      const open = page.getByTestId('steps-open-sections');
+      await open.scrollIntoViewIfNeeded();
+      if (await open.isEnabled()) {
+        await open.click();
+        await expect(page.getByTestId('steps-doc')).toBeVisible();
+        await expect(page.getByTestId('steps-error')).toHaveCount(0);
+        for (let k = 0; k < (await page.getByTestId('steps-tab').count()); k++) await page.getByTestId('steps-next').click();
+        await page.getByTestId('steps-close').click();
+        opened++;
+      } else {
+        await expect(page.getByTestId('steps-method-sections').locator('.sc-state.no')).toBeVisible();
+        await page.locator('.sc-close').click();
+      }
+    }
+    expect(opened).toBeGreaterThan(ids.length / 2);
+    // Virtual work at a node picked on the canvas.
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-select').click();
+    const nodes = await page.evaluate(() => window.__stabileo.nodeIds());
+    const pos = (await page.evaluate((n) => window.__stabileo.nodeScreenPos(n), nodes[2]))!;
+    await page.mouse.click(pos.x, pos.y);
+    await openCatalog(page);
+    await page.getByTestId('steps-open-virtualWork').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('@smoke explained step by step on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test('the catalog opens in the sheet and a document walks to its end', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await page.getByTestId('rb-cmd-advanced').tap();
+    await page.getByTestId('adv-steps').tap();
+    await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    for (const id of ['crossBeams', 'joints', 'doubleIntegration']) {
+      await page.getByTestId(`steps-example-${id}`).tap();
+      await expect(page.getByTestId('steps-doc')).toBeVisible();
+      const n = await page.getByTestId('steps-tab').count();
+      for (let k = 0; k < n; k++) await page.getByTestId('steps-next').tap();
+      await expect(page.getByTestId('steps-next')).toBeDisabled();
+      await page.getByTestId('steps-back').tap();
+    }
+    expect(errors).toEqual([]);
   });
 });

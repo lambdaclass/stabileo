@@ -7,7 +7,7 @@ import { solveReference } from './reference';
 import { countIndeterminacy } from '../force-method/primary';
 import {
   U, p, mm, baseApplies, intro, diagramOf, pickTarget, unitLoadInput, refAlong, memberWork,
-  axialTable, endValuesTable, unitSketch, frameIds, structureSketch, bendingBlocks, compareBlock, axialOn,
+  axialTable, endValuesTable, unitSketch, frameIds, structureSketch, bendingBlocks, compareBlock, axialOn, axialShareWarning,
 } from './deformation-common';
 
 export function virtualWorkApplies(ctx: MethodContext): Applicability {
@@ -91,6 +91,7 @@ export function buildVirtualWork(ctx: MethodContext): StepDoc {
         subst: withAxial ? `\\delta_{${tg.name}} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${U.m}` : `\\delta_{${tg.name}} = ${num(delta)}\\ ${U.m}`,
         result: `\\boxed{\\delta_{${tg.name}} = ${num(mm(delta))}\\ ${U.mm}}` },
       p(delta >= 0 ? 'steps.deformation.senseSame' : 'steps.deformation.senseOpposite'),
+      ...(withAxial ? [] : axialShareWarning(bend, ax)),
       ...compareBlock([{ label: `\\delta_{${tg.name}}`, method: mm(delta), matrix: mm(refAlong(ref, tg)), unit: 'mm' }],
         tx(withAxial ? 'steps.deformation.exactNote' : 'steps.deformation.axialOffNote')),
     ],

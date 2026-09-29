@@ -70,3 +70,24 @@ export function letterName(k: number): string {
   do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
   return s;
 }
+
+/**
+ * Words with the subscripts and superscripts they carry split out, for the
+ * viewer to set as such: "θ_I − ψ" reads θ with I below, "u_{x,B}" u with
+ * x,B below, "V^s" V with s above. The mark follows a letter; `_{…}` or
+ * `^{…}` takes everything in braces, a bare mark the letters and digits that
+ * follow.
+ */
+export type ProsePart = { text: string; kind: 'text' | 'sub' | 'sup' };
+export function proseParts(s: string): ProsePart[] {
+  const out: ProsePart[] = [];
+  const re = /(?<=[\p{L}′'])([_^])(\{([^}]*)\}|[\p{L}\p{N}′]+)/gu;
+  let last = 0;
+  for (const m of s.matchAll(re)) {
+    if (m.index! > last) out.push({ text: s.slice(last, m.index), kind: 'text' });
+    out.push({ text: m[3] ?? m[2], kind: m[1] === '_' ? 'sub' : 'sup' });
+    last = m.index! + m[0].length;
+  }
+  if (last < s.length || out.length === 0) out.push({ text: s.slice(last), kind: 'text' });
+  return out;
+}

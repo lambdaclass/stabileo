@@ -474,6 +474,129 @@ describe('the axial term option', () => {
   });
 });
 
+// ─── Axial term off where bending alone says too little ─────────
+
+/** The sweep's continuous-beam generator (same seeds, same models), so a case found there is pinned here. */
+function rng(seed: number) {
+  let s = seed >>> 0;
+  const next = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 2 ** 32; };
+  return {
+    next,
+    int: (a: number, b: number) => a + Math.floor(next() * (b - a + 1)),
+    pick: <T,>(xs: T[]): T => xs[Math.floor(next() * xs.length)],
+    real: (a: number, b: number, step = 0.5) => a + step * Math.floor((next() * (b - a)) / step + 0.5),
+  };
+}
+function genMember(a: number, b: number, r: ReturnType<typeof rng>) {
+  return r.next() < 0.3 ? modelStore.addElement(b, a) : modelStore.addElement(a, b);
+}
+function genSpanLoads(e: number, L: number, r: ReturnType<typeof rng>) {
+  const kind = r.int(0, 5);
+  const w = -r.real(5, 30, 5);
+  if (kind === 0) modelStore.addDistributedLoad(e, w, w);
+  else if (kind === 1) modelStore.addDistributedLoad(e, 0, w);
+  else if (kind === 2) modelStore.addDistributedLoad(e, w / 2, w);
+  else if (kind === 3) { const a = r.real(0.5, L / 2); modelStore.addDistributedLoad(e, w, w, undefined, undefined, undefined, a, Math.min(L - 0.5, a + r.real(1, L / 2))); }
+  else if (kind === 4) modelStore.addPointLoadOnElement(e, r.real(0.5, L - 0.5), -r.real(10, 60, 5));
+  else modelStore.addPointLoadOnElement(e, r.real(0.5, L - 0.5), 0, { my: r.pick([-1, 1]) * r.real(5, 40, 5) });
+}
+function continuousBeam(seed: number) {
+  const r = rng(seed);
+  modelStore.clear();
+  const spans = r.int(1, 4);
+  const xs = [0];
+  const overL = r.next() < 0.3 ? r.real(1, 2.5) : 0;
+  const overR = r.next() < 0.3 ? r.real(1, 2.5) : 0;
+  if (overL) xs.push(overL);
+  for (let k = 0; k < spans; k++) xs.push(xs[xs.length - 1] + r.real(3, 8));
+  if (overR) xs.push(xs[xs.length - 1] + overR);
+  const nodes = xs.map((x) => modelStore.addNode(x, 0));
+  const els: Array<{ id: number; L: number }> = [];
+  for (let k = 0; k + 1 < nodes.length; k++) els.push({ id: genMember(nodes[k], nodes[k + 1], r), L: xs[k + 1] - xs[k] });
+  const first = overL ? 1 : 0, last = nodes.length - 1 - (overR ? 1 : 0);
+  modelStore.addSupport(nodes[first], overL ? 'rollerX' : r.pick(['pinned', 'fixed']));
+  for (let k = first + 1; k < last; k++) modelStore.addSupport(nodes[k], 'rollerX');
+  modelStore.addSupport(nodes[last], overR ? 'pinned' : r.pick(['rollerX', 'fixed', 'rollerX']));
+  if (!modelStore.supports || [...modelStore.supports.values()].every((s) => s.type === 'rollerX')) modelStore.addSupport(nodes[first], 'pinned');
+  for (const e of els) if (r.next() < 0.8) genSpanLoads(e.id, e.L, r);
+  if (overR && r.next() < 0.5) modelStore.addNodalLoad(nodes[nodes.length - 1], 0, -r.real(5, 20, 5), r.next() < 0.3 ? 10 : 0);
+}
+
+/** Every note in a document, by key. */
+function noteKeys(doc: StepDoc): string[] {
+  const out: string[] = [];
+  const walk = (bs: Block[]) => { for (const b of bs) { if (b.kind === 'note') out.push(b.text.key); if (b.kind === 'sub') walk(b.blocks); } };
+  walk(doc.intro);
+  for (const s of doc.steps) walk(s.blocks);
+  return out;
+}
+
+describe('axial term off, where bending alone says too little', () => {
+  it('beams with a horizontal redundant: it keeps its axial term, the rest match the matrix solve', async () => {
+    const cases: Array<[string, () => Promise<void> | void]> = [
+      ...[2, 3, 28, 34].map((seed): [string, () => void] => [`beam#${seed}`, () => continuousBeam(seed)]),
+      ['gerber-beam', () => modelStore.loadExample('gerber-beam')],
+    ];
+    let kept = 0;
+    for (const [label, load] of cases) {
+      modelStore.clear();
+      await load();
+      const input = modelStore.buildSolverInput(false)!;
+      const ctx = ctxFor(input, { axial: false });
+      if (!method('castigliano').applies(ctx).ok) continue;
+      const doc = method('castigliano').build!(ctx);
+      if (noteKeys(doc).includes('steps.m.castigliano.axialKept')) kept++;
+      // A straight beam bends without any axial force, so bending alone is the whole answer for the other redundants.
+      expect(worstDiff(doc), label).toBeLessThan(1e-6);
+      expectWords(doc);
+    }
+    expect(kept).toBeGreaterThan(0);
+  });
+
+  it('never throws and never gives garbage on the sweep\'s generated beams', () => {
+    for (let seed = 1; seed <= 120; seed++) {
+      continuousBeam(seed);
+      const input = modelStore.buildSolverInput(false)!;
+      for (const id of ['castigliano', 'virtualWork']) {
+        const ctx = ctxFor(input, { axial: false });
+        if (!method(id).applies(ctx).ok) continue;
+        const doc = method(id).build!(ctx);
+        for (const r of compareRows(doc)) expect(Number.isFinite(r.method), `beam#${seed} ${id} ${r.label}`).toBe(true);
+        expect(worstDiff(doc), `beam#${seed} ${id}`).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('warns where the axial term is most of the displacement: an arch, a braced frame, a column top', async () => {
+    for (const ex of ['three-hinge-arch', 'portal-frame-braced', 'point-loads', 'frame-cirsoc-dl']) {
+      modelStore.clear();
+      await modelStore.loadExample(ex);
+      const input = modelStore.buildSolverInput(false)!;
+      let warned = false;
+      for (const id of ['castigliano', 'virtualWork']) {
+        const ctx = ctxFor(input, { axial: false });
+        if (!method(id).applies(ctx).ok) continue;
+        const doc = method(id).build!(ctx);
+        expectWords(doc);
+        if (noteKeys(doc).includes('steps.deformation.axialBigShare')) warned = true;
+        // With the option on the same point is exact, and says nothing of the kind.
+        const on = method(id).build!(ctxFor(input, { axial: true }));
+        expect(noteKeys(on)).not.toContain('steps.deformation.axialBigShare');
+        expect(worstDiff(on), `${ex} ${id} on`).toBeLessThan(1e-9);
+      }
+      expect(warned, ex).toBe(true);
+    }
+  });
+
+  it('no warning where the axial term is small: the portal frame', async () => {
+    await modelStore.loadExample('portal-frame');
+    const input = modelStore.buildSolverInput(false)!;
+    for (const id of ['castigliano', 'virtualWork']) {
+      expect(noteKeys(build(id, ctxFor(input, { axial: false })))).not.toContain('steps.deformation.axialBigShare');
+    }
+  });
+});
+
 describe('catalog words', () => {
   it('every method has its title, help and requirement in the three languages', () => {
     for (const m of methods) {

@@ -16,6 +16,8 @@ import type { Block, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
 import { methods, internals } from '../methods/trusses';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
+import katex from 'katex';
+import type { Cell } from '../doc';
 import es from '../../../i18n/locales/es';
 import en from '../../../i18n/locales/en';
 import pt from '../../../i18n/locales/pt';
@@ -325,5 +327,148 @@ describe('compatibility-matrix method', () => {
     const r2 = compat.applies(ctxNow());
     expect(r2.ok).toBe(false);
     if (!r2.ok) expect(r2.reason).toEqual({ key: 'steps.trusses.req.tooManyDofs', params: { n: 45, max: 40 } });
+  });
+});
+
+/** Every piece of mathematics in a document, for KaTeX to parse. */
+function texOf(doc: StepDoc): string[] {
+  const out: string[] = [];
+  const cell = (c: Cell) => { if (typeof c === 'object' && c !== null && 'tex' in c) out.push(c.tex); };
+  const walk = (bs: Block[]) => {
+    for (const b of bs) {
+      if (b.kind === 'eq') out.push(b.tex);
+      else if (b.kind === 'calc') out.push(b.formula, b.result, ...(b.subst ? [b.subst] : []), ...(b.check ? [b.check] : []));
+      else if (b.kind === 'table') { b.head.forEach(cell); b.rows.forEach((r) => r.forEach(cell)); }
+      else if (b.kind === 'matrix') out.push(b.name);
+      else if (b.kind === 'compare') out.push(...b.rows.map((r) => r.label));
+      else if (b.kind === 'sub') walk(b.blocks);
+    }
+  };
+  walk(doc.intro);
+  for (const st of doc.steps) walk(st.blocks);
+  return out;
+}
+function expectTexParses(doc: StepDoc) {
+  const bad: string[] = [];
+  for (const t of texOf(doc)) {
+    try { katex.renderToString(t, { throwOnError: true, displayMode: true }); } catch (e) { bad.push(`${t}\n  ${(e as Error).message}`); }
+  }
+  expect(bad).toEqual([]);
+}
+
+/** The context with the inextensible assumption on, optionally every area scaled (members nearly rigid axially). */
+function inextCtx(areaFactor = 1): MethodContext {
+  const input = modelStore.buildSolverInput(false)!;
+  if (areaFactor !== 1) for (const [id, sec] of input.sections) input.sections.set(id, { ...sec, a: sec.a * areaFactor });
+  return { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: { inextensible: true } };
+}
+const notes = (doc: StepDoc) => doc.intro.filter((b) => b.kind === 'note').map((b) => (b.kind === 'note' ? b.text.key : ''));
+/** Largest relative difference of the compare rows, relative to the largest value of each unit. */
+function worstCompare(doc: StepDoc): number {
+  let worst = 0;
+  for (const st of doc.steps) for (const b of st.blocks) if (b.kind === 'compare') {
+    const big = new Map<string, number>();
+    for (const r of b.rows) big.set(r.unit, Math.max(big.get(r.unit) ?? 0, Math.abs(r.matrix)));
+    for (const r of b.rows) worst = Math.max(worst, Math.abs(r.method - r.matrix) / Math.max(1e-12, big.get(r.unit)!));
+  }
+  return worst;
+}
+
+describe('compatibility-matrix method, inextensible frame members', () => {
+  it('is an option, off by default, and off leaves the document as it was', async () => {
+    expect(compat.options).toEqual([{ id: 'inextensible', default: false }]);
+    await modelStore.loadExample('portal-frame');
+    const off = compat.build!(ctxNow());
+    const offExplicit = compat.build!({ ...ctxNow(), options: { inextensible: false } });
+    expect(JSON.stringify(offExplicit)).toBe(JSON.stringify(off));
+    expect(notes(off)).not.toContain('steps.trusses.compat.inext.on');
+  });
+
+  for (const name of ['portal-frame', 'two-story-frame']) {
+    it(`'${name}': fewer unknowns, close to the matrix solve, and the matrix solve with rigid members`, async () => {
+      await modelStore.loadExample(name);
+      const ctx = inextCtx();
+      const cm = internals.compatSolve(ctx.pm, true)!;
+      const flex = internals.compatSolve(ctx.pm, false)!;
+      expect(cm.inext).toBe('on');
+      expect(cm.dofs.length).toBeLessThan(flex.dofs.length);
+      expect(cm.dofs.length + cm.deps.length).toBe(flex.dofs.length);
+      // No frame member keeps an elongation coordinate.
+      expect(cm.coords.some((c) => c.local === 3)).toBe(false);
+      expect(cm.residual).toBeLessThan(1e-8);
+      const doc = compat.build!(ctx);
+      expect(notes(doc)).toContain('steps.trusses.compat.inext.on');
+      const w = worstCompare(doc);
+      expect(w).toBeGreaterThan(1e-9); // axial deformation is left out, so not exact
+      expect(w).toBeLessThan(0.1);
+      expectWordsExist(doc);
+      expectTexParses(doc);
+      // With every area 10⁵ times larger the matrix solve tends to rigid members.
+      await modelStore.loadExample(name);
+      const stiff = inextCtx(1e5);
+      expect(worstCompare(compat.build!(stiff))).toBeLessThan(1e-5);
+    });
+  }
+
+  it('a gable frame with inclined rafters: two sway states, rigid limit matched', async () => {
+    const [a, b, c, d, e] = [[0, 0], [0, 4], [3, 6], [6, 4], [6, 0]].map(([x, z]) => modelStore.addNode(x, z));
+    const bars = [[a, b], [b, c], [d, c], [e, d]].map(([i, j]) => modelStore.addElement(i, j, 'frame'));
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(e, 'pinned');
+    modelStore.addDistributedLoad(bars[1], -6, -6);
+    modelStore.addNodalLoad(b, 5, 0, 0);
+    modelStore.addNodalLoad(c, 0, -10, 0);
+    const ctx = inextCtx();
+    const cm = internals.compatSolve(ctx.pm, true)!;
+    expect(cm.inext).toBe('on');
+    // Translations: B, C, D free in x and z (6), four members of fixed length: two independent.
+    expect(cm.dofs.filter((q) => q.kind !== 'ry')).toHaveLength(2);
+    const doc = compat.build!(ctx);
+    expect(worstCompare(doc)).toBeLessThan(0.1);
+    expectWordsExist(doc);
+    expectTexParses(doc);
+    expect(worstCompare(compat.build!(inextCtx(1e5)))).toBeLessThan(1e-5);
+  });
+
+  it('keeps truss members flexible in a mixed model', async () => {
+    const [a, b, c, d] = [[0, 0], [0, 4], [5, 4], [5, 0]].map(([x, z]) => modelStore.addNode(x, z));
+    modelStore.addElement(a, b, 'frame'); modelStore.addElement(b, c, 'frame'); modelStore.addElement(d, c, 'frame');
+    const brace = modelStore.addElement(a, c, 'truss');
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+    modelStore.addNodalLoad(b, 20, 0, 0);
+    const ctx = inextCtx();
+    const cm = internals.compatSolve(ctx.pm, true)!;
+    expect(cm.inext).toBe('on');
+    expect(cm.coords.filter((q) => q.local === 3)).toHaveLength(1);
+    const doc = compat.build!(ctx);
+    expect(notes(doc)).toContain('steps.trusses.compat.inext.mixed');
+    expectWordsExist(doc);
+    expectTexParses(doc);
+    // The brace stays flexible, so the rigid limit is the frame members' areas alone grown (10⁶ times:
+    // with a brace the axial effect is larger than in a bare frame, and it fades as 1/EA).
+    const input = modelStore.buildSolverInput(false)!;
+    const e = input.elements.get(brace)!;
+    const own = Math.max(...input.sections.keys()) + 1;
+    input.sections.set(own, { ...input.sections.get(e.sectionId)!, id: own });
+    input.elements.set(brace, { ...e, sectionId: own });
+    for (const [id, sec] of input.sections) if (id !== own) input.sections.set(id, { ...sec, a: sec.a * 1e6 });
+    const stiff: MethodContext = { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: { inextensible: true } };
+    expect(worstCompare(compat.build!(stiff))).toBeLessThan(1e-5);
+  });
+
+  it('on a truss it keeps the flexible members and says why', async () => {
+    await modelStore.loadExample('truss');
+    const ctx = inextCtx();
+    const doc = compat.build!(ctx);
+    expect(notes(doc)).toContain('steps.trusses.compat.inext.truss');
+    expectCompareAgrees(doc, 1e-6);
+    expectWordsExist(doc);
+    expectTexParses(doc);
+  });
+
+  it('flexible documents parse in KaTeX too', async () => {
+    for (const name of ['truss', 'portal-frame']) {
+      await modelStore.loadExample(name);
+      expectTexParses(compat.build!(ctxNow()));
+    }
   });
 });
