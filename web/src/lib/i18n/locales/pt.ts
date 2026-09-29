@@ -2479,6 +2479,8 @@ const pt: Translations = {
   'connect.nodeOnMembersMany': 'O nó {a} ficou sobre {n} barras, sem se conectar.',
   'connect.splitAndConnect': 'Dividir e conectar',
   'connect.droppedSupport': 'Os dois nós tinham apoio e ficou só um. Revise.',
+  'connect.previous': 'Anterior',
+  'connect.next': 'Próximo',
   'float.snap.free': 'Ponto livre',
   'float.snap.grid': 'Grade',
   'float.snap.vertical': 'Vertical',

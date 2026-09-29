@@ -12,7 +12,7 @@ import {
 } from '../connection-check';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); });
-beforeEach(() => { modelStore.clear(); historyStore.clear(); connectionPrompt.decline(); });
+beforeEach(() => { modelStore.clear(); historyStore.clear(); connectionPrompt.clear(); });
 
 /** A beam 0→4 along x and a post crossing it at x = 2, unconnected. */
 function crossed() {
@@ -116,5 +116,50 @@ describe('the prompt and undo', () => {
     const size = modelStore.elements.size;
     connectionPrompt.accept();
     expect(modelStore.elements.size).toBe(size);
+  });
+});
+
+describe('the questions queue', () => {
+  const q = (message: string, run = () => {}, extra = {}) => ({ message, accept: '', decline: '', run, ...extra });
+
+  it('a second question queues after the first instead of replacing it', () => {
+    connectionPrompt.ask(q('first'));
+    connectionPrompt.ask(q('second'));
+    expect(connectionPrompt.count).toBe(2);
+    expect(connectionPrompt.current?.message).toBe('second');
+    connectionPrompt.previous();
+    expect(connectionPrompt.current?.message).toBe('first');
+    connectionPrompt.next();
+    expect(connectionPrompt.current?.message).toBe('second');
+  });
+
+  it('answering one leaves the other on the card', () => {
+    let ran = '';
+    connectionPrompt.ask(q('first', () => { ran += 'first'; }));
+    connectionPrompt.ask(q('second', () => { ran += 'second'; }));
+    connectionPrompt.previous();
+    connectionPrompt.accept();
+    expect(ran).toBe('first');
+    expect(connectionPrompt.count).toBe(1);
+    expect(connectionPrompt.current?.message).toBe('second');
+    connectionPrompt.decline();
+    expect(connectionPrompt.current).toBeNull();
+  });
+
+  it('a question about the same thing replaces the old one', () => {
+    connectionPrompt.ask(q('old', () => {}, { key: 'member:1' }));
+    connectionPrompt.ask(q('other', () => {}, { key: 'member:2' }));
+    connectionPrompt.ask(q('new', () => {}, { key: 'member:1' }));
+    expect(connectionPrompt.count).toBe(2);
+    expect(connectionPrompt.current?.message).toBe('new');
+  });
+
+  it('a question that no longer applies drops out on its own', () => {
+    let gone = false;
+    connectionPrompt.ask(q('stale', () => {}, { stillApplies: () => !gone }));
+    connectionPrompt.ask(q('live'));
+    gone = true;
+    expect(connectionPrompt.count).toBe(1);
+    expect(connectionPrompt.current?.message).toBe('live');
   });
 });

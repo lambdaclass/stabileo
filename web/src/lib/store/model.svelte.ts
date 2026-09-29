@@ -1177,6 +1177,8 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
+  let _onReplaced: (() => void) | null = null;
   // Bulk mutation mode: during loadExample (and other wholesale mutations) we
   // want a single reactive commit instead of one per entity. Add/update methods
   // skip their per-call Map / array reassignment while this flag is true;
@@ -1324,6 +1326,7 @@ function createModelStore() {
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setOnReplaced(fn: () => void) { _onReplaced = fn; },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
      *  set of element ids written. Wired in store/index.ts so this store never
@@ -1723,6 +1726,7 @@ function createModelStore() {
     },
 
     restore(rawSnapshot: ModelSnapshot): void {
+      _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
       // Every family below is copied ONE level deep (`{ ...v }`), which is enough to stop the
@@ -2960,6 +2964,7 @@ function createModelStore() {
     },
 
     clear(): void {
+      _onReplaced?.();
       if (!_undoBatching) _pushUndo?.();
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();

@@ -123,4 +123,25 @@ test.describe('@smoke connections in 2D', () => {
     await page.getByTestId('connection-accept').click();
     await expect.poll(async () => (await census(page)).members).toBe(3);
   });
+
+  test('two crossings, two questions: the card steps through them', async ({ page }) => {
+    await boot(page);
+    const { at } = await drawCross(page);
+    // A second post across the beam, before answering the first question.
+    await at(0.5, 0.3); await at(0.5, 0.8);
+    await expect.poll(() => census(page)).toEqual({ nodes: 6, members: 3 });
+    await expect(page.getByTestId('connection-pos')).toHaveText('2 / 2');
+    await expect(page.getByTestId('connection-prompt')).toContainText(/3/);
+    await page.getByTestId('connection-prev').click();
+    await expect(page.getByTestId('connection-pos')).toHaveText('1 / 2');
+    await expect(page.getByTestId('connection-prompt')).toContainText(/2/);
+    // Connect the first post; the second question is still there.
+    await page.getByTestId('connection-accept').click();
+    await expect.poll(() => census(page)).toEqual({ nodes: 7, members: 5 });
+    await expect(page.getByTestId('connection-nav')).toHaveCount(0);
+    await expect(page.getByTestId('connection-prompt')).toBeVisible();
+    await page.getByTestId('connection-accept').click();
+    await expect.poll(() => census(page)).toEqual({ nodes: 8, members: 7 });
+    await expect(page.getByTestId('connection-prompt')).toHaveCount(0);
+  });
 });

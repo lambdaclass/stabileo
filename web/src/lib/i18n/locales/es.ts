@@ -2155,6 +2155,8 @@ const es: Record<string, string> = {
   'connect.nodeOnMembersMany': 'El nodo {a} quedó sobre {n} barras, sin conectarse.',
   'connect.splitAndConnect': 'Partir y conectar',
   'connect.droppedSupport': 'Los dos nodos tenían apoyo y quedó uno solo. Revisalo.',
+  'connect.previous': 'Anterior',
+  'connect.next': 'Siguiente',
   'float.snap.free': 'Punto libre',
   'float.snap.grid': 'Grilla',
   'float.snap.vertical': 'Vertical',

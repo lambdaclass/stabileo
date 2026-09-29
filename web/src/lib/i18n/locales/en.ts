@@ -2162,6 +2162,8 @@ const en: Record<string, string> = {
   'connect.nodeOnMembersMany': 'Node {a} is on {n} members, not connected to them.',
   'connect.splitAndConnect': 'Split and connect',
   'connect.droppedSupport': 'Both nodes had a support and one was kept. Check it.',
+  'connect.previous': 'Previous',
+  'connect.next': 'Next',
   'float.snap.free': 'Free point',
   'float.snap.grid': 'Grid',
   'float.snap.vertical': 'Vertical',

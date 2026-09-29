@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
+  import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import Icon from './ribbon/Icon.svelte';
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
@@ -48,11 +49,7 @@
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
   import { drawMemberSnap } from '../lib/canvas/draw-member-snap';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
-  import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
-  import {
-    membersCrossing, nodesOnMember, nodeCoincidentWith, membersThroughNode,
-    connectMember, connectNodeToMembers, joinNodes,
-  } from '../lib/model/edit/connection-check';
+  import { askToConnectMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
 
   let canvas: HTMLCanvasElement;
@@ -940,12 +937,12 @@
     // What a dragged node has caught, as the member tool shows it.
     if (draggedNodeId !== null && dragSnap) {
       drawMemberSnap(ctx, dragSnap, null, t(`float.snap.${dragSnap.kind}`),
-        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height });
+        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height }, touchInput ? 48 : 14);
     }
     // What the member tool's next click catches: a marker on the point and its name by the cursor.
     if (uiStore.currentTool === 'element' && memberSnapPreview) {
       drawMemberSnap(ctx, memberSnapPreview, pendingNode, t(`float.snap.${memberSnapPreview.kind}`),
-        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height });
+        (x, y) => uiStore.worldToScreen(x, y), { x: uiStore.mouseX, y: uiStore.mouseY }, canvasTheme(), { width, height }, touchInput ? 48 : 14);
     }
 
     // Draw results
@@ -2478,7 +2475,12 @@
     isPinch: boolean;
     longPressTimer: ReturnType<typeof setTimeout> | null;
     moved: boolean;
+    /** The member tool places a point where the finger LIFTS, not where it lands (see handleTouchStart). */
+    placeOnLift?: boolean;
+    lastTouch?: { x: number; y: number };
   } | null = null;
+  /** The last pointer was a finger: labels go higher, clear of it. */
+  let touchInput = false;
 
   function handleTouchStart(e: TouchEvent) {
     e.preventDefault();
@@ -2489,6 +2491,22 @@
       y: t.clientY - rect.top,
     }));
 
+    touchInput = true;
+    if (touches.length === 1 && uiStore.currentTool === 'element') {
+      /*
+       * The member tool on a finger: pressing shows where the point would go
+       * (the snap, the ghost and its dimensions), sliding moves it, lifting
+       * places it. Placing on the press gave no chance to see the snap, and
+       * the finger hides what is under it. No long press here: holding still
+       * to read the snap is the gesture, not a request for a menu.
+       */
+      touchState = {
+        startTouches: touches, lastDist: 0, lastCenter: touches[0], isPinch: false,
+        longPressTimer: null, moved: false, placeOnLift: true, lastTouch: touches[0],
+      };
+      handleMouseMove({ clientX: touches[0].x + rect.left, clientY: touches[0].y + rect.top, button: 0, shiftKey: false, preventDefault: () => {} } as MouseEvent);
+      return;
+    }
     if (touches.length === 1) {
       // Single touch — treat as mousedown + setup long-press
       touchState = {
@@ -2560,6 +2578,7 @@
     cancelLongPress();
 
     if (touches.length === 1 && !touchState.isPinch) {
+      touchState.lastTouch = touches[0];
       // Single finger drag → mousemove
       const synth = {
         clientX: touches[0].x + rect.left,
@@ -2601,6 +2620,15 @@
   function handleTouchEnd(e: TouchEvent) {
     e.preventDefault();
     cancelLongPress();
+    if (touchState?.placeOnLift && !touchState.isPinch && e.touches.length === 0 && touchState.lastTouch && canvas) {
+      // The member tool: the point goes where the finger lifted.
+      const rect = canvas.getBoundingClientRect();
+      const at = touchState.lastTouch;
+      handleMouseDown({ clientX: at.x + rect.left, clientY: at.y + rect.top, button: 0, shiftKey: false, preventDefault: () => {} } as MouseEvent);
+      handleMouseUp();
+      touchState = null;
+      return;
+    }
     if (touchState && !touchState.isPinch && e.touches.length === 0) {
       handleMouseUp();
     }
@@ -2767,56 +2795,6 @@
     return modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
   }
 
-  /**
-   * A member just drawn that crosses others or runs over nodes without being
-   * connected to them: ask whether to connect it there.
-   */
-  function askToConnectMember(id: number) {
-    const crossed = membersCrossing(id);
-    const over = nodesOnMember(id);
-    if (!crossed.length && !over.length) return;
-    const parts: string[] = [];
-    if (crossed.length === 1) parts.push(t('connect.memberCrossesOne').replace('{o}', String(crossed[0])));
-    else if (crossed.length > 1) parts.push(t('connect.memberCrossesMany').replace('{n}', String(crossed.length)));
-    if (over.length === 1) parts.push(t('connect.memberOverNodeOne').replace('{o}', String(over[0])));
-    else if (over.length > 1) parts.push(t('connect.memberOverNodesMany').replace('{n}', String(over.length)));
-    connectionPrompt.ask({
-      message: t('connect.memberLead').replace('{e}', String(id)) + ' ' + parts.join(t('connect.and')) + t('connect.memberTail') + '.',
-      accept: t('connect.connect'),
-      decline: t('connect.leaveApart'),
-      run: () => connectMember(id),
-      stillApplies: () => modelStore.elements.has(id),
-    });
-  }
-
-  /** A node dropped on another node or on members: ask whether to join it there. */
-  function askToConnectNode(id: number) {
-    const onto = nodeCoincidentWith(id);
-    if (onto !== null) {
-      connectionPrompt.ask({
-        message: t('connect.nodeOnNode').replace('{a}', String(id)).replace('{b}', String(onto)),
-        accept: t('connect.joinNodes'),
-        decline: t('connect.keepApart'),
-        run: () => {
-          const r = joinNodes(id, onto);
-          if (r.droppedSupports) uiStore.toast(t('connect.droppedSupport'), 'info');
-        },
-        stillApplies: () => modelStore.nodes.has(id) && modelStore.nodes.has(onto),
-      });
-      return;
-    }
-    const through = membersThroughNode(id);
-    if (!through.length) return;
-    connectionPrompt.ask({
-      message: (through.length === 1 ? t('connect.nodeOnMemberOne').replace('{e}', String(through[0])) : t('connect.nodeOnMembersMany').replace('{n}', String(through.length)))
-        .replace('{a}', String(id)),
-      accept: t('connect.splitAndConnect'),
-      decline: t('connect.leaveApart'),
-      run: () => connectNodeToMembers(id),
-      stillApplies: () => modelStore.nodes.has(id),
-    });
-  }
-
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
     return _findNearestMidpoint(x, y, maxDist, modelStore.elements, getProjectedNodes());
   }
@@ -2834,10 +2812,15 @@
 
 <div class="viewport2d-wrapper">
   <ConnectionPrompt />
+  {#if uiStore.isMobile && uiStore.appMode === 'basico'}
+    <!-- The phone's delete button: over the model's lower right corner, level
+         with the axes; the canvas shrinks for the sheet, so it rises with it. -->
+    <div class="vp-delete"><SelectionDeleteButton floating /></div>
+  {/if}
   <canvas
     bind:this={canvas}
     onmousedown={handleMouseDown}
-    onmousemove={handleMouseMove}
+    onmousemove={(e) => { touchInput = false; handleMouseMove(e); }}
     onmouseup={handleMouseUp}
     onmouseleave={handleMouseUp}
     ondblclick={handleDblClick}
@@ -2915,6 +2898,13 @@
     align-items: center;
     justify-content: center;
     transition: background 0.15s, color 0.15s;
+  }
+
+  .vp-delete {
+    position: absolute;
+    right: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 11;
   }
 
   .viewport-controls button:hover {

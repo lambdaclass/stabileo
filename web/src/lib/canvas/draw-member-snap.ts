@@ -22,6 +22,8 @@ export function drawMemberSnap(
   cursor: Pt,
   theme: CanvasTheme,
   canvasSize: { width: number; height: number },
+  /** How far above the cursor the name goes: further for a finger, which covers the point. */
+  lift = 14,
 ): void {
   const p = toScreen(snap.x, snap.y);
   ctx.save();
@@ -87,7 +89,7 @@ export function drawMemberSnap(
     const w = ctx.measureText(label).width + 12;
     const h = 18;
     let x = cursor.x + 14;
-    let y = cursor.y - 14 - h;
+    let y = cursor.y - lift - h;
     if (x + w > canvasSize.width - 4) x = cursor.x - 14 - w;
     if (y < 4) y = cursor.y + 14;
     ctx.beginPath();
