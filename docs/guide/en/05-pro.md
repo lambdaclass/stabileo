@@ -108,6 +108,10 @@ the intersections and to the axes. The grid can also be **read off the model** (
 elevation with nodes and an axis at every coordinate with columns), and **columns and beams
 between axes** are created over a range of axes and levels in one undo step.
 
+**Floor grid.** It is drawn at the spacing nodes snap to (**Grid** in the settings), with a heavier line
+every ten. Zooming out, the finer lines fade and go once they would crowd the screen, and the
+heavier ones carry on; a line that is drawn stays on the same coordinate at every zoom.
+
 **Transform.** Repeat, polar repeat, mirror, rotate and move the selection, as copies or in place.
 Copies that land on an existing node are welded to it, which is what connects repeated bays, and
 they carry loads, supports and groups when asked. While the numbers change, the result shows in

@@ -115,6 +115,11 @@ cursor se engancha a las intersecciones y a los ejes. También se puede **leer l
 modelo** (un nivel en cada cota con nodos y un eje en cada coordenada con columnas) y crear
 **columnas y vigas entre ejes** en un rango de ejes y niveles, en un solo paso de deshacer.
 
+**Grilla de piso.** Se dibuja al paso al que se enganchan los nodos (**Grilla** en la
+configuración), con una línea más marcada cada diez. Al alejarse, las líneas finas se desvanecen y
+desaparecen cuando llenarían la pantalla, y siguen las marcadas; una línea dibujada queda en la
+misma coordenada con cualquier zoom.
+
 **Transformar.** Repetir, repetir en polar, espejar, girar y mover la selección, como copias o en
 el lugar. Las copias que caen sobre un nodo existente se sueldan a él, que es lo que conecta los
 vanos repetidos, y copian cargas, apoyos y grupos si se pide. Mientras se cambian los números, el
