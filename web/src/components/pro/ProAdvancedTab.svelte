@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { addSettlementToMultiCase3D, hasSettlement, withoutSettlement } from '../../lib/engine/settlement-case';
   import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
@@ -18,6 +19,7 @@
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
+  import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import {
     isSolverReady,
     solvePDelta3D as wasmPDelta3D,
@@ -36,6 +38,7 @@
     solveWithImperfections3D,
     computeInfluenceLine3D,
     solveMultiCase3D,
+    solve3D,
     analyzeSection,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
@@ -56,7 +59,7 @@
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
     modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
@@ -123,7 +126,8 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  function buildInput() {
+  /** `stripSettlement`: the supports without their prescribed displacements (see handleMultiCase). */
+  function buildInput(stripSettlement = false) {
     // These analyses build with expandMemberOffsets:false, which ALSO skips
     // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
     // jointed model would silently solve as rigid (too stiff). Refuse with a
@@ -132,7 +136,8 @@
     if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
     if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
     const input = buildSolverInput3D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
+      { nodes: modelStore.nodes, elements: modelStore.elements,
+        supports: stripSettlement ? withoutSettlement(modelStore.supports) : modelStore.supports,
         loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
         quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
         connectors: modelStore.connectors },
@@ -196,7 +201,7 @@
       if (res.results) {
         resultsStore.setPDeltaResult3D(res);
       }
-      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor } };
+      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor, isStable: res.isStable } };
     } catch (e: any) {
       solveError = `P-Delta: ${errorText(e, 'Error')}`;
     }
@@ -868,20 +873,31 @@
         solving = false;
         return;
       }
-      let input = buildInput();
+      // A settlement is solved once and added once to every combination, as in the
+      // combination solve (settlement-case.ts): each case on the settled supports counted it
+      // Σ factors times.
+      const settled = hasSettlement(modelStore.supports.values());
+      const input = buildInput(settled);
       const byId = new Map(cases.map(c => [c.id, c.name]));
-      multiCaseResult = solveMultiCase3D({
+      const combinations = modelStore.combinations.map(cb => ({
+        name: cb.name,
+        factors: Object.fromEntries(
+          cb.factors
+            .filter(f => byId.has(f.caseId))
+            .map(f => [byId.get(f.caseId) as string, f.factor]),
+        ),
+      }));
+      let result = solveMultiCase3D({
         solver: input,
         loadCases: cases.map(c => ({ name: c.name, loads: loadsForCase(c.id) })),
-        combinations: modelStore.combinations.map(cb => ({
-          name: cb.name,
-          factors: Object.fromEntries(
-            cb.factors
-              .filter(f => byId.has(f.caseId))
-              .map(f => [byId.get(f.caseId) as string, f.factor]),
-          ),
-        })),
+        combinations,
       });
+      if (settled && result) {
+        const settlement = solve3D({ ...buildInput(), loads: [] });
+        if (typeof settlement === 'string') throw new Error(settlement);
+        result = addSettlementToMultiCase3D(result, settlement, combinations, t('svc.settlementCase'));
+      }
+      multiCaseResult = result;
     } catch (e: any) {
       solveError = `Multi-Case: ${errorText(e, 'Error')}`;
     }
@@ -1067,7 +1083,8 @@
       {#if pdeltaResult}
         <div class="adv-inline">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
-          {#if pdeltaResult.b2Factor != null} — B2 = {fmtNum(pdeltaResult.b2Factor)}{/if}
+          — {pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
+          — B2 = {formatPDeltaFactor(pdeltaResult.b2Factor)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
       {/if}

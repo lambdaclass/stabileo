@@ -11,6 +11,94 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)
+
+**BREAKING (results): every model with shell elements solves differently.** Four defects,
+found by one check that every element must pass and none did: its stiffness must
+annihilate the six rigid motions (`tests/shell_rigid_body_modes.rs`).
+
+- **Drilling stabilisation resisted rigid rotation (MITC4, MITC9, DKT+CST, curved
+  shell).** The penalty was γ·∫θz² on the drilling DOF alone. A rigid rotation about the
+  normal then cost energy, so the term acted as a spring to ground on every shell node,
+  about its normal. A beam sharing nodes with a slab and bending in the slab's plane lost
+  part of its moment to the ground: reactions stopped balancing the loads, and floor beams
+  under gravity carried weak-axis moments the structure does not have. It is now the
+  Hughes–Brezzi term γ·∫(θz − ω)², ω = ½(∂v/∂x − ∂u/∂y), with the same γ (G·t/1000). On
+  curved shells it uses the interpolated surface's own normal and dual basis, so it
+  vanishes on rigid rotation for any geometry; `rigid_body_modes_curved` was relaxed to 2e-4
+  for exactly this energy and is now held to 1e-10.
+- **The DKT triangle's B-matrix coefficients were wrong.** Pₖ, qₖ and tₖ had the wrong form
+  (Pₖ = −6xy/l² instead of −6x/l², on xⱼ − xᵢ). The element did not annihilate a rigid
+  tilt, and a simply supported square plate read 3.75–4.0× Navier's deflection at every
+  mesh density. It had passed its benchmark because that benchmark accepted anything within
+  5×. It now follows Batoz, Bathe & Ho (1980) and converges to Navier: 0.961, 0.991, 0.998,
+  1.000 at 4×4, 8×8, 16×16, 32×32. The benchmark now holds 16×16 to 0.5 %.
+- **The curved shell turned its director by d × θ.** Every rotation DOF of the element had
+  the opposite sign to the frames and MITC4 it shares nodes with. A tip moment on a
+  curved-shell strip bent it the wrong way (+1.59e-3 against −1.60e-3). It now uses θ × d.
+- **MITC4 and MITC9 thermal gradients curled plates the wrong way.** With
+  dt_gradient = T(+z face) − T(−z face), the convention of the frames' `dt_gradient_z`, of
+  the curved shell and of the corrected DKT, a hotter top curled a clamped plate up. The
+  moment sign in `quad_thermal_load` and `quad9_thermal_load` is corrected. Centroid
+  and nodal stress recovery use the matching free thermal curvature, so a freely curling
+  plate reports zero moments. DKT reports sagging-positive moments, matching MITC4/9 and
+  the reinforcement design convention, while preserving physical top/bottom fibre stresses.
+  Analytical checks cover both gradient signs, free and restrained plates, and bending/twist
+  (`tests/shell_stress_conventions.rs`).
+
+Assembled with an upper triangle mirrored, the new terms are exactly symmetric. The shell
+modal golden in `tests/core/sparse_mass.rs` was re-captured: the bending modes moved by
+1e-8 to 6e-7 relative. `tests/shell_model_equilibrium.rs` pins the model-level
+consequences on all four elements: tip moment sign, thermal curl, and reaction balance
+with an edge beam.
+
+On the web side, the flagship `pro-edificio-7p` now has no provisional-biaxial beams. Its
+last five had secondary ratios of 0.106–0.244, and the drilling spring produced them: they
+are 0.010–0.028 now. Tests that exercise the provisional path turn five beams 20° about
+their axis (`ROLLED_BEAMS` in `workspace-scene.ts`), which bend about both axes for a real
+reason.
+
+#### Modal participation of constrained models (2026-09-24)
+
+**Output change: `participationX/Y/Z`, effective masses and mass ratios from modal analysis of
+models with constraints, and every spectral result built on them.** With constraints the
+eigenproblem is solved in the reduced space, and the participation numerator φᵀM r was formed
+as (Cᵀr)ᵀ(CᵀMC)φ_s. Cᵀ is the force transform: for N nodes tied by EqualDOF it sums their ones
+into N, so Γ came out N× too large and the effective mass N²× — three tied columns reported a
+cumulative mass ratio of 3.34, a one-storey diaphragm 434. A diaphragm's Cᵀr also put the
+nodes' eccentricities on the master's θz, a torsional participation no rigid translation has.
+
+The numerator is now φ_s · Cᵀ(M r): the inertial load of a unit ground acceleration, reduced as
+the force it is, which is exact for every constraint type. Unconstrained models compute the
+same numbers as before. Pinned by `tests/modal_constrained_participation.rs`, which compares
+each constrained model with the same structure tied by stiff massless links.
+
+The web app does not send constraints to modal analysis today, so this was reached only
+through the engine API.
+
+#### Modal participation factors refer to the published mode shape (2026-09-23)
+
+**Output change: `participationX/Y/Z` from modal analysis, and every spectral displacement and
+member force.** `solve_modal_2d`/`solve_modal_3d` computed Γ on the eigenvector as the
+eigensolver returned it (mass-normalized) and then published that vector scaled to a unit
+maximum, without rescaling Γ. Γ scales inversely with its shape, so the pair no longer
+belonged together — and `solve_spectral_2d`/`solve_spectral_3d` build each modal response as
+Γ·φ·Sd from exactly that pair. Spectral displacements and member forces came out multiplied by
+the reciprocal of the eigenvector's largest entry: √m for a single-degree-of-freedom system,
+3.13× for a 9.8 t girder, growing with the square root of the model's mass.
+
+Γ is now rescaled with the shape. Unaffected: frequencies, periods, mode shapes, effective
+masses and mass ratios (Γ²·φᵀMφ is invariant), and therefore spectral base shear, which is
+built from effective mass. Pinned by `validation/domains/dynamics/spectral_normalization.rs`:
+Γ = 1 and u = Sa/ω² for an SDOF frame in 2D and 3D, and the modal expansion Σ Γₙφₙ = ι over
+all modes of a cantilever, in every direction, in 2D and 3D — an identity that holds under any
+normalization only if Γ and φ share one.
+
+The PRO modal table's "Cum. X/Y" columns added up |Γ| and read the sum as a mass percentage
+against the 90 % target; with unit-maximum shapes a cantilever's first mode showed 157 %,
+marked sufficient, while carrying 61 % of the mass. (That display was fixed separately on
+main; this entry covers the engine side.)
+
 #### Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)
 
 **BREAKING (saved models): `quadEdge` and `quad9Edge` loads reverse direction.**

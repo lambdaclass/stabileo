@@ -152,7 +152,8 @@
         try {
           const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
           if (typeof comboResult === 'string') {
-            console.warn('Combinations warning:', comboResult);
+            // Refused (an empty active list, say): said, not only logged.
+            uiStore.toast(comboResult, 'info');
           } else if (comboResult) {
             publishCombinations3D(comboResult);
             // Sync BOTH the local toggle and the store view: setting only the

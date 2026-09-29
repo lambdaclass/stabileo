@@ -19,10 +19,11 @@
  * The settlement case is kept in `perCase` under `SETTLEMENT_CASE_ID`, which no load case can
  * have, so a reader can show what the settlement alone does.
  */
-import { combineResults3D, computeEnvelope3D } from './wasm-solver';
+import { combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import { enrichComboShellStresses } from './shell-combos';
 import { postProcessShellStresses } from './solver-shells';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { AnalysisResults, FullEnvelope } from './types';
 
 /**
  * The case id the settlement is published under: one no load case will reach (they count up
@@ -88,4 +89,56 @@ export function addSettlementCase(
   if (!envelope) return null;
   if (shells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, withIt as never);
   return { perCase, perCombo, envelope };
+}
+
+type Bundle2D = { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope };
+
+/** `addSettlementCase` for a plane model: the settlement solved once, added once to every combination. */
+export function addSettlementCase2D(
+  bundle: Bundle2D,
+  settlement: AnalysisResults,
+  combinations: Array<{ id: number; factors: Array<{ caseId: number; factor: number }> }>,
+): Bundle2D | null {
+  const perCase = new Map(bundle.perCase);
+  perCase.set(SETTLEMENT_CASE_ID, settlement);
+  const perCombo = new Map<number, AnalysisResults>();
+  for (const combo of combinations) {
+    const combined = combineResults([...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }], perCase);
+    if (combined) perCombo.set(combo.id, combined);
+  }
+  const envelope = computeEnvelope([...perCombo.values()]);
+  return envelope ? { perCase, perCombo, envelope } : null;
+}
+
+type MultiCase3D = {
+  caseResults: Array<{ name: string; results: AnalysisResults3D }>;
+  combinationResults: Array<{ name: string; results: AnalysisResults3D }>;
+  envelope?: unknown;
+};
+
+/**
+ * `addSettlementCase` for the engine's multi-case result, whose cases and combinations are keyed
+ * by name: `result` solved on the supports without the settlement, `settlement` solved once with
+ * it and no loads, added once to every combination. The Advanced tab's multi-case solve ran
+ * every case on the settled supports, so a combination counted the settlement Σ factors times.
+ */
+export function addSettlementToMultiCase3D<R extends MultiCase3D>(
+  result: R,
+  settlement: AnalysisResults3D,
+  combinations: ReadonlyArray<{ name: string; factors: Record<string, number> }>,
+  settlementName: string,
+): R {
+  const cases = result.caseResults ?? [];
+  const perCase = new Map<number, AnalysisResults3D>(cases.map((c, i) => [i, c.results]));
+  perCase.set(SETTLEMENT_CASE_ID, settlement);
+  const idOf = new Map(cases.map((c, i) => [c.name, i]));
+  const combinationResults = combinations.flatMap((cb) => {
+    const factors = Object.entries(cb.factors)
+      .filter(([name]) => idOf.has(name))
+      .map(([name, factor]) => ({ caseId: idOf.get(name)!, factor }));
+    const combined = combineResults3D([...factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }], perCase);
+    return combined ? [{ name: cb.name, results: combined }] : [];
+  });
+  const envelope = computeEnvelope3D(combinationResults.map((c) => c.results)) ?? result.envelope;
+  return { ...result, caseResults: [...cases, { name: settlementName, results: settlement }], combinationResults, envelope };
 }

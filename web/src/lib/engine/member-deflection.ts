@@ -97,8 +97,8 @@ function particularVpp(dist: readonly DistLoad[], pts: readonly PointLoad[], L: 
   const L2 = L * L;
   for (const dl of dist) {
     if (isFullLength(dl, L)) {
-      vpp0 += L2 * (4 * dl.qI + dl.qJ) / (60 * EI);
-      vppL += L2 * (dl.qI + 4 * dl.qJ) / (60 * EI);
+      vpp0 += L2 * (3 * dl.qI + 2 * dl.qJ) / (60 * EI);
+      vppL += L2 * (2 * dl.qI + 3 * dl.qJ) / (60 * EI);
     } else {
       simpson(dl, (xl, dP) => { const r = pointVpp(dP, xl, L, EI); vpp0 += r.vpp0; vppL += r.vppL; });
     }
@@ -121,7 +121,7 @@ function particular(x: number, dist: readonly DistLoad[], pts: readonly PointLoa
   for (const dl of dist) {
     if (isFullLength(dl, L)) {
       const Lmx = L - x;
-      vp += x * x * Lmx * Lmx * (dl.qI / 24 + (dl.qJ - dl.qI) * (L + x) / (120 * L)) / EI;
+      vp += x * x * Lmx * Lmx * (dl.qI / 24 + (dl.qJ - dl.qI) * (x + 2 * L) / (120 * L)) / EI;
     } else {
       simpson(dl, (xl, dP) => { vp += pointDeflection(dP, xl, x, L, EI); });
     }
@@ -235,6 +235,13 @@ export interface ChordDeflection {
  * move. The rigid-body baseline of a cantilever is the tangent at its root, and measured from
  * it the tip reads its true bending deflection: PL³/3EI under a tip load, where the chord left
  * only 0.064·PL³/EI. CIRSOC 201's Table 9.5(b) has the cantilever rows that number is for.
+ *
+ * A cantilever is the exception: with one end free, the chord runs through the tip it is
+ * meant to measure, and the peak relative to it is about a fifth of the tip's deflection
+ * (PL³/3EI under a tip load). A span limit for a cantilever is written for the tip relative
+ * to its support, so with `supportedEnd` the reference is that end's displaced position —
+ * a whole-frame translation still drops out, and the support's rotation, which the tip
+ * really undergoes, stays in.
  *
  * The largest sampled value is refined with the parabola through it and its neighbours, so the
  * peak between two samples is not missed by the sampling.

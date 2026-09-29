@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene } from './helpers/workspace-scene';
+import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { detailingStore } from '../../../store/detailing.svelte';
@@ -55,7 +55,8 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
   let provisional: number[];
 
   beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
+    // Five beams turned about their axis, so they bend about both (see `ROLLED_BEAMS`).
+    const w = await workspaceScene('pro-edificio-7p', ROLLED_BEAMS);
     scene = w.scene;
     doc = w.doc;
     provisional = scene.provisionalMembers;

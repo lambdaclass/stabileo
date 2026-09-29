@@ -52,3 +52,24 @@ describe('PRO solve: no redundant baseline single solve', () => {
     expect(single).toHaveBeenCalledTimes(1); // fallback path preserved
   });
 });
+
+describe('PRO solve: a refused combination solve is said', () => {
+  beforeEach(() => {
+    modelStore.clear();
+    const n1 = modelStore.addNode(0, 0, 0);
+    const n2 = modelStore.addNode(5, 0, 0);
+    modelStore.addElement(n1, n2, 'frame');
+    modelStore.addSupport(n1, 'fixed');
+    uiStore.analysisMode = 'pro';
+    vi.spyOn(wasm, 'isWasmReady').mockReturnValue(true);
+  });
+  afterEach(() => { vi.restoreAllMocks(); uiStore.analysisMode = '2d'; });
+
+  it('even when the fallback single solve succeeds (an empty active list, say)', async () => {
+    vi.spyOn(modelStore, 'solve3DAsync').mockResolvedValue(fakeCaseResult());
+    vi.spyOn(modelStore, 'solveCombinations3DParallel').mockResolvedValue('no active combination');
+    const toast = vi.spyOn(uiStore, 'toast');
+    await runGlobalSolve();
+    expect(toast.mock.calls.map((c) => c[0])).toContain('no active combination');
+  });
+});

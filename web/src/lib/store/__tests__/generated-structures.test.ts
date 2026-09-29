@@ -178,3 +178,64 @@ describe('generated structures', () => {
     expect(modelStore.supports.size).toBe(2);
   });
 });
+
+describe('regenerating a frame of several storeys', () => {
+  const frame2 = (baysX: string) => {
+    const t = generateStructure('planeFrame', { ...DEFAULT_STRUCTURE_PARAMS.planeFrame, baysX, storeys: '3; 3' })!;
+    return { g: emitModel(t, { name: 'Pórtico', profiles: PROFILES }), roles: t.members.map((m) => m.role) };
+  };
+  const m2 = (baysX: string) => ({ generator: 'planeFrame', params: { baysX }, profiles: {}, gradeId: null, name: `Pórtico ${baysX}` });
+
+  it('keeps each member where it was when a bay is added: the upper column stays upper', () => {
+    const f = frame2('6; 6');
+    const r = insertGenerated(f.g, translation([0, 0, 0]), m2('6; 6'), f.roles);
+    const d0 = generatedData(r.groupId)!;
+    // The column of the second storey at x = 0: resized and loaded by hand.
+    const upper = d0.elements.map((e) => e!.id).find((id) => {
+      const e = modelStore.elements.get(id)!, a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      return a.x === 0 && b.x === 0 && Math.min(a.z ?? 0, b.z ?? 0) === 3;
+    })!;
+    const hand = modelStore.addSection({ name: 'Mano', a: 0.01, iz: 1e-5 } as never);
+    modelStore.updateElement(upper, { sectionId: hand });
+    modelStore.addDistributedLoad3D(upper, 1, 1, 0, 0, undefined, undefined, 1);
+
+    const g2 = frame2('6; 6; 6');
+    regenerate(r.groupId, g2.g, m2('6; 6; 6'), g2.roles);
+    const e = modelStore.elements.get(upper)!;
+    const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+    expect([a.x, b.x, Math.min(a.z ?? 0, b.z ?? 0)]).toEqual([0, 0, 3]);
+    expect(e.sectionId).toBe(hand);
+    // The new ground-floor column at x = 18 is a new member, with no load and no hand section.
+    const newCol = [...modelStore.elements.values()].find((m) => {
+      const p = modelStore.nodes.get(m.nodeI)!, q = modelStore.nodes.get(m.nodeJ)!;
+      return p.x === 18 && q.x === 18 && Math.min(p.z ?? 0, q.z ?? 0) === 0;
+    })!;
+    expect(newCol.sectionId).not.toBe(hand);
+    expect(modelStore.loads.filter((l) => (l.data as { elementId?: number }).elementId === newCol.id)).toHaveLength(0);
+  });
+});
+
+describe('placing a generated structure without its supports', () => {
+  it('adds none, and records none as its own', () => {
+    const f = frame('6; 6');
+    const r = insertGenerated(f.g, translation([0, 0, 0]), meta('6; 6'), f.roles, { withSupports: false });
+    expect(modelStore.supports.size).toBe(0);
+    expect(generatedData(r.groupId)!.supportNodes).toEqual([]);
+  });
+
+  it('gets the placement bar’s choice through the committer', async () => {
+    const { placementStore } = await import('../placement.svelte');
+    const f = frame('6');
+    let seen: { withSupports: boolean } | undefined;
+    placementStore.start({
+      fragment: { nodes: [{ id: 1, x: 0, y: 0, z: 0 }], elements: [], quads: [], plates: [], supports: [], loads: [], groups: [], materials: [], sections: [], loadCases: [] } as never,
+      label: 'x', anchors: [[0, 0, 0]], anchorIndex: 0, rotation: 0,
+      commitWith: (T: Parameters<typeof insertGenerated>[1], o: { withSupports: boolean; withLoads: boolean }) => { seen = o; return insertGenerated(f.g, T, meta('6'), f.roles, o); },
+      withSupports: true, withLoads: false,
+    } as never);
+    placementStore.withSupports = false;
+    placementStore.commit(false);
+    expect(seen?.withSupports).toBe(false);
+    expect(modelStore.supports.size).toBe(0);
+  });
+});

@@ -198,3 +198,21 @@ describe('local axes', () => {
     expect(Math.abs(l.qYI)).toBeCloseTo(15, 9);
   });
 });
+
+describe('a ring of beams inside a panel, not connected to it', () => {
+  it('leaves the panel with the hole unloaded and reported, and loads the ring once', () => {
+    const nodes = new Map<number, { x: number; y: number; z: number }>();
+    const beams: FloorBeam[] = [];
+    const ring = (first: number, pts: Array<[number, number]>) => {
+      pts.forEach(([x, y], k) => nodes.set(first + k, { x, y, z: 3 }));
+      pts.forEach((_p, k) => beams.push({ id: first + k, nodeI: first + k, nodeJ: first + ((k + 1) % pts.length), type: 'frame', sectionId: 1 }));
+    };
+    ring(1, [[0, 0], [10, 0], [10, 10], [0, 10]]);
+    ring(11, [[4, 4], [6, 4], [6, 6], [4, 6]]);
+    const r = floorLoad({ nodes, beams, q: 2, distribution: 'twoWay' });
+    // The 100 m² face with the island is not loaded as if it had none: 200 kN plus the ring's 8.
+    expect(r.skipped.islands).toBe(1);
+    expect(r.totalKN).toBeCloseTo(2 * 4, 6);
+    expect(r.panels.find((p) => p.reason === 'island')?.area).toBeCloseTo(100, 6);
+  });
+});

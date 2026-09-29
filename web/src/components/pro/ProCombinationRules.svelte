@@ -12,7 +12,7 @@
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { presentSymbols } from '../../lib/engine/loads/combination-cases';
   import {
-    RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, type CombinationRule,
+    RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
   import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
 
@@ -22,7 +22,7 @@
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  const nextId = () => `r${rules.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, '')) || 0), 0) + 1}`;
+  const nextId = () => freshRuleIds(rules, 1)[0]!;
   const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s)?.factor ?? 0;
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }
@@ -50,8 +50,8 @@
   function seed() {
     const present = presentSymbols(modelStore.model.loadCases);
     const specs = [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
-    let n = rules.length;
-    write([...rules, ...specs.map((s) => specToRule(s, `r${++n}`))]);
+    const ids = freshRuleIds(rules, specs.length);
+    write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);
   }
 
   function exportTemplate() {
@@ -64,8 +64,8 @@
     if (!f) return;
     const parsed = rulesFromTemplate(await f.text());
     if (!parsed || parsed.rules.length === 0) { uiStore.toast(t('combos.rules.importFailed'), 'error'); return; }
-    let n = rules.length;
-    write([...rules, ...parsed.rules.map((r) => ({ ...r, id: `r${++n}` }))]);
+    const ids = freshRuleIds(rules, parsed.rules.length);
+    write([...rules, ...parsed.rules.map((r, i) => ({ ...r, id: ids[i]! }))]);
     uiStore.toast(tp('combos.rules.imported', { n: parsed.rules.length }), 'success');
   }
 </script>

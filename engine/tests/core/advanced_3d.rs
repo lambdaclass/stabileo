@@ -59,6 +59,7 @@ fn make_3d_input(
             });
     }
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
             curved_shells: HashMap::new(),
@@ -561,4 +562,18 @@ fn fully_restrained_3d_beam_no_load() {
         assert!(r.fz.abs() < 1e-10, "node {} fz", r.node_id);
         assert!(r.my.abs() < 1e-10, "node {} my", r.node_id);
     }
+}
+
+#[test]
+fn pdelta_3d_keeps_a_support_settlement() {
+    // The iterations used the loads alone and left every restrained DOF at
+    // zero, so a settlement vanished from the second-order solution.
+    let mut input = make_3d_portal(4.0, 6.0, 10.0, -50.0);
+    input.supports.values_mut().find(|s| s.node_id == 4).unwrap().dz = Some(-0.01);
+    let pd = pdelta::solve_pdelta_3d(&input, 20, 1e-6).unwrap();
+    assert!(pd.converged && pd.is_stable);
+    let uz = |r: &AnalysisResults3D, n: usize| r.displacements.iter().find(|d| d.node_id == n).unwrap().uz;
+    assert!((uz(&pd.results, 4) + 0.01).abs() < 1e-12, "the settled node sits at its prescribed value");
+    let lin3 = uz(&pd.linear_results, 3);
+    assert!((uz(&pd.results, 3) - lin3).abs() < 0.02 * lin3.abs(), "P-Δ {} vs linear {}", uz(&pd.results, 3), lin3);
 }

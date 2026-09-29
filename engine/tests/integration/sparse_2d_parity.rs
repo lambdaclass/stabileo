@@ -162,7 +162,7 @@ fn make_frame_2d_mixed() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -203,7 +203,7 @@ fn make_beam_2d_long() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -411,7 +411,7 @@ fn make_truss_connector_model() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], connectors,
+        constraints: vec![], connectors, solver_options: None,
     }
 }
 
