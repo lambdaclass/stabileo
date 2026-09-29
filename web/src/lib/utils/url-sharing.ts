@@ -2,6 +2,10 @@
 // v1: LZ-String (legacy, still decoded for old links)
 // v2: compact JSON + fflate deflate + base64url (new default)
 
+import { defaultCodeSettings } from '../codes/project-code-settings';
+import { emptyDetailingStore } from '../engine/detailing/assembly';
+import { emptyGeotechnical } from '../model/geotechnical';
+import { defaultFootingMatPreferences } from '../model/footing';
 import LZString from 'lz-string';
 import { deflateSync, inflateSync } from 'fflate';
 import type { ModelSnapshot } from '../store/history.svelte';
@@ -179,10 +183,16 @@ function base64urlToUint8(str: string): Uint8Array {
 }
 
 // ─── Round numbers to reduce JSON noise ───────────────────────────────────
-function r(n: number, decimals = 6): number {
-  if (Number.isInteger(n)) return n;
-  const f = Math.pow(10, decimals);
-  return Math.round(n * f) / f;
+// Ten significant figures, not a fixed number of decimals: sections are in m² and m⁴, and six
+// decimals turned an IPE's Iy of 1.42e-6 into 1e-6 and its J into 0 in every link. `decimals`
+// stays for what is a length on screen (the camera), where a fixed step is what is wanted.
+function r(n: number, decimals?: number): number {
+  if (Number.isInteger(n) || !Number.isFinite(n)) return n;
+  if (decimals !== undefined) {
+    const f = Math.pow(10, decimals);
+    return Math.round(n * f) / f;
+  }
+  return Number(n.toPrecision(10));
 }
 
 // ─── v2 compact serialization ─────────────────────────────────────────────
@@ -690,23 +700,50 @@ export function generateShareURL(): { url: string; length: number } | null {
 }
 
 /**
- * What the compact format does not carry. It predates PRO: a model that states any of these
- * (usually one made in PRO and shared from Basic) opens as another structure from `#data=`.
+ * Whether the compact format would open as a different model.
+ *
+ * The compact format predates PRO. A list of the fields it drops went stale every time a field
+ * was added (custom supports, curved shells, saved views, grades, arcs…), so this encodes the
+ * model, decodes it back and compares: what the format does not carry shows up as a difference,
+ * whatever it is called. Absent, null, false, zero, '' and empty lists and objects count as the
+ * same, since the format omits them; numbers compare to the ten figures the format keeps.
  */
-const LOST_TOP = ['analysis', 'grid', 'dynamics', 'deflectionLimits', 'projectInfo', 'notes', 'massSource', 'resultScopes', 'combinationRules'] as const;
-const LOST_ELEMENT = ['behaviour', 'stiffness', 'semiRigid', 'unbracedLength', 'kStrong', 'kWeak'] as const;
-const LOST_SECTION = ['shearAreas', 'declared', 'drawn'] as const;
-const LOST_SUPPORT = ['uplift', 'curves', 'isInclined'] as const;
-
-/** Whether the compact format would open as a different model. */
 export function compactLoses(snapshot: ModelSnapshot): boolean {
-  const s = snapshot as unknown as Record<string, unknown>;
-  const stated = (v: unknown) => v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0);
-  if (LOST_TOP.some((k) => stated(s[k]))) return true;
-  if (Array.isArray(s.groups) && s.groups.length > 0) return true;
-  const any = (list: unknown, keys: readonly string[]) =>
-    Array.isArray(list) && list.some(([, v]) => v && keys.some((k) => stated((v as Record<string, unknown>)[k])));
-  return any(s.elements, LOST_ELEMENT) || any(s.sections, LOST_SECTION) || any(s.supports, LOST_SUPPORT);
+  let back: ModelSnapshot;
+  try { back = fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot)))); } catch { return true; }
+  const a = { ...(snapshot as unknown as Record<string, unknown>) }, b = { ...(back as unknown as Record<string, unknown>) };
+  for (const k of IGNORED_TOP) { delete a[k]; delete b[k]; }
+  // The project's documents the store fills in when a model does not state them: a link that
+  // omits them opens with the same defaults.
+  for (const [k, make] of Object.entries(STORE_DEFAULTS)) { if (a[k] === undefined) a[k] = make(); if (b[k] === undefined) b[k] = make(); }
+  return !sameValue(a, b);
+}
+
+const STORE_DEFAULTS: Record<string, () => unknown> = {
+  codeSettings: defaultCodeSettings, detailing: emptyDetailingStore,
+  geotechnical: emptyGeotechnical, footingMatPreferences: defaultFootingMatPreferences,
+};
+
+/** Bookkeeping the decoder rebuilds or the link sets itself. */
+const IGNORED_TOP = ['nextId', 'analysisMode', '_shareMeta', 'localAxisConvention'] as const;
+
+function isBlank(v: unknown): boolean {
+  if (v === undefined || v === null || v === false || v === 0 || v === '') return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).every(isBlank);
+  return false;
+}
+
+function sameValue(x: unknown, y: unknown): boolean {
+  if (isBlank(x) && isBlank(y)) return true;
+  if (typeof x === 'number' && typeof y === 'number') return Math.abs(x - y) <= 1e-9 * Math.max(Math.abs(x), Math.abs(y));
+  if (Array.isArray(x) && Array.isArray(y)) return x.length === y.length && x.every((v, i) => sameValue(v, y[i]));
+  if (x && y && typeof x === 'object' && typeof y === 'object' && !Array.isArray(x) && !Array.isArray(y)) {
+    const ox = x as Record<string, unknown>, oy = y as Record<string, unknown>;
+    for (const k of new Set([...Object.keys(ox), ...Object.keys(oy)])) if (!sameValue(ox[k], oy[k])) return false;
+    return true;
+  }
+  return x === y;
 }
 
 /**

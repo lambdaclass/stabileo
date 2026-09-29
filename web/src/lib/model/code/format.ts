@@ -406,6 +406,7 @@ export function codeToModel(text: string): ParseResult {
     support: next(s.supports), load: Math.max(0, ...s.loads.map((l: any) => l.data.id)) + 1,
     loadCase: Math.max(0, ...s.loadCases.map((c: any) => c.id)) + 1, combination: Math.max(0, ...s.combinations.map((c: any) => c.id)) + 1,
     plate: next(s.plates), quad: next(s.quads), group: next(s.groups), connector: next(s.connectors), footing: next(s.footings),
+    soilProfile: Math.max(0, ...((s.geotechnical as { profiles?: Array<{ id: number }> } | undefined)?.profiles ?? []).map((p) => p.id)) + 1,
   };
   for (const k of Object.keys(s)) if (!COVERED_FIELDS.includes(k as never) && k !== 'nextId') delete s[k];
   return { snapshot: s as Partial<ModelSnapshot>, errors: [] };
