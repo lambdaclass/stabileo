@@ -203,7 +203,7 @@ test.describe('a preview is a preview', () => {
     // Said before the buttons, not under the result.
     const caveat = page.getByTestId('doc-preview-not-export');
     await expect(caveat).toBeVisible();
-    await expect(caveat).toContainText('no record');
+    await expect(caveat).toContainText('no issue record');
     expect(await order(page, 'doc-preview-not-export'))
       .toBeLessThan(await order(page, 'doc-preview-dxf'));
 
