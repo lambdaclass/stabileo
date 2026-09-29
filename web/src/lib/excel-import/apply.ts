@@ -17,7 +17,9 @@
  * recover from.
  */
 
-import { modelStore } from '../store';
+import { modelStore, uiStore } from '../store';
+import { t } from '../i18n';
+import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { loadFixture } from '../templates/load-fixture';
 import { parseWorkbook, type ParseResult } from './parse';
 
@@ -50,6 +52,17 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
     });
   });
   modelStore.refreshCanonicalSections();
+  /*
+   * A flat workbook (X and Z, Y blank) is a plane frame, stored the way the app stores one. In
+   * 3D and PRO it has to be shown standing on X–Z, as a bundled 2D example is: `clear()` had
+   * set the native view, and the portal came in lying on the floor.
+   */
+  const flat = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(), supports: modelStore.supports.values(), loads: modelStore.loads,
+    plateCount: modelStore.plates.size, quadCount: modelStore.quads.size,
+  });
+  if (flat && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) uiStore.useUpright2DIn3DPresentation();
+  else uiStore.useNative3DPresentation();
   modelStore.bumpModelVersion();
 
   return {
@@ -92,4 +105,21 @@ export async function importExcelFile(file: File): Promise<ImportOutcome | null>
     }) as unknown[][];
   }
   return applyWorkbook(sheets);
+}
+
+/**
+ * The toast after an import, the same in Basic and PRO. The report beside the button carries the
+ * rows to fix; this says in one line whether anything landed.
+ */
+export function announceImport(outcome: ImportOutcome): void {
+  if (outcome.loaded.nodes > 0) {
+    uiStore.toast(
+      t('xls.ui.imported')
+        .replace('{n}', String(outcome.loaded.nodes))
+        .replace('{e}', String(outcome.loaded.elements)),
+      outcome.problems.length > 0 ? 'info' : 'success',
+    );
+  } else {
+    uiStore.toast(t('xls.ui.nothingLoaded'), 'error');
+  }
 }

@@ -292,6 +292,27 @@ export function searchProfiles(query: string, family?: ProfileFamily): SteelProf
   return source.filter(p => p.name.toLowerCase().includes(q));
 }
 
+/** A profile name reduced to what tells two profiles apart: no spaces, no case, `x` for `×`. */
+function profileKey(name: string): string {
+  const k = name.normalize('NFKC').replace(/\s+/g, '').replace(/[×*]/g, 'x').replace(/,/g, '.').toLowerCase();
+  // The European notation writes the series after the size: HE 200 B is the HEB 200.
+  const he = k.match(/^he(\d+)([abm])$/);
+  return he ? `he${he[2]}${he[1]}` : k;
+}
+
+/**
+ * The catalogue profile a written name names, or null.
+ *
+ * Only an exact match counts once spacing, case and the HE notation are forgiven. The importers
+ * used `searchProfiles(name)[0]`, a substring search: "IPE 30" came in as the IPE 300, a solid
+ * "300x300" as a hollow SHS 300x300, and "HEB200", written without the space, found nothing.
+ */
+export function profileByName(name: string): SteelProfile | null {
+  const want = profileKey(name);
+  if (!want) return null;
+  return ALL_PROFILES.find((p) => profileKey(p.name) === want) ?? null;
+}
+
 /**
  * Convert profile to model-compatible section properties.
  * Returns values in SI units: area in m², inertias in m⁴, h and b in m.

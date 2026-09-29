@@ -6,7 +6,7 @@ import type {
   MappedDistributedLoad, MappedPointLoad, MappedHinge,
 } from './types';
 import { unitScale } from './types';
-import { searchProfiles, profileToSection } from '../data/steel-profiles';
+import { profileByName, profileToSection } from '../data/steel-profiles';
 import { t } from '../i18n';
 
 export interface MapperOptions {
@@ -82,6 +82,8 @@ export function mapDxfToModel(
     }
   }
 
+  splitAtTouchingNodes(elements, nodes, tol);
+
   // ── Supports ──
 
   const supports: MappedSupport[] = [];
@@ -109,17 +111,17 @@ export function mapDxfToModel(
   const loadTexts = parsed.texts.filter(t => t.layer === LOAD_LAYER);
   for (const lt of loadTexts) {
     const val = lt.value.trim();
-    const qMatch = val.match(/[Qq]\s*=\s*([-+]?\d*\.?\d+)/);
-    const pMatch = val.match(/[Pp]\s*=\s*([-+]?\d*\.?\d+)/);
-    const fxMatch = val.match(/[Ff][Xx]\s*=\s*([-+]?\d*\.?\d+)/i);
-    const fzMatch = val.match(/[Ff][ZzYy]\s*=\s*([-+]?\d*\.?\d+)/i);
-    const mMatch = val.match(/[Mm](?:[YyZz])?\s*=\s*([-+]?\d*\.?\d+)/);
+    const qMatch = val.match(new RegExp(`[Qq]\\s*=\\s*(${NUMBER})`));
+    const pMatch = val.match(new RegExp(`[Pp]\\s*=\\s*(${NUMBER})`));
+    const fxMatch = val.match(new RegExp(`[Ff][Xx]\\s*=\\s*(${NUMBER})`, 'i'));
+    const fzMatch = val.match(new RegExp(`[Ff][ZzYy]\\s*=\\s*(${NUMBER})`, 'i'));
+    const mMatch = val.match(new RegExp(`[Mm](?:[YyZz])?\\s*=\\s*(${NUMBER})`));
     let matched = false;
 
     if (qMatch) {
       const idx = findNearestElement(lt.position, elements, nodes, scale);
       if (idx >= 0) {
-        distributedLoads.push({ elementIndex: idx, q: parseFloat(qMatch[1]) });
+        distributedLoads.push({ elementIndex: idx, q: readNumber(qMatch[1]) });
         matched = true;
       } else {
         warnings.push(`${t('dxf.warnDistLoadNoElement')} q=${qMatch[1]}`);
@@ -129,13 +131,13 @@ export function mapDxfToModel(
     if (pMatch && !qMatch) {
       const result = findNearestElementWithProjection(lt.position, elements, nodes, scale);
       if (result) {
-        pointLoads.push({ elementIndex: result.elemIdx, a: result.a, p: parseFloat(pMatch[1]) });
+        pointLoads.push({ elementIndex: result.elemIdx, a: result.a, p: readNumber(pMatch[1]) });
         matched = true;
       } else {
         // Try as nodal vertical load
         const nodeId = findNearestNode(lt.position, nodes, scale, tol * 10);
         if (nodeId >= 0) {
-          nodalLoads.push({ nodeId, fx: 0, fz: parseFloat(pMatch[1]), my: 0 });
+          nodalLoads.push({ nodeId, fx: 0, fz: readNumber(pMatch[1]), my: 0 });
           matched = true;
         } else {
           warnings.push(`${t('dxf.warnPointLoadNoElement')} P=${pMatch[1]}`);
@@ -148,9 +150,9 @@ export function mapDxfToModel(
       if (nodeId >= 0) {
         nodalLoads.push({
           nodeId,
-          fx: fxMatch ? parseFloat(fxMatch[1]) : 0,
-          fz: fzMatch ? parseFloat(fzMatch[1]) : 0,
-          my: mMatch ? parseFloat(mMatch[1]) : 0,
+          fx: fxMatch ? readNumber(fxMatch[1]) : 0,
+          fz: fzMatch ? readNumber(fzMatch[1]) : 0,
+          my: mMatch ? readNumber(mMatch[1]) : 0,
         });
         matched = true;
       } else {
@@ -205,11 +207,12 @@ export function mapDxfToModel(
 export function parseSectionText(text: string): { name: string; a: number; iz: number; b?: number; h?: number } | null {
   const trimmed = text.trim();
 
-  // Try steel profile lookup: "IPE 300", "HEB200", etc.
-  const profiles = searchProfiles(trimmed.replace(/\s+/g, ' '));
-  if (profiles.length > 0) {
-    const sec = profileToSection(profiles[0]);
-    return { name: profiles[0].name, ...sec };
+  // Steel profile by its exact name: "IPE 300", "HEB200". A substring search took "IPE 30" for
+  // the IPE 300 and a "30x50" beam for whichever tube contained those digits.
+  const profile = /^[A-Za-z]/.test(trimmed) ? profileByName(trimmed) : null;
+  if (profile) {
+    const sec = profileToSection(profile);
+    return { name: profile.name, ...sec };
   }
 
   // Try rectangular "BxH" in cm: "30x50" → 0.30 × 0.50
@@ -263,6 +266,46 @@ export function parseMaterialText(text: string): { name: string; e: number; nu: 
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
+
+/*
+ * A number as a drawing writes it: a decimal comma (q=-12,5) or an exponent (P=1.5e3). The
+ * pattern stopped at the separator, so -12,5 came in as -12 and 1.5e3 as 1.5.
+ */
+const NUMBER = String.raw`[-+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)(?:[eE][-+]?\d+)?`;
+function readNumber(text: string): number {
+  return parseFloat(text.replace(',', '.'));
+}
+
+/**
+ * Cut every member at the nodes that lie along it.
+ *
+ * A line drawn to the middle of another one (a T) shares no end with it, so the two came in
+ * unconnected: the beam passed over the column's top and the column carried nothing. Loads and
+ * hinges are placed after this, so they find the segments.
+ */
+function splitAtTouchingNodes(elements: MappedElement[], nodes: MappedNode[], tol: number): void {
+  for (let i = 0; i < elements.length; i++) {
+    const e = elements[i];
+    const a = nodes[e.nodeI], b = nodes[e.nodeJ];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const L2 = dx * dx + dy * dy;
+    if (L2 < 1e-12) continue;
+    const L = Math.sqrt(L2);
+    const on: Array<{ id: number; t: number }> = [];
+    for (const n of nodes) {
+      if (n.id === e.nodeI || n.id === e.nodeJ) continue;
+      const t = ((n.x - a.x) * dx + (n.y - a.y) * dy) / L2;
+      if (t * L <= tol || (1 - t) * L <= tol) continue;
+      if (pointToSegmentDist(n.x, n.y, a.x, a.y, b.x, b.y) < tol) on.push({ id: n.id, t });
+    }
+    if (on.length === 0) continue;
+    on.sort((p, q) => p.t - q.t);
+    const chain = [e.nodeI, ...on.map((o) => o.id), e.nodeJ];
+    const pieces = chain.slice(1).map((nj, k) => ({ ...e, nodeI: chain[k], nodeJ: nj }));
+    elements.splice(i, 1, ...pieces);
+    i += pieces.length - 1;
+  }
+}
 
 function parseSupportType(text: string): MappedSupport['type'] {
   const txt = text.toUpperCase();

@@ -229,3 +229,35 @@ describe('each member keeps its own material and section', () => {
     expect(mapIfcToModel([{ id: 3, type: 'brace', name: 'D1', start: { x: 0, y: 0, z: 0 }, end: { x: 6, y: 0, z: 3 } }], { membersAsTruss: false }).elements[0]!.type).toBe('frame');
   });
 });
+
+describe('mapIfcToModel — names as models write them', () => {
+  const one = (profileName?: string, materialName?: string) => mapIfcToModel([
+    { id: 1, type: 'beam', name: 'B1', profileName, materialName, start: { x: 0, y: 0, z: 0 }, end: { x: 5, y: 0, z: 0 } },
+  ]);
+
+  it('reads concrete, timber and steel named in Spanish and Portuguese', () => {
+    expect(one(undefined, 'Hormigón H-30').materials[0]!.e).toBe(Math.round(4700 * Math.sqrt(30)));
+    expect(one(undefined, 'Concreto C25').materials[0]!.rho).toBe(25);
+    expect(one(undefined, 'Madeira').materials[0]!.e).toBe(12000);
+    expect(one(undefined, 'Aço CA-50').materials[0]!.e).toBe(200000);
+    expect(one(undefined, 'Aço CA-50').warnings).toEqual([]);
+  });
+
+  it('matches a catalogue profile by its exact name only', () => {
+    const heb = one('HEB200').sections[0]!;
+    expect(heb.name).toBe('HEB 200');
+    expect(heb.shape).not.toBe('rect');
+    expect(one('HE 200 B').sections[0]!.name).toBe('HEB 200');
+    // "IPE 30" is not the IPE 300: it falls to the generic section, with a warning.
+    const ipe30 = one('IPE 30');
+    expect(ipe30.sections[0]!.name).toBe('IPE 30');
+    expect(ipe30.warnings.some((w) => w.includes('IPE 30'))).toBe(true);
+  });
+
+  it('reads "300x300" as a solid rectangle, not a hollow tube', () => {
+    const s = one('300x300').sections[0]!;
+    expect(s.shape).toBe('rect');
+    expect(s.a).toBeCloseTo(0.09, 10);
+    expect(s.iy).toBeCloseTo(0.3 ** 4 / 12, 12);
+  });
+});

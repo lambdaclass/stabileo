@@ -7,9 +7,14 @@
  * refuses it, and the reader has no way to tell which of the two is wrong.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { parseWorkbook } from '../parse';
 import { SHEETS, headerFor } from '../schema';
+import { setLocale } from '../../i18n';
+
+// The messages below are asserted in Spanish; one test reads them in English on purpose.
+beforeEach(() => { setLocale('es'); });
+afterAll(() => { setLocale('es'); });
 
 /** Build a sheet the way `xlsx.utils.sheet_to_json(..., {header: 1})` hands it over. */
 const aoa = (header: string[], ...rows: Array<Array<unknown>>) => [header, ...rows];
@@ -392,5 +397,116 @@ describe('one coordinate convention for the entire Nodes sheet', () => {
     const result = parseWorkbook({ Nodes: aoa(['id', 'x', 'y', 'z'], [1, 0, y, z]) });
     expect(result.model.nodes).toEqual([]);
     expect(result.problems).toContainEqual(expect.objectContaining({ sheet: 'Nodes', row: 2, column }));
+  });
+});
+
+describe('what the second audit found', () => {
+  it('speaks the reader\'s language', () => {
+    const b = goodBook();
+    b.Sections = aoa(['id', 'name'], [1, 'IPE 999']);
+    setLocale('en');
+    const p = parseWorkbook(b).problems.find((x) => x.sheet === 'Sections')!;
+    expect(p.message).toContain('catalog');
+    setLocale('pt');
+    expect(parseWorkbook(b).problems.find((x) => x.sheet === 'Sections')!.message).toContain('catálogo de perfis');
+  });
+
+  it('reports a repeated id instead of taking both rows', () => {
+    const b = goodBook();
+    b.Nodes = aoa(['id', 'x [m]', 'y [m]'], [1, 0, 0], [2, 6, 0], [2, 9, 0], [3, 6, 4]);
+    const r = parseWorkbook(b);
+    expect(r.model.nodes.map((n) => n.id)).toEqual([1, 2, 3]);
+    expect(r.model.nodes.find((n) => n.id === 2)!.x).toBe(6);
+    expect(r.problems).toContainEqual(expect.objectContaining({ sheet: 'Nodes', row: 4 }));
+    expect(r.problems[0]!.message).toContain('fila 3');
+  });
+
+  it('keeps one support per node', () => {
+    const b = goodBook();
+    b.Supports = aoa(['node', 'type'], [1, 'fixed'], [1, 'pinned']);
+    const r = parseWorkbook(b);
+    expect(r.model.supports.map((s) => s.type)).toEqual(['fixed']);
+    expect(r.problems).toContainEqual(expect.objectContaining({ sheet: 'Supports', row: 3 }));
+  });
+
+  it('converts the unit a header states, and refuses one it cannot convert', () => {
+    const b = goodBook();
+    b.Nodes = aoa(['id', 'x [mm]', 'y [cm]'], [1, 0, 0], [2, 6000, 0], [3, 6000, 400]);
+    b.Loads = aoa(['type', 'case', 'node', 'fy [N]'], ['nodal', 1, 3, -20000]);
+    b.Materials = aoa(['id', 'name', 'E [GPa]', 'nu', 'rho [kg/m³]'], [1, 'S', 200, 0.3, 7850]);
+    const r = parseWorkbook(b);
+    expect(r.problems, JSON.stringify(r.problems)).toEqual([]);
+    expect(r.model.nodes.map((n) => [n.x, n.y])).toEqual([[0, 0], [6, 0], [6, 4]]);
+    expect(r.model.loads[0]!.data.fz).toBeCloseTo(-20, 12);
+    expect(r.model.materials[0]!.e).toBe(200000);
+    expect(r.model.materials[0]!.rho).toBeCloseTo(76.98, 2);
+
+    const bad = goodBook();
+    bad.Nodes = aoa(['id', 'x [pulgadas]', 'y [m]'], [1, 0, 0], [2, 6, 0]);
+    const rb = parseWorkbook(bad);
+    expect(rb.problems).toContainEqual(expect.objectContaining({ sheet: 'Nodes', row: 1, column: 'x' }));
+    expect(rb.model.nodes, 'the x column is left out, so no node has a position').toEqual([]);
+  });
+
+  it('makes a four-node row on Plates a quad, not a triangle', () => {
+    const b = goodBook();
+    b.Nodes = aoa(['id', 'x', 'y', 'z'], [1, 0, 0, 0], [2, 6, 0, 0], [3, 6, 4, 0], [4, 0, 4, 0]);
+    b.Plates = aoa(['id', 'nodes', 'material', 'thickness [m]'], [1, '1 2 3 4', 1, 0.15], [2, '1 2 3', 1, 0.15]);
+    b.Quads = aoa(['id', 'nodes', 'material', 'thickness [m]'], [1, '1 2 3 4', 1, 0.2]);
+    const r = parseWorkbook(b);
+    expect(r.problems).toEqual([]);
+    expect(r.model.plates.map((p) => p.nodes)).toEqual([[1, 2, 3]]);
+    expect(r.model.quads.map((q) => [q.id, q.thickness])).toEqual([[1, 0.2], [2, 0.15]]);
+  });
+
+  it('refuses a shell that repeats a corner', () => {
+    const b = goodBook();
+    b.Nodes = aoa(['id', 'x', 'y', 'z'], [1, 0, 0, 0], [2, 6, 0, 0], [3, 6, 4, 0]);
+    b.Quads = aoa(['id', 'nodes', 'material', 'thickness [m]'], [1, '1 2 3 3', 1, 0.2]);
+    const r = parseWorkbook(b);
+    expect(r.model.quads).toEqual([]);
+    expect(r.problems[0]).toMatchObject({ sheet: 'Quads', column: 'nodes' });
+  });
+
+  it('writes constraints in the engine\'s shape', () => {
+    const b = goodBook();
+    b.Constraints = aoa(
+      ['type', 'master', 'slaves', 'nodeI', 'nodeJ'],
+      ['rigidDiaphragm', 1, '2 3', '', ''],
+      ['rigidLink', '', '', 1, 2],
+      ['rigidLink', 1, '2 3', '', ''],
+      ['equalDOF', 1, '2', '', ''],
+      ['diaphragm', 1, '', '', ''],
+    );
+    const r = parseWorkbook(b);
+    expect(r.model.constraints).toEqual([
+      { type: 'diaphragm', masterNode: 1, slaveNodes: [2, 3] },
+      { type: 'rigidLink', masterNode: 1, slaveNode: 2 },
+      { type: 'rigidLink', masterNode: 1, slaveNode: 2 },
+      { type: 'rigidLink', masterNode: 1, slaveNode: 3 },
+    ]);
+    expect(r.problems.map((p) => p.row)).toEqual([5, 6]);
+  });
+
+  it('reads the axes of a distributed3d load from dir', () => {
+    const b = goodBook();
+    b.Loads = aoa(
+      ['type', 'case', 'member', 'qi [kN/m]', 'qj [kN/m]', 'qzi [kN/m]', 'qzj [kN/m]', 'dir'],
+      ['distributed3d', 1, 1, 0, 0, -8, -8, 'global'],
+      ['distributed3d', 1, 1, 0, 0, -8, -8, ''],
+      ['distributed3d', 1, 1, 0, 0, -8, -8, 'projected'],
+      ['distributed3d', 1, 1, 0, 0, -8, -8, 'vertical'],
+    );
+    const r = parseWorkbook(b);
+    expect(r.model.loads.map((l) => l.data.frame)).toEqual(['global', undefined, 'projected']);
+    expect(r.problems).toEqual([expect.objectContaining({ row: 5, column: 'dir' })]);
+  });
+
+  it('names the reason a shell load is refused', () => {
+    const b = goodBook();
+    b.Loads = aoa(['type', 'case', 'member'], ['surface3d', 1, 1]);
+    const m = parseWorkbook(b).problems[0]!.message;
+    expect(m).toContain('surface3d');
+    expect(m, 'the format does have a Quads sheet').not.toContain('no tiene hoja de quads');
   });
 });

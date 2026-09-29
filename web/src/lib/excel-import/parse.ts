@@ -29,7 +29,8 @@
  */
 
 import type { JSONModel } from '../templates/load-fixture';
-import { ALL_PROFILES, profileToSectionFull } from '../data/steel-profiles';
+import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
+import { t, tp } from '../i18n';
 import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
 
 /**
@@ -39,12 +40,60 @@ import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from 
  * one profile, and telling somebody their section does not exist because they
  * omitted a space would be a lie about the catalogue. Nothing else is
  * normalised: `IPE 300` and `IPE 330` are different sections and a reader who
- * typed the wrong one wants to hear about it.
+ * typed the wrong one wants to hear about it. The IFC and DXF importers use the
+ * same matcher, so the three agree on what a name means.
  */
 function profileByName(name: string): ReturnType<typeof profileToSectionFull> | null {
-  const want = name.replace(/\s+/g, '').toLowerCase();
-  const hit = ALL_PROFILES.find((p) => p.name.replace(/\s+/g, '').toLowerCase() === want);
+  const hit = catalogueProfile(name);
   return hit ? profileToSectionFull(hit) : null;
+}
+
+/*
+ * ── Units in the header are read, not decoration ───────────────────
+ *
+ * The template writes `x [m]`, and a reader who works in millimetres will write
+ * `x [mm]` and type 6000. That header used to be split at the bracket and the
+ * unit thrown away, so the portal came in six kilometres wide. The bracket is
+ * now read: a unit the table below knows is converted to the one the format
+ * stores, and one it does not know leaves the column out with a line in the
+ * report, because reading 6000 as metres is the one outcome worse than not
+ * reading it.
+ *
+ * Keys are normalised: lower case, no spaces, `·` for any product sign, and
+ * the superscripts as digits.
+ */
+const UNIT_FACTORS: Record<string, Record<string, number>> = {
+  'm': { m: 1, cm: 0.01, mm: 0.001, metro: 1, metros: 1, meter: 1, meters: 1, metre: 1, metres: 1 },
+  'mm': { mm: 1, cm: 10, m: 1000 },
+  'kn': { kn: 1, n: 0.001, mn: 1000, tf: 9.80665, kgf: 0.00980665 },
+  'kn/m': { 'kn/m': 1, 'n/m': 0.001, 'n/mm': 1, 'kn/mm': 1000, 'tf/m': 9.80665, 'kgf/m': 0.00980665 },
+  'kn·m': { 'kn·m': 1, knm: 1, 'n·m': 0.001, nm: 0.001, 'n·mm': 1e-6, 'kn·mm': 0.001, 'tf·m': 9.80665, tfm: 9.80665 },
+  'kn·m/rad': { 'kn·m/rad': 1, 'kn·m': 1, 'knm/rad': 1, 'n·m/rad': 0.001, 'n·mm/rad': 1e-6, 'kn·mm/rad': 0.001 },
+  'mpa': { mpa: 1, 'n/mm2': 1, gpa: 1000, kpa: 0.001, 'kn/m2': 0.001, pa: 1e-6, 'kgf/cm2': 0.0980665 },
+  // Weight per volume. A mass density (7850 kg/m³) is the same number of kgf.
+  'kn/m3': { 'kn/m3': 1, 'n/m3': 0.001, 'kgf/m3': 0.00980665, 'kg/m3': 0.00980665, 'tf/m3': 9.80665 },
+  '°': { '°': 1, deg: 1, grados: 1, grado: 1, graus: 1, grau: 1, degrees: 1, rad: 180 / Math.PI },
+  // A temperature difference: a kelvin and a degree Celsius are the same step.
+  '°c': { '°c': 1, c: 1, k: 1 },
+};
+
+function unitKey(u: string): string {
+  return u.replace(/º/g, '°').normalize('NFKC').replace(/\s+/g, '').toLowerCase()
+    .replace(/(?<=[a-z°])[*.×\-](?=[a-z])/g, '·');
+}
+
+/** The unit a header states in brackets, or null when it states none. */
+function unitFromHeader(header: unknown): string | null {
+  if (typeof header !== 'string') return null;
+  const m = header.match(/\[([^\]]*)\]/);
+  return m && m[1]!.trim() !== '' ? m[1]!.trim() : null;
+}
+
+/** The factor that turns `given` into `wanted`, 1 when they are the same, null when unknown. */
+function unitFactor(wanted: string, given: string): number | null {
+  const w = unitKey(wanted), g = unitKey(given);
+  if (w === g) return 1;
+  return UNIT_FACTORS[w]?.[g] ?? null;
 }
 
 export interface RowProblem {
@@ -71,7 +120,7 @@ interface Row {
 }
 
 const EMPTY_MODEL = (): JSONModel => ({
-  name: 'Importado de Excel',
+  name: t('xls.importedName'),
   materials: [], sections: [], nodes: [], elements: [], supports: [],
   loads: [], plates: [], quads: [], constraints: [], loadCases: [], combinations: [],
 });
@@ -121,14 +170,12 @@ const SUPPORT_TYPES = [
  * type EXISTS in the model, the import path is what is missing, and those
  * are different conversations to have with a spreadsheet.
  */
-const NOT_IMPORTABLE = {
-  pointOnElement3d:
-    '"pointOnElement3d" todavía no es importable: el cargador de modelos no lo conecta',
-  surface3d:
-    '"surface3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
-  thermalQuad3d:
-    '"thermalQuad3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
-} as const;
+const NOT_IMPORTABLE: Record<string, () => string> = {
+  pointOnElement3d: () => t('xls.err.pointOnElement3d'),
+  /* The format has a Quads sheet; what it lacks is a column on Loads that names the shell. */
+  surface3d: () => tp('xls.err.quadLoad', { v: 'surface3d' }),
+  thermalQuad3d: () => tp('xls.err.quadLoad', { v: 'thermalQuad3d' }),
+};
 
 /** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
 function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]): Row[] {
@@ -137,16 +184,25 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
   const keyAt = header.map(keyFromHeader);
 
   const spec = sheetSpec(sheetName);
+  /** Per column: the factor to the format's unit, or null to leave the column out. */
+  const factorAt: Array<number | null> = keyAt.map(() => 1);
   if (spec) {
     const known = new Set(spec.columns.map((c) => c.key.toLowerCase()));
-    for (const k of keyAt) {
-      if (k && !known.has(k)) {
-        problems.push({
-          sheet: sheetName, row: 1, column: k,
-          message: `columna desconocida "${k}" — se ignora`,
-        });
+    keyAt.forEach((k, c) => {
+      if (!k) return;
+      if (!known.has(k)) {
+        problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.unknownColumn', { k }) });
+        return;
       }
-    }
+      const want = spec.columns.find((col) => col.key.toLowerCase() === k)!.unit;
+      const given = unitFromHeader(header[c]);
+      if (!want || !given) return;
+      const f = unitFactor(want, given);
+      factorAt[c] = f;
+      if (f === null) {
+        problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.unitUnknown', { k, u: given, want }) });
+      }
+    });
   }
 
   const rows: Row[] = [];
@@ -159,7 +215,10 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
       if (!k) continue;
       const v = raw[c];
       if (v !== undefined && v !== null && String(v).trim() !== '') any = true;
-      cells[k] = v;
+      const f = factorAt[c];
+      if (f === null) continue;
+      const n = f === 1 ? null : num(v);
+      cells[k] = n === null ? v : n * f;
     }
     if (any) rows.push({ n: i + 1, cells });
   }
@@ -170,7 +229,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
 function reqNum(row: Row, key: string, sheet: string, problems: RowProblem[]): number | null {
   const v = num(row.cells[key]);
   if (v === null) {
-    problems.push({ sheet, row: row.n, column: key, message: `falta un número en "${key}"` });
+    problems.push({ sheet, row: row.n, column: key, message: tp('xls.err.missingNumber', { k: key }) });
     return null;
   }
   return v;
@@ -179,10 +238,29 @@ function reqNum(row: Row, key: string, sheet: string, problems: RowProblem[]): n
 function reqStr(row: Row, key: string, sheet: string, problems: RowProblem[]): string | null {
   const v = str(row.cells[key]);
   if (v === '') {
-    problems.push({ sheet, row: row.n, column: key, message: `falta "${key}"` });
+    problems.push({ sheet, row: row.n, column: key, message: tp('xls.err.missing', { k: key }) });
     return null;
   }
   return v;
+}
+
+/**
+ * The first row each id was seen on, and a problem for any later row that repeats it.
+ *
+ * A repeated id used to be taken twice: the loader gives every row a new id, so two nodes
+ * numbered 3 both came in, and the members that named node 3 went to whichever was mapped last.
+ */
+function idGuard(sheet: string, problems: RowProblem[]) {
+  const first = new Map<number, number>();
+  return (id: number, row: Row, message = 'xls.err.duplicateId'): boolean => {
+    const seen = first.get(id);
+    if (seen !== undefined) {
+      problems.push({ sheet, row: row.n, message: tp(message, { id, first: seen }) });
+      return false;
+    }
+    first.set(id, row.n);
+    return true;
+  };
 }
 
 /**
@@ -229,6 +307,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   // Choose one coordinate convention for the sheet. Any stated Y (including zero)
   // makes it native XYZ; blank Y cells in that model mean zero, not a rotated node.
   const flatFromZ = nodeRows.every((row) => str(row.cells.y) === '');
+  const firstNode = idGuard('Nodes', problems);
   for (const row of nodeRows) {
     const id = reqNum(row, 'id', 'Nodes', problems);
     const x = reqNum(row, 'x', 'Nodes', problems);
@@ -238,18 +317,16 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     let invalidCoordinate = false;
     for (const key of ['y', 'z'] as const) {
       if (str(row.cells[key]) !== '' && num(row.cells[key]) === null) {
-        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: 'se esperaba un número' });
+        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: t('xls.err.notANumber') });
         invalidCoordinate = true;
       }
     }
     if (invalidCoordinate) continue;
     if (yCell === null && zCell === null) {
-      problems.push({
-        sheet: 'Nodes', row: row.n, column: 'z',
-        message: 'falta la posición: completá Z (la altura) o Y (la profundidad en planta)',
-      });
+      problems.push({ sheet: 'Nodes', row: row.n, column: 'z', message: t('xls.err.noPosition') });
       continue;
     }
+    if (!firstNode(id, row)) continue;
     /* Flat: the height was given as Z, which is what it is called everywhere
        else. It is stored where a flat model keeps its height. */
     model.nodes.push({
@@ -261,12 +338,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   counts.Nodes = model.nodes.length;
 
   // ── Materials ────────────────────────────────────────────────────
+  const firstMaterial = idGuard('Materials', problems);
   for (const row of readSheet(grab('Materials'), 'Materials', problems)) {
     const id = reqNum(row, 'id', 'Materials', problems);
     const name = reqStr(row, 'name', 'Materials', problems);
     const e = reqNum(row, 'e', 'Materials', problems);
     const nu = reqNum(row, 'nu', 'Materials', problems);
     if (id === null || name === null || e === null || nu === null) continue;
+    if (!firstMaterial(id, row)) continue;
     /* Optional and concrete-only: an omitted cell means "not stated", which
        the design surface reports as an explicit assumption rather than a
        silent default — the same contract the Materials panel has. */
@@ -290,10 +369,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * properties win when both are given, because a supplier's table beats our
    * idealisation of their profile.
    */
+  const firstSection = idGuard('Sections', problems);
   for (const row of readSheet(grab('Sections'), 'Sections', problems)) {
     const id = reqNum(row, 'id', 'Sections', problems);
     const name = reqStr(row, 'name', 'Sections', problems);
     if (id === null || name === null) continue;
+    if (!firstSection(id, row)) continue;
 
     let b = num(row.cells.b);
     let h = num(row.cells.h);
@@ -340,12 +421,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (iy === null && b !== null && h !== null) iy = (h * b ** 3) / 12;
 
     if (a === null || iz === null) {
-      problems.push({
-        sheet: 'Sections', row: row.n,
-        message:
-          `"${name}": no está en el catálogo de perfiles; ` +
-          'poné b y h, o bien A e Iz',
-      });
+      problems.push({ sheet: 'Sections', row: row.n, message: tp('xls.err.sectionUnknown', { name }) });
       continue;
     }
     model.sections.push({
@@ -362,6 +438,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const matIds = new Set(model.materials.map((m) => m.id));
   const secIds = new Set(model.sections.map((s) => s.id));
 
+  const firstMember = idGuard('Members', problems);
   for (const row of readSheet(grab('Members'), 'Members', problems)) {
     const id = reqNum(row, 'id', 'Members', problems);
     const nodeI = reqNum(row, 'nodei', 'Members', problems);
@@ -382,10 +459,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!matIds.has(materialId)) missing.push(`material=${materialId}`);
     if (!secIds.has(sectionId)) missing.push(`section=${sectionId}`);
     if (missing.length) {
-      problems.push({
-        sheet: 'Members', row: row.n,
-        message: `no existe: ${missing.join(', ')}`,
-      });
+      problems.push({ sheet: 'Members', row: row.n, message: tp('xls.err.missingRefs', { list: missing.join(', ') }) });
       continue;
     }
 
@@ -397,12 +471,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      */
     const rawType = str(row.cells.type).toLowerCase();
     if (rawType !== 'frame' && rawType !== 'truss') {
-      problems.push({
-        sheet: 'Members', row: row.n, column: 'type',
-        message: `tipo "${str(row.cells.type)}" desconocido — válidos: frame, truss`,
-      });
+      problems.push({ sheet: 'Members', row: row.n, column: 'type', message: tp('xls.err.memberType', { v: str(row.cells.type) }) });
       continue;
     }
+    if (!firstMember(id, row)) continue;
     model.elements.push({
       id, type: rawType, nodeI, nodeJ, materialId, sectionId,
       hingeStart: truthy(row.cells.hingestart),
@@ -423,29 +495,29 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * restraints live in per-DOF fields a single cell cannot carry.
    */
   let supportId = 1;
+  // One support per node: a second row for the same node used to add a second support there.
+  const firstSupport = idGuard('Supports', problems);
   for (const row of readSheet(grab('Supports'), 'Supports', problems)) {
     const nodeId = reqNum(row, 'node', 'Supports', problems);
     const type = reqStr(row, 'type', 'Supports', problems);
     if (nodeId === null || type === null) continue;
     if (!nodeIds.has(nodeId)) {
-      problems.push({ sheet: 'Supports', row: row.n, message: `no existe el nodo ${nodeId}` });
+      problems.push({ sheet: 'Supports', row: row.n, message: tp('xls.err.nodeMissing', { id: nodeId }) });
       continue;
     }
     if (type.toLowerCase() === 'custom3d') {
-      problems.push({
-        sheet: 'Supports', row: row.n, column: 'type',
-        message: '"custom3d" necesita restricciones por GDL que una celda no puede expresar',
-      });
+      problems.push({ sheet: 'Supports', row: row.n, column: 'type', message: t('xls.err.custom3d') });
       continue;
     }
     const canonical = SUPPORT_TYPES.find((s) => s.toLowerCase() === type.toLowerCase());
     if (!canonical) {
       problems.push({
         sheet: 'Supports', row: row.n, column: 'type',
-        message: `tipo "${type}" desconocido — v\u00e1lidos: ${SUPPORT_TYPES.join(', ')}`,
+        message: tp('xls.err.supportType', { v: type, list: SUPPORT_TYPES.join(', ') }),
       });
       continue;
     }
+    if (!firstSupport(nodeId, row, 'xls.err.supportDuplicate')) continue;
     /*
      * Only the springs and displacements the reader actually filled in. A
      * blank cell means "not applicable", and writing zeros for the rest
@@ -467,10 +539,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   counts.Supports = model.supports.length;
 
   // ── Load cases ───────────────────────────────────────────────────
+  const firstCase = idGuard('LoadCases', problems);
   for (const row of readSheet(grab('LoadCases'), 'LoadCases', problems)) {
     const id = reqNum(row, 'id', 'LoadCases', problems);
     const name = reqStr(row, 'name', 'LoadCases', problems);
     if (id === null || name === null) continue;
+    if (!firstCase(id, row)) continue;
     model.loadCases.push({ id, name, type: str(row.cells.type) || 'D' });
   }
   counts.LoadCases = model.loadCases.length;
@@ -491,7 +565,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const factor = reqNum(row, 'factor', 'Combinations', problems);
     if (name === null || caseId === null || factor === null) continue;
     if (!caseIds.has(caseId)) {
-      problems.push({ sheet: 'Combinations', row: row.n, message: `no existe el estado ${caseId}` });
+      problems.push({ sheet: 'Combinations', row: row.n, message: tp('xls.err.caseMissing', { id: caseId }) });
       continue;
     }
     if (!byName.has(name)) { byName.set(name, []); order.push(name); }
@@ -514,11 +588,21 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const nodeList = (v: unknown): number[] =>
     String(v ?? '').split(/[^0-9]+/).filter(Boolean).map(Number);
 
-  const shellSheets: Array<{ sheet: string; target: Array<Record<string, unknown>>; want: number[] }> = [
-    { sheet: 'Plates', target: model.plates as unknown as Array<Record<string, unknown>>, want: [3, 4] },
-    { sheet: 'Quads', target: model.quads as unknown as Array<Record<string, unknown>>, want: [4] },
+  /*
+   * The Plates sheet takes three or four corners, as its help says; the model's plate is a
+   * triangle. A four-node row used to go to `addPlate`, which kept the first three corners and
+   * solved a triangle where the reader drew a rectangle. It is a quad, and becomes one.
+   */
+  const plates = model.plates as unknown as Array<Record<string, unknown>>;
+  const quads = model.quads as unknown as Array<Record<string, unknown>>;
+  const quadsFromPlates: Array<Record<string, unknown>> = [];
+  const shellSheets: Array<{ sheet: string; want: number[] }> = [
+    { sheet: 'Plates', want: [3, 4] },
+    { sheet: 'Quads', want: [4] },
   ];
-  for (const { sheet, target, want } of shellSheets) {
+  for (const { sheet, want } of shellSheets) {
+    const firstShell = idGuard(sheet, problems);
+    let taken = 0;
     for (const row of readSheet(grab(sheet), sheet, problems)) {
       const id = reqNum(row, 'id', sheet, problems);
       const materialId = reqNum(row, 'material', sheet, problems);
@@ -528,28 +612,50 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       if (!want.includes(nodes.length)) {
         problems.push({
           sheet, row: row.n, column: 'nodes',
-          message: `necesita ${want.join(' o ')} nodos y tiene ${nodes.length}`,
+          message: tp('xls.err.shellNodeCount', { want: want.join(` ${t('xls.err.or')} `), n: nodes.length }),
         });
+        continue;
+      }
+      const repeated = nodes.find((n, i) => nodes.indexOf(n) !== i);
+      if (repeated !== undefined) {
+        problems.push({ sheet, row: row.n, column: 'nodes', message: tp('xls.err.shellRepeated', { id: repeated }) });
         continue;
       }
       const missing = nodes.filter((n) => !nodeIds.has(n));
       if (missing.length) {
-        problems.push({ sheet, row: row.n, message: `no existen los nodos: ${missing.join(', ')}` });
+        problems.push({ sheet, row: row.n, message: tp('xls.err.nodesMissing', { list: missing.join(', ') }) });
         continue;
       }
       if (!matIds.has(materialId)) {
-        problems.push({ sheet, row: row.n, message: `no existe el material ${materialId}` });
+        problems.push({ sheet, row: row.n, message: tp('xls.err.materialMissing', { id: materialId }) });
         continue;
       }
+      if (!firstShell(id, row)) continue;
+      taken++;
       /* `curved` exists on quads only — a triangle has no fourth node to
          leave the plane, so the column is not on the Plates sheet and an
          absent cell is simply flat. */
-      target.push({ id, nodes, materialId, thickness, ...(truthy(row.cells.curved) ? { curved: true } : {}) });
+      const shell = { id, nodes, materialId, thickness, ...(truthy(row.cells.curved) ? { curved: true } : {}) };
+      if (sheet === 'Quads') quads.push(shell);
+      else if (nodes.length === 4) quadsFromPlates.push(shell);
+      else plates.push(shell);
     }
-    counts[sheet] = target.length;
+    counts[sheet] = taken;
   }
+  // Their own ids, after the Quads sheet's: the two sheets number independently.
+  let nextQuad = Math.max(0, ...quads.map((q) => q.id as number)) + 1;
+  for (const q of quadsFromPlates) quads.push({ ...q, id: nextQuad++ });
 
   // ── Constraints ──────────────────────────────────────────────────
+  /*
+   * Written in the engine's own shape. The rows used to be copied as typed, so the template's
+   * `rigidDiaphragm` reached the solver as a type it does not know, and a link came as
+   * `nodeI`/`nodeJ` where the engine reads `masterNode`/`slaveNode`: the solve failed with a
+   * raw parse error. `rigidDiaphragm` stays accepted for the files already filled in.
+   */
+  const CONSTRAINT_TYPES: Record<string, 'diaphragm' | 'rigidLink'> = {
+    diaphragm: 'diaphragm', rigiddiaphragm: 'diaphragm', rigidlink: 'rigidLink',
+  };
   for (const row of readSheet(grab('Constraints'), 'Constraints', problems)) {
     const type = reqStr(row, 'type', 'Constraints', problems);
     if (type === null) continue;
@@ -563,26 +669,42 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      * link is a pair. Neither is a superset of the other, so the row is
      * rejected only when it describes neither.
      */
+    const kind = CONSTRAINT_TYPES[type.toLowerCase()];
+    if (!kind) {
+      problems.push({ sheet: 'Constraints', row: row.n, column: 'type', message: tp('xls.err.constraintType', { v: type }) });
+      continue;
+    }
     const referenced = [master, nI, nJ].filter((n): n is number => n !== null).concat(slaves);
     if (referenced.length === 0) {
-      problems.push({ sheet: 'Constraints', row: row.n, message: 'no nombra ningún nodo' });
+      problems.push({ sheet: 'Constraints', row: row.n, message: t('xls.err.constraintNoNodes') });
       continue;
     }
     const missing = referenced.filter((n) => !nodeIds.has(n));
     if (missing.length) {
       problems.push({
         sheet: 'Constraints', row: row.n,
-        message: `no existen los nodos: ${[...new Set(missing)].join(', ')}`,
+        message: tp('xls.err.nodesMissing', { list: [...new Set(missing)].join(', ') }),
       });
       continue;
     }
-    model.constraints.push({
-      type,
-      ...(master !== null ? { masterNode: master } : {}),
-      ...(slaves.length ? { slaveNodes: slaves } : {}),
-      ...(nI !== null ? { nodeI: nI } : {}),
-      ...(nJ !== null ? { nodeJ: nJ } : {}),
-    });
+    if (kind === 'diaphragm') {
+      const slaveNodes = slaves.filter((n) => n !== master);
+      if (master === null || slaveNodes.length === 0) {
+        problems.push({ sheet: 'Constraints', row: row.n, message: t('xls.err.diaphragmNeeds') });
+        continue;
+      }
+      model.constraints.push({ type: 'diaphragm', masterNode: master, slaveNodes });
+    } else {
+      // A link from master to each slave, or the nodeI–nodeJ pair.
+      const from = master ?? nI;
+      const to = master !== null ? (slaves.length ? slaves : nJ !== null ? [nJ] : []) : nJ !== null ? [nJ] : [];
+      const pairs = to.filter((n) => n !== from);
+      if (from === null || pairs.length === 0) {
+        problems.push({ sheet: 'Constraints', row: row.n, message: t('xls.err.linkNeeds') });
+        continue;
+      }
+      for (const slaveNode of pairs) model.constraints.push({ type: 'rigidLink', masterNode: from, slaveNode });
+    }
   }
   counts.Constraints = model.constraints.length;
 
@@ -597,14 +719,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!type) {
       problems.push({
         sheet: 'Loads', row: row.n, column: 'type',
-        message: `tipo "${rawType}" desconocido — válidos: ${LOAD_TYPES.join(', ')}`,
+        message: tp('xls.err.loadType', { v: rawType, list: LOAD_TYPES.join(', ') }),
       });
       continue;
     }
     const caseId = reqNum(row, 'case', 'Loads', problems);
     if (caseId === null) continue;
     if (caseIds.size > 0 && !caseIds.has(caseId)) {
-      problems.push({ sheet: 'Loads', row: row.n, message: `no existe el estado ${caseId}` });
+      problems.push({ sheet: 'Loads', row: row.n, message: tp('xls.err.caseMissing', { id: caseId }) });
       continue;
     }
 
@@ -616,9 +738,9 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      * A row that cannot survive the trip must say so here, while it still
      * has a number.
      */
-    const notImportable = NOT_IMPORTABLE[type as keyof typeof NOT_IMPORTABLE];
+    const notImportable = NOT_IMPORTABLE[type];
     if (notImportable) {
-      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable });
+      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable() });
       continue;
     }
 
@@ -627,16 +749,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const wantsNode = type.startsWith('nodal');
     const target = wantsNode ? nodeId : elementId;
     const targetSet = wantsNode ? nodeIds : elemIds;
-    const what = wantsNode ? 'nodo' : 'barra';
     if (target === null) {
       problems.push({
         sheet: 'Loads', row: row.n,
-        message: `"${type}" necesita ${wantsNode ? 'un nodo' : 'una barra'}`,
+        message: tp(wantsNode ? 'xls.err.loadNeedsNode' : 'xls.err.loadNeedsMember', { v: type }),
       });
       continue;
     }
     if (!targetSet.has(target)) {
-      problems.push({ sheet: 'Loads', row: row.n, message: `no existe el ${what} ${target}` });
+      problems.push({ sheet: 'Loads', row: row.n, message: tp(wantsNode ? 'xls.err.nodeMissing' : 'xls.err.memberMissing', { id: target }) });
       continue;
     }
 
@@ -680,14 +801,27 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         else if (dir !== '' && dir !== 'local') {
           problems.push({
             sheet: 'Loads', row: row.n, column: 'dir',
-            message: `dirección "${str(row.cells.dir)}" desconocida — válidas: global, local`,
+            message: tp('xls.err.dirUnknown', { v: str(row.cells.dir), list: 'global, local' }),
           });
           continue;
         }
       } else if (type === 'distributed3d') {
-        // Local components by definition — qY then qZ; the sheet's qi/qj
-        // carry qY, qzi/qzj carry qZ.
+        /*
+         * qi/qj carry qY, qzi/qzj carry qZ, along the axes `dir` names: the member's own (local,
+         * the default), the global ones per metre of member (global), or the global ones per
+         * metre of plan (projected). The template's own example said `global` and the row came
+         * in local, which is right for a horizontal beam and wrong for everything else.
+         */
+        const dir = str(row.cells.dir).toLowerCase();
+        if (dir !== '' && dir !== 'local' && dir !== 'global' && dir !== 'projected') {
+          problems.push({
+            sheet: 'Loads', row: row.n, column: 'dir',
+            message: tp('xls.err.dirUnknown', { v: str(row.cells.dir), list: 'local, global, projected' }),
+          });
+          continue;
+        }
         Object.assign(data, { qYI: n('qi'), qYJ: n('qj'), qZI: n('qzi'), qZJ: n('qzj') });
+        if (dir === 'global' || dir === 'projected') data.frame = dir;
       } else if (type === 'pointOnElement') {
         Object.assign(data, { p: n('p'), a: n('a') });
       } else if (type === 'thermal') {

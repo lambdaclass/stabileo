@@ -14,6 +14,7 @@
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
+  import ExcelImportReport from '../ExcelImportReport.svelte';
   import { downloadProjectWorkbook } from '../../lib/store/project-workbook';
   import type { StationSpec } from '../../lib/engine/station-forces';
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
@@ -72,13 +73,24 @@
     await downloadTemplate();
   }
 
+  /** The last import's report: the rows the file could not give, kept until dismissed. */
+  let xlsReport = $state<import('../../lib/excel-import/apply').ImportOutcome | null>(null);
+
   async function handleImportExcel(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const { importExcelFile } = await import('../../lib/excel-import/apply');
-    await importExcelFile(file);
+    try {
+      const { importExcelFile, announceImport } = await import('../../lib/excel-import/apply');
+      const outcome = await importExcelFile(file);
+      if (!outcome) return; // the library failed to load, and said so
+      xlsReport = outcome;
+      announceImport(outcome);
+    } catch (err) {
+      console.error('[stabileo] Excel import failed:', err);
+      uiStore.toast(t('xls.ui.unreadable'), 'error');
+    }
   }
 
   let fileInput: HTMLInputElement | undefined = $state();
@@ -363,6 +375,9 @@
           >{t('xls.ui.template')}</button>
         </HelpTip>
       </div>
+      {#if xlsReport}
+        <ExcelImportReport report={xlsReport} onclose={() => (xlsReport = null)} />
+      {/if}
     </div>
     <div class="pp-group">
       <span class="pp-group-label">{t('project.importDrawing')}</span>
