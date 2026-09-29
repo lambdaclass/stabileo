@@ -203,7 +203,7 @@ describe('every key resolves in the three offered languages', () => {
   it('and the results section is a set of sentences, not labels', () => {
     // Stage 7 has no numbers to show, so prose is all it has. A three-word answer would be worse
     // than silence.
-    const keys = ['noCertifiable', 'capabilities', 'tests', 'missingData', 'human', 'ae', 'cap'];
+    const keys = ['noCertifiable', 'capabilities', 'tests', 'missingData', 'human', 'ae'];
     for (const [name, dict] of Object.entries(dicts)) {
       for (const k of keys) {
         const v = dict[`steel.workflow.results.${k}`];
@@ -213,11 +213,10 @@ describe('every key resolves in the three offered languages', () => {
     }
   });
 
-  it('and the two departures are named in every language', () => {
+  it('and the departure is named in every language; the F.2.1 cap, applied now, is not', () => {
     for (const [name, dict] of Object.entries(dicts)) {
       expect(dict['steel.workflow.results.ae'], name).toMatch(/D\.2\.2/);
-      expect(dict['steel.workflow.results.cap'], name).toMatch(/F\.2\.1/);
-      expect(dict['steel.workflow.results.cap'], name).toMatch(/1,5/);
+      expect(dict['steel.workflow.results.cap'], name).toBeUndefined();
     }
   });
 });

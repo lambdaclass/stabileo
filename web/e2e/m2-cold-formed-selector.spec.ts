@@ -130,7 +130,9 @@ test.describe('nothing on this screen claims a section was checked', () => {
   test('labels every number as derived from geometry', async ({ page }) => {
     // The provenance a reader needs: these are not table values, and the screen says which.
     await openPanel(page);
-    await expect(page.getByTestId('cf-basis')).toContainText('derivedFromGeometry');
+    await expect(page.getByTestId('cf-basis')).toContainText('Derivado de la geometría');
+    // The internal token used to be printed after it, in every language.
+    await expect(page.getByTestId('cf-basis')).not.toContainText('derivedFromGeometry');
   });
 
   test('states the square-corner cost as a number', async ({ page }) => {

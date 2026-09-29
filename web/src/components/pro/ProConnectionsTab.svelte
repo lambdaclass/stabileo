@@ -1186,7 +1186,7 @@
                 satisfy, so a reader knows what is missing rather than that something is.
               -->
               <p class="jd-plate warn" data-testid="joint-battens-plate">
-                {design.battens.layout.plate.state} ·
+                {t('conn.geometryUnavailable')} ·
                 {design.battens.layout.plate.missingKeys.map((k) => t(k)).join(' · ')} ·
                 §{design.battens.layout.plate.conditionClause}
               </p>
@@ -1218,7 +1218,7 @@
             </p>
           {:else}
             <p class="jd-plate warn" data-testid="joint-plate-unavailable">
-              GEOMETRY_UNAVAILABLE · {design.plate.missingKeys.map((k) => t(k)).join(' · ')}
+              {t('conn.geometryUnavailable')} · {design.plate.missingKeys.map((k) => t(k)).join(' · ')}
             </p>
           {/if}
         </section>

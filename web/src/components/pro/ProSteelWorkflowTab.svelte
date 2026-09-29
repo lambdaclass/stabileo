@@ -734,11 +734,10 @@
         <dd data-testid="steel-results-missing">{t('steel.workflow.results.missingData')}</dd>
         <dt>{t('steel.workflow.results.humanTitle')}</dt>
         <dd data-testid="steel-results-human">{t('steel.workflow.results.human')}</dd>
-        <!-- The two specific departures the clause mapping found, named where a reader will look. -->
+        <!-- The departure the clause mapping found, named where a reader will look. The second one,
+             the Mp ≤ 1,5·My cap of F.2.1, is applied now and left this list. -->
         <dt>{t('steel.workflow.results.aeTitle')}</dt>
         <dd data-testid="steel-results-ae">{t('steel.workflow.results.ae')}</dd>
-        <dt>{t('steel.workflow.results.capTitle')}</dt>
-        <dd data-testid="steel-results-cap">{t('steel.workflow.results.cap')}</dd>
       </dl>
 
       <!--

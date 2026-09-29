@@ -43,7 +43,7 @@
     <strong>{t('design.cert.axes')}:</strong>
     <span class="mono">{ctx.axes.flexure} / {ctx.axes.shear}</span>
     {#if ctx.axes.biaxial}<span class="mono">+ {ctx.axes.secondaryFlexure} ({(ctx.axes.secondaryRatio * 100).toFixed(0)} %)</span>{/if}
-    <span class="muted">({ctx.axes.basis})</span>
+    <span class="muted">({t(`axesBasis.${ctx.axes.basis}`)})</span>
     <span class="muted">b×h = {(ctx.axes.bFlex * 100).toFixed(0)}×{(ctx.axes.hFlex * 100).toFixed(0)} cm</span>
     {#if ctx.slenderDeltaNs > 1.0001}<span class="mono">δns = {ctx.slenderDeltaNs.toFixed(3)}</span>{/if}
   </div>

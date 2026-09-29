@@ -362,25 +362,25 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
     await expect(page.getByTestId('steel-assumption-blockers')).toBeVisible();
   });
 
-  test('stage 7 explains why there is no result, in eight statements', async ({ page }) => {
+  test('stage 7 explains why there is no result, statement by statement', async ({ page }) => {
     await trussThenSteel(page);
     await page.getByTestId('steel-sub-verification').click();
     for (const id of ['steel-results-none', 'steel-results-capabilities', 'steel-results-tests',
                       'steel-results-missing', 'steel-results-human', 'steel-results-ae',
-                      'steel-results-cap', 'steel-results-clause-map']) {
+                      'steel-results-clause-map']) {
       const el = page.getByTestId(id);
       await expect(el, id).toBeVisible();
       expect((await el.innerText()).trim().length, id).toBeGreaterThan(10);
     }
   });
 
-  test('and names the two departures with their clause numbers', async ({ page }) => {
+  test('and names the departure with its clause number; the applied F.2.1 cap is not listed', async ({ page }) => {
     // The clause numbers are how a reviewer finds the rule; without them the paragraph is an
     // opinion.
     await trussThenSteel(page);
     await page.getByTestId('steel-sub-verification').click();
     await expect(page.getByTestId('steel-results-ae')).toContainText('D.2.2');
-    await expect(page.getByTestId('steel-results-cap')).toContainText('F.2.1');
+    await expect(page.getByTestId('steel-results-cap')).toHaveCount(0);
   });
 
   test('and counts the clause map as UNVALIDATED entries, not as progress', async ({ page }) => {
@@ -471,7 +471,8 @@ test.describe('the two new stages, and the four that were folded in', () => {
     await expect(scope).toBeVisible();
     // Bolt layout is computed; plate, weld and batten geometry are not, and each says so.
     await expect(scope).toContainText('J.3');
-    await expect(scope).toContainText('GEOMETRY_UNAVAILABLE');
+    await expect(scope).toContainText('no disponible');
+    await expect(scope).not.toContainText('GEOMETRY_UNAVAILABLE');
   });
 
   /*

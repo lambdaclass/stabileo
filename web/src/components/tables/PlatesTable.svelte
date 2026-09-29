@@ -89,7 +89,7 @@
         <th>{t('pro.thKind')}</th>
         <th>{t('pro.nodes')}</th>
         <th>{t('pro.thMaterial')}</th>
-        <th>{t('pro.thickness')} (m)</th>
+        <th>{t('pro.thickness')}</th>
         <th title={t('pro.shellCurvatureHint')}>≈</th>
         <th></th>
       </tr>

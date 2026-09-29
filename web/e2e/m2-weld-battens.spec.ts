@@ -169,7 +169,7 @@ test.describe('the batten section', () => {
     await page.getByTestId('joint-battens-add').click();
     const plate = page.getByTestId('joint-battens-plate');
     await expect(plate).toBeVisible();
-    await expect(plate).toContainText('GEOMETRY_UNAVAILABLE');
+    await expect(plate).toContainText('Sin geometría');
     await expect(plate).toContainText('E.6.19');
   });
 
