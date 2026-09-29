@@ -114,7 +114,7 @@ test.describe('@smoke Documentos states what it is, and what it will emit', () =
     await expect(base).toContainText('columns');
     await expect(base).toContainText('beams');
     // The refusal, in words, next to the boxes that can only narrow.
-    await expect(base).toContainText('Diseñar');
+    await expect(base).toContainText('from Design');
     // No control here adds a family. The absence IS the contract.
     await expect(page.getByTestId('doc-scope-add-family')).toHaveCount(0);
   });
@@ -189,7 +189,7 @@ test.describe('the design scope is the only way to widen', () => {
     const excluded = page.getByTestId('doc-scope-excluded');
     await expect(excluded).toBeVisible();
     await expect(excluded, 'the family, and the remedy').toContainText('columns');
-    await expect(excluded).toContainText('Diseñar');
+    await expect(excluded).toContainText('Design');
 
     const after = await offeredIds(page);
     expect(after.length, 'the columns are no longer documentable').toBeLessThan(before.length);

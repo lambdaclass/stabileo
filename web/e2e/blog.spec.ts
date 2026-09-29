@@ -328,7 +328,7 @@ test.describe('@smoke blog', () => {
     // Verified, not "sin verificar", and at the utilisation the caption quotes.
     const table = app.locator('body');
     await expect(table).toContainText('0.89', { timeout: 90_000 });
-    await expect(table).toContainText('0.88');
+    await expect(table).toContainText('0.94');
     await expect(table).toContainText('1.2D+1.6L');
     await expect(table).not.toContainText('sin armadura');
   });

@@ -217,7 +217,8 @@ test.describe('battens', () => {
     await page.getByTestId('section-battens-toggle').locator('summary').click();
     const gap = page.getByTestId('batten-geometry-unavailable');
     await expect(gap).toBeVisible();
-    await expect(gap).toContainText('GEOMETRY_UNAVAILABLE');
+    // Said in words; the internal state token is not printed.
+    await expect(gap).not.toContainText('GEOMETRY_UNAVAILABLE');
     // And the condition the missing dimension would have to satisfy is quoted.
     await expect(gap).toContainText('E.6.19');
   });

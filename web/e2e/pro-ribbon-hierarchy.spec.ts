@@ -66,7 +66,7 @@ test.describe('@smoke Model — Generators is its own sub-section', () => {
     // Named one by one: a description reading "generates geometry" would be true and useless.
     await expect(why).toContainText(/truss/i);
     await expect(why).toContainText(/latticed column/i);
-    await expect(why).toContainText(/shed/i);
+    await expect(why).toContainText(/industrial buildings/i);
     // The tooltip carries the same sentence, so the two cannot drift apart.
     expect(await btn.getAttribute('title')).toContain('trusses');
   });

@@ -142,7 +142,7 @@ test.describe('@smoke unsupported conditions by family', () => {
       }],
     })]);
     await openPanel(page);
-    await expect(page.getByTestId('unsupported-list')).toContainText('INPRES-CIRSOC 103 Parte II');
+    await expect(page.getByTestId('unsupported-list')).toContainText('INPRES-CIRSOC 103 Part II');
 
     /*
      * "Blocks the review" is asserted where the block now lives: on the disabled control and the

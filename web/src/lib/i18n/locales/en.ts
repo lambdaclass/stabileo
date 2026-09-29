@@ -6979,7 +6979,7 @@ const en: Record<string, string> = {
   'footing.ui.yes': 'Yes',
   'footing.ui.no': 'No',
   'footing.ui.matGeometryStatus': 'Physical geometry',
-  'footing.ui.matGeometryStatus.MODELED': 'MODELLED',
+  'footing.ui.matGeometryStatus.MODELED': 'MODELED',
   'footing.ui.matGeometryStatus.NOT_MODELED': 'NOT MODELLED',
   'footing.ui.matGeometryStatus.RECONCILIATION_FAILED': 'DOES NOT RECONCILE',
   'footing.ui.matDirection': 'Direction',
