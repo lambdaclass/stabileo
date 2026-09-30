@@ -10,7 +10,7 @@ import type {
   SolverInput3D, SolverSupport3D,
   SolverDistributedLoad3D, SolverPointLoad3D, SolverThermalLoad3D, SolverElement3D,
 } from './types-3d';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { solveAllowingNullModes } from './dense-solve';
 
 // Re-export the same DSMStepData interface so the StepWizard can display both 2D and 3D
@@ -922,7 +922,7 @@ function assembleDistLoadDetailed(
   }
 
   // Scatter to global F with tracking
-  const desc = `Carga distrib. elem ${elem.id}`;
+  const desc = tp('detailed.distLoadDesc', { id: elem.id });
   const dofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   const dofs = [elem.nodeI, elem.nodeJ];
   for (let n = 0; n < 2; n++) {
@@ -936,7 +936,7 @@ function assembleDistLoadDetailed(
         loadContributions.push({
           dofIndex: idx,
           dofLabel: allDofLabels[idx],
-          source: `${desc}, nodo ${n === 0 ? 'I' : 'J'} ${dofNames[d]}`,
+          source: tp('detailed.atNodeEnd', { desc, end: n === 0 ? 'I' : 'J', dof: dofNames[d] }),
           value: val,
         });
       }
@@ -1042,7 +1042,7 @@ function assemblePointLoadDetailed(
   }
 
   // Scatter to global F with tracking
-  const desc = `Carga puntual elem ${elem.id}`;
+  const desc = tp('detailed.pointLoadDesc', { id: elem.id });
   const dofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   const dofs = [elem.nodeI, elem.nodeJ];
   for (let n = 0; n < 2; n++) {
@@ -1056,7 +1056,7 @@ function assemblePointLoadDetailed(
         loadContributions.push({
           dofIndex: idx,
           dofLabel: allDofLabels[idx],
-          source: `${desc}, nodo ${n === 0 ? 'I' : 'J'} ${dofNames[d]}`,
+          source: tp('detailed.atNodeEnd', { desc, end: n === 0 ? 'I' : 'J', dof: dofNames[d] }),
           value: val,
         });
       }

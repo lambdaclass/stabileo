@@ -261,7 +261,14 @@ export function codeToModel(text: string): ParseResult {
         return;
       }
       case 'name': { const v = str(pos[0], 'the name'); if (v !== null) s.name = v; return; }
-      case 'mode': { if (pos[0]) s.analysisMode = pos[0]; else err('the mode is missing'); return; }
+      case 'mode': {
+        // Checked like any other value: the app compares the mode with `===`, so an
+        // unknown word would load the model into none of its modes.
+        if (!pos[0]) err('the mode is missing');
+        else if (!['2d', '3d', 'pro', 'edu'].includes(pos[0])) err(`"${pos[0]}" is not a mode (2d, 3d, pro or edu)`);
+        else s.analysisMode = pos[0];
+        return;
+      }
       case 'axes': { if (pos[0]) s.localAxisConvention = pos[0]; else err('the axis convention is missing'); return; }
       case 'material': case 'section': case 'connector': case 'footing': {
         const fam = kw!.text;

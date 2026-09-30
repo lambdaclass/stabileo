@@ -17,7 +17,8 @@
 // identical output, zero behavior change for the existing path.
 
 import type { ArchPlan, CadPt, RcDraftAssumptions, RcDraftResult, DraftWarning } from './types';
-import { generateRcDraft, type DraftSource } from './draft';
+import { generateRcDraft, isReplicatedPlanAssumption, type DraftSource } from './draft';
+import { t, tp } from '../i18n';
 import { draftPreviewStats } from './draft-preview';
 import {
   panelsFromBeamGrid, snapPanelCornersToColumns,
@@ -75,12 +76,12 @@ export function validateFloorRanges(
   for (const s of sorted) {
     if (!Number.isInteger(s.fromFloor) || !Number.isInteger(s.toFloor) ||
         s.fromFloor < 1 || s.toFloor > nFloors || s.fromFloor > s.toFloor) {
-      issues.push({ severity: 'error', message: `floorRangeInvalid:${s.label ?? 'plan'} (${s.fromFloor}-${s.toFloor}; building has ${nFloors} floor(s))` });
+      issues.push({ severity: 'error', message: `floorRangeInvalid:${tp('cad.range.invalidDetail', { label: s.label ?? t('cad.range.planFallback'), from: s.fromFloor, to: s.toFloor, n: nFloors })}` });
     }
   }
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i].fromFloor <= sorted[i - 1].toFloor) {
-      issues.push({ severity: 'error', message: `floorRangeOverlap:${sorted[i - 1].label ?? 'plan'} & ${sorted[i].label ?? 'plan'} both cover floor ${sorted[i].fromFloor}` });
+      issues.push({ severity: 'error', message: `floorRangeOverlap:${tp('cad.range.overlapDetail', { a: sorted[i - 1].label ?? t('cad.range.planFallback'), b: sorted[i].label ?? t('cad.range.planFallback'), floor: sorted[i].fromFloor })}` });
     }
   }
   const missing: number[] = [];
@@ -88,7 +89,7 @@ export function validateFloorRanges(
     if (!sorted.some((s) => f >= s.fromFloor && f <= s.toFloor)) missing.push(f);
   }
   if (missing.length) {
-    issues.push({ severity: allowGaps ? 'warn' : 'error', message: `floorRangeGap:floor(s) ${missing.join(', ')} not covered by any plan` });
+    issues.push({ severity: allowGaps ? 'warn' : 'error', message: `floorRangeGap:${tp('cad.range.gapDetail', { floors: missing.join(', ') })}` });
   }
   return issues;
 }
@@ -181,11 +182,14 @@ function recountAfterPrune(result: RcDraftResult): void {
 function pushInferenceProvenance(result: RcDraftResult, report: InferenceReport, inf: InferenceOptions): void {
   const a = result.provenance.assumptions; // same object as snapshot.provenance
   if (inf.pruneDisconnectedBeams && report.prunedBeams > 0) {
-    a.push(`${report.prunedBeams} beam-layer fragment(s) not connected to any column (annotation strokes / leader lines) were dropped before generation (inference, opt-in).`);
+    a.push(tp('cad.assume.prunedBeams', { n: report.prunedBeams }));
     result.warnings.push({ severity: 'warning', message: `prunedDisconnectedBeams:${report.prunedBeams}` });
   }
   if (inf.inferSlabPanels && report.inferredPanels > 0) {
-    a.push(`Slab panels were INFERRED from the beam grid (${report.gridX} x-lines × ${report.gridY} y-lines): ${report.inferredPanels} panel(s) added where ≥2 of 4 cell edges are beam-covered; ${report.droppedCells} cells dropped${report.snappedCorners > 0 ? `; ${report.snappedCorners} corner(s) snapped to the nearest column axis` : ''}. These slabs are NOT drawn in the DXF — verify against the architectural plan (inference, opt-in).`);
+    a.push(tp('cad.assume.inferredPanels', {
+      gx: report.gridX, gy: report.gridY, n: report.inferredPanels, dropped: report.droppedCells,
+      snapped: report.snappedCorners > 0 ? tp('cad.assume.inferredSnapped', { n: report.snappedCorners }) : '',
+    }));
     result.warnings.push({ severity: 'warning', message: `inferredSlabPanels:${report.inferredPanels}` });
   }
 }
@@ -200,7 +204,7 @@ function buildSinglePlan(input: BuildDraftInput): RcDraftResult {
     const removed = pruneFloating(result.snapshot);
     if (removed.elements > 0 || removed.nodes > 0 || removed.quads > 0) {
       recountAfterPrune(result);
-      result.provenance.assumptions.push(`${removed.elements} member(s) and ${removed.quads} shell(s) (${removed.nodes} node(s)) that floated free of the supported structure were pruned after generation, so the draft is a single connected model (inference, opt-in).`);
+      result.provenance.assumptions.push(tp('cad.assume.prunedFloating', { members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
       result.warnings.push({ severity: 'warning', message: `prunedFloatingMembers:${removed.elements + removed.quads}` });
     }
   }
@@ -255,7 +259,7 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     // pruned): surface it at error severity rather than silently building fewer
     // floors than the provenance implies.
     if ((result.counts.columns + result.counts.beams) === 0) {
-      rangeIssues.push({ severity: 'error', message: `emptyFloorRange:${spec.label ?? 'plan'} (floors ${spec.fromFloor}-${spec.toFloor}) contributed 0 members` });
+      rangeIssues.push({ severity: 'error', message: `emptyFloorRange:${tp('cad.range.emptyDetail', { label: spec.label ?? t('cad.range.planFallback'), from: spec.fromFloor, to: spec.toFloor })}` });
     }
     builds.push({ result, zShift: cum[spec.fromFloor - 1], spec });
   }
@@ -277,16 +281,16 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id));
   });
   if (prunedAway.length > 0) {
-    rangeIssues.push({ severity: 'error', message: `floorRangePruned:${prunedAway.map((b) => b.spec.label ?? 'plan').join(', ')}` });
+    rangeIssues.push({ severity: 'error', message: `floorRangePruned:${prunedAway.map((b) => b.spec.label ?? t('cad.range.planFallback')).join(', ')}` });
   }
 
   // Provenance: replace the misleading "replicated across all floors" line.
   const planMap = specs
-    .map((s) => `${s.label ?? 'plan'} → floors ${s.fromFloor}–${s.toFloor}`)
+    .map((s) => tp('cad.assume.planMapItem', { label: s.label ?? t('cad.range.planFallback'), from: s.fromFloor, to: s.toFloor }))
     .join('; ');
   const assumptions = merged.snapshot.provenance!.assumptions
-    .filter((line) => !/replicated across all/i.test(line));
-  assumptions.unshift(`Per-floor plans (geometry differs by floor): ${planMap}. Columns/members that do not continue between adjacent plans are hanging and were pruned after composition (${removed.elements} member(s), ${removed.quads} shell(s), ${removed.nodes} node(s)).`);
+    .filter((line) => !isReplicatedPlanAssumption(line));
+  assumptions.unshift(tp('cad.assume.perFloorPlans', { map: planMap, members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
   merged.snapshot.provenance!.assumptions = assumptions;
   merged.provenance.assumptions = assumptions;
   merged.warnings.push({ severity: 'info', message: `perFloorPlans:${specs.length}` });
@@ -430,7 +434,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   } as RcDraftResult['provenance'];
 
   const snapshot: ModelSnapshot = {
-    name: builds[0]?.result.snapshot.name ?? 'CAD draft',
+    name: builds[0]?.result.snapshot.name ?? t('cad.draftNameFallback'),
     analysisMode: 'pro',
     nodes, materials: material, sections, elements, supports, loads,
     loadCases: topLoadCases, combinations: topCombinations,

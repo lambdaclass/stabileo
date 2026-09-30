@@ -39,7 +39,9 @@ import { describe, it, expect } from 'vitest';
 import { generateShed, DEFAULT_SHED_PARAMS, BRACING_BAYS } from '../shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
 import { modelFromFixture, assertRealSolver } from '../../design/__tests__/helpers';
-import { validateAndSolve3D } from '../../solver-service';
+import { validateAndSolve3D, buildSolverInput3D } from '../../solver-service';
+import { input3DToWireObject } from '../../wasm-solver';
+import { solve_3d } from '../../../wasm/dedaliano_engine.js';
 
 const PROFILES: EmitOptions['profiles'] = {
   chord: defaultProfileSpec('IPE 100'),
@@ -90,10 +92,10 @@ const emit = (params: Parameters<typeof generateShed>[0], name: string) =>
 const SOLVE_TIMEOUT_MS = 20_000;
 
 /** One nodal load at the highest node, along the building unless told otherwise. */
-function solve(json: any, kn: number, direction: 'y' | 'z' = 'y') {
+function solve(json: any, kn: number, direction: 'y' | 'z' = 'y', method?: 'direct' | 'pcg') {
   assertRealSolver();
   const node = json.nodes.reduce((b: any, n: any) => (n.z > b.z ? n : b), json.nodes[0]).id;
-  return validateAndSolve3D(modelFromFixture({
+  const model = modelFromFixture({
     ...json,
     loadCases: [{ id: 1, type: 'dead', name: 'D' }],
     loads: [{
@@ -105,7 +107,16 @@ function solve(json: any, kn: number, direction: 'y' | 'z' = 'y') {
         mx: 0, my: 0, mz: 0, caseId: 1,
       },
     }],
-  }).model, false, false);
+  }).model;
+  if (method) {
+    const input = buildSolverInput3D(model, false, false)!;
+    try {
+      return solve_3d({ ...input3DToWireObject(input), solverOptions: { method } });
+    } catch (error) {
+      return String(error);
+    }
+  }
+  return validateAndSolve3D(model, false, false);
 }
 
 function maxDisplacement(res: unknown): number {
@@ -130,11 +141,11 @@ const FULL = {
 
 describe('the shed has no longitudinal load path until it is given one', () => {
   it('returns a mechanism wearing a number under a load along the building', () => {
-    // 2.4·10^11 m for 20 kN. Not singular, so every `isFinite` check on it passes — which is
-    // exactly why this went unmeasured.
+    // 2.4·10^11 m for 20 kN. Not singular, so every `isFinite` check on it passed — which is
+    // exactly why this went unmeasured. The solve now refuses it as a mechanism.
     const d = displacementOf(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('still deflects 4 mm under the vertical load PR21 measured', () => {
@@ -173,8 +184,8 @@ describe('each element earns its place, measured by removing it', () => {
     const d = displacementOf(emit({
       ...DEFAULT_SHED_PARAMS, longitudinalBeams: true, wallBracing: true, roofBracing: true,
     }, 'Sin arriostramiento vertical'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('the vertical bracing needs a wall that reaches the ground', () => {
@@ -211,6 +222,15 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
       .toBeNull();
   }, SOLVE_TIMEOUT_MS);
 
+  it.each(['direct', 'pcg'] as const)('rejects the end-bay mechanism with explicit %s', (method) => {
+    // The vertical load does not excite the interior frames' free sideways
+    // motion. PCG alone converges to a plausible 3.96 mm result, so residual
+    // convergence must not bypass the load-independent stability check.
+    const result = solve(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z', method);
+    expect(typeof result).toBe('string');
+    expect(result).toContain('mechanism');
+  }, SOLVE_TIMEOUT_MS);
+
   it('solves under vertical load when EVERY bay is braced, because that reaches every frame', () => {
     // A diagonal in every bay supplies the restraint the purlins supplied, one bay at a time.
     // It is not a recommendation to omit purlins — a roof still needs something to carry the
@@ -228,7 +248,7 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
     const roofOnly = displacementOf(
       emit({ ...NO_PURLINS, roofBracing: true, bracingBays: 'all' }, 'Solo cubierta'), -20,
     );
-    expect(roofOnly!).toBeGreaterThan(1e6);
+    expect(roofOnly === null || roofOnly > 1e6).toBe(true);
 
     const full = displacementOf(
       emit({ ...NO_PURLINS, roofBracing: true, wallBracing: true, trussBracing: true, bracingBays: 'all' }, 'Completo'),
@@ -362,8 +382,8 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
    */
   it('stays free along the building with wall bracing alone', () => {
     const d = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('stays free along the building even with the roof plane braced in every bay', () => {
@@ -371,8 +391,8 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
       { ...PINNED, wallBracing: true, roofBracing: true, bracingBays: 'all' as const },
       'Longitudinal',
     ), -20);
-    expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(1e6);
+    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
+    expect(d === null || d > 1e6).toBe(true);
   }, SOLVE_TIMEOUT_MS);
 
   it('needs the vertical bracing, exactly as a fixed-base shed does', () => {

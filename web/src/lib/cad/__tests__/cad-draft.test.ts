@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseCadDxf } from '../parse';
 import { suggestLayerMappings, extractArchPlan } from '../classify';
 import { generateRcDraft, rectJ } from '../draft';
@@ -7,6 +7,7 @@ import { simplePlanDxf } from './dxf-fixture';
 import { beamThrough } from '../../engine/mesh-weld';
 import { buildSolverInput3D } from '../../engine/solver-service';
 import { solve3D } from '../../engine/wasm-solver';
+import * as shellMesh from '../../engine/shell-mesh-gen';
 
 const SOURCE = { fileName: 'plan.dxf', importedAtIso: '2026-06-09T12:00:00.000Z' };
 
@@ -191,6 +192,28 @@ describe('generateRcDraft — node sharing', () => {
 });
 
 describe('generateRcDraft — honesty paths', () => {
+  it.each([1e-308, Number.MIN_VALUE])('caps overflowing bilinear divisions for a finite target %s', (meshTargetSize) => {
+    // A rotated square takes the bilinear path. Inspect the requested density
+    // at the mesher boundary without allocating a 65,536-cell draft.
+    const outline = [{ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 20 }, { x: -10, y: 10 }];
+    const plan: ArchPlan = {
+      ...fixturePlan(), columns: [], walls: [], openings: [],
+      beams: [{ a: outline[0], b: outline[1] }],
+      slabs: [{ outline, isQuad: true, isRectilinear: false }],
+    };
+    const mesh = vi.spyOn(shellMesh, 'buildBilinearQuadGrid').mockReturnValue({ nodeGrid: [], newNodes: 0, quadCount: 0 });
+    try {
+      const draft = generateRcDraft(plan, assumptions({
+        nFloors: 1, storyHeights: [3], meshMode: 'targetSize', meshTargetSize, splitBeams: false,
+      }), SOURCE);
+      expect(mesh).toHaveBeenCalledTimes(1);
+      expect(mesh.mock.calls[0].slice(1, 3)).toEqual([shellMesh.MAX_DIVISIONS_PER_AXIS, shellMesh.MAX_DIVISIONS_PER_AXIS]);
+      expect(draft.warnings.map(w => w.message)).toContain('meshCapped:2');
+    } finally {
+      mesh.mockRestore();
+    }
+  });
+
   it('unmeshed slabs stay coarse but the opening is still cut, and no beams are split', () => {
     const draft = generateRcDraft(
       fixturePlan(),

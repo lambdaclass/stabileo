@@ -110,6 +110,7 @@ fn make_timoshenko_beam(
     }
 
     SolverInput {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -455,6 +456,7 @@ fn validation_timoshenko_3d_deep_beam() {
     })];
 
     let input = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

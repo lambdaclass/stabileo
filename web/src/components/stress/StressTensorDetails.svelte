@@ -111,7 +111,7 @@
           <span class="ssp-tval">{fmt(tensors.invariants.j2)}<span class="ssp-tunit">MPa²</span></span>
         </div>
         <div class="ssp-trow">
-          <span class="ssp-tlabel">&sigma;<sub>hid</sub></span>
+          <span class="ssp-tlabel">&sigma;<sub>{t('stress.hydrostaticSub')}</sub></span>
           <span class="ssp-tval">{fmt(tensors.invariants.hydrostatic)}<span class="ssp-tunit">MPa</span></span>
         </div>
         <div class="ssp-trow ssp-trow-vm">

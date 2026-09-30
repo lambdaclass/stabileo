@@ -197,10 +197,19 @@ export function computeDiagramValueAt(
     }
     return value;
   } else {
-    let value = ef.nStart + t * (ef.nEnd - ef.nStart);
+    /*
+     * An axial point load px (towards J) drops the tension past it by px, a
+     * step. The linear part left between the ends is whatever the step does
+     * not explain (nEnd = nStart − Σpx when nothing else acts). This used to
+     * interpolate from nStart to nEnd across the whole member and then ADD
+     * px past the load, so a cantilever pulled at midspan read 5 → 2.5, a
+     * jump up to 7.5, and 5 again at the free end instead of 5 then 0.
+     */
+    const pxAll = sortedPL.reduce((s, pl) => s + (pl.px ?? 0), 0);
+    let value = ef.nStart + t * (ef.nEnd + pxAll - ef.nStart);
     for (const pl of sortedPL) {
       if (pl.px && pl.a < xi - 1e-10) {
-        value += pl.px;
+        value -= pl.px;
       }
     }
     return value;

@@ -80,7 +80,7 @@ describe('reading a workbook', () => {
     const b = goodBook();
     b.Sections = aoa(['id', 'name'], [1, 'IPE 999']);
     const p = parseWorkbook(b).problems.find((x) => x.sheet === 'Sections')!;
-    expect(p.message).toContain('catálogo');
+    expect(p.message).toMatch(/catalog/);
     expect(p.message).toContain('IPE 999');
   });
 
@@ -181,7 +181,7 @@ describe('a row fails on its own', () => {
   it('will not attach a member load to a node', () => {
     const b = goodBook();
     b.Loads = aoa(['type', 'case', 'node', 'member'], ['distributed', 1, 3, '']);
-    expect(parseWorkbook(b).problems[0].message).toContain('barra');
+    expect(parseWorkbook(b).problems[0].message).toMatch(/member/);
   });
 
   it('rejects a support type it does not know, because the solver would restrain nothing', () => {

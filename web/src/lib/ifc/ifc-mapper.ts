@@ -2,7 +2,7 @@
 // This mapper is independent of web-ifc and operates on pre-parsed data.
 
 import { searchProfiles, profileToSectionFull } from '../data/steel-profiles';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ export function mapIfcToModel(
     const ni = findOrAddNode(member.start.x, member.start.y, member.start.z);
     const nj = findOrAddNode(member.end.x, member.end.y, member.end.z);
     if (ni === nj) {
-      warnings.push(`Miembro "${member.name}" con longitud cero — ignorado`);
+      warnings.push(tp('ifc.zeroLengthMember', { n: member.name }));
       continue;
     }
     const type = member.type === 'brace' && asTruss ? 'truss' as const : 'frame' as const;
@@ -113,7 +113,7 @@ export function mapIfcToModel(
       materials.push({ name, ...known[1] });
     } else {
       // Default to steel
-      warnings.push(`Material "${name}" no reconocido — usando acero por defecto`);
+      warnings.push(tp('ifc.materialUnknown', { n: name }));
       materials.push({ name, e: 200000, nu: 0.3, rho: 78.5 });
     }
   }

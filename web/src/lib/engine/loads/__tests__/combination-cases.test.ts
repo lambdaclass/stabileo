@@ -96,3 +96,54 @@ describe('both senses', () => {
       .toBe(one.length - withWind.length);
   });
 });
+
+describe('cases that are alternatives of one another', () => {
+  it('snow patterns of one roof enter one at a time, a separate snow case always', () => {
+    // Balanced and the two unbalanced patterns are the same snow on the same roof, three ways.
+    const snow = [
+      { id: 1, type: 'D', name: 'D' },
+      { id: 7, type: 'S', name: 'Nieve balanceada', alternatives: 'snow-roof' },
+      { id: 8, type: 'S', name: 'Nieve desbalanceada +X', alternatives: 'snow-roof' },
+      { id: 9, type: 'S', name: 'Nieve desbalanceada −X', alternatives: 'snow-roof' },
+      { id: 10, type: 'S', name: 'Nieve sobre la marquesina' },
+    ];
+    const out = expandCombinations([{ id: 's', label: '1.2 D + 1.6 S', terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'S', factor: 1.6 }] }] as never, snow);
+    expect(out).toHaveLength(3);
+    for (const c of out) {
+      const patterns = c.factors.filter((f) => [7, 8, 9].includes(f.caseId));
+      expect(patterns, c.name).toHaveLength(1);
+      expect(c.factors.some((f) => f.caseId === 10), c.name).toBe(true);
+    }
+    expect(new Set(out.flatMap((c) => c.factors.map((f) => f.caseId)).filter((id) => id >= 7 && id <= 9))).toEqual(new Set([7, 8, 9]));
+  });
+
+  it('a rule with wind and earthquake takes one direction of each, never both directions of either', () => {
+    const both = [
+      { id: 1, type: 'D', name: 'D' },
+      { id: 4, type: 'W', name: 'W X' }, { id: 5, type: 'W', name: 'W Y' },
+      { id: 11, type: 'E', name: 'E X' }, { id: 12, type: 'E', name: 'E Y' },
+    ];
+    const out = expandCombinations([{ id: 'r', label: '1.2 D + 1.0 W + 1.0 E', terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'W', factor: 1 }, { symbol: 'E', factor: 1 }] }] as never, both);
+    expect(out).toHaveLength(4);
+    for (const c of out) {
+      expect(c.factors.filter((f) => f.caseId === 4 || f.caseId === 5), c.name).toHaveLength(1);
+      expect(c.factors.filter((f) => f.caseId === 11 || f.caseId === 12), c.name).toHaveLength(1);
+    }
+  });
+});
+
+describe('reversing a wind case by sign', () => {
+  const w = [
+    { id: 1, type: 'D', name: 'D' },
+    { id: 4, type: 'W', name: 'Lateral' },
+    { id: 5, type: 'W', name: 'Roof suction +X' },
+  ];
+  const spec = [{ id: 'w', label: '1.2 D + 1.0 W', terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'W', factor: 1 }] }] as never;
+
+  it('is only done for the cases it is exact for', () => {
+    // Reversing roof suction turns it into pressure the code never prescribes.
+    const out = expandCombinations(spec, w, { bothSenses: { W: true }, reversible: (id) => id === 4 });
+    const signs = out.map((c) => c.factors.find((f) => f.caseId !== 1)!).map((f) => `${f.caseId}:${Math.sign(f.factor)}`).sort();
+    expect(signs).toEqual(['4:-1', '4:1', '5:1']);
+  });
+});

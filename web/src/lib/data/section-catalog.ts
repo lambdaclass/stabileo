@@ -98,6 +98,7 @@ export interface DesignCode {
   /**
    * Families the code's practice uses that are NOT shipped yet, so the picker
    * can say what is missing instead of implying the list is complete.
+   * Dictionary keys, like `note`: the picker shows them in the active language.
    */
   missingFamilies?: string[];
   note?: string;
@@ -119,7 +120,7 @@ export const DESIGN_CODES: DesignCode[] = [
     label: 'CIRSOC 301',
     region: 'AR',
     families: ['IPN', 'UPN', 'W', 'HP', 'M', 'C', 'MC', 'L', 'T', 'CHS', 'RHS', 'SHS'],
-    missingFamilies: [ 'L de alas desiguales IRAM-IAS', 'C/Z conformados en frío (CIRSOC 303)'],
+    missingFamilies: ['cat.missingFamily.unequalAngles', 'cat.missingFamily.coldFormedCZ'],
     note: 'cat.note.cirsoc',
   },
   /*

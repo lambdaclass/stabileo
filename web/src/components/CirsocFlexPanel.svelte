@@ -484,7 +484,7 @@
   <p class="fp-note">{t('flex.geometryNote')}</p>
   <div class="fp-grid">
     {#if kase === 'FST'}
-      <label class="fp-field"><span>b (ala) [cm]</span><input type="number" bind:value={bf} min="1" step="5" /></label>
+      <label class="fp-field"><span>{t('flex.in.bFlange')}</span><input type="number" bind:value={bf} min="1" step="5" /></label>
       <label class="fp-field"><span>hf [cm]</span><input type="number" bind:value={hf} min="1" step="1" /></label>
       <label class="fp-field"><span>bw [cm]</span><input type="number" bind:value={bw} min="1" step="5" /></label>
       <label class="fp-field"><span>h [cm]</span><input type="number" bind:value={h} min="5" step="5" /></label>

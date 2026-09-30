@@ -37,7 +37,8 @@ export type EditWarning =
   | 'supportDropped'      // a support's restraints could not be carried
   | 'loadDropped'         // a 2D-style load could not be carried
   | 'surfaceLoadTilted'   // a vertical surface load was kept vertical on a tilted copy
-  | 'groupDataVerbatim';  // a group was copied with its data unchanged
+  | 'groupDataVerbatim'    // a group was copied with its data unchanged
+  | 'shellCollapsed';     // a shell's corners welded onto each other, so it was left out
 
 /** Profiles whose section is symmetric across local y (z ↦ −z leaves them unchanged)... */
 const SYM_ACROSS_Y = new Set(['I', 'H', 'rect', 'RHS', 'CHS', 'C', 'U']);
