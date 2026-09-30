@@ -87,6 +87,15 @@ describe('solver-worker message round-trip', () => {
     expect(res!.error).toMatch(/Non-finite number \(NaN\) at input\.nodes\.2\.x/);
   });
 
+  it('refuses an oversized P-Delta input before entering the dense solver', async () => {
+    const input = cantileverWire();
+    for (let id = 3; id <= 1149; id++) input.nodes[id] = { id, x: id, y: 0, z: 0 };
+    await dispatch({ type: 'pdelta3d', id: 4, input, maxIter: 20, tol: 1e-4 });
+    const res = posted.find(m => m.type === 'result' && m.id === 4);
+    expect(res?.result).toBeUndefined();
+    expect(res?.error).toContain('P-Delta is not available for a model this large');
+  });
+
   it('reports an error for structurally invalid input instead of hanging', async () => {
     // Element references node 99, which does not exist.
     const bad = cantileverWire();

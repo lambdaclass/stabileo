@@ -8,6 +8,7 @@ import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
+import { assertPDeltaMemoryBudget } from './pdelta-memory';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -2336,11 +2337,17 @@ function solveCombinations3DPDelta(
 ): Bundle3D | string | null {
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
-  const linear = solveCombinations3DCore(free, loadCases, combinations, includeSelfWeight, leftHand);
-  if (!linear || typeof linear === 'string') return linear;
   const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (typeof base === 'string') return base;
   if (!base) return t('svc.emptyModel');
+  // Reject before solving every linear case: the requested combinations cannot run.
+  try {
+    assertPDeltaMemoryBudget(input3DToWireObject(base), t('advanced.pdeltaTooLarge'));
+  } catch (err: any) {
+    return t('svc.solver3dError').replace('{n}', err.message);
+  }
+  const linear = solveCombinations3DCore(free, loadCases, combinations, includeSelfWeight, leftHand);
+  if (!linear || typeof linear === 'string') return linear;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const perCombo = new Map<number, AnalysisResults3D>();

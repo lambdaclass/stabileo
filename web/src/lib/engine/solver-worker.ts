@@ -10,6 +10,7 @@
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
+import { assertPDeltaMemoryBudget } from './pdelta-memory';
 import { assertFiniteWire } from './wasm-solver';
 import { stripStabilisedReactions } from './stabilised-reactions';
 
@@ -74,6 +75,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
     try {
       assertFiniteWire(msg.input);
+      assertPDeltaMemoryBudget(msg.input);
       // The P-Delta export takes JSON text, as its main-thread wrapper sends it.
       const result = JSON.parse(solve_pdelta_3d(JSON.stringify(msg.input), msg.maxIter, msg.tol));
       if (result?.results) stripStabilisedReactions(result.results, msg.input);

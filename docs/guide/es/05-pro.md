@@ -20,6 +20,13 @@ Para empezar:
 - **Un ejemplo:** **Proyecto → Modelo nuevo → Ejemplos**. Hay dieciséis, agrupados en edificios,
   industriales, energía y offshore, fundaciones, estructuras de gran luz y modelos grandes de
   demostración.
+- **Un modelo de validación:** en la misma lista, el grupo **Modelos de validación** tiene siete
+  estructuras publicadas modeladas uno a uno, con su numeración de nudos y barras, sus secciones
+  por propiedades, sus casos y sus combinaciones. Se cargan tal cual, sin generar combinaciones de
+  reglamento encima. La descripción de cada uno dice qué se adaptó (el eje vertical, las unidades,
+  y las cargas que el programa de origen calculaba y acá entran como cargas comunes).
+  **Modelo 04:** P-Delta todavía no está disponible para este tamaño. Se conserva su
+  configuración; seleccioná análisis lineal explícitamente para obtener resultados de primer orden.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
   (DXF).
 
