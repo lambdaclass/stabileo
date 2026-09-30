@@ -308,10 +308,12 @@ describe('over the physical member, not the element', () => {
 describe('the unfactored basis after a PRO solve', () => {
   afterEach(() => { vi.restoreAllMocks(); uiStore.analysisMode = '2d'; });
 
-  it('is every load case at factor 1, not the first case alone', async () => {
+  it.each([false, true])('includes every case at factor 1, with declared self-weight=%s', async (withSelfWeight) => {
     member('pinned', 'roller');
     const dead = modelStore.addLoadCase('Defl D', 'D');
     const live = modelStore.addLoadCase('Defl L', 'L');
+    // State the load basis explicitly; the legacy toggle adds weight to every D case.
+    modelStore.setAnalysis({ selfWeight: withSelfWeight ? [{ caseId: dead, direction: 'Z', factor: -1 }] : [] });
     modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
     modelStore.addDistributedLoad3D(beam, 0, 0, -2 * q, -2 * q, undefined, undefined, live);
     modelStore.addCombination('1.2D+1.6L', [{ caseId: dead, factor: 1.2 }, { caseId: live, factor: 1.6 }]);
@@ -322,6 +324,8 @@ describe('the unfactored basis after a PRO solve', () => {
     const s = serviceSets();
     expect(s.basis).toBe('unfactored');
     const d = serviceDeflections([beam], s.sets).get(beam)!;
-    expect(d.max / ((5 * 3 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
+    const element = modelStore.elements.get(beam)!;
+    const ownWeight = withSelfWeight ? modelStore.materials.get(element.materialId)!.rho * modelStore.sections.get(element.sectionId)!.a : 0;
+    expect(d.max / ((5 * (3 * q + ownWeight) * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });

@@ -218,4 +218,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * Re-recorded once more (was `792b6f88ea1fc3a4`) when self-weight became a member load; the
  * member-by-member check is in the test above.
  */
-const RECORDED_FINGERPRINT = 'f4681de2873ce5ac';
+// Re-recorded after preserving axial distributed self-weight in member force recovery.
+// Replacing only globalDistributedToSolver with its pre-fix implementation reproduces
+// f4681de2873ce5ac exactly on the current engine. Restoring the fix changes utilization
+// for columns 1, 3, 6–10, 12–14 (ten members), with no outcome or limiting-constraint
+// changes among all 408 members; 395 remain verified and 13 provisional. The maximum
+// utilization remains 1.0000. See the closed-form axial tests in calculation-fidelity-regressions.test.ts.
+const RECORDED_FINGERPRINT = 'c05971b8f79bb372';

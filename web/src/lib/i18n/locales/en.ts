@@ -3729,7 +3729,7 @@ const en: Record<string, string> = {
   'diag.model.missingMaterial': 'Member references non-existent material',
   'diag.model.zeroModulus': 'Material with zero elastic modulus',
   'diag.model.doubleHinge': 'Double-hinged frame member (potential mechanism)',
-  'diag.model.transverseOnTruss': 'This member is modelled as a truss (axial force only). A transverse load on it goes to its two nodes as the reactions of a simply supported span, with no bending in the member. If the member has to carry that bending, model it as a frame member.',
+  'diag.model.transverseOnTruss': 'This member is modeled as a truss (axial force only). A transverse load on it goes to its two nodes as the reactions of a simply supported span, with no bending in the member. If the member has to carry that bending, model it as a frame member.',
   'diag.model.supportOrphan': 'Support on non-existent node',
   'diag.model.noLoads': 'No loads applied',
   'diag.model.emptyCase': 'Empty load case (no loads)',
