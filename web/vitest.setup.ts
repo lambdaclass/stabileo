@@ -21,6 +21,30 @@ import type { SolverInput } from './src/lib/engine/types';
  * has always made.
  */
 
+/*
+ * Node 25 ships a global `localStorage` (Web Storage), and without `--localstorage-file` it is an
+ * object with no methods: `localStorage.setItem is not a function`. The app guards its storage
+ * with try/catch and runs; a test that stubs storage with `??=` did not replace it, and failed on
+ * a developer's Node while CI's Node 20, which has no such global, passed. Where the global exists
+ * but cannot store, it becomes an in-memory Storage; where it is absent (Node 20) nothing changes.
+ */
+(() => {
+  const g = globalThis as { localStorage?: Partial<Storage> };
+  let broken = false;
+  try { broken = 'localStorage' in globalThis && typeof g.localStorage?.setItem !== 'function'; } catch { broken = true; }
+  if (!broken) return;
+  const mem = new Map<string, string>();
+  const storage: Storage = {
+    get length() { return mem.size; },
+    clear: () => mem.clear(),
+    getItem: (k) => mem.get(k) ?? null,
+    key: (i) => [...mem.keys()].at(i) ?? null,
+    removeItem: (k) => { mem.delete(k); },
+    setItem: (k, v) => { mem.set(k, String(v)); },
+  };
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
+})();
+
 const WASM_DIR = fileURLToPath(new URL('./src/lib/wasm/', import.meta.url));
 const WASM_BINARY = `${WASM_DIR}dedaliano_engine_bg.wasm`;
 const WASM_GLUE = `${WASM_DIR}dedaliano_engine.js`;
