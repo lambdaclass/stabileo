@@ -16,6 +16,7 @@ import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
 import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
+import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
@@ -276,20 +277,24 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     if (!comboResult) return t('results.emptyModelError');
     if (modelStore.modelVersion !== solveEpoch) return null;
 
-    // The "single" baseline is every load at factor 1 — what the case selector and the query
-    // panel call "All loads", and what the deflection check reads as unfactored. It was the
-    // first case alone (usually the dead load), so both showed the dead load under that name.
-    // The solve is linear, so the sum of the cases is exact.
-    // The engine's combination carries only displacements, reactions and member forces;
-    // allLoadsResult3D puts back the shell stresses (the floor design reads them), constraint
-    // forces and the solve's diagnostics.
-    const caseIds = [...comboResult.perCase.keys()];
-    const combined = caseIds.length > 1
-      ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
-      : null;
-    const firstCaseResult = combined
-      ? allLoadsResult3D(combined, comboResult.perCase)
-      : comboResult.perCase.get(caseIds[0]);
+    // "All loads" is an unfactored physical load state. Only a linear model can reuse
+    // the sum of independently solved cases: one-way members and lifting/curved supports
+    // need the active set of the combined loads, including settlements exactly once.
+    let firstCaseResult;
+    if (hasNonlinearBehaviour(modelStore.model)) {
+      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+      if (isStale() || modelStore.modelVersion !== solveEpoch) return null;
+      if (typeof single === 'string') return single;
+      firstCaseResult = single;
+    } else {
+      const caseIds = [...comboResult.perCase.keys()];
+      const combined = caseIds.length > 1
+        ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
+        : null;
+      firstCaseResult = combined
+        ? allLoadsResult3D(combined, comboResult.perCase)
+        : comboResult.perCase.get(caseIds[0]);
+    }
     if (!firstCaseResult) return t('results.emptyModelError');
 
     resultsStore.setResults3D(firstCaseResult);

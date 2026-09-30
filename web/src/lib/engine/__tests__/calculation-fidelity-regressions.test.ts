@@ -1,6 +1,7 @@
-import { beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
-import '../../store/index';
+import { resultsStore, uiStore } from '../../store/index';
+import { runGlobalSolve } from '../live-calc';
 import { initSolver } from '../wasm-solver';
 import { scaleSolverLoad, buildSolverInput3D } from '../solver-service';
 import { convertThermalQuadLoad } from '../solver-shells';
@@ -13,7 +14,8 @@ import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import type { AnalysisResults3D } from '../types-3d';
 
 beforeAll(async () => { await initSolver(); });
-beforeEach(() => modelStore.clear());
+beforeEach(() => { modelStore.clear(); resultsStore.clear(); });
+afterEach(() => { uiStore.analysisMode = '2d'; });
 function result<T>(r: T | string | null): T {
   if (!r || typeof r === 'string') throw new Error(String(r));
   return r;
@@ -124,4 +126,33 @@ it('retains a partial axial triangle in diagrams, combinations, gravity and deta
   expect(df[6]!).toBeCloseTo(0, 9);
   const mass = withMassSource(modelStore.model, modelStore.model.loadCases, { kind: 'custom', factors: [{ caseId: 1, factor: 1 }] }, input);
   expect(mass.report.addedT.get(1)).toBeCloseTo(6 / G, 8);
+});
+
+it('solves All loads jointly when opposite load cases activate different diagonals', async () => {
+  const n1 = modelStore.addNode(0, 0, 0), n2 = modelStore.addNode(4, 0, 0);
+  const n3 = modelStore.addNode(0, 0, 3), n4 = modelStore.addNode(4, 0, 3);
+  for (const [a, b] of [[n1, n3], [n2, n4], [n3, n4]]) modelStore.addElement(a!, b!, 'frame');
+  for (const [a, b] of [[n1, n4], [n2, n3]]) {
+    const e = modelStore.addElement(a!, b!, 'frame');
+    modelStore.updateElement(e, { behaviour: 'tensionOnly' });
+  }
+  for (const n of [n1, n2]) modelStore.addSupport(n, 'fixed3d');
+  for (const n of [n3, n4]) modelStore.addSupport(n, 'custom3d', undefined, {
+    dofRestraints: { tx: false, ty: true, tz: false, rx: true, ry: false, rz: true },
+  });
+  const live = modelStore.addLoadCase('reverse', 'L');
+  modelStore.setAnalysis({ selfWeight: [] });
+  modelStore.addNodalLoad3D(n3, 10, 0, 0, 0, 0, 0, 1);
+  modelStore.addNodalLoad3D(n3, -10, 0, 0, 0, 0, 0, live);
+  modelStore.addCombination('together', [{ caseId: 1, factor: 1 }, { caseId: live, factor: 1 }]);
+  uiStore.analysisMode = 'pro';
+  await runGlobalSolve();
+  resultsStore.activeView = 'single';
+  resultsStore.activeCaseId = null;
+  const r = result(resultsStore.results3D);
+  expect(r.nonlinear).toMatchObject({ converged: true, slack: [] });
+  for (const f of r.elementForces) {
+    expect(f.nStart).toBeCloseTo(0, 9);
+    expect(f.nEnd).toBeCloseTo(0, 9);
+  }
 });
