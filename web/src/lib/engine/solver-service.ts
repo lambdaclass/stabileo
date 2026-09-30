@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D } from './member-behaviour';
 import { sectionShearAreas } from '../section/shear-areas';
@@ -341,6 +342,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
   }
 
   if (includeSelfWeight) {
+    const sectionWeight = createSectionWeight(model.materials);
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
@@ -351,7 +353,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
       const sinTheta = dy / L, cosTheta = dx / L;
-      const w = mat.rho * sec.a;
+      const w = sectionWeight(sec, elem.materialId);
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
         solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
@@ -1385,6 +1387,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
 
   // Self-weight
   if (includeSelfWeight) {
+    const sectionWeight = createSectionWeight(model.materials);
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
@@ -1398,7 +1401,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
       const dz = njSolver.z - niSolver.z;
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 1e-10) continue;
-      const w = mat.rho * sec.a;
+      const w = sectionWeight(sec, elem.materialId);
       const totalWeight = w * L;
       solverLoads.push(
         { type: 'nodal', data: { nodeId: elem.nodeI, fx: 0, fy: 0, fz: -totalWeight / 2, mx: 0, my: 0, mz: 0 } },

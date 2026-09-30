@@ -71,6 +71,7 @@ export interface DirectAnalysisResult {
 /** One P-Delta solve: on a worker when the caller has one, on this thread otherwise. */
 export type PDeltaRunner = (input: SolverInput3D, maxIter: number, tol: number) => Promise<{
   results: AnalysisResults3D; linearResults?: AnalysisResults3D; converged: boolean; iterations: number;
+  isStable?: boolean;
   b2Factor?: number; amplification?: Array<{ nodeId: number; ratio: number }>;
 }>;
 
@@ -203,13 +204,14 @@ function compression(results: AnalysisResults3D): Map<number, number> {
  * Second- over first-order drift, read from the two sets of displacements, and whether the
  * second-order answer is a physical one.
  *
- * Not the engine's `b2Factor` or `isStable`: past the critical load in a member's weak axis the
+ * A positive engine stability flag alone is insufficient: past the critical load in a member's weak axis the
  * engine was measured returning `converged`, `isStable` and a B2 of 1.0 with the displacement's
  * sign reversed, a column under 300 kN whose weak-axis critical load is 139 kN. Here the
  * displacement at the node that moves most in first order is compared with its second-order
  * counterpart: a reversed or vanishing one means no equilibrium exists at this load.
  */
-export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D }): { b2: number; stable: boolean } {
+export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean }): { b2: number; stable: boolean } {
+  if (r.isStable === false) return { b2: Infinity, stable: false };
   const lin = r.linearResults?.displacements ?? [];
   const second = new Map((r.results.displacements ?? []).map((d) => [d.nodeId, d]));
   let worst: { d1: [number, number, number]; d2: [number, number, number] } | null = null;
@@ -243,7 +245,7 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
-  const settings = opts.settings ?? DEFAULT_DIRECT_SETTINGS;
+  const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
   const maxIter = settings.maxIter ?? 30, tol = settings.tol ?? 1e-5;
@@ -285,41 +287,46 @@ export async function runDirectAnalysis(
       // A lateral combination takes notional loads only past a drift ratio of 1.7.
       const firstB2 = amplification(r).b2;
       if (ratio(firstB2) !== ratio(0)) r = await solveWith(tau, ratio(firstB2), ux, uy);
+      let tauConverged = settings.tauB !== 'iterate';
       if (settings.tauB === 'iterate') {
-        for (let k = 0; k < 5; k++) {
+        for (let k = 0; k <= 5; k++) {
+          if (!r.converged || !amplification(r).stable) break;
           const next = new Map<number, number>();
           for (const [id, c] of compression(r.results)) {
             const p = pns.get(id);
             if (p) { const t = tauBOf(c, p); if (t < 1) next.set(id, t); }
           }
           const moved = [...new Set([...next.keys(), ...tau.keys()])].some((id) => Math.abs((next.get(id) ?? 1) - (tau.get(id) ?? 1)) > 0.01);
-          if (!moved) break;
+          if (!moved) { tauConverged = true; break; }
+          if (k === 5) break;
           tau = next;
           r = await solveWith(tau, ratio(amplification(r).b2), ux, uy);
         }
       }
-      return { r, tau };
+      return { r, tau, converged: r.converged && tauConverged };
     };
 
-    let chosen: { r: Awaited<ReturnType<PDeltaRunner>>; tau: Map<number, number>; dir: NotionalDirection };
+    let chosen: Awaited<ReturnType<typeof solveDirection>> & { dir: NotionalDirection };
     if (hasLateral) {
       const ux = lateral.x / hMag, uy = lateral.y / hMag;
-      const { r, tau } = await solveDirection((b2) => (b2 > 1.7 ? settings.notional : 0) + extra, ux, uy);
+      const answer = await solveDirection((b2) => (b2 > 1.7 ? settings.notional : 0) + extra, ux, uy);
+      const { r } = answer;
       const applied = amplification(r).b2 > 1.7 || extra > 0;
-      chosen = { r, tau, dir: applied ? 'lateral' : 'none' };
+      chosen = { ...answer, dir: applied ? 'lateral' : 'none' };
     } else {
       const dirs: Array<[NotionalDirection, number, number]> = [['+X', 1, 0], ['-X', -1, 0], ['+Y', 0, 1], ['-Y', 0, -1]];
       const tried = await Promise.all(dirs.map(async ([dir, ux, uy]) => ({ dir, ...(await solveDirection(() => settings.notional + extra, ux, uy)) })));
       // An unstable direction governs outright: it is the one the structure cannot carry.
       const unstable = tried.find((x) => !amplification(x.r).stable);
-      chosen = unstable ?? tried.reduce((a, b) => (sway(b.r.results) > sway(a.r.results) ? b : a));
+      chosen = unstable ?? tried.find((x) => !x.converged)
+        ?? tried.reduce((a, b) => (sway(b.r.results) > sway(a.r.results) ? b : a));
     }
     const amp = amplification(chosen.r);
-    // An unstable combination publishes no forces: there are none to design for.
-    if (amp.stable) perCombo.set(combo.id, chosen.r.results);
+    // Both the P-Delta solve and the stiffness iteration must have converged.
+    if (amp.stable && chosen.converged) perCombo.set(combo.id, chosen.r.results);
     info.set(combo.id, {
       comboId: combo.id, notional: chosen.dir, b2: amp.b2, stable: amp.stable,
-      converged: chosen.r.converged, iterations: chosen.r.iterations, tauB: chosen.tau,
+      converged: chosen.converged, iterations: chosen.r.iterations, tauB: chosen.tau,
     });
   }));
 
