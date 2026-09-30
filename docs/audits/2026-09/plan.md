@@ -16,8 +16,8 @@
 >   silent success; P-2 one concept with several sources of truth (weld tolerances, the 3D-mode check);
 >   P-3 duplicated helpers drifting; P-4 new id-bearing fields that remaps and persistence miss; P-5 store
 >   reactivity outside components; P-6 repeated or main-thread work; P-7 numerical thresholds referenced to
->   the wrong quantity; P-8 tests that pin source text. Their tasks are 1.4–1.11 (to be written when Phase 1
->   starts); the i18n split (en/es/pt, 8.5 k lines, >150 commits a month each) goes with P-3.
+>   the wrong quantity; P-8 tests that pin source text. Their tasks are numbered from 1.4 in the
+>   order they are taken (1.4 = P-2's 3D-mode check, 1.5 = P-8); the i18n split (en/es/pt, 8.5 k lines, >150 commits a month each) goes with P-3.
 > - **Two modules without a task.** `web/src/lib/engine/steps` (explained steps, 8.9 k lines) and
 >   `web/src/lib/engine/force-method` (1.8 k) were written after this plan. They become tasks 2.28 (W18) and
 >   2.29 (W19), tier 1: both print numbers a student or an engineer reads as the answer.
@@ -1189,7 +1189,9 @@ Status: ☐ todo · ◐ in progress · ✔ done (date, PR)
 | Task | Module | Status | PR | Headline findings | Deferred |
 |------|--------|--------|----|-------------------|----------|
 | 0.1–0.4 | Baseline (includes K1 triage) | ◐ 2026-09-30 | | Main red from #231: contrast of the quantities hint (fixed); Node 25 harness defect (fixed); TS baseline 463 → 456 | |
-| 1.4–1.11 | Cross-cutting patterns P-1…P-8 (revision 2026-09-30) | ☐ | | | |
+| 1.4 | P-2: the 3D-mode check (`is3DWorkspace` + gate) | ◐ | #247 | 36 checks left PRO out; PRO context menu had no local-axes entry | |
+| 1.5 | P-8: tests of behaviour, not source text | ◐ | | | |
+| 1.6+ | P-1, P-3…P-7, P-2 tolerances | ☐ | | | |
 | 1.1 | WASM reachability map | ☐ | | | |
 | 1.2 | Implementation map | ☐ | | | |
 | 1.3 | Differential tests | ☐ | | | |
