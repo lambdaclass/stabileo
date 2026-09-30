@@ -12,7 +12,15 @@ import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
-import type { QuantitySummary } from './quantity-takeoff';
+import type { ProjectQuantities } from './quantities';
+import { quantitiesSectionHtml } from './report/quantities-section';
+import {
+  projectCoverHtml, envelopeSectionHtml, staticsSectionHtml, deflectionSectionHtml, figuresSectionHtml,
+  type DeflectionReportRow, type ReportFigure,
+} from './report/project-sections';
+import type { Source } from './result-tables';
+import type { StaticsRows } from '../store/statics-rows';
+import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
 import { principalStresses } from './shell-stress';
 
@@ -24,13 +32,21 @@ function interp(tpl: string, vars: Record<string, string | number>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
 }
 
-/** Report configuration — project/company info + section selection */
+/**
+ * Report configuration: the office's letterhead, what to include, and the figures chosen.
+ *
+ * The job's own data (client, job, revisions, signatures) is the project's, `ReportData.projectInfo`;
+ * `projectAddress`, `engineerName` and `revision` are what the letterhead carried before that and
+ * are printed only when the project states none.
+ */
 export interface ReportConfig {
   companyName: string;
   companyLogo: string | null;
-  projectAddress: string;
-  engineerName: string;
-  revision: string;
+  projectAddress?: string;
+  engineerName?: string;
+  revision?: string;
+  /** Figures the user added from the viewport, in order. */
+  figures?: ReportFigure[];
   /** Which document to produce from the same choices: the printable report or the workbook. */
   format?: 'pdf' | 'xlsx';
   /** False when the letterhead was left blank — no project block is printed. */
@@ -46,10 +62,23 @@ export interface ReportConfig {
     diagnostics: boolean;
     quantities: boolean;
     loads: boolean;
+    /** Summary and envelope across the result sets. */
+    envelope?: boolean;
+    statics?: boolean;
+    deflections?: boolean;
+    figures?: boolean;
   };
 }
 
 export interface ReportData {
+  /** The job's data, for the cover. */
+  projectInfo?: ProjectInfo;
+  /** The result sets the envelope reads (the active combinations, else the cases). */
+  resultSets?: Source[];
+  /** Which result set the per-result tables are of. */
+  resultSetName?: string;
+  statics?: StaticsRows | null;
+  deflections?: DeflectionReportRow[];
   projectName: string;
   date: string;
   /** CAD-derived draft provenance — when present and unreviewed, the report
@@ -69,7 +98,7 @@ export interface ReportData {
   // Verification
   verifications: ElementVerification[];
   // Quantities
-  quantities?: QuantitySummary;
+  quantities?: ProjectQuantities;
   // Element lengths for elevation drawings
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
@@ -89,7 +118,7 @@ export interface ReportData {
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number } }>;
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number; over?: string } }>;
   // Upgraded joint detail opts (detailing-aware, multiple types)
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
@@ -428,13 +457,15 @@ export function generateReportHtml(data: ReportData): string {
   if (data.provenance?.status === 'cad-draft-unreviewed') {
     html.push(`<div style="margin:16px auto;max-width:520px;border:2px solid #b8860b;background:#fdf6e3;color:#7a5a00;padding:10px 14px;border-radius:6px;font-size:13px;font-weight:600">${escHtml(tr('report.cadDraftBanner'))}</div>`);
   }
-  if (cfg?.projectAddress) {
+  if (data.projectInfo) {
+    html.push(...projectCoverHtml(data.projectInfo, tr));
+  } else if (cfg?.projectAddress) {
     html.push(`<div style="font-size:12px;color:#666;margin-top:12px">${escHtml(cfg.projectAddress)}</div>`);
   }
   html.push(`<div class="date">${escHtml(date)}</div>`);
   const coverFooterParts: string[] = [];
-  if (cfg?.engineerName) coverFooterParts.push(`${escHtml(tr('report.engineer'))}: ${escHtml(cfg.engineerName)}`);
-  if (cfg?.revision) coverFooterParts.push(`${escHtml(tr('report.revisionLabel'))}: ${escHtml(cfg.revision)}`);
+  if (!data.projectInfo && cfg?.engineerName) coverFooterParts.push(`${escHtml(tr('report.engineer'))}: ${escHtml(cfg.engineerName)}`);
+  if (!data.projectInfo && cfg?.revision) coverFooterParts.push(`${escHtml(tr('report.revisionLabel'))}: ${escHtml(cfg.revision)}`);
   if (coverFooterParts.length > 0) {
     html.push(`<div style="font-size:11px;color:#888;margin-top:16px">${coverFooterParts.join(' &mdash; ')}</div>`);
   }
@@ -456,6 +487,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: '7. ' + (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
+  if (showSection('figures') && cfg?.figures?.length) tocEntries.push({ label: '8. ' + tr('report.figures'), anchor: 'sec-figures' });
   // Insert Design Summary into TOC if verification data exists AND the user
   // didn't opt out of the verification section in the report config.
   if (showSection('verification') && verifications.length > 0) {
@@ -586,9 +618,7 @@ export function generateReportHtml(data: ReportData): string {
 
   // Nodes table
   html.push(`<h2>1.1 ${escHtml(tr('report.nodes'))} (${nodes.length})</h2>`);
-  if (nodes.length > 80) {
-    html.push(`<p>${escHtml(interp(tr('report.nodesOmitted'), { n: nodes.length }))}</p>`);
-  } else {
+  {
     html.push(`<table><thead><tr><th>ID</th><th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
     for (const n of nodes) {
       html.push(`<tr><td>${n.id}</td><td class="num">${fmtNum(n.x, 3)}</td><td class="num">${fmtNum(n.y, 3)}</td><td class="num">${fmtNum(n.z ?? 0, 3)}</td></tr>`);
@@ -606,17 +636,17 @@ export function generateReportHtml(data: ReportData): string {
 
   // Sections table
   html.push(`<h2>1.3 ${escHtml(tr('report.sections'))} (${sections.length})</h2>`);
-  html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('A')} (m²)</th><th>${km('I_z')} (m⁴)</th><th>${km('b')} (m)</th><th>${km('h')} (m)</th></tr></thead><tbody>`);
+  html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('A')} (m²)</th><th>${km('I_y')} (m⁴)</th><th>${km('I_z')} (m⁴)</th><th>${km('J')} (m⁴)</th><th>${km('A_{s,y}')} / ${km('A_{s,z}')}</th><th>${km('b')} (m)</th><th>${km('h')} (m)</th></tr></thead><tbody>`);
   for (const s of sections) {
-    html.push(`<tr><td>${s.id}</td><td>${escHtml(s.name)}</td><td class="num">${fmtNum(s.a, 6)}</td><td class="num">${fmtNum(s.iz, 8)}</td><td class="num">${s.b ? fmtNum(s.b, 3) : '—'}</td><td class="num">${s.h ? fmtNum(s.h, 3) : '—'}</td></tr>`);
+    const sa = (s as { shearAreas?: { basis: string; asY?: number; asZ?: number } }).shearAreas;
+    const shear = !sa ? '—' : sa.basis === 'declared' ? `${fmtNum(sa.asY ?? 0, 6)} / ${fmtNum(sa.asZ ?? 0, 6)}` : escHtml(tr('report.shearFromGeometry'));
+    html.push(`<tr><td>${s.id}</td><td>${escHtml(s.name)}</td><td class="num">${fmtNum(s.a, 6)}</td><td class="num">${s.iy !== undefined ? fmtNum(s.iy, 8) : '—'}</td><td class="num">${fmtNum(s.iz, 8)}</td><td class="num">${s.j !== undefined ? fmtNum(s.j, 8) : '—'}</td><td class="num">${shear}</td><td class="num">${s.b ? fmtNum(s.b, 3) : '—'}</td><td class="num">${s.h ? fmtNum(s.h, 3) : '—'}</td></tr>`);
   }
   html.push(`</tbody></table>`);
 
   // Elements table
   html.push(`<h2>1.4 ${escHtml(tr('report.elements'))} (${elements.length})</h2>`);
-  if (elements.length > 100) {
-    html.push(`<p>${escHtml(interp(tr('report.elementsOmitted'), { n: elements.length }))}</p>`);
-  } else {
+  {
     html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
     for (const e of elements) {
       const matName = materials.find(m => m.id === e.materialId)?.name ?? String(e.materialId);
@@ -762,6 +792,7 @@ export function generateReportHtml(data: ReportData): string {
     const nFree = results.timings?.nFree;
     const dofLine = nFree !== undefined ? `, ${nFree} ${escHtml(tr('report.freeDof') || 'free DOF')}` : '';
     html.push(`<p class="model-size">${nodes.length} ${escHtml(tr('report.nodes'))}, ${elements.length} ${escHtml(tr('report.elements'))}${dofLine}.</p>`);
+    if (data.resultSetName) html.push(`<p class="note">${escHtml(interp(tr('report.resultSetShown'), { name: data.resultSetName }))}</p>`);
   }
 
   // Reactions
@@ -774,9 +805,7 @@ export function generateReportHtml(data: ReportData): string {
 
   // Element forces
   html.push(`<h2>2.2 ${escHtml(tr('report.forces'))}</h2>`);
-  if (results.elementForces.length > 100) {
-    html.push(`<p>${escHtml(interp(tr('report.forcesOmitted'), { n: results.elementForces.length }))}</p>`);
-  } else {
+  {
     html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
     for (const ef of results.elementForces) {
       html.push(`<tr><td rowspan="2">${ef.elementId}</td><td>i</td><td class="num">${fmtNum(ef.nStart)}</td><td class="num">${fmtNum(ef.vyStart)}</td><td class="num">${fmtNum(ef.vzStart)}</td><td class="num">${fmtNum(ef.mxStart)}</td><td class="num">${fmtNum(ef.myStart)}</td><td class="num">${fmtNum(ef.mzStart)}</td></tr>`);
@@ -787,9 +816,7 @@ export function generateReportHtml(data: ReportData): string {
 
   // Displacements
   html.push(`<h2>2.3 ${escHtml(tr('report.displacements'))}</h2>`);
-  if (results.displacements.length > 80) {
-    html.push(`<p>${escHtml(interp(tr('report.displacementsOmitted'), { n: results.displacements.length }))}</p>`);
-  } else {
+  {
     html.push(`<table><thead><tr><th>Nodo</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
     for (const d of results.displacements) {
       html.push(`<tr><td>${d.nodeId}</td><td class="num">${fmtNum(d.ux, 6)}</td><td class="num">${fmtNum(d.uy, 6)}</td><td class="num">${fmtNum(d.uz, 6)}</td><td class="num">${fmtNum(d.rx, 6)}</td><td class="num">${fmtNum(d.ry, 6)}</td><td class="num">${fmtNum(d.rz, 6)}</td></tr>`);
@@ -826,12 +853,7 @@ export function generateReportHtml(data: ReportData): string {
         s1: fmtNum(g1.s1), s1El: `${g1.kind} ${g1.id}`,
       }))}</p>`);
 
-      const LIMIT = 60;
-      let shown = rows;
-      if (rows.length > LIMIT) {
-        shown = [...rows].sort((a, b) => b.vm - a.vm).slice(0, LIMIT);
-        html.push(`<p>${escHtml(interp(tr('report.shellResultsOmitted'), { n: String(rows.length), k: String(LIMIT) }))}</p>`);
-      }
+      const shown = rows;
 
       html.push(`<table><thead><tr><th>Elem</th>`
         + `<th>${km('\\sigma_{xx}')}</th><th>${km('\\sigma_{yy}')}</th><th>${km('\\tau_{xy}')}</th>`
@@ -849,6 +871,10 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<p class="note">${escHtml(tr('report.shellUnitsNote'))}</p>`);
     }
   }
+
+  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `2.5 ${tr('report.env.title')}`));
+  if (showSection('statics') && data.statics) html.push(...staticsSectionHtml(data.statics, tr, `2.6 ${tr('pro.statics.title')}`));
+  if (showSection('deflections') && data.deflections?.length) html.push(...deflectionSectionHtml(data.deflections, tr, `2.7 ${tr('defl.title')}`));
 
   } // end showSection('results')
 
@@ -1228,9 +1254,12 @@ export function generateReportHtml(data: ReportData): string {
           const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
           // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
           // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
+          // Both over the length the check used — 2L for a cantilever — or the row read
+          // "L/200 vs L/360 ✓" for a cantilever that passed against 2L/360.
+          const over = s.deflection?.over ?? 'L';
           const sod = s.deflection?.spanOverDelta;
-          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `L/${Math.round(sod)}` : 'L/∞') : '—';
-          const deflLim = s.deflection?.limitDivisor ? `L/${s.deflection.limitDivisor}` : '—';
+          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `${over}/${Math.round(sod)}` : `${over}/∞`) : '—';
+          const deflLim = s.deflection?.limitDivisor ? `${over}/${s.deflection.limitDivisor}` : '—';
           const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
           const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
           html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
@@ -1292,24 +1321,14 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`</tbody></table>`);
     }
 
-    // Quantities section
-    if (quantities) {
-      html.push(`<h2>3.4 ${escHtml(tr('report.quantities'))}</h2>`);
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.concept'))}</th><th>${escHtml(tr('report.quantity'))}</th><th>${escHtml(tr('report.unit'))}</th></tr></thead><tbody>`);
-      html.push(`<tr><td>${escHtml(tr('report.concrete'))}</td><td class="num">${quantities.totalConcreteVolume.toFixed(2)}</td><td>m³</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.rebarLong'))}</td><td class="num">${quantities.totalRebarWeight.toFixed(0)}</td><td>kg</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.rebarStirrups'))}</td><td class="num">${quantities.totalStirrupWeight.toFixed(0)}</td><td>kg</td></tr>`);
-      html.push(`<tr><td><strong>${escHtml(tr('report.steelTotal'))}</strong></td><td class="num"><strong>${quantities.totalSteelWeight.toFixed(0)}</strong></td><td>kg</td></tr>`);
-      html.push(`<tr><td>${escHtml(tr('report.steelRatio'))}</td><td class="num">${quantities.steelRatio.toFixed(0)}</td><td>kg/m³</td></tr>`);
-      html.push(`</tbody></table>`);
+  }
 
-      html.push(`<h3>${escHtml(tr('report.detailByElement'))}</h3>`);
-      html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('L')} (m)</th><th>H° (m³)</th><th>Long. (kg)</th><th>${escHtml(tr('report.stirrups'))} (kg)</th><th>Total (kg)</th></tr></thead><tbody>`);
-      for (const eq of quantities.elements) {
-        html.push(`<tr><td>${eq.elementId}</td><td>${typeLabelShort(eq.elementType, tr)}</td><td class="num">${eq.length.toFixed(2)}</td><td class="num">${eq.concreteVolume.toFixed(3)}</td><td class="num">${eq.rebarWeight.toFixed(1)}</td><td class="num">${eq.stirrupWeight.toFixed(1)}</td><td class="num">${eq.totalSteelWeight.toFixed(1)}</td></tr>`);
-      }
-      html.push(`</tbody></table>`);
-    }
+  // ─── Figures ────────────────────────────────────────────
+  if (showSection('figures') && cfg?.figures?.length) html.push(...figuresSectionHtml(cfg.figures, tr, tr('report.figures')));
+
+  // ─── Quantities ─────────────────────────────────────────
+  if (showSection('quantities') && quantities) {
+    html.push(...quantitiesSectionHtml(quantities, tr, tr('report.quantities')));
   }
 
   // ─── Advanced Analysis Summary ──────────────────────────

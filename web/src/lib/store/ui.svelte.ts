@@ -68,7 +68,8 @@ export type NodeMode = 'create' | 'hinge';
 export type JointType = 'hinge' | 'slideX' | 'slideZ';
 /** Axis frame for sliding joints: world (global) or member-local. */
 export type JointAxisMode = 'global' | 'local';
-export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
+export type { ElementColorMode } from '../viewport/element-colour';
+import type { ElementColorMode } from '../viewport/element-colour';
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
 // 3D-specific types
@@ -308,6 +309,19 @@ function createUIStore() {
 
   // Element creation type
   let elementCreateType = $state<'frame' | 'truss'>('frame');
+  /**
+   * How the member tool strings its clicks: `polyline` continues each member
+   * from the end of the last one, `single` makes one member per two clicks.
+   * PRO has no options strip to change it, so it keeps drawing single members.
+   */
+  let memberDrawMode = $state<'single' | 'polyline'>('polyline');
+  /**
+   * A tag with ΔX, ΔZ and the length while a 2D member is stretched. One
+   * setting, reached from the member tool and from Settings; persisted.
+   */
+  let showMemberDimensions = $state<boolean>(
+    !hasLocalStorage() || localStorage.getItem('stabileo-member-dims') !== 'false',
+  );
   let elementMode = $state<ElementMode>('create');
   let nodeMode = $state<NodeMode>('create');
   let jointType = $state<JointType>('hinge');
@@ -366,7 +380,7 @@ function createUIStore() {
 
   // Unit system — persisted in localStorage
   const savedUnitSystem = hasLocalStorage() ? localStorage.getItem('stabileo-unitSystem') : null;
-  let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' ? 'Imperial' : 'SI') as UnitSystem);
+  let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' || savedUnitSystem === 'MKS' ? savedUnitSystem : 'SI') as UnitSystem);
 
   /*
    * How big the controls INSIDE a panel are on a phone. Persisted.
@@ -573,6 +587,8 @@ function createUIStore() {
   // 3D camera state (synced from Viewport3D via saveCameraState, restored on tab switch)
   let cameraPosition3D = $state<{ x: number; y: number; z: number }>({ x: 10, y: 8, z: 10 });
   let cameraTarget3D = $state<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
+  /** The orthographic camera's zoom, published like the position. */
+  let cameraOrthoZoom3D = $state(1);
 
   // Pending auto-solve from URL sharing (stores the diagramType to restore after solve)
   let pendingSolveFromURL = $state<string | null>(null);
@@ -857,6 +873,16 @@ function createUIStore() {
 
     get elementCreateType() { return elementCreateType; },
     set elementCreateType(v: 'frame' | 'truss') { elementCreateType = v; },
+
+    get memberDrawMode() { return memberDrawMode; },
+    set memberDrawMode(v: 'single' | 'polyline') { memberDrawMode = v; },
+    /** The mode the member tool actually draws in (see memberDrawMode). */
+    get showMemberDimensions() { return showMemberDimensions; },
+    set showMemberDimensions(v: boolean) {
+      showMemberDimensions = v;
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-member-dims', String(v)); } catch { /* private mode */ } }
+    },
+    get memberChains() { return analysisMode !== 'pro' && memberDrawMode === 'polyline'; },
 
     get elementMode() { return elementMode; },
     set elementMode(v: ElementMode) { elementMode = v; },
@@ -1163,6 +1189,8 @@ function createUIStore() {
     // 3D camera state (persisted for tab switching)
     get cameraPosition3D() { return cameraPosition3D; },
     set cameraPosition3D(v: { x: number; y: number; z: number }) { cameraPosition3D = v; },
+    get cameraOrthoZoom3D() { return cameraOrthoZoom3D; },
+    set cameraOrthoZoom3D(v: number) { cameraOrthoZoom3D = v; },
     get cameraTarget3D() { return cameraTarget3D; },
     set cameraTarget3D(v: { x: number; y: number; z: number }) { cameraTarget3D = v; },
 

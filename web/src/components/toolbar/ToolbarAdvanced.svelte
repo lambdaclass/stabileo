@@ -1,10 +1,8 @@
 <script lang="ts">
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
-  import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
-  import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
-  import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
-  import { publishCombinations3D } from '../../lib/store/active-results';
+  import { explainedSteps } from '../../lib/store/explained-steps.svelte';
+  import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
@@ -13,8 +11,6 @@
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
-  import { solveDetailed } from '../../lib/engine/solver-detailed';
-  import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -63,17 +59,9 @@
       labelKey: 'advHelp.plastic.label',
       textKey: 'advHelp.plastic.text',
     },
-    'dsm': {
-      labelKey: 'advHelp.dsm.label',
-      textKey: 'advHelp.dsm.text',
-    },
-    'fm': {
-      labelKey: 'advHelp.fm.label',
-      textKey: 'advHelp.fm.text',
-    },
-    'envelope': {
-      labelKey: 'advHelp.envelope.label',
-      textKey: 'advHelp.envelope.text',
+    'steps': {
+      labelKey: 'steps.catalog.title',
+      textKey: 'steps.catalog.intro',
     },
     'trainLoad': {
       labelKey: 'advHelp.trainLoad.label',
@@ -184,9 +172,6 @@
     { key: 'plastic', labelKey: 'advanced.plasticCollapse',
       isActive: () => !!resultsStore.plasticResult,
       close: () => resultsStore.clearPlastic() },
-    { key: 'envelope', labelKey: 'advanced.envelope',
-      isActive: () => resultsStore.activeView === 'envelope',
-      close: () => { resultsStore.activeView = 'base'; } },
     { key: 'trainLoad', labelKey: 'advanced.trainLoad',
       isActive: () => !!resultsStore.movingLoadEnvelope || showTrainPanel,
       close: () => { resultsStore.clearMovingLoad(); showTrainPanel = false; selectedTrainIndex = ''; } },
@@ -196,88 +181,15 @@
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
-    { key: 'dsm', labelKey: 'advanced.stepByStep',
-      isActive: () => dsmStepsStore.isOpen,
-      close: () => dsmStepsStore.close() },
-    /* Right under the stiffness wizard: the same panel, the other method. */
-    { key: 'fm', labelKey: 'advanced.stepByStepFlex',
-      isActive: () => fmStepsStore.isOpen,
-      close: () => fmStepsStore.close() },
+    /* One entry for every explained method: the catalog, a method's document, or one of the two wizards. */
+    { key: 'steps', labelKey: 'steps.catalog.title',
+      isActive: () => dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen,
+      close: () => { dsmStepsStore.close(); fmStepsStore.close(); explainedSteps.close(); } },
   ];
 
-  /*
-   * ── Opening the two step-by-step wizards ───────────────────────
-   *
-   * Both check first that the model is one they can show honestly — bars
-   * only, and small enough to print its matrices — and say which limit it
-   * crossed when it is not. See `step-by-step-scope.ts`.
-   */
-  function scopeRefusal(input: Parameters<typeof stepByStepScope>[0], is3DModel: boolean): boolean {
-    const v = stepByStepScope(input, is3DModel);
-    if (v.ok) return false;
-    uiStore.toast(t(`sbs.scope.${v.reason}`)
-      .replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
-    return true;
-  }
 
-  function showWizardPanel() {
-    if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-    else uiStore.rightSidebarOpen = true;
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-  }
 
-  function openDsm() {
-    if (dsmStepsStore.isOpen) {
-      dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
-      fmStepsStore.close();
-      dsmStepsStore.setStepData(data);
-      dsmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      uiStore.toast(errText(e, threeD ? 'toast.detailedSolver3dError' : 'toast.detailedSolverError'), 'error');
-    }
-  }
 
-  function openFm() {
-    if (fmStepsStore.isOpen) {
-      fmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
-      dsmStepsStore.close();
-      fmStepsStore.setResult(result);
-      fmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      if (e instanceof ForceMethodError) {
-        const dofs = e.dofs.length ? ` (${e.dofs.slice(0, 8).join(', ')}${e.dofs.length > 8 ? '…' : ''})` : '';
-        uiStore.toast(t(`fm.err.${e.key}`).replace('{gh}', String(e.gh)).replace('{max}', String(FM_MAX_GH)) + dofs, 'error');
-      } else {
-        uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
-      }
-    }
-  }
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
 
@@ -335,7 +247,7 @@
       return true;
     } catch (e: any) {
       console.error(`[${context}] WASM initialization failed:`, e);
-      uiStore.toast(e?.message || 'WASM solver initialization failed.', 'error');
+      uiStore.toast(e?.message || t('toast.solverInitFailed'), 'error');
       return false;
     }
   }
@@ -536,29 +448,6 @@
   }
 
 
-  function handleSolveCombinations() {
-    if (is3D) {
-      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-      if (typeof result === 'string') {
-        uiStore.toast(result, 'error');
-      } else if (result) {
-        publishCombinations3D(result);
-        const nCombos = result.perCombo.size;
-        const nCases = result.perCase.size;
-        uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-      }
-      return;
-    }
-    const result = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-    if (typeof result === 'string') {
-      uiStore.toast(result, 'error');
-    } else if (result) {
-      resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
-      const nCombos = result.perCombo.size;
-      const nCases = result.perCase.size;
-      uiStore.toast(t('toast.combinationsSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-    }
-  }
 
   /**
    * `flat` — everything open, no accordions.
@@ -609,6 +498,10 @@
   {/if}
 
   <div class="advanced-grid">
+    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
+    <!-- How the structure holds together, member by member, and what a section carries. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-structure">{t('advanced.group.structure')}</div>
+    {/if}
     {#if shown('kinematic')}
     <!--
       2D only, and it says so instead of disappearing. In 3D these four rows
@@ -710,6 +603,10 @@
     {@render helpPanel('stress')}
       {/if}
     {/if}
+    {#if !(flat && active) && (shown('pdelta') || shown('buckling'))}
+    <!-- Second-order analysis and the critical load: the two sides of buckling. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-buckling">{t('advanced.group.buckling')}</div>
+    {/if}
     {#if shown('pdelta')}
     <!-- P-Delta & Buckling: available in both 2D and 3D -->
       {#if !flat || active?.key !== 'pdelta'}
@@ -752,6 +649,10 @@
       {/if}
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
+    {/if}
+    {#if !(flat && active) && (shown('modal') || shown('plastic'))}
+    <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-dynamics">{t('advanced.group.dynamics')}</div>
     {/if}
     {#if shown('modal')}
     <!-- Modal & Spectral: available in both 2D and 3D -->
@@ -804,33 +705,33 @@
     {@render helpPanel('plastic')}
       {/if}
     {/if}
-    {#if shown('envelope')}
-      {#if !flat || active?.key !== 'envelope'}
+    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad'))}
+    <!-- The influence line and the moving train come from the same idea: a load that travels. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('advanced.group.movingLoads')}</div>
+    {/if}
+    {#if shown('influenceLine')}
+    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
+      {#if !flat || active?.key !== 'influenceLine'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1"
-        class:active={resultsStore.activeView === 'envelope'}
+      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
+        class:active={uiStore.currentTool === 'influenceLine'}
         onclick={() => {
-          if (resultsStore.activeView === 'envelope') {
-            resultsStore.activeView = 'single';
+          if (uiStore.currentTool === 'influenceLine') {
+            uiStore.currentTool = 'select';
             return;
           }
-          if (modelStore.model.combinations.length === 0) {
-            uiStore.toast(t('advanced.defineCombosFirst'), 'error');
+          if (blockedBySlidingJoints()) return;
+          if (!resultsStore.results && !resultsStore.results3D) {
+            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
             return;
           }
-          if (is3D ? !resultsStore.fullEnvelope3D : !resultsStore.fullEnvelope) {
-            handleSolveCombinations();
-          }
-          if (is3D ? resultsStore.fullEnvelope3D : resultsStore.fullEnvelope) {
-            resultsStore.activeView = 'envelope';
-            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = is3D ? 'momentY' : 'moment';
-          }
+          uiStore.currentTool = 'influenceLine';
         }}>
-        {t('advanced.envelope')}
+        {t('advanced.influenceLine')}
       </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('envelope', e)} class:active={advHelpKey === 'envelope'}>?</button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
     </div>
-    {@render helpPanel('envelope')}
+    {@render helpPanel('influenceLine')}
       {/if}
     {/if}
     {#if shown('trainLoad')}
@@ -887,30 +788,9 @@
       </div>
     {/if}
     {/if}
-    {#if shown('influenceLine')}
-    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
-      {#if !flat || active?.key !== 'influenceLine'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
-        class:active={uiStore.currentTool === 'influenceLine'}
-        onclick={() => {
-          if (uiStore.currentTool === 'influenceLine') {
-            uiStore.currentTool = 'select';
-            return;
-          }
-          if (blockedBySlidingJoints()) return;
-          if (!resultsStore.results && !resultsStore.results3D) {
-            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-            return;
-          }
-          uiStore.currentTool = 'influenceLine';
-        }}>
-        {t('advanced.influenceLine')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
-    </div>
-    {@render helpPanel('influenceLine')}
-      {/if}
+    {#if !(flat && active) && (shown('whatif') || shown('steps'))}
+    <!-- Changing the model live, and each method solved step by step. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-learn">{t('advanced.group.learn')}</div>
     {/if}
     {#if shown('whatif')}
       {#if !flat || active?.key !== 'whatif'}
@@ -933,28 +813,18 @@
       {@render helpPanel('whatif')}
       {/if}
     {/if}
-    {#if shown('dsm')}
-      {#if !flat || active?.key !== 'dsm'}
+    {#if shown('steps')}
+      {#if !flat || active?.key !== 'steps'}
+    <!-- Every explained method behind one entry: the catalog lists them by group. -->
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={dsmStepsStore.isOpen} data-testid="adv-dsm"
-        onclick={openDsm}>
-        {t('advanced.stepByStep')}
+      <button class="adv-btn" style="flex:1" data-testid="adv-steps"
+        class:active={dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen}
+        onclick={openExplainedCatalog}>
+        {t('steps.catalog.button')}
       </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('steps', e)} class:active={advHelpKey === 'steps'}>?</button>
     </div>
-    {@render helpPanel('dsm')}
-      {/if}
-    {/if}
-    {#if shown('fm')}
-      {#if !flat || active?.key !== 'fm'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={fmStepsStore.isOpen} data-testid="adv-fm"
-        onclick={openFm}>
-        {t('advanced.stepByStepFlex')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('fm', e)} class:active={advHelpKey === 'fm'}>?</button>
-    </div>
-    {@render helpPanel('fm')}
+    {@render helpPanel('steps')}
       {/if}
     {/if}
 
@@ -974,6 +844,10 @@
       you had opened, looking like a stray disclosure rather than a function
       you enter.
     -->
+    {#if !(flat && active) && (shown('cirsocFlex'))}
+    <!-- Designing a section to a code. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-design">{t('advanced.group.design')}</div>
+    {/if}
     {#if shown('cirsocFlex')}
       {#if !flat || active?.key !== 'cirsocFlex'}
         <div class="adv-btn-wrap">
@@ -1000,7 +874,7 @@
   {#if pdR}
     <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
       P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
-      {pdR.converged ? `${pdR.iterations} iter` : 'no conv.'} |
+      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
       {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>
   {/if}
@@ -1269,6 +1143,17 @@
     background: var(--st-accent);
     color: var(--st-text-on-accent);
     border-color: var(--st-interactive);
+  }
+
+  .adv-group {
+    margin-top: 0.35rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--st-hair);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--st-accent);
   }
 
   .adv-help-panel {

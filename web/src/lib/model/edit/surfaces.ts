@@ -12,7 +12,8 @@
 import type { Fragment } from './fragment';
 import type { Vec3 } from './affine';
 import { generateMesh, MAX_MESH_CELLS } from './mesher';
-import { DEFAULT_WELD, NodeIndex } from './node-index';
+import { NodeIndex } from './node-index';
+import { weldTolerance } from '../weld-tolerance';
 
 export const SURFACE_KINDS = ['cylinder', 'cone', 'sphericalCap', 'sphericalZone', 'hyperboloid', 'hypar'] as const;
 export type SurfaceKind = (typeof SURFACE_KINDS)[number];
@@ -59,11 +60,11 @@ export function validSurface(kind: SurfaceKind, p: SurfaceParams): boolean {
   }
 }
 
-/** Reject meshes whose cells collapse under the same weld used during placement. */
+/** Reject meshes whose cells collapse under the weld placement uses (`weldTolerance()`). */
 export function surfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | null {
   const mesh = buildSurfaceMesh(kind, p);
   if (!mesh || mesh.points.some((p) => !p.every(Number.isFinite))) return null;
-  const index = new NodeIndex(DEFAULT_WELD);
+  const index = new NodeIndex(weldTolerance());
   const ids = mesh.points.map((p, i) => {
     const hit = index.find(p, (id) => mesh.points[id]);
     if (hit !== null) return hit;

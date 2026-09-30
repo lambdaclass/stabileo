@@ -28,6 +28,7 @@
  * query flag is present, so production pages never expose it.
  */
 
+import { viewportCanvas } from './viewport-canvas';
 import { projectWorld } from '../viewport3d/camera-probe';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
@@ -227,6 +228,10 @@ export interface StabileoTestHooks {
    * away from the pointer.
    */
   nodeScreenPos(id: number): { x: number; y: number } | null;
+  /** The point loads on a member as stored: direction magnitude p, axial px, couple, angle and axes. */
+  /** A member's end nodes. */
+  elementEnds(elementId: number): { i: number; j: number } | null;
+  pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   nodeCount(): number;
   supportCount(): number;
@@ -579,6 +584,16 @@ export function installE2EHooks(): void {
       } : null;
     },
     currentTool: () => String(uiStore.currentTool),
+    elementEnds: (elementId: number) => {
+      const e = modelStore.elements.get(elementId);
+      return e ? { i: e.nodeI, j: e.nodeJ } : null;
+    },
+    pointLoadsOn: (elementId: number) => modelStore.loads
+      .filter((l) => l.type === 'pointOnElement' && (l.data as { elementId: number }).elementId === elementId)
+      .map((l) => {
+        const d = l.data as { p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean };
+        return { p: d.p, px: d.px, my: d.my, angle: d.angle, isGlobal: d.isGlobal };
+      }),
     nodeScreenPos: (id: number) => {
       const n = modelStore.nodes.get(id);
       if (!n) return null;
@@ -612,7 +627,7 @@ export function installE2EHooks(): void {
       } as never));
       const projected = projectWorld(scene.x, scene.y, scene.z);
       if (projected) return projected;
-      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      const canvas = viewportCanvas();
       if (!canvas) return null;
       const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);
       const r = canvas.getBoundingClientRect();

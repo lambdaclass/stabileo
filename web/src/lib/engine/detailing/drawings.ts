@@ -82,7 +82,9 @@ export type SheetKind =
   /** A horizontal cut at a stated elevation. */
   | 'horizontalSection'
   /** One column lift: section, longitudinals and every transverse piece. */
-  | 'columnDetail';
+  | 'columnDetail'
+  /** A frame line in elevation: its beams and columns, every bar of theirs. */
+  | 'frameElevation';
 
 export interface TitleBlock {
   sheetNumber: string;

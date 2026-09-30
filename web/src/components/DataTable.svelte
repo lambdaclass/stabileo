@@ -215,8 +215,7 @@
   }
   .dt-tool-options :global(.tb-tool-name),
   .dt-tool-options :global(.tb-sep),
-  .dt-tool-options :global(.ft-sep),
-  .dt-tool-options :global(.ft-selfweight-toggle) { display: none; }
+  .dt-tool-options :global(.ft-sep) { display: none; }
   /* Below the tool buttons above in weight: shorter than their 44 px. */
   .dt-tool-options :global(.ft-primary) {
     order: -2;
@@ -247,17 +246,8 @@
     height: 0;
   }
   .dt-tool-options :global(.ft-sup-btn.ft-primary) { font-size: 0.76rem; gap: 0.25rem; }
-  /* Rigid / pinned are radio labels: shown as the same wide buttons. */
-  .dt-tool-options :global(.ft-opt-radio.ft-primary) {
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: var(--st-surface-2);
-  }
-  .dt-tool-options :global(.ft-opt-radio.ft-primary input) { display: none; }
-  .dt-tool-options :global(.ft-opt-radio.ft-primary:has(input:checked)) {
-    border-color: var(--st-accent);
-    color: var(--st-accent);
-  }
+  /* A second row of main choices (the member tool's drawing mode), between the two breaks. */
+  .dt-tool-options :global(.ft-primary.ft-second) { order: -1; }
   /* 3D supports: the six restraints as six equal toggles, under the presets. */
   .dt-tool-options :global(.ft-dof) {
     flex: 1 1 0;

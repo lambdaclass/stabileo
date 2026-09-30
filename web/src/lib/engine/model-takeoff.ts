@@ -1,16 +1,8 @@
 /**
  * What the model is MADE OF, counted from the model.
  *
- * ── Why this exists beside `quantity-takeoff.ts` ───────────────────
- *
- * That module estimates steel from VERIFICATION RECORDS, and says so in its
- * own header. It is the right answer for a checked-but-undetailed concrete
- * member and the wrong answer to "what does this structure weigh", because a
- * model with no verifications has no quantities at all under it — which is
- * exactly what a raft of plates produced: a solve that worked, followed by a
- * take-off reporting no materials.
- *
- * This one reads the GEOMETRY. A member is its section area along its length;
+ * It reads the GEOMETRY, so a model with no design still has its quantities
+ * (a raft of plates is concrete whether or not anything was verified). A member is its section area along its length;
  * a shell is its area times its thickness. Both are grouped by the material
  * they are made of, because "how much concrete" and "how much steel" is the
  * question a take-off answers, and the model already knows which is which.

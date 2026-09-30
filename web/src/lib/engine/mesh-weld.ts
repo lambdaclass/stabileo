@@ -12,11 +12,13 @@
 export interface NodeLike { id: number; x: number; y: number; z?: number }
 export interface ElemLike { id: number; nodeI: number; nodeJ: number }
 
-export const WELD_TOL = 1e-4;
+import { weldTolerance, DEFAULT_WELD_TOL } from '../model/weld-tolerance';
+/** The default weld tolerance, m; a weld reads the one in force, `weldTolerance()`. */
+export const WELD_TOL = DEFAULT_WELD_TOL;
 
 /** Id of an existing node coincident with (x,y,z) within tol, else null. */
 export function findCoincidentNode(
-  nodes: Iterable<NodeLike>, x: number, y: number, z: number, tol = WELD_TOL,
+  nodes: Iterable<NodeLike>, x: number, y: number, z: number, tol = weldTolerance(),
 ): number | null {
   for (const n of nodes) {
     if (Math.abs(n.x - x) < tol && Math.abs(n.y - y) < tol && Math.abs((n.z ?? 0) - z) < tol) {

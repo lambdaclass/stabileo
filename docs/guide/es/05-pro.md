@@ -27,6 +27,18 @@ Para empezar:
 **Exportar** (los resultados en Excel o CSV, el reporte, y la vista en DXF o SVG). Ver el
 [capítulo 1](01-primeros-pasos.md#guardar-abrir-y-compartir).
 
+**Datos del proyecto.** Comitente, obra, número de obra, ubicación, las revisiones con su fecha
+y descripción, y quién proyectó, revisó y aprobó, con fechas. Se guardan con el proyecto y los
+imprime la carátula del reporte.
+
+**Plantillas de la oficina.** Los materiales, secciones, casos, combinaciones, reglas de
+combinación, reglamentos y límites de flecha de un proyecto se guardan como plantilla, en el
+navegador o como archivo para compartir. Aplicar una plantilla agrega lo que al proyecto le falta,
+por nombre, y no pisa lo que ya tiene.
+
+**Comandos por nombre.** **Ctrl+K** (⌘K en Mac) abre la lista de todos los comandos de la cinta:
+se escribe parte del nombre y **Enter** lo ejecuta.
+
 ## La pestaña Modelo
 
 En PRO, cada botón de la cinta abre un **panel con una tabla**. Para dibujar en el visor, cada
@@ -113,6 +125,34 @@ hacen lo de siempre.
 
 **Editar.** Al dividir barras en N partes, los puntos de corte se ven en las barras
 seleccionadas antes de dividir.
+
+- **Renumerar** nodos, barras y placas por posición, todo el modelo o sólo la selección, y desde un
+  número. Si ese número ya lo usa algo que no está seleccionado, no se renumera y se dice cuál.
+- **Limpieza:** nodos coincidentes (con la **tolerancia de soldado**, que se puede cambiar y usan
+  todas las soldaduras del modelo), barras repetidas o de largo nulo, nodos sueltos, y además
+  **partes sueltas** sin ningún apoyo, **bordes libres** de placas que no están sobre una barra,
+  **barras que se cruzan sin nodo** y **propiedades repetidas** (materiales o secciones iguales con
+  otro número), que se unifican.
+- **Invertir barras:** I pasa a ser J. La sección conserva su orientación, y las articulaciones,
+  los extremos semirrígidos, los desplazamientos y las cargas de la barra la acompañan, así que el
+  resultado es el mismo. Una barra con armadura no se invierte.
+
+**Seleccionar.** Además de las opciones de Básico: arrastrar puede dibujar un **lazo** en lugar de
+un rectángulo; se seleccionan las barras **paralelas a un eje o a un plano global**, lo que está
+**cargado en un caso**, y se vuelve a la **selección anterior**. **Recorrer con zoom** pasa por las
+barras o nodos seleccionados de a uno, encuadrando cada uno.
+
+**Vista.** Las vistas guardadas conservan la proyección, el zoom ortográfico, lo oculto, las
+etiquetas y los colores. Además:
+
+- **Lupa por ventana:** se arrastra un rectángulo y se encuadra lo que queda adentro.
+- **Etiquetas sólo en lo seleccionado**, y una **ficha rápida** al hacer clic sobre un nodo o una
+  barra, con sus datos y resultados.
+- **Color de las barras** por sección, material o grupo, con su leyenda.
+- **Dibujar** los vínculos y diafragmas como líneas entre sus nodos, y los extremos I y J.
+- **Notas** de texto en un punto del modelo, que se guardan con el proyecto.
+- **Unidades:** SI (kN, m), técnico (tf, tf·m, kgf/cm², cm) o imperial, y los **decimales** de cada
+  magnitud. El modelo se guarda siempre en kN y m.
 
 ### Propiedades
 
@@ -320,6 +360,24 @@ En el panel de **Resultados**:
   selección o en una lista de elementos, con filtros, y lo exporta a CSV.
 - **Reporte de esfuerzos crudos:** reacciones, desplazamientos y esfuerzos por barra y por
   estación, en Excel, PDF o HTML.
+- Cada tabla se lee además sobre **todas**, un **resumen** o la **envolvente** de las combinaciones
+  activas, de los casos, o de los dos. Se puede limitar a la selección o a un grupo, agregar la
+  **resultante**, pedir **estaciones** a lo largo de cada barra y agrupar por barra; los máximos por
+  tipo separan My de Mz y Vy de Vz. Todo se exporta a CSV y a Excel, en las unidades elegidas.
+- Las **envolventes con nombre** pueden incluir casos de carga solos, sin factores (por ejemplo D
+  y L para una envolvente de servicio).
+- **Estática:** las cargas aplicadas contra las reacciones, las seis componentes, por caso y por
+  combinación.
+- **Flechas:** cada barra se verifica contra la **regla** que le toca, por tipo, grupo o barras
+  elegidas, con L/n y la dirección (resultante o un plano local). Sin regla, las vigas van a
+  L/360. Un **voladizo** se mide desde la tangente en su empotramiento y su límite se toma sobre 2L.
+- **Tensiones en barras:** la mayor tracción y la mayor compresión de la sección en cada estación,
+  sobre su geometría.
+- **Contornos de placas:** en los nodos o en el centro de cada elemento, sobre el rango de los
+  resultados o uno escrito, continuos o en bandas, y sobre la deformada. **Resultados a lo largo de
+  una línea** grafica el valor entre dos puntos que se escriben o se marcan.
+- **Imagen y video:** el PNG lleva el epígrafe y la escala de colores de lo que muestra; la
+  deformada y los modos se animan y se graban a video.
 - **Deriva de piso:** para cada caso de sismo, la distorsión de cada piso con los desplazamientos
   elásticos multiplicados por Cd/γr (INPRES-CIRSOC 103, 6.4), contra el límite de la Tabla 6.4
   según el grupo de la construcción y si los elementos no estructurales pueden dañarse. Cd y el
@@ -372,11 +430,26 @@ modelo y con sus diafragmas, que se definen en **Vínculos** (el panel indica cu
 
 ### Reporte
 
-**Reporte** arma una **memoria de cálculo** imprimible: datos del modelo, detalle de cargas,
-resultados, los análisis avanzados que hayas corrido, cómputo de materiales y diagnósticos, con
-un encabezado opcional (logo, empresa, profesional, revisión). También se exporta a Excel.
+**Reporte** arma una **memoria de cálculo** imprimible: datos del modelo con todas las propiedades,
+detalle de cargas, resultados, el resumen y la envolvente sobre las combinaciones, la estática, las
+flechas, los análisis avanzados que hayas corrido, las **figuras** que agregues desde la vista
+(cada una con su epígrafe y su escala), el cómputo de materiales y los diagnósticos. Las tablas van
+completas cualquiera sea el tamaño del modelo. La carátula imprime los datos del proyecto; el
+membrete de la oficina (logo y empresa) queda en el diálogo. También se exporta a Excel.
+
+El **cómputo** (también en Documentos) toma el hormigón y el acero estructural de la geometría y
+la armadura del **despiece**, por diámetro; la cuantía se calcula sobre las barras despiezadas.
 
 ## La pestaña Diseño
+
+### Hormigón armado
+
+El diseño de vigas verifica además la **separación de las barras junto a la cara traccionada**
+para el control de fisuración (CIRSOC 201-2025, 24.3.2), con fs = 2/3 fy según 24.3.2.1; si no
+cumple, el diseño automático sube a una armadura con más barras. El juego de planos del despiece
+suma, a las elevaciones y cortes de cada conjunto, los **pórticos** completos en su plano, las
+**columnas apiladas** en todos sus pisos y el **detalle de cada nudo**, todos con las barras del
+propio despiece.
 
 ### Otras normas
 

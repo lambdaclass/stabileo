@@ -28,10 +28,8 @@ export type ScreenToWorldFn = (sx: number, sy: number) => { x: number; y: number
 
 // ── Constants ────────────────────────────────────────────────────────
 
-export const ELEMENT_PALETTE = [
-  '#7fd4cc', '#e9c46a', '#e76f51', '#2a9d8f',
-  '#f4a261', '#264653', '#a8dadc', '#e63946',
-];
+export { ELEMENT_PALETTE } from './element-colour';
+import { colourCategory, categoryCss } from './element-colour';
 
 // ── Grid & Axes ──────────────────────────────────────────────────────
 
@@ -152,12 +150,10 @@ export function drawNode(
 export function getElementColor(
   elem: { id: number; type?: string; materialId: number; sectionId: number },
   elementColorMode: string,
+  groupOf?: (elementId: number) => number | undefined,
 ): string {
-  if (elementColorMode === 'byMaterial') {
-    return ELEMENT_PALETTE[(elem.materialId - 1) % ELEMENT_PALETTE.length];
-  } else if (elementColorMode === 'bySection') {
-    return ELEMENT_PALETTE[(elem.sectionId - 1) % ELEMENT_PALETTE.length];
-  }
+  const cat = colourCategory(elem, elementColorMode, groupOf);
+  if (cat !== null) return categoryCss(cat);
   // Default: differentiate frame vs truss by color
   return elem.type === 'truss' ? canvasTheme().memberTruss : canvasTheme().member;
 }
@@ -168,6 +164,8 @@ export interface DrawElementOpts {
   worldToScreen: WorldToScreenFn;
   isSelected: boolean;
   elementColorMode: string;
+  /** Each member's group, for colouring by group. */
+  groupOf?: (elementId: number) => number | undefined;
   showElementLabels: boolean;
   showLengths: boolean;
   zoom: number;
@@ -196,7 +194,7 @@ export function drawElement(
 ): void {
   const si = opts.worldToScreen(ni.x, ni.y);
   const sj = opts.worldToScreen(nj.x, nj.y);
-  const baseColor = colorOverride ?? getElementColor(elem, opts.elementColorMode);
+  const baseColor = colorOverride ?? getElementColor(elem, opts.elementColorMode, opts.groupOf);
 
   ctx.beginPath();
   ctx.moveTo(si.x, si.y);

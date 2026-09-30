@@ -64,13 +64,12 @@
    * its read-out and the delete button.
    */
   const phone = $derived(uiStore.isMobile);
-  const hasSelection = $derived(
-    uiStore.selectedNodes.size + uiStore.selectedElements.size + uiStore.selectedSupports.size
-      + uiStore.selectedLoads.size + uiStore.selectedShells.size > 0,
-  );
 </script>
 
-{#if !phone || hasSelection}
+<!-- A phone shows nothing here: its options sit in the modelling sheet and its
+     delete button floats over the model (Viewport, Viewport3D), so a selection
+     no longer pushes the drawing down with a row of its own. -->
+{#if !phone}
 <div class="tool-bar" class:phone data-testid="tool-options-bar">
   {#if !phone}
     <div class="tb-opts" data-testid="tool-options">

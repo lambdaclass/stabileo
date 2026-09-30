@@ -1,8 +1,8 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
-  import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
 
   let { data, editable = false }: { data: DSMStepData; editable?: boolean } = $props();
@@ -28,7 +28,7 @@
     <p>{@html t('dsm.step3.thenGlobal')}</p>
   </div>
 
-  <MathEquation equation="[K]_e = [T]^T \\cdot [k] \\cdot [T]" displayMode />
+  <FitMath tex="[K]_e = [T]^T \\cdot [k] \\cdot [T]" narrow />
 
   <div class="elem-selector">
     <label for="elem-select-3">{t('dsm.step3.element')}</label>
@@ -52,9 +52,9 @@
       </div>
 
       {#if elem.type === 'frame'}
-        <MathEquation equation={`[T] = \\begin{bmatrix} c & s & 0 & 0 & 0 & 0 \\\\ -s & c & 0 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & c & s & 0 \\\\ 0 & 0 & 0 & -s & c & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 1 \\end{bmatrix}`} displayMode />
+        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 & 0 & 0 \\\\ -s & c & 0 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & c & s & 0 \\\\ 0 & 0 & 0 & -s & c & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 1 \\end{bmatrix}`} narrow />
       {:else}
-        <MathEquation equation={`[T] = \\begin{bmatrix} c & s & 0 & 0 \\\\ -s & c & 0 & 0 \\\\ 0 & 0 & c & s \\\\ 0 & 0 & -s & c \\end{bmatrix}`} displayMode />
+        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 \\\\ -s & c & 0 & 0 \\\\ 0 & 0 & c & s \\\\ 0 & 0 & -s & c \\end{bmatrix}`} narrow />
       {/if}
     {/if}
 
@@ -88,7 +88,7 @@
 
 <style>
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0 0 0.2rem; }
 
   .elem-selector {

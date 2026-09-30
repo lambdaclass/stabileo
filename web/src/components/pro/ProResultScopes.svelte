@@ -14,6 +14,7 @@
   const PURPOSES: EnvelopePurpose[] = ['strength', 'service', 'other'];
 
   const combos = $derived(modelStore.combinations);
+  const cases = $derived(modelStore.loadCases);
   const scopes = $derived<ResultScopes>(modelStore.resultScopes ?? {});
   const active = $derived(scopes.active ? new Set(scopes.active) : null);
   const envelopes = $derived(scopes.envelopes ?? []);
@@ -70,8 +71,14 @@
     updateEnvelope(env.id, { comboIds: combos.map((c) => c.id).filter((x) => next.includes(x)) });
   }
 
+  function toggleEnvelopeCase(env: NamedEnvelope, id: number) {
+    const cur = env.caseIds ?? [];
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    updateEnvelope(env.id, { caseIds: cases.map((c) => c.id).filter((x) => next.includes(x)) });
+  }
+
   function show(env: NamedEnvelope) {
-    const e = envelopeOver(resultsStore.perCombo3D, env.comboIds);
+    const e = envelopeOver(resultsStore.perCombo3D, env.comboIds, resultsStore.perCase3D, env.caseIds ?? []);
     if (!e) return;
     resultsStore.viewEnvelope3D(e, env.name);
     resultsStore.activeView = 'envelope';
@@ -125,15 +132,21 @@
           {#each PURPOSES as p (p)}<option value={p}>{t(`scopes.purpose.${p}`)}</option>{/each}
         </select>
         <button class="pk-btn" class:on={editing === env.id} onclick={() => (editing = editing === env.id ? null : env.id)}>
-          {tp('scopes.nCombos', { n: env.comboIds.length })}
+          {tp('scopes.nCombos', { n: env.comboIds.length })}{#if env.caseIds?.length} · {tp('scopes.nCases', { n: env.caseIds.length })}{/if}
         </button>
-        <button class="pk-btn" disabled={!solved || env.comboIds.length === 0} onclick={() => show(env)} title={solved ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
+        <button class="pk-btn" disabled={!solved || env.comboIds.length + (env.caseIds?.length ?? 0) === 0} onclick={() => show(env)} title={solved ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
         <button class="pk-btn pk-btn-icon" onclick={() => removeEnvelope(env.id)} aria-label={t('scopes.remove')}>×</button>
       </div>
       {#if editing === env.id}
         <ul class="rs-list">
           {#each combos as c (c.id)}
             <li><label><input type="checkbox" checked={env.comboIds.includes(c.id)} onchange={() => toggleEnvelopeCombo(env, c.id)} /> {c.name}</label></li>
+          {/each}
+        </ul>
+        <p class="pk-hint">{t('scopes.casesToo')}</p>
+        <ul class="rs-list" data-testid="rs-env-cases">
+          {#each cases as c (c.id)}
+            <li><label><input type="checkbox" checked={env.caseIds?.includes(c.id) ?? false} onchange={() => toggleEnvelopeCase(env, c.id)} /> {c.name}</label></li>
           {/each}
         </ul>
       {/if}

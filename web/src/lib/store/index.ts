@@ -13,6 +13,7 @@ import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 // is populated before any component queries it. Importing for side effects only.
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
+import { connectionPrompt } from './connection-prompt.svelte';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -22,6 +23,9 @@ import '../engine/design/adapters/unsupported-adapter';
 // a micro-optimisation that made the analysis-revision counter conditional, which
 // would let a mutation silently fail to advance it and leave a stale result reading
 // as current.
+// Questions about connections in the old model mean nothing in a replaced one.
+modelStore._setOnReplaced(() => connectionPrompt.clear());
+
 modelStore._setOnMutation(() => {
   resultsStore.clear();
   verificationStore.invalidateAnalysis();

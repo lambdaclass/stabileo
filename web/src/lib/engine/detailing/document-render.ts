@@ -30,6 +30,7 @@ import type { RcRetouchProvenance } from '../../flow/rc-selection';
 import {
   drawColumnDetail, drawGeneralPlan, drawHorizontalSection, drawLevelPlan, levelsOf,
 } from './structure-drawings';
+import { frameLines, columnStacks, joints, drawFrameElevation, drawColumnStack, drawJointDetail } from './structure-elevations';
 import { blockingCount, buildConflictInventory } from './conflict-inventory';
 import { drawFooting } from './family-drawings';
 import { drawSlab, drawWall } from './slab-wall-drawings';
@@ -1417,6 +1418,17 @@ function structureSheets(
     const id = s.elementIds[0];
     emit(`structure-column-${id}-detail`,
       drawColumnDetail({ scene, title: titleFor(`Columna ${id}`), statusOf, elementId: id }));
+  }
+
+  // Across assemblies, from the same bars: frame lines, column stacks and joints.
+  for (const line of frameLines(scene)) {
+    emit(`structure-${line.id}-elevation`, drawFrameElevation({ scene, title: titleFor(`Pórtico ${line.id}`), statusOf, line }));
+  }
+  for (const stack of columnStacks(scene)) {
+    emit(`structure-${stack.id}-elevation`, drawColumnStack({ scene, title: titleFor(`Columna apilada ${stack.id}`), statusOf, stack }));
+  }
+  for (const joint of joints(scene)) {
+    emit(`structure-${joint.id}-detail`, drawJointDetail({ scene, title: titleFor(`Nudo ${joint.id}`), statusOf, joint }));
   }
 
   return out;

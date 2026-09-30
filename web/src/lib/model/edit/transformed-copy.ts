@@ -36,6 +36,7 @@
  * beams between repeated frames, the purlins of a polar array.
  */
 
+import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Element, Quad, Plate } from '../../store/model.svelte';
 import { applyPoint, applyVector, isReflection, type Affine, type Vec3 } from './affine';
@@ -44,8 +45,8 @@ import {
 } from './transform-fields';
 import { fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
 import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
-import { DEFAULT_WELD, NodeIndex } from './node-index';
-export { DEFAULT_WELD, NodeIndex } from './node-index';
+import { NodeIndex } from './node-index';
+export { NodeIndex } from './node-index';
 
 export { closure, type EntitySet } from './fragment';
 
@@ -100,7 +101,7 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
  * only exist when the fragment is `local`).
  */
 export function insertFragment(frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
-  const tol = opts.weldTol ?? DEFAULT_WELD;
+  const tol = opts.weldTol ?? weldTolerance();
   const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
     nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0, loadKept: 0,
@@ -208,8 +209,11 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
           ? (() => { const w = applyVector(T, [offset.x, offset.y, offset.z]); return { ...offset, x: w[0], y: w[1], z: w[2] }; })()
           : offset;
       const quadMap = new Map<number, number>();
+      // Corners that welded onto each other leave no shell, as a member's two ends do.
+      const collapsed = (corners: readonly number[]) => new Set(corners).size !== corners.length;
       for (const q of frag.quads) {
         const corners = q.nodes.map((n) => nodeMap.get(n)!) as Quad['nodes'];
+        if (collapsed(corners)) { warn('shellCollapsed'); continue; }
         if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
         shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = q;
@@ -222,6 +226,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       const plateMap = new Map<number, number>();
       for (const p of frag.plates) {
         const corners = p.nodes.map((n) => nodeMap.get(n)!) as Plate['nodes'];
+        if (collapsed(corners)) { warn('shellCollapsed'); continue; }
         if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
         shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = p;

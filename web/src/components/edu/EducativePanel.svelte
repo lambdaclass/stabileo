@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { viewportCanvas } from '../../lib/utils/viewport-canvas';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { returnBorrowedModel } from './exercise-session';
   import { getExerciseSections, type EduExercise } from './exercises';
@@ -215,7 +216,7 @@
 
     // Zoom to fit
     setTimeout(() => {
-      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      const canvas = viewportCanvas();
       if (canvas && modelStore.nodes.size > 0) {
         uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
       }

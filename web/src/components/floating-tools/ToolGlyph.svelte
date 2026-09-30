@@ -8,7 +8,7 @@
    * phone's modelling sheet shows them (DataTable).
    */
   export type GlyphName =
-    | 'nodeCreate' | 'joints' | 'frameRigid' | 'trussPinned'
+    | 'nodeCreate' | 'joints' | 'frameRigid' | 'trussPinned' | 'lineSingle' | 'polyline' | 'dimensions'
     | 'supFixed' | 'supPinned' | 'supRoller' | 'supSpring'
     | 'loadPoint' | 'loadDistributed' | 'loadThermal';
   let { name }: { name: GlyphName } = $props();
@@ -34,6 +34,21 @@
     <circle cx="4.5" cy="18.5" r="1.6" />
     <circle cx="19.5" cy="18.5" r="1.6" />
     <circle cx="12" cy="6" r="1.6" />
+  {:else if name === 'lineSingle'}
+    <!-- One member, its two ends. -->
+    <path d="M6 18L18 6" />
+    <circle cx="4.8" cy="19.2" r="1.7" />
+    <circle cx="19.2" cy="4.8" r="1.7" />
+  {:else if name === 'polyline'}
+    <!-- Members strung end to end. -->
+    <path d="M3.5 18.5L9 7.5l6 9 5.5-11" />
+    <circle cx="9" cy="7.5" r="1.5" />
+    <circle cx="15" cy="16.5" r="1.5" />
+  {:else if name === 'dimensions'}
+    <!-- A dimension line: extension ticks, arrows, and the figure above it. -->
+    <path d="M4 12.5v7M20 12.5v7M4 16h16" />
+    <path d="M4 16l2.4-2M4 16l2.4 2M20 16l-2.4-2M20 16l-2.4 2" />
+    <path d="M9 8.5h6" />
   {:else if name === 'supFixed'}
     <!-- A post built into the ground. -->
     <path d="M12 3.5v10" />

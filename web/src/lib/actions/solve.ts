@@ -94,7 +94,7 @@ export function runSolve() {
 export async function runSolve3D() {
   if (!isWasmReady()) {
     try { await initSolver(); } catch (e: any) {
-      uiStore.toast(e?.message || 'WASM solver initialization failed', 'error');
+      uiStore.toast(e?.message || t('toast.solverInitFailed'), 'error');
       return;
     }
   }

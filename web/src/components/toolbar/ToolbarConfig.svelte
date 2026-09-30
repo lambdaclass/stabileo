@@ -158,6 +158,16 @@
             </HelpTip>
           </label>
         {/if}
+        {#if !is3D}
+          <!-- The same switch as the member tool's "Dimensions" button; not the grid's. -->
+          <label class="checkbox-item">
+            <HelpTip text={t('config.tip.memberDims')}>
+            <input type="checkbox" checked={uiStore.showMemberDimensions}
+              onchange={(e) => { uiStore.showMemberDimensions = e.currentTarget.checked; }} data-testid="cfg-member-dims" />
+            <span>{t('config.memberDims')}</span>
+            </HelpTip>
+          </label>
+        {/if}
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.showGrid')}>
           <input type="checkbox" checked={gridVisible}
@@ -283,6 +293,7 @@
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">{t('config.unitSI')}</option>
+            <option value="MKS">{t('config.unitMKS')}</option>
             <option value="Imperial">{t('config.unitImperial')}</option>
           </select>
         </div>
@@ -320,6 +331,7 @@
               <option value="uniform">{t('config.uniform')}</option>
               <option value="byMaterial">{t('config.byMaterial')}</option>
               <option value="bySection">{t('config.bySection')}</option>
+              <option value="byGroup">{t('config.byGroup')}</option>
             </select>
           </div>
         {/if}

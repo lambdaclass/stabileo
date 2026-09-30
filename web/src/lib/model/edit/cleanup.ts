@@ -15,13 +15,17 @@
  * which the combined clean-up runs next.
  */
 
+import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
 import { WELD_TOL } from '../../engine/mesh-weld';
 import { generatedMetadata } from './generated-metadata';
 
-/* One tolerance for "two nodes in one place", defined in engine/mesh-weld so the
- * diagnostics that flag it and this command that repairs it can never disagree. */
+/**
+ * The default weld tolerance (`WELD_TOL`, from engine/mesh-weld); the one in force is
+ * `weldTolerance()`, which the diagnostics that flag coincident nodes and the commands that
+ * repair them both read, so they cannot disagree.
+ */
 export const MERGE_TOL = WELD_TOL;
 
 export interface CleanupReport {
@@ -38,7 +42,7 @@ const empty = (): CleanupReport => ({
 });
 
 /** Groups of coincident nodes, each sorted, lowest id first. Spatial hash on the tolerance. */
-export function coincidentNodeGroups(tol = MERGE_TOL): number[][] {
+export function coincidentNodeGroups(tol = weldTolerance()): number[][] {
   const cells = new Map<string, number[]>();
   const key = (x: number, y: number, z: number) => `${Math.round(x / tol)},${Math.round(y / tol)},${Math.round(z / tol)}`;
   const parent = new Map<number, number>();
@@ -63,7 +67,7 @@ export function coincidentNodeGroups(tol = MERGE_TOL): number[][] {
   return [...groups.values()].filter((g) => g.length > 1).map((g) => g.sort((a, b) => a - b));
 }
 
-export function mergeCoincidentNodes(tol = MERGE_TOL): CleanupReport {
+export function mergeCoincidentNodes(tol = weldTolerance()): CleanupReport {
   const report = empty();
   const groups = coincidentNodeGroups(tol);
   if (groups.length === 0) return report;
@@ -118,14 +122,16 @@ export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupR
   return report;
 }
 
-/** Members joining the same two nodes: the lowest id stays. */
-export function removeDuplicateMembers(): CleanupReport {
+/** Members joining the same two nodes: the lowest id stays. With candidates, preserve all other members first. */
+export function removeDuplicateMembers(candidates?: ReadonlySet<number>): CleanupReport {
   const report = empty();
   const seen = new Map<string, number>();
   const dup: number[] = [];
-  for (const e of [...modelStore.elements.values()].sort((a, b) => a.id - b.id)) {
+  const members = [...modelStore.elements.values()].sort((a, b) =>
+    (candidates ? Number(candidates.has(a.id)) - Number(candidates.has(b.id)) : 0) || a.id - b.id);
+  for (const e of members) {
     const k = e.nodeI < e.nodeJ ? `${e.nodeI}-${e.nodeJ}` : `${e.nodeJ}-${e.nodeI}`;
-    if (seen.has(k)) dup.push(e.id); else seen.set(k, e.id);
+    if (seen.has(k) && (!candidates || candidates.has(e.id))) dup.push(e.id); else seen.set(k, e.id);
   }
   if (dup.length === 0) return report;
   const onDup = new Set(dup);
@@ -134,13 +140,22 @@ export function removeDuplicateMembers(): CleanupReport {
   return report;
 }
 
-export function removeZeroLengthMembers(tol = MERGE_TOL): CleanupReport {
-  const report = empty();
-  const zero = [...modelStore.elements.values()].filter((e) => {
+/**
+ * Members shorter than the weld tolerance, among `candidates` when given: what the edit panel
+ * counts and the clean-up removes.
+ */
+export function zeroLengthMembers(tol = weldTolerance(), candidates?: ReadonlySet<number>): number[] {
+  return [...modelStore.elements.values()].filter((e) => {
+    if (candidates && !candidates.has(e.id)) return false;
     if (e.nodeI === e.nodeJ) return true;
     const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
     return !!a && !!b && Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) <= tol;
   }).map((e) => e.id);
+}
+
+export function removeZeroLengthMembers(tol = weldTolerance(), candidates?: ReadonlySet<number>): CleanupReport {
+  const report = empty();
+  const zero = zeroLengthMembers(tol, candidates);
   if (zero.length === 0) return report;
   modelStore.batch(() => { for (const id of zero) { modelStore.removeElement(id); report.removedZeroLength++; } });
   return report;
@@ -163,7 +178,7 @@ export function removeOrphanNodes(): CleanupReport {
 }
 
 /** All four, in the order that lets each clear what the previous one uncovers. One undo step. */
-export function cleanUpModel(tol = MERGE_TOL): CleanupReport {
+export function cleanUpModel(tol = weldTolerance()): CleanupReport {
   const total = empty();
   modelStore.batch(() => {
     for (const r of [mergeCoincidentNodes(tol), removeZeroLengthMembers(tol), removeDuplicateMembers(), removeOrphanNodes()]) {
@@ -171,4 +186,29 @@ export function cleanUpModel(tol = MERGE_TOL): CleanupReport {
     }
   });
   return total;
+}
+
+/**
+ * Unify repeated materials or sections: every member (and shell, for materials) using one of a
+ * set is moved to its first id, and the others are removed. One undo step.
+ */
+export function unifyProperties(kind: 'materials' | 'sections', sets: readonly number[][]): number {
+  let removed = 0;
+  modelStore.batch(() => {
+    for (const ids of sets) {
+      const [keep, ...drop] = ids;
+      if (keep === undefined || drop.length === 0) continue;
+      const gone = new Set(drop);
+      for (const e of modelStore.elements.values()) {
+        if (kind === 'materials' && gone.has(e.materialId)) modelStore.updateElement(e.id, { materialId: keep } as never);
+        if (kind === 'sections' && gone.has(e.sectionId)) modelStore.updateElement(e.id, { sectionId: keep } as never);
+      }
+      if (kind === 'materials') {
+        for (const [id, q] of modelStore.quads) if (gone.has(q.materialId)) modelStore.updateQuad(id, { materialId: keep });
+        for (const [id, p] of modelStore.plates) if (gone.has(p.materialId)) modelStore.updatePlate(id, { materialId: keep });
+      }
+      for (const id of drop) if (kind === 'materials' ? modelStore.removeMaterial(id) : modelStore.removeSection(id)) removed++;
+    }
+  });
+  return removed;
 }

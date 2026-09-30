@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { captureFigure } from './lib/export/figure';
+  import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
@@ -15,6 +17,7 @@
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
+  import { explainedSteps } from './lib/store/explained-steps.svelte';
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
@@ -26,7 +29,7 @@
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, noteAxisConventionMigrationIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -169,13 +172,19 @@
    * `untrack` so switching panels by hand while a wizard is open does not
    * re-run this and yank the panel back.
    */
-  let wizardWasOpen = false;
+  /* A wizard opened from the explained step-by-step catalog goes back to the catalog when it closes. */
+  let wizardOnlyWasOpen = false;
   $effect(() => {
-    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen;
-    const basic = uiStore.appMode === 'basico';
-    if (open && basic) basicPanel = 'data';
-    if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';
-    wizardWasOpen = open;
+    const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    wizardOnlyWasOpen = w;
+  });
+
+  $effect(() => {
+    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen;
+    // A step-by-step solution is an advanced function: it opens in the Advanced
+    // panel, and closing it leaves the list of functions there.
+    if (open && uiStore.appMode === 'basico') basicPanel = 'advanced';
   });
 
   /**
@@ -811,7 +820,10 @@
   }
 
   function handleExportPNG() {
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    // Captioned, with the colour scale drawn into the image (`lib/export/figure.ts`).
+    const fig = captureFigure();
+    if (fig) { downloadDataUrlPNG(fig.dataUrl); return; }
+    const canvas = viewportCanvas();
     if (canvas) downloadCanvasPNG(canvas);
   }
 
@@ -882,7 +894,7 @@
           // inside an iframe the canvas is 0×0 during first paint, so a single
           // event lands before the viewport is ready.
           const tryFit = (attempt: number) => {
-            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            const canvas = viewportCanvas();
             if (canvas && canvas.width > 0 && canvas.height > 0) {
               window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
               return;
@@ -912,7 +924,7 @@
     // Auto zoom-to-fit when loading from shared link
     if (hashMode) {
       setTimeout(() => {
-        const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+        const canvas = viewportCanvas();
         if (canvas && modelStore.nodes.size > 0) {
           uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
         }
@@ -2102,7 +2114,7 @@
             {t('app.viewKinematic')}
           </button>
         {/if}
-        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title="Dismiss">&times;</button>
+        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title={t('toast.dismiss')}>&times;</button>
       </div>
     {/each}
   </div>

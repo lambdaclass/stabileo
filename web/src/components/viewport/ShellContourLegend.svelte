@@ -3,10 +3,13 @@
   // contour colour map is active. Computes its own min/max from the shell
   // results so it never writes back into the results store, and samples the
   // SAME colour functions the contour uses so the gradient matches exactly.
-  import { resultsStore } from '../../lib/store';
+  import { resultsStore, modelStore } from '../../lib/store';
+  import { contourOptions } from '../../lib/store/contour-options.svelte';
+  import { shellContourField } from '../../lib/engine/shell-contour-field';
+  import { bandValue, bandEdges } from '../../lib/engine/contour-scale';
   import { t } from '../../lib/i18n';
   import { shellContourColor } from '../../lib/three/stress-heatmap';
-  import { shellComponentLabelKey, shellComponentMeta, shellComponentRange, shellComponentStats } from '../../lib/engine/shell-stress';
+  import { shellComponentLabelKey, shellComponentMeta, shellComponentStats } from '../../lib/engine/shell-stress';
 
   // Shell contour mode is selected (regardless of whether data exists).
   const shellMode = $derived(
@@ -30,7 +33,18 @@
     return [...(r.plateStresses ?? []), ...(r.quadStresses ?? [])];
   });
 
-  const range = $derived(shellComponentRange(allShells, resultsStore.shellContourComponent));
+  // The same field the shells are painted from, so the scale reads what they show.
+  const range = $derived.by(() => {
+    const r = resultsStore.results3D;
+    if (!r) return { min: 0, max: 0 };
+    return shellContourField(
+      { plates: r.plateStresses ?? [], quads: r.quadStresses ?? [] },
+      (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
+      resultsStore.shellContourComponent,
+      contourOptions,
+    ).range;
+  });
+  const bands = $derived(contourOptions.bands);
 
   // Honest status of the selected component for THIS result set.
   const stat = $derived(shellComponentStats(allShells)[resultsStore.shellContourComponent]);
@@ -47,6 +61,14 @@
     /* Twenty stops, not ten: the ramp has five hues now, so ten samples put a
        visible corner at each of them. Same function the shells are painted
        with, so the bar cannot say a different thing from the model. */
+    if (bands > 0) {
+      // One hard-edged block per band, in the colour the band paints.
+      for (let k = 0; k < bands; k++) {
+        const c = hex(shellContourColor(bandValue(min + ((k + 0.5) / bands) * (max - min), min, max, bands), min, max));
+        stops.push(`${c} ${((k / bands) * 100).toFixed(2)}%`, `${c} ${(((k + 1) / bands) * 100).toFixed(2)}%`);
+      }
+      return `linear-gradient(to top, ${stops.join(', ')})`;
+    }
     const N = 20;
     for (let i = 0; i <= N; i++) {
       const t = i / N;
@@ -86,13 +108,17 @@
       <div class="legend-body">
         <div class="legend-bar" style="background:{gradient}"></div>
         <div class="legend-ticks">
-          <span>{fmt(range.max)}</span>
-          <span>{fmt(mid)}</span>
-          <span>{fmt(range.min)}</span>
+          {#if bands > 0 && bands <= 8}
+            {#each bandEdges(range.min, range.max, bands).reverse() as v, i (i)}<span>{fmt(v)}</span>{/each}
+          {:else}
+            <span>{fmt(range.max)}</span>
+            <span>{fmt(mid)}</span>
+            <span>{fmt(range.min)}</span>
+          {/if}
         </div>
       </div>
     {/if}
-    <div class="legend-unit">{meta.unit}</div>
+    <div class="legend-unit">{meta.unit}{#if !contourOptions.auto} · {t('contour.fixedRange')}{/if}{#if contourOptions.at === 'centre'} · {t('contour.atCentre')}{/if}</div>
   </div>
 {/if}
 

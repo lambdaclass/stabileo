@@ -17,6 +17,7 @@
  * not going out.
  */
 
+import { viewportCanvas } from '../utils/viewport-canvas';
 import { buildProReportData } from '../engine/pro-report-inputs';
 import { openReport } from '../engine/pro-report';
 import type { ReportConfig, ReportData } from '../engine/pro-report';
@@ -37,7 +38,7 @@ export interface ReportExportInputs {
 function screenshotOfCanvas(): string | undefined {
   // The viewport's canvas, not the first canvas in the document: a panel that draws one (a chart,
   // a section preview) would otherwise put its picture in the report as "the model".
-  const canvas = document.querySelector('.viewport-container canvas');
+  const canvas = viewportCanvas();
   if (!canvas) return undefined;
   try { return (canvas as HTMLCanvasElement).toDataURL('image/png'); } catch { return undefined; }
 }

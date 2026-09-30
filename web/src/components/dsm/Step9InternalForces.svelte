@@ -1,8 +1,8 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
-  import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
   import { transverseSign } from '../../lib/engine/transverse-sign-2d';
 
@@ -49,7 +49,7 @@
     <p>{@html t('dsm.step9.explanation')}</p>
   </div>
 
-  <MathEquation equation={eqInternal} displayMode />
+  <FitMath tex={eqInternal} narrow />
 
   <div class="elem-selector">
     <label for="elem-select-9">{t('dsm.step9.element')}</label>
@@ -179,7 +179,7 @@
   }
 
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0; }
 
   .elem-selector {
