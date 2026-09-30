@@ -196,9 +196,13 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'KeyboardShortcuts.svelte should treat pro as 3D when pasting copied geometry').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'KeyboardShortcuts.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
-    expect(toolbar, 'KeyboardShortcuts.svelte should require a complete explicit local axis before restoring it on paste').toContain('if (hasExplicitLocalY(el)) {');
-    expect(toolbar, 'KeyboardShortcuts.svelte should restore localY metadata when pasting').toContain('modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);');
-    expect(toolbar, 'KeyboardShortcuts.svelte should restore rollAngle metadata when pasting').toContain('modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);');
+    // The paste of the clipboard's own record goes through the edit layer (`store/clipboard-paste.ts`),
+    // which carries the member frame — a complete explicit local axis only, and the roll — as every
+    // copy does; `node-welds.test.ts` pins the result.
+    const clipboardPaste = readFileSync(new URL('../../store/clipboard-paste.ts', import.meta.url), 'utf8');
+    expect(toolbar, 'KeyboardShortcuts.svelte should paste the clipboard record through the edit layer').toContain('pasteClipboardRecord(clip,');
+    expect(clipboardPaste, 'the record carries its 3D element metadata').toContain('...pickElement3DMetadata(e)');
+    expect(clipboardPaste, 'and is inserted as a fragment').toContain('insertFragment(clipboardFragment(clip)');
     expect(oldToolbar, 'the keyboard layer should live in ONE place, not two')
       .not.toContain('function handleKeydown');
   });

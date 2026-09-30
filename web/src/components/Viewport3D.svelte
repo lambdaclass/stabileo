@@ -18,6 +18,7 @@
   import { editPreview } from '../lib/store/edit-preview.svelte';
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
+  import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
@@ -219,8 +220,10 @@
     const y = parseFloat(coordY);
     const z = parseFloat(coordZ);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
+    // Welded: typing the coordinates of an existing node selects it rather than
+    // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNode(x, y, z);
+    const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
     showCoordDialog = false;
@@ -1812,6 +1815,13 @@
 
     // Full 3D snap: snap all coordinates to grid, then onto the structural grid's axes
     const snapped = snapToStructure(pos);
+    // Duplicate-coincident-node guard (`viewport/node-placement.ts`): a click on a node of the
+    // working plane, or one the snap put the placement point on, selects it instead of a twin.
+    const onExisting = nodeAtPlacement3D(findNodeHit(e), snapped, uiStore.workingPlane, modelStore.nodes);
+    if (onExisting !== null) {
+      uiStore.selectNode(onExisting, e.shiftKey);
+      return;
+    }
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);

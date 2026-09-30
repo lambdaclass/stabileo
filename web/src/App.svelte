@@ -713,21 +713,19 @@
 
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
-    let created = 0;
-    const nodeIds: number[] = [];
+    const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        const id = modelStore.addNode(parts[0], parts[1]);
-        nodeIds.push(id);
-        created++;
-      }
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
     }
-    // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
-    // or just create elements between consecutive pairs if requested
-    if (created > 0) {
-      uiStore.toast(t('app.nodesImported').replace('{n}', String(created)), 'success');
-      resultsStore.clear();
+    // One undo step for the whole import — none when every point is a node already there — and
+    // each point welds to a node already at its coordinates: a wireframe listing repeats shared
+    // vertices line to line, and a blind addNode per line stacked twins on the same point.
+    const { created } = modelStore.addNodesWelded(points);
+    if (points.length > 0) {
+      // The nodes it added, not every line: a point already there is not an imported node.
+      uiStore.toast(t('app.nodesImported').replace('{n}', String(created.length)), 'success');
+      if (created.length > 0) resultsStore.clear();
     } else {
       uiStore.toast(t('app.noValidCoords'), 'error');
     }
