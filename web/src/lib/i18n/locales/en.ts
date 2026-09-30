@@ -3521,6 +3521,7 @@ const en: Record<string, string> = {
   'diag.warnings': 'Warnings',
   'diag.info': 'Information',
   'diag.detail.caseName': "Case",
+  'diag.detail.combination': "Combination",
   'diag.detail.caseId': "Case no.",
   'diag.detail.loadId': "Load",
   'diag.detail.sectionId': "Section",
@@ -3613,6 +3614,8 @@ const en: Record<string, string> = {
   'diag.model.supportOrphan': 'Support on non-existent node',
   'diag.model.noLoads': 'No loads applied',
   'diag.model.emptyCase': 'Empty load case (no loads)',
+  'diag.model.comboEmpty': "The combination adds up no load case: its results are zero and a design that reads it checks nothing.",
+  'diag.model.comboNoPermanent': "No combination includes permanent load (a dead case or the case self-weight goes to): every result leaves the structure's weight out.",
   'diag.model.loadOrphanElem': 'Load references non-existent member',
   'diag.model.loadOrphanNode': 'Load references non-existent node',
   // Diagnostic code tooltips
@@ -3672,6 +3675,8 @@ const en: Record<string, string> = {
   'diag.tooltip.MODEL_SUPPORT_ORPHAN': 'Support on a non-existent node — reassign to a valid node',
   'diag.tooltip.MODEL_NO_LOADS': 'Model has no loads — analysis will give zero displacements',
   'diag.tooltip.MODEL_EMPTY_CASE': 'Load case with no assigned loads — may produce null combinations',
+  'diag.tooltip.MODEL_COMBO_EMPTY': "Add the cases to the combination with their factors, or delete it.",
+  'diag.tooltip.MODEL_COMBO_NO_PERMANENT': "Add the dead case (D) to the combinations with its factor, for example 1.2D + 1.6L.",
   'diag.tooltip.MODEL_LOAD_ORPHAN_ELEM': 'Load on a member that no longer exists — remove the load',
   'diag.tooltip.MODEL_LOAD_ORPHAN_NODE': 'Load on a node that no longer exists — remove the load',
 

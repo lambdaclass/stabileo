@@ -56,6 +56,8 @@ export function checkCurrentModel(): SolverDiagnostic[] {
     quads: modelStore.model.quads,
     connectors: modelStore.model.connectors,
     constraints: modelStore.model.constraints,
+      combinations: modelStore.combinations,
+      selfWeightCaseIds: (modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
   });
 }
 

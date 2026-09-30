@@ -3514,6 +3514,7 @@ const es: Record<string, string> = {
   'diag.warnings': 'Advertencias',
   'diag.info': 'Información',
   'diag.detail.caseName': "Caso",
+  'diag.detail.combination': "Combinación",
   'diag.detail.caseId': "N.º de caso",
   'diag.detail.loadId': "Carga",
   'diag.detail.sectionId': "Sección",
@@ -3606,6 +3607,8 @@ const es: Record<string, string> = {
   'diag.model.supportOrphan': 'Apoyo en nodo inexistente',
   'diag.model.noLoads': 'No hay cargas aplicadas',
   'diag.model.emptyCase': 'Caso de carga vacío (sin cargas)',
+  'diag.model.comboEmpty': "La combinación no suma ningún caso de carga: sus resultados son cero y un diseño que la lea no verifica nada.",
+  'diag.model.comboNoPermanent': "Ninguna combinación incluye carga permanente (un caso D o el caso que recibe el peso propio): todos los resultados dejan afuera el peso de la estructura.",
   'diag.model.loadOrphanElem': 'Carga referencia barra inexistente',
   'diag.model.loadOrphanNode': 'Carga referencia nodo inexistente',
   // Tooltips de códigos de diagnóstico
@@ -3665,6 +3668,8 @@ const es: Record<string, string> = {
   'diag.tooltip.MODEL_SUPPORT_ORPHAN': 'Apoyo en nodo que no existe — reasignar a nodo válido',
   'diag.tooltip.MODEL_NO_LOADS': 'Modelo sin cargas — el análisis dará desplazamientos cero',
   'diag.tooltip.MODEL_EMPTY_CASE': 'Caso de carga sin cargas asignadas — puede generar combinaciones nulas',
+  'diag.tooltip.MODEL_COMBO_EMPTY': "Agregale a la combinación los casos con sus factores, o borrala.",
+  'diag.tooltip.MODEL_COMBO_NO_PERMANENT': "Agregá el caso permanente (D) a las combinaciones con su factor, por ejemplo 1,2D + 1,6L.",
   'diag.tooltip.MODEL_LOAD_ORPHAN_ELEM': 'Carga en barra que ya no existe — eliminar la carga',
   'diag.tooltip.MODEL_LOAD_ORPHAN_NODE': 'Carga en nodo que ya no existe — eliminar la carga',
 
