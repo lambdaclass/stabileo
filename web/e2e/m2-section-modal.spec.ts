@@ -157,6 +157,22 @@ test.describe('the two divisions', () => {
     await expect(page.getByTestId('section-arrangement')).toBeHidden();
   });
 
+  test('dimensions are typed in millimetres', async ({ page }) => {
+    // A first scaffold model entered a 50.8 × 2.5 tube as 0.508 × 0.025 in metre fields.
+    await openModal(page);
+    await page.getByTestId('section-division-build').click();
+    await page.getByTestId('section-template').selectOption('hollow-circular');
+    const d = page.getByTestId('section-param-d');
+    await expect(d.locator('xpath=following-sibling::span')).toHaveText('mm');
+    await d.fill('50.8');
+    await d.dispatchEvent('change');
+    const t = page.getByTestId('section-param-t');
+    await t.fill('2.5');
+    await t.dispatchEvent('change');
+    // A = π/4·(50.8² − 45.8²) mm² = 3.79 cm².
+    await expect(page.getByTestId('section-build-props')).toContainText('3.79');
+  });
+
   test('a built section reports its own numbers as they are typed', async ({ page }) => {
     await openModal(page);
     await page.getByTestId('section-division-build').click();
