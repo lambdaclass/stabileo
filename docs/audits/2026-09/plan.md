@@ -11,13 +11,13 @@
 >   quantities hint at 3.62:1. Fixed in Phase 0; the cause — the @slow suite runs on main only, so PRs merge
 >   what it would catch — is ledger row W13-01.
 > - **Phase 1 gains a second half: the cross-cutting patterns.** The reviews of #226–#245 confirmed about 60
->   findings, nearly all in eight patterns that cut across modules. Each is fixed once, with a guard test in
->   CI, before the module audits, so it stops resurfacing in each of them: P-1 a refusal turned into a
->   silent success; P-2 one concept with several sources of truth (weld tolerances, the 3D-mode check);
->   P-3 duplicated helpers drifting; P-4 new id-bearing fields that remaps and persistence miss; P-5 store
->   reactivity outside components; P-6 repeated or main-thread work; P-7 numerical thresholds referenced to
->   the wrong quantity; P-8 tests that pin source text. Their tasks are numbered from 1.4 in the
->   order they are taken (1.4 = P-2's 3D-mode check, 1.5 = P-8); the i18n split (en/es/pt, 8.5 k lines, >150 commits a month each) goes with P-3.
+>   findings, nearly all in eight patterns that cut across modules (C for cross-cutting: P1–P9 stay the performance leads of §4.4). Each is fixed once, with a guard test in
+>   CI, before the module audits, so it stops resurfacing in each of them: C-1 a refusal turned into a
+>   silent success; C-2 one concept with several sources of truth (weld tolerances, the 3D-mode check);
+>   C-3 duplicated helpers drifting; C-4 new id-bearing fields that remaps and persistence miss; C-5 store
+>   reactivity outside components; C-6 repeated or main-thread work; C-7 numerical thresholds referenced to
+>   the wrong quantity; C-8 tests that pin source text. Their tasks are numbered from 1.4 in the
+>   order they are taken (1.4 = C-2's 3D-mode check, 1.5 = C-8); the i18n split (en/es/pt, 8.5 k lines, >150 commits a month each) goes with C-3.
 > - **Two modules without a task.** `web/src/lib/engine/steps` (explained steps, 8.9 k lines) and
 >   `web/src/lib/engine/force-method` (1.8 k) were written after this plan. They become tasks 2.28 (W18) and
 >   2.29 (W19), tier 1: both print numbers a student or an engineer reads as the answer.
@@ -614,6 +614,34 @@ If a test fails and the fix belongs to a later module, commit the test marked wi
 
 ---
 
+### Task 1.4: C-2 — one answer to "is this a space workspace?"
+
+A mode compared with `'3d'` alone treats PRO, always a space workspace, as a plane one wherever PRO reaches the code.
+- [ ] Add `is3DWorkspace(mode)` to a pure module and a `uiStore` getter. Route every dimension check through it; a comparison that asks which mode it is (the Basic 3D button) keeps its literal.
+- [ ] Add a gate test that fails on any other comparison of a mode with `'3d'`.
+- [ ] Add an e2e test for one behaviour PRO gains. It must fail before the change.
+- [ ] Record the sites in the ledger (C-2).
+
+### Task 1.5: C-8 — tests of behaviour, not of source text
+
+- [ ] List the tests that read source files. Class each assertion:
+  - (a) a prohibition on a legacy construct, i.e. a lint;
+  - (b) an architecture rule ("use the shared helper", "one keyboard layer");
+  - (c) a requirement of exact text in one implementation.
+- [ ] Replace each (c) with a test that calls the code, or delete it where a behaviour test already covers it. Keep (a) and (b), each with a note on why.
+- [ ] Wiring with no unit entry point yet stays, marked as such, until an e2e covers it.
+
+### Tasks 1.6 onward: C-1, C-3…C-7 and the rest of C-2
+
+Each follows 1.4's shape: a single source for the concept, a guard test in CI, and one behaviour test that fails before the change.
+- C-1: a refusal reaches the UI as a typed error, never as a silent success. K4's swallowed catches are part of it.
+- C-2: the rest are the 51 tolerance constants, weld first.
+- C-3: shared helpers replace drifting copies, plus the en/es/pt split by area.
+- C-4: a registry of id-bearing fields that remaps and persistence read.
+- C-5: stores are exercised from plain code.
+- C-6: a solve counter per interaction, and performance budgets.
+- C-7: thresholds are referenced to their own quantity, with differential tests.
+
 ## Phase 2 — Module audits, in risk order
 
 Risk is the product of three factors:
@@ -635,6 +663,8 @@ Engine and web trees are disjoint, so run tasks in pairs across them: 2.1 with 2
 | 2.8 | E3r | Sparse linear algebra re-audit | 1 |
 | 2.9 | E4r | Nonlinear re-audit | 1 |
 | 2.10 | E7 | Special models | 1 |
+| 2.28 | W18 | Explained steps (`lib/engine/steps`) — written after this plan; run with tier 1 | 1 |
+| 2.29 | W19 | Force method (`lib/engine/force-method`) — written after this plan; run with tier 1 | 1 |
 | 2.11 | W13 | Test and CI honesty | 2: trust boundaries and gates |
 | 2.12 | E8 | WASM boundary | 2 |
 | 2.13 | W3 | Model store, persistence, share links | 2 |
@@ -1161,6 +1191,20 @@ Every task below follows §1. Steps list only what is specific to the module.
 
 ---
 
+### Task 2.28: W18 — Explained steps (`web/src/lib/engine/steps`)
+
+This module prints the numbers a student reads as the solution: 8.9 k lines and 34 files, all written after this plan.
+- [ ] Oracle: for each step family, compare the step's final numbers with the solver's result on the same model; the steps must reproduce the solve, not a parallel calculation that can drift.
+- [ ] Walk each family's catalogue models and a seeded set of generated ones.
+- [ ] Find where a step can print a value the model does not have: a refusal shown as a number, or a unit dropped.
+
+### Task 2.29: W19 — Force method (`web/src/lib/engine/force-method`)
+
+1.8 k lines, written after this plan.
+- [ ] Oracle: the stiffness solve on the same statically indeterminate models, reactions and end moments to 1e-9 relative.
+- [ ] Check the choice of redundants: a degenerate or singular choice must be refused, not solved.
+- [ ] Check the degree of indeterminacy against the kinematic count (`kinematic-2d`).
+
 ## Phase 3 — Close-out
 
 ### Task 3.1: Re-measure, reconcile, publish
@@ -1171,7 +1215,7 @@ Every task below follows §1. Steps list only what is specific to the module.
 
 - [ ] **Step 1:** Re-run Task 0.4 on the final main SHA and add "after" columns. A regression over 10 % on any workload, without a correctness fix that justifies it, is a finding.
 - [ ] **Step 2:** Run `make test-inventory` and update the stamp in `docs/BENCHMARKS.md` in the same commit.
-- [ ] **Step 3:** Reconcile: every register row K1–K58 and P1–P9 has a ledger outcome of `fixed`, `deferred` (with reason and owner), `not-a-bug` (with its deciding test), or `open` (with owner).
+- [ ] **Step 3:** Reconcile: every register row K1–K58, P1–P9 and C-1…C-8 has a ledger outcome of `fixed`, `deferred` (with reason and owner), `not-a-bug` (with its deciding test), or `open` (with owner).
 - [ ] **Step 4:** Write `summary.md`:
   - counts by severity and module;
   - the ten most important fixes;
@@ -1189,9 +1233,9 @@ Status: ☐ todo · ◐ in progress · ✔ done (date, PR)
 | Task | Module | Status | PR | Headline findings | Deferred |
 |------|--------|--------|----|-------------------|----------|
 | 0.1–0.4 | Baseline (includes K1 triage) | ◐ 2026-09-30 | | Main red from #231: contrast of the quantities hint (fixed); Node 25 harness defect (fixed); TS baseline 463 → 456 | |
-| 1.4 | P-2: the 3D-mode check (`is3DWorkspace` + gate) | ◐ | #247 | 36 checks left PRO out; PRO context menu had no local-axes entry | |
-| 1.5 | P-8: tests of behaviour, not source text | ◐ | | | |
-| 1.6+ | P-1, P-3…P-7, P-2 tolerances | ☐ | | | |
+| 1.4 | C-2: the 3D-mode check (`is3DWorkspace` + gate) | ◐ | #247 | 36 checks left PRO out; PRO context menu had no local-axes entry | |
+| 1.5 | C-8: tests of behaviour, not source text | ◐ | | | |
+| 1.6+ | C-1, C-3…C-7, C-2 tolerances | ☐ | | | |
 | 1.1 | WASM reachability map | ☐ | | | |
 | 1.2 | Implementation map | ☐ | | | |
 | 1.3 | Differential tests | ☐ | | | |
