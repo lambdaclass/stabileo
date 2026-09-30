@@ -27,6 +27,7 @@
  * only thing at the node, and making one continuous would change the model.
  */
 import type { SolverInput } from './types';
+import { addConstraintConnectivity } from './constraint-connectivity';
 
 export function mergeAllHingedJoints2D(input: SolverInput): SolverInput {
   const ends = new Map<number, Array<{ id: number; end: 'start' | 'end' }>>();
@@ -65,4 +66,57 @@ export function mergeAllHingedJoints2D(input: SolverInput): SolverInput {
     elements.set(pick.id, el);
   }
   return elements === input.elements ? input : { ...input, elements };
+}
+
+/**
+ * Rotations no member reaches, held exactly for the eigenvalue analyses.
+ *
+ * ── The defect ─────────────────────────────────────────────────────
+ *
+ * A node that only truss bars meet, in a model that also has frame members,
+ * keeps a rotation because the plane solver gives every node of such a model
+ * three degrees of freedom. Nothing resists it and nothing gives it mass. The
+ * linear solve survives on the vanishing spring the solver adds to it; the
+ * eigenvalue analyses do not: a king-post beam, a frame with one tie, a truss
+ * roof on columns, and the modal and buckling analyses stopped with
+ * "Eigenvalue decomposition failed" although the static solve had worked.
+ *
+ * ── The fix ────────────────────────────────────────────────────────
+ *
+ * Each such rotation is set to zero with a one-term linear constraint. It is
+ * exact, not a stiff spring: the rotation carries no stiffness and no mass, so
+ * holding it changes no other number, and the mode shapes give it the zero it
+ * has in every result. A node where a frame member arrives without a hinge is
+ * left alone, and so is one whose rotation something else acts on (a fixed or
+ * rotational-spring support, a connector, a constraint): there the rotation
+ * is real. `mergeAllHingedJoints2D` runs first and takes care of the joints
+ * where every frame end is hinged; what reaches this is what it had to leave:
+ * truss-only nodes, and all-hinged joints under a nodal moment.
+ */
+export function restrainOrphanRotations2D(input: SolverInput): SolverInput {
+  const elements = [...input.elements.values()];
+  if (!elements.some((e) => e.type === 'frame')) return input;
+  const reached = new Set<number>();
+  for (const e of elements) {
+    if (e.type !== 'frame') continue;
+    if (!e.hingeStart) reached.add(e.nodeI);
+    if (!e.hingeEnd) reached.add(e.nodeJ);
+  }
+  const held = new Set<number>();
+  for (const s of input.supports.values()) {
+    if (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0)) held.add(s.nodeId);
+  }
+  for (const c of input.connectors?.values() ?? []) { held.add(c.nodeI); held.add(c.nodeJ); }
+  // The nodes a constraint names, by its type: every number in it was taken for one, and an
+  // equalDOF's DOF indices [0, 2] held nodes 0 and 2, leaving a truss-only node 2 unrestrained.
+  addConstraintConnectivity(held, input.constraints as never);
+  const orphans = [...input.nodes.keys()].filter((n) => !reached.has(n) && !held.has(n));
+  if (!orphans.length) return input;
+  return {
+    ...input,
+    constraints: [
+      ...(input.constraints ?? []),
+      ...orphans.map((nodeId) => ({ type: 'linearMPC' as const, terms: [{ nodeId, dof: 2, coefficient: 1 }] })),
+    ],
+  };
 }

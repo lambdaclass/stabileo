@@ -44,7 +44,9 @@
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { solve, analyzeKinematics } from './wasm-solver';
+import { solve } from './wasm-solver';
+// The normalized reading: the diagnosis in the active language and the app's axis names.
+import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 
 export interface PlasticCollapseOptions {
@@ -70,6 +72,12 @@ export interface PlasticCollapseResult extends PlasticResult {
   steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[] }>;
   /** Degree of static indeterminacy of the structure as given. */
   degree: number;
+  /**
+   * Nothing stresses the structure: no loads, or only loads that go straight
+   * into the supports. There is then nothing to grow, λc = 0 means nothing, and
+   * the caller says so instead of "does not collapse".
+   */
+  unloaded: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
@@ -204,6 +212,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
 
   let lambda = 0;
   let isMechanism = false;
+  let unloaded = false;
   const hinges: PlasticCollapseHinge[] = [];
   const steps: PlasticCollapseResult['steps'] = [];
 
@@ -255,7 +264,10 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         if (d > 1e-12) { cand.push({ m: mb, k, d, axial: false }); dMin = Math.min(dMin, d); }
       }
     }
-    if (!Number.isFinite(dMin)) break; // nothing left that can yield
+    if (!Number.isFinite(dMin)) { // nothing left that can yield
+      if (step === 0 && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
+      break;
+    }
 
     /* Advance every accumulated quantity by Δλ times this solution. */
     lambda += dMin;
@@ -396,5 +408,6 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     isMechanism,
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
+    unloaded,
   };
 }

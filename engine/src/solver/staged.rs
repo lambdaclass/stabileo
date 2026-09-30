@@ -1843,7 +1843,7 @@ fn build_results_from_u_3d(
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: vec![], point_loads_y: vec![],
                 q_zi: 0.0, q_zj: 0.0,
-                distributed_loads_x: Vec::new()
+                distributed_loads_x: Vec::new(),
                 distributed_loads_z: vec![], point_loads_z: vec![],
                 bimoment_start: None, bimoment_end: None,
             });
@@ -1919,7 +1919,7 @@ fn build_results_from_u_3d(
             distributed_loads_y: vec![],
             point_loads_y: vec![],
             q_zi: 0.0, q_zj: 0.0,
-            distributed_loads_x: Vec::new()
+            distributed_loads_x: Vec::new(),
             distributed_loads_z: vec![],
             point_loads_z: vec![],
             bimoment_start: None,

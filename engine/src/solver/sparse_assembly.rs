@@ -1513,15 +1513,13 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                     if let Some(elem_loads) = load_index.get(&elem.id) {
                         for load in elem_loads {
                             if let SolverLoad3D::Distributed(dl) = load {
-                    if dl.element_id == elem.id {
-                        let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
-                        for k in 0..3 {
-                            if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
-                            if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
-                        }
-                    }
-                }
-                if let SolverLoad3D::Thermal(tl) = load {
+                                let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                                for k in 0..3 {
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
+                                }
+                            }
+                            if let SolverLoad3D::Thermal(tl) = load {
                                 let alpha = 12e-6;
                                 let fx = e * sec.a * alpha * tl.dt_uniform;
                                 for k in 0..3 {

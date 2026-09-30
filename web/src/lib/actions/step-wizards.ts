@@ -40,10 +40,18 @@ function errText(e: unknown, fallbackKey: string): string {
   return typeof msg === 'string' && msg.trim() ? msg : t(fallbackKey);
 }
 
+/*
+ * Shows the panel the wizards and the catalog render in. It does not re-frame
+ * the model: it used to dispatch a zoom-to-fit, so merely opening the catalog
+ * (or a wizard from it) and going back left a model the reader had panned or
+ * zoomed framed afresh. Where opening a panel does resize the canvas, the
+ * phone's sheet, App.svelte re-frames on that transition; a desktop panel
+ * takes width from a canvas that has plenty. Loading an example from the
+ * catalog is the one step that frames the model (StepsCatalog's `example`).
+ */
 function showPanel() {
   if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
   else uiStore.rightSidebarOpen = true;
-  setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
 }
 
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */

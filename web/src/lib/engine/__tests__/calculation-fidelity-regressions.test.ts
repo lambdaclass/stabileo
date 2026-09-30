@@ -55,12 +55,14 @@ it('honours P-Delta in the async solve used by live calculation', async () => {
   const asyncResult = result(await modelStore.solveCombinations3DParallel(false, false, true));
   const uy = (r: AnalysisResults3D) => r.displacements.find(d => d.nodeId === b)!.uy;
   expect(uy(asyncResult.perCombo.get(c)!)).toBeCloseTo(uy(sync.perCombo.get(c)!), 9);
+  expect(asyncResult.perCombo.get(c)!.secondOrder).toMatchObject({ converged: true, stable: true });
+  expect(Math.abs(uy(asyncResult.perCombo.get(c)!))).toBeGreaterThan(Math.abs(uy(result(modelStore.solve3D(false, false, true)))) * 1.5);
 });
 
-it('factors a temperature once, preserving the expansion coefficient', () => {
+it.each([2, -1])('factors a temperature once by %s, preserving the expansion coefficient', factor => {
   const thermal = convertThermalQuadLoad({ id: 1, quadId: 1, dtUniform: 20, dtGradient: 0 }, .000012)[0]!;
-  const l = scaleSolverLoad(thermal, 2);
-  expect((l.data as unknown as { alpha: number }).alpha).toBe(.000012);
+  const l = scaleSolverLoad(thermal, factor);
+  expect(l.data).toMatchObject({ alpha: .000012, dtUniform: 20 * factor });
 });
 
 it('counts structural self-weight only once in a mass source', () => {
@@ -85,7 +87,7 @@ it('does not silently discard a loaded free node when all its one-way bars go sl
   modelStore.addElement(roots[0]!, roots[1]!, 'frame');
   modelStore.addNodalLoad3D(a, -10, -10, -10, 0, 0, 0, 1);
   const r = modelStore.solve3D(false, false, true);
-  expect(typeof r === 'string' || !r || !r.nonlinear?.converged).toBe(true);
+  expect(r).toEqual(expect.stringContaining(`loaded node ${a} is held only by slack members`));
 });
 
 it.each([true, false])('keeps selected-member self-weight after splitting (keep ID: %s)', (keepOriginalId) => {

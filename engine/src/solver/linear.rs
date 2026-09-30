@@ -4689,7 +4689,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
-                distributed_loads_x: axial_loads
+                distributed_loads_x: axial_loads,
                 distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
             continue;
         }
@@ -4910,7 +4910,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
             point_loads_y: pt_loads_y,
             q_zi: q_zi_total,
             q_zj: q_zj_total,
-            distributed_loads_x: dist_loads_x
+            distributed_loads_x: dist_loads_x,
             distributed_loads_z: dist_loads_z,
             point_loads_z: pt_loads_z,
             bimoment_start,

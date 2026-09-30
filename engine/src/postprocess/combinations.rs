@@ -325,7 +325,7 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
             release_t_start: f.release_t_start, release_t_end: f.release_t_end,
             q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
-            distributed_loads_x: Vec::new()
+            distributed_loads_x: Vec::new(),
             distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 

@@ -613,7 +613,7 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
             distributed_loads_y: ef.distributed_loads_y.clone(),
             point_loads_y: ef.point_loads_y.clone(),
             q_zi: ef.q_zi * factor, q_zj: ef.q_zj * factor,
-            distributed_loads_x: ef.distributed_loads_x.clone()
+            distributed_loads_x: ef.distributed_loads_x.clone(),
             distributed_loads_z: ef.distributed_loads_z.clone(),
             point_loads_z: ef.point_loads_z.clone(),
             bimoment_start: ef.bimoment_start.map(|b| b * factor),

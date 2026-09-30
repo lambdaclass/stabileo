@@ -43,3 +43,32 @@ describe('mergeAllHingedJoints2D', () => {
     expect(mergeAllHingedJoints2D(input)).toBe(input);
   });
 });
+
+describe('restrainOrphanRotations2D and constraints', () => {
+  /*
+   * A king post: node 2 is reached by truss bars only (its rotation is an orphan), and an
+   * equalDOF elsewhere ties nodes 4 and 5 in DOFs 0 and 2. The DOF indices are not nodes.
+   */
+  it('reads the nodes of a constraint, not its DOF indices', async () => {
+    const { restrainOrphanRotations2D } = await import('../orphan-rotations-2d');
+    const input = {
+      nodes: new Map([1, 2, 3, 4, 5].map((id) => [id, { id, x: id, z: id === 2 ? -1 : 0 }])),
+      materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [2, { id: 2, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [3, { id: 3, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [4, { id: 4, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [5, { id: 5, type: 'frame', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      ]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 5, type: 'rollerX' }]]),
+      loads: [],
+      constraints: [{ type: 'equalDOF', masterNode: 4, slaveNode: 5, dofs: [0, 2] }],
+    } as unknown as SolverInput;
+    const out = restrainOrphanRotations2D(input);
+    const held = (out.constraints ?? []).filter((c) => (c as { type: string }).type === 'linearMPC')
+      .map((c) => (c as unknown as { terms: Array<{ nodeId: number }> }).terms[0]!.nodeId);
+    expect(held).toEqual([2]);
+  });
+});

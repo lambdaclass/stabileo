@@ -704,7 +704,9 @@
     beside it describe — so it has to move when they do.
   -->
   <div class="fp-figure">
-    {#if isBeam}
+    {#if out.r?.invalid}
+      <!-- Refused inputs describe no section; the memo says which number to fix. -->
+    {:else if isBeam && (out.r?.theta ?? Math.PI / 2) > 0}
       <SectionDrawing
         {shape}
         cover={dPrimeS / 100}
@@ -719,6 +721,7 @@
         compAsCm2={out.r?.AsPrimeCm2 ?? 0}
       />
     {:else}
+      <!-- Columns, and a hogging T: compressed at the bottom, bars at the top. -->
       <SectionDrawing
         {shape}
         cover={0}

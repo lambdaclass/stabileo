@@ -1,7 +1,9 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
-import type { SolverInput, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
+import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
+import { errorText as baseErrorText } from '../utils/error-text';
 import { solve, isWasmReady } from './wasm-solver';
+import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 
@@ -111,17 +113,29 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
   const segments: PathSegment[] = [];
 
   if (pathElementIds && pathElementIds.length > 0) {
+    // Each segment runs in the direction of travel: from the node it shares with
+    // the previous member (for the first, away from the node it shares with the
+    // next), whichever way the member itself was drawn.
+    const elems = pathElementIds.map((eid) => input.elements.get(eid)).filter((e) => e !== undefined);
     let cumDist = 0;
-    for (const eid of pathElementIds) {
-      const elem = input.elements.get(eid);
-      if (!elem) continue;
-      const ni = input.nodes.get(elem.nodeI)!;
-      const nj = input.nodes.get(elem.nodeJ)!;
+    let prevEnd: number | undefined;
+    for (let k = 0; k < elems.length; k++) {
+      const elem = elems[k];
+      let from = elem.nodeI, to = elem.nodeJ;
+      if (prevEnd !== undefined) {
+        if (elem.nodeJ === prevEnd) { from = elem.nodeJ; to = elem.nodeI; }
+      } else if (k + 1 < elems.length) {
+        const next = elems[k + 1];
+        if (elem.nodeI === next.nodeI || elem.nodeI === next.nodeJ) { from = elem.nodeJ; to = elem.nodeI; }
+      }
+      const ni = input.nodes.get(from)!;
+      const nj = input.nodes.get(to)!;
       const dx = nj.x - ni.x;
       const dy = nj.z - ni.z;
       const L = Math.sqrt(dx * dx + dy * dy);
-      segments.push({ elementId: eid, nodeI: elem.nodeI, nodeJ: elem.nodeJ, length: L, cumStart: cumDist, dx, dy });
+      segments.push({ elementId: elem.id, nodeI: from, nodeJ: to, length: L, cumStart: cumDist, dx, dy });
       cumDist += L;
+      prevEnd = to;
     }
     return segments;
   }
@@ -217,16 +231,75 @@ function reverseTrain(train: LoadTrain): LoadTrain {
 }
 
 /**
+ * The loads a downward force `weight` puts on the structure when it stands at
+ * distance `a` from node I of `elementId` — node I of the ELEMENT, not of the
+ * path walking over it.
+ *
+ * On a frame member it is the member's own transverse point load plus the axial
+ * component shared by its end nodes, exactly as the static solve splits a global
+ * point load (solver-service.ts buildSolverLoads2D). On a truss bar the engine
+ * assembles no member load at all, so the force reaches the bar's two nodes by
+ * the lever rule — the only way a bar that carries no bending can take it, and
+ * how a deck resting on a truss loads it.
+ *
+ * Shared by the moving load (each axle) and the influence line (the unit load),
+ * so the two place a load the same way.
+ */
+export function verticalLoadOnMember(input: SolverInput, elementId: number, a: number, weight: number): SolverLoad[] {
+  const elem = input.elements.get(elementId);
+  if (!elem) return [];
+  const ni = input.nodes.get(elem.nodeI);
+  const nj = input.nodes.get(elem.nodeJ);
+  if (!ni || !nj) return [];
+  const dx = nj.x - ni.x;
+  const dz = nj.z - ni.z;
+  const L = Math.hypot(dx, dz);
+  if (L < 1e-12) return [];
+  const t = Math.min(1, Math.max(0, a / L));
+  const c = dx / L;
+  const s = dz / L;
+
+  if (elem.type === 'truss') {
+    return [
+      { type: 'nodal', data: { nodeId: elem.nodeI, fx: 0, fz: -weight * (1 - t), my: 0 } },
+      { type: 'nodal', data: { nodeId: elem.nodeJ, fx: 0, fz: -weight * t, my: 0 } },
+    ];
+  }
+
+  const out: SolverLoad[] = [];
+  const pPerp = -weight * c;
+  if (Math.abs(pPerp) > 1e-10) {
+    out.push({ type: 'pointOnElement', data: { elementId, a: t * L, p: pPerp } });
+  }
+  const pAxial = -weight * s;
+  if (Math.abs(pAxial) > 1e-10) {
+    const fI = pAxial * (1 - t);
+    const fJ = pAxial * t;
+    out.push(
+      { type: 'nodal', data: { nodeId: elem.nodeI, fx: fI * c, fz: fI * s, my: 0 } },
+      { type: 'nodal', data: { nodeId: elem.nodeJ, fx: fJ * c, fz: fJ * s, my: 0 } },
+    );
+  }
+  return out;
+}
+
+/**
  * Build the load array for a single train position on the path.
+ *
+ * The path is walked in the direction of travel, which on a member drawn the
+ * other way runs from the member's node J to its node I. The axle's point is
+ * found on the path and then measured from the ELEMENT's node I: measuring it
+ * from the path's node put the axle at the mirrored point, and taking the
+ * perpendicular from the path's direction made it push upward.
  */
 function buildTrainLoads(
-  baseLoads: SolverInput['loads'],
+  input: SolverInput,
   train: LoadTrain,
   refPos: number,
   totalLength: number,
   path: PathSegment[],
 ): SolverInput['loads'] {
-  const loads: SolverInput['loads'] = [...baseLoads];
+  const loads: SolverInput['loads'] = [...input.loads];
 
   for (const axle of train.axles) {
     const pos = refPos + axle.offset;
@@ -234,37 +307,49 @@ function buildTrainLoads(
 
     const seg = path.find(s => pos >= s.cumStart && pos <= s.cumStart + s.length);
     if (!seg) continue;
+    const elem = input.elements.get(seg.elementId);
+    if (!elem) continue;
 
-    const t = (pos - seg.cumStart) / seg.length;
-    const a = t * seg.length;
-
-    const cosTheta = seg.dx / seg.length;
-    const sinTheta = seg.dy / seg.length;
-    const pPerp = -axle.weight * cosTheta;
-
-    if (Math.abs(pPerp) > 1e-10) {
-      loads.push({
-        type: 'pointOnElement',
-        data: { elementId: seg.elementId, a, p: pPerp },
-      });
-    }
-
-    const pAxial = -axle.weight * sinTheta;
-    if (Math.abs(pAxial) > 1e-10) {
-      const fI = pAxial * (1 - t);
-      const fJ = pAxial * t;
-      loads.push(
-        { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
-        { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
-      );
-    }
+    const f = (pos - seg.cumStart) / seg.length;
+    // Along the path f runs from seg.nodeI; the element's own node I is at 0 or at 1.
+    const tElem = elem.nodeI === seg.nodeI ? f : 1 - f;
+    loads.push(...verticalLoadOnMember(input, seg.elementId, tElem * seg.length, axle.weight));
   }
 
   return loads;
 }
 
+type ElementEnvelope = { mMaxPos: number; mMaxNeg: number; vMaxPos: number; vMaxNeg: number; nMaxPos: number; nMaxNeg: number };
+
+/** Fold one position's end forces into the per-element envelope. */
+function accumulate(envelope: Map<number, ElementEnvelope>, results: AnalysisResults): void {
+  for (const ef of results.elementForces) {
+    const env = envelope.get(ef.elementId);
+    if (!env) continue;
+    const mMax = Math.max(ef.mStart, ef.mEnd);
+    const mMin = Math.min(ef.mStart, ef.mEnd);
+    const vMax = Math.max(ef.vStart, ef.vEnd);
+    const vMin = Math.min(ef.vStart, ef.vEnd);
+    const nMax = Math.max(ef.nStart, ef.nEnd);
+    const nMin = Math.min(ef.nStart, ef.nEnd);
+
+    if (mMax > env.mMaxPos) env.mMaxPos = mMax;
+    if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
+    if (vMax > env.vMaxPos) env.vMaxPos = vMax;
+    if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
+    if (nMax > env.nMaxPos) env.nMaxPos = nMax;
+    if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
+  }
+}
+
+/** A thrown value as text: the WASM throws strings, JS throws Errors (`utils/error-text`). */
+export function errorText(e: unknown): string {
+  return baseErrorText(e, String(e));
+}
+
 /**
- * Solve a single position and update envelope.
+ * Solve a single position. A position that fails refuses the whole run: an
+ * envelope missing the positions that failed would read as complete.
  */
 function solvePosition(
   baseInput: SolverInput,
@@ -272,36 +357,41 @@ function solvePosition(
   refPos: number,
   path: PathSegment[],
   totalLength: number,
-  envelope: Map<number, { mMaxPos: number; mMaxNeg: number; vMaxPos: number; vMaxNeg: number; nMaxPos: number; nMaxNeg: number }>,
+  envelope: Map<number, ElementEnvelope>,
   positions: MovingLoadEnvelope['positions'],
-): void {
-  const loads = buildTrainLoads(baseInput.loads, train, refPos, totalLength, path);
+): string | null {
+  const loads = buildTrainLoads(baseInput, train, refPos, totalLength, path);
   const input: SolverInput = { ...baseInput, loads };
 
   try {
     const results = solve(input);
     positions.push({ refPosition: refPos, results });
-
-    for (const ef of results.elementForces) {
-      const env = envelope.get(ef.elementId);
-      if (!env) continue;
-      const mMax = Math.max(ef.mStart, ef.mEnd);
-      const mMin = Math.min(ef.mStart, ef.mEnd);
-      const vMax = Math.max(ef.vStart, ef.vEnd);
-      const vMin = Math.min(ef.vStart, ef.vEnd);
-      const nMax = Math.max(ef.nStart, ef.nEnd);
-      const nMin = Math.min(ef.nStart, ef.nEnd);
-
-      if (mMax > env.mMaxPos) env.mMaxPos = mMax;
-      if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
-      if (vMax > env.vMaxPos) env.vMaxPos = vMax;
-      if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
-      if (nMax > env.nMaxPos) env.nMaxPos = nMax;
-      if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
-    }
+    accumulate(envelope, results);
+    return null;
   } catch (e) {
-    console.warn(`Moving load position ${refPos.toFixed(2)} failed: ${e instanceof Error ? e.message : e}`);
+    return t('svc.solverError').replace('{n}', errorText(e));
   }
+}
+
+/**
+ * The static solve's kinematic gate, run once before the sweep.
+ *
+ * Every position solves the same stiffness, so a mechanism is a mechanism at
+ * all of them. The engine does not refuse it on its own: the vanishing spring
+ * it adds keeps the system solvable, and the sweep used to come back with an
+ * envelope of numbers in the 1e11 range. Refused here with the diagnosis the
+ * static solve shows (solver-service.ts prepareSolve2D). If the check itself
+ * cannot run, the sweep goes on, as the static solve does.
+ */
+function mechanismRefusal(input: SolverInput): string | null {
+  let k: KinematicResult;
+  try {
+    k = analyzeKinematics({ ...input, loads: [] });
+  } catch {
+    return null;
+  }
+  if (k.rankAnalysis === 'unavailable' || k.isSolvable) return null;
+  return k.invalidInput ? t('svc.solverError').replace('{n}', k.invalidInput) : k.diagnosis;
 }
 
 /**
@@ -379,11 +469,7 @@ export function solveMovingLoads(
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
 
-  const envelope = new Map<number, {
-    mMaxPos: number; mMaxNeg: number;
-    vMaxPos: number; vMaxNeg: number;
-    nMaxPos: number; nMaxNeg: number;
-  }>();
+  const envelope = new Map<number, ElementEnvelope>();
   for (const seg of path) {
     envelope.set(seg.elementId, {
       mMaxPos: 0, mMaxNeg: 0,
@@ -392,6 +478,9 @@ export function solveMovingLoads(
     });
   }
 
+  const refused = mechanismRefusal(baseInput);
+  if (refused) return refused;
+
   const positions: MovingLoadEnvelope['positions'] = [];
   const forwardTrain = config.train;
   const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
@@ -399,7 +488,8 @@ export function solveMovingLoads(
 
   // Forward pass
   for (const refPos of forwardRefPositions) {
-    solvePosition(baseInput, forwardTrain, refPos, path, totalLength, envelope, positions);
+    const err = solvePosition(baseInput, forwardTrain, refPos, path, totalLength, envelope, positions);
+    if (err) return err;
   }
 
   // Reverse pass for asymmetric trains — use mirror positions for exact symmetry
@@ -407,7 +497,8 @@ export function solveMovingLoads(
     const revTrain = reverseTrain(forwardTrain);
     const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
     for (const refPos of reverseRefPositions) {
-      solvePosition(baseInput, revTrain, refPos, path, totalLength, envelope, positions);
+      const err = solvePosition(baseInput, revTrain, refPos, path, totalLength, envelope, positions);
+      if (err) return err;
     }
   }
 
@@ -446,11 +537,7 @@ export async function solveMovingLoadsAsync(
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
 
-  const envelope = new Map<number, {
-    mMaxPos: number; mMaxNeg: number;
-    vMaxPos: number; vMaxNeg: number;
-    nMaxPos: number; nMaxNeg: number;
-  }>();
+  const envelope = new Map<number, ElementEnvelope>();
   for (const seg of path) {
     envelope.set(seg.elementId, {
       mMaxPos: 0, mMaxNeg: 0,
@@ -458,6 +545,9 @@ export async function solveMovingLoadsAsync(
       nMaxPos: 0, nMaxNeg: 0,
     });
   }
+
+  const refused = mechanismRefusal(baseInput);
+  if (refused) return refused;
 
   // Pre-compute all positions: forward + mirrored reverse for asymmetric trains
   const forwardTrain = config.train;
@@ -483,33 +573,8 @@ export async function solveMovingLoadsAsync(
     if (signal?.aborted) return t('train.analysisCancelled');
 
     const { train, refPos } = allRefPositions[idx];
-    const loads = buildTrainLoads(baseInput.loads, train, refPos, totalLength, path);
-    const input: SolverInput = { ...baseInput, loads };
-
-    try {
-      const results = solve(input);
-      positions.push({ refPosition: refPos, results });
-
-      for (const ef of results.elementForces) {
-        const env = envelope.get(ef.elementId);
-        if (!env) continue;
-        const mMax = Math.max(ef.mStart, ef.mEnd);
-        const mMin = Math.min(ef.mStart, ef.mEnd);
-        const vMax = Math.max(ef.vStart, ef.vEnd);
-        const vMin = Math.min(ef.vStart, ef.vEnd);
-        const nMax = Math.max(ef.nStart, ef.nEnd);
-        const nMin = Math.min(ef.nStart, ef.nEnd);
-
-        if (mMax > env.mMaxPos) env.mMaxPos = mMax;
-        if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
-        if (vMax > env.vMaxPos) env.vMaxPos = vMax;
-        if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
-        if (nMax > env.nMaxPos) env.nMaxPos = nMax;
-        if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
-      }
-    } catch (e) {
-      console.warn(`Moving load position ${refPos.toFixed(2)} failed: ${e instanceof Error ? e.message : e}`);
-    }
+    const err = solvePosition(baseInput, train, refPos, path, totalLength, envelope, positions);
+    if (err) return err;
 
     onProgress?.({ current: idx + 1, total, refPosition: refPos });
     await new Promise(r => setTimeout(r, 0));

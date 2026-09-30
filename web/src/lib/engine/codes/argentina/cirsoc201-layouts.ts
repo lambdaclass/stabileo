@@ -118,6 +118,18 @@ export function facesA1A2A3(
   const Ast = AstCm2 * 1e-4;
   const xEdge = b / 2 - dPrimeH;
   const yEdge = h / 2 - dPrimeV;
+  /*
+   * ── The shares are of the steel that has somewhere to go ─────────
+   *
+   * Each face used to take Ast·pct/100, so a split that did not add to 100
+   * placed Ast·Σpct/100 while the answer reported Ast: 75/75/0 put 1.5 times
+   * the printed steel in the section, and 25/25/0 half of it. The workbook's
+   * own verification sheet takes AREAS and reads the shares as each one's part
+   * of their total; that is the reading here too, over the faces that actually
+   * have bars. At Σ = 100 it is the old arithmetic exactly. `solveFlex` says
+   * so in the memo whenever the typed split is not already that.
+   */
+  const shares = faceShares(pct, counts);
 
   /** n positions from `-edge` to `+edge`, both ends included. */
   const along = (edge: number, n: number): number[] => {
@@ -127,26 +139,51 @@ export function facesA1A2A3(
   };
 
   const bars: Bar[] = [];
-  if (pct.a1 > 0 && counts.n1 > 0) {
-    bars.push(...spread(along(xEdge, counts.n1).map((x) => ({ x, y: -yEdge })),
-      (Ast * pct.a1) / 100));
+  if (shares.a1 > 0) {
+    bars.push(...spread(along(xEdge, counts.n1).map((x) => ({ x, y: -yEdge })), Ast * shares.a1));
   }
-  if (pct.a2 > 0 && counts.n2 > 0) {
-    bars.push(...spread(along(xEdge, counts.n2).map((x) => ({ x, y: yEdge })),
-      (Ast * pct.a2) / 100));
+  if (shares.a2 > 0) {
+    bars.push(...spread(along(xEdge, counts.n2).map((x) => ({ x, y: yEdge })), Ast * shares.a2));
   }
-  if (pct.a3 > 0 && counts.n3 > 0) {
+  if (shares.a3 > 0) {
     /*
      * The sides, and the corners are NOT repeated — they already belong to
-     * A1 and A2. So the interior positions only, which for n3 bars split
-     * between two faces is n3/2 per side.
+     * A1 and A2. So the interior positions only, n3 bars split between the
+     * two faces. An odd count puts the extra bar on the left face (x < 0)
+     * rather than rounding the count the reader typed: 3 used to become 2.
      */
-    const perSide = Math.max(Math.floor(counts.n3 / 2), 1);
-    const ys = along(yEdge, perSide + 2).slice(1, -1);
-    const pos = [...ys.map((y) => ({ x: -xEdge, y })), ...ys.map((y) => ({ x: xEdge, y }))];
-    bars.push(...spread(pos, (Ast * pct.a3) / 100));
+    const { left, right } = a3Sides(counts.n3);
+    const ysOf = (n: number) => along(yEdge, n + 2).slice(1, -1);
+    const pos = [
+      ...ysOf(left).map((y) => ({ x: -xEdge, y })),
+      ...ysOf(right).map((y) => ({ x: xEdge, y })),
+    ];
+    bars.push(...spread(pos, Ast * shares.a3));
   }
   return bars;
+}
+
+/** How N° A3 splits between the two side faces: the extra bar of an odd count goes left. */
+export function a3Sides(n3: number): { left: number; right: number } {
+  const n = Math.max(Math.floor(n3), 0);
+  return { left: Math.ceil(n / 2), right: Math.floor(n / 2) };
+}
+
+/**
+ * Each face's fraction of Ast, 0 to 1, over the faces that have both a share
+ * and bars to carry it. Zero everywhere when no face does — an empty layout.
+ */
+export function faceShares(
+  pct: { a1: number; a2: number; a3: number },
+  counts: { n1: number; n2: number; n3: number },
+): { a1: number; a2: number; a3: number; sum: number } {
+  const eff = (p: number, n: number) => (p > 0 && n > 0 ? p : 0);
+  const a1 = eff(pct.a1, counts.n1);
+  const a2 = eff(pct.a2, counts.n2);
+  const a3 = eff(pct.a3, counts.n3);
+  const sum = a1 + a2 + a3;
+  if (!(sum > 0)) return { a1: 0, a2: 0, a3: 0, sum: 0 };
+  return { a1: a1 / sum, a2: a2 / sum, a3: a3 / sum, sum };
 }
 
 /**
@@ -199,8 +236,19 @@ export function flexural(
   AsCm2: number,
   dPrime = 0,
   AsCompCm2 = 0,
+  /**
+   * Hogging: the tension steel at the TOP and the compression steel at the
+   * bottom. Only a T needs it — a rectangle is the same section either way
+   * up — because under a negative moment its flange is the tension side.
+   */
+  tensionOnTop = false,
 ): Bar[] {
   const { top, bottom } = fibres(outline);
+  if (tensionOnTop) {
+    const bars: Bar[] = [{ x: 0, y: top - dPrimeS, area: AsCm2 * 1e-4 }];
+    if (AsCompCm2 > 0) bars.push({ x: 0, y: bottom + dPrime, area: AsCompCm2 * 1e-4 });
+    return bars;
+  }
   const bars: Bar[] = [{ x: 0, y: bottom + dPrimeS, area: AsCm2 * 1e-4 }];
   if (AsCompCm2 > 0) bars.push({ x: 0, y: top - dPrime, area: AsCompCm2 * 1e-4 });
   return bars;

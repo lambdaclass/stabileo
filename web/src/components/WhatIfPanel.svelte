@@ -122,21 +122,46 @@
       return `${d.qI === d.qJ ? `q=${d.qI}` : `q=${d.qI}→${d.qJ}`} (B${d.elementId})`;
     }
     if (l.type === 'pointOnElement') {
-      const d = l.data as { p: number; elementId: number };
-      return `P=${d.p} (B${d.elementId})`;
+      // A point load on a member may be a force, an axial force, a moment, or any mix.
+      const d = l.data as { p: number; px?: number; my?: number; mz?: number; elementId: number };
+      const m = d.my ?? d.mz;
+      const parts: string[] = [];
+      if (d.p) parts.push(`P=${d.p}`);
+      if (d.px) parts.push(`Px=${d.px}`);
+      if (m) parts.push(`My=${m}`);
+      return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
     if (l.type === 'thermal') return t('whatif.thermal');
     if (l.type === 'nodal3d') {
-      const d = l.data as { nodeId: number; fx: number; fy: number; fz: number };
+      const d = l.data as { nodeId: number; fx: number; fy: number; fz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
       if (d.fx) parts.push(`Fx=${d.fx}`);
       if (d.fy) parts.push(`Fy=${d.fy}`);
       if (d.fz) parts.push(`Fz=${d.fz}`);
+      if (d.mx) parts.push(`Mx=${d.mx}`);
+      if (d.my) parts.push(`My=${d.my}`);
+      if (d.mz) parts.push(`Mz=${d.mz}`);
       return parts.join(', ') || `N${d.nodeId}`;
     }
     if (l.type === 'distributed3d') {
       const d = l.data as { elementId: number };
       return `q (B${d.elementId})`;
+    }
+    if (l.type === 'pointOnElement3d') {
+      const d = l.data as { elementId: number; py: number; pz: number };
+      const parts: string[] = [];
+      if (d.py) parts.push(`Py=${d.py}`);
+      if (d.pz) parts.push(`Pz=${d.pz}`);
+      return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
+    }
+    const quad = (id: number) => t('results.quadLabel').replace('{id}', String(id));
+    if (l.type === 'surface3d') {
+      const d = l.data as { quadId: number; q: number };
+      return `q=${d.q} (${quad(d.quadId)})`;
+    }
+    if (l.type === 'thermalQuad3d') {
+      const d = l.data as { quadId: number };
+      return `${t('whatif.thermal')} (${quad(d.quadId)})`;
     }
     return t('whatif.loadFallback').replace('{n}', String(i + 1));
   }

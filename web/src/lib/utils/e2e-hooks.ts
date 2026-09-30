@@ -52,7 +52,7 @@ import {
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
-import { autosaveFingerprint, clearAutosave, loadAutosave } from '../store/file';
+import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
 
 export const E2E_QUERY_FLAG = 'e2e';
@@ -396,6 +396,12 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /**
+   * Open a project from its `.ded` JSON, exactly as File → Open does (`deserializeProject`):
+   * validated, migrated, results cleared. Lets a spec load a model that is not one of the
+   * examples. Returns false when the file is refused, as the open dialog would refuse it.
+   */
+  loadProject(file: DedalFile | Record<string, unknown>): boolean;
   /**
    * Turn members about their own axis by `degrees`, as the section rotation field does.
    * The flagship building's provisional-biaxial specs turn five beams so that some bend about
@@ -758,6 +764,7 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    loadProject: (file: DedalFile | Record<string, unknown>) => deserializeProject(JSON.stringify(file)),
     turnElements: (ids: number[], degrees: number) => {
       modelStore.batch(() => {
         for (const id of ids) {
