@@ -10,7 +10,10 @@ applies.
 |-------|---------|--------|-------|
 | Engine | `cargo nextest run -p dedaliano-engine --profile ci --no-fail-fast` | 7,288 run: 7,287 passed, 1 failed, 13 skipped (310 s) | The failure is a wall-clock gate, `perf_regression_advanced::harmonic_3d_5x5_plate_under_15s`, at 79.6 s under the full parallel run; the plan measures these single-threaded (Task 0.4) |
 | Backend | `cargo test -p dedaliano-backend` | 19 passed | |
-| Web unit, gate, typecheck, smoke e2e | see below | pending | |
+| Web unit | `npx vitest run` (both projects, Node 25.5, this branch) | 11,557 run: 11,542 passed, 2 failed, 12 skipped, 1 todo (423 s) | The 2 are the production-build tests, which build the app and hit their 240 s timeout in a full run; alone they pass (10/10, 333 s). Run beside another suite, 14 long tests time out and 50 are reported skipped: the local full run needs the machine to itself |
+| Typecheck | `npm run typecheck` | 456 errors, all in the baseline (456) | Enforced in CI from this branch (W13-06) |
+| svelte-check gate | `npm run check:gate` | no errors in guarded paths; repo-wide 564 errors, 287 warnings (informational) | Enforced in CI from this branch |
+| e2e smoke | CI's 5 shards on this branch | green | Plus the @slow suite, through the `run-e2e` label |
 | Silenced tests | the plan's Step 5 greps | engine 15 `#[ignore]`; web 32 in 14 files | Rows W13-03 to W13-05 |
 
 ## Findings
