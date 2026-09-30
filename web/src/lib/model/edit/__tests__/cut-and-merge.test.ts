@@ -186,3 +186,30 @@ describe('splitting preserves the offset flexible member', () => {
     expect(modelStore.elements.size).toBe(1);
   });
 });
+
+describe('specifications through a split and a merge', () => {
+  beforeEach(() => { modelStore.clear(); historyStore.clear(); });
+
+  it('a split keeps each semi-rigid end on its own segment, and Lb on every one', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.updateElement(e, { semiRigid: { i: { ky: 1000, kz: 1000 }, j: { ky: 2000, kz: 2000 } }, unbracedLength: 6 } as never);
+    const r = modelStore.splitMember(e, [1 / 3, 2 / 3]);
+    const segs = r!.segmentIds.map((id) => modelStore.elements.get(id) as never as { semiRigid?: { i?: unknown; j?: unknown }; unbracedLength?: number });
+    expect(segs[0]!.semiRigid).toEqual({ i: { ky: 1000, kz: 1000 } });
+    expect(segs[1]!.semiRigid).toBeUndefined();
+    expect(segs[2]!.semiRigid).toEqual({ j: { ky: 2000, kz: 2000 } });
+    expect(segs.map((x) => x.unbracedLength)).toEqual([6, 6, 6]);
+  });
+
+  it('a merge refuses members that act or are designed differently', () => {
+    const n = [0, 3, 6].map((x) => modelStore.addNode(x, 0, 0));
+    const s1 = modelStore.addElement(n[0]!, n[1]!, 'frame'), s2 = modelStore.addElement(n[1]!, n[2]!, 'frame');
+    modelStore.updateElement(s1, { behaviour: 'tensionOnly' } as never);
+    expect(mergeCollinear([s1, s2]).refused).toEqual({ differentProperties: 1 });
+    modelStore.updateElement(s1, { behaviour: undefined, kStrong: 2 } as never);
+    expect(mergeCollinear([s1, s2]).refused).toEqual({ differentProperties: 1 });
+    modelStore.updateElement(s1, { kStrong: undefined, semiRigid: { j: { ky: 10, kz: 10 } } } as never);
+    expect(mergeCollinear([s1, s2]).refused).toEqual({ endConditions: 1 });
+  });
+});

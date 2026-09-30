@@ -133,6 +133,7 @@ fn make_cantilever_3d() -> SolverInput3D {
             node_id: n_elem + 1, fx: 2.0, fy: -10.0, fz: 5.0, mx: 0.5, my: 1.0, mz: -0.3, bw: None,
         }),
         SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: 7, q_yi: -4.0, q_yj: -4.0, q_zi: 1.0, q_zj: 1.0, a: None, b: None,
         }),
     ];

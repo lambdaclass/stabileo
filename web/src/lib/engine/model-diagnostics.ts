@@ -61,7 +61,7 @@ export function memberLoadPerpComponent(
   const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
   if (load.type === 'distributed3d') {
-    return Math.max(Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
+    return Math.max(Math.abs(num(d.qXI)), Math.abs(num(d.qXJ)), Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
   }
   if (load.type === 'pointOnElement3d') {
     return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)));
@@ -471,8 +471,9 @@ export function surfaceWarnings(
 }
 
 /**
- * Transverse-load-on-truss warnings. A truss member carries only axial force, so
- * a perpendicular load is not transferred as beam bending/shear. Educational;
+ * Transverse-load-on-truss warnings. A truss member carries only axial force, so a
+ * perpendicular load reaches its end nodes as simply supported reactions (`member-loads.ts`)
+ * and bends nothing. Educational;
  * never blocks solving. Extracted from checkModel so the Basic solve path can
  * surface it as a pre-solve diagnostic too (checkModel itself only runs in PRO).
  */

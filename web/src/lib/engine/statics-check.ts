@@ -26,13 +26,15 @@
  * residual into a clean bill of health.
  *
  * Surface loads and the self-weight of shells are distributed to their nodes exactly as the
- * solve distributes them — a quarter of q·A or ρ·t·A to each corner of a quad, a third to each
- * of a triangle — so the moment side agrees with the solve and not with an idealised centroid.
+ * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
+ * corner of a triangle), so the moment side agrees with the solve.
  */
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
-import { computeLocalAxes3D } from './local-axes-3d';
-import { hasMemberOffset, offsetVecToSolver } from './member-offsets';
+import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
+import { selfWeightFor, selfWeightScope } from './self-weight';
+import { activeModel } from './member-behaviour';
+import { quadCornerShares } from './solver-shells';
 import type {
   NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, Load,
 } from '../store/model.svelte';
@@ -100,35 +102,7 @@ function addMoment(acc: Resultant6, M: [number, number, number]): void {
  *     along its length. The node-to-node frame put a 0.42 kN residual on a 4 m member offset by
  *     10 cm.
  */
-function memberLine(
-  model: ModelData,
-  el: { type?: string; nodeI: number; nodeJ: number; sectionId: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset },
-): { ni: [number, number, number]; ax: ReturnType<typeof computeLocalAxes3D> } | null {
-  const a = model.nodes.get(el.nodeI);
-  const b = model.nodes.get(el.nodeJ);
-  if (!a || !b) return null;
-  const roll = (el.rollAngle ?? 0) + (model.sections.get(el.sectionId)?.rotation ?? 0);
-  const A = { id: el.nodeI, x: a.x, y: a.y, z: a.z ?? 0 };
-  const B = { id: el.nodeJ, x: b.x, y: b.y, z: b.z ?? 0 };
-  // The solver input gives every frame member an explicit local-Y reference: its own, or the
-  // automatic y of the NODE-TO-NODE line. On a tilted offset segment that fixed reference, not a
-  // fresh automatic frame, is what the solve uses.
-  let localY = el.localYx !== undefined ? { x: el.localYx, y: el.localYy ?? 0, z: el.localYz ?? 0 } : undefined;
-  if (!localY && el.type !== 'truss') {
-    try { const base = computeLocalAxes3D(A, B); localY = { x: base.ey[0], y: base.ey[1], z: base.ey[2] }; } catch { return null; }
-  }
-  let ax;
-  try { ax = computeLocalAxes3D(A, B, localY, roll, false); } catch { return null; }
-  if (!hasMemberOffset(el)) return { ni: [A.x, A.y, A.z], ax };
-  const shift = (p: typeof A, v: import('../model/element-3d-metadata').MemberOffsetVec | undefined) => {
-    if (!v) return p;
-    const g = offsetVecToSolver(v, el.offset!.frame, ax!);
-    return { ...p, x: p.x + g.x, y: p.y + g.y, z: p.z + g.z };
-  };
-  const A2 = shift(A, el.offset!.i), B2 = shift(B, el.offset!.j);
-  try { ax = computeLocalAxes3D(A2, B2, localY, roll, false); } catch { return null; }
-  return { ni: [A2.x, A2.y, A2.z], ax };
-}
+const memberLine = (model: ModelData, el: Parameters<typeof memberFrame3D>[1]) => memberFrame3D(model, el);
 
 export interface StaticsCheckInput {
   model: ModelData;
@@ -157,7 +131,9 @@ export interface StaticsCheckInput {
  * rather than the model: a case that was not solved has nothing to check.
  */
 export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
-  const { model, reactionsByCase, includeSelfWeight, caseNames, caseTypes, leftHand = false } = input;
+  const { reactionsByCase, includeSelfWeight, caseNames, caseTypes, leftHand = false } = input;
+  // The structure the solve had: inactive members out, and their loads with them.
+  const model = activeModel(input.model);
   const rows: StaticsCheckRow[] = [];
 
   for (const [caseId, reactions] of reactionsByCase) {
@@ -201,24 +177,19 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
           const p = d as PointLoadOnElement3D;
           push(p.py, p.pz, p.a);
         } else {
+          // The solve's own reading of the load, whatever its frame (`member-loads.ts`).
           const q = d as DistributedLoad3D;
-          const a = q.a ?? 0;
-          const b = q.b ?? ax.L;
-          // Two signed triangles preserve both force and first moment, including
-          // a pure couple when the end intensities cancel. No centroid division.
-          const len = b - a;
-          push(q.qYI * len / 2, q.qZI * len / 2, a + len / 3);
-          push(q.qYJ * len / 2, q.qZJ * len / 2, a + 2 * len / 3);
+          const g = distributedGlobalEnds(q, ax as never, leftHand);
+          for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
         }
       } else if (l.type === 'surface3d') {
-        // q downward on the quad, a quarter of q·A to each corner — the solve's own split.
+        // q downward on the quad, each corner its consistent share — the solve's own split.
         const d = l.data as SurfaceLoad3D;
         const q = model.quads?.get(d.quadId);
         const ps = q?.nodes.map((id) => model.nodes.get(id));
         if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
-        const [a, b, c, e] = ps as P3[];
-        const F = -d.q * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4;
-        for (const n of ps as P3[]) addForceAt(applied, [0, 0, F], [n.x, n.y, n.z ?? 0]);
+        const shares = quadCornerShares(ps as never);
+        (ps as P3[]).forEach((n, i) => addForceAt(applied, [0, 0, -d.q * shares[i]!], [n.x, n.y, n.z ?? 0]));
       } else if (l.type === 'thermal' || l.type === 'thermalQuad3d') {
         // No net external force by definition. Not a gap.
       } else {
@@ -226,41 +197,45 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
       }
     }
 
-    const selfWeightHere = includeSelfWeight
-      && (caseId === null || !caseTypes || caseTypes.get(caseId) === 'D');
-    if (selfWeightHere) {
-      const sectionWeight = createSectionWeight(model.materials);
-      // Matched to the assembly the solver is given: physical section weight × L lumped half at each end,
-      // downward in global Z. Computing it any other way here would report a residual
-      // that is this function's own arithmetic and nothing about the model.
+    // The case's self-weight loads, read by the same rule the solve reads (`self-weight.ts`).
+    // Without case types every row is taken as a dead-load one, which is right for a single solve.
+    const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
+    const weights = selfWeightFor(model, caseRef, includeSelfWeight);
+    const selfWeightHere = weights.length > 0;
+    const sectionWeight = createSectionWeight(model.materials);
+    for (const sw of weights) {
+      const dir: [number, number, number] = sw.direction === 'X' ? [1, 0, 0] : sw.direction === 'Y' ? [0, 1, 0] : [0, 0, 1];
+      const scope = selfWeightScope(model, sw);
       for (const el of model.elements.values()) {
+        if (scope.members && !scope.members.has(el.id)) continue;
         const mat = model.materials.get(el.materialId);
         const sec = model.sections.get(el.sectionId);
-        const ni = model.nodes.get(el.nodeI);
-        const nj = model.nodes.get(el.nodeJ);
-        if (!mat || !sec || !ni || !nj) continue;
-        const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
-        const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (L < 1e-10) continue;
-        const half = (sectionWeight(sec, el.materialId) * L) / 2;
-        addForceAt(applied, [0, 0, -half], [ni.x, ni.y, ni.z ?? 0]);
-        addForceAt(applied, [0, 0, -half], [nj.x, nj.y, nj.z ?? 0]);
+        const line = memberLine(model, el);
+        if (!mat || !sec || !line) continue;
+        // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
+        const W = sectionWeight(sec, el.materialId) * line.ax.L * sw.factor;
+        const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
+        addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
       }
       for (const q of model.quads?.values() ?? []) {
+        if (scope.quads && !scope.quads.has(q.id)) continue;
         const mat = model.materials.get(q.materialId);
         const ps = q.nodes.map((id) => model.nodes.get(id));
         if (!mat || ps.some((n) => !n)) continue;
-        const [a, b, c, e] = ps as P3[];
-        const w = -mat.rho * q.thickness * (triArea(a!, b!, c!) + triArea(a!, c!, e!)) / 4;
-        for (const n of ps as P3[]) addForceAt(applied, [0, 0, w], [n.x, n.y, n.z ?? 0]);
+        const shares = quadCornerShares(ps as never);
+        (ps as P3[]).forEach((n, i) => {
+          const w = mat.rho * q.thickness * shares[i]! * sw.factor;
+          addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+        });
       }
       for (const pl of model.plates?.values() ?? []) {
+        if (scope.plates && !scope.plates.has(pl.id)) continue;
         const mat = model.materials.get(pl.materialId);
         const ps = pl.nodes.map((id) => model.nodes.get(id));
         if (!mat || ps.some((n) => !n)) continue;
         const [a, b, c] = ps as P3[];
-        const w = -mat.rho * pl.thickness * triArea(a!, b!, c!) / 3;
-        for (const n of ps as P3[]) addForceAt(applied, [0, 0, w], [n.x, n.y, n.z ?? 0]);
+        const w = mat.rho * pl.thickness * triArea(a!, b!, c!) / 3 * sw.factor;
+        for (const n of ps as P3[]) addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
       }
     }
 

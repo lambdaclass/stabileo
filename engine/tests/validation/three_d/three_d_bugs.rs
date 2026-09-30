@@ -130,6 +130,7 @@ fn bug_3d_partial_distributed_load_differs_from_full() {
 
     // Full load on entire element
     let loads_full = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        q_xi: 0.0, q_xj: 0.0,
         element_id: 1,
         q_yi: q, q_yj: q,
         q_zi: 0.0, q_zj: 0.0,
@@ -138,6 +139,7 @@ fn bug_3d_partial_distributed_load_differs_from_full() {
 
     // Partial load on first half only
     let loads_partial = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        q_xi: 0.0, q_xj: 0.0,
         element_id: 1,
         q_yi: q, q_yj: q,
         q_zi: 0.0, q_zj: 0.0,
@@ -187,6 +189,7 @@ fn bug_3d_partial_load_reactions_differ_from_full() {
     let mut loads_full = Vec::new();
     for i in 0..n {
         loads_full.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i + 1,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -196,6 +199,7 @@ fn bug_3d_partial_load_reactions_differ_from_full() {
 
     // Partial load: only on first element, first half
     let loads_partial = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        q_xi: 0.0, q_xj: 0.0,
         element_id: 1,
         q_yi: q, q_yj: q,
         q_zi: 0.0, q_zj: 0.0,

@@ -166,7 +166,12 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
     }
     // The set is substantial, so "nobody's state moved" is a real claim rather than a
     // statement about an empty list.
-    expect(report.hangerTopMembers.length, 'hanger top steel reaches many members').toBe(74);
+    // Pin membership on the integrated solver, not just the former count of 28. All 27
+    // have no designed hogging group (checked above), appear in scene and document, and
+    // retain their design status. The separate no-bare-beam check covers every beam.
+    expect(report.hangerTopMembers, 'hanger top steel reaches the audited members').toEqual(
+      [116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 182, 183, 184, 186, 189, 190, 191, 192, 194, 195, 197, 198, 199, 200, 201, 202, 203],
+    );
     // None of them is PROVISIONAL any more. This assertion used to require the opposite —
     // over 50 proposals — because the fixture's transposed section inertias inflated
     // secondary moments until almost every beam was refused, and the canonical-section work

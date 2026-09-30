@@ -247,14 +247,16 @@ async function stage<T>(name: string, run: () => Promise<T>): Promise<T> {
  * Kept out of the fixture body only so the fixture reads as what it is — a value with a
  * lifetime — rather than as a hundred-line procedure.
  */
-async function prepare(page: Page): Promise<Omit<PreparedProject, 'context'>> {
+async function prepare(page: Page, building: string): Promise<Omit<PreparedProject, 'context'>> {
   await stage('boot', () => bootPro(page));
   // Nothing carried over from an earlier run: IndexedDB survives by design, which is the point,
   // and a stale revision would be restored by every observer in this worker.
   await page.evaluate(() => window.__stabileoActions.autosaveDiscard());
 
-  // Five beams turned, so the building carries provisional proposals (`ROLLED_BEAMS`).
-  await stage('load + solve', async () => { await loadModel(page, BUILDING); await turnRolledBeams(page); });
+  await stage('load + solve', async () => {
+    await loadModel(page, building);
+    if (building === BUILDING) await turnRolledBeams(page);
+  });
   await stage('design all', () => designAll(page));
 
   // Beams and columns come from `cmd-generate-detailing`; slabs, walls and footings come from
@@ -269,7 +271,9 @@ async function prepare(page: Page): Promise<Omit<PreparedProject, 'context'>> {
     await expect.poll(() => assemblyCount(page), { timeout: 180_000 }).toBeGreaterThan(0);
   });
 
-  await stage('floor design', async () => {
+  // A frame without slabs or walls has no floor families to run.
+  const hasFloors = (await page.evaluate(() => window.__stabileo.quadIds().length)) > 0;
+  if (hasFloors) await stage('floor design', async () => {
     await page.getByTestId('floor-families-disclosure').locator('> summary').click();
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
@@ -324,9 +328,16 @@ async function prepare(page: Page): Promise<Omit<PreparedProject, 'context'>> {
  * for it never pays for it. `workers: 1`, so one preparation serves every file that does.
  */
 export const test = proTest.extend<
-  { preparedPage: Page }, { preparedProject: PreparedProject }
+  { preparedPage: Page }, { preparedProject: PreparedProject; preparedBuilding: string }
 >({
-  preparedProject: [async ({ browser }, use, workerInfo) => {
+  /**
+   * Which example is prepared. The 7-storey building by default; a file that needs something
+   * only another model has (both standing notices, since that building has no proposal left)
+   * names it with `test.use`, which gives that file a worker, and a preparation, of its own.
+   */
+  preparedBuilding: [BUILDING, { scope: 'worker', option: true }],
+
+  preparedProject: [async ({ browser, preparedBuilding }, use, workerInfo) => {
     /**
      * A context built here, not the one Playwright gives a test.
      *
@@ -347,7 +358,7 @@ export const test = proTest.extend<
     let facts: Omit<PreparedProject, 'context'>;
     const page = await context.newPage();
     try {
-      facts = await prepare(page);
+      facts = await prepare(page, preparedBuilding);
     } catch (e) {
       await context.close();
       throw e;
@@ -363,7 +374,7 @@ export const test = proTest.extend<
     await page.close();
 
     // eslint-disable-next-line no-console
-    console.log(`\nprepared ${BUILDING}: ${facts.elements} members, ${facts.assemblies} assemblies, `
+    console.log(`\nprepared ${preparedBuilding}: ${facts.elements} members, ${facts.assemblies} assemblies, `
       + `${facts.reinforced} reinforced, ${facts.census.triangles} triangles drawn\n`);
 
     await use({ context, ...facts });

@@ -105,9 +105,9 @@
           "id": 1,
           "name": "IPN 300",
           "a": 0.0069,
-          "iy": 0.000098,
-          "iz": 0.00000451,
-          "j": 4.666e-7,
+          "iy": 9.8e-05,
+          "iz": 4.51e-06,
+          "j": 4.666e-07,
           "b": 0.125,
           "h": 0.3,
           "shape": "I",
@@ -356,8 +356,8 @@
           "elementId": 5,
           "qYI": 0,
           "qYJ": 0,
-          "qZI": -22,
-          "qZJ": -22,
+          "qZI": -17.875,
+          "qZJ": -17.875,
           "caseId": 1
         }
       },
@@ -380,8 +380,8 @@
           "elementId": 6,
           "qYI": 0,
           "qYJ": 0,
-          "qZI": -22,
-          "qZJ": -22,
+          "qZI": -17.875,
+          "qZJ": -17.875,
           "caseId": 1
         }
       },
@@ -404,8 +404,8 @@
           "elementId": 7,
           "qYI": 0,
           "qYJ": 0,
-          "qZI": -22,
-          "qZJ": -22,
+          "qZI": -17.875,
+          "qZJ": -17.875,
           "caseId": 1
         }
       },
@@ -428,8 +428,8 @@
           "elementId": 8,
           "qYI": 0,
           "qYJ": 0,
-          "qZI": -22,
-          "qZJ": -22,
+          "qZI": -17.875,
+          "qZJ": -17.875,
           "caseId": 1
         }
       },
@@ -631,6 +631,15 @@
         }
       ],
       "defaultProfileId": 1
+    },
+    "analysis": {
+      "selfWeight": [
+        {
+          "caseId": 1,
+          "direction": "Z",
+          "factor": -1
+        }
+      ]
     }
   },
   "appMode": "pro",

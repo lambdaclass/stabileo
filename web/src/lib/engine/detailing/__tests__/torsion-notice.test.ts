@@ -223,11 +223,17 @@ describe('unevaluated torsion, across every projection', { timeout: 30_000 }, ()
     }
   });
 
-  it('keeps the provisional warning intact beside it', () => {
+  it('keeps the provisional warning intact beside it', async () => {
     // Two independent gaps in the verification are two warnings. A report that lost one when
     // the other was added would be worse than the report that had neither.
-    const html = renderReportHtml(doc, RENDER, (k) => k);
+    //
+    // On the 408-member frame, which carries both. The 7-storey example has had no proposal
+    // since self-weight became a member load and took its beams under the biaxial threshold.
+    const both = await workspaceScene('rc-design-frame');
+    expect(both.scene.provisionalMembers.length, 'the frame produces proposals').toBeGreaterThan(0);
+    expect(both.scene.torsionUnevaluatedMembers.length, 'and unevaluated torsion').toBeGreaterThan(0);
+    const html = renderReportHtml(both.doc, RENDER, (k) => k);
     expect(html).toContain('Propuestas provisionales');
     expect(html).toContain('Torsión no evaluada');
-  });
+  }, 900_000);
 });

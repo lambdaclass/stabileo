@@ -122,6 +122,7 @@ fn make_beam_3d_inclined() -> SolverInput3D {
 
     let loads = vec![
         SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: 1, q_yi: 0.0, q_yj: 0.0, q_zi: -1.5, q_zj: -1.5,
             a: None, b: None,
         }),
