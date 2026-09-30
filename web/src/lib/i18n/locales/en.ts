@@ -4807,7 +4807,7 @@ const en: Record<string, string> = {
   'mstress.unread': "{n} members whose section has neither geometry nor dimensions: not read.",
   'mstress.note': "σ = N/A plus bending in both planes, over the section's geometry (with the full inertia tensor, so an angle is not read on its geometric axes). At each station, the largest tension and the largest compression on the section. For the result set on screen. * : read over the bounding rectangle.",
   'contour.atNodes': "At the nodes",
-  'contour.atCentre': "At the centre",
+  'contour.atCentre': "At the center",
   'contour.autoRange': "Range of the results",
   'contour.fixedRange': "fixed range",
   'contour.min': "Min",
