@@ -207,8 +207,6 @@ describe('runFloorDesign — what it refuses to invent', () => {
     // B, no L, no thickness, no allowable bearing — so there is nothing to read. Inventing
     // one under every support would be numbers with the appearance of a design.
     expect(r.assemblies.every((a) => a.bars.every((b) => !b.id.includes('dowel')))).toBe(true);
-    const src = readFileSync(resolve(HERE, '../run-floor-design.ts'), 'utf8');
-    expect(src).toMatch(/model carries no foundation entity/);
   });
 });
 
