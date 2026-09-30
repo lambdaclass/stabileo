@@ -38,7 +38,7 @@
 </script>
 
 <h4>{t('prop.support')}</h4>
-{#if uiStore.analysisMode === '3d'}
+{#if uiStore.is3DWorkspace}
   <!-- 3D per-DOF editing -->
   {@const dofs = sup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
   <div class="property-row" style="flex-wrap:wrap;gap:4px;">

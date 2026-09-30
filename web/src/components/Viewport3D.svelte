@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { is3DWorkspace } from '../lib/utils/workspace';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
@@ -1527,7 +1528,7 @@
     const show = uiStore.showAxes3D;
     const mode = uiStore.analysisMode;
     // Hide world-origin axes in Basic 3D and PRO (gizmo replaces them)
-    const hideWorldAxes = mode === '3d' || mode === 'pro';
+    const hideWorldAxes = is3DWorkspace(mode);
     if (axesHelper) axesHelper.visible = show && !hideWorldAxes;
     for (const s of axisLabelSprites) s.visible = show && !hideWorldAxes;
     // Gizmo visibility follows the setting
@@ -1926,7 +1927,7 @@
     const nodeId = findNodeHit(e);
     if (nodeId === null) return;
 
-    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    const is3D = uiStore.is3DWorkspace;
 
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
@@ -1954,7 +1955,7 @@
   }
 
   function handleLoadTool(e: MouseEvent) {
-    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    const is3D = uiStore.is3DWorkspace;
 
     if (uiStore.loadType === 'nodal') {
       const nodeId = findNodeHit(e);

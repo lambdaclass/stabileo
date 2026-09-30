@@ -42,6 +42,8 @@ export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'
 /** The four modes the app has. */
 export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
 export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
+export { is3DWorkspace } from '../utils/workspace';
+import { is3DWorkspace } from '../utils/workspace';
 export function isAnalysisMode(v: unknown): v is AnalysisMode {
   return (ANALYSIS_MODES as readonly unknown[]).includes(v);
 }
@@ -1039,6 +1041,8 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
+    /** Basic 3D or PRO: see `is3DWorkspace`. */
+    get is3DWorkspace() { return is3DWorkspace(analysisMode); },
     set analysisMode(v: AnalysisMode) {
       // The union says nothing at runtime, and the value often comes from outside
       // the program (a link, a .ded, an autosave, a tab). Every reader compares it
@@ -1048,7 +1052,7 @@ function createUIStore() {
       analysisMode = v;
       // When switching into a 3D-capable mode with a flat 2D model already loaded,
       // keep the model upright in the XZ plane instead of dropping it flat on XY.
-      if ((v === '3d' || v === 'pro') && _isModelFlat2D?.() === true) {
+      if (is3DWorkspace(v) && _isModelFlat2D?.() === true) {
         viewportPresentation3D = 'upright2dIn3d';
       } else {
         viewportPresentation3D = 'native3d';

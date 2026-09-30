@@ -119,7 +119,7 @@ export function solve(): void {
 
 /** Whether the model on screen has been solved, in whichever mode it is in. */
 export function hasResults(): boolean {
-  return uiStore.analysisMode === '3d'
+  return uiStore.is3DWorkspace
     ? resultsStore.results3D !== null
     : resultsStore.results !== null;
 }

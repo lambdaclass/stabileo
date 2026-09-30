@@ -11,6 +11,7 @@
  */
 
 import { modelStore, resultsStore, uiStore } from '../store';
+import { is3DWorkspace } from '../utils/workspace';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
@@ -69,13 +70,13 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   const isStale = nextSolveGuard();
   try {
-    if (analysisMode === '3d' || analysisMode === 'pro') {
+    if (is3DWorkspace(analysisMode)) {
       await liveCalc3D(axisConvention3D, isStale);
     } else {
       await liveCalc2D(isStale);
     }
     if (isStale()) return;
-    const is3DMode = analysisMode === '3d' || analysisMode === 'pro';
+    const is3DMode = is3DWorkspace(analysisMode);
     // What was on screen before the edit cleared it: diagram, case, combination.
     // Only onto results: a solve that published none (WASM not ready, an error,
     // NaN displacements) leaves the view waiting for the next one.
@@ -89,7 +90,7 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
     // space model under Explore) is the user's latest choice, and restoring
     // the one captured when the solve was queued put it back to the deformed shape.
     if (prevDiagram && prevDiagram !== 'none' && resultsStore.diagramType === 'none') {
-      const is3D = analysisMode === '3d' || analysisMode === 'pro';
+      const is3D = is3DWorkspace(analysisMode);
       const validList: readonly string[] = is3D ? VALID_3D_DIAGRAMS : VALID_2D_DIAGRAMS;
       if (validList.includes(prevDiagram)) {
         resultsStore.diagramType = prevDiagram as any;
@@ -189,7 +190,7 @@ export async function runGlobalSolve(): Promise<void> {
   // edit, so the same warning would fire on each keystroke of a half-built
   // model. A manual solve is the moment the user asserts the model is ready.
   reportModelDiagnostics();
-  if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+  if (uiStore.is3DWorkspace) {
     await ensureWasmReady('runGlobalSolve');
     await globalSolve3D(isStale);
   } else if (uiStore.analysisMode === 'edu') {
@@ -207,7 +208,7 @@ export async function runGlobalSolve(): Promise<void> {
   } else {
     await globalSolve2D(isStale);
   }
-  if (!isStale()) resultsStore.restoreView(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  if (!isStale()) resultsStore.restoreView(uiStore.is3DWorkspace);
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');

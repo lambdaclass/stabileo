@@ -649,7 +649,7 @@
   let showCadWizard = $state(false);
   let cadWizardFile = $state<File | null>(null);
   const dxfGoesToCadWizard = () =>
-    uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    uiStore.is3DWorkspace;
   let showIfcImport = $state(false);
   let ifcImportFile = $state<File | null>(null);
   let ifcFileInput: HTMLInputElement;

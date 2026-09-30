@@ -8,7 +8,7 @@
   import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
   import ProMemberBehaviour from './ProMemberBehaviour.svelte';
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   interface ElemRow {
     id: number | null;

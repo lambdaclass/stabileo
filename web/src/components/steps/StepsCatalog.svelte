@@ -22,7 +22,7 @@
   let help = $state<string | null>(null);
   let loading = $state<string | null>(null);
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   // Re-read when the model, the mode or the selection changes.
   const verdicts = $derived.by(() => {

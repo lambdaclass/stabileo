@@ -204,3 +204,12 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(await page.evaluate(() => window.__stabileo.diagramType())).toBe('deformed');
   });
 });
+
+test.describe('@smoke PRO is a space workspace everywhere', () => {
+  test('a member\'s context menu offers turning its local axes, as in Basic 3D', async ({ pro: page }) => {
+    // It checked for '3d' alone: PRO, always a space workspace, lost the entry.
+    await loadModel(page, '3d-portal-frame');
+    await page.evaluate(() => window.__stabileoActions.openContextMenu(1));
+    await expect(page.getByTestId('ctx-rotate-local-axes')).toBeVisible();
+  });
+});

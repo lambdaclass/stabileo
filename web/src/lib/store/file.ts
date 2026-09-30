@@ -3,7 +3,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
-import { uiStore } from './ui.svelte';
+import { uiStore, is3DWorkspace } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
@@ -76,9 +76,9 @@ export function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
   }
 }
 
-/** Returns true when the given analysis mode uses the 3D solver / export paths */
+/** Returns true when the given analysis mode uses the 3D solver / export paths (`is3DWorkspace`). */
 export function isMode3D(mode: string): boolean {
-  return mode === '3d' || mode === 'pro';
+  return is3DWorkspace(mode);
 }
 
 export interface DedalSessionFile {

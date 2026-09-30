@@ -119,7 +119,7 @@
   /** User-defined load components, kN. Only used when `eccSource` is 'custom'. */
   let eccCustom = $state({ n: 0, vy: 0, vz: 0 });
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const query = $derived(resultsStore.stressQuery);
   const querySec = $derived.by(() => {
     if (!query) return null;

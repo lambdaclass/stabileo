@@ -376,7 +376,7 @@
     const q = resultsStore.stressQuery;
     if (!q) return;
 
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = uiStore.is3DWorkspace;
     const ef = is3D
       ? resultsStore.getElementForces3D(q.elementId)
       : resultsStore.getElementForces(q.elementId);

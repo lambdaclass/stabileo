@@ -9,7 +9,7 @@
   let response = $state<ReviewModelResponse | null>(null);
   let expandedFinding = $state<number | null>(null);
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
 
   async function handleReview() {

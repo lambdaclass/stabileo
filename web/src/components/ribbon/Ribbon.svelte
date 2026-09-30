@@ -105,7 +105,7 @@
    * the current mode: Mz and Vy are out-of-plane and simply do not exist in a
    * 2D model, so in 2D they are absent rather than greyed. See below.
    */
-  const threeD = $derived(uiStore.analysisMode === '3d');
+  const threeD = $derived(uiStore.is3DWorkspace);
 
   /*
    * Ordered N, My, Vz, Mz, Vy, T — the pairs that share a plane sit together,

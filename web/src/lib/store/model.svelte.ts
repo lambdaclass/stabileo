@@ -2054,7 +2054,7 @@ function createModelStore() {
      * outside the space workspace, or when the model is not a standing plane one.
      */
     ensureSpaceCoordinates(): boolean {
-      if (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro') return false;
+      if (!uiStore.is3DWorkspace) return false;
       if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
       const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
       if (changed) {
@@ -2074,7 +2074,7 @@ function createModelStore() {
       model.nodes.set(id, node);
       if (!_bulkMutating) model.nodes = new Map(model.nodes);
       if (!_undoBatching) {
-        if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+        if (uiStore.is3DWorkspace) {
           uiStore.useNative3DPresentation();
         }
       }
@@ -2137,7 +2137,7 @@ function createModelStore() {
 
     /** A standing plane model becomes a space one before a space point is looked up in it. */
     spaceBeforeWeld(): void {
-      if (uiStore.viewportPresentation3D !== 'upright2dIn3d' || (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro')) return;
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d' || !uiStore.is3DWorkspace) return;
       // The rewrite changes every node's coordinates: it is undoable, as when `addNode` makes it.
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
@@ -2173,7 +2173,7 @@ function createModelStore() {
       if (!_undoBatching && opts.undo !== false) _pushUndo?.();
       modelVersion++;
       _onMutation?.();
-      reverseElementInModel(model, id, uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+      reverseElementInModel(model, id, uiStore.is3DWorkspace);
       model.elements = new Map(model.elements);
     },
 
@@ -2184,7 +2184,7 @@ function createModelStore() {
         // one; without the rewrite every other y is read as a depth and the
         // frame lies down. In the plane model's coordinates z is the depth, so
         // after the rewrite it is y.
-        const rewrote = (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates();
+        const rewrote = uiStore.is3DWorkspace && this.ensureSpaceCoordinates();
         const node = model.nodes.get(id)!;
         model.nodes.set(id, rewrote ? { ...node, y: z } : { ...node, z });
         model.nodes = new Map(model.nodes);
@@ -3230,7 +3230,7 @@ function createModelStore() {
       // they are mapped the way the nodes were: (x, y, z) → (x, z, y). Callers
       // that move several nodes, or that work in space coordinates from the
       // start (the 3D drag), call ensureSpaceCoordinates() before reading.
-      if ((uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates()) {
+      if (uiStore.is3DWorkspace && this.ensureSpaceCoordinates()) {
         [y, z] = [z ?? 0, y];
       }
       const node = model.nodes.get(id);
@@ -3803,7 +3803,7 @@ function createModelStore() {
       // no known geometry for the rest of the session.
       this.refreshCanonicalSections();
 
-      if (is2DFixture(name) && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) {
+      if (is2DFixture(name) && uiStore.is3DWorkspace) {
         uiStore.useUpright2DIn3DPresentation();
       } else {
         uiStore.useNative3DPresentation();

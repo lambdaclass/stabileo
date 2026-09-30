@@ -27,7 +27,7 @@
   } from '../lib/geometry/coordinate-system';
   import EndConditionSelect from './EndConditionSelect.svelte';
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   /*
    * ── What is on screen, from here ──────────────────────────────────

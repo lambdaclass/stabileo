@@ -6,7 +6,7 @@
   import ProFoundationSprings from './ProFoundationSprings.svelte';
   import ProSupportEditor from './ProSupportEditor.svelte';
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   const supportTypes = $derived(is3D ? [
     { value: 'fixed3d' as SupportType, label: t('pro.fixed3d') },
