@@ -5,9 +5,7 @@
  *
  *   · WHAT is measured. It is the member's bending — the distance from the displaced curve to
  *     the chord of its displaced ends (`engine/member-deflection.ts`) — not a node's absolute
- *     displacement, and not an estimate from the moment. A span with a free end is measured
- *     from the tangent at its other end: the chord to a free tip is not the rigid-body
- *     baseline of a cantilever, and read 5× better than reality there.
+ *     displacement, and not an estimate from the moment.
  *   · UNDER WHICH LOADS. The project's service envelopes when it states any
  *     (`engine/result-scopes.ts`): the largest over their combinations. Without one, every load
  *     case at factor 1 — the unfactored solve — which is what "service" meant before, stated.
@@ -21,10 +19,11 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { activePerCombo3D } from './active-results';
-import { memberLocalCurve, chordDeflection, eiOf, type ChordDeflection, type LocalCurve } from '../engine/member-deflection';
+import { memberLocalCurve, chordDeflection, tangentDeflection, eiOf, type ChordDeflection, type LocalCurve } from '../engine/member-deflection';
 import { deflectionSpans, type Span, type SpanModel } from '../engine/deflection-spans';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
+import { envelopeMembers } from '../engine/result-scopes';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
 
@@ -37,11 +36,16 @@ export function serviceSets(): ServiceSets {
   const envs = (modelStore.resultScopes?.envelopes ?? []).filter((e) => e.purpose === 'service');
   const comboName = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
   if (envs.length > 0) {
-    const ids = [...new Set(envs.flatMap((e) => e.comboIds))];
-    const sets = ids.flatMap((id) => {
-      const r = resultsStore.perCombo3D.get(id);
-      return r ? [{ id, name: comboName.get(id) ?? String(id), results: r }] : [];
-    });
+    const caseName = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
+    const members = envelopeMembers(
+      { comboIds: [...new Set(envs.flatMap((e) => e.comboIds))], caseIds: [...new Set(envs.flatMap((e) => e.caseIds ?? []))] },
+      resultsStore.perCombo3D, resultsStore.perCase3D,
+    );
+    // A load case in a service envelope is read unfactored. Its id is negated to keep it apart
+    // from the combinations', since the two id spaces overlap.
+    const sets = members.map((m) => m.kind === 'combo'
+      ? { id: m.id, name: comboName.get(m.id) ?? String(m.id), results: m.results }
+      : { id: -m.id, name: caseName.get(m.id) ?? String(m.id), results: m.results });
     if (sets.length > 0) return { basis: 'service', names: envs.map((e) => e.name), sets };
   }
   if (resultsStore.singleResults3D) return { basis: 'unfactored', names: [], sets: [{ id: 0, name: '', results: resultsStore.singleResults3D }] };
@@ -53,6 +57,8 @@ export function serviceSets(): ServiceSets {
 
 export type MemberDeflection = ChordDeflection & {
   setName: string;
+  /** Measured as a cantilever, from the tangent at its root. */
+  cantilever?: boolean;
   /** The span measured: its elements in order, one for a member drawn as one element. */
   span: number[];
 };
@@ -92,8 +98,20 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
     for (const s of indexed) {
       const curve = spanCurve(span, parts, s, leftHand);
       if (!curve) continue;
-      const d = chordDeflection(curve, { start: span.freeStart, end: span.freeEnd });
-      if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements };
+      let d = chordDeflection(curve);
+      if (span.free) {
+        const root = s.disp.get(span.free === 'start' ? span.end : span.start);
+        if (root) {
+          // The root's rotation in the curve's axes: dv/dx = θ·ez, dw/dx = −θ·ey, with x along
+          // the curve's ex. The curve is sampled from the span's start, so when its first element
+          // runs against the span its ex does too and the slopes change sign.
+          const th = [root.rx, root.ry, root.rz];
+          const dot = (a: readonly number[]) => a[0]! * th[0]! + a[1]! * th[1]! + a[2]! * th[2]!;
+          const sg = span.reversed[0] ? -1 : 1;
+          d = tangentDeflection(curve, span.free === 'start' ? 'end' : 'start', sg * dot(curve.ez), -sg * dot(curve.ey));
+        }
+      }
+      if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements, ...(span.free ? { cantilever: true } : {}) };
     }
     if (best) for (const id of span.elements) out.set(id, best);
   }
@@ -140,8 +158,6 @@ function spanCurve(
 ): LocalCurve | null {
   let axes: LocalCurve | null = null;
   const xi: number[] = [], u: number[] = [], v: number[] = [], w: number[] = [];
-  let sv0 = 0, svL = 0, sw0 = 0, swL = 0;
-  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
   let s0 = 0;
   for (let k = 0; k < parts.length; k++) {
     const g = parts[k]!;
@@ -152,18 +168,6 @@ function spanCurve(
     if (!c) return null;
     if (!axes) axes = c;
     const rev = span.reversed[k]!;
-    // The span's end slopes, in the span's axes. The end of the span is this element's J end when
-    // it runs against the span; the slope changes sign with the direction. A later element's axes
-    // can be turned about the axis from the first element's, so the slope is projected.
-    if (k === 0) {
-      sv0 = rev ? -c.svL : c.sv0;
-      sw0 = rev ? -c.swL : c.sw0;
-    }
-    if (k === parts.length - 1) {
-      const dv = rev ? -c.sv0 : c.svL, dw = rev ? -c.sw0 : c.swL;
-      svL = dot(c.ey, axes.ey) * dv + dot(c.ez, axes.ey) * dw;
-      swL = dot(c.ey, axes.ez) * dv + dot(c.ez, axes.ez) * dw;
-    }
     for (let i = 0; i <= segments; i++) {
       const j = rev ? segments - i : i;
       if (k > 0 && i === 0) continue; // the shared node, already sampled by the previous element
@@ -179,5 +183,5 @@ function spanCurve(
   }
   if (!axes) return null;
   // The first element's axes may run against the span; x is measured from the span's start.
-  return { L: span.length, ex: axes.ex, ey: axes.ey, ez: axes.ez, xi, u, v, w, sv0, svL, sw0, swL };
+  return { L: span.length, ex: axes.ex, ey: axes.ey, ez: axes.ez, xi, u, v, w };
 }

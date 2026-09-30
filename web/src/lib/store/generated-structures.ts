@@ -21,7 +21,8 @@ import type { GeneratedModel } from '../engine/generators/emit';
 import { applyPoint, type Affine, type Vec3 } from '../model/edit/affine';
 import { mapDefinitions } from '../model/edit/fragment';
 import { fragmentFromJSONModel } from '../model/edit/fragment-code';
-import { insertFragment, NodeIndex, DEFAULT_WELD, type EditReport } from '../model/edit/transformed-copy';
+import { insertFragment, NodeIndex, type EditReport } from '../model/edit/transformed-copy';
+import { weldTolerance } from '../model/weld-tolerance';
 import { carriedOrientation, carriedSupport } from '../model/edit/transform-fields';
 
 export const GENERATED_KIND = 'generated';
@@ -164,7 +165,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
 
     // Weld candidates: the model's nodes that this structure does not own.
     const owned = new Set(old.nodes.filter((n) => n.owned).map((n) => n.id));
-    const index = new NodeIndex(DEFAULT_WELD);
+    const index = new NodeIndex(weldTolerance());
     for (const n of modelStore.nodes.values()) if (!owned.has(n.id)) index.add(n.id, [n.x, n.y, n.z ?? 0]);
     const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
 

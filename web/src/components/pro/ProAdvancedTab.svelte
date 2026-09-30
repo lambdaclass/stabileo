@@ -9,7 +9,6 @@
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
-  import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { te } from '../../lib/i18n/engine-text';
@@ -20,6 +19,7 @@
   import { withSolveSections } from '../../lib/engine/member-behaviour';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
+  import ProRecordVideo from './ProRecordVideo.svelte';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import {
     isSolverReady,
@@ -1072,9 +1072,6 @@
       <ProDiagnosticsTab />
     </div>
 
-    <div class="adv-group">
-      <StaticsCheckPanel />
-    </div>
 
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
@@ -1114,6 +1111,7 @@
         </div>
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
+        <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>

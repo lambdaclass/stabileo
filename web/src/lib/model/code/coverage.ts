@@ -18,7 +18,7 @@
 export const COVERED_FIELDS = [
   'name', 'analysisMode', 'localAxisConvention',
   'materials', 'sections', 'nodes', 'elements', 'plates', 'quads', 'supports',
-  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics',
+  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'projectInfo', 'notes',
   'footings', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations',
 ] as const;
 

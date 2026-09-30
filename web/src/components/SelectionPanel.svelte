@@ -15,7 +15,9 @@
    * disagreeing.
    */
   import { uiStore, modelStore } from '../lib/store';
-  import { selectAll, invertSelection, selectByIds } from '../lib/model/select-ops';
+  import { selectAll, invertSelection, selectByIds, loadedInCase, parallelToGlobal, type GlobalDirection } from '../lib/model/select-ops';
+  import { selectionHistory, trackSelectionHistory } from '../lib/store/selection-history.svelte';
+  import { viewState } from '../lib/store/view-state.svelte';
   import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial, groupByElevation, groupByPlane, groupByFrameLine, groupByKind, memberKindOf } from '../lib/engine/design/member-grouping';
   import { t, tp } from '../lib/i18n';
 
@@ -53,6 +55,39 @@
 
   function apply(sel: { nodes: Set<number>; elements: Set<number>; shells: Set<string> }) {
     uiStore.setSelection(sel.nodes, sel.elements, true, sel.shells);
+  }
+
+  trackSelectionHistory();
+
+  // ── More ways to select ──────────────────────────────────────────
+  let loadCase = $state<number | null>(null);
+  const cases = $derived(modelStore.loadCases);
+  function selectLoaded() {
+    const id = loadCase ?? cases[0]?.id;
+    if (id !== undefined) apply(loadedInCase(modelStore.loads as never, id));
+  }
+  let globalDir = $state<GlobalDirection>('Z');
+  function selectParallel() {
+    apply({ nodes: new Set(), elements: parallelToGlobal(modelStore.nodes, modelStore.elements, globalDir), shells: new Set() });
+  }
+
+  // ── Walking through a set, one at a time, framed ─────────────────
+  let walk = $state<{ kind: 'elements' | 'nodes'; ids: number[] } | null>(null);
+  let walkAt = $state(0);
+  function startWalk() {
+    const els = [...uiStore.selectedElements], ns = [...uiStore.selectedNodes];
+    const ids = els.length ? els : ns.length ? ns : [...modelStore.elements.keys()];
+    walk = { kind: els.length || !ns.length ? 'elements' : 'nodes', ids: ids.sort((a, b) => a - b) };
+    walkAt = -1;
+    step(1);
+  }
+  function step(by: 1 | -1) {
+    if (!walk || walk.ids.length === 0) return;
+    walkAt = (walkAt + by + walk.ids.length) % walk.ids.length;
+    const id = walk.ids[walkAt]!;
+    if (walk.kind === 'elements') { uiStore.selectMode = 'elements'; uiStore.setSelection(new Set(), new Set([id]), true); }
+    else { uiStore.selectMode = 'nodes'; uiStore.setSelection(new Set([id]), new Set(), true); }
+    window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
   }
 
   function doSelectAll() {
@@ -203,6 +238,37 @@
     </div>
   </div>
 
+  <div class="sel-more" data-testid="sel-more">
+    {#if uiStore.appMode === 'pro'}
+      <label class="sel-like-label"><input type="checkbox" bind:checked={viewState.lasso} data-testid="sel-lasso" /> {t('selection.lasso')}</label>
+    {/if}
+    <div class="sel-byid-row">
+      <span class="sel-like-label">{t('selection.loadedIn')}</span>
+      <select value={loadCase ?? cases[0]?.id} onchange={(e) => (loadCase = Number(e.currentTarget.value))} data-testid="sel-loaded-case" aria-label={t('selection.loadedIn')}>
+        {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      </select>
+      <button class="sel-op" disabled={cases.length === 0} onclick={selectLoaded} data-testid="sel-loaded-go">{t('selection.go')}</button>
+    </div>
+    <div class="sel-byid-row">
+      <span class="sel-like-label">{t('selection.parallelTo')}</span>
+      <select bind:value={globalDir} data-testid="sel-parallel-dir" aria-label={t('selection.parallelTo')}>
+        {#each ['X', 'Y', 'Z', 'XY', 'XZ', 'YZ'] as d (d)}<option value={d}>{d.length === 1 ? tp('selection.axis', { d }) : tp('selection.plane', { d })}</option>{/each}
+      </select>
+      <button class="sel-op" onclick={selectParallel} data-testid="sel-parallel-go">{t('selection.go')}</button>
+    </div>
+    <div class="sel-ops">
+      <button class="sel-op" disabled={selectionHistory.previous.length === 0} onclick={() => selectionHistory.back()} data-testid="sel-previous">{t('selection.previous')}</button>
+      {#if walk}
+        <button class="sel-op" onclick={() => step(-1)} aria-label={t('selection.walkPrev')} data-testid="sel-walk-prev">◀</button>
+        <span class="sel-like-label" data-testid="sel-walk-at">{walkAt + 1} / {walk.ids.length}</span>
+        <button class="sel-op" onclick={() => step(1)} aria-label={t('selection.walkNext')} data-testid="sel-walk-next">▶</button>
+        <button class="sel-op" onclick={() => (walk = null)}>{t('selection.walkStop')}</button>
+      {:else}
+        <button class="sel-op" onclick={startWalk} data-testid="sel-walk">{t('selection.walk')}</button>
+      {/if}
+    </div>
+  </div>
+
   <div class="sel-byid">
     <label for="sel-id-list">{t('selection.byId')}</label>
     <div class="sel-byid-row">
@@ -231,6 +297,7 @@
 
   .sel-ops { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
   .sel-like { margin-top: 10px; }
+  .sel-more { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
   .sel-like-label { font-size: 0.7rem; color: var(--st-text-3); }
   .sel-op {
     flex: 1;

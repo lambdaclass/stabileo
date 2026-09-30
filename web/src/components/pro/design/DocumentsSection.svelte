@@ -40,6 +40,7 @@
   import RcExportLog from './RcExportLog.svelte';
   import RcDocumentScope from './RcDocumentScope.svelte';
   import RcDocumentPreview from './RcDocumentPreview.svelte';
+  import ProQuantitiesCard from './ProQuantitiesCard.svelte';
   import {
     downloadBlob, exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
   } from '../../../lib/store/document-exports';
@@ -339,6 +340,8 @@
     {#if docError}
       <p class="err" role="alert" data-testid="doc-error">{docError}</p>
     {/if}
+
+    <ProQuantitiesCard />
 
     <!-- The drawing and the schedule before they leave, from the same document instance. -->
     <RcDocumentPreview resolve={currentDoc} projectName={projectName()} />

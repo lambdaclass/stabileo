@@ -25,6 +25,17 @@ As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Expor
 Excel or CSV, the report, and the view to DXF or SVG). See
 [chapter 1](01-getting-started.md#saving-opening-and-sharing).
 
+**Project data.** Client, job, job number, site, the revisions with their date and description,
+and who designed, checked and approved it, with dates. Saved with the project and printed on the
+report's cover.
+
+**Office templates.** A project's materials, sections, cases, combinations, combination rules,
+regulations and deflection limits are saved as a template, in the browser or as a file to share.
+Applying a template adds what the project lacks, by name, and never overwrites what it has.
+
+**Commands by name.** **Ctrl+K** (⌘K on Mac) lists every ribbon command: type part of its name and
+**Enter** runs it.
+
 ## The Model tab
 
 In PRO each ribbon button opens a **panel with a table**. To draw in the viewer, each panel has
@@ -108,6 +119,35 @@ can be pasted into another project or another tab. In text fields the keys do wh
 
 **Edit.** When splitting members into N parts, the cut points show on the selected members before
 they are split.
+
+- **Renumber** nodes, members and shells by position, the whole model or only the selection, and
+  from a number. If that number belongs to something not selected, nothing is renumbered and the
+  panel says which.
+- **Clean-up:** coincident nodes (within the **weld tolerance**, which can be changed and which
+  every weld in the model reads), repeated or zero-length members, orphan nodes, and also **loose
+  parts** reached by no support, **free shell edges** on no member, **members crossing without a
+  node**, and **repeated properties** (materials or sections equal under another number), which
+  are unified.
+- **Reverse members:** I becomes J. The section keeps its orientation, and the member's releases,
+  semi-rigid ends, offsets and loads follow it, so the result is the same. A member with
+  reinforcement is not reversed.
+
+**Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle; members
+**parallel to a global axis or plane** are selected, and what is **loaded in a case**, and the
+**previous selection** comes back. **Walk through, zoomed** steps through the selected members or
+nodes one at a time, framing each.
+
+**View.** Saved views keep the projection, the orthographic zoom, what is hidden, the labels and
+the colours. Also:
+
+- **Zoom window:** drag a rectangle and what falls inside is framed.
+- **Labels only on the selection**, and a **quick card** on a click on a node or member, with its
+  data and results.
+- **Member colour** by section, material or group, with its legend.
+- **Draw** constraints and diaphragms as lines between their nodes, and the I and J ends.
+- **Notes** of text at a point of the model, saved with the project.
+- **Units:** SI (kN, m), technical metric (tf, tf·m, kgf/cm², cm) or imperial, and the **decimals**
+  of each quantity. The model is always stored in kN and m.
 
 ### Properties
 
@@ -311,6 +351,25 @@ In the **Results** panel:
   list of elements, with filters, and exports it to CSV.
 - **Raw forces report:** reactions, displacements and forces per member and per station, as Excel,
   PDF or HTML.
+- Every table can also be read over **all**, a **summary** or the **envelope** of the active
+  combinations, the load cases, or both. It can be narrowed to the selection or to a group, add the
+  **resultant**, ask for **stations** along each member and group by member; the max-by-type view
+  keeps My apart from Mz and Vy from Vz. All of it exports to CSV and Excel, in the units chosen.
+- **Named envelopes** can take load cases on their own, unfactored (D and L for a service
+  envelope, say).
+- **Statics:** the applied loads against the reactions, all six components, per case and per
+  combination.
+- **Deflections:** each member is checked against the **rule** that applies to it, by kind, group
+  or chosen members, with L/n and the direction (resultant or one local plane). With no rule,
+  beams are checked at L/360. A **cantilever** is measured from the tangent at its root and its
+  limit is taken over 2L.
+- **Member stresses:** the largest tension and the largest compression on the section at each
+  station, over its geometry.
+- **Shell contours:** at the nodes or at each element's centre, over the range of the results or a
+  typed one, smooth or in bands, and on the deformed shape. **Results along a line** plots the value
+  between two points typed or picked.
+- **Image and video:** the PNG carries the caption and the colour scale of what it shows; the
+  deformed shape and the modes animate and record to video.
 - **Story drift:** for each seismic case, each story's drift with the elastic displacements
   multiplied by Cd/γr (INPRES-CIRSOC 103, 6.4), against the Table 6.4 limit for the destination
   group and whether non-structural elements can be damaged. Cd and the group come from the
@@ -359,11 +418,26 @@ diaphragms, which are set in **Constraints** (the panel says how many there are)
 
 ### Report
 
-**Report** builds a printable **calculation report**: model data, load details, results, the
-advanced analyses you ran, material quantities and diagnostics, with an optional letterhead (logo,
-company, engineer, revision). It also exports to Excel.
+**Report** builds a printable **calculation report**: model data with every property, load
+details, results, the summary and the envelope over the combinations, the statics, the
+deflections, the advanced analyses you ran, the **figures** you add from the view (each with its
+caption and scale), material quantities and diagnostics. The tables are complete whatever the size
+of the model. The cover prints the project's data; the office letterhead (logo and company) stays
+in the dialog. It also exports to Excel.
+
+The **quantities** (in Documents too) take the concrete and structural steel from the geometry and
+the reinforcement from the **detailing**, by diameter; the steel ratio is taken over the detailed
+members.
 
 ## The Design tab
+
+### Reinforced concrete
+
+Beam design also checks the **spacing of the bars next to the tension face** for crack control
+(CIRSOC 201-2025, 24.3.2), with fs = 2/3 fy as 24.3.2.1 permits; when it fails, the automatic design
+moves to an arrangement with more bars. The detailing's drawing set adds, to each assembly's
+elevations and sections, whole **frames** in their plane, **column stacks** over every storey and a
+**detail of each joint**, all from the detailing's own bars.
 
 ### Other codes
 

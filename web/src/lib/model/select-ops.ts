@@ -135,3 +135,49 @@ export function selectByIds(
     bad,
   };
 }
+
+/**
+ * What carries a load of one case: the nodes with nodal loads, the members with member loads,
+ * the shells with surface loads. Loads with no case belong to case 1, as the solve reads them.
+ */
+export function loadedInCase(loads: ReadonlyArray<{ type: string; data: Record<string, unknown> }>, caseId: number): Selection {
+  const out: Selection = { nodes: new Set(), elements: new Set(), shells: new Set() };
+  for (const l of loads) {
+    if (((l.data.caseId as number | undefined) ?? 1) !== caseId) continue;
+    const d = l.data;
+    if (typeof d.nodeId === 'number') out.nodes.add(d.nodeId);
+    if (typeof d.elementId === 'number') out.elements.add(d.elementId);
+    if (typeof d.quadId === 'number') out.shells.add(`q${d.quadId}`);
+    if (typeof d.plateId === 'number') out.shells.add(`p${d.plateId}`);
+  }
+  return out;
+}
+
+export type GlobalDirection = 'X' | 'Y' | 'Z' | 'XY' | 'XZ' | 'YZ';
+
+/**
+ * Members parallel to a global axis, or lying parallel to a global plane, within `tolDeg`: the
+ * columns (Z), the beams along X, everything in plan (XY).
+ */
+export function parallelToGlobal(
+  nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>,
+  elements: ReadonlyMap<number, { nodeI: number; nodeJ: number }>,
+  dir: GlobalDirection, tolDeg = 5,
+): Set<number> {
+  const tol = Math.sin((tolDeg * Math.PI) / 180);
+  const axis = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] } as const;
+  const normal = { XY: [0, 0, 1], XZ: [0, 1, 0], YZ: [1, 0, 0] } as const;
+  const out = new Set<number>();
+  for (const [id, e] of elements) {
+    const a = nodes.get(e.nodeI), b = nodes.get(e.nodeJ);
+    if (!a || !b) continue;
+    const d = [b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)];
+    const L = Math.hypot(d[0]!, d[1]!, d[2]!);
+    if (L < 1e-12) continue;
+    const u = d.map((x) => x / L);
+    const dot = (v: readonly number[]) => Math.abs(u[0]! * v[0]! + u[1]! * v[1]! + u[2]! * v[2]!);
+    const ok = dir.length === 1 ? dot(axis[dir as 'X']) >= Math.cos((tolDeg * Math.PI) / 180) : dot(normal[dir as 'XY']) <= tol;
+    if (ok) out.add(id);
+  }
+  return out;
+}

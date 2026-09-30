@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { captureFigure } from './lib/export/figure';
+  import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
@@ -27,7 +29,7 @@
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, noteAxisConventionMigrationIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -711,21 +713,19 @@
 
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
-    let created = 0;
-    const nodeIds: number[] = [];
+    const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        const id = modelStore.addNode(parts[0], parts[1]);
-        nodeIds.push(id);
-        created++;
-      }
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
     }
-    // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
-    // or just create elements between consecutive pairs if requested
-    if (created > 0) {
-      uiStore.toast(t('app.nodesImported').replace('{n}', String(created)), 'success');
-      resultsStore.clear();
+    // One undo step for the whole import — none when every point is a node already there — and
+    // each point welds to a node already at its coordinates: a wireframe listing repeats shared
+    // vertices line to line, and a blind addNode per line stacked twins on the same point.
+    const { created } = modelStore.addNodesWelded(points);
+    if (points.length > 0) {
+      // The nodes it added, not every line: a point already there is not an imported node.
+      uiStore.toast(t('app.nodesImported').replace('{n}', String(created.length)), 'success');
+      if (created.length > 0) resultsStore.clear();
     } else {
       uiStore.toast(t('app.noValidCoords'), 'error');
     }
@@ -813,7 +813,10 @@
   }
 
   function handleExportPNG() {
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    // Captioned, with the colour scale drawn into the image (`lib/export/figure.ts`).
+    const fig = captureFigure();
+    if (fig) { downloadDataUrlPNG(fig.dataUrl); return; }
+    const canvas = viewportCanvas();
     if (canvas) downloadCanvasPNG(canvas);
   }
 
@@ -884,7 +887,7 @@
           // inside an iframe the canvas is 0×0 during first paint, so a single
           // event lands before the viewport is ready.
           const tryFit = (attempt: number) => {
-            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            const canvas = viewportCanvas();
             if (canvas && canvas.width > 0 && canvas.height > 0) {
               window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
               return;
@@ -914,7 +917,7 @@
     // Auto zoom-to-fit when loading from shared link
     if (hashMode) {
       setTimeout(() => {
-        const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+        const canvas = viewportCanvas();
         if (canvas && modelStore.nodes.size > 0) {
           uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
         }

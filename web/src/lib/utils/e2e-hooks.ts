@@ -28,6 +28,7 @@
  * query flag is present, so production pages never expose it.
  */
 
+import { viewportCanvas } from './viewport-canvas';
 import { projectWorld } from '../viewport3d/camera-probe';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
@@ -632,7 +633,7 @@ export function installE2EHooks(): void {
       } as never));
       const projected = projectWorld(scene.x, scene.y, scene.z);
       if (projected) return projected;
-      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      const canvas = viewportCanvas();
       if (!canvas) return null;
       const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);
       const r = canvas.getBoundingClientRect();

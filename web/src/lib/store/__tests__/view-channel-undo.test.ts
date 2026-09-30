@@ -15,6 +15,9 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 const cases: Array<[string, () => void, () => unknown]> = [
   ['the grid', () => modelStore.setGrid({ axes: [{ id: 'a', name: '1', axis: 'x', at: 0 }], levels: [] } as never), () => modelStore.snapshot().grid],
   ['the dynamics', () => modelStore.setDynamics({ timeHistory: { method: 'newmark', dt: 0.01, duration: 1 } } as never), () => modelStore.snapshot().dynamics],
+  ['the notes', () => modelStore.setNotes([{ id: 1, text: 'check', at: { x: 0, y: 0, z: 0 } }] as never), () => modelStore.snapshot().notes],
+  ['the project data', () => modelStore.setProjectInfo({ client: 'someone' }), () => modelStore.snapshot().projectInfo],
+  ['the deflection limits', () => modelStore.setDeflectionLimits({ rules: [{ id: 1, scope: { kind: 'memberKind', value: 'beam' }, n: 300, direction: 'resultant' }] } as never), () => modelStore.snapshot().deflectionLimits],
 ];
 
 describe('the views undo channel', () => {

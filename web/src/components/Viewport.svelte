@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { firstGroupIndex } from '../lib/viewport/element-colour';
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
@@ -51,6 +52,7 @@
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askToConnectMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
+  import { NODE_PLACEMENT_TOL } from '../lib/viewport/node-placement';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -244,6 +246,9 @@
   $effect(() => { uiStore.showGrid; uiStore.showAxes; uiStore.showLoads; invalidate(); });
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
+  // Each member's group, only while colouring by group.
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex(modelStore.model.groups.values()) : null);
+  $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
   $effect(() => { uiStore.currentTool; invalidate(); });
@@ -1414,6 +1419,7 @@
       worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy),
       isSelected: uiStore.selectedElements.has(elem.id),
       elementColorMode: uiStore.elementColorMode,
+      groupOf: memberGroups ? (id: number) => memberGroups!.get(id) : undefined,
       showElementLabels: uiStore.showElementLabels,
       showLengths: uiStore.showLengths,
       zoom: uiStore.zoom,
@@ -1747,7 +1753,7 @@
           // on an existing grid-aligned node that is >0.5m from the cursor —
           // creating an exact coincident duplicate.
           const onExisting = nodeAtCursor
-            ?? findNearestNode(ms.x, ms.y, 0.01);
+            ?? findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL);
           if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
               uiStore.selectNode(onExisting.id, e.shiftKey);

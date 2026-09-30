@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
+  import { pasteClipboardRecord } from '../lib/store/clipboard-paste';
   import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
   import { deleteSelection } from '../lib/actions/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
-  import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
+  import { pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
   import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
@@ -84,7 +86,7 @@
 
   function zoomToFit() {
     if (modelStore.nodes.size === 0) return;
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    const canvas = viewportCanvas();
     if (!canvas) return;
     uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
   }
@@ -169,49 +171,9 @@
       return;
     }
 
-    const idMap = new Map<number, number>();
-    const pastedElements: number[] = [];
-
-    modelStore.batch(() => {
-      // Create new nodes
-      for (const n of clip.nodes) {
-        const newId = modelStore.addNode(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
-        idMap.set(n.origId, newId);
-      }
-
-      // Create new elements
-      for (const el of clip.elements) {
-        const ni = idMap.get(el.origNodeI);
-        const nj = idMap.get(el.origNodeJ);
-        // `continue`, not `return`: returning here abandoned every element and support after it.
-        if (ni == null || nj == null) continue;
-        const matId = modelStore.materials.has(el.materialId) ? el.materialId : 1;
-        const secId = modelStore.sections.has(el.sectionId) ? el.sectionId : 1;
-        const newElemId = modelStore.addElement(ni, nj, el.type);
-        modelStore.updateElementMaterial(newElemId, matId);
-        modelStore.updateElementSection(newElemId, secId);
-        if (el.releaseI?.mz === true) modelStore.toggleHinge(newElemId, 'start');
-        if (el.releaseJ?.mz === true) modelStore.toggleHinge(newElemId, 'end');
-        if (hasExplicitLocalY(el)) {
-          modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);
-        }
-        if (el.rollAngle !== undefined && Math.abs(el.rollAngle) > 1e-9) {
-          modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);
-        }
-        pastedElements.push(newElemId);
-      }
-
-      // Create supports
-      for (const s of clip.supports) {
-        const newNodeId = idMap.get(s.origNodeId);
-        if (newNodeId != null) {
-          modelStore.addSupport(newNodeId, s.type);
-        }
-      }
-    });
-
-    // Select pasted items
-    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
+    // The clipboard's own record, through the same edit layer (`store/clipboard-paste.ts`).
+    const r = pasteClipboardRecord(clip, [ox, oy, oz], uiStore.axisConvention3D === 'leftHand');
+    uiStore.setSelection(new Set(r.maps[0]?.nodes.values() ?? []), new Set(r.elements), true);
   }
 
   /*

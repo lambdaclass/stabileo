@@ -88,6 +88,8 @@ export interface DeflectionResult {
   /** The span, and the divisor of its limit (L/360 → 360): what `L/δ` is printed against. */
   span: number;
   limitDivisor: number;
+  /** The length the limit is taken over: the span, or 2L for a cantilever. */
+  limitLength: number;
   status: 'ok' | 'warn' | 'fail';
   steps: string[];
   diagnostics?: SolverDiagnostic[];
@@ -102,8 +104,10 @@ export interface DeflectionResult {
  */
 export function checkDeflection(
   L: number, delta: number,
-  limitType: 'L/240' | 'L/360' | 'L/480' = 'L/360',
+  limitType: 'L/240' | 'L/360' | 'L/480' | number = 'L/360',
   lambdaDelta: number = 2.0,
+  /** The length the limit is taken over when it is not the span: 2L for a cantilever. */
+  limitLength: number = L,
 ): DeflectionResult {
   const steps: string[] = [];
   const deltaAbs = Math.abs(delta);
@@ -119,9 +123,10 @@ export function checkDeflection(
   const deltaTotal = deltaAbs + deltaLT;
   steps.push(`δ_total = ${(deltaTotal * 1000).toFixed(2)} mm`);
 
-  const divisor = limitType === 'L/240' ? 240 : limitType === 'L/480' ? 480 : 360;
-  const limit = L / divisor;
-  steps.push(`δ_admisible = L/${divisor} = ${(limit * 1000).toFixed(2)} mm`);
+  const divisor = typeof limitType === 'number' ? limitType : limitType === 'L/240' ? 240 : limitType === 'L/480' ? 480 : 360;
+  const limit = limitLength / divisor;
+  const over = limitLength === L ? 'L' : `${+(limitLength / L).toFixed(3)}L`;
+  steps.push(`δ_admisible = ${over}/${divisor} = ${(limit * 1000).toFixed(2)} mm`);
 
   const ratio = deltaTotal / limit;
   steps.push(`Ratio = ${ratio.toFixed(3)}`);
@@ -137,5 +142,5 @@ export function checkDeflection(
     diags.push({ severity: 'warning', code: 'DEFLECTION_HIGH', message: 'diag.deflectionHigh', source: 'serviceability', details: { computed: deltaTotal, limit, ratio } });
   }
 
-  return { deltaImm: deltaAbs, deltaLT, deltaTotal, limit, ratio, span: L, limitDivisor: divisor, status, steps, diagnostics: diags.length > 0 ? diags : undefined };
+  return { deltaImm: deltaAbs, deltaLT, deltaTotal, limit, ratio, span: L, limitDivisor: divisor, limitLength, status, steps, diagnostics: diags.length > 0 ? diags : undefined };
 }
