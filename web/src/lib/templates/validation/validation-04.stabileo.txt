@@ -6,6 +6,9 @@ stabileo-model 1
 # Sections are given by their declared properties, one per distinct profile and spacing.
 # The source solves every case and combination with two P-Delta iterations; here the cases are
 # linear and each combination is solved with P-Delta on its own factored loads.
+# P-Delta is currently refused at this size to avoid exhausting browser memory. Select linear
+# analysis explicitly to inspect first-order results. Repeated CRANE names include the source
+# case id so all 22 cases can share one factorization; ids and loads are unchanged.
 # The code check the source runs is not reproduced.
 name "Validación 04 · Nave industrial con puente grúa"
 mode pro
@@ -3793,14 +3796,14 @@ case 9 W "WIND SN"
 case 10 W "WIND E TO W"
 case 11 W "WIND WE"
 case 12 W "INTERNAL PRESSURE"
-case 13 L "CRANE"
-case 14 L "CRANE"
-case 15 L "CRANE"
-case 16 L "CRANE"
-case 17 L "CRANE"
-case 18 L "CRANE"
-case 19 L "CRANE"
-case 20 L "CRANE"
+case 13 L "CRANE 13"
+case 14 L "CRANE 14"
+case 15 L "CRANE 15"
+case 16 L "CRANE 16"
+case 17 L "CRANE 17"
+case 18 L "CRANE 18"
+case 19 L "CRANE 19"
+case 20 L "CRANE 20"
 case 57 D "DEAD NOTIONAL X"
 case 58 D "DEAD NOTIONAL Z"
 

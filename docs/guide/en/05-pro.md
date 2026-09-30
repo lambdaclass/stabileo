@@ -24,6 +24,8 @@ To start:
   properties, their cases and their combinations. They load as they are, with no regulation
   combinations generated over them. Each description says what was adapted (the vertical axis, the
   units, and the loads the source program computed, which are applied here as ordinary loads).
+  **Model 04:** P-Delta is currently unavailable at this size. Its setting is preserved;
+  select linear analysis explicitly to obtain first-order results.
 - **Import** (see [below](#importing-models)): an Excel spreadsheet or an AutoCAD drawing (DXF).
 
 As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Export** (results to
