@@ -66,6 +66,7 @@ export const FAMILY_CLASSIFICATION: Record<ProfileFamily, FamilyClassification> 
   IPE: { family: 'IPE', standard: 'EN 10365', standardsBody: 'CEN', country: 'EU', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'exact' },
   HEA: { family: 'HEA', standard: 'EN 10365', standardsBody: 'CEN', country: 'EU', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'exact' },
   HEB: { family: 'HEB', standard: 'EN 10365', standardsBody: 'CEN', country: 'EU', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'exact' },
+  HEM: { family: 'HEM', standard: 'EN 10365', standardsBody: 'CEN', country: 'EU', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'exact' },
   W:   { family: 'W',   standard: 'IRAM-IAS U 500-215-6', standardsBody: 'IRAM-IAS', country: 'AR', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'nominalDimensions' },
   HP:  { family: 'HP',  standard: 'IRAM-IAS U 500-215-7', standardsBody: 'IRAM-IAS', country: 'AR', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'nominalDimensions' },
   M:   { family: 'M',   standard: 'IRAM-IAS U 500-215-8', standardsBody: 'IRAM-IAS', country: 'AR', material: 'hot-rolled-steel', series: 'i-beam', fidelity: 'nominalDimensions' },
@@ -141,7 +142,7 @@ export const DESIGN_CODES: DesignCode[] = [
     id: 'eurocode-3',
     label: 'Eurocode 3',
     region: 'EU',
-    families: ['IPE', 'HEA', 'HEB', 'IPN', 'UPN', 'L', 'CHS', 'RHS', 'SHS'],
+    families: ['IPE', 'HEA', 'HEB', 'HEM', 'IPN', 'UPN', 'L', 'CHS', 'RHS', 'SHS'],
     note: 'cat.note.eurocodeTubes',
   },
   /*
@@ -178,7 +179,7 @@ export const DESIGN_CODES: DesignCode[] = [
  * around, so it is what a local user reaches for first. The rest follow by
  * series — European, American, then the rolled channels and angles.
  */
-export const ALL_FAMILIES: ProfileFamily[] = ['IPN', 'IPE', 'HEA', 'HEB', 'W', 'HP', 'M', 'UPN', 'C', 'MC', 'L', 'T', 'CHS', 'RHS', 'SHS'];
+export const ALL_FAMILIES: ProfileFamily[] = ['IPN', 'IPE', 'HEA', 'HEB', 'HEM', 'W', 'HP', 'M', 'UPN', 'C', 'MC', 'L', 'T', 'CHS', 'RHS', 'SHS'];
 
 /** Design code by id. */
 export function designCode(id: string): DesignCode | undefined {

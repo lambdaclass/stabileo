@@ -5,8 +5,10 @@
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
+  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
-  import { solvePDelta, solveBuckling, solveModal, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
@@ -275,21 +277,10 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    // Build densities map from model materials (rho in kN/m\u00b3 \u2192 need kg/m\u00b3)
-    // rho is stored as kN/m\u00b3 in the model. 1 kN/m\u00b3 \u2248 101.97 kg/m\u00b3...
-    // Actually the model stores rho as kN/m\u00b3 (e.g. 78.5 for steel)
-    // The mass matrix module expects kg/m\u00b3 and converts internally
-    // 78.5 kN/m\u00b3 = 7850 kg/m\u00b3 \u2192 multiply by 1000/9.81 \u2248 101.97
-    // But wait \u2014 rho in the model is weight density (kN/m\u00b3),
-    // mass density = weight density / g = rho / 9.81 \u2192 in kg/m\u00b3 = rho * 1000/9.81
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      // mat.rho is weight density in kN/m\u00b3; convert to mass density in kg/m\u00b3
-      densities.set(id, mat.rho * 1000 / 9.81);
-    }
     try {
       const t0 = performance.now();
-      const result = solveModal(input, densities);
+      const physical = withSectionMass(input, modelStore.model);
+      const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult(result);
@@ -409,14 +400,11 @@
     if (!await ensureWasmReady('handleModal3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      densities.set(id, mat.rho * 1000 / 9.81);
-    }
     try {
       const t0 = performance.now();
       let result: any;
-      result = wasmModal3D(input, densities);
+      const physical = withSectionMass(input, modelStore.model);
+      result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult3D(result);

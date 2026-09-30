@@ -62,12 +62,15 @@ import { dedupeMessages, msg, round, type EngineMessage } from '../../codes/mess
 import type { ProjectRegulations } from '../../codes/roles';
 import { findOption, optionLabel, roleUsable } from '../../codes/roles';
 
+import { createSectionWeight } from '../../section/weight';
+import type { DrawnSection } from '../../section/drawn';
+
 // ─── Model slice ─────────────────────────────────────────────────
 
 export interface LoadModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>;
-  sections: Map<number, { id: number; a: number }>;
+  sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   materials: Map<number, { id: number; rho: number }>;
   loadCases: Array<{ id: number; type: string; name: string }>;
 }
@@ -332,15 +335,16 @@ function selfWeightByLevel(
   model: LoadModelData, levelOfNode: Map<number, number>, count: number,
 ): { weights: number[]; skipped: number } {
   const weights = new Array(count).fill(0);
+  const sectionWeight = createSectionWeight(model.materials);
   let skipped = 0;
   for (const el of model.elements.values()) {
     const nI = model.nodes.get(el.nodeI);
     const nJ = model.nodes.get(el.nodeJ);
     const sec = model.sections.get(el.sectionId);
     const mat = model.materials.get(el.materialId);
-    if (!nI || !nJ || !sec || !mat || !(sec.a > 0) || !(mat.rho > 0)) { skipped++; continue; }
+    if (!nI || !nJ || !sec || !mat || !(sec.a > 0)) { skipped++; continue; }
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
-    const w = sec.a * L * mat.rho;
+    const w = sectionWeight(sec, el.materialId) * L;
     for (const id of [el.nodeI, el.nodeJ]) {
       const lv = levelOfNode.get(id);
       if (lv !== undefined) weights[lv] += w / 2;

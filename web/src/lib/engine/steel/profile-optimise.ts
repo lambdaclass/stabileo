@@ -31,6 +31,57 @@ export interface OptimiseMember {
   segment?: SteelSegmentDiagram;
 }
 
+/**
+ * What a candidate must satisfy beyond the strength check.
+ *
+ * `deflection` carries, per member with a deflection rule, the deflection of the analysis on hand
+ * in each local plane and the limit, with the current section's inertias. A candidate's deflection
+ * is read as the current one times the inverse ratio of inertias in each plane: exact for a
+ * member whose loads do not depend on its stiffness (a simply supported or cantilever member), an
+ * estimate for one in a frame, which the re-verification after the next solve then checks.
+ */
+export interface OptimiseCriteria {
+  /** Families searched. Absent means the current profile's own. */
+  families?: readonly ProfileFamily[];
+  hMinMm?: number;
+  hMaxMm?: number;
+  bMaxMm?: number;
+  /** Largest acceptable utilisation. One unless stated. */
+  target?: number;
+  deflection?: ReadonlyArray<{
+    elementId: number;
+    /** Deflection along local y (bending about z) and along local z (bending about y), m. */
+    v: number; w: number;
+    direction: 'resultant' | 'localY' | 'localZ';
+    limit: number;
+    /** The current section's second moments, m⁴. */
+    iy: number; iz: number;
+  }>;
+}
+
+/** Families the member checker can read: its expressions are those of doubly symmetric I and H. */
+export const I_FAMILIES: readonly ProfileFamily[] = ['IPE', 'IPN', 'HEA', 'HEB', 'HEM', 'W', 'HP', 'M'];
+
+/** The candidates, lightest first, across the families asked for and within the size limits. */
+export function candidates(criteria: OptimiseCriteria, current: ProfileFamily): SteelProfile[] {
+  const fams = criteria.families?.length ? criteria.families : [current];
+  return fams.flatMap((f) => familyByWeight(f))
+    .filter((p) => (criteria.hMinMm == null || p.h >= criteria.hMinMm) && (criteria.hMaxMm == null || p.h <= criteria.hMaxMm) && (criteria.bMaxMm == null || p.b <= criteria.bMaxMm))
+    .sort((a, b) => a.weight - b.weight || a.h - b.h);
+}
+
+/** The largest deflection over limit of a candidate, from the current deflections scaled by inertia. */
+export function deflectionRatio(profile: SteelProfile, deflection: NonNullable<OptimiseCriteria['deflection']>): number {
+  const iy = profile.iy * 1e-8, iz = profile.iz * 1e-8;
+  let worst = 0;
+  for (const d of deflection) {
+    const v = d.v * (d.iz / iz), w = d.w * (d.iy / iy);
+    const read = d.direction === 'localY' ? Math.abs(v) : d.direction === 'localZ' ? Math.abs(w) : Math.hypot(v, w);
+    if (d.limit > 0) worst = Math.max(worst, read / d.limit);
+  }
+  return worst;
+}
+
 /** A candidate's verdict on a group: the worst member and its ratio. */
 export interface CandidateVerdict {
   profile: SteelProfile;
@@ -39,6 +90,8 @@ export interface CandidateVerdict {
   /** The member that governs. */
   elementId: number;
   passes: boolean;
+  /** Estimated deflection over limit, when a deflection criterion was given. */
+  deflectionRatio?: number;
 }
 
 /** A family's profiles, lightest first (ties by depth, so the shallower one wins). */
@@ -51,7 +104,9 @@ export function verdictFor(
   profile: SteelProfile,
   members: readonly OptimiseMember[],
   material: { fy?: number; e?: number; fu?: number },
+  criteria: OptimiseCriteria = {},
 ): CandidateVerdict | null {
+  const target = criteria.target ?? 1;
   const section = profileToSectionFull(profile);
   let worst: { ratio: number; elementId: number } | null = null;
   let passes = true;
@@ -59,36 +114,70 @@ export function verdictFor(
     const v = checkSteelMember(m.elementId, m.demand, section, material, m.lengths, m.segment);
     if (!v) return null;
     const r = steelGoverningRatio(v);
-    if (v.overallStatus === 'fail' || !(r <= 1)) passes = false;
+    if (v.overallStatus === 'fail' || !(r <= target)) passes = false;
     if (!worst || r > worst.ratio) worst = { ratio: r, elementId: m.elementId };
   }
   if (!worst) return null;
+  if (criteria.deflection?.length) {
+    const dr = deflectionRatio(profile, criteria.deflection);
+    return { profile, ratio: worst.ratio, elementId: worst.elementId, passes: passes && dr <= 1, deflectionRatio: dr };
+  }
   return { profile, ratio: worst.ratio, elementId: worst.elementId, passes };
 }
 
 export interface OptimiseResult {
-  /** The lightest passing profile, or null when none in the family passes. */
+  /** The lightest passing profile, or null when no candidate passes. */
   chosen: CandidateVerdict | null;
   /** The heaviest checked when none passes, so the user sees how far off the family is. */
   best: CandidateVerdict | null;
-  /** How many candidates were checked. */
+  /** How many candidates were checked in full. */
   tried: number;
+  /** How many were set aside by the plastic bound (`mayPass`) without the full check. */
+  pruned: number;
 }
 
-/** The lightest profile of `family` that passes every member of the group. */
+/**
+ * Whether a profile could pass at all, from its tabulated area and elastic moduli alone.
+ *
+ * No resistance exceeds the plastic one: axial Fy·A, flexure Fy·Z, and for an I section Z stays
+ * under 1.5·S about the strong axis and 1.7·S about the weak one (1.5 is the rectangle's shape
+ * factor, the limit an I approaches as its web vanishes; the weak axis is the flanges' rectangles
+ * plus a little web). A profile below any of these for any member cannot pass, so it is skipped
+ * without the full check, which meshes the section in the engine. This only removes candidates
+ * the check would have failed; it never changes which one is chosen.
+ */
+export function mayPass(p: SteelProfile, members: readonly OptimiseMember[], material: { fy?: number }, target = 1): boolean {
+  if (!material.fy) return true;
+  const fy = material.fy * 1000; // kPa
+  const A = p.a * 1e-4, Sy = (p.iy * 1e-8) / (p.h / 2000), Sz = (p.iz * 1e-8) / (p.b / 2000);
+  for (const m of members) {
+    const d = m.demand;
+    if (Math.max(d.Nc, d.Nt) > target * fy * A) return false;
+    if (Math.abs(d.MuStrong) > target * fy * 1.5 * Sy) return false;
+    if (Math.abs(d.MuWeak) > target * fy * 1.7 * Sz) return false;
+  }
+  return true;
+}
+
+/** The lightest profile, of `family` or of the criteria's families, that passes every member of the group. */
 export function lightestPassing(
   family: ProfileFamily,
   members: readonly OptimiseMember[],
   material: { fy?: number; e?: number; fu?: number },
+  criteria: OptimiseCriteria = {},
 ): OptimiseResult {
-  let tried = 0;
+  let tried = 0, pruned = 0;
   let best: CandidateVerdict | null = null;
-  for (const p of familyByWeight(family)) {
-    const v = verdictFor(p, members, material);
+  const list = candidates(criteria, family);
+  for (const p of list) {
+    if (I_FAMILIES.includes(p.family) && !mayPass(p, members, material, criteria.target ?? 1)) { pruned++; continue; }
+    const v = verdictFor(p, members, material, criteria);
     if (!v) continue;
     tried++;
-    if (v.passes) return { chosen: v, best: v, tried };
+    if (v.passes) return { chosen: v, best: v, tried, pruned };
     if (!best || v.ratio < best.ratio) best = v;
   }
-  return { chosen: null, best, tried };
+  // Everything pruned: the heaviest candidate says how far the search is from passing.
+  if (!best && list.length > 0) best = verdictFor(list[list.length - 1]!, members, material, criteria);
+  return { chosen: null, best, tried, pruned };
 }

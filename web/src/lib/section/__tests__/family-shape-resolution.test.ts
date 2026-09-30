@@ -13,7 +13,7 @@ import { ALL_FAMILIES } from '../../data/section-catalog';
  *
  * `ProSectionsTab` used to map family → shape with a local function that knew six families and
  * returned `'CHS'` — a round tube — for the rest. Nothing caught it, because nothing had ever
- * walked all fifteen families end to end. This does.
+ * walked all sixteen families end to end. This does.
  *
  * The check is deliberately NOT "does `familyToShape` return what I expect" — that would be one
  * table compared against another table I wrote. It takes each family's real catalogue entry
@@ -29,9 +29,9 @@ function sample(f: ProfileFamily) {
   return list.length > 0 ? list[Math.floor(list.length / 2)] : null;
 }
 
-describe('all fifteen families reach the resolver', () => {
+describe('all sixteen families reach the resolver', () => {
   it('every family in the picker order ships at least one profile', () => {
-    expect(families).toHaveLength(15);
+    expect(families).toHaveLength(16);
     const empty = families.filter((f) => sample(f) === null);
     expect(empty, `families with no profiles: ${empty.join(', ')}`).toEqual([]);
   });

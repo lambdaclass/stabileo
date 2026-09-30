@@ -250,6 +250,13 @@ export interface Section {
   /** Holes in `polygon`, same units and frame. */
   holes?: Array<Array<[number, number]>>;
   /**
+   * A section drawn from parts, each placed, rotated and with its own material.
+   *
+   * When present it IS the geometry, like `polygon`, and the parts are the input the editor
+   * reopens. See `lib/section/drawn.ts`.
+   */
+  drawn?: import('../section/drawn').DrawnSection;
+  /**
    * Solver-ready canonical state, resolved at the edges (create, edit,
    * catalogue selection, migration, load) and read synchronously by
    * `buildSolverInput`.

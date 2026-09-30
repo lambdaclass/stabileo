@@ -38,6 +38,10 @@
   import SectionFigure from '../generators/SectionFigure.svelte';
   import SectionDataSheet from './SectionDataSheet.svelte';
   import BuiltSectionPanel from './BuiltSectionPanel.svelte';
+  import DrawnSectionEditor from './DrawnSectionEditor.svelte';
+  import ProfileTableBrowser from './ProfileTableBrowser.svelte';
+  import ProfileDimensioned from './ProfileDimensioned.svelte';
+  import type { DrawnSection } from '../../../lib/section/drawn';
   import BattenPanel from './BattenPanel.svelte';
   import { steelProfileSource, type ProfileSource } from '../../../lib/profiles/catalogue';
   import { sectionDataSheet } from '../../../lib/section/data-sheet';
@@ -67,12 +71,25 @@
     source?: ProfileSource;
     /** Accessible name, e.g. the member role or the section being replaced. */
     label?: string;
+    /** A drawn section to reopen: the modal starts in the drawing. */
+    drawn?: { name: string; drawn: DrawnSection } | null;
   }
-  const { open, spec, onApply, onClose, source = steelProfileSource, label = '' }: Props = $props();
+  const { open, spec, onApply, onClose, source = steelProfileSource, label = '', drawn = null }: Props = $props();
 
   /** Exactly two. The type is the guarantee, not a convention. */
   type Division = 'standard' | 'build';
   let division = $state<Division>('standard');
+  /**
+   * The build division builds in one of two ways: typed into a template, or drawn from parts.
+   * A way of building, not a third division: both produce a section with an outline.
+   */
+  let buildMode = $state<'template' | 'draw'>('template');
+  /** The catalogue as the searchable list, or as a table of every column. */
+  let browseMode = $state<'list' | 'table'>('list');
+  let dimsOpen = $state(false);
+  $effect.pre(() => {
+    if (open && drawn) untrack(() => { division = 'build'; buildMode = 'draw'; });
+  });
 
   /** Working copy. Applying is an explicit act, so Escape can leave the model untouched. */
   let draft = $state<ProfileSpec>({ ...spec });
@@ -297,6 +314,16 @@
       <div class="body">
         <div class="browse">
           {#if division === 'standard'}
+            <div class="build-modes" role="radiogroup" aria-label={t('profileTable.view')}>
+              <button type="button" role="radio" aria-checked={browseMode === 'list'} class:active={browseMode === 'list'}
+                data-testid="browse-mode-list" onclick={() => (browseMode = 'list')}>{t('profileTable.list')}</button>
+              <button type="button" role="radio" aria-checked={browseMode === 'table'} class:active={browseMode === 'table'}
+                data-testid="browse-mode-table" onclick={() => (browseMode = 'table')}>{t('profileTable.table')}</button>
+            </div>
+          {/if}
+          {#if division === 'standard' && browseMode === 'table'}
+            <ProfileTableBrowser {source} selected={draft.profileName} onPick={pick} />
+          {:else if division === 'standard'}
             <ProfileSelectorPanel
               selected={draft.profileName}
               label={t('section.modal.standard')}
@@ -305,10 +332,21 @@
               onClose={() => {}}
             />
           {:else}
-            <BuiltSectionPanel onDraft={(c) => (builtDraft = c)} />
+            <div class="build-modes" role="radiogroup" aria-label={t('drawn.buildMode')}>
+              <button type="button" role="radio" aria-checked={buildMode === 'template'} class:active={buildMode === 'template'}
+                data-testid="build-mode-template" onclick={() => { buildMode = 'template'; builtDraft = null; }}>{t('drawn.modeTemplate')}</button>
+              <button type="button" role="radio" aria-checked={buildMode === 'draw'} class:active={buildMode === 'draw'}
+                data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; builtDraft = null; }}>{t('drawn.modeDraw')}</button>
+            </div>
+            {#if buildMode === 'template'}
+              <BuiltSectionPanel onDraft={(c) => (builtDraft = c)} />
+            {:else}
+              <DrawnSectionEditor initial={drawn} onDraft={(c) => (builtDraft = c)} />
+            {/if}
           {/if}
         </div>
 
+        {#if !(division === 'build' && buildMode === 'draw')}
         <aside class="side">
           <!-- The large preview the brief asks for: the composition as it will be built,
                not a thumbnail of one part. -->
@@ -418,6 +456,13 @@
             </details>
           {/if}
 
+          {#if division === 'standard'}
+            <details bind:open={dimsOpen} data-testid="section-dims-toggle">
+              <summary>{t('profileTable.dimensions')}</summary>
+              {#if dimsOpen}<ProfileDimensioned name={draft.profileName} />{/if}
+            </details>
+          {/if}
+
           {#if sheet && division === 'standard'}
             <details bind:open={sheetOpen} data-testid="section-sheet-toggle">
               <summary>{t('section.sheet.title')}</summary>
@@ -425,11 +470,12 @@
             </details>
           {/if}
         </aside>
+        {/if}
       </div>
 
       <footer>
         <span class="current" data-testid="section-current">
-          {division === 'standard' ? draft.profileName : (builtDraft?.kind === 'built' ? builtDraft.name : '—')}
+          {division === 'standard' ? draft.profileName : (builtDraft && builtDraft.kind !== 'standard' ? builtDraft.name : '—')}
         </span>
         <button type="button" class="ghost" onclick={onClose}>{t('section.modal.cancel')}</button>
         <button type="button" class="primary" onclick={apply} disabled={!canApply} data-testid="section-apply">
@@ -478,6 +524,12 @@
   }
 
   .body { display: flex; gap: 12px; padding: 0 14px; flex: 1; min-height: 0; }
+  .build-modes { display: flex; gap: 4px; margin-bottom: 6px; }
+  .build-modes button {
+    padding: 3px 10px; font-size: 0.7rem; cursor: pointer; background: transparent;
+    color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 4px;
+  }
+  .build-modes button.active { border-color: var(--st-interactive); color: var(--st-text); }
   .browse { flex: 1; min-width: 0; overflow: auto; }
   .side {
     width: 260px; flex-shrink: 0; overflow-y: auto;

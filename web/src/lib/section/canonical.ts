@@ -35,6 +35,7 @@ import {
   sectionGeometryDigest,
   type CanonicalGeometryResponse,
 } from '../engine/wasm-solver';
+import { analyzeDrawn } from './drawn-properties';
 
 /**
  * Families whose canonical geometry is fully determined by data we hold.
@@ -53,7 +54,7 @@ const IRAM_I_STANDARD: Record<string, string> = {
   M: 'IRAM-IAS U 500-215-8',
 };
 
-const GEOMETRY_BACKED_FAMILIES = new Set(['IPE', 'HEA', 'HEB', 'W', 'HP', 'M', 'C', 'T', 'CHS', 'IPN', 'UPN', 'L', 'RHS', 'SHS']);
+const GEOMETRY_BACKED_FAMILIES = new Set(['IPE', 'HEA', 'HEB', 'HEM', 'W', 'HP', 'M', 'C', 'T', 'CHS', 'IPN', 'UPN', 'L', 'RHS', 'SHS']);
 
 /**
  * Why a section could not be expressed as canonical geometry.
@@ -66,7 +67,9 @@ export type PropertiesOnlyReason =
   | { kind: 'missingTaperAndRadii'; family: string }
   | { kind: 'missingDimensions'; missing: string[] }
   | { kind: 'unknownFamily'; family: string }
-  | { kind: 'noGeometry' };
+  | { kind: 'noGeometry' }
+  /** A drawn section whose parts do not make a section (overlapping materials, a stray hole). */
+  | { kind: 'drawnInvalid' };
 
 export interface GeometryBackedSection {
   state: 'geometry-backed';
@@ -76,6 +79,11 @@ export interface GeometryBackedSection {
   geometry: CanonicalGeometryResponse['geometry'];
   digest: string;
   properties: CanonicalGeometryResponse['properties'];
+  /**
+   * More than one material: the properties are the transformed section's, and a stress field
+   * over the homogeneous geometry would be wrong in every part but the reference one.
+   */
+  composite?: boolean;
 }
 
 export interface PropertiesOnlySection {
@@ -160,6 +168,23 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
       properties: r.properties,
     };
   };
+
+  // ── A drawn section: its parts are the geometry ───────────────
+  if (sec.drawn) {
+    const d = analyzeDrawn(sec.drawn, catalogueOutline, { torsion: false });
+    if (!d.geometry || !d.digest || !d.properties) return propertiesOnly(sec, { kind: 'drawnInvalid' });
+    const p = d.properties;
+    const r = backed({
+      geometry: d.geometry,
+      digest: d.digest,
+      properties: {
+        a: p.a, yc: p.yc, zc: p.zc, iy: p.iy, iz: p.iz, iyz: p.iyz, i1: p.i1, i2: p.i2, thetaP: p.thetaP,
+        // The torsion constant is solved per piece in `state.ts`; this slot is never read for it.
+        j: 0, bbox: p.bbox,
+      },
+    });
+    return p.composite ? { ...r, composite: true } : r;
+  }
 
   // ── Explicit custom geometry always wins ──────────────────────
   if (sec.polygon && sec.polygon.length >= 3) {
@@ -404,4 +429,30 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
 /** Convenience predicate for call sites that only care about the state. */
 export function isGeometryBacked(r: ResolvedSection): r is GeometryBackedSection {
   return r.state === 'geometry-backed';
+}
+
+/**
+ * A catalogue profile's outline as polygons with holes, in metres around its own frame, or null
+ * when the catalogue does not know the name or the profile has no exact outline.
+ *
+ * What a drawn section places when one of its parts is a profile, so a cover plate on a W and
+ * the W picked on its own share one outline.
+ */
+export function catalogueOutline(name: string): Array<Array<Array<[number, number]>>> | null {
+  const r = resolveCanonicalSection({ id: 0, name, a: 0, iz: 0 } as Section);
+  if (r.state !== 'geometry-backed') return null;
+  const solids = r.geometry.polygons.filter((p) => !p.isVoid);
+  const voids = r.geometry.polygons.filter((p) => p.isVoid);
+  const inside = (pt: [number, number], ring: Array<[number, number]>) => {
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [yi, zi] = ring[i]!, [yj, zj] = ring[j]!;
+      if ((zi > pt[1]) !== (zj > pt[1]) && pt[0] < ((yj - yi) * (pt[1] - zi)) / (zj - zi) + yi) c = !c;
+    }
+    return c;
+  };
+  return solids.map((s) => [
+    s.vertices,
+    ...voids.filter((v) => v.vertices[0] && inside(v.vertices[0], s.vertices)).map((v) => v.vertices),
+  ]);
 }
