@@ -2,6 +2,7 @@
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
 import { nodesOnMembers } from './nodes-on-members';
+import { localizeEngineText } from '../i18n/engine-text';
 import { weightPerMetre } from './member-weight';
 import { expandSemiRigid3D } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
@@ -1155,7 +1156,7 @@ function solveCombinations2DFallback(
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
     const result = validateAndSolve2D(caseModel, includeSelfWeight && lc.type === 'D');
     if (typeof result === 'string') {
-      return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', result);
+      return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }
     if (result) perCase.set(lc.id, result);
   }
@@ -1939,9 +1940,9 @@ function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: Lo
   try {
     settlement = solve3DEngine(input);
   } catch (err: any) {
-    return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', err.message);
+    return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', localizeEngineText(err.message));
   }
-  if (typeof settlement === 'string') return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
+  if (typeof settlement === 'string') return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', localizeEngineText(settlement));
   // The same helper-node pruning the cases went through, so the ids line up when combined.
   const pruned = pruneComboBundle3D({ perCase: new Map([[0, settlement]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
@@ -2122,14 +2123,14 @@ function solveCombinations3DFallback(
     try {
       const result = solve3DEngine(input);
       if (typeof result === 'string') {
-        return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', result);
+        return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
       }
       if (result) {
         if (hasShells) postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
         perCase.set(lc.id, result);
       }
     } catch (err: any) {
-      return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', err.message);
+      return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', localizeEngineText(err.message));
     }
   }
 

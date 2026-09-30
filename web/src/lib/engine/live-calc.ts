@@ -11,6 +11,7 @@
  */
 
 import { nodesOnMembers } from './nodes-on-members';
+import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
@@ -226,7 +227,7 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
     if (isStale()) return null;
     if (typeof r === 'string') {
-      uiStore.toast(r, 'error', solveErrorAction(r));
+      uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
       return null;
     }
     if (!r) {
@@ -289,12 +290,12 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
         if (comboError) {
           console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
           const fallback = await runSingleSolve();
-          if (!fallback) uiStore.toast(comboError, 'info', solveErrorAction(comboError));
+          if (!fallback) uiStore.toast(localizeEngineText(comboError), 'info', solveErrorAction(comboError));
         }
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
         const fallback = await runSingleSolve();
-        if (!fallback) uiStore.toast(e.message, 'info', solveErrorAction(e.message));
+        if (!fallback) uiStore.toast(localizeEngineText(e.message), 'info', solveErrorAction(e.message));
       }
       return;
     }
@@ -303,13 +304,13 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
       const comboError = await runComboSolve();
       if (comboError) {
         console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboError);
-        uiStore.toast(comboError, 'error', solveErrorAction(comboError));
+        uiStore.toast(localizeEngineText(comboError), 'error', solveErrorAction(comboError));
         await runSingleSolve();
         return;
       }
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
-      uiStore.toast(e.message, 'error', solveErrorAction(e.message));
+      uiStore.toast(localizeEngineText(e.message), 'error', solveErrorAction(e.message));
       await runSingleSolve();
     }
     return;
@@ -323,7 +324,7 @@ async function globalSolve2D(isStale: () => boolean): Promise<void> {
   const r = await modelStore.solveAsync(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (isStale()) return;
   if (typeof r === 'string') {
-    uiStore.toast(r, 'error', solveErrorAction(r));
+    uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
     return;
   }
   if (!r) {
