@@ -280,6 +280,17 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # Type errors and the svelte-check gate were local conventions: no job ran
+      # them, so the baseline (scripts/typecheck-baseline.json) held only for
+      # whoever ran it. A new error fails here; the baseline only ever shrinks.
+      - name: Type check (no new errors against the baseline)
+        working-directory: web
+        run: npm run typecheck
+
+      - name: svelte-check gate (guarded paths)
+        working-directory: web
+        run: npm run check:gate
+
       # `npm run build` prerenders the public pages by driving the app in a
       # browser (web/scripts/prerender.ts). Chromium is a build input now.
       - name: Install Chromium for prerendering
