@@ -57,7 +57,10 @@
     try {
       if (is3D && !m.wizard) uiStore.analysisMode = '2d';
       await modelStore.loadExample(m.example);
+      // A new model, so a new framing: the one step of the catalog that re-frames.
+      // Once now, and once when a switch from 3D has mounted the plane view.
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
       open(m);
     } finally {
       loading = null;

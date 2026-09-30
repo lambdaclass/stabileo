@@ -21,7 +21,9 @@
   }
   function args3D() {
     return {
-      elements: [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, localYx: e.localYx, localYy: e.localYy, localYz: e.localYz, rollAngle: e.rollAngle })),
+      elements: [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, localYx: e.localYx, localYy: e.localYy, localYz: e.localYz, rollAngle: e.rollAngle,
+        // The solver adds the section's rotation to the roll, and so do the drawn arrows.
+        sectionRotation: modelStore.sections.get(e.sectionId)?.rotation })),
       getNode: (id: number) => { const n = modelStore.getNode(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : undefined; },
       getForces: (id: number) => resultsStore.getElementForces3D(id),
       basis: uiStore.despieceBasis,

@@ -24,9 +24,21 @@
 //   - 'global' → end force decomposed into world Fx, Fz (+ M).
 //
 // Sign convention (local): N along the member axis (sign baked into direction);
-// V signed by the shear; M CCW for +M. Node action is the exact opposite.
+// V and M in the DRAWN axes, as the results store publishes them (see
+// transverse-sign-2d.ts). Node action is the exact opposite.
+//
+// The engine's own end-action convention (solver axes, ŷ = x̂ turned 90° CCW):
+// the joint acts on the member with −N·x̂ + V·ŷ and a CCW moment +M at I, and
+// with +N·x̂ − V·ŷ and a CCW moment −M at J. A fixed-fixed beam under gravity
+// reports M = +wL²/12 at both ends: the left wall turns the member CCW, the
+// right one CW. The published V and M of a member drawn right to left, or of
+// a column drawn upward, are those of the solver times −1 (transverseSign), so
+// both are composed here with the DRAWN transverse axis zs·ŷ and the drawn
+// rotation sense zs·CCW. That is what makes every isolated member and every
+// joint of the view balance, whichever way the member was drawn.
 
 import { computeLoadDirection } from './draw-loads';
+import { transverseSign } from '../engine/transverse-sign-2d';
 
 export interface DespieceNode { x: number; y: number; }
 
@@ -57,13 +69,39 @@ const PERP_PX = 7;
 
 // ─── Pure geometry/force helpers (unit-tested) ──────────────────────
 
-/** Unit direction i→j and the in-plane perpendicular (rotated +90° CCW). */
-export function memberAxes(ni: DespieceNode, nj: DespieceNode): { ux: number; uy: number; px: number; py: number; len: number } {
+/**
+ * Unit direction i→j, the in-plane perpendicular (rotated +90° CCW — the
+ * solver's transverse axis) and `zs`, the sign that turns it into the DRAWN
+ * transverse axis (transverseSign: −1 for a member drawn right to left or a
+ * column drawn upward). The drawn z is (zs·px, zs·py).
+ */
+export function memberAxes(ni: DespieceNode, nj: DespieceNode): { ux: number; uy: number; px: number; py: number; zs: 1 | -1; len: number } {
   const dx = nj.x - ni.x, dy = nj.y - ni.y;
   const len = Math.hypot(dx, dy);
-  if (len < 1e-9) return { ux: 1, uy: 0, px: 0, py: 1, len: 0 };
+  if (len < 1e-9) return { ux: 1, uy: 0, px: 0, py: 1, zs: 1, len: 0 };
   const ux = dx / len, uy = dy / len;
-  return { ux, uy, px: -uy, py: ux, len };
+  return { ux, uy, px: -uy, py: ux, zs: transverseSign(dx, dy), len };
+}
+
+type Axes = { ux: number; uy: number; px: number; py: number; zs: 1 | -1 };
+
+/**
+ * World vector of the end action ON the member: (−N·x̂ + V·ẑ_drawn)·towardJ.
+ * N is axis-independent; V is in the drawn axes, so it rides the drawn z.
+ */
+function endActionVector(ax: Axes, towardJ: 1 | -1, n: number, v: number): { fx: number; fy: number } {
+  const vz = v * ax.zs;
+  return { fx: (-ax.ux * n + ax.px * vz) * towardJ, fy: (-ax.uy * n + ax.py * vz) * towardJ };
+}
+
+/**
+ * Sense of the end moment acting ON the member. The engine's +M acts CCW at I
+ * and CW at J; a drawn-axes M is zs times the engine's. So the member-side glyph
+ * is CCW when zs·m·towardJ > 0 — the sense of the support reaction at a fixed
+ * end, and opposite at the two ends of a member bent one way (fixed-fixed).
+ */
+export function endMomentCcw(ax: Pick<Axes, 'zs'>, towardJ: 1 | -1, m: number): boolean {
+  return ax.zs * m * towardJ > 0;
 }
 
 /**
@@ -134,7 +172,7 @@ interface ForceComp { label: string; value: number; dirx: number; diry: number; 
 
 /** End force components in the requested basis (world-space direction, sign baked in). */
 function forceComponents(
-  ax: { ux: number; uy: number; px: number; py: number }, towardJ: 1 | -1, n: number, v: number, basis: DespieceBasis,
+  ax: Axes, towardJ: 1 | -1, n: number, v: number, basis: DespieceBasis,
 ): ForceComp[] {
   // FREE-BODY END-FACE CONVENTION. ElementForces are internal DIAGRAM values
   // (section stress resultants): for a member I→J, axial is the same sign at both
@@ -145,10 +183,10 @@ function forceComponents(
   //   • axial (same-sign values)  → points OUT of both ends for tension;
   //   • shear (opposite-sign vals) → points the SAME physical way at both ends
   //     (e.g. both up under gravity ⇒ the separated member is in equilibrium).
-  // Per the requested convention: at I, Qz>0 → +local z; at J, Qz>0 → −local z.
+  // Per the requested convention: at I, Qz>0 → +drawn z; at J, Qz>0 → −drawn z.
+  // The drawn z is zs times the solver's perpendicular (see endActionVector).
   if (basis === 'global') {
-    const fx = (-ax.ux * n + ax.px * v) * towardJ;
-    const fz = (-ax.uy * n + ax.py * v) * towardJ;
+    const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
     return [
       { label: 'Fx', value: fx, dirx: Math.sign(fx) || 1, diry: 0 },
       { label: 'Fz', value: fz, dirx: 0, diry: Math.sign(fz) || 1 },
@@ -156,7 +194,7 @@ function forceComponents(
   }
   return [
     { label: 'N', value: n, dirx: -ax.ux * Math.sign(n) * towardJ, diry: -ax.uy * Math.sign(n) * towardJ },
-    { label: 'V', value: v, dirx: ax.px * Math.sign(v) * towardJ, diry: ax.py * Math.sign(v) * towardJ },
+    { label: 'V', value: v, dirx: ax.px * ax.zs * Math.sign(v) * towardJ, diry: ax.py * ax.zs * Math.sign(v) * towardJ },
   ];
 }
 
@@ -198,8 +236,7 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       // components; the moment stays a single arc → the end shows 2 glyphs.
       const comps: ForceComp[] = resultant
         ? (() => {
-            const fx = (-ax.ux * n + ax.px * v) * towardJ;
-            const fy = (-ax.uy * n + ax.py * v) * towardJ;
+            const { fx, fy } = endActionVector(ax, towardJ, n, v);
             const mag = Math.hypot(fx, fy);
             return mag > 1e-6 ? [{ label: 'F', value: mag, dirx: fx / mag, diry: fy / mag }] : [];
           })()
@@ -212,12 +249,12 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       }
 
       if (Math.abs(m) > 1e-6) {
-        // Moment follows the same per-end face convention: at I (towardJ=+1) a
-        // positive end moment reads clockwise; at J (towardJ=−1) it reads
-        // counter-clockwise (same physical bending ⇒ opposite glyph sense at the
-        // two faces, so the separated member balances). ccw = (m·towardJ) < 0.
-        // Node-side is the equal/opposite action on the joint.
-        const memberCcw = m * towardJ < 0;
+        // Per-end face convention (endMomentCcw): for a member drawn along the
+        // solver axis a positive end moment acts CCW at I and CW at J (same
+        // bending ⇒ opposite glyph sense at the two faces, so the separated member
+        // balances); a member drawn against it flips both. Node-side is the
+        // equal/opposite action on the joint.
+        const memberCcw = endMomentCcw(ax, towardJ, m);
         if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: memberCcw, value: m, labelText: `M ${fmt(m)}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
         if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: m, labelText: labelNode ? `M ${fmt(m)}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
       }
@@ -328,16 +365,12 @@ export interface DespieceEndAction {
 }
 
 function endComponents(
-  ax: { ux: number; uy: number; px: number; py: number }, towardJ: 1 | -1, n: number, v: number, m: number, basis: DespieceBasis,
+  ax: Axes, towardJ: 1 | -1, n: number, v: number, m: number, basis: DespieceBasis,
 ): Array<{ label: string; value: number }> {
   if (basis === 'global') {
-    // Use the SAME decomposition as the drawn arrows (forceComponents): the whole
-    // local end-action vector (−N along axis + V along the perp) is multiplied by
-    // towardJ. The previous form (+ax.ux*n, towardJ on n only) flipped the axial
-    // sign and dropped towardJ from the shear, so the inspected value contradicted
-    // the rendered arrow at both ends.
-    const fx = (-ax.ux * n + ax.px * v) * towardJ;
-    const fz = (-ax.uy * n + ax.py * v) * towardJ;
+    // Use the SAME decomposition as the drawn arrows (forceComponents,
+    // endActionVector), so the inspected value always agrees with the arrow.
+    const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
     return [{ label: 'Fx', value: fx }, { label: 'Fz', value: fz }, { label: 'M', value: m }];
   }
   return [{ label: 'N', value: n }, { label: 'V', value: v }, { label: 'M', value: m }];

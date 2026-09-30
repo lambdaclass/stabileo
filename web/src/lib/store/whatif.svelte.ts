@@ -24,10 +24,9 @@ import { tick } from 'svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
-import type { Release, Section, SupportType } from './model.svelte';
+import type { Load, Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
 import { defaultDofs } from './support-dofs';
-import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../geometry/coordinate-system';
 
 export interface MemberFactors { e: number; a: number; iy: number }
 
@@ -54,28 +53,57 @@ function restoreBaseline(snap: ModelSnapshot): void {
   if (snap.presentation3D) uiStore.viewportPresentation3D = snap.presentation3D;
 }
 
-function scaleLoads(snap: ModelSnapshot): void {
+/**
+ * The fields of each load type that are its magnitude: what the load slider
+ * multiplies. Positions (`a`, `b`), directions (`angle`, `isGlobal`) and ids
+ * stay as they are.
+ *
+ * Every load type the model defines has an entry, and each entry names only
+ * fields that type has: a load type added to `Load` without one here fails
+ * the typecheck, instead of keeping its baseline value whatever the slider
+ * says (which is what a 2D point moment and a 3D point load on a member did).
+ * Legacy aliases (`fy`, `mz` on a plane load) are scaled too, so the load
+ * scales whichever of the pair the solver reads.
+ *
+ * What the slider reaches is what the panel lists under "Loads": one slider
+ * per entry of `model.loads`. A temperature load is one of them (listed as
+ * "Thermal"), so it scales like any other: twice the ΔT, twice the response.
+ * A support settlement is not a load but a property of the support (`dx`,
+ * `dz`, `dry`… on `Support`), shown under "Supports" with no slider, so the
+ * load sliders leave it as it is. With settlements in the model the response
+ * is then the settlement's plus k times the loads'; without them, all loads
+ * × k gives displacements, reactions and member forces × k. Self-weight,
+ * likewise, is not an entry of `model.loads` and has no slider.
+ */
+type MagnitudeFields = { [T in Load['type']]: ReadonlyArray<keyof Extract<Load, { type: T }>['data']> };
+const MAGNITUDE_FIELDS: MagnitudeFields = {
+  nodal: ['fx', 'fz', 'my', 'fy', 'mz'],
+  distributed: ['qI', 'qJ'],
+  pointOnElement: ['p', 'px', 'my', 'mz'],
+  thermal: ['dtUniform', 'dtGradient'],
+  nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
+  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
+  pointOnElement3d: ['py', 'pz'],
+  surface3d: ['q'],
+  thermalQuad3d: ['dtUniform', 'dtGradient'],
+};
+
+/**
+ * Each load of the model times its slider's factor. `apply` has just rebuilt
+ * the model from the baseline, as a deep copy, so the loads here are the
+ * baseline's and scaling them in place does not accumulate. Scaling what
+ * `restore` wrote, rather than the snapshot's own fields, also scales the
+ * canonical fields it fills in (a legacy nodal load's `fz`/`my`).
+ */
+function scaleLoads(): void {
   const loads = modelStore.model.loads;
   for (let i = 0; i < loads.length; i++) {
     const f = loadFactors[i] ?? 1;
-    const base = snap.loads[i]?.data as Record<string, number> | undefined;
-    if (!base || f === 1) continue;
-    const d = loads[i].data as unknown as Record<string, number>;
-    switch (loads[i].type) {
-      case 'nodal':
-        d.fx = base.fx * f;
-        d.fz = get2DDisplayNodalLoadVertical(base as never) * f;
-        d.my = get2DDisplayNodalLoadMoment(base as never) * f;
-        break;
-      case 'distributed': d.qI = base.qI * f; d.qJ = base.qJ * f; break;
-      case 'pointOnElement': d.p = base.p * f; if (base.px) d.px = base.px * f; break;
-      case 'thermal': d.dtUniform = base.dtUniform * f; d.dtGradient = base.dtGradient * f; break;
-      case 'nodal3d':
-        for (const k of ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) d[k] = (base[k] ?? 0) * f;
-        break;
-      case 'distributed3d':
-        for (const k of ['qYI', 'qYJ', 'qZI', 'qZJ']) d[k] = (base[k] ?? 0) * f;
-        break;
+    if (f === 1) continue;
+    const d = loads[i].data as unknown as Record<string, unknown>;
+    for (const k of MAGNITUDE_FIELDS[loads[i].type] as readonly string[]) {
+      const v = d[k];
+      if (typeof v === 'number') d[k] = v * f;
     }
   }
 }
@@ -99,7 +127,7 @@ function apply(): void {
   if (!snap) return;
   restoreBaseline(snap);
   const m = modelStore.model;
-  scaleLoads(snap);
+  scaleLoads();
 
   if (all.e !== 1) for (const mat of m.materials.values()) mat.e *= all.e;
   if (all.a !== 1 || all.iy !== 1) {
