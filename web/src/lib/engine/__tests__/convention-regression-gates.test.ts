@@ -150,14 +150,10 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
     }
   });
 
-  it('isMode3D function body contains both 3d and pro', () => {
-    const fileTs = readSource('../../store/file.ts');
-    // Extract the isMode3D function body
-    const funcMatch = fileTs.match(/function isMode3D\([^)]*\)[^{]*\{([^}]+)\}/);
-    expect(funcMatch, 'isMode3D function must exist in file.ts').toBeTruthy();
-    const funcBody = funcMatch![1];
-    expect(funcBody).toContain("'3d'");
-    expect(funcBody).toContain("'pro'");
+  it('isMode3D answers space for Basic 3D and PRO, and plane for the rest', async () => {
+    // What it answers, not how its body is spelled: it now delegates to `is3DWorkspace`.
+    const { isMode3D } = await import('../../store/file');
+    expect(['2d', '3d', 'pro', 'edu'].map(isMode3D)).toEqual([false, true, true, false]);
   });
 
   it('no raw analysisMode === \'3d\' checks outside isMode3D definition', () => {
