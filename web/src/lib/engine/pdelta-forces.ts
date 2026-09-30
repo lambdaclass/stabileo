@@ -7,9 +7,10 @@
  * elastic P-Δ solution says, to 0.2 %) but reports member forces as K·u, the elastic stiffness
  * times those displacements, without the geometric part Kg(N)·u. Measured on a 4 m cantilever
  * under 60 kN and 0.12 kN of lateral load about its weak axis: base moment 0.824 kN·m reported,
- * 0.778 exact, and a horizontal reaction of 0.198 kN against 0.12 applied. That is recorded for
- * the engine (M13 in the engine's pending list), and until it is fixed there the forces are
- * corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
+ * 0.778 exact. (The reactions had the same defect — 0.198 kN against the 0.12 applied — until
+ * the engine fixed them on its side; only the member forces are still corrected here.) That is
+ * recorded for the engine (M13 in the engine's pending list), and until it is fixed there the
+ * forces are corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
  *
  * `pdelta-forces.test.ts` pins the engine's current behaviour with an `it.fails`. When the engine
  * is fixed, that test starts passing, fails the suite, and this module is to be removed rather
@@ -18,9 +19,9 @@
  * ── The correction ─────────────────────────────────────────────────
  *
  * Per frame member, in its local axes, the consistent geometric stiffness of a beam-column with
- * axial force N (tension positive) times its end displacements. A plane with an end released in
- * bending takes the string term only, N/L on the relative sway, since the consistent terms assume
- * both ends take moment. Torsion's geometric term (N·J/(A·L)) is left out; it is second order in
+ * axial force N (tension positive) times its end displacements. Released rotations are condensed
+ * with the same elastic map as the engine; only a plane released at both ends takes the string
+ * term N/L alone. Torsion's geometric term (N·J/(A·L)) is left out; it is second order in
  * a quantity that is small for open steel sections.
  */
 import type { SolverInput3D, AnalysisResults3D, SolverNode3D } from './types-3d';
@@ -50,26 +51,10 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
     const ty1 = dot(ey, di.rx, di.ry, di.rz), ty2 = dot(ey, dj.rx, dj.ry, dj.rz);
     const tz1 = dot(ez, di.rx, di.ry, di.rz), tz2 = dot(ez, dj.rx, dj.ry, dj.rz);
     const N = ((f.nStart ?? 0) + (f.nEnd ?? 0)) / 2;
-    const k = N / L;
-
-    // Plane x–y: sway v, rotation θz.
-    let Fy1: number, Mz1: number, Mz2: number;
-    if (e.releaseMzStart || e.releaseMzEnd) {
-      Fy1 = k * (v1 - v2); Mz1 = 0; Mz2 = 0;
-    } else {
-      Fy1 = k * (6 / 5) * (v1 - v2) + (N / 10) * (tz1 + tz2);
-      Mz1 = (N / 10) * (v1 - v2) + ((2 * N * L) / 15) * tz1 - ((N * L) / 30) * tz2;
-      Mz2 = (N / 10) * (v1 - v2) - ((N * L) / 30) * tz1 + ((2 * N * L) / 15) * tz2;
-    }
-    // Plane x–z: sway w, rotation θy (θy = −dw/dx, hence the signs).
-    let Fz1: number, My1: number, My2: number;
-    if (e.releaseMyStart || e.releaseMyEnd) {
-      Fz1 = k * (w1 - w2); My1 = 0; My2 = 0;
-    } else {
-      Fz1 = k * (6 / 5) * (w1 - w2) - (N / 10) * (ty1 + ty2);
-      My1 = -(N / 10) * (w1 - w2) + ((2 * N * L) / 15) * ty1 - ((N * L) / 30) * ty2;
-      My2 = -(N / 10) * (w1 - w2) - ((N * L) / 30) * ty1 + ((2 * N * L) / 15) * ty2;
-    }
+    const [Fy1, Mz1, Mz2] = geometricPlaneForces(N, L, v1, v2, tz1, tz2, !!e.releaseMzStart, !!e.releaseMzEnd);
+    // θy = −dw/dx: transform to the slope convention, then transform moments back.
+    const [Fz1, minusMy1, minusMy2] = geometricPlaneForces(N, L, w1, w2, -ty1, -ty2, !!e.releaseMyStart, !!e.releaseMyEnd);
+    const My1 = -minusMy1, My2 = -minusMy2;
     // End forces on the member into the result's internal-force convention.
     return {
       ...f,
@@ -80,6 +65,21 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
     };
   });
   return { ...results, elementForces };
+}
+
+/** Tᵀ Kg T u for one bending plane, in the slope/rotation convention θ = v'. */
+function geometricPlaneForces(N: number, L: number, v1: number, v2: number, t1: number, t2: number, release1: boolean, release2: boolean): [number, number, number] {
+  if (release1 && release2) return [N / L * (v1 - v2), 0, 0];
+  // T recovers the released rotation from the elastic end-moment equation.
+  if (release1) t1 = 1.5 / L * (v2 - v1) - t2 / 2;
+  if (release2) t2 = 1.5 / L * (v2 - v1) - t1 / 2;
+  let shear = N / L * 6 / 5 * (v1 - v2) + N / 10 * (t1 + t2);
+  let m1 = N / 10 * (v1 - v2) + N * L / 30 * (4 * t1 - t2);
+  let m2 = N / 10 * (v1 - v2) + N * L / 30 * (4 * t2 - t1);
+  // Tᵀ transfers the released moment to the retained translations and rotation.
+  if (release1) { shear -= 1.5 / L * m1; m2 -= m1 / 2; m1 = 0; }
+  if (release2) { shear -= 1.5 / L * m2; m1 -= m2 / 2; m2 = 0; }
+  return [shear, m1, m2];
 }
 
 /**

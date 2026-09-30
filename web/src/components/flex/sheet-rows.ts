@@ -102,7 +102,15 @@ export interface SheetRows {
 }
 
 export function sheetRows(c: SheetContext): SheetRows {
-  const { kase, mode, r } = c;
+  const { kase, mode } = c;
+  /*
+   * Refused inputs have no rows: every area in such an answer is a
+   * placeholder, and printing "Ast = 0,000 cm²" under a wrong f′c would read
+   * as a result. The memo carries the reason; the headline sends the reader
+   * to the inputs.
+   */
+  const refused = !!c.r?.invalid;
+  const r = refused ? null : c.r;
   const isBeam = kase === 'FSR' || kase === 'FST';
   const printsMinMax = !isBeam && (mode === 'design' || kase === 'FCO');
 
@@ -223,7 +231,7 @@ export function sheetRows(c: SheetContext): SheetRows {
    * twice in a row and said nothing new. The capacity is the other half of
    * that comparison, and the number a reader wants next.
    */
-  const headline = !r ? t('flex.out.checkInputs')
+  const headline = refused || !r ? t('flex.out.checkInputs')
     : r.impossible ? t('flex.out.sectionTooSmall')
     : mode === 'verify' ? `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`
     : `${isBeam ? 'As' : 'Ast'} = ${r.AstCm2.toFixed(3)} cm²`;
@@ -243,14 +251,22 @@ export function sheetRows(c: SheetContext): SheetRows {
     };
     const line = (ch: NonNullable<FlexOutput['barChoice']>, column: boolean) =>
       `${ch.label} (${ch.areaCm2.toFixed(2)} cm²)${note(ch, column)}`;
+    /* FCR with A′s/As < 1 sizes its two levels apart, and names them. */
+    const levelsApart = kase === 'FCR' && !!r.barChoiceComp;
     if (r.barChoice) {
       bars.push([
-        isBeam ? t('flex.out.asTension') : kase === 'FCR' ? t('flex.out.barsPerLevel')
+        isBeam ? t('flex.out.asTension')
+          : kase === 'FCR' ? t(levelsApart ? 'flex.out.barsTensionLevel' : 'flex.out.barsPerLevel')
           : kase === 'FCR-CIR' ? t('flex.out.barsRing') : t('flex.out.bars'),
         line(r.barChoice, !isBeam),
       ]);
     }
-    if (r.barChoiceComp) bars.push([t('flex.out.barsComp'), line(r.barChoiceComp, false)]);
+    if (r.barChoiceComp) {
+      bars.push([
+        levelsApart ? t('flex.out.barsCompLevel') : t('flex.out.barsComp'),
+        line(r.barChoiceComp, levelsApart),
+      ]);
+    }
   }
 
   return { beam, needed, minMax, printsMinMax, verifyResult, extra, general, safety, bars, headline };

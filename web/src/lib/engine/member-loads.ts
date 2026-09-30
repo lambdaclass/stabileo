@@ -16,10 +16,9 @@
  *
  * ── What the engine is given ───────────────────────────────────────
  *
- * The engine's member load is local and transverse. The axial part goes to the end nodes by
- * statics, as the app already did for 2D-style loads. On a member that carries no bending (a
- * truss, or a one-way member in the active-set loop) the transverse part goes to the end nodes
- * too, as the reactions of a simply supported span: the engine's truss assembly drops a
+ * Frame loads stay distributed in all three local directions so recovery retains the axial
+ * variation along the member. On a member that carries no bending (a
+ * truss, or a one-way member in the active-set loop) the load goes to the end nodes, as the reactions of a simply supported span: the engine's truss assembly drops a
  * transverse member load, and the load would otherwise vanish.
  */
 import type { SolverLoad3D } from './types-3d';
@@ -95,8 +94,8 @@ export interface MemberRef {
 }
 
 /**
- * A global distributed load as the engine takes it: the transverse part as a local member load,
- * the axial part at the end nodes. `axialOnly`: the transverse part at the end nodes as well.
+ * A global distributed load resolved onto all three local member axes.
+ * `axialOnly` transfers the load to end nodes for members that carry no bending.
  */
 export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
   const out: SolverLoad3D[] = [];
@@ -113,11 +112,11 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
     if (fI.some((v) => !tiny(v))) out.push(nodal(m.nodeI, fI, m.armI));
     if (fJ.some((v) => !tiny(v))) out.push(nodal(m.nodeJ, fJ, m.armJ));
   };
-  if (!(tiny(yI) && tiny(yJ) && tiny(zI) && tiny(zJ))) {
-    if (axialOnly) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
-    else out.push({ type: 'distributed', data: { elementId: m.elementId, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
+  if (axialOnly) {
+    toNodes(gI, gJ);
+  } else if (![xI, xJ, yI, yJ, zI, zJ].every(tiny)) {
+    out.push({ type: 'distributed', data: { elementId: m.elementId, qXI: xI, qXJ: xJ, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
   }
-  if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ));
   return out;
 }
 
@@ -131,8 +130,9 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
     if (l.type === 'distributed') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
-      const { ey, ez } = m.axes;
-      const gI = add(scale(ey, l.data.qYI), ez, l.data.qZI), gJ = add(scale(ey, l.data.qYJ), ez, l.data.qZJ);
+      const { ex, ey, ez } = m.axes;
+      const gI = add(add(scale(ey, l.data.qYI), ez, l.data.qZI), ex, l.data.qXI ?? 0);
+      const gJ = add(add(scale(ey, l.data.qYJ), ez, l.data.qZJ), ex, l.data.qXJ ?? 0);
       out.push(...globalDistributedToSolver(m, gI, gJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true));
     } else if (l.type === 'pointOnElement') {
       const m = axialOnly(l.data.elementId);

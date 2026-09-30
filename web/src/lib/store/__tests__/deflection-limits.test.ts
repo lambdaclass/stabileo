@@ -11,6 +11,7 @@ import { initSolver } from '../../engine/wasm-solver';
 import { deflectionChecks } from '../serviceability';
 import { ruleFor, DEFAULT_BEAM_RULE, type DeflectionLimits } from '../../engine/deflection-limits';
 import { modelToCode, codeToModel } from '../../model/code/format';
+import { buildProReportData } from '../../engine/pro-report-inputs';
 
 describe('which rule', () => {
   const ctx = { kindOf: (id: number) => (id < 10 ? 'beam' as const : 'column' as const), groupsOf: (id: number) => (id === 2 ? [7] : []) };
@@ -60,6 +61,38 @@ describe('checked against the rule', () => {
     expect(k.measured).toBe(k.deflection.maxV);
     // The column's top is held by the cantilever only; it is a cantilever too, measured from its base.
     expect(k.check.limit).toBeCloseTo(((k.deflection.cantilever ? 2 : 1) * 3) / 300, 12);
+  });
+
+  it('the report states a cantilever over 2L, and a column as a column', () => {
+    modelStore.clear();
+    const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 3), tip = modelStore.addNode(2, 0, 3);
+    const col = modelStore.addElement(base, top, 'frame');
+    const cant = modelStore.addElement(top, tip, 'frame');
+    modelStore.addSupport(base, 'fixed3d');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addNodalLoad3D(tip, 0, 0, -5, 0, 0, 0);
+    modelStore.addNodalLoad3D(top, 3, 0, 0, 0, 0, 0);
+    const single = modelStore.solve3D(false, false, true);
+    if (!single || typeof single === 'string') throw new Error(String(single));
+    resultsStore.setResults3D(single);
+    modelStore.setDeflectionLimits({ rules: [
+      { id: 1, scope: { kind: 'memberKind', value: 'beam' }, n: 360, direction: 'resultant' },
+      { id: 2, scope: { kind: 'members', ids: [col] }, n: 300, direction: 'localY' },
+    ] });
+    const check = deflectionChecks().rows.get(cant)!.check;
+    const data = buildProReportData({
+      config: {
+        companyName: '', companyLogo: null, projectAddress: '', engineerName: '', revision: '',
+        sections: { modelData: true, results: true, verification: true, advancedAnalysis: true, storyDrift: true, diagnostics: true, quantities: true, loads: true },
+      },
+      verifications: [],
+      t: (k: string) => k,
+    })!;
+    const row = data.serviceability!.find((r) => r.elementId === cant)!;
+    // Both sides over the length the check used: 2L/δ against 2L/360, not L/δ against L/360.
+    expect(row.deflection!.over).toBe('2L');
+    expect(row.deflection!.spanOverDelta).toBeCloseTo((2 * 2) / check.deltaTotal, 6);
+    expect(data.serviceability!.find((r) => r.elementId === col)!.elementType).toBe('column');
   });
 
   it('the rules travel with the project and in the model code', () => {

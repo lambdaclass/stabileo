@@ -27,8 +27,24 @@ export interface QuadMeshHooks {
   addQuad(nodes: [number, number, number, number]): void;
 }
 
+/** The most subdivisions per axis any mesher here will generate. */
+export const MAX_DIVISIONS_PER_AXIS = 256;
+
+/**
+ * A subdivision count the mesh loops can run on: an integer in
+ * 1…MAX_DIVISIONS_PER_AXIS. A non-finite count gets `fallback`, the caller's
+ * own default: `Math.round(Infinity)` is Infinity, so `i < n` never ends, and
+ * NaN skips the loop entirely. One implementation for every caller, so the cap
+ * and the rounding cannot drift apart between them.
+ */
+export function sanitizeDivisions(n: number | undefined, fallback: number): number {
+  return typeof n === 'number' && Number.isFinite(n)
+    ? Math.min(MAX_DIVISIONS_PER_AXIS, Math.max(1, Math.round(n)))
+    : fallback;
+}
+
 export interface QuadGridResult {
-  /** (ny+1) × (nx+1) grid of node ids, row-major bottom-to-top. */
+  /** (ny+1) × (nx+1) grid of node ids, row-major bottom-to-top — nx, ny after `sanitizeDivisions`. */
   nodeGrid: number[][];
   newNodes: number;
   quadCount: number;
@@ -47,21 +63,32 @@ export function buildBilinearQuadGrid(
   hooks: QuadMeshHooks,
   cornerIds?: [number, number, number, number],
 ): QuadGridResult {
+  // `nx`/`ny` are computed by callers from user input: ProShellTab's subdivision
+  // fields and cad/draft's fixed-division mode. A non-finite count makes
+  // `j <= ny` never go false, and unlike structuredBreakpoints this loop pushes
+  // into `row` on every pass, so the tab dies of memory rather than merely
+  // freezing. Clamp before either loop starts — 256 per axis is the cap the
+  // target-size paths already apply, and a non-finite count falls back to the
+  // coarsest honest mesh (1 cell) rather than a silent empty grid, which is
+  // what NaN produced before (`j <= NaN` is false, so nothing was generated).
+  const gx = sanitizeDivisions(nx, 1);
+  const gy = sanitizeDivisions(ny, 1);
+
   const [c0, c1, c2, c3] = corners;
   const nodeGrid: number[][] = [];
   let newNodes = 0;
 
-  for (let j = 0; j <= ny; j++) {
+  for (let j = 0; j <= gy; j++) {
     const row: number[] = [];
-    const v = j / ny;
-    for (let i = 0; i <= nx; i++) {
-      const u = i / nx;
+    const v = j / gy;
+    for (let i = 0; i <= gx; i++) {
+      const u = i / gx;
 
       if (cornerIds) {
         if (i === 0 && j === 0) { row.push(cornerIds[0]); continue; }
-        if (i === nx && j === 0) { row.push(cornerIds[1]); continue; }
-        if (i === nx && j === ny) { row.push(cornerIds[2]); continue; }
-        if (i === 0 && j === ny) { row.push(cornerIds[3]); continue; }
+        if (i === gx && j === 0) { row.push(cornerIds[1]); continue; }
+        if (i === gx && j === gy) { row.push(cornerIds[2]); continue; }
+        if (i === 0 && j === gy) { row.push(cornerIds[3]); continue; }
       }
 
       // Bilinear interpolation between the 4 corners.
@@ -79,8 +106,8 @@ export function buildBilinearQuadGrid(
   }
 
   let quadCount = 0;
-  for (let j = 0; j < ny; j++) {
-    for (let i = 0; i < nx; i++) {
+  for (let j = 0; j < gy; j++) {
+    for (let i = 0; i < gx; i++) {
       hooks.addQuad([
         nodeGrid[j][i],
         nodeGrid[j][i + 1],

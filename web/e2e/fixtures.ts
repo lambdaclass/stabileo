@@ -126,6 +126,8 @@ export interface TestHooks {
 /** Actions a spec may drive — the same operations the UI controls perform. */
 export interface TestActions {
   loadExample(name: string): Promise<void>;
+  /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
+  loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
   openDesignTab(): void;
   computeDemands(): unknown;
@@ -248,6 +250,20 @@ export const test = base.extend<{ pro: Page; appLocale: string }>({
     expect(consoleErrors, `console errors:\n${consoleErrors.join('\n')}`).toEqual([]);
   },
 });
+
+/**
+ * Five beams of `pro-edificio-7p` turned 20° about their axis, for the specs about provisional
+ * proposals. The building as committed has none: its last five came from a shell drilling
+ * defect, and once that was fixed their secondary-axis ratio fell to 0.010–0.028. Turned, they
+ * bend about both axes for a real reason. The unit tests use the same variant
+ * (`src/lib/engine/detailing/__tests__/helpers/workspace-scene.ts`).
+ */
+export const ROLLED_BEAMS = { ids: [88, 151, 153, 157, 164], degrees: 20 } as const;
+
+/** Turn `ROLLED_BEAMS` in the loaded model. */
+export async function turnRolledBeams(page: Page): Promise<void> {
+  await page.evaluate(({ ids, degrees }) => window.__stabileoActions.turnElements([...ids], degrees), ROLLED_BEAMS);
+}
 
 /** Load a fixture and wait for the model to settle. */
 export async function loadModel(page: Page, name: string): Promise<number[]> {

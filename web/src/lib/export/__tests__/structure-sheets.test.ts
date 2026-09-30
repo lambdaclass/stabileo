@@ -24,16 +24,18 @@ import type { DetailingAssembly } from '../../engine/detailing/assembly';
 import { plainDeepCopy } from '../../utils/plain-deep-copy';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
+import { applyVariant, ROLLED_BEAMS, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
 let scene: SceneModel;
 let statusOf: (id: number) => ReturnType<typeof reportElementStatus>['entries'][number]['status'] | undefined;
 let title: ReturnType<typeof buildTitleBlock>;
 
-async function build7p() {
+async function build7p(variant?: Variant) {
   modelStore.clear(); resultsStore.clear(); detailingStore.clear();
   designRunStore.resetMarks(); verificationStore.clear();
   await modelStore.loadExample('pro-edificio-7p');
   expect(isSolverReady()).toBe(true);
+  if (variant) applyVariant(variant);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
@@ -68,14 +70,17 @@ async function build7p() {
   });
 }
 
-let prepared: { scene: SceneModel; title: ReturnType<typeof buildTitleBlock> };
+let prepared: { scene: SceneModel; title: ReturnType<typeof buildTitleBlock>; statusOf: typeof statusOf };
 beforeAll(async () => {
   await build7p();
-  prepared = plainDeepCopy({ scene, title });
+  // `statusOf` is a closure over the build's report, kept by reference: a test that rebuilds
+  // (the provisional one below, on a variant) must not leave its statuses to the next.
+  prepared = { ...plainDeepCopy({ scene, title }), statusOf };
 }, 300_000);
 beforeEach(() => {
   // Both suites use one real design, with independent drawing inputs for each test.
-  ({ scene, title } = plainDeepCopy(prepared));
+  ({ scene, title } = plainDeepCopy({ scene: prepared.scene, title: prepared.title }));
+  statusOf = prepared.statusOf;
 });
 
 describe('the four sheet kinds exist and carry real geometry', () => {
@@ -162,16 +167,13 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     expect(sheet.notes.join(' ')).toContain(`Elemento ${id}`);
   }, 300_000);
 
-  it('a member that is not finished is named on the sheet, never shown as approved', () => {
-    // A plan that drew a proposal exactly like the verified members is the failure the status
-    // model exists to prevent — and worse on paper, because the sheet outlives the session.
-    //
-    // Every beam of this building is verified since self-weight became a member load (see
-    // beam-reinforcement-audit.test.ts), so one member is given the state here. What is under
-    // test is the sheet's reading of a state, whichever member holds it.
-    const beam = scene.solids.find((x) => x.kind === 'beam')!.elementIds[0];
-    const withProposal: typeof statusOf = (id) => (id === beam ? 'PROVISIONAL' : statusOf(id));
-    const sheet = drawGeneralPlan({ scene, title, statusOf: withProposal });
+  it('a member that is not finished is named on the sheet, never shown as approved', async () => {
+    // A beam that carries a proposal rather than a certified design. A plan that drew it
+    // exactly like the verified ones is the failure the status model exists to prevent — and
+    // worse on paper, because the sheet outlives the session. The building as committed has
+    // none any more, so five beams are turned about their axis to produce some (`ROLLED_BEAMS`).
+    await build7p(ROLLED_BEAMS);
+    const sheet = drawGeneralPlan({ scene, title, statusOf });
     expect(sheet.notes.some((n) => /PROVISIONAL|UNSUPPORTED|REFUSED|NOT_EVALUATED/.test(n)))
       .toBe(true);
     // And the note says what the state COSTS, not only what it is called. A reader who does

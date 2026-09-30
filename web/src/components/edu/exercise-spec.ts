@@ -30,6 +30,7 @@
 import type { SupportType } from '../../lib/store/ui.svelte';
 import type { ElementForces } from '../../lib/engine/types';
 import { computeDiagramValueAt } from '../../lib/engine/diagrams';
+import { t, tp } from '../../lib/i18n';
 
 // ─── The structure ─────────────────────────────────────────────────
 
@@ -322,57 +323,57 @@ export function lintExercise(ex: EduExerciseSpec): string[] {
   const elemCount = ex.model.elements.length;
   const node = (i: number, where: string) => {
     if (!Number.isInteger(i) || i < 0 || i >= nodeCount) {
-      problems.push(`${where}: node ${i} does not exist (${nodeCount} nodes)`);
+      problems.push(tp('edu.lint.nodeMissing', { where, i, n: nodeCount }));
     }
   };
   const elem = (i: number, where: string) => {
     if (!Number.isInteger(i) || i < 0 || i >= elemCount) {
-      problems.push(`${where}: element ${i} does not exist (${elemCount} elements)`);
+      problems.push(tp('edu.lint.elementMissing', { where, i, n: elemCount }));
     }
   };
 
-  if (nodeCount < 2) problems.push('a structure needs at least two nodes');
-  if (elemCount < 1) problems.push('a structure needs at least one element');
-  if (ex.model.supports.length === 0) problems.push('no supports: the structure would be a mechanism');
+  if (nodeCount < 2) problems.push(t('edu.lint.fewNodes'));
+  if (elemCount < 1) problems.push(t('edu.lint.noElements'));
+  if (ex.model.supports.length === 0) problems.push(t('edu.lint.noSupports'));
 
   ex.model.elements.forEach(([i, j], k) => {
-    node(i, `element ${k} start`);
-    node(j, `element ${k} end`);
-    if (i === j) problems.push(`element ${k} starts and ends on the same node`);
+    node(i, tp('edu.lint.whereElementStart', { k }));
+    node(j, tp('edu.lint.whereElementEnd', { k }));
+    if (i === j) problems.push(tp('edu.lint.sameNode', { k }));
   });
-  ex.model.supports.forEach((s, k) => node(s.node, `support ${k}`));
-  (ex.model.nodalLoads ?? []).forEach((l, k) => node(l.node, `nodal load ${k}`));
-  (ex.model.distributedLoads ?? []).forEach((l, k) => elem(l.element, `distributed load ${k}`));
-  ex.supports.forEach((s, k) => node(s.nodeIndex, `reaction question ${k}`));
+  ex.model.supports.forEach((s, k) => node(s.node, tp('edu.lint.whereSupport', { k })));
+  (ex.model.nodalLoads ?? []).forEach((l, k) => node(l.node, tp('edu.lint.whereNodalLoad', { k })));
+  (ex.model.distributedLoads ?? []).forEach((l, k) => elem(l.element, tp('edu.lint.whereDistLoad', { k })));
+  ex.supports.forEach((s, k) => node(s.nodeIndex, tp('edu.lint.whereReaction', { k })));
 
   const checkAnswer = (a: AnswerSpec, where: string): void => {
     if (a.kind === 'at') {
       elem(a.element, where);
-      if (a.t < 0 || a.t > 1) problems.push(`${where}: t = ${a.t} is outside [0, 1]`);
+      if (a.t < 0 || a.t > 1) problems.push(tp('edu.lint.tOutside', { where, t: a.t }));
     } else if (a.kind === 'stress') {
       elem(a.element, where);
-      if (a.t < 0 || a.t > 1) problems.push(`${where}: t = ${a.t} is outside [0, 1]`);
+      if (a.t < 0 || a.t > 1) problems.push(tp('edu.lint.tOutside', { where, t: a.t }));
       if (!ex.model.profile) {
-        problems.push(`${where}: asks about stress, but the exercise declares no section profile`);
+        problems.push(tp('edu.lint.stressNoProfile', { where }));
       }
     } else if (a.kind === 'scaled') {
       if (!Number.isFinite(a.factor) || a.factor === 0) {
-        problems.push(`${where}: scale factor ${a.factor} is not usable`);
+        problems.push(tp('edu.lint.badFactor', { where, f: a.factor }));
       }
       checkAnswer(a.of, where);
     } else if (a.kind !== 'literal') {
       (a.elements ?? []).forEach((i) => elem(i, where));
     }
   };
-  ex.characteristics.forEach((c, k) => checkAnswer(c.answer, `characteristic ${k} (${c.label})`));
-  ex.diagramQuestions.forEach((q, k) => checkAnswer(q.answer, `diagram question ${k}`));
+  ex.characteristics.forEach((c, k) => checkAnswer(c.answer, tp('edu.lint.whereCharacteristic', { k, label: c.label })));
+  ex.diagramQuestions.forEach((q, k) => checkAnswer(q.answer, tp('edu.lint.whereDiagram', { k })));
 
   // Two elements between the same pair of nodes is almost always a typo, and
   // it produces a structure that solves but is not the one intended.
   const seen = new Set<string>();
   ex.model.elements.forEach(([i, j], k) => {
     const key = i < j ? `${i}-${j}` : `${j}-${i}`;
-    if (seen.has(key)) problems.push(`element ${k} duplicates an earlier one between the same nodes`);
+    if (seen.has(key)) problems.push(tp('edu.lint.duplicate', { k }));
     seen.add(key);
   });
 

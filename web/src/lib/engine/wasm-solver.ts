@@ -5,11 +5,13 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { mergeAllHingedJoints2D, restrainOrphanRotations2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
+import { errorText } from '../utils/error-text';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -454,6 +456,231 @@ export function serializeInput3D(input: SolverInput3D): string {
   return JSON.stringify(input3DToWireObject(input));
 }
 
+/**
+ * The engine owns both B₂ and stability: a converged indefinite system is
+ * still unstable. Only restore the Infinity that JSON encodes as null;
+ * recomputing stability from displacement ratios hides postcritical states.
+ */
+function normalizePDeltaResult(result: any): any {
+  return { ...result, b2Factor: result.b2Factor === null ? Infinity : result.b2Factor };
+}
+
+// ─── Guards of the advanced analyses ───────────────────────────
+
+/**
+ * What P-Δ, buckling, modal and plastic collapse borrow from the static solve.
+ *
+ * They are called with a solver input, here, and used to hand it straight to
+ * the engine. The static solve refuses a model first — a stray node, a
+ * mechanism, a load on nothing — and says why; these did not, so the same
+ * model came back as "Singular stiffness matrix", "Eigenvalue decomposition
+ * failed", a converged P-Δ with rotations of 1e11 rad, or the frequencies of a
+ * beam on two rollers with its rigid-body mode quietly dropped.
+ *
+ * The checks and their words live with the solve (`solver-service.ts`), which
+ * imports this module, and this module is also the solver worker's: importing
+ * them back would be a cycle and would pull the i18n store into the worker. So
+ * `solver-service.ts` lends them once, when it loads. Every path that runs an
+ * analysis on a user's model loads it (the model store does); a caller that
+ * imports only this module gets the engine as it is.
+ */
+export interface AdvancedGuards {
+  /** The static solve's refusal of this plane model, or null. */
+  refuse2D(input: SolverInput): string | null;
+  /** The static solve's refusal of this space model, or null. */
+  refuse3D(input: SolverInput3D): string | null;
+  /** The input of a space eigenvalue analysis: orphan rotations held exactly. */
+  eigenInput3D(input: SolverInput3D): SolverInput3D;
+  /** A message in the active language. */
+  text(key: string, params?: Record<string, string | number>): string;
+}
+let guards: AdvancedGuards | null = null;
+export function setAdvancedGuards(g: AdvancedGuards | null): void { guards = g; }
+
+/** The text of whatever an engine call threw: wasm-bindgen throws raw strings (`utils/error-text`). */
+const thrownText = (e: unknown): string => errorText(e, String(e));
+
+function refuse(msg: string | null | undefined): void {
+  if (msg) throw new Error(msg);
+}
+
+const NO_FREE_DOFS = /^No free DOFs/;
+
+/** Largest nodal translation or rotation of a result. */
+function maxDisplacement(r: { displacements?: Array<Record<string, number>> } | undefined): number {
+  let m = 0;
+  for (const d of r?.displacements ?? []) {
+    for (const [k, v] of Object.entries(d)) if (k !== 'nodeId' && typeof v === 'number') m = Math.max(m, Math.abs(v));
+  }
+  return m;
+}
+
+/**
+ * A P-Δ result that is the linear solve: nothing moves (no loads, or every
+ * degree of freedom restrained), so there is nothing to amplify. The engine's
+ * iteration measures the relative change of a zero displacement, never passes
+ * its tolerance and reported such a model as "not converged, unstable"; with
+ * every DOF restrained it stopped at "No free DOFs". `notice` says which.
+ */
+function linearPDelta<R>(linear: R, notice: 'noLoads' | 'noFreeDofs') {
+  return { results: linear, linearResults: linear, iterations: 0, converged: true, isStable: true, b2Factor: 1, amplification: [], notice };
+}
+
+/**
+ * The dominant degree of freedom of a mode shape, to say where a discarded
+ * zero mode moves.
+ */
+function dominantDof(mode: { displacements?: Array<Record<string, number>> }): { nodeId: number; dof: string } | null {
+  let best: { nodeId: number; dof: string; v: number } | null = null;
+  for (const d of mode.displacements ?? []) {
+    for (const [k, v] of Object.entries(d)) {
+      if (k === 'nodeId' || typeof v !== 'number') continue;
+      if (!best || Math.abs(v) > best.v) best = { nodeId: d.nodeId, dof: k, v: Math.abs(v) };
+    }
+  }
+  return best ? { nodeId: best.nodeId, dof: best.dof } : null;
+}
+
+/**
+ * A frequency under this is none: no structure in this app sways once in 20 minutes.
+ *
+ * Each mode is judged by its own value, never against the largest one found: one spurious or very
+ * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
+ * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
+ * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ */
+const NULL_FREQUENCY_HZ = 1e-3;
+/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
+const NULL_LOAD_FACTOR = 1e-6;
+
+export interface DiscardedMode { value: number; nodeId: number; dof: string }
+
+/**
+ * Remove the modes of a mechanism from an eigenvalue result.
+ *
+ * A zero eigenvalue is a direction the structure moves in without deforming,
+ * not a vibration and not a buckling load. The engine's own cut is absolute
+ * (ω² ≤ 1e-10 in modal, none in buckling), so a mechanism the loads do not
+ * excite — a column free to spin about its own axis, which the static solve
+ * accepts — came back as a first mode of 2e-6 Hz, or as a critical load
+ * factor of 1e-12 shown as "λ = 0.00". Those modes are taken out and listed in
+ * `discardedModes`, with where they move, for the caller to say the structure
+ * is a mechanism in that direction; if nothing else is left, the analysis is
+ * refused with the static solve's words for a mechanism.
+ */
+function withoutNullModes<M extends { displacements?: Array<Record<string, number>> }>(
+  modes: M[], value: (m: M) => number, floor: number,
+): { kept: M[]; discarded: DiscardedMode[] } {
+  const kept: M[] = [], discarded: DiscardedMode[] = [];
+  for (const m of modes) {
+    if (!(value(m) >= floor)) {
+      const at = dominantDof(m);
+      discarded.push({ value: value(m), nodeId: at?.nodeId ?? 0, dof: at?.dof ?? '' });
+    } else kept.push(m);
+  }
+  return { kept, discarded };
+}
+
+function mechanismOnly(): never {
+  throw new Error(guards ? guards.text('advanced.mechanismOnlyModes') : 'Every mode found is a mechanism (zero eigenvalue)');
+}
+
+/** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
+export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
+  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  if (!discarded.length) return { ...result, discardedModes: [] };
+  if (!kept.length) mechanismOnly();
+  const out: any = { ...result, modes: kept, discardedModes: discarded };
+  for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
+  if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
+    // Same two-mode fit, on the first two modes that are vibrations. With one left it is that
+    // mode twice (a0 = ξω, a1 = ξ/ω): the engine's own fit ran through the discarded mode.
+    const w1 = kept[0].omega, w2 = kept[1]?.omega ?? w1, xi = result.rayleigh.dampingRatios[0] ?? 0.05;
+    out.rayleigh = { ...result.rayleigh, omega1: w1, omega2: w2, a0: (2 * xi * w1 * w2) / (w1 + w2), a1: (2 * xi) / (w1 + w2) };
+  }
+  return out;
+}
+
+/** A buckling result without its null modes. */
+export function filterBuckling<R extends { modes: any[]; [k: string]: any }>(result: R): R & { discardedModes: DiscardedMode[] } {
+  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.loadFactor, NULL_LOAD_FACTOR);
+  if (!discarded.length) return { ...result, discardedModes: [] };
+  if (!kept.length) mechanismOnly();
+  return { ...result, modes: kept, discardedModes: discarded };
+}
+
+/** Whether a linear result compresses any member (the engine's own test, on the member's mean N). */
+function compressesAny(r: { elementForces?: Array<{ nStart: number; nEnd: number }> }): boolean {
+  return (r.elementForces ?? []).some((ef) => (ef.nStart + ef.nEnd) / 2 < -1e-6);
+}
+
+/**
+ * Buckling or modal on a model with every degree of freedom restrained (a
+ * fixed-fixed beam of one member): the engine's "No free DOFs" in English,
+ * put as what it means for the user.
+ */
+function noFreeDofs(kind: 'buckling' | 'modal', linear?: () => { elementForces?: Array<{ nStart: number; nEnd: number }> }): never {
+  if (!guards) throw new Error('No free DOFs');
+  // A beam no bar of which is compressed has nothing to buckle either way; say that, as for any other.
+  if (kind === 'buckling' && linear && !compressesAny(linear())) throw new Error('No compressed elements — buckling not applicable');
+  throw new Error(guards.text(kind === 'buckling' ? 'advanced.noFreeDofsBuckling' : 'advanced.noFreeDofsModal'));
+}
+
+const DECOMPOSITION_FAILED = /Eigenvalue decomposition failed/;
+const SUPPORT_FLAG_3D: Record<string, 'rx' | 'ry' | 'rz' | 'rrx' | 'rry' | 'rrz'> = {
+  ux: 'rx', uy: 'ry', uz: 'rz', rx: 'rrx', ry: 'rry', rz: 'rrz',
+};
+
+/**
+ * A space eigenvalue analysis of a mechanism the static solve accepts.
+ *
+ * The static solve refuses a mechanism only when its loads move it
+ * (`excitedMechanism3D`): a column on a pin free to spin about its own axis,
+ * with the beams at its head released, carries its loads and is solved. Its
+ * stiffness is singular all the same, and the eigenvalue analyses either
+ * returned the spin as a mode of zero (dropped by `withoutNullModes`) or
+ * failed their decomposition outright. Here the engine's rank analysis names
+ * the degrees of freedom that carry the mechanism, they are held for the
+ * analysis, and each is reported back as a discarded mode, so the caller can
+ * say that the structure is a mechanism there. Null when the rank analysis
+ * finds no mechanism: then the failure is something else and stands.
+ */
+function holdMechanism3D(input: SolverInput3D): { input: SolverInput3D; held: DiscardedMode[] } | null {
+  let k;
+  try { k = analyzeKinematics3D(input); } catch { return null; }
+  const dofs: Array<{ nodeId: number; dof: string }> = k?.unconstrainedDofs ?? [];
+  if (!(k?.mechanismModes > 0) || !dofs.length) return null;
+  const supports = new Map(input.supports);
+  const byNode = new Map<number, number>();
+  for (const [id, sp] of supports) byNode.set(sp.nodeId, id);
+  let nextId = Math.max(0, ...supports.keys()) + 1;
+  const held: DiscardedMode[] = [];
+  for (const { nodeId, dof } of dofs) {
+    const flag = SUPPORT_FLAG_3D[dof];
+    if (!flag) return null;
+    const id = byNode.get(nodeId);
+    const sp = id !== undefined ? { ...supports.get(id)! }
+      : { nodeId, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false, stabilised: 'created' as const };
+    sp[flag] = true;
+    if (id !== undefined) supports.set(id, sp);
+    else { byNode.set(nodeId, nextId); supports.set(nextId++, sp); }
+    held.push({ value: 0, nodeId, dof });
+  }
+  return { input: { ...input, supports }, held };
+}
+
+/** Run a space eigenvalue analysis, holding an unexcited mechanism if its decomposition fails. */
+function eigen3D<R>(input: SolverInput3D, run: (i: SolverInput3D) => R): { result: R; held: DiscardedMode[] } {
+  try {
+    return { result: run(input), held: [] };
+  } catch (e) {
+    if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
+    const hold = holdMechanism3D(input);
+    if (!hold) throw e;
+    return { result: run(hold.input), held: hold.held };
+  }
+}
+
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -488,17 +715,35 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
 /** Solve 2D P-Delta analysis via WASM. */
 export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
-  const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
-  return JSON.parse(resultJson);
+  refuse(guards?.refuse2D(input));
+  const merged = mergeAllHingedJoints2D(input);
+  let result;
+  try {
+    result = normalizePDeltaResult(JSON.parse(wasmSolvePdelta2d(serializeInput2D(merged), maxIter, tolerance)));
+  } catch (e) {
+    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
+    throw e;
+  }
+  if (guards && result.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
+  return result;
 }
 
 /** Solve 2D buckling analysis via WASM. */
 export function solveBuckling(input: SolverInput, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
-  const resultJson = wasmSolveBuckling2d(json, numModes);
-  return JSON.parse(resultJson);
+  refuse(guards?.refuse2D(input));
+  // A joint where every member is hinged leaves a rotation that is its own
+  // spurious first mode, and a node only truss bars meet one that breaks the
+  // decomposition; see orphan-rotations-2d.ts.
+  const merged = mergeAllHingedJoints2D(input);
+  let result;
+  try {
+    result = JSON.parse(wasmSolveBuckling2d(serializeInput2D(restrainOrphanRotations2D(merged)), numModes));
+  } catch (e) {
+    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
+    throw e;
+  }
+  return filterBuckling(result);
 }
 
 /** Solve 2D modal analysis via WASM. */
@@ -508,19 +753,21 @@ export function solveModal(
   numModes = 6,
 ) {
   if (!wasmReady || !wasmSolveModal2d) throw new Error('WASM solver not initialized.');
+  refuse(guards?.refuse2D(input));
+  input = restrainOrphanRotations2D(mergeAllHingedJoints2D(input));
+  // The whole model, constraints and connectors included, as every other 2D analysis sends it.
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
+    solver: input2DToWireObject(input),
     densities: mapToObj(densities),
   });
-  const resultJson = wasmSolveModal2d(payload, numModes);
-  return JSON.parse(resultJson);
+  let result;
+  try {
+    result = JSON.parse(wasmSolveModal2d(payload, numModes));
+  } catch (e) {
+    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    throw e;
+  }
+  return filterModal(result, ['X', 'Y']);
 }
 
 /** Solve 2D spectral analysis via WASM. */
@@ -536,6 +783,7 @@ export function solveSpectral(config: {
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral2d) throw new Error('WASM solver not available.');
+  config = { ...config, solver: mergeAllHingedJoints2D(config.solver) };
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -619,35 +867,57 @@ export function solveMovingLoads(config: {
  */
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
-  const json = serializeInput3D(input);
-  const result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
+  const wire = input3DToWireObject(input);
+  refuse(guards?.refuse3D(input));
+  let result;
+  try {
+    result = JSON.parse(wasmSolvePdelta3d(JSON.stringify(wire), maxIter, tolerance));
+  } catch (e) {
+    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
+    throw e;
+  }
   // Same as `solve3D`: a node that only gained a vanishing spring is not a
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  return result;
+  if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
+  return normalizePDeltaResult(result);
 }
 
 /** Solve 3D modal analysis via WASM. */
 export function solveModal3D(input: SolverInput3D, densities: Map<number, number>, numModes = 6) {
   if (!wasmReady || !wasmSolveModal3d) throw new Error('WASM Modal 3D solver not available.');
-  // The whole model, through the same serializer every other 3D analysis uses. This built its
-  // own subset and left out quads, plates, constraints and connectors — so a slab contributed
-  // neither stiffness nor mass to PRO's modal analysis.
-  const payload = JSON.stringify({
-    solver: input3DToWireObject(input),
-    densities: mapToObj(densities),
-  });
-  const resultJson = wasmSolveModal3d(payload, numModes);
-  return JSON.parse(resultJson);
+  refuse(guards?.refuse3D(input));
+  let run;
+  try {
+    run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => JSON.parse(wasmSolveModal3d!(JSON.stringify({
+      // The whole model, through the same serializer every other 3D analysis uses. This built its
+      // own subset and left out quads, plates, constraints and connectors — so a slab contributed
+      // neither stiffness nor mass to PRO's modal analysis.
+      solver: input3DToWireObject(i),
+      densities: mapToObj(densities),
+    }), numModes)));
+  } catch (e) {
+    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    throw e;
+  }
+  const out = filterModal(run.result, ['X', 'Y', 'Z']);
+  return { ...out, discardedModes: [...run.held, ...out.discardedModes] };
 }
 
 /** Solve 3D buckling analysis via WASM. */
 export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling3d) throw new Error('WASM Buckling 3D solver not available.');
-  const json = serializeInput3D(input);
-  const resultJson = wasmSolveBuckling3d(json, numModes);
-  return JSON.parse(resultJson);
+  refuse(guards?.refuse3D(input));
+  let run;
+  try {
+    run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => JSON.parse(wasmSolveBuckling3d!(serializeInput3D(i), numModes)));
+  } catch (e) {
+    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
+    throw e;
+  }
+  const out = filterBuckling(run.result);
+  return { ...out, discardedModes: [...run.held, ...out.discardedModes] };
 }
 
 /**

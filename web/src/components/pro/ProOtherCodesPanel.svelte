@@ -45,8 +45,8 @@
     try {
       const forces = direct ? directAnalysis.forces() : activePerCombo3D();
       if (!forces) { run = null; failed = true; return; }
-      // Only the combinations the forces exist for: an unstable one publishes none.
-      const combos = activeCombinations().filter((c) => forces.has(c.id));
+      // Direct forces are available only when every active combination is fit for design.
+      const combos = direct ? activeCombinations() : activeCombinations().filter((c) => forces.has(c.id));
       const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct });
       run = runOtherCode(code, ctxs);
       runOf = direct ? directAnalysis.result : resultsStore.perCombo3D;
@@ -122,11 +122,12 @@
     <div class="pk-row">
       <button
         class="pk-btn pk-btn-primary"
-        disabled={direct ? !directAnalysis.fresh : !solved}
+        disabled={direct ? !directAnalysis.designReady : !solved}
         onclick={verify}
         data-testid="other-codes-run"
       >{t('otherCodes.run')}</button>
       {#if direct && !directAnalysis.fresh}<span class="pk-hint">{t('direct.blocked')}</span>
+      {:else if direct && !directAnalysis.designReady}<span class="pk-warn" data-testid="direct-design-blocked">{t('direct.blockedIncomplete')}</span>
       {:else if !direct && !solved}<span class="pk-hint">{t('otherCodes.blocked.noCombos')}</span>{/if}
     </div>
   </section>

@@ -227,7 +227,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
 
     const row: (string | number)[] = [
       elem.id,
-      elem.type === 'frame' ? 'Frame' : 'Truss',
+      elem.type === 'frame' ? t('table.frame') : t('table.truss'),
       elem.nodeI, elem.nodeJ,
       Number(L.toFixed(4)),
       mat?.name ?? '-', mat?.e ?? 0,
@@ -379,8 +379,8 @@ function createReactionsSheet(): Xlsx.WorkSheet {
       fixed: t('excel.fixed'), pinned: t('excel.pinned'),
       rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), rollerZ: t('excel.rollerY'), spring: t('excel.spring'),
       fixed3d: t('excel.fixed'), pinned3d: t('excel.pinned'),
-      rollerXY: 'Roller XY', rollerXZ: 'Roller XZ', rollerYZ: 'Roller YZ',
-      spring3d: t('excel.spring'), custom3d: 'Custom 3D',
+      rollerXY: t('selEntity.supRollerXY'), rollerXZ: t('selEntity.supRollerXZ'), rollerYZ: t('selEntity.supRollerYZ'),
+      spring3d: t('excel.spring'), custom3d: t('selEntity.supCustom3d'),
     } as Record<string, string>)[sup.type] ?? sup.type : '-';
 
     data.push([
@@ -448,11 +448,11 @@ function createShellsSheet(): Xlsx.WorkSheet {
   const data: (string | number)[][] = [headers];
 
   for (const p of modelStore.plates.values()) {
-    data.push([p.id, 'Plate', (p.nodes ?? []).join(' '),
+    data.push([p.id, t('excel.plateType'), (p.nodes ?? []).join(' '),
       modelStore.materials.get(p.materialId)?.name ?? p.materialId, p.thickness]);
   }
   for (const q of modelStore.quads.values()) {
-    data.push([q.id, 'Quad', (q.nodes ?? []).join(' '),
+    data.push([q.id, t('excel.quadType'), (q.nodes ?? []).join(' '),
       modelStore.materials.get(q.materialId)?.name ?? q.materialId, q.thickness]);
   }
 

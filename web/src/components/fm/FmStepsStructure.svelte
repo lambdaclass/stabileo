@@ -127,7 +127,7 @@
 {/if}
 
 <style>
-  .fm-exp { font-size: 0.72rem; line-height: 1.5; color: var(--st-text-2); margin: 0 0 6px; }
+  .fm-exp { font-size: 0.82rem; line-height: 1.45; color: var(--st-text); margin: 0.4rem 0; }
   .fm-iso { border-left: 2px solid var(--st-accent); padding-left: 6px; }
   .fm-note { font-size: 0.64rem; line-height: 1.45; color: var(--st-text-3); margin: 2px 0 6px; }
   .fm-h { margin: 8px 0 2px; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--st-text-3); }

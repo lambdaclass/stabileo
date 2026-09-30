@@ -55,7 +55,7 @@ fn inclined_model_2d(with_constraint: bool) -> SolverInput {
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 5.0, fz: -15.0, my: 0.0 })],
         constraints,
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -192,7 +192,7 @@ fn winkler_model_3d_inclined() -> WinklerInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
         solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     };
     WinklerInput3D {
         solver,
@@ -315,7 +315,7 @@ fn inclined_model_2d_cable() -> SolverInput {
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 1.0, fz: -15.0, my: 0.0 })],
         constraints: vec![],
-        connectors: HashMap::new(),
+        connectors: HashMap::new(), solver_options: None,
     }
 }
 

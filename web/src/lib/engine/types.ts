@@ -171,6 +171,42 @@ export interface SolveTimings {
   solverType?: 'cholesky' | 'lu' | string;
 }
 
+/**
+ * A diagnostic the engine emits about the model itself, with a stable code.
+ *
+ * Mirrors `StructuredDiagnostic` in `engine/src/types/output.rs`. Both enums
+ * cross the boundary as plain strings and need no translation here:
+ * `severity` serializes lowercase (`'error' | 'warning' | 'info'`, matching
+ * `DiagnosticSeverity`) and `code` in snake_case (`'negative_jacobian'`).
+ *
+ * The engine has emitted these on every solve for a long time; nothing on
+ * this side read them, so what the pre-solve gates found about a model —
+ * isolated nodes, collapsed elements, ill-defined local axes — was computed
+ * and then dropped.
+ */
+export interface StructuredDiagnostic {
+  code: string;
+  severity: DiagnosticSeverity;
+  message: string;
+  elementIds?: number[];
+  nodeIds?: number[];
+  dofIndices?: number[];
+  /** Which solver phase produced it, e.g. 'pre_solve'. */
+  phase?: string;
+  /** Measured value behind the diagnostic (a residual, a ratio). */
+  value?: number;
+  /** The threshold that value was compared against. */
+  threshold?: number;
+  /**
+   * What `elementIds` number. Frames, plates and quads number independently,
+   * so an id alone does not say which element it is.
+   */
+  elementKind?: ElementKind;
+}
+
+/** Mirrors `ElementKind` in `engine/src/types/output.rs` (serialized snake_case). */
+export type ElementKind = 'frame' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
@@ -178,6 +214,7 @@ export interface AnalysisResults {
   constraintForces?: ConstraintForce[];
   diagnostics?: AssemblyDiagnostic[];
   solverDiagnostics?: SolverDiagnostic[];
+  structuredDiagnostics?: StructuredDiagnostic[];
   timings?: SolveTimings;
 }
 
@@ -213,6 +250,8 @@ export interface SolverDiagnostic {
   nodeIds?: number[];
   source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
   details?: Record<string, unknown>;
+  /** Shells this is about, as `uiStore.selectedShells` keys: `q{id}` quads, `p{id}` plates. */
+  shellKeys?: string[];
 }
 
 

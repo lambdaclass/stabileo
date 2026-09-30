@@ -24,10 +24,16 @@
   }
   function apply(tpl: OfficeTemplate) {
     const p = applyTemplate(tpl);
-    message = tp('templates.applied', {
-      name: tpl.name, materials: p.materials.length, sections: p.sections.length,
-      cases: p.loadCases.length, combos: p.combinations.length,
-    });
+    const r = p.regulationChanges;
+    message = [
+      tp('templates.applied', {
+        name: tpl.name, materials: p.materials.length, sections: p.sections.length,
+        cases: p.loadCases.length, combos: p.combinations.length,
+      }),
+      // A load-affecting code is staged, as in the regulations panel: its loads are reviewed first.
+      r.review.length ? tp('templates.regulationsReview', { roles: r.review.join(', ') }) : '',
+      r.refused.length ? tp('templates.regulationsRefused', { roles: r.refused.join(', ') }) : '',
+    ].filter(Boolean).join(' ');
   }
   const exportFile = (tpl: OfficeTemplate) => downloadText(JSON.stringify(tpl, null, 1), `${tpl.name.replace(/[^\w.-]+/g, '-')}.stabileo-template.json`, 'application/json');
   async function onFile(e: Event) {

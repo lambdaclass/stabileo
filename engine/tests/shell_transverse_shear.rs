@@ -83,6 +83,7 @@ fn strip(mesh: Mesh, nx: usize, ny: usize, load: Load) -> Strip {
     let mut materials = HashMap::new();
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     let input = SolverInput3D {
+        solver_options: None,
         nodes, materials, sections: HashMap::new(), elements: HashMap::new(),
         supports, loads, constraints: vec![], left_hand: None,
         plates, quads, quad9s: HashMap::new(),

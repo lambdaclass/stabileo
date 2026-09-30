@@ -25,6 +25,8 @@ Para empezar:
   por propiedades, sus casos y sus combinaciones. Se cargan tal cual, sin generar combinaciones de
   reglamento encima. La descripción de cada uno dice qué se adaptó (el eje vertical, las unidades,
   y las cargas que el programa de origen calculaba y acá entran como cargas comunes).
+  **Modelo 04:** P-Delta usa ensamblaje disperso. Las combinaciones sin equilibrio estable
+  de segundo orden se listan sin publicar sus esfuerzos.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
   (DXF).
 

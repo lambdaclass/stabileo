@@ -15,7 +15,8 @@ import { historyStore } from '../../../store/history.svelte';
 import { buildSolverInput3D, validateAndSolve3D } from '../../../engine/solver-service';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { reflection, rotation, translation, applyAxial, applyVector, type Affine, type Vec3 } from '../affine';
-import { copyTransformed } from '../transformed-copy';
+import { copyTransformed, insertFragment } from '../transformed-copy';
+import { detach, fragmentOf } from '../fragment';
 import { transformInPlace } from '../transform-in-place';
 
 beforeAll(async () => {
@@ -158,6 +159,43 @@ describe('the copy is the same structure, moved — the solver agrees', () => {
 });
 
 describe('repeat', () => {
+  it.each([false, true])('preserves loads welded onto a different node (detached: %s) and undoes them', (detached) => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, 1);
+    let frag = fragmentOf({ nodes: [], elements: [e] }, { withLoads: true });
+    if (detached) { frag = detach(frag); modelStore.clear(); }
+    const host = modelStore.addNode(14, 0, 0);
+    const original = JSON.parse(JSON.stringify(modelStore.loads));
+    historyStore.clear();
+    const r = insertFragment(frag, [translation([10, 0, 0])], { withLoads: true });
+    expect(r.welded).toBe(1);
+    expect(modelStore.loads).toHaveLength(original.length + 1);
+    expect(modelStore.loads.at(-1)!.data).toMatchObject({ nodeId: host, fz: -10 });
+    expect(historyStore.undoCount).toBe(1);
+    historyStore.undo();
+    expect(modelStore.loads).toEqual(original);
+    expect(modelStore.nodes.has(host)).toBe(true);
+  });
+
+  it('does not duplicate a local nodal load when copying onto its own source', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, 1);
+    copyTransformed({ nodes: [a], elements: [] }, [translation([0, 0, 0])], { withLoads: true });
+    expect(modelStore.loads).toHaveLength(1);
+  });
+
+  it('preserves detached loads even when donor and host happen to have the same node ID', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    modelStore.addNodalLoad3D(a, 0, 0, -10, 0, 0, 0, 1);
+    const frag = detach(fragmentOf({ nodes: [a], elements: [] }, { withLoads: true }));
+    modelStore.clear();
+    expect(modelStore.addNode(0, 0, 0)).toBe(a);
+    insertFragment(frag, [translation([0, 0, 0])], { withLoads: true });
+    expect(modelStore.loads).toHaveLength(1);
+    expect(modelStore.loads[0]!.data).toMatchObject({ nodeId: a, fz: -10 });
+  });
+
   it('welds shared nodes, links the copies, carries groups, and is one undo step', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(5, 0, 3), d = modelStore.addNode(5, 0, 0);
     const e1 = modelStore.addElement(a, b, 'frame'), e2 = modelStore.addElement(b, c, 'frame'), e3 = modelStore.addElement(d, c, 'frame');
@@ -293,5 +331,58 @@ describe('repeat commits its updates in bulk', () => {
     historyStore.redo();
     expect(modelStore.elements.size).toBe(src.elements.length * 21);
     expect(modelStore.loads).toHaveLength(originalLoads.length * 21);
+  });
+});
+
+describe('pasting where the copy came from', () => {
+  it('adds no second load on a node, and no second shell on the same corners', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 4, 0), d = modelStore.addNode(0, 4, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0);
+    const q = modelStore.addQuad([a, b, c, d], 1, 0.2);
+    // The clipboard is detached, as Ctrl+C makes it; Ctrl+Shift+V places it where it was.
+    const frag = detach(fragmentOf({ nodes: [a, b, c, d], elements: [e], quads: [q] } as never, { withLoads: true } as never));
+    const before = { loads: modelStore.loads.length, quads: modelStore.quads.size };
+    insertFragment(frag, [translation([0, 0, 0])], { withLoads: true });
+    expect(modelStore.loads.length).toBe(before.loads);
+    expect(modelStore.quads.size).toBe(before.quads);
+    const onB = modelStore.loads.filter((l) => (l.data as { nodeId?: number }).nodeId === b);
+    expect(onB.map((l) => (l.data as { fz: number }).fz)).toEqual([-10]);
+  });
+});
+
+describe('definitions a detached fragment brings', () => {
+  it('a section differing only in a nested field is a different section', async () => {
+    const { mapDefinitions } = await import('../fragment');
+    const base = { name: '2L75', a: 0.002, iy: 1e-6, iz: 2e-6, composition: { profileName: 'L75', arrangement: 'backToBack', gapMm: 20 } };
+    const inModel = modelStore.addSection(base as never);
+    const frag = { nodes: [], elements: [], quads: [], plates: [], supports: [], loads: [], groups: [], materials: [], loadCases: [],
+      sections: [{ ...base, id: 99, composition: { ...base.composition, gapMm: 10 } }], local: false } as never;
+    let out!: ReturnType<typeof mapDefinitions>;
+    modelStore.batch(() => { out = mapDefinitions(frag); });
+    expect(out.section.get(99)).not.toBe(inModel);
+    expect(out.added.sections).toBe(1);
+  });
+
+  it('a load case keeps its alternatives group', async () => {
+    const { mapDefinitions } = await import('../fragment');
+    const frag = { nodes: [], elements: [], quads: [], plates: [], supports: [], loads: [], groups: [], materials: [], sections: [],
+      loadCases: [{ id: 7, type: 'S', name: 'Snow, unbalanced +X', alternatives: 'snow-roof' }], local: false } as never;
+    let out!: ReturnType<typeof mapDefinitions>;
+    modelStore.batch(() => { out = mapDefinitions(frag); });
+    expect(modelStore.model.loadCases.find((c) => c.id === out.loadCase.get(7))?.alternatives).toBe('snow-roof');
+  });
+});
+
+describe('spacings as they are typed', () => {
+  it('reads a comma-and-space list and a spaced NxL, and still a decimal comma', async () => {
+    const { parseSpacings } = await import('../affine');
+    expect(parseSpacings('6, 7, 6')).toEqual([6, 7, 6]);
+    expect(parseSpacings('3 x 6')).toEqual([6, 6, 6]);
+    expect(parseSpacings('2 x 4; 7,5')).toEqual([4, 4, 7.5]);
+    expect(parseSpacings('6,5 7')).toEqual([6.5, 7]);
+    expect(parseSpacings('3x6')).toEqual([6, 6, 6]);
+    expect(parseSpacings('6 x')).toBeNull();
+    expect(parseSpacings('0')).toBeNull();
   });
 });

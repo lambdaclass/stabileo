@@ -1,8 +1,8 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
-  import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
   import { matrixWhy } from './dsm-text';
 
@@ -96,7 +96,7 @@
         </div>
       {/if}
     {:else}
-      <div class="formula-scroll"><MathEquation equation={formula2D} displayMode /></div>
+      <div class="formula-scroll"><FitMath tex={formula2D} narrow /></div>
     {/if}
     {#if matrixNote}
       <div class="formula-note formula-why" data-testid="dsm-matrix-why">{matrixNote}</div>
@@ -115,7 +115,7 @@
 
 <style>
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0; }
 
   .elem-selector {

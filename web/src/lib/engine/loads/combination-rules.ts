@@ -6,6 +6,7 @@
  * so a rule with W or E still gets one combination per wind or seismic case, and both senses
  * when asked. Rules are saved with the project and travel as a template file between projects.
  */
+import { combinationLabel } from '../../codes/cirsoc101/combinations';
 import type { CombinationTerm, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
 
 export interface CombinationRule {
@@ -14,17 +15,13 @@ export interface CombinationRule {
   terms: CombinationTerm[];
 }
 
-export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'E', 'F', 'H', 'T'];
+// Wa is the service-level wind of CIRSOC 102-2025 B.4.2: the service rules seeded from the code
+// carry it, and a table or template without it dropped the wind from the service envelope.
+export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
 /** The rule's formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L`). */
 export function ruleLabel(rule: CombinationRule): string {
-  const t = rule.terms.filter((x) => x.factor !== 0);
-  if (t.length === 0) return '—';
-  return t.map((x, i) => {
-    const f = Math.abs(x.factor);
-    const sign = x.factor < 0 ? (i === 0 ? '−' : ' − ') : i === 0 ? '' : ' + ';
-    return `${sign}${Number.isInteger(f) ? f.toFixed(1) : String(+f.toFixed(3))} ${x.symbol}`;
-  }).join('');
+  return combinationLabel(rule.terms);
 }
 
 export function ruleToSpec(rule: CombinationRule): LoadCombinationSpec {
@@ -63,4 +60,19 @@ export function rulesFromTemplate(text: string): { name: string; rules: Combinat
     rules.push({ id: `r${i + 1}`, purpose: x.purpose === 'service' ? 'service' : 'strength', terms });
   });
   return { name: typeof d.name === 'string' ? d.name : '', rules };
+}
+
+/**
+ * `count` rule ids not in use. Numbering from the list's length reused an id once a rule had
+ * been deleted — rules r1 and r3 left, and the next one was r3 again — and two rules with one
+ * id broke the keyed list and edited or removed both at once.
+ */
+export function freshRuleIds(rules: ReadonlyArray<{ id: string }>, count: number): string[] {
+  const used = new Set(rules.map((r) => r.id));
+  const out: string[] = [];
+  for (let n = 1; out.length < count; n++) {
+    const id = `r${n}`;
+    if (!used.has(id)) { out.push(id); used.add(id); }
+  }
+  return out;
 }

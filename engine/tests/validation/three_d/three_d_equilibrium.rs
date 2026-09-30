@@ -200,6 +200,8 @@ fn validation_3d_eq_continuous_dist() {
     ];
 
     let loads: Vec<_> = (0..total_n).map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+
+        q_xi: 0.0, q_xj: 0.0,
         element_id: i + 1,
         q_yi: 0.0, q_yj: 0.0,
         q_zi: q, q_zj: q,
@@ -344,6 +346,7 @@ fn validation_3d_eq_mixed_loads() {
             // UDL on all elements
             for i in 0..n {
                 loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    q_xi: 0.0, q_xj: 0.0,
                     element_id: i + 1,
                     q_yi: 0.0, q_yj: 0.0,
                     q_zi: q, q_zj: q,

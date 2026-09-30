@@ -1,21 +1,23 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
-import { expandSemiRigid3D } from './expand-semi-rigid-3d';
+import { createSectionWeight } from '../section/weight';
+import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
+import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
-import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
-import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
+import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
+import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
-import type { KinematicResult } from './kinematic-2d';
+import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import {
   convertSurfaceLoad, convertThermalQuadLoad,
   addShellConnectivity, addShellAdjacency,
@@ -27,11 +29,11 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses } from './shell-combos';
-import { addSettlementCase, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
+import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
-import { t } from '../i18n';
+import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
 import { noteStructuralSolve } from '../utils/solve-counter';
@@ -193,66 +195,180 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
 
 // ─── 2D: validateAndSolve2D ───────────────────────────────────────
 
+function axialEquivalentLoads(qI: number, qJ: number, a: number, b: number, length: number): [number, number] {
+  // Integrate q(x) against the axial shape functions, 1-x/L and x/L.
+  // Signed first moments remain valid when q crosses zero or its resultant
+  // vanishes, unlike a centroid computed from absolute load magnitudes.
+  const span = b - a;
+  const total = (qI + qJ) * span / 2;
+  const fJ = (a * total + span * span * (qI + 2 * qJ) / 6) / length;
+  return [total - fJ, fJ];
+}
+
 /** Build only the solver loads array for a 2D input. Shared by
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
 function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
-  const solverLoads = loads.map(l => {
+  /*
+   * One builder for every 2D path. The linear solve and the combinations had
+   * their own, which passed a distributed or point load's value straight to
+   * the solver as a transverse local load: a load given in global axes, or at
+   * an angle, was applied perpendicular to the member. On an inclined member
+   * that is a different load — a vertical 10 kN/m on a 3:4 rafter gave 33 kN
+   * of horizontal reaction — while P-Δ, buckling and the other analyses,
+   * which used this decomposition, got it right.
+   */
+  const solverLoads: SolverInput['loads'] = [];
+  /*
+   * A local transverse load, and a gradient, are given in the drawn axes;
+   * the solver's transverse axis is the opposite one on some members. See
+   * transverse-sign-2d.ts.
+   */
+  const sOf = (elementId: number): 1 | -1 => {
+    const el = model.elements.get(elementId);
+    const ni = el && model.nodes.get(el.nodeI), nj = el && model.nodes.get(el.nodeJ);
+    return ni && nj ? transverseSign(nj.x - ni.x, nj.y - ni.y) : 1;
+  };
+
+  for (const l of loads) {
     if (l.type === 'nodal') {
-      return {
+      solverLoads.push({
         type: 'nodal' as const,
         data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
-      };
-    } else if (l.type === 'distributed') {
-      const d = l.data as DistributedLoad;
-      const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
-      if (d.a !== undefined && d.a > 0) sd.a = d.a;
-      if (d.b !== undefined) sd.b = d.b;
-      return { type: 'distributed' as const, data: sd };
+      });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
+      // The material's own α (thermal-alpha.ts), and the gradient in the drawn axes.
       const k = thermalScaleOfElement(model, d.elementId);
-      return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: d.dtGradient * k } };
-    } else {
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: sOf(d.elementId) * d.dtGradient * k } });
+    } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
-      const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
-      if (d.px !== undefined && d.px !== 0) spd.px = d.px;
-      if ((d.my ?? d.mz) !== undefined && (d.my ?? d.mz) !== 0) spd.my = d.my ?? d.mz;
-      return { type: 'pointOnElement' as const, data: spd };
-    }
-  });
+      const angle = d.angle ?? 0;
+      const isGlobal = d.isGlobal ?? false;
 
-  // Add self-weight as distributed loads
+      if (angle === 0 && !isGlobal) {
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: d.my ?? d.mz } });
+      } else {
+        const elem = model.elements.get(d.elementId);
+        if (!elem) continue;
+        const ni = model.nodes.get(elem.nodeI);
+        const nj = model.nodes.get(elem.nodeJ);
+        if (!ni || !nj) continue;
+        const edx = nj.x - ni.x, edy = nj.y - ni.y;
+        const L = Math.sqrt(edx * edx + edy * edy);
+        if (L < 1e-10) continue;
+        const cosTheta = edx / L, sinTheta = edy / L;
+        const angleRad = angle * Math.PI / 180;
+
+        let fxGlobal: number, fyGlobal: number;
+        if (isGlobal) {
+          fxGlobal = d.p * Math.sin(angleRad);
+          fyGlobal = d.p * Math.cos(angleRad);
+        } else {
+          const fLocalPerp = sOf(d.elementId) * d.p * Math.cos(angleRad);
+          const fLocalAxial = d.p * Math.sin(angleRad);
+          fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
+          fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
+        }
+
+        const pPerp = fxGlobal * (-sinTheta) + fyGlobal * cosTheta;
+        const pAxial = fxGlobal * cosTheta + fyGlobal * sinTheta;
+
+        if (Math.abs(pPerp) > 1e-10) {
+          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: pPerp } });
+        }
+        // The axial force and the moment given alongside it are local and unaffected by the angle.
+        const pointMy = d.my ?? d.mz;
+        if ((d.px !== undefined && d.px !== 0) || (pointMy !== undefined && pointMy !== 0)) {
+          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: 0, px: d.px, my: pointMy } });
+        }
+        if (Math.abs(pAxial) > 1e-10) {
+          const t = d.a / L;
+          const fI = pAxial * (1 - t);
+          const fJ = pAxial * t;
+          solverLoads.push(
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
+          );
+        }
+      }
+    } else if (l.type === 'distributed') {
+      const d = l.data as DistributedLoad;
+      const angle = d.angle ?? 0;
+      const isGlobal = d.isGlobal ?? false;
+
+      if (angle === 0 && !isGlobal) {
+        const sd = sOf(d.elementId);
+        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: sd * d.qI, qJ: sd * d.qJ, a: d.a, b: d.b } });
+      } else {
+        const elem = model.elements.get(d.elementId);
+        if (!elem) continue;
+        const ni = model.nodes.get(elem.nodeI);
+        const nj = model.nodes.get(elem.nodeJ);
+        if (!ni || !nj) continue;
+        const edx = nj.x - ni.x, edy = nj.y - ni.y;
+        const L = Math.sqrt(edx * edx + edy * edy);
+        if (L < 1e-10) continue;
+        const cosTheta = edx / L, sinTheta = edy / L;
+        const angleRad = angle * Math.PI / 180;
+
+        let qIPerpLocal: number, qIAxialLocal: number;
+        let qJPerpLocal: number, qJAxialLocal: number;
+
+        if (isGlobal) {
+          const fxFactorI = d.qI * Math.sin(angleRad);
+          const fyFactorI = d.qI * Math.cos(angleRad);
+          const fxFactorJ = d.qJ * Math.sin(angleRad);
+          const fyFactorJ = d.qJ * Math.cos(angleRad);
+          qIPerpLocal = fxFactorI * (-sinTheta) + fyFactorI * cosTheta;
+          qIAxialLocal = fxFactorI * cosTheta + fyFactorI * sinTheta;
+          qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
+          qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
+        } else {
+          const sd = sOf(d.elementId);
+          qIPerpLocal = sd * d.qI * Math.cos(angleRad);
+          qIAxialLocal = d.qI * Math.sin(angleRad);
+          qJPerpLocal = sd * d.qJ * Math.cos(angleRad);
+          qJAxialLocal = d.qJ * Math.sin(angleRad);
+        }
+
+        if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
+          solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
+        }
+        if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
+          const loadA = d.a ?? 0;
+          const loadB = d.b ?? L;
+          const [fI, fJ] = axialEquivalentLoads(qIAxialLocal, qJAxialLocal, loadA, loadB, L);
+          solverLoads.push(
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
+          );
+        }
+      }
+    }
+  }
+
   if (includeSelfWeight) {
+    const sectionWeight = createSectionWeight(model.materials);
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!mat || !sec || !ni || !nj) continue;
-
-      const dx = nj.x - ni.x;
-      const dy = nj.y - ni.y;
+      const dx = nj.x - ni.x, dy = nj.y - ni.y;
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
-
-      const sinTheta = dy / L;
-      const cosTheta = dx / L;
-      const w = mat.rho * sec.a;
-
+      const sinTheta = dy / L, cosTheta = dx / L;
+      const w = sectionWeight(sec, elem.materialId);
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({
-          type: 'distributed' as const,
-          data: { elementId: elem.id, qI: qPerp, qJ: qPerp },
-        });
+        solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
       }
-
       const qTangent = -w * sinTheta;
       if (Math.abs(qTangent) > 1e-10) {
         const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta;
-        const fzNode = Ft * sinTheta;
+        const fxNode = Ft * cosTheta, fzNode = Ft * sinTheta;
         solverLoads.push(
           { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
           { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
@@ -347,32 +463,76 @@ interface Solve2DPreparation {
 }
 
 /**
- * Validation + wire-input construction for a 2D solve (shared by the sync and
- * async solve paths). Returns the preparation, or an error string, or null.
- * Also returns the KinematicResult via the optional `onKinematic` callback.
+ * One reaction a plane support can give, as the column [Fx, Fz, M about (cx, cz)]
+ * of the external-stability matrix. An inclined roller reacts along the normal to
+ * its rolling surface and a rotated spring along its own axes: read by type alone,
+ * a roller turned 30° counted as a vertical one, and a beam on two rollers and an
+ * inclined one — isostatic, as the solver's own rank check agrees — was refused as
+ * having no horizontal restraint.
  */
-function prepareSolve2D(
-  model: ModelData,
-  includeSelfWeight = false,
-  onKinematic?: (k: KinematicResult | null) => void,
-): Solve2DPreparation | string | null {
-  if (model.nodes.size < 2 || model.elements.size < 1) {
-    return t('svc.needNodesAndElements');
+function reactionColumns2D(s: SolverSupport, rx: number, rz: number, hasFrames: boolean): Array<[number, number, number]> {
+  const force = (fx: number, fz: number): [number, number, number] => [fx, fz, rx * fz - rz * fx];
+  const a = s.angle ?? 0;
+  switch (s.type) {
+    case 'fixed': return hasFrames ? [force(1, 0), force(0, 1), [0, 0, 1]] : [force(1, 0), force(0, 1)];
+    case 'pinned': return [force(1, 0), force(0, 1)];
+    case 'rollerX': return [force(0, 1)];
+    case 'rollerZ': return [force(1, 0)];
+    case 'inclinedRoller': return [force(-Math.sin(a), Math.cos(a))];
+    case 'spring': {
+      const cols: Array<[number, number, number]> = [];
+      if (s.kx && s.kx > 0) cols.push(force(Math.cos(a), Math.sin(a)));
+      if (s.ky && s.ky > 0) cols.push(force(-Math.sin(a), Math.cos(a)));
+      if (hasFrames && s.kz && s.kz > 0) cols.push([0, 0, 1]);
+      return cols;
+    }
+    default: return [];
   }
-  if (model.supports.size < 1) {
-    return t('svc.needSupport');
+}
+
+/**
+ * The first node the elements, connectors and constraints leave out, or the nodes
+ * a connected walk from the first one does not reach — the message the solve gives
+ * for each, or null.
+ */
+function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, adj: Map<number, Set<number>>): string | null {
+  for (const nodeId of nodeIds) {
+    if (!connected.has(nodeId)) return t('svc.disconnectedNode').replace('{n}', String(nodeId));
   }
+  if (connected.size === 0) return null;
+  const visited = new Set<number>();
+  const startNode = connected.values().next().value!;
+  const queue = [startNode];
+  visited.add(startNode);
+  // Index-based queue: shift() would make the walk O(n²) in node moves.
+  for (let qi = 0; qi < queue.length; qi++) {
+    for (const nb of adj.get(queue[qi]) ?? []) {
+      if (!visited.has(nb)) { visited.add(nb); queue.push(nb); }
+    }
+  }
+  if (visited.size < connected.size) {
+    const disconnected = [...connected].filter(n => !visited.has(n));
+    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
+  }
+  return null;
+}
 
-  const { error: preflightError, connectedNodes } = preflightModel2D(model);
-  if (preflightError) return preflightError;
-
-  // Constraints are stored in 3D semantics; the 2D solver speaks [ux, uz, ry].
-  const constraints2D = constraintsTo2D(model.constraints);
+/**
+ * The structural checks of a plane solve, read off the solver's own input: support
+ * count, external stability, one connected structure, roller layouts and the hinge
+ * mechanisms the rank check would only name by DOF. The static solve runs them on
+ * the input it is about to send; P-Δ, buckling, modal and plastic collapse run the
+ * same function on theirs (`advancedRefusal2D`), so a model is refused by all of
+ * them, with the same words, or by none.
+ */
+function structuralChecks2D(input: SolverInput): string | null {
+  const elements = [...input.elements.values()];
+  const supports = [...input.supports.values()];
+  const hasFrames = elements.some(e => e.type === 'frame');
 
   // Count support DOFs for basic stability check
-  const hasFrames = [...model.elements.values()].some(e => e.type === 'frame');
   let constrainedDOFs = 0;
-  for (const sup of model.supports.values()) {
+  for (const sup of supports) {
     if (sup.type === 'fixed') constrainedDOFs += hasFrames ? 3 : 2;
     else if (sup.type === 'pinned') constrainedDOFs += 2;
     else if (sup.type === 'spring') {
@@ -387,42 +547,11 @@ function prepareSolve2D(
 
   // ── External stability: reaction equilibrium matrix rank check ──
   {
-    const supNodes: Array<{ x: number; z: number; type: string; kx?: number; ky?: number; kz?: number }> = [];
-    for (const sup of model.supports.values()) {
-      const nd = model.nodes.get(sup.nodeId);
-      if (nd) supNodes.push({ x: nd.x, z: nd.y, type: sup.type === 'rollerY' ? 'rollerZ' : sup.type, kx: sup.kx, ky: sup.ky, kz: sup.kz });
-    }
-
+    const at = supports.map(s => ({ s, nd: input.nodes.get(s.nodeId) })).filter(x => x.nd);
     let cx = 0, cz = 0;
-    for (const s of supNodes) { cx += s.x; cz += s.z; }
-    cx /= supNodes.length; cz /= supNodes.length;
-
-    const cols: Array<[number, number, number]> = [];
-    for (const s of supNodes) {
-      const rx = s.x - cx, rz = s.z - cz;
-      switch (s.type) {
-        case 'fixed':
-          cols.push([1, 0, -rz]);
-          cols.push([0, 1, rx]);
-          if (hasFrames) cols.push([0, 0, 1]);
-          break;
-        case 'pinned':
-          cols.push([1, 0, -rz]);
-          cols.push([0, 1, rx]);
-          break;
-        case 'rollerX':
-          cols.push([0, 1, rx]);
-          break;
-        case 'rollerZ':
-          cols.push([1, 0, -rz]);
-          break;
-        case 'spring':
-          if (s.kx && s.kx > 0) cols.push([1, 0, -rz]);
-          if (s.ky && s.ky > 0) cols.push([0, 1, rx]);
-          if (hasFrames && s.kz && s.kz > 0) cols.push([0, 0, 1]);
-          break;
-      }
-    }
+    for (const { nd } of at) { cx += nd!.x; cz += nd!.z; }
+    cx /= at.length || 1; cz /= at.length || 1;
+    const cols = at.flatMap(({ s, nd }) => reactionColumns2D(s, nd!.x - cx, nd!.z - cz, hasFrames));
 
     if (cols.length >= 3) {
       const G = [[0,0,0],[0,0,0],[0,0,0]];
@@ -453,75 +582,40 @@ function prepareSolve2D(
 
   // ── Graph connectivity: structure must be a single connected component ──
   {
+    const connected = new Set<number>();
+    for (const e of elements) { connected.add(e.nodeI); connected.add(e.nodeJ); }
+    for (const c of input.connectors?.values() ?? []) { connected.add(c.nodeI); connected.add(c.nodeJ); }
+    addConstraintConnectivity(connected, input.constraints ?? []);
     const adj = new Map<number, Set<number>>();
-    for (const nid of connectedNodes) {
-      adj.set(nid, new Set());
-    }
-    for (const elem of model.elements.values()) {
-      adj.get(elem.nodeI)!.add(elem.nodeJ);
-      adj.get(elem.nodeJ)!.add(elem.nodeI);
-    }
-    if (model.connectors) {
-      for (const conn of model.connectors.values()) {
-        adj.get(conn.nodeI)?.add(conn.nodeJ);
-        adj.get(conn.nodeJ)?.add(conn.nodeI);
-      }
-    }
-    addConstraintAdjacency(adj, constraints2D);
-    const visited = new Set<number>();
-    const startNode = connectedNodes.values().next().value!;
-    const queue = [startNode];
-    visited.add(startNode);
-    // Index-based queue: shift() would make the walk O(n²) in node moves.
-    for (let qi = 0; qi < queue.length; qi++) {
-      const cur = queue[qi];
-      for (const nb of adj.get(cur)!) {
-        if (!visited.has(nb)) {
-          visited.add(nb);
-          queue.push(nb);
-        }
-      }
-    }
-    if (visited.size < connectedNodes.size) {
-      const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-      return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
-    }
+    for (const nid of connected) adj.set(nid, new Set());
+    for (const e of elements) { adj.get(e.nodeI)!.add(e.nodeJ); adj.get(e.nodeJ)!.add(e.nodeI); }
+    for (const c of input.connectors?.values() ?? []) { adj.get(c.nodeI)?.add(c.nodeJ); adj.get(c.nodeJ)?.add(c.nodeI); }
+    addConstraintAdjacency(adj, input.constraints ?? []);
+    const refusal = connectivityRefusal([], connected, adj);
+    if (refusal) return refusal;
   }
 
-  // ── Collinear supports ──
+  // ── Roller layouts ──
+  // An inclined roller is not a horizontal one: it reacts along its own normal, and
+  // rollers with non-parallel reactions can hold a structure even on one line.
   {
-    const supNodes: { x: number; z: number }[] = [];
-    for (const sup of model.supports.values()) {
-      const nd = model.nodes.get(sup.nodeId);
-      if (nd) supNodes.push({ x: nd.x, z: nd.y });
-    }
-    if (supNodes.length >= 2) {
-      const allCollinear = supNodes.length < 3 ? false : (() => {
-        const x0 = supNodes[0].x, z0 = supNodes[0].z;
-        const dx = supNodes[1].x - x0, dz = supNodes[1].z - z0;
+    const rollers = supports.filter(s => s.type === 'rollerX' || s.type === 'rollerZ' || s.type === 'inclinedRoller');
+    if (supports.length >= 2) {
+      if (supports.every(s => s.type === 'rollerX')) return t('svc.unstableAllRollersX');
+      if (supports.every(s => s.type === 'rollerZ')) return t('svc.unstableAllRollersY');
+      const pts = supports.map(s => input.nodes.get(s.nodeId)).filter((n): n is NonNullable<typeof n> => !!n);
+      const allCollinear = pts.length < 3 ? false : (() => {
+        const x0 = pts[0].x, z0 = pts[0].z;
+        const dx = pts[1].x - x0, dz = pts[1].z - z0;
         const len = Math.sqrt(dx * dx + dz * dz);
         if (len < 1e-10) return false;
-        return supNodes.slice(2).every(p => {
-          const cross = Math.abs(dx * (p.z - z0) - dz * (p.x - x0));
-          return cross / len < 1e-6;
-        });
+        return pts.slice(2).every(p => Math.abs(dx * (p.z - z0) - dz * (p.x - x0)) / len < 1e-6);
       })();
-
-      const isRollerType = (t: string) => t === 'rollerX' || t === 'rollerY' || t === 'rollerZ';
-      const onlyRollersX = [...model.supports.values()].every(s => s.type === 'rollerX');
-      const onlyRollersZ = [...model.supports.values()].every(s => s.type === 'rollerY' || s.type === 'rollerZ');
-
-      if (onlyRollersX) {
-        return t('svc.unstableAllRollersX');
-      }
-      if (onlyRollersZ) {
-        return t('svc.unstableAllRollersY');
-      }
-
-      if (allCollinear) {
-        const types = [...model.supports.values()].map(s => s.type);
-        const allRollers = types.every(t => isRollerType(t));
-        if (allRollers) {
+      if (allCollinear && rollers.length === supports.length) {
+        const normal = (s: typeof rollers[number]): [number, number] =>
+          s.type === 'rollerX' ? [0, 1] : s.type === 'rollerZ' ? [1, 0] : [-Math.sin(s.angle ?? 0), Math.cos(s.angle ?? 0)];
+        const [n0x, n0z] = normal(rollers[0]);
+        if (rollers.every(r => { const [nx, nz] = normal(r); return Math.abs(n0x * nz - n0z * nx) < 1e-9; })) {
           return t('svc.unstableCollinearRollers');
         }
       }
@@ -533,36 +627,28 @@ function prepareSolve2D(
     const nodeHingeCount = new Map<number, number>();
     const nodeElemCount = new Map<number, number>();
     const nodeDoubleHingedOrTruss = new Map<number, number>();
-    for (const elem of model.elements.values()) {
+    for (const elem of elements) {
       nodeElemCount.set(elem.nodeI, (nodeElemCount.get(elem.nodeI) ?? 0) + 1);
       nodeElemCount.set(elem.nodeJ, (nodeElemCount.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.releaseI?.mz === true) {
-        nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
-      }
-      if (elem.releaseJ?.mz === true) {
-        nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
-      }
-      const isDoubleHinged = elem.releaseI?.mz === true && elem.releaseJ?.mz === true;
-      const isTruss = elem.type === 'truss';
-      if (isDoubleHinged || isTruss) {
+      if (elem.hingeStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
+      if (elem.hingeEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
+      if ((elem.hingeStart && elem.hingeEnd) || elem.type === 'truss') {
         nodeDoubleHingedOrTruss.set(elem.nodeI, (nodeDoubleHingedOrTruss.get(elem.nodeI) ?? 0) + 1);
         nodeDoubleHingedOrTruss.set(elem.nodeJ, (nodeDoubleHingedOrTruss.get(elem.nodeJ) ?? 0) + 1);
       }
     }
-    const supportedNodes = new Set([...model.supports.values()].map(s => s.nodeId));
+    const supportedNodes = new Set(supports.map(s => s.nodeId));
     for (const [nodeId, hinges] of nodeHingeCount) {
       const elems = nodeElemCount.get(nodeId) ?? 0;
       if (hinges >= elems && elems >= 2 && !supportedNodes.has(nodeId)) {
-        const dblOrTruss = nodeDoubleHingedOrTruss.get(nodeId) ?? 0;
-        if (dblOrTruss === 0) continue;
-
-        const node = model.nodes.get(nodeId);
+        if ((nodeDoubleHingedOrTruss.get(nodeId) ?? 0) === 0) continue;
+        const node = input.nodes.get(nodeId);
         if (!node) continue;
         const angles: number[] = [];
-        for (const el of model.elements.values()) {
+        for (const el of elements) {
           if (el.nodeI === nodeId || el.nodeJ === nodeId) {
-            const other = el.nodeI === nodeId ? model.nodes.get(el.nodeJ) : model.nodes.get(el.nodeI);
-            if (other) angles.push(Math.atan2(other.y - node.y, other.x - node.x));
+            const other = input.nodes.get(el.nodeI === nodeId ? el.nodeJ : el.nodeI);
+            if (other) angles.push(Math.atan2(other.z - node.z, other.x - node.x));
           }
         }
         let allCollinearHere = true;
@@ -586,18 +672,18 @@ function prepareSolve2D(
     const nodeFrameCount2 = new Map<number, number>();
     const nodeDoubleHingedCount = new Map<number, number>();
     const nodeHingeCount2 = new Map<number, number>();
-    for (const elem of model.elements.values()) {
+    for (const elem of elements) {
       if (elem.type !== 'frame') continue;
       nodeFrameCount2.set(elem.nodeI, (nodeFrameCount2.get(elem.nodeI) ?? 0) + 1);
       nodeFrameCount2.set(elem.nodeJ, (nodeFrameCount2.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.releaseI?.mz === true && elem.releaseJ?.mz === true) {
+      if (elem.hingeStart && elem.hingeEnd) {
         nodeDoubleHingedCount.set(elem.nodeI, (nodeDoubleHingedCount.get(elem.nodeI) ?? 0) + 1);
         nodeDoubleHingedCount.set(elem.nodeJ, (nodeDoubleHingedCount.get(elem.nodeJ) ?? 0) + 1);
       }
-      if (elem.releaseI?.mz === true) nodeHingeCount2.set(elem.nodeI, (nodeHingeCount2.get(elem.nodeI) ?? 0) + 1);
-      if (elem.releaseJ?.mz === true) nodeHingeCount2.set(elem.nodeJ, (nodeHingeCount2.get(elem.nodeJ) ?? 0) + 1);
+      if (elem.hingeStart) nodeHingeCount2.set(elem.nodeI, (nodeHingeCount2.get(elem.nodeI) ?? 0) + 1);
+      if (elem.hingeEnd) nodeHingeCount2.set(elem.nodeJ, (nodeHingeCount2.get(elem.nodeJ) ?? 0) + 1);
     }
-    const supportMap2 = new Map([...model.supports.values()].map(s => [s.nodeId, s.type]));
+    const supportMap2 = new Map(supports.map(s => [s.nodeId, s.type]));
     for (const [nodeId, frames] of nodeFrameCount2) {
       const dblCount = nodeDoubleHingedCount.get(nodeId) ?? 0;
       const hinges = nodeHingeCount2.get(nodeId) ?? 0;
@@ -611,6 +697,123 @@ function prepareSolve2D(
       }
     }
   }
+  return null;
+}
+
+/**
+ * The kinematic pre-check of a plane solve: the engine's rank analysis, read
+ * through `kinematic-2d.ts`, which gives its diagnosis in the active language
+ * and the app's axis names. Reading the raw engine result instead showed the
+ * engine's Spanish sentence in its Y-up vocabulary ("desplazamiento en Y",
+ * "rotación en Z") in every locale. Memoized on the wire key.
+ */
+function kinematicRefusal2D(input: SolverInput, wireKey: string, onKinematic?: (k: KinematicResult | null) => void): string | null {
+  // The diagnosis is a sentence in the active language: cached per language.
+  const key = `${i18n.locale}|${wireKey}`;
+  let kin = kinematicCacheGet(key);
+  if (kin === undefined) {
+    try {
+      const k = analyzeKinematics(input);
+      // Without the engine only the counting degree is known: no verdict, as before.
+      kin = k.rankAnalysis === 'unavailable' ? null : k;
+    } catch {
+      kin = null;
+    }
+    kinematicCacheSet(key, kin);
+  }
+  if (onKinematic) onKinematic(kin);
+  return kin && !kin.isSolvable ? unsolvableMessage(kin) : null;
+}
+
+/** A plane solver input without its loads: what the structural checks read. */
+function solverFrame2D(model: ModelData): SolverInput {
+  return {
+    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),
+    materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
+    // 2D solver uses the effective bending inertia (accounts for section rotation via Mohr)
+    sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
+      const props = solverProperties(s);
+      return [id, { id: s.id, a: props.a, iz: effectiveBendingInertia(s, props) }];
+    })),
+    elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
+      id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
+      materialId: e.materialId, sectionId: e.sectionId,
+      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
+    }])),
+    supports: buildSolverSupports2D(model),
+    loads: [],
+    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
+    // so a node coupled only via a constraint/connector — which the preflight
+    // credits as connected — actually receives stiffness and the 2D constrained
+    // solver can solve it, instead of being handed a singular system.
+    // constraintsTo2D translates the stored 3D DOF semantics to [ux, uz, ry].
+    constraints: constraintsTo2D(model.constraints),
+    connectors: model.connectors,
+  };
+}
+
+/**
+ * The static solve's refusal of a plane model, for an analysis that has only the
+ * solver input: P-Δ, buckling, modal and plastic collapse (see `wasm-solver.ts`,
+ * `setAdvancedGuards`). They used to go straight to the engine, so a stray node
+ * came back as "Singular stiffness matrix", a beam with two internal hinges as a
+ * converged P-Δ with rotations of 1e11 rad, and a beam on two rollers as natural
+ * frequencies. The checks are the solve's own: the node checks `preflightModel2D`
+ * makes on the model, repeated on the input, then `structuralChecks2D` and the
+ * kinematic pre-check. Returns the solve's message, or null.
+ */
+export function advancedRefusal2D(input: SolverInput): string | null {
+  if (input.nodes.size < 2 || input.elements.size < 1) return t('svc.needNodesAndElements');
+  if (input.supports.size < 1) return t('svc.needSupport');
+  const connected = new Set<number>();
+  for (const e of input.elements.values()) { connected.add(e.nodeI); connected.add(e.nodeJ); }
+  for (const c of input.connectors?.values() ?? []) { connected.add(c.nodeI); connected.add(c.nodeJ); }
+  addConstraintConnectivity(connected, input.constraints ?? []);
+  for (const nodeId of input.nodes.keys()) {
+    if (!connected.has(nodeId)) return t('svc.disconnectedNode').replace('{n}', String(nodeId));
+  }
+  for (const e of input.elements.values()) {
+    const ni = input.nodes.get(e.nodeI), nj = input.nodes.get(e.nodeJ);
+    if (ni && nj && Math.hypot(nj.x - ni.x, nj.z - ni.z) < 1e-6) {
+      return t('svc.zeroLengthElement').replace('{n}', String(e.id)).replace('{ni}', String(e.nodeI)).replace('{nj}', String(e.nodeJ));
+    }
+  }
+  const structural = structuralChecks2D(input);
+  if (structural) return structural;
+  for (const l of input.loads) {
+    if (l.type === 'nodal') {
+      if (!input.nodes.has(l.data.nodeId)) return t('svc.loadRefNodeMissing').replace('{n}', String(l.data.nodeId));
+    } else if (!input.elements.has(l.data.elementId)) {
+      const key = l.type === 'distributed' ? 'svc.loadRefDistMissing' : l.type === 'pointOnElement' ? 'svc.loadRefPointMissing' : 'svc.loadRefThermalMissing';
+      return t(key).replace('{n}', String(l.data.elementId));
+    }
+  }
+  return kinematicRefusal2D(input, `2d:${JSON.stringify(input2DToWireObject(input))}`);
+}
+
+/**
+ * Validation + wire-input construction for a 2D solve (shared by the sync and
+ * async solve paths). Returns the preparation, or an error string, or null.
+ * Also returns the KinematicResult via the optional `onKinematic` callback.
+ */
+function prepareSolve2D(
+  model: ModelData,
+  includeSelfWeight = false,
+  onKinematic?: (k: KinematicResult | null) => void,
+): Solve2DPreparation | string | null {
+  if (model.nodes.size < 2 || model.elements.size < 1) {
+    return t('svc.needNodesAndElements');
+  }
+  if (model.supports.size < 1) {
+    return t('svc.needSupport');
+  }
+
+  const { error: preflightError } = preflightModel2D(model);
+  if (preflightError) return preflightError;
+
+  const frame = solverFrame2D(model);
+  const structural = structuralChecks2D(frame);
+  if (structural) return structural;
 
   // Check that loads reference valid entities
   for (const l of model.loads) {
@@ -634,31 +837,7 @@ function prepareSolve2D(
   }
 
   // Build solver loads array (shared with the multi-case combo path)
-  const solverLoads = buildSolverLoads2D(model, model.loads, includeSelfWeight);
-
-  // Build solver input
-  const input: SolverInput = {
-    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),
-    materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
-    // 2D solver uses the effective bending inertia (accounts for section rotation via Mohr)
-    sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
-      const props = solverProperties(s);
-      return [id, { id: s.id, a: props.a, iz: effectiveBendingInertia(s, props) }];
-    })),
-    elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
-      id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
-      materialId: e.materialId, sectionId: e.sectionId,
-      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
-    }])),
-    supports: buildSolverSupports2D(model),
-    loads: solverLoads,
-    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
-    // so a node coupled only via a constraint/connector — which the preflight
-    // credits as connected — actually receives stiffness and the 2D constrained
-    // solver can solve it, instead of being handed a singular system.
-    constraints: constraints2D,
-    connectors: model.connectors,
-  };
+  const input: SolverInput = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
 
   // Kinematic analysis — memoized on the wire key. A full WASM round trip per
   // solve (serialize → analyze → parse) is by far the most expensive part of
@@ -666,25 +845,8 @@ function prepareSolve2D(
   // solve itself is memoized. The wire key is also reused by the caller as the
   // solve-cache key, so it is computed once.
   const wireKey = `2d:${JSON.stringify(input2DToWireObject(input))}`;
-  const cachedKin = kinematicCacheGet(wireKey);
-  if (cachedKin !== undefined) {
-    if (onKinematic) onKinematic(cachedKin);
-    if (cachedKin && !cachedKin.isSolvable) {
-      return unsolvableMessage(cachedKin);
-    }
-  } else {
-    try {
-      const kinematic = analyzeKinematics(input);
-      kinematicCacheSet(wireKey, kinematic);
-      if (onKinematic) onKinematic(kinematic);
-      if (!kinematic.isSolvable) {
-        return unsolvableMessage(kinematic);
-      }
-    } catch {
-      kinematicCacheSet(wireKey, null);
-      if (onKinematic) onKinematic(null);
-    }
-  }
+  const kinematicRefusal = kinematicRefusal2D(input, wireKey, onKinematic);
+  if (kinematicRefusal) return kinematicRefusal;
 
   // Basic 2D sliding joints: ephemerally expand each translational release into
   // a coincident helper node + DOF-tying constraints. Done AFTER the kinematic
@@ -848,182 +1010,36 @@ export async function validateAndSolve2DAsync(
 /** Build a SolverInput from model data (no validation). Returns null if model is empty. */
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
-
-  const solverLoads: SolverInput['loads'] = [];
-
-  for (const l of model.loads) {
-    if (l.type === 'nodal') {
-      solverLoads.push({
-        type: 'nodal' as const,
-        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
-      });
-    } else if (l.type === 'thermal') {
-      const d = l.data as ThermalLoad;
-      const k = thermalScaleOfElement(model, d.elementId);
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: d.dtGradient * k } });
-    } else if (l.type === 'pointOnElement') {
-      const d = l.data as PointLoadOnElement;
-      const angle = d.angle ?? 0;
-      const isGlobal = d.isGlobal ?? false;
-
-      if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.my ?? d.mz } });
-      } else {
-        const elem = model.elements.get(d.elementId);
-        if (!elem) continue;
-        const ni = model.nodes.get(elem.nodeI);
-        const nj = model.nodes.get(elem.nodeJ);
-        if (!ni || !nj) continue;
-        const edx = nj.x - ni.x, edy = nj.y - ni.y;
-        const L = Math.sqrt(edx * edx + edy * edy);
-        if (L < 1e-10) continue;
-        const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
-
-        let fxGlobal: number, fyGlobal: number;
-        if (isGlobal) {
-          fxGlobal = d.p * Math.sin(angleRad);
-          fyGlobal = d.p * Math.cos(angleRad);
-        } else {
-          const fLocalPerp = d.p * Math.cos(angleRad);
-          const fLocalAxial = d.p * Math.sin(angleRad);
-          fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
-          fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
-        }
-
-        const pPerp = fxGlobal * (-sinTheta) + fyGlobal * cosTheta;
-        const pAxial = fxGlobal * cosTheta + fyGlobal * sinTheta;
-
-        if (Math.abs(pPerp) > 1e-10) {
-          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: pPerp } });
-        }
-        if (Math.abs(pAxial) > 1e-10) {
-          const t = d.a / L;
-          const fI = pAxial * (1 - t);
-          const fJ = pAxial * t;
-          solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
-          );
-        }
-      }
-    } else if (l.type === 'distributed') {
-      const d = l.data as DistributedLoad;
-      const angle = d.angle ?? 0;
-      const isGlobal = d.isGlobal ?? false;
-
-      if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: d.qI, qJ: d.qJ, a: d.a, b: d.b } });
-      } else {
-        const elem = model.elements.get(d.elementId);
-        if (!elem) continue;
-        const ni = model.nodes.get(elem.nodeI);
-        const nj = model.nodes.get(elem.nodeJ);
-        if (!ni || !nj) continue;
-        const edx = nj.x - ni.x, edy = nj.y - ni.y;
-        const L = Math.sqrt(edx * edx + edy * edy);
-        if (L < 1e-10) continue;
-        const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
-
-        let qIPerpLocal: number, qIAxialLocal: number;
-        let qJPerpLocal: number, qJAxialLocal: number;
-
-        if (isGlobal) {
-          const fxFactorI = d.qI * Math.sin(angleRad);
-          const fyFactorI = d.qI * Math.cos(angleRad);
-          const fxFactorJ = d.qJ * Math.sin(angleRad);
-          const fyFactorJ = d.qJ * Math.cos(angleRad);
-          qIPerpLocal = fxFactorI * (-sinTheta) + fyFactorI * cosTheta;
-          qIAxialLocal = fxFactorI * cosTheta + fyFactorI * sinTheta;
-          qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
-          qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
-        } else {
-          qIPerpLocal = d.qI * Math.cos(angleRad);
-          qIAxialLocal = d.qI * Math.sin(angleRad);
-          qJPerpLocal = d.qJ * Math.cos(angleRad);
-          qJAxialLocal = d.qJ * Math.sin(angleRad);
-        }
-
-        if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
-          solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
-        }
-        if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
-          const loadA = d.a ?? 0;
-          const loadB = d.b ?? L;
-          const loadSpan = loadB - loadA;
-          const totalAxial = (qIAxialLocal + qJAxialLocal) * loadSpan / 2;
-          const sumQ = Math.abs(qIAxialLocal) + Math.abs(qJAxialLocal);
-          const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(qIAxialLocal) + 2 * Math.abs(qJAxialLocal)) / (3 * sumQ) : loadSpan / 2;
-          const centroidFromNodeI = loadA + centroidFromA;
-          const tC = centroidFromNodeI / L;
-          const fI = totalAxial * (1 - tC);
-          const fJ = totalAxial * tC;
-          solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
-          );
-        }
-      }
-    }
-  }
-
-  if (includeSelfWeight) {
-    for (const elem of model.elements.values()) {
-      const mat = model.materials.get(elem.materialId);
-      const sec = model.sections.get(elem.sectionId);
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!mat || !sec || !ni || !nj) continue;
-      const dx = nj.x - ni.x, dy = nj.y - ni.y;
-      const L = Math.sqrt(dx * dx + dy * dy);
-      if (L < 1e-10) continue;
-      const sinTheta = dy / L, cosTheta = dx / L;
-      const w = mat.rho * sec.a;
-      const qPerp = -w * cosTheta;
-      if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
-      }
-      const qTangent = -w * sinTheta;
-      if (Math.abs(qTangent) > 1e-10) {
-        const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta, fzNode = Ft * sinTheta;
-        solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
-        );
-      }
-    }
-  }
-
-  return {
-    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),
-    materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
-    // 2D solver uses the effective bending inertia (accounts for section rotation via Mohr)
-    sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
-      const props = solverProperties(s);
-      return [id, { id: s.id, a: props.a, iz: effectiveBendingInertia(s, props) }];
-    })),
-    elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
-      id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
-      materialId: e.materialId, sectionId: e.sectionId,
-      hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
-    }])),
-    supports: buildSolverSupports2D(model),
-    loads: solverLoads,
-    // Carry constraints + connectors into the 2D wire (mirrors buildSolverInput3D)
-    // so a node coupled only via a constraint/connector — which the preflight
-    // credits as connected — actually receives stiffness and the 2D constrained
-    // solver can solve it, instead of being handed a singular system.
-    // constraintsTo2D translates the stored 3D DOF semantics to [ux, uz, ry].
-    constraints: constraintsTo2D(model.constraints),
-    connectors: model.connectors,
-  };
+  // The same builder as every 2D path, material α included (buildSolverLoads2D).
+  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
 }
 
 // ─── 2D: solveCombinations2D ─────────────────────────────────────
 
+/**
+ * The plane combinations, with a settlement solved once and added once, as in 3D
+ * (`settlement-case.ts`). Each case used to be solved on supports carrying the prescribed
+ * displacement, so 1.2 D + 1.6 L moved a 10 mm settlement by 28 mm.
+ */
 export function solveCombinations2D(
+  model: ModelData,
+  loadCases: LoadCase[],
+  combinations: LoadCombination[],
+  includeSelfWeight = false,
+): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+  if (!hasSettlement(model.supports.values())) return solveCombinations2DCore(model, loadCases, combinations, includeSelfWeight);
+  const solved = solveCombinations2DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight);
+  if (!solved || typeof solved === 'string') return solved;
+  // Through the same solve as the load cases (validateAndSolve2D): sliding joints expanded,
+  // helper nodes pruned, the model checks run. A bare solve of the input treated a sliding
+  // joint as rigid, so the settlement acted on a different structure than the loads.
+  const settlement = validateAndSolve2D({ ...model, loads: [] }, false);
+  if (!settlement) return t('svc.emptyModel');
+  if (typeof settlement === 'string') return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
+  return addSettlementCase2D(solved, settlement, combinations) ?? t('svc.envelopeError');
+}
+
+function solveCombinations2DCore(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
@@ -1284,7 +1300,8 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
           dirY = project2DToXZ ? 0 : Math.cos(angleRad);
           dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
         } else {
-          const perpFactor = Math.cos(angleRad);
+          // In the drawn axes, like the plane solve (transverse-sign-2d.ts).
+          const perpFactor = (project2DToXZ ? transverseSign(edx, edPlan) : 1) * Math.cos(angleRad);
           const axialFactor = Math.sin(angleRad);
           dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
           dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
@@ -1314,14 +1331,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
         const L3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d + dz3d * dz3d);
         const loadA = d.a ?? 0;
         const loadB = d.b ?? L3d;
-        const loadSpan = loadB - loadA;
-        const totalAxial = (projI.qAxial + projJ.qAxial) * loadSpan / 2;
-        const sumQ = Math.abs(projI.qAxial) + Math.abs(projJ.qAxial);
-        const centroidFromA = sumQ > 1e-10 ? loadSpan * (Math.abs(projI.qAxial) + 2 * Math.abs(projJ.qAxial)) / (3 * sumQ) : loadSpan / 2;
-        const centroidFromNodeI = loadA + centroidFromA;
-        const tC = centroidFromNodeI / L3d;
-        const fI = totalAxial * (1 - tC);
-        const fJ = totalAxial * tC;
+        const [fI, fJ] = axialEquivalentLoads(projI.qAxial, projJ.qAxial, loadA, loadB, L3d);
         solverLoads.push(
           { type: 'nodal', data: { nodeId: elem.nodeI, fx: fI * axes.ex[0], fy: fI * axes.ex[1], fz: fI * axes.ex[2], mx: 0, my: 0, mz: 0 } },
           { type: 'nodal', data: { nodeId: elem.nodeJ, fx: fJ * axes.ex[0], fy: fJ * axes.ex[1], fz: fJ * axes.ex[2], mx: 0, my: 0, mz: 0 } },
@@ -1364,7 +1374,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
         dirY = project2DToXZ ? 0 : Math.cos(angleRad);
         dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
       } else {
-        const perpFactor = Math.cos(angleRad);
+        const perpFactor = (project2DToXZ ? transverseSign(edx, edPlan) : 1) * Math.cos(angleRad);
         const axialFactor = Math.sin(angleRad);
         dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
         dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
@@ -1373,7 +1383,8 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
 
       const projY = (dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2]) * d.p;
       const projZ = (dirX * axes.ez[0] + dirY * axes.ez[1] + dirZ * axes.ez[2]) * d.p;
-      const projAxial = (dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2]) * d.p;
+      // Plus the load's own axial component, which the space mapping used to drop.
+      const projAxial = (dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2]) * d.p + (d.px ?? 0);
 
       if (Math.abs(projY) > 1e-10 || Math.abs(projZ) > 1e-10) {
         solverLoads.push({
@@ -1413,8 +1424,19 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
         data: {
           elementId: d.elementId,
           dtUniform: d.dtUniform * k,
-          dtGradientY: project2DToXZ ? d.dtGradient * k : 0,
-          dtGradientZ: project2DToXZ ? 0 : d.dtGradient * k,
+          /*
+           * ΔTg is the course's ∇T·h = ΔT(bottom face) − ΔT(top face), top
+           * being the drawn z side — the plane solve's convention. It is a
+           * gradient across local z (fef_thermal_3d: "gradient in Z → bending
+           * about Y"), with the engine's opposite sign (+Z face hotter).
+           *
+           * An embedded plane model sent it across y, which bent each member
+           * out of its plane (a fixed-fixed beam reacted with Mz, not My); a
+           * space model sent it across z with the plane's sign reversed, so
+           * the same load sagged in 2D and hogged in 3D.
+           */
+          dtGradientY: 0,
+          dtGradientZ: -d.dtGradient * k,
         },
       });
     } else if (l.type === 'thermalQuad3d') {
@@ -1595,24 +1617,22 @@ export function buildSolverInput3D(
         const supportDry = s.dry ?? s.drz;
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
         /*
-         * `kz` means two things, by support family. On a 2D support (`spring`) it is the
-         * rotational spring, as in the plane model: kx and ky translate, kz turns. On a 3D
-         * support (`spring3d`, `custom3d`) it is the vertical translational spring, as the
-         * supports table labels it (kN/m) and as the step-by-step 3D solver and the kinematic
-         * count read it. This mapping used to give every support the 2D reading, so a 3D
-         * spring's kz arrived as krz and no vertical spring existed: the mat foundation example
-         * floated.
+         * A plane support's springs are kx, ky (vertical) and kz (rotation);
+         * a space support's are kx, ky, kz (translations) and krx, kry, krz.
+         * The space case sent no kz at all and read kz as the rotational
+         * spring about z: every space support lost its vertical spring, and
+         * a raft on soil springs floated (7·10¹⁰ m, mat-foundation).
          */
-        const legacyRotZ = is2DSupportType(s.type);
+        const plane = !s.dofRestraints && is2DSupportType(s.type);
         return [s.nodeId, {
           nodeId: s.nodeId,
           ...dofs,
           kx: s.kx,
           ky: embedded2D ? undefined : s.ky,
-          kz: embedded2D ? s.ky : (legacyRotZ ? undefined : s.kz),
+          kz: embedded2D ? s.ky : (plane ? undefined : s.kz),
           krx: embedded2D ? undefined : s.krx,
           kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
-          krz: embedded2D ? s.krz : (legacyRotZ ? (s.krz ?? s.kz) : s.krz),
+          krz: embedded2D ? s.krz : (plane ? (s.krz ?? s.kz) : s.krz),
           dx: s.dx,
           dy: embedded2D ? undefined : s.dy,
           dz: embedded2D ? supportDz : s.dz,
@@ -1704,6 +1724,20 @@ export function buildSolverInput3D(
   return input;
 }
 
+/**
+ * `buildSolverInput3D` for the solves: what it refuses — a semi-rigid end it cannot model — comes
+ * back as the solve's error message, as every other refusal does, rather than as an exception
+ * thrown past the solve's own error handling.
+ */
+function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): SolverInput3D | string | null {
+  try {
+    return buildSolverInput3D(...args);
+  } catch (err) {
+    if (!(err instanceof SemiRigidError)) throw err;
+    return t(err.code === 'invalid' ? 'svc.semiRigidInvalid' : 'svc.semiRigidNotAligned').replace('{n}', String(err.elementId));
+  }
+}
+
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
 
 /**
@@ -1748,10 +1782,10 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   for (const elem of model.elements.values()) {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
-    if (!ni) return `Element ${elem.id}: node ${elem.nodeI} not found`;
-    if (!nj) return `Element ${elem.id}: node ${elem.nodeJ} not found`;
-    if (!model.materials.has(elem.materialId)) return `Element ${elem.id}: material ${elem.materialId} not found`;
-    if (!model.sections.has(elem.sectionId)) return `Element ${elem.id}: section ${elem.sectionId} not found`;
+    if (!ni) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeI });
+    if (!nj) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeJ });
+    if (!model.materials.has(elem.materialId)) return tp('svc.elemMaterialMissing', { id: elem.id, mat: elem.materialId });
+    if (!model.sections.has(elem.sectionId)) return tp('svc.elemSectionMissing', { id: elem.id, sec: elem.sectionId });
     const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L < 1e-6) {
@@ -1767,15 +1801,15 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // it here, mirroring the element check above.
   for (const plate of (model.plates?.values() ?? [])) {
     for (const nid of plate.nodes) {
-      if (!model.nodes.has(nid)) return `Plate ${plate.id}: node ${nid} not found`;
+      if (!model.nodes.has(nid)) return tp('svc.plateNodeMissing', { id: plate.id, node: nid });
     }
-    if (!model.materials.has(plate.materialId)) return `Plate ${plate.id}: material ${plate.materialId} not found`;
+    if (!model.materials.has(plate.materialId)) return tp('svc.plateMaterialMissing', { id: plate.id, mat: plate.materialId });
   }
   for (const quad of (model.quads?.values() ?? [])) {
     for (const nid of quad.nodes) {
-      if (!model.nodes.has(nid)) return `Quad ${quad.id}: node ${nid} not found`;
+      if (!model.nodes.has(nid)) return tp('svc.quadNodeMissing', { id: quad.id, node: nid });
     }
-    if (!model.materials.has(quad.materialId)) return `Quad ${quad.id}: material ${quad.materialId} not found`;
+    if (!model.materials.has(quad.materialId)) return tp('svc.quadMaterialMissing', { id: quad.id, mat: quad.materialId });
   }
 
   // Check graph connectivity (plate/quad adjacency + connector edges +
@@ -1794,26 +1828,104 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
     }
   }
   addConstraintAdjacency(adj, model.constraints);
-  const visited = new Set<number>();
-  const startNode = connectedNodes.values().next().value!;
-  const queue = [startNode];
-  visited.add(startNode);
-  // Index-based queue: shift() would make the walk O(n²) in node moves.
-  for (let qi = 0; qi < queue.length; qi++) {
-    const cur = queue[qi];
-    for (const nb of adj.get(cur)!) {
-      if (!visited.has(nb)) { visited.add(nb); queue.push(nb); }
+  const disconnected = connectivityRefusal([], connectedNodes, adj);
+  if (disconnected) return disconnected;
+
+  const input = buildSolveInput3D(model, includeSelfWeight, leftHand);
+  if (!input) return t('svc.emptyModel');
+  if (typeof input === 'string') return input;
+  return unheldMomentRefusal3D(input) ?? input;
+}
+
+/**
+ * A nodal moment on a node nothing there can turn against — one only truss bars
+ * meet, or any node of a pure truss model — refused with the node named. The solve
+ * used to put it into a vanishing spring (rotations of 1e5 rad) or drop it, and show
+ * reactions that did not balance the loads. See `unheldNodalMoment3D`.
+ */
+function unheldMomentRefusal3D(input: SolverInput3D): string | null {
+  const node = unheldNodalMoment3D(input);
+  return node === null ? null : tp('svc.momentOnTrussNode', { n: node });
+}
+
+/**
+ * The static solve's refusal of a space model, for an analysis that has only the
+ * solver input (see `advancedRefusal2D`). The model checks of `prepareSolve3D`,
+ * repeated on the input — a stray node was "Singular stiffness matrix" to P-Δ and
+ * buckling and "Eigenvalue decomposition failed" to modal — then the linear solve
+ * and its mechanism gate (`excitedMechanism3D`): a sway mechanism the loads excite
+ * was a converged P-Δ with B₂ ≈ 0, or a buckling factor of 1e-12.
+ */
+export function advancedRefusal3D(input: SolverInput3D): string | null {
+  const shells = [input.plates, input.quads, input.curvedShells];
+  const hasShells = shells.some((m) => (m?.size ?? 0) > 0);
+  if (input.nodes.size < 2 || (input.elements.size === 0 && !hasShells && !(input.connectors?.size))) return t('svc.needNodesAndElements');
+  if (input.supports.size < 1) return t('svc.needSupport');
+  for (const e of input.elements.values()) {
+    const ni = input.nodes.get(e.nodeI), nj = input.nodes.get(e.nodeJ);
+    if (!ni) return tp('svc.elemNodeMissing', { id: e.id, node: e.nodeI });
+    if (!nj) return tp('svc.elemNodeMissing', { id: e.id, node: e.nodeJ });
+    if (!input.materials.has(e.materialId)) return tp('svc.elemMaterialMissing', { id: e.id, mat: e.materialId });
+    if (!input.sections.has(e.sectionId)) return tp('svc.elemSectionMissing', { id: e.id, sec: e.sectionId });
+    if (Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z) < 1e-6) {
+      return t('svc.zeroLengthElement').replace('{n}', String(e.id)).replace('{ni}', String(e.nodeI)).replace('{nj}', String(e.nodeJ));
     }
   }
-  if (visited.size < connectedNodes.size) {
-    const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
+  const connected = new Set<number>();
+  const adj = new Map<number, Set<number>>();
+  const link = (a: number, b: number) => {
+    connected.add(a); connected.add(b);
+    if (!adj.has(a)) adj.set(a, new Set());
+    if (!adj.has(b)) adj.set(b, new Set());
+    adj.get(a)!.add(b); adj.get(b)!.add(a);
+  };
+  for (const e of input.elements.values()) link(e.nodeI, e.nodeJ);
+  for (const m of shells) for (const sh of m?.values() ?? []) {
+    for (let k = 0; k < sh.nodes.length; k++) link(sh.nodes[k], sh.nodes[(k + 1) % sh.nodes.length]);
   }
-
-  const input = buildSolverInput3D(model, includeSelfWeight, leftHand);
-  if (!input) return t('svc.emptyModel');
-  return input;
+  for (const c of input.connectors?.values() ?? []) link(c.nodeI, c.nodeJ);
+  addConstraintConnectivity(connected, input.constraints);
+  for (const n of connected) if (!adj.has(n)) adj.set(n, new Set());
+  addConstraintAdjacency(adj, input.constraints);
+  const disconnected = connectivityRefusal(input.nodes.keys(), connected, adj);
+  if (disconnected) return disconnected;
+  const moment = unheldMomentRefusal3D(input);
+  if (moment) return moment;
+  const solved = guardSolve3D(input);
+  return 'error' in solved
+    ? t('svc.solver3dError').replace('{n}', solved.error)
+    : excitedMechanism3D(solved.results);
 }
+
+/**
+ * The static solve the space gate reads, kept for the input it was made for. A caller asks the
+ * gate again with the same input — PRO's modes-until-90 % runs a modal step after step, and a
+ * P-Δ asks before its own solve — and each time the whole static system was solved again to
+ * answer a question whose inputs had not changed.
+ */
+let lastGateSolve: { key: string; outcome: { results: AnalysisResults3D } | { error: string } } | null = null;
+function guardSolve3D(input: SolverInput3D): { results: AnalysisResults3D } | { error: string } {
+  const key = JSON.stringify(input3DToWireObject(input));
+  if (lastGateSolve?.key === key) return lastGateSolve.outcome;
+  let outcome: { results: AnalysisResults3D } | { error: string };
+  try { outcome = { results: solve3DEngine(input) }; } catch (err: any) { outcome = { error: err?.message ?? String(err) }; }
+  lastGateSolve = { key, outcome };
+  return outcome;
+}
+
+/*
+ * P-Δ, buckling, modal and plastic collapse are called with a solver input, at
+ * `wasm-solver.ts`, which cannot import this module (it is what this module is
+ * built on, and the solver worker loads it). The checks and the words are lent
+ * to it here, once, when the app — or any test that uses the model store —
+ * loads the solve.
+ */
+setAdvancedGuards({
+  refuse2D: advancedRefusal2D,
+  refuse3D: advancedRefusal3D,
+  eigenInput3D: exactOrphanRotations3D,
+  text: (key, params) => tp(key, params),
+});
 
 /** Post-solve 3D result enrichment: shell stresses + helper-node pruning. */
 function finalizeSolve3DResults(results: AnalysisResults3D, model: ModelData): AnalysisResults3D {
@@ -1827,6 +1939,24 @@ function finalizeSolve3DResults(results: AnalysisResults3D, model: ModelData): A
     return pruneHelperNodeResults(results, new Set(model.nodes.keys()));
   }
   return results;
+}
+
+/**
+ * A space model that is a mechanism the loads excite.
+ *
+ * The plane path refuses these before solving (kinematic preflight); the
+ * space path has no such gate — a planar frame embedded in space carries an
+ * out-of-plane sway nothing excites, and a kinematic test would reject it —
+ * so the engine solves the singular system and returns displacements of
+ * 1e11 m, flagged only as warnings. The results were shown as if valid: with
+ * every support of a portal turned into a roller, the diagrams stayed on
+ * screen and live calc reported nothing. When the engine says both that the
+ * displacements are excessive and that the equilibrium residual is high, the
+ * solution is not one, and this says so instead.
+ */
+function excitedMechanism3D(results: AnalysisResults3D): string | null {
+  const codes = new Set(((results as { structuredDiagnostics?: Array<{ code?: string }> }).structuredDiagnostics ?? []).map((d) => d.code));
+  return codes.has('excessive_displacement') && codes.has('residual_high') ? t('svc.mechanism3d') : null;
 }
 
 export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
@@ -1844,6 +1974,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
     const dt = performance.now() - t0;
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    const mechanism = excitedMechanism3D(results);
+    if (mechanism) return mechanism;
     return finalizeSolve3DResults(results, model);
   } catch (err: any) {
     console.error('Solver 3D error:', err);
@@ -1881,6 +2013,8 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     }
     const dt = performance.now() - t0;
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+    const mechanism = excitedMechanism3D(results);
+    if (mechanism) return mechanism;
     const finalResults = finalizeSolve3DResults(results, model);
     solveCacheSet(cacheKey, finalResults);
     return finalResults;
@@ -1915,8 +2049,9 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
  * the structure without prescribed displacements.
  */
 function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: LoadCombination[], leftHand: boolean): Bundle3D | string {
-  const input = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const input = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (!input) return t('svc.emptyModel');
+  if (typeof input === 'string') return input;
   let settlement: AnalysisResults3D | string;
   try {
     settlement = solve3DEngine(input);
@@ -1990,8 +2125,11 @@ function solveCombinations3DCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (!baseInput) return t('svc.emptyModel');
+  if (typeof baseInput === 'string') return baseInput;
+  const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
+  if (unheld) return unheld;
 
   // Build per-case load arrays — reuse baseInput structure, only build loads per case
   const mcLoadCases: Array<{ name: string; loads: SolverLoad3D[] }> = [];
@@ -2038,6 +2176,8 @@ function solveCombinations3DCore(
     const perCase = new Map<number, AnalysisResults3D>();
     for (const cr of mcResult.caseResults) {
       const id = caseNameToId.get(cr.name);
+      const mech = excitedMechanism3D(cr.results);
+      if (mech) return t('svc.errorInCase3d').replace('{n}', cr.name).replace('{err}', mech);
       if (id != null) perCase.set(id, cr.results);
     }
 
@@ -2087,6 +2227,8 @@ function solveCombinations3DFallback(
         return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', result);
       }
       if (result) {
+        const mech = excitedMechanism3D(result);
+        if (mech) return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', mech);
         if (hasShells) postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
         perCase.set(lc.id, result);
       }
@@ -2136,9 +2278,13 @@ function solveCombinations3DNonlinear(
   const method = model.analysis?.combinationMethod ?? 'solveEach';
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
-  const base = buildSolverInput3D({ ...free, loads: [] }, false, leftHand);
-  const baseSettled = settled ? buildSolverInput3D({ ...model, loads: [] }, false, leftHand) : base;
+  const base = buildSolveInput3D({ ...free, loads: [] }, [], leftHand);
+  if (typeof base === 'string') return base;
+  const baseSettled = settled ? buildSolveInput3D({ ...model, loads: [] }, [], leftHand) : base;
+  if (typeof baseSettled === 'string') return baseSettled;
   if (!base || !baseSettled) return t('svc.emptyModel');
+  const unheld = unheldMomentRefusal3D({ ...base, loads: buildSolverLoads3D(model, model.loads, [], leftHand) });
+  if (unheld) return unheld;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const run = (on: SolverInput3D, loads: SolverLoad3D[]): AnalysisResults3D => {
@@ -2191,10 +2337,11 @@ function solveCombinations3DPDelta(
 ): Bundle3D | string | null {
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
+  const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
+  if (typeof base === 'string') return base;
+  if (!base) return t('svc.emptyModel');
   const linear = solveCombinations3DCore(free, loadCases, combinations, includeSelfWeight, leftHand);
   if (!linear || typeof linear === 'string') return linear;
-  const base = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
-  if (!base) return t('svc.emptyModel');
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const perCombo = new Map<number, AnalysisResults3D>();
@@ -2272,8 +2419,13 @@ export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number
   return combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
 }
 
-/** A solver load times a factor: every magnitude scales, positions and ids do not. */
-const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id', 'a', 'b', 'caseId']);
+/**
+ * A solver load times a factor: every magnitude scales, positions, ids and material data do not.
+ * A quad's thermal load carries its material's α, and an edge load its edge index; a quad's
+ * self-weight scales through its gravity, so its density stays too, or the factor went in twice.
+ */
+const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id', 'a', 'b', 'caseId', 'alpha', 'edge', 'density']);
+
 export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(l.data)) data[k] = typeof v === 'number' && !LOAD_KEYS_KEPT.has(k) ? v * f : v;
@@ -2297,6 +2449,7 @@ export async function solveCombinations3DParallel(
   const original = model;
   model = activeModel(model);
   const done = async (): Promise<Bundle3D | string | null> => {
+    if (model.analysis?.perCombination === 'pdelta' && !hasNonlinearBehaviour(model)) return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
     const solved = await solveCombinations3DParallelCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
@@ -2320,8 +2473,11 @@ async function solveCombinations3DParallelCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (!baseInput) return t('svc.emptyModel');
+  if (typeof baseInput === 'string') return baseInput;
+  const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
+  if (unheld) return unheld;
 
   // Plain-object wire form of the base structure (shared across all cases).
   // Built straight from the Maps — the old JSON.parse(serializeInput3D(...))
@@ -2361,6 +2517,8 @@ async function solveCombinations3DParallelCore(
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
+      const mech = excitedMechanism3D(result);
+      if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {
         postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }

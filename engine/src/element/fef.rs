@@ -109,11 +109,18 @@ pub fn fef_point_load_2d(
     let fx_i = px * b / l;
     let fx_j = px * a / l;
 
-    // Concentrated moment
+    // Concentrated moment (counter-clockwise positive), as equivalent nodal
+    // loads: the couple does work on the rotation v'(a), so it loads by the
+    // slopes of the Hermite shape functions, M·N'(a). The two moment terms
+    // used to carry the textbook fixed-end REACTION moments,
+    // +M·b(2a−b)/L² and +M·a(2b−a)/L² — the negatives of these — while the
+    // shear terms were already equivalent loads. The mix broke statics: the
+    // vector summed to a moment of 1.88 M about node i instead of M, and a
+    // cantilever carrying a 6 kN·m couple reported −11.28 at its wall.
     let fy_i_m = -6.0 * mz * a * b / l3;
-    let mz_i_m = mz * b * (2.0 * a - b) / l2;
+    let mz_i_m = -mz * b * (2.0 * a - b) / l2;
     let fy_j_m = 6.0 * mz * a * b / l3;
-    let mz_j_m = mz * a * (2.0 * b - a) / l2;
+    let mz_j_m = -mz * a * (2.0 * b - a) / l2;
 
     [
         fx_i,
@@ -514,6 +521,29 @@ mod tests {
         assert!((fef[5] - 30.0).abs() < 1e-6);
     }
 
+    /// Equivalent loads must be statically equivalent to the couple they
+    /// replace: no net force, and a moment of exactly M about node i.
+    #[test]
+    fn test_fef_point_couple_is_statically_equivalent() {
+        let (l, m) = (5.0, 6.0);
+        for &a in &[0.0, 1.0, 2.0, 2.5, 4.0, 5.0] {
+            let f = fef_point_load_2d(0.0, 0.0, m, a, l);
+            assert!((f[1] + f[4]).abs() < 1e-12, "a = {a}: net force {}", f[1] + f[4]);
+            let about_i = f[2] + f[5] + f[4] * l;
+            assert!((about_i - m).abs() < 1e-12, "a = {a}: moment about i {about_i}, want {m}");
+        }
+    }
+
+    /// At a = 2 on a 5 m bar: M·N'(a) for each Hermite shape function.
+    #[test]
+    fn test_fef_point_couple_values() {
+        let f = fef_point_load_2d(0.0, 0.0, 6.0, 2.0, 5.0);
+        assert!((f[1] - (-1.728)).abs() < 1e-12);
+        assert!((f[2] - (-0.72)).abs() < 1e-12);
+        assert!((f[4] - 1.728).abs() < 1e-12);
+        assert!((f[5] - (-1.92)).abs() < 1e-12);
+    }
+
     #[test]
     fn test_fef_point_load() {
         // Midspan point load on 6m beam
@@ -525,4 +555,15 @@ mod tests {
         assert!((fef[2] - (-7.5)).abs() < 1e-6);
         assert!((fef[5] - 7.5).abs() < 1e-6);
     }
+}
+
+/// Consistent axial nodal forces of a trapezoid on [a,b], per unit member length.
+/// Integrates the linear axial shape functions, retaining couples of opposite-sign ends.
+pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
+    let span = b - a;
+    if span <= 0.0 { return [0.0, 0.0]; }
+    let f_i = q_i * span / 2.0;
+    let f_j = q_j * span / 2.0;
+    let at_j = (f_i * (a + span / 3.0) + f_j * (a + 2.0 * span / 3.0)) / l;
+    [f_i + f_j - at_j, at_j]
 }

@@ -174,6 +174,19 @@ export function renumber(opts: RenumberOptions): RenumberResult {
       ...(g.members.quads ? { quads: g.members.quads.map(rq) } : {}),
     },
   }]);
+  // What the project keeps beside the model and names by id: a deflection rule on chosen members,
+  // what a saved view hides, a time-history force on a node. Left alone, each kept its old numbers
+  // and so moved to whatever member, shell or node took them.
+  if (snap.deflectionLimits) snap.deflectionLimits = {
+    ...snap.deflectionLimits,
+    rules: snap.deflectionLimits.rules.map((r: any) => (r.scope?.kind === 'members' ? { ...r, scope: { ...r.scope, ids: r.scope.ids.map(re) } } : r)),
+  };
+  const rShell = (k: string) => (k[0] === 'q' ? `q${rq(Number(k.slice(1)))}` : k[0] === 'p' ? `p${rp(Number(k.slice(1)))}` : k);
+  if (snap.views) snap.views = snap.views.map((v: any) => (v.display?.hidden ? {
+    ...v, display: { ...v.display, hidden: { ...v.display.hidden, elements: (v.display.hidden.elements ?? []).map(re), shells: (v.display.hidden.shells ?? []).map(rShell) } },
+  } : v));
+  const th = snap.dynamics?.timeHistory;
+  if (th?.forces) snap.dynamics = { ...snap.dynamics, timeHistory: { ...th, forces: th.forces.map((f: any) => ({ ...f, nodeId: rn(f.nodeId) })) } };
   // Counters stay ahead of every id in use.
   const maxOf = (m: Map<number, number>) => Math.max(0, ...m.values());
   snap.nextId = {
