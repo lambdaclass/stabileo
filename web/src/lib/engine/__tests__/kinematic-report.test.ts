@@ -508,7 +508,7 @@ describe('Per-element analysis — DOF breakdown', () => {
     expect(tyLine.sources).toHaveLength(1);
     expect(tyLine.sources[0].label).toContain('Fixed support');
 
-    expect(bd.summary).toContain('isostatic');
+    expect(bd.summary).toContain('statically determinate');
   });
 
   it('Simply supported beam (pinned + rollerX): ux(1), uy(2), θz(implicit)', () => {

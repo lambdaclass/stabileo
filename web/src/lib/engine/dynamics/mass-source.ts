@@ -162,7 +162,7 @@ function nodeOf(input: SolverInput3D, id: number) {
   return n;
 }
 
-function memberGeometry(input: SolverInput3D, elementId: number): { L: number; A: number; ey: Vec3; ez: Vec3 } | null {
+function memberGeometry(input: SolverInput3D, elementId: number): { L: number; A: number; ex: Vec3; ey: Vec3; ez: Vec3 } | null {
   const e = input.elements.get(elementId);
   if (!e) return null;
   const ni = nodeOf(input, e.nodeI), nj = nodeOf(input, e.nodeJ);
@@ -171,7 +171,7 @@ function memberGeometry(input: SolverInput3D, elementId: number): { L: number; A
   const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand ?? false);
   const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
   const A = input.sections.get(e.sectionId)?.a ?? 0;
-  return { L, A, ey: axes.ey as Vec3, ez: axes.ez as Vec3 };
+  return { L, A, ex: axes.ex as Vec3, ey: axes.ey as Vec3, ez: axes.ez as Vec3 };
 }
 
 /** Area of a planar-enough quad, as two triangles. */
@@ -236,8 +236,8 @@ export function applyMassSource(
       let down: number;
       if (l.type === 'distributed') {
         const a = l.data.a ?? 0, b = l.data.b ?? g.L;
-        const fzI = l.data.qYI * g.ey[2] + l.data.qZI * g.ez[2];
-        const fzJ = l.data.qYJ * g.ey[2] + l.data.qZJ * g.ez[2];
+        const fzI = (l.data.qXI ?? 0) * g.ex[2] + l.data.qYI * g.ey[2] + l.data.qZI * g.ez[2];
+        const fzJ = (l.data.qXJ ?? 0) * g.ex[2] + l.data.qYJ * g.ey[2] + l.data.qZJ * g.ez[2];
         down = -(b - a) * (fzI + fzJ) / 2;
       } else {
         down = -(l.data.py * g.ey[2] + l.data.pz * g.ez[2]);

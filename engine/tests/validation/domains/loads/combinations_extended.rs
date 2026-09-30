@@ -486,6 +486,7 @@ fn validation_comb_ext_3d_distributed_combo() {
     // LC1: distributed load -6 kN/m in Y on all elements
     let lc1_loads: Vec<SolverLoad3D> = (1..=n)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: -6.0, q_yj: -6.0,
             q_zi: 0.0, q_zj: 0.0,
@@ -496,6 +497,7 @@ fn validation_comb_ext_3d_distributed_combo() {
     // LC2: distributed load -4 kN/m in Z on all elements
     let lc2_loads: Vec<SolverLoad3D> = (1..=n)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: 0.0, q_yj: 0.0,
             q_zi: -4.0, q_zj: -4.0,
@@ -526,6 +528,7 @@ fn validation_comb_ext_3d_distributed_combo() {
     // Direct solve: qY = 2.0*(-6) = -12, qZ = 0.5*(-4) = -2
     let direct_loads: Vec<SolverLoad3D> = (1..=n)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: -12.0, q_yj: -12.0,
             q_zi: -2.0, q_zj: -2.0,

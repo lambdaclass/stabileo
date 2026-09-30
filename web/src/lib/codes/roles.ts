@@ -651,6 +651,14 @@ export interface StoredRegulations {
   roles: ProjectRegulations;
 }
 
+
+/** Withdrawn editions that only ever applied a later edition's rules, and that edition. */
+const WITHDRAWN_SUCCESSOR: Readonly<Record<string, string>> = {
+  'cirsoc101-2005-basis': 'cirsoc101-2025-basis',
+  'cirsoc101-2005-loads': 'cirsoc101-2025-loads',
+  'cirsoc102-2005': 'cirsoc102-2025',
+};
+
 /**
  * Migrate from any earlier persisted shape.
  *
@@ -687,24 +695,31 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
       if (!b || typeof b !== 'object') continue;
       const opt = b.adapterId ? findOption(b.adapterId) : undefined;
       if (!opt) { roles[role] = unsetBinding(role); continue; }
-      // A stored project may name an edition that has since been withdrawn from production
-      // (CIRSOC 201-2005). It is unset rather than carried, and the user is told, because
-      // the alternative is a project that silently cannot be designed with no explanation.
+      // A stored project may name an edition that has since been withdrawn from production.
+      // CIRSOC 201-2005 had rules of its own: it is unset rather than carried, and the user is
+      // told, because the alternative is a project that silently cannot be designed with no
+      // explanation. CIRSOC 101/102-2005 never had: those entries applied the 2025 rules
+      // under a 2005 name, so the project moves to 2025 — the rules it was already given —
+      // and is told. Unsetting them left a wind role nobody could use, and Auto-generate
+      // refused wind. The v1 path below does the same.
+      let bound = opt;
       if (!optionIsAvailable(opt)) {
-        roles[role] = unsetBinding(role);
         notices.push({
           key: 'regulations.migration.editionWithdrawn',
           params: { role, edition: String(opt.edition) },
         });
-        continue;
+        const successor = WITHDRAWN_SUCCESSOR[opt.adapterId];
+        const next = successor ? findOption(successor) : undefined;
+        if (!next || !optionIsAvailable(next)) { roles[role] = unsetBinding(role); continue; }
+        bound = next;
       }
       roles[role] = {
-        ...bindRole(role, opt.adapterId, {
+        ...bindRole(role, bound.adapterId, {
           jurisdiction: typeof b.jurisdiction === 'string' ? b.jurisdiction : '',
           adoption: isAdoption(b.adoption) ? b.adoption : 'unstated',
           settings: (b.settings && typeof b.settings === 'object') ? b.settings as Record<string, unknown> : {},
         }),
-        configComplete: b.configComplete === true || !opt.requiresConfig,
+        configComplete: b.configComplete === true || !bound.requiresConfig,
         state: isState(b.state) ? b.state : 'applied',
         appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : 0,
       };

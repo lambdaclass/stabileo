@@ -63,6 +63,7 @@ fn test_tension_only_bar_goes_slack() {
     // Element 1: (0,0)→(1,1), Element 2: (2,0)→(1,1)
     // Rightward force at apex: element 1 stretches (tension), element 2 shortens (compression)
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0, 0.0)),
@@ -121,6 +122,7 @@ fn test_gap_closes_under_compression() {
     // Gap opens at 0.002m. Without gap: δ = 500/2000 = 0.25m >> 0.002.
     // With gap (k=5000): δ = 500/(2000+5000) = 0.071m >> 0.002.
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -182,6 +184,7 @@ fn test_compression_only_element() {
     // V-shape with downward load pulls both bars in tension.
     // Element 2 is compression-only → deactivates.
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 2.0, 0.0)),
@@ -234,6 +237,7 @@ fn test_compression_only_element() {
 #[test]
 fn test_oscillation_damping() {
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -291,6 +295,7 @@ fn test_oscillation_damping() {
 #[test]
 fn test_gap_friction_coulomb_limit() {
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 0.0, 0.5)),
@@ -362,6 +367,7 @@ fn test_multiple_gaps_mixed_states() {
     // Gap 1 small (0.001m), gap 2 large (0.5m).
     // Force pushes node 2 right → gap 1 closes, gap 2 stays open.
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -427,6 +433,7 @@ fn test_multiple_gaps_mixed_states() {
 fn test_augmented_lagrangian_reduces_penetration() {
     let make_input = |al: Option<f64>| -> ContactInput {
         let solver = SolverInput {
+            solver_options: None,
             nodes: hm(vec![
                 (1, node(1, 0.0, 0.0)),
                 (2, node(2, 1.0, 0.0)),
@@ -488,6 +495,7 @@ fn test_convergence_stable_problem() {
     // Horizontal cantilever 1→2→3 with tension load at tip.
     // Element 1 tension-only, element 2 normal. Both carry tension.
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -583,7 +591,7 @@ fn test_sparse_path_parity_with_dense() {
                 SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: load, fz: 0.0, my: 0.0 }),
             ],
             constraints: vec![],
-            connectors: HashMap::new(),
+            connectors: HashMap::new(), solver_options: None,
         };
 
         ContactInput {

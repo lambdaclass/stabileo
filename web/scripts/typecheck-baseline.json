@@ -1,5 +1,5 @@
 {
-	"total": 467,
+	"total": 463,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -159,21 +159,9 @@
 		},
 		{
 			"file": "src/lib/engine/__tests__/connectors-eccentric.test.ts",
-			"code": "TS2339",
-			"message": "Property 'structuredDiagnostics' does not exist on type 'AnalysisResults3D'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/connectors-eccentric.test.ts",
 			"code": "TS2353",
 			"message": "Object literal may only specify known properties, and 'id' does not exist in type 'SolverNodalLoad3D | SolverDistributedLoad3D | SolverPointLoad3D | SolverThermalLoad3D'.",
 			"count": 1
-		},
-		{
-			"file": "src/lib/engine/__tests__/connectors-eccentric.test.ts",
-			"code": "TS7006",
-			"message": "Parameter 'd' implicitly has an 'any' type.",
-			"count": 2
 		},
 		{
 			"file": "src/lib/engine/__tests__/constraint-connectivity.test.ts",

@@ -140,8 +140,12 @@ pub fn compute_diagram_value_at_sorted(
             for pl in sorted_pl {
                 if pl.a < xi - 1e-10 {
                     value -= pl.p * (xi - pl.a);
+                    // With m(x) = m_start − v_start·x and P entering as
+                    // −P·(x − a), equilibrium of the piece left of x puts a
+                    // counter-clockwise couple in with a PLUS: past a couple
+                    // on a cantilever the moment must fall back to zero.
                     if let Some(mz) = pl.my {
-                        value -= mz;
+                        value += mz;
                     }
                 }
             }

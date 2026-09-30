@@ -12,8 +12,9 @@
 export interface NodeLike { id: number; x: number; y: number; z?: number }
 export interface ElemLike { id: number; nodeI: number; nodeJ: number }
 
-import { weldTolerance } from '../model/weld-tolerance';
-export const WELD_TOL = 1e-4;
+import { weldTolerance, DEFAULT_WELD_TOL } from '../model/weld-tolerance';
+/** The default weld tolerance, m; a weld reads the one in force, `weldTolerance()`. */
+export const WELD_TOL = DEFAULT_WELD_TOL;
 
 /** Id of an existing node coincident with (x,y,z) within tol, else null. */
 export function findCoincidentNode(

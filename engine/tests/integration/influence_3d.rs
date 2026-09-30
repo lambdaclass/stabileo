@@ -67,6 +67,7 @@ fn make_ss_beam_3d() -> SolverInput3D {
     });
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,
@@ -246,6 +247,7 @@ fn influence_3d_multispan() {
     }
 
     let solver = SolverInput3D {
+        solver_options: None,
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,

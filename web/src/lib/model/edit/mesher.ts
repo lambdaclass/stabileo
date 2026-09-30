@@ -58,6 +58,12 @@ export interface MeshOutput {
 }
 
 const EPS = 1e-9;
+export const MAX_MESH_CELLS = 20000;
+export const MAX_MESH_POINTS = 40000;
+// Bowyer–Watson scans the current triangles for each point. Bound its work separately
+// from the linear-time structured paths and from the final triangle-to-quad expansion.
+const MAX_TRIANGULATION_POINTS = 4000;
+const MAX_BOUNDARY_WORK = 2_000_000;
 
 // ─── The plane ────────────────────────────────────────────────────
 
@@ -106,37 +112,57 @@ export function gradedStations(n: number, bias = 1): number[] {
 function sidePoints(a: P2, b: P2, n: number, bias: number, fixed: P2[], h: number): P2[] {
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const ts = gradedStations(n, bias).slice(0, -1);
+  const locked = new Set<number>([0]);
   // Fixed points on the side replace the nearest station, or are added.
   const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
   for (const p of fixed) {
     const t = ((p[0] - a[0]) * ux + (p[1] - a[1]) * uy) / L;
     const off = Math.abs((p[0] - a[0]) * uy - (p[1] - a[1]) * ux);
     if (off > 1e-4 || t <= 1e-6 || t >= 1 - 1e-6) continue;
+    const same = ts.findIndex((s) => Math.abs(s - t) * L < 1e-8);
+    if (same >= 0) { locked.add(same); continue; }
     let best = -1, bd = Infinity;
-    ts.forEach((s, i) => { if (i > 0 && Math.abs(s - t) < bd) { bd = Math.abs(s - t); best = i; } });
-    if (best > 0 && bd * L < 0.35 * Math.min(h, L / Math.max(n, 1))) ts[best] = t; else ts.push(t);
+    ts.forEach((s, i) => { if (!locked.has(i) && Math.abs(s - t) < bd) { bd = Math.abs(s - t); best = i; } });
+    if (best > 0 && bd * L < 0.35 * Math.min(h, L / Math.max(n, 1))) { ts[best] = t; locked.add(best); }
+    else { locked.add(ts.length); ts.push(t); }
   }
   ts.sort((x, y) => x - y);
   return ts.map((t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] as P2);
 }
 
-function loopPoints(f: Frame, loop: Loop2, h: number, sides: SideSpec[] | undefined, fixed: P2[]): { pts: P2[]; perSide: P2[][] } {
+function loopPoints(f: Frame, loop: Loop2, h: number, sides: SideSpec[] | undefined, fixed: P2[]): { pts: P2[]; perSide: P2[][] } | null {
   if (loop.kind === 'circle') {
     const c = to2(f, loop.center);
     const n = Math.max(8, Math.round((2 * Math.PI * loop.radius) / h));
-    const pts: P2[] = [];
-    for (let k = 0; k < n; k++) { const a = (2 * Math.PI * k) / n; pts.push([c[0] + loop.radius * Math.cos(a), c[1] + loop.radius * Math.sin(a)]); }
+    if (!Number.isFinite(n) || n > MAX_MESH_POINTS) return null;
+    const angles = Array.from({ length: n }, (_, k) => (2 * Math.PI * k) / n);
+    for (const p of fixed) {
+      if (Math.abs(Math.hypot(p[0] - c[0], p[1] - c[1]) - loop.radius) > 1e-4) continue;
+      angles.push((Math.atan2(p[1] - c[1], p[0] - c[0]) + 2 * Math.PI) % (2 * Math.PI));
+    }
+    angles.sort((a, b) => a - b);
+    const unique = angles.filter((a, i) => i === 0 || (a - angles[i - 1]!) * loop.radius > 1e-8);
+    if (unique.length > 1 && (2 * Math.PI + unique[0]! - unique.at(-1)!) * loop.radius < 1e-8) unique.pop();
+    if (unique.length > MAX_MESH_POINTS) return null;
+    const pts: P2[] = unique.map((a) => [c[0] + loop.radius * Math.cos(a), c[1] + loop.radius * Math.sin(a)]);
     return { pts, perSide: [] };
   }
   const corners = loop.points.map((p) => to2(f, p));
   const perSide: P2[][] = [];
-  corners.forEach((a, i) => {
+  let total = 0;
+  for (let i = 0; i < corners.length; i++) {
+    const a = corners[i]!;
     const b = corners[(i + 1) % corners.length]!;
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const s = sides?.[i];
     const n = Math.max(1, s?.divisions ?? Math.round(L / h));
-    perSide.push(sidePoints(a, b, n, s?.bias ?? 1, fixed, h));
-  });
+    if (!Number.isSafeInteger(n) || n > MAX_MESH_POINTS || L < EPS) return null;
+    if (!Number.isFinite(s?.bias ?? 1) || (s?.bias ?? 1) <= 0) return null;
+    const side = sidePoints(a, b, n, s?.bias ?? 1, fixed, h);
+    total += side.length;
+    if (total > MAX_MESH_POINTS || side.some((p) => !p.every(Number.isFinite))) return null;
+    perSide.push(side);
+  }
   return { pts: perSide.flat(), perSide };
 }
 
@@ -146,6 +172,13 @@ function signedArea(p: P2[]): number {
   let a = 0;
   for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]!; a += p[i]![0] * q[1] - q[0] * p[i]![1]; }
   return a / 2;
+}
+
+function convex(p: P2[]): boolean {
+  return p.every((a, i) => {
+    const b = p[(i + 1) % p.length]!, c = p[(i + 2) % p.length]!;
+    return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) > EPS;
+  });
 }
 
 function inPoly(p: P2, poly: P2[]): boolean {
@@ -202,21 +235,33 @@ function delaunay(pts: P2[]): Array<[number, number, number]> {
 // ─── The mesher ───────────────────────────────────────────────────
 
 export function generateMesh(input: MeshInput): MeshOutput | null {
+  if (!Number.isFinite(input.size) || input.size <= 0) return null;
+  const loops3 = [input.outer, ...input.holes];
+  if (loops3.some((l) => l.kind === 'circle'
+    ? !Number.isFinite(l.radius) || l.radius <= 0 || !l.center.every(Number.isFinite)
+    : l.points.length < 3 || l.points.length > MAX_MESH_POINTS || l.points.some((p) => !p.every(Number.isFinite)))) return null;
   const f = frameOf(input);
-  if (!f) return null;
+  if (!f || ![...f.o, ...f.u, ...f.v, ...f.n].every(Number.isFinite) || norm(f.n) < EPS) return null;
   const h = Math.max(input.size, 1e-3);
   if (input.outer.kind === 'polygon' && input.outer.points.some((p) => outOfPlane(f, p) > 1e-3)) return null;
   const fixed2 = (input.fixedPoints ?? []).filter((p) => outOfPlane(f, p) < 1e-4).map((p) => to2(f, p));
 
   const outer = loopPoints(f, input.outer, h, input.sides, fixed2);
+  if (!outer) return null;
   if (signedArea(outer.pts) < 0) outer.pts.reverse();
-  const holes = input.holes.map((l) => loopPoints(f, l, h, undefined, fixed2).pts);
+  const holes: P2[][] = [];
+  for (const l of input.holes) {
+    const loop = loopPoints(f, l, h, undefined, fixed2);
+    if (!loop) return null;
+    holes.push(loop.pts);
+  }
 
   // ── Structured: four sides, no holes, opposite sides matching ──
-  if (input.outer.kind === 'polygon' && input.outer.points.length === 4 && holes.length === 0) {
+  if (input.outer.kind === 'polygon' && input.outer.points.length === 4 && holes.length === 0 && convex(input.outer.points.map((p) => to2(f, p)))) {
     const s = outer.perSide.map((pts, i) => [...pts, outer.perSide[(i + 1) % 4]![0]!]);
     if (s[0]!.length === s[2]!.length && s[1]!.length === s[3]!.length) {
       const nu = s[0]!.length - 1, nv = s[1]!.length - 1;
+      if (nu * nv * (input.element === 'tri' ? 2 : 1) > MAX_MESH_CELLS || (nu + 1) * (nv + 1) > MAX_MESH_POINTS) return null;
       const bottom = s[0]!, right = s[1]!, top = [...s[2]!].reverse(), left = [...s[3]!].reverse();
       const P00 = bottom[0]!, P10 = bottom[nu]!, P11 = top[nu]!, P01 = top[0]!;
       const grid: P2[][] = [];
@@ -238,6 +283,8 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
       for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) points.push(to3(f, grid[j]![i]!));
       const cells: number[][] = [];
       for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+        // Even a convex outline can fold under incompatible opposite-side grading.
+        if (!convex([grid[j]![i]!, grid[j]![i + 1]!, grid[j + 1]![i + 1]!, grid[j + 1]![i]!])) return null;
         const q = [idx(i, j), idx(i + 1, j), idx(i + 1, j + 1), idx(i, j + 1)];
         if (input.element === 'quad') cells.push(q);
         else { cells.push([q[0]!, q[1]!, q[2]!]); cells.push([q[0]!, q[2]!, q[3]!]); }
@@ -249,12 +296,17 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   }
 
   // ── Structured circle: an O-grid, a central square and four patches out to the arc ──
-  if (input.outer.kind === 'circle' && holes.length === 0 && input.element === 'quad') {
+  // The regular O-grid cannot honour arbitrary boundary stations. Use the conforming path
+  // when existing nodes lie on the circle, so their connections survive meshing.
+  const fixedCircleBoundary = input.outer.kind === 'circle'
+    && fixed2.some((p) => Math.abs(Math.hypot(p[0], p[1]) - (input.outer as { radius: number }).radius) <= 1e-4);
+  if (input.outer.kind === 'circle' && holes.length === 0 && input.element === 'quad' && !fixedCircleBoundary) {
     const r = input.outer.radius;
     // Divisions per quarter, even, so the centre is a node (a dome's crown, a plate's middle).
     const n = Math.max(2, 2 * Math.round((Math.PI * r) / 4 / h));
     const s = 0.5 * r / Math.SQRT2;                               // half side of the inner square
     const m = Math.max(1, Math.round((r - s * Math.SQRT2) / h));  // radial divisions
+    if (n * n + 4 * n * m > MAX_MESH_CELLS || (n + 1) ** 2 + 4 * n * m > MAX_MESH_POINTS) return null;
     const key = new Map<string, number>();
     const points: Vec3[] = [];
     const boundary = new Set<number>();
@@ -300,6 +352,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
     for (let k = 0; k < loop.length; k++) segs.push([base + k, base + ((k + 1) % loop.length)]);
   }
   const nBoundary0 = pts.length;
+  if (nBoundary0 > MAX_TRIANGULATION_POINTS) return null;
   const inside = (p: P2) => inPoly(p, outer.pts) && !holes.some((hl) => inPoly(p, hl));
   const boundaryDist = (p: P2) => {
     let d = Infinity;
@@ -310,6 +363,9 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
   const xs = outer.pts.map((p) => p[0]), ys = outer.pts.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   const dy = (h * Math.sqrt(3)) / 2;
+  const candidates = Math.ceil((x1 - x0) / h) * Math.ceil((y1 - y0) / dy);
+  if (!Number.isFinite(candidates) || candidates + nBoundary0 > MAX_TRIANGULATION_POINTS
+    || candidates * segs.length > MAX_BOUNDARY_WORK) return null;
   const interior: P2[] = [];
   let row = 0;
   for (let y = y0 + dy / 2; y < y1; y += dy, row++) {
@@ -317,7 +373,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
       const p: P2 = [x, y];
       if (inside(p) && boundaryDist(p) > 0.6 * h) interior.push(p);
     }
-    if (interior.length > 40000) return null;
+    if (interior.length + nBoundary0 > MAX_TRIANGULATION_POINTS) return null;
   }
   pts.push(...interior);
 
@@ -330,6 +386,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
     for (const t of tris) for (const [u, v] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]] as const) edges.add(u < v ? `${u},${v}` : `${v},${u}`);
     const missing = boundarySegs.filter(([a, b]) => !edges.has(a < b ? `${a},${b}` : `${b},${a}`));
     if (missing.length === 0) break;
+    if (pass === 11 || pts.length + missing.length > MAX_TRIANGULATION_POINTS) return null;
     const next: Array<[number, number]> = [];
     const miss = new Set(missing.map(([a, b]) => `${a},${b}`));
     for (const [a, b] of boundarySegs) {
@@ -379,6 +436,7 @@ export function generateMesh(input: MeshInput): MeshOutput | null {
     return k;
   };
   const triCells = tris.map((t) => t.map(map) as [number, number, number]);
+  if (triCells.length * (input.element === 'tri' ? 1 : 3) > MAX_MESH_CELLS) return null;
   if (input.element === 'tri') return { points, cells: triCells, structured: false, boundary, plane: f };
 
   // Quads: every triangle into three, at its centroid and edge midpoints.

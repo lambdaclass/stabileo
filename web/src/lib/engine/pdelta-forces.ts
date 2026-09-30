@@ -7,9 +7,10 @@
  * elastic P-Δ solution says, to 0.2 %) but reports member forces as K·u, the elastic stiffness
  * times those displacements, without the geometric part Kg(N)·u. Measured on a 4 m cantilever
  * under 60 kN and 0.12 kN of lateral load about its weak axis: base moment 0.824 kN·m reported,
- * 0.778 exact, and a horizontal reaction of 0.198 kN against 0.12 applied. That is recorded for
- * the engine (M13 in the engine's pending list), and until it is fixed there the forces are
- * corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
+ * 0.778 exact. (The reactions had the same defect — 0.198 kN against the 0.12 applied — until
+ * the engine fixed them on its side; only the member forces are still corrected here.) That is
+ * recorded for the engine (M13 in the engine's pending list), and until it is fixed there the
+ * forces are corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
  *
  * `pdelta-forces.test.ts` pins the engine's current behaviour with an `it.fails`. When the engine
  * is fixed, that test starts passing, fails the suite, and this module is to be removed rather
@@ -98,7 +99,8 @@ const S = { vy: 1, vz: 1, mzI: 1, mzJ: -1, myI: 1, myJ: -1 };
  * displacement at the node that moves most in first order is compared with its second-order
  * counterpart: a reversed or vanishing one means no equilibrium exists at this load.
  */
-export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D }): { b2: number; stable: boolean } {
+export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean }): { b2: number; stable: boolean } {
+  if (r.isStable === false) return { b2: Infinity, stable: false };
   const lin = r.linearResults?.displacements ?? [];
   const second = new Map((r.results.displacements ?? []).map((d) => [d.nodeId, d]));
   let worst: { d1: [number, number, number]; d2: [number, number, number] } | null = null;

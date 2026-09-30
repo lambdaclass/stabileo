@@ -325,6 +325,7 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
             release_t_start: f.release_t_start, release_t_end: f.release_t_end,
             q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
+            distributed_loads_x: Vec::new()
             distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
@@ -379,6 +380,9 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
             out.q_zj += f * ef.q_zj;
             for dl in &ef.distributed_loads_y {
                 out.distributed_loads_y.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
+            }
+            for dl in &ef.distributed_loads_x {
+                out.distributed_loads_x.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
             for dl in &ef.distributed_loads_z {
                 out.distributed_loads_z.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });

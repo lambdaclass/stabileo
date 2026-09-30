@@ -371,7 +371,7 @@ export function solveMovingLoads(
   baseInput: SolverInput,
   config: MovingLoadConfig,
 ): MovingLoadEnvelope | string {
-  if (!isWasmReady()) return 'WASM solver not initialized';
+  if (!isWasmReady()) return t('toast.solverNotReady');
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
@@ -438,7 +438,7 @@ export async function solveMovingLoadsAsync(
   onProgress?: (progress: MovingLoadProgress) => void,
   signal?: AbortSignal,
 ): Promise<MovingLoadEnvelope | string> {
-  if (!isWasmReady()) return 'WASM solver not initialized';
+  if (!isWasmReady()) return t('toast.solverNotReady');
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 

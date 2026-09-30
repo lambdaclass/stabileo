@@ -458,7 +458,7 @@
           : (is3D
             ? t('stress.perpNA3dOff')
             : t('stress.perpNA2dOff'))}
-      >EN</button>
+      >{t('stress.neutralAxisAbbr')}</button>
     {/if}
     <button
       class="ssp-svg-toggle"
@@ -478,7 +478,7 @@
         class:active={showStressMap}
         onclick={() => showStressMap = !showStressMap}
         title={showStressMap ? t('stress.stressMapOn') : t('stress.stressMapOff')}
-      >MAP</button>
+      >{t('stress.mapToggle')}</button>
     {/if}
     {#if torsionFlow}
       <button
@@ -568,7 +568,7 @@
           <text
             x={cx + dir.ux * d0 - dir.uy * span / 2} y={cy + dir.uy * d0 + dir.ux * span / 2 - 2}
             fill="var(--st-text-2)" font-size={4.5 * textK} opacity="0.8"
-          >EN</text>
+          >{t('stress.neutralAxisAbbr')}</text>
         {/if}
       {/if}
 
@@ -673,7 +673,7 @@
               {@const yNA = prev.y + (pt.y - prev.y) * (-prev.sigma) / (pt.sigma - prev.sigma)}
               <line x1={xBaseR - 6} y1={-yNA * sc} x2={xBaseR + 6} y2={-yNA * sc}
                 stroke="var(--st-value)" stroke-width={1 * strokeK} stroke-dasharray="3,2" opacity="0.8" />
-              <text x={xBaseR + 8} y={-yNA * sc + 2} fill="var(--st-value)" font-size={3.5 * textK}>EN</text>
+              <text x={xBaseR + 8} y={-yNA * sc + 2} fill="var(--st-value)" font-size={3.5 * textK}>{t('stress.neutralAxisAbbr')}</text>
             {/if}
           {/each}
           <!-- Label with max stress values -->
@@ -847,7 +847,7 @@
               />
             {/if}
           {/if}
-          <text x={rs.b / 2 * sc + 2} y={-rs.h / 2 * sc - 6} fill="var(--st-value)" font-size={6 * textK} font-weight="bold" opacity="0.9">EN</text>
+          <text x={rs.b / 2 * sc + 2} y={-rs.h / 2 * sc - 6} fill="var(--st-value)" font-size={6 * textK} font-weight="bold" opacity="0.9">{t('stress.neutralAxisAbbr')}</text>
         {/if}
 
         <!-- Perpendicular-to-NA stress distribution (3D, moments only) -->
@@ -934,7 +934,7 @@
             {@const cEndY = -maxComprPt.y * sc + cBarLen * parScreenY}
             <text x={cEndX + 3} y={cEndY + 6} fill="var(--st-info)" font-size={5 * textK} text-anchor="start">&sigma;<tspan font-size={3.5 * textK} dy="1.5">min</tspan><tspan dy="-1.5"> = {fmt(maxComprPt.sigma)}</tspan></text>
           {/if}
-          <text x="0" y={rs.h / 2 * sc + 46} fill="var(--st-value)" font-size={5.5 * textK} text-anchor="middle">{showTotalSigma ? 'σ total' : 'σ'} &perp; EN</text>
+          <text x="0" y={rs.h / 2 * sc + 46} fill="var(--st-value)" font-size={5.5 * textK} text-anchor="middle">{showTotalSigma ? 'σ total' : 'σ'} &perp; {t('stress.neutralAxisAbbr')}</text>
         {/if}
 
         <!-- Selected fiber point (y, z) -->
@@ -1009,7 +1009,7 @@
               {@const yNA = prev.y + (pt.y - prev.y) * (-prev.sigma) / (pt.sigma - prev.sigma)}
               <line x1={xBase2d - 8} y1={-yNA * sc2d} x2={xBase2d + 8} y2={-yNA * sc2d}
                 stroke="var(--st-value)" stroke-width={1 * strokeK} stroke-dasharray="3,2" opacity="0.8" />
-              <text x={xBase2d + 10} y={-yNA * sc2d + 3} fill="var(--st-value)" font-size={4 * textK} text-anchor="start">EN</text>
+              <text x={xBase2d + 10} y={-yNA * sc2d + 3} fill="var(--st-value)" font-size={4 * textK} text-anchor="start">{t('stress.neutralAxisAbbr')}</text>
             {/if}
           {/each}
           <text x={xBase2d} y={-rs2d.h / 2 * sc2d - 7} fill="var(--st-text-2)" font-size={4 * textK} text-anchor="start">σ = N/A + M·y/I</text>
@@ -1182,7 +1182,7 @@
               x={-rs2en.b / 2 * sc2en - 10}
               y={enScreenY + 3}
               fill="var(--st-value)" font-size={6 * textK} font-weight="bold" text-anchor="end"
-            >EN</text>
+            >{t('stress.neutralAxisAbbr')}</text>
             <!-- Show y-position when σ total shifts the NA -->
             {#if showTotalSigma && analysis2D.neutralAxisY !== null && Math.abs(enY2d) > 0.0001}
               <text

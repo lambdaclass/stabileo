@@ -12,7 +12,7 @@
 
 import { parseDxf } from '../dxf/parser';
 import { unitScale, type DxfUnit } from '../dxf/types';
-import { chainSegmentsIntoLoops, pointInPolygon } from '../cad/geometry';
+import { chainSegmentsIntoLoops, pointInPolygon, signedArea } from '../cad/geometry';
 import type { DrawnPart, Pt } from './drawn';
 
 export interface DxfSectionImport {
@@ -44,7 +44,13 @@ export function dxfSectionParts(text: string, unit: DxfUnit, firstId = 1): DxfSe
   const cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
 
   const probe = (s: (typeof shapes)[number]) => (s.kind === 'loop' ? s.pts[0]! : s.c);
-  const depth = (i: number) => shapes.filter((o, j) => j !== i && o.kind === 'loop' && pointInPolygon(probe(shapes[i]!), o.pts)).length;
+  const areaOf = (s: (typeof shapes)[number]) => (s.kind === 'loop' ? Math.abs(signedArea(s.pts)) : Math.PI * s.r * s.r);
+  // Circles contain too: a tube drawn as two concentric circles is a ring, not two
+  // discs. Containment must be one-way — concentric shapes hold each other's probe —
+  // so only a strictly larger shape counts as a container.
+  const contains = (o: (typeof shapes)[number], p: { x: number; y: number }) =>
+    o.kind === 'loop' ? pointInPolygon(p, o.pts) : Math.hypot(p.x - o.c.x, p.y - o.c.y) < o.r;
+  const depth = (i: number) => shapes.filter((o, j) => j !== i && areaOf(o) > areaOf(shapes[i]!) && contains(o, probe(shapes[i]!))).length;
 
   const parts: DrawnPart[] = shapes.map((s, i) => {
     const isVoid = depth(i) % 2 === 1;

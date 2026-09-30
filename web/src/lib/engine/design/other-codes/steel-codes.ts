@@ -115,6 +115,13 @@ export const AISC360: OtherCode = {
   },
 };
 
+/**
+ * hw/tw of each member being checked, from `member` — `at` runs once per demand, and computing
+ * it there ran the section engine (steelProps) thousands of times per check on a large model.
+ * Keyed by the member's context, which lives for one run. null: a CHS, which has no web.
+ */
+const ec3WebSlenderness = new WeakMap<object, number | null>();
+
 export const EC3: OtherCode = {
   id: 'ec3',
   family: 'steel',
@@ -129,6 +136,8 @@ export const EC3: OtherCode = {
     const cls = ec3Class(p, ctx.material.fy!, compressed);
     if (cls === 4) return { skip: 'otherCodes.skip.ec3Class4' };
     const curves = ec3Curves(p);
+    // The web slenderness `at` checks shear buckling against, once per member, not per demand.
+    ec3WebSlenderness.set(ctx, p.shape === 'CHS' ? null : (p.shape === 'RHS' ? p.h - 3 * p.tw : p.h - 2 * p.tf) / p.tw);
     return {
       data: {
         elementId: ctx.elementId,
@@ -155,12 +164,9 @@ export const EC3: OtherCode = {
     const fy = ctx.material.fy!;
     const vpl = ((data.av as number) * fy * 1e3) / Math.sqrt(3); // kN
     if (bends(d) && shear(d) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');
-    const p = steelProps(ctx.section);
-    if (!('skip' in p) && p.shape !== 'CHS' && sheared(d)) {
-      const hw = p.shape === 'RHS' ? p.h - 3 * p.tw : p.h - 2 * p.tf;
-      // 72ε/η with η = 1,2 (steels up to S460), the lower of the two the code allows.
-      if (hw / p.tw > (72 * Math.sqrt(235 / fy)) / 1.2) flags.push('otherCodes.check.ec3ShearBuckling');
-    }
+    const slender = ec3WebSlenderness.get(ctx);
+    // 72ε/η with η = 1,2 (steels up to S460), the lower of the two the code allows.
+    if (slender != null && sheared(d) && slender > (72 * Math.sqrt(235 / fy)) / 1.2) flags.push('otherCodes.check.ec3ShearBuckling');
     return { data, unevaluated: flags };
   },
   forces(ctx, d) {
