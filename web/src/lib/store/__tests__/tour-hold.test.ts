@@ -5,18 +5,18 @@
  * arrival, and the viewport disarmed the section analysis's mode with them, so the member click
  * the next card asks for selected the member instead.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { tourStore, actionAdvances } from '../tour.svelte';
 
 // The store remembers a started tour, measures its target on the next frame and checks the page
 // when it ends. The unit environment has none of the three, and none is what this is about.
 beforeAll(() => {
-  const g = globalThis as Record<string, unknown>;
   const mem = new Map<string, string>();
-  g.localStorage ??= { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
-  g.requestAnimationFrame ??= (cb: () => void) => setTimeout(cb, 0);
-  g.location ??= { pathname: '/' };
+  vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) });
+  vi.stubGlobal('requestAnimationFrame', (cb: () => void) => setTimeout(cb, 0));
+  if (!('location' in globalThis)) vi.stubGlobal('location', { pathname: '/' });
 });
+afterAll(() => { vi.unstubAllGlobals(); });
 
 describe('the walkthrough holds for a load', () => {
   it('cannot advance while one is running, and can once it settles', async () => {

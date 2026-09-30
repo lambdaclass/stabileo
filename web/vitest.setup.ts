@@ -22,28 +22,18 @@ import type { SolverInput } from './src/lib/engine/types';
  */
 
 /*
- * Node 25 ships a global `localStorage` (Web Storage), and without `--localstorage-file` it is an
- * object with no methods: `localStorage.setItem is not a function`. The app guards its storage
- * with try/catch and runs; a test that stubs storage with `??=` did not replace it, and failed on
- * a developer's Node while CI's Node 20, which has no such global, passed. Where the global exists
- * but cannot store, it becomes an in-memory Storage; where it is absent (Node 20) nothing changes.
+ * The unit environment is CI's: Node 20, which has no global `localStorage`. Node 22+ defines one —
+ * on Node 25, without `--localstorage-file`, an object with no methods (`setItem is not a function`);
+ * with the flag, a file shared by every worker and every run. The app asks for storage by feature
+ * (`typeof localStorage.getItem === 'function'`), so either kind made a developer's run differ from
+ * CI's: the broken one failed tests that stubbed storage with `??=`, a working one would persist
+ * settings between tests only locally. So it is removed, and a test that wants storage installs its
+ * own (`vi.stubGlobal`).
  */
-(() => {
-  const g = globalThis as { localStorage?: Partial<Storage> };
-  let broken = false;
-  try { broken = 'localStorage' in globalThis && typeof g.localStorage?.setItem !== 'function'; } catch { broken = true; }
-  if (!broken) return;
-  const mem = new Map<string, string>();
-  const storage: Storage = {
-    get length() { return mem.size; },
-    clear: () => mem.clear(),
-    getItem: (k) => mem.get(k) ?? null,
-    key: (i) => [...mem.keys()].at(i) ?? null,
-    removeItem: (k) => { mem.delete(k); },
-    setItem: (k, v) => { mem.set(k, String(v)); },
-  };
-  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
-})();
+if ('localStorage' in globalThis) {
+  Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true, writable: true });
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+}
 
 const WASM_DIR = fileURLToPath(new URL('./src/lib/wasm/', import.meta.url));
 const WASM_BINARY = `${WASM_DIR}dedaliano_engine_bg.wasm`;
