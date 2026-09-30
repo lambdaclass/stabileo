@@ -6,7 +6,12 @@ applies.
 
 ## Baseline @7230135b
 
-To be filled by Task 0.2.
+| Suite | Command | Result | Notes |
+|-------|---------|--------|-------|
+| Engine | `cargo nextest run -p dedaliano-engine --profile ci --no-fail-fast` | 7,288 run: 7,287 passed, 1 failed, 13 skipped (310 s) | The failure is a wall-clock gate, `perf_regression_advanced::harmonic_3d_5x5_plate_under_15s`, at 79.6 s under the full parallel run; the plan measures these single-threaded (Task 0.4) |
+| Backend | `cargo test -p dedaliano-backend` | 19 passed | |
+| Web unit, gate, typecheck, smoke e2e | see below | pending | |
+| Silenced tests | the plan's Step 5 greps | engine 17 `#[ignore]`; web 32 | Rows W13-03 to W13-05 |
 
 ## Findings
 
