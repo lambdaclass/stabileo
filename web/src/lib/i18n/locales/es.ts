@@ -3418,6 +3418,8 @@ const es: Record<string, string> = {
   'svc.hypostaticNoMoment': 'Estructura hipost\u00E1tica (mecanismo): las reacciones de apoyo no pueden resistir momentos \u2014 son paralelas, colineales o concurrentes. Revis\u00E1 la disposici\u00F3n de apoyos.',
   'svc.hypostaticUnstable': 'Estructura hipost\u00E1tica (mecanismo): las reacciones de apoyo no forman un sistema est\u00E1ticamente estable. Sus l\u00EDneas de acci\u00F3n son concurrentes o paralelas.',
   'svc.disconnectedGraph': 'Estructura no conexa: los nodos {ids} est\u00E1n desconectados del resto. Una todos los tramos.',
+  'svc.nodesOnMembers': "Hay {n} nodo(s) sobre barras que no están cortadas ahí, así que no las conectan: Editar › Cortar › «Partir en los nodos que tienen encima» los une.",
+  'app.splitAtNodesAction': "Partir en los nodos",
   'svc.unstableAllRollersX': 'Estructura inestable: todos los apoyos son rodillos horizontales (sin restricci\u00F3n en X).',
   'svc.unstableAllRollersY': 'Estructura inestable: todos los apoyos son rodillos verticales (sin restricci\u00F3n en Y).',
   'svc.unstableCollinearRollers': 'Estructura inestable: todos los apoyos son colineales y tipo rodillo \u2014 no hay restricci\u00F3n suficiente.',

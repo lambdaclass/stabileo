@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { nodesOnMembers } from './nodes-on-members';
 import { weightPerMetre } from './member-weight';
 import { expandSemiRigid3D } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
@@ -487,7 +488,7 @@ function prepareSolve2D(
     }
     if (visited.size < connectedNodes.size) {
       const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-      return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
+      return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', ')) + nodesOnMembersHint(model);
     }
   }
 
@@ -1813,12 +1814,23 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   }
   if (visited.size < connectedNodes.size) {
     const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
+    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', ')) + nodesOnMembersHint(model);
   }
 
   const input = buildSolverInput3D(model, includeSelfWeight, leftHand);
   if (!input) return t('svc.emptyModel');
   return input;
+}
+
+/**
+ * The sentence that follows a disconnected-structure message when members pass nodes they are
+ * not cut at: the usual reason a first model falls apart, and the command that connects them.
+ * Empty when there are none.
+ */
+export function nodesOnMembersHint(model: { nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>; elements: ReadonlyMap<number, { id: number; nodeI: number; nodeJ: number }> }): string {
+  const hits = nodesOnMembers(model.nodes, model.elements.values());
+  if (hits.length === 0) return '';
+  return ' ' + t('svc.nodesOnMembers').replace('{n}', String(new Set(hits.map((h) => h.nodeId)).size));
 }
 
 /** Post-solve 3D result enrichment: shell stresses + helper-node pruning. */

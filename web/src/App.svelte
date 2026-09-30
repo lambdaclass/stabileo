@@ -289,6 +289,13 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
+  import { splitAllAtNodes } from './lib/model/edit/cut-members';
+
+  /** The solve's "disconnected structure" toast offers this: cut every member at the nodes on it. */
+  function splitAtNodesFromToast() {
+    const { message } = splitAllAtNodes();
+    uiStore.toast(message, 'success');
+  }
 
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
@@ -2080,6 +2087,12 @@
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
+        {#if toast.actionId === 'split-at-nodes'}
+          <!-- The one command that connects members to the nodes they pass (Edit › Cut). -->
+          <button class="toast-action" data-testid="toast-split-at-nodes" onclick={() => { splitAtNodesFromToast(); uiStore.dismissToast(toast.id); }}>
+            {t('app.splitAtNodesAction')}
+          </button>
+        {/if}
         {#if toast.actionId === 'kinematic'}
           <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; uiStore.dismissToast(toast.id); }}>
             {t('app.viewKinematic')}

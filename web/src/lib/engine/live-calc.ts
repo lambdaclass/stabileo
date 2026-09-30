@@ -10,6 +10,7 @@
  * stays thin.
  */
 
+import { nodesOnMembers } from './nodes-on-members';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
@@ -199,6 +200,16 @@ async function ensureWasmReady(context: string): Promise<void> {
 const showSolverWarningToasts = reportSolverDiagnostics;
 
 /** Detect if an error message is mechanism/hipostatic-related */
+/**
+ * The action a failed solve's message offers. When members pass nodes they are not cut at,
+ * which is how a first model usually falls apart, the fix is one command away and the message
+ * offers it; otherwise a mechanism message offers the kinematic panel.
+ */
+function solveErrorAction(msg: string): string | undefined {
+  if (nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0) return 'split-at-nodes';
+  return isMechanismError(msg) ? 'kinematic' : undefined;
+}
+
 function isMechanismError(msg: string): boolean {
   const lc = msg.toLowerCase();
   return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
@@ -215,7 +226,7 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
     if (isStale()) return null;
     if (typeof r === 'string') {
-      uiStore.toast(r, 'error');
+      uiStore.toast(r, 'error', solveErrorAction(r));
       return null;
     }
     if (!r) {
@@ -278,12 +289,12 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
         if (comboError) {
           console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
           const fallback = await runSingleSolve();
-          if (!fallback) uiStore.toast(comboError, 'info');
+          if (!fallback) uiStore.toast(comboError, 'info', solveErrorAction(comboError));
         }
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
         const fallback = await runSingleSolve();
-        if (!fallback) uiStore.toast(e.message, 'info');
+        if (!fallback) uiStore.toast(e.message, 'info', solveErrorAction(e.message));
       }
       return;
     }
@@ -292,13 +303,13 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
       const comboError = await runComboSolve();
       if (comboError) {
         console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboError);
-        uiStore.toast(comboError, 'error');
+        uiStore.toast(comboError, 'error', solveErrorAction(comboError));
         await runSingleSolve();
         return;
       }
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
-      uiStore.toast(e.message, 'error');
+      uiStore.toast(e.message, 'error', solveErrorAction(e.message));
       await runSingleSolve();
     }
     return;
@@ -312,7 +323,7 @@ async function globalSolve2D(isStale: () => boolean): Promise<void> {
   const r = await modelStore.solveAsync(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (isStale()) return;
   if (typeof r === 'string') {
-    uiStore.toast(r, 'error', isMechanismError(r) ? 'kinematic' : undefined);
+    uiStore.toast(r, 'error', solveErrorAction(r));
     return;
   }
   if (!r) {

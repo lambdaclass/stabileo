@@ -6489,6 +6489,8 @@ const pt: Translations = {
   'stress.tt.vsGoverning': '{pct}% do valor que governa',
   'stress.vonMisesHelp': 'Critério de Von Mises (energia de distorção):\nσvm = √(σ² + 3τ²)\n\nPreferido para aço e metais dúcteis.\nPercentagem mostra uso da capacidade fy.',
   'svc.disconnectedGraph': 'Estrutura desconectada: nós {ids} estão desconectados do restante. Conecte todos os segmentos.',
+  'svc.nodesOnMembers': "Há {n} nó(s) sobre barras que não estão cortadas ali, por isso não as conectam: Editar › Cortar › “Dividir nos nós sobre elas” os une.",
+  'app.splitAtNodesAction': "Dividir nos nós",
   'svc.disconnectedNode': 'Nó {n} não está conectado a nenhuma barra. Remova-o ou conecte-o.',
   'svc.emptyModel': 'Modelo vazio',
   'svc.envelopeError': 'Não foi possível calcular envoltórias',

@@ -3425,6 +3425,8 @@ const en: Record<string, string> = {
   'svc.hypostaticNoMoment': 'Hypostatic structure (mechanism): support reactions cannot resist moments \u2014 they are parallel, collinear, or concurrent. Check the support layout.',
   'svc.hypostaticUnstable': 'Hypostatic structure (mechanism): support reactions do not form a statically stable system. Their lines of action are concurrent or parallel.',
   'svc.disconnectedGraph': 'Disconnected structure: nodes {ids} are disconnected from the rest. Connect all parts.',
+  'svc.nodesOnMembers': "{n} node(s) sit on members that are not cut there, so they do not connect them: Edit › Cut › “Split at the nodes on them” joins them.",
+  'app.splitAtNodesAction': "Split at the nodes",
   'svc.unstableAllRollersX': 'Unstable structure: all supports are horizontal rollers (no restraint in X).',
   'svc.unstableAllRollersY': 'Unstable structure: all supports are vertical rollers (no restraint in Y).',
   'svc.unstableCollinearRollers': 'Unstable structure: all supports are collinear and roller type \u2014 insufficient restraint.',
