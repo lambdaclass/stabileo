@@ -11,6 +11,7 @@
  */
 import type { Section } from '../../../store/model.svelte';
 import { steelSectionConstants } from '../../steel/section-constants';
+import { drawnDesignShape } from '../../../section/drawn-design';
 
 export type SteelShape = 'I' | 'RHS' | 'CHS';
 
@@ -35,6 +36,11 @@ const isI = (s: Section) => s.shape === 'I' || s.shape === 'H';
 
 /** The properties, or the i18n key of why this section cannot be read. */
 export function steelProps(sec: Section): SteelProps | { skip: string } {
+  // A drawn section is read only when it is exactly one of these shapes; otherwise its scope says why.
+  if (sec.drawn && !sec.shape) {
+    const d = drawnDesignShape(sec.drawn);
+    return { skip: `otherCodes.skip.drawn.${'scope' in d ? d.scope : 'freeOutline'}` };
+  }
   const Iy = sec.iy ?? 0, Iz = sec.iz, A = sec.a;
   if (!(A > 0 && Iy > 0 && Iz > 0)) return { skip: 'otherCodes.skip.noProperties' };
   const h = sec.h ?? 0, b = sec.b ?? 0;

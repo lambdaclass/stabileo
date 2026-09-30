@@ -29,6 +29,7 @@
  * solve distributes them — a quarter of q·A or ρ·t·A to each corner of a quad, a third to each
  * of a triangle — so the moment side agrees with the solve and not with an idealised centroid.
  */
+import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { hasMemberOffset, offsetVecToSolver } from './member-offsets';
@@ -228,7 +229,8 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
     const selfWeightHere = includeSelfWeight
       && (caseId === null || !caseTypes || caseTypes.get(caseId) === 'D');
     if (selfWeightHere) {
-      // Matched to the assembly the solver is given: ρ·A·L lumped half at each end,
+      const sectionWeight = createSectionWeight(model.materials);
+      // Matched to the assembly the solver is given: physical section weight × L lumped half at each end,
       // downward in global Z. Computing it any other way here would report a residual
       // that is this function's own arithmetic and nothing about the model.
       for (const el of model.elements.values()) {
@@ -240,7 +242,7 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
         const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (L < 1e-10) continue;
-        const half = (mat.rho * sec.a * L) / 2;
+        const half = (sectionWeight(sec, el.materialId) * L) / 2;
         addForceAt(applied, [0, 0, -half], [ni.x, ni.y, ni.z ?? 0]);
         addForceAt(applied, [0, 0, -half], [nj.x, nj.y, nj.z ?? 0]);
       }

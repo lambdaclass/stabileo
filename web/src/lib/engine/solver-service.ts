@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D } from './member-behaviour';
 import { sectionShearAreas } from '../section/shear-areas';
@@ -341,6 +342,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
   }
 
   if (includeSelfWeight) {
+    const sectionWeight = createSectionWeight(model.materials);
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
@@ -351,7 +353,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
       const sinTheta = dy / L, cosTheta = dx / L;
-      const w = mat.rho * sec.a;
+      const w = sectionWeight(sec, elem.materialId);
       const qPerp = -w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
         solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
@@ -1406,6 +1408,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
 
   // Self-weight
   if (includeSelfWeight) {
+    const sectionWeight = createSectionWeight(model.materials);
     for (const elem of model.elements.values()) {
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
@@ -1419,7 +1422,7 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfW
       const dz = njSolver.z - niSolver.z;
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 1e-10) continue;
-      const w = mat.rho * sec.a;
+      const w = sectionWeight(sec, elem.materialId);
       const totalWeight = w * L;
       solverLoads.push(
         { type: 'nodal', data: { nodeId: elem.nodeI, fx: 0, fy: 0, fz: -totalWeight / 2, mx: 0, my: 0, mz: 0 } },
@@ -2229,11 +2232,7 @@ function solveCombinations3DNonlinear(
   if (!settledBase) return t('svc.emptyModel');
   if (typeof settledBase === 'string') return settledBase;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-  const caseLoads = new Map<number, SolverLoad3D[]>();
-  for (const lc of loadCases) {
-    const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
-    caseLoads.set(lc.id, buildSolverLoads3D(model, loads, includeSelfWeight && lc.type === 'D', leftHand));
-  }
+  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const run = (loads: SolverLoad3D[], on: SolverInput3D = base): AnalysisResults3D => {
     const r = solveNonlinear3D(model, { ...on, loads }).results;
     if (hasShells) postProcessShellStresses(r, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
@@ -2245,7 +2244,7 @@ function solveCombinations3DNonlinear(
     if (settled) perCase.set(SETTLEMENT_CASE_ID, run([], settledBase));
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
-      const loads = combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
+      const loads = comboSolverLoads3D(combo, caseLoads);
       if (loads.length > 0 || settled) perCombo.set(combo.id, run(loads, settledBase));
     }
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
@@ -2257,12 +2256,30 @@ function solveCombinations3DNonlinear(
   }
 }
 
+/** Each case's solver loads, self-weight in the dead-load cases when asked for. */
+export function caseSolverLoads3D(
+  model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean,
+): Map<number, SolverLoad3D[]> {
+  const caseLoads = new Map<number, SolverLoad3D[]>();
+  for (const lc of loadCases) {
+    const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
+    caseLoads.set(lc.id, buildSolverLoads3D(model, loads, includeSelfWeight && lc.type === 'D', leftHand));
+  }
+  return caseLoads;
+}
+
+/** A combination's own factored loads, for an analysis that cannot superpose. */
+export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number, SolverLoad3D[]>): SolverLoad3D[] {
+  return combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
+}
+
 /**
  * A solver load times a factor: every magnitude scales, positions, ids and material data do not.
  * A quad's thermal load carries its material's α, and an edge load its edge index; a quad's
  * self-weight scales through its gravity, so its density stays too, or the factor went in twice.
  */
 const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id', 'a', 'b', 'caseId', 'alpha', 'edge', 'density']);
+
 export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(l.data)) data[k] = typeof v === 'number' && !LOAD_KEYS_KEPT.has(k) ? v * f : v;
