@@ -180,21 +180,15 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
 
   it('PRO UI seams should treat pro mode as a 3D result/modeling path', () => {
     const aiDrawer = readFileSync(new URL('../../../components/AiDrawer.svelte', import.meta.url), 'utf8');
-    const mobileResults = readFileSync(new URL('../../../components/MobileResultsPanel.svelte', import.meta.url), 'utf8');
-    const sectionStress = readFileSync(new URL('../../../components/SectionStressPanel.svelte', import.meta.url), 'utf8');
-    const aiReview = readFileSync(new URL('../../../components/toolbar/ToolbarAiReview.svelte', import.meta.url), 'utf8');
     // Copy/paste moved out of Toolbar with the rest of the keyboard layer:
     // Toolbar is mounted on mobile only, so every shortcut it owned did nothing
     // on desktop. These guarantees follow the code to its new home.
     const toolbar = readFileSync(new URL('../../../components/KeyboardShortcuts.svelte', import.meta.url), 'utf8');
     const oldToolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
 
-    expect(aiDrawer, 'AiDrawer.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    // Whether each of these treats PRO as a space workspace is `utils/__tests__/workspace-gate.test.ts`'s:
+    // every such check goes through `is3DWorkspace`.
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
-    expect(mobileResults, 'MobileResultsPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
-    expect(sectionStress, 'SectionStressPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
-    expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
-    expect(toolbar, 'KeyboardShortcuts.svelte should treat pro as 3D when pasting copied geometry').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
     expect(toolbar, 'KeyboardShortcuts.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
     // The paste of the clipboard's own record goes through the edit layer (`store/clipboard-paste.ts`),
     // which carries the member frame — a complete explicit local axis only, and the roll — as every
