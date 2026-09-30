@@ -8,7 +8,13 @@
  * valid total.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { modelStore, uiStore } from '../../store';
+import { isSolverReady } from '../../engine/wasm-solver';
+import { evaluateDiagramAt } from '../../engine/diagrams-3d';
+import { interpolateForces3D } from '../../engine/section-stress-3d';
+import type { AnalysisResults3D, ElementForces3D } from '../../engine/types-3d';
+import { resetModel3D, frame, support, DOF } from '../../engine/__tests__/helpers/random-models-3d';
 import {
   canonicalPanelResult,
   componentProvenance,
@@ -259,5 +265,97 @@ describe('station selection reaches the calculation', () => {
     ));
     if (!twoD.ok || !threeD.ok) throw new Error('expected ok');
     expect(threeD.bending.max.sigma).toBeCloseTo(twoD.bending.max.sigma, 12);
+  });
+});
+
+// ─── 3D station forces are the diagram's, inside loaded spans ──────
+//
+// The canonical panel analyses the section at the station the user picked, so
+// the resultants there have to be the ones the diagram draws. A straight line
+// between the member ends is right only for an unloaded member: a simply
+// supported beam under q has My = 0 at both ends and qL²/8 at midspan.
+
+describe('3D station forces follow the diagram inside loaded spans', () => {
+  const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
+  beforeAll(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+    expect(isSolverReady()).toBe(true);
+    for (const k of ['log', 'warn', 'info'] as const) quiet.push(vi.spyOn(console, k).mockImplementation(() => {}));
+  });
+  afterAll(() => { quiet.forEach((q) => q.mockRestore()); uiStore.analysisMode = '2d'; });
+
+  const solve3D = () => {
+    const r = modelStore.solve3D(false, false, false);
+    if (!r || typeof r === 'string') throw new Error(`3D solve refused: ${r}`);
+    return r as AnalysisResults3D;
+  };
+
+  it('simply supported beam along X under q = 10: My = qL²/8 = 45 at midspan', () => {
+    resetModel3D();
+    let el = 0;
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3);
+      el = frame(a, b, 1);
+      support(a, 'custom3d', DOF('xyzX')); support(b, 'custom3d', DOF('yz'));
+      modelStore.addDistributedLoad3D(el, 0, 0, -10, -10);
+    });
+    const ef = solve3D().elementForces.find((f) => f.elementId === el)!;
+    const mid = stationForces3D(ef, 0.5);
+    expect(Math.abs(mid.my)).toBeCloseTo(45, 6);
+    expect(mid.my).toBeCloseTo(evaluateDiagramAt(ef, 'momentY', 0.5), 9);
+    expect(mid.vz).toBeCloseTo(0, 6);                        // shear crosses zero at midspan
+    expect(Math.abs(stationForces3D(ef, 0).vz)).toBeCloseTo(30, 6); // qL/2 at the support
+  });
+
+  it('every resultant is the diagram value at every station, and the ends are the member ends', () => {
+    resetModel3D();
+    let e1 = 0, e2 = 0;
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 1, 0.5), c = modelStore.addNode(7, 3, 0);
+      e1 = frame(a, b, 1); e2 = frame(c, b, 1);             // the second drawn back toward the first
+      support(a, 'custom3d', DOF('xyzXYZ')); support(c, 'custom3d', DOF('xyzX'));
+      modelStore.addDistributedLoad3D(e1, -3, -7, -12, -4, 0.5, 3.2); // partial, trapezoidal, both axes
+      modelStore.addPointLoadOnElement3D(e1, 1.1, 6, -9);
+      modelStore.addDistributedLoad3D(e2, 4, 4, -8, -8);
+      modelStore.addPointLoadOnElement3D(e2, 2.0, -5, 3);
+      modelStore.addNodalLoad3D(b, 2, -3, -6, 4, 1, -2);     // includes a torque
+    });
+    const res = solve3D();
+    for (const id of [e1, e2]) {
+      const ef = res.elementForces.find((f) => f.elementId === id)! as ElementForces3D;
+      const scale = 1 + Math.max(...['nStart', 'myStart', 'myEnd', 'mzStart', 'mzEnd', 'vyStart', 'vzStart', 'mxStart']
+        .map((k) => Math.abs((ef as unknown as Record<string, number>)[k])));
+      for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        const f = stationForces3D(ef, t);
+        expect(f.n).toBeCloseTo(evaluateDiagramAt(ef, 'axial', t), 9);
+        expect(f.my).toBeCloseTo(evaluateDiagramAt(ef, 'momentY', t), 9);
+        expect(f.mz).toBeCloseTo(evaluateDiagramAt(ef, 'momentZ', t), 9);
+        expect(f.vy).toBeCloseTo(evaluateDiagramAt(ef, 'shearY', t), 9);
+        expect(f.vz).toBeCloseTo(evaluateDiagramAt(ef, 'shearZ', t), 9);
+        expect(f.tx).toBeCloseTo(evaluateDiagramAt(ef, 'torsion', t), 9);
+        // The panel's legacy readout (interpolateForces3D) is the same station.
+        const legacy = interpolateForces3D(ef, t);
+        for (const [a, b] of [[f.n, legacy.N], [f.my, legacy.My], [f.mz, legacy.Mz], [f.tx, legacy.Mx]]) {
+          expect(Math.abs(a - b)).toBeLessThan(1e-9 * scale);
+        }
+      }
+      // At the member ends the diagram closes on the solver's own end values.
+      const f0 = stationForces3D(ef, 0), f1 = stationForces3D(ef, 1);
+      expect(Math.abs(f0.my - ef.myStart)).toBeLessThan(1e-6 * scale);
+      expect(Math.abs(f0.mz - ef.mzStart)).toBeLessThan(1e-6 * scale);
+      expect(Math.abs(f1.my - ef.myEnd)).toBeLessThan(1e-6 * scale);
+      expect(Math.abs(f1.mz - ef.mzEnd)).toBeLessThan(1e-6 * scale);
+      expect(Math.abs(f1.vy - ef.vyEnd)).toBeLessThan(1e-6 * scale);
+      expect(Math.abs(f1.vz - ef.vzEnd)).toBeLessThan(1e-6 * scale);
+      // And inside the loaded span it is NOT the straight line between them.
+      const lin = ef.myStart + 0.5 * (ef.myEnd - ef.myStart);
+      expect(Math.abs(stationForces3D(ef, 0.5).my - lin)).toBeGreaterThan(1e-3 * scale);
+    }
+  });
+
+  it('a caller with end values only still gets the straight line', () => {
+    const f = stationForces3D({ nStart: 2, nEnd: 4, myStart: 10, myEnd: 30, mzStart: 0, mzEnd: -8, vzStart: 1, vzEnd: 3 }, 0.25);
+    expect(f).toEqual({ n: 2.5, my: 15, mz: -2, vy: 0, vz: 1.5, tx: 0 });
   });
 });

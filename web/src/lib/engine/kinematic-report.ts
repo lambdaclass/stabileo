@@ -8,7 +8,9 @@
 // condition explanation, mechanism root-cause analysis, and fix suggestions.
 
 import type { SolverInput } from './types';
-import { computeStaticDegree, analyzeKinematics } from './kinematic-2d';
+import type { SolverInput3D } from './types-3d';
+import { countStaticDegree2D, analyzeKinematics } from './kinematic-2d';
+import { countStaticDegree3D, supportRestraints3D, analyzeKinematics3D } from './kinematic-3d';
 import { t } from '../i18n';
 
 // ─── Public interfaces ─────────────────────────────────────────
@@ -49,7 +51,8 @@ export interface SlidingJointInput {
 
 export interface UnconstrainedDofDetail {
   nodeId: number;
-  dof: 'ux' | 'uz' | 'ry';
+  /** 'ux' | 'uz' | 'ry' in the plane; 'ux' … 'rz' in space. */
+  dof: string;
   dofName: string;        // "desplazamiento horizontal"
   explanation: string;    // root-cause explanation
 }
@@ -107,8 +110,20 @@ export interface ElementConstraintAnalysis {
 }
 
 export interface KinematicReport {
+  /** Which analysis this report describes. */
+  dimension: '2d' | '3d';
   // Step 1: Structure summary
   nNodes: number;
+  /**
+   * Nodes that take the full set of equilibrium equations (3 in the plane, 6
+   * in space) and nodes only truss bars reach, which take fewer (2 / 3): the
+   * moment equations of forces through one point read 0 = 0. Only split out
+   * in a model with frames; in a pure truss every node is in `nTrussNodes`.
+   */
+  nFrameNodes: number;
+  nTrussNodes: number;
+  /** Equations per node of each kind, for the labels: [frame node, truss-only node]. */
+  equationsPerNode: [number, number];
   nFrames: number;
   nTrusses: number;
   supportDetails: SupportDetail[];
@@ -234,6 +249,9 @@ export function generateKinematicReport(
   const nNodes = input.nodes.size;
   const isPureTruss = nFrames === 0;
 
+  // The count the degree is made of — the rows below show its pieces.
+  const count = countStaticDegree2D(input, slidingJoints.length);
+
   // Support details
   const supportDetails: SupportDetail[] = [];
   let totalR = 0;
@@ -241,20 +259,26 @@ export function generateKinematicReport(
   for (const sup of input.supports.values()) {
     const st = sup.type as string;
     const preset = supLabels[st];
+    // A rotational restraint where only truss bars arrive holds no rotation equation.
+    const rotIgnored = count.rotationNotCounted.has(sup.nodeId);
     if (preset) {
+      const ignored = rotIgnored && st === 'fixed';
       supportDetails.push({
         nodeId: sup.nodeId,
         type: preset.label,
-        dofs: preset.dofs,
-        restrainedDofs: preset.restrained,
+        dofs: ignored ? preset.dofs - 1 : preset.dofs,
+        restrainedDofs: ignored ? `ux, uz — ${t('kin.rotNotCountedTrussNode')}` : preset.restrained,
       });
-      totalR += preset.dofs;
+      totalR += ignored ? preset.dofs - 1 : preset.dofs;
     } else if (st === 'spring') {
       const parts: string[] = [];
       let d = 0;
       if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
       if (sup.ky && sup.ky > 0) { parts.push('uz'); d++; }
-      if (sup.kz && sup.kz > 0) { parts.push('θy'); d++; }
+      if (sup.kz && sup.kz > 0) {
+        if (rotIgnored) parts.push(`θy — ${t('kin.rotNotCountedTrussNode')}`);
+        else { parts.push('θy'); d++; }
+      }
       supportDetails.push({
         nodeId: sup.nodeId,
         type: t('kin.supSpring'),
@@ -285,6 +309,7 @@ export function generateKinematicReport(
   // Rot-restrained nodes (for hinge counting)
   const rotRestrained = new Set<number>();
   for (const sup of input.supports.values()) {
+    if (count.rotationNotCounted.has(sup.nodeId)) continue;
     if (sup.type === 'fixed') rotRestrained.add(sup.nodeId);
     if (sup.type === 'spring' && sup.kz && sup.kz > 0) rotRestrained.add(sup.nodeId);
   }
@@ -299,12 +324,14 @@ export function generateKinematicReport(
     let explanation: string;
     const elemList = elems.map(e => `Elem. ${e.elemId} (${e.end})`).join(' + ');
 
-    if (k <= 1) {
-      ci = 0;
-      explanation = `${elemList} — ${t('kin.hingeFreeEnd')}`;
-    } else if (hasRot) {
+    // The support first: a member hinged at a fixed support is pinned there
+    // (c = 1), not a free end. Checking `k ≤ 1` first counted it as clamped.
+    if (hasRot) {
       ci = j;
       explanation = `${elemList} — ${t('kin.hingeRotRestraint').replaceAll('{c}', String(j))}`;
+    } else if (k <= 1) {
+      ci = 0;
+      explanation = `${elemList} — ${t('kin.hingeFreeEnd')}`;
     } else {
       ci = Math.min(j, k - 1);
       explanation = `${elemList} — ${t('kin.hingeFormula').replaceAll('{k}', String(k)).replaceAll('{j}', String(j)).replaceAll('{ci}', String(ci))}`;
@@ -340,31 +367,30 @@ export function generateKinematicReport(
 
   // ── Step 2: Degree formula ──
 
-  const { degree } = computeStaticDegree(input, slideConditions);
+  const { degree } = count;
+  const nFrameNodes = isPureTruss ? 0 : count.nFrameNodes;
+  const nTrussNodes = count.nTrussNodes;
 
   let formula: string;
   let substitution: string;
+  // Each term is written with its own sign: "− 3×n + c" read as −3n + c.
+  const cTerm = totalC > 0 ? ` − ${totalC}` : '';
+  const cSym = totalC > 0 ? ' − c' : '';
   if (isPureTruss) {
     // Pure truss: g = m + r − 2·n
     formula = 'g = m + r − 2·n';
     const m = input.elements.size;
     substitution = `g = ${m} + ${totalR} − 2×${nNodes} = ${degree}`;
   } else if (nTrusses > 0) {
-    // Mixed: frames + trusses
-    formula = totalC > 0
-      ? 'g = 3·m_p + m_r + r − 3·n − c'
-      : 'g = 3·m_p + m_r + r − 3·n';
-    const parts = [`3×${nFrames} + ${nTrusses} + ${totalR}`];
-    const minus = totalC > 0 ? `3×${nNodes} + ${totalC}` : `3×${nNodes}`;
-    substitution = `g = ${parts[0]} − ${minus} = ${degree}`;
+    // Mixed: frames + trusses. A node only truss bars reach takes 2 equations.
+    const nSym = nTrussNodes > 0 ? '3·n_p − 2·n_r' : '3·n';
+    const nNum = nTrussNodes > 0 ? `3×${nFrameNodes} − 2×${nTrussNodes}` : `3×${nNodes}`;
+    formula = `g = 3·m_p + m_r + r − ${nSym}${cSym}`;
+    substitution = `g = 3×${nFrames} + ${nTrusses} + ${totalR} − ${nNum}${cTerm} = ${degree}`;
   } else {
     // Pure frame
-    formula = totalC > 0
-      ? 'g = 3·m + r − 3·n − c'
-      : 'g = 3·m + r − 3·n';
-    const plus = `3×${nFrames} + ${totalR}`;
-    const minus = totalC > 0 ? `3×${nNodes} + ${totalC}` : `3×${nNodes}`;
-    substitution = `g = ${plus} − ${minus} = ${degree}`;
+    formula = `g = 3·m + r − 3·n${cSym}`;
+    substitution = `g = 3×${nFrames} + ${totalR} − 3×${nNodes}${cTerm} = ${degree}`;
   }
 
   // ── Step 3: Rank verification ── (computed before classification so we can adjust it)
@@ -381,26 +407,7 @@ export function generateKinematicReport(
 
   // ── Step 2 (cont.): Classification — now informed by rank analysis ──
 
-  let classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
-  let classificationText: string;
-  if (degree < 0) {
-    classification = 'hypostatic';
-    classificationText = t('kin.classHypostatic').replaceAll('{n}', String(Math.abs(degree))).replaceAll('{s}', Math.abs(degree) > 1 ? t('kin.plural_s') : '');
-  } else if (hasHiddenMechanism) {
-    // g ≥ 0 but rank analysis reveals mechanism → override classification
-    classification = 'hypostatic';
-    if (degree === 0) {
-      classificationText = t('kin.classHiddenMechZero').replaceAll('{modes}', String(mechanismModes)).replaceAll('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
-    } else {
-      classificationText = t('kin.classHiddenMechPos').replaceAll('{degree}', String(degree)).replaceAll('{modes}', String(mechanismModes)).replaceAll('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
-    }
-  } else if (degree === 0) {
-    classification = 'isostatic';
-    classificationText = t('kin.classIsostatic');
-  } else {
-    classification = 'hyperstatic';
-    classificationText = t('kin.classHyperstatic').replaceAll('{degree}', String(degree)).replaceAll('{s}', degree > 1 ? t('kin.plural_s') : '');
-  }
+  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes);
 
   // Build detailed unconstrained DOF explanations
   const dofNames = getDofNames();
@@ -425,7 +432,8 @@ export function generateKinematicReport(
   const suggestions = generateSuggestions(unconstrainedDofs, input);
 
   return {
-    nNodes, nFrames, nTrusses,
+    dimension: '2d',
+    nNodes, nFrameNodes, nTrussNodes, equationsPerNode: [3, 2], nFrames, nTrusses,
     supportDetails, totalR,
     hingeDetails, slideDetails, totalC,
     isPureTruss, formula, substitution,
@@ -434,6 +442,165 @@ export function generateKinematicReport(
     elementAnalysis,
     suggestions,
     isSolvable: kinResult.isSolvable,
+  };
+}
+
+/** Step 2's verdict: the count, overridden by the rank check when it finds a mechanism the count missed. */
+function classifyReport(degree: number, hasHiddenMechanism: boolean, mechanismModes: number): {
+  classification: KinematicReport['classification'];
+  classificationText: string;
+} {
+  let classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  let classificationText: string;
+  if (degree < 0) {
+    classification = 'hypostatic';
+    classificationText = t('kin.classHypostatic').replaceAll('{n}', String(Math.abs(degree))).replaceAll('{s}', Math.abs(degree) > 1 ? t('kin.plural_s') : '');
+  } else if (hasHiddenMechanism) {
+    // g ≥ 0 but rank analysis reveals mechanism → override classification
+    classification = 'hypostatic';
+    if (degree === 0) {
+      classificationText = t('kin.classHiddenMechZero').replaceAll('{modes}', String(mechanismModes)).replaceAll('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
+    } else {
+      classificationText = t('kin.classHiddenMechPos').replaceAll('{degree}', String(degree)).replaceAll('{modes}', String(mechanismModes)).replaceAll('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
+    }
+  } else if (degree === 0) {
+    classification = 'isostatic';
+    classificationText = t('kin.classIsostatic');
+  } else {
+    classification = 'hyperstatic';
+    classificationText = t('kin.classHyperstatic').replaceAll('{degree}', String(degree)).replaceAll('{s}', degree > 1 ? t('kin.plural_s') : '');
+  }
+  return { classification, classificationText };
+}
+
+// ─── 3D report ──────────────────────────────────────────────────
+
+const DOF3D_KEY: Record<string, string> = {
+  ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz',
+  rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
+};
+const ROT3D_LABEL: Record<string, string> = { rx: 'θx', ry: 'θy', rz: 'θz' };
+
+/**
+ * The kinematic report of a space structure: the same steps as the plane
+ * report, on the 3D count (`countStaticDegree3D`) and the engine's 3D rank
+ * check. The bar-by-bar breakdown is a plane reading (ux, uz, θy through
+ * chains of members) and is not built here.
+ */
+export function generateKinematicReport3D(input: SolverInput3D): KinematicReport | null {
+  if (input.nodes.size < 2 || input.elements.size < 1) return null;
+  const count = countStaticDegree3D(input);
+  const { isPureTruss, mFrame: nFrames, mTruss: nTrusses, degree } = count;
+  const nNodes = input.nodes.size;
+  const nFrameNodes = isPureTruss ? 0 : count.nFrameNodes;
+  const nTrussNodes = count.nTrussNodes;
+
+  // Step 1: supports (the stabiliser's vanishing springs are not supports)
+  const supportDetails: SupportDetail[] = [];
+  let totalR = 0;
+  for (const sup of input.supports.values()) {
+    if (sup.stabilised === 'created') continue;
+    const { translations, rotations } = supportRestraints3D(sup);
+    if (translations.length + rotations.length === 0) continue;
+    const trussOnly = count.nodes.get(sup.nodeId)?.trussOnly ?? false;
+    const springs = [sup.kx, sup.ky, sup.kz].some((k) => (k ?? 0) > 0)
+      || (rotations.length > 0 && [sup.krx, sup.kry, sup.krz].some((k) => (k ?? 0) > 0) && !sup.stabilised);
+    const type = springs ? t('kin.supSpring')
+      : translations.length === 3 && rotations.length === 3 ? t('kin.supFixed')
+      : translations.length === 3 && rotations.length === 0 ? t('kin.supPinned')
+      : t('kin.sup3dPartial');
+    const rot = rotations.map((r) => ROT3D_LABEL[r]).join(', ');
+    const parts = [...translations];
+    if (rot) parts.push(trussOnly ? `${rot} — ${t('kin.rotNotCountedTrussNode')}` : rot);
+    const dofs = translations.length + (trussOnly ? 0 : rotations.length);
+    supportDetails.push({ nodeId: sup.nodeId, type, dofs, restrainedDofs: parts.join(', ') });
+    totalR += dofs;
+  }
+  supportDetails.sort((a, b) => a.nodeId - b.nodeId);
+
+  // Step 1: internal conditions, per node
+  const hingeDetails: HingeDetail[] = [];
+  for (const nc of count.nodes.values()) {
+    if (nc.released === 0 && nc.rotRestraints === nc.rotRestraintsEffective) continue;
+    const free = 3 - nc.rotationRank;
+    const ineffective = nc.rotRestraints - nc.rotRestraintsEffective;
+    const elemList = nc.releasedEnds.map((e) => `Elem. ${e.elemId} (${e.end}: ${e.components.join(', ')})`).join(' + ');
+    const parts: string[] = [];
+    if (nc.released > 0) {
+      parts.push(free > 0
+        ? t('kin.hinge3dAbsorbed').replaceAll('{rel}', String(nc.released)).replaceAll('{free}', String(free)).replaceAll('{ci}', String(nc.released - free))
+        : t('kin.hinge3dReleased').replaceAll('{rel}', String(nc.released)).replaceAll('{ci}', String(nc.released)));
+    }
+    if (ineffective > 0) parts.push(t('kin.hinge3dRotSupport').replaceAll('{n}', String(ineffective)));
+    hingeDetails.push({
+      nodeId: nc.nodeId,
+      elements: nc.releasedEnds.map((e) => ({ elemId: e.elemId, end: e.end })),
+      nFrames: 0,
+      hasRotRestraint: nc.rotRestraints > 0,
+      ci: nc.ci,
+      explanation: elemList ? `${elemList} — ${parts.join('; ')}` : parts.join('; '),
+    });
+  }
+  hingeDetails.sort((a, b) => a.nodeId - b.nodeId);
+  const totalC = count.c;
+
+  // Step 2: the sum, each term with its own sign
+  const cTerm = totalC !== 0 ? ` − ${totalC}` : '';
+  const cSym = totalC !== 0 ? ' − c' : '';
+  let formula: string;
+  let substitution: string;
+  if (isPureTruss) {
+    formula = 'g = m + r − 3·n';
+    substitution = `g = ${nTrusses} + ${totalR} − 3×${nNodes} = ${degree}`;
+  } else if (nTrusses > 0) {
+    const nSym = nTrussNodes > 0 ? '6·n_p − 3·n_r' : '6·n';
+    const nNum = nTrussNodes > 0 ? `6×${nFrameNodes} − 3×${nTrussNodes}` : `6×${nNodes}`;
+    formula = `g = 6·m_p + m_r + r − ${nSym}${cSym}`;
+    substitution = `g = 6×${nFrames} + ${nTrusses} + ${totalR} − ${nNum}${cTerm} = ${degree}`;
+  } else {
+    formula = `g = 6·m + r − 6·n${cSym}`;
+    substitution = `g = 6×${nFrames} + ${totalR} − 6×${nNodes}${cTerm} = ${degree}`;
+  }
+
+  // Step 3: the engine's rank check
+  const kin = analyzeKinematics3D(input);
+  const rankChecked = kin.rankAnalysis === 'available';
+  const invalidInput = kin.invalidInput ?? null;
+  const mechanismModes = kin.mechanismModes;
+  const hasHiddenMechanism = degree >= 0 && mechanismModes > 0;
+  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes);
+
+  const dofsPerNode = isPureTruss ? 3 : 6;
+  let restrained = 0;
+  for (const sup of input.supports.values()) {
+    const { translations, rotations } = supportRestraints3D(sup);
+    restrained += translations.length + (isPureTruss ? 0 : rotations.length);
+  }
+  const nFreeDofs = Math.max(0, nNodes * dofsPerNode - restrained);
+
+  const unconstrainedDofs: UnconstrainedDofDetail[] = kin.unconstrainedDofs.map((ud) => {
+    const dofName = DOF3D_KEY[ud.dof] ? t(DOF3D_KEY[ud.dof]) : ud.dof;
+    return {
+      nodeId: ud.nodeId,
+      dof: ud.dof,
+      dofName,
+      explanation: t('kin.genericUnconstrained').replaceAll('{node}', String(ud.nodeId)).replaceAll('{dof}', dofName),
+    };
+  });
+  const suggestions = mechanismModes > 0 || unconstrainedDofs.length > 0 ? [t('kin.sugGeneric')] : [];
+
+  return {
+    dimension: '3d',
+    nNodes, nFrameNodes, nTrussNodes, equationsPerNode: [6, 3], nFrames, nTrusses,
+    supportDetails, totalR,
+    hingeDetails, slideDetails: [], totalC,
+    isPureTruss, formula, substitution,
+    degree, classification, classificationText,
+    nFreeDofs, rankChecked, invalidInput, hasHiddenMechanism, mechanismModes,
+    mechanismNodes: kin.mechanismNodes ?? [], unconstrainedDofs,
+    elementAnalysis: [],
+    suggestions,
+    isSolvable: kin.isSolvable,
   };
 }
 
@@ -1272,14 +1439,14 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
       const other = input.nodes.get(e.otherNodeId);
       if (!other) return false;
       const dx = Math.abs(other.x - node.x);
-      const dy = Math.abs(other.y - node.y);
+      const dy = Math.abs(other.z - node.z);
       return dy > dx * 5; // essentially vertical
     });
     const biArtHorizontal = biArticulated.filter(e => {
       const other = input.nodes.get(e.otherNodeId);
       if (!other) return false;
       const dx = Math.abs(other.x - node.x);
-      const dy = Math.abs(other.y - node.y);
+      const dy = Math.abs(other.z - node.z);
       return dx > dy * 5; // essentially horizontal
     });
 
@@ -1296,7 +1463,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
     const angles: number[] = [];
     for (const e of connectedElems) {
       const other = input.nodes.get(e.otherNodeId);
-      if (other) angles.push(Math.atan2(other.y - node.y, other.x - node.x));
+      if (other) angles.push(Math.atan2(other.z - node.z, other.x - node.x));
     }
     let allCollinear = true;
     if (angles.length >= 2) {

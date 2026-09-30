@@ -2503,6 +2503,29 @@
   /** The last pointer was a finger: labels go higher, clear of it. */
   let touchInput = false;
 
+  /**
+   * The canvas's touchstart and touchmove listeners, attached non-passive.
+   *
+   * Both handlers call `preventDefault()`, so a finger on the model neither
+   * scrolls the page nor turns into a synthetic mouse click on top of the one
+   * the handlers already send. Svelte 5 attaches `ontouchstart` and
+   * `ontouchmove` as passive listeners, and on a passive listener the call is
+   * ignored: every tap logged "Unable to preventDefault inside passive event
+   * listener". The handlers are the same ones; only the listener options differ.
+   */
+  function nonPassiveTouch(node: HTMLCanvasElement) {
+    const start = (e: TouchEvent) => handleTouchStart(e);
+    const move = (e: TouchEvent) => handleTouchMove(e);
+    node.addEventListener('touchstart', start, { passive: false });
+    node.addEventListener('touchmove', move, { passive: false });
+    return {
+      destroy() {
+        node.removeEventListener('touchstart', start);
+        node.removeEventListener('touchmove', move);
+      },
+    };
+  }
+
   function handleTouchStart(e: TouchEvent) {
     e.preventDefault();
     if (!canvas) return;
@@ -2847,8 +2870,7 @@
     ondblclick={handleDblClick}
     onwheel={handleWheel}
     oncontextmenu={handleContextMenu}
-    ontouchstart={handleTouchStart}
-    ontouchmove={handleTouchMove}
+    use:nonPassiveTouch
     ontouchend={handleTouchEnd}
     ondragover={(e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; }}
     ondrop={(e) => {

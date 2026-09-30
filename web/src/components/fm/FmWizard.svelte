@@ -21,9 +21,10 @@
   /* Opened from the catalog of methods, "back" goes to that list. */
   const fromCatalog = $derived(explainedSteps.returnToCatalog);
 
+  // Closing leaves the model framed as the reader left it (it re-framed it, and
+  // so did opening: see step-wizards.ts's showPanel).
   function close() {
     fmStepsStore.close();
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
   }
   function handleKeydown(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement | null)?.tagName;

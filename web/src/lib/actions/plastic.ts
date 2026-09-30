@@ -8,15 +8,25 @@
 import { modelStore, uiStore } from '../store';
 import { plasticMoments, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
 import { plasticCollapse2D, type PlasticCollapseResult } from '../engine/plastic-collapse';
+import { advancedRefusal2D } from '../engine/solver-service';
+import { t } from '../i18n';
 
 export interface PlasticRun {
   result: PlasticCollapseResult;
   mps: SectionMp[];
 }
 
+/**
+ * Throws, with the static solve's own message, on a model the static solve
+ * refuses: the collapse analysis starts from that solve, and ran on a beam on
+ * two rollers or a stray node as if it had one. A model nothing loads is
+ * refused too: its λc = 0 read as "does not collapse".
+ */
 export function runPlasticCollapse(): PlasticRun | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
   if (!input) return null;
+  const refusal = advancedRefusal2D(input);
+  if (refusal) throw new Error(refusal);
   const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
   const mpOfSection = new Map(mps.map((m) => [m.sectionId, m.mp]));
   const result = plasticCollapse2D(input, {
@@ -28,5 +38,6 @@ export function runPlasticCollapse(): PlasticRun | null {
       return fy * 1000 * a;
     },
   });
+  if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   return { result, mps };
 }

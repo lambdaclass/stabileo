@@ -1,6 +1,64 @@
+<script lang="ts" module>
+  import { untrack } from 'svelte';
+  import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
+
+  const threeD = (): boolean => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+
+  /*
+   * A 2D ↔ 3D switch closes what the dimension left behind.
+   * ─────────────────────────────────────────────────────────
+   * Kinematic analysis, the influence line, the moving load and the plastic
+   * collapse exist only in 2D, and P-Δ, Pcr and Dynamic keep one result per
+   * dimension: after a switch none of them is running in the new workspace,
+   * yet the kinematic panel stayed open under a header naming it, and a 2D
+   * mode shape stayed the diagram of a 3D view that had no mode to draw, which
+   * hid the model's loads. Watched at module level rather than in the
+   * component, because the switch is made from the ribbon whether or not this
+   * panel is on screen.
+   */
+  $effect.root(() => {
+    let was3D: boolean | null = null;
+    $effect(() => {
+      const now3D = threeD();
+      untrack(() => {
+        if (was3D !== null && was3D !== now3D) {
+          if (now3D) {
+            uiStore.showKinematicPanel = false;
+            if (uiStore.currentTool === 'influenceLine') uiStore.currentTool = 'select';
+          }
+          resultsStore.leaveDimension(now3D);
+        }
+        was3D = now3D;
+      });
+    });
+  });
+
+  /*
+   * The selection a function found, put back when it closes. Taken at the
+   * click that opens it — before the function's own picks (Section Analysis
+   * selects the member it reads) — and only while nothing is running.
+   */
+  type HeldSelection = { nodes: Set<number>; elements: Set<number>; shells: Set<string>; loads: Set<number>; supports: Set<number>; manual: boolean };
+  let heldSelection: HeldSelection | null = null;
+  function holdSelection(): void {
+    heldSelection = {
+      nodes: new Set(uiStore.selectedNodes), elements: new Set(uiStore.selectedElements),
+      shells: new Set(uiStore.selectedShells), loads: new Set(uiStore.selectedLoads),
+      supports: new Set(uiStore.selectedSupports), manual: uiStore.elementSelectionManual,
+    };
+  }
+  function releaseSelection(): void {
+    const h = heldSelection;
+    heldSelection = null;
+    if (!h) return;
+    uiStore.setSelection(h.nodes, h.elements, h.manual, h.shells);
+    uiStore.selectedLoads = h.loads;
+    uiStore.selectedSupports = h.supports;
+  }
+</script>
+
 <script lang="ts">
   import { whatIf } from '../../lib/store/whatif.svelte';
-  import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
@@ -151,12 +209,17 @@
     { key: 'cirsocFlex', labelKey: 'flex.title',
       isActive: () => showFlex,
       close: () => { showFlex = false; } },
+    /*
+     * The four 2D-only entries are running only in 2D: in 3D their buttons are
+     * disabled, so a header naming one of them would name something the reader
+     * cannot reach, let alone close.
+     */
     { key: 'kinematic', labelKey: 'advanced.kinematicAnalysis',
-      isActive: () => uiStore.showKinematicPanel,
+      isActive: () => !is3D && uiStore.showKinematicPanel,
       close: () => { uiStore.showKinematicPanel = false; } },
     { key: 'despiece', labelKey: 'advanced.despiece',
       isActive: () => resultsStore.diagramType === 'despiece',
-      close: () => { resultsStore.diagramType = 'none'; uiStore.despieceInspect = null; } },
+      close: () => { resultsStore.releaseView(is3D); uiStore.despieceInspect = null; } },
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
@@ -170,14 +233,14 @@
       isActive: () => !!(is3D ? resultsStore.modalResult3D : resultsStore.modalResult),
       close: () => (is3D ? resultsStore.clearModal3D() : resultsStore.clearModal()) },
     { key: 'plastic', labelKey: 'advanced.plasticCollapse',
-      isActive: () => !!resultsStore.plasticResult,
+      isActive: () => !is3D && !!resultsStore.plasticResult,
       close: () => resultsStore.clearPlastic() },
     { key: 'trainLoad', labelKey: 'advanced.trainLoad',
-      isActive: () => !!resultsStore.movingLoadEnvelope || showTrainPanel,
+      isActive: () => !is3D && (!!resultsStore.movingLoadEnvelope || showTrainPanel),
       close: () => { resultsStore.clearMovingLoad(); showTrainPanel = false; selectedTrainIndex = ''; } },
     { key: 'influenceLine', labelKey: 'advanced.influenceLine',
-      isActive: () => uiStore.currentTool === 'influenceLine',
-      close: () => { uiStore.currentTool = 'select'; resultsStore.setInfluenceLine(null); } },
+      isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
+      close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
@@ -192,6 +255,26 @@
 
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
+
+  /**
+   * Close one function, as "← Back" and the list's own toggle-off both do: its
+   * teardown puts the results and the diagram back (the store keeps what the
+   * function replaced), and the selection it found comes back here.
+   */
+  function closeEntry(key: string): void {
+    ADV.find((a) => a.key === key)?.close();
+    releaseSelection();
+  }
+
+  /** A click in the list while nothing runs may open a function: keep the selection it finds. */
+  function noteOpening(): void {
+    if (active === null) holdSelection();
+  }
+
+  /* The train selector is this component's own state: a switch to 3D, where the entry is disabled, closes it. */
+  $effect(() => {
+    if (is3D) untrack(() => { showTrainPanel = false; selectedTrainIndex = ''; });
+  });
 
   /** A block is drawn when nothing is running, or when it IS what is running. */
   function shown(key: string): boolean {
@@ -214,6 +297,40 @@
     const msg = (e as { message?: unknown } | null)?.message;
     if (typeof msg === 'string' && msg.trim()) return msg;
     return t(fallbackKey);
+  }
+
+  /**
+   * A P-Δ that is the linear solve (nothing deforms the model, or nothing is
+   * free) says so, instead of the engine's "did not converge, unstable".
+   */
+  function pdeltaToast(result: any, dt: number): void {
+    if (result.notice === 'noLoads' || result.notice === 'noFreeDofs') {
+      uiStore.toast(t(result.notice === 'noLoads' ? 'toast.pdeltaLinearNoLoads' : 'toast.pdeltaLinearNoFreeDofs'), 'info');
+      return;
+    }
+    const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+      ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
+      : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
+    uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
+  }
+
+  /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
+  const DOF_2D: Record<string, string> = { ux: 'ux', uy: 'uz', uz: 'uz', rz: 'ry', ry: 'ry' };
+  const DOF_KEY: Record<string, string> = {
+    ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz', rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
+  };
+
+  /**
+   * Modes the boundary discarded because their eigenvalue is zero (wasm-solver.ts,
+   * `withoutNullModes`): the structure moves there without deforming. Said after the
+   * result, with the node and direction of the first one.
+   */
+  function nullModesToast(result: any, plane: boolean): void {
+    const d = result?.discardedModes as Array<{ nodeId: number; dof: string }> | undefined;
+    if (!d?.length) return;
+    const dof = plane ? (DOF_2D[d[0].dof] ?? d[0].dof) : d[0].dof;
+    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_KEY[dof] ? `, ${t(DOF_KEY[dof])}` : ''}`;
+    uiStore.toast(t('advanced.nullModesDiscarded').replace('{n}', String(d.length)).replace('{where}', where), 'info');
   }
 
   function toggleAdvHelp(key: string, e: MouseEvent) {
@@ -262,10 +379,7 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult(result);
-      const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
-        : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
-      uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
+      pdeltaToast(result, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -297,6 +411,7 @@
       // The plane solver's y is the vertical, labelled Z everywhere else.
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
       uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, true);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.modalError'), 'error');
     }
@@ -316,6 +431,7 @@
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, true);
     } catch (e: any) {
       bucklingFailure(e);
     }
@@ -381,7 +497,6 @@
 
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
-  const isPro = $derived(uiStore.analysisMode === 'pro');
 
   async function handlePDelta3D() {
     if (blockedBySlidingJoints()) return;
@@ -395,10 +510,7 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult3D(result);
-      const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
-        : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
-      uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
+      pdeltaToast(result, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -422,6 +534,7 @@
       resultsStore.setModalResult3D(result);
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
       uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, false);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.modalError'), 'error');
     }
@@ -442,6 +555,7 @@
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '\u2014').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, false);
     } catch (e: any) {
       bucklingFailure(e);
     }
@@ -461,7 +575,7 @@
   let { flat = false }: { flat?: boolean } = $props();
 </script>
 
-<div class="toolbar-section" class:flat data-tour="advanced-section">
+<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
@@ -488,7 +602,7 @@
     <div class="adv-running" data-testid="adv-running" data-adv={active.key}>
       <button
         class="adv-running-back"
-        onclick={() => active?.close()}
+        onclick={() => { if (active) closeEntry(active.key); }}
         title={t('adv.backToList')}
         aria-label={t('adv.backToList')}
         data-testid="adv-close"
@@ -530,8 +644,10 @@
         class:active={resultsStore.diagramType === 'despiece'}
         onclick={() => {
           const hasRes = is3D ? resultsStore.results3D : resultsStore.results;
+          if (resultsStore.diagramType === 'despiece') { closeEntry('despiece'); return; }
           if (!hasRes) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
-          resultsStore.diagramType = resultsStore.diagramType === 'despiece' ? 'none' : 'despiece';
+          resultsStore.holdView();
+          resultsStore.diagramType = 'despiece';
         }}>
         {t('advanced.despiece')}
       </button>
@@ -588,8 +704,7 @@
           // it armed a picking mode and the only way back out was to pick a
           // different tool in the ribbon — not where you turned it on.
           if (uiStore.currentTool === 'select' && uiStore.selectMode === 'stress') {
-            uiStore.selectMode = 'elements';
-            resultsStore.stressQuery = null;
+            closeEntry('stress');
             return;
           }
           if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
@@ -613,19 +728,10 @@
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.pdeltaResult3D : !!resultsStore.pdeltaResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.pdeltaResult3D) {
-              resultsStore.clearPDelta3D();
-              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-              if (r && typeof r !== 'string') resultsStore.setResults3D(r);
-            } else { handlePDelta3D(); }
-          } else {
-            if (resultsStore.pdeltaResult) {
-              resultsStore.clearPDelta();
-              const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-              if (r && typeof r !== 'string') resultsStore.setResults(r);
-            } else { handlePDelta(); }
-          }
+          /* Off puts back the view P-Δ replaced — it does not solve a model nobody solved. */
+          if (is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult) closeEntry('pdelta');
+          else if (is3D) handlePDelta3D();
+          else handlePDelta();
         }}>{t('advanced.pdelta')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('pdelta', e)} class:active={advHelpKey === 'pdelta'}>?</button>
     </div>
@@ -636,13 +742,9 @@
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.bucklingResult3D : !!resultsStore.bucklingResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.bucklingResult3D) { resultsStore.clearBuckling3D(); }
-            else { handleBuckling3D(); }
-          } else {
-            if (resultsStore.bucklingResult) { resultsStore.clearBuckling(); }
-            else { handleBuckling(); }
-          }
+          if (is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult) closeEntry('buckling');
+          else if (is3D) handleBuckling3D();
+          else handleBuckling();
         }}>{t('advanced.buckling')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('buckling', e)} class:active={advHelpKey === 'buckling'}>?</button>
     </div>
@@ -660,13 +762,9 @@
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.modalResult3D : !!resultsStore.modalResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.modalResult3D) { resultsStore.clearModal3D(); }
-            else { handleModal3D(); }
-          } else {
-            if (resultsStore.modalResult) { resultsStore.clearModal(); }
-            else { handleModal(); }
-          }
+          if (is3D ? resultsStore.modalResult3D : resultsStore.modalResult) closeEntry('modal');
+          else if (is3D) handleModal3D();
+          else handleModal();
         }}>{t('advanced.dynamic')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('modal', e)} class:active={advHelpKey === 'modal'}>?</button>
     </div>
@@ -694,11 +792,8 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.plasticResult}
         onclick={() => {
-          if (resultsStore.plasticResult) {
-            resultsStore.clearPlastic();
-            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-          } else { handlePlastic(); }
+          if (resultsStore.plasticResult) closeEntry('plastic');
+          else handlePlastic();
         }}>{t('advanced.plasticCollapse')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
     </div>
@@ -717,7 +812,7 @@
         class:active={uiStore.currentTool === 'influenceLine'}
         onclick={() => {
           if (uiStore.currentTool === 'influenceLine') {
-            uiStore.currentTool = 'select';
+            closeEntry('influenceLine');
             return;
           }
           if (blockedBySlidingJoints()) return;
@@ -740,12 +835,8 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.movingLoadEnvelope}
         onclick={() => {
-          if (resultsStore.movingLoadEnvelope) {
-            resultsStore.clearMovingLoad();
-            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-            showTrainPanel = false;
-          } else { showTrainPanel = !showTrainPanel; }
+          if (resultsStore.movingLoadEnvelope) closeEntry('trainLoad');
+          else showTrainPanel = !showTrainPanel;
         }}>
         {flat ? '' : showTrainPanel ? '▾ ' : '▸ '}{t('advanced.trainLoad')}
       </button>
