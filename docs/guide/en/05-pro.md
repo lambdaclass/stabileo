@@ -131,6 +131,10 @@ they are split.
 - **Reverse members:** I becomes J. The section keeps its orientation, and the member's releases,
   semi-rigid ends, offsets and loads follow it, so the result is the same. A member with
   reinforcement is not reversed.
+- **Tapered member:** a welded I whose depth changes from one end to the other, with constant
+  flanges and web. Each selected member is cut into prismatic segments (12 by default) at the depth
+  of each segment's mid-length; with 12 segments a cantilever's deflection is within 0.5 % of the
+  exact one.
 
 **Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle; members
 **parallel to a global axis or plane** are selected, and what is **loaded in a case**, and the
@@ -154,6 +158,29 @@ the colours. Also:
 **Materials** and **Sections** work as in Basic: a library (steels, concretes, timbers, aluminium;
 rolled and cold-formed profiles) or custom definitions. For sections, **Build section** makes
 parametric shapes, and catalogue profiles can be rotated and combined into built-up sections.
+
+**Catalogue.** Beyond the usual families there are **HE M** sections and **unequal-leg angles**
+(EN 10365 and EN 10056-1, with the producer's values). The list can be viewed as a **table** with
+every property of each profile (h, b, thicknesses, radius, A, mass, second moments, moduli, radii of
+gyration and J), sorted by any column and exported to CSV. The **dimensioned drawing** shows the
+profile with its dimensions. **Import CSV** brings in a company's own list of sections (name, shape
+and dimensions in mm, with optional A and second moments to compare against): every row needs the
+dimensions of its outline, and a row whose outline does not match its declared area is reported by
+line.
+
+**Drawing a section.** In **Build section**, **Draw** assembles a section from parts: rectangles,
+hollow rectangles, circles, tubes, polygons, bent plates (a centreline with a thickness), catalogue
+profiles (cut too, like a tee from an I) and holes. It starts from a common shape (welded I, box or
+tee, cover-plated profile, cut tee, double angle, double channel, cold-formed C, filled tube) or
+from nothing; a DXF outline can be imported, and sections of the project brought in. Parts are moved
+by dragging and snap to the edges of the others, or are **attached** on top, below or at a side,
+aligned. Each part can have its own **material**; the properties are then those of the transformed
+section, with n = Eᵢ/E_ref, and the drawing hatches each material with a legend. While drawing it
+shows A, the second moments and principal axes, the centroid and shear centre, the elastic moduli
+at top, bottom and sides, Z, J, Cw, the shear areas, the self-weight and mass per metre, the
+dimensions, and a table per part. It warns of overlapping parts, loose parts and holes outside the
+section. A drawn section reopens for editing from the list, is saved with the project and travels in
+the model code.
 
 **Shear deformation.** Each section can include it, with shear areas computed from its geometry or
 typed in. One button turns it on or off for every section at once. Without it, members are solved
@@ -262,7 +289,8 @@ load plan for review, and applies it when you confirm. Load cases of type D, L, 
   patterns, half trusses and subdivided diagonals.
 - **Lattice column.**
 - **Shed:** span, frame spacing, number of frames, lattice or solid-web columns, purlins, and roof,
-  truss and wall bracing.
+  truss and wall bracing. Solid-web columns can be **tapered**, with one depth at the base and
+  another at the head.
 - **Structures:** space frame by bays (X, Y and storeys), plane frame, floor grid, continuous
   beam, space truss, lattice girder with X or K bracing, Howe roof truss, sawtooth roof, barrel
   vault, circular beam and dome. Bays are typed as "6; 7.5; 6".
@@ -446,6 +474,24 @@ In the **Design** tab, **Other codes** checks the members to **AISC 360**, **EN 
 Choosing a code shows one notice of what it covers. Members the code cannot describe are left out
 with the reason, and a check that is missing part of what the code requires reads as incomplete,
 never as a pass. Concrete is checked with the reinforcement stated on each member.
+
+With **AISC 360** the forces can come from the **direct analysis** (Chapter C): second order in each
+combination, on reduced stiffness (0.8 throughout and τb on the flexure of steel members, iterated
+or with τb = 1 and the added notional load), with notional loads of 0.002 of each node's gravity
+load. Gravity-only combinations try the four directions and keep the largest sway; in those with
+lateral load the notional loads are added when the amplification exceeds 1.7. With those forces
+every member is checked at K = 1. A combination with no second-order equilibrium is reported and
+not checked.
+
+A **drawn section** is checked when it is exactly one of the shapes the checks cover: a welded I of
+three plates, or a single profile. Otherwise (cover plates, a cut tee, several profiles, a filled
+tube, a free outline) the member is left out with that reason.
+
+**Lightest profile.** In **Metallic › Profile design**, the search for the lightest profile that passes can go through
+other I families besides the current profile's, keep within a minimum and maximum depth and a
+maximum width, aim at a target ratio (80 %, say), work by **named group** (one profile for all its
+members) and also require each member's **deflection**, estimated from the current one and the
+ratio of inertias. As before, what is applied is re-verified after solving again.
 
 ## The theory behind it
 

@@ -269,9 +269,16 @@ describe('the sections tab reaches the modal, and stops shaping profiles by hand
    * this decision surfaced — the wall thicknesses are decided. A second `addSection` call is
    * how the inline path drifted away from it in the first place.
    */
-  it('writes to the model exactly once, through the choice', () => {
-    expect([...CODE.matchAll(/modelStore\.addSection/g)]).toHaveLength(1);
+  /*
+   * Two writers, each named. The modal's choice, through `toSectionFields`; and a CSV import,
+   * whose rows are built by `importSectionsCsv` and resolved by the canonical resolver before
+   * they arrive, so neither path shapes a profile by hand.
+   */
+  it('writes to the model through the choice and through the CSV import, nowhere else', () => {
+    expect([...CODE.matchAll(/modelStore\.addSection/g)]).toHaveLength(2);
     expect(TAB).toContain('toSectionFields(choice, 0)');
+    expect(TAB).toMatch(/for \(const s of r\.sections\) modelStore\.addSection\(s\)/);
+    expect(TAB).toContain('importSectionsCsv(');
   });
 
   /*

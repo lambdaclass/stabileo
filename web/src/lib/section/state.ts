@@ -29,7 +29,8 @@
 
 import type { Section } from '../store/model.svelte';
 import { ALL_PROFILES } from '../data/steel-profiles';
-import { resolveCanonicalSection, type PropertiesOnlyReason } from './canonical';
+import { resolveCanonicalSection, catalogueOutline, type PropertiesOnlyReason } from './canonical';
+import { analyzeDrawn } from './drawn-properties';
 import type { CanonicalGeometry } from '../engine/wasm-solver';
 import { isSolverReady, hasCanonicalGeometryExport, analyzeSectionTorsion } from '../engine/wasm-solver';
 import { canonicalSections } from '../features';
@@ -69,6 +70,8 @@ export interface CanonicalSectionState {
   /** Torsional constant and where it came from. `null` means unavailable. */
   j: number | null;
   jProvenance: TorsionProvenance;
+  /** Several materials: transformed properties, and no homogeneous stress field. */
+  composite?: true;
 }
 
 export interface PropertiesOnlyState {
@@ -225,12 +228,14 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
   }
 
   const p = resolved.properties;
-  const torsion = resolveTorsion(
-    sec,
-    isCircularFamily(resolved.geometry.source) ? { iy: p.iy, iz: p.iz } : null,
-    opts.torsion ? resolved.geometry : null,
-    resolved.digest,
-  );
+  const torsion = sec.drawn
+    ? drawnTorsion(sec, opts.torsion === true, resolved.digest)
+    : resolveTorsion(
+      sec,
+      isCircularFamily(resolved.geometry.source) ? { iy: p.iy, iz: p.iz } : null,
+      opts.torsion ? resolved.geometry : null,
+      resolved.digest,
+    );
   return {
     kind: 'geometry-backed',
     // The persisted-state version, not the geometry wire version: this is what
@@ -248,7 +253,33 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
     i2: p.i2,
     thetaP: p.thetaP,
     ...torsion,
+    ...(resolved.composite ? { composite: true as const } : {}),
   };
+}
+
+/**
+ * A drawn section's torsion constant: Saint-Venant on each connected piece, summed.
+ *
+ * Never the stored `j`, which describes whatever the parts were when it was written. Without the
+ * torsion pass (a browsing caller) the stored value stands in, marked as computed, because the
+ * only writer of `j` on a drawn section is this same analysis at the time it was applied.
+ */
+function drawnTorsion(sec: Section, solve: boolean, digest: string): { j: number | null; jProvenance: TorsionProvenance } {
+  if (!solve) {
+    return sec.j != null && sec.j > 0 ? { j: sec.j, jProvenance: 'saintVenant' } : { j: null, jProvenance: 'unavailable' };
+  }
+  const key = `drawn:${digest}`;
+  let j = torsionJCache.get(key);
+  if (j === undefined) {
+    try {
+      j = analyzeDrawn(sec.drawn!, catalogueOutline).properties?.j ?? null;
+    } catch {
+      return { j: null, jProvenance: 'unavailable' };
+    }
+    if (torsionJCache.size >= TORSION_CACHE_LIMIT) torsionJCache.delete(torsionJCache.keys().next().value!);
+    torsionJCache.set(key, j);
+  }
+  return j != null ? { j, jProvenance: 'saintVenant' } : { j: null, jProvenance: 'unavailable' };
 }
 
 /**

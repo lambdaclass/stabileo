@@ -8,6 +8,26 @@
   import { solverProperties } from '../../lib/section/state';
   import ProShearAreas from './section/ProShearAreas.svelte';
   import { geometricShearAreas } from '../../lib/section/shear-areas';
+  import { importSectionsCsv, type CsvImport } from '../../lib/profiles/csv-sections';
+
+  /** The last CSV import's outcome, shown under the buttons until the next one. */
+  let csvReport = $state<CsvImport | null>(null);
+  async function importCsv(e: Event & { currentTarget: HTMLInputElement }) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    const r = importSectionsCsv(await file.text());
+    // One undo step for the whole file.
+    modelStore.batch(() => { for (const s of r.sections) modelStore.addSection(s); });
+    csvReport = r;
+  }
+  function refusalText(r: CsvImport['refused'][number]): string {
+    const base = t(`csvSections.refused.${r.kind}`).replace('{line}', String(r.line));
+    if (r.kind === 'unknownShape') return base.replace('{value}', r.value);
+    if (r.kind === 'missing') return base.replace('{fields}', r.fields.join(', ') || '—');
+    if (r.kind === 'notANumber') return base.replace('{field}', r.field).replace('{value}', r.value);
+    return base;
+  }
 
   /** Every section whose shape gives shear areas deforms in shear, or none does. One undo step. */
   function shearForAll(on: boolean) {
@@ -141,8 +161,17 @@
     // Null when the catalogue does not know the name. Nothing is added rather than a section
     // with no area, which the canonical resolver would report as having no known geometry.
     if (!fields) return;
-    modelStore.addSection(fields as never);
+    if (editingId != null && modelStore.sections.has(editingId)) modelStore.updateSection(editingId, fields as never);
+    else modelStore.addSection(fields as never);
+    editingId = null;
   }
+
+  /** The drawn section being reopened, or null when the modal adds a new section. */
+  let editingId = $state<number | null>(null);
+  const editingDrawn = $derived.by(() => {
+    const s = editingId != null ? modelStore.sections.get(editingId) : undefined;
+    return s?.drawn ? { name: s.name, drawn: $state.snapshot(s.drawn) as import('../../lib/section/drawn').DrawnSection } : null;
+  });
 
   // ─── Sections list ──────────────────────
   const sections = $derived([...modelStore.sections.values()]);
@@ -170,9 +199,22 @@
   <div class="add-panel" data-testid="pro-add-section-panel">
     <button
       type="button" class="open-modal" data-testid="pro-open-section-modal"
-      onclick={() => { modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
+      onclick={() => { editingId = null; modalSpec = defaultProfileSpec('IPE 200'); modalOpen = true; }}
     >{t('pro.addSectionPanel')}</button>
+    <label class="csv-import" title={t('csvSections.help')}>
+      {t('csvSections.import')}
+      <input type="file" accept=".csv,text/csv" data-testid="pro-sections-csv" onchange={importCsv} />
+    </label>
   </div>
+  {#if csvReport}
+    <div class="csv-report" data-testid="pro-sections-csv-report">
+      <p>{t('csvSections.added').replace('{n}', String(csvReport.sections.length))}</p>
+      {#each csvReport.refused as r (r.line)}<p class="warn">{refusalText(r)}</p>{/each}
+      {#each csvReport.disagreements as d (d.line)}
+        <p class="warn">{t('csvSections.areaGap').replace('{line}', String(d.line)).replace('{name}', d.name).replace('{gap}', (d.gap * 100).toFixed(1))}</p>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Sections table -->
   <div class="sec-list">
@@ -216,6 +258,12 @@
                   onclick={() => (expandedId = open ? null : s.id)}
                   data-testid="pro-sec-info-{s.id}"
                 >&#9432;</button>
+                {#if s.drawn}
+                  <button
+                    class="row-act" title={t('drawn.edit')} data-testid="pro-sec-edit-drawn-{s.id}"
+                    onclick={() => { editingId = s.id; modalOpen = true; }}
+                  >&#9998;</button>
+                {/if}
                 <button class="del-btn" onclick={() => removeSec(s.id)}>×</button>
               </td>
             </tr>
@@ -259,11 +307,17 @@
 <ProSectionModal
   open={modalOpen}
   spec={modalSpec}
+  drawn={editingDrawn}
   onApply={applyChoice}
-  onClose={() => (modalOpen = false)}
+  onClose={() => { modalOpen = false; editingId = null; }}
 />
 
 <style>
+  .csv-import { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 0.66rem; color: var(--st-text-2); cursor: pointer; }
+  .csv-import input { width: 9rem; font-size: 0.62rem; }
+  .csv-report { padding: 4px 8px; font-size: 0.64rem; color: var(--st-text-2); }
+  .csv-report p { margin: 1px 0; }
+  .csv-report .warn { color: var(--st-warn); }
   .sec-shear-all { display: flex; gap: 4px; align-items: center; margin-left: auto; font-size: 0.62rem; color: var(--st-text-3); }
   .sec-shear-all button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
   /* ── The detail, in Basic's visual language ────────────────────── */

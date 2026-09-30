@@ -855,7 +855,11 @@ export function solveMovingLoads(config: {
 
 // ─── 3D Advanced Analysis ─────────────────────────────────────────
 
-/** Solve 3D P-Delta analysis via WASM. */
+/**
+ * Solve 3D P-Delta analysis via WASM, as the engine answers. Its member forces leave out the
+ * geometric stiffness; the app reads `solvePDelta3DCorrected` (`pdelta-forces.ts`). This module
+ * stays free of that import because the solver worker bundles it.
+ */
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
   refuse(guards?.refuse3D(input));

@@ -45,6 +45,7 @@ import type { GradeEntry, GradeSource } from '../../grades/catalogue';
 import type { ProfileEntry, ProfileSource } from '../../profiles/catalogue';
 import { parseColdFormedDesignation } from '../../profiles/cold-formed';
 import { isColdFormedSection } from '../../profiles/cold-formed-catalogue';
+import { drawnDesignShape } from '../../section/drawn-design';
 
 /** What a row can be, in the order of «nothing to do» to «nothing you can do». */
 export type StageRowState =
@@ -120,6 +121,7 @@ export interface RowSection {
   shape?: string;
   built?: { shapeType: string; params: Record<string, number> };
   composition?: { profileName: string };
+  drawn?: import('../../section/drawn').DrawnSection;
 }
 
 /**
@@ -244,6 +246,8 @@ export type SectionOrigin =
   | 'built'
   /** Assembled from catalogue parts. */
   | 'composed'
+  /** Drawn from parts in the section generator. */
+  | 'drawn'
   /** None of the above: a bare set of numbers with no declared origin. */
   | 'unknown';
 
@@ -292,6 +296,7 @@ const CHECKER_PROPERTIES = [
 export function sectionOrigin(sec: RowSection | undefined): SectionOrigin {
   if (!sec) return 'unknown';
   if (isColdFormedSection(sec) && sec.name && parseColdFormedDesignation(sec.name)) return 'parametric';
+  if (sec.drawn) return 'drawn';
   if (sec.composition) return 'composed';
   if (sec.built) return 'built';
   if (sec.profileFamily) return 'tabulated';
@@ -338,9 +343,19 @@ export function sectionRows(
      * row where `absent` can be empty and the answer is still «not designed».
      */
     const coldFormed = origin === 'parametric' && isColdFormedSection(sec);
+    /*
+     * Drawn, and not exactly a shape the checks carry (a welded I of three plates, a single
+     * profile): complete geometry, and no clause this app holds is written for it. Like the
+     * cold-formed row, no datum moves it, so the row names the scope instead of a gap.
+     */
+    const drawnScope = origin === 'drawn' && sec?.drawn && !sec.shape
+      ? (() => { const d = drawnDesignShape(sec.drawn!); return 'scope' in d ? d.scope : 'freeOutline'; })()
+      : null;
 
     const state: StageRowState = outsidePipeline
       ? 'outOfScope'
+      : drawnScope
+        ? 'authorityBlocked'
       : absent.length > 0
         ? 'incomplete'
         : coldFormed
@@ -358,7 +373,9 @@ export function sectionRows(
       origin,
       present,
       absent,
-      missing: coldFormed && absent.length === 0
+      missing: drawnScope
+        ? [{ key: `steel.rows.missing.drawn.${drawnScope}`, whyKey: 'steel.rows.why.drawnScope', severity: 'blocks' }]
+        : coldFormed && absent.length === 0
         ? [{
             key: 'steel.rows.missing.coldFormedAuthority',
             whyKey: 'steel.rows.why.coldFormedAuthority',

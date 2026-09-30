@@ -99,15 +99,16 @@ describe('against the real catalogue', () => {
   /** Every catalogued profile, with the shape the catalogue gives it. */
   const shaped = ALL_PROFILES.map((p) => ({ name: p.name, shape: familyToShape(p.family) }));
 
-  it('warns on every catalogued angle, and there are 37 of them', () => {
+  it('warns on every catalogued angle, and there are 69 of them', () => {
     /*
      * The count is asserted, not just the predicate: this is the population the warning exists
      * for, and «it warns on angles» would still pass if the family were emptied to one row.
      *
-     * 10 European in `steel-profiles.ts` plus 27 IRAM-IAS U 500-558 in `iram-angles.ts`.
+     * 10 European equal-leg in `steel-profiles.ts`, 27 IRAM-IAS U 500-558 in `iram-angles.ts` and
+     * 32 EN 10056-1 unequal-leg in `en-unequal-angles.ts`.
      */
     const angles = shaped.filter((p) => p.shape === 'L');
-    expect(angles).toHaveLength(37);
+    expect(angles).toHaveLength(69);
     for (const p of angles) expect(warnsAboutAxes(p.shape), p.name).toBe(true);
   });
 

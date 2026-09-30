@@ -430,9 +430,9 @@ describeCanonical('every profile in the catalogue has exact geometry', () => {
     expect(failures).toEqual([]);
   });
 
-  it('covers all fifteen families', () => {
+  it('covers all sixteen families', () => {
     const families = new Set(ALL_PROFILES.map((p) => p.family));
-    expect(families.size).toBe(15);
+    expect(families.size).toBe(16);
     expect(ALL_PROFILES.length).toBeGreaterThan(600);
   });
 

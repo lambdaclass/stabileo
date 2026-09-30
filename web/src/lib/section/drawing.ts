@@ -139,5 +139,7 @@ export function assertSameGeometry(
  * another.
  */
 export function supportsDetailedAnalysis(sec: Section): boolean {
-  return sec.canonical?.kind === 'geometry-backed';
+  // A section of several materials has transformed properties; the stress field the panel draws
+  // is the homogeneous one, which would be wrong in every part but the reference material's.
+  return sec.canonical?.kind === 'geometry-backed' && !sec.canonical.composite;
 }
