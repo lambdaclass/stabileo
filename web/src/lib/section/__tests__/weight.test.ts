@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { modelStore } from '../../store';
-import { initSolver } from '../../engine/wasm-solver';
+import { initSolver, solveModal3D, solveModal } from '../../engine/wasm-solver';
 import { buildSolverInput2D, buildSolverInput3D, validateAndSolve3D } from '../../engine/solver-service';
 import { staticsCheck } from '../../engine/statics-check';
 import { analyzeDrawn } from '../drawn-properties';
@@ -9,6 +9,34 @@ import { starterParts } from '../drawn-starters';
 import { toSectionFields } from '../section-choice';
 import { createSectionWeight } from '../weight';
 import type { DrawnSection } from '../drawn';
+import { withMassSource } from '../../engine/dynamics/mass-source-model';
+import { G } from '../../engine/dynamics/requests';
+import { withSectionMass } from '../../engine/dynamics/section-mass';
+
+it('uses physical composite mass in dynamic analysis', () => {
+  const { expected } = filledColumn('3d');
+  const m = modelStore.model;
+  const input = buildSolverInput3D(m)!;
+  const mass = withMassSource(m, m.loadCases, undefined, input);
+  expect(Math.abs(mass.report.selfWeightT / (expected / G) - 1)).toBeLessThan(.002);
+  const modal = solveModal3D(mass.input, mass.densities, 3);
+  expect(modal.totalMass).toBeCloseTo(mass.report.selfWeightT, 8);
+  expect(input.elements.get(1)!.materialId).toBe(m.elements.get(1)!.materialId);
+  expect(input.materials.size).toBe(m.materials.size);
+});
+
+it('gives the Basic 2D modal solver the same physical mass without changing stiffness', () => {
+  const { expected } = filledColumn('2d');
+  const m = modelStore.model;
+  const base = buildSolverInput2D(m)!;
+  const physical = withSectionMass(base, m);
+  const modal = solveModal(physical.input, physical.densities);
+  expect(Math.abs(modal.totalMass / (expected / G) - 1)).toBeLessThan(.002);
+  const original = base.materials.get(base.elements.get(1)!.materialId)!;
+  const replacement = physical.input.materials.get(physical.input.elements.get(1)!.materialId)!;
+  expect(replacement.e).toBe(original.e);
+  expect(replacement.nu).toBe(original.nu);
+});
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => modelStore.clear());
