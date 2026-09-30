@@ -8,6 +8,8 @@ import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
 import { templateFromProject, applyTemplate } from '../office-templates';
+import { regulationsStore } from '../regulations.svelte';
+import { bindRole } from '../../codes/roles';
 import { parseTemplate, TemplateError } from '../../model/office-template';
 import { cleanProjectInfo, currentRevision } from '../../model/project-info';
 import { modelToCode, codeToModel } from '../../model/code/format';
@@ -47,6 +49,31 @@ describe('office templates', () => {
     expect(modelStore.deflectionLimits!.rules[0]!.n).toBe(480);
     void w;
     expect(historyStore.undoCount).toBe(undoBefore + 1);
+  });
+
+  it('a load-affecting regulation goes through the review the regulations panel asks for', () => {
+    // An office template that states its seismic code, applied to a project that states none.
+    const other = 'inpres103-2018';
+    const base = templateFromProject('Oficina');
+    const regs = { version: 2, roles: JSON.parse(JSON.stringify(regulationsStore.roles)) as Record<string, unknown> };
+    const tpl = parseTemplate(JSON.stringify({ ...base, regulations: { ...regs, roles: { ...regs.roles, seismic: { ...bindRole('seismic', other), state: 'applied', appliedAtRevision: 3 } } } }));
+    expect(regulationsStore.binding('seismic').adapterId).not.toBe(other);
+    const revisionsBefore = JSON.stringify(regulationsStore.revisions);
+    const r = applyTemplate(tpl);
+    console.log('DBG', JSON.stringify((modelStore.model.regulations as any)?.roles?.seismic), JSON.stringify(regulationsStore.binding('seismic')));
+    // Staged, not applied behind the reader's back: the loads it generates must be reviewed.
+    expect(r.regulationChanges.review).toEqual(['seismic']);
+    expect(regulationsStore.binding('seismic')).toMatchObject({ adapterId: other, state: 'pending' });
+    expect(regulationsStore.reviewRequested).toBe('seismic');
+    expect(JSON.stringify(regulationsStore.revisions)).toBe(revisionsBefore);
+    regulationsStore.cancelPending();
+  });
+
+  it('a template whose regulations are not regulations leaves the project’s alone', () => {
+    const before = JSON.stringify(modelStore.model.regulations ?? null);
+    const tpl = parseTemplate(JSON.stringify({ ...templateFromProject('x'), regulations: { roles: { wind: 42, nonsense: { adapterId: 'x' } } } }));
+    applyTemplate(tpl);
+    expect(JSON.stringify(modelStore.model.regulations ?? null)).toBe(before);
   });
 
   it('refuses a file that is not a template', () => {

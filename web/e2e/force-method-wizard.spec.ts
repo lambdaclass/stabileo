@@ -1,5 +1,6 @@
 /**
- * "Paso a paso — Mét. Flexibilidades", reached the way a student reaches it.
+ * The flexibility-method walkthrough, reached the way a student reaches it:
+ * Advanced, "Explained step by step", then the method.
  *
  * The method itself is pinned by unit tests against closed forms and against
  * the stiffness method on every 2D example. What only a browser can show is
@@ -7,7 +8,14 @@
  * its own panel, walks all nine steps without an error, and ends agreeing with
  * the stiffness method.
  */
-import { test, expect } from './fixtures';
+import { test, expect, type Page } from './fixtures';
+
+/** Open a method from the "Explained step by step" catalog in the Advanced panel. */
+async function openMethod(page: Page, id: 'dsm' | 'fm') {
+  await page.getByTestId('rb-cmd-advanced').click();
+  await page.getByTestId('adv-steps').click();
+  await page.getByTestId(`steps-open-${id}`).click();
+}
 
 test.describe('@smoke the flexibility-method walkthrough', () => {
   test('a portal frame: nine steps, three redundants, and the stiffness method agrees', async ({ page }) => {
@@ -21,11 +29,11 @@ test.describe('@smoke the flexibility-method walkthrough', () => {
     page.on('pageerror', (e) => errors.push(String(e)));
 
     await page.getByTestId('rb-cmd-advanced').click();
-    /* Right under the stiffness wizard, as asked: the button before it is that one. */
-    const before = await page.getByTestId('adv-fm').evaluate((el) =>
-      el.closest('.adv-btn-wrap')?.previousElementSibling?.textContent ?? '');
-    expect(before).toMatch(/Stiffness|Rigideces|Rigidez/);
-    await page.getByTestId('adv-fm').click();
+    await page.getByTestId('adv-steps').click();
+    /* Listed right after the stiffness method, as its own group. */
+    const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    expect(groups.slice(0, 2)).toEqual(['steps-group-stiffness', 'steps-group-flexibility']);
+    await page.getByTestId('steps-open-fm').click();
     const wizard = page.getByTestId('fm-wizard');
     await expect(wizard).toBeVisible();
 
@@ -45,8 +53,7 @@ test.describe('@smoke the flexibility-method walkthrough', () => {
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('continuous-beam'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-fm').click();
+    await openMethod(page, 'fm');
     await expect(page.getByTestId('fm-wizard')).toBeVisible();
     await page.getByTestId('fm-dot-4').click();
     await expect(page.getByTestId('fm-unit-state')).toBeVisible();
@@ -68,8 +75,7 @@ test.describe('@smoke both walkthroughs: back, matrix view, isostatic, 3D', () =
   test('an isostatic beam walks all nine steps, and says why each is empty', async ({ page }) => {
     test.setTimeout(120_000);
     await loadExample(page, 'simply-supported');
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-fm').click();
+    await openMethod(page, 'fm');
     await expect(page.getByTestId('fm-gh')).toContainText('= 0');
     for (let step = 2; step <= 9; step++) {
       await page.getByTestId('fm-next').click();
@@ -78,30 +84,27 @@ test.describe('@smoke both walkthroughs: back, matrix view, isostatic, 3D', () =
     await expect(page.getByTestId('fm-verdict')).toBeVisible();
   });
 
-  test('"Back" returns to the list of advanced functions, from either wizard', async ({ page }) => {
+  test('"Back" returns to the catalog it was opened from, from either wizard', async ({ page }) => {
     test.setTimeout(120_000);
     await loadExample(page, 'continuous-beam');
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-fm').click();
+    await openMethod(page, 'fm');
     await expect(page.getByTestId('fm-wizard')).toBeVisible();
     await page.getByTestId('fm-back').click();
-    await expect(page.getByTestId('adv-fm')).toBeVisible();
-    await expect(page.getByTestId('adv-dsm')).toBeVisible();
-    await page.getByTestId('adv-dsm').click();
+    await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    await page.getByTestId('steps-open-dsm').click();
     await page.getByTestId('dsm-back').click();
-    await expect(page.getByTestId('adv-dsm')).toBeVisible();
+    await expect(page.getByTestId('steps-catalog')).toBeVisible();
   });
 
   test('"View matrix" in both: the reduced stiffness flow, and a clickable [δ]', async ({ page }) => {
     test.setTimeout(120_000);
     await loadExample(page, 'portal-frame');
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-dsm').click();
+    await openMethod(page, 'dsm');
     await page.getByTestId('dsm-view-matrix').click();
     await expect(page.getByTestId('dsm-explorer-solve')).toBeVisible();
     await expect(page.getByTestId('dsm-explorer-fu')).toBeVisible();
     await page.getByTestId('dsm-back').click();
-    await page.getByTestId('adv-fm').click();
+    await page.getByTestId('steps-open-fm').click();
     await page.getByTestId('fm-view-matrix').click();
     await expect(page.getByTestId('fm-matrix-view')).toBeVisible();
     await page.getByTestId('fm-cell-1-2').click();
@@ -116,8 +119,7 @@ test.describe('@smoke both walkthroughs: back, matrix view, isostatic, 3D', () =
     await page.getByTestId('rb-cmd-dim').click();
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('3d-portal-frame'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-fm').click();
+    await openMethod(page, 'fm');
     await expect(page.getByTestId('fm-gh')).toContainText('= 24');
     await page.getByTestId('fm-dot-4').click();
     await page.getByTestId('fm-diagram-my').click();
@@ -133,8 +135,7 @@ test.describe('@smoke both walkthroughs: back, matrix view, isostatic, 3D', () =
     await page.getByTestId('rb-cmd-dim').click();
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('mat-foundation'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-dsm').click();
+    await openMethod(page, 'dsm');
     await expect(page.locator('.wizard')).toHaveCount(0);
     await expect(page.getByText(/shell|cáscara/i).first()).toBeVisible();
   });

@@ -4,6 +4,7 @@
 
 import type { SolverInput } from './types';
 import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
+import { t, tp } from '../i18n';
 
 // ─── Kinematic Analysis ──────────────────────────────────────────
 
@@ -186,6 +187,56 @@ export function normalizeDiagnosisAxes(diagnosis: string): string {
   return diagnosis.replace(DIAGNOSIS_PHRASE_RE, (m) => DIAGNOSIS_PHRASE_MAP[m] ?? m);
 }
 
+/** Dictionary key for each DOF code the diagnosis can name (2D app vocabulary and 3D). */
+const DOF_LABEL_KEY: Record<string, string> = {
+  ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz',
+  rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
+};
+
+/**
+ * The engine's diagnosis sentence, rebuilt in the active language.
+ *
+ * The engine writes `diagnosis` in Spanish only (`build_diagnosis_2d` in
+ * `engine/src/solver/kinematic.rs`), and it reaches the user as the toast that
+ * stops a solve. Every value that sentence is made of is also returned as a
+ * structured field, so the sentence is composed here from those fields with the
+ * same rules as the engine, instead of showing the Spanish text in every locale.
+ * `dofs` must already be in the application's vocabulary.
+ */
+export function localizeKinematicDiagnosis(r: {
+  degree: number;
+  mechanismModes: number;
+  mechanismNodes: number[];
+  unconstrainedDofs: Array<{ nodeId: number; dof: string }>;
+  invalidInput?: string;
+  rawDiagnosis: string;
+}): string {
+  if (r.invalidInput) return t('kin.diagInvalidData');
+  if (r.mechanismModes === 0) {
+    // The engine's "every DOF is restrained" case carries no structured flag of its own.
+    if (/^Todos los GDL/.test(r.rawDiagnosis ?? '')) return t('kin.allDofConstrained');
+    if (r.degree > 0) return tp('kin.diagHyperstatic', { degree: r.degree });
+    if (r.degree === 0) return t('kin.diagIsostatic');
+    return tp('kin.diagStableButNeg', { degree: r.degree });
+  }
+  const nodes = r.mechanismNodes;
+  const nodeList = nodes.slice(0, 8).join(', ');
+  const dofList = r.unconstrainedDofs
+    .slice(0, 8)
+    .map((d) => `${t('kin.nodeLC')} ${d.nodeId} (${DOF_LABEL_KEY[d.dof] ? t(DOF_LABEL_KEY[d.dof]) : d.dof})`)
+    .join('; ');
+  const ms = r.mechanismModes > 1 ? 's' : '';
+  if (nodes.length <= 3) {
+    return tp('kin.diagMechSmall', {
+      s: nodes.length > 1 ? 's' : '', nodes: nodeList, modes: r.mechanismModes, ms, dofs: dofList,
+    });
+  }
+  return tp('kin.diagMechLarge', {
+    degree: r.degree, modes: r.mechanismModes, ms, nNodes: nodes.length, nodes: nodeList,
+    dots1: nodes.length > 8 ? '...' : '', dofs: dofList, dots2: r.unconstrainedDofs.length > 8 ? '...' : '',
+  });
+}
+
 /**
  * Map a raw engine kinematic result into the application's vocabulary.
  * Exported for testing; callers should use `analyzeKinematics`.
@@ -215,7 +266,14 @@ export function normalizeKinematicResult(raw: {
     mechanismModes: raw.mechanismModes,
     mechanismNodes: raw.mechanismNodes ?? [],
     unconstrainedDofs,
-    diagnosis: normalizeDiagnosisAxes(raw.diagnosis),
+    diagnosis: localizeKinematicDiagnosis({
+      degree: raw.degree,
+      mechanismModes: raw.mechanismModes,
+      mechanismNodes: raw.mechanismNodes ?? [],
+      unconstrainedDofs,
+      invalidInput: raw.invalidInput,
+      rawDiagnosis: normalizeDiagnosisAxes(raw.diagnosis),
+    }),
     isSolvable: raw.isSolvable,
     // An invalid model was never analysed, so its `mechanismModes: 0` is not
     // a finding. Reported as 'available', the kinematic report read it as
@@ -246,9 +304,7 @@ export function analyzeKinematics(input: SolverInput): KinematicResult {
       mechanismModes: 0,
       mechanismNodes: [],
       unconstrainedDofs: [],
-      diagnosis:
-        'Stability check unavailable: the WASM engine is not initialized yet, so only the ' +
-        'counting degree could be computed. Retry once the solver has loaded.',
+      diagnosis: t('kin.diagUnavailable2d'),
       isSolvable: false,
       rankAnalysis: 'unavailable',
       unmappedDofs: [],

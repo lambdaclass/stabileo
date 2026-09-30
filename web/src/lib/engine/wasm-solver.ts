@@ -5,6 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { mergeAllHingedJoints2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
@@ -452,6 +453,15 @@ export function serializeInput3D(input: SolverInput3D): string {
   return JSON.stringify(input3DToWireObject(input));
 }
 
+/**
+ * The engine owns both B₂ and stability: a converged indefinite system is
+ * still unstable. Only restore the Infinity that JSON encodes as null;
+ * recomputing stability from displacement ratios hides postcritical states.
+ */
+function normalizePDeltaResult(result: any): any {
+  return { ...result, b2Factor: result.b2Factor === null ? Infinity : result.b2Factor };
+}
+
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -486,15 +496,17 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
 /** Solve 2D P-Delta analysis via WASM. */
 export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
-  return JSON.parse(resultJson);
+  return normalizePDeltaResult(JSON.parse(resultJson));
 }
 
 /** Solve 2D buckling analysis via WASM. */
 export function solveBuckling(input: SolverInput, numModes = 4) {
   if (!wasmReady || !wasmSolveBuckling2d) throw new Error('WASM solver not initialized.');
-  const json = serializeInput2D(input);
+  // A joint where every member is hinged leaves a rotation that is its own
+  // spurious first mode; see orphan-rotations-2d.ts.
+  const json = serializeInput2D(mergeAllHingedJoints2D(input));
   const resultJson = wasmSolveBuckling2d(json, numModes);
   return JSON.parse(resultJson);
 }
@@ -506,6 +518,7 @@ export function solveModal(
   numModes = 6,
 ) {
   if (!wasmReady || !wasmSolveModal2d) throw new Error('WASM solver not initialized.');
+  input = mergeAllHingedJoints2D(input);
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(input.nodes),
@@ -534,6 +547,7 @@ export function solveSpectral(config: {
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral2d) throw new Error('WASM solver not available.');
+  config = { ...config, solver: mergeAllHingedJoints2D(config.solver) };
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -623,7 +637,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   // support, and its zero reaction row is not a result.
   if (result?.results) stripStabilisedReactions(result.results, input);
   if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  return result;
+  return normalizePDeltaResult(result);
 }
 
 /** Solve 3D modal analysis via WASM. */

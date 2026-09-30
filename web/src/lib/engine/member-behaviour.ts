@@ -25,6 +25,7 @@
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D } from './types-3d';
 import { solve3D, solveContact3D, solveSSI3D } from './wasm-solver';
+import { hasSettlement } from './settlement-case';
 
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive';
 
@@ -117,18 +118,44 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   for (const s of model.supports.values()) {
     const c = (s as { curves?: Curves }).curves;
     if (!c || !hasCurves(s as never)) continue;
-    curved.set(s.nodeId, c);
+    const active: Curves = {};
     for (const d of ['x', 'y', 'z'] as const) {
       const pts = c[d];
-      if (pts && pts.length) soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      // A stored curve is dormant while its DOF is fixed, just like a linear spring.
+      // Keep it in the model so freeing the DOF restores the user's curve.
+      if (pts?.length && input.supports.get(s.nodeId)?.[FREE[d]] === false) {
+        active[d] = pts;
+        soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      }
     }
+    if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
   if (hasMembers && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
+  // The engine's contact solver assembles the structure itself and imposes no prescribed
+  // displacement: a settlement with one-way members was dropped without a word.
+  if (hasMembers && hasSettlement(input.supports.values())) throw new Error('a support settlement cannot be solved with one-way members');
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
+  const normals = new Map<number, [number, number, number]>();
+  for (const n of upliftNodes) {
+    const s = input.supports.get(n);
+    if (!s?.isInclined) { normals.set(n, [0, 0, 1]); continue; }
+    const v = [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0];
+    const length = Math.hypot(...v);
+    // Uplift chooses the side above the support plane. A vertical plane has no such side.
+    if (!v.every(Number.isFinite) || length < 1e-12 || Math.abs(v[2]!) / length < 1e-9) {
+      throw new Error('Lifting inclined supports need a normal with a vertical component');
+    }
+    // The normal reaction must be isolated from other translational restraints at this node.
+    if (s.rx || s.ry || s.rz || s.kx || s.ky || s.kz || curved.has(n)) {
+      throw new Error('Lifting inclined supports cannot also have translational restraints or springs');
+    }
+    const sign = Math.sign(v[2]!);
+    normals.set(n, v.map((x) => sign * x / length) as [number, number, number]);
+  }
   const lifted = new Set<number>();
-  let last: { results: AnalysisResults3D; slack: number[]; converged: boolean } | null = null;
+  const maxIterations = Math.max(MAX_ITER, 2 * upliftNodes.length);
 
-  for (let it = 1; it <= MAX_ITER; it++) {
+  for (let it = 1; it <= maxIterations; it++) {
     const supports = new Map(input.supports);
     for (const [n, c] of curved) {
       const s = supports.get(n);
@@ -139,44 +166,72 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     }
     for (const n of lifted) {
       const s = supports.get(n);
-      if (s) supports.set(n, { ...s, rz: false, kz: undefined, dz: undefined });
+      if (s) supports.set(n, s.isInclined
+        ? { ...s, isInclined: false }
+        : { ...s, rz: false, kz: undefined, dz: undefined });
     }
     const trial: SolverInput3D = { ...input, supports };
     let results: AnalysisResults3D, slack: number[] = [], memberConverged = true;
     if (hasMembers) {
       const r = solveContact3D({ solver: trial, elementBehaviors: behaviours });
+      if (r.converged !== true) throw new Error('One-way member analysis did not converge');
       results = r.results as AnalysisResults3D;
       memberConverged = r.converged !== false;
       slack = ((r.elementStatus ?? []) as Array<{ elementId: number; status: string }>).filter((x) => x.status === 'inactive').map((x) => x.elementId);
     } else if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
       const r = solveSSI3D({ solver: trial, soilSprings: live });
-      results = r.results as AnalysisResults3D;
+      if (r.converged !== true) throw new Error('Multilinear spring analysis did not converge');
+      // SSI returns spring forces separately and omits all support reactions. Recover the
+      // complete result with its converged secant stiffnesses, including ordinary supports.
+      // The uplift iteration below also needs those reactions to release pulling restraints.
+      const settled = new Map(supports);
+      for (const s of r.springResults as Array<{ nodeId: number; direction: number; secantStiffness: number }>) {
+        const support = settled.get(s.nodeId);
+        const key = (['kx', 'ky', 'kz'] as const)[s.direction];
+        if (!support || !key || !Number.isFinite(s.secantStiffness) || s.secantStiffness < 0) {
+          throw new Error('Invalid converged spring stiffness');
+        }
+        settled.set(s.nodeId, { ...support, [key]: s.secantStiffness });
+      }
+      const complete = solve3D({ ...trial, supports: settled });
+      if (typeof complete === 'string') throw new Error(complete);
+      results = complete;
       memberConverged = r.converged !== false;
     } else {
       const r = solve3D(trial);
       if (typeof r === 'string') throw new Error(r);
       results = r;
     }
-    last = { results, slack, converged: memberConverged };
 
-    let changed = false;
-    const reaction = new Map(results.reactions.map((r) => [r.nodeId, r.fz]));
-    const disp = new Map(results.displacements.map((d) => [d.nodeId, d.uz]));
-    const scale = Math.max(1e-9, ...results.reactions.map((r) => Math.abs(r.fz)));
+    const project = (id: number, x: number, y: number, z: number) => {
+      const n = normals.get(id) ?? [0, 0, 1];
+      return n[0]! * x + n[1]! * y + n[2]! * z;
+    };
+    const reaction = new Map(results.reactions.map((r) => [r.nodeId, project(r.nodeId, r.fx, r.fy, r.fz)]));
+    const disp = new Map(results.displacements.map((d) => [d.nodeId, project(d.nodeId, d.ux, d.uy, d.uz)]));
+    const scale = Math.max(1e-9, ...[...reaction.values()].map(Math.abs));
+    // Pivot one restraint at a time. Releasing every pulling support together can remove
+    // more restraints than necessary and turn a stable contact problem into a mechanism.
+    // Restore the deepest penetration first; otherwise release the largest tensile reaction.
+    let restore: number | undefined, release: number | undefined;
+    let penetration = -1e-9, pulling = -1e-6 * scale;
     for (const n of upliftNodes) {
-      if (!lifted.has(n)) {
-        // A multilinear vertical spring pulls when its node goes up; any other support when its
-        // reaction is downward.
-        const pulls = curved.get(n)?.z?.length ? (disp.get(n) ?? 0) > 1e-9 : (reaction.get(n) ?? 0) < -1e-6 * scale;
-        if (pulls) { lifted.add(n); changed = true; }
-      } else if ((disp.get(n) ?? 0) < -1e-9) { lifted.delete(n); changed = true; }
+      if (lifted.has(n)) {
+        const u = disp.get(n) ?? 0;
+        if (u < penetration) { penetration = u; restore = n; }
+      } else {
+        const r = reaction.get(n) ?? 0;
+        if (r < pulling) { pulling = r; release = n; }
+      }
     }
-    if (!changed) {
+    if (restore !== undefined) lifted.delete(restore);
+    else if (release !== undefined) lifted.add(release);
+    else {
       return { results, report: { converged: memberConverged, iterations: it, lifted: [...lifted], slack } };
     }
   }
-  return { results: last!.results, report: { converged: false, iterations: MAX_ITER, lifted: [...lifted], slack: last!.slack } };
+  throw new Error(`Lifting support analysis did not converge after ${maxIterations} iterations`);
 }
 
 // ─── The solve-only sections for stiffness modifiers ──────────────
@@ -207,4 +262,21 @@ export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData):
     }
     input.elements.set(id, { ...el, sectionId: sid });
   }
+}
+
+/**
+ * A per-section payload (plastic moments, fiber sections) extended to the solve-only sections
+ * `applyStiffnessModifiers` made: each one gets its model section's entry. A modifier changes a
+ * member's stiffness, not its strength, and an engine that looks a member's section up by id
+ * found nothing for them — the pushover took their Mp as infinite and never hinged them.
+ */
+export function withSolveSections<T>(bySection: Record<string, T>, input: SolverInput3D, modelElements: Map<number, { sectionId: number }>): Record<string, T> {
+  const out = { ...bySection };
+  for (const [id, el] of input.elements) {
+    const own = modelElements.get(id)?.sectionId;
+    if (own === undefined || own === el.sectionId || String(el.sectionId) in out) continue;
+    const entry = bySection[String(own)];
+    if (entry !== undefined) out[String(el.sectionId)] = entry;
+  }
+  return out;
 }

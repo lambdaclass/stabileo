@@ -33,10 +33,11 @@ import {
 } from './geometry';
 import { resolveSection } from './specs';
 import { ROOM_CATEGORY_LOADS } from './rooms';
+import { t, tp } from '../i18n';
 import type { SectionScheduleEntry, SpecSource } from './types';
 import type { MemberOffset } from '../model/element-3d-metadata';
 import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
-import { buildBilinearQuadGrid } from '../engine/shell-mesh-gen';
+import { buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from '../engine/shell-mesh-gen';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
 
@@ -44,6 +45,22 @@ const NO_RELEASE = { my: false, mz: false, t: false };
 
 /** Saint-Venant torsion constant for a solid rectangle (b × h), matching the
  *  backend rc-frame generator so sections are consistent across the app. */
+/**
+ * Whether the wizard's slab-mesh settings can be meshed — judged on the setting
+ * in use only. The division count used to be checked in every mode, so a value
+ * left over from fixed-divisions mode kept "Generate" disabled after switching
+ * to target size, or to no slab mesh, with the field that would fix it hidden.
+ */
+export function meshSettingsValid(s: {
+  meshSlabs: boolean; meshMode: 'targetSize' | 'fixedDivisions'; meshDivisions: number; meshTargetSize: number;
+}): boolean {
+  if (!s.meshSlabs) return true;
+  if (s.meshMode === 'targetSize') return Number.isFinite(s.meshTargetSize) && s.meshTargetSize > 0;
+  // `Infinity >= 1` is true, and a number field accepts "1e999"; and no more
+  // than the mesher makes, which it would otherwise cap in silence.
+  return Number.isFinite(s.meshDivisions) && s.meshDivisions >= 1 && s.meshDivisions <= MAX_DIVISIONS_PER_AXIS;
+}
+
 export function rectJ(b: number, h: number): number {
   const long = Math.max(b, h);
   const short = Math.min(b, h);
@@ -175,6 +192,21 @@ function splitSegmentsAtPoints(
 export interface DraftSource {
   fileName: string;
   importedAtIso: string;
+}
+
+/**
+ * Whether a provenance line is the single-plan "replicated across all floors" assumption.
+ *
+ * The multi-floor composer replaces that line, and the line is now written in whatever
+ * language was active, so it is recognised from the dictionary template (with the floor
+ * count as a wildcard) as well as from the English wording older drafts carry.
+ */
+export function isReplicatedPlanAssumption(line: string): boolean {
+  if (/replicated across all/i.test(line)) return true;
+  const template = t('cad.assume.replicated');
+  if (template === 'cad.assume.replicated') return false;
+  const re = new RegExp('^' + template.split('{n}').map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\d+') + '$');
+  return re.test(line);
 }
 
 export function generateRcDraft(
@@ -476,7 +508,13 @@ export function generateRcDraft(
   // both paths consistent and safe for any non-wizard caller.
   const rawTarget = a.meshTargetSize ?? 1.0;
   const target = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : 1.0;
-  const fixedN = a.meshSlabs ? Math.max(1, Math.round(a.meshDivisions)) : 1;
+  // `a.meshDivisions` got neither the `?? default` nor the sanitization applied
+  // to `target` three lines up, and it feeds TWO unbounded loops: the
+  // fixed-division branch of structuredBreakpoints, and buildBilinearQuadGrid
+  // through `bilinearDivs` below. Infinity passes `Math.max(1, Math.round(...))`
+  // unchanged; undefined and NaN come out NaN, which skips subdivision entirely
+  // instead of falling back. 4 is the wizard's own default.
+  const fixedN = a.meshSlabs ? sanitizeDivisions(a.meshDivisions, 4) : 1;
   // When meshing is disabled, force one cell by using a huge target.
   const effTarget = a.meshSlabs ? target : 1e6;
 
@@ -495,6 +533,8 @@ export function generateRcDraft(
   }
   const forcedX = [...axisX], forcedY = [...axisY];
   let meshSlivers = 0;
+  /** Spans a small target would have cut finer than the mesher's cap. */
+  let meshCapped = 0;
 
   /** Mesh an axis-aligned panel with the chosen mode + forced structural lines,
    *  cutting the given openings; emits quads and accumulates slivers. */
@@ -510,14 +550,20 @@ export function generateRcDraft(
     });
     for (const cell of res.cells) emitCell(cell, z, thickness);
     meshSlivers += res.slivers;
+    meshCapped += res.capped;
     return res.droppedByOpening;
   };
 
   /** Bilinear divisions for a NON-axis-aligned quad edge of physical length L.
-   *  Capped at 256/axis like structuredBreakpoints so a tiny target can't
+   *  Capped at MAX_DIVISIONS_PER_AXIS like structuredBreakpoints, and counted, so a tiny target cannot
    *  explode the per-quad cell count. */
-  const bilinearDivs = (L: number): number =>
-    meshMode === 'targetSize' ? Math.min(256, Math.max(1, Math.round(L / effTarget))) : fixedN;
+  const bilinearDivs = (L: number): number => {
+    if (meshMode !== 'targetSize') return fixedN;
+    const wanted = Math.round(L / effTarget);
+    if (wanted > MAX_DIVISIONS_PER_AXIS) meshCapped++;
+    // Match the structured path when a finite target overflows L / effTarget.
+    return sanitizeDivisions(Math.min(wanted, MAX_DIVISIONS_PER_AXIS), 1);
+  };
 
   const cutOpenings = new Set<number>();      // opening indices cut from a slab
   const approxOpenings = new Set<number>();   // cut but boundary not exact
@@ -622,6 +668,9 @@ export function generateRcDraft(
   }
   if (meshSlivers > 0) {
     warnings.push({ severity: 'warning', message: `meshSlivers:${meshSlivers}` });
+  }
+  if (meshCapped > 0) {
+    warnings.push({ severity: 'warning', message: `meshCapped:${meshCapped}` });
   }
 
   // ── Walls / tabiques ──────────────────────────────────────
@@ -836,58 +885,88 @@ export function generateRcDraft(
 
   // ── Provenance & assumptions ──────────────────────────────
   const cm = (v: number) => Math.round(v * 100);
+  // Room-category ids name themselves in English; the other languages get a word of their own.
+  const roomCatName = (cat: string): string => {
+    const key = `cad.assume.roomCat.${cat}`;
+    const v = t(key);
+    return v === key ? cat : v;
+  };
+  // The assumptions are written in the language active when the draft is generated and
+  // stored that way in the provenance, like the model name.
   const assumptions: string[] = [
-    `One architectural floor plan replicated across all ${a.nFloors} floor(s); per-floor distinct plans are future work.`,
-    `Concrete ${a.concreteGrade}: f'c = ${grade.fc} MPa, E = ${grade.e} MPa. No reinforcement is generated — design/verification is a separate step.`,
-    `Default sections: columns ${cm(a.columnSection.b)}x${cm(a.columnSection.h)} cm, beams ${cm(a.beamSection.b)}x${cm(a.beamSection.h)} cm; slab t = ${cm(a.slabThickness)} cm; wall t = ${cm(a.wallThickness)} cm. Column sizes detected in the drawing are used where available.`,
-    `All base-level (z = 0) nodes are ${a.baseSupport === 'fixed3d' ? 'fixed' : 'pinned'} supports. No foundation design.`,
+    tp('cad.assume.replicated', { n: a.nFloors }),
+    tp('cad.assume.concrete', { grade: a.concreteGrade, fc: grade.fc, e: grade.e }),
+    tp('cad.assume.defaultSections', {
+      cb: cm(a.columnSection.b), ch: cm(a.columnSection.h), bb: cm(a.beamSection.b), bh: cm(a.beamSection.h),
+      st: cm(a.slabThickness), wt: cm(a.wallThickness),
+    }),
+    t(a.baseSupport === 'fixed3d' ? 'cad.assume.baseFixed' : 'cad.assume.basePinned'),
     roomBased
-      ? `Live loads assigned by ROOM LABELS from the CAD plan (CIRSOC 101 occupancy table, nearest-label classification): ${Object.entries(liveLoadByCategory).map(([cat, n]) => `${cat} ${ROOM_CATEGORY_LOADS[cat] ?? '?'} kN/m² (${n} quad-floors)`).join(', ')}${liveLoadDefaulted > 0 ? `; ${liveLoadDefaulted} quad-floors used the default L = ${a.liveLoad} kN/m² (no nearby room label)` : ''}. Room regions inferred by nearest text label (no closed room polygons); splitting a slab by room boundary is future work. D = ${a.deadLoad} kN/m²${useLr ? `, roof Lr = ${a.roofLiveLoad} kN/m²` : ''}. Self-weight NOT included; no wind/seismic/snow.`
-      : `Slab loads exactly as entered: D = ${a.deadLoad} kN/m², L = ${a.liveLoad} kN/m²${useLr ? `, roof Lr = ${a.roofLiveLoad} kN/m² (top floor slabs carry Lr instead of L)` : ''}. Self-weight is NOT included automatically. No wind/seismic/snow loads are generated.`,
+      ? tp('cad.assume.roomLoads', {
+          list: Object.entries(liveLoadByCategory)
+            .map(([cat, n]) => tp('cad.assume.roomLoadItem', {
+              cat: roomCatName(cat), load: ROOM_CATEGORY_LOADS[cat] ?? '?', n, unit: t('cad.quadFloors'),
+            }))
+            .join(', '),
+          defaulted: liveLoadDefaulted > 0
+            ? tp('cad.assume.roomLoadsDefaulted', { n: liveLoadDefaulted, unit: t('cad.quadFloors'), l: a.liveLoad })
+            : '',
+          d: a.deadLoad,
+          roof: useLr ? tp('cad.assume.roofLr', { lr: String(a.roofLiveLoad) }) : '',
+        })
+      : tp('cad.assume.slabLoads', {
+          d: a.deadLoad, l: a.liveLoad,
+          roof: useLr ? tp('cad.assume.roofLrTopFloor', { lr: String(a.roofLiveLoad) }) : '',
+        }),
     a.generateCombos
       ? useLr
-        ? 'Only the explicit factored combinations 1.4D, 1.2D+1.6L+0.5Lr, and 1.2D+0.5L+1.6Lr are generated.'
-        : 'Only the explicit factored combinations 1.4D and 1.2D+1.6L are generated.'
-      : 'No load combinations generated.',
+        ? t('cad.assume.combosWithLr')
+        : t('cad.assume.combos')
+      : t('cad.assume.noCombos'),
     a.meshSlabs
       ? (meshMode === 'targetSize'
-          ? `Slabs meshed to a target element size of ${target} m (cells ~${(target * 0.75).toFixed(2)}–${(target * 1.5).toFixed(2)} m); mesh lines are forced through beams, walls, columns and opening edges, and near lines are snapped together to avoid slivers${meshSlivers > 0 ? ` (${meshSlivers} unavoidable narrow strip(s) where structural lines are closer than the target — flagged)` : ''}`
-          : `Slabs meshed with fixed ${fixedN}×${fixedN} subdivisions per panel`)
-        + `${a.splitBeams ? '; surrounding beams split at mesh nodes so shells share nodes with beams' : '; beams NOT split (shells couple only at coincident corners)'}.`
-      : 'Slabs modeled as single shell elements (no mesh).',
+          ? tp('cad.assume.meshTarget', {
+              target, min: (target * 0.75).toFixed(2), max: (target * 1.5).toFixed(2),
+              slivers: meshSlivers > 0 ? tp('cad.assume.meshSlivers', { n: meshSlivers }) : '',
+            })
+          : tp('cad.assume.meshFixed', { n: fixedN }))
+        + t(a.splitBeams ? 'cad.assume.beamsSplit' : 'cad.assume.beamsNotSplit')
+      : t('cad.assume.noMesh'),
   ];
   if (wallQuadCount > 0) {
-    assumptions.push('Walls/tabiques modeled as one shell element per story (coarse); refine with the shell mesh tool before relying on wall results.');
+    assumptions.push(t('cad.assume.walls'));
   }
   if (cantileverSlabs > 0) {
-    assumptions.push(`${cantileverSlabs} cantilever slab(s) / balcón–voladizo (supported along ONE edge by a beam/adjacent slab, no exterior columns) modeled as shell cantilevers; their supported edge shares nodes with the adjacent beam (beam split at the shell edge nodes).`);
+    assumptions.push(tp('cad.assume.cantilevers', { n: cantileverSlabs }));
   }
   if (isolatedSlabs > 0) {
-    assumptions.push(`${isolatedSlabs} slab(s) had NO structural support (no beam edge, not adjacent to any slab) and were SKIPPED — an isolated slab is not a valid structure (a cantilever needs at least one supported edge).`);
+    assumptions.push(tp('cad.assume.isolatedSlabs', { n: isolatedSlabs }));
   }
   if (openingPolys.length > 0) {
     if (a.ignoreOpenings) {
-      assumptions.push(`Openings IGNORED by explicit choice: ${openingPolys.length} opening(s) recognized but slab shells were meshed SOLID through them — results over those areas are not representative.`);
+      assumptions.push(tp('cad.assume.openingsIgnored', { n: openingPolys.length }));
     } else {
-      const parts = [`${openingPolys.length} opening(s) recognized`];
-      if (openingsCutCount > 0) parts.push(`${openingsCutCount} cut out of slab shells (exact rectangular holes; ${openingsApproxCount} with an approximate non-rectilinear boundary)`);
-      if (openingsUncut > 0) parts.push(`${openingsUncut} on skewed/curved slabs were NOT cut and the affected shell was skipped`);
-      if (wallOpeningsNotCut > 0) parts.push(`${wallOpeningsNotCut} overlap wall/tabique runs and are NOT cut from wall shells (plan geometry gives no sill/head height) — model wall openings manually if needed`);
+      const parts = [tp('cad.assume.openingsRecognized', { n: openingPolys.length })];
+      if (openingsCutCount > 0) parts.push(tp('cad.assume.openingsCut', { n: openingsCutCount, approx: openingsApproxCount }));
+      if (openingsUncut > 0) parts.push(tp('cad.assume.openingsUncut', { n: openingsUncut }));
+      if (wallOpeningsNotCut > 0) parts.push(tp('cad.assume.wallOpeningsNotCut', { n: wallOpeningsNotCut }));
       assumptions.push(parts.join('; ') + '.');
     }
   }
   if (schedules.length > 0) {
-    assumptions.push(`Floor-dependent section schedules in effect (${schedules.length} row(s)): ` +
-      schedules.map((r) => `${r.kind} ${r.mark} fl.${r.fromFloor}-${r.toFloor} ${r.b !== undefined ? `${Math.round(r.b * 100)}x${Math.round((r.h ?? 0) * 100)}` : `t=${Math.round((r.t ?? 0) * 100)}`}cm [${r.source}]`).join('; ') + '.');
+    assumptions.push(tp('cad.assume.schedules', { n: schedules.length }) +
+      schedules.map((r) => `${r.kind} ${r.mark} ${tp('cad.assume.floorRangeShort', { from: r.fromFloor, to: r.toFloor })} ${r.b !== undefined ? `${Math.round(r.b * 100)}x${Math.round((r.h ?? 0) * 100)}` : `t=${Math.round((r.t ?? 0) * 100)}`}cm [${r.source}]`).join('; ') + '.');
   }
   if (beamSectionLog.size > 0) {
-    assumptions.push('Beam sections (per member, resolved as exact schedule → label → wildcard schedule → measured geometry → default): ' +
+    assumptions.push(t('cad.assume.beamSections') +
       [...beamSectionLog.values()]
         .sort((x, y) => y.b * y.h - x.b * x.h)
         .map((v) => `${Math.round(v.b * 100)}x${Math.round(v.h * 100)} cm [${v.source}]`).join(', ') + '.');
   }
   if (a.detectOffsets) {
-    assumptions.push(`Beam eccentricity detection ON (tolerance ${(a.offsetTolerance ?? 0.03)} m): ${offsetElementCount} beam element(s) carry analytical member offsets (nodes on the column-centre line, physical centerline recorded as element.offset); ${offsetsAmbiguous} candidate(s) were AMBIGUOUS (skewed/one-sided) and left without offset — review manually.`);
+    assumptions.push(tp('cad.assume.offsets', {
+      tol: a.offsetTolerance ?? 0.03, n: offsetElementCount, ambiguous: offsetsAmbiguous,
+    }));
   }
 
   const provenance: ModelProvenance = {
@@ -901,7 +980,7 @@ export function generateRcDraft(
 
   // ── Snapshot ──────────────────────────────────────────────
   const snapshot: ModelSnapshot = {
-    name: source.fileName.replace(/\.dxf$/i, '') + ' (CAD draft)',
+    name: tp('cad.draftName', { name: source.fileName.replace(/\.dxf$/i, '') }),
     analysisMode: 'pro',
     nodes: b.nodes.map((nn) => [nn.id, { ...nn }]),
     materials: [[1, material]],

@@ -77,7 +77,7 @@ describe('design codes are an index over families, not a relabelling', () => {
     const cirsoc = designCode('cirsoc-301')!;
     expect(cirsoc.missingFamilies?.length).toBeGreaterThan(0);
     // What remains unshipped is the T series and the cold-formed families.
-    expect(cirsoc.missingFamilies!.join(' ')).toMatch(/T|conformados/);
+    expect(cirsoc.missingFamilies!.join(' ')).toMatch(/coldFormed|conformados/);
     // These are shipped now, so they must NOT still be advertised as missing.
     for (const f of ['W', 'HP', 'M', 'C', 'MC']) expect(cirsoc.families).toContain(f);
   });

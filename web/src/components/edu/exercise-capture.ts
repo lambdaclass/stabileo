@@ -24,6 +24,7 @@
 
 import type { StructureModel, Node, Element, Support, Load } from '../../lib/store/model.svelte';
 import type { ModelSpec, EduExerciseSpec } from './exercise-spec';
+import { t, tp } from '../../lib/i18n';
 
 /** What could not be captured, so the teacher is told rather than surprised. */
 export interface CaptureWarning {
@@ -56,14 +57,14 @@ export function captureModel(model: StructureModel): CaptureResult {
   if (nodes.length === 0 || elements.length === 0) {
     return {
       spec: null,
-      warnings: [{ kind: 'empty', detail: 'Draw a structure before capturing it as an exercise.' }],
+      warnings: [{ kind: 'empty', detail: t('edu.capture.empty') }],
     };
   }
 
   if (nodes.some((n) => (n.z ?? 0) !== 0)) {
     warnings.push({
       kind: 'threeDimensional',
-      detail: 'The model has nodes out of the XY plane. Exercises are plane structures; the z coordinate is dropped.',
+      detail: t('edu.capture.threeDimensional'),
     });
   }
 
@@ -76,7 +77,7 @@ export function captureModel(model: StructureModel): CaptureResult {
   if (truss.length > 0 && truss.length < elements.length) {
     warnings.push({
       kind: 'unsupportedElement',
-      detail: `${truss.length} truss elements mixed with frames. A spec records connectivity only, so all members will behave as frames.`,
+      detail: tp('edu.capture.mixedTruss', { n: truss.length }),
     });
   }
 
@@ -90,7 +91,7 @@ export function captureModel(model: StructureModel): CaptureResult {
     if (!plane.includes(s.type as string)) {
       warnings.push({
         kind: 'unsupportedElement',
-        detail: `A ${s.type} support cannot be posed in a plane exercise and was left out.`,
+        detail: tp('edu.capture.unsupportedSupport', { type: s.type }),
       });
       continue;
     }
@@ -99,7 +100,7 @@ export function captureModel(model: StructureModel): CaptureResult {
   if (supports.length === 0) {
     warnings.push({
       kind: 'noSupports',
-      detail: 'The structure has no supports and would be a mechanism.',
+      detail: t('edu.capture.noSupports'),
     });
   }
 
@@ -122,14 +123,14 @@ export function captureModel(model: StructureModel): CaptureResult {
     } else {
       warnings.push({
         kind: 'unsupportedLoad',
-        detail: `A ${l.type} load cannot be captured yet and was left out.`,
+        detail: tp('edu.capture.unsupportedLoad', { type: l.type }),
       });
     }
   }
   if (cases.size > 1) {
     warnings.push({
       kind: 'multipleLoadCases',
-      detail: `The model has ${cases.size} load cases. An exercise poses one; all loads were merged.`,
+      detail: tp('edu.capture.multipleCases', { n: cases.size }),
     });
   }
 
@@ -187,27 +188,27 @@ export function fromFile(text: string): ParseResult {
   try {
     parsed = JSON.parse(text);
   } catch {
-    return { ok: false, error: 'That file is not valid JSON.' };
+    return { ok: false, error: t('edu.capture.errNotJson') };
   }
   const f = parsed as Partial<ExerciseFile>;
   if (typeof f?.stabileoExercise !== 'number') {
-    return { ok: false, error: 'That file is not a Stabileo exercise.' };
+    return { ok: false, error: t('edu.capture.errNotExercise') };
   }
   if (f.stabileoExercise > EXERCISE_FILE_VERSION) {
     return {
       ok: false,
-      error: `That exercise was made with a newer Stabileo (format ${f.stabileoExercise}, this one reads ${EXERCISE_FILE_VERSION}).`,
+      error: tp('edu.capture.errNewer', { v: f.stabileoExercise, max: EXERCISE_FILE_VERSION }),
     };
   }
   const ex = f.exercise;
-  if (!ex || typeof ex !== 'object') return { ok: false, error: 'The file has no exercise in it.' };
+  if (!ex || typeof ex !== 'object') return { ok: false, error: t('edu.capture.errNoExercise') };
   for (const field of ['id', 'title', 'difficulty', 'category'] as const) {
     if (typeof ex[field] !== 'string') {
-      return { ok: false, error: `The exercise is missing its ${field}.` };
+      return { ok: false, error: tp('edu.capture.errMissingField', { field }) };
     }
   }
   if (!ex.model?.nodes?.length || !ex.model?.elements?.length) {
-    return { ok: false, error: 'The exercise has no structure in it.' };
+    return { ok: false, error: t('edu.capture.errNoStructure') };
   }
   // Fill the optional collections so consumers never have to guard them.
   return {

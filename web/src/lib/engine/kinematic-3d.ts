@@ -4,6 +4,8 @@
 
 import type { SolverInput3D, SolverSupport3D } from './types-3d';
 import { analyzeKinematics3D as wasmAnalyzeKinematics3D, isWasmReady } from './wasm-solver';
+import { t } from '../i18n';
+import { localizeKinematicDiagnosis } from './kinematic-2d';
 
 // ─── Result type ─────────────────────────────────────────────────
 
@@ -140,9 +142,21 @@ export function analyzeKinematics3D(input: SolverInput3D): KinematicResult3D {
       mechanismModes: 0,
       mechanismNodes: [],
       unconstrainedDofs: [],
-      diagnosis: 'WASM not initialized — degree estimate only',
+      diagnosis: t('kin.diagUnavailable3d'),
       isSolvable: degree >= 0,
     };
   }
-  return wasmAnalyzeKinematics3D(input);
+  const raw: KinematicResult3D = wasmAnalyzeKinematics3D(input);
+  // The engine writes `diagnosis` in Spanish only; rebuild it in the active language.
+  return {
+    ...raw,
+    diagnosis: localizeKinematicDiagnosis({
+      degree: raw.degree,
+      mechanismModes: raw.mechanismModes,
+      mechanismNodes: raw.mechanismNodes ?? [],
+      unconstrainedDofs: raw.unconstrainedDofs ?? [],
+      invalidInput: raw.invalidInput,
+      rawDiagnosis: raw.diagnosis,
+    }),
+  };
 }

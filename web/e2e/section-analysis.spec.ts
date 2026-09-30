@@ -56,7 +56,7 @@ async function armSectionAnalysis(page: Page) {
     .poll(() => page.evaluate(() => window.__stabileo.hasResults?.() ?? true), { timeout: 60_000 })
     .toBeTruthy();
   await page.getByRole('button', { name: 'Advanced', exact: true }).click();
-  await page.getByRole('button', { name: 'Section Analysis', exact: true }).click();
+  await page.getByRole('button', { name: /^Section analysis$/i }).click();
 }
 
 /**
@@ -105,7 +105,8 @@ test.describe('arming the analysis', () => {
     await armSectionAnalysis(page);
     await queryAtMidspan(page);
 
-    await page.locator('.ssp-close').first().click();
+    // Docked in Advanced the panel has no ✕ of its own: the running header's "← Back" closes it.
+    await page.getByTestId('adv-close').click();
     await expect(page.locator('.ssp-panel')).toHaveCount(0);
     /*
      * Stress mode has no visible control of its own, so being left in it is
@@ -253,7 +254,7 @@ test.describe('the analytical sections', () => {
     await expect(page.locator('.tw-table .tw-row').first()).toBeVisible();
     await expect(page.locator('.tw-total')).toBeVisible();
 
-    await page.locator('.ssp-section-toggle').filter({ hasText: /SHEAR CENTRE|CENTRO DE CORTE/i }).first().click();
+    await page.locator('.ssp-section-toggle').filter({ hasText: /SHEAR CENTRE|SHEAR CENTER|CENTRO DE CORTE/i }).first().click();
     // A named rule, not a number with no argument behind it.
     await expect(page.locator('.tw-rule-badge')).toBeVisible();
   });

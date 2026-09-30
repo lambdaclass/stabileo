@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   /**
    * Steps 5–9 of the flexibility method: the coefficients, the compatibility
    * system, superposition and the check against the stiffness method.
@@ -13,7 +14,6 @@
   import type { ForceMethodResult, TermRow } from '../../lib/engine/force-method/solve';
   import MatrixDisplay from '../dsm/MatrixDisplay.svelte';
   import VectorDisplay from '../dsm/VectorDisplay.svelte';
-  import MathEquation from '../dsm/MathEquation.svelte';
   import FmSketch from './FmSketch.svelte';
   import FmDiagramPicker from './FmDiagramPicker.svelte';
   import { xName, num, componentName, sub, redundantText, redundantUnit } from './fm-text';
@@ -80,7 +80,7 @@
   <p class="fm-exp fm-iso" data-testid="fm-iso-note">{t('fm.iso.none')}</p>
 {:else if step === 5}
   <p class="fm-exp">{t(is3D ? 'fm.s5.explanation3d' : 'fm.s5.explanation')}</p>
-  <div class="fm-eq"><MathEquation equation={eqDelta} displayMode /></div>
+  <div class="fm-eq"><FitMath tex={eqDelta} narrow /></div>
   <MatrixDisplay matrix={r.delta} rowLabels={labels} colLabels={labels} precision={4} title="[δ]  (m/kN, rad/kN·m…)" />
   <p class="fm-note">{t('fm.s5.symmetry')}</p>
   {#if r.original.elements.some((e) => e.type === 'frame' && (e.hingeStart || e.hingeEnd))}
@@ -105,7 +105,7 @@
   {@render breakdown(r.deltaTerms[i][j], r.deltaCheck[i][j], 'fm-delta-terms')}
 {:else if step === 6}
   <p class="fm-exp">{t('fm.s6.explanation')}</p>
-  <div class="fm-eq"><MathEquation equation={eqDelta0} displayMode /></div>
+  <div class="fm-eq"><FitMath tex={eqDelta0} narrow /></div>
   {#if hasExtras}<p class="fm-note">{t('fm.s6.extras')}</p>{/if}
   <VectorDisplay vector={r.delta0} labels={r.redundants.map((x) => `δ${sub(x.index)}${sub(0)}`)} precision={4} title={'{δ₀}'} />
   <div class="fm-pick" role="group">
@@ -118,7 +118,7 @@
   {@render breakdown(r.delta0Terms[i], r.delta0Check[i], 'fm-delta0-terms')}
 {:else if step === 7}
   <p class="fm-exp">{t('fm.s7.explanation')}</p>
-  <div class="fm-eq"><MathEquation equation={eqCompat} displayMode /></div>
+  <div class="fm-eq"><FitMath tex={eqCompat} narrow /></div>
   <h5 class="fm-h">{t('fm.s7.system')}</h5>
   <div class="fm-system" data-testid="fm-system">
     {#each r.redundants as a, p (a.index)}
@@ -141,7 +141,7 @@
   </table>
 {:else if step === 8}
   <p class="fm-exp">{t('fm.s8.explanation')}</p>
-  <div class="fm-eq"><MathEquation equation={eqSuper} displayMode /></div>
+  <div class="fm-eq"><FitMath tex={eqSuper} narrow /></div>
   {#if r.isostatic}<p class="fm-exp fm-iso">{t('fm.iso.s8')}</p>{/if}
   <FmDiagramPicker {is3D} />
   <FmSketch geometry={r.original} state={r.final} component={fmStepsStore.diagramComponent}
@@ -192,7 +192,7 @@
 {/if}
 
 <style>
-  .fm-exp { font-size: 0.72rem; line-height: 1.5; color: var(--st-text-2); margin: 0 0 6px; }
+  .fm-exp { font-size: 0.82rem; line-height: 1.45; color: var(--st-text); margin: 0.4rem 0; }
   .fm-note { font-size: 0.64rem; line-height: 1.45; color: var(--st-text-3); margin: 2px 0 6px; }
   .fm-iso { border-left: 2px solid var(--st-accent); padding-left: 6px; }
   .fm-dim { color: var(--st-text-3); font-size: 0.6rem; }

@@ -142,12 +142,16 @@ export function repeatOffsets(d: Vec3, count: number, spacings?: readonly number
 }
 
 /**
- * Spacings typed as "6; 7,5; 6", "6 7.5 6" or "3x6" (three of 6): positive lengths, or null when
- * any part is not one. A decimal comma is a decimal point, so parts are separated by semicolons,
- * spaces or slashes.
+ * Spacings typed as "6; 7,5; 6", "6 7.5 6", "6, 7, 6" or "3x6" / "3 x 6" (three of 6): positive
+ * lengths, or null when any part is not one. A decimal comma is a decimal point ("7,5"), so a
+ * comma separates parts only when a space or the end follows it; parts are otherwise separated
+ * by semicolons, spaces or slashes.
  */
 export function parseSpacings(text: string): number[] | null {
-  const parts = text.trim().split(/[;\s/]+/).filter(Boolean);
+  const normal = text
+    .replace(/(\d)\s*([x*×])\s*(?=[\d.,])/gi, '$1$2') // "3 x 6" is one part, "3x6"
+    .replace(/,(?=\s|$)/g, ' ');                       // "6, 7, 6": the comma of a list
+  const parts = normal.trim().split(/[;\s/]+/).filter(Boolean);
   if (parts.length === 0) return null;
   const out: number[] = [];
   for (const p of parts) {
