@@ -6,7 +6,7 @@
 // can never be computed on a structure the solve does not see.
 
 import { computeInfluenceLineWasm, solve, isWasmReady } from './wasm-solver';
-import { buildSolverInput2D, validateAndSolve2D, type ModelData } from './solver-service';
+import { advancedRefusal2D, buildSolverInput2D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
 import { modelHasSlidingJoints } from './sliding-joints';
 import { computeDiagramValueAt } from './diagrams';
@@ -76,12 +76,13 @@ export function computeInfluenceLine(
   if (modelHasSlidingJoints(model.elements.values())) return t('advanced.slidingUnsupported');
 
   const unit = unitLoadModel(model);
-  const gate = validateAndSolve2D(unit, false);
-  if (gate === null) return t('influence.needNodesElems');
-  if (typeof gate === 'string') return gate;
-
   const solver = buildSolverInput2D(unit, false);
   if (!solver) return t('influence.needNodesElems');
+  // The static solve's refusal of this model, without the static solve: its checks, the
+  // kinematic one included, read the input alone. It was a full solve of the unloaded model,
+  // thrown away, on every pick of a target.
+  const gate = advancedRefusal2D(solver);
+  if (gate) return gate;
   solver.loads = [];
 
   const solveWith = (loads: SolverLoad[]): number =>

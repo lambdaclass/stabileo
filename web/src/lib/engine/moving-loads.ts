@@ -1,6 +1,7 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
+import { errorText as baseErrorText } from '../utils/error-text';
 import { solve, isWasmReady } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
@@ -341,11 +342,9 @@ function accumulate(envelope: Map<number, ElementEnvelope>, results: AnalysisRes
   }
 }
 
-/** A thrown value as text: the WASM throws strings, JS throws Errors. */
+/** A thrown value as text: the WASM throws strings, JS throws Errors (`utils/error-text`). */
 export function errorText(e: unknown): string {
-  if (typeof e === 'string') return e;
-  const m = (e as { message?: unknown } | null)?.message;
-  return typeof m === 'string' && m ? m : String(e);
+  return baseErrorText(e, String(e));
 }
 
 /**

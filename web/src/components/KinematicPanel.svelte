@@ -33,7 +33,8 @@
   }
 
   // Quick-toggle helpers (mode-aware)
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  // PRO is a space workspace too: its models are counted on the 3D path, not projected on XY.
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   // Kinematic report — cached, not auto-derived
   let report = $state<KinematicReport | null>(null);

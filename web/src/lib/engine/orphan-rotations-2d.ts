@@ -27,6 +27,7 @@
  * only thing at the node, and making one continuous would change the model.
  */
 import type { SolverInput } from './types';
+import { addConstraintConnectivity } from './constraint-connectivity';
 
 export function mergeAllHingedJoints2D(input: SolverInput): SolverInput {
   const ends = new Map<number, Array<{ id: number; end: 'start' | 'end' }>>();
@@ -106,15 +107,9 @@ export function restrainOrphanRotations2D(input: SolverInput): SolverInput {
     if (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0)) held.add(s.nodeId);
   }
   for (const c of input.connectors?.values() ?? []) { held.add(c.nodeI); held.add(c.nodeJ); }
-  for (const c of input.constraints ?? []) {
-    for (const v of Object.values(c as unknown as Record<string, unknown>)) {
-      if (typeof v === 'number') held.add(v);
-      else if (Array.isArray(v)) for (const n of v) {
-        if (typeof n === 'number') held.add(n);
-        else if (n && typeof n === 'object' && typeof (n as { nodeId?: unknown }).nodeId === 'number') held.add((n as { nodeId: number }).nodeId);
-      }
-    }
-  }
+  // The nodes a constraint names, by its type: every number in it was taken for one, and an
+  // equalDOF's DOF indices [0, 2] held nodes 0 and 2, leaving a truss-only node 2 unrestrained.
+  addConstraintConnectivity(held, input.constraints as never);
   const orphans = [...input.nodes.keys()].filter((n) => !reached.has(n) && !held.has(n));
   if (!orphans.length) return input;
   return {

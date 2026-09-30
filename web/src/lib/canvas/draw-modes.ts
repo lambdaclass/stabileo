@@ -69,6 +69,42 @@ export function modeShapePoints(
 
 const NO_DISP = { ux: 0, uz: 0, ry: 0 };
 
+type Pt = { x: number; y: number };
+
+/**
+ * Each member's mode shape as its undeformed points and their offsets at unit amplitude.
+ *
+ * A mode is fixed and only its amplitude animates, and the shape is linear in the amplitude, so
+ * a frame is `base + scale·offset`. Interpolating anew every frame crossed into the engine once
+ * per member (`computeDeformedShape`), at 60 frames a second. Kept per mode (its displacement
+ * array) for the geometry it was drawn on.
+ */
+const unitShapes = new WeakMap<object, { nodes: unknown; elements: unknown; shapes: Map<number, { base: Pt[]; off: Pt[] } | null> }>();
+
+function unitShape(
+  displacements: ModeDisplacement[], dc: DrawContext, dispMap: Map<number, { ux: number; uz: number; ry: number }>,
+  id: number, elem: ModeElement,
+): { base: Pt[]; off: Pt[] } | null {
+  let cache = unitShapes.get(displacements);
+  if (!cache || cache.nodes !== dc.nodes || cache.elements !== dc.elements) {
+    cache = { nodes: dc.nodes, elements: dc.elements, shapes: new Map() };
+    unitShapes.set(displacements, cache);
+  }
+  if (cache.shapes.has(id)) return cache.shapes.get(id)!;
+  const ni = dc.nodes.get(elem.nodeI), nj = dc.nodes.get(elem.nodeJ);
+  let shape: { base: Pt[]; off: Pt[] } | null = null;
+  if (ni && nj) {
+    const di = dispMap.get(elem.nodeI) ?? NO_DISP, dj = dispMap.get(elem.nodeJ) ?? NO_DISP;
+    const base = modeShapePoints(ni, nj, di, dj, elem, 0);
+    const unit = modeShapePoints(ni, nj, di, dj, elem, 1);
+    if (base.length === unit.length && base.length >= 2) {
+      shape = { base, off: unit.map((p, k) => ({ x: p.x - base[k]!.x, y: p.y - base[k]!.y })) };
+    }
+  }
+  cache.shapes.set(id, shape);
+  return shape;
+}
+
 /**
  * Draw a mode shape (modal or buckling).
  * Renders the deformed shape with animated sinusoidal scaling.
@@ -93,22 +129,14 @@ export function drawModeShape(
   ctx.lineWidth = 2.5;
   ctx.setLineDash([]);
 
-  for (const [, elem] of elements) {
-    const ni = nodes.get(elem.nodeI);
-    const nj = nodes.get(elem.nodeJ);
-    if (!ni || !nj) continue;
-
-    const points = modeShapePoints(
-      ni, nj,
-      dispMap.get(elem.nodeI) ?? NO_DISP,
-      dispMap.get(elem.nodeJ) ?? NO_DISP,
-      elem, scale,
-    );
-    if (points.length < 2) continue;
+  for (const [id, elem] of elements) {
+    const shape = unitShape(displacements, dc, dispMap, id, elem);
+    if (!shape) continue;
 
     ctx.beginPath();
-    for (let k = 0; k < points.length; k++) {
-      const s = worldToScreen(points[k].x, points[k].y);
+    for (let k = 0; k < shape.base.length; k++) {
+      const b = shape.base[k]!, o = shape.off[k]!;
+      const s = worldToScreen(b.x + scale * o.x, b.y + scale * o.y);
       if (k === 0) ctx.moveTo(s.x, s.y);
       else ctx.lineTo(s.x, s.y);
     }

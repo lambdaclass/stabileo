@@ -63,6 +63,7 @@
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
+  import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { solvePDelta, solveBuckling, solveModal, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
@@ -316,9 +317,6 @@
 
   /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
   const DOF_2D: Record<string, string> = { ux: 'ux', uy: 'uz', uz: 'uz', rz: 'ry', ry: 'ry' };
-  const DOF_KEY: Record<string, string> = {
-    ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz', rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
-  };
 
   /**
    * Modes the boundary discarded because their eigenvalue is zero (wasm-solver.ts,
@@ -329,7 +327,7 @@
     const d = result?.discardedModes as Array<{ nodeId: number; dof: string }> | undefined;
     if (!d?.length) return;
     const dof = plane ? (DOF_2D[d[0].dof] ?? d[0].dof) : d[0].dof;
-    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_KEY[dof] ? `, ${t(DOF_KEY[dof])}` : ''}`;
+    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_LABEL_KEY[dof] ? `, ${t(DOF_LABEL_KEY[dof])}` : ''}`;
     uiStore.toast(t('advanced.nullModesDiscarded').replace('{n}', String(d.length)).replace('{where}', where), 'info');
   }
 

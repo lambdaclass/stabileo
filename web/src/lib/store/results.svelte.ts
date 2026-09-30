@@ -375,6 +375,15 @@ function createResultsStore() {
     _held = { ..._held, results3D: staticResults3D(), singleResults3D, perCase3D, perCombo3D, envelope3D, activeView, activeComboId, activeCaseId };
   };
 
+  /**
+   * A function that only draws over the results (a mode shape) opened over one that replaced
+   * them (P-Δ, the collapse, a load train): `clearAdvanced` closes the first but left its results
+   * in place, and the diagrams and section queries read them as the static solve. Put back the
+   * static results the held view keeps.
+   */
+  const staticUnder2D = (): void => { results = _held ? _held.results : staticResults2D(); };
+  const staticUnder3D = (): void => { results3D = _held ? _held.results3D : staticResults3D(); };
+
   return {
     /** Wired in store/index.ts. Fired on every fresh-solve results publish
      *  (setResults3D / setCombinationResults3D) so verificationStore can advance
@@ -712,6 +721,7 @@ function createResultsStore() {
     setModalResult(r: ModalResult) {
       hold();
       this.clearAdvanced();
+      staticUnder2D();
       modalResult = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -723,6 +733,7 @@ function createResultsStore() {
     setBucklingResult(r: BucklingResult) {
       hold();
       this.clearAdvanced();
+      staticUnder2D();
       bucklingResult = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';
@@ -760,6 +771,7 @@ function createResultsStore() {
       activeBucklingMode = 0;
       plasticResult = null;
       plasticStep = 0;
+      staticUnder2D();
       spectralResult = r;
     },
 
@@ -781,6 +793,7 @@ function createResultsStore() {
     setModalResult3D(r: ModalResult3D) {
       hold();
       this.clearAdvanced();
+      staticUnder3D();
       modalResult3D = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -796,6 +809,7 @@ function createResultsStore() {
     setBucklingResult3D(r: BucklingResult3D) {
       hold();
       this.clearAdvanced();
+      staticUnder3D();
       bucklingResult3D = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';

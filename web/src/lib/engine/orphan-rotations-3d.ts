@@ -28,8 +28,9 @@
  * spring's rotational reaction as zero; `dropArtificialReactions` removes the
  * all-zero reaction entry a node with no real support would otherwise gain.
  */
-import type { SolverInput3D, SolverSupport3D } from './types-3d';
+import type { SolverElement3D, SolverInput3D, SolverSupport3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
+import { addConstraintConnectivity } from './constraint-connectivity';
 
 type V3 = [number, number, number];
 
@@ -59,19 +60,28 @@ export interface OrphanStabilisation {
  * The axes frame member ends resist rotation about, per node (unit vectors in
  * global axes), and the largest member stiffness of the model.
  */
+/**
+ * A member's local axes in the solve's frame, from its own reference and roll; null where it has
+ * none (an end missing, or zero length). The orphan-rotation pass and the 3D static count
+ * (`kinematic-3d.ts`) read a frame end's resisted rotations on these same axes.
+ */
+export function memberAxes3D(input: SolverInput3D, e: SolverElement3D): ReturnType<typeof computeLocalAxes3D> | null {
+  const ni = input.nodes.get(e.nodeI), nj = input.nodes.get(e.nodeJ);
+  if (!ni || !nj) return null;
+  const ly = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
+    ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
+  try { return computeLocalAxes3D(ni, nj, ly, e.rollAngle, input.leftHand); } catch { return null; }
+}
+
 function frameRotationAxes(input: SolverInput3D): { resisted: Map<number, V3[]>; kMax: number } {
   const resisted = new Map<number, V3[]>();
   let kMax = 0;
   for (const e of input.elements.values()) {
     if (e.type !== 'frame') continue;
-    const ni = input.nodes.get(e.nodeI);
-    const nj = input.nodes.get(e.nodeJ);
     const sec = input.sections.get(e.sectionId);
     const mat = input.materials.get(e.materialId);
-    if (!ni || !nj || !sec || !mat) continue;
-    const ly = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
-      ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    const ax = computeLocalAxes3D(ni, nj, ly, e.rollAngle, input.leftHand);
+    const ax = sec && mat ? memberAxes3D(input, e) : null;
+    if (!sec || !mat || !ax) continue;
     const E = mat.e * 1000;
     const L = ax.L;
     kMax = Math.max(kMax, (E * sec.a) / L, (12 * E * sec.iz) / L ** 3, (12 * E * sec.iy) / L ** 3,
@@ -164,20 +174,6 @@ export function stabiliseOrphanRotations3D(input: SolverInput3D): OrphanStabilis
   return { touched, created };
 }
 
-/** Every node id a constraint names, whatever its shape. */
-function constraintNodes(input: SolverInput3D, into: Set<number>): void {
-  const visit = (v: unknown): void => {
-    if (Array.isArray(v)) { for (const x of v) visit(x); return; }
-    if (v && typeof v === 'object') {
-      for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
-        if (typeof x === 'number' && /node/i.test(k)) into.add(x);
-        else if (typeof x === 'object') visit(x);
-      }
-    }
-  };
-  visit(input.constraints ?? []);
-}
-
 /**
  * Nodes whose rotations are real even where no frame member reaches them: a
  * shell, a connector or a constraint acts on them.
@@ -188,7 +184,7 @@ function rotationsActedOnOtherwise(input: SolverInput3D): Set<number> {
     for (const sh of shells?.values() ?? []) for (const n of sh.nodes) out.add(n);
   }
   for (const c of input.connectors?.values() ?? []) { out.add(c.nodeI); out.add(c.nodeJ); }
-  constraintNodes(input, out);
+  addConstraintConnectivity(out, input.constraints);
   return out;
 }
 

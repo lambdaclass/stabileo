@@ -114,6 +114,29 @@ describe('closing an advanced function restores the view it found', () => {
     expect(view()).toEqual(before);
   });
 
+  it.each([
+    ['P-Δ', () => resultsStore.setPDeltaResult(pdelta())],
+    ['plastic collapse', () => resultsStore.setPlasticResult(plastic())],
+    ['moving load', () => resultsStore.setMovingLoadEnvelope(train())],
+  ])('a mode shape opened over %s reads the static results, not the ones it replaced', (_name, first) => {
+    solve(false, 'moment');
+    first();
+    for (const open of [() => resultsStore.setModalResult(modal()), () => resultsStore.setBucklingResult(buckling())]) {
+      open();
+      expect(tagOf(resultsStore.results)).toBe('static');
+    }
+  });
+
+  it('a 3D mode shape opened over 3D P-Δ reads the static results', () => {
+    solve(true, 'momentY');
+    resultsStore.setPDeltaResult3D(pdelta3D());
+    resultsStore.setModalResult3D(modal3D());
+    expect(tagOf(resultsStore.results3D)).toBe('static3d');
+    resultsStore.setPDeltaResult3D(pdelta3D());
+    resultsStore.setBucklingResult3D(buckling3D());
+    expect(tagOf(resultsStore.results3D)).toBe('static3d');
+  });
+
   it('a combination on screen comes back after the moving load dropped the combinations', () => {
     resultsStore.setResults(r2('static'));
     resultsStore.setCombinationResults(

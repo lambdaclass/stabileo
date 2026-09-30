@@ -240,8 +240,11 @@ export function normalizeDiagnosisAxes(diagnosis: string): string {
   return diagnosis.replace(DIAGNOSIS_PHRASE_RE, (m) => DIAGNOSIS_PHRASE_MAP[m] ?? m);
 }
 
-/** Dictionary key for each DOF code the diagnosis can name (2D app vocabulary and 3D). */
-const DOF_LABEL_KEY: Record<string, string> = {
+/**
+ * Dictionary key for each DOF code the diagnosis can name (2D app vocabulary and 3D): the one map
+ * the kinematic reports and the advanced functions' messages read.
+ */
+export const DOF_LABEL_KEY: Readonly<Record<string, string>> = {
   ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz',
   rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
 };

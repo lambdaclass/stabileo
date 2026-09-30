@@ -11,6 +11,7 @@ import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
+import { errorText } from '../utils/error-text';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -494,12 +495,8 @@ export interface AdvancedGuards {
 let guards: AdvancedGuards | null = null;
 export function setAdvancedGuards(g: AdvancedGuards | null): void { guards = g; }
 
-/** The text of whatever an engine call threw: wasm-bindgen throws raw strings. */
-function thrownText(e: unknown): string {
-  if (typeof e === 'string') return e;
-  const m = (e as { message?: unknown } | null)?.message;
-  return typeof m === 'string' ? m : String(e);
-}
+/** The text of whatever an engine call threw: wasm-bindgen throws raw strings (`utils/error-text`). */
+const thrownText = (e: unknown): string => errorText(e, String(e));
 
 function refuse(msg: string | null | undefined): void {
   if (msg) throw new Error(msg);
@@ -542,10 +539,17 @@ function dominantDof(mode: { displacements?: Array<Record<string, number>> }): {
   return best ? { nodeId: best.nodeId, dof: best.dof } : null;
 }
 
-/** An eigenvalue this far below the largest one found is round-off: the structure's null space. */
-const NULL_EIGEN_RATIO = 1e-9;
-/** And a frequency under this is none: no structure in this app sways once in 20 minutes. */
+/**
+ * A frequency under this is none: no structure in this app sways once in 20 minutes.
+ *
+ * Each mode is judged by its own value, never against the largest one found: one spurious or very
+ * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
+ * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
+ * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ */
 const NULL_FREQUENCY_HZ = 1e-3;
+/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
+const NULL_LOAD_FACTOR = 1e-6;
 
 export interface DiscardedMode { value: number; nodeId: number; dof: string }
 
@@ -563,13 +567,11 @@ export interface DiscardedMode { value: number; nodeId: number; dof: string }
  * refused with the static solve's words for a mechanism.
  */
 function withoutNullModes<M extends { displacements?: Array<Record<string, number>> }>(
-  modes: M[], eigen: (m: M) => number, value: (m: M) => number, floor: number,
+  modes: M[], value: (m: M) => number, floor: number,
 ): { kept: M[]; discarded: DiscardedMode[] } {
-  const top = Math.max(0, ...modes.map(eigen));
   const kept: M[] = [], discarded: DiscardedMode[] = [];
   for (const m of modes) {
-    const e = eigen(m);
-    if (e <= NULL_EIGEN_RATIO * top || value(m) < floor) {
+    if (!(value(m) >= floor)) {
       const at = dominantDof(m);
       discarded.push({ value: value(m), nodeId: at?.nodeId ?? 0, dof: at?.dof ?? '' });
     } else kept.push(m);
@@ -582,23 +584,24 @@ function mechanismOnly(): never {
 }
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
-function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.omega ** 2, (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
+  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
   if (!discarded.length) return { ...result, discardedModes: [] };
   if (!kept.length) mechanismOnly();
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
-  if (result.rayleigh && kept.length >= 2 && Array.isArray(result.rayleigh.dampingRatios)) {
-    // Same two-mode fit, on the first two modes that are vibrations.
-    const w1 = kept[0].omega, w2 = kept[1].omega, xi = result.rayleigh.dampingRatios[0] ?? 0.05;
+  if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
+    // Same two-mode fit, on the first two modes that are vibrations. With one left it is that
+    // mode twice (a0 = ξω, a1 = ξ/ω): the engine's own fit ran through the discarded mode.
+    const w1 = kept[0].omega, w2 = kept[1]?.omega ?? w1, xi = result.rayleigh.dampingRatios[0] ?? 0.05;
     out.rayleigh = { ...result.rayleigh, omega1: w1, omega2: w2, a0: (2 * xi * w1 * w2) / (w1 + w2), a1: (2 * xi) / (w1 + w2) };
   }
   return out;
 }
 
 /** A buckling result without its null modes. */
-function filterBuckling<R extends { modes: any[]; [k: string]: any }>(result: R): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.loadFactor, (m: any) => m.loadFactor, 0);
+export function filterBuckling<R extends { modes: any[]; [k: string]: any }>(result: R): R & { discardedModes: DiscardedMode[] } {
+  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.loadFactor, NULL_LOAD_FACTOR);
   if (!discarded.length) return { ...result, discardedModes: [] };
   if (!kept.length) mechanismOnly();
   return { ...result, modes: kept, discardedModes: discarded };

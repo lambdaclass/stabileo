@@ -9,7 +9,7 @@
 
 import type { SolverInput } from './types';
 import type { SolverInput3D } from './types-3d';
-import { countStaticDegree2D, analyzeKinematics } from './kinematic-2d';
+import { countStaticDegree2D, analyzeKinematics, DOF_LABEL_KEY } from './kinematic-2d';
 import { countStaticDegree3D, supportRestraints3D, analyzeKinematics3D } from './kinematic-3d';
 import { t } from '../i18n';
 
@@ -475,10 +475,6 @@ function classifyReport(degree: number, hasHiddenMechanism: boolean, mechanismMo
 
 // ─── 3D report ──────────────────────────────────────────────────
 
-const DOF3D_KEY: Record<string, string> = {
-  ux: 'kin.dof3dUx', uy: 'kin.dof3dUy', uz: 'kin.dof3dUz',
-  rx: 'kin.dof3dRx', ry: 'kin.dof3dRy', rz: 'kin.dof3dRz',
-};
 const ROT3D_LABEL: Record<string, string> = { rx: 'θx', ry: 'θy', rz: 'θz' };
 
 /**
@@ -579,7 +575,7 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
   const nFreeDofs = Math.max(0, nNodes * dofsPerNode - restrained);
 
   const unconstrainedDofs: UnconstrainedDofDetail[] = kin.unconstrainedDofs.map((ud) => {
-    const dofName = DOF3D_KEY[ud.dof] ? t(DOF3D_KEY[ud.dof]) : ud.dof;
+    const dofName = DOF_LABEL_KEY[ud.dof] ? t(DOF_LABEL_KEY[ud.dof]) : ud.dof;
     return {
       nodeId: ud.nodeId,
       dof: ud.dof,

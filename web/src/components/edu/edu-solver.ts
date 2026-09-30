@@ -19,6 +19,7 @@ import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { t } from '../../lib/i18n';
 import { eduStore } from './edu-store.svelte';
 import { solvePDelta } from '../../lib/engine/wasm-solver';
+import { errorText } from '../../lib/utils/error-text';
 import { reportSolverDiagnostics } from '../../lib/engine/solve-diagnostics';
 import { hasInvalid2DDisplacements } from '../../lib/geometry/coordinate-system';
 
@@ -50,7 +51,10 @@ export function solveForEdu(): void {
       uiStore.toast(t('results.emptyModelError'), 'error');
       return;
     }
-    const pdResult = solvePDelta(input);
+    // A model the static solve refuses (a stray node, a mechanism) is refused by P-Δ with the same
+    // words, thrown: said as the linear exercises say it, not thrown out of the solve.
+    let pdResult: ReturnType<typeof solvePDelta> | string;
+    try { pdResult = solvePDelta(input); } catch (e) { pdResult = errorText(e, t('results.emptyModelError')); }
     if (typeof pdResult === 'string') {
       uiStore.toast(pdResult, 'error');
       return;

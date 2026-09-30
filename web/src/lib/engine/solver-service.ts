@@ -1872,11 +1872,26 @@ export function advancedRefusal3D(input: SolverInput3D): string | null {
   if (disconnected) return disconnected;
   const moment = unheldMomentRefusal3D(input);
   if (moment) return moment;
-  try {
-    return excitedMechanism3D(solve3DEngine(input));
-  } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
-  }
+  const solved = guardSolve3D(input);
+  return 'error' in solved
+    ? t('svc.solver3dError').replace('{n}', solved.error)
+    : excitedMechanism3D(solved.results);
+}
+
+/**
+ * The static solve the space gate reads, kept for the input it was made for. A caller asks the
+ * gate again with the same input — PRO's modes-until-90 % runs a modal step after step, and a
+ * P-Δ asks before its own solve — and each time the whole static system was solved again to
+ * answer a question whose inputs had not changed.
+ */
+let lastGateSolve: { key: string; outcome: { results: AnalysisResults3D } | { error: string } } | null = null;
+function guardSolve3D(input: SolverInput3D): { results: AnalysisResults3D } | { error: string } {
+  const key = JSON.stringify(input3DToWireObject(input));
+  if (lastGateSolve?.key === key) return lastGateSolve.outcome;
+  let outcome: { results: AnalysisResults3D } | { error: string };
+  try { outcome = { results: solve3DEngine(input) }; } catch (err: any) { outcome = { error: err?.message ?? String(err) }; }
+  lastGateSolve = { key, outcome };
+  return outcome;
 }
 
 /*

@@ -6,7 +6,8 @@ import type { SolverInput3D, SolverSupport3D } from './types-3d';
 import { analyzeKinematics3D as wasmAnalyzeKinematics3D, isWasmReady } from './wasm-solver';
 import { t } from '../i18n';
 import { localizeKinematicDiagnosis, classifyKinematic } from './kinematic-2d';
-import { computeLocalAxes3D } from './local-axes-3d';
+import { memberAxes3D } from './orphan-rotations-3d';
+import { addConstraintConnectivity } from './constraint-connectivity';
 
 // ─── Result type ─────────────────────────────────────────────────
 
@@ -168,16 +169,8 @@ export function countStaticDegree3D(input: SolverInput3D): StaticDegreeCount3D {
     }
     mFrame++;
     frameNodes.add(e.nodeI); frameNodes.add(e.nodeJ);
-    const ni = input.nodes.get(e.nodeI), nj = input.nodes.get(e.nodeJ);
-    let axes: V3[] | null = null;
-    if (ni && nj) {
-      try {
-        const ly = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
-          ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-        const ax = computeLocalAxes3D(ni, nj, ly, e.rollAngle, input.leftHand);
-        axes = [ax.ex, ax.ey, ax.ez];
-      } catch { axes = null; }
-    }
+    const ax = memberAxes3D(input, e);
+    const axes: V3[] | null = ax ? [ax.ex, ax.ey, ax.ez] : null;
     const ends: Array<[number, 'I' | 'J', boolean, boolean, boolean]> = [
       [e.nodeI, 'I', !!e.releaseTStart, !!e.releaseMyStart, !!e.releaseMzStart],
       [e.nodeJ, 'J', !!e.releaseTEnd, !!e.releaseMyEnd, !!e.releaseMzEnd],
@@ -211,12 +204,7 @@ export function countStaticDegree3D(input: SolverInput3D): StaticDegreeCount3D {
   for (const q of input.quads?.values() ?? []) for (const n of q.nodes) opaque.add(n);
   for (const s of input.curvedShells?.values() ?? []) for (const n of s.nodes) opaque.add(n);
   for (const c of input.connectors?.values() ?? []) { opaque.add(c.nodeI); opaque.add(c.nodeJ); }
-  for (const c of input.constraints ?? []) {
-    const cc = c as unknown as Record<string, unknown>;
-    for (const k of ['masterNode', 'slaveNode', 'nodeId']) if (typeof cc[k] === 'number') opaque.add(cc[k] as number);
-    for (const k of ['slaveNodes', 'nodes']) if (Array.isArray(cc[k])) for (const n of cc[k] as unknown[]) if (typeof n === 'number') opaque.add(n);
-    if (Array.isArray(cc.terms)) for (const term of cc.terms as Array<{ nodeId?: unknown }>) if (typeof term?.nodeId === 'number') opaque.add(term.nodeId);
-  }
+  addConstraintConnectivity(opaque, input.constraints);
 
   const supportsAt = new Map<number, SupportRestraints3D>();
   for (const sup of input.supports.values()) {
