@@ -7,10 +7,10 @@
  * elastic P-Δ solution says, to 0.2 %) but reports member forces as K·u, the elastic stiffness
  * times those displacements, without the geometric part Kg(N)·u. Measured on a 4 m cantilever
  * under 60 kN and 0.12 kN of lateral load about its weak axis: base moment 0.824 kN·m reported,
- * 0.778 exact, and a horizontal reaction of 0.198 kN against 0.12 applied. That is recorded for
- * the engine (M13 in the engine's pending list), and until it is fixed there the forces — member
- * end forces and reactions alike — are corrected here: every caller in the app goes through
- * `solvePDelta3DCorrected`.
+ * 0.778 exact. (The reactions had the same defect — 0.198 kN against the 0.12 applied — until
+ * the engine fixed them on its side; only the member forces are still corrected here.) That is
+ * recorded for the engine (M13 in the engine's pending list), and until it is fixed there the
+ * forces are corrected here: every caller in the app goes through `solvePDelta3DCorrected`.
  *
  * `pdelta-forces.test.ts` pins the engine's current behaviour with an `it.fails`. When the engine
  * is fixed, that test starts passing, fails the suite, and this module is to be removed rather
@@ -24,7 +24,7 @@
  * both ends take moment. Torsion's geometric term (N·J/(A·L)) is left out; it is second order in
  * a quantity that is small for open steel sections.
  */
-import type { SolverInput3D, AnalysisResults3D, SolverNode3D, SolverSupport3D } from './types-3d';
+import type { SolverInput3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { solvePDelta3D } from './wasm-solver';
 
@@ -37,15 +37,6 @@ export function solvePDelta3DCorrected(input: SolverInput3D, maxIter = 20, toler
 
 export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResults3D, leftHand = false): AnalysisResults3D {
   const disp = new Map((results.displacements ?? []).map((d) => [d.nodeId, d]));
-  // Geometric end forces of the frame members meeting at each node, in global axes.
-  const geo = new Map<number, { fx: number; fy: number; fz: number; mx: number; my: number; mz: number }>();
-  let ey: [number, number, number] = [0, 0, 0], ez: [number, number, number] = [0, 0, 0];
-  const geoPut = (nodeId: number, Fy: number, Fz: number, My: number, Mz: number) => {
-    const g = geo.get(nodeId) ?? { fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
-    g.fx += Fy * ey[0]! + Fz * ez[0]!; g.fy += Fy * ey[1]! + Fz * ez[1]!; g.fz += Fy * ey[2]! + Fz * ez[2]!;
-    g.mx += My * ey[0]! + Mz * ez[0]!; g.my += My * ey[1]! + Mz * ez[1]!; g.mz += My * ey[2]! + Mz * ez[2]!;
-    geo.set(nodeId, g);
-  };
   const elementForces = (results.elementForces ?? []).map((f) => {
     const e = input.elements.get(f.elementId);
     if (!e || e.type !== 'frame') return f;
@@ -53,9 +44,7 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
     const di = disp.get(e.nodeI), dj = disp.get(e.nodeJ);
     if (!a || !b || !di || !dj) return f;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    const axes = computeLocalAxes3D(a as SolverNode3D, b as SolverNode3D, localY, e.rollAngle, leftHand);
-    ey = axes.ey; ez = axes.ez;
-    const L = axes.L;
+    const { ey, ez, L } = computeLocalAxes3D(a as SolverNode3D, b as SolverNode3D, localY, e.rollAngle, leftHand);
     const dot = (v: [number, number, number], x: number, y: number, z: number) => v[0] * x + v[1] * y + v[2] * z;
     const v1 = dot(ey, di.ux, di.uy, di.uz), v2 = dot(ey, dj.ux, dj.uy, dj.uz);
     const w1 = dot(ez, di.ux, di.uy, di.uz), w2 = dot(ez, dj.ux, dj.uy, dj.uz);
@@ -83,10 +72,6 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
       My2 = -(N / 10) * (w1 - w2) - ((N * L) / 30) * ty1 + ((2 * N * L) / 15) * ty2;
     }
     // End forces on the member into the result's internal-force convention.
-    // The same geometric terms, rotated to global axes, are the part the engine's
-    // reactions are missing; they are accumulated per node below.
-    geoPut(e.nodeI, Fy1, Fz1, My1, Mz1);
-    geoPut(e.nodeJ, -Fy1, -Fz1, My2, Mz2);
     return {
       ...f,
       vyStart: f.vyStart + S.vy * Fy1, vyEnd: f.vyEnd + S.vy * Fy1,
@@ -95,27 +80,7 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
       myStart: f.myStart + S.myI * My1, myEnd: f.myEnd + S.myJ * My2,
     };
   });
-  // Reactions: the engine computes them from the same geometric-less forces, so a
-  // support reported 0.198 kN holding back 0.12 applied. Add each restrained DOF's
-  // share of the accumulated geometric terms — the support then balances the
-  // corrected member forces. Truss members' geometric part is not corrected
-  // anywhere, so a support shared with trusses keeps the engine's share of it.
-  const supports: SolverSupport3D[] = input.supports instanceof Map ? [...input.supports.values()] : Object.values(input.supports ?? {});
-  const reactions = (results.reactions ?? []).map((r) => {
-    const g = geo.get(r.nodeId);
-    if (!g) return r;
-    const held = (dof: 'rx' | 'ry' | 'rz' | 'rrx' | 'rry' | 'rrz') => supports.some((s) => s.nodeId === r.nodeId && s[dof]);
-    return {
-      ...r,
-      fx: held('rx') ? r.fx + g.fx : r.fx,
-      fy: held('ry') ? r.fy + g.fy : r.fy,
-      fz: held('rz') ? r.fz + g.fz : r.fz,
-      mx: held('rrx') ? r.mx + g.mx : r.mx,
-      my: held('rry') ? r.my + g.my : r.my,
-      mz: held('rrz') ? r.mz + g.mz : r.mz,
-    };
-  });
-  return { ...results, elementForces, reactions };
+  return { ...results, elementForces };
 }
 
 /**

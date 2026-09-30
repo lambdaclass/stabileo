@@ -50,17 +50,18 @@ describe('P-Delta member forces', () => {
     }
   }
 
-  // The engine's reactions miss the same geometric part: before the correction the support
-  // reported 0.198 kN holding back 0.12 applied, and 0.824 against the exact 0.778 of moment.
-  it('reactions balance the corrected member forces: the support holds the applied load', () => {
+  // The engine's reactions had the same defect as the member forces (0.198 kN against 0.12
+  // applied, 0.824 against the exact 0.778) until it was fixed on its side. The wrapper must
+  // leave them untouched: adding the geometric terms again would double-count them.
+  it('reactions balance the applied loads, and agree with the corrected member forces', () => {
     const { input, exact } = cantilever(1, false);
     const r = solvePDelta3D(input as never).results;
     const base = r.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
     expect(Math.abs(base.fy + H) / H).toBeLessThan(0.02);
     expect(Math.abs(base.fz - P) / P).toBeLessThan(1e-6);
     expect(Math.abs(Math.abs(base.mx) - exact(0)) / exact(0)).toBeLessThan(0.01);
-    // And the support now agrees with the member it holds (sign included: for this
-    // member the base moment about global x is the local-z end moment).
+    // The support agrees with the corrected member it holds, sign included: for this member
+    // the base moment about global x is the local-z end moment.
     const member = byId(r, [...modelStore.elements.values()][0]!.id);
     const memberBase = Math.abs(member.myStart) > Math.abs(member.mzStart) ? member.myStart : member.mzStart;
     expect(Math.abs(base.mx - memberBase)).toBeLessThan(1e-9);
