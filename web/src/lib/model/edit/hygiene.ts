@@ -75,16 +75,32 @@ export function freeShellEdges(m: HModel): Array<[number, number]> {
 /** Members that cross without a node. */
 export const unconnectedCrossings = (elementIds: Iterable<number>) => crossingPairs(elementIds);
 
+/**
+ * Everything a material or section states but its id and name: numbers to nine figures, keys in
+ * order, absent fields left out. A few stiffness figures were not enough — a section rotated 90°,
+ * or of another shape, and a material of another α or grade, read as repeats, and unifying them
+ * swapped axes or thermal strains under the members. A section's resolved outline (`canonical`)
+ * counts too: a catalogue name brings one a typed section of the same figures does not.
+ */
+function valueSignature(x: object): string {
+  const canon = (v: unknown): unknown => {
+    if (typeof v === 'number') return v.toPrecision(9);
+    if (Array.isArray(v)) return v.map(canon);
+    if (v && typeof v === 'object') {
+      return Object.fromEntries(Object.entries(v).filter(([, w]) => w !== undefined).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, w]) => [k, canon(w)]));
+    }
+    return v;
+  };
+  const { id: _id, name: _name, ...rest } = x as { id?: unknown; name?: unknown };
+  return JSON.stringify(canon(rest));
+}
+
 /** Materials, and sections, identical in value under different ids: each set, first id kept. */
 export function repeatedProperties(m: HModel): { materials: number[][]; sections: number[][] } {
-  const r = (v: number | undefined) => (v === undefined ? '' : v.toPrecision(9));
-  const groups = <T extends { id: number }>(items: Iterable<T>, sig: (x: T) => string) => {
+  const groups = <T extends { id: number }>(items: Iterable<T>) => {
     const by = new Map<string, number[]>();
-    for (const x of items) { const k = sig(x); by.set(k, [...(by.get(k) ?? []), x.id]); }
+    for (const x of items) { const k = valueSignature(x); by.set(k, [...(by.get(k) ?? []), x.id]); }
     return [...by.values()].filter((g) => g.length > 1).map((g) => g.sort((a, b) => a - b));
   };
-  return {
-    materials: groups(m.materials.values(), (x) => [x.e, x.nu, x.rho, x.fy].map(r).join('|')),
-    sections: groups(m.sections.values(), (x) => [x.a, x.iy, x.iz, x.j, x.b, x.h].map(r).join('|')),
-  };
+  return { materials: groups(m.materials.values()), sections: groups(m.sections.values()) };
 }

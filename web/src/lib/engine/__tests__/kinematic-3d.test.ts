@@ -6,22 +6,25 @@
  * - analyzeKinematics3D(): Full kinematic analysis (degree + rank analysis)
  *
  * 3D Static degree formula (frames):
- *   GH = 6*m_frame + 3*m_truss + r - 6*n - c
+ *   GH = 6*m_frame + m_truss + r - 6*n_frame - 3*n_truss - c
  *
  * where:
  *   m_frame = number of frame elements
- *   m_truss = number of truss elements
- *   r = total restrained DOFs (boolean restraints + springs)
- *   n = number of nodes
- *   c = total hinge conditions (each 3D hinge releases 3 moment DOFs)
+ *   m_truss = number of truss elements (one axial force each)
+ *   r = restrained DOFs that count (rotational ones only where the node has rotations)
+ *   n_frame = nodes a frame member reaches (6 equations)
+ *   n_truss = nodes only truss bars reach (3 equations)
+ *   c = internal conditions: one per released rotation component (T, My, Mz),
+ *       less the node's own free rotations (see countStaticDegree3D)
  *
  * Pure truss formula:
  *   GH = m + r - 3*n
  *
  * Hinge counting per node:
- *   c_i = 0 if k <= 1 (free end)
- *   c_i = 3*j if node has rotational support (each hinge releases 3 moments independently)
- *   c_i = 3*min(j, k-1) otherwise (one release absorbed by free rotation DOFs)
+ *   c_i = released − (3 − rank of the rotations the frame ends hold rigidly)
+ *         + (rotational restraints on rotations the node does not have)
+ *   A Basic 3D hinge (My + Mz) releases 2: a free-end hinge counts 0, two
+ *   collinear members hinged into one node count 2.
  *
  * References:
  *   - Fliess, Estabilidad (Tomo I)
@@ -317,8 +320,8 @@ describe('computeStaticDegree3D — formula verification', () => {
     // Portal frame with truss diagonal brace.
     // 4 nodes, 2 frame elements (columns) + 1 frame (beam) + 1 truss diagonal.
     // 2 fully fixed supports (r=12).
-    // No hinges, c=0.
-    // GH = 6*3 + 3*1 + 12 - 6*4 = 18 + 3 + 12 - 24 = 9
+    // No hinges, c=0. A truss bar carries one force, not three.
+    // GH = 6*3 + 1 + 12 - 6*4 = 18 + 1 + 12 - 24 = 7 (the fixed portal's 6, plus the brace)
     const input = makeInput3D({
       nodes: [[1, 0, 0, 0], [2, 0, 4, 0], [3, 6, 4, 0], [4, 6, 0, 0]],
       elements: [
@@ -333,7 +336,7 @@ describe('computeStaticDegree3D — formula verification', () => {
       ],
     });
     const { degree } = computeStaticDegree3D(input);
-    expect(degree).toBe(9);
+    expect(degree).toBe(7);
   });
 
   it('10. Pure truss formula: m + r - 3*n', () => {
@@ -438,19 +441,24 @@ describe('computeStaticDegree3D — formula verification', () => {
       ],
     });
     const { degree } = computeStaticDegree3D(input);
-    // With no frames, truss formula: m + r - 3n = 0 + 6 - 3 = 3
-    // The extra rotational restraints are counted but truss nodes only have 3 DOFs
-    expect(degree).toBe(3);
+    // With no frames, truss formula: m + r - 3n. A node without rotations has
+    // no rotation for the rotational restraints to hold: r = 3, GH = 0 + 3 - 3 = 0.
+    expect(degree).toBe(0);
   });
 
   it('15. Hinge at node with rotational support: conditions counted independently', () => {
     // 3 nodes, 2 frame elements, hinges at node 2 (both ends meet).
     // Node 2 has a support with rotational restraints (rrx,rry,rrz).
-    // Since rotation is restrained, each hinge is an independent condition.
-    // j=2 hinges at node 2, with rotational restraint → c = 3*j = 3*2 = 6
+    // Each hinge releases My and Mz: 4 released components at node 2. The two
+    // members are collinear (X), so the node keeps only its rotation about X
+    // (both torsions hold it); its rotations about Y and Z are its own free
+    // rotations and absorb 2 of the releases. The support's rry and rrz hold
+    // those free rotations, which no member takes: they are taken back in c.
+    // c_2 = 4 − 2 + (3 − 1) = 4
     // Supports: Node 1 pinned+torsion (4), Node 2 ry+rrx+rry+rrz (4), Node 3 ry+rz (2)
     // r = 4 + 4 + 2 = 10
-    // GH = 6*2 + 10 - 6*3 - 6 = 12 + 10 - 18 - 6 = -2
+    // GH = 6*2 + 10 - 6*3 - 4 = 0 (the torsion is held twice while the Z
+    // bending is a mechanism: the rank check, not the count, finds that)
     const input = makeInput3D({
       nodes: [[1, 0, 0, 0], [2, 5, 0, 0], [3, 10, 0, 0]],
       elements: [
@@ -464,7 +472,7 @@ describe('computeStaticDegree3D — formula verification', () => {
       ],
     });
     const { degree } = computeStaticDegree3D(input);
-    expect(degree).toBe(-2);
+    expect(degree).toBe(0);
   });
 });
 
@@ -807,7 +815,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('isostatic');
     expect(result.degree).toBe(0);
-    expect(result.diagnosis).toMatch(/isost[aá]tic/i);
+    expect(result.diagnosis).toMatch(/statically determinate|isost[aá]tic/i);
   });
 
   it('32. Hyperstatic classification with correct degree', () => {
@@ -827,7 +835,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('hyperstatic');
     expect(result.degree).toBe(6);
-    expect(result.diagnosis).toMatch(/hyperst[aá]tic|hiperest[aá]tic/i);
+    expect(result.diagnosis).toMatch(/statically indeterminate|hyperst[aá]tic|hiperest[aá]tic/i);
     expect(result.diagnosis).toContain('6');
   });
 

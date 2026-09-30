@@ -85,6 +85,8 @@ describe('3D: Mohr = displacements, Maxwell, and the stiffness method agrees', (
   it('a structure with a mechanism is refused, and the mechanism named', async () => {
     historyStore.clear(); uiStore.analysisMode = '3d'; modelStore.clear();
     await modelStore.loadExample('3d-space-truss');
+    /* Without the webs across the two rows (54–61) the top chord sways: a mechanism. */
+    for (let id = 54; id <= 61; id++) modelStore.removeElement(id);
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
     try { solveForceMethod3D(input); expect.unreachable(); } catch (e) {
       expect(e).toBeInstanceOf(ForceMethodError);
@@ -101,7 +103,8 @@ describe('3D: Mohr = displacements, Maxwell, and the stiffness method agrees', (
 const EXAMPLES_3D: Record<string, 'solved' | 'mechanism' | 'tooHyperstatic'> = {
   '3d-portal-frame': 'solved', '3d-cantilever-load': 'solved', '3d-torsion-beam': 'solved', 'torsion-tube': 'solved',
   'rc-beam-flexure': 'solved', 'rc-design-qa-8': 'solved', 'rc-design-qa-row2': 'solved',
-  'hinged-arch-3d': 'mechanism',
+  /* Its crown hinges are single-sided releases now; they left a free rotation before. */
+  'hinged-arch-3d': 'solved',
   '3d-grid-slab': 'tooHyperstatic', '3d-tower': 'tooHyperstatic', '3d-building': 'tooHyperstatic',
   'rc-qa-diagnostic': 'tooHyperstatic', 'grid-beams': 'tooHyperstatic', 'tower-3d-2': 'tooHyperstatic',
   'tower-3d-4': 'tooHyperstatic', 'cable-stayed-bridge-small': 'tooHyperstatic', 'stadium-canopy': 'tooHyperstatic',

@@ -190,3 +190,15 @@ describe('dispatch does not depend on listener registration order', () => {
     expect(resultsStore.diagramType).toBe('none');
   });
 });
+
+describe('a P-Δ exercise on a model the solver refuses', () => {
+  it('says why, as the linear exercises do, instead of throwing', async () => {
+    await new Promise((r) => setTimeout(r, 0));
+    eduStore.loadExercise({ id: 'pd', solverType: 'pdelta' } as never);
+    // The student leaves a stray node: the static solve refuses the model.
+    modelStore.addNode(9, 9);
+    expect(() => solveForEdu()).not.toThrow();
+    expect(eduStore.results).toBeNull();
+    expect(toasts.some((t) => t.type === 'error')).toBe(true);
+  });
+});

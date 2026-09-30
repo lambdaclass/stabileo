@@ -328,6 +328,25 @@ describe('migration from the CIRSOC-specific v1 shape', () => {
       .toContain('regulations.migration.editionWithdrawn');
   });
 
+  it('moves a stored 101/102-2005 binding to 2025, whose rules it was already given', () => {
+    // Those entries applied the 2025 rules under a 2005 name, so moving the binding keeps the
+    // project's results; unsetting it blocked Auto-generate with a wind role nobody could use.
+    const m = migrateRegulations({
+      version: 2,
+      roles: {
+        basis: { adapterId: 'cirsoc101-2005-basis', state: 'applied' },
+        loads: { adapterId: 'cirsoc101-2005-loads', state: 'applied' },
+        wind: { adapterId: 'cirsoc102-2005', state: 'applied', jurisdiction: 'CABA' },
+      },
+    });
+    expect(m.stored.roles.basis.adapterId).toBe('cirsoc101-2025-basis');
+    expect(m.stored.roles.loads.adapterId).toBe('cirsoc101-2025-loads');
+    expect(m.stored.roles.wind.adapterId).toBe('cirsoc102-2025');
+    expect(m.stored.roles.wind.jurisdiction).toBe('CABA');
+    expect(m.notices.filter((n) => n.key === 'regulations.migration.editionWithdrawn').map((n) => n.params?.role))
+      .toEqual(['basis', 'loads', 'wind']);
+  });
+
   it('rescues the aggregate size for the MATERIAL to adopt, not the regulation', () => {
     // The value belongs to the concrete mixture; the regulation panel must not own it.
     const m = migrateRegulations({ version: 1, concrete: { maxAggregateSizeMm: 19 } });

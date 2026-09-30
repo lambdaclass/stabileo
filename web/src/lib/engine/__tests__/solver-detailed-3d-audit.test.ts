@@ -137,6 +137,11 @@ describe('an infinitesimal mechanism the loads do not excite', () => {
   it('is solved, named, and its reactions are the analysis solver\'s', async () => {
     historyStore.clear(); uiStore.analysisMode = '3d'; modelStore.clear();
     await modelStore.loadExample('3d-space-truss');
+    /*
+     * The example as it was before its webs across the two rows (54–61) were
+     * added: without them the top chord sways, and that is the case here.
+     */
+    for (let id = 54; id <= 61; id++) modelStore.removeElement(id);
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
     const d = expectEquilibrium(input);
     /* The top chord can sway in y without straining a bar: v11 … v18. */
@@ -181,8 +186,6 @@ describe('every 3D example: shown faithfully, or refused with a reason', () => {
         expect(['shells', 'constraints', 'connectors', 'tooBig']).toContain(scope.reason);
         return;
       }
-      /* The space truss's mechanism makes its displacements incomparable; see above. */
-      if (name === '3d-space-truss') { expectEquilibrium(input); return; }
       compare(name, input);
     }, 60_000);
   }

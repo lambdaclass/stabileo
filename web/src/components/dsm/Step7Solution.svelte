@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
-  import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
   let { data }: { data: DSMStepData } = $props();
@@ -25,7 +25,7 @@
     <p>{@html t('dsm.step7.explanation')}</p>
   </div>
 
-  <MathEquation equation={eqSolve} displayMode />
+  <FitMath tex={eqSolve} narrow />
 
   <VectorDisplay
     title={t('dsm.step7.freeDisp').replace('{n}', String(nf))}
@@ -51,7 +51,7 @@
 
 <style>
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0; }
   .separator { border-top: 1px solid var(--st-surface-3); margin: 0.2rem 0; }
 </style>

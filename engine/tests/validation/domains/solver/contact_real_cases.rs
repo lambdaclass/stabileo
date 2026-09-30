@@ -79,6 +79,7 @@ fn contact_real_5d_gap_closure_and_reopening() {
     // Setup: node 1 (fixed) → frame → node 2 → gap(0.002) → node 3 (fixed)
     // Push node 2 rightward: gap closes (displacement >> 0.002)
     let solver_closed = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -119,6 +120,7 @@ fn contact_real_5d_gap_closure_and_reopening() {
 
     // Load case 2: very small force — gap should stay open
     let solver_open = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),
@@ -156,6 +158,7 @@ fn contact_real_5e_friction_limit() {
     // Vertical beam (1→2) with gap from 2→3 in Y-direction
     // Normal compression closes gap, horizontal force tests friction
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 0.0, 0.5)),
@@ -226,6 +229,7 @@ fn contact_real_5f_progressive_gap_closure() {
     //   10 = 2δ + 5000(δ - 0.001) → 5002δ = 15 → δ ≈ 0.003
     //   So gap1 closes (0.003 > 0.001), gap2 stays open (0.003 < 0.005)
     let solver = SolverInput {
+        solver_options: None,
         nodes: hm(vec![
             (1, node(1, 0.0, 0.0)),
             (2, node(2, 1.0, 0.0)),

@@ -50,6 +50,23 @@ describe('P-Delta member forces', () => {
     }
   }
 
+  // The engine's reactions had the same defect as the member forces (0.198 kN against 0.12
+  // applied, 0.824 against the exact 0.778) until it was fixed on its side. The wrapper must
+  // leave them untouched: adding the geometric terms again would double-count them.
+  it('reactions balance the applied loads, and agree with the corrected member forces', () => {
+    const { input, exact } = cantilever(1, false);
+    const r = solvePDelta3D(input as never).results;
+    const base = r.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
+    expect(Math.abs(base.fy + H) / H).toBeLessThan(0.02);
+    expect(Math.abs(base.fz - P) / P).toBeLessThan(1e-6);
+    expect(Math.abs(Math.abs(base.mx) - exact(0)) / exact(0)).toBeLessThan(0.01);
+    // The support agrees with the corrected member it holds, sign included: for this member
+    // the base moment about global x is the local-z end moment.
+    const member = byId(r, [...modelStore.elements.values()][0]!.id);
+    const memberBase = Math.abs(member.myStart) > Math.abs(member.mzStart) ? member.myStart : member.mzStart;
+    expect(Math.abs(base.mx - memberBase)).toBeLessThan(1e-9);
+  });
+
   // The engine's own forces leave the geometric part out. When this starts passing, the engine
   // has been fixed and `pdelta-forces.ts` must go, or it will count Kg·u twice.
   it.fails('the engine reports the weak-axis base moment of a P-Delta solve within 1 %', () => {

@@ -7,6 +7,7 @@ import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
+import { formatPDeltaFactor } from './pdelta-result';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
@@ -102,7 +103,7 @@ export interface ReportData {
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
     modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
@@ -117,7 +118,7 @@ export interface ReportData {
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number } }>;
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number; over?: string } }>;
   // Upgraded joint detail opts (detailing-aware, multiple types)
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
@@ -1253,9 +1254,12 @@ export function generateReportHtml(data: ReportData): string {
           const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
           // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
           // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
+          // Both over the length the check used — 2L for a cantilever — or the row read
+          // "L/200 vs L/360 ✓" for a cantilever that passed against 2L/360.
+          const over = s.deflection?.over ?? 'L';
           const sod = s.deflection?.spanOverDelta;
-          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `L/${Math.round(sod)}` : 'L/∞') : '—';
-          const deflLim = s.deflection?.limitDivisor ? `L/${s.deflection.limitDivisor}` : '—';
+          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `${over}/${Math.round(sod)}` : `${over}/∞`) : '—';
+          const deflLim = s.deflection?.limitDivisor ? `${over}/${s.deflection.limitDivisor}` : '—';
           const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
           const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
           html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
@@ -1353,11 +1357,14 @@ export function generateReportHtml(data: ReportData): string {
 
     if (adv.pdelta && wants('pdelta')) {
       html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
+      if (adv.pdelta.isStable !== undefined) {
+        html.push(`<p>${escHtml(tr(adv.pdelta.isStable ? 'advanced.stable' : 'advanced.unstable'))}</p>`);
+      }
       html.push(`<table><tbody>`);
       html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
       html.push(`<tr><td>${escHtml(tr('report.iterations'))}</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
-      if (adv.pdelta.b2Factor != null) {
-        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${fmtNum(adv.pdelta.b2Factor, 3)}</td></tr>`);
+      if (adv.pdelta.b2Factor !== undefined) {
+        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${formatPDeltaFactor(adv.pdelta.b2Factor)}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }

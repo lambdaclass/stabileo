@@ -241,6 +241,32 @@ describe('time history as project data', () => {
   const peak = (a: number[]) => Math.max(...a.map(Math.abs));
   const girder = (res: any) => res.nodeHistories.find((h: any) => h.nodeId === 2);
 
+  it('sends the defaults shown after selecting a harmonic direction and preserves custom values', async () => {
+    const { withGroundSource, timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y = withGroundSource(spec.ground.y, 'sine');
+    const fields = timeHistoryInput(spec, new Map(), null);
+    expect(fields.groundAccelY).toEqual(fields.groundAccelX);
+    spec.ground.y.sine = { ampG: 0.1, freqHz: 4 };
+    expect(withGroundSource(withGroundSource(spec.ground.y, 'none'), 'sine').sine).toEqual({ ampG: 0.1, freqHz: 4 });
+  });
+
+  it('initialises a selected spectrum record without requiring a parameter edit', async () => {
+    const { withGroundSource, timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y = withGroundSource(spec.ground.y, 'spectrum');
+    expect(spec.ground.y.spectrum).toEqual({ seed: 1, duration: 20 });
+    const fields = timeHistoryInput(spec, new Map(), () => 0.3);
+    expect((fields.groundAccelY as number[]).some((v) => Math.abs(v) > 0)).toBe(true);
+  });
+
+  it.each(['sine', 'record', 'spectrum'] as const)('refuses incomplete %s data even when another direction can run', async (source) => {
+    const { timeHistoryInput, defaultTimeHistory } = await import('../dynamics/time-history-spec');
+    const spec = defaultTimeHistory();
+    spec.ground.y.source = source;
+    expect(() => timeHistoryInput(spec, new Map(), () => 0.3)).toThrow('Missing ground motion data for Y');
+  });
+
   it('scales each direction, and a direction set to none sends nothing', async () => {
     const { groundSeries, emptyGround } = await import('../dynamics/time-history-spec');
     const g = { source: 'sine' as const, scale: 1, sine: { ampG: 0.2, freqHz: 1.5 } };
