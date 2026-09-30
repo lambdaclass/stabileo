@@ -18,7 +18,7 @@
   import { editPreview } from '../lib/store/edit-preview.svelte';
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
-  import { findCoincidentNode } from '../lib/engine/mesh-weld';
+  import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
@@ -1815,12 +1815,9 @@
 
     // Full 3D snap: snap all coordinates to grid, then onto the structural grid's axes
     const snapped = snapToStructure(pos);
-    // Duplicate-coincident-node guard, the 2D node tool's rule (Viewport.svelte):
-    // a click that lands on an existing node — by raycast, or because the snap
-    // warped the placement point onto one — selects it instead of creating a
-    // twin in the same place. Two nodes in one place analyse as a cut.
-    const onExisting = findNodeHit(e)
-      ?? findCoincidentNode(modelStore.nodes.values(), snapped.x, snapped.y, snapped.z, 0.01);
+    // Duplicate-coincident-node guard (`viewport/node-placement.ts`): a click on a node of the
+    // working plane, or one the snap put the placement point on, selects it instead of a twin.
+    const onExisting = nodeAtPlacement3D(findNodeHit(e), snapped, uiStore.workingPlane, modelStore.nodes);
     if (onExisting !== null) {
       uiStore.selectNode(onExisting, e.shiftKey);
       return;

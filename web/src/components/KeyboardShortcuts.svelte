@@ -3,12 +3,13 @@
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
+  import { pasteClipboardRecord } from '../lib/store/clipboard-paste';
   import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
   import { deleteSelection } from '../lib/actions/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
-  import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
+  import { pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
   import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
@@ -170,54 +171,9 @@
       return;
     }
 
-    const idMap = new Map<number, number>();
-    const pastedElements: number[] = [];
-    const existingNodes = new Set(modelStore.nodes.keys());
-
-    modelStore.batch(() => {
-      // Create new nodes, welded: the paste offset is fixed, so a second paste —
-      // or a member already drawn at the offset — would otherwise stack a twin
-      // node that looks joined and analyses as a cut.
-      for (const n of clip.nodes) {
-        const newId = modelStore.addNodeWelded(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
-        idMap.set(n.origId, newId);
-      }
-
-      // Create new elements
-      for (const el of clip.elements) {
-        const ni = idMap.get(el.origNodeI);
-        const nj = idMap.get(el.origNodeJ);
-        // `continue`, not `return`: returning here abandoned every element and support after it.
-        if (ni == null || nj == null) continue;
-        // Two clipboard nodes welded onto the same existing node: no zero-length member.
-        if (ni === nj) continue;
-        const matId = modelStore.materials.has(el.materialId) ? el.materialId : 1;
-        const secId = modelStore.sections.has(el.sectionId) ? el.sectionId : 1;
-        const newElemId = modelStore.addElement(ni, nj, el.type);
-        modelStore.updateElementMaterial(newElemId, matId);
-        modelStore.updateElementSection(newElemId, secId);
-        if (el.releaseI?.mz === true) modelStore.toggleHinge(newElemId, 'start');
-        if (el.releaseJ?.mz === true) modelStore.toggleHinge(newElemId, 'end');
-        if (hasExplicitLocalY(el)) {
-          modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);
-        }
-        if (el.rollAngle !== undefined && Math.abs(el.rollAngle) > 1e-9) {
-          modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);
-        }
-        pastedElements.push(newElemId);
-      }
-
-      // Match copyTransformed: a reused node keeps its boundary conditions.
-      for (const s of clip.supports) {
-        const newNodeId = idMap.get(s.origNodeId);
-        if (newNodeId != null && !existingNodes.has(newNodeId)) {
-          modelStore.addSupport(newNodeId, s.type);
-        }
-      }
-    });
-
-    // Select pasted items
-    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
+    // The clipboard's own record, through the same edit layer (`store/clipboard-paste.ts`).
+    const r = pasteClipboardRecord(clip, [ox, oy, oz], uiStore.axisConvention3D === 'leftHand');
+    uiStore.setSelection(new Set(r.maps[0]?.nodes.values() ?? []), new Set(r.elements), true);
   }
 
   /*

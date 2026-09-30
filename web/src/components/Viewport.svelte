@@ -52,6 +52,7 @@
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askToConnectMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
+  import { NODE_PLACEMENT_TOL } from '../lib/viewport/node-placement';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -1743,7 +1744,7 @@
           // on an existing grid-aligned node that is >0.5m from the cursor —
           // creating an exact coincident duplicate.
           const onExisting = nodeAtCursor
-            ?? findNearestNode(ms.x, ms.y, 0.01);
+            ?? findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL);
           if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
               uiStore.selectNode(onExisting.id, e.shiftKey);

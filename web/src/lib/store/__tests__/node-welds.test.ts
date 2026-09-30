@@ -18,6 +18,8 @@ import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import { checkCurrentModel } from '../../engine/solve-diagnostics';
 import { mergeCoincidentNodes } from '../../model/edit/cleanup';
+import { uiStore } from '../ui.svelte';
+import '../index';
 
 beforeAll(async () => {
   // The history store wires itself into the model store on a microtask.
@@ -135,5 +137,93 @@ describe('detection and repair use one tolerance', () => {
     modelStore.addNode(0, 0, 0);
     modelStore.addNode(0, 0, 5e-4); // 0.5 mm apart: beyond the weld tolerance
     expect(codes().has('MODEL_COINCIDENT_NODES')).toBe(false);
+  });
+});
+
+describe('review of the welds', () => {
+  it('a plane model standing in 3D: a typed point welds where the node is shown', async () => {
+    uiStore.analysisMode = '2d';
+    modelStore.clear();
+    await modelStore.loadExample('portal-frame');
+    uiStore.analysisMode = '3d';
+    expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
+    // Stored in plane coordinates, height in y; shown standing, height in z.
+    const top = [...modelStore.nodes.values()].sort((p, q) => q.y - p.y || p.x - q.x)[0]!;
+    const count = modelStore.nodes.size;
+    expect(modelStore.addNodeWelded(top.x, 0, top.y)).toBe(top.id);
+    expect(modelStore.nodes.size).toBe(count);
+  });
+
+  it('points that all weld make no undo step, one by one or as a batch', () => {
+    modelStore.addNode(0, 0, 0);
+    modelStore.addNode(1, 0, 0);
+    historyStore.clear();
+    expect(modelStore.addNodesWelded([[0, 0, 0], [1, 0, 0]]).created).toEqual([]);
+    expect(historyStore.undoCount).toBe(0);
+  });
+
+  it('a long model is flagged at least as widely as the engine gate, so the two findings are one', () => {
+    // 200 m: the engine's near-duplicate gate is 1e-6·L = 0,2 mm; these are 0,15 mm apart.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(200, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addNode(100, 0, 0);
+    modelStore.addNode(100.00015, 0, 0);
+    expect(codes().has('MODEL_COINCIDENT_NODES')).toBe(true);
+  });
+});
+
+describe('the fallback paste goes through insertFragment', () => {
+  it('pasting the same record twice lands on the first paste: no second member on its nodes', async () => {
+    const { pasteClipboardRecord } = await import('../clipboard-paste');
+    const clip = {
+      nodes: [{ origId: 1, x: 0, y: 0 }, { origId: 2, x: 4, y: 0 }],
+      elements: [{ origNodeI: 1, origNodeJ: 2, type: 'frame' as const, materialId: 1, sectionId: 1 }],
+      supports: [{ origNodeId: 1, type: 'pinned' as const }],
+    };
+    const first = pasteClipboardRecord(clip as never, [1, 1, 0]);
+    expect(first.elements).toHaveLength(1);
+    const second = pasteClipboardRecord(clip as never, [1, 1, 0]);
+    expect(second.elements).toEqual([]);
+    expect(second.duplicates).toBe(1);
+    expect(modelStore.elements.size).toBe(1);
+    expect(modelStore.nodes.size).toBe(2);
+    expect(modelStore.supports.size).toBe(1);
+  });
+});
+
+describe('the fallback paste carries the member frame', () => {
+  it('a complete local axis and a roll come back; an incomplete axis is not taken for one', async () => {
+    const { pasteClipboardRecord } = await import('../clipboard-paste');
+    const clip = {
+      nodes: [{ origId: 1, x: 0, y: 0, z: 0 }, { origId: 2, x: 4, y: 0, z: 0 }, { origId: 3, x: 0, y: 3, z: 0 }],
+      elements: [
+        { origNodeI: 1, origNodeJ: 2, type: 'frame' as const, materialId: 1, sectionId: 1, localYx: 0, localYy: 0, localYz: 1, rollAngle: 30 },
+        { origNodeI: 1, origNodeJ: 3, type: 'frame' as const, materialId: 1, sectionId: 1, localYx: 1 },
+      ],
+      supports: [],
+    };
+    const r = pasteClipboardRecord(clip as never, [0, 0, 3]);
+    const [full, partial] = r.elements.map((id) => modelStore.elements.get(id)!);
+    expect([full!.localYx, full!.localYy, full!.localYz]).toEqual([0, 0, 1]);
+    expect(full!.rollAngle).toBeCloseTo(30, 12);
+    // Only localYx: not an axis. The member keeps its own default one.
+    const { computeLocalAxes3D } = await import('../../engine/local-axes-3d');
+    const ni = modelStore.nodes.get(partial!.nodeI)!, nj = modelStore.nodes.get(partial!.nodeJ)!;
+    const auto = computeLocalAxes3D({ id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 }).ey;
+    const ey = partial!.localYx === undefined ? auto : [partial!.localYx, partial!.localYy!, partial!.localYz!];
+    ey.forEach((v, k) => expect(v).toBeCloseTo(auto[k]!, 12));
+  });
+});
+
+describe('addNodesWelded', () => {
+  it('reuses nodes there, shares one node between repeated points, and makes no step when all weld', () => {
+    const a = modelStore.addNode(0, 0, 0);
+    historyStore.clear();
+    const r = modelStore.addNodesWelded([[0, 0, 0], [3, 0, 0], [3, 0, 0], [0, 0, 5e-5]]);
+    expect(r.created).toHaveLength(1);
+    expect(r.ids).toEqual([a, r.created[0], r.created[0], a]);
+    expect(historyStore.undoCount).toBe(1);
+    expect(modelStore.addNodesWelded([[0, 0, 0], [3, 0, 0]]).created).toEqual([]);
+    expect(historyStore.undoCount).toBe(1);
   });
 });

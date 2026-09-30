@@ -36,6 +36,7 @@ import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-
 import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
 import { findCoincidentNode } from '../engine/mesh-weld';
+import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
@@ -2084,11 +2085,55 @@ function createModelStore() {
      * no visible symptom. Those paths come through here.
      *
      * A weld is not a mutation: no undo step, no modelVersion bump — nothing changed.
+     * A plane model standing in the space workspace is rewritten in space coordinates
+     * first (`ensureSpaceCoordinates`), as `addNode` would: the point arrives in the
+     * coordinates the reader sees, and compared with nodes still stored in the plane's,
+     * the column top shown at (0, 0, 3) was missed and a twin made on it.
      */
     addNodeWelded(x: number, y: number, z?: number, tol = weldTolerance()): number {
+      this.spaceBeforeWeld();
       const existing = findCoincidentNode(model.nodes.values(), x, y, z ?? 0, tol);
       if (existing !== null) return existing;
       return this.addNode(x, y, z);
+    },
+
+    /**
+     * `addNodeWelded` for many points at once: one spatial index for the lookups, not a scan
+     * of every node per point, and one undo step — none when every point welds. Points of the
+     * batch that coincide with each other share one new node. `ids` follows `points`;
+     * `created` are the nodes it added.
+     */
+    addNodesWelded(points: ReadonlyArray<readonly [number, number, number?]>, tol = weldTolerance()): { ids: number[]; created: number[] } {
+      this.spaceBeforeWeld();
+      const index = new NodeIndex(tol);
+      for (const n of model.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);
+      // Points still to create stand in the index under negative ids until they have real ones.
+      const pending: Array<[number, number, number]> = [];
+      const where = (id: number): [number, number, number] | undefined => {
+        if (id < 0) return pending[-id - 1];
+        const n = model.nodes.get(id);
+        return n ? [n.x, n.y, n.z ?? 0] : undefined;
+      };
+      const hits = points.map(([x, y, z]) => {
+        const p: [number, number, number] = [x, y, z ?? 0];
+        const hit = index.find(p, where);
+        if (hit !== null) return hit;
+        pending.push(p);
+        index.add(-pending.length, p);
+        return -pending.length;
+      });
+      if (pending.length === 0) return { ids: hits, created: [] };
+      const created: number[] = [];
+      this.batch(() => { for (const [x, y, z] of pending) created.push(this.addNode(x, y, z || undefined)); });
+      return { ids: hits.map((id) => (id < 0 ? created[-id - 1]! : id)), created };
+    },
+
+    /** A standing plane model becomes a space one before a space point is looked up in it. */
+    spaceBeforeWeld(): void {
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d' || (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro')) return;
+      // The rewrite changes every node's coordinates: it is undoable, as when `addNode` makes it.
+      if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
     },
 
     /**

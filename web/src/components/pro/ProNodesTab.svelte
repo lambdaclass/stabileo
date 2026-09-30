@@ -3,6 +3,8 @@
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+  import { findCoincidentNode } from '../../lib/engine/mesh-weld';
+  import { mergeNodesInto } from '../../lib/model/edit/cleanup';
 
   interface NodeRow {
     id: number | null;  // null = unsaved new row
@@ -63,17 +65,26 @@
       rows[idx] = { ...rows[idx], id: realId };
     } else {
       // Update existing node. `updateNode` pushes no undo of its own — its callers are expected
-      // to — so without the batch this edit could not be undone.
+      // to — so without the batch this edit could not be undone. Moved onto another node, it
+      // becomes that node: left as a twin in the same place it would look joined and analyse
+      // as a cut, the defect the welds exist to prevent.
       const id = row.id;
-      modelStore.batch(() => modelStore.updateNode(id, x, y, z));
+      const onto = findCoincidentNode([...modelStore.nodes.values()].filter((n) => n.id !== id), x, y, z);
+      if (onto !== null) {
+        modelStore.batch(() => { modelStore.updateNode(id, x, y, z); mergeNodesInto(new Map([[id, onto]])); });
+      } else {
+        modelStore.batch(() => modelStore.updateNode(id, x, y, z));
+      }
     }
   }
 
   function handleBlur(e: FocusEvent, idx: number) {
     // A new row's blank Z is not an intentional zero while the user is still
-    // moving between its fields. Weld only on leaving the row or pressing Enter/Apply.
+    // moving between its fields. Weld only on leaving the row's fields or pressing Enter/Apply.
+    // Its fields, not the row: Tab from Z lands on the row's own × button, which has no blur of
+    // its own, and a row that waited for focus to leave the whole <tr> was never committed.
     const rowElement = (e.currentTarget as HTMLElement).closest('tr');
-    if (rows[idx]?.id === null && e.relatedTarget instanceof Node && rowElement?.contains(e.relatedTarget)) return;
+    if (rows[idx]?.id === null && e.relatedTarget instanceof HTMLInputElement && rowElement?.contains(e.relatedTarget)) return;
     commitRow(idx);
   }
 
@@ -130,10 +141,9 @@
       points.push([x, y, z]);
     }
 
-    // The effect reads the canonical coordinates of reused nodes, once per id.
-    if (points.length) modelStore.batch(() => {
-      for (const [x, y, z] of points) modelStore.addNodeWelded(x, y, z);
-    });
+    // The effect reads the canonical coordinates of reused nodes, once per id. One undo step,
+    // and none when every row is a node already there.
+    if (points.length) modelStore.addNodesWelded(points);
   }
 
   function handleRowClick(idx: number) {
