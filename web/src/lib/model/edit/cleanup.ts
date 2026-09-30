@@ -18,10 +18,15 @@
 import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Load } from '../../store/model.svelte';
+import { WELD_TOL } from '../../engine/mesh-weld';
 import { generatedMetadata } from './generated-metadata';
 
-/** The default weld tolerance; the one in force is `weldTolerance()`. */
-export const MERGE_TOL = 1e-4;
+/**
+ * The default weld tolerance (`WELD_TOL`, from engine/mesh-weld); the one in force is
+ * `weldTolerance()`, which the diagnostics that flag coincident nodes and the commands that
+ * repair them both read, so they cannot disagree.
+ */
+export const MERGE_TOL = WELD_TOL;
 
 export interface CleanupReport {
   mergedNodes: number;

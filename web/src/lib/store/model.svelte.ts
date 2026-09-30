@@ -35,6 +35,9 @@ import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-so
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { findCoincidentNode } from '../engine/mesh-weld';
+import { NodeIndex } from '../model/edit/node-index';
+import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
@@ -1256,7 +1259,7 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const cuts = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const cuts = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
     if (cuts.length === 0) return null;
 
     if (!_undoBatching) _pushUndo?.();
@@ -1269,12 +1272,18 @@ function createModelStore() {
         : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
       const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
-      for (const t of cuts) {
+      const axisLength = Math.max(Math.abs(nj.x - ni.x), Math.abs(nj.y - ni.y), Math.abs((nj.z ?? 0) - (ni.z ?? 0)));
+      for (let k = 0; k < cuts.length; k++) {
+        const t = cuts[k];
         const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
         let id: number | null = null;
         if (opts.reuseNodeTol !== undefined) {
-          const tol = opts.reuseNodeTol;
+          // Keep the per-axis weld boxes disjoint, including at the member ends.
+          // Dense cuts must not reuse an endpoint or the same node for two cuts.
+          const gap = Math.min(t - fractions[k], fractions[k + 2] - t);
+          const tol = Math.min(opts.reuseNodeTol, axisLength * gap / 2);
           for (const n of model.nodes.values()) {
+            if (n.id === elem.nodeI || n.id === elem.nodeJ) continue;
             if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
           }
         }
@@ -2063,6 +2072,68 @@ function createModelStore() {
         }
       }
       return id;
+    },
+
+    /**
+     * A node at this position: the one already there within `tol` per axis, else a
+     * new one. The one canonical weld.
+     *
+     * `addNode` stays deliberately blind — project load, undo/redo and model code
+     * must reproduce ids exactly. But an interactive path that wants "a node here"
+     * (paste, coordinate import, a table row) and creates a second node in an
+     * occupied place leaves two nodes that look joined and analyse as a cut, with
+     * no visible symptom. Those paths come through here.
+     *
+     * A weld is not a mutation: no undo step, no modelVersion bump — nothing changed.
+     * A plane model standing in the space workspace is rewritten in space coordinates
+     * first (`ensureSpaceCoordinates`), as `addNode` would: the point arrives in the
+     * coordinates the reader sees, and compared with nodes still stored in the plane's,
+     * the column top shown at (0, 0, 3) was missed and a twin made on it.
+     */
+    addNodeWelded(x: number, y: number, z?: number, tol = weldTolerance()): number {
+      this.spaceBeforeWeld();
+      const existing = findCoincidentNode(model.nodes.values(), x, y, z ?? 0, tol);
+      if (existing !== null) return existing;
+      return this.addNode(x, y, z);
+    },
+
+    /**
+     * `addNodeWelded` for many points at once: one spatial index for the lookups, not a scan
+     * of every node per point, and one undo step — none when every point welds. Points of the
+     * batch that coincide with each other share one new node. `ids` follows `points`;
+     * `created` are the nodes it added.
+     */
+    addNodesWelded(points: ReadonlyArray<readonly [number, number, number?]>, tol = weldTolerance()): { ids: number[]; created: number[] } {
+      this.spaceBeforeWeld();
+      const index = new NodeIndex(tol);
+      for (const n of model.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);
+      // Points still to create stand in the index under negative ids until they have real ones.
+      const pending: Array<[number, number, number]> = [];
+      const where = (id: number): [number, number, number] | undefined => {
+        if (id < 0) return pending[-id - 1];
+        const n = model.nodes.get(id);
+        return n ? [n.x, n.y, n.z ?? 0] : undefined;
+      };
+      const hits = points.map(([x, y, z]) => {
+        const p: [number, number, number] = [x, y, z ?? 0];
+        const hit = index.find(p, where);
+        if (hit !== null) return hit;
+        pending.push(p);
+        index.add(-pending.length, p);
+        return -pending.length;
+      });
+      if (pending.length === 0) return { ids: hits, created: [] };
+      const created: number[] = [];
+      this.batch(() => { for (const [x, y, z] of pending) created.push(this.addNode(x, y, z || undefined)); });
+      return { ids: hits.map((id) => (id < 0 ? created[-id - 1]! : id)), created };
+    },
+
+    /** A standing plane model becomes a space one before a space point is looked up in it. */
+    spaceBeforeWeld(): void {
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d' || (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro')) return;
+      // The rewrite changes every node's coordinates: it is undoable, as when `addNode` makes it.
+      if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
     },
 
     /**
@@ -3188,8 +3259,10 @@ function createModelStore() {
 
     subdivideElement(elementId: number, n: number): void {
       if (n < 2 || n > 20) return;
-      // The original id stays on the first segment, and the cuts always get new nodes.
-      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true });
+      // The original id stays on the first segment. A cut landing on an existing
+      // node — the midpoint a secondary frames into — reuses it: a fresh node in
+      // the same place would look connected and analyse as a cut.
+      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true, reuseNodeTol: weldTolerance() });
     },
 
     /** Toggle a single per-axis release on a single element-end. The canonical release API. */
