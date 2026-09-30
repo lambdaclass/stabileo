@@ -57,7 +57,7 @@ export interface LowDetailGroups {
  * additionally kept visible in the heavy fallback when a result-coloring mode
  * (axialColor / colorMap / verification) is active: frame colors live on the
  * per-element meshes and the shell Von Mises heatmap is painted onto the shell
- * groups themselves (applyShellVertexColors) — hiding either would make the
+ * groups themselves (applyShellNodalColors) — hiding either would make the
  * visualization vanish exactly while the user inspects it.
  */
 export function applyLowDetail(

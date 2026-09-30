@@ -17,7 +17,8 @@
 import { untrack } from 'svelte';
 import { applyPoint, compose, reflection, rotation, translation, type Affine, type Vec3 } from '../model/edit/affine';
 import { closure, fragmentBounds, type EntitySet, type Fragment } from '../model/edit/fragment';
-import { insertFragment, NodeIndex, DEFAULT_WELD, type EditReport } from '../model/edit/transformed-copy';
+import { insertFragment, NodeIndex, type EditReport } from '../model/edit/transformed-copy';
+import { weldTolerance } from '../model/weld-tolerance';
 import { transformInPlace } from '../model/edit/transform-in-place';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
@@ -88,7 +89,8 @@ function createPlacementStore() {
   const supportedNodes = new Set<number>();
 
   function buildIndex() {
-    index = new NodeIndex(DEFAULT_WELD);
+    // The tolerance `insertFragment` welds at on commit, so the preview shows what will happen.
+    index = new NodeIndex(weldTolerance());
     supportedNodes.clear();
     const moving = moveSet ? closure(moveSet).nodes : new Set<number>();
     for (const n of modelStore.nodes.values()) if (!moving.has(n.id)) index.add(n.id, [n.x, n.y, n.z ?? 0]);

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ProProjectInfo from './ProProjectInfo.svelte';
+  import ProOfficeTemplates from './ProOfficeTemplates.svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
   let regulationsEl: HTMLElement | undefined = $state();
@@ -241,6 +243,14 @@
     instant they were pressed, with the difference between "pestaña" and
     "sesión" explained nowhere a reader would meet it.
   -->
+  <!-- The job's data: what the documents' covers and title blocks state. -->
+  <section class="pp-card">
+    <ProProjectInfo />
+  </section>
+  <section class="pp-card">
+    <ProOfficeTemplates />
+  </section>
+
   <!-- The project's regulations, where the loads that need them are made — not only in Design. -->
   <section class="pp-card" data-testid="pp-regulations">
     <details bind:open={proNav.regulationsOpen} bind:this={regulationsEl}>

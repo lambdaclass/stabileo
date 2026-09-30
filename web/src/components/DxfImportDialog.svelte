@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { parseDxf } from '../lib/dxf/parser';
   import { mapDxfToModel, parseSectionText, parseMaterialText } from '../lib/dxf/mapper';
@@ -143,7 +144,7 @@
 
     // Zoom to fit after a tick
     setTimeout(() => {
-      const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+      const canvas = viewportCanvas();
       if (canvas && modelStore.nodes.size > 0) {
         uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
       }

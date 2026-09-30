@@ -1,8 +1,12 @@
 // Unit system conversion utilities
 // Internal model always uses SI (m, kN, kN/m, kN·m, MPa, m², m⁴)
+// Technical metric (MKS) display uses: m, tf, tf/m, tf·m, kgf/cm², cm², cm⁴, cm of displacement
 // Imperial display uses: ft, kip, kip/ft, kip·ft, ksi, in², in⁴
 
-export type UnitSystem = 'SI' | 'Imperial';
+export type UnitSystem = 'SI' | 'MKS' | 'Imperial';
+
+/** Every display system, in the order a selector offers them. */
+export const UNIT_SYSTEMS: readonly UnitSystem[] = ['SI', 'MKS', 'Imperial'];
 
 export type Quantity =
   | 'length'           // m ↔ ft
@@ -34,6 +38,43 @@ const FACTORS: Record<Quantity, number> = {
   springK: 0.0685218,          // kN/m → kip/ft
   springKr: 0.737562,          // kN·m/rad → kip·ft/rad
   temperature: 1,              // special handling (affine)
+};
+
+/** kN → tf (a tonne-force is 9.80665 kN). */
+const TF = 1 / 9.80665;
+
+// Conversion factors to the technical metric system: multiply the SI value.
+const MKS_FACTORS: Record<Quantity, number> = {
+  length: 1,
+  force: TF,
+  moment: TF,
+  distributedLoad: TF,
+  stress: 1e6 / 98066.5,  // MPa → kgf/cm²: 1 kgf/cm² = 9.80665 N / 1 cm² = 98 066,5 Pa
+  area: 1e4,
+  inertia: 1e8,
+  density: TF,
+  displacement: 100,
+  rotation: 1,
+  springK: TF,
+  springKr: TF,
+  temperature: 1,
+};
+
+// Technical metric labels
+const MKS_LABELS: Record<Quantity, string> = {
+  length: 'm',
+  force: 'tf',
+  moment: 'tf·m',
+  distributedLoad: 'tf/m',
+  stress: 'kgf/cm²',
+  area: 'cm²',
+  inertia: 'cm⁴',
+  density: 'tf/m³',
+  displacement: 'cm',
+  rotation: 'rad',
+  springK: 'tf/m',
+  springKr: 'tf·m/rad',
+  temperature: '°C',
 };
 
 // SI unit labels
@@ -75,6 +116,7 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
  */
 export function toDisplay(value: number, qty: Quantity, system: UnitSystem): number {
   if (system === 'SI') return value;
+  if (system === 'MKS') return value * MKS_FACTORS[qty];
   if (qty === 'temperature') return value * 9 / 5 + 32; // °C → °F
   return value * FACTORS[qty];
 }
@@ -84,6 +126,7 @@ export function toDisplay(value: number, qty: Quantity, system: UnitSystem): num
  */
 export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): number {
   if (system === 'SI') return value;
+  if (system === 'MKS') return value / MKS_FACTORS[qty];
   if (qty === 'temperature') return (value - 32) * 5 / 9; // °F → °C
   return value / FACTORS[qty];
 }
@@ -92,15 +135,17 @@ export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): n
  * Get the unit label string for a quantity in a given system.
  */
 export function unitLabel(qty: Quantity, system: UnitSystem): string {
-  return system === 'SI' ? SI_LABELS[qty] : IMPERIAL_LABELS[qty];
+  return system === 'SI' ? SI_LABELS[qty] : system === 'MKS' ? MKS_LABELS[qty] : IMPERIAL_LABELS[qty];
 }
 
 /**
  * Format a value with appropriate precision for display.
  */
-export function formatValue(value: number, qty: Quantity, system: UnitSystem): string {
+export function formatValue(value: number, qty: Quantity, system: UnitSystem, decimals?: number): string {
   const displayVal = toDisplay(value, qty, system);
   const abs = Math.abs(displayVal);
+  // A fixed number of decimals when the reader asked for one for this quantity.
+  if (decimals !== undefined && decimals >= 0) return abs < 1e-12 ? '0' : displayVal.toFixed(decimals);
   if (abs < 1e-10) return '0';
   if (abs >= 1000) return displayVal.toFixed(0);
   if (abs >= 100) return displayVal.toFixed(1);

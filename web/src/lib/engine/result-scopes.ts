@@ -11,8 +11,10 @@
  *
  *   · The ACTIVE LIST: the combinations that feed design, detailing, the governing search, the
  *     default envelope and the reports. Unstated, it is all of them — what the app always did.
- *   · NAMED ENVELOPES: a name, a purpose (strength, service or other) and a set of combinations.
- *     Each can be shown like a case, and a service envelope is what the deflection check reads.
+ *   · NAMED ENVELOPES: a name, a purpose (strength, service or other), a set of combinations and,
+ *     if wanted, load cases on their own (a service envelope of D and L alone, a wind envelope of
+ *     the wind cases). Each can be shown like a case, and a service envelope is what the deflection
+ *     check reads.
  *
  * Both are project definitions: stored on the model, saved with it, and carried by the model
  * code. Every combination still solves; the lists decide what is READ, not what is computed.
@@ -30,6 +32,8 @@ export interface NamedEnvelope {
   name: string;
   purpose: EnvelopePurpose;
   comboIds: number[];
+  /** Load cases taken as they are, unfactored. Absent: none. */
+  caseIds?: number[];
 }
 
 /** What the project states. Absent: every combination is active and there are no named envelopes. */
@@ -54,9 +58,27 @@ export function narrowPerCombo<T>(perCombo: ReadonlyMap<number, T>, ids: readonl
   return out;
 }
 
-/** The envelope of a set of combinations, or null when none of them solved. */
-export function envelopeOver(perCombo: ReadonlyMap<number, AnalysisResults3D>, ids: readonly number[]): FullEnvelope3D | null {
-  const results = ids.map((id) => perCombo.get(id)).filter((r): r is AnalysisResults3D => !!r);
+/** The result sets a named envelope reads: its combinations, then its load cases, those solved. */
+export function envelopeMembers(
+  env: Pick<NamedEnvelope, 'comboIds' | 'caseIds'>,
+  perCombo: ReadonlyMap<number, AnalysisResults3D>,
+  perCase: ReadonlyMap<number, AnalysisResults3D>,
+): Array<{ kind: 'combo' | 'case'; id: number; results: AnalysisResults3D }> {
+  return [
+    ...env.comboIds.flatMap((id) => { const r = perCombo.get(id); return r ? [{ kind: 'combo' as const, id, results: r }] : []; }),
+    ...(env.caseIds ?? []).flatMap((id) => { const r = perCase.get(id); return r ? [{ kind: 'case' as const, id, results: r }] : []; }),
+  ];
+}
+
+/** The envelope of a set of combinations (and, with `perCase`, load cases), or null when none of them solved. */
+export function envelopeOver(
+  perCombo: ReadonlyMap<number, AnalysisResults3D>, ids: readonly number[],
+  perCase?: ReadonlyMap<number, AnalysisResults3D>, caseIds: readonly number[] = [],
+): FullEnvelope3D | null {
+  const results = [
+    ...ids.map((id) => perCombo.get(id)),
+    ...(perCase ? caseIds.map((id) => perCase.get(id)) : []),
+  ].filter((r): r is AnalysisResults3D => !!r);
   if (results.length === 0) return null;
   const envelope = computeEnvelope3D(results);
   if (!envelope) return null;
@@ -70,12 +92,16 @@ export function envelopeOver(perCombo: ReadonlyMap<number, AnalysisResults3D>, i
 }
 
 /** A scopes value with ids that no longer name a combination removed. */
-export function pruneScopes(scopes: ResultScopes | undefined, combinationIds: ReadonlySet<number>): ResultScopes | undefined {
+export function pruneScopes(scopes: ResultScopes | undefined, combinationIds: ReadonlySet<number>, caseIds?: ReadonlySet<number>): ResultScopes | undefined {
   if (!scopes) return undefined;
   const keep = (ids: number[]) => ids.filter((id) => combinationIds.has(id));
+  const keepCases = (ids: number[] | undefined) => (ids && caseIds ? ids.filter((id) => caseIds.has(id)) : ids);
   return {
     ...(scopes.active ? { active: keep(scopes.active) } : {}),
-    ...(scopes.envelopes ? { envelopes: scopes.envelopes.map((e) => ({ ...e, comboIds: keep(e.comboIds) })) } : {}),
+    ...(scopes.envelopes ? { envelopes: scopes.envelopes.map((e) => {
+      const cases = keepCases(e.caseIds);
+      return { ...e, comboIds: keep(e.comboIds), ...(cases ? { caseIds: cases } : {}) };
+    }) } : {}),
   };
 }
 

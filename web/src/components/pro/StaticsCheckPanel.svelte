@@ -8,36 +8,27 @@
    * removed with the weight it carried. The applied side is summed here independently, from the
    * model, which is what gives the check its value.
    *
-   * It reads the last solve. An edit clears the results — the model store's mutation hook — so
-   * the table never sets a solve against a model edited after it.
+   * One row per solved load case, then one per solved combination (`store/statics-rows.ts`,
+   * shared with the report). The six components of both sides are one click away, and the CSV
+   * carries them all.
    */
-  import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { staticsCheck, type StaticsCheckRow } from '../../lib/engine/statics-check';
+  import { downloadText } from '../../lib/store/file';
+  import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
+  import type { StaticsCheckRow } from '../../lib/engine/statics-check';
 
-  /** Below this, a residual is round-off. The solve's own residuals sit around 1e-10. */
-  const BALANCED = 1e-6;
+  const all = $derived(staticsRows());
+  const rows = $derived(all ? [...all.cases, ...all.combos] : null);
+  let full = $state(false);
+  const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
 
-  const rows = $derived.by((): StaticsCheckRow[] | null => {
-    const perCase = resultsStore.perCase3D;
-    const single = resultsStore.results3D;
-    if (perCase.size === 0 && !single) return null;
-    const reactionsByCase = new Map<number | null, any>(
-      perCase.size > 0 ? [...perCase].map(([id, r]) => [id, r.reactions]) : [[null, single!.reactions]],
-    );
-    const md = {
-      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
-      quads: modelStore.quads, plates: modelStore.plates,
-    };
-    return staticsCheck({
-      model: md as never,
-      reactionsByCase,
-      includeSelfWeight: uiStore.includeSelfWeight,
-      caseTypes: new Map(modelStore.model.loadCases.map((c) => [c.id, c.type])),
-      caseNames: new Map(modelStore.model.loadCases.map((c) => [c.id, c.name])),
-    });
-  });
+  function csv() {
+    if (!all) return;
+    downloadText(staticsCsv(all, {
+      kind: t('pro.statics.kind'), name: t('pro.statics.case'), caseLabel: t('pro.statics.kindCase'), comboLabel: t('pro.statics.kindCombo'),
+      applied: t('pro.statics.applied'), reactions: t('pro.statics.reactions'), residual: t('pro.statics.residual'), relative: t('pro.statics.relative'),
+    }), 'statics.csv', 'text/csv;charset=utf-8');
+  }
 
   /**
    * The applied side's largest force component, and its axis. ΣFz alone reads 0 = 0 on a wind
@@ -55,7 +46,13 @@
 </script>
 
 <div class="sc" data-testid="statics-check">
-  <div class="sc-title">{t('pro.statics.title')}</div>
+  <div class="sc-head">
+    <div class="sc-title">{t('pro.statics.title')}</div>
+    {#if rows}
+      <label class="sc-full"><input type="checkbox" bind:checked={full} data-testid="statics-full" /> {t('pro.statics.sixComponents')}</label>
+      <button class="pk-btn sc-csv" onclick={csv} data-testid="statics-csv">CSV</button>
+    {/if}
+  </div>
   {#if !rows}
     <div class="sc-hint">{t('pro.statics.solveFirst')}</div>
   {:else}
@@ -71,16 +68,24 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as r (r.caseId ?? 'single')}
+        {#each rows as r, i (i)}
           {@const ok = r.worstRelative < BALANCED}
           {@const k = dominant(r)}
-          <tr data-testid="statics-row-{r.caseId ?? 'single'}">
+          {@const key = 'comboId' in r ? `c${r.comboId}` : (r.caseId ?? 'single')}
+          <tr data-testid="statics-row-{key}" class:sc-combo={'comboId' in r}>
             <td>{r.caseName || t('pro.statics.singleSolve')}{#if r.selfWeightIncluded}<span class="sc-sw"> +PP</span>{/if}</td>
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.applied[k])}</td>
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.reactions[k])}</td>
             <td class="num">{pct(r.worstRelative)}</td>
             <td class="sc-state" class:bad={!ok}>{ok ? '✓ ' + t('pro.statics.balances') : '⚠ ' + t('pro.statics.doesNotBalance')}</td>
           </tr>
+          {#if full}
+            <tr class="sc-detail sc-six">
+              <td colspan="5"><div class="sc-sixrow">
+                {#each K as c (c)}<span><b>Σ{c.toUpperCase()}</b> {fmt(r.applied[c])} / {fmt(r.reactions[c])}</span>{/each}
+              </div></td>
+            </tr>
+          {/if}
           {#if !ok}
             <tr class="sc-detail">
               <td colspan="5">
@@ -103,7 +108,12 @@
 
 <style>
   .sc { display: flex; flex-direction: column; gap: 4px; }
+  .sc-head { display: flex; gap: 8px; align-items: center; }
   .sc-title { font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); }
+  .sc-full { margin-left: auto; font-size: 0.6rem; color: var(--st-text-3); display: inline-flex; gap: 4px; align-items: center; }
+  .sc-csv { min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
+  .sc-combo td:first-child { font-style: italic; }
+  .sc-sixrow { display: flex; gap: 10px; flex-wrap: wrap; }
   .sc-hint { font-size: 0.6rem; color: var(--st-text-3); font-style: italic; }
   .sc-table { width: 100%; border-collapse: collapse; font-size: 0.66rem; }
   .sc-table th {

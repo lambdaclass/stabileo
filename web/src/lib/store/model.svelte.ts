@@ -528,6 +528,17 @@ export interface SavedView {
   name: string;
   position: { x: number; y: number; z: number };
   target: { x: number; y: number; z: number };
+  /** How it was being looked at, beyond the camera. Absent on views saved before it existed. */
+  display?: SavedViewDisplay;
+}
+
+/** The rest of a view: projection, zoom, what was hidden, what the labels showed, the colours. */
+export interface SavedViewDisplay {
+  camera: 'perspective' | 'orthographic';
+  orthoZoom?: number;
+  hidden?: { elements: number[]; shells: string[] };
+  labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
+  colourBy?: string;
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -815,6 +826,12 @@ export interface StructureModel {
   grid?: import('../model/grid').StructuralGrid;
   /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
   dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
+  /** Deflection limits by member, group or kind (`engine/deflection-limits.ts`). Absent: beams at L/360. */
+  deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
+  /** Client, job, revisions and signatories (`model/project-info.ts`). Absent: none stated. */
+  projectInfo?: import('../model/project-info').ProjectInfo;
+  /** Text notes placed in the view (`model/annotations.ts`). Absent: none. */
+  notes?: import('../model/annotations').ViewNote[];
   constraints: Constraint3D[];
   /** Joint/spring/bearing primitives between two nodes — mirrors Rust top-level
    *  `connectors: HashMap<String, ConnectorElement>`. Surfaced as joint-style
@@ -932,7 +949,7 @@ export interface InfluenceLineResult {
  * without retiring the solve (`restoreViewsOnly`). A setter that records through that channel
  * adds its field here.
  */
-const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics'] as const;
+const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'projectInfo', 'deflectionLimits'] as const;
 
 function createModelStore() {
   /**
@@ -1615,6 +1632,9 @@ function createModelStore() {
     get views(): readonly SavedView[] { return model.views ?? []; },
     get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
     get dynamics() { return model.dynamics; },
+    get deflectionLimits() { return model.deflectionLimits; },
+    get projectInfo() { return model.projectInfo; },
+    get notes() { return model.notes ?? []; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
     get constraints() { return model.constraints; },
@@ -1697,6 +1717,15 @@ function createModelStore() {
           : {}),
         ...(snap.dynamics?.timeHistory
           ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
+          : {}),
+        ...(snap.projectInfo
+          ? { projectInfo: JSON.parse(JSON.stringify(snap.projectInfo)) as ModelSnapshot['projectInfo'] }
+          : {}),
+        ...(snap.notes?.length
+          ? { notes: JSON.parse(JSON.stringify(snap.notes)) as ModelSnapshot['notes'] }
+          : {}),
+        ...(snap.deflectionLimits?.rules.length
+          ? { deflectionLimits: JSON.parse(JSON.stringify(snap.deflectionLimits)) as ModelSnapshot['deflectionLimits'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1887,6 +1916,9 @@ function createModelStore() {
     model.views = s.views ? JSON.parse(JSON.stringify(s.views)) : undefined;
     model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
     model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
+    model.deflectionLimits = s.deflectionLimits ? JSON.parse(JSON.stringify(s.deflectionLimits)) : undefined;
+    model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
+    model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
             .map(migrateConstraint)
@@ -3043,6 +3075,9 @@ function createModelStore() {
       model.views = undefined;
       model.grid = undefined;
       model.dynamics = undefined;
+      model.deflectionLimits = undefined;
+      model.projectInfo = undefined;
+      model.notes = undefined;
       model.constraints = [];
       model.connectors = new Map();
       model.footings = new Map();
@@ -3382,6 +3417,10 @@ function createModelStore() {
       if (model.massSource?.kind === 'custom') {
         model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
+      // Likewise a named envelope that takes the case on its own.
+      if (model.resultScopes) {
+        model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)), new Set(model.loadCases.map((c) => c.id)));
+      }
     },
 
     /**
@@ -3391,10 +3430,10 @@ function createModelStore() {
      * (it is part of the project) but it does not retire the results the way `_pushUndo` does for
      * a model edit — saving a camera must not throw away a solve.
      */
-    saveView(name: string, position: SavedView['position'], target: SavedView['target']): number {
+    saveView(name: string, position: SavedView['position'], target: SavedView['target'], display?: SavedViewDisplay): number {
       const id = (model.views ?? []).reduce((m, v) => Math.max(m, v.id), 0) + 1;
       _pushUndoView?.();
-      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target } }];
+      model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
     },
     renameView(id: number, name: string): void {
@@ -3417,6 +3456,24 @@ function createModelStore() {
     },
 
     /** State the project's dynamic analysis settings. Undoable; the solve survives it. */
+    /** State the notes in the view. Undoable; they touch no result. */
+    setNotes(notes: import('../model/annotations').ViewNote[]): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.notes = notes.length ? JSON.parse(JSON.stringify(notes)) : undefined;
+    },
+
+    /** State the project's data. Undoable; it touches no result. */
+    setProjectInfo(info: import('../model/project-info').ProjectInfo | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.projectInfo = info ? JSON.parse(JSON.stringify(info)) : undefined;
+    },
+
+    /** State the deflection limits. Undoable; they are read after the solve, which survives it. */
+    setDeflectionLimits(d: import('../engine/deflection-limits').DeflectionLimits | null): void {
+      if (!_undoBatching) _pushUndoView?.();
+      model.deflectionLimits = d && d.rules.length > 0 ? JSON.parse(JSON.stringify(d)) : undefined;
+    },
+
     setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
       if (!_undoBatching) _pushUndoView?.();
       model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;

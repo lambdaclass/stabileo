@@ -123,17 +123,32 @@ describe('relative to the chord, against closed forms', () => {
     expect(d.x).toBeCloseTo(xm, 2);
   });
 
-  it('a cantilever is measured from the tangent at its root: the tip reads PL³/3EI', () => {
+  it('a cantilever is measured from the tangent at its root: PL³/3EI at the tip', () => {
+    // Its chord runs through the tip, so a chord reading would miss most of it: it gave
+    // v(x) − x·v(L)/L, about a third of the tip deflection.
     const tip = member('fixed', 'free');
     modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
-    const d = solveAndRead();
-    const EI = ei().EIy;
-    // The root does not move, so the rigid-body baseline is the tangent there — horizontal for
-    // a fixed root — and the tip reads the code's cantilever number (CIRSOC 201 Table 9.5(b)),
-    // v(x) = P x²(3L − x)/6EI at x = L. The chord to the free tip is not that baseline: it left
-    // only 0.064·PL³/EI, ~5× better than reality.
-    expect(d.max / ((P * L ** 3) / (3 * EI))).toBeCloseTo(1, 5);
+    const d = solveAndRead() as ReturnType<typeof solveAndRead> & { cantilever?: boolean };
+    expect(d.cantilever).toBe(true);
+    expect(d.max / ((P * L ** 3) / (3 * ei().EIy))).toBeCloseTo(1, 6);
     expect(d.x).toBeCloseTo(L, 9);
+  });
+
+  it('a cantilever off a flexible column: its own bending, without the column\'s rotation', () => {
+    modelStore.clear();
+    const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 3), tip = modelStore.addNode(L, 0, 3);
+    modelStore.addElement(base, top, 'frame');
+    beam = modelStore.addElement(top, tip, 'frame');
+    modelStore.addSupport(base, 'fixed3d');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
+    const d = solveAndRead();
+    // The column rotates its top, and the tip drops far more than the beam bends; relative to the
+    // tangent at the root the beam's own curve is the fixed cantilever's.
+    const drop = Math.abs(resultsStore.results3D!.displacements.find((x) => x.nodeId === tip)!.uz);
+    const own = (P * L ** 3) / (3 * ei().EIy);
+    expect(drop).toBeGreaterThan(1.5 * own);
+    expect(d.max / own).toBeCloseTo(1, 4);
   });
 
   it('a cantilever under uniform load reads qL⁴/8EI at the tip', () => {
@@ -147,9 +162,10 @@ describe('relative to the chord, against closed forms', () => {
   it('a cantilever whose tip is past L/360 fails the check', () => {
     const tip = member('fixed', 'free');
     // P chosen so the true tip deflection is exactly twice the limit — a cantilever the chord
-    // reading passed (0.19 of the tip, times the long-term factor, stays under it).
+    // reading passed (0.19 of the tip, times the long-term factor, stays under it). A
+    // cantilever's limit is taken over twice its length (`deflection-limits.ts`): 2L/360.
     const EI = ei().EIy;
-    const p = (2 * (L / 360)) * (3 * EI) / L ** 3;
+    const p = (2 * ((2 * L) / 360)) * (3 * EI) / L ** 3;
     modelStore.addNodalLoad3D(tip, 0, 0, -p, 0, 0, 0);
     solveAndRead();
     const row = deflectionChecks([beam]).rows.get(beam)!;

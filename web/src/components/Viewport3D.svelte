@@ -1,7 +1,11 @@
 <script lang="ts">
+  import QuickInfoCard from './viewport/QuickInfoCard.svelte';
+  import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../lib/store/view-state.svelte';
+  import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
+  import { contourOptions } from '../lib/store/contour-options.svelte';
   import { nextMember } from '../lib/store/next-member.svelte';
   import { onMount, untrack } from 'svelte';
   import { t } from '../lib/i18n';
@@ -132,6 +136,8 @@
   let camMenuOpen = $state(false);
   let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
+  /** The lasso's outline while one is being drawn (`viewState.lasso`). */
+  let lassoPath = $state<Array<{ x: number; y: number }>>([]);
 
   // ─── Node dragging state ───────────────────────────────────
   let draggedNodeId3D = $state<number | null>(null);
@@ -591,6 +597,7 @@
         const tgt = controls.target;
         uiStore.cameraPosition3D = { x: pos.x, y: pos.y, z: pos.z };
         uiStore.cameraTarget3D = { x: tgt.x, y: tgt.y, z: tgt.z };
+        if (orthoCamera) uiStore.cameraOrthoZoom3D = orthoCamera.zoom;
       }, 100);
     });
 
@@ -993,11 +1000,12 @@
 
     // A saved view, asked for by the view panel: stand where it stood, look where it looked.
     const handleCameraSet = (e: Event) => {
-      const v = (e as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } }>).detail;
+      const v = (e as CustomEvent<{ position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number }; orthoZoom?: number }>).detail;
       if (!v) return;
       setCameraUp(camera);
       camera.position.set(v.position.x, v.position.y, v.position.z);
       controls.target.set(v.target.x, v.target.y, v.target.z);
+      if (v.orthoZoom && orthoCamera) { orthoCamera.zoom = v.orthoZoom; orthoCamera.updateProjectionMatrix(); }
       controls.update();
       invalidate();
     };
@@ -1369,6 +1377,9 @@
     resultsStore.diagramType;
     resultsStore.colorMapKind;
     resultsStore.shellContourComponent;
+    contourOptions.signature;
+    // Deformed contours follow the deformed view's scale.
+    if (contourOptions.onDeformed) resultsStore.deformedScale;
     // Shell meshes rebuild on render-mode / geometry change → re-apply contour.
     uiStore.renderMode3D;
     modelStore.plates;
@@ -1411,6 +1422,9 @@
     uiStore.selectedElements;
     uiStore.selectedSupports;
     uiStore.selectedShells;
+    // Colouring by section, material or group repaints the members' base colours.
+    uiStore.elementColorMode;
+    if (uiStore.elementColorMode === 'byGroup') modelStore.model.groups;
     syncSelection();
     invalidate();
   });
@@ -1463,7 +1477,21 @@
     viewState.memberLabel;
     modelStore.sections;
     modelStore.materials;
+    // Labels on the chosen entities follow the selection.
+    if (viewState.labelsOnSelection) { uiStore.selectedNodes; uiStore.selectedElements; }
+    viewState.labelsOnSelection;
     syncLabels3D();
+    invalidate();
+  });
+
+  // Constraints, member ends and notes, beside the members.
+  let viewOverlaysGroup: THREE.Group | null = null;
+  $effect(() => {
+    void modelStore.nodes; void modelStore.elements; void modelStore.model.constraints; void modelStore.notes;
+    void viewState.showConstraints; void viewState.showMemberEnds; void viewState.labelsOnSelection; void viewVisibility.version;
+    if (viewState.showMemberEnds && viewState.labelsOnSelection) void uiStore.selectedElements;
+    if (!scene) return;
+    viewOverlaysGroup = syncViewOverlays(scene, viewOverlaysGroup, shouldProject2DModel());
     invalidate();
   });
 
@@ -1655,6 +1683,7 @@
           const mx = e.clientX - rect.left;
           const my = e.clientY - rect.top;
           boxSelect3D = { startX: mx, startY: my, endX: mx, endY: my, additive: e.shiftKey };
+          lassoPath = viewState.lasso ? [{ x: mx, y: my }] : [];
           controls.enabled = false;
           // This is a box-select, not an orbit — undo the low-detail/low-res
           // state that OrbitControls 'start' just engaged, and re-render so the
@@ -2147,6 +2176,54 @@
       finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
       return;
     }
+
+    // ── The magnifier's window: frame what the rectangle holds, select nothing ──
+    if (boxSelect3D && viewState.zoomWindowArmed) {
+      const x1 = Math.min(boxSelect3D.startX, boxSelect3D.endX), x2 = Math.max(boxSelect3D.startX, boxSelect3D.endX);
+      const y1 = Math.min(boxSelect3D.startY, boxSelect3D.endY), y2 = Math.max(boxSelect3D.startY, boxSelect3D.endY);
+      boxSelect3D = null;
+      controls.enabled = true;
+      if (x2 - x1 > 3 || y2 - y1 > 3) {
+        viewState.zoomWindowArmed = false;
+        const project2D = shouldProject2DModel();
+        const inside = new Map([...visibleNodes()].filter(([, n]) => {
+          const p = projectNodeToScene(n, project2D);
+          const s = projectToScreen(p.x, p.y, p.z);
+          return s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2;
+        }));
+        if (inside.size === 1) {
+          const [n] = inside.values();
+          inside.set(-1, { ...n!, id: -1, x: n!.x + 0.5 });
+          inside.set(-2, { ...n!, id: -2, x: n!.x - 0.5 });
+        }
+        if (inside.size > 0) { _zoomToFit(camera, controls, inside as never, orthoCamera, container); invalidate(); }
+      }
+      return;
+    }
+
+    // ── The lasso: what the outline encloses (nodes; members and shells wholly inside) ──
+    if (boxSelect3D && viewState.lasso && lassoPath.length >= 3) {
+      const poly = lassoPath;
+      const additive = boxSelect3D.additive;
+      boxSelect3D = null;
+      lassoPath = [];
+      controls.enabled = true;
+      const project2D = shouldProject2DModel();
+      const scr = (id: number) => { const n = modelStore.nodes.get(id); if (!n) return null; const p = projectNodeToScene(n, project2D); return projectToScreen(p.x, p.y, p.z); };
+      const inside = (id: number) => { const s = scr(id); return !!s && insidePolygon(s, poly); };
+      const nodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
+      const elems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
+      const shells = additive ? new Set(uiStore.selectedShells) : new Set<string>();
+      if (uiStore.selectsKind('nodes')) for (const id of visibleNodes().keys()) if (inside(id)) nodes.add(id);
+      if (uiStore.selectsKind('elements')) for (const [id, el] of visibleElements()) if (inside(el.nodeI) && inside(el.nodeJ)) elems.add(id);
+      if (uiStore.selectMode === 'shells') {
+        for (const [id, q] of modelStore.quads) if (q.nodes.every(inside)) shells.add(`q${id}`);
+        for (const [id, p] of modelStore.plates) if (p.nodes.every(inside)) shells.add(`p${id}`);
+      }
+      uiStore.setSelection(nodes, elems, true, shells);
+      return;
+    }
+    lassoPath = [];
 
     // ── Finalize box selection (AutoCAD-style Window vs Crossing) ──
     if (boxSelect3D) {
@@ -2664,6 +2741,7 @@
     if (boxSelect3D) {
       const rect = container.getBoundingClientRect();
       boxSelect3D = { ...boxSelect3D, endX: e.clientX - rect.left, endY: e.clientY - rect.top };
+      if (viewState.lasso) lassoPath = extendLasso(lassoPath, { x: boxSelect3D.endX, y: boxSelect3D.endY });
       // Keep re-rendering during the drag so the model stays visible (the camera
       // is static during box-select, so without this the canvas wouldn't repaint).
       invalidate();
@@ -3501,7 +3579,9 @@
   {/if}
 
   <!-- Box select overlay (AutoCAD-style) -->
-  {#if boxSelect3D}
+  {#if boxSelect3D && viewState.lasso && lassoPath.length > 1}
+    <svg class="lasso-path" data-testid="lasso-path"><polygon points={lassoPath.map((p) => `${p.x},${p.y}`).join(' ')} /></svg>
+  {:else if boxSelect3D}
     {@const x = Math.min(boxSelect3D.startX, boxSelect3D.endX)}
     {@const y = Math.min(boxSelect3D.startY, boxSelect3D.endY)}
     {@const w = Math.abs(boxSelect3D.endX - boxSelect3D.startX)}
@@ -3535,6 +3615,7 @@
 
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
+  <QuickInfoCard />
 </div>
 
 <style>
@@ -3583,6 +3664,9 @@
     font-size: 0.6rem;
     color: var(--st-text-2);
   }
+  .lasso-path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; }
+  .lasso-path polygon { fill: rgba(127, 212, 204, 0.12); stroke: #7fd4cc; stroke-width: 1.5; stroke-dasharray: 4 3; }
+
   /* The card positions itself; this only keeps presses on it off the model. */
   .vp-prompt { display: contents; }
 

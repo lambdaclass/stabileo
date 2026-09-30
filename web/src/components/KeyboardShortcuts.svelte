@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
@@ -84,7 +85,7 @@
 
   function zoomToFit() {
     if (modelStore.nodes.size === 0) return;
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    const canvas = viewportCanvas();
     if (!canvas) return;
     uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
   }

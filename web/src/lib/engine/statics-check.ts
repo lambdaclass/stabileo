@@ -262,49 +262,96 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
       }
     }
 
-    const react: Resultant6 = { ...ZERO };
-    for (const r of reactions) {
-      const n = model.nodes.get(r.nodeId);
-      if (!n) continue;
-      addForceAt(react, [r.fx, r.fy, r.fz], [n.x, n.y, n.z ?? 0]);
-      addMoment(react, [r.mx, r.my, r.mz]);
-    }
-
-    const difference: Resultant6 = {
-      fx: applied.fx + react.fx, fy: applied.fy + react.fy, fz: applied.fz + react.fz,
-      mx: applied.mx + react.mx, my: applied.my + react.my, mz: applied.mz + react.mz,
-    };
-
-    /*
-     * Relative to the larger of the two sides, per component, and never to the difference
-     * itself. A structure with no load in a direction has nothing to be relative TO, so a
-     * component whose scale is negligible contributes nothing rather than dividing by
-     * almost zero and reporting an enormous error about nothing.
-     */
-    const scale = Math.max(
-      Math.abs(applied.fx), Math.abs(applied.fy), Math.abs(applied.fz),
-      Math.abs(react.fx), Math.abs(react.fy), Math.abs(react.fz), 1e-9,
-    );
-    const mScale = Math.max(
-      Math.abs(applied.mx), Math.abs(applied.my), Math.abs(applied.mz),
-      Math.abs(react.mx), Math.abs(react.my), Math.abs(react.mz), 1e-9,
-    );
-    const worstRelative = Math.max(
-      Math.abs(difference.fx) / scale, Math.abs(difference.fy) / scale,
-      Math.abs(difference.fz) / scale,
-      Math.abs(difference.mx) / mScale, Math.abs(difference.my) / mScale,
-      Math.abs(difference.mz) / mScale,
-    );
-
     rows.push({
+      ...closeRow(applied, reactionResultant(model.nodes, reactions)),
       caseId,
       caseName: caseId === null ? '' : (caseNames?.get(caseId) ?? `Case ${caseId}`),
-      applied, reactions: react, difference,
-      worstRelative: +worstRelative.toFixed(6),
       uncovered: [...uncovered].sort(),
       selfWeightIncluded: selfWeightHere,
     });
   }
 
   return rows;
+}
+
+/** The resultant of a set of support reactions about the origin. */
+export function reactionResultant(
+  nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>,
+  reactions: ReadonlyArray<{ nodeId: number; fx: number; fy: number; fz: number; mx: number; my: number; mz: number }>,
+): Resultant6 {
+  const react: Resultant6 = { ...ZERO };
+  for (const r of reactions) {
+    const n = nodes.get(r.nodeId);
+    if (!n) continue;
+    addForceAt(react, [r.fx, r.fy, r.fz], [n.x, n.y, n.z ?? 0]);
+    addMoment(react, [r.mx, r.my, r.mz]);
+  }
+  return react;
+}
+
+/** Both sides, their difference, and the worst component of it relative to its own scale. */
+function closeRow(applied: Resultant6, react: Resultant6): Pick<StaticsCheckRow, 'applied' | 'reactions' | 'difference' | 'worstRelative'> {
+  const difference: Resultant6 = {
+    fx: applied.fx + react.fx, fy: applied.fy + react.fy, fz: applied.fz + react.fz,
+    mx: applied.mx + react.mx, my: applied.my + react.my, mz: applied.mz + react.mz,
+  };
+  /*
+   * Relative to the larger of the two sides, per component, and never to the difference
+   * itself. A structure with no load in a direction has nothing to be relative TO, so a
+   * component whose scale is negligible contributes nothing rather than dividing by
+   * almost zero and reporting an enormous error about nothing.
+   */
+  const scale = Math.max(
+    Math.abs(applied.fx), Math.abs(applied.fy), Math.abs(applied.fz),
+    Math.abs(react.fx), Math.abs(react.fy), Math.abs(react.fz), 1e-9,
+  );
+  const mScale = Math.max(
+    Math.abs(applied.mx), Math.abs(applied.my), Math.abs(applied.mz),
+    Math.abs(react.mx), Math.abs(react.my), Math.abs(react.mz), 1e-9,
+  );
+  const worstRelative = Math.max(
+    Math.abs(difference.fx) / scale, Math.abs(difference.fy) / scale,
+    Math.abs(difference.fz) / scale,
+    Math.abs(difference.mx) / mScale, Math.abs(difference.my) / mScale,
+    Math.abs(difference.mz) / mScale,
+  );
+  return { applied, reactions: react, difference, worstRelative: +worstRelative.toFixed(6) };
+}
+
+/** A statics row for a combination: which one, and what it is made of. */
+export interface ComboStaticsRow extends StaticsCheckRow { comboId: number }
+
+/**
+ * The same check for each combination: the applied side is the combination of the cases'
+ * applied sides with its factors, and the reactions are the combination's own. A case the
+ * combination names but the solve did not check is reported as uncovered.
+ */
+export function combinationStatics(
+  caseRows: readonly StaticsCheckRow[],
+  combinations: ReadonlyArray<{ id: number; name: string; factors: ReadonlyArray<{ caseId: number; factor: number }> }>,
+  reactionsByCombo: ReadonlyMap<number, ReadonlyArray<{ nodeId: number; fx: number; fy: number; fz: number; mx: number; my: number; mz: number }>>,
+  nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>,
+): ComboStaticsRow[] {
+  const byCase = new Map(caseRows.map((r) => [r.caseId, r]));
+  const out: ComboStaticsRow[] = [];
+  for (const c of combinations) {
+    const reactions = reactionsByCombo.get(c.id);
+    if (!reactions) continue;
+    const applied: Resultant6 = { ...ZERO };
+    const uncovered = new Set<string>();
+    let selfWeight = false;
+    for (const f of c.factors) {
+      const r = byCase.get(f.caseId);
+      if (!r) { uncovered.add(`case ${f.caseId}`); continue; }
+      for (const k of ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const) applied[k] += f.factor * r.applied[k];
+      r.uncovered.forEach((u) => uncovered.add(u));
+      selfWeight ||= r.selfWeightIncluded;
+    }
+    out.push({
+      ...closeRow(applied, reactionResultant(nodes, reactions)),
+      caseId: null, comboId: c.id, caseName: c.name,
+      uncovered: [...uncovered].sort(), selfWeightIncluded: selfWeight,
+    });
+  }
+  return out;
 }
