@@ -151,19 +151,6 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      *
      * Up: a beam now carries its weight's wL²/8 and its fixed-end moments reach the columns.
      * Down: where wind governs a support region, the added gravity moment opposes it there.
-     *
-     * And once more, for a member carrying the axial part of its own load (the ground-floor
-     * columns used to report the average of their axial force at both ends; they now report
-     * the whole weight above the section at their foot). Checked across all 408:
-     *
-     *   outcome changed               0
-     *   limiting constraint changed   0
-     *   utilisation changed          10  (the ground-floor columns 1, 3, 6–10, 12–14: 7 up, 3 down;
-     *                                     −0,142 to +0,004)
-     *   worst utilisation after   1,0000 — the gate above still holds
-     *
-     * Only columns whose foot carries their own weight moved, and only in utilisation: more
-     * compression at the section that governs moves the interaction point along the curve.
      */
     expect(actual).toBe(RECORDED_FINGERPRINT);
   });
@@ -231,4 +218,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  * Re-recorded once more (was `792b6f88ea1fc3a4`) when self-weight became a member load; the
  * member-by-member check is in the test above.
  */
+// Re-recorded after preserving axial distributed self-weight in member force recovery.
+// Replacing only globalDistributedToSolver with its pre-fix implementation reproduces
+// f4681de2873ce5ac exactly on the current engine. Restoring the fix changes utilization
+// for columns 1, 3, 6–10, 12–14 (ten members), with no outcome or limiting-constraint
+// changes among all 408 members; 395 remain verified and 13 provisional. The maximum
+// utilization remains 1.0000. See the closed-form axial tests in calculation-fidelity-regressions.test.ts.
 const RECORDED_FINGERPRINT = 'c05971b8f79bb372';

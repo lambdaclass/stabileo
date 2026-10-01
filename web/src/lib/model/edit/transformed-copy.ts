@@ -9,10 +9,11 @@
  * `transform-fields.ts` for how each is carried), and optionally their loads and supports.
  *
  * GROUPS are copied too, when every entity a group holds is in the set: the copy of a group is a
- * group over the copies. Its `kind` and `data` go across verbatim. That is the seam the physical
- * model arrives through — a physical member, a panel, a precast piece is a group of analytical
+ * group over the copies. Generated metadata follows the copied IDs and placement; other kinds'
+ * data goes across verbatim. That is the seam the physical model arrives through — a physical
+ * member, a panel, a precast piece is a group of analytical
  * entities with rules in `data` — so copying a structure copies its physical objects without
- * this layer knowing what any of them is. A group only partly inside the set is not copied: half
+ * this layer knowing every kind. A group only partly inside the set is not copied: half
  * of a physical object is not one.
  *
  * ── Welding ───────────────────────────────────────────────────────
@@ -43,6 +44,9 @@ import {
   carriedJoint, carriedLoad, carriedOffset, carriedOrientation, carriedSupport, type EditWarning,
 } from './transform-fields';
 import { fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
+import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
+import { NodeIndex } from './node-index';
+export { NodeIndex } from './node-index';
 
 export { closure, type EntitySet } from './fragment';
 
@@ -70,37 +74,13 @@ export interface EditReport {
   duplicates: number;
   /** Supports the fragment carried onto a welded node, where the model's own was kept. */
   supportKept: number;
+  /** Nodal loads the fragment carried onto a welded node, where the model's own were kept. */
+  loadKept: number;
   /** Materials, sections and load cases the fragment brought that the model did not have. */
   added: { materials: number; sections: number; loadCases: number };
   /** Per copy: fragment id → model id, for nodes (welded ones included) and members placed. */
   maps: Array<{ nodes: Map<number, number>; elements: Map<number, number> }>;
   warnings: Partial<Record<EditWarning, number>>;
-}
-
-/** The default weld tolerance; the one in force is `weldTolerance()`. */
-export const DEFAULT_WELD = 1e-4;
-
-/** A spatial hash for the weld: cells of the weld tolerance, neighbours checked. */
-export class NodeIndex {
-  private cells = new Map<string, number[]>();
-  constructor(private tol: number) {}
-  private key(x: number, y: number, z: number) {
-    return `${Math.round(x / this.tol)},${Math.round(y / this.tol)},${Math.round(z / this.tol)}`;
-  }
-  add(id: number, p: Vec3) {
-    const k = this.key(p[0], p[1], p[2]);
-    (this.cells.get(k) ?? this.cells.set(k, []).get(k)!).push(id);
-  }
-  find(p: Vec3, pos: (id: number) => Vec3 | undefined): number | null {
-    const [cx, cy, cz] = [Math.round(p[0] / this.tol), Math.round(p[1] / this.tol), Math.round(p[2] / this.tol)];
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
-      for (const id of this.cells.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) {
-        const q = pos(id);
-        if (q && Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]) <= this.tol) return id;
-      }
-    }
-    return null;
-  }
 }
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
@@ -124,7 +104,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
   const tol = opts.weldTol ?? weldTolerance();
   const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
-    nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0,
+    nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0, loadKept: 0,
     added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
   };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
@@ -152,9 +132,31 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       return c === undefined || frag.local ? l : { ...l, data: { ...l.data, caseId: defs.loadCase.get(c) ?? c } } as typeof l;
     }) : [];
 
+    /*
+     * Shells already on a set of corners, like `pairs` for members: a copy that lands on them —
+     * pasting in place — is a duplicate, not a second slab on the same nodes.
+     */
+    const shellKey = (nodes: readonly number[]) => [...nodes].sort((x, y) => x - y).join(',');
+    const shells = new Set([...modelStore.quads.values(), ...modelStore.plates.values()].map((s) => shellKey(s.nodes)));
+
     let prevNodeMap = new Map(frag.nodes.map((n) => [n.id, n.id]));
-    const created = new Set<number>();
+    /** The fragment's node lands where it was: the same position in the model. */
+    const fragNode = new Map(frag.nodes.map((n) => [n.id, n]));
+    const sameSpot = (fragId: number, modelId: number) => {
+      const a = fragNode.get(fragId), b = modelStore.nodes.get(modelId);
+      return !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0)) <= tol;
+    };
+    /** The node already carries this load: the same kind, case and values. */
+    const loadKey = (l: { type: string; data: object }) => {
+      const { id: _id, ...rest } = l.data as Record<string, unknown>;
+      return `${l.type}|${JSON.stringify(Object.fromEntries(Object.entries(rest).sort(([x], [y]) => (x < y ? -1 : 1))))}`;
+    };
+    const carries = (nodeId: number, load: { type: string; data: object }) => {
+      const key = loadKey(load);
+      return modelStore.loads.some((m) => (m.data as { nodeId?: number }).nodeId === nodeId && loadKey(m) === key);
+    };
     transforms.forEach((T, k) => {
+      const created = new Set<number>();
       const nodeMap = new Map<number, number>();
       for (const [id, n] of nodes0) {
         const p = applyPoint(T, [n.x, n.y, n.z]);
@@ -207,8 +209,13 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
           ? (() => { const w = applyVector(T, [offset.x, offset.y, offset.z]); return { ...offset, x: w[0], y: w[1], z: w[2] }; })()
           : offset;
       const quadMap = new Map<number, number>();
+      // Corners that welded onto each other leave no shell, as a member's two ends do.
+      const collapsed = (corners: readonly number[]) => new Set(corners).size !== corners.length;
       for (const q of frag.quads) {
         const corners = q.nodes.map((n) => nodeMap.get(n)!) as Quad['nodes'];
+        if (collapsed(corners)) { warn('shellCollapsed'); continue; }
+        if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
+        shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = q;
         const nodes = (flip ? [corners[0], corners[3], corners[2], corners[1]] : corners) as Quad['nodes'];
         const off = carryOffset(offset);
@@ -219,6 +226,9 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       const plateMap = new Map<number, number>();
       for (const p of frag.plates) {
         const corners = p.nodes.map((n) => nodeMap.get(n)!) as Plate['nodes'];
+        if (collapsed(corners)) { warn('shellCollapsed'); continue; }
+        if (shells.has(shellKey(corners))) { report.duplicates++; continue; }
+        shells.add(shellKey(corners));
         const { id: _id, nodes: _n, offset, ...rest } = p;
         const nodes = (flip ? [corners[0], corners[2], corners[1]] : corners) as Plate['nodes'];
         const off = carryOffset(offset);
@@ -240,9 +250,22 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
         if (!c) continue;
         if (c.warning) warn(c.warning);
-        // A load on a welded node that is not a copy would be applied twice.
+        /*
+         * A load that lands back on its own source node is already there. A local fragment
+         * knows its source; the clipboard is detached, and pasting in place added every nodal
+         * load a second time — the node carried 2×F. For it, the source is the node with the
+         * same id, where the copy put it (the transform left it in place), already carrying the
+         * same load. A load welded onto any other node is kept: two bays sharing a node add
+         * their tributary loads.
+         */
         const onNode = (c.load?.data as { nodeId?: number } | undefined)?.nodeId;
-        if (c.load && (onNode === undefined || created.has(onNode))) modelStore.addLoadEntry(c.load);
+        const sourceNode = (l.data as { nodeId?: number }).nodeId;
+        if (c.load && onNode !== undefined && onNode === sourceNode && !created.has(onNode)
+          && (frag.local || (sameSpot(sourceNode, onNode) && carries(onNode, c.load)))) {
+          report.loadKept++;
+          continue;
+        }
+        if (c.load) modelStore.addLoadEntry(c.load);
       }
 
       for (const g of frag.groups) {
@@ -253,9 +276,13 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
           ...(m.quads ? { quads: m.quads.map((id: number) => quadMap.get(id)!) } : {}),
           ...(m.plates ? { plates: m.plates.map((id: number) => plateMap.get(id)!) } : {}),
         };
-        if (g.data) warn('groupDataVerbatim');
+        const generated = generatedMetadata(g);
+        const mapped = generated ? copyGeneratedMetadata(generated, T, nodeMap, elementMap, defs.section, created) : null;
+        const data = generated ? mapped as unknown as Record<string, unknown> | null : g.data;
+        if (generated && mapped) members.nodes = mapped.nodes.filter((n) => n.owned).map((n) => n.id);
+        if (g.data && !generated) warn('groupDataVerbatim');
         const name = frag.local || transforms.length > 1 ? `${g.name} (${k + 1})` : g.name;
-        report.groups.push(modelStore.addGroup(name, g.kind, members, { origin: g.origin, ...(g.data ? { data: g.data } : {}) }));
+        report.groups.push(modelStore.addGroup(name, generated && !mapped ? 'selection' : g.kind, members, { origin: g.origin, ...(data ? { data } : {}) }));
       }
 
       if (opts.link) {

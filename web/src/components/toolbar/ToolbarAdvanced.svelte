@@ -1,18 +1,77 @@
-<script lang="ts">
+<script lang="ts" module>
+  import { untrack } from 'svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
-  import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../../lib/engine/force-method/solve';
-  import { solveForceMethod3D } from '../../lib/engine/force-method/solve-3d';
-  import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../lib/engine/step-by-step-scope';
-  import { publishCombinations3D } from '../../lib/store/active-results';
+
+  const threeD = (): boolean => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+
+  /*
+   * A 2D ↔ 3D switch closes what the dimension left behind.
+   * ─────────────────────────────────────────────────────────
+   * Kinematic analysis, the influence line, the moving load and the plastic
+   * collapse exist only in 2D, and P-Δ, Pcr and Dynamic keep one result per
+   * dimension: after a switch none of them is running in the new workspace,
+   * yet the kinematic panel stayed open under a header naming it, and a 2D
+   * mode shape stayed the diagram of a 3D view that had no mode to draw, which
+   * hid the model's loads. Watched at module level rather than in the
+   * component, because the switch is made from the ribbon whether or not this
+   * panel is on screen.
+   */
+  $effect.root(() => {
+    let was3D: boolean | null = null;
+    $effect(() => {
+      const now3D = threeD();
+      untrack(() => {
+        if (was3D !== null && was3D !== now3D) {
+          if (now3D) {
+            uiStore.showKinematicPanel = false;
+            if (uiStore.currentTool === 'influenceLine') uiStore.currentTool = 'select';
+          }
+          resultsStore.leaveDimension(now3D);
+        }
+        was3D = now3D;
+      });
+    });
+  });
+
+  /*
+   * The selection a function found, put back when it closes. Taken at the
+   * click that opens it — before the function's own picks (Section Analysis
+   * selects the member it reads) — and only while nothing is running.
+   */
+  type HeldSelection = { nodes: Set<number>; elements: Set<number>; shells: Set<string>; loads: Set<number>; supports: Set<number>; manual: boolean };
+  let heldSelection: HeldSelection | null = null;
+  function holdSelection(): void {
+    heldSelection = {
+      nodes: new Set(uiStore.selectedNodes), elements: new Set(uiStore.selectedElements),
+      shells: new Set(uiStore.selectedShells), loads: new Set(uiStore.selectedLoads),
+      supports: new Set(uiStore.selectedSupports), manual: uiStore.elementSelectionManual,
+    };
+  }
+  function releaseSelection(): void {
+    const h = heldSelection;
+    heldSelection = null;
+    if (!h) return;
+    uiStore.setSelection(h.nodes, h.elements, h.manual, h.shells);
+    uiStore.selectedLoads = h.loads;
+    uiStore.selectedSupports = h.supports;
+  }
+</script>
+
+<script lang="ts">
+  import { whatIf } from '../../lib/store/whatif.svelte';
+  import { explainedSteps } from '../../lib/store/explained-steps.svelte';
+  import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { analyzeKinematics, solvePDelta, solveBuckling, solveModal, solvePlastic, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
-  // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
+  import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
+  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
+  import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
-  import { plasticMoments, DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
-  import { solveDetailed } from '../../lib/engine/solver-detailed';
-  import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
+  import type { SectionMp } from '../../lib/engine/plastic-moments';
+  import { runPlasticCollapse } from '../../lib/actions/plastic';
+  import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -61,17 +120,9 @@
       labelKey: 'advHelp.plastic.label',
       textKey: 'advHelp.plastic.text',
     },
-    'dsm': {
-      labelKey: 'advHelp.dsm.label',
-      textKey: 'advHelp.dsm.text',
-    },
-    'fm': {
-      labelKey: 'advHelp.fm.label',
-      textKey: 'advHelp.fm.text',
-    },
-    'envelope': {
-      labelKey: 'advHelp.envelope.label',
-      textKey: 'advHelp.envelope.text',
+    'steps': {
+      labelKey: 'steps.catalog.title',
+      textKey: 'steps.catalog.intro',
     },
     'trainLoad': {
       labelKey: 'advHelp.trainLoad.label',
@@ -161,12 +212,17 @@
     { key: 'cirsocFlex', labelKey: 'flex.title',
       isActive: () => showFlex,
       close: () => { showFlex = false; } },
+    /*
+     * The four 2D-only entries are running only in 2D: in 3D their buttons are
+     * disabled, so a header naming one of them would name something the reader
+     * cannot reach, let alone close.
+     */
     { key: 'kinematic', labelKey: 'advanced.kinematicAnalysis',
-      isActive: () => uiStore.showKinematicPanel,
+      isActive: () => !is3D && uiStore.showKinematicPanel,
       close: () => { uiStore.showKinematicPanel = false; } },
     { key: 'despiece', labelKey: 'advanced.despiece',
       isActive: () => resultsStore.diagramType === 'despiece',
-      close: () => { resultsStore.diagramType = 'none'; uiStore.despieceInspect = null; } },
+      close: () => { resultsStore.releaseView(is3D); uiStore.despieceInspect = null; } },
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
@@ -180,104 +236,48 @@
       isActive: () => !!(is3D ? resultsStore.modalResult3D : resultsStore.modalResult),
       close: () => (is3D ? resultsStore.clearModal3D() : resultsStore.clearModal()) },
     { key: 'plastic', labelKey: 'advanced.plasticCollapse',
-      isActive: () => !!resultsStore.plasticResult,
+      isActive: () => !is3D && !!resultsStore.plasticResult,
       close: () => resultsStore.clearPlastic() },
-    { key: 'envelope', labelKey: 'advanced.envelope',
-      isActive: () => resultsStore.activeView === 'envelope',
-      close: () => { resultsStore.activeView = 'base'; } },
     { key: 'trainLoad', labelKey: 'advanced.trainLoad',
-      isActive: () => !!resultsStore.movingLoadEnvelope || showTrainPanel,
+      isActive: () => !is3D && (!!resultsStore.movingLoadEnvelope || showTrainPanel),
       close: () => { resultsStore.clearMovingLoad(); showTrainPanel = false; selectedTrainIndex = ''; } },
     { key: 'influenceLine', labelKey: 'advanced.influenceLine',
-      isActive: () => uiStore.currentTool === 'influenceLine',
-      close: () => { uiStore.currentTool = 'select'; resultsStore.setInfluenceLine(null); } },
+      isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
+      close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
-      close: () => { uiStore.showWhatIf = false; } },
-    { key: 'dsm', labelKey: 'advanced.stepByStep',
-      isActive: () => dsmStepsStore.isOpen,
-      close: () => dsmStepsStore.close() },
-    /* Right under the stiffness wizard: the same panel, the other method. */
-    { key: 'fm', labelKey: 'advanced.stepByStepFlex',
-      isActive: () => fmStepsStore.isOpen,
-      close: () => fmStepsStore.close() },
+      close: () => { void whatIf.close(); } },
+    /* One entry for every explained method: the catalog, a method's document, or one of the two wizards. */
+    { key: 'steps', labelKey: 'steps.catalog.title',
+      isActive: () => dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen,
+      close: () => { dsmStepsStore.close(); fmStepsStore.close(); explainedSteps.close(); } },
   ];
 
-  /*
-   * ── Opening the two step-by-step wizards ───────────────────────
-   *
-   * Both check first that the model is one they can show honestly — bars
-   * only, and small enough to print its matrices — and say which limit it
-   * crossed when it is not. See `step-by-step-scope.ts`.
-   */
-  function scopeRefusal(input: Parameters<typeof stepByStepScope>[0], is3DModel: boolean): boolean {
-    const v = stepByStepScope(input, is3DModel);
-    if (v.ok) return false;
-    uiStore.toast(t(`sbs.scope.${v.reason}`)
-      .replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
-    return true;
-  }
 
-  function showWizardPanel() {
-    if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
-    else uiStore.rightSidebarOpen = true;
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-  }
 
-  function openDsm() {
-    if (dsmStepsStore.isOpen) {
-      dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
-      fmStepsStore.close();
-      dsmStepsStore.setStepData(data);
-      dsmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      uiStore.toast(errText(e, threeD ? 'toast.detailedSolver3dError' : 'toast.detailedSolverError'), 'error');
-    }
-  }
 
-  function openFm() {
-    if (fmStepsStore.isOpen) {
-      fmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
-      return;
-    }
-    if (blockedBySlidingJoints()) return;
-    const threeD = uiStore.analysisMode === '3d';
-    const input = threeD
-      ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
-      : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    if (scopeRefusal(input, threeD)) return;
-    try {
-      const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
-      dsmStepsStore.close();
-      fmStepsStore.setResult(result);
-      fmStepsStore.open();
-      showWizardPanel();
-    } catch (e: unknown) {
-      if (e instanceof ForceMethodError) {
-        const dofs = e.dofs.length ? ` (${e.dofs.slice(0, 8).join(', ')}${e.dofs.length > 8 ? '…' : ''})` : '';
-        uiStore.toast(t(`fm.err.${e.key}`).replace('{gh}', String(e.gh)).replace('{max}', String(FM_MAX_GH)) + dofs, 'error');
-      } else {
-        uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
-      }
-    }
-  }
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
+
+  /**
+   * Close one function, as "← Back" and the list's own toggle-off both do: its
+   * teardown puts the results and the diagram back (the store keeps what the
+   * function replaced), and the selection it found comes back here.
+   */
+  function closeEntry(key: string): void {
+    ADV.find((a) => a.key === key)?.close();
+    releaseSelection();
+  }
+
+  /** A click in the list while nothing runs may open a function: keep the selection it finds. */
+  function noteOpening(): void {
+    if (active === null) holdSelection();
+  }
+
+  /* The train selector is this component's own state: a switch to 3D, where the entry is disabled, closes it. */
+  $effect(() => {
+    if (is3D) untrack(() => { showTrainPanel = false; selectedTrainIndex = ''; });
+  });
 
   /** A block is drawn when nothing is running, or when it IS what is running. */
   function shown(key: string): boolean {
@@ -285,11 +285,52 @@
     return active === null || active.key === key;
   }
 
+  /**
+   * A buckling analysis of a model in which no bar is compressed has nothing to
+   * find. The engine says so by throwing; that is an answer, not a failure.
+   */
+  function bucklingFailure(e: unknown): void {
+    const msg = errText(e, 'toast.bucklingError');
+    if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
+    else uiStore.toast(msg, 'error');
+  }
+
   function errText(e: unknown, fallbackKey: string): string {
     if (typeof e === 'string' && e.trim()) return e;
     const msg = (e as { message?: unknown } | null)?.message;
     if (typeof msg === 'string' && msg.trim()) return msg;
     return t(fallbackKey);
+  }
+
+  /**
+   * A P-Δ that is the linear solve (nothing deforms the model, or nothing is
+   * free) says so, instead of the engine's "did not converge, unstable".
+   */
+  function pdeltaToast(result: any, dt: number): void {
+    if (result.notice === 'noLoads' || result.notice === 'noFreeDofs') {
+      uiStore.toast(t(result.notice === 'noLoads' ? 'toast.pdeltaLinearNoLoads' : 'toast.pdeltaLinearNoFreeDofs'), 'info');
+      return;
+    }
+    const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+      ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
+      : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
+    uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
+  }
+
+  /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
+  const DOF_2D: Record<string, string> = { ux: 'ux', uy: 'uz', uz: 'uz', rz: 'ry', ry: 'ry' };
+
+  /**
+   * Modes the boundary discarded because their eigenvalue is zero (wasm-solver.ts,
+   * `withoutNullModes`): the structure moves there without deforming. Said after the
+   * result, with the node and direction of the first one.
+   */
+  function nullModesToast(result: any, plane: boolean): void {
+    const d = result?.discardedModes as Array<{ nodeId: number; dof: string }> | undefined;
+    if (!d?.length) return;
+    const dof = plane ? (DOF_2D[d[0].dof] ?? d[0].dof) : d[0].dof;
+    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_LABEL_KEY[dof] ? `, ${t(DOF_LABEL_KEY[dof])}` : ''}`;
+    uiStore.toast(t('advanced.nullModesDiscarded').replace('{n}', String(d.length)).replace('{where}', where), 'info');
   }
 
   function toggleAdvHelp(key: string, e: MouseEvent) {
@@ -323,7 +364,7 @@
       return true;
     } catch (e: any) {
       console.error(`[${context}] WASM initialization failed:`, e);
-      uiStore.toast(e?.message || 'WASM solver initialization failed.', 'error');
+      uiStore.toast(e?.message || t('toast.solverInitFailed'), 'error');
       return false;
     }
   }
@@ -338,10 +379,7 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult(result);
-      const msg = result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
-        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
-      uiStore.toast(msg, result.converged ? 'success' : 'error');
+      pdeltaToast(result, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -351,21 +389,10 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    // Build densities map from model materials (rho in kN/m\u00b3 \u2192 need kg/m\u00b3)
-    // rho is stored as kN/m\u00b3 in the model. 1 kN/m\u00b3 \u2248 101.97 kg/m\u00b3...
-    // Actually the model stores rho as kN/m\u00b3 (e.g. 78.5 for steel)
-    // The mass matrix module expects kg/m\u00b3 and converts internally
-    // 78.5 kN/m\u00b3 = 7850 kg/m\u00b3 \u2192 multiply by 1000/9.81 \u2248 101.97
-    // But wait \u2014 rho in the model is weight density (kN/m\u00b3),
-    // mass density = weight density / g = rho / 9.81 \u2192 in kg/m\u00b3 = rho * 1000/9.81
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      // mat.rho is weight density in kN/m\u00b3; convert to mass density in kg/m\u00b3
-      densities.set(id, mat.rho * 1000 / 9.81);
-    }
     try {
       const t0 = performance.now();
-      const result = solveModal(input, densities);
+      const physical = withSectionMass(input, modelStore.model);
+      const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult(result);
@@ -373,6 +400,7 @@
       // The plane solver's y is the vertical, labelled Z everywhere else.
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
       uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, true);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.modalError'), 'error');
     }
@@ -392,48 +420,29 @@
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, true);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.bucklingError'), 'error');
+      bucklingFailure(e);
     }
   }
 
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
-  /** The model's degree of indeterminacy, for the result line and the toast. */
-  let plasticGh = $state<number | null>(null);
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    /* Mp from each section's own plastic modulus, not the solid rectangle b·h²/4 the engine assumes. */
-    const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
-    const sections = new Map<number, { a: number; iz: number; materialId: number }>();
-    for (const [id, sec] of modelStore.sections) {
-      const elem = [...modelStore.elements.values()].find(e => e.sectionId === id);
-      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, materialId: elem?.materialId ?? 1 });
-    }
-    const materials = new Map<number, { fy?: number }>();
-    for (const [id, mat] of modelStore.materials) {
-      materials.set(id, { fy: mat.fy });
-    }
     try {
       const t0 = performance.now();
-      const result = solvePlastic({ solver: input, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
-      plasticMps = mps;
-      /*
-       * The engine's `redundancy` is the number of hinges it formed, not the
-       * degree of indeterminacy — shown as "GH", a cantilever read GH = 2.
-       * The degree comes from the kinematic analysis of the model as given.
-       */
-      try { plasticGh = Math.max(0, analyzeKinematics(input).degree); } catch { plasticGh = null; }
+      /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
+      const run = runPlasticCollapse();
+      if (!run) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
-      resultsStore.setPlasticResult(result);
-      const msg = result.isMechanism
-        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', plasticGh === null ? '?' : String(plasticGh + 1)).replace('{ms}', dt.toFixed(0))
-        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', plasticGh === null ? '?' : String(plasticGh)).replace('{ms}', dt.toFixed(0));
-      uiStore.toast(msg, result.isMechanism ? 'info' : 'success');
+      plasticMps = run.mps;
+      resultsStore.setPlasticResult(run.result);
+      const r = run.result;
+      uiStore.toast(r.isMechanism
+        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
+        : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
@@ -477,7 +486,6 @@
 
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
-  const isPro = $derived(uiStore.analysisMode === 'pro');
 
   async function handlePDelta3D() {
     if (blockedBySlidingJoints()) return;
@@ -491,10 +499,7 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult3D(result);
-      const msg = result.converged
-        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
-        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
-      uiStore.toast(msg, result.converged ? 'success' : 'error');
+      pdeltaToast(result, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -505,19 +510,17 @@
     if (!await ensureWasmReady('handleModal3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    const densities = new Map<number, number>();
-    for (const [id, mat] of modelStore.materials) {
-      densities.set(id, mat.rho * 1000 / 9.81);
-    }
     try {
       const t0 = performance.now();
       let result: any;
-      result = wasmModal3D(input, densities);
+      const physical = withSectionMass(input, modelStore.model);
+      result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult3D(result);
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
       uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, false);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.modalError'), 'error');
     }
@@ -538,35 +541,13 @@
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
       uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '\u2014').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+      nullModesToast(result, false);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.bucklingError'), 'error');
+      bucklingFailure(e);
     }
   }
 
 
-  function handleSolveCombinations() {
-    if (is3D) {
-      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-      if (typeof result === 'string') {
-        uiStore.toast(result, 'error');
-      } else if (result) {
-        publishCombinations3D(result);
-        const nCombos = result.perCombo.size;
-        const nCases = result.perCase.size;
-        uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-      }
-      return;
-    }
-    const result = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-    if (typeof result === 'string') {
-      uiStore.toast(result, 'error');
-    } else if (result) {
-      resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
-      const nCombos = result.perCombo.size;
-      const nCases = result.perCase.size;
-      uiStore.toast(t('toast.combinationsSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-    }
-  }
 
   /**
    * `flat` — everything open, no accordions.
@@ -580,7 +561,7 @@
   let { flat = false }: { flat?: boolean } = $props();
 </script>
 
-<div class="toolbar-section" class:flat data-tour="advanced-section">
+<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
@@ -607,7 +588,7 @@
     <div class="adv-running" data-testid="adv-running" data-adv={active.key}>
       <button
         class="adv-running-back"
-        onclick={() => active?.close()}
+        onclick={() => { if (active) closeEntry(active.key); }}
         title={t('adv.backToList')}
         aria-label={t('adv.backToList')}
         data-testid="adv-close"
@@ -617,6 +598,10 @@
   {/if}
 
   <div class="advanced-grid">
+    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
+    <!-- How the structure holds together, member by member, and what a section carries. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-structure">{t('advanced.group.structure')}</div>
+    {/if}
     {#if shown('kinematic')}
     <!--
       2D only, and it says so instead of disappearing. In 3D these four rows
@@ -645,8 +630,10 @@
         class:active={resultsStore.diagramType === 'despiece'}
         onclick={() => {
           const hasRes = is3D ? resultsStore.results3D : resultsStore.results;
+          if (resultsStore.diagramType === 'despiece') { closeEntry('despiece'); return; }
           if (!hasRes) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
-          resultsStore.diagramType = resultsStore.diagramType === 'despiece' ? 'none' : 'despiece';
+          resultsStore.holdView();
+          resultsStore.diagramType = 'despiece';
         }}>
         {t('advanced.despiece')}
       </button>
@@ -703,8 +690,7 @@
           // it armed a picking mode and the only way back out was to pick a
           // different tool in the ribbon — not where you turned it on.
           if (uiStore.currentTool === 'select' && uiStore.selectMode === 'stress') {
-            uiStore.selectMode = 'elements';
-            resultsStore.stressQuery = null;
+            closeEntry('stress');
             return;
           }
           if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
@@ -718,25 +704,20 @@
     {@render helpPanel('stress')}
       {/if}
     {/if}
+    {#if !(flat && active) && (shown('pdelta') || shown('buckling'))}
+    <!-- Second-order analysis and the critical load: the two sides of buckling. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-buckling">{t('advanced.group.buckling')}</div>
+    {/if}
     {#if shown('pdelta')}
     <!-- P-Delta & Buckling: available in both 2D and 3D -->
       {#if !flat || active?.key !== 'pdelta'}
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.pdeltaResult3D : !!resultsStore.pdeltaResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.pdeltaResult3D) {
-              resultsStore.clearPDelta3D();
-              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-              if (r && typeof r !== 'string') resultsStore.setResults3D(r);
-            } else { handlePDelta3D(); }
-          } else {
-            if (resultsStore.pdeltaResult) {
-              resultsStore.clearPDelta();
-              const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-              if (r && typeof r !== 'string') resultsStore.setResults(r);
-            } else { handlePDelta(); }
-          }
+          /* Off puts back the view P-Δ replaced — it does not solve a model nobody solved. */
+          if (is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult) closeEntry('pdelta');
+          else if (is3D) handlePDelta3D();
+          else handlePDelta();
         }}>{t('advanced.pdelta')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('pdelta', e)} class:active={advHelpKey === 'pdelta'}>?</button>
     </div>
@@ -747,13 +728,9 @@
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.bucklingResult3D : !!resultsStore.bucklingResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.bucklingResult3D) { resultsStore.clearBuckling3D(); }
-            else { handleBuckling3D(); }
-          } else {
-            if (resultsStore.bucklingResult) { resultsStore.clearBuckling(); }
-            else { handleBuckling(); }
-          }
+          if (is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult) closeEntry('buckling');
+          else if (is3D) handleBuckling3D();
+          else handleBuckling();
         }}>{t('advanced.buckling')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('buckling', e)} class:active={advHelpKey === 'buckling'}>?</button>
     </div>
@@ -761,19 +738,19 @@
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
     {/if}
+    {#if !(flat && active) && (shown('modal') || shown('plastic'))}
+    <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-dynamics">{t('advanced.group.dynamics')}</div>
+    {/if}
     {#if shown('modal')}
     <!-- Modal & Spectral: available in both 2D and 3D -->
       {#if !flat || active?.key !== 'modal'}
     <div class="adv-btn-wrap">
       <button class="adv-btn" class:active={is3D ? !!resultsStore.modalResult3D : !!resultsStore.modalResult}
         onclick={() => {
-          if (is3D) {
-            if (resultsStore.modalResult3D) { resultsStore.clearModal3D(); }
-            else { handleModal3D(); }
-          } else {
-            if (resultsStore.modalResult) { resultsStore.clearModal(); }
-            else { handleModal(); }
-          }
+          if (is3D ? resultsStore.modalResult3D : resultsStore.modalResult) closeEntry('modal');
+          else if (is3D) handleModal3D();
+          else handleModal();
         }}>{t('advanced.dynamic')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('modal', e)} class:active={advHelpKey === 'modal'}>?</button>
     </div>
@@ -801,44 +778,41 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.plasticResult}
         onclick={() => {
-          if (resultsStore.plasticResult) {
-            resultsStore.clearPlastic();
-            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-          } else { handlePlastic(); }
+          if (resultsStore.plasticResult) closeEntry('plastic');
+          else handlePlastic();
         }}>{t('advanced.plasticCollapse')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
     </div>
     {@render helpPanel('plastic')}
       {/if}
     {/if}
-    {#if shown('envelope')}
-      {#if !flat || active?.key !== 'envelope'}
+    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad'))}
+    <!-- The influence line and the moving train come from the same idea: a load that travels. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('advanced.group.movingLoads')}</div>
+    {/if}
+    {#if shown('influenceLine')}
+    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
+      {#if !flat || active?.key !== 'influenceLine'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1"
-        class:active={resultsStore.activeView === 'envelope'}
+      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
+        class:active={uiStore.currentTool === 'influenceLine'}
         onclick={() => {
-          if (resultsStore.activeView === 'envelope') {
-            resultsStore.activeView = 'single';
+          if (uiStore.currentTool === 'influenceLine') {
+            closeEntry('influenceLine');
             return;
           }
-          if (modelStore.model.combinations.length === 0) {
-            uiStore.toast(t('advanced.defineCombosFirst'), 'error');
+          if (blockedBySlidingJoints()) return;
+          if (!resultsStore.results && !resultsStore.results3D) {
+            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
             return;
           }
-          if (is3D ? !resultsStore.fullEnvelope3D : !resultsStore.fullEnvelope) {
-            handleSolveCombinations();
-          }
-          if (is3D ? resultsStore.fullEnvelope3D : resultsStore.fullEnvelope) {
-            resultsStore.activeView = 'envelope';
-            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = is3D ? 'momentZ' : 'moment';
-          }
+          uiStore.currentTool = 'influenceLine';
         }}>
-        {t('advanced.envelope')}
+        {t('advanced.influenceLine')}
       </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('envelope', e)} class:active={advHelpKey === 'envelope'}>?</button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
     </div>
-    {@render helpPanel('envelope')}
+    {@render helpPanel('influenceLine')}
       {/if}
     {/if}
     {#if shown('trainLoad')}
@@ -847,12 +821,8 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.movingLoadEnvelope}
         onclick={() => {
-          if (resultsStore.movingLoadEnvelope) {
-            resultsStore.clearMovingLoad();
-            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-            showTrainPanel = false;
-          } else { showTrainPanel = !showTrainPanel; }
+          if (resultsStore.movingLoadEnvelope) closeEntry('trainLoad');
+          else showTrainPanel = !showTrainPanel;
         }}>
         {flat ? '' : showTrainPanel ? '▾ ' : '▸ '}{t('advanced.trainLoad')}
       </button>
@@ -895,30 +865,9 @@
       </div>
     {/if}
     {/if}
-    {#if shown('influenceLine')}
-    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
-      {#if !flat || active?.key !== 'influenceLine'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
-        class:active={uiStore.currentTool === 'influenceLine'}
-        onclick={() => {
-          if (uiStore.currentTool === 'influenceLine') {
-            uiStore.currentTool = 'select';
-            return;
-          }
-          if (blockedBySlidingJoints()) return;
-          if (!resultsStore.results && !resultsStore.results3D) {
-            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-            return;
-          }
-          uiStore.currentTool = 'influenceLine';
-        }}>
-        {t('advanced.influenceLine')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
-    </div>
-    {@render helpPanel('influenceLine')}
-      {/if}
+    {#if !(flat && active) && (shown('whatif') || shown('steps'))}
+    <!-- Changing the model live, and each method solved step by step. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-learn">{t('advanced.group.learn')}</div>
     {/if}
     {#if shown('whatif')}
       {#if !flat || active?.key !== 'whatif'}
@@ -926,12 +875,12 @@
         <button class="adv-btn" style="flex:1"
           class:active={uiStore.showWhatIf}
           onclick={() => {
-            if (!uiStore.showWhatIf && blockedBySlidingJoints()) return;
-            if (!resultsStore.results && !resultsStore.results3D) {
-              uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-              return;
-            }
-            uiStore.showWhatIf = !uiStore.showWhatIf;
+            /*
+             * No "calculate first" and no sliding-joint refusal: Explore turns
+             * live calc on, which solves the model — sliders and all — as it
+             * opens, and says so in the panel if it cannot.
+             */
+            if (uiStore.showWhatIf) void whatIf.close(); else whatIf.open();
           }}
         >
           {uiStore.showWhatIf ? '\u2715 ' + t('advanced.closeExplorer') : t('advanced.whatIf')}
@@ -941,28 +890,18 @@
       {@render helpPanel('whatif')}
       {/if}
     {/if}
-    {#if shown('dsm')}
-      {#if !flat || active?.key !== 'dsm'}
+    {#if shown('steps')}
+      {#if !flat || active?.key !== 'steps'}
+    <!-- Every explained method behind one entry: the catalog lists them by group. -->
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={dsmStepsStore.isOpen} data-testid="adv-dsm"
-        onclick={openDsm}>
-        {t('advanced.stepByStep')}
+      <button class="adv-btn" style="flex:1" data-testid="adv-steps"
+        class:active={dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen}
+        onclick={openExplainedCatalog}>
+        {t('steps.catalog.button')}
       </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('steps', e)} class:active={advHelpKey === 'steps'}>?</button>
     </div>
-    {@render helpPanel('dsm')}
-      {/if}
-    {/if}
-    {#if shown('fm')}
-      {#if !flat || active?.key !== 'fm'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={fmStepsStore.isOpen} data-testid="adv-fm"
-        onclick={openFm}>
-        {t('advanced.stepByStepFlex')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('fm', e)} class:active={advHelpKey === 'fm'}>?</button>
-    </div>
-    {@render helpPanel('fm')}
+    {@render helpPanel('steps')}
       {/if}
     {/if}
 
@@ -982,6 +921,10 @@
       you had opened, looking like a stray disclosure rather than a function
       you enter.
     -->
+    {#if !(flat && active) && (shown('cirsocFlex'))}
+    <!-- Designing a section to a code. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-design">{t('advanced.group.design')}</div>
+    {/if}
     {#if shown('cirsocFlex')}
       {#if !flat || active?.key !== 'cirsocFlex'}
         <div class="adv-btn-wrap">
@@ -1006,9 +949,9 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <div class="adv-result-info" style="font-size:10px">
-      P-Δ: B₂ = {pdR.b2Factor.toFixed(3)} |
-      {pdR.converged ? `${pdR.iterations} iter` : 'no conv.'} |
+    <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
+      P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
+      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
       {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>
   {/if}
@@ -1055,24 +998,7 @@
       </div>
     {/if}
   {/if}
-  {#if resultsStore.plasticResult}
-    <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => resultsStore.diagramType = 'plasticHinges'}>{t('advanced.plasticLabel')}</button>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticStep > 0) resultsStore.plasticStep--; }} disabled={resultsStore.plasticStep === 0}>&#9664;</button>
-      <span class="adv-result-label">{resultsStore.plasticStep + 1}/{resultsStore.plasticResult.steps.length}</span>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticResult && resultsStore.plasticStep < resultsStore.plasticResult.steps.length - 1) resultsStore.plasticStep++; }} disabled={!resultsStore.plasticResult || resultsStore.plasticStep >= resultsStore.plasticResult.steps.length - 1}>&#9654;</button>
-    </div>
-    <div class="adv-result-info">
-      &lambda; = {resultsStore.plasticResult.steps[resultsStore.plasticStep]?.loadFactor.toFixed(3) ?? '—'} |
-      {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
-      GH = {plasticGh ?? '—'}
-    </div>
-    {#each plasticMps as m (m.sectionId)}
-      <div class="adv-result-info" data-testid="plastic-mp">
-        {m.name}: Mp = {m.mp.toFixed(1)} kN·m (Zp = {(m.zp * 1e6).toFixed(0)} cm³, fy = {m.fy} MPa) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {t('advanced.mpFyAssumed').replace('{fy}', String(DEFAULT_FY))}{/if}
-      </div>
-    {/each}
-  {/if}
+  <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={!resultsStore.movingLoadShowEnvelope} onclick={() => { resultsStore.movingLoadShowEnvelope = false; resultsStore.diagramType = 'moment'; }}>{t('advanced.movingLoad')}</button>
@@ -1296,6 +1222,17 @@
     border-color: var(--st-interactive);
   }
 
+  .adv-group {
+    margin-top: 0.35rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--st-hair);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--st-accent);
+  }
+
   .adv-help-panel {
     padding: 6px 8px;
     background: rgba(127, 212, 204, 0.08);
@@ -1382,7 +1319,8 @@
     color: white;
   }
 
-  .small-btn {
+  /* Reachable from the result panels mounted inside this section (components/advanced/). */
+  :where(.toolbar-section) :global(.small-btn) {
     padding: 0.1rem 0.4rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
@@ -1392,24 +1330,24 @@
     cursor: pointer;
   }
 
-  .small-btn:hover:not(:disabled) {
+  :where(.toolbar-section) :global(.small-btn:hover:not(:disabled)) {
     background: var(--st-surface-3);
     color: white;
   }
 
-  .small-btn:disabled {
+  :where(.toolbar-section) :global(.small-btn:disabled) {
     opacity: 0.4;
     cursor: default;
   }
 
-  .adv-result-row {
+  :where(.toolbar-section) :global(.adv-result-row) {
     display: flex;
     align-items: center;
     gap: 0.25rem;
     margin-top: 0.25rem;
   }
 
-  .adv-result-btn {
+  :where(.toolbar-section) :global(.adv-result-btn) {
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
@@ -1420,25 +1358,25 @@
     flex-shrink: 0;
   }
 
-  .adv-result-btn:hover {
+  :where(.toolbar-section) :global(.adv-result-btn:hover) {
     background: var(--st-surface-3);
     color: white;
   }
 
-  .adv-result-btn.active {
+  :where(.toolbar-section) :global(.adv-result-btn.active) {
     background: var(--st-accent);
     border-color: var(--st-danger);
     color: white;
   }
 
-  .adv-result-label {
+  :where(.toolbar-section) :global(.adv-result-label) {
     font-size: 0.72rem;
     color: var(--st-value);
     min-width: 2rem;
     text-align: center;
   }
 
-  .adv-result-info {
+  :where(.toolbar-section) :global(.adv-result-info) {
     font-size: 0.68rem;
     color: var(--st-text-3);
     padding: 0 0 0 0.25rem;
@@ -1450,7 +1388,7 @@
      other subordinate line in this panel gets. Loose at the foot of the list it
      looked like a stray line of debug output.
   */
-  .flat .adv-result-info {
+  .flat :global(.adv-result-info) {
     font-family: var(--st-mono);
     font-size: 0.66rem;
     letter-spacing: 0.02em;

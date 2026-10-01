@@ -87,6 +87,20 @@ describe('solver-worker message round-trip', () => {
     expect(res!.error).toMatch(/Non-finite number \(NaN\) at input\.nodes\.2\.x/);
   });
 
+  it('solves P-Delta through the worker with sparse assembly', async () => {
+    const input = cantileverWire();
+    input.nodes = Object.fromEntries(Array.from({ length: 13 }, (_, i) => [i + 1, { id: i + 1, x: i, y: 0, z: 0 }]));
+    input.elements = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, { ...input.elements['1'], id: i + 1, nodeI: i + 1, nodeJ: i + 2 }]));
+    input.loads[0].data.nodeId = 13;
+    await dispatch({ type: 'pdelta3d', id: 4, input, maxIter: 20, tol: 1e-8 });
+    const res = posted.find(m => m.type === 'result' && m.id === 4);
+    expect(res?.error).toBeUndefined();
+    expect(res?.result.converged).toBe(true);
+    const tip = res?.result.results.displacements.find((d: any) => d.nodeId === 13);
+    // Euler-Bernoulli cantilever under a transverse tip force, with no axial load.
+    expect(tip.uz / (-10 * 12 ** 3 / (3 * 200e6 * 1000 * 1e-4))).toBeCloseTo(1, 6);
+  });
+
   it('reports an error for structurally invalid input instead of hanging', async () => {
     // Element references node 99, which does not exist.
     const bad = cantileverWire();

@@ -6,6 +6,7 @@ import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
 import type { Constraint3D, ConnectorElement } from './types-3d';
 import { addConstraintConnectivity } from './constraint-connectivity';
+import { weldTolerance } from '../model/weld-tolerance';
 import { concreteStrengthConflict } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
 
@@ -60,7 +61,7 @@ export function memberLoadPerpComponent(
   const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
   if (load.type === 'distributed3d') {
-    return Math.max(Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
+    return Math.max(Math.abs(num(d.qXI)), Math.abs(num(d.qXJ)), Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
   }
   if (load.type === 'pointOnElement3d') {
     return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)));
@@ -112,12 +113,24 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   }
 
   // ─── Coincident nodes ──────────────────────────
+  // Flag at the weld tolerance the clean-up merges at — `weldTolerance()`, the one every weld
+  // reads — so a finding can be cleared, and legitimate close nodes (a fine mesh, an
+  // intentional gap) do not read as defects. Never narrower than the engine's own
+  // near-duplicate gate (1e-6 of the longest member): the panel folds that finding into this
+  // one (`sameFinding`), which it can only do if this one is raised too. On a 200 m bridge the
+  // gate is 0,2 mm, and a pair 0,15 mm apart showed up as the engine's alone.
   const nodeArr = [...m.nodes.values()];
+  let longest = 0;
+  for (const e of m.elements.values()) {
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+    if (a && b) longest = Math.max(longest, Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)));
+  }
+  const coincident = Math.max(weldTolerance(), 1e-6 * Math.max(longest, 1e-3));
   for (let i = 0; i < nodeArr.length; i++) {
     for (let j = i + 1; j < nodeArr.length; j++) {
       const a = nodeArr[i], b = nodeArr[j];
       const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z ?? 0) - (b.z ?? 0);
-      if (dx * dx + dy * dy + dz * dz < 1e-6) {
+      if (dx * dx + dy * dy + dz * dz < coincident * coincident) {
         out.push(diag('warning', 'MODEL_COINCIDENT_NODES', 'diag.model.coincidentNodes', {
           nodeIds: [a.id, b.id],
           details: { x: a.x, y: a.y, z: a.z ?? 0 },

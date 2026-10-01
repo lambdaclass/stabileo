@@ -98,17 +98,28 @@ const REF_BASIC = clause('cirsoc-101', '2025', '2.3.2', 'combinaciones básicas'
 const REF_EXC1 = clause('cirsoc-101', '2025', '2.3.2 Excepción 1', 'factor de carga L reducido');
 const REF_EXC2 = clause('cirsoc-101', '2025', '2.3.2 Excepción 2', 'S como carga de nieve sobre cubierta plana');
 
-function fmt(f: number): string {
-  // A point, not the regulation's comma: see `label` above. The boundary re-separates.
-  return f.toFixed(1);
+/**
+ * A factor as combinations print it: one decimal when that is exact, else up to three
+ * (0.75). A point, not the regulation's comma: see `label` above. The boundary re-separates.
+ */
+function factorText(f: number): string {
+  const r = +f.toFixed(3);
+  return Math.abs(r * 10 - Math.round(r * 10)) < 1e-9 ? r.toFixed(1) : String(r);
 }
 
-function label(terms: CombinationTerm[]): string {
-  return terms
-    .filter((t) => t.factor !== 0)
-    .map((t) => `${fmt(t.factor)} ${t.symbol}`)
-    .join(' + ');
+/**
+ * A combination's formula (`1.2 D + 1.6 L`, `0.9 D − 1.0 E`), '—' when it has no term. The one
+ * formatter for the strength and service generators and the project rules, which each had one.
+ */
+export function combinationLabel(terms: readonly CombinationTerm[]): string {
+  const t = terms.filter((x) => x.factor !== 0);
+  if (t.length === 0) return '—';
+  return t.map((x, i) => {
+    const sign = x.factor < 0 ? (i === 0 ? '−' : ' − ') : i === 0 ? '' : ' + ';
+    return `${sign}${factorText(Math.abs(x.factor))} ${x.symbol}`;
+  }).join('');
 }
+
 
 /**
  * The reduced L factor permitted by Exception 1, or 1.0 when it does not apply.
@@ -173,7 +184,7 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
         id: `${basic}${suffix}${variant.suffix}`,
         basic,
         terms: variant.terms,
-        label: label(variant.terms),
+        label: combinationLabel(variant.terms),
         refs: [...refs, ...variant.refs],
         notes: [...notes, ...variant.notes],
       });

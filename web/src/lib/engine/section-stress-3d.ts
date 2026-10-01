@@ -631,6 +631,26 @@ function adaptWasm3DResult(r: any): SectionStressResult3D {
 // ─── Full detailed analysis ──────────────────────────────────────────
 
 /**
+ * The section as the engine's `SectionGeometry` wants it: every field numeric
+ * and `shape` present.
+ *
+ * Both entry points below handed the model's `Section` over as is. The engine
+ * requires `shape`, `h` and `b`, and a section only carries a `shape` when
+ * somebody set one; the sections a fixture, an import or the catalogue define
+ * (the space truss's `IPN 300` and `L 80x80x8`, say) do not, and the boundary
+ * answered "Parse error: missing field `shape`". That is a throw, and inside
+ * the panel's `$derived` it stopped the panel, and the Advanced panel around
+ * it, from updating at all.
+ *
+ * The 2D path (`analyzeSectionStress`) already resolves before the boundary,
+ * and the TS fallback of this module resolves with the same function, so the
+ * engine and the fallback now read one section.
+ */
+function toWasmSection(sec: Section): ResolvedSection {
+  return resolveSectionGeometryLegacy(sec);
+}
+
+/**
  * Full 3D section stress analysis at position t along element.
  */
 export function analyzeSectionStress3D(
@@ -644,7 +664,7 @@ export function analyzeSectionStress3D(
   if (isWasmReady()) {
     return adaptWasm3DResult(computeSectionStress3D({
       elementForces: ef,
-      section: sec,
+      section: toWasmSection(sec),
       fy: fy ?? null,
       t,
       yFiber: yFiber ?? null,
@@ -671,7 +691,7 @@ export function analyzeSectionStressFromForces(
   if (isWasmReady()) {
     return adaptWasm3DResult(computeSectionStress3DFromForces({
       N, Vy, Vz, Mx, My, Mz,
-      section: sec,
+      section: toWasmSection(sec),
       fy: fy ?? null,
       yFiber: yFiber ?? null,
       zFiber: zFiber ?? null,

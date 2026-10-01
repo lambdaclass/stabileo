@@ -14,7 +14,7 @@ import {
   applyMassSource, resolveMassFactors,
   type CaseMassLoads, type MassSource, type MassSourceReport, type ResolvedFactor,
 } from './mass-source';
-import { massDensities } from './requests';
+import { withSectionMass } from './section-mass';
 
 export function caseMassLoads(
   model: ModelData,
@@ -32,7 +32,7 @@ export function caseMassLoads(
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      loads: buildSolverLoads3D(model, rest, false, leftHand),
+      loads: buildSolverLoads3D(model, rest, [], leftHand),
       surface,
     });
   }
@@ -55,7 +55,8 @@ export function withMassSource(
   const factors = resolveMassFactors(loadCases, stated);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
-  const r = applyMassSource(input, massDensities(model.materials), cases);
+  const physical = withSectionMass(input, model);
+  const r = applyMassSource(physical.input, physical.densities, cases);
   return { ...r, factors };
 }
 

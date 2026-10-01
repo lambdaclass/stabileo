@@ -116,7 +116,7 @@ test.describe('@smoke Education — a handed-out exercise', () => {
 
     await expect(page.locator('.step-section')).toHaveCount(1);
     // Uppercase is a CSS transform; the DOM text is the sentence itself.
-    await expect(page.locator('.step-title')).toContainText('Support Reactions');
+    await expect(page.locator('.step-title')).toContainText(/Support reactions/i);
 
     await page.getByTestId('edu-step-3').click();
     await expect(page.locator('.step-section')).toHaveCount(1);
@@ -184,8 +184,8 @@ test.describe('@smoke Education — drawing the diagram', () => {
     // is which rather than just "wrong".
     await page.locator('.verify-btn', { hasText: /Verify the drawing/i }).click();
     const notes = page.locator('.sketch-notes');
-    await expect(notes.nth(0), 'the shear').toContainText(/you chose constant, it is linear/i);
-    await expect(notes.nth(1), 'the moment').toContainText(/you chose constant, it is quadratic/i);
+    await expect(notes.nth(0), 'the shear').toContainText(/you chose constant, but it is linear/i);
+    await expect(notes.nth(1), 'the moment').toContainText(/you chose constant, but it is quadratic/i);
   });
 });
 
@@ -199,7 +199,7 @@ test.describe('@smoke Education — the whole flow', () => {
     await dofs.nth(0).fill('0');
     await dofs.nth(1).fill('20');
     await dofs.nth(2).fill('20');
-    await page.locator('.radio-option', { hasText: /Isostatic/i }).first().click();
+    await page.locator('.radio-option', { hasText: /Statically determinate/i }).first().click();
     await page.locator('.verify-btn').first().click();
     await expect(page.getByTestId('edu-step-1')).toHaveClass(/done/);
 

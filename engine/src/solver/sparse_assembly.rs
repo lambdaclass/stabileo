@@ -1512,6 +1512,13 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                     // Assemble thermal FEF for truss elements
                     if let Some(elem_loads) = load_index.get(&elem.id) {
                         for load in elem_loads {
+                            if let SolverLoad3D::Distributed(dl) = load {
+                                let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                                for k in 0..3 {
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
+                                }
+                            }
                             if let SolverLoad3D::Thermal(tl) = load {
                                 let alpha = 12e-6;
                                 let fx = e * sec.a * alpha * tl.dt_uniform;
@@ -1558,6 +1565,9 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
+                                        let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                                        fef12[0] = axial[0];
+                                        fef12[6] = axial[1];
                                         adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef14 = element::expand_fef_12_to_14(&fef12);
                                         let fef_global = transform_force(&fef14, &t, 14);
@@ -1605,6 +1615,9 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
+                                        let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                                        fef[0] = axial[0];
+                                        fef[6] = axial[1];
                                         adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
@@ -1649,6 +1662,9 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         } else {
                                             element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                                         };
+                                        let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                                        fef[0] = axial[0];
+                                        fef[6] = axial[1];
                                         adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
@@ -2023,6 +2039,7 @@ mod tests {
         })];
 
         SolverInput {
+            solver_options: None,
             nodes,
             materials,
             sections,
@@ -2198,6 +2215,7 @@ mod tests {
         }).collect();
 
         SolverInput3D {
+            solver_options: None,
             nodes, materials: mats, sections: HashMap::new(),
             elements: HashMap::new(), supports, loads,
             constraints: vec![], left_hand: None,
@@ -2352,6 +2370,7 @@ mod tests {
         }));
 
         SolverInput3D {
+            solver_options: None,
             nodes, materials: mats, sections, elements, supports, loads,
             constraints: vec![], left_hand: None,
             plates: HashMap::new(), quads, quad9s: HashMap::new(),

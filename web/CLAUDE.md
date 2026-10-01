@@ -357,15 +357,6 @@ Cada feedback incluye automáticamente:
 - Modo (2D o 3D)
 - User agent del navegador
 
-### Leaderboard de Colaboradores
-
-- **Archivo**: `src/lib/data/leaderboard.ts`
-- Se actualiza manualmente al resolver issues de feedback
-- **Flujo**: revisar issues → identificar nombre del autor (campo "Autor" en el issue body) → actualizar array TOP 10 con `badgeForRank()` → deploy
-- El widget de feedback muestra el leaderboard desde la burbuja flotante (botón "🏆 Leaderboard")
-- El campo "nombre" es opcional en el formulario y se incluye en el body del GitHub issue como `**Autor:** nombre`
-- Los badges son: 🏆 (1°), 🥈 (2°), 🥉 (3°), ⭐ (4° en adelante)
-
 ## Known Limitations (3D)
 
 - DXF export/import: disabled for 3D ("En desarrollo para 3D")

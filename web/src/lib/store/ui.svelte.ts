@@ -38,6 +38,13 @@ export type TouchDensity = 'compact' | 'comfortable';
  * because this store cannot import that module without closing an import cycle.
  */
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
+
+/** The four modes the app has. */
+export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
+export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
+export function isAnalysisMode(v: unknown): v is AnalysisMode {
+  return (ANALYSIS_MODES as readonly unknown[]).includes(v);
+}
 export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
@@ -306,6 +313,19 @@ function createUIStore() {
 
   // Element creation type
   let elementCreateType = $state<'frame' | 'truss'>('frame');
+  /**
+   * How the member tool strings its clicks: `polyline` continues each member
+   * from the end of the last one, `single` makes one member per two clicks.
+   * PRO has no options strip to change it, so it keeps drawing single members.
+   */
+  let memberDrawMode = $state<'single' | 'polyline'>('polyline');
+  /**
+   * A tag with ΔX, ΔZ and the length while a 2D member is stretched. One
+   * setting, reached from the member tool and from Settings; persisted.
+   */
+  let showMemberDimensions = $state<boolean>(
+    !hasLocalStorage() || localStorage.getItem('stabileo-member-dims') !== 'false',
+  );
   let elementMode = $state<ElementMode>('create');
   let nodeMode = $state<NodeMode>('create');
   let jointType = $state<JointType>('hinge');
@@ -436,7 +456,7 @@ function createUIStore() {
   let liveCalcError = $state<string | null>(null);
 
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
-  let analysisMode = $state<'2d' | '3d' | 'pro' | 'edu'>('2d');
+  let analysisMode = $state<AnalysisMode>('2d');
 
   // 2D drawing plane: controls which 3D plane is shown in 2D mode.
   // 'xy' = default 2D convention (X horizontal, Y vertical)
@@ -860,6 +880,16 @@ function createUIStore() {
     get elementCreateType() { return elementCreateType; },
     set elementCreateType(v: 'frame' | 'truss') { elementCreateType = v; },
 
+    get memberDrawMode() { return memberDrawMode; },
+    set memberDrawMode(v: 'single' | 'polyline') { memberDrawMode = v; },
+    /** The mode the member tool actually draws in (see memberDrawMode). */
+    get showMemberDimensions() { return showMemberDimensions; },
+    set showMemberDimensions(v: boolean) {
+      showMemberDimensions = v;
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-member-dims', String(v)); } catch { /* private mode */ } }
+    },
+    get memberChains() { return analysisMode !== 'pro' && memberDrawMode === 'polyline'; },
+
     get elementMode() { return elementMode; },
     set elementMode(v: ElementMode) { elementMode = v; },
 
@@ -1024,7 +1054,12 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
-    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') {
+    set analysisMode(v: AnalysisMode) {
+      // The union says nothing at runtime, and the value often comes from outside
+      // the program (a link, a .ded, an autosave, a tab). Every reader compares it
+      // with `===`, so a string outside the union would leave the app in none of
+      // its modes: keep the current one instead.
+      if (!isAnalysisMode(v)) return;
       analysisMode = v;
       // When switching into a 3D-capable mode with a flat 2D model already loaded,
       // keep the model upright in the XZ plane instead of dropping it flat on XY.

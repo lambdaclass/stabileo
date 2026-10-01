@@ -110,6 +110,7 @@ fn test_fixed_fixed_beam_support_settlement() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -176,6 +177,7 @@ fn test_propped_cantilever_roller_settlement() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -267,6 +269,7 @@ fn test_two_span_interior_support_settlement() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -342,6 +345,7 @@ fn test_portal_frame_differential_settlement() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -419,6 +423,7 @@ fn test_fixed_beam_prescribed_rotation() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -481,6 +486,7 @@ fn test_ss_beam_equal_settlement_zero_forces() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -600,6 +606,7 @@ fn test_continuous_beam_middle_settlement_symmetry() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -676,6 +683,7 @@ fn test_fixed_fixed_equal_settlement_zero_forces() {
     });
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };

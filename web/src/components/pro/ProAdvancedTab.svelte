@@ -15,9 +15,11 @@
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
+  import { withSolveSections } from '../../lib/engine/member-behaviour';
   import { pushoverFrames } from '../../lib/engine/pushover-curve';
   import PushoverView from './nonlinear/PushoverView.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
+  import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import {
     isSolverReady,
     solveModal3D as wasmModal3D,
@@ -54,7 +56,7 @@
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number };
+    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
     modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
@@ -196,7 +198,7 @@
       if (res.results) {
         resultsStore.setPDeltaResult3D(res);
       }
-      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor } };
+      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor, isStable: res.isStable } };
     } catch (e: any) {
       solveError = `P-Delta: ${errorText(e, 'Error')}`;
     }
@@ -450,12 +452,13 @@
          */
         const { sections, materials, mpOverrides, assumed } = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
         nlAssumed = assumed;
+        // Members with stiffness modifiers solve on sections of their own (`withSolveSections`).
         nlResult = solvePlastic3D({
           solver: input,
-          sections,
+          sections: withSolveSections(sections, input, modelStore.elements),
           materials,
           maxHinges: nlMaxHinges,
-          mpOverrides,
+          mpOverrides: withSolveSections(mpOverrides, input, modelStore.elements),
         });
         nlVersion = modelStore.modelVersion;
       } else if (nlType === 'corotational') {
@@ -472,7 +475,7 @@
         }
         nlResult = solveFiberNonlinear3D({
           solver: input,
-          fiberSections,
+          fiberSections: withSolveSections(fiberSections, input, modelStore.elements),
           nIntegrationPoints: nlFiberIntPts,
           maxIter: nlMaxIter,
           tolerance: nlTol,
@@ -919,7 +922,8 @@
       {#if pdeltaResult}
         <div class="adv-inline">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
-          {#if pdeltaResult.b2Factor != null} — B2 = {fmtNum(pdeltaResult.b2Factor)}{/if}
+          — {pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
+          — B2 = {formatPDeltaFactor(pdeltaResult.b2Factor)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
       {/if}

@@ -17,7 +17,8 @@
 import { untrack } from 'svelte';
 import { applyPoint, compose, reflection, rotation, translation, type Affine, type Vec3 } from '../model/edit/affine';
 import { closure, fragmentBounds, type EntitySet, type Fragment } from '../model/edit/fragment';
-import { insertFragment, NodeIndex, DEFAULT_WELD, type EditReport } from '../model/edit/transformed-copy';
+import { insertFragment, NodeIndex, type EditReport } from '../model/edit/transformed-copy';
+import { weldTolerance } from '../model/weld-tolerance';
 import { transformInPlace } from '../model/edit/transform-in-place';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
@@ -43,7 +44,8 @@ export interface PlacementStart {
    * Put the fragment in with T yourself (a generated structure records a group as it goes in).
    * Must be one undo step. Default: `insertFragment`.
    */
-  commitWith?: (T: Affine) => EditReport | null;
+  /** Commits in place of insertFragment, given the bar's options ("with supports", "with loads"). */
+  commitWith?: (T: Affine, opts: { withSupports: boolean; withLoads: boolean }) => EditReport | null;
   /** False: the ghost stays where it is told (typed coordinates), the pointer does not move it. */
   follow?: boolean;
   rotation?: number;
@@ -79,6 +81,7 @@ function createPlacementStore() {
   let lastReport = $state.raw<EditReport | null>(null);
   /** Bumped whenever the transform changes, for the ghost to follow. */
   let revision = $state(0);
+  let previewCache: { key: string; value: MergePreview } | null = null;
   /** Bumped on every start, so a commit that starts the next step does not cancel it. */
   let session = 0;
 
@@ -86,7 +89,8 @@ function createPlacementStore() {
   const supportedNodes = new Set<number>();
 
   function buildIndex() {
-    index = new NodeIndex(DEFAULT_WELD);
+    // The tolerance `insertFragment` welds at on commit, so the preview shows what will happen.
+    index = new NodeIndex(weldTolerance());
     supportedNodes.clear();
     const moving = moveSet ? closure(moveSet).nodes : new Set<number>();
     for (const n of modelStore.nodes.values()) if (!moving.has(n.id)) index.add(n.id, [n.x, n.y, n.z ?? 0]);
@@ -204,9 +208,16 @@ function createPlacementStore() {
       revision++;
     },
 
-    /** Which fragment nodes would weld where the ghost is now. */
+    /**
+     * Which fragment nodes would weld where the ghost is now. Once per revision: the viewer and
+     * the placement bar both read it on every pointer move, and each read walked every fragment
+     * node through the weld index.
+     */
     mergePreview(): MergePreview {
+      const key = `${revision}|${withSupports}|${modelStore.modelVersion}`;
+      if (previewCache?.key === key) return previewCache.value;
       const out: MergePreview = { welds: [], supportKept: 0 };
+      previewCache = { key, value: out };
       if (!active || !fragment || !index) return out;
       const T = transform();
       const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
@@ -235,7 +246,7 @@ function createPlacementStore() {
           new Set([...[...c.quads].map((id) => `q${id}`), ...[...c.plates].map((id) => `p${id}`)]));
         keepGoing = false;
       } else {
-        report = commitWith ? commitWith(T)
+        report = commitWith ? commitWith(T, { withSupports, withLoads })
           : insertFragment(fragment, [T], { withLoads, withSupports, leftHand: uiStore.axisConvention3D === 'leftHand' });
         if (session !== mySession) return report; // the committer started the next step
         if (!report) { store.cancel(); return null; }

@@ -88,6 +88,8 @@ export interface DeflectionResult {
   /** The span, and the divisor of its limit (L/360 → 360): what `L/δ` is printed against. */
   span: number;
   limitDivisor: number;
+  /** The length the limit is taken over: the span, or 2L for a cantilever. */
+  limitLength: number;
   status: 'ok' | 'warn' | 'fail';
   steps: string[];
   diagnostics?: SolverDiagnostic[];
@@ -140,5 +142,5 @@ export function checkDeflection(
     diags.push({ severity: 'warning', code: 'DEFLECTION_HIGH', message: 'diag.deflectionHigh', source: 'serviceability', details: { computed: deltaTotal, limit, ratio } });
   }
 
-  return { deltaImm: deltaAbs, deltaLT, deltaTotal, limit, ratio, span: L, limitDivisor: divisor, status, steps, diagnostics: diags.length > 0 ? diags : undefined };
+  return { deltaImm: deltaAbs, deltaLT, deltaTotal, limit, ratio, span: L, limitDivisor: divisor, limitLength, status, steps, diagnostics: diags.length > 0 ? diags : undefined };
 }

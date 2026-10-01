@@ -50,6 +50,8 @@
   // ── Semi-rigid ends ──
   const semiOf = (end: 'i' | 'j') => same((id) => modelStore.elements.get(id)?.semiRigid?.[end] ?? null);
   function setSemi(end: 'i' | 'j', which: 'ky' | 'kz' | 'off', v?: number) {
+    // `min` does not stop a typed value: a negative or empty one is not stored.
+    if (which !== 'off' && !(Number.isFinite(v) && v! >= 0)) return;
     modelStore.batch(() => {
       for (const id of ids) {
         const e = modelStore.elements.get(id);

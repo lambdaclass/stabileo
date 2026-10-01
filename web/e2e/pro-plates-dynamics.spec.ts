@@ -101,12 +101,63 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(d.timeHistory.nSteps).toBe(100);
     expect(d.timeHistory.ground.x.source).toBe('sine');
     expect(d.timeHistory.ground.y).toMatchObject({ source: 'sine', scale: 0.5 });
+    expect(d.timeHistory.ground.y.sine).toEqual({ ampG: 0.3, freqHz: 2 });
     expect(d.timeHistory.forces).toHaveLength(1);
     // Closed and opened again, the panel reads the project, not its defaults.
     await page.getByTestId('adv-chip-timehistory').click();
     await page.getByTestId('adv-chip-timehistory').click();
     await expect(page.getByTestId('th-steps')).toHaveValue('100');
     await expect(page.getByTestId('th-scale-y')).toHaveValue('0.5');
+  });
+
+  test('a record read in the wrong unit is flagged, and choosing its unit reads it again', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByTestId('adv-chip-timehistory').click();
+    await page.getByTestId('th-src-x').selectOption('record');
+    // A table in cm/s², a 500 gal peak, read while the unit still says g: 500 g.
+    const table = Array.from({ length: 50 }, (_, k) => `${(k * 0.01).toFixed(2)} ${k === 10 ? 500 : 0}`).join('\n');
+    await page.getByTestId('th-file-x').setInputFiles({ name: 'gal.txt', mimeType: 'text/plain', buffer: Buffer.from(table) });
+    await expect(page.getByTestId('th-warning-x-pgaHigh')).toBeVisible();
+    await page.getByTestId('th-unit-x').selectOption('cm/s2');
+    await expect(page.getByTestId('th-warning-x-pgaHigh')).toHaveCount(0);
+    await expect(page.getByTestId('th-record-x')).toContainText(/0[.,]51/);
+  });
+
+  test('time-history undo and redo update the editor and survive closing it', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByTestId('adv-chip-timehistory').click();
+    const steps = page.getByTestId('th-steps');
+    const storedSteps = async () => (await data(page, 'setting', 'dynamics'))?.timeHistory.nSteps;
+    await steps.fill('120');
+    await expect.poll(storedSteps).toBe(120);
+    await steps.fill('100');
+    await expect.poll(storedSteps).toBe(100);
+    await steps.blur();
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+z`);
+    await expect.poll(storedSteps).toBe(120);
+    await expect(steps).toHaveValue('120');
+    await page.keyboard.press(`${mod}+Shift+z`);
+    await expect.poll(storedSteps).toBe(100);
+    await expect(steps).toHaveValue('100');
+    await page.keyboard.press(`${mod}+z`);
+    await expect(steps).toHaveValue('120');
+    await page.getByTestId('adv-chip-timehistory').click();
+    await expect.poll(storedSteps).toBe(120);
+    await page.getByTestId('adv-chip-timehistory').click();
+    await expect(steps).toHaveValue('120');
+    // Closing before the debounce fires still saves a pending edit exactly once.
+    await steps.fill('80');
+    await page.getByTestId('adv-chip-timehistory').click();
+    await expect.poll(storedSteps).toBe(80);
+    await page.keyboard.press(`${mod}+z`);
+    await expect.poll(storedSteps).toBe(120);
+    await page.getByTestId('adv-chip-timehistory').click();
+    await expect(steps).toHaveValue('120');
   });
 
   test('modes until 90 % of the mass', async ({ pro: page }) => {
@@ -117,6 +168,23 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByRole('button', { name: 'Modal', exact: true }).click();
     await expect(page.getByTestId('modal-auto-note')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('adv-modal-row-0')).toBeVisible();
+  });
+
+  test('advanced analyses refuse semi-rigid ends instead of treating them as rigid', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-elements').click();
+    await page.evaluate(() => window.__stabileoActions.selectElements([1]));
+    await page.getByTestId('mb-semi-i-on').check();
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
+    await expect(page.getByTestId('adv-modal-row-0')).toHaveCount(0);
+    await page.getByTestId('adv-chip-timehistory').click();
+    await page.getByTestId('th-run').click();
+    await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
+    await expect(page.getByTestId('th-chart')).toHaveCount(0);
   });
 
   test('pushover: the capacity curve, the step slider and the hinges on the model', async ({ pro: page }) => {

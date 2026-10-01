@@ -77,7 +77,7 @@ describe('the unoffered dictionaries stay out of the application', () => {
     expect(importsAll(elsewhere, `import { x } from '../codes/all';`)).toBe(false);
   });
 
-  it('the store imports the offered three and their steel companions, and nothing else', () => {
+  it('the store imports the offered three, their steel companions and the step-by-step catalog, and nothing else', () => {
     /*
      * `steel/*` is named here rather than skipped by the pattern. The earlier
      * version matched `locales/(\w+)` and so could not see a nested module at
@@ -87,6 +87,6 @@ describe('the unoffered dictionaries stay out of the application', () => {
      */
     const src = readFileSync(join(SRC, 'lib/i18n/store.svelte.ts'), 'utf8');
     const imported = [...src.matchAll(/from '\.\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort();
-    expect(imported).toEqual(['en', 'es', 'pt', 'steel/en', 'steel/es', 'steel/pt']);
+    expect(imported).toEqual(['en', 'es', 'pt', 'steel/en', 'steel/es', 'steel/pt', 'steps']);
   });
 });

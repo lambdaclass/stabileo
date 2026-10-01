@@ -20,6 +20,21 @@ import { join } from 'node:path';
 import en from '../locales/en';
 import es from '../locales/es';
 import pt from '../locales/pt';
+import steelEn from '../locales/steel/en';
+import steelEs from '../locales/steel/es';
+import steelPt from '../locales/steel/pt';
+import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
+
+/*
+ * What the app reads is each locale merged with its companion dictionaries
+ * (i18n/store.svelte.ts): the metallic surface's and the explained
+ * step-by-step catalog's. A key defined in a companion is defined.
+ */
+const merged = {
+  en: { ...en, ...steelEn, ...stepsEn },
+  es: { ...es, ...steelEs, ...stepsEs },
+  pt: { ...pt, ...steelPt, ...stepsPt },
+};
 
 const SRC = join(import.meta.dirname, '../../..');
 
@@ -99,17 +114,17 @@ describe('Basic mode is fully translated', () => {
   it('every key it asks for is defined in English', () => {
     // English is the fallback, so a key missing HERE renders as nothing at all
     // in every language. That is not a translation gap, it is a blank label.
-    const missing = [...used].filter((k) => !(k in en)).sort();
+    const missing = [...used].filter((k) => !(k in merged.en)).sort();
     expect(missing).toEqual([]);
   });
 
   it('every key is defined in Spanish', () => {
-    const missing = [...used].filter((k) => !(k in es)).sort();
+    const missing = [...used].filter((k) => !(k in merged.es)).sort();
     expect(missing).toEqual([]);
   });
 
   it('every key is defined in Portuguese', () => {
-    const missing = [...used].filter((k) => !(k in pt)).sort();
+    const missing = [...used].filter((k) => !(k in merged.pt)).sort();
     expect(missing).toEqual([]);
   });
 
