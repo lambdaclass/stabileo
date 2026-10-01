@@ -4,7 +4,7 @@
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
-import { deriveDevelopment } from '../../../codes/cirsoc201/anchorage';
+import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
 import { beta1, yieldStrain, phiFromStrain, ES_MPA } from './cirsoc201-basis';
@@ -1135,6 +1135,20 @@ export function computeJointPsiFromModel(
   };
 }
 
+/**
+ * M2,min of §6.6.4.5.4 (ACI 318-19 6.6.4.5.4): a slender column is designed for at least
+ * Pu·(15 mm + 0.03·h), h in metres being the depth in the direction of the moment.
+ *
+ * The non-sway magnifier multiplies M2, and a column whose analysis gives it no end moment —
+ * a pin-ended strut, a column under a symmetric floor — would otherwise be magnified from zero
+ * and checked as pure compression however slender it is. One function, so the report
+ * (`checkSlender`) and the verifier (`verifyProvidedReinforcement`) cannot disagree on it.
+ * Tension (Pu ≤ 0) asks for nothing.
+ */
+export function slenderMinimumMoment(Pu: number, h: number): number {
+  return Pu > 0 ? Pu * (0.015 + 0.03 * h) : 0;
+}
+
 export function checkSlender(
   params: ConcreteDesignParams,
   Nu: number, Mu: number, Lu: number,
@@ -1253,11 +1267,11 @@ export function checkSlender(
   steps.push(`δns = Cm/(1-Pu/(0.75·Pc)) = ${delta_ns.toFixed(3)}`);
 
   // ─── Design moment M2C and Mc ───
-  // M2C = max(M2, Pu·(0.015 + 0.03·h))
-  const eMin = 0.015 + 0.03 * h; // m
-  const M2C = Math.max(MuAbs, NuAbs * eMin);
+  // M2C = max(M2, M2,min), §6.6.4.5.4 — the same function the verifier applies.
+  const M2min = slenderMinimumMoment(NuAbs, h);
+  const M2C = Math.max(MuAbs, M2min);
   if (M2C > MuAbs) {
-    steps.push(`M2,mín = Pu·(15mm + 0.03h) = ${(NuAbs * eMin).toFixed(2)} kN·m > M2 → se usa M2,mín`);
+    steps.push(`M2,mín = Pu·(15mm + 0.03h) = ${M2min.toFixed(2)} kN·m > M2 → se usa M2,mín`);
   }
 
   const McFinal = delta_ns * M2C;
@@ -1302,10 +1316,15 @@ export interface VerificationInput {
 // ─── Detailing Rules (CIRSOC 201 Ch. 12) ────────────────────
 
 /**
- * Compute development/anchorage lengths per CIRSOC 201 Chapter 12.
- * v1: α=β=λ=1.0 (no epoxy, no lightweight, no top-bar factor).
+ * Development and lap lengths for the report's detailing table, Tabla 25.4.2.3 and §25.4.2.5.
+ *
+ * The table knows a diameter and the member, not the bar layout, so it prints the length that
+ * is safe for every bar of that diameter in the member: the «other cases» row, and for a beam
+ * the top-bar ψt = 1,3 when its depth leaves more than 300 mm of concrete below the top steel.
+ * It printed the favourable row with ψt = 1 — a third short for an unestablished layout, and
+ * 30 % more for a top bar. A column's bars are vertical: ψt = 1.
  */
-function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia: number, barDiameters: number[]): DetailingResult {
+function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia: number, barDiameters: number[], member: { isBeam: boolean; h: number }): DetailingResult {
   const sqrtFc = Math.sqrt(fc);
   const uniqueDias = [...new Set(barDiameters)].sort((a, b) => a - b);
 
@@ -1313,7 +1332,10 @@ function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia
     const dbM = db / 1000; // mm → m
     // ld from Tabla 25.4.2.3, the same source as the design check and the drawings. The 2005
     // fy·db/(3,2·√f'c) printed about half of it in the report's detailing table.
-    const ld = deriveDevelopment({ diameterMm: db, fy, fc, favourableSpacing: true, edition: '2025' }).ldM;
+    const concreteBelowM = member.isBeam ? concreteBelowTopBars(member.h, cover, stirrupDia, db) : 0;
+    const ld = deriveDevelopment({
+      diameterMm: db, fy, fc, favourableSpacing: false, psiT: topBarFactor(concreteBelowM), edition: '2025',
+    }).ldM;
     // ldh per CIRSOC 201 12.5: ldh = (0.24 × fy × db) / √f'c
     const ldhCalc = (0.24 * fy * dbM) / sqrtFc;
     const ldh = Math.max(ldhCalc, 8 * dbM, 0.15); // min 8db or 150mm per 12.5.1
@@ -1466,6 +1488,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
       column
         ? [column.barDia, flexure.barDia].filter(d => d > 0)
         : [flexure.barDia],
+      { isBeam: input.elementType === 'beam', h: input.h },
     ),
   };
 }

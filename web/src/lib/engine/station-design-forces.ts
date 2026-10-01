@@ -28,8 +28,8 @@ import {
   requiredVsForTable, type TransverseSpacingLimits,
 } from '../codes/cirsoc201/transverse-spacing';
 import type { RegulationEdition } from '../codes/regulation';
-import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
-import { REBAR_DB, classifyElement } from './codes/argentina/cirsoc201';
+import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../codes/cirsoc201/anchorage';
+import { REBAR_DB, classifyElement, slenderMinimumMoment } from './codes/argentina/cirsoc201';
 // Axis resolution + the shared utilization convention. Both modules import only
 // TYPES from this file, so there is no runtime import cycle.
 import {
@@ -397,6 +397,7 @@ export function resolveBarGroups(
  * @param regionLength Available anchorage length (m)
  * @param fc f'c (MPa)
  * @param fy fy (MPa)
+ * @param conditions Tabla 25.4.2.3 row and ψt for this face (`requiredLd`); absent, the long ones
  * @returns { layers, area, allAnchored, anchorageIssues }
  */
 export function continuingGroupsInto(
@@ -404,6 +405,7 @@ export function continuingGroupsInto(
   direction: 'start' | 'end',
   regionLength: number,
   fc: number, fy: number,
+  conditions: DevelopmentConditions = {},
 ): { layers: RebarLayer[]; area: number; groups: LongBarGroup[]; anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> } {
   const continuing: LongBarGroup[] = [];
   const anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> = [];
@@ -414,7 +416,7 @@ export function continuingGroupsInto(
 
     const maxDia = Math.max(...g.layers.map(l => l.diameter), 0);
     if (maxDia === 0) continue;
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = (direction === 'start' ? g.extensionStart : g.extensionEnd) ?? regionLength;
     const anchorType = direction === 'start' ? g.anchorageStart : g.anchorageEnd;
@@ -451,15 +453,71 @@ export function continuingGroupsInto(
 
 // ─── Development Length / Anchorage ──────────────────────
 
-/** Required development length per CIRSOC 201 §12.2.3 simplified. */
-export function requiredLd(barDia: number, fc: number, fy: number): number {
+/**
+ * What the caller knows about a bar being developed, for Tabla 25.4.2.3 and §25.4.2.5.
+ *
+ * Both default to the conservative answer, because only the caller knows the layout.
+ */
+export interface DevelopmentConditions {
+  /**
+   * The first row of Tabla 25.4.2.3 — clear spacing and cover — has been ESTABLISHED for these
+   * bars (`favourableRowHolds`). Absent or false takes the «other cases» row, half as long again.
+   * `deriveDevelopment` refuses to default it: assuming it silently shortens every anchorage by
+   * a third.
+   */
+  favourableSpacing?: boolean;
+  /** Fresh concrete cast below the bar, m; more than 300 mm makes it a top bar, ψt = 1,3. */
+  concreteBelowM?: number;
+}
+
+/** Required development length, Tabla 25.4.2.3 with §25.4.2.1(b)'s 300 mm floor. */
+export function requiredLd(barDia: number, fc: number, fy: number, conditions: DevelopmentConditions = {}): number {
   /*
    * Tabla 25.4.2.3 through `deriveDevelopment`, the same source the detailing and the drawings
-   * read, on the favourable-spacing row they use. This was the 2005 fy·db/(3,2·√f'c), about
-   * half the table: 0,42 m for a Ø16 in H-25 against 0,64 m, which let a curtailed group count
-   * in a region it does not reach and passed anchorages the drawings then lengthened.
+   * read. This was the 2005 fy·db/(3,2·√f'c), about half the table: 0,42 m for a Ø16 in H-25
+   * against 0,64 m, which let a curtailed group count in a region it does not reach and passed
+   * anchorages the drawings then lengthened.
+   *
+   * It then took the favourable row and ψt = 1 for every bar. A top Ø16 in a 50 cm beam with
+   * nothing known about its spacing needs 420·1,3/(1,4·√25)·16 = 1,25 m, not 0,64 m: the row
+   * and ψt are now the caller's to establish, and absent they are the conservative ones.
    */
-  return deriveDevelopment({ diameterMm: barDia, fy, fc, favourableSpacing: true, edition: '2025' }).ldM;
+  return deriveDevelopment({
+    diameterMm: barDia, fy, fc,
+    favourableSpacing: conditions.favourableSpacing === true,
+    psiT: topBarFactor(conditions.concreteBelowM ?? 0),
+    edition: '2025',
+  }).ldM;
+}
+
+/**
+ * Whether the first row of Tabla 25.4.2.3 holds for a face's bars, from the layout itself.
+ *
+ * The row asks for clear cover ≥ db AND either clear spacing ≥ 2·db, or clear spacing ≥ db with
+ * stirrups throughout ld at no less than the code minimum (§9.6.3.4: Av/s ≥ 0,062·√f'c·bw/fyt
+ * and 0,35·bw/fyt; §9.7.6.2.2: s ≤ d/2). The spacing is the one the bars actually get spread
+ * across the width (`checkRowFit`), the clear cover is to the bar (cover + stirrup), and the
+ * stirrups are every set the bars cross. A row that does not fit, or a missing stirrup set,
+ * leaves the «other cases» row.
+ */
+export function favourableRowHolds(
+  layers: RebarLayer[], section: { b: number; cover: number; stirrupDia: number; fc: number; fy: number },
+  stirrups: ReadonlyArray<StirrupDef | undefined>, d: number,
+): boolean {
+  if (layers.length === 0) return false;
+  const clearCover = section.cover + section.stirrupDia / 1000;
+  const avMin = Math.max(0.062 * Math.sqrt(section.fc), 0.35) * section.b / section.fy; // m²/m
+  const stirrupsAtMinimum = stirrups.length > 0 && stirrups.every((st) => {
+    if (!st || !(st.spacing > 0)) return false;
+    const av = st.legs * Math.PI * (st.diameter / 1000) ** 2 / 4;
+    return av / st.spacing >= avMin - 1e-12 && st.spacing <= d / 2 + 1e-9;
+  });
+  return checkRowFit(layers, section.b, section.cover, section.stirrupDia).rows.every((r) => {
+    const db = r.diameter / 1000;
+    if (!r.fits || clearCover < db - 1e-9) return false;
+    const spacing = r.count > 1 ? r.clearSpacing : Number.POSITIVE_INFINITY;
+    return spacing >= 2 * db - 1e-9 || (stirrupsAtMinimum && spacing >= db - 1e-9);
+  });
 }
 
 /** Required hooked development length per CIRSOC 201 §12.5. */
@@ -497,6 +555,7 @@ export function checkBeamAnchorage(
   topStartLayers: RebarLayer[], topEndLayers: RebarLayer[], bottomLayers: RebarLayer[],
   tStartEnd: number, tEndStart: number, L: number,
   fc: number, fy: number,
+  conditions: { top?: DevelopmentConditions; bottom?: DevelopmentConditions } = {},
 ): AnchorageCheck[] {
   const checks: AnchorageCheck[] = [];
   const cont = continuity ?? {};
@@ -508,7 +567,7 @@ export function checkBeamAnchorage(
   // Bottom bars into start support
   if (bIntoS && bottomLayers.length > 0) {
     const maxDia = Math.max(...bottomLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.bottom);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = cont.ldStart ?? tStartEnd * L; // user-specified or region length
     checks.push({
@@ -523,7 +582,7 @@ export function checkBeamAnchorage(
   // Bottom bars into end support
   if (bIntoE && bottomLayers.length > 0) {
     const maxDia = Math.max(...bottomLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.bottom);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = cont.ldEnd ?? (1 - tEndStart) * L;
     checks.push({
@@ -538,7 +597,7 @@ export function checkBeamAnchorage(
   // Top start bars into span
   if (tsIntoSpan && topStartLayers.length > 0) {
     const maxDia = Math.max(...topStartLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.top);
     const ldh = requiredLdh(maxDia, fc, fy);
     // Available: how far top bars extend past the start region boundary into span
     // Conservative: assume they extend to midspan from the boundary
@@ -555,7 +614,7 @@ export function checkBeamAnchorage(
   // Top end bars into span
   if (teIntoSpan && topEndLayers.length > 0) {
     const maxDia = Math.max(...topEndLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.top);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = (tEndStart - tStartEnd) * L * 0.5;
     checks.push({
@@ -1909,13 +1968,31 @@ export function verifyProvidedReinforcement(
     const endRegLen = (1 - tEndStart) * beamL;
     const spanHalfLen = (tEndStart - tStartEnd) * beamL * 0.5;
 
-    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy);
-    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy);
-    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy);
+    /*
+     * Tabla 25.4.2.3's row and §25.4.2.5's ψt, per face, from the layout this check holds: the
+     * favourable row only where `favourableRowHolds` establishes it across both stirrup sets
+     * the bars cross, and ψt = 1,3 for top bars with more than 300 mm of concrete cast below.
+     * The section here is flex-rotated, so `h` is the depth the top face is measured across.
+     */
+    const stirrupsCrossed = [stirSupport, stirSpan];
+    const maxDiaOf = (ls: RebarLayer[]) => Math.max(0, ...ls.map((l) => l.diameter));
+    const bottomDev: DevelopmentConditions = {
+      favourableSpacing: favourableRowHolds(bottomLayers, section, stirrupsCrossed, dBottom),
+    };
+    const topDev = (ls: RebarLayer[], dTop: number): DevelopmentConditions => ({
+      favourableSpacing: favourableRowHolds(ls, section, stirrupsCrossed, dTop),
+      concreteBelowM: concreteBelowTopBars(section.h, section.cover, section.stirrupDia, maxDiaOf(ls)),
+    });
+    const topStartDev = topDev(topStartLayers, dTopStart);
+    const topEndDev = topDev(topEndLayers, dTopEnd);
+
+    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy, bottomDev);
+    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy, bottomDev);
+    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy, topStartDev);
     // End-side top continuation into the span: used by the opposite-sign sweep
     // below (hogging demand in the span). Its anchorage issues are intentionally
     // not merged — the anchorage report above keeps its previous coverage.
-    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy);
+    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy, topEndDev);
 
     const allAnchIssues = [...botIntoStartResult.anchorageIssues, ...botIntoEndResult.anchorageIssues, ...topIntoSpanResult.anchorageIssues];
     for (const issue of allAnchIssues) {
@@ -2336,52 +2413,74 @@ export function verifyProvidedReinforcement(
       let worst: {
         util: number; phiMn: number; Nu: number; Mprim: number; Msec: number; phiPn: number;
         biaxial: boolean; geo: boolean; sc: boolean; comboName: string; stationX: number; cN?: number;
+        minMoment: boolean;
       } | null = null;
       let count = 0;
       for (const t of allTuples) {
         // Compression positive: the solver's n is positive in tension. The column check read
         // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
         const Nu = -t.n;
-        const Mprim = Math.abs(tupleMoment(t, axes.flexure)) * deltaNs;
-        const Msec = Math.abs(tupleMoment(t, axes.secondaryFlexure)) * deltaNs;
-        if (Math.abs(Nu) < 0.01 && Mprim < 0.01 && Msec < 0.01) continue;
+        const Mp0 = Math.abs(tupleMoment(t, axes.flexure));
+        const Ms0 = Math.abs(tupleMoment(t, axes.secondaryFlexure));
+        if (Math.abs(Nu) < 0.01 && Mp0 * deltaNs < 0.01 && Ms0 * deltaNs < 0.01) continue;
         count++;
-        const isBiax = Mprim > 0.1 && Msec > 0.1;
-        // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
-        // invert to the demand/capacity convention used across the design surface.
-        let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
-        if (isBiax) {
-          // The section arrives flex-rotated (b=bFlex, h=hFlex): the PRIMARY axis
-          // always bends over depth h, the SECONDARY axis over depth b — same
-          // mapping as the uniaxial branch below (primary→'z', secondary→'y'),
-          // NOT moment-name→axis. computeBiaxialCapacity internally pairs Muz
-          // with depth h (capAxis 'z') and Muy with depth b (capAxis 'y'), so Muz
-          // must carry the PRIMARY moment and Muy the SECONDARY one regardless of
-          // which of My/Mz happens to be primary. Forwarding by name (muy=My,
-          // muz=Mz) was only correct when Mz was primary; when My was primary
-          // both moments hit the wrong bending depth.
-          const muz = Mprim;
-          const muy = Msec;
-          const cap = computeBiaxialCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, muy, muz, colBars);
-          util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
-          phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
+        /*
+         * §6.6.4.5.4: a slender column's M2 is at least M2,min = Pu·(15 mm + 0.03·h), «about each
+         * axis separately» — the commentary is explicit that the minimum is not applied about
+         * both axes at once. So a slender tuple is checked twice, with the minimum on the primary
+         * axis (depth h of the flex-rotated section) and then on the secondary one (depth b), and
+         * the worse governs. Without it a column with no end moment was magnified from zero: a
+         * pin-ended 6 m 30×30 at 680 kN, δns ≈ 5.3, passed as pure compression while
+         * `checkSlender`, the report's path, asked for Mc = δns·M2,min and failed it.
+         * `slenderMinimumMoment` is the one both read. δns > 1 is what tells this path the column is slender; a slender column
+         * whose δns clamps to exactly 1 (Cm well below 1, light axial) is not reached by it.
+         */
+        const cases: Array<{ Mprim: number; Msec: number; minMoment: boolean }> = [];
+        if (deltaNs > 1 && Nu > 0) {
+          const minP = slenderMinimumMoment(Nu, section.h), minS = slenderMinimumMoment(Nu, section.b);
+          cases.push({ Mprim: Math.max(Mp0, minP) * deltaNs, Msec: Ms0 * deltaNs, minMoment: minP > Mp0 });
+          if (minS > Ms0) cases.push({ Mprim: Mp0 * deltaNs, Msec: minS * deltaNs, minMoment: true });
         } else {
-          const Mu = Math.max(Mprim, Msec);
-          // The section arrives flex-rotated (b=bFlex, h=hFlex): a moment on the
-          // primary axis bends over h, a moment on the secondary axis bends over
-          // b. computeColumnCapacity takes depth=h for 'z' and depth=b for 'y',
-          // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
-          // which inverted the depth for My-governed rectangular columns and
-          // over-estimated φMn (checked at the strong axis) by ~2x.
-          const primaryIsLarger = Mprim >= Msec;
-          const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
-          const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
-          const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
-          util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
-          phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
+          cases.push({ Mprim: Mp0 * deltaNs, Msec: Ms0 * deltaNs, minMoment: false });
         }
-        if (!worst || util > worst.util) {
-          worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN };
+        for (const { Mprim, Msec, minMoment } of cases) {
+          const isBiax = Mprim > 0.1 && Msec > 0.1;
+          // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
+          // invert to the demand/capacity convention used across the design surface.
+          let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
+          if (isBiax) {
+            // The section arrives flex-rotated (b=bFlex, h=hFlex): the PRIMARY axis
+            // always bends over depth h, the SECONDARY axis over depth b — same
+            // mapping as the uniaxial branch below (primary→'z', secondary→'y'),
+            // NOT moment-name→axis. computeBiaxialCapacity internally pairs Muz
+            // with depth h (capAxis 'z') and Muy with depth b (capAxis 'y'), so Muz
+            // must carry the PRIMARY moment and Muy the SECONDARY one regardless of
+            // which of My/Mz happens to be primary. Forwarding by name (muy=My,
+            // muz=Mz) was only correct when Mz was primary; when My was primary
+            // both moments hit the wrong bending depth.
+            const muz = Mprim;
+            const muy = Msec;
+            const cap = computeBiaxialCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, muy, muz, colBars);
+            util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
+            phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
+          } else {
+            const Mu = Math.max(Mprim, Msec);
+            // The section arrives flex-rotated (b=bFlex, h=hFlex): a moment on the
+            // primary axis bends over h, a moment on the secondary axis bends over
+            // b. computeColumnCapacity takes depth=h for 'z' and depth=b for 'y',
+            // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
+            // which inverted the depth for My-governed rectangular columns and
+            // over-estimated φMn (checked at the strong axis) by ~2x.
+            const primaryIsLarger = Mprim >= Msec;
+            const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
+            const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
+            const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
+            util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
+            phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
+          }
+          if (!worst || util > worst.util) {
+            worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN, minMoment };
+          }
         }
       }
       if (worst) {
@@ -2392,7 +2491,7 @@ export function verifyProvidedReinforcement(
           ? `Biaxial P-M (Bresler, ${axes.flexure}+${axes.secondaryFlexure})`
           : `Uniaxial P-M (${axes.flexure})`;
         const geoTag = worst.sc ? ' [strain-compat]' : worst.geo ? ' [bar-geom]' : '';
-        const slenderTag = deltaNs > 1.0001 ? ` [δns=${deltaNs.toFixed(3)}]` : '';
+        const slenderTag = deltaNs > 1.0001 ? ` [δns=${deltaNs.toFixed(3)}${worst.minMoment ? ', M2,min' : ''}]` : '';
         const Mu = Math.max(worst.Mprim, worst.Msec);
         pushStrength({
           category: methodLabel, demandCategory: 'N_compression',

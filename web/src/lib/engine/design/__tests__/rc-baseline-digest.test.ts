@@ -240,4 +240,15 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // utilization remains 1.0000. See the closed-form axial tests in calculation-fidelity-regressions.test.ts.
 // And again on PRO 19's design changes (columns on the design curve, shear per 22.5, ld per
 // Tabla 25.4.2.3): the fingerprint PRO 19 recorded, which the merge with main reproduces.
-const RECORDED_FINGERPRINT = 'a84e9893c41e5501';
+// And (was `a84e9893c41e5501`) when the check's ld stopped assuming Tabla 25.4.2.3's favourable
+// row and ψt = 1 for every bar: the row is now established from the layout (clear cover ≥ db,
+// and spacing ≥ 2·db, or ≥ db with stirrups at Av,min and s ≤ d/2), and top bars with more
+// than 300 mm of concrete below take ψt = 1,3. One member of 408 moved, beam 161 (35×65, H-30,
+// 7,5 m): on its search path a 7Ø16 bottom with eØ6 c/20 no longer holds the favourable row
+// (29 mm clear < 2·db, Av/s 2,83 < 2,92 cm²/m), its ld into the 86 cm support region went from
+// 58 to 88 cm and drew a «needs hook» warning, and the search settled on top 6Ø25, bottom 5Ø20
+// instead of top 3Ø32, bottom 7Ø16 — still VERIFIED, utilization 0,9940 → 0,9500. No outcome
+// or limiting constraint changed; 395 verified and 13 provisional, as before. M2,min for
+// slender columns (§6.6.4.5.4), in the same change, was measured on its own first: it moves no
+// member of this frame.
+const RECORDED_FINGERPRINT = 'f8a66e1b74ca71f1';
