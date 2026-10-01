@@ -12,7 +12,14 @@
  * not hold, so both are checked; dropping the beams lost their shear from every bolt check.
  *
  * A vertical that is axial-only (a truss member) under a continuous chord is the gusset detail:
- * the chord runs through and only the web is bolted.
+ * the chord runs through and only the web is bolted. So is a diagonal ending at a chord, whatever
+ * element type it was drawn with: only a member within 15° of vertical is read as a column, and a
+ * Warren diagonal drawn as a frame had put the chord's 900 kN through the bolts as tension.
+ *
+ * Where two lines cross and neither is a column — secondary beams framing into a girder from both
+ * sides — the geometry does not say which is continuous, and every member is bolted. Taking the
+ * first pair listed as through let the beams' line run through, and the bolts were checked for the
+ * girder's 55 kN instead of the beam's 100 kN, depending on the order the members were listed in.
  */
 import { describe, it, expect } from 'vitest';
 import { jointDemands } from '../joint-demands';
@@ -62,5 +69,46 @@ describe('bolt pairs at a roof column head with beams on both sides', () => {
     const chord = [{ id: 1, name: 'U', elementForces: [ef(1, -120, 0), ef(3, 900, 0), ef(4, 900, 0)] }];
     const d = jointDemands(2, [1, 3, 4], truss, chord, nodes);
     expect(d.boltPairs.map((p) => p.elementId)).toEqual([1]);
+  });
+});
+
+describe('bolt pairs where a secondary beam frames into a continuous girder from both sides', () => {
+  // Node 1 at the origin, no column. Girder along X (elements 3, 4), beams along Y (elements 1, 2).
+  const at = new Map([
+    [1, { x: 0, y: 0, z: 3 }],
+    [2, { x: 0, y: -5, z: 3 }], [3, { x: 0, y: 5, z: 3 }],
+    [4, { x: -6, y: 0, z: 3 }], [5, { x: 6, y: 0, z: 3 }],
+  ]);
+  const els = new Map([
+    [1, { id: 1, nodeI: 2, nodeJ: 1 }], [2, { id: 2, nodeI: 1, nodeJ: 3 }],
+    [3, { id: 3, nodeI: 4, nodeJ: 1 }], [4, { id: 4, nodeI: 1, nodeJ: 5 }],
+  ]);
+  // Beam 1 delivers 100 kN, beam 2 10 kN; the girder's end shears either side are 55 kN.
+  const cs = [{ id: 1, name: 'U', elementForces: [ef(1, 0, 100), ef(2, 0, 10), ef(3, 0, 55), ef(4, 0, 55)] }];
+
+  it("check the bolts for the beam's 100 kN end shear, whatever order the members are listed in", () => {
+    for (const ids of [[1, 2, 3, 4], [3, 4, 1, 2]]) {
+      const d = jointDemands(1, ids, els, cs, at);
+      expect(Math.max(...d.boltPairs.map((p) => p.shearKN))).toBe(100);
+    }
+  });
+});
+
+describe('bolt pairs at a truss panel point with web members drawn as frames', () => {
+  // Bottom chord along X through node 1 (elements 1, 2), Warren diagonals up (3, 4), all frames.
+  const at = new Map([
+    [1, { x: 0, y: 0, z: 0 }], [2, { x: -2, y: 0, z: 0 }], [3, { x: 2, y: 0, z: 0 }],
+    [4, { x: -1, y: 0, z: 1.5 }], [5, { x: 1, y: 0, z: 1.5 }],
+  ]);
+  const els = new Map([
+    [1, { id: 1, nodeI: 2, nodeJ: 1 }], [2, { id: 2, nodeI: 1, nodeJ: 3 }],
+    [3, { id: 3, nodeI: 1, nodeJ: 4 }], [4, { id: 4, nodeI: 1, nodeJ: 5 }],
+  ]);
+  const cs = [{ id: 1, name: 'U', elementForces: [ef(1, 900, 2), ef(2, 900, 2), ef(3, -80, 1), ef(4, 80, 1)] }];
+
+  it("keep the chord running through: its 900 kN is not bolt tension", () => {
+    const d = jointDemands(1, [1, 2, 3, 4], els, cs, at);
+    expect(new Set(d.boltPairs.map((p) => p.elementId))).toEqual(new Set([3, 4]));
+    expect(Math.max(...d.boltPairs.map((p) => p.tensionKN))).toBe(80);
   });
 });

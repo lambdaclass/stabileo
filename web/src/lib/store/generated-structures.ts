@@ -152,6 +152,9 @@ function placeKeys(points: readonly Vec3[]): string[] {
  * corners, constraints (connectors and footings keep a node from welding), the groups other than
  * the structure's own, which is rewritten whole, and the time-history forces. The old node is then
  * removed; `removeNode` drops a constraint on it and leaves a shell's corner pointing at nothing.
+ * A constraint between the old node and the one it welds onto ties two nodes that are now one:
+ * `remapNodeReferences` drops it rather than leave a node tied to itself, which the solve
+ * rejects as a circular chain.
  */
 function followWelds(to: Map<number, number>, ownGroup: number): void {
   const r = (n: number) => to.get(n) ?? n;

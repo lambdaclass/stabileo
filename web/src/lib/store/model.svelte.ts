@@ -1361,12 +1361,6 @@ function createModelStore() {
       const bounds = segmentBounds(L, cuts);
       const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
       model.loads = [...kept, ...added];
-      if (model.analysis?.selfWeight) {
-        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.map(w =>
-          w.elements?.includes(elementId)
-            ? { ...w, elements: [...new Set(w.elements.flatMap(id => id === elementId ? segmentIds : [id]))] }
-            : w) };
-      }
 
       // A group that held the member now holds every segment of it.
       let touched = false;
@@ -1378,6 +1372,7 @@ function createModelStore() {
         touched = true;
       }
       if (touched) model.groups = new Map(model.groups);
+      // So do the self-weight rule, the deflection rules on chosen members and the saved views.
       replaceInSelfWeight(elementId, segmentIds);
 
       const segmentAt = (nodeId: number) => (nodeId === elem.nodeJ ? segmentIds[count - 1]! : segmentIds[0]!);
@@ -2348,18 +2343,41 @@ function createModelStore() {
     /**
      * Rename node ids in constraints, connectors and footings — the references the edit layer
      * cannot reach through the other mutators. `to` maps old id → new id.
+     *
+     * Renaming can make the two ends of a constraint one node: a weld or a merge of two nodes
+     * that were tied to each other. The two nodes are one now, so the tie says nothing, and kept
+     * it is a node tied to itself, which the solver rejects as a circular chain. Such a
+     * constraint is dropped, as `removeNode` dropped it before references were renamed: a
+     * master–slave pair that became one node; a diaphragm's slave that became its master (and
+     * the diaphragm, when no other slave is left), its slaves counted once; a linear MPC whose
+     * terms on the same node and DOF now cancel (u₇ − u₃ = 0 welded is u₃ − u₃ = 0).
      */
     remapNodeReferences(to: Map<number, number>): void {
       if (to.size === 0) return;
       if (!_undoBatching) _pushUndo?.();
       const r = (n: number) => to.get(n) ?? n;
-      model.constraints = model.constraints.map((c) => {
+      model.constraints = model.constraints.flatMap((c): Constraint3D[] => {
         const x = JSON.parse(JSON.stringify(c)) as Record<string, unknown>;
         if (typeof x.masterNode === 'number') x.masterNode = r(x.masterNode);
         if (typeof x.slaveNode === 'number') x.slaveNode = r(x.slaveNode);
-        if (Array.isArray(x.slaveNodes)) x.slaveNodes = (x.slaveNodes as number[]).map(r);
-        if (Array.isArray(x.terms)) x.terms = (x.terms as Array<{ nodeId: number }>).map((t) => ({ ...t, nodeId: r(t.nodeId) }));
-        return x as unknown as Constraint3D;
+        if (typeof x.slaveNode === 'number' && x.slaveNode === x.masterNode) return [];
+        if (Array.isArray(x.slaveNodes)) {
+          x.slaveNodes = [...new Set((x.slaveNodes as number[]).map(r))].filter((n) => n !== x.masterNode);
+          if ((x.slaveNodes as number[]).length === 0) return [];
+        }
+        if (Array.isArray(x.terms) && (x.terms as Array<{ nodeId: number }>).some((t) => to.has(t.nodeId))) {
+          type Term = { nodeId: number; dof: number; coefficient: number };
+          const terms = new Map<string, Term>();
+          for (const t of x.terms as Term[]) {
+            const key = `${r(t.nodeId)}:${t.dof}`;
+            const prev = terms.get(key);
+            terms.set(key, prev ? { ...prev, coefficient: prev.coefficient + t.coefficient } : { ...t, nodeId: r(t.nodeId) });
+          }
+          const scale = Math.max(...(x.terms as Term[]).map((t) => Math.abs(t.coefficient)));
+          x.terms = [...terms.values()].filter((t) => Math.abs(t.coefficient) > 1e-12 * scale);
+          if ((x.terms as Term[]).length === 0) return [];
+        }
+        return [x as unknown as Constraint3D];
       });
       if (model.connectors.size > 0) {
         model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));

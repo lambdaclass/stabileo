@@ -53,7 +53,8 @@ export interface JointDemands {
    * combination, for the members the joint connects. A member that runs straight through the
    * node (a continuous column) is left out, since its axial force passes the node without
    * reaching the bolts; when every member runs through (a splice) all of them count. Which line
-   * runs through is `throughMembers`' rule: the column, and none at a column head.
+   * runs through is `throughMembers`' rule: the column (or a lone line), none at a column head,
+   * and none where lines cross with no single column among them.
    *
    * The J.3.7 interaction reads these pairs. It read the governing axial and the governing shear,
    * which could come from different members and different combinations, so a column's pass-
@@ -81,11 +82,20 @@ interface NodeXYZ { x: number; y: number; z?: number }
  * so the rule is the one a detailer applies:
  *
  *   · Where several lines cross (an interior joint: column below and above, beams both sides),
- *     the column runs through and the beams are bolted to it. «The column» is the steepest line,
- *     with Z vertical as `classifyElement` reads it. Treating every collinear pair as through left
- *     no member to bolt, and the fallback then counted the column's 800 kN pass-through axial as
- *     bolt tension.
- *   · Where one line meets a steeper member that ends at the node — a column head with beams from
+ *     the column runs through and the beams are bolted to it. «The column» is the one line within
+ *     15° of vertical, with Z vertical as `classifyElement` reads it. Treating every collinear pair
+ *     as through left no member to bolt, and the fallback then counted the column's 800 kN
+ *     pass-through axial as bolt tension.
+ *   · Where several lines cross and none, or more than one, is a column — a grillage, secondary
+ *     beams framing into a girder from both sides; the two diagonals of an X brace — the geometry
+ *     does not say which is continuous, and no line runs through: every member is bolted. Taking
+ *     the first pair listed made the result depend on the order of the members, and with the
+ *     beams' line taken as through the bolts were checked for the girder's 55 kN end shear, not
+ *     the beam's 100 kN. The section could tell the girder (the deeper member) but this module
+ *     does not read sections, and a grillage of equal members has no girder to find; counting
+ *     every member is the conservative answer, at the price of a line that really is continuous
+ *     having its axial counted as bolt tension.
+ *   · Where one line meets a column that ends at the node — a column head with beams from
  *     both sides — the model holds two details at once. A beam continuous over a cap plate puts
  *     the column's reaction through the bolts, and that reaction is the sum of the beams' end
  *     shears; beams framing into a column that stops at their level put each beam's own end shear
@@ -94,9 +104,13 @@ interface NodeXYZ { x: number; y: number; z?: number }
  *     the line's members are not through, and the worst pair governs. The price is that a beam
  *     that really is continuous over a cap has its axial counted as bolt tension — conservative,
  *     and named here so it is not mistaken for the bug above.
- *   · Where the steeper member is axial-only — a truss member, or a frame end released in both
- *     bending axes — it is a web member on a continuous chord, the gusset detail: the chord runs
- *     through and only the web is bolted.
+ *   · Where the member ending at the line is not a column — flatter than 15° from vertical (a
+ *     truss diagonal or a brace, whatever element type it was drawn with), or axial-only (a truss
+ *     member, or a frame end released in both bending axes) — it is a web member on a continuous
+ *     chord, the gusset detail: the chord runs through and only the web is bolted. Reading any
+ *     steeper member as a column took a Warren diagonal drawn as a frame for one, and the chord's
+ *     900 kN reached the bolts as tension. A vertical post drawn as a frame and left unreleased
+ *     is still read as a column ending under a beam: the geometry is a roof column head's.
  *
  * When every member at the node is on the through line (a splice) the caller counts them all.
  */
@@ -122,9 +136,12 @@ function throughMembers(nodeId: number, elementIds: readonly number[], elements:
     }
   }
   if (lines.length === 0) return new Set();
-  // The steepest line is the column; on a tie (two crossing beams of a grillage) the first.
-  let line = lines[0]!;
-  for (const l of lines) if (steepness(l[0]) > steepness(line[0]) + 1e-9) line = l;
+  // Within 15° of Z: a column. Anything flatter is a beam, a chord, a web member or a brace.
+  const vertical = (id: number) => steepness(id) >= Math.cos((15 * Math.PI) / 180);
+  // One line is the line. Of several, only a column runs through, and only when it is the one.
+  const columns = lines.filter((l) => vertical(l[0]));
+  if (lines.length > 1 && columns.length !== 1) return new Set();
+  const line = lines.length === 1 ? lines[0]! : columns[0]!;
 
   const axialOnly = (id: number): boolean => {
     const e = elements.get(id);
@@ -134,7 +151,7 @@ function throughMembers(nodeId: number, elementIds: readonly number[], elements:
     return !!r?.my && !!r?.mz;
   };
   const columnEndsHere = elementIds.some((id) =>
-    !line.includes(id) && steepness(id) > steepness(line[0]) + 1e-9 && !axialOnly(id));
+    !line.includes(id) && vertical(id) && steepness(id) > steepness(line[0]) + 1e-9 && !axialOnly(id));
   return columnEndsHere ? new Set() : new Set(line);
 }
 

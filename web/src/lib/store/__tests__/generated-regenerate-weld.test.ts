@@ -5,7 +5,8 @@
  * A plane frame of two 6 m bays is regenerated as two 7 m bays next to a column the user drew at
  * x = 14: the old end base (x = 12) moves onto the column's foot and becomes it. The old node is
  * removed, and with it went its support — the base stood on nothing — while a shell on it kept a
- * corner that was not there and a constraint on it was dropped.
+ * corner that was not there and a constraint on it was dropped. A constraint between the base and
+ * the node it welds onto is the one that must go: renamed, it tied a node to itself.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
@@ -76,6 +77,20 @@ describe('regenerating onto a model node', () => {
     expect(modelStore.model.constraints).toEqual([{ type: 'equalDOF', masterNode: head, slaveNode: foot, dofs: [0, 1] }]);
   });
 
+  it('drops a constraint that tied the base to the node it welds onto, not leave a node tied to itself', () => {
+    // A column drawn after insertion, its foot coincident with the base and tied to it. The two
+    // nodes become one, and the solve rejects a self-tie as a circular constraint chain.
+    const f6 = frame('6; 6');
+    const r = insertGenerated(f6.g, translation([0, 0, 0]), meta('6; 6'), f6.roles);
+    const base = nodeAt(12, 0)[0]!.id;
+    const foot = modelStore.addNode(12, 0, 0), head = modelStore.addNode(12, 0, -3);
+    modelStore.addElement(head, foot, 'frame');
+    modelStore.addConstraint({ type: 'equalDOF', masterNode: foot, slaveNode: base, dofs: [0, 1, 2] });
+    const f6b = frame('6; 6');
+    expect(regenerate(r.groupId, f6b.g, meta('6; 6'), f6b.roles)!.welded).toBeGreaterThan(0);
+    expect(modelStore.model.constraints).toEqual([]);
+  });
+
   it('is one undo step', () => {
     const { groupId, base } = setUp();
     historyStore.clear();
@@ -84,5 +99,23 @@ describe('regenerating onto a model node', () => {
     expect(modelStore.nodes.has(base)).toBe(true);
     expect(supportsAt(12, 0)).toHaveLength(1);
     expect(supportsAt(14, 0)).toHaveLength(0);
+  });
+});
+
+describe('renaming a node onto one it was tied to', () => {
+  it('drops the tie, a diaphragm slave that became its master, and an MPC that cancels', () => {
+    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(5, 0, 3);
+    modelStore.addConstraint({ type: 'rigidLink', masterNode: a, slaveNode: b });
+    modelStore.addConstraint({ type: 'diaphragm', masterNode: a, slaveNodes: [b, c] });
+    modelStore.addConstraint({ type: 'diaphragm', masterNode: a, slaveNodes: [b] });
+    modelStore.addConstraint({ type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: a, dof: 0, coefficient: -1 }] });
+    modelStore.addConstraint({ type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: a, dof: 1, coefficient: -1 }] });
+    modelStore.addConstraint({ type: 'equalDOF', masterNode: c, slaveNode: b, dofs: [0] });
+    modelStore.remapNodeReferences(new Map([[b, a]]));
+    expect(modelStore.model.constraints).toEqual([
+      { type: 'diaphragm', masterNode: a, slaveNodes: [c] },
+      { type: 'linearMPC', terms: [{ nodeId: a, dof: 0, coefficient: 1 }, { nodeId: a, dof: 1, coefficient: -1 }] },
+      { type: 'equalDOF', masterNode: c, slaveNode: a, dofs: [0] },
+    ]);
   });
 });
