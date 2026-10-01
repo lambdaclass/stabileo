@@ -63,6 +63,23 @@ export function applyVariant(variant: Variant): void {
   }
 }
 
+/**
+ * One turn of the worker's event loop, between long synchronous stages.
+ *
+ * Vitest's worker reports progress to the coordinator over an RPC whose reply has 60 s to
+ * arrive (birpc's default; vitest 3 does not expose it). The reply is a message, and a
+ * worker that stays inside synchronous code never reads it: when the code returns, the
+ * expired timer runs before the message does, and the run ends in
+ * `[vitest-worker]: Timeout calling "onTaskUpdate"` with every assertion passed. The design
+ * chain on a whole building is 20–45 s of synchronous work here and more on a CI runner.
+ *
+ * `setImmediate`, not `setTimeout(0)`: a timer continues in the timers phase, before the
+ * loop reaches the poll phase where the message is read; an immediate runs after it.
+ */
+export function turn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
   modelStore.clear();
   resultsStore.clear();
@@ -82,9 +99,13 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
 
   designRunStore.computeDemands();
   designRunStore.runCodeCheck();
+  await turn();
   designRunStore.designAll();
+  await turn();
   detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
   detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
 
   const doc = detailingStore.buildDocument({ author: 'bench', at: '2026-08-09T00:00:00Z' });
   expect(doc, 'the chain produced a document').toBeTruthy();
@@ -117,6 +138,7 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
     });
   }
 
+  await turn();
   return { doc: doc!, scene: buildSceneModel(doc!, { members }), outcomes };
 }
 
