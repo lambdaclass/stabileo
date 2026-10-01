@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * A pushover's capacity curve and its hinge sequence: base shear against the control node's
    * displacement, one point per hinge event, and a slider over the steps. On the model, the
@@ -71,7 +72,7 @@
   let hover = $state<number | null>(null);
   const shownPoint = $derived(curve[hover ?? index] ?? point);
 
-  const fmt = (v: number, d = 3) => (Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
+  const fmt = (v: number, d = 3) => (Number.isFinite(v) ? plainNumber(v, d) : '—');
   const endName = (end: string) => (end === 'end' ? t('pro.po.endJ') : t('pro.po.endI'));
 </script>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../lib/utils/units';
   import { thermalAlphaOf } from '../../lib/engine/thermal-alpha';
   /**
    * The PRO materials tab: the list of materials, and one way to add to it.
@@ -55,7 +56,7 @@
   let expandedId = $state<number | null>(null);
 
   const fmt = (v: number, d = 2) =>
-    Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—';
+    Number.isFinite(v) ? plainNumber(v, d) : '—';
 
   /**
    * The properties a reader needs and the table has no room for.
@@ -252,7 +253,7 @@
             <tr>
               <td class="col-id">{m.id}</td>
               <td class="col-name">{m.name}</td>
-              <td class="col-num">{m.e.toLocaleString()}</td>
+              <td class="col-num">{plainNumber(m.e, 0)}</td>
               <td class="col-num">{m.nu}</td>
               <td class="col-num">{m.rho}</td>
               <td class="col-num">{m.fy ?? '—'}</td>

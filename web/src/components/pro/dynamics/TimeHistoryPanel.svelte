@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * Time history: the ground motion, the run, and the response walked step by step.
    *
@@ -148,7 +149,7 @@
 
   const peakDisp = $derived(result?.peakDisplacements?.length
     ? Math.max(...result.peakDisplacements.map((d) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))) : null);
-  const fmt = (v: number, d = 2) => (Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
+  const fmt = (v: number, d = 2) => (Number.isFinite(v) ? plainNumber(v, d) : '—');
 </script>
 
 <div class="adv-panel" data-testid="time-history">

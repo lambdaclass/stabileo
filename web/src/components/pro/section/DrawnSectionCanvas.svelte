@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   import { t } from '../../../lib/i18n';
   /**
    * The drawing of a drawn section: every part in its material's colour, holes dashed, the
@@ -52,7 +53,7 @@
   /** The materials the drawing uses, in colour order, for the legend and the hatches. */
   const used = $derived(materialOrder.filter((m) => drawn.parts.some((p) => !p.void && (p.materialId ?? null) === m)));
   const hatchId = (m: number | null) => `drawn-hatch-${m ?? 'ref'}`;
-  const mm = (m: number) => (m * 1000).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const mm = (m: number) => plainNumber(m * 1000, 1);
 
   const selBox = $derived.by(() => {
     const o = outlines.find((x) => x.part.id === selected);

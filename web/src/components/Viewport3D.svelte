@@ -1,5 +1,6 @@
 <script lang="ts">
   import { is3DWorkspace } from '../lib/utils/workspace';
+  import { displayUnits } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
@@ -1386,6 +1387,7 @@
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
     uiStore.unitSystem; // value labels are in the chosen units
+    displayUnits.decimals; // and with the decimals the reader set
     syncDiagrams3D();
     invalidate();
   });

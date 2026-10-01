@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   import PickKind from './PickKind.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
@@ -307,8 +308,8 @@
    *  (es/de/fr keyboards) so "1,5" becomes 1.5 instead of being truncated to 1
    *  by parseFloat. Returns `fallback` for empty/invalid input. */
   function parseNum(value: string, fallback = 0): number {
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) ? n : fallback;
+    // One reader for the whole app: a comma or a point, thousands grouped by the other.
+    return parseDecimal(String(value)) ?? fallback;
   }
 
   /*

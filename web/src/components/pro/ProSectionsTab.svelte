@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../lib/utils/units';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import ProSectionModal from './section/ProSectionModal.svelte';
@@ -64,7 +65,7 @@
   const M4_TO_CM4 = 1e8;
   const M3_TO_CM3 = 1e6;
   const fmt = (v: number, d = 2) =>
-    Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—';
+    Number.isFinite(v) ? plainNumber(v, d) : '—';
 
   /**
    * Everything PRO knows about a section, in the order it is read.

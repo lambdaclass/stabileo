@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * The live properties of a drawn section, and a row per part.
    *
@@ -15,7 +16,7 @@
   const f = (v: number | null | undefined, scale: number, d = 2) => {
     if (v == null || !Number.isFinite(v)) return '—';
     const x = v * scale;
-    return (Math.abs(x) < 0.5 * 10 ** -d ? 0 : x).toLocaleString(undefined, { maximumFractionDigits: d });
+    return plainNumber(x, d);
   };
   const CM2 = 1e4, CM3 = 1e6, CM4 = 1e8, CM6 = 1e12;
   const deg = (r: number) => f((r * 180) / Math.PI, 1, 1);

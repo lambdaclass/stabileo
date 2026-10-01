@@ -140,16 +140,55 @@ export function unitLabel(qty: Quantity, system: UnitSystem): string {
 
 /**
  * Format a value with appropriate precision for display.
+ *
+ * A value that rounds to zero is "0", never "-0.00" nor "0.000" beside a "0" elsewhere; a value
+ * that is not a number is "—". Without fixed decimals the precision follows the size of the
+ * ROUNDED value, so 99.996 reads "100.0" like 100 does, not "100.00".
  */
 export function formatValue(value: number, qty: Quantity, system: UnitSystem, decimals?: number): string {
-  const displayVal = toDisplay(value, qty, system);
-  const abs = Math.abs(displayVal);
+  if (!Number.isFinite(value)) return '—';
+  const v = toDisplay(value, qty, system);
+  const fixed = (d: number) => { const s = v.toFixed(d); return Number(s) === 0 ? '0' : s; };
   // A fixed number of decimals when the reader asked for one for this quantity.
-  if (decimals !== undefined && decimals >= 0) return abs < 1e-12 ? '0' : displayVal.toFixed(decimals);
+  if (decimals !== undefined && decimals >= 0) return fixed(decimals);
+  const abs = Math.abs(v);
   if (abs < 1e-10) return '0';
-  if (abs >= 1000) return displayVal.toFixed(0);
-  if (abs >= 100) return displayVal.toFixed(1);
-  if (abs >= 1) return displayVal.toFixed(2);
-  if (abs >= 0.01) return displayVal.toFixed(4);
-  return displayVal.toExponential(3);
+  if (abs >= 999.5) return fixed(0);
+  if (abs >= 99.95) return fixed(1);
+  if (abs >= 0.995) return fixed(2);
+  if (abs >= 0.0099995) return fixed(4);
+  return v.toExponential(3);
+}
+
+/**
+ * The decimals a reader set per quantity (`store/display-units.svelte.ts` keeps them and calls
+ * `setDisplayDecimals`), for the formatters that run outside the store: the diagram labels.
+ */
+let displayDecimals: Partial<Record<Quantity, number>> = {};
+export function setDisplayDecimals(d: Partial<Record<Quantity, number>>): void { displayDecimals = { ...d }; }
+
+/**
+ * A diagram value with its unit, the one formatter of the 2D and 3D labels: the reader's decimals
+ * for the quantity when set, otherwise 0 decimals from 100, 1 from 10, 2 below; never "-0.00".
+ * Moments are shown sagging-positive (the internal sign is hogging-positive), so `moment` negates.
+ */
+export function formatDiagramValue(value: number, qty: 'force' | 'moment', system: UnitSystem): string {
+  if (!Number.isFinite(value)) return '—';
+  const v = toDisplay(qty === 'moment' ? -value : value, qty, system);
+  const abs = Math.abs(v);
+  const d = displayDecimals[qty] ?? (abs >= 99.5 ? 0 : abs >= 9.95 ? 1 : 2);
+  const s = v.toFixed(d);
+  return `${Number(s) === 0 ? (0).toFixed(d) : s} ${unitLabel(qty, system)}`;
+}
+
+/**
+ * A number for a table cell: at most `maxDecimals` decimals, trailing zeros dropped, a point for
+ * the decimals and no grouping, as every other table of the app writes them; "—" when it is not
+ * a number; never "-0". It replaces `toLocaleString(undefined, …)`, which followed the BROWSER's
+ * locale, not the app's: in a Spanish browser 1234 kN read "1.234", which looks like 1,234 kN.
+ */
+export function plainNumber(v: number, maxDecimals = 2): string {
+  if (!Number.isFinite(v)) return '—';
+  const r = Number(v.toFixed(maxDecimals));
+  return Object.is(r, -0) || r === 0 ? '0' : String(r);
 }

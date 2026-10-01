@@ -123,3 +123,21 @@ describe('a field says what zero means for it', () => {
     expect(parseNumericInput('-6', { zero: 'invalid' }).kind).toBe('invalid');
   });
 });
+
+describe('parseDecimal: what people type and paste', () => {
+  it('reads a comma or a point for decimals, and grouped thousands by the other', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('1,5')).toBe(1.5);
+    expect(parseDecimal('1.5')).toBe(1.5);
+    expect(parseDecimal('-0,25')).toBe(-0.25);
+    expect(parseDecimal('1,234.5')).toBe(1234.5);
+    expect(parseDecimal('1.234,5')).toBe(1234.5);
+    expect(parseDecimal('6,123,456.78')).toBe(6123456.78);
+    expect(parseDecimal('1.234.567')).toBe(1234567);
+    expect(parseDecimal('2e-3')).toBe(0.002);
+  });
+  it('refuses what it would have to guess, instead of truncating it', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    for (const s of ['', '1,23,4', '1.2.3', '1,2.3', 'abc', '1,234.5.6', '12,3456.7']) expect(parseDecimal(s)).toBeNull();
+  });
+});
