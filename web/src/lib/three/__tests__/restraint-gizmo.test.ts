@@ -10,7 +10,7 @@ const R = (o: Partial<Record<'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz', boolean>>)
   ({ tx: false, ty: false, tz: false, rx: false, ry: false, rz: false, ...o });
 
 function parts(dofRestraints: ReturnType<typeof R>, springs = {}) {
-  const g = createSupportGizmo({ x: 0, y: 0, z: 0 }, { supportId: 1, supportType: 'custom3d', dofRestraints, restraintSymbols: true, springs });
+  const g = createSupportGizmo({ x: 0, y: 0, z: 0 }, { supportId: 1, supportType: 'custom3d', dofRestraints, springs });
   const meshes: THREE.Mesh[] = [];
   g.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
   const plates = meshes.filter((m) => m.geometry instanceof THREE.BoxGeometry).length;
