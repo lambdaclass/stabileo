@@ -1042,8 +1042,11 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Shift+P — toggle the dev perf HUD live (also persisted for next load).
-      if (e.key === 'P' && e.shiftKey) {
+      // Shift+P — toggle the dev perf HUD live (also persisted for next load). Only in development
+      // and test builds, and never while typing: a capital P in a field used to switch it on, and
+      // it stayed on through reloads.
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName));
+      if (PERF_HUD_ALLOWED && !typing && e.key === 'P' && e.shiftKey) {
         perfHud = { ...perfHud, on: !perfHud.on };
         try { localStorage.setItem('stabileo_perf', perfHud.on ? '1' : '0'); } catch { /* ignore */ }
         invalidate();
@@ -1144,8 +1147,10 @@
   // GPU-bound (draw calls / fill rate). Enable with ?perf in the URL or
   // localStorage.stabileo_perf='1', or toggle live with Shift+P. Zero cost when
   // off (perfTimed early-returns; the render block is guarded). Not for prod.
+  /** The HUD is a development tool: development and test builds only, never the released app. */
+  const PERF_HUD_ALLOWED = import.meta.env.DEV || import.meta.env.VITE_E2E === '1';
   let perfHud = $state<{ on: boolean; flush: number; fps: number; renderMs: number; syncMs: number; calls: number; tris: number; geos: number; texs: number }>({
-    on: (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
+    on: PERF_HUD_ALLOWED && (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
     flush: 0, fps: 0, renderMs: 0, syncMs: 0, calls: 0, tris: 0, geos: 0, texs: 0,
   });
   // Non-reactive accumulators so the HUD's own reactivity doesn't perturb the measurement.
