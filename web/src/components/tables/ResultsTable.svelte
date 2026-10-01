@@ -41,7 +41,7 @@
   // Merge assembly + solver diagnostics into a single list
   const allDiagnostics = $derived((() => {
     const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = uiStore.is3DWorkspace;
     const asmDiags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     // What the pre-solve gates found about the model. Shell findings carry
     // `shellKeys`, not `elementIds`, so they are never labelled as a frame.
@@ -124,7 +124,7 @@
 </div>
 
 <div class="results-content">
-  {#if resultsStore.results3D && uiStore.analysisMode === '3d'}
+  {#if resultsStore.results3D && uiStore.is3DWorkspace}
     <!-- 3D Results -->
     {#if resultsSubTab === 'displacements'}
       <table>

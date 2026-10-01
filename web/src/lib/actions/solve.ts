@@ -34,7 +34,7 @@ export function runSolve() {
    * reporter itself.
    */
   reportModelDiagnostics();
-  if (uiStore.analysisMode === '3d') {
+  if (uiStore.is3DWorkspace) {
     runSolve3D();
     return;
   }

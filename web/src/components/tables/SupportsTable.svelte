@@ -48,7 +48,7 @@
   function addSupport() {
     if (!modelStore.getNode(newSupportNodeId)) return;
     historyStore.pushState();
-    if (uiStore.analysisMode === '3d') {
+    if (uiStore.is3DWorkspace) {
       // Create with per-DOF restraints from UI state
       const dofRestraints = {
         tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz,
@@ -83,7 +83,7 @@
 
 <table>
   <thead>
-    {#if uiStore.analysisMode === '3d'}
+    {#if uiStore.is3DWorkspace}
       <tr><th>ID</th><th>{t('table.nodeLabel')}</th><th>{t('table.dofRestrained')}</th><th>{t('table.stiffness')}</th><th></th></tr>
     {:else}
       <tr><th>ID</th><th>{t('table.nodeLabel')}</th><th>{t('table.type')}</th><th>{t('table.stiffness')}</th><th></th></tr>
@@ -94,7 +94,7 @@
       <tr>
         <td class="id-cell">{sup.id}</td>
         <td>{sup.nodeId}</td>
-        {#if uiStore.analysisMode === '3d'}
+        {#if uiStore.is3DWorkspace}
           <!-- 3D: per-DOF checkboxes -->
           {@const dofs = sup.dofRestraints ?? defaultDofs(sup.type)}
           <td class="load-values">
@@ -154,12 +154,12 @@
   </tbody>
 </table>
 <div class="table-footer">
-  <div class="add-row" style={uiStore.analysisMode === '3d' ? 'flex-wrap:nowrap;gap:0.15rem;' : ''}>
+  <div class="add-row" style={uiStore.is3DWorkspace ? 'flex-wrap:nowrap;gap:0.15rem;' : ''}>
     <span class="add-label">{t('table.nodeLabel')}:</span>
-    <select bind:value={newSupportNodeId} class="add-input" style={uiStore.analysisMode === '3d' ? 'width:40px;' : ''}>
+    <select bind:value={newSupportNodeId} class="add-input" style={uiStore.is3DWorkspace ? 'width:40px;' : ''}>
       {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
     </select>
-    {#if uiStore.analysisMode === '3d'}
+    {#if uiStore.is3DWorkspace}
       <!-- 3D: per-DOF checkboxes for new support -->
       <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTx} />Fx</label>
       <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTy} />Fy</label>

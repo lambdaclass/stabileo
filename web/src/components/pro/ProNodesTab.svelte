@@ -214,7 +214,7 @@
         <tr>
           <th class="col-id">ID</th>
           <th class="col-coord">X (m)</th>
-          <th class="col-coord">{uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
+          <th class="col-coord">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
           <th class="col-coord">Z (m)</th>
           <th class="col-actions"></th>
         </tr>

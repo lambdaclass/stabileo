@@ -42,7 +42,7 @@
           <div class="shortcut"><kbd>G</kbd> {t('help.toggleGrid')}</div>
           <div class="shortcut"><kbd>H</kbd> {t('help.toggleAxes')}</div>
           <div class="shortcut"><kbd>F</kbd> {t('help.fitModel')}</div>
-          {#if uiStore.analysisMode === 'pro' || uiStore.analysisMode === '3d'}
+          {#if uiStore.is3DWorkspace}
             <div class="shortcut"><kbd>Alt+Z</kbd> {t('view.zoomSelection')}</div>
             <div class="shortcut"><kbd>Alt+N</kbd> {t('view.labelNodes')}</div>
             <div class="shortcut"><kbd>Alt+B</kbd> {t('view.labelMembers')}</div>
@@ -50,7 +50,7 @@
             <div class="shortcut"><kbd>Alt+L</kbd> {t('view.labelLengths')}</div>
             <div class="shortcut"><kbd>Alt+P</kbd> {t('view.labelShells')}</div>
           {/if}
-          {#if uiStore.analysisMode !== '3d'}
+          {#if !uiStore.is3DWorkspace}
             <div class="shortcut"><kbd>+</kbd> {t('help.zoomIn')}</div>
             <div class="shortcut"><kbd>-</kbd> {t('help.zoomOut')}</div>
           {/if}
@@ -58,7 +58,7 @@
           <h3>{t('help.diagrams')}</h3>
           <div class="shortcut"><kbd>0</kbd> {t('help.diagramNone')}</div>
           <div class="shortcut"><kbd>1</kbd> {t('help.diagramDeformed')}</div>
-          {#if uiStore.analysisMode !== '3d'}
+          {#if !uiStore.is3DWorkspace}
             <div class="shortcut"><kbd>2</kbd> {t('help.diagramShear')}</div>
             <div class="shortcut"><kbd>3</kbd> {t('help.diagramMoment')}</div>
           {:else}

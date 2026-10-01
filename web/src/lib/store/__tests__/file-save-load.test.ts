@@ -3,17 +3,14 @@
  *
  * Covers:
  * - Bug #2: .ded save/load preserves analysisMode and axisConvention3D
- * - Bug #4: PRO exports use 3D code paths (isMode3D helper)
+ * - Bug #4: PRO exports use 3D code paths (is3DWorkspace helper)
  * - Bug #5: axis safety validation on file load
  */
 
 import { describe, it, expect } from 'vitest';
 
-// Replicate isMode3D logic here to avoid importing file.ts
-// (which pulls in Svelte stores and $state runes not available in vitest)
-function isMode3D(mode: string): boolean {
-  return mode === '3d' || mode === 'pro';
-}
+// The helper itself, not a copy of it: `utils/workspace` imports no store.
+import { is3DWorkspace } from '../../utils/workspace';
 
 interface DedalFile {
   version: '1.0';
@@ -61,27 +58,27 @@ function minimalSnapshot(opts?: { nodesWithZ?: boolean }): any {
   };
 }
 
-// ─── Bug #4: isMode3D helper ─────────────────────────────────
+// ─── Bug #4: is3DWorkspace helper ─────────────────────────────────
 
-describe('isMode3D', () => {
+describe('is3DWorkspace', () => {
   it('returns true for "3d" mode', () => {
-    expect(isMode3D('3d')).toBe(true);
+    expect(is3DWorkspace('3d')).toBe(true);
   });
 
   it('returns true for "pro" mode', () => {
-    expect(isMode3D('pro')).toBe(true);
+    expect(is3DWorkspace('pro')).toBe(true);
   });
 
   it('returns false for "2d" mode', () => {
-    expect(isMode3D('2d')).toBe(false);
+    expect(is3DWorkspace('2d')).toBe(false);
   });
 
   it('returns false for "edu" mode', () => {
-    expect(isMode3D('edu')).toBe(false);
+    expect(is3DWorkspace('edu')).toBe(false);
   });
 
   it('returns false for empty string', () => {
-    expect(isMode3D('')).toBe(false);
+    expect(is3DWorkspace('')).toBe(false);
   });
 });
 
@@ -190,24 +187,24 @@ describe('DedalFile format includes analysisMode, axisConvention3D, and viewport
 // ─── Bug #4: PRO mode exports use 3D code paths ──────────────
 
 describe('PRO mode treated as 3D in export logic', () => {
-  it('isMode3D("pro") === true so CSV export uses 3D branch', () => {
-    // The CSV export code does: const is3D = isMode3D(uiStore.analysisMode);
+  it('is3DWorkspace("pro") === true so CSV export uses 3D branch', () => {
+    // The CSV export code does: const is3D = uiStore.is3DWorkspace;
     // When analysisMode is 'pro', is3D should be true
-    expect(isMode3D('pro')).toBe(true);
+    expect(is3DWorkspace('pro')).toBe(true);
   });
 
-  it('isMode3D("pro") matches isMode3D("3d")', () => {
-    expect(isMode3D('pro')).toBe(isMode3D('3d'));
+  it('is3DWorkspace("pro") matches is3DWorkspace("3d")', () => {
+    expect(is3DWorkspace('pro')).toBe(is3DWorkspace('3d'));
   });
 
   it('both 3d and pro return true, while 2d and edu return false', () => {
     const modes3D = ['3d', 'pro'];
     const modes2D = ['2d', 'edu'];
     for (const mode of modes3D) {
-      expect(isMode3D(mode)).toBe(true);
+      expect(is3DWorkspace(mode)).toBe(true);
     }
     for (const mode of modes2D) {
-      expect(isMode3D(mode)).toBe(false);
+      expect(is3DWorkspace(mode)).toBe(false);
     }
   });
 });
@@ -226,7 +223,7 @@ describe('axis safety: 2D file with non-zero Z detection', () => {
     };
 
     const mode = file.analysisMode ?? '2d';
-    expect(isMode3D(mode)).toBe(false); // File claims to be 2D
+    expect(is3DWorkspace(mode)).toBe(false); // File claims to be 2D
 
     // But snapshot has non-zero Z
     const nodes = file.snapshot.nodes as Array<[number, { z?: number }]>;
@@ -260,8 +257,8 @@ describe('axis safety: 2D file with non-zero Z detection', () => {
     };
 
     const mode = file.analysisMode ?? '2d';
-    // isMode3D returns true → validateAxisSafety returns early
-    expect(isMode3D(mode)).toBe(true);
+    // is3DWorkspace returns true → validateAxisSafety returns early
+    expect(is3DWorkspace(mode)).toBe(true);
   });
 
   it('a PRO file with Z coords does not trigger axis safety', () => {
@@ -274,7 +271,7 @@ describe('axis safety: 2D file with non-zero Z detection', () => {
     };
 
     const mode = file.analysisMode ?? '2d';
-    expect(isMode3D(mode)).toBe(true);
+    expect(is3DWorkspace(mode)).toBe(true);
   });
 });
 

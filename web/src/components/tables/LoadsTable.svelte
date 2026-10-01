@@ -154,7 +154,7 @@
 <div class="table-footer">
   <div class="add-row">
     <select bind:value={newLoadType} class="add-input add-input-wide">
-      {#if uiStore.analysisMode === '3d'}
+      {#if uiStore.is3DWorkspace}
         <option value="nodal3d">{t('table.pointLoad3d')}</option>
         <option value="distributed3d">{t('table.distLoad3d')}</option>
         <option value="pointOnElement3d">{t('table.pointBarLoad')}</option>

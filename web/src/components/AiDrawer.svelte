@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { is3DWorkspace } from '../lib/utils/workspace';
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, tp, i18n } from '../lib/i18n';
@@ -40,7 +41,7 @@
   let reviewResponse = $state<ReviewModelResponse | null>(null);
   let expandedFinding = $state<number | null>(null);
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
   const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');
   const hasResults = $derived(
     is3DMode
@@ -446,7 +447,7 @@
   function fastRebuild(snapshot: ModelSnapshot) {
     // Switch analysis mode if snapshot specifies it
     const snapshotMode = (snapshot as any).analysisMode;
-    const snapshotIs3D = snapshotMode === '3d' || snapshotMode === 'pro';
+    const snapshotIs3D = is3DWorkspace(snapshotMode);
     if (snapshotIs3D && !is3DMode) {
       uiStore.analysisMode = uiStore.appMode === 'pro' ? 'pro' : '3d';
     } else if (snapshotMode === '2d' && is3DMode) {

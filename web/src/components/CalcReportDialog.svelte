@@ -17,9 +17,9 @@
     if (open) projectName = modelStore.model.name || t('calcReport.defaultProject');
   });
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
-  const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.analysisMode === '3d' ? '3D' : '2D');
+  const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.is3DWorkspace ? '3D' : '2D');
 
   function deriveProvenance(): ResultProvenance {
     const view = resultsStore.activeView;

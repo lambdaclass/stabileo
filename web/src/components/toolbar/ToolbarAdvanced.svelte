@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
 
-  const threeD = (): boolean => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+  const threeD = (): boolean => uiStore.is3DWorkspace;
 
   /*
    * A 2D ↔ 3D switch closes what the dimension left behind.
@@ -486,7 +486,7 @@
   }
 
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   async function handlePDelta3D() {
     if (blockedBySlidingJoints()) return;

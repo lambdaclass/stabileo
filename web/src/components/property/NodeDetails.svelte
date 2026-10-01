@@ -21,7 +21,7 @@
   const us = $derived(uiStore.unitSystem);
   const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
   const dv = (v: number, q: import('../../lib/utils/units').Quantity) => toDisplay(v, q, us);
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   let { showResults = false } = $props();
 

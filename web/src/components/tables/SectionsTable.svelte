@@ -11,7 +11,7 @@
   import { solverProperties } from '../../lib/section/state';
 
   const sectionsArr = $derived([...modelStore.sections.values()]);
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   // Unit conversion factors: model stores m² and m⁴, display in cm² and cm⁴
   const M2_TO_CM2 = 1e4;   // m² → cm²
@@ -277,7 +277,7 @@
   onshapeselect={(name: string, props: SectionProperties) => handleSCShapeSelect(name, props)}
   onamorphousselect={(data) => handleSCAmorphousSelect(data)}
   onclose={() => { showSectionChanger = false; sectionChangerTargetSecId = null; }}
-  is3D={uiStore.analysisMode === '3d'}
+  is3D={uiStore.is3DWorkspace}
 />
 
 <style>

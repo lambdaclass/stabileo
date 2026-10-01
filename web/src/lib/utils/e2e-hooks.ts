@@ -449,6 +449,8 @@ export interface StabileoTestActions {
   combineCases(name: string): number;
   /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
+  /** Open the viewport's context menu on a member, as a right click on it would. */
+  openContextMenu(elementId: number): void;
   /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
   selectShells(keys: string[]): void;
   toggleBarLock(barId: string): void;
@@ -757,6 +759,9 @@ export function installE2EHooks(): void {
     selectElements: (ids: number[]) => {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
+    },
+    openContextMenu: (elementId: number) => {
+      uiStore.contextMenu = { x: 200, y: 200, elementId };
     },
     selectShells: (keys: string[]) => {
       const all = keys.length ? keys : [...[...modelStore.quads.keys()].map((id) => `q${id}`), ...[...modelStore.plates.keys()].map((id) => `p${id}`)];
