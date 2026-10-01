@@ -42,11 +42,15 @@ export interface ShellCentreRow {
   kind: 'plate' | 'quad';
   id: number;
   thickness: number;
-  /** Membrane stresses, kN/m², and moments, kN·m/m, in local axes. */
-  sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number;
+  /** Membrane stresses, kN/m², in local axes. */
+  sigmaXx: number; sigmaYy: number; tauXy: number;
+  /** Moments, kN·m/m; unavailable for curved shells (the engine returns placeholders). */
+  mx?: number; my?: number; mxy?: number;
   /** Transverse shears, kN/m, local: MITC4 quads only. */
   qx?: number; qy?: number;
-  membrane: FaceResult; top: FaceResult; bottom: FaceResult;
+  membrane: FaceResult;
+  /** Faces need recovered moments and a valid thickness; unavailable is never membrane-only. */
+  top?: FaceResult; bottom?: FaceResult;
   /** Global axes; absent where the element's local axes are not known here (a curved quad). */
   global?: { stress: Tensor6; moment: Tensor6; shear?: Vec };
 }
@@ -90,17 +94,18 @@ export function shellCentreRows(r: AnalysisResults3D, m: ShellModel): ShellCentr
     for (const s of [...(list ?? [])].sort((a, b) => a.elementId - b.elementId)) {
       const e = el?.get(s.elementId);
       const t = e?.thickness ?? 0;
-      const faces = t > 0 ? faceStresses(s, t) : null;
+      const curved = e?.curved ?? false;
+      const faces = !curved && Number.isFinite(t) && t > 0 ? faceStresses(s, t) : null;
       const membrane = face({ sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy });
       const pts = e ? e.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p) : [];
-      const axes = e && !(e as { curved?: boolean }).curved && pts.length === e.nodes.length ? shellLocalAxes(kind, pts) : null;
+      const axes = e && !curved && pts.length === e.nodes.length ? shellLocalAxes(kind, pts) : null;
       const q = 'qx' in s && s.qx !== undefined && s.qy !== undefined ? { qx: s.qx, qy: s.qy } : {};
       out.push({
         kind, id: s.elementId, thickness: t,
-        sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy, mx: s.mx, my: s.my, mxy: s.mxy, ...q,
+        sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy,
+        ...(!curved ? { mx: s.mx, my: s.my, mxy: s.mxy } : {}), ...q,
         membrane,
-        top: faces ? face(faces.top) : membrane,
-        bottom: faces ? face(faces.bottom) : membrane,
+        ...(faces ? { top: face(faces.top), bottom: face(faces.bottom) } : {}),
         ...(axes ? {
           global: {
             stress: toGlobal(s.sigmaXx, s.sigmaYy, s.tauXy, axes.ex, axes.ey),

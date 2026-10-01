@@ -1,7 +1,7 @@
 /**
  * The result sheets of the project workbook: every case and every combination, in long form.
  *
- * Each row names its source (`case`, `combination` or `single`, its id and its name) and its place (node,
+ * Each row names its source (`case`, `combination`, `single` or `envelope`, its id and its name) and its place (node,
  * member end, station), so a sheet can be filtered or pivoted without a lookup. The tables are
  * the PRO result tables' (`engine/result-tables.ts`), the station forces the diagrams'
  * (`station-forces.ts`), the stresses and the deflections the ones their own tables show: the
@@ -19,8 +19,8 @@ import type { StationDeflection } from '../store/service-deflection';
 import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, type ShellModel, type FaceResult } from '../engine/shell-results';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
-/** A solved case, combination, or standalone solve (source id 0, not a load-case id). */
-export interface WorkbookSource { kind: 'case' | 'combination' | 'single'; id: number; name: string; results: AnalysisResults3D }
+/** A result source; standalone solves and envelope views use id 0, not a load-case id. */
+export interface WorkbookSource { kind: 'case' | 'combination' | 'single' | 'envelope'; id: number; name: string; results: AnalysisResults3D }
 
 export interface ResultSheetsInput {
   sources: readonly WorkbookSource[];
@@ -101,7 +101,9 @@ function stressesSheet(input: ResultSheetsInput): WorkbookSheet | null {
 
 
 const FACE_COLS = (f: string) => [`${f}Sxx [kN/m²]`, `${f}Syy [kN/m²]`, `${f}Txy [kN/m²]`, `${f}S1 [kN/m²]`, `${f}S2 [kN/m²]`, `${f}Angle [°]`, `${f}VonMises [kN/m²]`, `${f}Tresca [kN/m²]`];
-const faceCells = (f: FaceResult) => [f.sxx, f.syy, f.txy, f.s1, f.s2, f.angleDeg, f.vonMises, f.tresca];
+const faceCells = (f: FaceResult | undefined) => f
+  ? [f.sxx, f.syy, f.txy, f.s1, f.s2, f.angleDeg, f.vonMises, f.tresca]
+  : ['', '', '', '', '', '', '', ''];
 const T6 = ['xx', 'yy', 'zz', 'xy', 'yz', 'zx'] as const;
 const hasShells = (input: ResultSheetsInput) => input.sources.some((s) => (s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0) > 0);
 
@@ -123,7 +125,7 @@ function shellCentresSheet(input: ResultSheetsInput): WorkbookSheet {
       const g = r.global;
       rows.push([
         ...src(s), r.kind, r.id, r.thickness,
-        r.sigmaXx, r.sigmaYy, r.tauXy, r.mx, r.my, r.mxy, opt(r.qx), opt(r.qy),
+        r.sigmaXx, r.sigmaYy, r.tauXy, opt(r.mx), opt(r.my), opt(r.mxy), opt(r.qx), opt(r.qy),
         ...faceCells(r.membrane), ...faceCells(r.top), ...faceCells(r.bottom),
         ...T6.map((k) => (g ? g.stress[k] : '')), ...T6.map((k) => (g ? g.moment[k] : '')),
         ...(g?.shear ? g.shear : ['', '', '']),
@@ -151,9 +153,10 @@ function shellCornersSheet(input: ResultSheetsInput): WorkbookSheet {
 
 /** The shell components the maxima sheet reads, with their units. */
 const SHELL_MAXIMA: Array<[string, string, (r: ShellCentreRow) => number | undefined]> = [
-  ['membraneVonMises', 'kN/m²', (r) => r.membrane.vonMises], ['topVonMises', 'kN/m²', (r) => r.top.vonMises], ['bottomVonMises', 'kN/m²', (r) => r.bottom.vonMises],
-  ['topTresca', 'kN/m²', (r) => r.top.tresca], ['bottomTresca', 'kN/m²', (r) => r.bottom.tresca],
-  ['topS1', 'kN/m²', (r) => r.top.s1], ['bottomS2', 'kN/m²', (r) => r.bottom.s2],
+  ['membraneVonMises', 'kN/m²', (r) => r.membrane.vonMises], ['topVonMises', 'kN/m²', (r) => r.top?.vonMises], ['bottomVonMises', 'kN/m²', (r) => r.bottom?.vonMises],
+  ['topTresca', 'kN/m²', (r) => r.top?.tresca], ['bottomTresca', 'kN/m²', (r) => r.bottom?.tresca],
+  ['topS1', 'kN/m²', (r) => r.top?.s1], ['topS2', 'kN/m²', (r) => r.top?.s2],
+  ['bottomS1', 'kN/m²', (r) => r.bottom?.s1], ['bottomS2', 'kN/m²', (r) => r.bottom?.s2],
   ['mx', 'kN·m/m', (r) => r.mx], ['my', 'kN·m/m', (r) => r.my], ['mxy', 'kN·m/m', (r) => r.mxy], ['qx', 'kN/m', (r) => r.qx], ['qy', 'kN/m', (r) => r.qy],
 ];
 

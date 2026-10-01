@@ -11,6 +11,7 @@
   import { toCsv } from '../../lib/engine/result-tables';
   import { shellCentreRows } from '../../lib/engine/shell-results';
   import { shellCentreTable } from '../../lib/export/workbook-results';
+  import { activeWorkbookSource } from '../../lib/store/active-workbook-source';
 
   const shells = $derived({ nodes: modelStore.nodes, plates: modelStore.plates, quads: modelStore.quads });
   const rows = $derived(resultsStore.results3D ? shellCentreRows(resultsStore.results3D, shells) : []);
@@ -18,8 +19,8 @@
   const fmt = (v: number | undefined) => (v === undefined ? '—' : Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-2 && v !== 0) ? v.toExponential(3) : v.toFixed(2));
 
   function table() {
-    const r = resultsStore.results3D!;
-    return shellCentreTable([{ kind: 'case', id: 0, name: '', results: r }], shells);
+    const source = activeWorkbookSource();
+    return shellCentreTable(source ? [source] : [], shells);
   }
   function csv() {
     const s = table();
@@ -50,8 +51,8 @@
           <tr class:selected={uiStore.selectedShells.has(key)} onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectShell(key, false); }} style="cursor:pointer">
             <td class="col-id">{r.id}</td>
             <td class="col-type">{r.kind === 'plate' ? t('shellFaces.plate') : t('shellFaces.quad')}</td>
-            <td class="col-num">{fmt(r.top.vonMises)}</td><td class="col-num">{fmt(r.bottom.vonMises)}</td>
-            <td class="col-num">{fmt(r.top.tresca)}</td><td class="col-num">{fmt(r.bottom.tresca)}</td>
+            <td class="col-num">{fmt(r.top?.vonMises)}</td><td class="col-num">{fmt(r.bottom?.vonMises)}</td>
+            <td class="col-num">{fmt(r.top?.tresca)}</td><td class="col-num">{fmt(r.bottom?.tresca)}</td>
             {#if hasQ}<td class="col-num">{fmt(r.qx)}</td><td class="col-num">{fmt(r.qy)}</td>{/if}
           </tr>
         {/each}
