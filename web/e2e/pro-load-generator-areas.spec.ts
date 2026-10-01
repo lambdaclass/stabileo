@@ -70,3 +70,21 @@ test.describe('@smoke the seismic action: modal method, vertical component, tors
     expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
   });
 });
+
+test.describe('@smoke wind on other structures and the cladding table', () => {
+  test('a closed building shows the cladding pressures; a free roof makes its own cases', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('pro-auto-loads-btn').click();
+    await page.getByTestId('al-enable-wind').check();
+    await page.getByTestId('al-cladding').locator('summary').click();
+    await expect(page.getByTestId('al-cladding-table').locator('tbody tr')).not.toHaveCount(0);
+    await page.getByTestId('al-wind-kind').selectOption('freeRoof');
+    await expect(page.getByTestId('al-cladding')).toHaveCount(0);
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names.some((n) => /free roof, case A/.test(n))).toBe(true);
+  });
+});

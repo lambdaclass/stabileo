@@ -45,6 +45,7 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
 import { gravityLayout } from './plan-gravity';
+import type { OtherStructure } from './wind-other';
 import { modalStoryForces, type ModeShape } from './seismic-modal';
 import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
@@ -168,6 +169,8 @@ export interface LoadPlanInput {
     senses?: WindDirection[];
     /** Service-level wind Wa (B.4.2): the 50-year speed and the recurrence to convert it to. */
     service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
+    /** What the structure is, when not a closed building (`wind-other.ts`). Absent: a building. */
+    structure?: { kind: 'building' } | OtherStructure;
   };
   /** CIRSOC 104-2005 roof snow (`snow-loads.ts`). */
   snow?: {
@@ -268,6 +271,9 @@ export interface PlannedDistributed {
   a?: number;
   b?: number;
   frame?: 'local' | 'global' | 'projected';
+  /** With a global frame, the X and Y components, kN/m, uniform. */
+  qX?: number;
+  qY?: number;
 }
 
 /** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */

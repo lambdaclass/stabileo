@@ -8,6 +8,8 @@ import {
   SERVICE_WIND_FACTOR, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
+import { otherStructureWind } from './wind-other';
+import { REF_FREE_ROOF, REF_SIGN, REF_OTHER, REF_MIN_OTHER } from '../../codes/cirsoc102/other-structures';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
 import { msg, round } from '../../codes/message';
 import { windDirectionsOf, type LevelMass, type LoadPlanInput, type PlanSink } from './load-plan';
@@ -117,7 +119,29 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
       }
       return out;
     };
-    windAxes.push(...axesFor(input.wind.basicSpeed, false));
+    const other = input.wind.structure && input.wind.structure.kind !== 'building' ? input.wind.structure : null;
+    if (other) {
+      // Not a closed building: the coefficients of §2.4.3, §4.4 or §4.5 (`wind-other.ts`).
+      const kd: WindProject['structureKind'] = other.kind === 'latticeTower' ? 'latticeTowerTriangularOrRect'
+        : other.kind === 'openSign' ? 'openSign' : other.kind === 'solidSign' ? 'solidSign'
+        : other.kind === 'chimney' ? (other.section.startsWith('round') ? 'chimneyRound' : other.section === 'hexOct' ? 'chimneyHexagonal' : 'chimneySquare') : 'building';
+      const project: WindProject = {
+        basicSpeed: input.wind.basicSpeed, exposure: input.wind.exposure, siteAltitudeM: input.wind.siteAltitudeM,
+        kzt: input.wind.kzt, kztSurveyed: input.wind.kztSurveyed, structureKind: kd, enclosure: 'open',
+        meanRoofHeight: Math.max(h, 1), L: Math.max(bx, 1), B: Math.max(by, 1), roofSlopeDeg: input.wind.roofSlopeDeg, rigid: input.wind.rigid,
+      };
+      const res = otherStructureWind({ model: input.model, structure: other, project, directions: windDirs, tributaryWidth: input.tributaryWidth });
+      derivation.push(...res.derivation);
+      unsupportedKeys.push(...res.notes);
+      refs.push(other.kind === 'freeRoof' ? REF_FREE_ROOF : other.kind === 'solidSign' ? REF_SIGN : REF_OTHER, REF_MIN_OTHER);
+      windQh = fromProject(velocityPressure(Math.max(h, 0), project), 'N/m²');
+      for (const c of res.cases) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
+        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qX: d.qX, qY: d.qY, frame: 'global' });
+      }
+    } else windAxes.push(...axesFor(input.wind.basicSpeed, false));
     if (windAxes.length > 0) {
       const set = input.wind.caseSet ?? 'all';
       const generated = windLoadCases({
@@ -141,7 +165,8 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
      * each direction and sense: the torsional and simultaneous cases are for strength.
      */
     const sw = input.wind.service;
-    if (sw?.enabled && sw.v50 > 0) {
+    // Service wind Wa is the building procedure's; another structure has none here.
+    if (sw?.enabled && sw.v50 > 0 && !other) {
       const factor = SERVICE_WIND_FACTOR[sw.mri];
       const speed = sw.v50 * factor;
       const waAxes = axesFor(speed, true);

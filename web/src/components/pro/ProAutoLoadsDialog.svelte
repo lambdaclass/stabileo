@@ -23,6 +23,7 @@
   import ProAutoLoadsApplying, { type GravityMode } from './ProAutoLoadsApplying.svelte';
   import ProRoofLoadSection, { defaultRoofConfig } from './ProRoofLoadSection.svelte';
   import ProSeismicMethod, { defaultSeismicMethod } from './ProSeismicMethod.svelte';
+  import ProWindStructure, { defaultWindStructure } from './ProWindStructure.svelte';
   import { modesForPlan } from '../../lib/store/seismic-modes';
   import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
@@ -113,6 +114,14 @@
   let roofCfg = $state(defaultRoofConfig());
   let livePatterns = $state(true);
   let seismicMethod = $state(defaultSeismicMethod());
+  let windStructure = $state(defaultWindStructure());
+  /** The model's extent, for the cladding table. */
+  const modelExtent = $derived.by(() => {
+    const ns = [...modelStore.nodes.values()];
+    if (!ns.length) return { h: 0, least: 0 };
+    const span = (k: 'x' | 'y') => Math.max(...ns.map((n) => n[k])) - Math.min(...ns.map((n) => n[k]));
+    return { h: Math.max(...ns.map((n) => n.z ?? 0)), least: Math.min(span('x'), span('y')) || Math.max(span('x'), span('y')) };
+  });
   let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
   let gravitySpan = $state<'x' | 'y'>('x');
 
@@ -219,6 +228,18 @@
     levels: plan.levels.filter(l => l.elevation > 0),
   } : null);
 
+  function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
+    const w = windStructure;
+    switch (w.kind) {
+      case 'freeRoof': return { kind: 'freeRoof', roof: w.roof, blocked: w.blocked };
+      case 'latticeTower': return { kind: 'latticeTower', section: w.towerSection, round: w.round, solidity: w.solidity, diagonal: w.diagonal };
+      case 'openSign': return { kind: 'openSign', members: w.members, solidity: w.solidity };
+      case 'solidSign': return { kind: 'solidSign', clearance: w.clearance };
+      case 'chimney': return { kind: 'chimney', section: w.chimney };
+      default: return { kind: 'building' };
+    }
+  }
+
   function planInput(): LoadPlanInput {
     return {
       regulations: regulationsStore.roles,
@@ -251,6 +272,7 @@
         directions: { x: windDirs.some((d) => d.endsWith('x')), y: windDirs.some((d) => d.endsWith('y')) },
         caseSet: windCaseSet, senses: [...windDirs],
         service: windService.enabled ? { ...windService } : undefined,
+        structure: windStructurePlan(),
       } : undefined,
       snow: snowCfg.enabled ? {
         enabled: true, ...snowPg(snowCfg),
@@ -572,6 +594,9 @@
               kzt={windKztSurveyed ? windKzt : 1}
               elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
             />
+            <ProWindStructure bind:config={windStructure} speed={windV} exposure={windExposure} altitude={windAltitude}
+              kzt={windKztSurveyed ? windKzt : 1} enclosure={windEnclosure}
+              height={modelExtent.h} leastDimension={modelExtent.least} roofSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} />
           </div>
         {/if}
       </section>
