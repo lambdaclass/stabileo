@@ -5820,7 +5820,7 @@ const en: Record<string, string> = {
   'ifc.replaceConfirm': "Importing the IFC replaces the open model. It can be undone. Continue?",
   'ifc.membersAsTruss': "IfcMember bars (braces, purlins) as truss members",
   'pro.advLimitOffsets': 'Member and shell offsets are not included in these analyses (the linear analysis includes them): they run with the axes at the nodes.',
-  'pro.advLimitSemiRigid': 'The model has semi-rigid ends. These analyses take them as rigid: only the linear solve (Solve) uses their rotational stiffness.',
+  'pro.advLimitSemiRigid': 'The model has semi-rigid ends. These analyses refuse them: only the linear solve (Solve) uses their rotational stiffness. Remove them, or use end releases, to run these analyses.',
   'pro.advLimitEmpty': 'There are no members or shells to analyze.',
   'pro.dofTranslation': "Translation",
   'pro.dofRotation': "Rotation",

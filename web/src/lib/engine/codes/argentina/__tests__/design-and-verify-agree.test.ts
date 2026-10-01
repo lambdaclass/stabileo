@@ -179,7 +179,7 @@ describe('more demand always costs more steel', () => {
         previous = r.AstCm2;
       }
       expect(previous, `${kase} designed something`).toBeGreaterThan(0);
-    });
+    }, 60_000); // The densest sweep in the file: past 15 s on a loaded CI runner (15.8 s, 23.5 s seen), never thinned.
   }
 
   for (const kase of ['FCR', 'FCR-CIR', 'FCO'] as FlexCase[]) {

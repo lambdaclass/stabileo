@@ -182,7 +182,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('mb-semi-i-on').check();
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('pr-cmd-advanced').click();
-    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await page.getByTestId('adv-run-modal').click();
     await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
     await expect(page.getByTestId('adv-modal-row-0')).toHaveCount(0);
     await page.getByTestId('adv-chip-timehistory').click();

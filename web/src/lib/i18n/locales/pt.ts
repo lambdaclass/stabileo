@@ -5029,7 +5029,7 @@ const pt: Translations = {
   'ifc.replaceConfirm': "Importar o IFC substitui o modelo aberto. Pode ser desfeito. Continuar?",
   'ifc.membersAsTruss': "Barras IfcMember (contraventamentos, terças) como treliça",
   'pro.advLimitOffsets': 'As excentricidades de barras e placas não são incluídas nestas análises (a análise linear as inclui): são calculadas com os eixos nos nós.',
-  'pro.advLimitSemiRigid': 'O modelo tem extremos semirrígidos. Estas análises os tomam como rígidos: só o cálculo linear (Calcular) usa sua rigidez à rotação.',
+  'pro.advLimitSemiRigid': 'O modelo tem extremos semirrígidos. Estas análises os recusam: só o cálculo linear (Calcular) usa sua rigidez à rotação. Remova-os, ou use liberações de extremidade, para rodar estas análises.',
   'pro.advLimitEmpty': "Não há barras nem placas para analisar.",
   'pro.dofTranslation': "Translação",
   'pro.dofRotation': "Rotação",

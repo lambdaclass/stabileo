@@ -5813,7 +5813,7 @@ const es: Record<string, string> = {
   'ifc.replaceConfirm': "Importar el IFC reemplaza el modelo abierto. Se puede deshacer. ¿Continuar?",
   'ifc.membersAsTruss': "Barras IfcMember (riostras, correas) como reticulado",
   'pro.advLimitOffsets': "Las excentricidades de barras y placas no se incluyen en estos análisis (sí en el análisis lineal): se calculan con los ejes en los nodos.",
-  'pro.advLimitSemiRigid': 'El modelo tiene extremos semirrígidos. Estos análisis los toman rígidos: sólo el cálculo lineal (Calcular) usa su rigidez al giro.',
+  'pro.advLimitSemiRigid': 'El modelo tiene extremos semirrígidos. Estos análisis los rechazan: sólo el cálculo lineal (Calcular) usa su rigidez al giro. Quitalos, o usá liberaciones de extremo, para correr estos análisis.',
   'pro.advLimitEmpty': "No hay barras ni placas que analizar.",
   'pro.dofTranslation': "Traslación",
   'pro.dofRotation': "Rotación",
