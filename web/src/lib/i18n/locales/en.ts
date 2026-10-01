@@ -4960,7 +4960,6 @@ const en: Record<string, string> = {
   'proRibbon.groupOutput': 'Output',
   'proRibbon.groupDesign': 'Concrete',
   // ─── PR21: Model → Generators, and Design → Concrete / Metallic ───
-  'proRibbon.groupGenerators': 'Generators',
   // ─── PR21: profile selector (reusable by the general PRO picker) ───
   'profileSelector.title': 'Catalog sections',
   'profileSelector.search': 'Search section…',
@@ -4969,8 +4968,6 @@ const en: Record<string, string> = {
   'profileSelector.allFamilies': 'All',
   'profileSelector.count': '{n} sections',
   'profileSelector.empty': 'No profile matches. Try less text, or drop a family filter.',
-  'proRibbon.cmdSteelStructures': 'Steel structures',
-  'proRibbon.cmdSteelStructuresDesc': 'Generates trusses, latticed columns and industrial buildings from parameters. Geometry only: no design or checks.',
   'proRibbon.groupSteel': 'Steel',
   'proRibbon.cmdRebarDesign': 'Reinforcement design',
   'proRibbon.cmdRebarDesignDesc': 'Size and check the concrete reinforcement.',
@@ -8055,6 +8052,10 @@ const en: Record<string, string> = {
   'combos.rules.import': 'Load template',
   'combos.rules.importFailed': 'The file is not a combinations template.',
   'combos.rules.imported': '{n} rules added from the template.',
+  'proRibbon.groupOrganize': 'Organize',
+  'proRibbon.cmdGenerators': 'Generators',
+  'proRibbon.cmdGeneratorsDesc': 'Lattice trusses, latticed columns, industrial buildings, frames, grids, vaults and domes, from parameters, inserted with their ghost. Geometry only: it does not design or check.',
+  'proRibbon.groupAutomate': 'Automate',
   'quickEdit.plate': 'Plate',
   'quickEdit.quad': 'Quad',
   'quickEdit.nodes': 'Nodes, in order',

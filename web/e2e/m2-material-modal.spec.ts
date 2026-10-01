@@ -8,6 +8,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openMaterialsTab(page: Page): Promise<void> {
@@ -390,6 +391,7 @@ test.describe('the generators are unaffected', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-generators').click();
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+    await pickGenerator(page, 'truss');
     await page.getByTestId('gen-grade-trigger').click();
     await expect(page.getByTestId('pro-material-modal')).toBeVisible();
     await expect(page.getByTestId('material-division-custom')).toHaveCount(0);

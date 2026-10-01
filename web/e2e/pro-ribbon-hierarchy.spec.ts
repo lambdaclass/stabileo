@@ -37,18 +37,17 @@ const groupOrder = (page: Page) =>
   page.locator('.pr-groups section[data-group]')
     .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-group') ?? ''));
 
-test.describe('@smoke Model — Generators is its own sub-section', () => {
-  test('sits in a group of its own, to the right of Properties', async ({ pro: page }) => {
+test.describe('@smoke Model — Organize, Draw ending in Generators, and Code on its own', () => {
+  test('the groups run Organize, Draw, Properties, Conditions, Automate', async ({ pro: page }) => {
     await openStage(page, 'model');
-    expect(await groupOf(page, 'generators')).toBe('generators');
-    const order = await groupOrder(page);
-    expect(order).toContain('properties');
-    expect(order.indexOf('generators')).toBeGreaterThan(order.indexOf('properties'));
-    // And it is NOT back in Draw, which is where it started. The geometry
-    // group is called `draw` now: the tables and the pointer tools were
-    // briefly two groups and are one again, because typing a node's
-    // coordinates and clicking a member onto it are one job.
-    expect(await groupOf(page, 'nodes')).toBe('draw');
+    expect(await groupOrder(page)).toEqual(['organize', 'draw', 'properties', 'conditions', 'automate']);
+    for (const c of ['view', 'grid', 'groups']) expect(await groupOf(page, c)).toBe('organize');
+    for (const c of ['nodes', 'elements', 'shells', 'transform', 'edit', 'generators']) expect(await groupOf(page, c)).toBe('draw');
+    expect(await groupOf(page, 'code')).toBe('automate');
+    // Generators close Draw.
+    const draw = await page.locator('section[data-group="draw"] button[data-testid^="pr-cmd-"]')
+      .evaluateAll((n) => n.map((x) => x.getAttribute('data-testid')));
+    expect(draw.at(-1)).toBe('pr-cmd-generators');
   });
 
   test('opens the generators panel, and exists exactly once', async ({ pro: page }) => {
@@ -153,20 +152,16 @@ test.describe('@smoke Design — 3-D detailing is gated, and says what is missin
  * Portuguese is a section a Portuguese user cannot navigate.
  */
 for (const [locale, words] of [
-  ['es', { generators: /generadores/i, button: /estructuras met/i, concrete: /hormig/i, metallic: /^met.licas$/i, rebar: /dise.o de armaduras/i, detail: /detallado 3d/i, profiles: /dise.o de perfiles/i, joints: /uniones met.licas/i }],
-  ['pt', { generators: /geradores/i, button: /estruturas met/i, concrete: /concreto/i, metallic: /^met.licas$/i, rebar: /dimensionamento de armaduras/i, detail: /detalhamento 3d/i, profiles: /dimensionamento de perfis/i, joints: /liga..es met.licas/i }],
+  ['es', { generators: /^dibujar$/i, button: /^generadores$/i, concrete: /hormig/i, metallic: /^met.licas$/i, rebar: /dise.o de armaduras/i, detail: /detallado 3d/i, profiles: /dise.o de perfiles/i, joints: /uniones met.licas/i }],
+  ['pt', { generators: /^desenhar$/i, button: /^geradores$/i, concrete: /concreto/i, metallic: /^met.licas$/i, rebar: /dimensionamento de armaduras/i, detail: /detalhamento 3d/i, profiles: /dimensionamento de perfis/i, joints: /liga..es met.licas/i }],
 ] as const) {
   test.describe(`the hierarchy keeps its names in ${locale}`, () => {
     test.use({ appLocale: locale });
 
-    test('Model → Generators, and the button that is not called Generators', async ({ pro: page }) => {
+    test('Model → Draw, closed by Generators', async ({ pro: page }) => {
       await openStage(page, 'model');
-      await expect(page.locator('section[data-group="generators"] .pr-group-label'))
-        .toHaveText(words.generators);
-      const label = page.getByTestId('pr-cmd-generators').locator('.pr-cmd-label');
-      await expect(label).toHaveText(words.button);
-      // The section already says "Generators". The button must not say it a second time.
-      await expect(label).not.toHaveText(words.generators);
+      await expect(page.locator('section[data-group="draw"] .pr-group-label')).toHaveText(words.generators);
+      await expect(page.getByTestId('pr-cmd-generators').locator('.pr-cmd-label')).toHaveText(words.button);
     });
 
     test('Design → Concrete and Metallic, with their four commands', async ({ pro: page }) => {

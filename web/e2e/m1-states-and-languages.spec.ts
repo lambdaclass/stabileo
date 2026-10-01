@@ -22,6 +22,7 @@
  */
 
 import { test, expect, PRO_URL, loadModel, solveModel } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
@@ -34,10 +35,11 @@ async function openTab(page: Page, tab: keyof typeof STAGE_OF): Promise<void> {
 /** Generate a steel truss, which is the shortest route to a model with metallic members. */
 async function generateTruss(page: Page): Promise<void> {
   await openTab(page, 'generators');
+  await pickGenerator(page, 'truss');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
-  await page.getByTestId('gen-kind-truss').click();
-  await page.getByTestId('gen-generate').click();
-  await expect(page.getByTestId('gen-result')).toBeVisible();
+  await pickGenerator(page, 'truss');
+  await insertGenerated(page);
+  await expect(page.getByTestId('gen-out-result')).toBeVisible();
 }
 
 async function openSteelPanel(page: Page): Promise<void> {
@@ -248,6 +250,8 @@ for (const locale of ['es', 'en', 'pt'] as const) {
       expect(await leakedKeys(page, 'pro-steel-panel'), `steel panel, ${locale}`).toEqual([]);
 
       await openTab(page, 'generators');
+
+      await pickGenerator(page, 'truss');
       expect(await leakedKeys(page, 'pro-generators-panel'), `generators, ${locale}`).toEqual([]);
 
       await openTab(page, 'connections');

@@ -17,6 +17,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 /** The eight stages, in the order the brief specifies. */
@@ -228,9 +229,10 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-generators').click();
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
-    await page.getByTestId('gen-kind-truss').click();
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await pickGenerator(page, 'truss');
+    await pickGenerator(page, 'truss');
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
   }
 
   test('the grade stage lists a row per member, with its own state', async ({ page }) => {
@@ -322,9 +324,10 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-generators').click();
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
-    await page.getByTestId('gen-kind-truss').click();
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await pickGenerator(page, 'truss');
+    await pickGenerator(page, 'truss');
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
     await page.getByTestId('pr-stage-design').click();
     await page.getByTestId('pr-cmd-steel').click();
   }

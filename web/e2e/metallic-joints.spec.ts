@@ -15,6 +15,7 @@
  */
 
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -36,8 +37,9 @@ async function openSection(page: Page, testid: string) {
 async function generateSteel(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
-  await page.getByTestId('gen-generate').click();
-  await expect(page.getByTestId('gen-result')).toBeVisible();
+  await pickGenerator(page, 'truss');
+  await insertGenerated(page);
+  await expect(page.getByTestId('gen-out-result')).toBeVisible();
 }
 
 test.describe('@smoke joint detection is scoped to metallic participation', () => {

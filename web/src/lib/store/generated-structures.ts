@@ -31,7 +31,8 @@ export type SupportMode = 'generated' | 'none' | 'pinned' | 'fixed';
 
 /** Where the generator's output goes, shared by the two halves of its panel. */
 export interface OutputState {
-  mode: 'newModel' | 'atPoint' | 'atNode';
+  /** With the mouse, or at typed coordinates. A generated structure never replaces the model. */
+  mode: 'atPoint' | 'atNode';
   supportMode: SupportMode;
   px: number; py: number; pz: number; rot: number;
   plane: 'XZ' | 'YZ';
@@ -41,7 +42,7 @@ export interface OutputState {
 }
 
 export const defaultOutputState = (): OutputState => ({
-  mode: 'newModel', supportMode: 'generated', px: 0, py: 0, pz: 0, rot: 0, plane: 'XZ', axisId: '', anchorIndex: 0, result: null,
+  mode: 'atNode', supportMode: 'generated', px: 0, py: 0, pz: 0, rot: 0, plane: 'XZ', axisId: '', anchorIndex: 0, result: null,
 });
 
 export function withSupportMode<T extends { supports: Array<{ node: number; type: string }> }>(t: T, mode: SupportMode): T {

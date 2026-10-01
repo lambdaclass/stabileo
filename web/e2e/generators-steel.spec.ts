@@ -17,6 +17,7 @@
  */
 
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 /**
@@ -42,6 +43,7 @@ async function modelCounts(page: Page): Promise<{ elements: number }> {
 test.describe('generators', () => {
   test('G1 — the count beside Generate is the count that lands in the model @smoke', async ({ pro: page }) => {
     await openTab(page, 'generators');
+    await pickGenerator(page, 'truss');
     const panel = page.getByTestId('pro-generators-panel');
     await expect(panel).toBeVisible();
 
@@ -51,31 +53,33 @@ test.describe('generators', () => {
     expect(m, `preview did not state its totals: ${promised}`).not.toBeNull();
     const promisedMembers = Number(m![1]);
 
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
 
     const after = await modelCounts(page);
     expect(after.elements).toBe(promisedMembers);
 
     // And the panel reports agreement rather than a mismatch — the same check
     // `matchesPreview` makes, surfaced.
-    await expect(page.getByTestId('gen-result')).not.toContainText(/mismatch|Discrepancia/i);
+    await expect(page.getByTestId('gen-out-result')).not.toContainText(/mismatch|Discrepancia/i);
   });
 
   test('G1b — a shed lands whole, through the same path', async ({ pro: page }) => {
     await openTab(page, 'generators');
-    await page.getByTestId('gen-kind-shed').click();
+    await pickGenerator(page, 'truss');
+    await pickGenerator(page, 'shed');
     const promised = await page.getByTestId('gen-preview').innerText();
     const members = Number(promised.match(/(\d+)\s+members/)![1]);
     expect(members).toBeGreaterThan(100);
 
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
     expect((await modelCounts(page)).elements).toBe(members);
   });
 
   test('G2 — the section figure tracks the arrangement, not only the profile', async ({ pro: page }) => {
     await openTab(page, 'generators');
+    await pickGenerator(page, 'truss');
     const row = page.getByTestId('gen-profile-chord');
     const figure = row.locator('svg').first();
 
@@ -114,19 +118,21 @@ test.describe('generators', () => {
 
   test('G2b — the figure carries an accessible name stating the assembled size', async ({ pro: page }) => {
     await openTab(page, 'generators');
+    await pickGenerator(page, 'truss');
     const figure = page.getByTestId('gen-profile-chord').locator('svg').first();
     await expect(figure).toHaveAttribute('aria-label', /\d+×\d+\s*mm/);
   });
 
   test('the previews are drawn, and a shed gets both views', async ({ pro: page }) => {
     await openTab(page, 'generators');
+    await pickGenerator(page, 'truss');
     const previews = page.getByTestId('gen-previews');
     await expect(previews.locator('svg')).toHaveCount(1);
     // Counted, not `toBeVisible`: a horizontal `<line>` has zero height and Playwright calls
     // any zero-area element hidden. The question here is whether members were drawn.
     expect(await previews.locator('svg line').count()).toBeGreaterThan(0);
 
-    await page.getByTestId('gen-kind-shed').click();
+    await pickGenerator(page, 'shed');
     // Frame elevation plus isometric.
     await expect(previews.locator('svg')).toHaveCount(2);
   });
@@ -136,8 +142,9 @@ test.describe('the metallic surface', () => {
   /** Generate a truss, so the inventory has something metallic to list. */
   async function generateTruss(page: Page): Promise<void> {
     await openTab(page, 'generators');
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await pickGenerator(page, 'truss');
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
   }
 
   test('S1 — every metallic member is listed, and none of them as verified @smoke', async ({ pro: page }) => {

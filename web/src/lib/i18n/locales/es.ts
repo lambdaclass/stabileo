@@ -4953,7 +4953,6 @@ const es: Record<string, string> = {
   'proRibbon.groupOutput': 'Salida',
   'proRibbon.groupDesign': 'Hormigón',
   // ─── PR21: Modelo → Generadores, y Diseño → Hormigón / Metálicas ───
-  'proRibbon.groupGenerators': 'Generadores',
   // ─── PR21: selector de perfiles (reutilizable por el selector general PRO) ───
   'profileSelector.title': 'Perfiles del catálogo',
   'profileSelector.search': 'Buscar perfil…',
@@ -4962,8 +4961,6 @@ const es: Record<string, string> = {
   'profileSelector.allFamilies': 'Todas',
   'profileSelector.count': '{n} perfiles',
   'profileSelector.empty': 'Ningún perfil coincide. Probá con menos texto, o quitá algún filtro de familia.',
-  'proRibbon.cmdSteelStructures': 'Estructuras metálicas',
-  'proRibbon.cmdSteelStructuresDesc': 'Genera cabriadas, columnas reticuladas y naves a partir de parámetros. Sólo geometría: no diseña ni verifica.',
   'proRibbon.groupSteel': 'Metálicas',
   'proRibbon.cmdRebarDesign': 'Diseño de armaduras',
   'proRibbon.cmdRebarDesignDesc': 'Dimensionar y verificar las armaduras de hormigón.',
@@ -8044,6 +8041,10 @@ const es: Record<string, string> = {
   'combos.rules.import': 'Cargar plantilla',
   'combos.rules.importFailed': 'El archivo no es una plantilla de combinaciones.',
   'combos.rules.imported': '{n} reglas agregadas desde la plantilla.',
+  'proRibbon.groupOrganize': 'Organizar',
+  'proRibbon.cmdGenerators': 'Generadores',
+  'proRibbon.cmdGeneratorsDesc': 'Vigas reticuladas, columnas reticuladas, naves, pórticos, emparrillados, bóvedas y cúpulas, a partir de parámetros, insertados con su fantasma. Sólo geometría: no diseña ni verifica.',
+  'proRibbon.groupAutomate': 'Automatizar',
   'quickEdit.plate': 'Placa',
   'quickEdit.quad': 'Cuadrilátero',
   'quickEdit.nodes': 'Nodos, en orden',

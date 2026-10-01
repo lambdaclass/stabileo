@@ -13,9 +13,18 @@ test.use({ viewport: { width: 1440, height: 900 } });
  */
 
 const census = (page: Page) => page.evaluate(() => window.__stabileo.modelCensus());
+/* The drawing bar changes height with the tool, and the viewport follows it a frame later: the
+   node is read where it has settled, not mid-resize. */
 const click = async (page: Page, id: number) => {
-  const p = (await page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id))!;
-  await page.mouse.click(p.x, p.y);
+  const at = () => page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id);
+  let p = await at();
+  for (let k = 0; k < 20; k++) {
+    await page.waitForTimeout(50);
+    const q = await at();
+    if (p && q && Math.abs(p.x - q.x) < 0.5 && Math.abs(p.y - q.y) < 0.5) break;
+    p = q;
+  }
+  await page.mouse.click(p!.x, p!.y);
 };
 const open = async (page: Page, cmd: string) => {
   await page.getByTestId('pr-stage-model').click();

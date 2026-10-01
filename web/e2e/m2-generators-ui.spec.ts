@@ -15,6 +15,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openGenerators(page: Page): Promise<void> {
@@ -22,6 +23,7 @@ async function openGenerators(page: Page): Promise<void> {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+  await pickGenerator(page, 'truss');
 }
 
 /** Whether an element's box is inside the viewport, vertically. */
@@ -49,7 +51,7 @@ test.describe('the preview dock', () => {
     await openGenerators(page);
     await page.getByTestId('gen-scroll').evaluate((el) => { el.scrollTop = el.scrollHeight; });
     await expect(page.getByTestId('gen-preview')).toBeVisible();
-    await expect(page.getByTestId('gen-generate')).toBeVisible();
+    await expect(placeButton(page)).toBeVisible();
   });
 
   test('unlocking returns it to the scrolling flow, and there is still only one of it', async ({ page }) => {
@@ -58,7 +60,7 @@ test.describe('the preview dock', () => {
     await expect(page.getByTestId('gen-dock-toggle')).toHaveAttribute('aria-pressed', 'false');
     // One preview, one Generate — the snippet is rendered in one place or the other, never both.
     await expect(page.getByTestId('gen-preview')).toHaveCount(1);
-    await expect(page.getByTestId('gen-generate')).toHaveCount(1);
+    await expect(placeButton(page)).toHaveCount(1);
   });
 
   for (const [w, h] of [[1280, 720], [1024, 700], [900, 700], [820, 700]] as const) {
@@ -66,9 +68,9 @@ test.describe('the preview dock', () => {
       await page.setViewportSize({ width: w, height: h });
       await openGenerators(page);
       // Generate lives in the dock, so it must be reachable without scrolling at every size.
-      expect(await fullyVisible(page, 'gen-generate'), `Generate off screen at ${w}×${h}`).toBe(true);
+      expect(await fullyVisible(page, 'gen-place-mouse'), `Generate off screen at ${w}×${h}`).toBe(true);
       // And the parameters must still have room: the kind selector is the first control.
-      await expect(page.getByTestId('gen-kind-truss')).toBeVisible();
+      await expect(page.getByTestId('gen-back')).toBeVisible();
     });
   }
 });
@@ -227,6 +229,7 @@ test.describe('the three languages', () => {
       await page.goto(`${PRO_URL}&lang=${lang}`);
       await page.getByTestId('pr-stage-model').click();
       await page.getByTestId('pr-cmd-generators').click();
+      await pickGenerator(page, 'truss');
       const text = await page.getByTestId('pro-generators-panel').innerText();
       // A missing key renders as its own dotted name.
       expect(text).not.toMatch(/\bgenerator\.[a-z]+\.[a-zA-Z]+/);

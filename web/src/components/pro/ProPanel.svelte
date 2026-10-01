@@ -239,9 +239,9 @@
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
     otherCodes: 'proRibbon.groupOtherCodes',
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
-    // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
+    // (`proRibbon.cmdGenerators` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
-    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
+    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdGenerators',
     settings: 'config.title',
     grid: 'grid.title',
     transform: 'transform.title',

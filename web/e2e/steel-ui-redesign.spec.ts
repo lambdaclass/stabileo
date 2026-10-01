@@ -18,6 +18,7 @@
  * legible with the colour ignored — and that no fifth, approving state has appeared.
  */
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 /**
@@ -37,6 +38,7 @@ async function openTab(page: Page, tab: 'generators' | 'steel') {
 
 async function openGenerators(page: Page) {
   await openTab(page, 'generators');
+  await pickGenerator(page, 'truss');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
 }
 
@@ -77,7 +79,7 @@ test.describe('@smoke the generators panel explains its parameters', () => {
     await expect(problems, 'the refusal is on the page').toBeVisible();
     await expect(problems).toHaveAttribute('role', 'alert');
 
-    const generate = page.getByTestId('gen-generate');
+    const generate = placeButton(page);
     await expect(generate).toBeDisabled();
     // The reason is read WITH the button, not left somewhere above it.
     await expect(generate).toHaveAttribute('aria-describedby', 'gen-param-problems');
@@ -91,7 +93,7 @@ test.describe('@smoke the generators panel explains its parameters', () => {
 
     await span.fill('12');
     await expect(page.getByTestId('gen-param-problems')).toHaveCount(0);
-    await expect(page.getByTestId('gen-generate')).toBeEnabled();
+    await expect(placeButton(page)).toBeEnabled();
   });
 });
 
@@ -163,8 +165,9 @@ test.describe('@smoke metallic states stay honest', () => {
      * reads the states it exists to check, and guard the count so it can never go vacuous.
      */
     await openTab(page, 'generators');
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await pickGenerator(page, 'truss');
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
 
     await openTab(page, 'steel');
     const panel = page.getByTestId('pro-steel-panel');

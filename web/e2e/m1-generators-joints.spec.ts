@@ -22,6 +22,7 @@
  */
 
 import { test, expect, PRO_URL, loadModel } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
@@ -33,11 +34,12 @@ async function openTab(page: Page, tab: keyof typeof STAGE_OF): Promise<void> {
 
 async function openGenerators(page: Page): Promise<void> {
   await openTab(page, 'generators');
+  await pickGenerator(page, 'truss');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
 }
 
 async function pickKind(page: Page, kind: 'truss' | 'column' | 'shed'): Promise<void> {
-  await page.getByTestId(`gen-kind-${kind}`).click();
+  await pickGenerator(page, kind);
 }
 
 /** The element count the model actually holds. */
@@ -81,7 +83,7 @@ test.describe('the three generators', () => {
     await openGenerators(page);
     await pickKind(page, 'truss');
 
-    const generate = page.getByTestId('gen-generate');
+    const generate = placeButton(page);
     await expect(generate).toBeEnabled();
 
     // Span zero is the refusal every generator shares.
@@ -116,8 +118,8 @@ test.describe('the three generators', () => {
 
       const promised = await page.getByTestId('gen-preview').innerText();
       const promisedElements = Number(promised.match(/(\d+)\s*(?:elementos|elements|elementos)/i)?.[1] ?? NaN);
-      await page.getByTestId('gen-generate').click();
-      await expect(page.getByTestId('gen-result')).toBeVisible();
+      await insertGenerated(page);
+      await expect(page.getByTestId('gen-out-result')).toBeVisible();
 
       const landed = await elementCount(page);
       expect(landed, `${kind} landed nothing`).toBeGreaterThan(0);
@@ -174,8 +176,8 @@ test.describe('the three generators', () => {
   test('§3.9 — a generated model reports no results rather than pretending to have them', async ({ page }) => {
     await openGenerators(page);
     await pickKind(page, 'truss');
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
 
     // A generated model carries no load cases on purpose, so solving it has nothing to report.
     // The honest outcome is a refusal, not an empty result table presented as an answer.
@@ -215,8 +217,8 @@ test.describe('the joints panel', () => {
   async function withSteelFrame(page: Page): Promise<void> {
     await openGenerators(page);
     await pickKind(page, 'truss');
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
     await openTab(page, 'connections');
   }
 

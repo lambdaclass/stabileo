@@ -162,19 +162,44 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
          * so filing it under MODEL claimed it was a step of building one. The
          * panel it opens is the same `SelectionPanel` Basic uses.
          */
+        /*
+         * ── Organize, then Draw ───────────────────────────────────────
+         *
+         * View, Grid and levels, and Groups draw nothing: they set how the model is looked at,
+         * what it is laid out on and how it is gathered. They were in Draw with the commands
+         * that make things, which made a list of nine where a reader looked for "Nodes". They
+         * come first because they are set before drawing and consulted while drawing.
+         */
+        {
+          id: 'organize',
+          labelKey: 'proRibbon.groupOrganize',
+          cmds: [
+            { id: 'view', labelKey: 'view.title', icon: 'eye', tab: 'view' },
+            { id: 'grid', labelKey: 'grid.title', icon: 'grid', tab: 'grid' },
+            { id: 'groups', labelKey: 'groups.title', icon: 'groups', tab: 'groups' },
+          ],
+        },
+        /*
+         * Generators close Draw. A generated structure goes in like a paste, with its ghost, at
+         * the pointer or at typed coordinates (`GeneratorOutput`): it draws, many members at once,
+         * and no longer replaces the model.
+         */
         {
           id: 'draw',
           labelKey: 'ribbon.groupDraw',
           cmds: [
-            { id: 'grid', labelKey: 'grid.title', icon: 'grid', tab: 'grid' },
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
             { id: 'transform', labelKey: 'transform.title', icon: 'transform', tab: 'transform' },
             { id: 'edit', labelKey: 'edit.title', icon: 'edit', tab: 'edit' },
-            { id: 'groups', labelKey: 'groups.title', icon: 'groups', tab: 'groups' },
-            { id: 'code', labelKey: 'code.title', icon: 'code', tab: 'code' },
-            { id: 'view', labelKey: 'view.title', icon: 'eye', tab: 'view' },
+            {
+              id: 'generators',
+              labelKey: 'proRibbon.cmdGenerators',
+              descKey: 'proRibbon.cmdGeneratorsDesc',
+              icon: 'examples',
+              tab: 'generators',
+            },
           ],
         },
         {
@@ -196,9 +221,8 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
          * materials — which is why a reader building a frame crossed between
          * two top-level stages to place a support and then crossed back.
          *
-         * One group, to the right of Properties and left of Generators: draw
-         * it, give it materials, say how it is held and loaded, and only then
-         * reach for something that replaces the lot.
+         * One group, to the right of Properties: draw it, give it materials,
+         * and say how it is held and loaded.
          */
         {
           id: 'conditions',
@@ -212,31 +236,15 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           ],
         },
         /*
-         * Generators are their own sub-section, to the RIGHT of Properties.
-         *
-         * They were folded into Draw, beside nodes and elements, on the reasoning that a
-         * generator draws. It does — but Draw is where you place one thing at a time, and a
-         * generator replaces the whole model from a parameter form. Sitting in the same group
-         * as `Nodes` made it read as one more drawing tool, and sitting anywhere near
-         * Properties made it read as a property of the model.
-         *
-         * Last in the stage because that is the order of the work: draw or generate, then
-         * give what you have its materials and sections.
+         * The model as text, last: it is the one command that is not a step of building the
+         * model but another way to write all of it. Its own section, named for what it is for,
+         * so what else automates the work (a macro, a command line) has a place to go.
          */
         {
-          id: 'generators',
-          labelKey: 'proRibbon.groupGenerators',
+          id: 'automate',
+          labelKey: 'proRibbon.groupAutomate',
           cmds: [
-            {
-              // Named for what it opens, not for its category. "Generators" is the SECTION;
-              // a button repeating it would say the same word twice and still not say that
-              // what comes out is a truss, a latticed column or a shed.
-              id: 'generators',
-              labelKey: 'proRibbon.cmdSteelStructures',
-              descKey: 'proRibbon.cmdSteelStructuresDesc',
-              icon: 'examples',
-              tab: 'generators',
-            },
+            { id: 'code', labelKey: 'code.title', icon: 'code', tab: 'code' },
           ],
         },
       ],
