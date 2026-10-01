@@ -6,6 +6,7 @@ import { solve, isWasmReady } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
+import { withoutSettlement } from './settlement-case';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -299,7 +300,7 @@ function buildTrainLoads(
   totalLength: number,
   path: PathSegment[],
 ): SolverInput['loads'] {
-  const loads: SolverInput['loads'] = [...input.loads];
+  const loads: SolverInput['loads'] = [];
 
   for (const axle of train.axles) {
     const pos = refPos + axle.offset;
@@ -345,6 +346,16 @@ function accumulate(envelope: Map<number, ElementEnvelope>, results: AnalysisRes
 /** A thrown value as text: the WASM throws strings, JS throws Errors (`utils/error-text`). */
 export function errorText(e: unknown): string {
   return baseErrorText(e, String(e));
+}
+
+/**
+ * The structure the train runs on: the train alone, as the 3D sweep and the influence line
+ * solve it. The model's own loads (self-weight included) and its support settlements are not
+ * part of a moving-load envelope; kept, they were added to every position and shifted every
+ * peak by the static result.
+ */
+function trainBase(input: SolverInput): SolverInput {
+  return { ...input, loads: [], supports: withoutSettlement(input.supports) };
 }
 
 /**
@@ -462,6 +473,7 @@ export function solveMovingLoads(
   config: MovingLoadConfig,
 ): MovingLoadEnvelope | string {
   if (!isWasmReady()) return t('toast.solverNotReady');
+  baseInput = trainBase(baseInput);
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
@@ -530,6 +542,7 @@ export async function solveMovingLoadsAsync(
   signal?: AbortSignal,
 ): Promise<MovingLoadEnvelope | string> {
   if (!isWasmReady()) return t('toast.solverNotReady');
+  baseInput = trainBase(baseInput);
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
