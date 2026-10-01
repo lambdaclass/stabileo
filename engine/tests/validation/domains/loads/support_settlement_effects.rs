@@ -64,6 +64,7 @@ fn make_ff_beam_settlement(n: usize, l: f64, delta: Option<f64>) -> SolverInput 
         dx: None, dz: delta, dry: None, angle: None,
     });
     SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), }
@@ -134,6 +135,7 @@ fn validation_sse_middle_support_settlement() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -226,6 +228,7 @@ fn validation_sse_continuous_end_settlement() {
     }
 
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -336,6 +339,7 @@ fn validation_sse_portal_frame_base_settlement() {
         });
     }
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -418,6 +422,7 @@ fn validation_sse_propped_cantilever_roller_settlement() {
         });
     }
     let input = SolverInput {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
         connectors: HashMap::new(), };
@@ -505,6 +510,7 @@ fn validation_sse_moment_proportional_to_ei() {
         }
 
         let input = SolverInput {
+            solver_options: None,
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
             connectors: HashMap::new(), };
@@ -583,6 +589,7 @@ fn validation_sse_stiff_vs_flexible_beam() {
             });
         }
         let input = SolverInput {
+            solver_options: None,
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
             connectors: HashMap::new(), };
@@ -677,6 +684,7 @@ fn validation_sse_multiple_settlement_patterns() {
             });
         }
         let input = SolverInput {
+            solver_options: None,
             nodes: nodes_map, materials: mats_map, sections: secs_map,
             elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
             connectors: HashMap::new(), };

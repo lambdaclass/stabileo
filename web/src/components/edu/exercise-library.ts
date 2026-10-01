@@ -13,6 +13,7 @@
 
 import { fromFile, toFile, type ParseResult } from './exercise-capture';
 import type { EduExerciseSpec } from './exercise-spec';
+import { t } from '../../lib/i18n';
 
 const KEY = 'stabileo.edu.exercises.v1';
 
@@ -102,6 +103,6 @@ export function fromShareLink(hash: string): ParseResult | null {
     const json = decodeURIComponent(escape(atob(m[1])));
     return fromFile(json);
   } catch {
-    return { ok: false, error: 'That exercise link is damaged or incomplete.' };
+    return { ok: false, error: t('edu.capture.errLinkDamaged') };
   }
 }

@@ -10,10 +10,12 @@ import { surfaceCut } from '../../lib/engine/codes/argentina/cirsoc-flex-surface
 import { facesA1A2A3 } from '../../lib/engine/codes/argentina/cirsoc201-layouts';
 
 type Result = FlexOutput | null | undefined;
+/** Refused inputs have no section to draw a diagram for. */
+const drawable = (r: Result): r is FlexOutput => !!r && !r.invalid;
 
 /** The six characteristic points of the verification sheets, each edge computed on its own. */
 export function characteristicPoints(r: Result, mat: Materials, kase: FlexCase, mode: FlexMode) {
-  if (!r || mode !== 'verify') return null;
+  if (!drawable(r) || mode !== 'verify') return null;
   if (kase !== 'FCR' && kase !== 'FCR-CIR') return null;
   try { return characteristicPointsBothEdges(r.outline, r.bars, mat); } catch { return null; }
 }
@@ -25,7 +27,7 @@ export function characteristicPoints(r: Result, mat: Materials, kase: FlexCase, 
  * them, so a negative Mu lands on the left, against the edge it compresses.
  */
 export function columnDiagram(r: Result, mat: Materials, kase: FlexCase, mode: FlexMode, Pu: number, Mu: number) {
-  if (!r || (kase !== 'FCR' && kase !== 'FCR-CIR')) return null;
+  if (!drawable(r) || (kase !== 'FCR' && kase !== 'FCR-CIR')) return null;
   try {
     const s = diagramSeries(r.outline, r.bars, mat, 160);
     if (s.capped.length < 3) return null;
@@ -50,7 +52,7 @@ export function columnDiagram(r: Result, mat: Materials, kase: FlexCase, mode: F
 export function fcoSurfaceCut(
   r: Result, i: FlexInput, mat: Materials, kase: FlexCase, mode: FlexMode, Pu: number, Mu: number, Muy: number,
 ) {
-  if (!r || kase !== 'FCO') return null;
+  if (!drawable(r) || kase !== 'FCO') return null;
   try {
     const bars = (astCm2: number) => facesA1A2A3(
       i.b, i.h, i.dPrimeH, i.dPrimeV, astCm2,
@@ -78,6 +80,6 @@ export function fcoSurfaceCut(
 
 /** The bar layout the biaxial sheets tabulate: one row per bar, with its place. */
 export function fcoBarTable(r: Result, kase: FlexCase) {
-  if (!r || kase !== 'FCO') return [];
+  if (!drawable(r) || kase !== 'FCO') return [];
   return r.bars.map((bar, k) => ({ n: k + 1, area: bar.area * 1e4, x: bar.x, y: bar.y }));
 }

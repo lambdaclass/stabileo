@@ -50,6 +50,40 @@ describe('P-Delta member forces', () => {
     }
   }
 
+  // The engine's reactions had the same defect as the member forces (0.198 kN against 0.12
+  // applied, 0.824 against the exact 0.778) until it was fixed on its side. The wrapper must
+  // leave them untouched: adding the geometric terms again would double-count them.
+  it('reactions balance the applied loads, and agree with the corrected member forces', () => {
+    const { input, exact } = cantilever(1, false);
+    const r = solvePDelta3D(input as never).results;
+    const base = r.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
+    expect(Math.abs(base.fy + H) / H).toBeLessThan(0.02);
+    expect(Math.abs(base.fz - P) / P).toBeLessThan(1e-6);
+    expect(Math.abs(Math.abs(base.mx) - exact(0)) / exact(0)).toBeLessThan(0.01);
+    // The support agrees with the corrected member it holds, sign included: for this member
+    // the base moment about global x is the local-z end moment.
+    const member = byId(r, [...modelStore.elements.values()][0]!.id);
+    const memberBase = Math.abs(member.myStart) > Math.abs(member.mzStart) ? member.myStart : member.mzStart;
+    expect(Math.abs(base.mx - memberBase)).toBeLessThan(1e-9);
+  });
+
+  for (const alongX of [true, false]) {
+    it(`one released end preserves shear and reaction equilibrium (${alongX ? 'x' : 'y'})`, () => {
+      const { input, baseId } = cantilever(1, alongX);
+      const member = input.elements.get(baseId)!;
+      input.elements.set(baseId, { ...member, releaseMyEnd: true, releaseMzEnd: true });
+      input.supports.set(2, { nodeId: 2, rx: false, ry: false, rz: false, rrx: true, rry: true, rrz: true });
+      const r = solvePDelta3D(input as never, 30, 1e-8);
+      expect(r.converged && r.isStable).toBe(true);
+      const f = byId(r.results, baseId);
+      expect(shear(f)).toBeCloseTo(H, 8);
+      expect(f.myEnd).toBeCloseTo(0, 10);
+      expect(f.mzEnd).toBeCloseTo(0, 10);
+      const reaction = r.results.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
+      expect(moment(f)).toBeCloseTo(Math.max(Math.abs(reaction.mx), Math.abs(reaction.my)), 8);
+    });
+  }
+
   // The engine's own forces leave the geometric part out. When this starts passing, the engine
   // has been fixed and `pdelta-forces.ts` must go, or it will count Kg·u twice.
   it.fails('the engine reports the weak-axis base moment of a P-Delta solve within 1 %', () => {

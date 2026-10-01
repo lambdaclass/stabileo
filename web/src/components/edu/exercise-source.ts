@@ -49,6 +49,7 @@ export async function fromExample(id: string): Promise<SourceResult> {
   try {
     await modelStore.loadExample(id);
     resultsStore.clear();
+    resultsStore.forgetView();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error)?.message ?? String(e) };

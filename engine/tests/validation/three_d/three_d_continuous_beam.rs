@@ -157,6 +157,7 @@ fn make_3d_continuous_beam(
     let _ = total_nodes;
 
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -191,6 +192,7 @@ fn validation_3d_continuous_two_span_reactions() {
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -239,6 +241,7 @@ fn validation_3d_continuous_three_span_moments() {
 
     let loads: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -285,6 +288,7 @@ fn validation_3d_continuous_midspan_deflection() {
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -350,6 +354,7 @@ fn validation_3d_continuous_alternating_span_load() {
     // Load only on span 1 (elements 1..n_per)
     let loads: Vec<SolverLoad3D> = (1..=n_per)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -396,6 +401,7 @@ fn validation_3d_continuous_elastic_support() {
     // Rigid interior support: standard 2-span beam
     let loads_rigid: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -485,6 +491,7 @@ fn validation_3d_continuous_elastic_support() {
 
     let loads_spring: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -493,6 +500,7 @@ fn validation_3d_continuous_elastic_support() {
         .collect();
 
     let input_spring = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,
@@ -540,6 +548,7 @@ fn validation_3d_continuous_equal_spans_symmetry() {
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -592,6 +601,7 @@ fn validation_3d_continuous_global_equilibrium() {
 
     let mut loads: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -648,6 +658,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
     // Standard beam: uniform EI
     let loads_std: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -734,6 +745,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
 
     let loads_2ei: Vec<SolverLoad3D> = (1..=n_total)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
             q_zi: 0.0, q_zj: 0.0,
@@ -742,6 +754,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
         .collect();
 
     let input_2ei = SolverInput3D {
+        solver_options: None,
         nodes: nodes_map,
         materials: mats_map,
         sections: secs_map,

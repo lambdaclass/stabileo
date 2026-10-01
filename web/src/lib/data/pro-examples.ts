@@ -23,6 +23,7 @@
  */
 
 import { modelStore } from '../store/model.svelte';
+import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
@@ -42,7 +43,11 @@ async function loadWithRegulationCombinations(id: string): Promise<void> {
   modelStore.batch(() => {
     for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
     let n = 0;
-    addGeneratedCombinations(expandCombinations(specs, cases, { bothSenses: { W: true, E: true } }), () => `U${++n}: `);
+    // Wind reversed only where that is exact: an example's roof-suction case is not.
+    addGeneratedCombinations(expandCombinations(specs, cases, {
+      bothSenses: { W: true, E: true },
+      reversible: (caseId) => windCaseReversible(modelStore.model, caseId),
+    }), () => `U${++n}: `);
   });
 }
 

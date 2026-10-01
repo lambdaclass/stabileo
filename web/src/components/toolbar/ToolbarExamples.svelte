@@ -110,6 +110,7 @@
         if (uiStore.analysisMode !== want) uiStore.analysisMode = want;
         await modelStore.loadExample(ex.id);
         resultsStore.clear();
+        resultsStore.forgetView();
         resultsStore.clear3D();
         /*
          * On a phone, get out of the way of the model you just loaded.

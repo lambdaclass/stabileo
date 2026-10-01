@@ -478,12 +478,22 @@ pub fn mitc9_local_stiffness(
             }
         }
 
-        // --- Drilling DOF stabilization ---
+        // --- Drilling DOF stabilization (Hughes & Brezzi 1989) ---
+        // γ·∫(θz − ω)², ω = ½(∂v/∂x − ∂u/∂y): see `mitc4_local_stiffness`. A
+        // penalty on θz alone resists a rigid rotation about the normal.
+        let mut b_d = [0.0; 54];
         for i in 0..9 {
-            for j in 0..9 {
-                let di = i * 6 + 5;
-                let dj = j * 6 + 5;
-                k[di * ndof + dj] += dv * alpha_drill * n[i] * n[j];
+            b_d[i * 6] = 0.5 * dn_dy[i];
+            b_d[i * 6 + 1] = -0.5 * dn_dx[i];
+            b_d[i * 6 + 5] = n[i];
+        }
+        // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+        for r in 0..54 {
+            if b_d[r] == 0.0 { continue; }
+            for c in r..54 {
+                let v = dv * alpha_drill * b_d[r] * b_d[c];
+                k[r * ndof + c] += v;
+                if c != r { k[c * ndof + r] += v; }
             }
         }
     }
@@ -673,8 +683,9 @@ pub fn quad9_stresses(
     let kappa_th = alpha * dt_gradient / t;
     eps_xx -= eps_th;
     eps_yy -= eps_th;
-    kappa_xx -= kappa_th;
-    kappa_yy -= kappa_th;
+    // Free thermal engineering curvature is -alpha*dt_gradient/t.
+    kappa_xx += kappa_th;
+    kappa_yy += kappa_th;
 
     let c = e / (1.0 - nu * nu);
     let sigma_xx = c * (eps_xx + nu * eps_yy);
@@ -814,7 +825,8 @@ pub fn quad9_stress_at_nodes(
     let c = e / (1.0 - nu * nu);
     let cb = e * t * t * t / (12.0 * (1.0 - nu * nu));
 
-    // Thermal strain/curvature to subtract (mechanical strain drives stress)
+    // Subtract membrane thermal strain; add alpha*dt_gradient/t to engineering
+    // curvature: a hotter +z face freely curls down (negative w,xx and w,yy).
     let eps_th = alpha * dt_uniform;
     let kappa_th = alpha * dt_gradient / t;
 
@@ -861,8 +873,8 @@ pub fn quad9_stress_at_nodes(
         // Subtract thermal strains before constitutive law
         eps_xx -= eps_th;
         eps_yy -= eps_th;
-        kappa_xx -= kappa_th;
-        kappa_yy -= kappa_th;
+        kappa_xx += kappa_th;
+        kappa_yy += kappa_th;
 
         gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
         gp_syy[gp] = c * (nu * eps_xx + eps_yy);
@@ -986,8 +998,10 @@ pub fn quad9_thermal_load(
             let di = i * 6;
             f[di]     += dv * dn_dx[i] * n_t;
             f[di + 1] += dv * dn_dy[i] * n_t;
-            f[di + 3] += dv * dn_dy[i] * m_t;
-            f[di + 4] -= dv * dn_dx[i] * m_t;
+            // Bending, with dt_gradient = T(+z face) − T(−z face) and right-handed
+            // rotations: see `quad_thermal_load`. These signs were reversed.
+            f[di + 3] -= dv * dn_dy[i] * m_t;
+            f[di + 4] += dv * dn_dx[i] * m_t;
         }
     }
 

@@ -222,8 +222,27 @@
   /** Canonical drawing geometry, or null when the section is refused. */
   const canonicalGeometry = $derived(canonical?.ok ? canonical.geometry : null);
 
+  /**
+   * Run one of the panel's stress computations, and let a throw end there.
+   *
+   * These run inside `$derived`, and a throw from the engine boundary (a
+   * section the engine refuses, a result it cannot parse) escaped the
+   * derivation: the panel, and the Advanced panel around it, stopped
+   * updating, and "← Back" no longer closed anything. A computation that
+   * fails now reads as "nothing to show at this station", which leaves the
+   * panel, its close and the rest of the page working.
+   */
+  function guarded<T>(what: string, run: () => T): T | null {
+    try {
+      return run();
+    } catch (err) {
+      console.warn(`[section analysis] ${what}:`, (err as Error)?.message ?? err);
+      return null;
+    }
+  }
+
   // ── 2D analysis (skip if section is rotated → uses biaxial path instead) ──
-  const analysis2D = $derived.by((): SectionStressResult | null => {
+  const analysis2D = $derived.by((): SectionStressResult | null => guarded('2D', (): SectionStressResult | null => {
     // An eccentric load is biaxial in general — moving an axial force sideways
     // produces Mz, which a plane-frame result cannot represent — so that case
     // is handed to the biaxial path below, exactly as a rotated section is.
@@ -241,10 +260,10 @@
     const rs = resolved.resolved;
     const yFiber = rs.yMin + fiberRatioY * (rs.yMax - rs.yMin);
     return analyzeSectionStress(ef, sec, mat.fy, query.t, yFiber);
-  });
+  }));
 
   // ── 3D analysis (also handles rotated 2D sections via force decomposition) ──
-  const analysis3D = $derived.by((): SectionStressResult3D | null => {
+  const analysis3D = $derived.by((): SectionStressResult3D | null => guarded('3D', (): SectionStressResult3D | null => {
     if (isAmorphous || !query) return null;
 
     // ── Eccentric load: plot the RESOLVED forces ─────────────────
@@ -326,7 +345,7 @@
     const zFiber = -halfB + fiberRatioZ * halfB * 2;
 
     return analyzeSectionStressFromForces(N_2d, Vy, Vz, 0, My, Mz, sec, mat.fy, yFiber, zFiber);
-  });
+  }));
 
   // Neutral axis for ⊥ distribution: moments-only or full (with N) depending on showTotalSigma
   // When showTotalSigma is off: NA passes through centroid (N=0), classic moment-only view
@@ -795,8 +814,10 @@
 
   // Global stress scales: max σ and τ across all critical sections of the element (MPa)
   // Used when useGlobalScale is true so stress diagrams scale relative to element-wide max
-  const globalScales = $derived.by((): { maxSigmaY: number; maxSigmaZ: number; maxTauY: number } | null => {
-    if (!useGlobalScale || !query) return null;
+  const globalScales = $derived.by((): { maxSigmaY: number; maxSigmaZ: number; maxTauY: number } | null => guarded('scales', (): { maxSigmaY: number; maxSigmaZ: number; maxTauY: number } | null => {
+    // The scales serve the stress plots, which a section refused for detailed
+    // analysis does not get: its warning is all the panel shows.
+    if (!useGlobalScale || !query || isAmorphous) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
     const sec = modelStore.sections.get(elem.sectionId);
@@ -862,7 +883,7 @@
     }
 
     return { maxSigmaY: maxSY, maxSigmaZ: maxSZ, maxTauY: maxTY };
-  });
+  }));
 
   /**
    * Close the panel AND leave the pointer usable.

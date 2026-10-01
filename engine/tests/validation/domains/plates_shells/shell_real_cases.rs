@@ -39,6 +39,7 @@ fn make_base_input(
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
 
     SolverInput3D {
+        solver_options: None,
         nodes, materials,
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],

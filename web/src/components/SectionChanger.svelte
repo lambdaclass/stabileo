@@ -271,7 +271,7 @@
                 {/if}
                 {#if activeCodeDef?.missingFamilies?.length}
                   <div class="meta-missing">
-                    {t('cat.missing')}: {activeCodeDef.missingFamilies.join(', ')}
+                    {t('cat.missing')}: {activeCodeDef.missingFamilies.map((k) => t(k)).join(', ')}
                   </div>
                 {/if}
               </div>

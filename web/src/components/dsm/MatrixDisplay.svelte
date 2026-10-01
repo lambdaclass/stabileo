@@ -91,7 +91,7 @@
     {title}
     {#if editable && quizStats}
       <span class="quiz-stats">
-        {quizStats.correct}/{quizStats.answered} correctas
+        {quizStats.correct}/{quizStats.answered} {t('edu.review.correct')}
         {#if quizStats.answered > 0}
           ({Math.round(quizStats.correct / quizStats.answered * 100)}%)
         {/if}

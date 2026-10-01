@@ -137,4 +137,3 @@ describe('the run covers exactly the families chosen', () => {
     expect(report.ok).toBe(true);
   }, 300_000);
 });
-

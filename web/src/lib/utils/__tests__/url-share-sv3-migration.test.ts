@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { compressSnapshot, decompressSnapshot } from '../url-sharing';
 import type { ModelSnapshot } from '../../store/history.svelte';
+import { modelStore } from '../../store/model.svelte';
 
 const baseSnapshot: ModelSnapshot = {
   name: 'sv3-test',
@@ -58,11 +59,12 @@ describe('Share URL sv:3 → sv:4 migration', () => {
       e: [[1, 0, 1, 2, 1, 1, { hs: true }]],
       s: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
       l: [],
-      lc: [[1, 'D', 'Dead']],
-      cb: [],
+      // Load cases were passed through as records, including in sv:3.
+      lc: [{ id: 1, type: 'D', name: 'Dead' }],
+      co: [],
       pl: [],
-      qd: [],
-      cs: [],
+      qu: [],
+      cn: [],
       ni: [3, 2, 2, 2, 3, 1, 2, 1, 1, 1],
     };
     const json = JSON.stringify(compact);
@@ -80,5 +82,7 @@ describe('Share URL sv:3 → sv:4 migration', () => {
     expect(elem.releaseJ).toEqual({ my: false, mz: false, t: false });
     expect((elem as any).hingeStart).toBeUndefined();
     expect((elem as any).hingeEnd).toBeUndefined();
+    expect(() => modelStore.restore(decoded!)).not.toThrow();
+    expect(modelStore.loadCases[0].name).toBe('Dead');
   });
 });

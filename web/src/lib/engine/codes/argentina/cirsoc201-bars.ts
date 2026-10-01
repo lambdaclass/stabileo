@@ -98,7 +98,13 @@ export function barsPerLayer(
   const spanMm = (widthM - 2 * coverToBarCentreM) * 1000;
   if (spanMm <= 0) return 1;
   const pitch = diameter + minClearSpacingMm(diameter);
-  return Math.max(1, Math.floor(spanMm / pitch) + 1);
+  /*
+   * A tolerance on the floor. (0.15 − 2·0.05)·1000 is 49.999999999999986 in
+   * floating point, and flooring that against a 50 mm pitch counted two Ø25
+   * with exactly 25 mm between them as one per layer. A micrometre is far
+   * below anything a detailer measures and far above the rounding.
+   */
+  return Math.max(1, Math.floor(spanMm / pitch + 1e-6) + 1);
 }
 
 /**

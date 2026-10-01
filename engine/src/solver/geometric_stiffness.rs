@@ -2,6 +2,38 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 
+/// The expansion coefficient the load assembly uses for frame and truss members.
+const THERMAL_ALPHA: f64 = 12e-6;
+
+/// Σ ΔT_uniform of each element's thermal loads, plane.
+///
+/// The P-Delta iteration reads a member's axial force back from its
+/// displacements, EA·Δu/L. That is the whole force only when nothing but the
+/// nodes strains the member: a uniform temperature change adds a free strain
+/// αΔT, and the force is EA·(Δu/L − αΔT). A heated member between restraints
+/// does not lengthen at all, so without this term its compression −EAαΔT never
+/// reached the geometric stiffness.
+fn uniform_dt_2d(input: &SolverInput) -> std::collections::HashMap<usize, f64> {
+    let mut dt = std::collections::HashMap::new();
+    for load in &input.loads {
+        if let SolverLoad::Thermal(tl) = load {
+            *dt.entry(tl.element_id).or_insert(0.0) += tl.dt_uniform;
+        }
+    }
+    dt
+}
+
+/// Σ ΔT_uniform of each element's thermal loads, space. See [`uniform_dt_2d`].
+fn uniform_dt_3d(input: &SolverInput3D) -> std::collections::HashMap<usize, f64> {
+    let mut dt = std::collections::HashMap::new();
+    for load in &input.loads {
+        if let SolverLoad3D::Thermal(tl) = load {
+            *dt.entry(tl.element_id).or_insert(0.0) += tl.dt_uniform;
+        }
+    }
+    dt
+}
+
 /// Maps 12-DOF element indices to 14-DOF positions, skipping warping DOFs 6 and 13.
 const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
@@ -30,16 +62,6 @@ impl KgTriplets {
             self.rows.push(i);
             self.cols.push(j);
             self.vals.push(v);
-        }
-    }
-
-    /// Add a lower-triangle CSC of the free block, such as the first-order K_ff, so that
-    /// `into_csc` returns K_ff + Kg in one matrix.
-    pub fn add_lower_csc(&mut self, a: &CscMatrix) {
-        for j in 0..a.n {
-            for p in a.col_ptr[j]..a.col_ptr[j + 1] {
-                self.add(a.row_idx[p], j, a.values[p]);
-            }
         }
     }
 
@@ -128,11 +150,13 @@ pub fn add_geometric_stiffness_2d(
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
+    let dt_by_elem = uniform_dt_2d(input);
 
     for elem in input.elements.values() {
+        let dt = dt_by_elem.get(&elem.id).copied().unwrap_or(0.0);
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
-            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, k_global, n);
+            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, dt, k_global, n);
             continue;
         }
 
@@ -154,8 +178,8 @@ pub fn add_geometric_stiffness_2d(
         let t = crate::element::frame_transform_2d(cos, sin);
         let u_local = transform_displacement(&u_global, &t, 6);
 
-        // Axial deformation → axial force
-        let axial_force = e * sec.a / l * (u_local[3] - u_local[0]);
+        // Axial deformation, less the free thermal strain → axial force
+        let axial_force = e * sec.a * ((u_local[3] - u_local[0]) / l - THERMAL_ALPHA * dt);
 
         // Geometric stiffness matrix (Przemieniecki formulation)
         let p = axial_force;
@@ -203,6 +227,7 @@ fn add_truss_kg_2d(
     dof_num: &DofNumbering,
     elem: &SolverElement,
     u: &[f64],
+    dt: f64,
     k_global: &mut [f64],
     n: usize,
 ) {
@@ -227,7 +252,7 @@ fn add_truss_kg_2d(
         dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
     ];
     let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-    let axial_force = e * sec.a / l * delta;
+    let axial_force = e * sec.a * (delta / l - THERMAL_ALPHA * dt);
 
     // Truss geometric stiffness in global: P/L * [[s²,-cs,-s²,cs],[-cs,c²,cs,-c²],...]
     // where c=cos, s=sin
@@ -680,22 +705,9 @@ pub fn add_geometric_stiffness_3d(
     emit_geometric_stiffness_3d(input, dof_num, u, &mut |gi, gj, v| k_global[gi * n + gj] += v);
 }
 
-/// The same geometric stiffness as `add_geometric_stiffness_3d`, as lower-triangle triplets of the
-/// free block: what the sparse P-Delta adds to K_ff without an n×n matrix.
-pub fn geometric_stiffness_triplets_3d(
-    input: &SolverInput3D,
-    dof_num: &DofNumbering,
-    u: &[f64],
-) -> KgTriplets {
-    let mut kg = KgTriplets::new(dof_num.n_free);
-    // Every element block is symmetric and emitted whole, so its lower half is the matrix.
-    emit_geometric_stiffness_3d(input, dof_num, u, &mut |gi, gj, v| if gi >= gj { kg.add(gi, gj, v) });
-    kg
-}
-
 /// Each (global row, global column, value) of the frame, truss and cable geometric stiffness at
 /// the displacements `u`, with the axial force taken as EA/L times the elongation.
-fn emit_geometric_stiffness_3d(
+pub(crate) fn emit_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
@@ -705,6 +717,7 @@ fn emit_geometric_stiffness_3d(
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection3D> = input.sections.values().map(|s| (s.id, s)).collect();
+    let dt_by_elem = uniform_dt_3d(input);
 
     for elem in input.elements.values() {
         let node_i = node_by_id[&elem.node_i];
@@ -717,13 +730,14 @@ fn emit_geometric_stiffness_3d(
         let dz = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
         let e = mat.e * 1000.0;
+        let dt = dt_by_elem.get(&elem.id).copied().unwrap_or(0.0);
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let dir = [dx / l, dy / l, dz / l];
             let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let axial_force = e * sec.a / l * delta;
+            let axial_force = e * sec.a * (delta / l - THERMAL_ALPHA * dt);
             let p_over_l = axial_force / l;
 
             let mut kg_local = [0.0; 36];
@@ -763,8 +777,8 @@ fn emit_geometric_stiffness_3d(
             };
             let u_local = transform_displacement(&u_12, &t, 12);
 
-            // Axial force from local displacements
-            let axial_force = e * sec.a / l * (u_local[6] - u_local[0]);
+            // Axial force from local displacements, less the free thermal strain
+            let axial_force = e * sec.a * ((u_local[6] - u_local[0]) / l - THERMAL_ALPHA * dt);
 
             let kg_local = frame_kg_local_3d(axial_force, l, &crate::element::Hinge3D::from_elem(elem));
 

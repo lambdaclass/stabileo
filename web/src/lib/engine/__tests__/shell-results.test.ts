@@ -32,8 +32,8 @@ describe('shell result rows', () => {
 
   it('a face is the membrane plus and minus 6M/t², top along the local z', () => {
     const [r] = shellCentreRows(result([quad(1, { sigmaXx: 100, mx: 2 })]), model);
-    expect(r!.top.sxx).toBeCloseTo(100 + (6 * 2) / 0.04, 9);
-    expect(r!.bottom.sxx).toBeCloseTo(100 - (6 * 2) / 0.04, 9);
+    expect(r!.top!.sxx).toBeCloseTo(100 + (6 * 2) / 0.04, 9);
+    expect(r!.bottom!.sxx).toBeCloseTo(100 - (6 * 2) / 0.04, 9);
     expect(r!.membrane.vonMises).toBeCloseTo(100, 9);
   });
 
@@ -59,6 +59,10 @@ describe('shell result rows', () => {
   it('leaves a curved quad without global values rather than guessing its frame', () => {
     const [r] = shellCentreRows(result([quad(9, { sigmaXx: 10 })]), model);
     expect(r!.global).toBeUndefined();
+    expect(r!.top).toBeUndefined();
+    expect(r!.bottom).toBeUndefined();
+    expect(r!.mx).toBeUndefined();
+    expect(r!.membrane.vonMises).toBe(10);
   });
 
   it('averages at a node in global components, over the elements around it', () => {

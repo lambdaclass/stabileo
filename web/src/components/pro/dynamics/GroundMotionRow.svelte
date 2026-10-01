@@ -5,9 +5,9 @@
    * kept as read and drawn, with its peak.
    */
   import { t, tp } from '../../../lib/i18n';
-  import { parseGroundRecord, recordSummary, RecordError, type AccelUnit } from '../../../lib/engine/dynamics/accelerogram';
+  import { parseGroundRecord, recordSummary, recordWarnings, RecordError, type AccelUnit, type RecordWarning } from '../../../lib/engine/dynamics/accelerogram';
   import { G } from '../../../lib/engine/dynamics/requests';
-  import { groundSeries, type GroundSpec } from '../../../lib/engine/dynamics/time-history-spec';
+  import { groundSeries, withGroundSource, type GroundSource, type GroundSpec } from '../../../lib/engine/dynamics/time-history-spec';
   import { errorText } from '../../../lib/utils/error-text';
   import TimeSeriesChart from './TimeSeriesChart.svelte';
 
@@ -15,13 +15,17 @@
     dir: 'x' | 'y' | 'z'; g: GroundSpec; dt: number; nSteps: number; spectrumSa: ((T: number) => number) | null;
   } = $props();
 
-  let unit = $state<AccelUnit>('g');
+  // The unit a kept record was read in, so the select says what the record is.
+  let unit = $state<AccelUnit>(g.record?.unit ?? 'g');
   let columnDt = $state(0.01);
   let typed = $state('');
   let error = $state<string | null>(null);
   let showChart = $state(false);
+  /** What was last read, so a unit or dt chosen after the file is read reads it again. */
+  let lastRead: { text: string; name: string; asColumn: boolean } | null = null;
 
   function read(text: string, name: string, asColumn = false) {
+    lastRead = { text, name, asColumn };
     error = null;
     try {
       const r = parseGroundRecord(text, unit, asColumn ? dt : columnDt, asColumn ? { asColumn: true } : undefined);
@@ -30,6 +34,21 @@
       error = e instanceof RecordError ? t(`pro.th.record.${e.code}`) : errorText(e, 'Error');
     }
   }
+  function reread() {
+    if (lastRead) read(lastRead.text, lastRead.name, lastRead.asColumn);
+  }
+
+  /** What is likely wrong with the record about to be run — unit, sampling, length. */
+  const warnings = $derived(g.source === 'record' && g.record ? recordWarnings(g.record, dt, nSteps) : []);
+  function warningText(w: RecordWarning): string {
+    switch (w.code) {
+      case 'pgaHigh': return tp('pro.th.warn.pgaHigh', { pga: fmt(w.pgaG, 2) });
+      case 'pgaLow': return tp('pro.th.warn.pgaLow', { pga: fmt(w.pgaG, 5) });
+      case 'undersampled': return tp('pro.th.warn.undersampled', { recordDt: fmt(w.recordDt, 4), kept: fmt(w.keptPct, 0) });
+      case 'truncated': return tp('pro.th.warn.truncated', { run: fmt(w.runS, 2), record: fmt(w.recordS, 2) });
+    }
+  }
+
   async function onFile(e: Event) {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (f) read(await f.text(), f.name);
@@ -43,7 +62,7 @@
 <div class="gm" data-testid="th-ground-{dir}">
   <div class="gm-row">
     <span class="gm-dir">{dir.toUpperCase()}</span>
-    <select bind:value={g.source} data-testid="th-src-{dir}">
+    <select value={g.source} onchange={(e) => (g = withGroundSource(g, e.currentTarget.value as GroundSource))} data-testid="th-src-{dir}">
       <option value="none">{t('pro.th.none')}</option>
       <option value="sine">{t('pro.th.source.sine')}</option>
       <option value="record">{t('pro.th.source.record')}</option>
@@ -62,8 +81,8 @@
   {:else if g.source === 'record'}
     <div class="gm-row">
       <input type="file" accept=".at2,.AT2,.txt,.csv,.dat,.tsv" onchange={onFile} data-testid="th-file-{dir}" />
-      <label>{t('pro.th.unit')} <select bind:value={unit}><option value="g">g</option><option value="m/s2">m/s²</option><option value="cm/s2">cm/s²</option></select></label>
-      <label>{t('pro.th.columnDt')} <input type="number" min="0.0001" step="0.001" bind:value={columnDt} /></label>
+      <label>{t('pro.th.unit')} <select value={unit} onchange={(e) => { unit = e.currentTarget.value as AccelUnit; reread(); }} data-testid="th-unit-{dir}"><option value="g">g</option><option value="m/s2">m/s²</option><option value="cm/s2">cm/s²</option></select></label>
+      <label>{t('pro.th.columnDt')} <input type="number" min="0.0001" step="0.001" value={columnDt} onchange={(e) => { columnDt = Number(e.currentTarget.value); reread(); }} /></label>
     </div>
     <div class="gm-row">
       <textarea rows="1" bind:value={typed} placeholder={t('pro.th.typedInput')}></textarea>
@@ -74,6 +93,9 @@
       {@const s = recordSummary(g.record)}
       <p class="gm-hint" data-testid="th-record-{dir}">{g.record.name}: {tp('pro.th.recordSummary', { points: s.points, duration: fmt(s.duration, 2), pga: fmt(s.pga / G) })}</p>
     {/if}
+    {#each warnings as w (w.code)}
+      <p class="gm-warn" data-testid="th-warning-{dir}-{w.code}">{warningText(w)}</p>
+    {/each}
   {:else if g.source === 'spectrum'}
     <div class="gm-row">
       <label>{t('pro.th.duration')} (s) <input type="number" min="1" step="1" value={g.spectrum?.duration ?? 20} onchange={(e) => (g = { ...g, spectrum: { seed: g.spectrum?.seed ?? 1, duration: Number(e.currentTarget.value) } })} /></label>
@@ -94,5 +116,6 @@
   .gm-link { padding: 1px 6px; font-size: 0.62rem; color: var(--st-interactive); background: transparent; border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer; }
   .gm-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
   .gm-error { margin: 0; font-size: 0.62rem; color: var(--st-danger); }
+  .gm-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }
   textarea { flex: 1; min-width: 120px; font-family: monospace; font-size: 0.62rem; }
 </style>

@@ -3,7 +3,9 @@
  * that lands where it should, and, for every kind, a real solve that comes back finite and in
  * equilibrium. A mechanism satisfies every count; only the solver sees it.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as grid from '../../../model/grid';
+import * as roles from '../member-roles';
 import {
   DEFAULT_STRUCTURE_PARAMS, STRUCTURE_KINDS, generateStructure, validateStructureParams, type StructureKind,
 } from '../structures';
@@ -21,6 +23,35 @@ const gen = (kind: StructureKind, over: Record<string, unknown> = {}) =>
   generateStructure(kind, { ...DEFAULT_STRUCTURE_PARAMS[kind], ...over } as never)!;
 
 describe('counts', () => {
+  it('rejects an oversized frame before allocating its grid', () => {
+    const layout = vi.spyOn(grid, 'frameBetweenAxes');
+    try {
+      expect(gen('spaceFrame', { baysX: '30x6', baysY: '30x6', storeys: '10x3' })).toBeNull();
+      expect(gen('spaceFrame', { baysX: '200x6', baysY: '200x6', storeys: '200x3' })).toBeNull();
+      expect(layout).not.toHaveBeenCalled();
+    } finally { layout.mockRestore(); }
+  });
+
+  it.each([
+    ['planeFrame', { baysX: '200x6', storeys: '200x3' }],
+    ['floorGrid', { baysX: '200x6', baysY: '200x6' }],
+    ['spaceTruss', { baysX: '200x6', baysY: '200x6' }],
+    ['continuousBeam', { spans: Array(101).fill('200x6').join(';') }],
+    ['cylindricalVault', { arcDivisions: 100, baysY: '200x6', bracing: 'none' }],
+    ['dome', { meridians: 120, rings: 60, diagonals: true }],
+  ] as const)('rejects oversized %s before finishing a topology', (kind, params) => {
+    const tally = vi.spyOn(roles, 'tallyRoles');
+    try {
+      expect(gen(kind, params)).toBeNull();
+      expect(tally).not.toHaveBeenCalled();
+    } finally { tally.mockRestore(); }
+  });
+
+  it('allows the member limit exactly and rejects the next bay', () => {
+    expect(gen('spaceTruss', { baysX: '50x2', baysY: '50x2' }).members).toHaveLength(20000);
+    expect(gen('spaceTruss', { baysX: '51x2', baysY: '50x2' })).toBeNull();
+  });
+
   it('a space frame: columns per storey at every intersection, beams both ways per floor', () => {
     const t = gen('spaceFrame', { baysX: '6; 6; 6', baysY: '5; 5', storeys: '3; 3' });
     // 4 × 3 intersections, 3 levels.

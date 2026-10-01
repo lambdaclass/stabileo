@@ -3,6 +3,7 @@
 // or metres alike, with tolerances passed in by the caller).
 
 import type { CadBBox, CadPt } from './types';
+import { sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from '../engine/shell-mesh-gen';
 
 export function dist(a: CadPt, b: CadPt): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -230,7 +231,7 @@ export function structuredBreakpoints(
     forced?: number[]; openingEdges?: number[];
     snapTol?: number; minRatio?: number;
   },
-): { lines: number[]; slivers: number } {
+): { lines: number[]; slivers: number; capped: number } {
   const snapTol = opts.snapTol ?? 0.03;
   // Sanitize the target cell size: a non-finite or ≤0 value (e.g. a cleared or
   // zeroed wizard field) would make `round(gap / target)` Infinity/NaN and the
@@ -238,8 +239,9 @@ export function structuredBreakpoints(
   // tab. Fall back to the 1 m default so meshing always terminates.
   const rawTarget = opts.target ?? 1.0;
   const target = Number.isFinite(rawTarget) && rawTarget > 0 ? rawTarget : 1.0;
+  let capped = 0;
   const minRatio = opts.minRatio ?? 0.75;
-  if (hi - lo <= snapTol) return { lines: [lo, hi], slivers: 0 };
+  if (hi - lo <= snapTol) return { lines: [lo, hi], slivers: 0, capped: 0 };
 
   // Tagged hard lines by structural priority: bound 1, opening 2, forced 3.
   const tagged: Array<{ v: number; p: number }> = [{ v: lo, p: 1 }, { v: hi, p: 1 }];
@@ -264,7 +266,15 @@ export function structuredBreakpoints(
 
   let lines: number[];
   if (opts.mode === 'fixedDivisions') {
-    const nn = Math.max(1, Math.round(opts.fixed ?? 2));
+    // The same hazard as `target` above, left open on this branch only.
+    // `Math.round(Infinity)` is Infinity and `Math.max(1, Infinity)` is Infinity,
+    // so `i < nn` below never goes false. It does not even end in an
+    // out-of-memory crash: `(i * (hi - lo)) / Infinity` is 0 for every i, so the
+    // Set holds a single value and the loop spins at flat memory — the tab
+    // freezes with nothing to report. NaN fails the other way (the loop is
+    // skipped entirely and the span is never divided), so both fall back to the
+    // documented default of 2. Capped at MAX_DIVISIONS_PER_AXIS like the targetSize path below.
+    const nn = sanitizeDivisions(opts.fixed ?? 2, 2);
     const set = new Set(hard);
     for (let i = 1; i < nn; i++) set.add(lo + (i * (hi - lo)) / nn);
     lines = [...set].sort((a, b) => a - b);
@@ -283,9 +293,13 @@ export function structuredBreakpoints(
     for (let i = 0; i < hard.length - 1; i++) {
       const a = hard[i], b = hard[i + 1], gap = b - a;
       // Cap subdivisions per structural gap so a pathologically small target
-      // can't generate millions of cells (memory blow-up). 256 cells across a
-      // single bay is already far finer than any RC analysis needs.
-      const nSub = Math.min(256, Math.max(1, Math.round(gap / target)));
+      // can't generate millions of cells (memory blow-up) — the mesher's one
+      // cap, and counted, so the caller can say the mesh came out coarser.
+      const wanted = Math.round(gap / target);
+      if (wanted > MAX_DIVISIONS_PER_AXIS) capped++;
+      // A finite positive target can overflow the quotient. It still asks
+      // for the capped density, rather than the invalid-input fallback of 1.
+      const nSub = sanitizeDivisions(Math.min(wanted, MAX_DIVISIONS_PER_AXIS), 1);
       for (let k = 1; k < nSub; k++) lines.push(a + (k * gap) / nSub);
       lines.push(b);
     }
@@ -295,7 +309,7 @@ export function structuredBreakpoints(
   for (let i = 0; i < lines.length - 1; i++) {
     if (lines[i + 1] - lines[i] < target * minRatio - 1e-9) slivers++;
   }
-  return { lines, slivers };
+  return { lines, slivers, capped };
 }
 
 /** Opening edge coordinates (rectilinear openings only) for breakpoint forcing. */
@@ -331,7 +345,7 @@ export interface StructuredMeshOpts {
  * target*minRatio) so the caller can warn.
  */
 export function generateStructuredMesh(opts: StructuredMeshOpts):
-  { cells: Rect[]; droppedByOpening: number; slivers: number } {
+  { cells: Rect[]; droppedByOpening: number; slivers: number; capped: number } {
   const tol = opts.snapTolerance ?? 0.03;
   const target = opts.targetSize ?? 1.0;
   const minRatio = opts.minSizeRatio ?? 0.75;
@@ -355,7 +369,7 @@ export function generateStructuredMesh(opts: StructuredMeshOpts):
   }
   // Sliver count: distinct sliver-causing lines in either axis (only meaningful
   // where a kept cell uses that thin gap; report the axis totals — conservative).
-  return { cells, droppedByOpening, slivers: bx.slivers + by.slivers };
+  return { cells, droppedByOpening, slivers: bx.slivers + by.slivers, capped: bx.capped + by.capped };
 }
 
 /**
@@ -416,7 +430,7 @@ interface SegFrame {
 export function pairWallLines(
   segments: Segment[],
   opts: { minGap: number; maxGap: number; angleTol?: number; minOverlapRatio?: number },
-): { paired: PairedWall[]; unpaired: number[] } {
+): { paired: PairedWall[]; unpaired: number[]; degenerate: number[] } {
   const angleTol = opts.angleTol ?? 0.035; // ~2°
   const minOverlapRatio = opts.minOverlapRatio ?? 0.5;
 
@@ -429,16 +443,25 @@ export function pairWallLines(
 
   const used = new Array(segments.length).fill(false);
   const paired: PairedWall[] = [];
+  /*
+   * A segment takes part only with a positive, finite length. Written as one
+   * predicate rather than `len <= 0` to skip and `len > 0` to keep: a NaN
+   * length is false both ways, so a segment with a bad coordinate was neither
+   * skipped from pairing (and paired on a NaN direction) nor kept, and an
+   * infinite one (coordinates near 1e308) passed both as a real wall. Such a
+   * segment is now degenerate, like a zero-length one, from whatever source.
+   */
+  const usable = (k: number) => frames[k].len > 0 && Number.isFinite(frames[k].len);
 
   for (let i = 0; i < segments.length; i++) {
-    if (used[i] || frames[i].len <= 0) continue;
+    if (used[i] || !usable(i)) continue;
     const fi = frames[i];
     let best = -1;
     let bestGap = Infinity;
     let bestProj: { t0: number; t1: number; offMid: number } | null = null;
 
     for (let j = i + 1; j < segments.length; j++) {
-      if (used[j] || frames[j].len <= 0) continue;
+      if (used[j] || !usable(j)) continue;
       const fj = frames[j];
       // Parallel check (direction or anti-direction).
       const cross = Math.abs(fi.dir.x * fj.dir.y - fi.dir.y * fj.dir.x);
@@ -477,8 +500,13 @@ export function pairWallLines(
   }
 
   const unpaired: number[] = [];
-  for (let i = 0; i < segments.length; i++) if (!used[i] && frames[i].len > 0) unpaired.push(i);
-  return { paired, unpaired };
+  // Neither paired nor kept, but not without a trace: the caller reports them.
+  const degenerate: number[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (!usable(i)) degenerate.push(i);
+    else if (!used[i]) unpaired.push(i);
+  }
+  return { paired, unpaired, degenerate };
 }
 
 /**
@@ -493,14 +521,79 @@ export function chainSegmentsIntoLoops(
   segments: Segment[],
   tol: number,
 ): { loops: CadPt[][]; loopSegIndex: number[]; unchained: number[] } {
-  // Weld endpoints into vertex ids.
+  // Weld endpoints into vertex ids, through a cell index.
+  //
+  // This scanned every vertex found so far for each endpoint, which is
+  // O(endpoints x vertices) — quadratic in the segment count, on the path that
+  // runs for every DXF drawing its columns as four separate LINEs. Measured
+  // before this change (best of 3): 400 columns 50 ms, 800 197 ms, 1600 770 ms,
+  // 3200 3089 ms. The cost per segment doubled at every doubling of the input,
+  // which is the quadratic signature rather than an unlucky constant.
+  //
+  // Cells have side 2*tol: the extra search margin covers floating-point
+  // rounding at cell boundaries (e.g. dist(-1e-19, 0.005) rounds to 0.005).
+  // This only widens candidate collection; dist <= tol remains the exact weld
+  // predicate. Nine bucket lookups replace the scan for ordinary CAD coordinates.
+  //
+  // The subtle part is which candidate wins. The old scan returned the FIRST
+  // vertex within tolerance — the one with the SMALLEST index. Visiting cells
+  // yields candidates in a different order, so the minimum index is selected
+  // explicitly; otherwise two vertices both within tolerance of a third weld
+  // differently and the loops come out different. `cad-chain-weld.test.ts`
+  // pins that against the original implementation.
   const verts: CadPt[] = [];
-  const vertOf = (p: CadPt): number => {
+  const cell = 2 * tol;
+  let indexed = tol > 0 && Number.isFinite(cell);
+  const buckets = new Map<string, number[]>();
+  const append = (p: CadPt): number => {
+    verts.push({ x: p.x, y: p.y });
+    return verts.length - 1;
+  };
+  const scan = (p: CadPt): number => {
     for (let i = 0; i < verts.length; i++) {
       if (dist(verts[i], p) <= tol) return i;
     }
-    verts.push({ x: p.x, y: p.y });
-    return verts.length - 1;
+    return append(p);
+  };
+  const vertOf = (p: CadPt): number => {
+    // Preserve the original predicate for zero, negative, NaN and infinite
+    // tolerances too. In particular, Infinity DOES match distant vertices.
+    if (!indexed) return scan(p);
+    // With finite tolerance these never match, and cannot enter the index.
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      return append(p);
+    }
+    const x = p.x / cell, y = p.y / cell;
+    // Keep quotient rounding far below the half-cell search margin: at 2^48
+    // the spacing is at most 1/16 cell. Finite coordinates alone do not ensure
+    // this (division can even overflow). Fall back permanently so later points
+    // still consider EVERY previously inserted vertex, including unindexed ones.
+    if (!(Math.abs(x) <= 2 ** 48 && Math.abs(y) <= 2 ** 48)) {
+      indexed = false;
+      buckets.clear();
+      return scan(p);
+    }
+    const cx = Math.floor(x), cy = Math.floor(y);
+    let best = -1;
+    // Increment small offsets, never large floating-point grid coordinates.
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const ids = buckets.get(`${cx + dx},${cy + dy}`);
+        if (!ids) continue;
+        // Only a smaller index can improve on what we have, so the distance
+        // is not even computed for the rest.
+        for (const i of ids) {
+          if ((best === -1 || i < best) && dist(verts[i], p) <= tol) best = i;
+        }
+      }
+    }
+    if (best !== -1) return best;
+    const id = append(p);
+    const key = `${cx},${cy}`;
+    const arr = buckets.get(key);
+    if (arr) arr.push(id);
+    else buckets.set(key, [id]);
+    return id;
   };
   const edges = segments.map((s, i) => ({ i, a: vertOf(s.a), b: vertOf(s.b) }))
     .filter((e) => e.a !== e.b);

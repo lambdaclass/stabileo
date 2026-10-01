@@ -3,13 +3,41 @@
   import PairingNote from '../property/PairingNote.svelte';
   import { isUnusualPairing } from '../../lib/data/structural-grades';
   import { t } from '../../lib/i18n';
+  import EndConditionSelect from '../EndConditionSelect.svelte';
+  import type { Release } from '../../lib/store/model.svelte';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
-  /** ○ hinged; in 3D, ◐ when only one bending moment is released (set per axis elsewhere). */
-  function hingeMark(r: { my?: boolean; mz?: boolean } | undefined): string {
-    if (!is3DMode) return r?.mz === true ? '\u25CB' : '\u2014';
-    if (r?.my === true && r?.mz === true) return '\u25CB';
-    return r?.my === true || r?.mz === true ? '\u25D0' : '\u2014';
+
+  /*
+   * ── Everything about a member, editable here ─────────────────────
+   * Type, end nodes and end conditions were read-only text (the ends a ○/—
+   * that toggled a plain hinge on click), so a slide, a hinge + slide or a
+   * member's sense could only be set on the canvas. Each is a control now,
+   * the ends the same one the member card uses.
+   */
+  function setType(id: number, type: 'frame' | 'truss') {
+    historyStore.pushState({ notifyMutation: false });
+    modelStore.updateElement(id, { type });
+  }
+
+  function setEnd(id: number, end: 'i' | 'j', r: Release) {
+    historyStore.pushState({ notifyMutation: false });
+    modelStore.updateElement(id, end === 'i' ? { releaseI: r } : { releaseJ: r });
+  }
+
+  /**
+   * A new end node. Choosing the other end's node for it is asking for the
+   * member the other way round, which is a reversal (loads and ends follow),
+   * not a zero-length member.
+   */
+  function setNode(id: number, end: 'i' | 'j', nodeId: number) {
+    const el = modelStore.elements.get(id);
+    if (!el || !modelStore.getNode(nodeId)) return;
+    const other = end === 'i' ? el.nodeJ : el.nodeI;
+    if (nodeId === (end === 'i' ? el.nodeI : el.nodeJ)) return;
+    if (nodeId === other) { modelStore.reverseElement(id); return; }
+    historyStore.pushState({ notifyMutation: false });
+    modelStore.updateElement(id, end === 'i' ? { nodeI: nodeId } : { nodeJ: nodeId });
   }
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
@@ -73,25 +101,44 @@
     {#each elementsArr as elem}
       <tr>
         <td class="id-cell">{elem.id}</td>
-        <td>{elem.type}</td>
-        <td>{elem.nodeI}</td>
-        <td>{elem.nodeJ}</td>
         <td>
-          <select value={String(elem.materialId)} onchange={(e) => changeElementMaterial(elem.id, e.currentTarget.value)}>
+          <select value={elem.type} onchange={(e) => setType(elem.id, e.currentTarget.value as 'frame' | 'truss')} data-testid="elem-type-{elem.id}">
+            <option value="frame">{t('table.frame')}</option>
+            <option value="truss">{t('table.truss')}</option>
+          </select>
+        </td>
+        <td>
+          <select class="node-sel" value={elem.nodeI} onchange={(e) => setNode(elem.id, 'i', Number(e.currentTarget.value))} data-testid="elem-node-i-{elem.id}">
+            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
+          </select>
+        </td>
+        <td>
+          <select class="node-sel" value={elem.nodeJ} onchange={(e) => setNode(elem.id, 'j', Number(e.currentTarget.value))} data-testid="elem-node-j-{elem.id}">
+            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
+          </select>
+          <button class="flip" title={t('editor.reverseHint')} aria-label={t('editor.reverse')}
+            onclick={() => modelStore.reverseElement(elem.id)} data-testid="elem-reverse-{elem.id}">⇄</button>
+        </td>
+        <td>
+          <select value={String(elem.materialId)} onchange={(e) => changeElementMaterial(elem.id, e.currentTarget.value)} data-testid="elem-material-{elem.id}">
             {#each materialsArr as mat}
               <option value={String(mat.id)}>{mat.name}</option>
             {/each}
           </select>
         </td>
         <td>
-          <select value={String(elem.sectionId)} onchange={(e) => changeElementSection(elem.id, e.currentTarget.value)}>
+          <select value={String(elem.sectionId)} onchange={(e) => changeElementSection(elem.id, e.currentTarget.value)} data-testid="elem-section-{elem.id}">
             {#each sectionsArr as sec}
               <option value={String(sec.id)}>{sec.name}</option>
             {/each}
           </select>
         </td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => is3DMode ? modelStore.toggleHinge3D(elem.id, 'start') : modelStore.toggleHinge(elem.id, 'start')}>{hingeMark(elem.releaseI)}</td>
-        <td class="hinge-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''} onclick={() => is3DMode ? modelStore.toggleHinge3D(elem.id, 'end') : modelStore.toggleHinge(elem.id, 'end')}>{hingeMark(elem.releaseJ)}</td>
+        <td class="end-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
+          <EndConditionSelect compact release={elem.releaseI} is3D={is3DMode} onchange={(r) => setEnd(elem.id, 'i', r)} testid="elem-end-i-{elem.id}" />
+        </td>
+        <td class="end-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
+          <EndConditionSelect compact release={elem.releaseJ} is3D={is3DMode} onchange={(r) => setEnd(elem.id, 'j', r)} testid="elem-end-j-{elem.id}" />
+        </td>
         <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>
@@ -206,14 +253,21 @@
     max-width: 90px;
   }
 
-  .hinge-cell {
+  /* An end condition, with its axis beside it when it slides. */
+  .end-cell { min-width: 96px; }
+  .end-cell :global(.ec) { display: flex; }
+
+  td select.node-sel { max-width: 52px; }
+
+  .flip {
+    background: none;
+    border: none;
+    color: var(--st-text-3);
     cursor: pointer;
-    text-align: center;
-    user-select: none;
+    font-size: 0.72rem;
+    padding: 0 0.2rem;
   }
-  .hinge-cell:hover {
-    color: var(--st-value);
-  }
+  .flip:hover { color: var(--st-value); }
 
   .del {
     background: none;

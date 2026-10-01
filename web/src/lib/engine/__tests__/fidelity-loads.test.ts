@@ -206,9 +206,12 @@ describe('P-Delta per combination', () => {
     if (!r || typeof r === 'string') throw new Error(String(r));
     const env = r.envelope.maxAbsResults3D!.quadStresses!;
     expect(env).toHaveLength(4);
-    // Each element's envelope is its governing combination's: the larger factor here.
-    const c14 = [...r.perCombo.values()].reduce((a, b) => (b.quadStresses![0]!.vonMises > a.quadStresses![0]!.vonMises ? b : a));
-    for (const q of env) expect(q.vonMises).toBe(c14.quadStresses!.find((x) => x.elementId === q.elementId)!.vonMises);
+    // WASM's hash-map iteration order can differ between combinations. Compare the same
+    // element in every combination, never whichever shell happens to be first in the array.
+    for (const q of env) {
+      const values = [...r.perCombo.values()].map((c) => c.quadStresses!.find((x) => x.elementId === q.elementId)!.vonMises);
+      expect(q.vonMises).toBe(Math.max(...values));
+    }
   });
 
   it('with every combination past it, the solve says so', () => {
