@@ -915,18 +915,17 @@ export function solveFlex(i: FlexInput): FlexOutput {
     if (byLevels) {
       /*
        * Verify by levels asks for no d′/d′s, so the stale covers of whichever case
-       * was open before cannot be the ones the fit is judged on: each level's own
-       * distance from the nearest face is its cover (the one-cover-on-every-face
-       * reading the levels' positions allow), and each level's own area decides
-       * its own bars — halving the total assumed two equal levels.
+       * was open before cannot be the ones the fit is judged on. The levels give a
+       * cover only vertically: the outermost level's distance to its face. Read as
+       * one cover on every face, that is the side cover each level's bars are laid
+       * out against — a level's own distance from the nearest face is not, since an
+       * intermediate level sits near h/2 and would leave no width at all. Each
+       * level's own area decides its own bars (halving the total assumed two equal
+       * levels).
        */
-      levelChoices = i.levels
-        .filter((l) => l.areaCm2 > 0)
-        .map((l) => chooseBarsPerLevel(l.areaCm2, {
-          widthM: i.b,
-          coverM: Math.max(0, Math.min(l.distanceFromBottom, i.h - l.distanceFromBottom)),
-          heightM: i.h,
-        }));
+      const placed = i.levels.filter((l) => l.areaCm2 > 0);
+      const coverM = Math.max(0, Math.min(...placed.map((l) => Math.min(l.distanceFromBottom, i.h - l.distanceFromBottom))));
+      levelChoices = placed.map((l) => chooseBarsPerLevel(l.areaCm2, { widthM: i.b, coverM, heightM: i.h }));
       choice = levelChoices[0];
       choiceComp = levelChoices.length > 1 ? levelChoices[levelChoices.length - 1] : undefined;
     } else {

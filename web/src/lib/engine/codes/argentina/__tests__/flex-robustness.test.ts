@@ -1265,4 +1265,18 @@ describe('5 · FCR verify by levels — the fit is judged on each level\'s own c
     });
     expect(keys(r)).toContain('flex.step.wontFitColumn');
   });
+  it('an intermediate level is laid out against the same side cover, not its distance to a face', () => {
+    // Three levels of 2 Ø12 on 30 × 60. The middle one is 30 cm from either face; read as
+    // its cover, it left 30 − 2·30 cm of width and every third level "did not fit".
+    const r = solve({
+      kase: 'FCR', mode: 'verify', dPrime: 0.05, dPrimeS: 0.05,
+      levels: [
+        { distanceFromBottom: 0.05, areaCm2: 2.26 },
+        { distanceFromBottom: 0.30, areaCm2: 2.26 },
+        { distanceFromBottom: 0.55, areaCm2: 2.26 },
+      ],
+      AstGiven: 6.78, Pu: 500, Mu: 50,
+    });
+    expect(keys(r)).not.toContain('flex.step.wontFitColumn');
+  });
 });
