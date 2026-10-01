@@ -16,6 +16,9 @@
  * were certified having never been checked; the 22 refusals are the correction, not a
  * regression, and `autodesign-regression.test.ts` is the gate that owns those numbers.
  *
+ * 395 and 13 since self-weight became a member load: it bends the beams about their strong
+ * axis, and nine of the 22 fell under the biaxial threshold.
+ *
  * So the assertion below is no longer "nothing is refused". It is the sharper claim the file
  * was always making: the members detailing works on are exactly the members that hold a
  * VERIFIED outcome, and anything excluded is excluded on OUTCOME grounds — never because it
@@ -32,16 +35,16 @@ import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it('the outcome population is 386 VERIFIED + 22 honest refusals — 373 is a display band', () => {
+  it('the outcome population is 395 VERIFIED + 13 honest refusals — 373 is a display band', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
-    expect(summary.verified).toBe(386);
+    expect(summary.verified).toBe(395);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
-    // an outcome, and the 22 that are outcomes all name the same honest cause.
+    // an outcome, and the 13 that are outcomes all name the same honest cause.
     const notVerified = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED');
-    expect(notVerified).toHaveLength(22);
+    expect(notVerified).toHaveLength(13);
     /**
      * PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
      *

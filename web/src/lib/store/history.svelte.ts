@@ -68,6 +68,7 @@ export interface ModelSnapshot {
   /** Dynamic analysis settings (the time history). Absent: none stated. */
   dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
+  analysis?: import('../engine/analysis-settings').AnalysisSettings;
   projectInfo?: import('../model/project-info').ProjectInfo;
   notes?: import('../model/annotations').ViewNote[];
   /** Structural grid and named levels. Absent: none defined. */

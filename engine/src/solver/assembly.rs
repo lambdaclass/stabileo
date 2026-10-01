@@ -1189,6 +1189,15 @@ fn assemble_frame_loads_3d(
             // Assemble thermal FEF for truss elements
             let dir = [dx / l, dy / l, dz / l];
             for load in loads {
+                if let SolverLoad3D::Distributed(dl) = load {
+                    if dl.element_id == elem.id {
+                        let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                        for k in 0..3 {
+                            if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
+                            if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
+                        }
+                    }
+                }
                 if let SolverLoad3D::Thermal(tl) = load {
                     if tl.element_id == elem.id {
                         let alpha = 12e-6; // Steel default
@@ -1634,6 +1643,9 @@ fn assemble_element_loads_3d(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
+                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                fef[0] = axial[0];
+                fef[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1707,6 +1719,9 @@ fn assemble_element_loads_3d_warping(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
+                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                fef12[0] = axial[0];
+                fef12[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
@@ -1775,6 +1790,9 @@ fn assemble_element_loads_3d_mapped(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
+                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
+                fef[0] = axial[0];
+                fef[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {

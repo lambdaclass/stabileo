@@ -145,7 +145,17 @@ pub fn evaluate_diagram_3d_at(
             }
             value
         }
-        "axial" => ef.n_start + t * (ef.n_end - ef.n_start),
+        "axial" => {
+            if ef.distributed_loads_x.is_empty() { return ef.n_start + t * (ef.n_end - ef.n_start); }
+            let mut value = ef.n_start;
+            for dl in &ef.distributed_loads_x {
+                let span = dl.b - dl.a;
+                if span <= 0.0 { continue; }
+                let s = (x - dl.a).clamp(0.0, span);
+                value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
+            }
+            value
+        },
         "torsion" => ef.mx_start + t * (ef.mx_end - ef.mx_start),
         _ => 0.0,
     }

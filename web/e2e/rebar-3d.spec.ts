@@ -289,8 +289,8 @@ test.describe('nothing is hidden because it has no steel', () => {
     await openWorkspace(page, 'rc-qa-diagnostic');
     const counts = page.getByTestId('rebar-status-counts');
     await expect(counts).toBeVisible();
-    // This fixture has four beams the verifier refuses to certify about their secondary
-    // axis. They carry a PROVISIONAL proposal — a state of their own, not folded into
+    // This fixture has three beams the verifier refuses to certify about their secondary
+    // axis (four until self-weight became a member load and took one under the threshold). They carry a PROVISIONAL proposal — a state of their own, not folded into
     // MODELLED, not folded into a generic "not ready", and not absent.
     await expect(page.getByTestId('rebar-status-PROVISIONAL')).toBeVisible();
     await expect(page.getByTestId('rebar-status-MODELLED')).toBeVisible();
@@ -301,7 +301,7 @@ test.describe('nothing is hidden because it has no steel', () => {
       await openWorkspace(page, 'rc-qa-diagnostic');
       await page.getByTestId('rebar-status-PROVISIONAL').click();
       const rows = page.getByTestId('rebar-element-list').locator('button');
-      await expect(rows).toHaveCount(4);
+      await expect(rows).toHaveCount(3);
       // And they can still be selected and looked at — carrying a proposal does not make a
       // member unreachable, which was the original defect.
       await rows.first().click();
@@ -317,9 +317,9 @@ test.describe('nothing is hidden because it has no steel', () => {
       // members the whole change exists to surface.
       await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toBeVisible();
       // `rebar-unreinforced` is now EMPTY on this fixture, and that is the improvement: the
-      // four beams have steel. What the sidebar must still say is that the steel is a
+      // three beams have steel. What the sidebar must still say is that the steel is a
       // proposal — the workspace banner is not on screen, because the workspace is closed.
-      await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toContainText('4');
+      await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toContainText('3');
     });
 });
 

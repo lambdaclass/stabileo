@@ -67,6 +67,6 @@
   .qty-t th, .qty-t td { padding: 2px 8px; text-align: left; border-bottom: 1px solid var(--st-surface-2); }
   .qty-t .num { text-align: right; font-variant-numeric: tabular-nums; }
   .qty-line { margin: 4px 0; }
-  .qty-hint { margin: 2px 0; font-size: 0.6rem; color: var(--st-text-3); }
+  .qty-hint { margin: 2px 0; font-size: 0.6rem; color: var(--st-text-2); }
   .qty-actions { display: flex; gap: 6px; }
 </style>

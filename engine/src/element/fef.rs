@@ -556,3 +556,14 @@ mod tests {
         assert!((fef[5] - 7.5).abs() < 1e-6);
     }
 }
+
+/// Consistent axial nodal forces of a trapezoid on [a,b], per unit member length.
+/// Integrates the linear axial shape functions, retaining couples of opposite-sign ends.
+pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
+    let span = b - a;
+    if span <= 0.0 { return [0.0, 0.0]; }
+    let f_i = q_i * span / 2.0;
+    let f_j = q_j * span / 2.0;
+    let at_j = (f_i * (a + span / 3.0) + f_j * (a + 2.0 * span / 3.0)) / l;
+    [f_i + f_j - at_j, at_j]
+}

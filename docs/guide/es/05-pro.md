@@ -20,6 +20,13 @@ Para empezar:
 - **Un ejemplo:** **Proyecto → Modelo nuevo → Ejemplos**. Hay dieciséis, agrupados en edificios,
   industriales, energía y offshore, fundaciones, estructuras de gran luz y modelos grandes de
   demostración.
+- **Un modelo de validación:** en la misma lista, el grupo **Modelos de validación** tiene siete
+  estructuras publicadas modeladas uno a uno, con su numeración de nudos y barras, sus secciones
+  por propiedades, sus casos y sus combinaciones. Se cargan tal cual, sin generar combinaciones de
+  reglamento encima. La descripción de cada uno dice qué se adaptó (el eje vertical, las unidades,
+  y las cargas que el programa de origen calculaba y acá entran como cargas comunes).
+  **Modelo 04:** P-Delta todavía no está disponible para este tamaño. Se conserva su
+  configuración; seleccioná análisis lineal explícitamente para obtener resultados de primer orden.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
   (DXF).
 
@@ -203,8 +210,12 @@ vez. Sin ella, las barras se calculan con la teoría de Euler-Bernoulli.
 - hacer **semirrígido** un extremo, con una rigidez al giro en kN·m/rad.
 
 Las barras inactivas y los modificadores de rigidez valen en todos los análisis. Tracción o
-compresión exclusivas se resuelven en **Calcular**, iterando hasta que cada barra trabaje como se
-indicó.
+compresión exclusivas se resuelven en **Calcular**: una barra que trabaja al revés de lo indicado
+sale del modelo y se vuelve a calcular, hasta que ninguna cambia de estado. Mientras trabaja, una
+barra de un solo sentido lleva sólo esfuerzo axil, y las cargas que tenga a lo largo pasan a sus
+nudos como las reacciones de una viga simplemente apoyada. Una barra que salió del modelo informa
+esfuerzos nulos. Los resultados dicen cuántas iteraciones hicieron falta y qué barras quedaron
+afuera, y si alguna oscila entre los dos estados.
 
 ### Condiciones
 
@@ -239,8 +250,20 @@ levante, y reemplazan el apoyo que tuviera el nodo.
 **Cargas.** El panel tiene tres partes:
 
 - **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Lr sobrecarga de
-  cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor. El
-  **peso propio** está **activado por defecto** en PRO y se calcula para barras y placas.
+  cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor.
+- **Peso propio:** es una carga de un caso. Cada fila dice en qué caso entra, en qué dirección
+  global, con qué factor (−1 en Z es la gravedad) y sobre qué: todo el modelo, una lista de barras
+  o un grupo. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
+  en las placas es ρ·t por el área. Entra una vez, en ese caso, y cada combinación lo toma con el
+  factor de ese caso. Un proyecto guardado antes de esta regla se abre con el peso propio en su
+  primer caso D, y un aviso lo dice; si tenía varios casos D, el aviso recuerda que antes el peso
+  se contaba en cada uno.
+- **Cómo se combinan:** con barras de un solo sentido o apoyos que se levantan, cada combinación se
+  resuelve con sus cargas mayoradas (lo que corresponde, porque una barra puede trabajar en una
+  combinación y no en otra) o se superponen los casos, cada uno resuelto con su propio conjunto de
+  barras activas; en ese caso se listan las barras cuyo estado en la suma contradice el de los
+  casos. Sin esas barras los dos métodos dan lo mismo. Cada combinación puede resolverse además
+  **lineal** o con **P-Delta**.
 - **Combinaciones:** manuales, o generadas automáticamente. Las últimas son las de CIRSOC
   101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se
   genera aparte: las gravitatorias a factor 1,0 y, con viento, las de CIRSOC 102-2025 B.4.2
@@ -257,9 +280,13 @@ levante, y reemplazan el apoyo que tuviera el nodo.
   dos vigas a las que llegan. Cada viga recibe cargas lineales parciales cuya suma es la carga
   por el área. Una planta muestra los paños antes de aplicar; los paños no convexos se informan
   y no se cargan.
-- **Agregar carga:** nodal (en ejes globales), distribuida y puntual sobre barras (en ejes
-  locales de la barra), y **de superficie** sobre placas cuadriláteras: en kN/m², vertical (un
-  valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
+- **Agregar carga:** nodal (en ejes globales), puntual sobre barras (en ejes locales de la
+  barra), distribuida sobre barras y **de superficie** sobre placas cuadriláteras: en kN/m²,
+  vertical (un valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
+  La distribuida se da en ejes **locales** (qx a lo largo de la barra, que es la componente axil,
+  y qy, qz en sus ejes), **globales** (por metro de barra) o **proyectados** (por metro de la
+  proyección de la barra: la nieve sobre un cabio se da por metro de planta). Los ejes se cambian
+  también desde la tabla de cargas.
 
 **Auto-generar desde norma.** Arma el plan de cargas del edificio a partir de la normativa
 argentina:

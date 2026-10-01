@@ -204,8 +204,17 @@ export function evaluateDiagramAt(
       }
       return value;
     }
-    case 'axial':
-      return ef.nStart + t * (ef.nEnd - ef.nStart);
+    case 'axial': {
+      if (!ef.distributedLoadsX?.length) return ef.nStart + t * (ef.nEnd - ef.nStart);
+      let value = ef.nStart;
+      for (const dl of ef.distributedLoadsX) {
+        const span = dl.b - dl.a;
+        if (span <= 0) continue;
+        const s = Math.max(0, Math.min(x - dl.a, span));
+        value -= dl.qI * s + (dl.qJ - dl.qI) * s * s / (2 * span);
+      }
+      return value;
+    }
     case 'torsion':
       return ef.mxStart + t * (ef.mxEnd - ef.mxStart);
   }

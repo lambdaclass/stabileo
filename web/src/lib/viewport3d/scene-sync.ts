@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { distributedGlobalEnds } from '../engine/member-loads';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../store/view-state.svelte';
 import * as THREE from 'three';
@@ -622,7 +623,8 @@ function loadsSignature(project2D: boolean): string {
       parts.push(elem ? np(elem.nodeI) + np(elem.nodeJ) : '_',
         elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '',
         // Local loads are drawn along the displayed axes: section rotation and convention.
-        elem ? (modelStore.sections.get(elem.sectionId)?.rotation ?? 0) : '', uiStore.axisConvention3D);
+        elem ? (modelStore.sections.get(elem.sectionId)?.rotation ?? 0) : '', uiStore.axisConvention3D,
+        (d as { frame?: string }).frame ?? '', (d as { qXI?: number }).qXI ?? '', (d as { qXJ?: number }).qXJ ?? '');
     } else if (load.type === 'surface3d') {
       const quad = modelStore.quads.get(d.quadId as number);
       parts.push(quad ? quad.nodes.map((nid: number) => np(nid)).join('') : '_');
@@ -671,7 +673,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       maxQ = Math.max(maxQ, Math.abs(load.data.qI), Math.abs(load.data.qJ));
     } else if (load.type === 'distributed3d') {
       const d = load.data;
-      maxQ = Math.max(maxQ, Math.abs(d.qYI), Math.abs(d.qYJ), Math.abs(d.qZI), Math.abs(d.qZJ));
+      maxQ = Math.max(maxQ, Math.abs(d.qYI), Math.abs(d.qYJ), Math.abs(d.qZI), Math.abs(d.qZJ), Math.abs(d.qXI ?? 0), Math.abs(d.qXJ ?? 0));
     } else if (load.type === 'surface3d') {
       maxQ = Math.max(maxQ, Math.abs(load.data.q));
     }
@@ -763,6 +765,23 @@ export function syncLoads(ctx: SceneSyncContext): void {
         uiStore.axisConvention3D === 'leftHand');
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
+      const frame = load.data.frame ?? 'local';
+      if (frame !== 'local') {
+        // Along the global axes, at the intensity per metre of member the solve applies.
+        const g = distributedGlobalEnds(load.data, localAxes, false);
+        const axisDir = [{ x: 1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }] as const;
+        for (let k = 0; k < 3; k++) {
+          if (Math.abs(g.gI[k]!) > 0.01 || Math.abs(g.gJ[k]!) > 0.01) {
+            batch.addDistributedLoad(sceneI, sceneJ, g.gI[k]!, g.gJ[k]!, maxQ, k === 1 ? 'Y' : 'Z', axisDir[k], cc);
+          }
+        }
+        continue;
+      }
+      // An axial part acts along the member.
+      if (Math.abs(load.data.qXI ?? 0) > 0.01 || Math.abs(load.data.qXJ ?? 0) > 0.01) {
+        const ex = { x: localAxes.ex[0], y: localAxes.ex[1], z: localAxes.ex[2] };
+        batch.addDistributedLoad(sceneI, sceneJ, load.data.qXI ?? 0, load.data.qXJ ?? 0, maxQ, 'Z', ex, cc);
+      }
       // qY loads act along local ey
       if (Math.abs(load.data.qYI) > 0.01 || Math.abs(load.data.qYJ) > 0.01) {
         batch.addDistributedLoad(

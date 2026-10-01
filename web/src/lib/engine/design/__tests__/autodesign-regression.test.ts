@@ -21,6 +21,11 @@
  * honestly refuse (limiting: 'biaxial', provisional retained, never a
  * certificate) rather than certify an unchecked axis. Worst certified
  * utilization among the genuinely-verified 386 is unchanged (~0.999).
+ *
+ * AFTER self-weight became a member load: 395/408 VERIFIED, 13 PROVISIONAL_BIAXIAL. The
+ * weight now bends each beam about its strong axis and adds nothing lateral, so nine BEAM-Y
+ * members fall under the 10% threshold (0.104–0.125 before, 0.080–0.097 after) and are
+ * designed and verified. The other 13 stay above it.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -45,13 +50,14 @@ describe('flagship 408-member RC frame designs completely', () => {
   });
 
   it('produces VERIFIED for every member whose axes are fully checked, and a marked ' +
-     'PROPOSAL for the 22 BEAM-Y members with unchecked biaxial (Mz/Vy) demand', () => {
+     'PROPOSAL for the 13 BEAM-Y members with unchecked biaxial (Mz/Vy) demand', () => {
     const s = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 120_000 });
     expect(s.total).toBe(408);
-    // 22 BEAM-Y members carry Mz/Vy secondary demand above the 10% biaxial
+    // 13 BEAM-Y members carry Mz/Vy secondary demand above the 10% biaxial
     // threshold; this verifier only checks the primary axis for beams, so it
-    // refuses rather than falsely certify them (PR78 review fix).
-    expect(s.verified).toBe(386);
+    // refuses rather than falsely certify them (PR78 review fix). 22 until
+    // self-weight bent the beams (see the header).
+    expect(s.verified).toBe(395);
     expect(s.sectionInadequate).toBe(0);
     expect(s.demandUnavailable).toBe(0);
     /**
@@ -59,13 +65,13 @@ describe('flagship 408-member RC frame designs completely', () => {
      *
      * `SEARCH_EXHAUSTED` would claim the envelope was explored and invite a section change
      * that cannot help. `UNSUPPORTED` was accurate about the CHECK and produced no geometry
-     * at all, which is indistinguishable on screen from steel that went missing. These 22
+     * at all, which is indistinguishable on screen from steel that went missing. These
      * now carry their primary-axis design as an explicit proposal — same threshold, same
      * verifier, nothing assumed for the axis nobody checks.
      */
     expect(s.searchExhausted).toBe(0);
     expect(s.unsupported).toBe(0);
-    expect(s.provisionalBiaxial).toBe(22);
+    expect(s.provisionalBiaxial).toBe(13);
     /**
      * `provisionalRetained` counts a different thing and must not move.
      *
@@ -73,7 +79,7 @@ describe('flagship 408-member RC frame designs completely', () => {
      * short. A biaxial proposal is a member whose primary axis PASSED. Merging the two
      * counters would let a failing member inherit a proposal's treatment.
      */
-    expect(s.provisionalRetained).toBe(22);
+    expect(s.provisionalRetained).toBe(13);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
@@ -104,7 +110,7 @@ describe('flagship 408-member RC frame designs completely', () => {
       expect(o.certificate!.checkedAxes.length).toBeGreaterThan(0);
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
-    expect(refused).toBe(22);
+    expect(refused).toBe(13);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

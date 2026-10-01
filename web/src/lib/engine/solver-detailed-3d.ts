@@ -737,6 +737,9 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         const a = dl.a ?? 0;
         const b = dl.b ?? L;
 
+        const [axI, axJ] = axialDistributedFEF(dl, a, b, L);
+        fef[0] += axI; fef[6] += axJ;
+
         // Y-plane FEF -> DOFs 1,5,7,11
         if (Math.abs(dl.qYI) > 1e-15 || Math.abs(dl.qYJ) > 1e-15) {
           let vi0: number, mi0: number, vj0: number, mj0: number;
@@ -887,6 +890,8 @@ function assembleDistLoadDetailed(
 
   // Build 12-vector of equivalent nodal forces in local coords
   const fLocal = new Float64Array(12);
+
+  [fLocal[0], fLocal[6]] = axialDistributedFEF(load, a, b, L);
 
   // Y-plane FEF
   if (Math.abs(load.qYI) > 1e-15 || Math.abs(load.qYJ) > 1e-15) {
@@ -1062,4 +1067,13 @@ function assemblePointLoadDetailed(
       }
     }
   }
+}
+
+/** Consistent axial loads from the linear axial shape functions. */
+function axialDistributedFEF(load: SolverDistributedLoad3D, a: number, b: number, L: number): [number, number] {
+  const span = b - a;
+  if (!(span > 0)) return [0, 0];
+  const fi = (load.qXI ?? 0) * span / 2, fj = (load.qXJ ?? 0) * span / 2;
+  const atJ = (fi * (a + span / 3) + fj * (a + 2 * span / 3)) / L;
+  return [fi + fj - atJ, atJ];
 }

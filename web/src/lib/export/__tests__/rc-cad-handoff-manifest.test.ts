@@ -673,8 +673,13 @@ describe('determinism', () => {
 describe('fixture-to-manifest reconciliation', () => {
   it('reports the fixture checksum this manifest was derived from', () => {
     // Pinned so a fixture edit cannot silently change what the manifest describes.
+    //
+    // Changed once on purpose (was 15ce4e15…): the dead line load on the beams was restated as
+    // 22 − ρ·A = 17.875 kN/m with self-weight stated as a case load, which is the 22 kN/m
+    // the frame was designed around now that the weight bends the beam. The V2 golden
+    // reproduced its bytes unchanged across that edit.
     expect(sha256(fixtureText()))
-      .toBe('15ce4e150919bf8f91ef1e3fae36dcde584b770fea45861465742654153e3e79');
+      .toBe('1637ce2d05455de74bd5d4c6f7afe0248165d82bbcbe500397ed54850c076061');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {

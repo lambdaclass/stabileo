@@ -45,6 +45,7 @@ fn validation_cantilever_udl_z_tip_deflection() {
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
                 q_yj: 0.0,
@@ -91,6 +92,7 @@ fn validation_cantilever_udl_y_tip_deflection() {
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: w,
                 q_yj: w,
@@ -196,6 +198,7 @@ fn validation_simultaneous_wy_wz_superposition() {
         (0..n)
             .map(|i| {
                 SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    q_xi: 0.0, q_xj: 0.0,
                     element_id: i + 1,
                     q_yi: qy,
                     q_yj: qy,
@@ -264,6 +267,7 @@ fn validation_triangular_load_z_tip_deflection() {
             let wz_i = w_max * (1.0 - xi / l);
             let wz_j = w_max * (1.0 - xj / l);
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
                 q_yj: 0.0,
@@ -308,6 +312,7 @@ fn validation_cantilever_udl_wz_reactions() {
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
                 q_yj: 0.0,
@@ -355,6 +360,7 @@ fn validation_ss_beam_udl_wz_total_reaction() {
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
                 q_yj: 0.0,
@@ -394,6 +400,7 @@ fn validation_double_load_double_deflection() {
         (0..n)
             .map(|i| {
                 SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    q_xi: 0.0, q_xj: 0.0,
                     element_id: i + 1,
                     q_yi: 0.0,
                     q_yj: 0.0,

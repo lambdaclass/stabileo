@@ -37,6 +37,35 @@ function triArea3D(a: Node, b: Node, c: Node): number {
   );
 }
 
+/**
+ * Each corner's share of a uniform load over a quad: ∫ Nᵢ dA, with Nᵢ the bilinear shape
+ * functions, by 2×2 Gauss over the quad's own surface. The shares add up to its area.
+ *
+ * A quarter of the area to each corner puts the resultant at the average of the corners, which is
+ * the centroid only for a parallelogram; on an irregular mesh that moves the moment of every
+ * pressure and of the shells' self-weight. These are the loads the element itself is consistent
+ * with, and their resultant is at the area's centroid.
+ */
+export function quadCornerShares(p: readonly [Node, Node, Node, Node]): [number, number, number, number] {
+  const g = 1 / Math.sqrt(3);
+  const xi = [-1, 1, 1, -1], eta = [-1, -1, 1, 1];
+  const out: [number, number, number, number] = [0, 0, 0, 0];
+  const z = (n: Node) => n.z ?? 0;
+  for (const a of [-g, g]) {
+    for (const b of [-g, g]) {
+      const dxi = [0, 0, 0], deta = [0, 0, 0];
+      for (let i = 0; i < 4; i++) {
+        const dNdxi = 0.25 * xi[i]! * (1 + b * eta[i]!), dNdeta = 0.25 * eta[i]! * (1 + a * xi[i]!);
+        const c = [p[i]!.x, p[i]!.y, z(p[i]!)];
+        for (let k = 0; k < 3; k++) { dxi[k] += dNdxi * c[k]!; deta[k] += dNdeta * c[k]!; }
+      }
+      const J = Math.hypot(dxi[1]! * deta[2]! - dxi[2]! * deta[1]!, dxi[2]! * deta[0]! - dxi[0]! * deta[2]!, dxi[0]! * deta[1]! - dxi[1]! * deta[0]!);
+      for (let i = 0; i < 4; i++) out[i] += 0.25 * (1 + a * xi[i]!) * (1 + b * eta[i]!) * J;
+    }
+  }
+  return out;
+}
+
 // ─── Surface loads (PRO-only load type) ──────────────────────────
 
 /** Convert a surface3d pressure load on a quad to equivalent nodal loads. */
@@ -51,17 +80,14 @@ export function convertSurfaceLoad(
 
   const ns = quad.nodes.map(nid => nodes.get(nid));
   if (ns.some(n => !n)) return out;
-  const [p0, p1, p2, p3] = ns as [Node, Node, Node, Node];
-
-  const area = triArea3D(p0, p1, p2) + triArea3D(p0, p2, p3);
-  const F = -load.q * area / 4; // negative Z = downward (Z-up convention)
-
-  for (const nid of quad.nodes) {
+  // Negative Z is downward (Z up); each corner takes its consistent share.
+  const shares = quadCornerShares(ns as [Node, Node, Node, Node]);
+  quad.nodes.forEach((nid, i) => {
     out.push({
       type: 'nodal',
-      data: { nodeId: nid, fx: 0, fy: 0, fz: F, mx: 0, my: 0, mz: 0 },
+      data: { nodeId: nid, fx: 0, fy: 0, fz: -load.q * shares[i]!, mx: 0, my: 0, mz: 0 },
     });
-  }
+  });
   return out;
 }
 
@@ -123,16 +149,13 @@ export function quadSelfWeightLoads(
     if (!mat) continue;
     const ns = quad.nodes.map(nid => nodes.get(nid));
     if (ns.some(n => !n)) continue;
-    const [p0, p1, p2, p3] = ns as [Node, Node, Node, Node];
-    const area = triArea3D(p0, p1, p2) + triArea3D(p0, p2, p3);
-    const totalWeight = mat.rho * quad.thickness * area;
-    const wPerNode = -totalWeight / 4;
-    for (const nid of quad.nodes) {
+    const shares = quadCornerShares(ns as [Node, Node, Node, Node]);
+    quad.nodes.forEach((nid, i) => {
       out.push({
         type: 'nodal',
-        data: { nodeId: nid, fx: 0, fy: 0, fz: wPerNode, mx: 0, my: 0, mz: 0 },
+        data: { nodeId: nid, fx: 0, fy: 0, fz: -mat.rho * quad.thickness * shares[i]!, mx: 0, my: 0, mz: 0 },
       });
-    }
+    });
   }
   return out;
 }

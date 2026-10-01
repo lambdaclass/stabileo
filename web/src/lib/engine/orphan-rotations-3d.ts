@@ -98,6 +98,16 @@ function frameRotationAxes(input: SolverInput3D): { resisted: Map<number, V3[]>;
       resisted.set(node, list);
     }
   }
+  // A shell corner resists all three rotations: bending about the two in-plane axes, and drilling
+  // about the normal, which the engine's quads, triangles and curved shells stiffen themselves.
+  // A spring there was not needed, and it was not harmless: it carried a share of the moment
+  // about the shell's normal to ground, and that share is not in the reactions reported.
+  const all: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (const shells of [input.quads, input.plates, input.curvedShells]) {
+    for (const sh of shells?.values() ?? []) {
+      for (const n of (sh as { nodes: number[] }).nodes) resisted.set(n, [...(resisted.get(n) ?? []), ...all]);
+    }
+  }
   return { resisted, kMax };
 }
 

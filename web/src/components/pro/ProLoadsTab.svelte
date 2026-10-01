@@ -1,5 +1,6 @@
 <script lang="ts">
   import { windCaseReversible } from '../../lib/store/wind-reversal';
+  import ProAnalysisRules from './ProAnalysisRules.svelte';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProCombinationRules from './ProCombinationRules.svelte';
@@ -75,6 +76,10 @@
   let dlQyJ = $state('');
   let dlQzI = $state('');
   let dlQzJ = $state('');
+  /** Axes of a new distributed load, and its x component (axial when local). */
+  let dlFrame = $state<'local' | 'global' | 'projected'>('local');
+  let dlQxI = $state('');
+  let dlQxJ = $state('');
 
   // Point load on element fields
   let plElemId = $state('');
@@ -157,16 +162,23 @@
     nlNodeId = ''; nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
   }
 
+  /** The distributed load being typed, or null when all of it is zero. */
+  function distDraft() {
+    const qxI = parseFloat(dlQxI) || 0, qxJ = parseFloat(dlQxJ) || qxI;
+    const qyI = parseFloat(dlQyI) || 0, qyJ = parseFloat(dlQyJ) || qyI;
+    const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
+    if ([qxI, qxJ, qyI, qyJ, qzI, qzJ].every((v) => v === 0)) return null;
+    return { qyI, qyJ, qzI, qzJ, opts: { frame: dlFrame, qXI: qxI, qXJ: qxJ } };
+  }
+  function clearDist() { dlQxI = ''; dlQxJ = ''; dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = ''; }
+
   function addDistLoad() {
     const elemId = parseInt(dlElemId);
     if (isNaN(elemId) || !modelStore.elements.has(elemId)) return;
-    const qyI = parseFloat(dlQyI) || 0;
-    const qyJ = parseFloat(dlQyJ) || qyI;
-    const qzI = parseFloat(dlQzI) || 0;
-    const qzJ = parseFloat(dlQzJ) || qzI;
-    if (qyI === 0 && qyJ === 0 && qzI === 0 && qzJ === 0) return;
-    modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, uiStore.activeLoadCaseId);
-    dlElemId = ''; dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = '';
+    const d = distDraft();
+    if (!d) return;
+    modelStore.addDistributedLoad3D(elemId, d.qyI, d.qyJ, d.qzI, d.qzJ, undefined, undefined, uiStore.activeLoadCaseId, d.opts);
+    dlElemId = ''; clearDist();
   }
 
   function addPointLoad() {
@@ -214,13 +226,14 @@
   }
 
   function addDistLoadToSelection() {
-    const qyI = parseFloat(dlQyI) || 0, qyJ = parseFloat(dlQyJ) || qyI;
-    const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
-    if (qyI === 0 && qyJ === 0 && qzI === 0 && qzJ === 0) return;
-    for (const elemId of uiStore.selectedElements) {
-      if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, uiStore.activeLoadCaseId);
-    }
-    dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = '';
+    const d = distDraft();
+    if (!d) return;
+    modelStore.batch(() => {
+      for (const elemId of uiStore.selectedElements) {
+        if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, d.qyI, d.qyJ, d.qzI, d.qzJ, undefined, undefined, uiStore.activeLoadCaseId, d.opts);
+      }
+    });
+    clearDist();
   }
 
   function addPointLoadToSelection() {
@@ -485,9 +498,11 @@
       <button class="pro-vis-btn" onclick={showAllCases} title={t('pro.showAll')}>{t('pro.showAll')}</button>
       <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
     </div>
+    <ProAnalysisRules />
     <table class="pro-lc-table">
       <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th></tr></thead>
       <tbody>
+        {#if modelStore.analysis?.selfWeight === undefined}
         <tr class="sw-row" class:sw-active={uiStore.includeSelfWeight}>
           <td><input type="checkbox" class="sw-check" bind:checked={uiStore.includeSelfWeight} /></td>
           <td class="lc-type">D</td>
@@ -497,6 +512,7 @@
           <td></td>
           <td></td>
         </tr>
+        {/if}
         {#each loadCases as lc}
           {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
           <tr class:active={uiStore.activeLoadCaseId === lc.id} onclick={() => { uiStore.activeLoadCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
@@ -559,7 +575,7 @@
               <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
             </div>
             <table class="combo-factor-table">
-              {#if uiStore.includeSelfWeight}
+              {#if modelStore.analysis?.selfWeight === undefined && uiStore.includeSelfWeight}
                 {@const swFactor = (() => {
                   const deadCase = loadCases.find(c => c.type === 'D');
                   return deadCase ? (combo.factors.find(f => f.caseId === deadCase.id)?.factor ?? 0) : 0;
@@ -643,6 +659,19 @@
       </div>
     {:else if loadKind === 'distributed'}
       <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('loads.frame')}
+            <select bind:value={dlFrame} data-testid="dl-frame" title={t('loads.frameHelp')}>
+              <option value="local">{t('loads.frame.local')}</option>
+              <option value="global">{t('loads.frame.global')}</option>
+              <option value="projected">{t('loads.frame.projected')}</option>
+            </select>
+          </label>
+        </div>
+        <div class="pro-load-row">
+          <label>{dlFrame === 'local' ? 'qx_i' : 'qX_i'}: <input type="text" bind:value={dlQxI} placeholder="kN/m" class="inp-num" data-testid="dl-qxi" /></label>
+          <label>{dlFrame === 'local' ? 'qx_j' : 'qX_j'}: <input type="text" bind:value={dlQxJ} placeholder="kN/m" class="inp-num" /></label>
+        </div>
         <div class="pro-load-row">
           <label>qY_i: <input type="text" bind:value={dlQyI} placeholder="kN/m" class="inp-num" /></label>
           <label>qY_j: <input type="text" bind:value={dlQyJ} placeholder="kN/m" class="inp-num" /></label>
@@ -734,12 +763,22 @@
     {#if distLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.distLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Elem</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Elem</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
+              <td>
+                <select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()}
+                  onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
+                  <option value="local">{t('loads.frame.local')}</option>
+                  <option value="global">{t('loads.frame.global')}</option>
+                  <option value="projected">{t('loads.frame.projected')}</option>
+                </select>
+              </td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXI: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXJ: parseNum(e.currentTarget.value) })} /></td>
               <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseNum(e.currentTarget.value) })} /></td>
               <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseNum(e.currentTarget.value) })} /></td>
               <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseNum(e.currentTarget.value) })} /></td>

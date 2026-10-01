@@ -1,0 +1,112 @@
+stabileo-model 1
+# Validation model 6: a two-bay, five-storey steel plane frame under equivalent lateral forces.
+# Z up: the source model is Y up, and (x, y, z) becomes (x, -z, y). SI units, exact factors.
+# The lateral forces are the source model's generated seismic forces, applied as nodal loads.
+# The two gravity cases that only fed the seismic mass are kept as ordinary cases.
+# The section is given by its properties, with shear deformation (shear areas declared).
+name "Validación 06 · Pórtico plano, fuerzas laterales"
+mode pro
+axes zUpStrongAxis
+
+# Materials
+material 1 name="Acero" e=205000 nu=0.3 rho=76.8195 alpha=0.000012
+
+# Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
+section 1 name="HW 300×300" a=0.01184500017 iy=0.0002018600217 iz=6.753001119e-5 j=8.356000401e-7 shearAreas={"basis":"declared","asY":0.002999999907,"asZ":0.005999850302}
+
+# Nodes: id x y z
+node 1 0 0 0
+node 2 0 0 3
+node 3 4 0 3
+node 4 4 0 0
+node 5 8 0 3
+node 6 8 0 0
+node 7 0 0 6
+node 8 4 0 6
+node 9 8 0 6
+node 10 0 0 9
+node 11 4 0 9
+node 12 8 0 9
+node 13 0 0 12
+node 14 4 0 12
+node 15 8 0 12
+node 16 0 0 15
+node 17 4 0 15
+node 18 8 0 15
+
+# Members: id type nodeI nodeJ
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 3 4 materialId=1 sectionId=1
+member 4 frame 3 5 materialId=1 sectionId=1
+member 5 frame 5 6 materialId=1 sectionId=1
+member 6 frame 2 7 materialId=1 sectionId=1
+member 7 frame 3 8 materialId=1 sectionId=1
+member 8 frame 5 9 materialId=1 sectionId=1
+member 9 frame 7 8 materialId=1 sectionId=1
+member 10 frame 8 9 materialId=1 sectionId=1
+member 11 frame 7 10 materialId=1 sectionId=1
+member 12 frame 8 11 materialId=1 sectionId=1
+member 13 frame 9 12 materialId=1 sectionId=1
+member 14 frame 10 11 materialId=1 sectionId=1
+member 15 frame 11 12 materialId=1 sectionId=1
+member 16 frame 10 13 materialId=1 sectionId=1
+member 17 frame 11 14 materialId=1 sectionId=1
+member 18 frame 12 15 materialId=1 sectionId=1
+member 19 frame 13 14 materialId=1 sectionId=1
+member 20 frame 14 15 materialId=1 sectionId=1
+member 21 frame 13 16 materialId=1 sectionId=1
+member 22 frame 14 17 materialId=1 sectionId=1
+member 23 frame 15 18 materialId=1 sectionId=1
+member 24 frame 16 17 materialId=1 sectionId=1
+member 25 frame 17 18 materialId=1 sectionId=1
+
+# Supports: id node type
+support 1 1 fixed3d
+support 2 4 fixed3d
+support 3 6 fixed3d
+
+# Load cases: id type name
+case 1 E "EX"
+case 2 D "DL"
+case 3 L "LL"
+
+# Loads: type id fields
+load nodal3d 1 nodeId=2 fx=1.03845455 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 2 nodeId=3 fx=1.951197352 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 3 nodeId=5 fx=1.03845455 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 4 nodeId=7 fx=2.0769091 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 5 nodeId=8 fx=3.902394705 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 6 nodeId=9 fx=2.0769091 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 7 nodeId=10 fx=3.11536365 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 8 nodeId=11 fx=5.853592322 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 9 nodeId=12 fx=3.11536365 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 10 nodeId=13 fx=4.1538182 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 11 nodeId=14 fx=7.804789409 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 12 nodeId=15 fx=4.1538182 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 13 nodeId=16 fx=4.877993778 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 14 nodeId=17 fx=9.441707525 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load nodal3d 15 nodeId=18 fx=4.877993778 fy=0 fz=0 mx=0 my=0 mz=0 caseId=1
+load distributed3d 16 elementId=2 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 17 elementId=4 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 18 elementId=9 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 19 elementId=10 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 20 elementId=14 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 21 elementId=15 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 22 elementId=19 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 23 elementId=20 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 24 elementId=24 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 25 elementId=25 qYI=0 qYJ=0 qZI=-5 qZJ=-5 frame="global" caseId=2
+load distributed3d 26 elementId=2 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 27 elementId=4 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 28 elementId=9 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 29 elementId=10 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 30 elementId=14 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 31 elementId=15 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 32 elementId=19 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 33 elementId=20 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 34 elementId=24 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+load distributed3d 35 elementId=25 qYI=0 qYJ=0 qZI=-8 qZJ=-8 frame="global" caseId=3
+
+# Project settings
+analysis {"selfWeight":[{"caseId":2,"direction":"Z","factor":-1}]}

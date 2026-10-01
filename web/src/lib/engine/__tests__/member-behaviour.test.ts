@@ -394,12 +394,22 @@ describe('a settlement in a model that is not linear', () => {
     expect(uz(b.perCombo.get(2))).toBeCloseTo(-0.001, 9);
   });
 
-  it('with one-way members is refused: their solver does not impose it', () => {
+  it('imposes settlements with one-way members once in single solves and combinations', () => {
     bracedBay('tensionOnly');
     const right = [...modelStore.supports.values()].find((s) => s.type === 'pinned3d' && s.nodeId !== 1)!;
     modelStore.updateSupport(right.id, { dz: -0.01 });
-    expect(validateAndSolve3D(md())).toEqual(expect.stringContaining('settlement'));
+    const single = solve();
+    expect(single.nonlinear?.converged).toBe(true);
+    expect(disp(single, right.nodeId).uz).toBeCloseTo(-0.01, 9);
     const combos = [{ id: 1, name: 'D', factors: [{ caseId: 1, factor: 1 }] }];
-    expect(solveCombinations3D(md(), modelStore.model.loadCases, combos)).toEqual(expect.stringContaining('settlement'));
+    const bundle = solveCombinations3D(md(), modelStore.model.loadCases, combos);
+    if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+    expect(disp(bundle.perCase.get(1)!, right.nodeId).uz).toBeCloseTo(0, 9);
+    const combined = bundle.perCombo.get(1)!;
+    expect(combined.nonlinear?.converged).toBe(true);
+    for (const d of single.displacements) {
+      const c = disp(combined, d.nodeId);
+      for (const key of ['ux', 'uy', 'uz'] as const) expect(c[key]).toBeCloseTo(d[key], 9);
+    }
   });
 });

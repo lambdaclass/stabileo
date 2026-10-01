@@ -42,6 +42,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
+import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
 import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -656,8 +657,14 @@ export interface NodalLoad3D {
 export interface DistributedLoad3D {
   id: number;
   elementId: number;
-  qYI: number; qYJ: number;  // kN/m in local Y at node I/J
-  qZI: number; qZJ: number;  // kN/m in local Z at node I/J
+  /**
+   * Which axes qX, qY, qZ are along (`engine/member-loads.ts`): the member's local ones (the
+   * default), the global ones per metre of member, or the global ones per metre of projection.
+   */
+  frame?: import('../engine/member-loads').MemberFrame;
+  qXI?: number; qXJ?: number; // kN/m along local x (axial) or global X
+  qYI: number; qYJ: number;  // kN/m in local Y (or global Y) at node I/J
+  qZI: number; qZJ: number;  // kN/m in local Z (or global Z) at node I/J
   a?: number; b?: number;     // partial load positions (m from node I)
   caseId?: number;
 }
@@ -838,6 +845,12 @@ export interface StructureModel {
   dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
   /** Deflection limits by member, group or kind (`engine/deflection-limits.ts`). Absent: beams at L/360. */
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
+  /**
+   * The analysis rules: self-weight as a case load, how combinations with one-way behaviour are
+   * formed, and linear or P-Delta per combination (`engine/analysis-settings.ts`). Absent: the
+   * older rules, self-weight in every dead-load case and each combination solved on its own.
+   */
+  analysis?: import('../engine/analysis-settings').AnalysisSettings;
   /** Client, job, revisions and signatories (`model/project-info.ts`). Absent: none stated. */
   projectInfo?: import('../model/project-info').ProjectInfo;
   /** Text notes placed in the view (`model/annotations.ts`). Absent: none. */
@@ -1315,6 +1328,12 @@ function createModelStore() {
       const bounds = segmentBounds(L, cuts);
       const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
       model.loads = [...kept, ...added];
+      if (model.analysis?.selfWeight) {
+        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.map(w =>
+          w.elements?.includes(elementId)
+            ? { ...w, elements: [...new Set(w.elements.flatMap(id => id === elementId ? segmentIds : [id]))] }
+            : w) };
+      }
 
       // A group that held the member now holds every segment of it.
       let touched = false;
@@ -1649,6 +1668,7 @@ function createModelStore() {
     get grid(): import('../model/grid').StructuralGrid | undefined { return model.grid; },
     get dynamics() { return model.dynamics; },
     get deflectionLimits() { return model.deflectionLimits; },
+    get analysis() { return model.analysis; },
     get projectInfo() { return model.projectInfo; },
     get notes() { return model.notes ?? []; },
     get plates() { return model.plates; },
@@ -1742,6 +1762,9 @@ function createModelStore() {
           : {}),
         ...(snap.deflectionLimits?.rules.length
           ? { deflectionLimits: JSON.parse(JSON.stringify(snap.deflectionLimits)) as ModelSnapshot['deflectionLimits'] }
+          : {}),
+        ...(snap.analysis
+          ? { analysis: JSON.parse(JSON.stringify(snap.analysis)) as ModelSnapshot['analysis'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
@@ -1933,6 +1956,7 @@ function createModelStore() {
     model.grid = s.grid ? JSON.parse(JSON.stringify(s.grid)) : undefined;
     model.dynamics = s.dynamics ? JSON.parse(JSON.stringify(s.dynamics)) : undefined;
     model.deflectionLimits = s.deflectionLimits ? JSON.parse(JSON.stringify(s.deflectionLimits)) : undefined;
+    model.analysis = s.analysis ? JSON.parse(JSON.stringify(s.analysis)) : undefined;
     model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
     model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
       model.constraints = (s as any).constraints
@@ -2418,12 +2442,16 @@ function createModelStore() {
       return id;
     },
 
-    addDistributedLoad3D(elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number {
-      // Undo first, so that undoing the load stands the plane model back up.
+    addDistributedLoad3D(
+      elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number,
+      opts: { frame?: import('../engine/member-loads').MemberFrame; qXI?: number; qXJ?: number } = {},
+    ): number {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
+      if (opts.frame && opts.frame !== 'local') data.frame = opts.frame;
+      if (opts.qXI || opts.qXJ) { data.qXI = opts.qXI ?? 0; data.qXJ = opts.qXJ ?? opts.qXI ?? 0; }
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
       if (caseId !== undefined) data.caseId = caseId;
@@ -3054,7 +3082,7 @@ function createModelStore() {
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
-    updateLoad(loadId: number, data: Record<string, number | boolean | undefined>): void {
+    updateLoad(loadId: number, data: Record<string, number | boolean | string | undefined>): void {
       if (!_undoBatching) _pushUndo?.();
       const load = model.loads.find(l => l.data.id === loadId);
       if (!load) return;
@@ -3104,6 +3132,13 @@ function createModelStore() {
         if (data.mz !== undefined) d.mz = data.mz as number;
       } else if (load.type === 'distributed3d') {
         const d = load.data as DistributedLoad3D;
+        // The axes: 'local' (or an empty value) is the default and is stored as absent.
+        if ('frame' in data) {
+          const f = data.frame as string | undefined;
+          if (f === 'global' || f === 'projected') d.frame = f; else delete d.frame;
+        }
+        if (data.qXI !== undefined) d.qXI = data.qXI as number;
+        if (data.qXJ !== undefined) d.qXJ = data.qXJ as number;
         if (data.qYI !== undefined) d.qYI = data.qYI as number;
         if (data.qYJ !== undefined) d.qYJ = data.qYJ as number;
         if (data.qZI !== undefined) d.qZI = data.qZI as number;
@@ -3154,6 +3189,7 @@ function createModelStore() {
       model.grid = undefined;
       model.dynamics = undefined;
       model.deflectionLimits = undefined;
+      model.analysis = undefined;
       model.projectInfo = undefined;
       model.notes = undefined;
       model.constraints = [];
@@ -3548,6 +3584,28 @@ function createModelStore() {
       model.projectInfo = info ? JSON.parse(JSON.stringify(info)) : undefined;
     },
 
+    /**
+     * Take analysis rules derived from what the project already said (a migration), without an
+     * undo step: nothing the user did changes. The results on hand are retired, as for any change
+     * to what a solve computes.
+     */
+    adoptAnalysis(patch: Partial<import('../engine/analysis-settings').AnalysisSettings>): void {
+      model.analysis = { ...(model.analysis ?? {}), ...JSON.parse(JSON.stringify(patch)) };
+      this.bumpModelVersion();
+    },
+
+    /**
+     * Change the analysis rules. They change what a solve computes, so this is a model edit:
+     * undoable, and the results on hand are retired. `undefined` in the patch removes a rule.
+     */
+    setAnalysis(patch: Partial<import('../engine/analysis-settings').AnalysisSettings>): void {
+      if (!_undoBatching) _pushUndo?.();
+      const next = { ...(model.analysis ?? {}), ...JSON.parse(JSON.stringify(patch)) } as import('../engine/analysis-settings').AnalysisSettings;
+      for (const k of Object.keys(patch) as Array<keyof typeof next>) if (patch[k] === undefined) delete next[k];
+      model.analysis = Object.keys(next).length > 0 ? next : undefined;
+      this.bumpModelVersion();
+    },
+
     /** State the deflection limits. Undoable; they are read after the solve, which survives it. */
     setDeflectionLimits(d: import('../engine/deflection-limits').DeflectionLimits | null): void {
       if (!_undoBatching) _pushUndoView?.();
@@ -3656,7 +3714,7 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -3671,7 +3729,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3686,7 +3744,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3701,7 +3759,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3717,7 +3775,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3738,7 +3796,7 @@ function createModelStore() {
     ): InfluenceLineResult | string {
       return computeInfluenceLineFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups },
         quantity, targetNodeId, targetElementId, targetPosition, nPointsPerElement,
       );
     },
@@ -3815,6 +3873,18 @@ function createModelStore() {
         if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
           uiStore.analysisMode = '3d';
         }
+      }
+
+      // A shipped example that states no self-weight rule is given the one it was built for, and
+      // quietly: nothing of the user's changed. A project the user saved is migrated by the PRO
+      // panel instead, with a notice (`self-weight-migration.ts`).
+      if (uiStore.analysisMode === 'pro' && model.analysis?.selfWeight === undefined && model.elements.size > 0) {
+        const plan = planSelfWeight(model.loadCases, uiStore.includeSelfWeight);
+        let selfWeight = plan.selfWeight;
+        if (uiStore.includeSelfWeight && plan.caseId === null) {
+          selfWeight = [{ caseId: this.addLoadCase(t('selfWeight.caseName'), 'D'), ...GRAVITY_SELF_WEIGHT }];
+        }
+        model.analysis = { ...(model.analysis ?? {}), selfWeight };
       }
 
       _undoBatching = false;

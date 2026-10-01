@@ -116,3 +116,18 @@ describe('offset arms carry rotational stiffness to the real joints', () => {
     expect(r.touched.size).toBe(released ? 1 : 0);
   });
 });
+
+describe('shell corners carry their own rotational stiffness', () => {
+  it('gives no spring to a node that only a quad reaches, and the frame still balances', () => {
+    const { n } = portal();
+    // A wall panel hanging off the frame: two of its corners are free nodes only the quad reaches.
+    const a = modelStore.addNode(0, 0, 6), b = modelStore.addNode(4, 0, 6);
+    const mat = [...modelStore.materials.keys()][0]!;
+    modelStore.addQuad([n[1], n[2], b, a], mat, 0.15);
+    const input = modelStore.buildSolverInput3D(false, false)!;
+    const r = stabiliseOrphanRotations3D(input);
+    // The engine's quad stiffens all three rotations at its corners, drilling included.
+    expect(r.touched.has(a)).toBe(false);
+    expect(r.touched.has(b)).toBe(false);
+  });
+});
