@@ -21,6 +21,20 @@ import type { SolverInput } from './src/lib/engine/types';
  * has always made.
  */
 
+/*
+ * The unit environment is CI's: Node 20, which has no global `localStorage`. Node 22+ defines one —
+ * on Node 25, without `--localstorage-file`, an object with no methods (`setItem is not a function`);
+ * with the flag, a file shared by every worker and every run. The app asks for storage by feature
+ * (`typeof localStorage.getItem === 'function'`), so either kind made a developer's run differ from
+ * CI's: the broken one failed tests that stubbed storage with `??=`, a working one would persist
+ * settings between tests only locally. So it is removed, and a test that wants storage installs its
+ * own (`vi.stubGlobal`).
+ */
+if ('localStorage' in globalThis) {
+  Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true, writable: true });
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+}
+
 const WASM_DIR = fileURLToPath(new URL('./src/lib/wasm/', import.meta.url));
 const WASM_BINARY = `${WASM_DIR}dedaliano_engine_bg.wasm`;
 const WASM_GLUE = `${WASM_DIR}dedaliano_engine.js`;

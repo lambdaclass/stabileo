@@ -293,6 +293,22 @@ pub fn solve_cable_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<Str
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve 3D cable analysis. JSON in → JSON out.
+/// Input: { "solver": SolverInput3D, "densities": { materialId: density_kg_m3 } }
+///
+/// Returns the whole result, not only the structural one: `results`, `iterations`, `converged`
+/// and `cableForces` (per cable element: tension, horizontal thrust, sag, Ernst modulus and
+/// unstretched length). The unstretched length is the chord: the solver takes no pretension.
+#[wasm_bindgen]
+pub fn solve_cable_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
+    let input: types::ModalInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::cable::solve_cable_3d(&input.solver, &input.densities, max_iter, tolerance)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Kinematic Analysis ====================
 
 /// Analyze 2D kinematic stability. JSON in → JSON out.

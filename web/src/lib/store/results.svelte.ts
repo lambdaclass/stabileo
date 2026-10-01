@@ -255,6 +255,7 @@ function createResultsStore() {
   };
   let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
+  let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state<FullEnvelope3D | null>(null);
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
@@ -1017,6 +1018,7 @@ function createResultsStore() {
       singleResults3D = null;
       perCase3D = new Map();
       perCombo3D = new Map();
+      unstableCombinations3D = [];
       envelope3D = null;
       governing2D = new Map();
       governing3D = new Map();
@@ -1094,6 +1096,7 @@ function createResultsStore() {
       activeCaseId = null;
       perCase3D = new Map();
       perCombo3D = new Map();
+      unstableCombinations3D = [];
       envelope3D = null;
       governing3D = new Map();
       // Extract diagnostics and constraint forces from results
@@ -1109,6 +1112,7 @@ function createResultsStore() {
       singleResults3D = null;
       perCase3D = new Map();
       perCombo3D = new Map();
+      unstableCombinations3D = [];
       envelope3D = null;
       governing3D = new Map();
       diagnostics3DArr = [];
@@ -1128,6 +1132,7 @@ function createResultsStore() {
     // 3D combination state
     get perCase3D() { return perCase3D; },
     get perCombo3D() { return perCombo3D; },
+    get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },
     get envelope3D() { return envelope3D; },
     get hasCombinations3D() { return perCombo3D.size > 0; },
     /** The envelope on SCREEN: a named one when shown, else the active one. Design reads
@@ -1150,11 +1155,12 @@ function createResultsStore() {
     setGoverning2D(g: Map<number, GoverningPerElement>) { governing2D = g; },
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
-    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D) {
+    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
       noteStructuralSolve();
       _onResultsPublish?.();
       perCase3D = pc;
       perCombo3D = pco;
+      unstableCombinations3D = [...unstable];
       envelope3D = env;
       showReactions = false;
       showConstraintForces = false;

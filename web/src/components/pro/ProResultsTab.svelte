@@ -21,6 +21,7 @@
   import StaticsCheckPanel from './StaticsCheckPanel.svelte';
   import ProMemberStressTable from './ProMemberStressTable.svelte';
   import ProShellContourOptions from './ProShellContourOptions.svelte';
+  import ProShellFacesTable from './ProShellFacesTable.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   let wasAnimating = false;
@@ -975,6 +976,7 @@
                 {/each}
               </tr></tfoot>
             </table>
+            <ProShellFacesTable />
           </div>
       {/if}
       {/if}

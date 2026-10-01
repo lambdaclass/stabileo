@@ -24,13 +24,24 @@ To start:
   properties, their cases and their combinations. They load as they are, with no regulation
   combinations generated over them. Each description says what was adapted (the vertical axis, the
   units, and the loads the source program computed, which are applied here as ordinary loads).
-  **Model 04:** P-Delta is currently unavailable at this size. Its setting is preserved;
-  select linear analysis explicitly to obtain first-order results.
+  **Model 04:** P-Delta uses sparse assembly. Combinations without stable second-order
+  equilibrium are listed without publishing their forces.
 - **Import** (see [below](#importing-models)): an Excel spreadsheet or an AutoCAD drawing (DXF).
 
 As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Export** (results to
 Excel or CSV, the report, and the view to DXF or SVG). See
 [chapter 1](01-getting-started.md#saving-opening-and-sharing).
+
+**Project workbook.** **Export → Project workbook** writes one Excel file with a cover (the project
+data, the date, the build and the units), the conventions, the model and every case and combination:
+reactions, displacements, member end forces, forces, deflections and stresses at the **stations**
+you choose (5, 13 or the critical ones: quarters, load positions and zero shear), the maxima with
+where they occur, the envelope of each node and member end with the combination that governs it, the
+plates at their centres, nodes and corners, the statics and the second-order status. Numbers keep
+every digit and the solver's sign, the one the diagrams show. The model sheets use the names and
+columns of the Excel import, so they can be read back. When the workbook is larger than an Excel
+file handles well (a sheet past its rows, or more than four million cells), it comes as a zip with
+one CSV per sheet. The report dialog's Excel is the same workbook, with the sections you tick.
 
 **Project data.** Client, job, job number, site, the revisions with their date and description,
 and who designed, checked and approved it, with dates. Saved with the project and printed on the
@@ -256,6 +267,10 @@ springs can act one way, so the raft can lift, and they replace any support the 
   and not in another), or the cases are superposed, each solved with its own set of active members;
   then the members whose state in the sum contradicts the cases' are listed. Without such members
   both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
+  A P-Delta combination whose load the structure cannot carry to second order (it buckles below
+  it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
+  the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
+  half thousand members take a few seconds.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
   (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
@@ -401,6 +416,11 @@ In the **Results** panel:
   constraint forces.
 - The **outputs** as tables: reactions, internal forces, displacements, shell stresses (per
   element and per node), constraint forces and diagnostics.
+- For plates, a table of **faces and criteria**: Von Mises and Tresca on the top and bottom faces
+  (membrane ± 6M/t², the top at z = +t/2 along the element's local z) and, for quadrilaterals, the
+  transverse shears qx and qy. Its CSV and Excel carry every column, including the stresses,
+  moments and shears turned to global axes. A combination's plate values mean what a case's do:
+  Von Mises on the worse face for a triangle, of the membrane for a quadrilateral.
 - **Result query:** finds the governing value of a force over the whole model, the selection or a
   list of elements, with filters, and exports it to CSV.
 - **Raw forces report:** reactions, displacements and forces per member and per station, as Excel,
@@ -522,13 +542,16 @@ ratio of inertias. As before, what is applied is re-verified after solving again
 ## The theory behind it
 
 - **Members:** the same 3D Euler-Bernoulli members as Basic mode, with six degrees of freedom per
-  node.
+  node. In P-Delta and buckling, a member released at an end takes the geometric stiffness of a
+  member pinned there: a column pinned at both ends takes P/L from the lateral stiffness, as a
+  leaning column does.
 - **Quadrilateral plates:** the **MITC4** element, with its shear strains interpolated so that the
   element does not "lock" when the plate is thin (*shear locking*), and an enhanced membrane (EAS)
   that improves in-plane bending.
 - **Triangular plates:** the **DKT** element for bending (a thin Kirchhoff plate, with no shear
-  deformation), combined with a constant-strain triangle for the membrane. For walls, which work in
-  in-plane bending, quadrilaterals are the better choice.
+  deformation), combined with a constant-strain triangle for the membrane. Refined, triangles and
+  quadrilaterals converge to the same plate, with moments of the same sign. For walls, which work
+  in in-plane bending, quadrilaterals are the better choice.
 - **Curved shells:** a four-node element that represents curvature, for non-planar quadrilaterals.
 
 Why a slab needs a mesh and a beam does not, what shear locking is, and when a member model stops

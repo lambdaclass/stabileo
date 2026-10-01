@@ -476,7 +476,7 @@ export function exportResultsCSV(): string {
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)`);
     for (const d of r3d.displacements) {
-      lines.push(`${d.nodeId},${d.ux.toExponential(6)},${d.uy.toExponential(6)},${d.uz.toExponential(6)},${d.rx.toExponential(6)},${d.ry.toExponential(6)},${d.rz.toExponential(6)}`);
+      lines.push(`${d.nodeId},${d.ux},${d.uy},${d.uz},${d.rx},${d.ry},${d.rz}`);
     }
     lines.push('');
 
@@ -484,7 +484,7 @@ export function exportResultsCSV(): string {
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)`);
     for (const r of r3d.reactions) {
-      lines.push(`${r.nodeId},${r.fx.toFixed(4)},${r.fy.toFixed(4)},${r.fz.toFixed(4)},${(-r.mx).toFixed(4)},${(-r.my).toFixed(4)},${(-r.mz).toFixed(4)}`);
+      lines.push(`${r.nodeId},${r.fx},${r.fy},${r.fz},${r.mx},${r.my},${r.mz}`);
     }
     lines.push('');
 
@@ -492,14 +492,14 @@ export function exportResultsCSV(): string {
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},L (m),Ni,Nj,Vyi,Vyj,Vzi,Vzj,Mxi,Mxj,Myi,Myj,Mzi,Mzj`);
     for (const f of r3d.elementForces) {
-      lines.push(`${f.elementId},${f.length.toFixed(4)},${f.nStart.toFixed(4)},${f.nEnd.toFixed(4)},${f.vyStart.toFixed(4)},${f.vyEnd.toFixed(4)},${f.vzStart.toFixed(4)},${f.vzEnd.toFixed(4)},${(-f.mxStart).toFixed(4)},${(-f.mxEnd).toFixed(4)},${(-f.myStart).toFixed(4)},${(-f.myEnd).toFixed(4)},${(-f.mzStart).toFixed(4)},${(-f.mzEnd).toFixed(4)}`);
+      lines.push(`${f.elementId},${f.length},${f.nStart},${f.nEnd},${f.vyStart},${f.vyEnd},${f.vzStart},${f.vzEnd},${f.mxStart},${f.mxEnd},${f.myStart},${f.myEnd},${f.mzStart},${f.mzEnd}`);
     }
   } else if (r2d) {
     // 2D Displacements
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},ux (m),uz (m),ry (rad)`);
     for (const d of r2d.displacements) {
-      lines.push(`${d.nodeId},${d.ux.toExponential(6)},${get2DDisplayDisplacementVertical(d).toExponential(6)},${get2DDisplayRotation(d).toExponential(6)}`);
+      lines.push(`${d.nodeId},${d.ux},${get2DDisplayDisplacementVertical(d)},${get2DDisplayRotation(d)}`);
     }
     lines.push('');
 
@@ -507,7 +507,7 @@ export function exportResultsCSV(): string {
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},Rx (kN),Rz (kN),My (kN·m)`);
     for (const r of r2d.reactions) {
-      lines.push(`${r.nodeId},${r.rx.toFixed(4)},${get2DDisplayReactionVertical(r).toFixed(4)},${(-get2DDisplayMoment(r)).toFixed(4)}`);
+      lines.push(`${r.nodeId},${r.rx},${get2DDisplayReactionVertical(r)},${get2DDisplayMoment(r)}`);
     }
     lines.push('');
 
@@ -515,7 +515,7 @@ export function exportResultsCSV(): string {
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},N_i (kN),N_j (kN),V_i (kN),V_j (kN),M_i (kN·m),M_j (kN·m),L (m),qI (kN/m),qJ (kN/m)`);
     for (const f of r2d.elementForces) {
-      lines.push(`${f.elementId},${f.nStart.toFixed(4)},${f.nEnd.toFixed(4)},${f.vStart.toFixed(4)},${f.vEnd.toFixed(4)},${(-f.mStart).toFixed(4)},${(-f.mEnd).toFixed(4)},${f.length.toFixed(4)},${f.qI.toFixed(4)},${f.qJ.toFixed(4)}`);
+      lines.push(`${f.elementId},${f.nStart},${f.nEnd},${f.vStart},${f.vEnd},${f.mStart},${f.mEnd},${f.length},${f.qI},${f.qJ}`);
     }
   }
 
@@ -919,7 +919,7 @@ export function generateReportHTML(): string {
     html += `<h3>${t('file.reactions')}</h3>
 <table><thead><tr><th>${t('file.node')}</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
     for (const rx of r3D.reactions) {
-      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.fx)}</td><td>${fmtNum(rx.fy)}</td><td>${fmtNum(rx.fz)}</td><td>${fmtNum(-rx.mx)}</td><td>${fmtNum(-rx.my)}</td><td>${fmtNum(-rx.mz)}</td></tr>`;
+      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.fx)}</td><td>${fmtNum(rx.fy)}</td><td>${fmtNum(rx.fz)}</td><td>${fmtNum(rx.mx)}</td><td>${fmtNum(rx.my)}</td><td>${fmtNum(rx.mz)}</td></tr>`;
     }
     html += `</tbody></table>`;
 
@@ -927,7 +927,7 @@ export function generateReportHTML(): string {
     html += `<h3>${t('file.internalForces')}</h3>
 <table style="font-size:9px"><thead><tr><th>${t('table.elemLabel')}</th><th>L (m)</th><th>N_i</th><th>N_j</th><th>Vy_i</th><th>Vy_j</th><th>Vz_i</th><th>Vz_j</th><th>Mx_i</th><th>Mx_j</th><th>My_i</th><th>My_j</th><th>Mz_i</th><th>Mz_j</th></tr></thead><tbody>`;
     for (const f of r3D.elementForces) {
-      html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vyStart)}</td><td>${fmtNum(f.vyEnd)}</td><td>${fmtNum(f.vzStart)}</td><td>${fmtNum(f.vzEnd)}</td><td>${fmtNum(-f.mxStart)}</td><td>${fmtNum(-f.mxEnd)}</td><td>${fmtNum(-f.myStart)}</td><td>${fmtNum(-f.myEnd)}</td><td>${fmtNum(-f.mzStart)}</td><td>${fmtNum(-f.mzEnd)}</td></tr>`;
+      html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vyStart)}</td><td>${fmtNum(f.vyEnd)}</td><td>${fmtNum(f.vzStart)}</td><td>${fmtNum(f.vzEnd)}</td><td>${fmtNum(f.mxStart)}</td><td>${fmtNum(f.mxEnd)}</td><td>${fmtNum(f.myStart)}</td><td>${fmtNum(f.myEnd)}</td><td>${fmtNum(f.mzStart)}</td><td>${fmtNum(f.mzEnd)}</td></tr>`;
     }
     html += `</tbody></table>`;
   } else if (r) {
@@ -945,7 +945,7 @@ export function generateReportHTML(): string {
     html += `<h3>${t('file.reactions')}</h3>
 <table><thead><tr><th>${t('file.node')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (kN)</th><th>${TWO_D_REACTION_LABELS.vertical} (kN)</th><th>${TWO_D_REACTION_LABELS.moment} (kN·m)</th></tr></thead><tbody>`;
     for (const rx of r.reactions) {
-      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.rx)}</td><td>${fmtNum(get2DDisplayReactionVertical(rx))}</td><td>${fmtNum(-get2DDisplayMoment(rx))}</td></tr>`;
+      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.rx)}</td><td>${fmtNum(get2DDisplayReactionVertical(rx))}</td><td>${fmtNum(get2DDisplayMoment(rx))}</td></tr>`;
     }
     html += `</tbody></table>`;
 
@@ -953,7 +953,7 @@ export function generateReportHTML(): string {
     html += `<h3>${t('file.internalForces')}</h3>
 <table><thead><tr><th>${t('table.elemLabel')}</th><th>L (m)</th><th>N_i (kN)</th><th>N_j (kN)</th><th>V_i (kN)</th><th>V_j (kN)</th><th>M_i (kN·m)</th><th>M_j (kN·m)</th></tr></thead><tbody>`;
     for (const f of r.elementForces) {
-      html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vStart)}</td><td>${fmtNum(f.vEnd)}</td><td>${fmtNum(-f.mStart)}</td><td>${fmtNum(-f.mEnd)}</td></tr>`;
+      html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vStart)}</td><td>${fmtNum(f.vEnd)}</td><td>${fmtNum(f.mStart)}</td><td>${fmtNum(f.mEnd)}</td></tr>`;
     }
     html += `</tbody></table>`;
   } else {

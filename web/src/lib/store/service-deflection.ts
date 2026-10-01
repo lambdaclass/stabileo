@@ -185,3 +185,28 @@ function spanCurve(
   // The first element's axes may run against the span; x is measured from the span's start.
   return { L: span.length, ex: axes.ex, ey: axes.ey, ez: axes.ez, xi, u, v, w };
 }
+
+/** A member's deflection relative to the chord of its displaced ends, at one station. */
+export interface StationDeflection { x: number; v: number; w: number; total: number }
+
+/**
+ * Each station's deflection of one element relative to its own chord, in its local axes, from the
+ * same curve the deflection check reads (`memberLocalCurve`). The element alone, not its span:
+ * this is the table a result sheet lists per element, where the check measures physical members.
+ */
+export function elementStationDeflections(
+  elementId: number, disp: ReadonlyMap<number, Displacement3D>, ef: ElementForces3D, ts: readonly number[],
+): StationDeflection[] {
+  const embed = shouldEmbedFlat2DModelIn3D(modelStore.model);
+  const g = memberGeometry(elementId, embed);
+  const dI = g && disp.get(g.elem.nodeI), dJ = g && disp.get(g.elem.nodeJ);
+  if (!g || !dI || !dJ) return [];
+  const c = memberLocalCurve(g.pI, g.pJ, dI, dJ, ef, g.ei, g.localY, g.roll, false, ts);
+  if (!c) return [];
+  const n = c.xi.length;
+  return c.xi.map((xi, k) => {
+    const v = c.v[k]! - (c.v[0]! + xi * (c.v[n - 1]! - c.v[0]!));
+    const w = c.w[k]! - (c.w[0]! + xi * (c.w[n - 1]! - c.w[0]!));
+    return { x: xi * c.L, v, w, total: Math.hypot(v, w) };
+  });
+}

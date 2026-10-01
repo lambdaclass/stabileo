@@ -22,7 +22,7 @@ describe('combineShellStresses', () => {
       [2, new Map([[7, { sigmaXx: 50, sigmaYy: 0, tauXy: 0, mx: 4, my: 0, mxy: 0 }]])],
     ]);
     const { quadStresses } = combineShellStresses(
-      [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }], new Map(), caseQuads,
+      [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }], new Map(), caseQuads, new Map(),
     );
     const s = quadStresses.find(x => x.elementId === 7)!;
     expect(s.sigmaXx).toBeCloseTo(1.2 * 100 + 1.6 * 50, 9); // 200
@@ -37,7 +37,7 @@ describe('combineShellStresses', () => {
       [1, new Map([[1, { sigmaXx: 100, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0 }]])],
       [2, new Map([[1, { sigmaXx: 0, sigmaYy: 0, tauXy: 100, mx: 0, my: 0, mxy: 0 }]])],
     ]);
-    const { quadStresses } = combineShellStresses([{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }], new Map(), caseQuads);
+    const { quadStresses } = combineShellStresses([{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }], new Map(), caseQuads, new Map());
     // vM = sqrt(100² + 3·100²) = 200, NOT 100+100=200 by luck? sqrt(10000+30000)=200. Use σxx=100,τxy=50:
     const s = quadStresses[0];
     expect(s.vonMises).toBeCloseTo(Math.sqrt(100 * 100 + 3 * 100 * 100), 6);
@@ -61,14 +61,39 @@ describe('enrichComboShellStresses', () => {
     ]);
     const perCombo = new Map<number, AnalysisResults3D>([[10, emptyResult([])]]);
     const envMaxAbs = emptyResult([]);
-    enrichComboShellStresses(perCase, perCombo, envMaxAbs, [{ id: 10, factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }] }]);
+    enrichComboShellStresses(perCase, perCombo, envMaxAbs, [{ id: 10, factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }] }], new Map());
     expect(perCombo.get(10)!.quadStresses![0].sigmaXx).toBeCloseTo(140, 9);
     expect(envMaxAbs.quadStresses![0].vonMises).toBeCloseTo(140, 9);
 
     // no shells anywhere → no-op
     const pc = new Map<number, AnalysisResults3D>([[1, emptyResult([])]]);
     const pco = new Map<number, AnalysisResults3D>([[10, emptyResult([])]]);
-    enrichComboShellStresses(pc, pco, emptyResult([]), [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }]);
+    enrichComboShellStresses(pc, pco, emptyResult([]), [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }], new Map());
     expect(pco.get(10)!.quadStresses).toEqual([]);
+  });
+});
+
+describe('a combination means what a case means', () => {
+  it('a plate\'s Von Mises is its worse face\'s, as the engine reports it per case', () => {
+    const t = 0.2;
+    const casePlates = new Map([[1, new Map([[3, { sigmaXx: 100, sigmaYy: 0, tauXy: 0, mx: 2, my: 0, mxy: 0 }]])]]);
+    const { plateStresses } = combineShellStresses([{ caseId: 1, factor: 1.5 }], casePlates, new Map(), new Map([[3, { thickness: t }]]));
+    const p = plateStresses[0]!;
+    // 1.5 × (100 + 6·2/0.04) on the top face: 1.5 × 400.
+    expect(p.vonMises).toBeCloseTo(1.5 * (100 + (6 * 2) / (t * t)), 9);
+    expect(p.sigma1).toBeCloseTo(p.vonMises, 9);
+  });
+
+  it('a quad\'s transverse shear combines with the factors, and only where every case has it', () => {
+    const caseQuads = new Map([
+      [1, new Map([[7, { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0, qx: 10, qy: -2 }]])],
+      [2, new Map([[7, { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0, qx: 4, qy: 1 }], [8, { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0 }]])],
+      [3, new Map([[8, { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 0, my: 0, mxy: 0, qx: 5, qy: 5 }]])],
+    ]);
+    const { quadStresses } = combineShellStresses([{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }, { caseId: 3, factor: 1 }], new Map(), caseQuads, new Map());
+    const q7 = quadStresses.find((x) => x.elementId === 7)!, q8 = quadStresses.find((x) => x.elementId === 8)!;
+    expect(q7.qx).toBeCloseTo(1.2 * 10 + 1.6 * 4, 12);
+    expect(q7.qy).toBeCloseTo(1.2 * -2 + 1.6 * 1, 12);
+    expect(q8.qx).toBeUndefined();
   });
 });

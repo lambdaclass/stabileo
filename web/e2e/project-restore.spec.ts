@@ -495,14 +495,19 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
     if (emptyFamilies) expect(emptyFamilies).not.toContain(family);
   }
 
-  // Beam states. This building has had no biaxial proposal since self-weight became a member
-  // load (its beams fell under the threshold; see beam-reinforcement-audit.test.ts), so there is
-  // no provisional row and no "not for issue" banner for one. A proposal's row and banner are
-  // asserted on the 408-member frame in rebar-workspace-notices.spec.ts, and its shared cause in
-  // beam-reinforcement-audit.test.ts.
-  await expect(page.getByTestId('rebar-status-MODELLED'), 'the beams are modelled').toBeVisible();
-  await expect(page.getByTestId('rebar-status-PROVISIONAL'), 'and none is a proposal').toHaveCount(0);
-  await expect(page.getByTestId('rebar-provisional-banner')).toHaveCount(0);
+  // Beam states. Since self-weight became a member load the building has no biaxial proposal of
+  // its own, so step 1 turns five beams 20° (`ROLLED_BEAMS`), which bend biaxially for a real
+  // reason. Their proposals are reported, not hidden, their cause is stated once rather than
+  // once per member, and the sheet-level consequence is on screen.
+  await expect(page.getByTestId('rebar-status-MODELLED'), 'the other beams are modelled').toBeVisible();
+  const provisional = page.getByTestId('rebar-status-PROVISIONAL');
+  await expect(provisional, 'provisional members keep their own row').toBeVisible();
+  const cause = page.getByTestId('rebar-status-cause-PROVISIONAL');
+  await expect(cause, 'the shared cause is stated').toBeVisible();
+  await expect(cause).toHaveAttribute('data-reason-key', 'design.reason.provisionalBiaxial');
+  // A proposal that looks like a design is the one failure this state exists to prevent.
+  await expect(page.getByTestId('rebar-provisional-banner'), 'and it says it is not for issue')
+    .toContainText(/NO APTO PARA|NOT VALID FOR/i);
 
   // Selection: a member picked from the list becomes the selection.
   const firstMember = page.getByTestId('rebar-element-list').locator('button.element').first();

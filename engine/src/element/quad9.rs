@@ -928,6 +928,8 @@ pub fn quad9_stress_at_nodes(
             my,
             mxy,
             von_mises: vm.max(0.0),
+            qx: None,
+            qy: None,
         });
     }
 

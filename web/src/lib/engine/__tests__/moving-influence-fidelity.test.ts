@@ -281,3 +281,24 @@ describe('mechanisms are refused before the sweep (D14, D15)', () => {
     expect(errorText({})).toBe('[object Object]');
   });
 });
+
+describe('moving load: the train alone, as the 3D sweep and the influence line', () => {
+  it('the model\'s own loads and settlements are not added to any position', () => {
+    build(() => {
+      const a = N(0, 0), m = N(5, 0), b = N(10, 0);
+      El(a, m); El(m, b);
+      modelStore.addSupport(a, 'pinned');
+      const sb = modelStore.addSupport(b, 'rollerX');
+      modelStore.addNodalLoad(m, 0, -40, 0);
+      modelStore.updateSupport(sb, { dy: -0.01 }); // a 1 cm settlement under the roller
+    });
+    const env = solveMovingLoads(inputNow(), { train: oneAxle, step: 0.5 }) as MovingLoadEnvelope;
+    expect(typeof env).toBe('object');
+    // Each position carries 100 kN and nothing else: before, 140 at every one.
+    for (const p of env.positions) {
+      expect(p.results.reactions.reduce((s, r) => s + r.rz, 0)).toBeCloseTo(100, 6);
+    }
+    expectPositionsMatchStatic(env, oneAxle, 0.5);
+  });
+});
+
