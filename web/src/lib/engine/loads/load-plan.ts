@@ -686,7 +686,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   const { windQh } = planWind(input, levels, sink);
 
   // ── Snow (load-plan-snow.ts) ──
-  const snowPlanned = planSnow(input, sink);
+  const snowPlanned = planSnow(input, sink, panelMode ? layout : undefined);
 
   /*
    * ── Seismic ────────────────────────────────────────────────────

@@ -17,9 +17,21 @@
  * the sloped roof members run along, the ridge is where the roof nodes are highest, and W is
  * the largest horizontal distance from it to an eave.
  *
+ * ── By panels ─────────────────────────────────────────────────────
+ *
+ * When the plan loads area loads by the panels the beams close (`plan-gravity.ts`), snow goes the
+ * same way: on the roof panels by tributary area and, where the width is used, on the roof
+ * members, vertical per metre of projection. Then the drifts at steps and the snow sliding off a
+ * higher roof (`snow-drift-loads.ts`) are added to the balanced case, as CIRSOC 104 §7.1 and Cap. 9
+ * superpose them on the balanced snow.
+ *
  * Pure: no store.
  */
 import { roofMembers, type WindModel } from './wind-cases';
+import type { GravityLayout, GravityModel } from './plan-gravity';
+import { driftAndSlidingLoads } from './snow-drift-loads';
+import type { EngineMessage } from '../../codes/message';
+import type { ClauseRef } from '../../codes/regulation';
 import { roofSnow, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
 
 type Axis = 'x' | 'y';
@@ -27,7 +39,8 @@ type Axis = 'x' | 'y';
 export interface SnowCaseLoads {
   nameKey: string;
   nameParams: Record<string, string | number>;
-  distributed: Array<{ elementId: number; q: number }>;
+  /** Along local z, unless `frame` says global Z per metre of projection. */
+  distributed: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number; frame?: 'projected' }>;
   nodal: Array<{ nodeId: number; fx: number; fy: number; fz: number }>;
 }
 
@@ -102,9 +115,30 @@ export interface SnowCasesInput {
   model: WindModel;
   snow: Omit<SnowInputs, 'roof'> & { roofKind: 'mono' | 'gable'; slippery: boolean; roofSlopeDeg?: number };
   tributaryWidth: number;
+  /** The plan's panels, to load the snow by them (see the header). */
+  layout?: GravityLayout;
 }
 
-export function snowLoadCases(input: SnowCasesInput): { result: SnowResult; geometry: RoofGeometry; cases: SnowCaseLoads[] } | null {
+/** Loads of `p` (kN/m² on the horizontal projection) on the roof panels and roof width members. */
+function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: number) => number, tributaryWidth: number): SnowCaseLoads['distributed'] {
+  const out: SnowCaseLoads['distributed'] = [];
+  for (const pc of layout.pieces) {
+    if (!pc.roof) continue;
+    const p = pOf(pc.elementId);
+    if (!(p > 0)) continue;
+    out.push({ elementId: pc.elementId, q: -p * pc.wI, qJ: -p * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
+  }
+  for (const w of layout.widthMembers) {
+    if (!layout.roof.has(w.elementId) || !model.elements.has(w.elementId)) continue;
+    const p = pOf(w.elementId);
+    if (p > 0) out.push({ elementId: w.elementId, q: -p * tributaryWidth, frame: 'projected' });
+  }
+  return out;
+}
+
+export function snowLoadCases(input: SnowCasesInput): {
+  result: SnowResult; geometry: RoofGeometry; cases: SnowCaseLoads[]; derivation: EngineMessage[]; refs: ClauseRef[];
+} | null {
   const geometry = roofGeometry(input.model);
   if (!geometry) return null;
   const slopeDeg = input.snow.roofSlopeDeg ?? geometry.slopeDeg;
@@ -112,25 +146,42 @@ export function snowLoadCases(input: SnowCasesInput): { result: SnowResult; geom
     ...input.snow,
     roof: { kind: input.snow.roofKind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
-  if (result.refused) return { result, geometry, cases: [] };
+  if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [] };
   const roof = roofMembers(input.model);
   const all = new Set(roof.map((r) => r.id));
+  const layout = input.layout;
+  const on = (pOf: (id: number) => number): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
+    ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth), nodal: [] }
+    : projectionLoads(input.model, all, pOf, input.tributaryWidth));
   const cases: SnowCaseLoads[] = [{
     nameKey: 'snow.case.balanced', nameParams: { ps: +result.ps.toFixed(3) },
-    ...projectionLoads(input.model, all, () => result.ps, input.tributaryWidth),
+    ...on(() => result.ps),
   }];
+  let derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
+  if (layout) {
+    const extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
+      pg: input.snow.pg, balanced: result.ps, pf: result.pf, slippery: input.snow.slippery, tributaryWidth: input.tributaryWidth,
+    });
+    cases[0]!.distributed.push(...extra.distributed);
+    derivation = extra.derivation;
+    refs = extra.refs;
+  }
   if (result.unbalanced) {
-    const side = new Map(roof.map((r) => [r.id, (geometry.axis === 'x' ? r.mid.x : r.mid.y) - geometry.ridge]));
+    const mid = (id: number) => {
+      const e = input.model.elements.get(id);
+      const a = e && input.model.nodes.get(e.nodeI), b = e && input.model.nodes.get(e.nodeJ);
+      return a && b ? (geometry.axis === 'x' ? (a.x + b.x) / 2 : (a.y + b.y) / 2) : geometry.ridge;
+    };
+    const side = new Map([...input.model.elements.keys()].map((id) => [id, mid(id) - geometry.ridge]));
     for (const sense of [1, -1] as const) {
       // Wind blowing toward +axis leaves the snow on the side beyond the ridge.
       const leeward = (id: number) => (side.get(id) ?? 0) * sense > 0;
       cases.push({
         nameKey: 'snow.case.unbalanced',
         nameParams: { dir: `${sense > 0 ? '+' : '−'}${geometry.axis.toUpperCase()}` },
-        ...projectionLoads(input.model, all,
-          (id) => (leeward(id) ? result.unbalanced!.leeward : result.unbalanced!.windward), input.tributaryWidth),
+        ...on((id) => (leeward(id) ? result.unbalanced!.leeward : result.unbalanced!.windward)),
       });
     }
   }
-  return { result, geometry, cases };
+  return { result, geometry, cases, derivation, refs };
 }

@@ -34,7 +34,7 @@ import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: 'frame' | 'truss' }>;
+  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss' }>;
   quads?: Map<number, { id: number; nodes: number[] }>;
 }
 
@@ -77,6 +77,8 @@ export interface GravityLayout {
    */
   panelColour: number[];
   widthColour: Map<number, number>;
+  /** The loaded panels, by `GravityPiece.panel`: their outline in plan, their level, and whether a roof. */
+  panels: Array<{ polygon: Array<[number, number]>; z: number; roof: boolean }>;
   notes: EngineMessage[];
 }
 
@@ -105,7 +107,7 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
     pieces: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
-    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), notes: [],
+    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], notes: [],
   };
   const width = (id: number, length: number, horizontalLength: number) => {
     out.widthMembers.push({ elementId: id, length, horizontalLength });
@@ -138,10 +140,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (!nI || !nJ) continue;
     const b = beamLike(model, e);
     if (!b.ok) continue;
-    if (opts.mode === 'width' || Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) > TOL) { width(e.id, b.length, b.horizontalLength); continue; }
+    const horizontal = Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) <= TOL;
+    // By width every member takes the width; its floor's panels still say what it covers.
+    if (opts.mode === 'width' || !horizontal) width(e.id, b.length, b.horizontalLength);
+    if (!horizontal) continue;
     const key = levelKey(nI.z ?? 0);
     const list = beamsAt.get(key) ?? [];
-    list.push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: e.sectionId });
+    list.push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: e.sectionId ?? 0 });
     beamsAt.set(key, list);
   }
 
@@ -149,15 +154,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const slab = { distribution: opts.slab ?? 'twoWay', spanAxis: opts.spanAxis } as const;
   const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
-  if (opts.mode === 'panels') {
-    for (const [z, beams] of beamsAt) {
-      if (quadsAt.has(z)) continue;
-      const res = floorLoad({ nodes: model.nodes, beams, q: 1, ...slab });
-      levels.set(z, { beams, res });
-      panelsAt.set(z, res.panels.map((pn) => pn.polygon));
-    }
+  for (const [z, beams] of beamsAt) {
+    if (quadsAt.has(z)) continue;
+    const res = floorLoad({ nodes: model.nodes, beams, q: 1, ...slab });
+    levels.set(z, { beams, res });
+    panelsAt.set(z, res.panels.map((pn) => pn.polygon));
   }
   const covered = coverage(model, out.zOf, panelsAt);
+  if (opts.mode === 'width') levels.clear();
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
@@ -185,6 +189,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
+      out.panels.push({ polygon: panel.polygon, z, roof });
       for (const l of one.loads) {
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
         loaded.add(l.elementId);
