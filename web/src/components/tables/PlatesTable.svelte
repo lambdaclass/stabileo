@@ -10,8 +10,9 @@
    * The id space is shared with nothing: plate 1 and quad 1 both exist, which
    * is why the model keys shells `p1` / `q1` everywhere a selection is carried.
    */
-  import { modelStore, resultsStore, historyStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { modelStore, resultsStore, historyStore, uiStore } from '../../lib/store';
+  import { t, tp } from '../../lib/i18n';
+  import { parseIdList } from '../../lib/model/select-ops';
 
   type Row = {
     key: string;
@@ -37,22 +38,48 @@
 
   const materials = $derived([...modelStore.materials.values()]);
 
+  /*
+   * Through the store, which takes the undo step and reassigns the map. These wrote onto the
+   * object, so the change reached the solve but not the screen, nor anything keyed on the model
+   * version.
+   */
+  function update(row: Row, patch: { materialId?: number; thickness?: number }) {
+    if (row.kind === 'plate') modelStore.updatePlate(row.id, patch);
+    else modelStore.updateQuad(row.id, patch);
+    /* A thickness or a material is a stiffness: what was solved no longer describes this. */
+    resultsStore.clear();
+  }
+
   function setThickness(row: Row, value: string) {
     const t2 = parseFloat(value);
     if (!Number.isFinite(t2) || t2 <= 0 || t2 === row.thickness) return;
-    historyStore.pushState();
-    const target = row.kind === 'plate' ? modelStore.plates.get(row.id) : modelStore.quads.get(row.id);
-    if (target) target.thickness = t2;
-    /* A thickness is a stiffness: what was solved no longer describes this. */
-    resultsStore.clear();
+    update(row, { thickness: t2 });
   }
 
   function setMaterial(row: Row, value: string) {
     const id = parseInt(value, 10);
     if (!Number.isFinite(id) || id === row.materialId) return;
-    historyStore.pushState();
-    const target = row.kind === 'plate' ? modelStore.plates.get(row.id) : modelStore.quads.get(row.id);
-    if (target) target.materialId = id;
+    update(row, { materialId: id });
+  }
+
+  /*
+   * The corners, editable in PRO as a member's nodes are: three or four existing, distinct
+   * nodes, in the order that sets the local axes.
+   */
+  const editNodes = $derived(uiStore.analysisMode === 'pro');
+  let nodesError = $state<{ key: string; msg: string } | null>(null);
+  function setNodes(row: Row, value: string, input: HTMLInputElement) {
+    const want = row.kind === 'plate' ? 3 : 4;
+    const { ids, bad } = parseIdList(value);
+    if (bad.length > 0 || ids.length !== want || new Set(ids).size !== want || ids.some((id) => !modelStore.nodes.has(id))) {
+      nodesError = { key: row.key, msg: tp('quickEdit.nodesInvalid', { n: want }) };
+      input.value = row.nodes.join(', ');
+      return;
+    }
+    nodesError = null;
+    if (ids.every((id, i) => id === row.nodes[i])) return;
+    if (row.kind === 'plate') modelStore.updatePlateNodes(row.id, ids as [number, number, number]);
+    else modelStore.updateQuadNodes(row.id, ids as [number, number, number, number]);
     resultsStore.clear();
   }
 
@@ -102,7 +129,14 @@
             {row.nodes.length}
             {#if row.curved}<span class="curved-tag" title={t('pro.curvedShell')}>≈</span>{/if}
           </td>
-          <td class="nodes-cell">{row.nodes.join(' · ')}</td>
+          <td class="nodes-cell">
+            {#if editNodes}
+              <input type="text" class="nodes-input" value={row.nodes.join(', ')}
+                onchange={(e) => setNodes(row, e.currentTarget.value, e.currentTarget)}
+                title={nodesError?.key === row.key ? nodesError.msg : ''}
+                class:bad={nodesError?.key === row.key} data-testid="plate-nodes-{row.key}" />
+            {:else}{row.nodes.join(' · ')}{/if}
+          </td>
           <td>
             <select value={row.materialId} onchange={(e) => setMaterial(row, e.currentTarget.value)}>
               {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
@@ -129,6 +163,7 @@
       {/each}
     </tbody>
   </table>
+  {#if nodesError}<p class="nodes-err" role="alert" data-testid="plate-nodes-error">{nodesError.msg}</p>{/if}
 {:else}
   <p class="empty">{t('pro.noShells')}</p>
 {/if}
@@ -152,6 +187,9 @@
   .id-cell { color: var(--st-value); font-weight: 600; }
   .kind-cell { color: var(--st-text-3); }
   .nodes-cell { font-variant-numeric: tabular-nums; }
+  .nodes-cell .nodes-input { width: 9rem; font-family: var(--st-mono); }
+  .nodes-cell .nodes-input.bad { border-color: var(--st-danger); }
+  .nodes-err { margin: 4px 8px; font-size: 0.66rem; color: var(--st-danger); }
   /* A curved quad is solved as a degenerated continuum, not a flat MITC4 —
      worth one character in the row that says so. */
   .curved-tag { color: var(--st-accent); margin-left: 3px; }

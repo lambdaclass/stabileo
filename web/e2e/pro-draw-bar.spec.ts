@@ -218,3 +218,20 @@ test('the tables add rows by writing, not by a footer button', async ({ pro: pag
   await expect(page.getByTestId('pro-add-element')).toHaveCount(0);
   await expect(page.getByTestId('write-element')).toBeVisible();
 });
+
+test('another tool ends a plate being drawn, from the ribbon or a Draw button', async ({ pro: page }) => {
+  await open(page, 'shells');
+  await page.getByTestId('draw-plate').click();
+  const bar = page.getByTestId('pro-draw-bar');
+  await expect(bar).toHaveAttribute('data-tool', 'plate');
+  await page.getByTestId('pr-select').click();
+  await expect(bar).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.drawPicked())).toEqual([]);
+
+  await open(page, 'shells');
+  await page.getByTestId('draw-plate').click();
+  await expect(bar).toHaveAttribute('data-tool', 'plate');
+  await open(page, 'nodes');
+  await page.getByTestId('draw-node').click();
+  await expect(bar).toHaveAttribute('data-tool', 'node');
+});

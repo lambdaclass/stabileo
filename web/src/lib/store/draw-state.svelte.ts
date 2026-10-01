@@ -130,7 +130,13 @@ function createDrawState() {
     },
 
     /** Start picking plate corners in the model. */
-    startPlate() { writing = null; uiStore.startShellNodePick('quad', plateCorners); },
+    startPlate() {
+      writing = null;
+      memberStart = null;
+      // The pointer selects corners while a plate is drawn; setting it ends any other drawing first.
+      uiStore.currentTool = 'select';
+      uiStore.startShellNodePick('quad', plateCorners);
+    },
 
     /** Leave whatever is being drawn: the pending member end, the plate corners, the tool. */
     stop() {

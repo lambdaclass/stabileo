@@ -13,6 +13,11 @@
  *                         the node cannot turn about that axis
  *   rotation on spring    the axis, with a spiral around it
  *
+ * The translations read as the support they make when they make one: all three held is the
+ * pinned support's pyramid, Z alone held is the roller free in the plane; only a partial set
+ * (one horizontal, or springs) is drawn link by link. A rotation held on a pinned support is then
+ * a pinned support with that rotation stopped, not three links that read as three rollers.
+ *
  * Gravity's axis (Z) goes down from the node; X and Y go toward −X and −Y, so the anchors sit
  * on the sides a support usually has its ground. Colours are the axis triad's (X red, Y green,
  * Z blue), so the axis is read twice: by direction and by colour.
@@ -29,6 +34,9 @@ export interface GizmoResources {
   geo: (key: string, build: () => THREE.BufferGeometry) => THREE.BufferGeometry;
   mat: (color: number, roughness: number) => THREE.Material;
   ground: number;
+  /** The pinned support's symbol, and the roller free in the plane, from the support gizmo. */
+  pinned: (group: THREE.Group) => void;
+  rollerPlane: (group: THREE.Group) => void;
 }
 
 const LINK = 0.5;         // link length, node to plate: the fixed block's width
@@ -116,9 +124,16 @@ function rotation(group: THREE.Group, res: GizmoResources, axis: Axis, spring: b
 /** Draw `r` (true = held) with `springs` on the free degrees that have a stiffness. */
 export function addRestraintGizmo(group: THREE.Group, res: GizmoResources, r: Restraints, springs: SupportSprings): void {
   const k = (key: keyof SupportSprings) => (springs[key] ?? 0) > 0;
-  for (const [axis, held, sk] of [['x', r.tx, 'kx'], ['y', r.ty, 'ky'], ['z', r.tz, 'kz']] as const) {
-    if (held) translation(group, res, axis, false);
-    else if (k(sk)) translation(group, res, axis, true);
+  const horizontalFree = !r.tx && !r.ty && !k('kx') && !k('ky');
+  if (r.tx && r.ty && r.tz) {
+    res.pinned(group);
+  } else if (r.tz && horizontalFree) {
+    res.rollerPlane(group);
+  } else {
+    for (const [axis, held, sk] of [['x', r.tx, 'kx'], ['y', r.ty, 'ky'], ['z', r.tz, 'kz']] as const) {
+      if (held) translation(group, res, axis, false);
+      else if (k(sk)) translation(group, res, axis, true);
+    }
   }
   for (const [axis, held, sk] of [['x', r.rx, 'krx'], ['y', r.ry, 'kry'], ['z', r.rz, 'krz']] as const) {
     if (held) rotation(group, res, axis, false);

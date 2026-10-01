@@ -72,7 +72,10 @@ export function createSupportGizmo(
     case 'spring3d':
     case 'custom3d':
       if (opts.restraintSymbols && opts.supportType !== 'spring') {
-        addRestraintGizmo(group, { geo: sharedGeo, mat: sharedStandardMat, ground: GROUND_COLOR },
+        addRestraintGizmo(group, {
+          geo: sharedGeo, mat: sharedStandardMat, ground: GROUND_COLOR,
+          pinned: (g) => addPinnedGizmo(g, color), rollerPlane: (g) => addRollerGizmo(g, color, 'XY'),
+        },
           opts.dofRestraints ?? { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false }, opts.springs ?? {});
       } else if (opts.supportType === 'custom3d') {
         addCustom3DGizmo(group, color, opts.dofRestraints);

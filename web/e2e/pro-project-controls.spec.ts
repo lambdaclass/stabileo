@@ -48,14 +48,16 @@ test.describe('@smoke PRO — the Project panel', () => {
     await expect(page.getByTestId('pp-examples')).toBeVisible();
   });
 
-  test('a help tip opens on a CLICK and the same click puts it away', async ({ pro: page }) => {
-    /* They were native `title`s, which answer only to a patient pointer and
-       on a touch screen not at all. */
+  test('a help tip opens on a pause over its button, and a press on the button leaves none', async ({ pro: page }) => {
+    /* Pressing Save is doing the thing, not asking about it; a tip pinned over the panel after
+       every press was what the Project tab showed. The explanation is a hover away. */
     const tip = page.locator('.ht-tip');
     await expect(tip).toHaveCount(0);
-    await page.getByTestId('pp-save').click({ position: { x: 2, y: 2 } });
-    // The press lands on the button too; what matters is the tip appearing.
-    await expect(page.locator('.ht-tip').first()).toBeVisible();
+    await page.getByTestId('pp-examples').click();
+    await expect(tip).toHaveCount(0);
+    await page.getByTestId('pp-gallery-close').click();
+    await page.getByTestId('pp-save').hover();
+    await expect(tip.first()).toBeVisible();
   });
 
   test('the report is offered with the other exports of the same numbers', async ({ pro: page }) => {

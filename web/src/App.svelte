@@ -1,5 +1,6 @@
 <script lang="ts">
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
+  import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
@@ -2072,6 +2073,7 @@
 <!-- Inline editors (positioned fixed, rendered outside layout) -->
 <NodeEditor />
 <ElementEditor />
+{#if uiStore.analysisMode === 'pro'}<ProQuickEdit />{/if}
 <DespieceInspector />
 <MaterialEditor />
 <SectionEditor />

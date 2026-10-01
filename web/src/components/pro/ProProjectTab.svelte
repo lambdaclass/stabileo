@@ -14,6 +14,7 @@
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
+  import { portal } from '../../lib/utils/portal';
   import ExcelImportReport from '../ExcelImportReport.svelte';
   import { downloadProjectWorkbook } from '../../lib/store/project-workbook';
   import type { StationSpec } from '../../lib/engine/station-forces';
@@ -226,9 +227,10 @@
   {#if showExamples}
     <!--
       Over the viewport, not inside the panel: twenty-four cards of four lines each read as a
-      column of text in the panel's width; here they sit side by side, grouped.
+      column of text in the panel's width; here they sit side by side, grouped. Moved to the
+      document (`utils/portal.ts`), or the panel's resize handle lit up through it.
     -->
-    <div class="pg-overlay" role="dialog" aria-modal="true" aria-label={t('pro.exampleBtn')} tabindex="-1"
+    <div class="pg-overlay" use:portal role="dialog" aria-modal="true" aria-label={t('pro.exampleBtn')} tabindex="-1"
       onkeydown={(e) => { if (e.key === 'Escape') showExamples = false; }}>
       <button class="pg-backdrop" aria-label={t('pro.examples.cancel')} onclick={() => (showExamples = false)}></button>
       <div class="pg-sheet">
@@ -553,7 +555,7 @@
 />
 
 <style>
-  .pg-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+  .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }
   .pg-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); border: none; cursor: default; }
   .pg-sheet { position: relative; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: 8px; padding: 12px 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
   .pg-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }

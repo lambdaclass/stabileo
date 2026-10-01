@@ -14,7 +14,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import type { Element, Release } from '../../../lib/store/model.svelte';
-  import type { MemberBehaviour } from '../../../lib/engine/member-behaviour';
+  import { axialOf, setAxial, type Axial } from '../../../lib/pro/member-axial';
   import ProMemberBehaviour from '../ProMemberBehaviour.svelte';
   import MemberOffsetEditor from '../../property/MemberOffsetEditor.svelte';
   import ProSteelLbEditor from '../ProSteelLbEditor.svelte';
@@ -26,18 +26,8 @@
     return v.length && v.every((x) => JSON.stringify(x) === JSON.stringify(v[0])) ? v[0] : undefined;
   };
 
-  /** The axial behaviour: a member's type and its one-way or cable behaviour, as one choice. */
-  type Axial = 'frame' | 'truss' | MemberBehaviour;
-  const axialOf = (e: Element): Axial => e.behaviour ?? (e.type === 'truss' ? 'truss' : 'frame');
+  /** The axial behaviour: a member's type and its one-way or cable behaviour (`pro/member-axial.ts`). */
   const axial = $derived(same(axialOf) ?? 'mixed');
-  function setAxial(v: Axial) {
-    modelStore.batch(() => {
-      for (const id of ids) {
-        if (v === 'frame' || v === 'truss') modelStore.updateElement(id, { type: v, behaviour: undefined });
-        else modelStore.updateElement(id, { behaviour: v });
-      }
-    });
-  }
 
   /** Local releases: a released moment carries nothing at that end. */
   const DOFS = ['my', 'mz', 't'] as const;
@@ -75,7 +65,7 @@
 
     <section>
       <h5>{t('spec.members.axial')}</h5>
-      <select value={axial} onchange={(e) => setAxial(e.currentTarget.value as Axial)} data-testid="mb-behaviour">
+      <select value={axial} onchange={(e) => setAxial(ids, e.currentTarget.value as Axial)} data-testid="mb-behaviour">
         {#if axial === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
         <option value="frame">{t('spec.axial.frame')}</option>
         <option value="truss">{t('spec.axial.truss')}</option>

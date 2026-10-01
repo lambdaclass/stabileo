@@ -636,6 +636,14 @@ function createUIStore() {
      */
     set currentTool(v: Tool) {
       currentTool = v;
+      /*
+       * Drawing a plate in PRO is a corner pick, not a pointer tool, so picking any tool (from the
+       * ribbon, a Draw button, Escape) left it running, with its bar, under the new one. Any tool
+       * ends it, as it ends drawing nodes or members.
+       */
+      if (analysisMode === 'pro' && shellNodePick.target === 'quad' && (shellNodePick.active || shellNodePick.picked.length > 0)) {
+        shellNodePick = { active: false, target: null, picked: [], capacity: 0 };
+      }
       if (EDIT_TOOLS.includes(v)) _onEditToolArmed?.();
     },
 

@@ -19,6 +19,8 @@
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
+  import { memberNearPointer, nodeNearPointer } from '../lib/viewport3d/screen-pick';
+  import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
   import { pickLoadAt } from '../lib/viewport/load-pick';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
@@ -234,6 +236,9 @@
   let cursorStyle = $derived.by(() => {
     if (uiStore.measureMode) return 'crosshair';
     if (uiStore.selectMode === 'stress') return 'crosshair';
+    // Picking a plate's corners is drawing, as a member is: the cross, not the hand the select
+    // and pan tools show over a node.
+    if (uiStore.shellNodePick.active) return 'crosshair';
     const tool = uiStore.currentTool;
     if (tool === 'select') {
       if (draggedNodeId3D !== null) return 'grabbing';
@@ -2216,8 +2221,9 @@
       const isWindow = boxSelect3D.endX >= boxSelect3D.startX;
       const additive = boxSelect3D.additive; // shift was held at drag start
 
-      // Only count as box select if dragged at least a few pixels
-      if (x2 - x1 > 3 || y2 - y1 > 3) {
+      // Only count as box select if dragged past the click slop: a hand's click moves a few
+      // pixels, and a rectangle that small selects nothing, so the click was lost.
+      if (x2 - x1 > clickSlop() || y2 - y1 > clickSlop()) {
         /*
          * Respect the active select subtype: what is highlighted has to be
          * what a Delete would remove, and plates and quads share the frame
@@ -2379,7 +2385,7 @@
     // Only count as click if mouse didn't move much (not an orbit drag)
     const dx = e.clientX - mouseDownPos.x;
     const dy = e.clientY - mouseDownPos.y;
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) return;
+    if (Math.abs(dx) > Math.max(5, clickSlop()) || Math.abs(dy) > Math.max(5, clickSlop())) return;
 
     // Measurement tool intercepts all clicks when active
     if (uiStore.measureMode) {
@@ -2419,6 +2425,54 @@
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
     return pickLoadAt(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
+  }
+
+  /** How far a press may wander and still be a click. PRO allows a hand's tremor; Basic keeps its 3 px. */
+  function clickSlop(): number { return uiStore.analysisMode === 'pro' ? 6 : 3; }
+
+  /**
+   * In PRO, a click whose ray hit nothing takes the nearest node or member on the screen
+   * (`viewport3d/screen-pick.ts`): the picking cylinder of a member is a pixel or two wide once a
+   * building is framed whole.
+   */
+  function screenPick(e: MouseEvent, kind: 'node' | 'member'): number | null {
+    if (uiStore.analysisMode !== 'pro' || !camera) return null;
+    const rect = container.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const v = new THREE.Vector3();
+    const project = (x: number, y: number, z: number) => {
+      v.set(x, y, z).project(camera);
+      if (v.z < -1 || v.z > 1) return null;
+      return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
+    };
+    if (kind === 'node') return nodeNearPointer(px, py, [...visibleNodes().values()], project, 9);
+    return memberNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, 7);
+  }
+
+  /**
+   * Double-click in PRO opens the quick editor on what is under the pointer: a node first, as
+   * a point is the most specific thing at a joint, then a member, then a shell
+   * (`ProQuickEdit.svelte`). The two clicks before it have already selected it.
+   */
+  function handleDoubleClick3D(e: MouseEvent) {
+    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera) return;
+    if (uiStore.shellNodePick.active || drawState.active) return;
+    updateMouseNDC(e);
+    raycaster.setFromCamera(mouse, camera);
+    raycaster.camera = camera;
+    const first = (parent: THREE.Object3D, types: string[]) => {
+      for (const h of raycaster.intersectObjects(parent.children, true)) {
+        const ud = resolveHitUserData(h);
+        if (ud && types.includes(ud.type)) return ud;
+      }
+      return null;
+    };
+    const nodeHit = first(nodesParent, ['node'])?.id ?? screenPick(e, 'node');
+    if (nodeHit !== null && nodeHit !== undefined) { quickEdit.open({ kind: 'node', id: nodeHit }, e.clientX, e.clientY); return; }
+    const memberHit = first(elementsParent, ['element'])?.id ?? screenPick(e, 'member');
+    if (memberHit !== null && memberHit !== undefined) { quickEdit.open({ kind: 'member', id: memberHit }, e.clientX, e.clientY); return; }
+    const shellHit = first(shellsParent, ['plate', 'quad']);
+    if (shellHit) quickEdit.open({ kind: shellHit.type as 'plate' | 'quad', id: shellHit.id }, e.clientX, e.clientY);
   }
 
   function handleSelectionClick(e: MouseEvent) {
@@ -2566,6 +2620,10 @@
           }
         }
       }
+      if (!hit && uiStore.selectsKind('nodes')) {
+        const id = screenPick(e, 'node');
+        if (id !== null) { uiStore.selectNode(id, addToSel); hit = true; }
+      }
       if (!hit && uiStore.selectsKind('elements')) {
         for (const h of raycaster.intersectObjects(elementsParent.children, true)) {
           const ud = resolveHitUserData(h);
@@ -2576,6 +2634,10 @@
             break;
           }
         }
+      }
+      if (!hit && uiStore.selectsKind('elements')) {
+        const id = screenPick(e, 'member');
+        if (id !== null) { uiStore.selectElement(id, addToSel); hit = true; }
       }
       if (!hit && uiStore.selectsKind('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
@@ -2603,6 +2665,8 @@
           return;
         }
       }
+      const nearNode = screenPick(e, 'node');
+      if (nearNode !== null) { uiStore.selectNode(nearNode, addToSel); return; }
       if (!addToSel) uiStore.clearSelection();
       return;
     }
@@ -2643,6 +2707,9 @@
         return;
       }
     }
+
+    const nearMember = screenPick(e, 'member');
+    if (nearMember !== null) { uiStore.selectElement(nearMember, addToSel); return; }
 
     // Clicked on empty space → clear selection
     if (!addToSel) {
@@ -3263,6 +3330,7 @@
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
   onmouseup={handleMouseUp}
+  ondblclick={handleDoubleClick3D}
   onmousemove={handleMouseMove}
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}

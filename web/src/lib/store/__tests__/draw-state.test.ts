@@ -26,6 +26,24 @@ describe('addShellOnCorners', () => {
 });
 
 describe('drawState', () => {
+  it('in PRO, picking any tool ends a plate being drawn, and drawing a plate ends the tool', () => {
+    const was = uiStore.analysisMode;
+    uiStore.analysisMode = 'pro';
+    uiStore.currentTool = 'element';
+    drawState.startPlate();
+    expect(uiStore.currentTool).toBe('select');
+    expect(drawState.active).toBe(true);
+    uiStore.currentTool = 'select';         // the ribbon's Select, or a stage command
+    expect(drawState.active).toBe(false);
+    expect(uiStore.shellNodePick.active).toBe(false);
+    drawState.startPlate();
+    uiStore.currentTool = 'node';           // another Draw button
+    expect(uiStore.shellNodePick.active).toBe(false);
+    expect(uiStore.currentTool).toBe('node');
+    uiStore.currentTool = 'select';
+    uiStore.analysisMode = was;
+  });
+
   it('switching corner count keeps the picks that fit', () => {
     const [a, b] = square();
     drawState.plateCorners = 4;
