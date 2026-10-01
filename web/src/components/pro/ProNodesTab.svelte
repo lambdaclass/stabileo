@@ -2,6 +2,9 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
 
   interface NodeRow {
@@ -167,6 +170,19 @@
   }
 
   const nodeCount = $derived(rows.filter(r => r.id !== null).length);
+
+  // ── Write a node: its three coordinates, Enter, the next one ──
+  let wX = $state(''), wY = $state(''), wZ = $state('');
+  let wError = $state<string | null>(null);
+  function writeNode() {
+    const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : Number(s.replace(',', '.'))));
+    if (v.some((n) => !Number.isFinite(n))) { wError = t('pro.writeNumbers'); return; }
+    wError = null;
+    const id = modelStore.addNode(v[0]!, v[1]!, v[2]!);
+    uiStore.selectNode(id, false);
+    uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
+    wX = ''; wY = ''; wZ = '';
+  }
 </script>
 
 <div class="pro-nodes">
@@ -182,10 +198,19 @@
     -->
     <div class="pro-nodes-actions">
       <DrawInModelButton tool="node" label={t('pro.oneNode')} icon="node" testid="draw-node" />
+      <WriteInPanelButton kind="node" label={t('pro.oneNode')} testid="write-node" />
       <button class="pro-btn pro-btn-sm" onclick={commitAll} title={t('pro.apply')} data-testid="pro-apply-nodes">{t('pro.apply')}</button>
       <button class="pro-btn pro-btn-sm pro-btn-danger" onclick={clearAll} title={t('pro.clear')}>{t('pro.clear')}</button>
     </div>
   </div>
+
+  {#if drawState.writing === 'node'}
+    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneNode')}`} submitLabel={`${t('pro.add')} ${t('pro.oneNode')}`} onsubmit={writeNode} error={wError} testid="write-node-card">
+      <label>X <input class="wc-num" inputmode="decimal" bind:value={wX} placeholder="0" data-testid="write-node-x" /> m</label>
+      <label>Y <input class="wc-num" inputmode="decimal" bind:value={wY} placeholder="0" data-testid="write-node-y" /> m</label>
+      <label>Z <input class="wc-num" inputmode="decimal" bind:value={wZ} placeholder="0" data-testid="write-node-z" /> m</label>
+    </WriteCard>
+  {/if}
 
   {#if pasteError}
     <div class="pro-paste-error">{pasteError}</div>

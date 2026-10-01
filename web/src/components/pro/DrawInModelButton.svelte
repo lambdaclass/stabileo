@@ -20,6 +20,7 @@
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
 
   interface Props {
     /** The pointer tool this arms — `uiStore.currentTool`. */
@@ -40,7 +41,11 @@
   class:on={armed}
   aria-pressed={armed ? 'true' : 'false'}
   data-testid={testid}
-  onclick={() => { uiStore.currentTool = (armed ? 'select' : tool) as never; }}
+  onclick={() => {
+    if (armed) { drawState.stop(); return; }
+    drawState.writing = null;
+    uiStore.currentTool = tool as never;
+  }}
   title={armed ? t('pro.drawStopHint') : t('pro.drawStartHint')}
 >
   <Icon name={icon} size={13} />

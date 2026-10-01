@@ -20,6 +20,8 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import { pickLoadAt } from '../lib/viewport/load-pick';
+  import { drawState } from '../lib/store/draw-state.svelte';
+  import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
@@ -198,8 +200,8 @@
   });
 
   // ─── Tool interaction state ─────────────────────────────────
-  let pendingElementNodeI: number | null = null;  // first node for element tool
-  let pendingLine: THREE.Line | null = null;       // preview line for element tool
+  // The first node of the member being drawn is `drawState.memberStart`, shared with the bar.
+  const drawFeedback = createDrawFeedback();
 
   // ─── Coordinate input dialog state ──────────────────────────
   let showCoordDialog = $state(false);
@@ -509,7 +511,7 @@
     // inside `elementsParent`, so it stays rendered even when LOD hides the
     // parent during orbit. One mesh, one draw call, one toggle — no parallel
     // orbit proxy needed.
-    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent, drawFeedback.group);
     syncResultsProjection();
 
     /*
@@ -1541,7 +1543,25 @@
   // Cancel pending element when tool changes
   $effect(() => {
     uiStore.currentTool;
-    cancelPendingElement();
+    untrack(() => cancelPendingElement());
+  });
+
+  /*
+   * Rings around what has been picked: the first node of a member, the corners of a plate (or
+   * the nodes any other pick is collecting). Follows the nodes if they move.
+   */
+  $effect(() => {
+    const pick = uiStore.shellNodePick;
+    const ids = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
+      : pick.active || (pick.target === 'quad' && pick.picked.length > 0) ? pick.picked : [];
+    const pts: THREE.Vector3[] = [];
+    for (const id of ids) {
+      const n = modelStore.nodes.get(id);
+      if (n) pts.push(new THREE.Vector3(n.x, n.y, n.z ?? 0));
+    }
+    drawFeedback.setPicked(pts);
+    if (pts.length === 0) drawFeedback.setPreview([], null);
+    invalidate();
   });
 
   // ─── Stress query marker in 3D viewport ─────────────────────
@@ -1837,45 +1857,31 @@
       return;
     }
 
-    if (pendingElementNodeI === null) {
-      // First click → set node I
-      pendingElementNodeI = nodeId;
+    const start = drawState.memberStart;
+    if (start === null) {
+      // First click → node I, ringed in the model and named in the drawing bar.
+      drawState.memberStart = nodeId;
       uiStore.selectNode(nodeId, false);
-
-      // Highlight node I
-      nodesInstanced.setColor(nodeId, 0x00ff00);
-      uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
-    } else {
-      // Second click → create element
-      if (nodeId === pendingElementNodeI) return; // same node
-
-      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
-      const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
-      uiStore.selectElement(elemId, false);
-      uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
-
-      // Clean up
-      cancelPendingElement();
+      return;
     }
+    if (nodeId === start) return; // same node
+
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
+    // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
+    const elemId = nextMember.add(start, nodeId, uiStore.elementCreateType);
+    uiStore.selectElement(elemId, false);
+    uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
+    // Chained, the far end starts the next member; otherwise the next click starts afresh.
+    drawState.memberStart = drawState.memberChain ? nodeId : null;
+    drawFeedback.setPreview([], null);
+    invalidate();
   }
 
   function cancelPendingElement() {
-    let changed = false;
-    if (pendingElementNodeI !== null) {
-      // Restore node color
-      nodesInstanced.restoreColor(pendingElementNodeI);
-      changed = true;
-    }
-    pendingElementNodeI = null;
-    if (pendingLine) {
-      scene?.remove(pendingLine);
-      pendingLine.geometry?.dispose();
-      (pendingLine.material as THREE.Material)?.dispose();
-      pendingLine = null;
-      changed = true;
-    }
-    if (changed) invalidate();
+    if (drawState.memberStart === null) return;
+    drawState.memberStart = null;
+    drawFeedback.setPreview([], null);
+    invalidate();
   }
 
   function handleSupportTool(e: MouseEvent) {
@@ -1887,7 +1893,8 @@
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
     if (is3D) {
-      const supId = addSupportFromTool3D(nodeId);
+      // PRO places the support its drawing bar describes; 3D Basic keeps its own strip.
+      const supId = uiStore.appMode === 'pro' ? drawState.addSupportAt(nodeId) : addSupportFromTool3D(nodeId);
       uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
@@ -1917,7 +1924,12 @@
       if (nodeId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (is3D) {
+      if (uiStore.appMode === 'pro') {
+        // PRO: all six components, as the drawing bar and the Loads table hold them.
+        const v = drawState.nodalLoad;
+        if ([v.fx, v.fy, v.fz, v.mx, v.my, v.mz].every((x) => x === 0)) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
+        modelStore.addNodalLoad3D(nodeId, v.fx, v.fy, v.fz, v.mx, v.my, v.mz, uiStore.activeLoadCaseId);
+      } else if (is3D) {
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
@@ -1943,7 +1955,12 @@
       if (elemId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (is3D) {
+      if (uiStore.appMode === 'pro') {
+        // PRO: uniform, along the axes the drawing bar names.
+        const q = drawState.memberLoad;
+        if (q.qx === 0 && q.qy === 0 && q.qz === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
+        modelStore.addDistributedLoad3D(elemId, q.qy, q.qy, q.qz, q.qz, undefined, undefined, uiStore.activeLoadCaseId, { frame: q.frame, qXI: q.qx, qXJ: q.qx });
+      } else if (is3D) {
         modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
@@ -2418,6 +2435,8 @@
         const ud = resolveHitUserData(hit);
         if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
       }
+      // The last corner makes the plate; see `drawState.finishPlate`.
+      drawState.finishPlate();
       return; // consume the click while picking (no normal selection / clear)
     }
 
@@ -2710,41 +2729,17 @@
       return;
     }
 
-    // ─── Preview line for element creation tool ──────────────
+    // ─── Preview while drawing a member or a plate: from what is picked to the pointer ──
     // Uses cached hoveredData (may lag ≤1 frame behind mouse) so this stays cheap.
-    if (uiStore.currentTool === 'element' && pendingElementNodeI !== null && scene) {
-      const nodeI = modelStore.nodes.get(pendingElementNodeI);
-      if (nodeI) {
-        const groundPt = getGroundIntersection(e);
-        let endPt: THREE.Vector3;
-        if (hoveredData?.type === 'node') {
-          const nJ = modelStore.nodes.get(hoveredData.id);
-          endPt = nJ ? new THREE.Vector3(nJ.x, nJ.y, nJ.z ?? 0) : (groundPt ?? new THREE.Vector3());
-        } else {
-          endPt = groundPt ?? new THREE.Vector3();
-        }
-
-        const startPt = new THREE.Vector3(nodeI.x, nodeI.y, nodeI.z ?? 0);
-
-        if (pendingLine) {
-          const pos = pendingLine.geometry.attributes.position as THREE.BufferAttribute;
-          pos.setXYZ(0, startPt.x, startPt.y, startPt.z);
-          pos.setXYZ(1, endPt.x, endPt.y, endPt.z);
-          pos.needsUpdate = true;
-          pendingLine.computeLineDistances();
-        } else {
-          const geo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
-          const mat = new THREE.LineDashedMaterial({
-            color: 0x44ff88,
-            dashSize: 0.15,
-            gapSize: 0.1,
-            depthTest: false,
-          });
-          pendingLine = new THREE.Line(geo, mat);
-          pendingLine.computeLineDistances();
-          pendingLine.renderOrder = 999;
-          scene.add(pendingLine);
-        }
+    {
+      const pick = uiStore.shellNodePick;
+      const picked = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
+        : pick.active && pick.target === 'quad' ? pick.picked : [];
+      if (picked.length > 0) {
+        const at = (id: number) => { const n = modelStore.nodes.get(id); return n ? new THREE.Vector3(n.x, n.y, n.z ?? 0) : null; };
+        const pts = picked.map(at).filter((v): v is THREE.Vector3 => v !== null);
+        const hovered = hoveredData?.type === 'node' ? at(hoveredData.id) : null;
+        drawFeedback.setPreview(pts, hovered ?? getGroundIntersection(e));
         invalidate();
       }
     }

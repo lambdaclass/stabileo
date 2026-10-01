@@ -270,11 +270,11 @@
   import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
-  import ToolLoadOptions from './components/floating-tools/ToolLoadOptions.svelte';
-  import ToolSupportOptions from './components/floating-tools/ToolSupportOptions.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ProRibbon from './components/pro/ProRibbon.svelte';
+  import ProDrawBar from './components/pro/ProDrawBar.svelte';
+  import { drawState } from './lib/store/draw-state.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
   import { leaveExercise } from './components/edu/exercise-session';
@@ -747,6 +747,14 @@
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Escape leaves whatever is being drawn: the pending member end, the plate corners, the tool.
+    // With nothing being drawn it clears the selection.
+    if (e.key === 'Escape') {
+      if (drawState.active) drawState.stop();
+      else uiStore.clearSelection();
+      return;
+    }
 
     // Ctrl/Cmd+Z: Undo
     const key = e.key.toUpperCase();
@@ -1519,13 +1527,6 @@
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
   {/if}
-  <!-- PRO has no options strip; "Draw load" and "Draw support" used Basic's hidden settings.
-       While either tool is armed its options show here, the same controls Basic uses. -->
-  {#if uiStore.appMode === 'pro' && (uiStore.currentTool === 'load' || uiStore.currentTool === 'support')}
-    <div class="pro-tool-options" data-testid="pro-tool-options">
-      {#if uiStore.currentTool === 'load'}<ToolLoadOptions />{:else}<ToolSupportOptions />{/if}
-    </div>
-  {/if}
 
   <!--
     The bottom-bar reservation follows the bottom bar.
@@ -1557,6 +1558,8 @@
           onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
         />
     {/if}
+    <!-- What the next click in the model does while drawing, under the bar that started it. -->
+    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -4073,8 +4076,4 @@
   .btn-help:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .btn-help { width: 26px; padding: 0.3rem 0; text-align: center; }
-  .pro-tool-options {
-    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px 10px;
-    background: var(--st-surface-2); border-bottom: 1px solid var(--st-hair); font-size: 0.72rem;
-  }
 </style>

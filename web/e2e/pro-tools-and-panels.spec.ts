@@ -122,12 +122,16 @@ test.describe('@smoke PRO — plates are one creator', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
 
-    /* One button uses the mouse and it is at the top, like every other
-       panel; the form's own button only ever adds what the boxes hold. */
+    /* Two buttons at the top, like every other panel: Draw uses the mouse,
+       Write opens the form, whose own button only ever adds what the boxes hold. */
     await expect(page.getByTestId('draw-plate')).toBeVisible();
-    const add = page.getByTestId('shell-add');
-    await expect(add, 'nothing picked yet').toBeDisabled();
+    await page.getByTestId('write-plate').click();
+    const add = page.getByTestId('write-plate-card-submit');
+    await expect(add, 'nothing typed yet').toBeDisabled();
 
+    /* Three or four corners is a choice in plain sight, not a count inferred from filled boxes. */
+    await page.getByTestId('write-corners-3').click();
+    await expect(page.getByTestId('shell-node-3')).toHaveCount(0);
     await page.getByTestId('shell-node-0').fill('1');
     await page.getByTestId('shell-node-1').fill('2');
     await page.getByTestId('shell-node-2').fill('3');
@@ -136,6 +140,8 @@ test.describe('@smoke PRO — plates are one creator', () => {
     /* The curved option appears only where it can mean anything: three points
        are coplanar by definition. */
     await expect(page.getByTestId('quad-curved')).toHaveCount(0);
+    await page.getByTestId('write-corners-4').click();
+    await expect(add, 'a quad wants its fourth corner').toBeDisabled();
     await page.getByTestId('shell-node-3').fill('4');
     await expect(page.getByTestId('quad-curved')).toHaveCount(1);
   });

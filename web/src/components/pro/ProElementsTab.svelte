@@ -4,6 +4,9 @@
   import DrawInModelButton from './DrawInModelButton.svelte';
   import NextMemberPicker from './NextMemberPicker.svelte';
   import { nextMember } from '../../lib/store/next-member.svelte';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
 
   const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
@@ -21,16 +24,6 @@
   let rows = $state<ElemRow[]>([]);
   let pasteError = $state<string | null>(null);
   let selectedRowIdx = $state<number | null>(null);
-  /*
-   * Drawing is the POINTER's state, not this panel's.
-   *
-   * The panel kept its own `drawMode` flag beside `uiStore.currentTool`, so
-   * two things claimed to know whether a member was being drawn — and the
-   * pointer box over the model, which reads the store, could say Select
-   * while this panel said it was waiting for a first node. One of them was
-   * always going to be wrong; the store is the one the viewport obeys.
-   */
-  const drawMode = $derived(uiStore.currentTool === 'element');
 
   // ── Curved members ───────────────────────────────────────────────
   let showArc = $state(false);
@@ -92,7 +85,6 @@
     ); });
     if (made.length === 0) arcError = t('pro.arcFailed');
   }
-  let drawNodeI = $state<number | null>(null);
 
   /*
    * What a member end is, read from every field that can release it: fixed, pinned (both
@@ -138,36 +130,9 @@
     }
   });
 
-  // Listen for node clicks in draw mode
-  $effect(() => {
-    if (!drawMode) {
-      drawNodeI = null;
-      return;
-    }
-    // When a node is selected in the viewport, use it for drawing
-    if (uiStore.selectedNodes.size === 1) {
-      const nodeId = [...uiStore.selectedNodes][0];
-      if (drawNodeI === null) {
-        drawNodeI = nodeId;
-      } else if (nodeId !== drawNodeI) {
-        // Create element
-        const eid = nextMember.add(drawNodeI, nodeId);
-        const made = modelStore.elements.get(eid)!;
-        rows = [...rows, {
-          id: eid,
-          nodeI: String(drawNodeI),
-          nodeJ: String(nodeId),
-          materialId: made.materialId,
-          sectionId: made.sectionId,
-          hingeI: false,
-          hingeJ: false,
-        }];
-        // Chain: nodeJ becomes next nodeI
-        drawNodeI = nodeId;
-        uiStore.setSelection(new Set(), new Set());
-      }
-    }
-  });
+  /* Drawing members is the viewport's, with the step shown in the drawing bar (`drawState`).
+     This panel used to build members of its own from the selected node at the same time, so a
+     third click joined a stale first node to the new one. */
 
   // Listen for element selection from viewport
   $effect(() => {
@@ -281,6 +246,21 @@
   const sections = $derived([...modelStore.sections.values()]);
   const elemCount = $derived(rows.filter(r => r.id !== null).length);
 
+
+  // ── Write a member: its two end nodes, Enter, the next one ──
+  let wI = $state(''), wJ = $state('');
+  let wError = $state<string | null>(null);
+  function writeMember() {
+    const i = Number(wI), j = Number(wJ);
+    if (!modelStore.nodes.has(i) || !modelStore.nodes.has(j)) { wError = t('pro.errNodesExist'); return; }
+    if (i === j) { wError = t('pro.errNodesDistinct'); return; }
+    wError = null;
+    const id = nextMember.add(i, j, uiStore.elementCreateType);
+    uiStore.selectElement(id, false);
+    uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(id)), 'success');
+    // The next member most often starts where this one ended.
+    wI = String(j); wJ = '';
+  }
 </script>
 
 <div class="pro-elems">
@@ -298,6 +278,7 @@
          belongs to the table, which is where Basic keeps it. -->
     <div class="pro-elems-actions">
       <DrawInModelButton tool="element" label={t('pro.oneElement')} icon="element" testid="draw-element" />
+      <WriteInPanelButton kind="element" label={t('pro.oneElement')} testid="write-element" />
       <button class="pro-btn" class:pro-btn-active={showArc} onclick={() => (showArc = !showArc)}
               data-testid="pro-arc-toggle">{t('pro.curvedMember')}</button>
     </div>
@@ -368,14 +349,15 @@
     </div>
   {/if}
 
-  {#if drawMode}
-    <div class="pro-draw-status">
-      {#if drawNodeI === null}
-        {t('pro.drawClickNodeI')}
-      {:else}
-        {@html t('pro.drawNodeISelected').replace('{id}', String(drawNodeI))}
-      {/if}
-    </div>
+  {#if drawState.writing === 'element'}
+    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneElement')}`} submitLabel={`${t('pro.add')} ${t('pro.oneElement')}`} onsubmit={writeMember} error={wError} testid="write-element-card">
+      <label>{t('pro.thNodeI')} <input class="wc-num" inputmode="numeric" bind:value={wI} placeholder="ID" data-testid="write-element-i" /></label>
+      <label>{t('pro.thNodeJ')} <input class="wc-num" inputmode="numeric" bind:value={wJ} placeholder="ID" data-testid="write-element-j" /></label>
+      <select bind:value={uiStore.elementCreateType} aria-label={t('drawBar.memberType')}>
+        <option value="frame">{t('table.frame')}</option>
+        <option value="truss">{t('table.truss')}</option>
+      </select>
+    </WriteCard>
   {/if}
 
   {#if pasteError}
@@ -529,18 +511,6 @@
     background: var(--st-accent) !important;
     border-color: var(--st-danger) !important;
     color: var(--st-text) !important;
-  }
-
-  .pro-draw-status {
-    padding: 8px 12px;
-    font-size: 0.78rem;
-    color: var(--st-value);
-    background: rgba(127, 212, 204, 0.08);
-    border-bottom: 1px solid var(--st-surface-3);
-  }
-
-  .pro-draw-status strong {
-    color: var(--st-text);
   }
 
   .pro-paste-error {

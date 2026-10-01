@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { modelStore, uiStore } from '../../lib/store';
   import DataTable from '../DataTable.svelte';
   import ProStairSection from './ProStairSection.svelte';
@@ -9,6 +8,10 @@
   import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
+  import { drawState, addShellOnCorners } from '../../lib/store/draw-state.svelte';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import Icon from '../ribbon/Icon.svelte';
 
   /* The two creators' state is gone with them — see the note on `newNodeIds`.
      Three corners make a triangle and four make a quad, so one set serves. */
@@ -68,8 +71,8 @@
    * already answered.
    */
   let newNodeIds = $state<[string, string, string, string]>(['', '', '', '']);
-  let newMaterialId = $state(defaultShellMaterial(modelStore.materials));
-  let newThickness = $state(0.2);
+  /* Material, thickness and corner count are the drawing's too (`drawState`): a plate written
+     here and one drawn in the model come out the same. */
   let newCurved = $state(false);
   let newError = $state<string | null>(null);
 
@@ -81,7 +84,7 @@
    * read the empty box instead of the full one, which failed with "those
    * nodes do not exist" while quietly ignoring the id the reader had typed.
    */
-  const newGiven = $derived(newNodeIds.map((v) => v.trim()).filter((v) => v !== ''));
+  const newGiven = $derived(newNodeIds.slice(0, drawState.plateCorners).map((v) => v.trim()).filter((v) => v !== ''));
 
   /** How many corners have been given — 3 makes a triangle, 4 a quad. */
   const newCount = $derived(newGiven.length);
@@ -131,16 +134,17 @@
    * is no way for the two to disagree.
    */
   const newRecommendation = $derived.by((): ShellRecommendation | null => {
-    if (!newPts || newThickness <= 0) return null;
+    if (!newPts || drawState.plateThickness <= 0) return null;
     try {
-      return selectShellFamily({ nodes: newPts as Vec3[], thickness: newThickness });
+      return selectShellFamily({ nodes: newPts as Vec3[], thickness: drawState.plateThickness });
     } catch { return null; }
   });
 
-  /** Start or stop picking corners in the model. Four slots; three is a triangle. */
+  /** Start or stop drawing plates in the model; the corner count is the drawing bar's. */
+  const drawing = $derived(uiStore.shellNodePick.target === 'quad' && (uiStore.shellNodePick.active || uiStore.shellNodePick.picked.length > 0));
   function toggleNewPick() {
-    if (uiStore.shellNodePick.active) uiStore.cancelShellNodePick();
-    else uiStore.startShellNodePick('quad', 4);
+    if (drawing) drawState.stop();
+    else drawState.startPlate();
   }
 
   /*
@@ -158,29 +162,13 @@
   function addShell() {
     newError = null;
     const ids = newGiven.map((v) => Number(v));
-    if (ids.length < 3) { newError = t('pro.shellNeedNodes'); return; }
-    if (ids.some((n) => !Number.isFinite(n) || !modelStore.nodes.has(n))) {
-      newError = t('pro.errNodesExist');
-      return;
-    }
-    if (new Set(ids).size !== ids.length) { newError = t('pro.errNodesDistinct'); return; }
-    if (!modelStore.materials.has(newMaterialId)) { newError = t('pro.errMaterial'); return; }
-    if (newThickness <= 0) { newError = t('pro.errThickness'); return; }
-
-    if (ids.length === 3) {
-      modelStore.addPlate(ids as [number, number, number], newMaterialId, newThickness);
-    } else {
-      modelStore.addQuad(ids as [number, number, number, number], newMaterialId, newThickness);
-      const quads = [...modelStore.model.quads.values()];
-      const last = quads[quads.length - 1];
-      /* A curved quad goes to the solver as a degenerated continuum rather
-         than a flat MITC4, so its curvature carries. */
-      if (last && newCurved) last.curved = true;
-    }
+    if (ids.length < drawState.plateCorners) { newError = t('pro.shellNeedNodes'); return; }
+    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, newCurved);
+    if ('error' in r) { newError = t(r.error); return; }
+    uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
     newCurved = false;
-    uiStore.cancelShellNodePick();
   }
 
   let showMeshGen = $state(false);
@@ -202,16 +190,19 @@
   -->
   <div class="pro-shells-header">
     <span class="pro-shells-count">{t('pro.nPlatesQuads').replace('{plates}', String(plateCount)).replace('{quads}', String(quadCount))}</span>
+    <span class="pro-shells-actions">
     <button
       class="dim-like"
-      class:on={uiStore.shellNodePick.active}
-      aria-pressed={uiStore.shellNodePick.active ? 'true' : 'false'}
+      class:on={drawing}
+      aria-pressed={drawing ? 'true' : 'false'}
       onclick={toggleNewPick}
       data-testid="draw-plate"
-      title={uiStore.shellNodePick.active ? t('pro.drawStopHint') : t('pro.drawStartHint')}
-    >{uiStore.shellNodePick.active
-      ? `${t('pro.drawStop')} (${uiStore.shellNodePick.picked.length}/4)`
-      : `${t('pro.drawInModel')} ${t('pro.onePlate')}`}</button>
+      title={drawing ? t('pro.drawStopHint') : t('pro.drawStartHint')}
+    ><Icon name="shell" size={13} /><span>{drawing
+      ? `${t('pro.drawStop')} (${uiStore.shellNodePick.picked.length}/${drawState.plateCorners})`
+      : `${t('pro.drawInModel')} ${t('pro.onePlate')}`}</span></button>
+    <WriteInPanelButton kind="plate" label={t('pro.onePlate')} testid="write-plate" />
+    </span>
   </div>
 
   <div class="pro-shells-scroll">
@@ -239,37 +230,42 @@
       the shell's node count, and the `shellFamily` field that stood for a choice
       was read by nothing and has been removed.
     -->
-    <div class="section">
-      <div class="shell-new">
-        <div class="input-row">
-          <label>{t('pro.nodes')}:</label>
-          {#each [0, 1, 2, 3] as i (i)}
+    {#if drawState.writing === 'plate'}
+      <WriteCard
+        title={`${t('pro.writeIn')} ${t('pro.onePlate')}`}
+        submitLabel={`${t('pro.add')} ${t('pro.onePlate')}`}
+        onsubmit={addShell}
+        error={newError}
+        disabled={newCount < drawState.plateCorners}
+        testid="write-plate-card"
+      >
+        <div class="corner-seg" role="group" aria-label={t('drawBar.corners')}>
+          <button type="button" class:on={drawState.plateCorners === 3} aria-pressed={drawState.plateCorners === 3} onclick={() => (drawState.plateCorners = 3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
+          <button type="button" class:on={drawState.plateCorners === 4} aria-pressed={drawState.plateCorners === 4} onclick={() => (drawState.plateCorners = 4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
+        </div>
+        <span class="node-row">
+          {#each Array.from({ length: drawState.plateCorners }, (_, i) => i) as i (i)}
             <input
               type="text" inputmode="numeric"
               class="node-input"
-              class:optional={i === 3}
               placeholder={`N${i + 1}`}
-              title={i === 3 ? t('pro.shellFourthPh') : ''}
               value={newNodeIds[i]}
               oninput={(e) => { newNodeIds[i] = e.currentTarget.value; }}
               data-testid="shell-node-{i}"
             />
           {/each}
-        </div>
-
-        <div class="input-row">
-          <label>{t('pro.thMaterial')}:</label>
-          <select bind:value={newMaterialId} class="mat-select">
+        </span>
+        <label>{t('pro.thMaterial')}
+          <select value={drawState.plateMaterialId} onchange={(e) => (drawState.plateMaterialId = Number(e.currentTarget.value))} class="mat-select">
             {#each materials as m}
               <option value={m.id}>{m.name}</option>
             {/each}
           </select>
-        </div>
-        <div class="input-row">
-          <label>{t('pro.thickness')}:</label>
-          <input type="number" bind:value={newThickness} step="0.01" min="0.001" class="thick-input"
-                 data-testid="shell-thickness" />
-        </div>
+        </label>
+        <label>{t('pro.thickness')}
+          <input type="number" value={drawState.plateThickness} onchange={(e) => (drawState.plateThickness = Number(e.currentTarget.value) || 0)} step="any" min="0.001" class="thick-input"
+                 data-testid="shell-thickness" /> m
+        </label>
 
         <!--
           A cáscara, offered only where it can mean anything: three points
@@ -278,12 +274,10 @@
           leaving a dome to be solved as facets.
         -->
         {#if newCount === 4}
-          <div class="input-row">
-            <label class="curved-check">
-              <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
-              <span>{t('pro.curvedShell')}</span>
-            </label>
-          </div>
+          <label class="curved-check">
+            <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
+            <span>{t('pro.curvedShell')}</span>
+          </label>
           {#if newOutOfPlane != null && newOutOfPlane > 1e-6 && !newCurved}
             <div class="recommendation warn" data-testid="quad-curved-hint">
               <span class="rec-icon">⚠</span>
@@ -301,18 +295,8 @@
             <div class="rec-warning">{w}</div>
           {/each}
         {/if}
-        {#if newError}
-          <div class="field-error" data-testid="shell-error">{newError}</div>
-        {/if}
-
-        <button
-          class="pro-btn pro-btn-accent"
-          onclick={addShell}
-          disabled={newCount < 3}
-          data-testid="shell-add"
-        >{t('pro.addPlate')}</button>
-      </div>
-    </div>
+      </WriteCard>
+    {/if}
 
     <!-- Curvature, offset and foundation springs of the selected shells are specified in
          Specifications › Surfaces; like Members, offered with the selection and its count. -->
@@ -375,6 +359,11 @@
 </div>
 
 <style>
+  .corner-seg { display: inline-flex; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }
+  .corner-seg button { padding: 2px 8px; background: none; border: none; color: var(--st-text-2); font: inherit; cursor: pointer; }
+  .corner-seg button + button { border-left: 1px solid var(--st-hair-strong); }
+  .corner-seg button.on { background: var(--st-accent); color: #fff; }
+  .node-row { display: inline-flex; gap: 4px; }
   .pro-shells {
     display: flex;
     flex-direction: column;
@@ -389,7 +378,6 @@
   */
   /* The fourth corner is optional — three is a triangle — and the box says so
      by being dimmer rather than by a placeholder that does not fit in it. */
-  .node-input.optional { opacity: 0.65; }
 
   .dim-like {
     display: inline-flex; align-items: center; gap: 5px;
@@ -402,6 +390,7 @@
   .dim-like.on { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
   .dim-like:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
 
+  .pro-shells-actions { display: inline-flex; gap: 6px; }
   .pro-shells-header {
     display: flex;
     justify-content: space-between;
@@ -461,18 +450,7 @@
   }
 
   /* Input rows */
-  .input-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
 
-  .input-row label {
-    font-size: 0.75rem;
-    color: var(--st-text-3);
-    min-width: 70px;
-    flex-shrink: 0;
-  }
 
   .node-input {
     width: 48px;
@@ -541,16 +519,7 @@
     color: var(--st-text);
   }
 
-  .pro-btn-accent {
-    background: var(--st-surface-3);
-    border-color: var(--st-text-2);
-    color: var(--st-value);
-  }
 
-  .pro-btn-accent:hover {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
 
   .shell-info {
     margin: 6px 8px 10px;
@@ -575,11 +544,6 @@
   }
 
   /* Errors / success */
-  .field-error {
-    font-size: 0.68rem;
-    color: var(--st-danger);
-    padding: 2px 0;
-  }
 
   .mesh-hint {
     font-size: 0.72rem;

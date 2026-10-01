@@ -11,6 +11,9 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t, tp } from '../../lib/i18n';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
@@ -433,9 +436,141 @@
        load rather than as a band across the panel. -->
   <div class="pro-autogen-bar">
     <DrawInModelButton tool="load" label={t('pro.oneLoad')} icon="load" testid="draw-load" />
+    <WriteInPanelButton kind="load" label={t('pro.oneLoad')} testid="write-load" />
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
+
+  <!-- Write a load: the card the "Write load" button opens, beside "Draw load". -->
+  {#if drawState.writing === 'load'}
+  <div class="pro-addload-section">
+  <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneLoad')}`} testid="write-load-card">
+    <label>{t('pro.writeLoadCase')}
+      <select bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
+        {#each loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      </select>
+    </label>
+  <div class="pro-section-content">
+
+  <!-- Load kind selector -->
+  <div class="pro-loads-form">
+    <div class="pro-kind-row">
+      <button class="pro-type-btn" class:active={loadKind === 'nodal'} onclick={() => loadKind = 'nodal'}>{t('pro.nodal')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'distributed'} onclick={() => loadKind = 'distributed'}>{t('pro.distributed')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'point'} onclick={() => loadKind = 'point'}>{t('pro.pointLoad')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'surface'} onclick={() => loadKind = 'surface'}>{t('pro.surfaceLoad')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'thermalQuad'} onclick={() => loadKind = 'thermalQuad'}>{t('pro.thermalQuadLoad')}</button>
+    </div>
+
+    {#if loadKind === 'nodal'}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>Fx: <input type="text" bind:value={nlFx} placeholder="kN" class="inp-num" /></label>
+          <label>Fy: <input type="text" bind:value={nlFy} placeholder="kN" class="inp-num" /></label>
+          <label>Fz: <input type="text" bind:value={nlFz} placeholder="kN" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-row">
+          <label>Mx: <input type="text" bind:value={nlMx} placeholder="kN·m" class="inp-num" /></label>
+          <label>My: <input type="text" bind:value={nlMy} placeholder="kN·m" class="inp-num" /></label>
+          <label>Mz: <input type="text" bind:value={nlMz} placeholder="kN·m" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thNode')}: <input type="text" bind:value={nlNodeId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addNodalLoad}>{t('pro.addNodalLoad')}</button>
+          </div>
+          {#if uiStore.selectedNodes.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
+            </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="nodes" /></div>
+          {/if}
+        </div>
+      </div>
+    {:else if loadKind === 'distributed'}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('loads.frame')}
+            <select bind:value={dlFrame} data-testid="dl-frame" title={t('loads.frameHelp')}>
+              <option value="local">{t('loads.frame.local')}</option>
+              <option value="global">{t('loads.frame.global')}</option>
+              <option value="projected">{t('loads.frame.projected')}</option>
+            </select>
+          </label>
+        </div>
+        <div class="pro-load-row">
+          <label>{dlFrame === 'local' ? 'qx_i' : 'qX_i'}: <input type="text" bind:value={dlQxI} placeholder="kN/m" class="inp-num" data-testid="dl-qxi" /></label>
+          <label>{dlFrame === 'local' ? 'qx_j' : 'qX_j'}: <input type="text" bind:value={dlQxJ} placeholder="kN/m" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-row">
+          <label>qY_i: <input type="text" bind:value={dlQyI} placeholder="kN/m" class="inp-num" /></label>
+          <label>qY_j: <input type="text" bind:value={dlQyJ} placeholder="kN/m" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-row">
+          <label>qZ_i: <input type="text" bind:value={dlQzI} placeholder="kN/m" class="inp-num" /></label>
+          <label>qZ_j: <input type="text" bind:value={dlQzJ} placeholder="kN/m" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thElements')}: <input type="text" bind:value={dlElemId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
+          </div>
+          {#if uiStore.selectedElements.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
+            </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
+          {/if}
+        </div>
+      </div>
+    {:else if loadKind === 'point'}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>a (m): <input type="text" bind:value={plA} placeholder="dist." class="inp-num" /></label>
+          <label>Py: <input type="text" bind:value={plPy} placeholder="kN" class="inp-num" /></label>
+          <label>Pz: <input type="text" bind:value={plPz} placeholder="kN" class="inp-num" /></label>
+        </div>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thElements')}: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
+          </div>
+          {#if uiStore.selectedElements.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
+            </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
+          {/if}
+        </div>
+      </div>
+    {:else if loadKind === 'surface'}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('pro.slab')}: <input type="text" bind:value={slQuadId} placeholder="ID" class="inp-sm" /></label>
+          <label>q: <input type="text" bind:value={slQ} placeholder="kN/m²" class="inp-num" /></label>
+        </div>
+        <button class="pro-btn" onclick={addSurfaceLoad}>{t('pro.addSurfaceLoad')}</button>
+      </div>
+    {:else}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('pro.slab')}: <input type="text" bind:value={tqQuadId} placeholder="ID" class="inp-sm" /></label>
+        </div>
+        <div class="pro-load-row">
+          <label>{t('pro.dtUniform')}: <input type="text" bind:value={tqDtUniform} placeholder="°C" class="inp-num" /></label>
+          <label>{t('pro.dtGradient')}: <input type="text" bind:value={tqDtGradient} placeholder="°C" class="inp-num" /></label>
+        </div>
+        <button class="pro-btn" onclick={addThermalQuadLoad}>{t('pro.addThermalQuadLoad')}</button>
+      </div>
+    {/if}
+  </div>
+  </div>
+  </WriteCard>
+  </div>
+  {/if}
 
   <ProAutoLoadsDialog open={showAutoLoadsDialog} focus={autoLoadsFocus}
     onclose={() => { showAutoLoadsDialog = false; autoLoadsFocus = null; }} />
@@ -460,7 +595,6 @@
       {#each [
         { id: 'cases', labelKey: 'pro.loadCases', n: loadCases.length },
         { id: 'combos', labelKey: 'pro.combos', n: combinations.length },
-        { id: 'add', labelKey: 'pro.addLoad', n: caseLoads.length },
         { id: 'floor', labelKey: 'floorLoad.tab', n: null },
       ] as sec (sec.id)}
         <button
@@ -614,129 +748,6 @@
     <div class="pro-section-content"><ProFloorLoadSection /></div>
   {/if}
 
-  <!-- Add Load (collapsible) -->
-  <div class="pro-addload-section">
-    {#if loadSection === 'add'}
-  <div class="pro-section-content">
-
-  <!-- Load kind selector -->
-  <div class="pro-loads-form">
-    <div class="pro-kind-row">
-      <button class="pro-type-btn" class:active={loadKind === 'nodal'} onclick={() => loadKind = 'nodal'}>{t('pro.nodal')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'distributed'} onclick={() => loadKind = 'distributed'}>{t('pro.distributed')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'point'} onclick={() => loadKind = 'point'}>{t('pro.pointLoad')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'surface'} onclick={() => loadKind = 'surface'}>{t('pro.surfaceLoad')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'thermalQuad'} onclick={() => loadKind = 'thermalQuad'}>{t('pro.thermalQuadLoad')}</button>
-    </div>
-
-    {#if loadKind === 'nodal'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>Fx: <input type="text" bind:value={nlFx} placeholder="kN" class="inp-num" /></label>
-          <label>Fy: <input type="text" bind:value={nlFy} placeholder="kN" class="inp-num" /></label>
-          <label>Fz: <input type="text" bind:value={nlFz} placeholder="kN" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>Mx: <input type="text" bind:value={nlMx} placeholder="kN·m" class="inp-num" /></label>
-          <label>My: <input type="text" bind:value={nlMy} placeholder="kN·m" class="inp-num" /></label>
-          <label>Mz: <input type="text" bind:value={nlMz} placeholder="kN·m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thNode')}: <input type="text" bind:value={nlNodeId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addNodalLoad}>{t('pro.addNodalLoad')}</button>
-          </div>
-          {#if uiStore.selectedNodes.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="nodes" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'distributed'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('loads.frame')}
-            <select bind:value={dlFrame} data-testid="dl-frame" title={t('loads.frameHelp')}>
-              <option value="local">{t('loads.frame.local')}</option>
-              <option value="global">{t('loads.frame.global')}</option>
-              <option value="projected">{t('loads.frame.projected')}</option>
-            </select>
-          </label>
-        </div>
-        <div class="pro-load-row">
-          <label>{dlFrame === 'local' ? 'qx_i' : 'qX_i'}: <input type="text" bind:value={dlQxI} placeholder="kN/m" class="inp-num" data-testid="dl-qxi" /></label>
-          <label>{dlFrame === 'local' ? 'qx_j' : 'qX_j'}: <input type="text" bind:value={dlQxJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>qY_i: <input type="text" bind:value={dlQyI} placeholder="kN/m" class="inp-num" /></label>
-          <label>qY_j: <input type="text" bind:value={dlQyJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>qZ_i: <input type="text" bind:value={dlQzI} placeholder="kN/m" class="inp-num" /></label>
-          <label>qZ_j: <input type="text" bind:value={dlQzJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thElements')}: <input type="text" bind:value={dlElemId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
-          </div>
-          {#if uiStore.selectedElements.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="elements" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'point'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>a (m): <input type="text" bind:value={plA} placeholder="dist." class="inp-num" /></label>
-          <label>Py: <input type="text" bind:value={plPy} placeholder="kN" class="inp-num" /></label>
-          <label>Pz: <input type="text" bind:value={plPz} placeholder="kN" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thElements')}: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
-          </div>
-          {#if uiStore.selectedElements.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="elements" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'surface'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('pro.slab')}: <input type="text" bind:value={slQuadId} placeholder="ID" class="inp-sm" /></label>
-          <label>q: <input type="text" bind:value={slQ} placeholder="kN/m²" class="inp-num" /></label>
-        </div>
-        <button class="pro-btn" onclick={addSurfaceLoad}>{t('pro.addSurfaceLoad')}</button>
-      </div>
-    {:else}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('pro.slab')}: <input type="text" bind:value={tqQuadId} placeholder="ID" class="inp-sm" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>{t('pro.dtUniform')}: <input type="text" bind:value={tqDtUniform} placeholder="°C" class="inp-num" /></label>
-          <label>{t('pro.dtGradient')}: <input type="text" bind:value={tqDtGradient} placeholder="°C" class="inp-num" /></label>
-        </div>
-        <button class="pro-btn" onclick={addThermalQuadLoad}>{t('pro.addThermalQuadLoad')}</button>
-      </div>
-    {/if}
-  </div>
-  </div>
-    {/if}
-  </div>
 
   <!-- Loads table for active case -->
   <div class="pro-loads-table-wrap">
@@ -1126,7 +1137,7 @@
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid var(--st-surface-3); }
   .pro-loads-count { font-size: 0.78rem; color: var(--st-value); font-weight: 600; }
 
-  .pro-addload-section { border-bottom: 1px solid var(--st-surface-3); padding: 6px 10px; }
+  .pro-addload-section { border-bottom: 1px solid var(--st-surface-3); }
   .pro-loads-form { padding: 6px 0 4px; }
   .pro-kind-row { display: flex; gap: 5px; margin-bottom: 10px; }
   .pro-type-btn {
@@ -1161,7 +1172,7 @@
   .target-sel {  }
   .pro-btn-sel { font-size: 0.72rem; color: var(--st-text-2); border-color: var(--st-hair-strong); background: var(--st-surface-3); padding: 5px 14px; border-radius: 4px; border: 1px solid var(--st-hair-strong); cursor: pointer; }
   .pro-btn-sel:hover { background: var(--st-hair-strong); color: var(--st-text); }
-  .pro-btn-sel::before { content: '\u2714 '; }
+  .pro-btn-sel::before { content: '\2714\00a0'; }
 
   .pro-loads-table-wrap { }
   .pro-load-section-title { padding: 8px 12px 4px; font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }

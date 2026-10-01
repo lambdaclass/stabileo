@@ -1,47 +1,33 @@
 <script lang="ts">
   import PickKind from './PickKind.svelte';
   import { modelStore, uiStore } from '../../lib/store';
-  import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import { supportTypeOptions } from '../../lib/pro/support-types';
+  import { drawState } from '../../lib/store/draw-state.svelte';
+  import { parseIdList } from '../../lib/model/select-ops';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   const supportTypes = $derived(supportTypeOptions(is3D, t));
 
-  let newNodeId = $state('');
-  let newType = $state<SupportType>('fixed3d');
-
-  // Custom DOF state
-  let dofTx = $state(true);
-  let dofTy = $state(true);
-  let dofTz = $state(true);
-  let dofRx = $state(false);
-  let dofRy = $state(false);
-  let dofRz = $state(false);
-
-  // Spring state
-  let sKx = $state('');
-  let sKy = $state('');
-  let sKz = $state('');
-  let sKrx = $state('');
-  let sKry = $state('');
-  let sKrz = $state('');
+  /* The support written here and the one drawn in the model are the same draft (`drawState`). */
+  const draft = drawState.support;
+  let newNodeIds = $state('');
+  let wError = $state<string | null>(null);
 
   const supports = $derived([...modelStore.supports.values()]);
 
+  /** Put the draft on every node listed ("3, 7-10"). */
   function addSupport() {
-    const nodeId = parseInt(newNodeId);
-    if (isNaN(nodeId) || !modelStore.nodes.has(nodeId)) return;
-    const springs = newType === 'spring3d' || newType === 'spring'
-      ? { kx: parseFloat(sKx) || undefined, ky: parseFloat(sKy) || undefined, kz: parseFloat(sKz) || undefined, krx: parseFloat(sKrx) || undefined, kry: parseFloat(sKry) || undefined, krz: parseFloat(sKrz) || undefined }
-      : undefined;
-    const opts = newType === 'custom3d'
-      ? { dofRestraints: { tx: dofTx, ty: dofTy, tz: dofTz, rx: dofRx, ry: dofRy, rz: dofRz } }
-      : undefined;
-    modelStore.addSupport(nodeId, newType, springs, opts);
-    newNodeId = '';
+    const { ids, bad } = parseIdList(newNodeIds);
+    const missing = ids.filter((id) => !modelStore.nodes.has(id));
+    if (ids.length === 0 || bad.length > 0 || missing.length > 0) { wError = t('pro.errNodesExist'); return; }
+    wError = null;
+    modelStore.batch(() => { for (const id of ids) drawState.addSupportAt(id); });
+    newNodeIds = '';
   }
 
   function removeSupport(id: number) {
@@ -49,19 +35,13 @@
   }
 
   function addFromSelection() {
-    for (const nodeId of uiStore.selectedNodes) {
-      if (!modelStore.nodes.has(nodeId)) continue;
-      const existing = [...modelStore.supports.values()].find(s => s.nodeId === nodeId);
-      if (!existing) {
-        const springs = newType === 'spring3d' || newType === 'spring'
-          ? { kx: parseFloat(sKx) || undefined, ky: parseFloat(sKy) || undefined, kz: parseFloat(sKz) || undefined, krx: parseFloat(sKrx) || undefined, kry: parseFloat(sKry) || undefined, krz: parseFloat(sKrz) || undefined }
-          : undefined;
-        const opts = newType === 'custom3d'
-          ? { dofRestraints: { tx: dofTx, ty: dofTy, tz: dofTz, rx: dofRx, ry: dofRy, rz: dofRz } }
-          : undefined;
-        modelStore.addSupport(nodeId, newType, springs, opts);
+    modelStore.batch(() => {
+      for (const nodeId of uiStore.selectedNodes) {
+        if (!modelStore.nodes.has(nodeId)) continue;
+        if ([...modelStore.supports.values()].some((s) => s.nodeId === nodeId)) continue;
+        drawState.addSupportAt(nodeId);
       }
-    }
+    });
   }
 
   function typeLabel(type: string): string {
@@ -90,56 +70,51 @@
 
   <div class="pro-sup-header">
     <DrawInModelButton tool="support" label={t('pro.oneSupport')} icon="support" testid="draw-support" />
+    <WriteInPanelButton kind="support" label={t('pro.oneSupport')} testid="write-support" />
     <span class="pro-sup-count">{t('pro.nSupports').replace('{n}', String(supports.length))}</span>
   </div>
 
-  <div class="pro-sup-form">
-    <div class="pro-sup-row">
-      <label>{t('pro.thNode')}: <input type="text" bind:value={newNodeId} placeholder="ID" class="pro-input-sm" /></label>
-      <label>{t('pro.thType')}:
-        <select bind:value={newType} class="pro-select-sm">
+  {#if drawState.writing === 'support'}
+    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
+      <label>{t('pro.thNode')} <input class="wc-ids" bind:value={newNodeIds} placeholder={t('pro.idsPlaceholder')} data-testid="write-support-nodes" /></label>
+      <label>{t('pro.thType')}
+        <select bind:value={draft.type} class="pro-select-sm" data-testid="write-support-type">
           {#each supportTypes as st}
             <option value={st.value}>{st.label}</option>
           {/each}
         </select>
       </label>
-      <button class="pro-btn" onclick={addSupport}>{t('pro.add')}</button>
-    </div>
 
-    {#if newType === 'custom3d'}
-      <div class="dof-grid">
-        <span class="dof-section-label">{t('pro.dofTranslation')}</span>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofTx} /> ux</label>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofTy} /> uy</label>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofTz} /> uz</label>
-        <span class="dof-section-label">{t('pro.dofRotation')}</span>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofRx} /> rx</label>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofRy} /> ry</label>
-        <label class="dof-check"><input type="checkbox" bind:checked={dofRz} /> rz</label>
-      </div>
-    {/if}
+      {#if draft.type === 'custom3d'}
+        <div class="dof-grid">
+          <span class="dof-section-label">{t('pro.dofTranslation')}</span>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.tx} /> ux</label>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.ty} /> uy</label>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.tz} /> uz</label>
+          <span class="dof-section-label">{t('pro.dofRotation')}</span>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.rx} /> rx</label>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.ry} /> ry</label>
+          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.rz} /> rz</label>
+        </div>
+      {/if}
 
-    {#if newType === 'spring3d' || newType === 'spring'}
-      <div class="spring-grid">
-        <label class="spring-field">kx <input type="text" bind:value={sKx} placeholder="kN/m" class="pro-input-sm" /></label>
-        <label class="spring-field">ky <input type="text" bind:value={sKy} placeholder="kN/m" class="pro-input-sm" /></label>
-        <label class="spring-field">kz <input type="text" bind:value={sKz} placeholder="kN/m" class="pro-input-sm" /></label>
-        {#if is3D}
-          <label class="spring-field">krx <input type="text" bind:value={sKrx} placeholder="kN·m/rad" class="pro-input-sm" /></label>
-          <label class="spring-field">kry <input type="text" bind:value={sKry} placeholder="kN·m/rad" class="pro-input-sm" /></label>
-          <label class="spring-field">krz <input type="text" bind:value={sKrz} placeholder="kN·m/rad" class="pro-input-sm" /></label>
-        {/if}
-      </div>
-    {/if}
+      {#if draft.type === 'spring3d'}
+        <div class="spring-grid">
+          {#each [['kx', 'kN/m'], ['ky', 'kN/m'], ['kz', 'kN/m'], ['krx', 'kN·m/rad'], ['kry', 'kN·m/rad'], ['krz', 'kN·m/rad']] as [k, unit] (k)}
+            <label class="spring-field">{k} <input type="number" value={draft.springs[k as 'kx'] ?? ''} onchange={(e) => (draft.springs[k as 'kx'] = Number(e.currentTarget.value) || undefined)} placeholder={unit} class="pro-input-sm" /></label>
+          {/each}
+        </div>
+      {/if}
 
-    {#if uiStore.selectedNodes.size > 0}
-      <button class="pro-btn pro-btn-selection" onclick={addFromSelection}>
-        {t('pro.addToSelection').replace('{n}', String(uiStore.selectedNodes.size))}
-      </button>
-    {:else}
-      <PickKind kind="nodes" />
-    {/if}
-  </div>
+      {#if uiStore.selectedNodes.size > 0}
+        <button type="button" class="pro-btn pro-btn-selection" onclick={addFromSelection}>
+          {t('pro.addToSelection').replace('{n}', String(uiStore.selectedNodes.size))}
+        </button>
+      {:else}
+        <PickKind kind="nodes" />
+      {/if}
+    </WriteCard>
+  {/if}
 
   <div class="pro-sup-table-wrap">
     <table class="pro-sup-table">
@@ -185,28 +160,8 @@
 
   .pro-sup-count { font-size: 0.82rem; color: var(--st-value); font-weight: 600; }
 
-  .pro-sup-form {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--st-surface-3);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
 
-  .pro-sup-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
 
-  .pro-sup-row label {
-    font-size: 0.75rem;
-    color: var(--st-text-3);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
 
   .pro-input-sm {
     width: 55px;
