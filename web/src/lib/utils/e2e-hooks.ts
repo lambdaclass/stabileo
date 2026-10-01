@@ -231,6 +231,8 @@ export interface StabileoTestHooks {
    */
   nodeScreenPos(id: number): { x: number; y: number } | null;
   /** How many nodes and supports the model holds — what a delete must not touch. */
+  /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
+  loadScreenPos(id: number): { x: number; y: number } | null;
   nodeCount(): number;
   supportCount(): number;
   reinforcement(elementId: number): unknown;
@@ -619,6 +621,12 @@ export function installE2EHooks(): void {
       const p = uiStore.worldToScreen(n.x, (n as { z?: number }).z ?? n.y);
       const r = canvas.getBoundingClientRect();
       return { x: r.left + p.x, y: r.top + p.y };
+    },
+    loadScreenPos: (id: number) => {
+      const f = (window as unknown as { __loadFootprints?: Map<number, number[]> }).__loadFootprints?.get(id);
+      if (!f || f.length < 6) return null;
+      const k = 6 * Math.floor(f.length / 12);
+      return projectWorld((f[k]! + f[k + 3]!) / 2, (f[k + 1]! + f[k + 4]!) / 2, (f[k + 2]! + f[k + 5]!) / 2);
     },
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,

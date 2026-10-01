@@ -76,6 +76,8 @@ export interface BoxSelectModel {
   loads: Iterable<{ type: string; data: Record<string, number | undefined> & { id: number } }>;
   getNode(id: number): WorldPoint | undefined;
   getElement(id: number): { nodeI: number; nodeJ: number } | undefined;
+  /** The corner nodes of a shell, for the loads that sit on one. */
+  getQuad?(id: number): { nodes: readonly number[] } | undefined;
 }
 
 export interface BoxSelectInput {
@@ -121,6 +123,15 @@ function segmentTaken(
   return aIn || bIn || segmentIntersectsRect(ax, ay, bx, by, r.x1, r.y1, r.x2, r.y2);
 }
 
+/** A closed outline by gesture: window wants every corner in, crossing any contact with an edge. */
+function polygonTaken(pts: { x: number; y: number }[], r: ScreenRect, isWindow: boolean): boolean {
+  if (isWindow) return pts.every((p) => inside(p.x, p.y, r));
+  return pts.some((p, i) => {
+    const q = pts[(i + 1) % pts.length]!;
+    return segmentTaken(p.x, p.y, q.x, q.y, r, false);
+  });
+}
+
 /** Both ends of a member, in screen coordinates. */
 function memberEnds(
   m: { nodeI: number; nodeJ: number },
@@ -146,10 +157,27 @@ function loadExtent(
   load: BoxSelectModel['loads'] extends Iterable<infer L> ? L : never,
   model: BoxSelectModel,
   toScreen: BoxSelectInput['toScreen'],
-): { kind: 'point'; x: number; y: number } | { kind: 'segment'; ax: number; ay: number; bx: number; by: number } | null {
+): { kind: 'point'; x: number; y: number }
+  | { kind: 'segment'; ax: number; ay: number; bx: number; by: number }
+  | { kind: 'polygon'; pts: { x: number; y: number }[] }
+  | null {
   const d = load.data;
 
-  if (load.type === 'nodal') {
+  // On a shell: its outline. The 3D load types are named apart from the 2D ones, and treating
+  // them as a member load (the fall-through below) found no member, so they were never taken.
+  if (load.type === 'surface3d' || load.type === 'thermalQuad3d') {
+    const q = model.getQuad?.(d.quadId as number);
+    if (!q) return null;
+    const pts: { x: number; y: number }[] = [];
+    for (const id of q.nodes) {
+      const n = model.getNode(id);
+      if (!n) return null;
+      pts.push(toScreen(n));
+    }
+    return { kind: 'polygon', pts };
+  }
+
+  if (load.type === 'nodal' || load.type === 'nodal3d') {
     const n = model.getNode(d.nodeId as number);
     if (!n) return null;
     const s = toScreen(n);
@@ -175,7 +203,7 @@ function loadExtent(
     x: ni.x + t * dx, y: ni.y + t * dy, z: (ni.z ?? 0) + t * dz,
   });
 
-  if (load.type === 'pointOnElement') {
+  if (load.type === 'pointOnElement' || load.type === 'pointOnElement3d') {
     const t = Math.max(0, Math.min(1, (d.a ?? 0) / L));
     const s = toScreen(along(t));
     return { kind: 'point', x: s.x, y: s.y };
@@ -252,7 +280,9 @@ export function boxSelect(input: BoxSelectInput): BoxSelectResult {
       if (!ext) continue;
       const taken = ext.kind === 'point'
         ? inside(ext.x, ext.y, rect)
-        : segmentTaken(ext.ax, ext.ay, ext.bx, ext.by, rect, isWindow);
+        : ext.kind === 'segment'
+          ? segmentTaken(ext.ax, ext.ay, ext.bx, ext.by, rect, isWindow)
+          : polygonTaken(ext.pts, rect, isWindow);
       if (taken) out.loads.add(load.data.id);
     }
   }

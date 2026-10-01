@@ -53,8 +53,12 @@
   /** The kinds currently being selected, as the set the operations take. */
   const armedKinds = $derived(new Set(MODES.filter((m) => uiStore.selectsKind(m.id)).map((m) => m.id)));
 
-  function apply(sel: { nodes: Set<number>; elements: Set<number>; shells: Set<string> }) {
+  function apply(sel: { nodes: Set<number>; elements: Set<number>; shells: Set<string>; supports?: Set<number>; loads?: Set<number> }) {
     uiStore.setSelection(sel.nodes, sel.elements, true, sel.shells);
+    // Supports and loads are their own channels; an operation that does not reach them clears them,
+    // as a click on a member does, so what stays lit is what the operation took.
+    uiStore.selectedSupports = sel.supports ?? new Set();
+    uiStore.selectedLoads = sel.loads ?? new Set();
   }
 
   trackSelectionHistory();
@@ -64,7 +68,11 @@
   const cases = $derived(modelStore.loadCases);
   function selectLoaded() {
     const id = loadCase ?? cases[0]?.id;
-    if (id !== undefined) apply(loadedInCase(modelStore.loads as never, id));
+    if (id === undefined) return;
+    const sel = loadedInCase(modelStore.loads as never, id);
+    // With loads armed it takes the loads themselves; otherwise what they sit on.
+    if (uiStore.selectsKind('loads')) apply({ nodes: new Set(), elements: new Set(), shells: new Set(), loads: sel.loads });
+    else apply({ ...sel, loads: undefined });
   }
   let globalDir = $state<GlobalDirection>('Z');
   function selectParallel() {
@@ -99,6 +107,8 @@
       nodes: new Set(uiStore.selectedNodes),
       elements: new Set(uiStore.selectedElements),
       shells: new Set(uiStore.selectedShells),
+      supports: new Set(uiStore.selectedSupports),
+      loads: new Set(uiStore.selectedLoads),
     }));
   }
 

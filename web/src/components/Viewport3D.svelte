@@ -19,6 +19,7 @@
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
+  import { pickLoadAt } from '../lib/viewport/load-pick';
   import PointerModeButton from './PointerModeButton.svelte';
   import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
@@ -1658,23 +1659,22 @@
 
       // In select/pan tool: check for node drag or box select initiation
       if (tool === 'select' || tool === 'pan') {
-        const nodeId = findNodeHit(e);
+        /*
+         * A press on a node is only a drag CANDIDATE, and only while nodes are what a click
+         * selects. It used to push an undo state and select the node here, and the release
+         * without movement undid that state: the click never reached the selection (in PRO a
+         * node could not be picked at all), the previous selection came back, and the redo
+         * history was lost. The drag now starts on the first real movement (below, in the move
+         * handler); a release before that is a plain click.
+         */
+        const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
-        if (nodeId !== null && tool === 'select') {
-          // Start dragging this node
+        if (nodeId !== null) {
           controls.enabled = false;
-          historyStore.pushState();
           draggedNodeId3D = nodeId;
           dragMoved3D = false;
           dragStartWorld3D = getGroundIntersection(e);
-
-          // If node isn't selected, select it (with shift for additive)
-          if (!uiStore.selectedNodes.has(nodeId) && !e.shiftKey) {
-            uiStore.selectNode(nodeId, false);
-          } else if (!uiStore.selectedNodes.has(nodeId) && e.shiftKey) {
-            uiStore.selectNode(nodeId, true);
-          }
-        } else if (nodeId === null && tool === 'select') {
+        } else if (tool === 'select') {
           // Always start box select candidate — distinguish click vs drag in mouseUp
           const rect = container.getBoundingClientRect();
           const mx = e.clientX - rect.left;
@@ -2130,16 +2130,16 @@
 
     // ── Finalize node dragging ──
     if (draggedNodeId3D !== null) {
-      if (!dragMoved3D) {
-        // No movement → undo the pushState
-        historyStore.undo();
-      }
+      const moved = dragMoved3D;
       draggedNodeId3D = null;
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
-      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
-      return;
+      if (moved) {
+        finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
+        return;
+      }
+      // Never moved: a click on the node, handled as every other click is.
     }
 
     // ── The magnifier's window: frame what the rectangle holds, select nothing ──
@@ -2326,6 +2326,7 @@
               ) as never,
               getNode: (id) => modelStore.getNode(id) as never,
               getElement: (id) => modelStore.elements.get(id),
+              getQuad: (id) => modelStore.quads.get(id),
             },
           });
           /*
@@ -2391,6 +2392,16 @@
 
     // Default: selection (select or pan tool)
     handleSelectionClick(e);
+  }
+
+  /** The load whose drawn arrows are nearest the pointer, within a few pixels. */
+  function loadUnderPointer(e: MouseEvent): number | null {
+    const fp = sceneCtx?.loadFootprints;
+    if (!fp || fp.size === 0) return null;
+    const rect = container.getBoundingClientRect();
+    const pointLoads = new Set<number>();
+    for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
+    return pickLoadAt(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
   }
 
   function handleSelectionClick(e: MouseEvent) {
@@ -2512,10 +2523,8 @@
      *
      * Mirrors the 2D viewport's multi-kind click. Tried in the order a click
      * identifies things — a node is a point, a member a line, a support a
-     * glyph — so the most specific answer wins at a joint, where all three
-     * sit on the same spot. Loads have no picking in 3D at all (they are
-     * selected from the Loads tab rows), so an armed 'loads' kind simply
-     * never hits here; the drag path DOES cover them via box-select.
+     * glyph, a load its arrows — so the most specific answer wins at a joint,
+     * where all of them sit on the same spot.
      * ('shells' is not re-checked: that mode returned just above.)
      */
     if (uiStore.multiKindSelect && sm !== 'stress') {
@@ -2559,6 +2568,10 @@
           }
         }
       }
+      if (!hit && uiStore.selectsKind('loads')) {
+        const id = loadUnderPointer(e);
+        if (id !== null) uiStore.selectLoad(id, addToSel);
+      }
       return;
     }
 
@@ -2589,50 +2602,25 @@
     }
 
     if (sm === 'loads') {
-      // 3D has no viewport load picking (loads are selected from the Loads
-      // tab rows); a click in loads mode must not select frame elements.
-      if (!addToSel) uiStore.clearSelection();
+      // Measured against the arrows each load drew; never a member or a node.
+      const id = loadUnderPointer(e);
+      if (id !== null) uiStore.selectLoad(id, addToSel);
+      else if (!addToSel) uiStore.clearSelection();
       return;
     }
 
-    // ── Elements mode (default): nodes first, then elements, then supports ──
-    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
-    const elemHits = raycaster.intersectObjects(elementsParent.children, true);
-    const supHits = raycaster.intersectObjects(supportsParent.children, true);
-
-    for (const hit of nodeHits) {
-      const ud = resolveHitUserData(hit);
-      if (ud?.type === 'node') {
-        uiStore.selectNode(ud.id, addToSel);
-        return;
-      }
-    }
-
-    for (const hit of elemHits) {
+    /*
+     * ── Members mode: members only ──
+     * Each kind brings exactly itself, as in 2D and as the panel says. This took a node first,
+     * then a support or a shell, so a click near a joint took whatever lay there, and what
+     * Delete would then remove was not what the mode promised.
+     */
+    for (const hit of raycaster.intersectObjects(elementsParent.children, true)) {
       const ud = resolveHitUserData(hit);
       if (ud?.type === 'element') {
         uiStore.selectElement(ud.id, addToSel);
         // Sync with DSM Matrix Explorer if wizard is open
         if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
-        return;
-      }
-    }
-
-    for (const hit of supHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'support') {
-        uiStore.selectSupport(ud.id, addToSel);
-        return;
-      }
-    }
-
-    // Shells (plates + quads) — lowest priority so frames/nodes on top win.
-    const shellHits = raycaster.intersectObjects(shellsParent.children, true);
-    for (const hit of shellHits) {
-      const ud = resolveHitUserData(hit);
-      if (ud?.type === 'plate' || ud?.type === 'quad') {
-        const key = (ud.type === 'plate' ? 'p' : 'q') + ud.id;
-        uiStore.selectShell(key, addToSel);
         return;
       }
     }
@@ -2674,11 +2662,23 @@
 
     // ─── Node dragging ────────────────────────────────────────
     if (draggedNodeId3D !== null && dragStartWorld3D) {
+      /*
+       * A pixel of jitter during a click is not a drag. It moved the node onto its own snapped
+       * position and cleared every result, so clicking a node to look at it took the results
+       * away. Past the click threshold, and only when the node would actually move.
+       */
+      if (!dragMoved3D && Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) <= 5) return;
       const newWorld = getGroundIntersection(e);
       if (newWorld) {
         const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
         const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
         const delta = snappedVec.clone().sub(dragStartWorld3D);
+        if (delta.lengthSq() < 1e-18) return;
+        if (!dragMoved3D) {
+          historyStore.pushState();
+          // Dragging a node that is not selected takes it (shift adds it).
+          if (!uiStore.selectedNodes.has(draggedNodeId3D)) uiStore.selectNode(draggedNodeId3D, e.shiftKey);
+        }
 
         if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId3D)) {
           for (const nodeId of uiStore.selectedNodes) {
@@ -2908,7 +2908,7 @@
       controls.enabled = true;
     }
     if (draggedNodeId3D !== null) {
-      if (!dragMoved3D) historyStore.undo();
+      // Nothing was pushed before the first movement, so there is nothing to take back.
       draggedNodeId3D = null;
       dragMoved3D = false;
       dragStartWorld3D = null;

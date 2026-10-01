@@ -107,6 +107,8 @@ export interface SceneSyncContext {
   // Memo of the last inputs syncLoads rendered from, so an unrelated model
   // mutation (e.g. dragging a node with no loads on it) skips the full rebuild.
   lastLoadsSig?: string;
+  /** The world segments each drawn load occupies, by load id: what a click in loads mode picks from. */
+  loadFootprints?: Map<number, number[]>;
 }
 
 // ─── 3D internal-joint glyph ──────────────────────────────────
@@ -593,6 +595,12 @@ export function applyShellSelection(ctx: SceneSyncContext): void {
 
 // ─── Loads ───────────────────────────────────────────────────
 
+/**
+ * The loads beside a selected one. The selection colour and the load red are close, so with the
+ * rest in their case colours a selected load did not stand out; dimmed, it does.
+ */
+const LOAD_DIMMED = 0x5d6d7a;
+
 /** Cheap O(loads) hash of everything syncLoads renders from (load data → arrow
  *  scale/colour, referenced node positions, and the UI toggles). When it matches
  *  the previous run the entire load-group rebuild is skipped — so dragging a node
@@ -606,6 +614,8 @@ function loadsSignature(project2D: boolean): string {
     (uiStore.visibleLoadCases3D ?? []).join(','),
     project2D ? 1 : 0,
     viewVisibility.version,
+    // A selected load is drawn in the selection colour and the rest dimmed beside it.
+    [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -650,6 +660,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   ctx.loadGroup = new THREE.Group();
   ctx.loadGroup.name = 'loadsContainer';
   ctx.loadsParent.add(ctx.loadGroup);
+  ctx.loadFootprints = new Map();
 
   // Respect showLoads toggle and hideLoadsWithDiagram
   if (!uiStore.showLoads3D) return;
@@ -686,6 +697,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
   // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
   const batch = createLoadArrowsBatched();
+  const selected = uiStore.selectedLoads;
 
   // Visibility filter and color helper
   const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
@@ -704,6 +716,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
     if (isLoadHidden(load.data as { nodeId?: number; elementId?: number; quadId?: number })) continue;
 
     const cc = getCaseColor(caseId);
+    batch.own(load.data.id, selected.size === 0 ? null : selected.has(load.data.id) ? COLORS.nodeSelected : LOAD_DIMMED);
 
     if (load.type === 'nodal') {
       const node = modelStore.nodes.get(load.data.nodeId);
@@ -896,6 +909,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
   loadGrp.add(batch.build());
+  ctx.loadFootprints = batch.footprints;
+  // Read by the browser tests, which click a load where it is drawn.
+  (window as unknown as { __loadFootprints?: Map<number, number[]> }).__loadFootprints = batch.footprints;
 }
 
 // ─── Selection highlight ─────────────────────────────────────

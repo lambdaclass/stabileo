@@ -19,8 +19,9 @@
 // Labels stay sprites (one draw call each) but share cached canvas textures
 // (createTextSpriteCached), so repeated "5.0 kN/m²" labels cost one texture.
 //
-// Loads are never raycast (picking is scoped to nodesParent/elementsParent),
-// so dropping the per-load userData is safe. Batched objects are overlay
+// Loads are not raycast: the batch records, per load, the world segments it
+// drew (`footprints`), and a click in loads mode is measured against those on
+// screen. Batched objects are overlay
 // visuals: depthTest/depthWrite off, renderOrder 3, frustumCulled off — the
 // same flags syncLoads used to stamp onto every child via traverse().
 //
@@ -74,12 +75,37 @@ export class LoadArrowsBatched {
   private cones: ConeInstance[] = [];
   private toruses: TorusInstance[] = [];
   private labels: LabelInstance[] = [];
+  private owner: number | null = null;
+  private tint: number | null = null;
+  /** The world segments each load drew, by load id, six numbers per segment. */
+  readonly footprints = new Map<number, number[]>();
+
+  /**
+   * What is drawn next belongs to load `id`, painted in `tint` when one is given (a selected
+   * load, or one dimmed beside a selection) instead of the colours the load would take.
+   */
+  own(id: number | null, tint: number | null = null): void {
+    this.owner = id;
+    this.tint = tint;
+  }
+
+  private mark(a: THREE.Vector3, b: THREE.Vector3): void {
+    if (this.owner === null) return;
+    let f = this.footprints.get(this.owner);
+    if (!f) this.footprints.set(this.owner, (f = []));
+    f.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  }
+
+  private paint(color: number): number {
+    return this.tint ?? color;
+  }
 
   // ── Accumulator primitives ─────────────────────────────────
 
   private segment(a: THREE.Vector3, b: THREE.Vector3, color: number, into: { pos: number[]; col: number[] }): void {
     into.pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
-    const c = new THREE.Color(color);
+    this.mark(a, b);
+    const c = new THREE.Color(this.paint(color));
     into.col.push(c.r, c.g, c.b, c.r, c.g, c.b);
   }
 
@@ -97,16 +123,18 @@ export class LoadArrowsBatched {
     const shaftLen = Math.max(0.0001, len - headLen);
     this.shaft(origin, origin.clone().addScaledVector(dir, shaftLen), color);
     const tip = origin.clone().addScaledVector(dir, len);
+    this.mark(origin.clone().addScaledVector(dir, shaftLen), tip); // the head, where the load acts
     const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
     this.cones.push({
       tipX: tip.x, tipY: tip.y, tipZ: tip.z,
       qx: q.x, qy: q.y, qz: q.z, qw: q.w,
       sx: headWid, sy: headLen, sz: headWid,
-      color,
+      color: this.paint(color),
     });
   }
 
   private label(text: string, colorHex: string, fontSize: number, at: THREE.Vector3): void {
+    if (this.tint !== null) colorHex = '#' + new THREE.Color(this.tint).getHexString();
     this.labels.push({ text, colorHex, fontSize, x: at.x, y: at.y, z: at.z });
   }
 
@@ -125,7 +153,7 @@ export class LoadArrowsBatched {
         tipX: tip.x - dir.x * back, tipY: tip.y - dir.y * back, tipZ: tip.z - dir.z * back,
         qx: q.x, qy: q.y, qz: q.z, qw: q.w,
         sx: ARROW_HEAD_WIDTH, sy: ARROW_HEAD_LENGTH, sz: ARROW_HEAD_WIDTH,
-        color,
+        color: this.paint(color),
       });
     }
   }
@@ -139,8 +167,13 @@ export class LoadArrowsBatched {
     this.toruses.push({
       px: origin.x, py: origin.y, pz: origin.z,
       qx: quat.x, qy: quat.y, qz: quat.z, qw: quat.w,
-      color,
+      color: this.paint(color),
     });
+    // The arc as a cross of its diameters, so a click on it finds the load.
+    const u = new THREE.Vector3(arcRadius, 0, 0).applyQuaternion(quat);
+    const v = new THREE.Vector3(0, arcRadius, 0).applyQuaternion(quat);
+    this.mark(origin.clone().sub(u), origin.clone().add(u));
+    this.mark(origin.clone().sub(v), origin.clone().add(v));
 
     // Arrowhead cone at the arc tip (same placement math as create-load-arrow).
     const ccw = val > 0;
@@ -161,7 +194,7 @@ export class LoadArrowsBatched {
       tipX: anchor.x, tipY: anchor.y, tipZ: anchor.z,
       qx: q.x, qy: q.y, qz: q.z, qw: q.w,
       sx: coneRadius * 2, sy: coneHeight, sz: coneRadius * 2,
-      color,
+      color: this.paint(color),
     });
   }
 
@@ -315,7 +348,7 @@ export class LoadArrowsBatched {
       lerpQuad(1, 1).addScaledVector(loadDir, -offset),
       lerpQuad(0, 1).addScaledVector(loadDir, -offset),
     ];
-    const c = new THREE.Color(arrowColor);
+    const c = new THREE.Color(this.paint(arrowColor));
     for (const tri of [[0, 1, 2], [0, 2, 3]]) {
       for (const k of tri) {
         this.fillPos.push(corners[k].x, corners[k].y, corners[k].z);
