@@ -4,7 +4,7 @@
  * them. The models themselves are checked in `validation-models.test.ts`; this checks the menu
  * reaches them.
  */
-import { test, expect } from './fixtures';
+import { test, expect, solveModel } from './fixtures';
 
 test.describe('PRO validation models', () => {
   test.describe.configure({ timeout: 180_000 });
@@ -25,4 +25,14 @@ test.describe('PRO validation models', () => {
     expect((await page.evaluate(() => window.__stabileo.analysisSettings()))?.selfWeight)
       .toEqual([{ caseId: 2, direction: 'Z', factor: -1 }]);
   });
+
+  test('the hangar solves and identifies combinations without stable equilibrium', async ({ pro: page }) => {
+    await page.getByTestId('pr-project').click();
+    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('pp-gallery').locator('.pp-ex').filter({ hasText: /^Validation 04/ }).click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(2482);
+    await solveModel(page);
+    await expect(page.locator('[class*=toast]').filter({ hasText: /Without a second-order equilibrium/ }).first()).toBeVisible();
+  });
+
 });

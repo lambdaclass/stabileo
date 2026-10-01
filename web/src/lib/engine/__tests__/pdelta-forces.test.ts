@@ -67,6 +67,23 @@ describe('P-Delta member forces', () => {
     expect(Math.abs(base.mx - memberBase)).toBeLessThan(1e-9);
   });
 
+  for (const alongX of [true, false]) {
+    it(`one released end preserves shear and reaction equilibrium (${alongX ? 'x' : 'y'})`, () => {
+      const { input, baseId } = cantilever(1, alongX);
+      const member = input.elements.get(baseId)!;
+      input.elements.set(baseId, { ...member, releaseMyEnd: true, releaseMzEnd: true });
+      input.supports.set(2, { nodeId: 2, rx: false, ry: false, rz: false, rrx: true, rry: true, rrz: true });
+      const r = solvePDelta3D(input as never, 30, 1e-8);
+      expect(r.converged && r.isStable).toBe(true);
+      const f = byId(r.results, baseId);
+      expect(shear(f)).toBeCloseTo(H, 8);
+      expect(f.myEnd).toBeCloseTo(0, 10);
+      expect(f.mzEnd).toBeCloseTo(0, 10);
+      const reaction = r.results.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
+      expect(moment(f)).toBeCloseTo(Math.max(Math.abs(reaction.mx), Math.abs(reaction.my)), 8);
+    });
+  }
+
   // The engine's own forces leave the geometric part out. When this starts passing, the engine
   // has been fixed and `pdelta-forces.ts` must go, or it will count Kg·u twice.
   it.fails('the engine reports the weak-axis base moment of a P-Delta solve within 1 %', () => {

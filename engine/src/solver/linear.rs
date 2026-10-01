@@ -2137,7 +2137,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         });
     }
 
-    if nf >= SPARSE_THRESHOLD {
+    if n >= SPARSE_THRESHOLD {
         // ── Sparse path: O(nnz) assembly, no dense n×n matrix ──
         let t0 = now_micros();
         let stiff = super::sparse_assembly::assemble_stiffness_sparse_3d_parallel(&input, &dof_num, true);
@@ -5098,6 +5098,10 @@ pub(crate) fn compute_plate_stresses(
             sigma_2: s.sigma_2,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
+            // A DKT triangle is a Kirchhoff plate: no shear strain to read Q from, and the
+            // gradient of its linear moments is too coarse element by element to report.
+            qx: None,
+            qy: None,
         });
     }
 
@@ -5167,6 +5171,7 @@ pub(crate) fn compute_quad_stresses(
 
         // Nodal stresses at 4 Gauss-extrapolated points
         let nodal_vm = crate::element::quad::quad_nodal_von_mises(&coords, &u_local, e, nu, quad.thickness, alpha, dt_uniform);
+        let q = crate::element::quad::quad_transverse_shear(&coords, &u_local, e, nu, quad.thickness);
 
         stresses.push(QuadStress {
             element_id: quad.id,
@@ -5178,6 +5183,8 @@ pub(crate) fn compute_quad_stresses(
             mxy: s.mxy,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
+            qx: Some(q[0]),
+            qy: Some(q[1]),
         });
     }
 
@@ -5208,6 +5215,8 @@ pub(crate) fn compute_quad_stresses(
             mxy: s.mxy,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
+            qx: None,
+            qy: None,
         });
     }
 
@@ -5235,6 +5244,8 @@ pub(crate) fn compute_quad_stresses(
             mxy: s.mxy,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
+            qx: None,
+            qy: None,
         });
     }
 
@@ -5265,6 +5276,8 @@ pub(crate) fn compute_quad_stresses(
             mxy: s.mxy,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
+            qx: None,
+            qy: None,
         });
     }
 

@@ -749,6 +749,12 @@ pub struct QuadStress {
     /// Nodal von Mises stresses (4 values, one per node).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub nodal_von_mises: Vec<f64>,
+    /// Transverse shear forces per unit length in the element's local axes: at the centre of a
+    /// MITC4 quad, where its assumed shear field is exact; absent where it is not recovered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qx: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qy: Option<f64>,
 }
 
 /// Full stress tensor at a quad element node (extrapolated from Gauss points).
@@ -763,6 +769,12 @@ pub struct QuadNodalStress {
     pub my: f64,
     pub mxy: f64,
     pub von_mises: f64,
+    /// Transverse shear forces per unit length in the element's local axes: at the centre of a
+    /// MITC4 quad, where its assumed shear field is exact; absent where it is not recovered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qx: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qy: Option<f64>,
 }
 
 // ==================== Plate Stress Output ====================
@@ -784,6 +796,12 @@ pub struct PlateStress {
     /// Computed from DKT B-matrix evaluated at element vertices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub nodal_von_mises: Vec<f64>,
+    /// Transverse shear forces per unit length in the element's local axes: at the centre of a
+    /// MITC4 quad, where its assumed shear field is exact; absent where it is not recovered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qx: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qy: Option<f64>,
 }
 
 // ==================== Co-rotational Output ====================

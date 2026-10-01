@@ -423,6 +423,13 @@ export interface QuadStress {
   mxy: number;
   vonMises: number;
   nodalVonMises?: number[];
+  /**
+   * Transverse shear forces per unit length (kN/m) in the element's local axes, at its centre:
+   * a MITC4 quad's, read from its assumed shear field, which is most accurate there. Absent for
+   * the elements that do not recover them.
+   */
+  qx?: number;
+  qy?: number;
 }
 
 export interface AnalysisResults3D {

@@ -390,92 +390,427 @@ pub struct PDeltaResult3D {
     pub linear_results: AnalysisResults3D,
 }
 
-/// Solve 3D P-Delta (second-order) analysis.
-pub fn solve_pdelta_3d(
-    input: &SolverInput3D,
-    max_iter: usize,
-    tolerance: f64,
-) -> Result<PDeltaResult3D, String> {
-    // Expand curved beams BEFORE DOF numbering and assembly: solve_3d already
-    // expands internally, but the P-Delta iterations assemble K and add
-    // geometric stiffness on the same input, so both must see the expanded model.
+/// Full tangent in the assembly frame. Keeping restrained rows sparse preserves
+/// settlements and reactions without allocating a dense n_total × n_total matrix.
+enum Tangent3D {
+    Dense(Vec<f64>),
+    Sparse(CscMatrix),
+}
+
+impl Tangent3D {
+    fn free_block(&self, n: usize, nf: usize) -> Self {
+        match self {
+            Self::Dense(k) => {
+                let free: Vec<usize> = (0..nf).collect();
+                Self::Dense(extract_submatrix(k, n, &free, &free))
+            }
+            Self::Sparse(k) => {
+                let mut col_ptr = vec![0];
+                let mut row_idx = Vec::new();
+                let mut values = Vec::new();
+                for j in 0..nf {
+                    for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                        if k.row_idx[p] < nf { row_idx.push(k.row_idx[p]); values.push(k.values[p]); }
+                    }
+                    col_ptr.push(values.len());
+                }
+                Self::Sparse(CscMatrix { n: nf, col_ptr, row_idx, values })
+            }
+        }
+    }
+
+    fn rhs(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
+        match self {
+            Self::Dense(k) => rhs_with_prescribed(k, n, nf, &f[..nf], u),
+            Self::Sparse(k) => {
+                let mut rhs = f[..nf].to_vec();
+                // Only lower entries K_rf are stored: their transpose contributes K_fr*u_r.
+                for (j, r) in rhs.iter_mut().enumerate() {
+                    for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                        let i = k.row_idx[p];
+                        if i >= nf { *r -= k.values[p] * u[i]; }
+                    }
+                }
+                rhs
+            }
+        }
+    }
+
+    fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
+        match self {
+            Self::Dense(k) => restrained_residual(k, f, u, n, nf),
+            Self::Sparse(k) => k.sym_mat_vec(u)[nf..].iter().zip(&f[nf..]).map(|(ku, f)| ku - f).collect(),
+        }
+    }
+
+    fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
+        let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+        let f = cs.as_ref().map_or_else(|| rhs.to_vec(), |c| c.reduce_vector(rhs));
+        let (u, indefinite) = match self {
+            Self::Dense(k) => {
+                let k = cs.as_ref().map_or_else(|| k.clone(), |c| c.reduce_matrix(&k));
+                solve_spd_or_lu(k, &f, ns, cache)?
+            }
+            Self::Sparse(k) => {
+                let k = cs.as_ref().map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(&k));
+                if let Some(factor) = numeric_cholesky(cached_symbolic(cache, &k), &k) {
+                    (sparse_cholesky_solve(&factor, &f), false)
+                } else {
+                    // Never turn a large, unstable sparse system back into a dense allocation.
+                    if ns > super::time_integration::MAX_DENSE_FALLBACK_DOFS { return None; }
+                    let mut dense = k.to_dense_symmetric();
+                    let mut f = f;
+                    (lu_solve(&mut dense, &mut f, ns)?, true)
+                }
+            }
+        };
+        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u)), indefinite))
+    }
+
+    fn constraint_forces(&self, cs: &FreeConstraintSystem, u: &[f64], rhs: &[f64]) -> Vec<(usize, f64)> {
+        match self {
+            Self::Dense(k) => cs.compute_constraint_forces(k, u, rhs),
+            Self::Sparse(k) => cs.compute_constraint_forces_sparse(k, u, rhs),
+        }
+    }
+}
+
+enum PDeltaSystem3D {
+    Dense(AssemblyResult),
+    Sparse(SparseAssemblyResult3D),
+}
+
+impl PDeltaSystem3D {
+    fn data(&self) -> (&[f64], &[InclinedTransformData]) {
+        match self {
+            Self::Dense(a) => (&a.f, &a.inclined_transforms),
+            Self::Sparse(a) => (&a.f, &a.inclined_transforms),
+        }
+    }
+
+    fn tangent(&self, input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> Tangent3D {
+        match self {
+            Self::Dense(a) => Tangent3D::Dense(k_with_geometric_3d(input, dofs, a, u)),
+            Self::Sparse(a) => {
+                let mut rows = Vec::new();
+                let mut cols = Vec::new();
+                let mut vals = Vec::new();
+                let global = to_global_3d(u, &a.inclined_transforms);
+                super::geometric_stiffness::emit_geometric_stiffness_3d(input, dofs, &global, &mut |i, j, v| {
+                    if i >= j && v != 0.0 { rows.push(i); cols.push(j); vals.push(v); }
+                });
+                for it in &a.inclined_transforms {
+                    apply_inclined_transform_triplets_k(&mut rows, &mut cols, &mut vals, &it.dofs, &it.r);
+                }
+                let k = a.k_full.as_ref().expect("P-Delta assembles full sparse K for reactions");
+                for j in 0..k.n {
+                    for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                        rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
+                    }
+                }
+                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
+                k.drop_below_threshold(1e-30);
+                Tangent3D::Sparse(k)
+            }
+        }
+    }
+}
+
+/// Solve 3D P-Delta with sparse assembly for large models, including constrained models
+/// whose reduced system is small. The storage decision follows the full assembly size.
+pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
     let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs".into());
-    }
-
-    let linear_results = super::linear::solve_3d(input)?;
-
-    let asm = assemble_3d(input, &dof_num);
-    let n = dof_num.n_total;
-    let nf = dof_num.n_free;
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let f_f = extract_subvec(&asm.f, &free_idx);
-
-    // Build constraint system (if constraints present)
+    if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    solve_pdelta_3d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
+}
 
+fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<FreeConstraintSystem>, sparse: bool, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
+    let linear_results = super::linear::solve_3d(input)?;
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
+    let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(input, dof_num, true)) }
+        else { PDeltaSystem3D::Dense(assemble_3d(input, dof_num)) };
+    let (f, its) = system.data();
     let mut u_prev = vec![0.0; n];
     for d in &linear_results.displacements {
-        let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
-        for (i, &val) in vals.iter().enumerate() {
-            if let Some(&idx) = dof_num.map.get(&(d.node_id, i)) { u_prev[idx] = val; }
+        for (i, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().enumerate() {
+            if let Some(&idx) = dof_num.map.get(&(d.node_id, i)) { u_prev[idx] = *value; }
         }
     }
-    for it in &asm.inclined_transforms { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
-
-    let Iteration { u: u_current, iterations, converged, indefinite } = match iterate(
-        u_prev.clone(), n, nf, &f_f, &cs, max_iter, tolerance,
-        |u| k_with_geometric_3d(input, &dof_num, &asm, u),
-    ) {
-        Ok(state) => state,
-        Err(iterations) => {
-            return Ok(PDeltaResult3D {
-                results: linear_results.clone(),
-                iterations,
-                converged: false,
-                is_stable: false,
-                b2_factor: f64::INFINITY,
-                linear_results,
-            });
-        }
-    };
-
-    let its = &asm.inclined_transforms;
-    let u_global = to_global_3d(&u_current, its);
-    let max_ratio = stability_b2(indefinite, b2_factor(&dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
-
-    let displacements = build_displacements_3d(&dof_num, &u_global);
-    let element_forces = compute_internal_forces_3d(input, &dof_num, &u_global);
-
-    // Reactions and constraint forces of the system that was solved.
-    let k_final = k_with_geometric_3d(input, &dof_num, &asm, &u_current);
-    let reactions_vec = restrained_residual(&k_final, &asm.f, &u_current, n, nf);
-    let mut reactions = build_reactions_3d_inclined(input, &dof_num, &reactions_vec, &asm.f[nf..], nf, &u_global, its);
+    for it in its { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
+    let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
+    let mut symbolic = None;
+    for iter in 0..max_iter {
+        state.iterations = iter + 1;
+        let tangent = system.tangent(input, dof_num, &state.u);
+        let rhs = tangent.rhs(n, nf, f, &state.u);
+        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
+            return Ok(PDeltaResult3D { results: linear_results.clone(), linear_results, iterations: state.iterations,
+                converged: false, is_stable: false, b2_factor: f64::INFINITY });
+        };
+        state.indefinite = indefinite;
+        let diff = u[..nf].iter().zip(&state.u[..nf]).map(|(a,b)| (a-b).powi(2)).sum::<f64>().sqrt();
+        let norm = u[..nf].iter().map(|x| x*x).sum::<f64>().sqrt();
+        state.u[..nf].copy_from_slice(&u[..nf]);
+        if (norm == 0.0 && diff == 0.0) || (norm > 1e-20 && diff / norm < tolerance) { state.converged = true; break; }
+    }
+    let u_global = to_global_3d(&state.u, its);
+    let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
+    let tangent = system.tangent(input, dof_num, &state.u);
+    let residual = tangent.residual(n, nf, f, &state.u);
+    let mut reactions = build_reactions_3d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
     reactions.sort_by_key(|r| r.node_id);
-
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&k_final, n, &free_idx, &free_idx);
-        let f_eff = rhs_with_prescribed(&k_final, n, nf, &f_f, &u_current);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_current[..nf], &f_eff);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
-
+    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
+        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    });
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_global, None), quad_stresses: compute_quad_stresses(input, &dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
-            // Carried from the linear pass, as in the 2D entry point: they
-            // describe the model, not the solution path.
+        results: AnalysisResults3D {
+            displacements: build_displacements_3d(dof_num, &u_global), reactions,
+            element_forces: compute_internal_forces_3d(input, dof_num, &u_global),
+            plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
+            quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
             structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
-            equilibrium: None, timings: None, result_summary: None, solver_run_meta: None },
-        iterations,
-        converged,
-        is_stable: converged && max_ratio < 100.0,
-        b2_factor: max_ratio,
-        linear_results,
+            equilibrium: None, timings: None, result_summary: None, solver_run_meta: None,
+        },
+        iterations: state.iterations, converged: state.converged,
+        is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    /// A building of `bays`×`bays` bays and `storeys` storeys, fixed at the base, with gravity on
+    /// every floor node and a push along x. With `diaphragms`, each floor is one.
+    fn building(bays: usize, storeys: usize, diaphragms: bool) -> SolverInput3D {
+        let (span, h) = (6.0, 3.5);
+        let id = |i: usize, j: usize, k: usize| 1 + k * (bays + 1) * (bays + 1) + j * (bays + 1) + i;
+        let mut nodes = HashMap::new();
+        for k in 0..=storeys { for j in 0..=bays { for i in 0..=bays {
+            let n = id(i, j, k);
+            nodes.insert(n.to_string(), SolverNode3D { id: n, x: span * i as f64, y: span * j as f64, z: h * k as f64 });
+        }}}
+        let mut elements = HashMap::new();
+        let mut member = |a: usize, b: usize, section_id: usize| {
+            let e = elements.len() + 1;
+            elements.insert(e.to_string(), SolverElement3D {
+                id: e, elem_type: "frame".into(), node_i: a, node_j: b, material_id: 1, section_id,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
+                release_t_start: false, release_t_end: false,
+                local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+            });
+        };
+        for k in 0..storeys { for j in 0..=bays { for i in 0..=bays { member(id(i, j, k), id(i, j, k + 1), 1); }}}
+        for k in 1..=storeys { for j in 0..=bays { for i in 0..=bays {
+            if i < bays { member(id(i, j, k), id(i + 1, j, k), 2); }
+            if j < bays { member(id(i, j, k), id(i, j + 1, k), 2); }
+        }}}
+        let mut supports = HashMap::new();
+        for j in 0..=bays { for i in 0..=bays {
+            let n = id(i, j, 0);
+            supports.insert(n.to_string(), SolverSupport3D {
+                node_id: n, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+                kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+                dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+                normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
+            });
+        }}
+        let mut loads = Vec::new();
+        for k in 1..=storeys { for j in 0..=bays { for i in 0..=bays {
+            let fx = if i == 0 { 15.0 } else { 0.0 };
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: id(i, j, k), fx, fy: 0.0, fz: -400.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+        }}}
+        let constraints = if diaphragms {
+            (1..=storeys).map(|k| Constraint::Diaphragm(DiaphragmConstraint {
+                master_node: id(0, 0, k),
+                slave_nodes: (0..=bays).flat_map(|j| (0..=bays).map(move |i| (i, j))).filter(|&(i, j)| (i, j) != (0, 0)).map(|(i, j)| id(i, j, k)).collect(),
+                plane: "XY".into(),
+            })).collect()
+        } else { vec![] };
+        let mut materials = HashMap::new();
+        materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+        let mut sections = HashMap::new();
+        sections.insert("1".into(), SolverSection3D { id: 1, name: None, a: 0.012, iy: 1.5e-4, iz: 1.5e-4, j: 2.0e-6, cw: None, as_y: None, as_z: None });
+        sections.insert("2".into(), SolverSection3D { id: 2, name: None, a: 0.008, iy: 2.5e-4, iz: 1.0e-5, j: 1.0e-6, cw: None, as_y: None, as_z: None });
+        SolverInput3D {
+            solver_options: None,
+            nodes, materials, sections, elements, supports, loads, constraints, left_hand: None,
+            plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+            solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
+        }
+    }
+
+    fn both(input: &SolverInput3D) -> (PDeltaResult3D, PDeltaResult3D) {
+        let dof_num = DofNumbering::build_3d(input);
+        let cs = || FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+        (
+            solve_pdelta_3d_on(input, &dof_num, cs(), false, 30, 1e-8).unwrap(),
+            solve_pdelta_3d_on(input, &dof_num, cs(), true, 30, 1e-8).unwrap(),
+        )
+    }
+
+    fn assert_same(d: &PDeltaResult3D, s: &PDeltaResult3D) {
+        assert!(d.converged && s.converged);
+        assert_eq!(d.iterations, s.iterations);
+        assert!((d.b2_factor - s.b2_factor).abs() < 1e-9 * d.b2_factor, "B2 {} and {}", d.b2_factor, s.b2_factor);
+        let scale = d.results.displacements.iter().map(|x| x.ux.abs().max(x.uz.abs())).fold(0.0, f64::max);
+        for (a, b) in d.results.displacements.iter().zip(&s.results.displacements) {
+            assert_eq!(a.node_id, b.node_id);
+            for (p, q) in [(a.ux, b.ux), (a.uy, b.uy), (a.uz, b.uz), (a.rx, b.rx), (a.ry, b.ry), (a.rz, b.rz)] {
+                assert!((p - q).abs() < 1e-9 * scale, "node {}: {p} and {q}", a.node_id);
+            }
+        }
+        let by = |r: &PDeltaResult3D| r.results.reactions.iter().map(|x| (x.node_id, [x.fx, x.fy, x.fz, x.mx, x.my, x.mz])).collect::<HashMap<_, _>>();
+        let (rd, rs) = (by(d), by(s));
+        let rmax = rd.values().flat_map(|v| v.iter()).fold(0.0f64, |m, v| m.max(v.abs()));
+        for (n, a) in &rd {
+            for (p, q) in a.iter().zip(&rs[n]) {
+                assert!((p - q).abs() < 1e-8 * rmax, "reaction at {n}: {p} and {q}");
+            }
+        }
+    }
+
+    #[test]
+    fn sparse_dispatch_with_fewer_than_64_free_dofs_keeps_parity() {
+        let input = building(2, 1, false);
+        let dofs = DofNumbering::build_3d(&input);
+        assert!(dofs.n_free < SPARSE_THRESHOLD && dofs.n_total >= SPARSE_THRESHOLD);
+        let (dense, _) = both(&input);
+        let dispatched = solve_pdelta_3d(&input, 30, 1e-8).unwrap();
+        assert_same(&dense, &dispatched);
+    }
+
+    #[test]
+    fn zero_load_is_a_stable_equilibrium() {
+        let mut input = building(2, 1, false);
+        input.loads.clear();
+        let (dense, sparse) = both(&input);
+        for r in [dense, sparse] {
+            assert!(r.converged && r.is_stable);
+            assert!(r.results.displacements.iter().all(|d| d.ux == 0.0 && d.uy == 0.0 && d.uz == 0.0));
+        }
+    }
+
+    #[test]
+    fn sparse_pdelta_matches_the_dense_one() {
+        let input = building(2, 3, false);
+        let (d, s) = both(&input);
+        assert!(d.b2_factor > 1.02, "the push must be amplified, B2 = {}", d.b2_factor);
+        assert_same(&d, &s);
+    }
+
+    #[test]
+    fn sparse_pdelta_keeps_settlements_and_inclined_support_reactions() {
+        let mut input = building(2, 3, true);
+        // One settled base, and another sliding on an inclined plane. Loads also create
+        // geometric stiffness, so merely reproducing the linear solve cannot pass parity.
+        input.supports.get_mut("1").unwrap().dz = Some(-0.002);
+        let roller = input.supports.get_mut("3").unwrap();
+        roller.is_inclined = Some(true);
+        roller.normal_x = Some(0.5);
+        roller.normal_y = Some(0.0);
+        roller.normal_z = Some(3.0f64.sqrt() / 2.0);
+        roller.ry = false;
+        roller.rz = false;
+        roller.dx = Some(0.001);
+        let (d, s) = both(&input);
+        assert_same(&d, &s);
+        assert!((s.results.displacements.iter().find(|d| d.node_id == 1).unwrap().uz + 0.002).abs() < 1e-12);
+        let fx: f64 = input.loads.iter().filter_map(|l| match l { SolverLoad3D::Nodal(l) => Some(l.fx), _ => None }).sum();
+        let rx: f64 = s.results.reactions.iter().map(|r| r.fx).sum();
+        assert!((rx + fx).abs() < 1e-7 * fx, "reactions balance second-order forces: {rx} vs {fx}");
+        let cd = &d.results.constraint_forces;
+        let cs = &s.results.constraint_forces;
+        let scale = cd.iter().map(|x| x.force.abs()).fold(1.0, f64::max);
+        for f in cd {
+            let other = cs.iter().find(|c| c.node_id == f.node_id && c.dof == f.dof).map_or(0.0, |c| c.force);
+            assert!((f.force - other).abs() < 1e-8 * scale);
+        }
+    }
+
+    #[test]
+    fn sparse_pdelta_matches_released_member_forces() {
+        let mut input = building(2, 3, false);
+        for e in input.elements.values_mut().filter(|e| e.section_id == 2) {
+            e.release_my_start = true;
+            e.release_mz_end = true;
+        }
+        let (d, s) = both(&input);
+        assert_same(&d, &s);
+        for a in &d.results.element_forces {
+            let b = s.results.element_forces.iter().find(|b| b.element_id == a.element_id).unwrap();
+            let pairs = [(a.n_start,b.n_start),(a.n_end,b.n_end), (a.my_start,b.my_start), (a.my_end,b.my_end),
+                (a.mz_start,b.mz_start),(a.mz_end,b.mz_end),(a.vy_start,b.vy_start),(a.vz_start,b.vz_start)];
+            for (x,y) in pairs { assert!((x-y).abs() < 1e-7 * x.abs().max(1.0), "member {}: {x} vs {y}", a.element_id); }
+        }
+    }
+
+    #[test]
+    fn sparse_pdelta_matches_the_dense_one_with_diaphragms() {
+        let input = building(2, 3, true);
+        let (d, s) = both(&input);
+        assert_same(&d, &s);
+        // Both drop residuals under 1e-15 in absolute terms, so a force that is zero in exact
+        // arithmetic may appear on one side only: compared by node and DOF, a missing one is zero.
+        let by = |r: &PDeltaResult3D| r.results.constraint_forces.iter().map(|c| ((c.node_id, c.dof.clone()), c.force)).collect::<HashMap<_, _>>();
+        let (cd, cs) = (by(&d), by(&s));
+        let fmax = cd.values().fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!(fmax > 1.0, "the diaphragms must carry force, largest {fmax}");
+        for key in cd.keys().chain(cs.keys()) {
+            let (p, q) = (cd.get(key).copied().unwrap_or(0.0), cs.get(key).copied().unwrap_or(0.0));
+            assert!((p - q).abs() < 1e-8 * fmax, "constraint force at {key:?}: {p} and {q}");
+        }
+    }
+
+    /// 7×7 bays and 18 storeys: 1152 free nodes and 6912 DOFs, the size of the building that ran
+    /// the WASM heap out. Its dense K is 380 MB per copy, and `solve_pdelta_3d` used to hold three
+    /// of them per iteration.
+    #[test]
+    fn a_large_building_solves_without_a_dense_matrix() {
+        let input = building(7, 18, false);
+        let r = solve_pdelta_3d(&input, 20, 1e-6).expect("solves");
+        assert!(r.converged && r.is_stable, "iterations {}, B2 {}", r.iterations, r.b2_factor);
+        // Gravity: every column line carries its share of the floors above.
+        let fz: f64 = r.results.reactions.iter().map(|x| x.fz).sum();
+        let applied = 400.0 * 64.0 * 18.0;
+        assert!((fz - applied).abs() < 1e-6 * applied, "vertical reactions {fz}, applied {applied}");
+    }
+
+    /// A 4 m cantilever of 4 elements under `p` down and a small push, fixed at its foot.
+    fn cantilever(p: f64) -> SolverInput3D {
+        let mut input = building(1, 1, false);
+        input.nodes = (0..=4).map(|k| ((k + 1).to_string(), SolverNode3D { id: k + 1, x: 0.0, y: 0.0, z: k as f64 })).collect();
+        input.elements = (1..=4).map(|k| {
+            let mut e = input.elements.values().next().unwrap().clone();
+            e.id = k; e.node_i = k; e.node_j = k + 1; e.section_id = 1;
+            (k.to_string(), e)
+        }).collect();
+        let fixed = input.supports.values().next().unwrap().clone();
+        input.supports = HashMap::from([("1".into(), SolverSupport3D { node_id: 1, ..fixed })]);
+        input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.5, fy: 0.0, fz: -p, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
+        input
+    }
+
+    #[test]
+    fn past_the_critical_load_the_answer_is_not_stable() {
+        // π²·EI/(4·L²) with EI = 200 000 × 1000 × 1.5e-4: 1850 kN.
+        let critical = std::f64::consts::PI.powi(2) * 200_000.0 * 1000.0 * 1.5e-4 / (4.0 * 16.0);
+        for (p, stable) in [(0.5 * critical, true), (1.5 * critical, false)] {
+            let input = cantilever(p);
+            let dof_num = DofNumbering::build_3d(&input);
+            for sparse in [false, true] {
+                let r = solve_pdelta_3d_on(&input, &dof_num, None, sparse, 30, 1e-8).unwrap();
+                assert_eq!(r.is_stable, stable, "P = {p:.0} kN (critical {critical:.0}), sparse {sparse}: B2 {}", r.b2_factor);
+                // The exact head drift at half the critical load is 1.98 times the linear one.
+                if stable { assert!(r.converged && (r.b2_factor - 1.98).abs() < 0.06, "B2 {}", r.b2_factor); }
+            }
+        }
+    }
+
 }

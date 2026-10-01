@@ -6,9 +6,9 @@ stabileo-model 1
 # Sections are given by their declared properties, one per distinct profile and spacing.
 # The source solves every case and combination with two P-Delta iterations; here the cases are
 # linear and each combination is solved with P-Delta on its own factored loads.
-# P-Delta is currently refused at this size to avoid exhausting browser memory. Select linear
-# analysis explicitly to inspect first-order results. Repeated CRANE names include the source
-# case id so all 22 cases can share one factorization; ids and loads are unchanged.
+# P-Delta uses sparse assembly. Combinations without stable second-order equilibrium are
+# reported without forces. Repeated CRANE names include the source case id so all 22 cases
+# can share one factorization; ids and loads are unchanged.
 # The code check the source runs is not reproduced.
 name "Validación 04 · Nave industrial con puente grúa"
 mode pro

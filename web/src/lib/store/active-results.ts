@@ -10,6 +10,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
+import { t } from '../i18n';
 import { activeComboIds, narrowPerCombo } from '../engine/result-scopes';
 import { computeGoverning3D } from '../engine/governing-case';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
@@ -43,8 +44,14 @@ export function publishCombinations3D(bundle: {
   perCase: Map<number, AnalysisResults3D>;
   perCombo: Map<number, AnalysisResults3D>;
   envelope: FullEnvelope3D;
+  /** Solved with P-Delta and left out: no second-order equilibrium at their load. */
+  unstable?: number[];
 }): void {
   resultsStore.setCombinationResults3D(bundle.perCase, bundle.perCombo, bundle.envelope);
   const names = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
   resultsStore.setGoverning3D(computeGoverning3D(activePerCombo3D(), names));
+  if (bundle.unstable?.length) {
+    const listed = bundle.unstable.map((id) => names.get(id) ?? `#${id}`).join(', ');
+    uiStore.toast(t('results.pdeltaUnstable').replace('{names}', listed), 'error');
+  }
 }

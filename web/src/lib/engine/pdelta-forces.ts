@@ -19,9 +19,9 @@
  * ── The correction ─────────────────────────────────────────────────
  *
  * Per frame member, in its local axes, the consistent geometric stiffness of a beam-column with
- * axial force N (tension positive) times its end displacements. A plane with an end released in
- * bending takes the string term only, N/L on the relative sway, since the consistent terms assume
- * both ends take moment. Torsion's geometric term (N·J/(A·L)) is left out; it is second order in
+ * axial force N (tension positive) times its end displacements. Released rotations are condensed
+ * with the same elastic map as the engine; only a plane released at both ends takes the string
+ * term N/L alone. Torsion's geometric term (N·J/(A·L)) is left out; it is second order in
  * a quantity that is small for open steel sections.
  */
 import type { SolverInput3D, AnalysisResults3D, SolverNode3D } from './types-3d';
@@ -51,26 +51,10 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
     const ty1 = dot(ey, di.rx, di.ry, di.rz), ty2 = dot(ey, dj.rx, dj.ry, dj.rz);
     const tz1 = dot(ez, di.rx, di.ry, di.rz), tz2 = dot(ez, dj.rx, dj.ry, dj.rz);
     const N = ((f.nStart ?? 0) + (f.nEnd ?? 0)) / 2;
-    const k = N / L;
-
-    // Plane x–y: sway v, rotation θz.
-    let Fy1: number, Mz1: number, Mz2: number;
-    if (e.releaseMzStart || e.releaseMzEnd) {
-      Fy1 = k * (v1 - v2); Mz1 = 0; Mz2 = 0;
-    } else {
-      Fy1 = k * (6 / 5) * (v1 - v2) + (N / 10) * (tz1 + tz2);
-      Mz1 = (N / 10) * (v1 - v2) + ((2 * N * L) / 15) * tz1 - ((N * L) / 30) * tz2;
-      Mz2 = (N / 10) * (v1 - v2) - ((N * L) / 30) * tz1 + ((2 * N * L) / 15) * tz2;
-    }
-    // Plane x–z: sway w, rotation θy (θy = −dw/dx, hence the signs).
-    let Fz1: number, My1: number, My2: number;
-    if (e.releaseMyStart || e.releaseMyEnd) {
-      Fz1 = k * (w1 - w2); My1 = 0; My2 = 0;
-    } else {
-      Fz1 = k * (6 / 5) * (w1 - w2) - (N / 10) * (ty1 + ty2);
-      My1 = -(N / 10) * (w1 - w2) + ((2 * N * L) / 15) * ty1 - ((N * L) / 30) * ty2;
-      My2 = -(N / 10) * (w1 - w2) - ((N * L) / 30) * ty1 + ((2 * N * L) / 15) * ty2;
-    }
+    const [Fy1, Mz1, Mz2] = geometricPlaneForces(N, L, v1, v2, tz1, tz2, !!e.releaseMzStart, !!e.releaseMzEnd);
+    // θy = −dw/dx: transform to the slope convention, then transform moments back.
+    const [Fz1, minusMy1, minusMy2] = geometricPlaneForces(N, L, w1, w2, -ty1, -ty2, !!e.releaseMyStart, !!e.releaseMyEnd);
+    const My1 = -minusMy1, My2 = -minusMy2;
     // End forces on the member into the result's internal-force convention.
     return {
       ...f,
@@ -83,6 +67,21 @@ export function correctPDeltaForces(input: SolverInput3D, results: AnalysisResul
   return { ...results, elementForces };
 }
 
+/** Tᵀ Kg T u for one bending plane, in the slope/rotation convention θ = v'. */
+function geometricPlaneForces(N: number, L: number, v1: number, v2: number, t1: number, t2: number, release1: boolean, release2: boolean): [number, number, number] {
+  if (release1 && release2) return [N / L * (v1 - v2), 0, 0];
+  // T recovers the released rotation from the elastic end-moment equation.
+  if (release1) t1 = 1.5 / L * (v2 - v1) - t2 / 2;
+  if (release2) t2 = 1.5 / L * (v2 - v1) - t1 / 2;
+  let shear = N / L * 6 / 5 * (v1 - v2) + N / 10 * (t1 + t2);
+  let m1 = N / 10 * (v1 - v2) + N * L / 30 * (4 * t1 - t2);
+  let m2 = N / 10 * (v1 - v2) + N * L / 30 * (4 * t2 - t1);
+  // Tᵀ transfers the released moment to the retained translations and rotation.
+  if (release1) { shear -= 1.5 / L * m1; m2 -= m1 / 2; m1 = 0; }
+  if (release2) { shear -= 1.5 / L * m2; m1 -= m2 / 2; m2 = 0; }
+  return [shear, m1, m2];
+}
+
 /**
  * Signs from end forces (on the member, local axes) to the result's internal forces. Fixed by the
  * cantilever tests in both planes rather than assumed.
@@ -93,11 +92,14 @@ const S = { vy: 1, vz: 1, mzI: 1, mzJ: -1, myI: 1, myJ: -1 };
  * Second- over first-order drift, read from the two sets of displacements, and whether the
  * second-order answer is a physical one.
  *
- * Not the engine's `b2Factor` or `isStable`: past the critical load in a member's weak axis the
- * engine was measured returning `converged`, `isStable` and a B2 of 1.0 with the displacement's
- * sign reversed, a column under 300 kN whose weak-axis critical load is 139 kN. Here the
- * displacement at the node that moves most in first order is compared with its second-order
- * counterpart: a reversed or vanishing one means no equilibrium exists at this load.
+ * Not the engine's `b2Factor`, and its `isStable` only when it says no: past the critical load in
+ * a member's weak axis the engine was measured returning `converged`, `isStable` and a B2 of 1.0
+ * with the displacement's sign reversed, a column under 300 kN whose weak-axis critical load is
+ * 139 kN. It now reports such an equilibrium unstable, and it also gives up with the first-order
+ * results when K + Kg is indefinite on a model too large for a dense fallback, where these
+ * displacements would read as a B2 of 1. Here the displacement at the node that moves most in
+ * first order is compared with its second-order counterpart: a reversed or vanishing one means no
+ * equilibrium exists at this load.
  */
 export function amplification(r: { results: AnalysisResults3D; linearResults?: AnalysisResults3D; isStable?: boolean }): { b2: number; stable: boolean } {
   if (r.isStable === false) return { b2: Infinity, stable: false };

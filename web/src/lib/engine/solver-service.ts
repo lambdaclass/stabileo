@@ -8,7 +8,6 @@ import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { assertPDeltaMemoryBudget } from './pdelta-memory';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -2042,7 +2041,8 @@ function pruneComboBundle3D(
 
 // ─── 3D: solveCombinations3D ─────────────────────────────────────
 
-type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D };
+/** `unstable`: with P-Delta per combination, the ones with no second-order equilibrium, left out. */
+type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] };
 
 /**
  * The settlement, solved once and added once (`settlement-case.ts`). `solved` is the bundle for
@@ -2340,17 +2340,15 @@ function solveCombinations3DPDelta(
   const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (typeof base === 'string') return base;
   if (!base) return t('svc.emptyModel');
-  // Reject before solving every linear case: the requested combinations cannot run.
-  try {
-    assertPDeltaMemoryBudget(input3DToWireObject(base), t('advanced.pdeltaTooLarge'));
-  } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
-  }
   const linear = solveCombinations3DCore(free, loadCases, combinations, includeSelfWeight, leftHand);
   if (!linear || typeof linear === 'string') return linear;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const perCombo = new Map<number, AnalysisResults3D>();
+  // No second-order equilibrium at its load: like the direct analysis, it publishes no forces. The
+  // engine gives up on such a combination with the first-order results, which would otherwise
+  // read as second-order ones.
+  const unstable: number[] = [];
   try {
     for (const combo of combinations) {
       const loads = comboSolverLoads3D(combo, caseLoads);
@@ -2358,6 +2356,7 @@ function solveCombinations3DPDelta(
       const full = { ...base, loads };
       const r = solvePDelta3DCorrected(full, 30, 1e-6, false);
       const amp = amplification(r);
+      if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
       if (hasShells) postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       perCombo.set(combo.id, results);
@@ -2365,10 +2364,10 @@ function solveCombinations3DPDelta(
   } catch (err: any) {
     return t('svc.solver3dError').replace('{n}', err.message);
   }
-  if (perCombo.size === 0) return t('svc.noLoadsApplied');
+  if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return t('svc.envelopeError3d');
-  return pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model);
+  return { ...pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model), unstable };
 }
 
 /**

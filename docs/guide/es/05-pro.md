@@ -25,8 +25,8 @@ Para empezar:
   por propiedades, sus casos y sus combinaciones. Se cargan tal cual, sin generar combinaciones de
   reglamento encima. La descripción de cada uno dice qué se adaptó (el eje vertical, las unidades,
   y las cargas que el programa de origen calculaba y acá entran como cargas comunes).
-  **Modelo 04:** P-Delta todavía no está disponible para este tamaño. Se conserva su
-  configuración; seleccioná análisis lineal explícitamente para obtener resultados de primer orden.
+  **Modelo 04:** P-Delta usa ensamblaje disperso. Las combinaciones sin equilibrio estable
+  de segundo orden se listan sin publicar sus esfuerzos.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
   (DXF).
 
@@ -264,6 +264,10 @@ levante, y reemplazan el apoyo que tuviera el nodo.
   barras activas; en ese caso se listan las barras cuyo estado en la suma contradice el de los
   casos. Sin esas barras los dos métodos dan lo mismo. Cada combinación puede resolverse además
   **lineal** o con **P-Delta**.
+  Una combinación con P-Delta cuya carga la estructura no puede llevar en segundo orden (pandea
+  antes) no publica esfuerzos, y un aviso la nombra. Los modelos grandes pasan por el mismo
+  solver disperso que el análisis lineal: las catorce combinaciones de un edificio de mil nudos y
+  dos mil quinientas barras tardan unos segundos.
 - **Combinaciones:** manuales, o generadas automáticamente. Las últimas son las de CIRSOC
   101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se
   genera aparte: las gravitatorias a factor 1,0 y, con viento, las de CIRSOC 102-2025 B.4.2
@@ -535,12 +539,15 @@ la razón de inercias. Como siempre, lo aplicado se re-verifica después de volv
 ## La teoría detrás
 
 - **Barras:** las mismas barras 3D de Euler-Bernoulli del modo Básico, con seis grados de
-  libertad por nodo.
+  libertad por nodo. En P-Delta y pandeo, una barra liberada en un extremo toma la rigidez
+  geométrica de una barra articulada ahí: una columna articulada en los dos extremos le resta P/L
+  a la rigidez lateral, como una columna pendular.
 - **Placas cuadriláteras:** elemento **MITC4**, con deformaciones de corte interpoladas de forma
   que el elemento no se "trabe" cuando la placa es delgada (*shear locking*) y un refuerzo de la
   membrana (EAS) que mejora la flexión en su plano.
 - **Placas triangulares:** elemento **DKT** para la flexión (placa delgada de Kirchhoff, sin
   deformación por corte), combinado con un triángulo de deformación constante para la membrana.
+  Al refinar, triángulos y cuadriláteros convergen a la misma placa, con momentos del mismo signo.
   Para tabiques, que trabajan a flexión en su plano, conviene usar cuadriláteros.
 - **Cáscaras curvas:** un elemento de cuatro nodos que representa la curvatura, para
   cuadriláteros no planos.

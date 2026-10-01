@@ -24,8 +24,8 @@ To start:
   properties, their cases and their combinations. They load as they are, with no regulation
   combinations generated over them. Each description says what was adapted (the vertical axis, the
   units, and the loads the source program computed, which are applied here as ordinary loads).
-  **Model 04:** P-Delta is currently unavailable at this size. Its setting is preserved;
-  select linear analysis explicitly to obtain first-order results.
+  **Model 04:** P-Delta uses sparse assembly. Combinations without stable second-order
+  equilibrium are listed without publishing their forces.
 - **Import** (see [below](#importing-models)): an Excel spreadsheet or an AutoCAD drawing (DXF).
 
 As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Export** (results to
@@ -256,6 +256,10 @@ springs can act one way, so the raft can lift, and they replace any support the 
   and not in another), or the cases are superposed, each solved with its own set of active members;
   then the members whose state in the sum contradicts the cases' are listed. Without such members
   both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
+  A P-Delta combination whose load the structure cannot carry to second order (it buckles below
+  it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
+  the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
+  half thousand members take a few seconds.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
   (§2.3.2), with wind at 1.0 W or 0.5 W. The service ones are an alternative generated separately:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
@@ -522,13 +526,16 @@ ratio of inertias. As before, what is applied is re-verified after solving again
 ## The theory behind it
 
 - **Members:** the same 3D Euler-Bernoulli members as Basic mode, with six degrees of freedom per
-  node.
+  node. In P-Delta and buckling, a member released at an end takes the geometric stiffness of a
+  member pinned there: a column pinned at both ends takes P/L from the lateral stiffness, as a
+  leaning column does.
 - **Quadrilateral plates:** the **MITC4** element, with its shear strains interpolated so that the
   element does not "lock" when the plate is thin (*shear locking*), and an enhanced membrane (EAS)
   that improves in-plane bending.
 - **Triangular plates:** the **DKT** element for bending (a thin Kirchhoff plate, with no shear
-  deformation), combined with a constant-strain triangle for the membrane. For walls, which work in
-  in-plane bending, quadrilaterals are the better choice.
+  deformation), combined with a constant-strain triangle for the membrane. Refined, triangles and
+  quadrilaterals converge to the same plate, with moments of the same sign. For walls, which work
+  in in-plane bending, quadrilaterals are the better choice.
 - **Curved shells:** a four-node element that represents curvature, for non-planar quadrilaterals.
 
 Why a slab needs a mesh and a beam does not, what shear locking is, and when a member model stops
