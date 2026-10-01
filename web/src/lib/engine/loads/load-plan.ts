@@ -45,6 +45,7 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
 import { gravityLayout } from './plan-gravity';
+import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import { modalStoryForces, type ModeShape } from './seismic-modal';
 import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
@@ -141,6 +142,10 @@ export interface LoadPlanInput {
   roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
   /** L and Lr also on alternate panels and spans, two checkerboard cases each (§4.3.3). */
   patterns?: boolean;
+  /** T, H and F (`special-loads.ts`). `soil.permanent`: the soil's pressure is permanent (§2.3.2's 0,9). */
+  thermal?: ThermalInput;
+  soil?: SoilInput & { permanent?: boolean };
+  fluid?: FluidInput;
   /** Element kind for the §4.7.2 live-load reduction. */
   reductionElementKind: ElementKind;
   /** Floors the reduced member supports, for the 0,5/0,4 Lo floor. */
@@ -248,7 +253,7 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 export interface PlannedCase {
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
-  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E';
+  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E' | 'T' | 'H' | 'F';
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
@@ -353,6 +358,8 @@ export interface LoadPlan {
   distributed: PlannedDistributed[];
   nodal: PlannedNodal[];
   surface: PlannedSurface[];
+  /** Temperature on members and shells, case T. */
+  thermal: Array<{ elementId?: number; quadId?: number; dtUniform: number; dtGradient: number }>;
   combinations: LoadCombinationSpec[];
   /** Provenanced scalars for the report's basis-of-calculation block. */
   factors: {
@@ -470,7 +477,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
 
   const empty: LoadPlan = {
-    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [],
+    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], thermal: [], combinations: [],
     factors: {
       occupancy: fromProject(0, 'kN/m²'),
       liveReduced: fromProject(0, 'kN/m²'),
@@ -860,6 +867,26 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
    */
   if (blockedKeys.length > 0) return empty;
 
+  // ── T, H and F (`special-loads.ts`) ──
+  const special = specialLoads(input.model, { thermal: input.thermal, soil: input.soil, fluid: input.fluid });
+  derivation.push(...special.derivation);
+  unsupportedKeys.push(...special.notes);
+  if (special.thermal.length) {
+    cases.push({ existingId: findCase(input.model, 'T'), type: 'T', nameKey: 'autoLoad.thermalCase' });
+    refs.push(clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
+  }
+  if (special.soil.length) {
+    const index = cases.length;
+    cases.push({ existingId: findCase(input.model, 'H'), type: 'H', nameKey: 'autoLoad.soilCase' });
+    for (const n of special.soil) nodal.push({ ...n, caseType: 'H', caseIndex: index });
+  }
+  if (special.fluid.length || special.fluidBottom.length) {
+    const index = cases.length;
+    cases.push({ existingId: findCase(input.model, 'F'), type: 'F', nameKey: 'autoLoad.fluidCase' });
+    for (const n of special.fluid) nodal.push({ ...n, caseType: 'F', caseIndex: index });
+    for (const b of special.fluidBottom) surface.push({ quadId: b.quadId, caseType: 'F', caseIndex: index, q: b.q });
+  }
+
   // ── Combinations from the basis role ──
   let combinations: LoadCombinationSpec[] = [];
   if (input.generateCombinations) {
@@ -868,10 +895,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
       Wa: nodal.some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
-      F: false, H: false,
+      F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
+      T: special.thermal.length > 0,
     };
     const ci: CombinationInputs = {
-      present, maxLoKNm2: lo,
+      present, maxLoKNm2: lo, earthPressurePermanent: input.soil?.permanent ?? true,
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
     const set = input.combinationSet ?? 'ultimate';
@@ -905,7 +933,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   return {
     outcome: 'READY',
-    cases, distributed, nodal, surface, combinations,
+    cases, distributed, nodal, surface, thermal: special.thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),

@@ -52,7 +52,7 @@ export interface CaseCombination {
 /** Which load symbols the model has cases for. */
 export function presentSymbols(cases: ReadonlyArray<{ type?: string }>): CombinationInputs['present'] {
   const has = (s: LoadSymbol) => cases.some((c) => symbolOfType(c.type) === s);
-  return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa') };
+  return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa'), T: has('T') };
 }
 
 /**

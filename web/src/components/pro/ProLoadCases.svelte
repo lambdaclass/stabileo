@@ -24,7 +24,7 @@
   const loadCases = $derived(modelStore.model.loadCases);
 
   /** The types a case can take, in the order the regulation lists them. */
-  const TYPES = ['D', 'L', 'Lr', 'S', 'W', 'Wa', 'E', 'T', ''] as const;
+  const TYPES = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T', 'F', 'H', ''] as const;
   const typeName = (ty: string) => t(`pro.caseType${ty || 'Other'}`);
 
   // ── Visibility per case ──

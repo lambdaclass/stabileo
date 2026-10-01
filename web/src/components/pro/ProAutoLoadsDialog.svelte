@@ -24,6 +24,7 @@
   import ProRoofLoadSection, { defaultRoofConfig } from './ProRoofLoadSection.svelte';
   import ProSeismicMethod, { defaultSeismicMethod } from './ProSeismicMethod.svelte';
   import ProWindStructure, { defaultWindStructure } from './ProWindStructure.svelte';
+  import ProSpecialLoadsSection, { defaultSpecialLoads } from './ProSpecialLoadsSection.svelte';
   import { modesForPlan } from '../../lib/store/seismic-modes';
   import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
@@ -115,6 +116,7 @@
   let livePatterns = $state(true);
   let seismicMethod = $state(defaultSeismicMethod());
   let windStructure = $state(defaultWindStructure());
+  let special = $state(defaultSpecialLoads());
   /** The model's extent, for the cladding table. */
   const modelExtent = $derived.by(() => {
     const ns = [...modelStore.nodes.values()];
@@ -256,6 +258,9 @@
       tributaryWidth,
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
       patterns: livePatterns,
+      thermal: special.thermal.on ? { dtUniform: special.thermal.dt, dtGradient: special.thermal.grad } : undefined,
+      soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent } : undefined,
+      fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma } : undefined,
       roof: roofCfg.enabled ? {
         use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
         weight: roofCfg.weight ?? roofWeightClass(roofCfg.dead ?? totalDead),
@@ -732,6 +737,8 @@
           </div>
         {/if}
       </section>
+
+      <ProSpecialLoadsSection bind:config={special} />
 
       <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan}
         bind:tributaryWidth {clearExisting} onClearChange={onClearExistingChange} />

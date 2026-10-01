@@ -88,3 +88,15 @@ test.describe('@smoke wind on other structures and the cladding table', () => {
     expect(names.some((n) => /free roof, case A/.test(n))).toBe(true);
   });
 });
+
+test.describe('@smoke T, H and F from the dialog', () => {
+  test('a temperature change makes a T case with its two combinations', async ({ pro: page }) => {
+    await openDialog(page);
+    await page.getByTestId('al-thermal').check();
+    await page.getByTestId('al-thermal-dt').fill('25');
+    await page.getByTestId('al-preview-btn').click();
+    await page.getByTestId('al-apply').click();
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names).toContain('Temperature');
+  });
+});
