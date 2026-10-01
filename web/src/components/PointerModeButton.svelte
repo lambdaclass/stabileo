@@ -65,7 +65,7 @@
    * view" is not vague in 3D, it is wrong.
    */
   const mode = $derived(
-    isPan ? (uiStore.analysisMode === '3d' ? t('viewport.modePan3d') : t('viewport.modePan'))
+    isPan ? (uiStore.is3DWorkspace ? t('viewport.modePan3d') : t('viewport.modePan'))
     : isSelect ? t('viewport.modeSelect')
     : t(TOOL_LABEL[tool] ?? 'float.select'),
   );

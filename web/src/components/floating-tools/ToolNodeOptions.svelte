@@ -18,7 +18,7 @@
 <!-- A phone puts the primary choice on a row of its own (see DataTable). -->
 <span class="ft-break" aria-hidden="true"></span>
 
-{#if uiStore.nodeMode === 'hinge' && uiStore.analysisMode !== '3d'}
+{#if uiStore.nodeMode === 'hinge' && !uiStore.is3DWorkspace}
   <!-- Basic 2D joints: hinge + sliding X/Z + axis mode -->
   <span class="ft-sep">|</span>
   <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'hinge'}
@@ -41,7 +41,7 @@
     <button class="ft-opt-btn" class:active={uiStore.jointAxis === 'local'}
       onclick={() => uiStore.jointAxis = 'local'} title={t('float.jointAxisLocalHint')}>{t('float.jointAxisLocal')}</button>
   {/if}
-{:else if uiStore.nodeMode === 'hinge' && uiStore.analysisMode === '3d'}
+{:else if uiStore.nodeMode === 'hinge' && uiStore.is3DWorkspace}
   <!-- Basic 3D joints: six released relative-DOF toggles (internal release, not a support) -->
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;" title={t('float.joint3dRelease')}>{t('float.joint3dRelease')}</span>
@@ -51,7 +51,7 @@
   {/each}
 {/if}
 
-{#if uiStore.analysisMode === '3d' && uiStore.nodeMode === 'create'}
+{#if uiStore.is3DWorkspace && uiStore.nodeMode === 'create'}
   <!-- Node-creation working plane + level (3D only; not a joint control) -->
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;">{t('float.nodePlane')}</span>
@@ -67,8 +67,8 @@
 {/if}
 <span class="ft-sep">|</span>
 {#if uiStore.nodeMode === 'create'}
-  <span class="ft-hint">{uiStore.analysisMode === '3d' ? t('float.nodeClickPlane') : t('float.nodeClickCanvas')}</span>
-{:else if uiStore.analysisMode === '3d'}
+  <span class="ft-hint">{uiStore.is3DWorkspace ? t('float.nodeClickPlane') : t('float.nodeClickCanvas')}</span>
+{:else if uiStore.is3DWorkspace}
   <span class="ft-hint">{t('float.joint3dHint')}</span>
 {:else if uiStore.jointType === 'hinge'}
   <span class="ft-hint">{t('float.nodeHingesHint')}</span>

@@ -135,7 +135,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 ## 2D/3D Mode Architecture
 
-The app supports both 2D and 3D analysis modes, toggled via `uiStore.analysisMode` (`'2d'` | `'3d'`).
+`uiStore.analysisMode` is one of `'2d'` | `'3d'` | `'pro'` | `'edu'`. Basic 3D and PRO are space workspaces (the 3D column below); Basic 2D and EDU are plane ones. Ask which with `uiStore.is3DWorkspace`, or `is3DWorkspace(mode)` from `lib/utils/workspace` for a mode that isn't the store's — never by comparing the mode to `'3d'` (that reads PRO as plane). `utils/__tests__/workspace-gate.test.ts` fails on a hand-written comparison.
 
 ### Key Differences Between Modes
 
@@ -153,7 +153,7 @@ The app supports both 2D and 3D analysis modes, toggled via `uiStore.analysisMod
 When writing UI code that depends on results (selectors, diagrams, etc.), always check the mode:
 
 ```svelte
-{@const is3D = uiStore.analysisMode === '3d'}
+{@const is3D = uiStore.is3DWorkspace}
 {@const caseKeys = is3D ? [...resultsStore.perCase3D.keys()] : [...resultsStore.perCase.keys()]}
 {@const comboKeys = is3D ? [...resultsStore.perCombo3D.keys()] : [...resultsStore.perCombo.keys()]}
 ```

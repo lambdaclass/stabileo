@@ -34,10 +34,16 @@
  * raising it is the move that would let a real quadratic back in, which is the failure this
  * file exists to prevent.
  *
- * The measurement-free version of this test would count the comparisons `buildDocumentModel`
- * performs instead of timing it, which is what the original defect was really about — a pair
- * of `includes` scans per record. That needs a counter in production code; if this flakes
- * again, that is the fix, not a looser bound.
+ * ── Counted, not timed (2026-10-01) ────────────────────────────────
+ *
+ * It flaked again, at `ratio=3.04` and `3.29` on 4–26 ms measurements, on branches that did
+ * not touch this module. So the stopwatch is gone, as the note above said it should go. The
+ * defect was never time; it was scans — an `includes` over `barIds` for every bar. The test
+ * hands `buildDocumentModel` its `bars` and `barIds` behind a Proxy that counts index reads.
+ * Every way of walking an array — `includes`, `find`, `filter`, a spread, `new Set(…)` —
+ * reads its elements through that Proxy, so the count is the scanning work itself, with no
+ * counter in production code and nothing a busy runner can perturb. Linear: the count
+ * doubles with the bars. The old pair of `includes` scans: it quadruples.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -88,36 +94,39 @@ function slabAssembly(n: number): DetailingAssembly {
   } as unknown as DetailingAssembly;
 }
 
-function timeBuild(n: number): number {
-  const assemblies = [slabAssembly(n)];
-  const run = () => {
-    const t0 = performance.now();
-    buildDocumentModel({
-      seriesId: 'S', revision: REVISION,
-      regulations: [{ id: 'cirsoc-201', edition: '2025' }],
-      assemblies, laps: [], certificates: [],
-    });
-    return performance.now() - t0;
-  };
-  // Five samples, not two: see the note on contention at the top of the file.
-  let best = Infinity;
-  for (let i = 0; i < 5; i++) best = Math.min(best, run());
-  return best;
+/** An array whose element reads are counted, however the code walks it. */
+function counted<T>(items: T[], tally: { reads: number }): T[] {
+  return new Proxy(items, {
+    get(target, key, receiver) {
+      if (typeof key === 'string' && /^\d+$/.test(key)) tally.reads++;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+}
+
+/** Element reads of `bars` and every record's `barIds` while building the document. */
+function readsToBuild(n: number): number {
+  const tally = { reads: 0 };
+  const a = slabAssembly(n) as unknown as { bars: BarPath[]; families: Array<{ barIds: string[] }> };
+  a.bars = counted(a.bars, tally);
+  for (const r of a.families) r.barIds = counted(r.barIds, tally);
+  buildDocumentModel({
+    seriesId: 'S', revision: REVISION,
+    regulations: [{ id: 'cirsoc-201', edition: '2025' }],
+    assemblies: [a as unknown as DetailingAssembly], laps: [], certificates: [],
+  });
+  return tally.reads;
 }
 
 describe('buildDocumentModel scales linearly in the number of bars', () => {
   it('doubling the bars does not quadruple the work', () => {
-    // Warm the JIT on a small input so neither measurement pays for compilation.
-    timeBuild(500);
-
-    const small = timeBuild(4_000);
-    const large = timeBuild(8_000);
-
-    // Linear ⇒ ≈2. Quadratic ⇒ ≈4. The `+1` floors the denominator so a sub-millisecond
-    // `small` on a fast machine cannot produce a meaningless ratio.
-    const ratio = (large + 1) / (small + 1);
-    expect(ratio, `small=${small.toFixed(1)}ms large=${large.toFixed(1)}ms ratio=${ratio.toFixed(2)}`)
-      .toBeLessThan(3);
+    const small = readsToBuild(2_000);
+    const large = readsToBuild(4_000);
+    // Linear ⇒ exactly 2, up to a constant. The old `includes` pair ⇒ ≈4. Counted, so the
+    // 3 between them is a line no machine's load can move.
+    const ratio = large / small;
+    expect(small, 'the bars were read at all').toBeGreaterThan(0);
+    expect(ratio, `reads: small=${small} large=${large} ratio=${ratio.toFixed(2)}`).toBeLessThan(3);
   });
 
   it('produces the same certificate freshness the slow form did', () => {

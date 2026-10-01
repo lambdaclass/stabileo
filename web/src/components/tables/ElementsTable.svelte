@@ -6,7 +6,7 @@
   import EndConditionSelect from '../EndConditionSelect.svelte';
   import type { Release } from '../../lib/store/model.svelte';
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   /*
    * ── Everything about a member, editable here ─────────────────────

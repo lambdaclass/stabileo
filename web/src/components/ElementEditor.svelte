@@ -21,7 +21,7 @@
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
   const rawPos = $derived(uiStore.editScreenPos);
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   /* Position, clamping and dragging belong to `EditorCard`. */
   const pos = $derived(rawPos);

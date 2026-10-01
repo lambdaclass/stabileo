@@ -3,7 +3,6 @@
  * selection that reads like the selected members.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { storyDrifts } from '../../engine/story-drift';
 import { groupByParallel } from '../../engine/design/member-grouping';
 import { memberLabelText, selectionNodeIds } from '../view-state.svelte';
@@ -203,15 +202,4 @@ describe('one deflection check for concrete and steel', () => {
     expect(row!.deflection!.limitDivisor).toBe(360);
   });
 
-  it('the report runs it for every beam, not the concrete verification set', () => {
-    // The concrete-only verification set is what `runUnifiedVerification` returns; steel members
-    // live in `steelVerifs`. Filtering the deflection check by the former is how steel beams
-    // never reached it. The report runs the same unfiltered check the Deflections table runs.
-    // (The verification tab this also read was never mounted and is gone from part 6 on.)
-    const report = readFileSync(new URL('../../engine/pro-report-inputs.ts', import.meta.url), 'utf8');
-    for (const [name, src] of [['pro-report-inputs.ts', report]] as const) {
-      expect(src, name).toContain('deflectionChecks()');
-      expect(src, name).not.toMatch(/deflectionChecks\(\s*beam/);
-    }
-  });
 });

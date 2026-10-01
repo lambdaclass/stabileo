@@ -45,7 +45,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
  */
 let ownVersion = -1;
 
-const is3D = () => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+const is3D = () => uiStore.is3DWorkspace;
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
 function restoreBaseline(snap: ModelSnapshot): void {

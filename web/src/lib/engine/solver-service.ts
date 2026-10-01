@@ -12,6 +12,7 @@ import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, c
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
+import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
@@ -782,6 +783,8 @@ export function advancedRefusal2D(input: SolverInput): string | null {
   }
   const structural = structuralChecks2D(input);
   if (structural) return structural;
+  const momentNode = unheldNodalMoment2D(input);
+  if (momentNode !== null) return tp('svc.momentOnTrussNode', { n: momentNode });
   for (const l of input.loads) {
     if (l.type === 'nodal') {
       if (!input.nodes.has(l.data.nodeId)) return t('svc.loadRefNodeMissing').replace('{n}', String(l.data.nodeId));
@@ -840,6 +843,11 @@ function prepareSolve2D(
 
   // Build solver loads array (shared with the multi-case combo path)
   const input: SolverInput = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
+
+  // A moment on a node nothing there can turn against is a modeling error said by
+  // name, not a vanishing-spring reaction that leaves the loads unbalanced.
+  const momentNode = unheldNodalMoment2D(input);
+  if (momentNode !== null) return tp('svc.momentOnTrussNode', { n: momentNode });
 
   // Kinematic analysis — memoized on the wire key. A full WASM round trip per
   // solve (serialize → analyze → parse) is by far the most expensive part of

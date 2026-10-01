@@ -5,7 +5,7 @@
   import { inspectMember3D, inspectNode3D } from '../lib/three/despiece-3d';
 
   const inspect = $derived(uiStore.despieceInspect);
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const active = $derived(resultsStore.diagramType === 'despiece' && inspect !== null);
 
   function args2D() {

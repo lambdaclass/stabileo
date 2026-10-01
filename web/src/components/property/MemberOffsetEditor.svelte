@@ -8,7 +8,7 @@
   // BOTH ends (i = j) — the supported "parallel member offset" case. Works on the
   // selected element(s); batch-applies to a multi-selection. 3D/PRO only.
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const selectedIds = $derived([...uiStore.selectedElements]);
   const count = $derived(selectedIds.length);
 
