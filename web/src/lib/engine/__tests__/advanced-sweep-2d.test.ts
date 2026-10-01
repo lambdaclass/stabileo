@@ -23,7 +23,8 @@
  *   plastic     λc finite > 0, ≥ first yield, = first yield when isostatic
  *   influence   Müller-Breslau: the ordinate at x is the static value under a
  *               unit load at x; a reaction's line is 1 at its support, 0 at others
- *   moving load each position's result is the static solve of the train there
+ *   moving load each position's result is the static solve of the train there,
+ *               alone: no model load, no settlement (as the 3D sweep)
  *   what-if     loads × k → response × k; E × k (and A, I × k) → displacements / k
  *
  * Findings are collected per check and asserted in one `it` each, so a run
@@ -39,6 +40,7 @@ import type { Load } from '../../store/model.svelte';
 import { solve as wasmSolve, solvePDelta, solveBuckling, solveModal, isSolverReady } from '../wasm-solver';
 import { solveMovingLoads, getPredefinedTrains, type LoadTrain, type MovingLoadEnvelope } from '../moving-loads';
 import { computeInfluenceLine } from '../influence-service';
+import { withoutSettlement } from '../settlement-case';
 import { runPlasticCollapse } from '../../actions/plastic';
 import { generateKinematicReport } from '../kinematic-report';
 import { inspectMember, inspectNode, computeDespieceVectors } from '../../canvas/draw-despiece';
@@ -688,7 +690,7 @@ function checkMoving(label: string, input: SolverInput, r: ReturnType<typeof rng
     const i = r.int(0, env.positions.length - 1);
     const pos = env.positions[i];
     const tr = i < nForward ? train : reversed(train);
-    const mine = wasmSolve({ ...input, loads: [...input.loads, ...trainLoads(input, env, tr, pos.refPosition)] });
+    const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, tr, pos.refPosition) });
     const theirs = new Map(pos.results.reactions.map((x) => [x.nodeId, x]));
     let worst = 0;
     for (const m of mine.reactions) {
@@ -704,7 +706,7 @@ function checkMoving(label: string, input: SolverInput, r: ReturnType<typeof rng
   // The envelope covers the static response at a position between its steps.
   ran('moving-envelope');
   const ref = -maxOff + r.next() * (total + maxOff);
-  const mine = wasmSolve({ ...input, loads: [...input.loads, ...trainLoads(input, env, train, ref)] });
+  const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, train, ref) });
   const gmax = env.fullEnvelope!.moment.globalMax;
   for (const e of env.fullEnvelope!.moment.elements) {
     const ef = mine.elementForces.find((f) => f.elementId === e.elementId)!;

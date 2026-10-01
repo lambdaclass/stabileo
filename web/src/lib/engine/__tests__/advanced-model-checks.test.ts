@@ -389,3 +389,105 @@ describe('3D — a mechanism the static solve accepts: its zero modes are discar
     expect(bk.discardedModes).toEqual([{ value: 0, nodeId: 11, dof: 'rz' }]);
   });
 });
+
+describe('2D — a moment on a node nothing there can turn against is refused, naming the node', () => {
+  const msg = (n: number) => t('svc.momentOnTrussNode').replace('{n}', String(n));
+
+  it('on a truss-only node of a mixed model — by the solve and by every advanced analysis', () => {
+    build2D(() => {
+      const a = N(0, 0), b = N(4, 0), c = N(2, -2);
+      E(a, b); E(a, c, 'truss'); E(c, b, 'truss');
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(b, 'rollerX');
+      modelStore.addNodalLoad(c, 0, -5, 3);
+    });
+    expect(staticMessage2D()).toBe(msg(3));
+    const input = input2D();
+    expect(thrown(() => solvePDelta(input))).toBe(msg(3));
+    expect(thrown(() => solveBuckling(input))).toBe(msg(3));
+    expect(thrown(() => solveModal(input, densities()))).toBe(msg(3));
+    expect(thrown(() => runPlasticCollapse())).toBe(msg(3));
+  });
+
+  it('on a joint where every frame end is hinged', () => {
+    build2D(() => {
+      const n = [N(0, 0), N(3, 0), N(6, 0)];
+      const e1 = E(n[0], n[1]), e2 = E(n[1], n[2]);
+      modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[2], 'rollerX');
+      modelStore.toggleHinge(e1, 'end'); modelStore.toggleHinge(e2, 'start');
+      modelStore.addNodalLoad(n[1], 0, 0, 2);
+    });
+    expect(staticMessage2D()).toBe(msg(2));
+  });
+
+  it('on any node of a pure truss, which has no rotations at all', () => {
+    build2D(() => {
+      const n = [N(0, 0), N(2, 0), N(4, 0)];
+      E(n[0], n[1], 'truss'); E(n[1], n[2], 'truss');
+      modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[2], 'pinned');
+      modelStore.addNodalLoad(n[1], 0, -10, 1);
+    });
+    expect(staticMessage2D()).toBe(msg(2));
+  });
+
+  it('on a frame node it is taken, and the reactions balance it', () => {
+    build2D(() => {
+      const a = N(0, 0), b = N(3, 0);
+      E(a, b);
+      modelStore.addSupport(a, 'fixed');
+      modelStore.addNodalLoad(b, 0, 0, 3);
+    });
+    const r = modelStore.solve() as AnalysisResults;
+    expect(typeof r).toBe('object');
+    const base = r.reactions.find((x) => x.nodeId === 1)!;
+    expect(Math.abs(Math.abs(base.my) - 3)).toBeLessThan(1e-9);
+  });
+});
+
+describe('3D D7 — the moment refusal is per axis, not per node', () => {
+  function columnWithFreeTorsion(momentMz: number) {
+    resetModel3D();
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 3);
+      frame(a, top, 1); support(a, 'fixed3d');
+      // Torsion released at the head: bending rotations there are resisted, the one
+      // about the bar axis (global z) is not.
+      modelStore.updateElement(1, { releaseJ: { t: true, my: false, mz: false } } as never);
+      modelStore.addNodalLoad3D(top, 0, 0, 0, 0, 0, momentMz);
+    });
+  }
+
+  it('a moment about the released axis is refused although another rotation is resisted', () => {
+    columnWithFreeTorsion(3);
+    expect(staticSolve3D()).toBe(t('svc.momentOnTrussNode').replace('{n}', '2'));
+  });
+
+  it('a moment about a resisted axis of the same node is taken, and the reactions balance it', () => {
+    resetModel3D();
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 3);
+      frame(a, top, 1); support(a, 'fixed3d');
+      modelStore.updateElement(1, { releaseJ: { t: true, my: false, mz: false } } as never);
+      modelStore.addNodalLoad3D(top, 0, 0, 0, 3, 0, 0);
+    });
+    const r = staticSolve3D() as AnalysisResults3D;
+    expect(typeof r).toBe('object');
+    // 1e-5, not the usual 1e-9: the head's torsion rotation carries the stabiliser's
+    // vanishing spring (its rank is 2), whose reaction is round-off next to 3 kN·m.
+    expect(equilibriumError(input3D(), r).moment).toBeLessThan(1e-5);
+  });
+
+  it('a moment about the released axis of a beam at 45° in plan is refused too', () => {
+    // The released axis (1, 1, 0)/√2 shares its global components with the resisted
+    // bending axes, so judging component by component took it as held: the tip turned
+    // 6.5e4 rad and 0.71 kN·m went missing from the moment balance.
+    resetModel3D();
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(3, 3, 0);
+      frame(a, tip, 1); support(a, 'fixed3d');
+      modelStore.updateElement(1, { releaseJ: { t: true, my: false, mz: false } } as never);
+      const m = 3 / Math.SQRT2;
+      modelStore.addNodalLoad3D(tip, 0, 0, 0, m, m, 0);
+    });
+    expect(staticSolve3D()).toBe(t('svc.momentOnTrussNode').replace('{n}', '2'));
+  });
+});
