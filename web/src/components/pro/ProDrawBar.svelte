@@ -87,7 +87,7 @@
           {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
         </select>
         <label>{t('pro.thickness')}
-          <input type="number" step="any" min="0.001" value={drawState.plateThickness} onchange={(e) => (drawState.plateThickness = num(e))} /> m
+          <input type="number" step="any" min="0.001" value={drawState.plateThickness} onchange={(e) => { const v = num(e); if (v > 0) drawState.plateThickness = v; else e.currentTarget.value = String(drawState.plateThickness); }} />
         </label>
       {:else if tool === 'support'}
         <SupportDofFields />

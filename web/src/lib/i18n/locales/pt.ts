@@ -4211,6 +4211,7 @@ const pt: Translations = {
   'pro.layerWord': 'camadas',
   'pro.lcLoads': 'Cargas',
   'pro.lcName': 'Nome',
+  'pro.forcesSignHint': "Esforços nas extremidades de cada barra, nos seus eixos locais e com o sinal do cálculo. Os rótulos dos diagramas mostram o momento com a convenção de tração embaixo positiva, então uma mesma extremidade pode aparecer com o sinal oposto ali.",
   'pro.lcAlternative': "Alt.",
   'pro.lcAlternativeHint': "Disposição alternativa: o caso é uma das formas de posicionar a mesma carga (sobrecarga completa ou em xadrez, neve balanceada ou não balanceada) e as combinações tomam uma delas por vez.",
   'pro.lcType': 'Tipo',

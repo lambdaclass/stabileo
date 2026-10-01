@@ -37,7 +37,7 @@ describe('bays and names', () => {
   it('lays axes at the running sum of the bays and gives the bays back', () => {
     const axes = axesFromBays([6, 7.5, 6], 'x', 1, 'numbers', '1');
     expect(axes.map((a) => [a.name, a.at])).toEqual([['1', 1], ['2', 7], ['3', 14.5], ['4', 20.5]]);
-    expect(baysText(axes)).toBe('6; 7,5; 6');
+    expect(baysText(axes)).toBe('6; 7.5; 6');
   });
 
   it('names levels from the list, then by index', () => {

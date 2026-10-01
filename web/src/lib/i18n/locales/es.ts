@@ -5297,6 +5297,7 @@ const es: Record<string, string> = {
   'pro.selfWeightLabel': 'Peso propio',
   'pro.lcType': 'Tipo',
   'pro.lcName': 'Nombre',
+  'pro.forcesSignHint': "Esfuerzos en los extremos de cada barra, en sus ejes locales y con el signo del cálculo. Los rótulos de los diagramas muestran el momento con la convención de tracción abajo positiva, así que un mismo extremo puede leerse con el signo opuesto allí.",
   'pro.lcAlternative': "Alt.",
   'pro.lcAlternativeHint': "Disposición alternativa: el caso es una de las maneras de colocar la misma carga (sobrecarga completa o en damero, nieve balanceada o no balanceada) y las combinaciones toman una de ellas por vez.",
   'pro.lcLoads': 'Cargas',

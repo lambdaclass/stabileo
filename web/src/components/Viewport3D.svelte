@@ -1,6 +1,6 @@
 <script lang="ts">
   import { is3DWorkspace } from '../lib/utils/workspace';
-  import { displayUnits } from '../lib/store/display-units.svelte';
+  import { displayUnits, fmtQ, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
@@ -2927,7 +2927,9 @@
       let tooltipText = '';
       if (newHover.type === 'node') {
         const n = modelStore.nodes.get(newHover.id);
-        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id)).replace('{x}', n.x.toFixed(2)).replace('{y}', n.y.toFixed(2)).replace('{z}', (n.z ?? 0).toFixed(2));
+        // In the chosen units, as the status bar shows the cursor: the hover read metres beside feet.
+        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
+          .replace('{x}', `${fmtQ(n.x, 'length')}`).replace('{y}', `${fmtQ(n.y, 'length')}`).replace('{z}', `${fmtQ(n.z ?? 0, 'length')} ${unitQ('length')}`);
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
@@ -3557,20 +3559,20 @@
       <div class="coord-dialog">
         <div class="coord-title">{t('viewport3d.createNodeCoords')}</div>
         <div class="coord-row">
-          <label>X</label>
+          <label>X (m)</label>
           <!-- svelte-ignore a11y_autofocus -->
           <input type="number" step="any" bind:value={coordX} autofocus
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Y</label>
+          <label>Y (m)</label>
           <input type="number" step="any" bind:value={coordY}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Z</label>
+          <label>Z (m)</label>
           <input type="number" step="any" bind:value={coordZ}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />

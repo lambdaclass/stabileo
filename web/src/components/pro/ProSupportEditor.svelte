@@ -90,7 +90,8 @@
     <tbody>
       {#each DOF as d (d.key)}
         <tr>
-          <td class="se-dof">{d.label}</td>
+          <!-- The spring's unit beside its DOF: as a placeholder it went away once a value was typed. -->
+          <td class="se-dof">{d.label} <span class="se-unit">{d.unit}</span></td>
           <td><input type="checkbox" checked={fixed(d.key)} disabled={!isCustom} title={isCustom ? '' : t('support.fixedByType')}
             onchange={(e) => setFixed(d.key, e.currentTarget.checked)} data-testid="sup-fix-{support.id}-{d.key}" aria-label="{t('support.fixed')} {d.label}" /></td>
           <td>
@@ -133,4 +134,5 @@
   .se-mono { font-family: var(--st-mono); }
   .se-hint { margin: 0; color: var(--st-text-3); font-size: 0.6rem; }
   button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
+  .se-unit { color: var(--st-text-3); font-size: 0.58rem; white-space: nowrap; }
 </style>

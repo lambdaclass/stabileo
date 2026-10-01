@@ -5304,6 +5304,7 @@ const en: Record<string, string> = {
   'pro.selfWeightLabel': 'Self-weight',
   'pro.lcType': 'Type',
   'pro.lcName': 'Name',
+  'pro.forcesSignHint': "End forces of each member, in its local axes and with the solver sign. The diagram labels show the moment with sagging positive, so the same end can read with the opposite sign there.",
   'pro.lcAlternative': "Alt.",
   'pro.lcAlternativeHint': "Alternative arrangement: the case is one of the ways the same load is placed (full or checkerboard live load, balanced or unbalanced snow), and the combinations take one of them at a time.",
   'pro.lcLoads': 'Loads',
