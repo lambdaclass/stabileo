@@ -18,7 +18,7 @@ const cap = (Nu: number, Mu = 50) => computeColumnCapacity(As, b, b, 25, 420, 0.
 
 describe('column P-M on the design curve', () => {
   it('reads φMn where φPn equals Pu, lower than the nominal-curve reading at high load', () => {
-    expect(cap(900).phiMn).toBeCloseTo(66.6, -0.5);   // ±5 kN·m band around the audit's hand value
+    expect(cap(900).phiMn).toBeCloseTo(66.6, -0.5);   // ±5 kN·m band around a hand calculation
     expect(cap(1200).phiMn).toBeCloseTo(47.7, -0.5);
     expect(cap(1200).phiMn).toBeLessThan(55);
   });

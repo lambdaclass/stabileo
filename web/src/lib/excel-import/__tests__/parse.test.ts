@@ -400,7 +400,7 @@ describe('one coordinate convention for the entire Nodes sheet', () => {
   });
 });
 
-describe('what the second audit found', () => {
+describe('the importer: language, repeated ids, one support per node, units', () => {
   it('speaks the reader\'s language', () => {
     const b = goodBook();
     b.Sections = aoa(['id', 'name'], [1, 'IPE 999']);
