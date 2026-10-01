@@ -5,7 +5,7 @@ import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { weightPerMetre } from './member-weight';
 import { expandSemiRigid3D } from './expand-semi-rigid-3d';
-import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
+import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
 import { supportDofs3D } from './support-dofs-3d';
@@ -1477,7 +1477,7 @@ export function buildSolverInput3D(
   userLeftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
-  model = activeModel(model);
+  model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
@@ -1723,6 +1723,8 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // route through here exactly once) so browser tests can assert that a
   // reinforcement-only edit triggers none. Not part of the solver.
   noteStructuralSolve();
+  // Checked on what the engine will see: inactive members and the nodes nothing holds are out.
+  model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) {
     return t('svc.needNodesAndElements');
   }
@@ -1856,7 +1858,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     const t0 = performance.now();
     let results: AnalysisResults3D;
     if (hasNonlinearBehaviour(model)) {
-      const r = solveNonlinear3D(activeModel(model), input);
+      const r = solveNonlinear3D(solvableModel(model), input);
       results = { ...r.results, nonlinear: r.report };
     } else {
       results = solve3DEngine(input);
@@ -1976,7 +1978,7 @@ export function solveCombinations3D(
   includeSelfWeight = false,
   leftHand = false,
 ): Bundle3D | string | null {
-  return withDeclaredInactiveBundle(solveCombinations3DActive(activeModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+  return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
 }
 
 function solveCombinations3DActive(
@@ -2340,7 +2342,7 @@ export async function solveCombinations3DParallel(
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
   const original = model;
-  model = activeModel(model);
+  model = solvableModel(model);
   /*
    * The same dispatch as `solveCombinations3DActive`, in the same order: this is the entry PRO's
    * Solve takes, so a rule the sync path honours and this one skipped (P-Delta per combination

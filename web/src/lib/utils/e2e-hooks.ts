@@ -160,6 +160,8 @@ export interface StabileoTestHooks {
    * joint?». This pair can.
    */
   nodeMarkersDrawn(): boolean;
+  /** Member diagrams the 3D scene holds right now (0 when none is drawn). */
+  diagramMembers(): number;
   renderMode3D(): string;
   /**
    * Everything selected, by kind.
@@ -556,6 +558,7 @@ export function installE2EHooks(): void {
     jointMeshCount: () =>
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     jointScene: () => (window as unknown as { __jointScene?: unknown }).__jointScene ?? null,
+    diagramMembers: () => (window as unknown as { __diagramMembers?: number }).__diagramMembers ?? 0,
     nodeMarkersDrawn: () =>
       (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn ?? true,
     renderMode3D: () => String(uiStore.renderMode3D),

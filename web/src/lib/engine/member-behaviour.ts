@@ -58,20 +58,35 @@ type El = { id: number; nodeI: number; nodeJ: number; behaviour?: MemberBehaviou
 
 /** The model without its inactive members, their loads, and the nodes only they held. */
 export function activeModel<M extends ModelData>(model: M): M {
+  return pruneModel(model, false);
+}
+
+/**
+ * What the engine solves: `activeModel`, and without the nodes nothing holds either, with their
+ * supports. Such a node adds nothing to the structure, and its free degrees of freedom made the
+ * stiffness matrix singular, so one stray click with the node tool turned every solve into an
+ * error and left the results unavailable until the node was found and deleted. The diagnostics
+ * still name it. One that carries a load stays, so the solve stops on it and says so: dropping
+ * the load in silence would change the answer.
+ */
+export function solvableModel<M extends ModelData>(model: M): M {
+  return pruneModel(model, true);
+}
+
+function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   const inactive = new Set<number>();
   for (const e of model.elements.values()) if ((e as El).behaviour === 'inactive') inactive.add(e.id);
-  if (inactive.size === 0) return model;
-  const elements = new Map([...model.elements].filter(([id]) => !inactive.has(id)));
-  const used = new Set<number>();
-  for (const e of elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
-  for (const q of model.quads?.values() ?? []) q.nodes.forEach((n) => used.add(n));
-  for (const p of model.plates?.values() ?? []) p.nodes.forEach((n) => used.add(n));
-  for (const c of model.connectors?.values() ?? []) { used.add(c.nodeI); used.add(c.nodeJ); }
-  for (const c of model.constraints ?? []) for (const v of Object.values(c as unknown as Record<string, unknown>)) {
-    if (typeof v === 'number') used.add(v);
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'number') used.add(x);
+  if (inactive.size === 0 && !dropLoose) return model;
+  const elements = inactive.size === 0 ? model.elements : new Map([...model.elements].filter(([id]) => !inactive.has(id)));
+  const used = nodesInUse(model, elements);
+  const heldByAny = inactive.size === 0 ? used : nodesInUse(model, model.elements);
+  for (const id of model.nodes.keys()) if (!dropLoose && !heldByAny.has(id)) used.add(id);
+  for (const l of model.loads) {
+    const n = (l.data as { nodeId?: number }).nodeId;
+    if (n !== undefined && !heldByAny.has(n)) used.add(n);
   }
   const keepNode = (id: number) => used.has(id);
+  if (inactive.size === 0 && [...model.nodes.keys()].every(keepNode)) return model;
   const loads = model.loads.filter((l) => {
     const d = l.data as { elementId?: number; nodeId?: number };
     if (d.elementId !== undefined && inactive.has(d.elementId)) return false;
@@ -85,6 +100,20 @@ export function activeModel<M extends ModelData>(model: M): M {
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
     loads,
   };
+}
+
+/** Nodes held by one of `elements`, a shell, a connector or a constraint. */
+function nodesInUse(model: ModelData, elements: ModelData['elements']): Set<number> {
+  const used = new Set<number>();
+  for (const e of elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
+  for (const q of model.quads?.values() ?? []) q.nodes.forEach((n) => used.add(n));
+  for (const p of model.plates?.values() ?? []) p.nodes.forEach((n) => used.add(n));
+  for (const c of model.connectors?.values() ?? []) { used.add(c.nodeI); used.add(c.nodeJ); }
+  for (const c of model.constraints ?? []) for (const v of Object.values(c as unknown as Record<string, unknown>)) {
+    if (typeof v === 'number') used.add(v);
+    if (Array.isArray(v)) for (const x of v) if (typeof x === 'number') used.add(x);
+  }
+  return used;
 }
 
 export function hasNonlinearBehaviour(model: ModelData): boolean {
