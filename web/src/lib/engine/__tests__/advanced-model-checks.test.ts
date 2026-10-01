@@ -475,4 +475,19 @@ describe('3D D7 — the moment refusal is per axis, not per node', () => {
     // vanishing spring (its rank is 2), whose reaction is round-off next to 3 kN·m.
     expect(equilibriumError(input3D(), r).moment).toBeLessThan(1e-5);
   });
+
+  it('a moment about the released axis of a beam at 45° in plan is refused too', () => {
+    // The released axis (1, 1, 0)/√2 shares its global components with the resisted
+    // bending axes, so judging component by component took it as held: the tip turned
+    // 6.5e4 rad and 0.71 kN·m went missing from the moment balance.
+    resetModel3D();
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(3, 3, 0);
+      frame(a, tip, 1); support(a, 'fixed3d');
+      modelStore.updateElement(1, { releaseJ: { t: true, my: false, mz: false } } as never);
+      const m = 3 / Math.SQRT2;
+      modelStore.addNodalLoad3D(tip, 0, 0, 0, m, m, 0);
+    });
+    expect(staticSolve3D()).toBe(t('svc.momentOnTrussNode').replace('{n}', '2'));
+  });
 });

@@ -296,15 +296,22 @@ export function unheldNodalMoment3D(input: SolverInput3D): number | null {
     const scale = Math.hypot(m[0], m[1], m[2]);
     if (!(scale > 1e-12)) continue;
     if (frames && skip.has(nodeId)) continue;
-    /* Per axis, not per node: an end that resists one rotation says nothing about
-       the others — a moment about a released, unsupported axis still vanishes.
+    /* By direction, not per node: an end that resists one rotation says nothing about
+       the others — a moment about a released, unsupported axis still vanishes. The
+       moment is held when it lies in the span of the axes resisted there (member axes,
+       which need not be global ones, and the support's own). Judging each global
+       component on its own let a moment about the released axis of a member at 45°
+       through, since that axis shares its components with the resisted ones.
        A pure truss model has no rotations at all: the solver drops every moment. */
-    const axes = frames ? (resisted.get(nodeId) ?? []) : [];
     const sp = frames ? supOf.get(nodeId) : undefined;
-    const held = [0, 1, 2].map((i) =>
-      axes.some((v) => Math.abs(v[i]!) > 1e-9) ||
-      (!!sp && (sp[ROT_FLAGS[i]] || ((sp[ROT_SPRINGS[i]] ?? 0) > 0 && !(sp.stabilised && sp.stabilisedAxes?.[i])))));
-    if (m.some((c, i) => Math.abs(c) > 1e-9 * scale && !held[i])) return nodeId;
+    const held: V3[] = frames ? [...(resisted.get(nodeId) ?? [])] : [];
+    for (const i of [0, 1, 2]) {
+      if (sp && (sp[ROT_FLAGS[i]] || ((sp[ROT_SPRINGS[i]] ?? 0) > 0 && !(sp.stabilised && sp.stabilisedAxes?.[i])))) {
+        held.push([i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0]);
+      }
+    }
+    const dir: V3 = [m[0] / scale, m[1] / scale, m[2] / scale];
+    if (rank([...held, dir]) > rank(held)) return nodeId;
   }
   return null;
 }
