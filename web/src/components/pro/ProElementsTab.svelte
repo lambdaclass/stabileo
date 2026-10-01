@@ -6,7 +6,7 @@
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   interface ElemRow {
     id: number | null;

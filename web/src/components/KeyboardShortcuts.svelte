@@ -143,7 +143,7 @@
     if (!clip || clip.nodes.length === 0) return;
 
     // Offset: in 3D mode offset in Z, in 2D offset in XY
-    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    const is3D = uiStore.is3DWorkspace;
     const ox = is3D ? 0 : 1;
     const oy = is3D ? 0 : 1;
     const oz = is3D ? 3 : 0;
@@ -199,7 +199,7 @@
 
     // Alt + letter: labels and the magnifier. Read from `code`, not `key` — on a Mac Alt turns
     // the letter into a symbol (Alt+N is "˜"). PRO and 3-D only, where these labels exist.
-    if (e.altKey && !e.ctrlKey && !e.metaKey && (uiStore.analysisMode === 'pro' || uiStore.analysisMode === '3d')) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && uiStore.is3DWorkspace) {
       const handled = ({
         KeyN: () => { uiStore.showNodeLabels3D = !uiStore.showNodeLabels3D; },
         KeyB: () => { uiStore.showElementLabels3D = !uiStore.showElementLabels3D; },
@@ -298,7 +298,7 @@
 
     // F: Zoom to fit
     if (key === 'F') {
-      if (uiStore.analysisMode === '3d') {
+      if (uiStore.is3DWorkspace) {
         window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
       } else {
         zoomToFit();
@@ -318,7 +318,7 @@
 
     // Diagram shortcuts (0-9)
     if (resultsStore.results || resultsStore.results3D) {
-      const is3D = uiStore.analysisMode === '3d';
+      const is3D = uiStore.is3DWorkspace;
       switch (e.key) {
         case '0': resultsStore.diagramType = 'none'; return;
         case '1': resultsStore.diagramType = 'deformed'; return;
@@ -357,7 +357,7 @@
     // G: toggle grid (2D and 3D)
     if (key === 'G') {
       // PRO is a 3-D viewport too; toggling the 2-D grid there changed nothing on screen.
-      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+      if (uiStore.is3DWorkspace) {
         uiStore.showGrid3D = !uiStore.showGrid3D;
       } else {
         uiStore.showGrid = !uiStore.showGrid;
@@ -367,7 +367,7 @@
 
     // H: toggle axes (2D and 3D)
     if (key === 'H' && !e.ctrlKey && !e.metaKey) {
-      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+      if (uiStore.is3DWorkspace) {
         uiStore.showAxes3D = !uiStore.showAxes3D;
       } else {
         uiStore.showAxes = !uiStore.showAxes;

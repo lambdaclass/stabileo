@@ -57,7 +57,7 @@ function showPanel() {
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */
 export function openStiffnessWizard(): boolean {
   if (blocked()) return false;
-  const threeD = uiStore.analysisMode === '3d';
+  const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
@@ -78,7 +78,7 @@ export function openStiffnessWizard(): boolean {
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
 export function openFlexibilityWizard(): boolean {
   if (blocked()) return false;
-  const threeD = uiStore.analysisMode === '3d';
+  const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;

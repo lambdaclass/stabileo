@@ -13,7 +13,7 @@
   import type { MaterialPreset } from '../../lib/data/material-presets';
   import type { SectionProperties } from '../../lib/data/section-shapes';
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   const us = $derived(uiStore.unitSystem);
   const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);

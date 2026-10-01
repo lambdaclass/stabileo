@@ -4,6 +4,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
+import { is3DWorkspace } from '../utils/workspace';
 import type { ModelSnapshot } from './history.svelte';
 import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
@@ -74,11 +75,6 @@ export function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
     delete elem.hingeStart;
     delete elem.hingeEnd;
   }
-}
-
-/** Returns true when the given analysis mode uses the 3D solver / export paths */
-export function isMode3D(mode: string): boolean {
-  return mode === '3d' || mode === 'pro';
 }
 
 export interface DedalSessionFile {
@@ -317,7 +313,7 @@ export function noteAxisConventionMigrationIfNeeded(
   analysisMode: string | undefined,
 ): void {
   if (!snap) return;
-  if (!snap.localAxisConvention && isMode3D(analysisMode ?? '')
+  if (!snap.localAxisConvention && is3DWorkspace(analysisMode ?? '')
     && Array.isArray(snap.elements) && snap.elements.length > 0) {
     uiStore.toast(t('file.loadedNoAxisConvention'), 'info');
   }
@@ -380,7 +376,7 @@ function validateDedalFile(data: unknown): data is DedalFile {
  */
 function validateAxisSafety(data: DedalFile): void {
   const mode = data.analysisMode ?? '2d';
-  if (isMode3D(mode)) return; // 3D/PRO files can have any coordinates
+  if (is3DWorkspace(mode)) return; // 3D/PRO files can have any coordinates
 
   const nodes = data.snapshot.nodes as Array<[number, { x: number; y: number; z?: number }]>;
   if (nodes.length === 0) return;
@@ -463,7 +459,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
 // ─── Export Results CSV ─────────────────────────────────────────
 
 export function exportResultsCSV(): string {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
 
@@ -795,7 +791,7 @@ export function generateReportHTML(): string {
   }
 
   // Nodes table
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   html += `<h2>${t('file.geometry')}</h2>`;
   if (is3D) {
     html += `<h3>${t('file.nodes')}</h3>

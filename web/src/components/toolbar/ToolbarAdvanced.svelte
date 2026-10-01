@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
 
-  const threeD = (): boolean => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+  const threeD = (): boolean => uiStore.is3DWorkspace;
 
   /*
    * A 2D ↔ 3D switch closes what the dimension left behind.
@@ -450,7 +450,8 @@
 
   async function handleMovingLoad(trainIndex: number) {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+    // The train alone: the sweep drops the model's loads and settlements (`trainBase`).
+    const input = modelStore.buildSolverInput(false);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const train = getPredefinedTrains()[trainIndex];
     if (!train) return;
@@ -485,7 +486,7 @@
   }
 
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   async function handlePDelta3D() {
     if (blockedBySlidingJoints()) return;

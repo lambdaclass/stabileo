@@ -77,7 +77,7 @@
       ({toDisplay(uiStore.worldX, 'length', uiStore.unitSystem).toFixed(2)}, {toDisplay(uiStore.worldY, 'length', uiStore.unitSystem).toFixed(2)}) {unitLabel('length', uiStore.unitSystem)}
     </span>
   </div>
-  {#if uiStore.analysisMode !== '3d'}
+  {#if !uiStore.is3DWorkspace}
     <div class="status-item">
       <span class="status-label">{t('status.zoom')}:</span>
       <span class="status-value">{Math.round(uiStore.zoom)} px/m</span>

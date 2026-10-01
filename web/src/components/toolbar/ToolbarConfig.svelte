@@ -121,7 +121,7 @@
       </button>
     {/if}
     {#if flat || showGridSub}
-      {@const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
+      {@const is3D = uiStore.is3DWorkspace}
       {@const isPro = uiStore.analysisMode === 'pro'}
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
       <div class="sub-content" data-tour="cfg-grid">
@@ -234,7 +234,7 @@
 
     {/if}
     {#if flat || showStructureSub}
-      {@const is3Dm = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
+      {@const is3Dm = uiStore.is3DWorkspace}
       <div class="sub-content" data-tour="cfg-model">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.nodeIds')}>

@@ -14,7 +14,7 @@
 
   let severityFilter = $state<SeverityFilter>('all');
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   // Auto-run model check reactively when model changes
   const autoModelDiags = $derived.by(() => {

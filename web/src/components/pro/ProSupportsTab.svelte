@@ -5,7 +5,7 @@
   import DrawInModelButton from './DrawInModelButton.svelte';
   import { supportTypeOptions } from '../../lib/pro/support-types';
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   const supportTypes = $derived(supportTypeOptions(is3D, t));
 

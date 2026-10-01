@@ -44,7 +44,7 @@
   function addNode() {
     // Welded, so a row typed on top of an existing node reuses it instead of
     // stacking a twin. No pushState: the mutation pushes its own undo step.
-    if (uiStore.analysisMode === '3d') {
+    if (uiStore.is3DWorkspace) {
       modelStore.addNodeWelded(newNodeX, newNodeY, newNodeZ);
     } else {
       modelStore.addNodeWelded(newNodeX, newNodeY);
@@ -56,7 +56,7 @@
 {#if nodesArr.length > 0}
   <table>
     <thead>
-      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</th><th>{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>{#if uiStore.analysisMode === '3d'}<th>Z (m)</th>{/if}<th></th></tr>
+      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</th><th>{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>{#if uiStore.is3DWorkspace}<th>Z (m)</th>{/if}<th></th></tr>
     </thead>
     <tbody>
       {#each nodesArr as node}
@@ -64,7 +64,7 @@
           <td class="id-cell">{node.id}</td>
           <td><input type="number" step="0.001" value={node.x.toFixed(3)} onchange={(e) => updateNodeX(node.id, e.currentTarget.value)} /></td>
           <td><input type="number" step="0.001" value={node.y.toFixed(3)} onchange={(e) => updateNodeY(node.id, e.currentTarget.value)} /></td>
-          {#if uiStore.analysisMode === '3d'}
+          {#if uiStore.is3DWorkspace}
             <td><input type="number" step="0.001" value={(node.z ?? 0).toFixed(3)} onchange={(e) => updateNodeZ(node.id, e.currentTarget.value)} /></td>
           {/if}
           <td><button class="del" onclick={() => deleteNode(node.id)}>&#10005;</button></td>
@@ -77,9 +77,9 @@
   <div class="add-row">
     <span class="add-label">{TWO_D_HORIZONTAL_AXIS_LABEL}:</span>
     <input type="number" step="0.5" bind:value={newNodeX} class="add-input" />
-    <span class="add-label">{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
+    <span class="add-label">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
     <input type="number" step="0.5" bind:value={newNodeY} class="add-input" />
-    {#if uiStore.analysisMode === '3d'}
+    {#if uiStore.is3DWorkspace}
       <span class="add-label">Z:</span>
       <input type="number" step="0.5" bind:value={newNodeZ} class="add-input" />
     {/if}
