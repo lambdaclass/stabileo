@@ -18,6 +18,7 @@ import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
 import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
+import { prepareSharedSnapshot } from './share-snapshot';
 
 /**
  * The wire schema tag.
@@ -28,6 +29,31 @@ import { mergeCode } from '../model/code/apply';
  * `sv >= 3` and `sv >= 4`, which 5 satisfies. A reader that predates `jd` ignores it.
  */
 const SHARE_VERSION = 5;
+
+/**
+ * The modes a link is written from.
+ *
+ * `generateShareURL`/`generateEmbedURL` write one of these or nothing (an edu
+ * session shares no mode), so a link that names anything else — 'edu'
+ * included — was not written by the app, and the reader keeps its own mode.
+ */
+const SHARED_ANALYSIS_MODES: readonly string[] = ['2d', '3d', 'pro'];
+
+function sharedMode(mode: string | undefined): '2d' | '3d' | 'pro' | undefined {
+  return mode !== undefined && SHARED_ANALYSIS_MODES.includes(mode) ? mode as '2d' | '3d' | 'pro' : undefined;
+}
+
+/**
+ * Switch to the link's mode when it names one a link is written with.
+ *
+ * Returns the mode the model is loaded in, which is what the axis-convention
+ * note has to be decided from: a refused mode was never entered.
+ */
+function applyLinkMode(mode: string | undefined): string {
+  const m = sharedMode(mode);
+  if (m) uiStore.analysisMode = m;
+  return uiStore.analysisMode;
+}
 
 function packRelease(r: Release | undefined): Record<string, unknown> | undefined {
   if (!r) return undefined;
@@ -603,7 +629,8 @@ function decompressV2(data: string): ModelSnapshot | null {
     const bytes = inflateSync(deflated);
     const json = new TextDecoder().decode(bytes);
     const compact = JSON.parse(json);
-    return fromCompact(compact);
+    if (!Array.isArray(compact.ni)) return null;
+    return prepareSharedSnapshot(fromCompact(compact));
   } catch {
     return null;
   }
@@ -631,8 +658,9 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
   try {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;
-    const parsed = JSON.parse(json) as ModelSnapshot;
-    if (!parsed.nodes || !parsed.nextId) return null;
+    const parsed = prepareSharedSnapshot(JSON.parse(json));
+    if (!parsed) return null;
+
     const elems = parsed.elements as Array<[number, Record<string, unknown>]>;
     if (Array.isArray(elems)) {
       for (const [, elem] of elems) {
@@ -706,7 +734,7 @@ export function generateShareURL(): { url: string; length: number } | null {
   if (snapshot.nodes.length === 0) return null;
 
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
+  snapshot.analysisMode = sharedMode(mode);
   // A model the compact format would change (every PRO addition: behaviours, sections' own
   // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
   // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
@@ -772,8 +800,7 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   const snapshot = modelStore.snapshot();
   if (snapshot.nodes.length === 0) return null;
 
-  const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
+  snapshot.analysisMode = sharedMode(uiStore.analysisMode);
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);
@@ -849,7 +876,7 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
     if (!r.snapshot) return null;
     modelStore.clear();
     const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
-    if (snapshot.analysisMode) uiStore.analysisMode = snapshot.analysisMode;
+    applyLinkMode(snapshot.analysisMode);
     modelStore.restore(snapshot);
     queueMicrotask(() => window.dispatchEvent(new Event('stabileo-restore-camera-3d')));
     history.replaceState(null, '', location.pathname + location.search);
@@ -872,16 +899,14 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
   const snapshot = decompressSnapshot(compressed);
   if (!snapshot) return null;
 
-  if (snapshot.analysisMode) {
-    uiStore.analysisMode = snapshot.analysisMode;
-  }
+  const loadedMode = applyLinkMode(snapshot.analysisMode);
 
   modelStore.restore(snapshot);
   restoreMeta(snapshot);
   // Same pre-metadata convention note as a .ded open — a shared link is the most
   // common cross-machine entry point, so a legacy 3D model must not change axes
   // silently here. (New models carry the tag below, so this never false-fires.)
-  noteAxisConventionMigrationIfNeeded(snapshot, snapshot.analysisMode);
+  noteAxisConventionMigrationIfNeeded(snapshot, loadedMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {
@@ -940,16 +965,14 @@ export function loadFromShareLink(url: string): boolean {
   const snapshot = decompressSnapshot(parsed.compressed);
   if (!snapshot) return false;
 
-  if (snapshot.analysisMode) {
-    uiStore.analysisMode = snapshot.analysisMode;
-  }
+  const loadedMode = applyLinkMode(snapshot.analysisMode);
 
   modelStore.restore(snapshot);
   restoreMeta(snapshot);
   // Same pre-metadata convention note as a .ded open — a shared link is the most
   // common cross-machine entry point, so a legacy 3D model must not change axes
   // silently here. (New models carry the tag below, so this never false-fires.)
-  noteAxisConventionMigrationIfNeeded(snapshot, snapshot.analysisMode);
+  noteAxisConventionMigrationIfNeeded(snapshot, loadedMode);
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {

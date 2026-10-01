@@ -74,6 +74,19 @@ describe('tapered members', () => {
     expect(validateTaper({ ...spec(1) })).toContain('segments');
     expect(validateTaper({ ...spec(4), hJ: 0.02 })).toContain('webTooShallow');
     expect(validateTaper({ ...spec(4), b: 0 })).toContain('dimensions');
+    expect(validateTaper({ ...spec(4), tw: .3 })).toContain('dimensions');
+  });
+
+  it('preserves section rotation and never reuses a section of the other orientation', () => {
+    const make = (y: number) => modelStore.addElement(modelStore.addNode(0, y, 0), modelStore.addNode(L, y, 0), 'frame');
+    const first = make(0);
+    const original = modelStore.elements.get(first)!.sectionId;
+    modelStore.updateSection(original, { rotation: 90 });
+    const r1 = taperMembers([first], spec(4));
+    for (const id of r1.tapered) expect(modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!.rotation ?? 0).toBe(90);
+    modelStore.updateSection(original, { rotation: 0 });
+    const r2 = taperMembers([make(5)], spec(4));
+    for (const id of r2.tapered) expect(modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!.rotation ?? 0).toBe(0);
   });
 });
 

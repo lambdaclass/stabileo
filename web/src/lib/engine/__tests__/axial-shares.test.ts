@@ -6,7 +6,7 @@
  * reaches the nodes and the member used to report −20 kN all along, the average; a validation
  * model's column read −23.68 where it carries −26.04 at the foot.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
@@ -57,10 +57,31 @@ describe('the axial part of a member load', () => {
   });
 });
 
+/*
+ * A truss post 4 m tall, held at its head by three inclined bars, under 10 kN/m down along
+ * it. A truss has its whole load moved to its end nodes, the axial part tagged; whatever the
+ * bars around it take, the post's own load makes its foot carry q·L more than its head.
+ */
+function post(): number {
+  const foot = modelStore.addNode(0, 0, 0), head = modelStore.addNode(0, 0, 4);
+  const p = modelStore.addElement(foot, head, 'truss');
+  modelStore.addSupport(foot, 'pinned3d');
+  for (let k = 0; k < 3; k++) {
+    const a = modelStore.addNode(5 * Math.cos((2 * Math.PI * k) / 3), 5 * Math.sin((2 * Math.PI * k) / 3), 0);
+    modelStore.addElement(a, head, 'truss');
+    modelStore.addSupport(a, 'pinned3d');
+  }
+  for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+  modelStore.addDistributedLoad3D(p, 0, 0, -q, -q, undefined, undefined, 1, { frame: 'global' });
+  return p;
+}
+
 describe('wherever the solve ran', () => {
   it('the wire a worker receives carries the tags, and its finish gives the part back', () => {
     // The worker gets the wire object, not the input; the tags have to survive the conversion.
-    const e = column();
+    // A truss post: since main, only members that take no bending carry the tags (a frame's
+    // axial load goes to the engine itself).
+    const e = post();
     const input = modelStore.buildSolverInput3D(false, false);
     if (!input) throw new Error('no input');
     const wire = input3DToWireObject(input);
@@ -87,5 +108,31 @@ describe('wherever the solve ran', () => {
     const f = forces(r, e);
     // Foot and head differ by the whole load along the column, as without the cable.
     expect(f.nStart - f.nEnd).toBeCloseTo(-q * L, 6);
+  });
+});
+
+describe('the axial part of a load on a member that takes no bending', () => {
+  it('reaches the post on this thread', async () => {
+    const p = post();
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(forces(r, p).nStart - forces(r, p).nEnd).toBeCloseTo(-q * L, 9);
+  });
+
+  it('reaches the post through the worker pool, as the browser solves', async () => {
+    // The worker as solver-worker.ts runs it: the raw solve, finished there (`solve-finish.ts`).
+    // The caller adds nothing: given back twice, the post would read −2·q·L.
+    const pool = await import('../solver-pool');
+    const wasm = await import('../../wasm/dedaliano_engine.js');
+    const spy = vi.spyOn(pool, 'solve3DInWorker').mockImplementation(async (wire: any) => finishSolve3D(wasm.solve_3d(wire), wire));
+    try {
+      const p = post();
+      const r = await modelStore.solve3DAsync(false, false, true);
+      if (!r || typeof r === 'string') throw new Error(String(r));
+      expect(spy).toHaveBeenCalled();
+      expect(forces(r, p).nStart - forces(r, p).nEnd).toBeCloseTo(-q * L, 9);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

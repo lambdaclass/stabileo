@@ -43,6 +43,7 @@ import { projectQuantities } from './quantities';
 import { staticsRows } from '../store/statics-rows';
 import { resultSetName } from '../export/figure';
 import { ruleLabel } from './deflection-limits';
+import { memberKindOf } from './design/member-grouping';
 import { detailingStore } from '../store/detailing.svelte';
 import { computeBarMarks } from './bar-marks';
 import { buildStructuralGraph } from './structural-graph';
@@ -163,8 +164,10 @@ function serviceabilityRows(
   const deflections = deflectionChecks().rows;
   const deflectionOf = (elementId: number) => {
     const defl = deflections.get(elementId)?.check;
+    // Over the length the limit is taken over (2L for a cantilever), as the check reads it.
+    const over = defl && defl.limitLength !== defl.span ? `${+(defl.limitLength / defl.span).toFixed(3)}L` : 'L';
     return defl
-      ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.span / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor }
+      ? { ratio: defl.ratio, limit: defl.limit, status: defl.status, spanOverDelta: defl.deltaTotal > 0 ? defl.limitLength / defl.deltaTotal : Infinity, limitDivisor: defl.limitDivisor, over }
       : undefined;
   };
   const rows = verifications.map((v) => {
@@ -181,7 +184,8 @@ function serviceabilityRows(
   });
   const covered = new Set(verifications.map((v) => v.elementId));
   for (const [id] of deflections) {
-    if (!covered.has(id)) rows.push({ elementId: id, elementType: 'beam', crack: undefined, deflection: deflectionOf(id) });
+    // A rule can bring in a column, or a member of a group: named for what it is, not as a beam.
+    if (!covered.has(id)) rows.push({ elementId: id, elementType: memberKindOf(modelStore.model as never, id) ?? 'beam', crack: undefined, deflection: deflectionOf(id) });
   }
   const kept = rows.filter((s) => s.crack || s.deflection);
   return kept.length > 0 ? kept : undefined;

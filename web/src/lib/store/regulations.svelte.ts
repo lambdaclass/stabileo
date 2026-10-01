@@ -58,13 +58,16 @@ function createRegulationsStore() {
    */
   let displaced = $state<Partial<Record<RegulationRole, RoleBinding>>>({});
 
-  const stored = $derived<StoredRegulations>(
-    modelStore.model.regulations
-    ?? { version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations() },
-  );
-  const roles = $derived<ProjectRegulations>(stored.roles);
-  const revisions = $derived<RevisionVector>(modelStore.model.revisions ?? emptyRevisions());
-  const validation = $derived(validateStack(roles));
+  /*
+   * Read on every use, not held as `$derived`: this store is called from plain code too (an office
+   * template applying several roles in a row), where a module-level derived went stale between two
+   * calls — the second write was built on the roles as they were before the first, and undid it.
+   * Each is a property read; `validation` is a small pass over nine roles.
+   */
+  const stored = (): StoredRegulations => modelStore.model.regulations
+    ?? { version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations() };
+  const currentRoles = (): ProjectRegulations => stored().roles;
+  const currentRevisions = (): RevisionVector => modelStore.model.revisions ?? emptyRevisions();
 
   function writeRoles(next: ProjectRegulations): void {
     modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: next };
@@ -74,15 +77,15 @@ function createRegulationsStore() {
   }
 
   return {
-    get roles() { return roles; },
-    get revisions() { return revisions; },
-    get validation() { return validation; },
-    get stamps() { return regulationStamps(roles); },
-    get pending() { return pendingRoles(roles); },
-    get pendingNeedsLoadRegeneration() { return pendingRequiresLoadRegeneration(roles); },
+    get roles() { return currentRoles(); },
+    get revisions() { return currentRevisions(); },
+    get validation() { return validateStack(currentRoles()); },
+    get stamps() { return regulationStamps(currentRoles()); },
+    get pending() { return pendingRoles(currentRoles()); },
+    get pendingNeedsLoadRegeneration() { return pendingRequiresLoadRegeneration(currentRoles()); },
     get reviewRequested() { return reviewRequested; },
 
-    binding(role: RegulationRole): RoleBinding { return roles[role]; },
+    binding(role: RegulationRole): RoleBinding { return currentRoles()[role]; },
 
     /**
      * THE design code for reinforced concrete — the one authoritative answer.
@@ -107,9 +110,9 @@ function createRegulationsStore() {
      * chose.
      */
     concreteDesignCode(): DesignCodeId | null {
-      const b = roles.concrete;
+      const b = currentRoles().concrete;
       if (!b.adapterId) return null;
-      if (!roleUsable(roles, 'concrete')) return null;
+      if (!roleUsable(currentRoles(), 'concrete')) return null;
       return b.adapterId as DesignCodeId;
     },
 
@@ -120,7 +123,7 @@ function createRegulationsStore() {
      * is one.
      */
     concreteDesignProblem(): EngineMessage | null {
-      const b = roles.concrete;
+      const b = currentRoles().concrete;
       if (!b.adapterId) return msg('regulations.problem.concreteUnbound');
       const opt = findOption(b.adapterId);
       if (!opt || opt.maturity === 'UNSUPPORTED') {
@@ -128,13 +131,13 @@ function createRegulationsStore() {
           adapter: b.adapterId, edition: b.edition ?? '',
         });
       }
-      if (!roleUsable(roles, 'concrete')) {
+      if (!roleUsable(currentRoles(), 'concrete')) {
         return msg('regulations.problem.concreteIncomplete', { adapter: b.adapterId });
       }
       return null;
     },
     /** Bound, supported AND configured — ready to produce results. */
-    usable(role: RegulationRole): boolean { return roleUsable(roles, role); },
+    usable(role: RegulationRole): boolean { return roleUsable(currentRoles(), role); },
     /**
      * Bound to a supported adapter, regardless of whether its settings are filled in yet.
      *
@@ -144,15 +147,15 @@ function createRegulationsStore() {
      * the configuration was missing because the checkbox was disabled.
      */
     bound(role: RegulationRole): boolean {
-      const b = roles[role];
+      const b = currentRoles()[role];
       if (!b.adapterId) return false;
       return findOption(b.adapterId)?.maturity !== 'UNSUPPORTED';
     },
 
     /** Is a stamped output still valid? */
-    fresh(s: StageStamp | null | undefined) { return freshness(s, revisions); },
+    fresh(s: StageStamp | null | undefined) { return freshness(s, currentRevisions()); },
     /** Stamp an output with the revisions it was produced against. */
-    stampFor(stage: RevisionStage): StageStamp { return stamp(stage, revisions); },
+    stampFor(stage: RevisionStage): StageStamp { return stamp(stage, currentRevisions()); },
 
     /**
      * Stage a role change WITHOUT applying it.
@@ -169,9 +172,9 @@ function createRegulationsStore() {
         }] };
       }
 
-      const previous = roles[role];
+      const previous = currentRoles()[role];
       const next: ProjectRegulations = {
-        ...roles,
+        ...currentRoles(),
         [role]: {
           ...bindRole(role, adapterId, {
             jurisdiction: previous.jurisdiction,
@@ -204,7 +207,7 @@ function createRegulationsStore() {
 
     /** What applying the staged change would cost. */
     pendingConsequence(): ChangeKind | null {
-      const p = pendingRoles(roles);
+      const p = pendingRoles(currentRoles());
       if (p.length === 0) return null;
       return p.some(isLoadAffecting) ? 'loadRegulation' : 'designRegulation';
     },
@@ -217,9 +220,9 @@ function createRegulationsStore() {
      * leave the model's loads inconsistent with its stated regulation.
      */
     applyPending(kind: ChangeKind): ChangeConsequence {
-      const next = { ...roles };
-      const rev = revisions;
-      for (const role of pendingRoles(roles)) {
+      const next = { ...currentRoles() };
+      const rev = currentRevisions();
+      for (const role of pendingRoles(currentRoles())) {
         next[role] = { ...next[role], state: 'applied', appliedAtRevision: rev.regulationConfig + 1 };
       }
       writeRoles(next);
@@ -232,8 +235,8 @@ function createRegulationsStore() {
 
     /** Discard staged bindings, restoring exactly what was applied before. */
     cancelPending(): void {
-      const next = { ...roles };
-      for (const role of pendingRoles(roles)) {
+      const next = { ...currentRoles() };
+      for (const role of pendingRoles(currentRoles())) {
         const prev = displaced[role];
         next[role] = prev !== undefined
           ? { ...prev }
@@ -249,18 +252,18 @@ function createRegulationsStore() {
       role: RegulationRole, settings: Record<string, unknown>, complete: boolean,
     ): void {
       writeRoles({
-        ...roles,
-        [role]: { ...roles[role], settings: { ...roles[role].settings, ...settings }, configComplete: complete },
+        ...currentRoles(),
+        [role]: { ...currentRoles()[role], settings: { ...currentRoles()[role].settings, ...settings }, configComplete: complete },
       });
     },
 
     setJurisdiction(role: RegulationRole, jurisdiction: string, adoption: RoleBinding['adoption']): void {
-      writeRoles({ ...roles, [role]: { ...roles[role], jurisdiction, adoption } });
+      writeRoles({ ...currentRoles(), [role]: { ...currentRoles()[role], jurisdiction, adoption } });
     },
 
     /** Apply the same jurisdiction to every bound role — the usual case. */
     setJurisdictionForAll(jurisdiction: string, adoption: RoleBinding['adoption']): void {
-      const next = { ...roles };
+      const next = { ...currentRoles() };
       for (const role of Object.keys(next) as RegulationRole[]) {
         if (next[role].adapterId) next[role] = { ...next[role], jurisdiction, adoption };
       }
@@ -269,7 +272,7 @@ function createRegulationsStore() {
 
     /** Record a non-regulation change and invalidate accordingly. */
     noteChange(kind: ChangeKind): ChangeConsequence {
-      const { revisions: bumped, consequence } = applyChange(revisions, kind);
+      const { revisions: bumped, consequence } = applyChange(currentRevisions(), kind);
       writeRevisions(bumped);
       return consequence;
     },

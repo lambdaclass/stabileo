@@ -9,7 +9,7 @@ import { historyStore } from '../../../store/history.svelte';
 import '../../../store';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { validateAndSolve3D } from '../../../engine/solver-service';
-import { generateMesh, gradedStations, meshArea, type MeshOutput } from '../mesher';
+import { generateMesh, gradedStations, meshArea, MAX_MESH_CELLS, type MeshOutput } from '../mesher';
 import { applyMesh } from '../mesh-apply';
 import type { Vec3 } from '../affine';
 
@@ -62,6 +62,38 @@ describe('structured', () => {
 });
 
 describe('free', () => {
+  it('keeps nearby model nodes on a boundary, regardless of their order', () => {
+    for (const fixedPoints of [[[1, 0, 0], [1.1, 0, 0]], [[1.1, 0, 0], [1, 0, 0]]] as Vec3[][]) {
+      const m = generateMesh({ outer: { kind: 'polygon', points: rect(4, 4) }, holes: [], size: 1, element: 'quad', fixedPoints })!;
+      for (const p of fixedPoints) expect(m.points.some((q) => Math.hypot(...p.map((v, k) => v - q[k]!)) < 1e-8)).toBe(true);
+      expect(meshArea(m)).toBeCloseTo(16, 8);
+    }
+  });
+
+  it.each(['quad', 'tri'] as const)('keeps nodes on a circular outline and hole with %s cells', (element) => {
+    const boundary: Vec3 = [2 * Math.cos(0.1), 2 * Math.sin(0.1), 0];
+    const hole: Vec3 = [0.5 * Math.cos(0.3), 0.5 * Math.sin(0.3), 0];
+    for (const holes of [[], [{ kind: 'circle' as const, center: [0, 0, 0] as Vec3, radius: 0.5 }]]) {
+      const m = generateMesh({ outer: { kind: 'circle', center: [0, 0, 0], radius: 2 }, holes, size: 0.5, element, fixedPoints: [boundary, hole, boundary] })!;
+      for (const p of holes.length ? [boundary, hole] : [boundary]) {
+        const id = m.points.findIndex((q) => Math.hypot(...p.map((v, k) => v - q[k]!)) < 1e-8);
+        expect(id).toBeGreaterThanOrEqual(0);
+        expect(m.boundary.has(id)).toBe(true);
+      }
+      expect(conforming(m)).toBe(true);
+    }
+  });
+
+  it('meshes a concave four-sided region without folded cells or extra area', () => {
+    const m = generateMesh({ outer: { kind: 'polygon', points: [[0, 0, 0], [4, 0, 0], [1, 1, 0], [0, 4, 0]] }, holes: [], size: 1, sides: Array(4).fill({ divisions: 4 }), element: 'quad' })!;
+    expect(m.structured).toBe(false);
+    for (const cell of m.cells) {
+      const area = cell.reduce((s, id, j) => { const a = m.points[id]!, b = m.points[cell[(j + 1) % cell.length]!]!; return s + (a[0] * b[1] - b[0] * a[1]) / 2; }, 0);
+      expect(area).toBeGreaterThan(0);
+    }
+    expect(meshArea(m)).toBeCloseTo(4, 8);
+  });
+
   it('a circle in quadrilaterals is an O-grid covering its inscribed polygon', () => {
     const r = 2, h = 0.4;
     const m = generateMesh({ outer: { kind: 'circle', center: [0, 0, 0], radius: r }, holes: [], size: h, element: 'quad' })!;
@@ -97,6 +129,24 @@ describe('free', () => {
       size: 1, element: 'tri', fixedPoints: [[1.3, 0, 0]],
     })!;
     expect(m.points.some((p) => Math.hypot(p[0] - 1.3, p[1], p[2]) < 1e-9)).toBe(true);
+  });
+});
+
+describe('mesh budgets', () => {
+  it('accepts the structured cell limit exactly and rejects the next row before allocation', () => {
+    const base = { outer: { kind: 'polygon' as const, points: rect(100, 200) }, holes: [], size: 1, element: 'quad' as const };
+    expect(generateMesh(base)!.cells).toHaveLength(MAX_MESH_CELLS);
+    expect(generateMesh({ ...base, outer: { kind: 'polygon', points: rect(100, 201) } })).toBeNull();
+    expect(generateMesh({ ...base, sides: Array(4).fill({ divisions: 1e9 }) })).toBeNull();
+  });
+
+  it('bounds circular and free meshes as well as structured rectangles', () => {
+    expect(generateMesh({ outer: { kind: 'circle', center: [0, 0, 0], radius: 100 }, holes: [], size: 0.05, element: 'quad' })).toBeNull();
+    expect(generateMesh({ outer: { kind: 'polygon', points: rect(100, 100) }, holes: [{ kind: 'circle', center: [50, 50, 0], radius: 1 }], size: 0.05, element: 'tri' })).toBeNull();
+  });
+
+  it.each([NaN, Infinity, 0, -1])('rejects invalid size %s', (size) => {
+    expect(generateMesh({ outer: { kind: 'polygon', points: rect(4, 4) }, holes: [], size, element: 'quad' })).toBeNull();
   });
 });
 

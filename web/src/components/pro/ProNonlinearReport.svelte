@@ -21,6 +21,7 @@
     <span>{t(report.converged ? 'nonlinear.converged' : 'nonlinear.notConverged').replace('{n}', String(report.iterations))}</span>
     {#if report.slack.length}<span>{say('nonlinear.slack', report.slack)}</span>{/if}
     {#if report.lifted.length}<span>{say('nonlinear.lifted', report.lifted)}</span>{/if}
+    {#if report.cablesConverged === false}<span data-testid="cables-not-converged">{t('nonlinear.cablesNotConverged')}</span>{/if}
     {#if report.oscillating?.length}<span>{say('nonlinear.oscillating', report.oscillating)}</span>{/if}
     {#if report.signViolations?.members.length}<span>{say('nonlinear.violatingMembers', report.signViolations.members)}</span>{/if}
     {#if report.signViolations?.supports.length}<span>{say('nonlinear.violatingSupports', report.signViolations.supports)}</span>{/if}

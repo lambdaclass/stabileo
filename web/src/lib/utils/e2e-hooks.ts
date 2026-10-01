@@ -53,7 +53,7 @@ import {
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
-import { autosaveFingerprint, clearAutosave, loadAutosave } from '../store/file';
+import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
 
 export const E2E_QUERY_FLAG = 'e2e';
@@ -231,6 +231,10 @@ export interface StabileoTestHooks {
    * away from the pointer.
    */
   nodeScreenPos(id: number): { x: number; y: number } | null;
+  /** The point loads on a member as stored: direction magnitude p, axial px, couple, angle and axes. */
+  /** A member's end nodes. */
+  elementEnds(elementId: number): { i: number; j: number } | null;
+  pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
   loadScreenPos(id: number): { x: number; y: number } | null;
@@ -399,6 +403,18 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /**
+   * Open a project from its `.ded` JSON, exactly as File → Open does (`deserializeProject`):
+   * validated, migrated, results cleared. Lets a spec load a model that is not one of the
+   * examples. Returns false when the file is refused, as the open dialog would refuse it.
+   */
+  loadProject(file: DedalFile | Record<string, unknown>): boolean;
+  /**
+   * Turn members about their own axis by `degrees`, as the section rotation field does.
+   * The flagship building's provisional-biaxial specs turn five beams so that some bend about
+   * both axes for a real reason (see `ROLLED_BEAMS` in `e2e/fixtures.ts`).
+   */
+  turnElements(ids: number[], degrees: number): void;
   /** Reset the selection between gestures — the position, not the subject. */
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
@@ -440,6 +456,8 @@ export interface StabileoTestActions {
   combineCases(name: string): number;
   /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
+  /** Open the viewport's context menu on a member, as a right click on it would. */
+  openContextMenu(elementId: number): void;
   /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
   selectShells(keys: string[]): void;
   toggleBarLock(barId: string): void;
@@ -586,6 +604,16 @@ export function installE2EHooks(): void {
       } : null;
     },
     currentTool: () => String(uiStore.currentTool),
+    elementEnds: (elementId: number) => {
+      const e = modelStore.elements.get(elementId);
+      return e ? { i: e.nodeI, j: e.nodeJ } : null;
+    },
+    pointLoadsOn: (elementId: number) => modelStore.loads
+      .filter((l) => l.type === 'pointOnElement' && (l.data as { elementId: number }).elementId === elementId)
+      .map((l) => {
+        const d = l.data as { p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean };
+        return { p: d.p, px: d.px, my: d.my, angle: d.angle, isGlobal: d.isGlobal };
+      }),
     nodeScreenPos: (id: number) => {
       const n = modelStore.nodes.get(id);
       if (!n) return null;
@@ -748,12 +776,24 @@ export function installE2EHooks(): void {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
     },
+    openContextMenu: (elementId: number) => {
+      uiStore.contextMenu = { x: 200, y: 200, elementId };
+    },
     selectShells: (keys: string[]) => {
       const all = keys.length ? keys : [...[...modelStore.quads.keys()].map((id) => `q${id}`), ...[...modelStore.plates.keys()].map((id) => `p${id}`)];
       all.forEach((k, i) => uiStore.selectShell(k, i > 0));
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    loadProject: (file: DedalFile | Record<string, unknown>) => deserializeProject(JSON.stringify(file)),
+    turnElements: (ids: number[], degrees: number) => {
+      modelStore.batch(() => {
+        for (const id of ids) {
+          const e = modelStore.elements.get(id);
+          if (e) modelStore.updateElement(id, { rollAngle: ((e.rollAngle ?? 0) + degrees) % 360 });
+        }
+      });
+    },
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
     solve: async () => { await runGlobalSolve(); },

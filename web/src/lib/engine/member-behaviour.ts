@@ -168,6 +168,18 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
     if (typeof v === 'number') used.add(v);
     if (Array.isArray(v)) for (const x of v) if (typeof x === 'number') used.add(x);
   }
+  // Dropping a loaded free node would turn a mechanism into a false equilibrium.
+  const orphanLoads = new Map<number, number[]>();
+  for (const load of input.loads) {
+    if (load.type !== 'nodal' || used.has(load.data.nodeId)) continue;
+    const d = load.data;
+    const sum = orphanLoads.get(d.nodeId) ?? [0, 0, 0, 0, 0, 0];
+    [d.fx, d.fy, d.fz, d.mx, d.my, d.mz].forEach((v, i) => { sum[i] += v; });
+    orphanLoads.set(d.nodeId, sum);
+  }
+  for (const [id, force] of orphanLoads) {
+    if (force.some(v => Math.abs(v) > 1e-12)) throw new Error(`Unstable active set: loaded node ${id} is held only by slack members`);
+  }
   const loads = input.loads.filter((l) => {
     const d = l.data as { elementId?: number; nodeId?: number };
     if (d.elementId !== undefined && off.has(d.elementId)) return false;
@@ -224,11 +236,17 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   for (const s of model.supports.values()) {
     const c = (s as { curves?: Curves }).curves;
     if (!c || !hasCurves(s as never)) continue;
-    curved.set(s.nodeId, c);
+    const active: Curves = {};
     for (const d of ['x', 'y', 'z'] as const) {
       const pts = c[d];
-      if (pts && pts.length) soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      // A stored curve is dormant while its DOF is fixed, just like a linear spring.
+      // Keep it in the model so freeing the DOF restores the user's curve.
+      if (pts?.length && input.supports.get(s.nodeId)?.[FREE[d]] === false) {
+        active[d] = pts;
+        soilSprings.push({ nodeId: s.nodeId, direction: DIRS[d], curve: { type: 'custom', points: [...pts].sort((a, b) => a[0] - b[0]) }, tributaryLength: 1 });
+      }
     }
+    if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
   if (oneWay.size && soilSprings.length) throw new Error(t('behaviour.err.springsAndOneWay'));
   // Cables go to the engine's cable solve, which lets them go slack itself.
@@ -254,25 +272,51 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     loads: transverseToNodes(input.loads, (id) => refs.get(id) ?? null),
   };
   let cableForces: NonlinearReport['cables'];
+  // Whether the engine's cable iteration settled on the last solve. It need not: a cable that
+  // shares its load with a stiffer member and carries little tension for its weight makes the
+  // equivalent-modulus iteration oscillate, and more iterations do not help. That is reported,
+  // with the last iteration's results, as the active-set loop reports its own; it does not abort
+  // the whole analysis.
+  let cablesConverged = true;
   const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
     if (cables.size === 0) return solve3D(trial);
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
     const r = solveCable3D(typed, 50, 1e-8, densities);
-    if (!r.converged) throw new Error(t('behaviour.err.cableNoConvergence'));
+    cablesConverged = r.converged;
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
     // Finished as a linear solve is: the other members keep the axial part of their loads.
     return finishSolve3D(r.results, typed);
   };
 
+  const cableReport = () => ({ ...(cableForces ? { cables: cableForces } : {}), ...(cablesConverged ? {} : { cablesConverged: false as const }) });
+
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
+  const normals = new Map<number, [number, number, number]>();
+  for (const n of upliftNodes) {
+    const s = input.supports.get(n);
+    if (!s?.isInclined) { normals.set(n, [0, 0, 1]); continue; }
+    const v = [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0];
+    const length = Math.hypot(...v);
+    // Uplift chooses the side above the support plane. A vertical plane has no such side.
+    if (!v.every(Number.isFinite) || length < 1e-12 || Math.abs(v[2]!) / length < 1e-9) {
+      throw new Error('Lifting inclined supports need a normal with a vertical component');
+    }
+    // The normal reaction must be isolated from other translational restraints at this node.
+    if (s.rx || s.ry || s.rz || s.kx || s.ky || s.kz || curved.has(n)) {
+      throw new Error('Lifting inclined supports cannot also have translational restraints or springs');
+    }
+    const sign = Math.sign(v[2]!);
+    normals.set(n, v.map((x) => sign * x / length) as [number, number, number]);
+  }
   const lifted = new Set<number>();
   const off = new Set<number>();
   const seen = new Map<string, number>();
   const stateKey = () => `${[...off].sort((a, b) => a - b).join(',')}|${[...lifted].sort((a, b) => a - b).join(',')}`;
   let last: AnalysisResults3D | null = null;
   let prevKey = '';
+  const maxIterations = Math.max(MAX_ITER, 2 * upliftNodes.length);
 
-  for (let it = 1; it <= MAX_ITER; it++) {
+  for (let it = 1; it <= maxIterations; it++) {
     const trial = withoutMembers(base, off);
     for (const [n, c] of curved) {
       for (const [sid, s] of trial.supports) {
@@ -282,7 +326,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
         trial.supports.set(sid, next as never);
       }
     }
-    for (const [sid, s] of trial.supports) if (lifted.has(s.nodeId)) trial.supports.set(sid, { ...s, rz: false, kz: undefined, dz: undefined });
+    for (const [sid, s] of trial.supports) if (lifted.has(s.nodeId)) trial.supports.set(sid, s.isInclined ? { ...s, isInclined: false } : { ...s, rz: false, kz: undefined, dz: undefined });
     // A node that only one-way members held in rotation needs the same vanishing spring the
     // input builder gives any orphan rotation.
     if (oneWay.size || cables.size) stabiliseOrphanRotations3D(trial);
@@ -290,7 +334,16 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     let results: AnalysisResults3D;
     if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
-      results = finishSolve3D(solveSSI3D({ solver: trial, soilSprings: live }).results as AnalysisResults3D, trial);
+      const r = solveSSI3D({ solver: trial, soilSprings: live });
+      if (r.converged !== true) throw new Error('Multilinear spring analysis did not converge');
+      const supports = new Map(trial.supports);
+      for (const spring of r.springResults as Array<{ nodeId: number; direction: number; secantStiffness: number }>) {
+        const support = supports.get(spring.nodeId);
+        const key = (['kx', 'ky', 'kz'] as const)[spring.direction];
+        if (!support || !key || !Number.isFinite(spring.secantStiffness) || spring.secantStiffness < 0) throw new Error('Invalid converged spring stiffness');
+        supports.set(spring.nodeId, { ...support, [key]: spring.secantStiffness });
+      }
+      results = solve3D({ ...trial, supports });
     } else {
       results = linearSolve(trial);
     }
@@ -315,22 +368,31 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
         if ((kind === 'tension' && stretch > 1e-9 * scaleU) || (kind === 'compression' && stretch < -1e-9 * scaleU)) { off.delete(id); changed = true; }
       }
     }
-    // Supports that lift.
-    const reaction = new Map(results.reactions.map((r) => [r.nodeId, r.fz]));
-    const uz = new Map(results.displacements.map((d) => [d.nodeId, d.uz]));
-    const scale = Math.max(1e-9, ...results.reactions.map((r) => Math.abs(r.fz)));
+    // Pivot one lifting restraint at a time, in the support's own normal direction.
+    const project = (id: number, x: number, y: number, z: number) => {
+      const n = normals.get(id) ?? [0, 0, 1];
+      return n[0] * x + n[1] * y + n[2] * z;
+    };
+    const reaction = new Map(results.reactions.map(r => [r.nodeId, project(r.nodeId, r.fx, r.fy, r.fz)]));
+    const normalU = new Map(results.displacements.map(d => [d.nodeId, project(d.nodeId, d.ux, d.uy, d.uz)]));
+    const scale = Math.max(1e-9, ...[...reaction.values()].map(Math.abs));
+    let restore: number | undefined, release: number | undefined;
+    let penetration = -1e-9, pulling = -1e-6 * scale;
     for (const n of upliftNodes) {
-      if (!lifted.has(n)) {
-        // A multilinear vertical spring pulls when its node goes up; any other support when its
-        // reaction is downward.
-        const pulls = curved.get(n)?.z?.length ? (uz.get(n) ?? 0) > 1e-9 : (reaction.get(n) ?? 0) < -1e-6 * scale;
-        if (pulls) { lifted.add(n); changed = true; }
-      } else if ((uz.get(n) ?? 0) < -1e-9) { lifted.delete(n); changed = true; }
+      if (lifted.has(n)) {
+        const u = normalU.get(n) ?? 0;
+        if (u < penetration) { penetration = u; restore = n; }
+      } else {
+        const r = reaction.get(n) ?? 0;
+        if (r < pulling) { pulling = r; release = n; }
+      }
     }
+    if (restore !== undefined) { lifted.delete(restore); changed = true; }
+    else if (release !== undefined) { lifted.add(release); changed = true; }
 
     const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
     if (!changed) {
-      return { results: withZeroRows(results, lengths), report: { converged: true, iterations: it, lifted: [...lifted], slack: [...off], ...(cableForces ? { cables: cableForces } : {}) } };
+      return { results: withZeroRows(results, lengths), report: { converged: cablesConverged, iterations: it, lifted: [...lifted], slack: [...off], ...cableReport() } };
     }
     const key = stateKey();
     if (seen.has(key)) {
@@ -339,13 +401,13 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       const a = new Set(key.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const b = new Set(prevKey.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const oscillating = [...new Set([...a, ...b])].filter((x) => !(a.has(x) && b.has(x))).map(Number);
-      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating, ...(cableForces ? { cables: cableForces } : {}) } };
+      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating, ...cableReport() } };
     }
     seen.set(key, it);
     prevKey = key;
   }
   const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
-  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: MAX_ITER, lifted: [...lifted], slack: [...off], ...(cableForces ? { cables: cableForces } : {}) } };
+  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: maxIterations, lifted: [...lifted], slack: [...off], ...cableReport() } };
 }
 
 // ─── The solve-only sections for stiffness modifiers ──────────────
@@ -376,4 +438,21 @@ export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData):
     }
     input.elements.set(id, { ...el, sectionId: sid });
   }
+}
+
+/**
+ * A per-section payload (plastic moments, fiber sections) extended to the solve-only sections
+ * `applyStiffnessModifiers` made: each one gets its model section's entry. A modifier changes a
+ * member's stiffness, not its strength, and an engine that looks a member's section up by id
+ * found nothing for them — the pushover took their Mp as infinite and never hinged them.
+ */
+export function withSolveSections<T>(bySection: Record<string, T>, input: SolverInput3D, modelElements: Map<number, { sectionId: number }>): Record<string, T> {
+  const out = { ...bySection };
+  for (const [id, el] of input.elements) {
+    const own = modelElements.get(id)?.sectionId;
+    if (own === undefined || own === el.sectionId || String(el.sectionId) in out) continue;
+    const entry = bySection[String(own)];
+    if (entry !== undefined) out[String(el.sectionId)] = entry;
+  }
+  return out;
 }

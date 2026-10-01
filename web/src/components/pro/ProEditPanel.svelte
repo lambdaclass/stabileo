@@ -21,7 +21,7 @@
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { mergeCollinear } from '../../lib/model/edit/merge-collinear';
   import {
-    coincidentNodeGroups, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
+    coincidentNodeGroups, zeroLengthMembers, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
     removeOrphanNodes, removeZeroLengthMembers, type CleanupReport,
   } from '../../lib/model/edit/cleanup';
   import { editPreview } from '../../lib/store/edit-preview.svelte';
@@ -168,13 +168,13 @@
     void modelStore.modelVersion;
     const coincident = coincidentNodeGroups().reduce((s, g) => s + g.length - 1, 0);
     const pairs = new Map<string, number>();
-    let duplicates = 0, zero = 0;
+    let duplicates = 0;
     for (const e of modelStore.elements.values()) {
       const k = e.nodeI < e.nodeJ ? `${e.nodeI}-${e.nodeJ}` : `${e.nodeJ}-${e.nodeI}`;
       if (pairs.has(k)) duplicates++; else pairs.set(k, e.id);
-      const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
-      if (e.nodeI === e.nodeJ || (a && b && Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) <= 1e-4)) zero++;
     }
+    // The same test the clean-up applies, at the same tolerance.
+    const zero = zeroLengthMembers().length;
     return { coincident, duplicates, zero };
   });
 

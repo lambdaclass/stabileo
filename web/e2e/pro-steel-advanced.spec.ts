@@ -39,6 +39,43 @@ test.describe('@smoke PRO direct analysis', () => {
     await page.getByTestId('other-codes-run').click();
     await expect(page.getByTestId('other-codes-direct-note')).toBeVisible();
     await expect(page.getByTestId('other-codes-summary')).toBeVisible();
+    await page.getByTestId('direct-notional').fill('0.003');
+    await expect(page.getByTestId('direct-stale')).toBeVisible();
+    await expect(page.getByTestId('other-codes-run')).toBeDisabled();
+    await expect(page.getByTestId('other-codes-stale')).toBeVisible();
+    await page.getByTestId('direct-run').click();
+    await expect(page.getByTestId('other-codes-run')).toBeEnabled();
+    await expect(page.getByTestId('direct-stale')).toHaveCount(0);
+  });
+
+  test('blocks verification when one of two active combinations is unstable', async ({ pro: page }) => {
+    const project = {
+      version: '2.0', name: 'Stable and unstable combinations', analysisMode: 'pro',
+      snapshot: {
+        nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 4 }]],
+        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+        materials: [[1, { id: 1, name: 'Steel', e: 200000, nu: .3, rho: 0, fy: 355 }]],
+        sections: [[1, { id: 1, name: 'Column', a: .01, iy: 1e-5, iz: 1e-5, j: 2e-5 }]],
+        supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]],
+        loads: [{ type: 'nodal3d', data: { id: 1, nodeId: 2, caseId: 1, fx: 0, fy: 0, fz: -60, mx: 0, my: 0, mz: 0 } }],
+        loadCases: [{ id: 1, name: 'Dead', type: 'D' }],
+        combinations: [1, 5].map((factor, i) => ({ id: i + 1, name: `${factor}D`, factors: [{ caseId: 1, factor }] })),
+        nextId: { node: 3, element: 2, material: 2, section: 2, support: 2, load: 2, loadCase: 2, combination: 3 },
+      },
+    };
+    await page.getByTestId('pr-project').click();
+    await page.getByTestId('pp-open-file').setInputFiles({
+      name: 'direct.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)),
+    });
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-otherCodes').click();
+    await page.getByTestId('other-codes-source-direct').click();
+    await page.getByTestId('direct-run').click();
+    await expect(page.getByTestId('direct-table').locator('tbody tr')).toHaveCount(2);
+    await expect(page.getByTestId('direct-table').locator('tbody tr.bad')).toHaveCount(1);
+    await expect(page.getByTestId('direct-design-blocked')).toBeVisible();
+    await expect(page.getByTestId('other-codes-run')).toBeDisabled();
+    await expect(page.getByTestId('other-codes-summary')).toHaveCount(0);
   });
 });
 

@@ -1,11 +1,11 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
-  import { t } from '../lib/i18n';
+  import { t, tp, i18n } from '../lib/i18n';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
 
-  let projectName = $state(modelStore.model.name || 'Structural Analysis');
+  let projectName = $state(modelStore.model.name || t('calcReport.defaultProject'));
   let engineerName = $state('');
   let companyName = $state('');
   let notes = $state('');
@@ -14,12 +14,12 @@
   // initializer above only sees the startup model. Re-seed the project name
   // from the current model each time the dialog opens (it remains editable).
   $effect(() => {
-    if (open) projectName = modelStore.model.name || 'Structural Analysis';
+    if (open) projectName = modelStore.model.name || t('calcReport.defaultProject');
   });
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
-  const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.analysisMode === '3d' ? '3D' : '2D');
+  const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.is3DWorkspace ? '3D' : '2D');
 
   function deriveProvenance(): ResultProvenance {
     const view = resultsStore.activeView;
@@ -31,7 +31,7 @@
       const combo = comboId !== null
         ? modelStore.model.combinations.find(c => c.id === comboId)
         : undefined;
-      return { kind: 'combo', comboName: combo?.name ?? `Combination ${comboId}` };
+      return { kind: 'combo', comboName: combo?.name ?? `${t('results.comboFallback')} ${comboId}` };
     }
     const caseId = resultsStore.activeCaseId;
     const caseName = caseId !== null ? modelStore.getLoadCaseName(caseId) : undefined;
@@ -44,7 +44,7 @@
       projectName,
       engineerName,
       companyName,
-      date: new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: new Date().toLocaleDateString(i18n.locale, { year: 'numeric', month: 'long', day: 'numeric' }),
       notes,
     };
 
@@ -61,20 +61,20 @@
         // `||` (not `??`) so a present-but-zero component falls through to the
         // axis that actually carries the moment (e.g. my=0, mz=5 → M=5).
         if (d.my || d.mz) parts.push(`M=${d.my || d.mz} kN·m`);
-        description = `Node ${d.nodeId}: ${parts.join(', ') || 'zero'}`;
+        description = `${t('table.nodeLabel')} ${d.nodeId}: ${parts.join(', ') || t('calcReport.loadZero')}`;
       } else if (l.type === 'distributed' || l.type === 'distributed3d') {
         // A distributed load stores its magnitude on whichever axis it acts;
         // the off-axis fields can be present as 0. Use `||` so a 0 on one axis
         // doesn't shadow the real value on another (qZI=0, qYI=5 → q=5).
         const qI = d.qI ?? (d.qZI || d.qYI || 0);
         const qJ = d.qJ ?? (d.qZJ || d.qYJ || 0);
-        description = `Elem ${d.elementId}: q=${qI}→${qJ} kN/m`;
+        description = `${t('table.elemLabel')} ${d.elementId}: q=${qI}→${qJ} kN/m`;
       } else if (l.type === 'pointOnElement') {
-        description = `Elem ${d.elementId}: P=${d.p} kN at ${d.a} m`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${tp('calcReport.pointAt', { p: d.p, a: d.a })}`;
       } else if (l.type === 'thermal') {
-        description = `Elem ${d.elementId}: ΔT=${d.dtUniform}°C, ΔTg=${d.dtGradient}°C`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ΔT=${d.dtUniform}°C, ΔTg=${d.dtGradient}°C`;
       } else {
-        description = `${l.type} on ${d.elementId ?? d.nodeId ?? '?'}`;
+        description = tp('calcReport.loadOn', { type: l.type, target: d.elementId ?? d.nodeId ?? '?' });
       }
       return { type: l.type, description, caseLabel };
     });
@@ -84,7 +84,7 @@
       id: c.id,
       name: c.name,
       factors: c.factors.map(f => ({
-        caseName: modelStore.getLoadCaseName(f.caseId) || `Case ${f.caseId}`,
+        caseName: modelStore.getLoadCaseName(f.caseId) || `${t('results.caseFallback')} ${f.caseId}`,
         factor: f.factor,
       })),
     }));

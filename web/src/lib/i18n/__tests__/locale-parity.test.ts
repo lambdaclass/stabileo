@@ -105,25 +105,21 @@ describe('locale design.* key parity', () => {
  * wizard, the RC workspace, the footing panels and the PRO report, and all of them rendered in
  * English to a Portuguese reader. The other 11 locales still carry the older debt and stay out.
  *
- * The one allow-list: Portuguese keys that the Basic PR "draw members point to point"
- * (basic/draw-members) adds itself. Adding them here too would only make the two branches
- * conflict. When that branch is merged the keys exist and the second test below fails: delete
- * the JSON file and its import then.
+ * There is no allow-list: the Portuguese keys the Basic PR "draw members point to point" was to
+ * bring have arrived with it.
  */
 import steelEn from '../locales/steel/en';
 import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
-import pendingPt from './pt-pending-from-basic-draw-members.json';
 
 describe('locale full key parity: es, en, pt', () => {
 	const main = { en, pt } as Record<string, Translations>;
 	const steel = { en: steelEn, pt: steelPt } as Record<string, Translations>;
-	const pending: Record<string, Set<string>> = { en: new Set(), pt: new Set(pendingPt as string[]) };
 
 	for (const code of ['en', 'pt']) {
 		it(`${code} has every es key, and none es lacks`, () => {
 			const missing = [
-				...Object.keys(es).filter((k) => !(k in main[code]) && !pending[code].has(k)),
+				...Object.keys(es).filter((k) => !(k in main[code])),
 				...Object.keys(steelEs).filter((k) => !(k in steel[code])),
 			];
 			const extra = [
@@ -134,9 +130,4 @@ describe('locale full key parity: es, en, pt', () => {
 		});
 	}
 
-	it('the pt keys left to basic/draw-members are still missing (delete the list once it lands)', () => {
-		const arrived = (pendingPt as string[]).filter((k) => k in pt);
-		expect(arrived).toEqual([]);
-		expect((pendingPt as string[]).every((k) => k in es)).toBe(true);
-	});
 });

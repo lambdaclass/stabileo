@@ -5,7 +5,7 @@
   import { inspectMember3D, inspectNode3D } from '../lib/three/despiece-3d';
 
   const inspect = $derived(uiStore.despieceInspect);
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const active = $derived(resultsStore.diagramType === 'despiece' && inspect !== null);
 
   function args2D() {
@@ -21,7 +21,9 @@
   }
   function args3D() {
     return {
-      elements: [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, localYx: e.localYx, localYy: e.localYy, localYz: e.localYz, rollAngle: e.rollAngle })),
+      elements: [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, localYx: e.localYx, localYy: e.localYy, localYz: e.localYz, rollAngle: e.rollAngle,
+        // The solver adds the section's rotation to the roll, and so do the drawn arrows.
+        sectionRotation: modelStore.sections.get(e.sectionId)?.rotation })),
       getNode: (id: number) => { const n = modelStore.getNode(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : undefined; },
       getForces: (id: number) => resultsStore.getElementForces3D(id),
       basis: uiStore.despieceBasis,

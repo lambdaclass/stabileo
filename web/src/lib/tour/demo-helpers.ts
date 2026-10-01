@@ -96,6 +96,7 @@ export async function loadExample(id: string): Promise<void> {
     await modelStore.loadExample(id);
     resultsStore.clear();
     resultsStore.clear3D();
+    resultsStore.forgetView();
   })());
   setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
 }
@@ -118,7 +119,7 @@ export function solve(): void {
 
 /** Whether the model on screen has been solved, in whichever mode it is in. */
 export function hasResults(): boolean {
-  return uiStore.analysisMode === '3d'
+  return uiStore.is3DWorkspace
     ? resultsStore.results3D !== null
     : resultsStore.results !== null;
 }

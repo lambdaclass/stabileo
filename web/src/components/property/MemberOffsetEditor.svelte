@@ -12,7 +12,7 @@
   // and rule, and in the app's tokens rather than the old blue of the property panel.
   let { bare = false }: { bare?: boolean } = $props();
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const selectedIds = $derived([...uiStore.selectedElements]);
   const count = $derived(selectedIds.length);
 

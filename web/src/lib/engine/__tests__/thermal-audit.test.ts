@@ -318,25 +318,21 @@ describe('temperature in the advanced analyses', () => {
   });
 
   /*
-   * ── Second order ignores the compression a temperature causes ──
+   * ── Second order reads the compression a temperature causes ──
    *
    * The P-Delta iteration builds its geometric stiffness from an axial force
-   * it recomputes as EA·Δu/L (engine/src/solver/geometric_stiffness.rs). A
-   * restrained bar that is heated does not lengthen, so Δu = 0 and its
-   * −EAαΔT never reaches the geometric stiffness: a strut at a third of its
-   * buckling load comes out with no amplification at all. Buckling reads the
-   * axial force from the element results instead, and is right (above).
-   *
-   * The solver is not touched from here; the fix is its own PR. These
-   * `it.fails` start failing — asking to become `it` — once it is merged.
+   * it recomputes as EA·(Δu/L − αΔT) (engine/src/solver/geometric_stiffness.rs).
+   * A restrained bar that is heated does not lengthen, so Δu = 0 and its force
+   * is the whole −EAαΔT, which softens the strut. Buckling reads the axial
+   * force from the element results instead, and is right (above).
    */
-  it.fails('P-Delta, plane: thermal compression amplifies a transverse load by 1/(1 − 1/λ)', () => {
+  it('P-Delta, plane: thermal compression amplifies a transverse load by 1/(1 − 1/λ)', () => {
     const input = strut2D([{ type: 'nodal', data: { nodeId: MID, fx: 0, fz: -1, my: 0 } }]);
     const amp = midUz(solvePDelta(input).results) / midUz(solve(input));
     expect(Math.abs(amp - 1 / (1 - 1 / LAMBDA)) / amp).toBeLessThan(0.03);
   });
 
-  it.fails('P-Delta, space: the same, in a space model', () => {
+  it('P-Delta, space: the same, in a space model', () => {
     const input = strut3D([{ type: 'nodal', data: { nodeId: MID, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0 } } as SolverLoad3D]);
     const amp = midUz(solvePDelta3D(input).results) / midUz(solve3D(input) as never);
     expect(Math.abs(amp - 1 / (1 - 1 / LAMBDA)) / amp).toBeLessThan(0.03);
@@ -347,12 +343,9 @@ describe('temperature in the advanced analyses', () => {
    *
    * A temperature change puts no load on a structure, so by the uniqueness
    * theorem the collapse factor of a fixed-fixed beam under a central load is
-   * 8Mp/(PL) = 20 with or without it. With a gradient on both halves the
-   * solver gets 20. With it on one half, the third hinge forms at λ = 20 and
-   * completes the mechanism — but the solver's own linear solve does not
-   * report that mechanism (the app's front end does), so the loop goes on,
-   * reads a moment out of a singular solve and adds a fourth hinge at 23,02:
-   * above the upper bound, which equilibrium alone forbids.
+   * 8Mp/(PL) = 20 with or without it. With a gradient on one half, the third
+   * hinge forms at λ = 20 and completes the mechanism, which the loop detects
+   * with the same rank check the app runs before every analysis.
    */
   const beam = (extra: SolverLoad[]) => solvePlastic({
     solver: m2([[1, 0, 0], [2, 3, 0], [3, 6, 0]], [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
@@ -368,7 +361,7 @@ describe('temperature in the advanced analyses', () => {
     }
   });
 
-  it.fails('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half', () => {
+  it('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half', () => {
     expect(beam([th(1, 0, 30)]).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
   });
 });

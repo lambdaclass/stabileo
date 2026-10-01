@@ -75,6 +75,8 @@ export interface OptimiseRow {
   currentName: string;
   current: CandidateVerdict | null;
   result: OptimiseResult;
+  /** At least one member needs the proposed profile, even if the heaviest already has it. */
+  changes: boolean;
 }
 
 export type RecheckStatus = 'holds' | 'lighter' | 'failsNow' | 'unchecked';
@@ -85,11 +87,11 @@ const byName = new Map(ALL_PROFILES.map((p) => [p.name, p]));
 
 /**
  * A section that is exactly one catalogue profile — the only kind this search can replace. A
- * declared section (its own properties under a catalogue-looking name) or a drawn one is not,
- * whatever its name.
+ * declared section (its own properties under a catalogue-looking name), a drawn one or a built-up
+ * one is not, whatever its name.
  */
-function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown } | undefined): SteelProfile | null {
-  if (!sec || sec.composition || sec.declared || sec.drawn) return null;
+function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown; built?: unknown } | undefined): SteelProfile | null {
+  if (!sec || sec.composition || sec.declared || sec.drawn || sec.built) return null;
   const p = byName.get(sec.name);
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
 }
@@ -191,6 +193,8 @@ function createSteelOptimise() {
   let skipped = $state(0);
   let appliedEpoch = $state<number | null>(null);
   const fresh = () => ranOn !== null && ranOn.epoch === modelStore.loadEpoch && ranOn.version === modelStore.modelVersion;
+  /** The analysis the proposals were checked against: a new solve makes them stale too. */
+  let proposedResults: AnalysisResults3D | null = null;
 
   return {
     get rows() { return fresh() ? rows : []; },
@@ -207,6 +211,7 @@ function createSteelOptimise() {
     run(scope: OptimiseScope, ids?: readonly number[], settings: OptimiseSettings = {}): void {
       error = null;
       lastSettings = settings;
+      proposedResults = resultsStore.results3D;
       if (!resultsStore.results3D) { rows = []; error = 'opt.needSolve'; return; }
       if (scope === 'group' && modelStore.model.groups.size === 0) { rows = []; error = 'opt.noGroups'; return; }
       const out: OptimiseRow[] = [];
@@ -215,11 +220,13 @@ function createSteelOptimise() {
         if (members.length === 0) continue;
         const material = modelStore.materials.get(g.materialId)!;
         const criteria = criteriaFor(settings, g.elementIds);
+        const result = lightestPassing(g.profile.family as ProfileFamily, members, material, criteria);
         out.push({
           key, scope, sectionId: g.sectionId, elementIds: g.elementIds, family: g.profile.family as ProfileFamily,
           ...(g.groupName ? { groupName: g.groupName } : {}),
           currentName: g.profile.name, current: verdictFor(g.profile, members, material, criteria),
-          result: lightestPassing(g.profile.family as ProfileFamily, members, material, criteria),
+          result,
+          changes: !!result.chosen && g.elementIds.some(id => modelStore.sections.get(modelStore.elements.get(id)!.sectionId)?.name !== result.chosen!.profile.name),
         });
       }
       rows = out;
@@ -230,29 +237,40 @@ function createSteelOptimise() {
     /**
      * Write the chosen profiles to the model, as one undoable edit.
      *
-     * A 'section' row replaces the profile of the section in place, so every member sharing it
-     * follows — the same edit the sections table makes. A 'member' row gives the member a section
-     * of its own for the new profile, reusing one that already is that profile.
+     * A 'section' row replaces the section in place only when every member using it was checked.
+     * Otherwise assign the checked members their own sections, preserving each orientation and
+     * reusing an existing section only when its profile properties also match.
      */
     apply(keys: readonly string[]): void {
-      if (!fresh()) { rows = []; return; }
-      const chosen = rows.filter((r) => keys.includes(r.key) && r.result.chosen && r.result.chosen.profile.name !== r.currentName);
+      // Proposals made on another project or model version are not applied, and the panel says so.
+      if (!fresh()) { rows = []; error = 'opt.needSolve'; return; }
+      if (proposedResults !== resultsStore.results3D || !proposedResults) {
+        rows = []; error = 'opt.needSolve'; return;
+      }
+      const chosen = rows.filter((r) => keys.includes(r.key) && r.result.chosen && r.changes);
       if (chosen.length === 0) return;
       modelStore.batch(() => {
         for (const r of chosen) {
           const p = r.result.chosen!.profile;
           const full = profileToSectionFull(p);
           const fields = { name: p.name, profileFamily: p.family, a: full.a, iy: full.iy, iz: full.iz, j: full.j, b: full.b, h: full.h, shape: full.shape, tw: full.tw, tf: full.tf, t: full.t };
-          if (r.scope === 'section') {
+          const allUsersChosen = [...modelStore.elements.values()].every(e => e.sectionId !== r.sectionId || r.elementIds.includes(e.id));
+          if (r.scope === 'section' && allUsersChosen) {
             // The section in place: every member sharing it follows.
             modelStore.updateSection(r.sectionId, fields);
           } else {
-            const rotation = modelStore.sections.get(r.sectionId)?.rotation;
-            // Reused only when it is that catalogue profile: a declared or drawn section of the
-            // same name carries other properties.
-            const existing = [...modelStore.sections.values()].find((s) => s.name === p.name && !s.composition && !s.declared && !(s as { drawn?: unknown }).drawn && (s.rotation ?? 0) === (rotation ?? 0));
-            const sid = existing?.id ?? modelStore.addSection({ ...fields, ...(rotation ? { rotation } : {}) } as never);
-            for (const id of r.elementIds) modelStore.updateElementSection(id, sid);
+            // Each member keeps its own orientation. A section is reused only when it is that
+            // catalogue profile with the same properties: a declared, drawn or built-up section of
+            // the same name carries other properties.
+            for (const id of r.elementIds) {
+              const rotation = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)?.rotation ?? 0;
+              const existing = [...modelStore.sections.values()].find(s => {
+                if (s.composition || s.declared || s.drawn || s.built || (s.rotation ?? 0) !== rotation) return false;
+                return Object.entries(fields).every(([key, value]) => s[key as keyof typeof s] === value);
+              });
+              const sid = existing?.id ?? modelStore.addSection({ ...fields, rotation } as never);
+              modelStore.updateElementSection(id, sid);
+            }
           }
         }
       });
@@ -274,9 +292,17 @@ function createSteelOptimise() {
       applied = applied.map((a) => {
         const p = byName.get(a.profileName);
         const ids = a.elementIds.filter((id) => modelStore.elements.has(id));
+        if (ids.length !== a.elementIds.length || ids.some(id => modelStore.sections.get(modelStore.elements.get(id)!.sectionId)?.name !== a.profileName)) {
+          return { ...a, status: 'unchecked' as const };
+        }
         const { members, materialOf } = membersFor(ids);
         const material = materialOf.get(ids[0]!);
-        if (!p || !material || members.length === 0) return { ...a, status: 'unchecked' as const };
+        // Rows start out homogeneous. A later material assignment can split the group, so its
+        // first member's grade no longer represents all members; propose the groups again.
+        const materialIds = new Set(ids.map(id => modelStore.elements.get(id)!.materialId));
+        if (!p || !material || members.length !== ids.length || members.length === 0 || materialIds.size !== 1) {
+          return { ...a, status: 'unchecked' as const };
+        }
         const criteria = criteriaFor(lastSettings, ids);
         const mine = verdictFor(p, members, material, criteria);
         const now = lightestPassing(p.family as ProfileFamily, members, material, criteria);

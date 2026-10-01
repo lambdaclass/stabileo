@@ -68,3 +68,36 @@ describe('a cable', () => {
     for (const e of input.elements.values()) expect(e.type).toBe('truss');
   });
 });
+
+describe('a cable whose iteration does not settle', () => {
+  /*
+   * A horizontal 6 m rod from the head of a cantilever column to an anchor, the head pulled away
+   * from it. The cable shares the pull with the column and carries little tension for its own
+   * weight: the engine's equivalent-modulus iteration oscillates there, and more iterations do
+   * not help. That used to abort the whole analysis with "the cable analysis did not converge".
+   */
+  function headTie(pull: number) {
+    const foot = modelStore.addNode(0, 0, 0), head = modelStore.addNode(0, 0, 4), anchor = modelStore.addNode(6, 0, 4);
+    modelStore.addElement(foot, head, 'frame');
+    const rod = modelStore.addSection({ name: 'rod', a: 1e-3, iy: 1e-10, iz: 1e-10, j: 1e-10 } as never);
+    const cable = modelStore.addElement(head, anchor, 'truss');
+    modelStore.updateElement(cable, { behaviour: 'cable', sectionId: rod } as never);
+    modelStore.addSupport(foot, 'fixed3d'); modelStore.addSupport(anchor, 'pinned3d');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addNodalLoad3D(head, -pull, 0, 0, 0, 0, 0);
+    return cable;
+  }
+
+  it('is reported, with the results of the last iteration, and does not abort the analysis', async () => {
+    const cable = headTie(5);
+    const r = await modelStore.solve3DAsync(false, false, true);
+    expect(typeof r, String(r)).toBe('object');
+    const res = r as import('../types-3d').AnalysisResults3D;
+    expect(res.nonlinear?.converged).toBe(false);
+    expect(res.nonlinear?.cablesConverged).toBe(false);
+    expect(res.nonlinear?.cables?.map((c) => c.elementId)).toEqual([cable]);
+    // Whatever the cable did, the statics still close on the pull.
+    expect(res.reactions.reduce((s, x) => s + x.fx, 0)).toBeCloseTo(5, 6);
+  });
+});
+

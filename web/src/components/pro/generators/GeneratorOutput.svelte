@@ -86,11 +86,11 @@
 
   function committer(g: GeneratedModel) {
     const roles = topology?.members.map((m) => m.role) ?? [];
-    return (T: Parameters<typeof insertGenerated>[1]) => {
+    return (T: Parameters<typeof insertGenerated>[1], o?: { withSupports: boolean }) => {
       let r!: ReturnType<typeof insertGenerated>;
       let note: string | null = null;
       modelStore.batch(() => {
-        r = insertGenerated(g, T, meta(), roles);
+        r = insertGenerated(g, T, meta(), roles, { withSupports: o?.withSupports ?? true });
         note = afterInsert?.(r.elements) ?? null;
       });
       st.result = tp('generator.out.inserted', { members: r.elements.length, nodes: r.nodes.length, welded: r.welded })

@@ -14,6 +14,7 @@
   import { placementStore } from '../../lib/store/placement.svelte';
   import type { Support } from '../../lib/store/model.svelte';
   import { supportDofs3D } from '../../lib/engine/support-dofs-3d';
+  import { inclinePatch } from '../../lib/model/edit/support-incline';
 
   let { support }: { support: Support } = $props();
 
@@ -62,17 +63,8 @@
   // ── Inclined ──
   const inclined = $derived(!!support.isInclined);
   function setNormal(n: [number, number, number] | null) {
-    const len = n ? Math.hypot(...n) : 0;
-    if (n && len > 1e-12) {
-      // The normal carries the restraint, so the translations are left free; rotations stay.
-      const r = support.type === 'custom3d' ? restraints : { tx: true, ty: true, tz: true, rx: support.type === 'fixed3d', ry: support.type === 'fixed3d', rz: support.type === 'fixed3d' };
-      modelStore.updateSupport(support.id, {
-        type: 'custom3d', dofRestraints: { ...r, tx: false, ty: false, tz: false },
-        isInclined: true, normalX: n[0] / len, normalY: n[1] / len, normalZ: n[2] / len,
-      });
-    } else {
-      modelStore.updateSupport(support.id, { isInclined: undefined, normalX: undefined, normalY: undefined, normalZ: undefined } as never);
-    }
+    const patch = inclinePatch(support, n);
+    if (Object.keys(patch).length > 0) modelStore.updateSupport(support.id, patch as never);
   }
   function normalFromPoints() {
     placementStore.pickPoints(2, (k) => t('support.pickNormal').replace('{k}', String(k)), ([a, b]) => {

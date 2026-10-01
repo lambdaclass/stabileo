@@ -135,6 +135,7 @@
       {tp('floorLoad.summary', { panels: result.panels.filter((p) => p.loaded).length, area: result.loadedArea.toFixed(2), total: result.totalKN.toFixed(1), beams: result.perBeam.size })}
     </p>
     {#if result.skipped.nonConvex}<p class="fl-warn">{tp('floorLoad.skip.nonConvex', { n: result.skipped.nonConvex })}</p>{/if}
+    {#if result.skipped.islands}<p class="fl-warn">{tp('floorLoad.skip.islands', { n: result.skipped.islands })}</p>{/if}
     {#if result.skipped.crossings}<p class="fl-warn">{tp('floorLoad.skip.crossings', { n: result.skipped.crossings })}</p>{/if}
     {#if result.skipped.open}<p class="fl-hint">{tp('floorLoad.skip.open', { n: result.skipped.open })}</p>{/if}
     {#if result.skipped.trusses}<p class="fl-hint">{tp('floorLoad.skip.trusses', { n: result.skipped.trusses })}</p>{/if}

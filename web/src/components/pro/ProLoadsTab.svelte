@@ -2,6 +2,7 @@
   import PickKind from './PickKind.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
+  import { windCaseReversible } from '../../lib/store/wind-reversal';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
@@ -255,7 +256,11 @@
       : template === 'service'
       ? generateServiceCombinations({ present })
       : generateCombinations({ present });
-    const out = expandCombinations(specs, cases, { bothSenses: { W: windBySign, E: seismicBothSenses } }).map((c) => {
+    const out = expandCombinations(specs, cases, {
+      bothSenses: { W: windBySign, E: seismicBothSenses },
+      // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
+      reversible: (id) => windCaseReversible(modelStore.model, id),
+    }).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
     });

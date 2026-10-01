@@ -34,7 +34,7 @@ export function runSolve() {
    * reporter itself.
    */
   reportModelDiagnostics();
-  if (uiStore.analysisMode === '3d') {
+  if (uiStore.is3DWorkspace) {
     runSolve3D();
     return;
   }
@@ -94,7 +94,7 @@ export function runSolve() {
 export async function runSolve3D() {
   if (!isWasmReady()) {
     try { await initSolver(); } catch (e: any) {
-      uiStore.toast(e?.message || 'WASM solver initialization failed', 'error');
+      uiStore.toast(e?.message || t('toast.solverInitFailed'), 'error');
       return;
     }
   }
@@ -122,6 +122,9 @@ export async function runSolve3D() {
       if (comboResult && typeof comboResult !== 'string') {
         publishCombinations3D(comboResult);
         comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
+      } else if (typeof comboResult === 'string') {
+        // Refused (an empty active list, say): the solve stands, the combinations are not there.
+        uiStore.toast(comboResult, 'info');
       }
     }
     // Show diagnostics warnings if present

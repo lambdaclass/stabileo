@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isMode3D } from '../../lib/store/file';
+  import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -8,13 +8,17 @@
     { id: 'distributed', key: 'float.loadDistributed' },
     { id: 'thermal', key: 'float.loadThermal' },
   ] as const;
+  const LOAD_GLYPH = { nodal: 'loadPoint', distributed: 'loadDistributed', thermal: 'loadThermal' } as const;
 </script>
 
-<label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
-  <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>{t('float.selfWeightLabel')}</span>
-</label>
-<span class="ft-sep">|</span>
+<!-- Basic switches self-weight in its loads panel; PRO has no other switch. -->
+{#if uiStore.appMode !== 'basico'}
+  <label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
+    <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
+    <span>{t('float.selfWeightLabel')}</span>
+  </label>
+  <span class="ft-sep">|</span>
+{/if}
 <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor(uiStore.activeLoadCaseId)}"></span>
 <select class="ft-case-select"
   value={String(uiStore.activeLoadCaseId)}
@@ -27,14 +31,15 @@
 <span class="ft-sep">|</span>
 {#each loadTypes as lt}
   <button
-    class="ft-opt-btn"
+    class="ft-opt-btn ft-primary"
     class:active={uiStore.loadType === lt.id}
     onclick={() => uiStore.loadType = lt.id}
-  >{t(lt.key)}</button>
+  ><ToolGlyph name={LOAD_GLYPH[lt.id]} />{t(lt.key)}</button>
 {/each}
+<span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
       onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
@@ -72,14 +77,25 @@
     <input type="number" bind:value={uiStore.loadValue} step="1" />
     <span class="ft-unit">{uiStore.nodalLoadDir === 'my' ? 'kN\u00b7m' : 'kN'}</span>
   </label>
-  <span class="ft-sep">|</span>
-  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Z</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title={t('float.loadPerpDir')}>⊥</button>
-  <label class="ft-input-group">
-    <span>α:</span>
-    <input type="number" bind:value={uiStore.loadAngle} step="5" />
-    <span class="ft-unit">°</span>
-  </label>
+  {#if uiStore.nodalLoadDir !== 'my'}
+    <!--
+      Which axes the force is in, for a load placed on a member. The pair names
+      the chosen force: Fx is global X (horizontal) or along the member, Fz is
+      global Z (vertical) or perpendicular to it. A couple is the same in any
+      axes, so My has no pair.
+    -->
+    {@const alongX = uiStore.nodalLoadDir === 'fx'}
+    <span class="ft-sep">|</span>
+    <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true}
+      title={alongX ? t('float.loadGlobalXDir') : t('float.loadGlobalYDir')} data-testid="load-axes-global">{alongX ? 'X' : 'Z'}</button>
+    <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false}
+      title={alongX ? t('float.loadAxialDir') : t('float.loadPerpDir')} data-testid="load-axes-member">{alongX ? '∥' : '⊥'}</button>
+    <label class="ft-input-group">
+      <span>α:</span>
+      <input type="number" bind:value={uiStore.loadAngle} step="5" />
+      <span class="ft-unit">°</span>
+    </label>
+  {/if}
   {/if}
 {:else if uiStore.loadType === 'thermal'}
   <label class="ft-input-group">
@@ -93,7 +109,7 @@
     <span class="ft-unit">°C</span>
   </label>
 {:else if uiStore.loadType === 'distributed'}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
       <span>qYI:</span>
       <input type="number" bind:value={uiStore.loadValueY3D} step="1" />
@@ -116,7 +132,7 @@
       <span class="ft-unit">kN/m</span>
     </label>
   {/if}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
       <span>qZI:</span>
       <input type="number" bind:value={uiStore.loadValueZ} step="1" />
@@ -140,6 +156,9 @@
 {/if}
 
 <style>
+  /* A row break for the phone's layout (DataTable); nothing on a desktop. */
+  .ft-break { display: none; }
+
   .ft-opt-btn {
     padding: 2px 8px;
     background: var(--st-surface-2);

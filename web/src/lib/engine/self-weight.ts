@@ -11,13 +11,13 @@
  * gets its wL²/8 at midspan, which weight lumped at the ends did not give it. On a shell it is
  * ρ·t over the area, split equally between the corners as before.
  */
+import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { globalDistributedToSolver, type MemberRef, type Vec3 } from './member-loads';
 import { plateSelfWeightLoads, quadSelfWeightLoads } from './solver-shells';
-import { weightPerMetre } from './member-weight';
 
 /** The self-weight loads of one case, or of a single solve of every load when `caseRef` is null. */
 export function selfWeightFor(
@@ -60,6 +60,7 @@ export function selfWeightSolverLoads(
   axialOnly: (elementId: number) => boolean,
 ): SolverLoad3D[] {
   const out: SolverLoad3D[] = [];
+  const weight = createSectionWeight(model.materials);
   for (const s of entries) {
     const dir = UNIT[s.direction];
     const scope = selfWeightScope(model, s);
@@ -69,7 +70,7 @@ export function selfWeightSolverLoads(
       const sec = model.sections.get(el.sectionId);
       const m = memberRef(el.id);
       if (!mat || !sec || !m || !(m.axes.L > 1e-10)) continue;
-      const w = weightPerMetre(mat, sec, model.materials) * s.factor;
+      const w = weight(sec, el.materialId) * s.factor;
       if (w === 0) continue;
       const g: Vec3 = [dir[0] * w, dir[1] * w, dir[2] * w];
       out.push(...globalDistributedToSolver(m, g, g, 0, m.axes.L, axialOnly(el.id)));

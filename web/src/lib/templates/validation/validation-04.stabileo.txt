@@ -7,6 +7,8 @@ stabileo-model 1
 # The source solves its cases and combinations to second order with a fixed number of iterations;
 # here the cases are linear and each combination is solved with P-Delta, converged, on its own
 # factored loads.
+# P-Delta uses sparse assembly. Combinations without stable second-order equilibrium are
+# reported without forces.
 # The code check the source runs is not reproduced.
 name "Validación 04 · Nave industrial con puente grúa"
 mode pro

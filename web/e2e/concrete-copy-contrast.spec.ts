@@ -183,6 +183,8 @@ test.describe('@slow the migrated selectors, by name', () => {
       const SELECTORS = [
         '.role-purpose', '.census', '.hint', '.lbl', '.refused',
         '.fam-scope dt', '.no-n', '.muted', '.desc', '.sub', '.dim',
+        // The quantities card's coverage line, added at --st-text-3 by #231 (ledger W9-01).
+        '.qty-hint',
       ];
       const seen: string[] = [];
       for (const sel of SELECTORS) {

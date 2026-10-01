@@ -487,7 +487,7 @@ mod tests {
                 element_id: i+1, q_i: q, q_j: q, a: None, b: None,
             }));
         }
-        let input = SolverInput { nodes, materials: mats, sections: secs,
+        let input = SolverInput { solver_options: None, nodes, materials: mats, sections: secs,
             elements: elems, supports: sups, loads, constraints: vec![], connectors: HashMap::new() };
 
         let dof_num = DofNumbering::build_2d(&input);

@@ -14,7 +14,8 @@ export interface CombinationRule {
   terms: CombinationTerm[];
 }
 
-/** The symbols a rule can name; Wa is the service-level wind of B.4.2. */
+// Wa is the service-level wind of CIRSOC 102-2025 B.4.2: the service rules seeded from the code
+// carry it, and a table or template without it dropped the wind from the service envelope.
 export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
 /**
@@ -72,4 +73,19 @@ export function rulesFromTemplate(text: string): { name: string; rules: Combinat
     rules.push({ id: `r${i + 1}`, purpose: x.purpose === 'service' ? 'service' : 'strength', terms });
   });
   return { name: typeof d.name === 'string' ? d.name : '', rules };
+}
+
+/**
+ * `count` rule ids not in use. Numbering from the list's length reused an id once a rule had
+ * been deleted — rules r1 and r3 left, and the next one was r3 again — and two rules with one
+ * id broke the keyed list and edited or removed both at once.
+ */
+export function freshRuleIds(rules: ReadonlyArray<{ id: string }>, count: number): string[] {
+  const used = new Set(rules.map((r) => r.id));
+  const out: string[] = [];
+  for (let n = 1; out.length < count; n++) {
+    const id = `r${n}`;
+    if (!used.has(id)) { out.push(id); used.add(id); }
+  }
+  return out;
 }

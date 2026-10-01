@@ -11,7 +11,9 @@
  */
 import type { Fragment } from './fragment';
 import type { Vec3 } from './affine';
-import { generateMesh } from './mesher';
+import { generateMesh, MAX_MESH_CELLS } from './mesher';
+import { NodeIndex } from './node-index';
+import { weldTolerance } from '../weld-tolerance';
 
 export const SURFACE_KINDS = ['cylinder', 'cone', 'sphericalCap', 'sphericalZone', 'hyperboloid', 'hypar'] as const;
 export type SurfaceKind = (typeof SURFACE_KINDS)[number];
@@ -30,7 +32,8 @@ export const SURFACE_DEFAULTS: Record<SurfaceKind, SurfaceParams> = {
 export interface SurfaceMesh { points: Vec3[]; cells: number[][] }
 
 /** A structured patch: `at(i, j)` for i in 0..nu (wrapping when `closed`), j in 0..nv. */
-function patch(nu: number, nv: number, closed: boolean, at: (i: number, j: number) => Vec3): SurfaceMesh {
+function patch(nu: number, nv: number, closed: boolean, at: (i: number, j: number) => Vec3): SurfaceMesh | null {
+  if (nu * nv > MAX_MESH_CELLS) return null;
   const points: Vec3[] = [];
   const cols = closed ? nu : nu + 1;
   const idx = (i: number, j: number) => j * cols + (closed ? i % nu : i);
@@ -48,7 +51,8 @@ const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi
  * no width, joined to nothing at the tip. Points that coincide become one, a cell left with
  * three corners is a triangle, and one left with fewer is dropped.
  */
-function weld(m: SurfaceMesh): SurfaceMesh {
+function weld(m: SurfaceMesh | null): SurfaceMesh | null {
+  if (!m) return null;
   let span = 0;
   for (const p of m.points) span = Math.max(span, Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2]));
   const tol = 1e-9 * Math.max(1, span);
@@ -75,7 +79,9 @@ export function validSurface(kind: SurfaceKind, p: SurfaceParams): boolean {
   const pos = (...k: string[]) => k.every((x) => Number.isFinite(p[x]) && p[x]! > 0);
   switch (kind) {
     case 'cylinder': return pos('radius', 'height', 'angle', 'around', 'along') && p.angle! <= 360;
-    case 'cone': return pos('radius', 'height', 'around', 'along') && p.topRadius! >= 0;
+    // A ring that closes to a point (topRadius 0, a zone up to the pole) is a ring of triangles on
+    // one apex node, not welded copies of its corner node (which made degenerate shells): see above.
+    case 'cone': return pos('radius', 'height', 'around', 'along') && Number.isFinite(p.topRadius) && p.topRadius! >= 0;
     case 'sphericalCap': return pos('baseRadius', 'rise', 'size') && p.rise! <= p.baseRadius!;
     case 'sphericalZone': return pos('radius', 'around', 'along') && p.fromDeg! >= 0 && p.toDeg! > p.fromDeg! && p.toDeg! <= 90;
     case 'hyperboloid': return pos('waist', 'bottomRadius', 'topRadius', 'height', 'around', 'along') && p.waistAt! > 0 && p.waistAt! < p.height!
@@ -84,7 +90,22 @@ export function validSurface(kind: SurfaceKind, p: SurfaceParams): boolean {
   }
 }
 
+/** Reject meshes whose cells collapse under the weld placement uses (`weldTolerance()`). */
 export function surfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | null {
+  const mesh = buildSurfaceMesh(kind, p);
+  if (!mesh || mesh.points.some((p) => !p.every(Number.isFinite))) return null;
+  const index = new NodeIndex(weldTolerance());
+  const ids = mesh.points.map((p, i) => {
+    const hit = index.find(p, (id) => mesh.points[id]);
+    if (hit !== null) return hit;
+    index.add(i, p);
+    return i;
+  });
+  if (mesh.cells.some((cell) => new Set(cell.map((i) => ids[i])).size !== cell.length)) return null;
+  return mesh;
+}
+
+function buildSurfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | null {
   if (!validSurface(kind, p)) return null;
   switch (kind) {
     case 'cylinder': {

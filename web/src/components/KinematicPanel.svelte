@@ -14,7 +14,7 @@
    */
   let { docked = false }: { docked?: boolean } = $props();
   import { modelStore, uiStore } from '../lib/store';
-  import { generateKinematicReport, type KinematicReport, type SlidingJointInput } from '../lib/engine/kinematic-report';
+  import { generateKinematicReport, generateKinematicReport3D, type KinematicReport, type SlidingJointInput } from '../lib/engine/kinematic-report';
   import { t } from '../lib/i18n';
 
   // Collapsible sections
@@ -33,19 +33,46 @@
   }
 
   // Quick-toggle helpers (mode-aware)
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  // PRO is a space workspace too: its models are counted on the 3D path, not projected on XY.
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   // Kinematic report — cached, not auto-derived
   let report = $state<KinematicReport | null>(null);
   let lastAnalyzedVersion = $state(-1);
+  /** The mode the report describes: switching 2D/3D makes it describe another model. */
+  let lastAnalyzedMode = $state<'2d' | '3d' | null>(null);
 
   // Is the report stale? (model changed since last analysis)
   const isStale = $derived(
     report !== null && modelStore.modelVersion !== lastAnalyzedVersion
   );
 
+  /**
+   * In 3D the report is built on the space model and the 3D rank check.
+   *
+   * The panel used to call `buildSolverInput(false)` in every mode: the plane
+   * wire, which drops z. A space frame was then counted as its projection on
+   * XY (columns became zero-length bars) and the panel showed that count. The
+   * Advanced button is off in 3D, but `?kin=1` and the tour still open the
+   * panel there.
+   */
+  function recompute3D() {
+    let input3D: ReturnType<typeof modelStore.buildSolverInput3D> = null;
+    try {
+      input3D = modelStore.buildSolverInput3D(false, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
+    } catch {
+      input3D = null;
+    }
+    report = input3D ? generateKinematicReport3D(input3D) : null;
+    lastAnalyzedVersion = modelStore.modelVersion;
+    lastAnalyzedMode = '3d';
+    scheduleRankRetry();
+  }
+
   function recompute() {
+    if (is3D) { recompute3D(); return; }
     const input = modelStore.buildSolverInput(false);
+    lastAnalyzedMode = '2d';
     if (!input) {
       report = null;
       return;
@@ -60,7 +87,10 @@
     }
     report = generateKinematicReport(input, slidingJoints);
     lastAnalyzedVersion = modelStore.modelVersion;
+    scheduleRankRetry();
+  }
 
+  function scheduleRankRetry() {
     /*
      * If the rank check could not run, come back for it.
      *
@@ -89,14 +119,15 @@
       // Panel closed — reset state
       if (lastAnalyzedVersion !== -1) {
         lastAnalyzedVersion = -1;
+        lastAnalyzedMode = null;
         report = null;
         rankRetries = 0;
       }
       return;
     }
     const v = modelStore.modelVersion;
-    // Initial computation when panel first opens
-    if (lastAnalyzedVersion === -1) {
+    // Initial computation when panel first opens, and whenever the mode changes
+    if (lastAnalyzedVersion === -1 || lastAnalyzedMode !== (is3D ? '3d' : '2d')) {
       recompute();
       return;
     }
@@ -178,10 +209,22 @@
         {#if showStep1}
           <div class="kp-section">
             <div class="kp-explanation" style="margin-bottom:0.3rem">{t('kinematic.step1Vars')}</div>
-            <div class="kp-row">
-              <span class="kp-label"><strong>n</strong> {t('kinematic.nodes')}</span>
-              <span class="kp-value">{report.nNodes}</span>
-            </div>
+            {#if report.nTrussNodes > 0 && !report.isPureTruss}
+              <!-- A node only truss bars reach takes fewer equations: its moment equations read 0 = 0. -->
+              <div class="kp-row">
+                <span class="kp-label"><strong>n_p</strong> {t('kin.nodesFrame').replaceAll('{eq}', String(report.equationsPerNode[0]))}</span>
+                <span class="kp-value">{report.nFrameNodes}</span>
+              </div>
+              <div class="kp-row">
+                <span class="kp-label"><strong>n_r</strong> {t('kin.nodesTrussOnly').replaceAll('{eq}', String(report.equationsPerNode[1]))}</span>
+                <span class="kp-value">{report.nTrussNodes}</span>
+              </div>
+            {:else}
+              <div class="kp-row">
+                <span class="kp-label"><strong>n</strong> {t('kinematic.nodes')}</span>
+                <span class="kp-value">{report.nNodes}</span>
+              </div>
+            {/if}
             {#if report.nFrames > 0}
               <div class="kp-row">
                 <span class="kp-label"><strong>{report.nTrusses > 0 ? 'm_p' : 'm'}</strong> {t('kinematic.rigidBars')}</span>

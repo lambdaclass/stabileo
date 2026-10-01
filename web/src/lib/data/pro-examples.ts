@@ -27,6 +27,7 @@
 
 import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
+import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
@@ -118,7 +119,11 @@ function regulationCombinations(bothSenses: boolean): void {
   const specs = generateCombinations({ present: presentSymbols(cases) });
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
   let n = 0;
-  addGeneratedCombinations(expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }), () => `U${++n}: `);
+  // Wind reversed only where that is exact: an example's roof-suction case is not.
+  addGeneratedCombinations(expandCombinations(specs, cases, {
+    bothSenses: { W: bothSenses, E: bothSenses },
+    reversible: (caseId) => windCaseReversible(modelStore.model, caseId),
+  }), () => `U${++n}: `);
 }
 
 async function loadExample(ex: ProExample): Promise<void> {
@@ -172,7 +177,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   // ── Sheds and industrial buildings ──
   entry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pipe-rack', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagIndustrial'], stats: { nodes: 64, members: 156 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 633 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 709 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-concrete-wall-storehouse', source: 'code', group: 'industrial', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 480, members: 317, shells: 288 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-crane-hangar', source: 'code', group: 'industrial', tags: ['pro.tagCrane', 'pro.tagPDelta'], stats: { nodes: 222, members: 467 }, selfWeight: 'all', combinations: 'own' }),
 

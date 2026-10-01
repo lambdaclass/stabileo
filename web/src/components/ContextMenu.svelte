@@ -5,7 +5,7 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
 
   let subdivCount = $state(2);
-  const is3D = () => uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+  const is3D = () => uiStore.is3DWorkspace;
 
   function handleContextAction(action: string) {
     const ctx = uiStore.contextMenu;
@@ -117,9 +117,9 @@
           onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') doSubdivide(); }} />
         <button class="ctx-subdiv-btn" onclick={doSubdivide}>OK</button>
       </div>
-      {#if uiStore.analysisMode === '3d'}
+      {#if uiStore.is3DWorkspace}
         <div class="ctx-divider"></div>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-local-axes')}>{t('ctx.rotateBar90')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('rotate-local-axes')} data-testid="ctx-rotate-local-axes">{t('ctx.rotateBar90')}</button>
       {/if}
       <div class="ctx-divider"></div>
       <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-element')}>{t('ctx.deleteElement')}</button>

@@ -13,11 +13,14 @@
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
+import { is3DWorkspace } from '../utils/workspace';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
-import { initSolver, isWasmReady } from './wasm-solver';
-import { computeGoverning2D } from './governing-case';
+import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
+import { computeGoverning2D, computeGoverning3D } from './governing-case';
+import { hasNonlinearBehaviour } from './member-behaviour';
+import { allLoadsResult3D } from './shell-combos';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
@@ -70,16 +73,27 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   const isStale = nextSolveGuard();
   try {
-    if (analysisMode === '3d' || analysisMode === 'pro') {
+    if (is3DWorkspace(analysisMode)) {
       await liveCalc3D(axisConvention3D, isStale);
     } else {
       await liveCalc2D(isStale);
     }
     if (isStale()) return;
+    const is3DMode = is3DWorkspace(analysisMode);
+    // What was on screen before the edit cleared it: diagram, case, combination.
+    // Only onto results: a solve that published none (WASM not ready, an error,
+    // NaN displacements) leaves the view waiting for the next one.
+    if (resultsStore.pendingView) {
+      if (is3DMode ? resultsStore.results3D : resultsStore.results) resultsStore.restoreView(is3DMode);
+      return;
+    }
     // Restore the diagram type the user was viewing before clear() reset it to 'none'.
-    // Only restore if it's a valid diagram for the current mode.
-    if (prevDiagram && prevDiagram !== 'none') {
-      const is3D = analysisMode === '3d' || analysisMode === 'pro';
+    // Only restore if it's a valid diagram for the current mode — and only if
+    // nothing is showing: a diagram picked while the solve was running (a slow
+    // space model under Explore) is the user's latest choice, and restoring
+    // the one captured when the solve was queued put it back to the deformed shape.
+    if (prevDiagram && prevDiagram !== 'none' && resultsStore.diagramType === 'none') {
+      const is3D = is3DWorkspace(analysisMode);
       const validList: readonly string[] = is3D ? VALID_3D_DIAGRAMS : VALID_2D_DIAGRAMS;
       if (validList.includes(prevDiagram)) {
         resultsStore.diagramType = prevDiagram as any;
@@ -113,6 +127,23 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   }
 
   resultsStore.setResults3D(r, true);
+
+  /*
+   * The combinations, when what was on screen was one of them (or a case, or
+   * the envelope): the 3D live calc skips them otherwise, as the model may be
+   * large, but re-solving a combination's view to the unit-factor loads would
+   * show a different state under the same controls.
+   */
+  const v = resultsStore.pendingView;
+  if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
+    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (combo && typeof combo !== 'string') {
+      resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+      const comboNames = new Map<number, string>();
+      for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+      resultsStore.setGoverning3D(computeGoverning3D(combo.perCombo, comboNames));
+    }
+  }
 }
 
 async function liveCalc2D(isStale: () => boolean): Promise<void> {
@@ -162,7 +193,7 @@ export async function runGlobalSolve(): Promise<void> {
   // edit, so the same warning would fire on each keystroke of a half-built
   // model. A manual solve is the moment the user asserts the model is ready.
   reportModelDiagnostics();
-  if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+  if (uiStore.is3DWorkspace) {
     await ensureWasmReady('runGlobalSolve');
     await globalSolve3D(isStale);
   } else if (uiStore.analysisMode === 'edu') {
@@ -180,6 +211,7 @@ export async function runGlobalSolve(): Promise<void> {
   } else {
     await globalSolve2D(isStale);
   }
+  if (!isStale()) resultsStore.restoreView(uiStore.is3DWorkspace);
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
@@ -192,7 +224,7 @@ async function ensureWasmReady(context: string): Promise<void> {
     await initSolver();
   } catch (err: any) {
     console.error(`[${context}] WASM initialization failed:`, err);
-    throw new Error(err?.message || 'WASM solver initialization failed.');
+    throw new Error(err?.message || t('toast.solverInitFailed'));
   }
 }
 
@@ -258,8 +290,24 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     if (!comboResult) return t('results.emptyModelError');
     if (modelStore.modelVersion !== solveEpoch) return null;
 
-    // Use first per-case result as the "single" baseline view
-    const firstCaseResult = comboResult.perCase.values().next().value;
+    // "All loads" is an unfactored physical load state. Only a linear model can reuse
+    // the sum of independently solved cases: one-way members and lifting/curved supports
+    // need the active set of the combined loads, including settlements exactly once.
+    let firstCaseResult;
+    if (hasNonlinearBehaviour(modelStore.model)) {
+      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+      if (isStale() || modelStore.modelVersion !== solveEpoch) return null;
+      if (typeof single === 'string') return single;
+      firstCaseResult = single;
+    } else {
+      const caseIds = [...comboResult.perCase.keys()];
+      const combined = caseIds.length > 1
+        ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
+        : null;
+      firstCaseResult = combined
+        ? allLoadsResult3D(combined, comboResult.perCase, modelStore.plates)
+        : comboResult.perCase.get(caseIds[0]);
+    }
     if (!firstCaseResult) return t('results.emptyModelError');
 
     resultsStore.setResults3D(firstCaseResult);
@@ -290,7 +338,10 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
         if (comboError) {
           console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
           const fallback = await runSingleSolve();
-          if (!fallback) uiStore.toast(localizeEngineText(comboError), 'info', solveErrorAction(comboError));
+          // Said either way: with the fallback the model is solved, but without the
+          // combinations asked for — an empty active list, for one, is refused here. The
+          // command that may fix a solve is offered only when the fallback failed too.
+          uiStore.toast(localizeEngineText(comboError), 'info', fallback ? undefined : solveErrorAction(comboError));
         }
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);

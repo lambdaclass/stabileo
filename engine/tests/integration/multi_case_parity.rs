@@ -164,7 +164,7 @@ fn reference_2d(input: &MultiCaseInput) -> (Vec<AnalysisResults>, Vec<(String, A
             loads: lc.loads.clone(),
             constraints: vec![],
             connectors: HashMap::new(),
-        };
+            solver_options: None,        };
         cases.push(solve_2d(&case_input).expect("reference solve_2d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
@@ -203,7 +203,7 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
             curved_beams: input.solver.curved_beams.clone(),
             constraints: input.solver.constraints.clone(),
             connectors: HashMap::new(),
-        };
+            solver_options: None,        };
         cases.push(solve_3d(&case_input).expect("reference solve_3d failed"));
         case_map.insert(lc.name.clone(), idx);
     }
@@ -269,7 +269,7 @@ fn make_frame_2d_dense() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -303,7 +303,7 @@ fn make_beam_2d_sparse() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], connectors: HashMap::new(),
+        loads: vec![], constraints: vec![], connectors: HashMap::new(), solver_options: None,
     }
 }
 
@@ -384,7 +384,7 @@ fn make_mixed_3d_dense() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-    }
+        solver_options: None,    }
 }
 
 /// 3D sparse model (nf = 150 >= 64): 4×4 quad slab on 4 fixed frame columns.
@@ -471,7 +471,7 @@ fn make_frame_slab_3d_sparse() -> SolverInput3D {
         solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
-    }
+        solver_options: None,    }
 }
 
 // ==================== 2D tests ====================
@@ -631,6 +631,7 @@ fn parity_3d_dense_multi_case() {
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
                     SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                        q_xi: 0.0, q_xj: 0.0,
                         element_id: 1, q_yi: -2.0, q_yj: -2.0, q_zi: 0.0, q_zj: 0.0,
                         a: None, b: None,
                     }),
@@ -698,10 +699,12 @@ fn parity_3d_sparse_multi_case() {
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
                     SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                        q_xi: 0.0, q_xj: 0.0,
                         element_id: 1, q_yi: -3.0, q_yj: -3.0, q_zi: 0.0, q_zj: 0.0,
                         a: None, b: None,
                     }),
                     SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                        q_xi: 0.0, q_xj: 0.0,
                         element_id: 3, q_yi: 0.0, q_yj: 0.0, q_zi: -1.5, q_zj: -2.5,
                         a: Some(0.5), b: Some(2.0),
                     }),

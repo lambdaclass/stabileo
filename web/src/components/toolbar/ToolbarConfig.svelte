@@ -121,7 +121,7 @@
       </button>
     {/if}
     {#if flat || showGridSub}
-      {@const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
+      {@const is3D = uiStore.is3DWorkspace}
       {@const isPro = uiStore.analysisMode === 'pro'}
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
       <div class="sub-content" data-tour="cfg-grid">
@@ -156,6 +156,16 @@
             <input type="checkbox" checked={uiStore.smoothOrbit3D}
               onchange={(e) => { uiStore.smoothOrbit3D = e.currentTarget.checked; }} />
             <span>{t('config.smoothOrbit')}</span>
+            </HelpTip>
+          </label>
+        {/if}
+        {#if !is3D}
+          <!-- The same switch as the member tool's "Dimensions" button; not the grid's. -->
+          <label class="checkbox-item">
+            <HelpTip text={t('config.tip.memberDims')}>
+            <input type="checkbox" checked={uiStore.showMemberDimensions}
+              onchange={(e) => { uiStore.showMemberDimensions = e.currentTarget.checked; }} data-testid="cfg-member-dims" />
+            <span>{t('config.memberDims')}</span>
             </HelpTip>
           </label>
         {/if}
@@ -224,7 +234,7 @@
 
     {/if}
     {#if flat || showStructureSub}
-      {@const is3Dm = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
+      {@const is3Dm = uiStore.is3DWorkspace}
       <div class="sub-content" data-tour="cfg-model">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.nodeIds')}>

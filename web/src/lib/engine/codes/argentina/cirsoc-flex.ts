@@ -26,8 +26,10 @@ import {
   interactionCurve, sectionPoint, grossArea,
   type Bar, type Outline, type Materials, type SectionPoint,
 } from './cirsoc201-section';
-import { refine, momentCapacityAtAxial, axialRange } from './cirsoc-flex-surface';
-import { twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural } from './cirsoc201-layouts';
+import { refine, momentCapacityAtAxial } from './cirsoc-flex-surface';
+import {
+  twoLevels, levelsFromBottom, facesA1A2A3, ring, flexural, faceShares, a3Sides,
+} from './cirsoc201-layouts';
 import { COLUMN_STEEL_RATIO, ES_MPA, minFlexuralSteelCm2, beta1, axialCap } from './cirsoc201-basis';
 import { chooseBars, chooseBarsForCount, chooseBarsPerLevel, type BarChoice } from './cirsoc201-bars';
 import { msg, type EngineMessage } from '../../../codes/message';
@@ -133,8 +135,24 @@ export interface FlexOutput {
   outline: Outline;
   /** The working, line by line, as keys the UI turns into sentences. */
   steps: EngineMessage[];
-  /** Set when the section cannot take the demand even at 8 %. */
+  /**
+   * Set when there is no answer: the section cannot take the demand even at
+   * 8 %, or (with `invalid`) the inputs describe no section at all.
+   */
   impossible?: boolean;
+  /**
+   * The inputs were refused before anything was computed — a material that
+   * is not a positive number, a geometry that is not a section, a layout
+   * with no bars. `steps` says which, and nothing else in the output is a
+   * result: every area is 0 and the ratio infinite.
+   */
+  invalid?: boolean;
+  /**
+   * FCO's proposal face by face, each sized for its own share. Present when
+   * the faces carry different shares, so a single bar size would either
+   * short the heavier face or waste steel on the lighter one.
+   */
+  barFaces?: Array<{ face: 'A1' | 'A2' | 'A3'; needCm2: number; choice: BarChoice }>;
 }
 
 function materials(i: FlexInput): Materials {
@@ -152,6 +170,136 @@ function outlineFor(i: FlexInput): Outline {
   return { kind: 'rect', b: i.b, h: i.h, hole };
 }
 
+/**
+ * FCR's A′s/As as the layout uses it: clamped to [0, 1], and 1 (symmetric,
+ * what the sheet ships with) when the field is not a number. One place, so
+ * the bars, the printed As / A′s and the proposal all read the same value.
+ */
+function asPrimeRatio(i: FlexInput): number {
+  const r = i.ratioAsPrime;
+  return typeof r === 'number' && Number.isFinite(r) ? Math.max(0, Math.min(1, r)) : 1;
+}
+
+/**
+ * ── Inputs that describe no section are refused, not computed ─────
+ *
+ * Nothing used to check them. An f′c of 0 (or an EMPTY field, which the panel
+ * hands over as null) designed the beam as a steel couple and called it
+ * verified; fy = 0 filled every area with NaN; a negative width printed a
+ * negative As,min; a flange deeper than the beam built a section twice as
+ * deep as the one typed; a void larger than the column gave a negative Ast.
+ * Each of those is a question with no answer, and the honest reply is to say
+ * which number is wrong rather than to print a result for it.
+ *
+ * Only the fields the chosen case reads are checked: the form keeps every
+ * case's fields at once, and a circular column must not be refused over the
+ * width of a rectangle the reader cannot see.
+ */
+function validate(i: FlexInput): EngineMessage[] {
+  const out: EngineMessage[] = [];
+  const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+  if (!positive(i.fc)) out.push(msg('flex.step.badMaterial', { name: 'f′c' }));
+  if (!positive(i.fy)) out.push(msg('flex.step.badMaterial', { name: 'fy' }));
+
+  const dims = (pairs: Array<[string, number]>) => {
+    let ok = true;
+    for (const [name, v] of pairs) {
+      if (!positive(v)) { out.push(msg('flex.step.badDimension', { name })); ok = false; }
+    }
+    return ok;
+  };
+  /** A cover to a bar centre: from the face inward, and short of `limitM`. */
+  const cover = (name: string, v: number, limitM: number) => {
+    if (!finite(v) || v < 0 || v >= limitM) {
+      out.push(msg('flex.step.badCover', { name, limit: Math.round(limitM * 1e4) / 100 }));
+    }
+  };
+  const rectHole = () => {
+    if (i.holeB > 0 && i.holeH > 0 && (i.holeB >= i.b || i.holeH >= i.h)) out.push(msg('flex.step.badHole'));
+  };
+  const verifyingByArea = i.mode === 'verify'
+    && !(i.kase === 'FCR' && i.levels.some((l) => l.areaCm2 > 0));
+  if (verifyingByArea && !(finite(i.AstGiven) && i.AstGiven >= 0)) out.push(msg('flex.step.badSteel'));
+
+  switch (i.kase) {
+    case 'FSR':
+      if (dims([['b', i.b], ['h', i.h]])) {
+        cover('d′s', i.dPrimeS, i.h);
+        cover('d′', i.dPrime, i.h);
+      }
+      break;
+    case 'FST':
+      if (dims([['bf', i.bf], ['hf', i.hf], ['bw', i.bw], ['h', i.h]])) {
+        if (i.hf >= i.h) out.push(msg('flex.step.badFlange'));
+        /*
+         * bf < bw is not a flanged section: it is a rectangle with its top
+         * corners cut away, and the reader typed a T. Refused, pointing at
+         * the rectangular sheet, rather than designed as something else.
+         */
+        if (i.bf < i.bw) out.push(msg('flex.step.flangeNarrow'));
+        cover('d′s', i.dPrimeS, i.h);
+        cover('d′', i.dPrime, i.h);
+      }
+      break;
+    case 'FCR':
+      if (dims([['b', i.b], ['h', i.h]])) {
+        rectHole();
+        if (!(i.mode === 'verify' && i.levels.some((l) => l.areaCm2 > 0))) {
+          /* The two levels have to stay inside the section and in their order. */
+          const dp = finite(i.dPrime) ? Math.max(i.dPrime, 0) : 0;
+          const ds = finite(i.dPrimeS) ? Math.max(i.dPrimeS, 0) : 0;
+          cover('d′s', i.dPrimeS, i.h - dp);
+          cover('d′', i.dPrime, i.h - ds);
+        }
+      }
+      break;
+    case 'FCR-CIR':
+      if (dims([['D', i.D]])) {
+        const Dint = finite(i.Dint) ? i.Dint : 0;
+        if (Dint < 0 || Dint >= i.D) out.push(msg('flex.step.badDint'));
+        else cover('d′s', i.dPrimeS, (i.D - Dint) / 2);
+      }
+      /* A ring of 0 bars used to become a ring of ONE, and design as such. */
+      if (!(Number.isInteger(i.barCount) && i.barCount >= 1)) out.push(msg('flex.step.badBarCount'));
+      break;
+    case 'FCO': {
+      if (dims([['b', i.b], ['h', i.h]])) {
+        rectHole();
+        cover('d′sh', i.dPrimeH, i.b / 2);
+        cover('d′sv', i.dPrimeV, i.h / 2);
+      }
+      let layoutOk = true;
+      for (const [face, n] of [['A1', i.nA1], ['A2', i.nA2], ['A3', i.nA3]] as const) {
+        if (!(Number.isInteger(n) && n >= 0)) { out.push(msg('flex.step.badFaceCount', { face })); layoutOk = false; }
+      }
+      for (const [face, p] of [['A1', i.pctA1], ['A2', i.pctA2], ['A3', i.pctA3]] as const) {
+        if (!(finite(p) && p >= 0)) { out.push(msg('flex.step.badPct', { face })); layoutOk = false; }
+      }
+      /*
+       * Every share at 0 %, or every share on a face with no bars: there is
+       * no layout to size, and saying "not even the maximum works" sent the
+       * reader to enlarge a section whose problem was the distribution.
+       */
+      if (layoutOk && faceShares(fcoPct(i), fcoCounts(i)).sum === 0) out.push(msg('flex.step.noBars'));
+      break;
+    }
+  }
+  return out;
+}
+
+const fcoPct = (i: FlexInput) => ({ a1: i.pctA1, a2: i.pctA2, a3: i.pctA3 });
+const fcoCounts = (i: FlexInput) => ({ n1: i.nA1, n2: i.nA2, n3: i.nA3 });
+
+/** The answer to inputs `validate` refused: no numbers, only the reasons. */
+function refused(i: FlexInput, reasons: EngineMessage[]): FlexOutput {
+  return {
+    AstCm2: 0, rho: 0, ratio: Infinity, ok: false, impossible: true, invalid: true,
+    bars: [], outline: outlineFor(i), steps: reasons,
+  };
+}
+
 /** The bar layout a case and a total steel area imply. */
 function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
   switch (i.kase) {
@@ -161,7 +309,7 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
     case 'FCR':
       return i.mode === 'verify' && i.levels.some((l) => l.areaCm2 > 0)
         ? levelsFromBottom(i.h, i.levels)
-        : twoLevels(i.h, i.dPrime, i.dPrimeS, AstCm2, i.ratioAsPrime);
+        : twoLevels(i.h, i.dPrime, i.dPrimeS, AstCm2, asPrimeRatio(i));
     case 'FCR-CIR':
       return ring(i.D, i.dPrimeS, i.barCount, AstCm2, i.barAtExtremeFibre);
     case 'FCO':
@@ -194,13 +342,55 @@ function layoutFor(i: FlexInput, AstCm2: number): Bar[] {
  * published εt of 169,7 ‰ came back as 172,0 ‰. `refine` bisects the
  * neutral-axis depth itself and returns the section's own state there.
  */
+interface Utilisation {
+  ratio: number; phiPn: number; phiMn: number;
+  /** Absent for a purely axial demand, where no neutral axis describes the answer. */
+  c?: number; epsilonT?: number;
+  phi: number; theta: number;
+  /** The demand has no moment and was measured against the axial limit alone. */
+  axialOnly?: boolean;
+}
+
+/**
+ * ── A demand with no moment is measured on the axial axis ─────────
+ *
+ * Along the ray of constant eccentricity, Mu = 0 is the P axis itself, and
+ * searching for where the curve crosses it went wrong both ways. On a
+ * symmetric rectangle the fully compressed point has a moment of exactly
+ * zero, so it was taken as the crossing whatever the sign of Pu — a column in
+ * pure TENSION was checked against its compression capacity and 9 cm² passed
+ * 500 kN of pull that needs 13.2. On the 360-gon of a circle that moment is a
+ * rounding residue, never zero, so no crossing was found at all and every
+ * circular column with Mu = 0 was refused.
+ *
+ * The answer is the end of the diagram on the demand's own side: the capped
+ * compression φPn,max for Pu > 0 (compression-controlled, φ = 0.65 or 0.70),
+ * the pure-tension φPn for Pu < 0 (every bar yielding, φ = 0.90).
+ */
+function axialLimit(
+  outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, Pu: number,
+): Utilisation {
+  const curve = interactionCurve(outline, bars, mat, theta, 90);
+  const compression = Pu >= 0;
+  const end = curve.reduce((best, p) => (compression ? p.phiPn > best.phiPn : p.phiPn < best.phiPn) ? p : best);
+  const lim = end.phiPn;
+  const reaches = compression ? lim > 1e-9 : lim < -1e-9;
+  return {
+    ratio: Math.abs(Pu) < 1e-9 ? 0 : reaches ? Pu / lim : Infinity,
+    phiPn: lim, phiMn: 0, phi: end.phi, theta, axialOnly: true,
+    /* No bar is in tension at the compression end; at the tension end every one yields without limit. */
+    ...(compression ? { epsilonT: end.epsilonT } : {}),
+  };
+}
+
 function utilisation(
   outline: Outline, bars: Bar[], mat: Materials,
   Pu: number, Mu: number,
-): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number; theta: number } {
+): Utilisation {
   const Mres = Math.abs(Mu);
   /* A positive Mu compresses the top face: θ = π/2 in `sectionPoint`'s terms. */
   const theta = Mu < 0 ? -Math.PI / 2 : Math.PI / 2;
+  if (Mres < 1e-9 && Math.abs(Pu) >= 1e-9) return axialLimit(outline, bars, mat, theta, Pu);
   const curve = interactionCurve(outline, bars, mat, theta, 90);
   const cap = (p: SectionPoint) => Math.hypot(p.phiMnx, p.phiMny);
 
@@ -262,16 +452,15 @@ function utilisation(
  */
 function biaxialUtilisation(
   outline: Outline, bars: Bar[], mat: Materials, Pu: number, Mx: number, My: number,
-): { ratio: number; phiPn: number; phiMn: number; c: number; epsilonT: number; phi: number; theta: number } {
+): Utilisation {
   const Mres = Math.hypot(Mx, My);
   if (Mres < 1e-9) {
-    /* No moment: the question is the axial load alone, against its own limit. */
-    const { max, min } = axialRange(outline, bars, mat);
-    const lim = Pu >= 0 ? max : min;
-    return {
-      ratio: Math.abs(lim) > 1e-9 ? Pu / lim : Infinity,
-      phiPn: lim, phiMn: 0, c: 0, epsilonT: 0, phi: 0, theta: Math.PI / 2,
-    };
+    /*
+     * No moment: the question is the axial load alone, against its own limit
+     * — and φ is the one at that limit. It was reported as 0, with c, a and
+     * εt at 0 beside it, which CIRSOC 201 never gives.
+     */
+    return axialLimit(outline, bars, mat, Math.PI / 2, Pu);
   }
   const got = momentCapacityAtAxial(outline, bars, mat, Pu, Mx, My);
   if (!got) {
@@ -289,6 +478,8 @@ function biaxialUtilisation(
 
 /** One call, whichever sheet the reader picked. */
 export function solveFlex(i: FlexInput): FlexOutput {
+  const rejected = validate(i);
+  if (rejected.length > 0) return refused(i, rejected);
   const outline = outlineFor(i);
   const mat = materials(i);
   const Ag = grossArea(outline);
@@ -304,9 +495,10 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * cannot be designed for less load than one that can is not a rounding
    * problem, it is a wrong answer wearing a verdict.
    *
-   * Sizing on the interaction curve removes the band by construction. The
-   * capacity of a section is monotone in its steel and monotone in the
-   * moment asked of it, so a bisection cannot produce a hole.
+   * Sizing on the interaction curve removes the band by construction, as
+   * long as each bisection searches where the capacity IS monotone in the
+   * steel — below the singly-reinforced limit, and along the balanced pair
+   * above it. See `bisect` for what happened when it searched past that.
    *
    * The two-stage rule below is the textbook one, and it is what makes the
    * transition continuous:
@@ -322,7 +514,22 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * reproduces the workbook exactly and neither depends on the sizing.
    */
   if (i.kase === 'FSR' || i.kase === 'FST') {
+    /*
+     * ── A T under a negative moment is compressed in its WEB ─────────
+     *
+     * |Mu| used to be bent with the top face compressed whatever its sign, so
+     * a hogging T was credited with its flange as the compression zone while
+     * the flange is the side in tension: the workbook's own T at −80 kN·m
+     * came out 14 % short. Hogging now bends the section the other way up —
+     * compression at the bottom of the web, tension steel at the top — and
+     * the minimum is §10.5.2's, written for a flange in tension: §10.5.1's
+     * rule with bw replaced by the lesser of 2·bw and bf. A rectangle is the
+     * same section either way up and keeps the one convention.
+     */
+    const hogging = i.kase === 'FST' && i.Mu < 0;
+    const theta = hogging ? -Math.PI / 2 : Math.PI / 2;
     const bottomWidth = i.kase === 'FST' ? i.bw : i.b;
+    const minWidth = hogging ? Math.min(2 * i.bw, i.bf) : bottomWidth;
     const AstMaxHere = COLUMN_STEEL_RATIO.max * Ag * 1e4;
 
     /*
@@ -333,17 +540,16 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * three layers, the group's centroid sits above the first layer, and `d`
      * is smaller than the field said. Smaller `d` means more steel, which
      * can mean another layer — so the two have to be solved together rather
-     * than in sequence.
-     *
-     * Hence the loop below. It starts from the reader's cover, sizes, lays
-     * the bars out, takes the centroid back as the new cover and sizes
-     * again, until the cover it assumed and the cover the bars produce agree
-     * to a tenth of a millimetre. It converges in two or three passes
-     * because each layer moves the centroid by less than the last.
+     * than in sequence. See the loop below for how they are.
      */
     let effCover = i.dPrimeS;
     let dEff = i.h - effCover;
-    let AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+    let AsMin = minFlexuralSteelCm2(i.fc, i.fy, minWidth, dEff);
+    const setCover = (cover: number) => {
+      effCover = cover;
+      dEff = i.h - effCover;
+      AsMin = minFlexuralSteelCm2(i.fc, i.fy, minWidth, dEff);
+    };
 
     /**
      * The section's state at pure bending, for a given pair of steel areas.
@@ -355,14 +561,14 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * block is in the flange and that call knew nothing about it.
      */
     const stateOf = (AsCm2: number, AsCompCm2 = 0) => {
-      const bars = flexural(outline, effCover, AsCm2, i.dPrime, AsCompCm2);
-      const curve = interactionCurve(outline, bars, mat, Math.PI / 2, 120);
+      const bars = flexural(outline, effCover, AsCm2, i.dPrime, AsCompCm2, hogging);
+      const curve = interactionCurve(outline, bars, mat, theta, 120);
       for (let k = 0; k < curve.length - 1; k++) {
         const A = curve[k];
         const B = curve[k + 1];
         if (A.phiPn >= 0 && B.phiPn < 0) {
           /* Bisected on c, not interpolated — see `utilisation` for why. */
-          const p = refine(outline, bars, mat, Math.PI / 2, A.c, B.c, (q) => q.phiPn);
+          const p = refine(outline, bars, mat, theta, A.c, B.c, (q) => q.phiPn);
           return {
             phiMn: Math.abs(p.phiMnx),
             c: p.c,
@@ -377,24 +583,28 @@ export function solveFlex(i: FlexInput): FlexOutput {
     const capacityOf = (AsCm2: number, AsCompCm2 = 0) => stateOf(AsCm2, AsCompCm2).phiMn;
 
     const MuAbs = Math.abs(i.Mu);
-    const bisect = (comp: number, target: number, hiCm2: number) => {
+    /*
+     * ── φMn is NOT monotone in As, so the search stays where it is ──
+     *
+     * Past εt = 5 ‰ φ falls from 0.9 toward 0.65 faster than Mn grows: φMn(As)
+     * peaks at the singly-reinforced limit, dips, and climbs again on the
+     * φ = 0.65 branch. Bisecting all the way to the 8 % ceiling assumed
+     * otherwise, and whenever the midpoint already sat on that second branch
+     * it converged there — a compression-controlled "design" with 77 % more
+     * steel than the ductile one — or walked up to the ceiling itself.
+     * Below the singly-reinforced limit φ is 0.9 throughout and Mn grows with
+     * As, so the bisection is bounded by that limit and cannot leave it.
+     */
+    const bisect = (target: number, hiCm2: number) => {
       let a = 0.05;
       let z = hiCm2;
       for (let k = 0; k < 45; k++) {
         const m = (a + z) / 2;
-        if (capacityOf(m, comp) < target) a = m; else z = m;
+        if (capacityOf(m) < target) a = m; else z = m;
       }
       return z;
     };
 
-    /*
-     * One sizing pass, at whatever `effCover` currently says.
-     *
-     * The singly-reinforced ceiling inside it is the steel at which εt falls
-     * to 5 ‰. Beyond it φ starts dropping and the section stops being one
-     * the code wants built, which is exactly where compression steel earns
-     * its place.
-     */
     /** The steel at which εt falls to 5 ‰ — shared by both modes. */
     const singlyLimit = () => {
       let a = 0.05;
@@ -407,13 +617,21 @@ export function solveFlex(i: FlexInput): FlexOutput {
       return a;
     };
 
+    /*
+     * One sizing pass, at whatever `effCover` currently says.
+     *
+     * The singly-reinforced ceiling inside it is the steel at which εt falls
+     * to 5 ‰. Beyond it φ starts dropping and the section stops being one
+     * the code wants built, which is exactly where compression steel earns
+     * its place.
+     */
     const sizeOnce = () => {
       const AsAtLimit = singlyLimit();
       const MuSinglyMax = capacityOf(AsAtLimit);
 
       if (MuAbs <= MuSinglyMax) {
         return {
-          AsReq: Math.max(bisect(0, MuAbs, AstMaxHere), AsMin),
+          AsReq: Math.max(bisect(MuAbs, AsAtLimit), AsMin),
           AsComp: 0,
           MuSinglyMax,
         };
@@ -427,6 +645,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
        * neutral axis past c máx and left εt at 4,96 ‰ instead of the 5 ‰ the
        * branch exists to hold. Balanced, c stays where the singly-reinforced
        * limit put it — which is the sheet's closed form, by construction.
+       * Holding c holds φ at 0.9, so this search IS monotone in A′s.
        */
       const cLim = stateOf(AsAtLimit).c;
       const eps = cLim > 0 ? (0.003 * (cLim - i.dPrime)) / cLim : 0;
@@ -445,22 +664,17 @@ export function solveFlex(i: FlexInput): FlexOutput {
     /*
      * Bars and depth, solved together. `fitOpts` takes the cover to the bar
      * CENTRE, which is what the reader typed — the stirrup is not subtracted
-     * again, because the centre is already inside it.
+     * again, because the centre is already inside it. The tension bars go
+     * across the web in both senses of the moment: a hogging T's top steel
+     * is detailed over the web, the conservative reading of a flange.
      */
     const fitOpts = { widthM: bottomWidth, coverM: i.dPrimeS, heightM: i.h };
 
     /*
      * ── Verify asks a different question, and had no answer ────────
      *
-     * This branch did not exist. In `verify` the beam cases fell through to
-     * the sizing code, which designs the section to the moment and then
-     * reports the ratio between them — necessarily 1.000. A reader could
-     * enter 2 cm² against 150 kN·m on a 20 × 50 and be told it verifies,
-     * because nothing ever looked at the number they typed. The column
-     * cases had the branch; the beams were never given one.
-     *
-     * Here the steel is an INPUT. The bars still have to go somewhere, so
-     * the layering runs — 40 cm² in a 20 cm web stacks whether the reader
+     * In `verify` the steel is an INPUT. The bars still have to go somewhere,
+     * so the layering runs — 40 cm² in a 20 cm web stacks whether the reader
      * chose it or the sizing did, and `d` follows — but nothing is resized:
      * the capacity that comes out is the capacity of what they described.
      */
@@ -469,22 +683,36 @@ export function solveFlex(i: FlexInput): FlexOutput {
     if (i.mode === 'verify') {
       const given = Math.max(i.AstGiven, 0);
       chosen = chooseBars(given, fitOpts);
-      effCover = chosen.centroidFromFaceM ?? i.dPrimeS;
-      dEff = i.h - effCover;
-      AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+      setCover(chosen.centroidFromFaceM ?? i.dPrimeS);
       pass = { AsReq: given, AsComp: 0, MuSinglyMax: capacityOf(singlyLimit()) };
     } else {
+      /*
+       * ── Sizing and layering, until the bars sit where d assumed ───
+       *
+       * Size at a cover, lay the bars out, take their centroid as the new
+       * cover and size again. The loop used to replace the cover with the
+       * centroid both ways and stop after eight passes; with the sizing able
+       * to jump branches it oscillated between two covers and exited on a pair
+       * that did not agree — "d = 25 cm" printed over bars that put it at
+       * 23.5, whose own verification failed by 12 %.
+       *
+       * The cover now only moves UP. A deeper centroid than assumed means
+       * less d than was sized for, so size again; a centroid at or below the
+       * assumed cover means the bars have at least the d the steel was sized
+       * at, so they carry the moment, and d is then read from THEM. Either
+       * way what is printed is the d of the bars proposed, and the capacity
+       * below is computed there.
+       */
       pass = sizeOnce();
       chosen = chooseBars(pass.AsReq, fitOpts);
-      for (let layerPasses = 0; layerPasses < 8; layerPasses++) {
-        const produced = chosen.centroidFromFaceM ?? i.dPrimeS;
-        if (Math.abs(produced - effCover) < 1e-4) break;
-        effCover = produced;
-        dEff = i.h - effCover;
-        AsMin = minFlexuralSteelCm2(i.fc, i.fy, bottomWidth, dEff);
+      for (let layerPasses = 0; layerPasses < 40; layerPasses++) {
+        const produced = chosen.centroidFromFaceM;
+        if (produced === undefined || produced <= effCover + 1e-4) break;
+        setCover(produced);
         pass = sizeOnce();
         chosen = chooseBars(pass.AsReq, fitOpts);
       }
+      if (chosen.centroidFromFaceM !== undefined) setCover(chosen.centroidFromFaceM);
     }
 
     const MuSinglyMax = pass.MuSinglyMax;
@@ -492,7 +720,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
     const AsComp = pass.AsComp;
 
     const total = AsReq + AsComp;
-    const bars = flexural(outline, effCover, AsReq, i.dPrime, AsComp);
+    const bars = flexural(outline, effCover, AsReq, i.dPrime, AsComp, hogging);
     const st = stateOf(AsReq, AsComp);
     /*
      * ── What makes a section impossible ────────────────────────────
@@ -511,16 +739,22 @@ export function solveFlex(i: FlexInput): FlexOutput {
      * work", which is a statement about the SECTION. In verify the reader
      * supplied the steel, so a shortfall is not the section being too small
      * — it is their bars being too few, and the ratio is what says so.
-     * Conflating the two would answer "make it bigger" to someone who could
-     * simply add a bar.
      */
     const cannotPlace =
       total > AstMaxHere
       || chosen.placeable === false
       || (chosenComp?.placeable === false);
     const shortOfDemand = st.phiMn < MuAbs * 0.999;
-    const impossible = i.mode === 'verify' ? cannotPlace : (cannotPlace || shortOfDemand);
-    const verifies = !cannotPlace && !shortOfDemand;
+    /*
+     * §10.3.5: a flexural member has εt ≥ 4 ‰ at nominal strength. Design
+     * holds 5 ‰ by construction; a VERIFICATION of steel the reader typed
+     * checked only φMn ≥ Mu, and passed a 50 × 50 with 60 cm² at εt = 2 ‰.
+     * Only where there is a state to read it from: with no steel at all
+     * there is no strain to speak of, and the moment check says why it fails.
+     */
+    const overReinforced = total > 0 && st.c > 0 && st.epsilonT < 0.004 - 1e-9;
+    const impossible = i.mode === 'verify' ? cannotPlace : (cannotPlace || shortOfDemand || overReinforced);
+    const verifies = !cannotPlace && !shortOfDemand && !overReinforced;
 
     return {
       AstCm2: total,
@@ -531,7 +765,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       AsMinCm2: AsMin,
       /* §10.3.4's c at εt = 5 ‰, which is what the sheet prints as cmax. */
       a: st.a, c: st.c, cMax: (dEff * 0.003) / 0.008, epsilonT: st.epsilonT, phi: st.phi,
-      phiMn: st.phiMn, theta: Math.PI / 2,
+      phiMn: st.phiMn, theta,
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: verifies,
       impossible,
@@ -540,6 +774,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
       barChoiceComp: chosenComp ?? undefined,
       outline,
       steps: [
+        ...(hogging ? [msg('flex.step.teeHogging', { bmin: minWidth * 100 })] : []),
         chosen.layers && chosen.layers > 1
           ? msg('flex.step.dLayers', {
               d: dEff * 100, layers: chosen.layers,
@@ -572,6 +807,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
         msg('flex.step.phiMn', { m: st.phiMn }),
         ...(i.mode === 'verify' && shortOfDemand
           ? [msg('flex.step.fails', { phiMn: st.phiMn, mu: MuAbs })] : []),
+        ...(overReinforced ? [msg('flex.step.notDuctile', { epsT: st.epsilonT * 1000 })] : []),
         ...(impossible && i.mode !== 'verify' ? [msg('flex.step.impossible')] : []),
         ...(i.mode === 'verify' && AsReq < AsMin
           ? [msg('flex.step.belowMin', { as: AsReq, asMin: AsMin })] : []),
@@ -658,26 +894,116 @@ export function solveFlex(i: FlexInput): FlexOutput {
    * Treating FCR's two levels as two bars is what produced "2 Ø32" for a
    * section that had just been told it needs 21.31 cm², and two bars is not
    * a rectangular column under §10.9.2 either.
+   *
+   * Each level, and each face, is sized for its OWN area. Halving the total
+   * for FCR's level assumed A′s/As = 1, and at 0.5 left the tension level
+   * 20 % short; giving every FCO bar the average share left an 80/20 split's
+   * heavier face 31 % short.
    */
-  const choice = i.kase === 'FCR'
-    ? chooseBarsPerLevel(AstCm2 / 2, {
-        /* Cover to the bar centre, as the reader typed it — see `chooseBars`. */
-        widthM: i.b, coverM: Math.max(i.dPrimeS, i.dPrime), heightM: i.h,
-      })
-    /*
-     * No layout, no proposal. A percentage split that lands on zero bars —
-     * every share set to 0 %, or a count of zero — has no arrangement to
-     * price, and `chooseBarsForCount` asked for one anyway would invent a
-     * count out of its own minimum and present it as the reader's layout.
-     */
-    : bars.length > 0 ? chooseBarsForCount(AstCm2, bars.length) : undefined;
+  const byLevels = i.kase === 'FCR' && i.mode === 'verify' && i.levels.some((l) => l.areaCm2 > 0);
+  const rLevels = byLevels ? 1 : asPrimeRatio(i);
+  const AsTension = AstCm2 / (1 + rLevels);
+  const AsCompression = AstCm2 - AsTension;
+  /* Cover to the bar centre, as the reader typed it — see `chooseBars`. */
+  const levelOpts = { widthM: i.b, coverM: Math.max(i.dPrimeS, i.dPrime), heightM: i.h };
 
+  let choice: BarChoice | undefined;
+  let choiceComp: BarChoice | undefined;
+  let levelChoices: BarChoice[] | undefined;
+  let barFaces: FlexOutput['barFaces'];
+  if (i.kase === 'FCR') {
+    if (byLevels) {
+      /*
+       * Verify by levels asks for no d′/d′s, so the stale covers of whichever case
+       * was open before cannot be the ones the fit is judged on. The levels give a
+       * cover only vertically: the outermost level's distance to its face. Read as
+       * one cover on every face, that is the side cover each level's bars are laid
+       * out against — a level's own distance from the nearest face is not, since an
+       * intermediate level sits near h/2 and would leave no width at all. Each
+       * level's own area decides its own bars (halving the total assumed two equal
+       * levels).
+       */
+      const placed = i.levels.filter((l) => l.areaCm2 > 0);
+      const coverM = Math.max(0, Math.min(...placed.map((l) => Math.min(l.distanceFromBottom, i.h - l.distanceFromBottom))));
+      levelChoices = placed.map((l) => chooseBarsPerLevel(l.areaCm2, { widthM: i.b, coverM, heightM: i.h }));
+      choice = levelChoices[0];
+      choiceComp = levelChoices.length > 1 ? levelChoices[levelChoices.length - 1] : undefined;
+    } else {
+      choice = chooseBarsPerLevel(AsTension, levelOpts);
+      /* A lighter compression level gets its own line; at A′s/As = 1 one line is both. */
+      if (rLevels < 1) choiceComp = chooseBarsPerLevel(AsCompression, levelOpts);
+    }
+  } else if (i.kase === 'FCO') {
+    const sh = faceShares(fcoPct(i), fcoCounts(i));
+    barFaces = ([['A1', sh.a1, i.nA1], ['A2', sh.a2, i.nA2], ['A3', sh.a3, i.nA3]] as const)
+      .filter(([, share]) => share > 0)
+      .map(([face, share, n]) => ({ face, needCm2: AstCm2 * share, choice: chooseBarsForCount(AstCm2 * share, n) }));
+    if (barFaces.length > 0) {
+      const count = barFaces.reduce((s, f) => s + f.choice.count, 0);
+      const diameters = new Set(barFaces.map((f) => f.choice.diameter));
+      const asTyped = barFaces.every((f) => f.choice.count === (f.face === 'A1' ? i.nA1 : f.face === 'A2' ? i.nA2 : i.nA3));
+      const uniform = diameters.size === 1 && asTyped;
+      choice = {
+        count,
+        diameter: Math.max(...diameters),
+        areaCm2: barFaces.reduce((s, f) => s + f.choice.areaCm2, 0),
+        /* One size throughout reads as it always did; otherwise face by face. */
+        label: uniform
+          ? `${count} Ø${barFaces[0].choice.diameter}`
+          : barFaces.map((f) => `${f.choice.label} (${f.face})`).join(' + '),
+        fitsInOneLayer: null,
+        clearSpacingMm: null,
+      };
+      if (uniform) barFaces = undefined;
+    } else {
+      barFaces = undefined;
+    }
+  } else {
+    /*
+     * No layout, no proposal: `chooseBarsForCount` asked for one anyway would
+     * invent a count out of its own minimum and present it as the reader's.
+     */
+    choice = bars.length > 0 ? chooseBarsForCount(AstCm2, bars.length) : undefined;
+  }
+
+  /*
+   * ── FCO's distribution, as it was used ───────────────────────────
+   *
+   * The shares are read in proportion over the faces that have bars (see
+   * `facesA1A2A3`), which at A1 + A2 + A3 = 100 is exactly what was typed.
+   * Whenever it is not — a split that adds to 150, or a share on a face with
+   * no bars — the memo says what was taken, so the number printed is never
+   * the answer to a different question than the reader thinks they asked.
+   */
+  const fcoNotes: EngineMessage[] = [];
+  if (i.kase === 'FCO') {
+    const sh = faceShares(fcoPct(i), fcoCounts(i));
+    const typed = i.pctA1 + i.pctA2 + i.pctA3;
+    if (Math.abs(sh.sum - 100) > 1e-6 || Math.abs(typed - 100) > 1e-6) {
+      const pc = (x: number) => Math.round(x * 1000) / 10;
+      fcoNotes.push(msg('flex.step.pctNormalised', {
+        sum: Math.round(sh.sum * 100) / 100, a1: pc(sh.a1), a2: pc(sh.a2), a3: pc(sh.a3),
+      }));
+    }
+    if (sh.a3 > 0 && i.nA3 % 2 === 1) {
+      const { left, right } = a3Sides(i.nA3);
+      fcoNotes.push(msg('flex.step.a3Split', { left, right }));
+    }
+  }
+
+  const columnWontFit = (ch: BarChoice | undefined) =>
+    !!ch && ((ch.layers ?? 1) > 1 || ch.placeable === false);
+
+  /* What was taken of the distribution comes before anything computed from it. */
+  steps.unshift(...fcoNotes);
   steps.push(
     msg('flex.step.diagram', { bars: bars.length }),
     msg(i.kase === 'FCO' ? 'flex.step.atAxial' : 'flex.step.onRay', { phiPn: u.phiPn, phiMn: u.phiMn }),
-    msg('flex.step.state', {
-      c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
-    }),
+    u.axialOnly || u.c === undefined || u.epsilonT === undefined
+      ? msg('flex.step.axialOnly', { phiPn: u.phiPn, phi: u.phi })
+      : msg('flex.step.state', {
+          c: u.c * 100, a: b1 * u.c * 100, epsT: u.epsilonT * 1000, phi: u.phi,
+        }),
     msg('flex.step.ratio', { ratio: u.ratio }),
     /*
      * The bar arrangement is not printed — the sheet stops at the area — but
@@ -690,45 +1016,43 @@ export function solveFlex(i: FlexInput): FlexOutput {
      */
     /* A proposal beyond the sheet, when sizing; the bars are an input when checking. */
     ...(i.mode === 'design' && choice ? [msg('flex.step.steel', { bars: choice.label, area: choice.areaCm2 })] : []),
-    ...(choice && ((choice.layers ?? 1) > 1 || choice.placeable === false)
-      ? [msg('flex.step.wontFitColumn')] : []),
+    ...(i.mode === 'design' && choiceComp
+      ? [msg('flex.step.asCompBars', { as: AsCompression, bars: choiceComp.label })] : []),
+    ...(columnWontFit(choice) || columnWontFit(choiceComp) || (levelChoices ?? []).some(columnWontFit) ? [msg('flex.step.wontFitColumn')] : []),
   );
 
-  const r = i.ratioAsPrime;
   return {
     AstCm2,
-    ...(i.kase === 'FCR'
-      ? { AsCm2: AstCm2 / (1 + r), AsPrimeCm2: (AstCm2 * r) / (1 + r) }
-      : {}),
+    ...(i.kase === 'FCR' ? { AsCm2: AsTension, AsPrimeCm2: AsCompression } : {}),
     rho: (AstCm2 * 1e-4) / Ag,
     /*
-     * §9.6.1.2's flexural minimum, where the section HAS a width and a
-     * depth to apply it to. The workbook prints it on its rectangular
-     * column sheets — 2.5 cm² for the 30 × 30 — so it is reported here too.
+     * §9.6.1.2's flexural minimum, on the RECTANGULAR column sheets, where
+     * the section has a width and a depth to apply it to. The workbook
+     * prints it there — 2.5 cm² for the 30 × 30 — so it is reported too.
      *
-     * A circular section has neither: `i.b` and `i.h` are not set, so the
-     * rule was being evaluated on `undefined` and NaN reached the panel,
-     * which printed "NaN cm²" under As mínima. A column's real floor is
-     * §10.9.1's 1 % of Ag either way, and that is `AstMinCm2` below.
-     */
-    /*
+     * Not on the circular one, which has neither. The guard used to be
+     * "b and h are numbers", but the panel always sends them — they are the
+     * hidden rectangular fields — so a D = 40 column printed a beam rule
+     * evaluated on a rectangle the reader could not see. A column's real
+     * floor is §10.9.1's 1 % of Ag either way, and that is `AstMinCm2`.
+     *
      * FCO has no `d′s` field — its covers are d′sh and d′sv — so reading
      * `dPrimeS` there picked up whatever the last rectangular case left in it:
      * 2,66 cm² against the sheet's 2,50 for the 30 × 30.
      */
-    ...(Number.isFinite(i.b) && Number.isFinite(i.h) && i.b > 0 && i.h > 0
+    ...(i.kase === 'FCR' || i.kase === 'FCO'
       ? { AsMinCm2: minFlexuralSteelCm2(i.fc, i.fy, i.b, i.h - (i.kase === 'FCO' ? i.dPrimeV : i.dPrimeS)) }
       : {}),
     AstMinCm2: AstMin,
     AstMaxCm2: AstMax,
-    c: u.c, a: b1 * u.c, epsilonT: u.epsilonT, phi: u.phi,
+    c: u.c, a: u.c === undefined ? undefined : b1 * u.c, epsilonT: u.epsilonT, phi: u.phi,
     phiPn: u.phiPn, phiMn: u.phiMn, theta: u.theta,
     ...(i.kase === 'FCO'
       ? { puMax: axialCap(i.fc, i.fy, Ag, (i.mode === 'design' ? AstMax : AstCm2) * 1e-4, i.confinement) }
       : {}),
     ratio: u.ratio,
     ok: !impossible && u.ratio <= 1,
-    bars, barChoice: choice, outline, steps, impossible,
+    bars, barChoice: choice, barChoiceComp: choiceComp, barFaces, outline, steps, impossible,
   };
 }
 

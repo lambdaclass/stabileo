@@ -45,7 +45,7 @@
 
   function run() {
     steelOptimise.run(scope, onlySelection && selected.length > 0 ? selected : undefined, $state.snapshot(settings) as OptimiseSettings);
-    chosen = new Set(steelOptimise.rows.filter((r) => r.result.chosen && r.result.chosen.profile.name !== r.currentName).map((r) => r.key));
+    chosen = new Set(steelOptimise.rows.filter((r) => r.changes).map((r) => r.key));
   }
 
   function toggle(key: string) {
@@ -73,7 +73,7 @@
   const change = (r: (typeof rows)[number]) => {
     const c = r.result.chosen;
     if (!c) return 'none';
-    if (c.profile.name === r.currentName) return 'same';
+    if (!r.changes) return 'same';
     return r.current && c.profile.weight < (r.current.profile.weight) ? 'lighter' : 'heavier';
   };
 </script>

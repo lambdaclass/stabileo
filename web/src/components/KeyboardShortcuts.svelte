@@ -1,13 +1,15 @@
 <script lang="ts">
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
+  import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
+  import { pasteClipboardRecord } from '../lib/store/clipboard-paste';
   import { translation } from '../lib/model/edit/affine';
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
   import { saveProject, saveSession, loadFile } from '../lib/store/file';
-  import { resolveDeleteTargets } from '../lib/store/delete-selection';
+  import { deleteSelection } from '../lib/actions/delete-selection';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
-  import { hasExplicitLocalY, pickElement3DMetadata } from '../lib/model/element-3d-metadata';
+  import { pickElement3DMetadata } from '../lib/model/element-3d-metadata';
   import { runSolve } from '../lib/actions/solve';
   import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
@@ -141,7 +143,7 @@
     if (!clip || clip.nodes.length === 0) return;
 
     // Offset: in 3D mode offset in Z, in 2D offset in XY
-    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    const is3D = uiStore.is3DWorkspace;
     const ox = is3D ? 0 : 1;
     const oy = is3D ? 0 : 1;
     const oz = is3D ? 3 : 0;
@@ -169,60 +171,35 @@
       return;
     }
 
-    const idMap = new Map<number, number>();
-    const pastedElements: number[] = [];
-
-    modelStore.batch(() => {
-      // Create new nodes
-      for (const n of clip.nodes) {
-        const newId = modelStore.addNode(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
-        idMap.set(n.origId, newId);
-      }
-
-      // Create new elements
-      for (const el of clip.elements) {
-        const ni = idMap.get(el.origNodeI);
-        const nj = idMap.get(el.origNodeJ);
-        // `continue`, not `return`: returning here abandoned every element and support after it.
-        if (ni == null || nj == null) continue;
-        const matId = modelStore.materials.has(el.materialId) ? el.materialId : 1;
-        const secId = modelStore.sections.has(el.sectionId) ? el.sectionId : 1;
-        const newElemId = modelStore.addElement(ni, nj, el.type);
-        modelStore.updateElementMaterial(newElemId, matId);
-        modelStore.updateElementSection(newElemId, secId);
-        if (el.releaseI?.mz === true) modelStore.toggleHinge(newElemId, 'start');
-        if (el.releaseJ?.mz === true) modelStore.toggleHinge(newElemId, 'end');
-        if (hasExplicitLocalY(el)) {
-          modelStore.updateElementLocalY(newElemId, el.localYx, el.localYy, el.localYz);
-        }
-        if (el.rollAngle !== undefined && Math.abs(el.rollAngle) > 1e-9) {
-          modelStore.rotateElementLocalAxes(newElemId, el.rollAngle);
-        }
-        pastedElements.push(newElemId);
-      }
-
-      // Create supports
-      for (const s of clip.supports) {
-        const newNodeId = idMap.get(s.origNodeId);
-        if (newNodeId != null) {
-          modelStore.addSupport(newNodeId, s.type);
-        }
-      }
-    });
-
-    // Select pasted items
-    uiStore.setSelection(new Set(idMap.values()), new Set(pastedElements), true);
+    // The clipboard's own record, through the same edit layer (`store/clipboard-paste.ts`).
+    const r = pasteClipboardRecord(clip, [ox, oy, oz], uiStore.axisConvention3D === 'leftHand');
+    uiStore.setSelection(new Set(r.maps[0]?.nodes.values() ?? []), new Set(r.elements), true);
   }
+
+  /*
+   * ── Copy, cut and paste belong to the page first ──────────────────
+   * These took Cmd/Ctrl+C, X and V unconditionally for the model's own
+   * clipboard, so text selected anywhere on the page — a result, a message,
+   * a table — could only be copied from the context menu. The keys are the
+   * page's when text is selected (or when there is nothing of the model to
+   * copy or paste), and the model's otherwise.
+   */
+  function textSelected(): boolean {
+    const sel = window.getSelection();
+    return !!sel && !sel.isCollapsed && sel.toString().trim().length > 0;
+  }
+  const modelSelected = () => uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0;
 
   function handleKeydown(e: KeyboardEvent) {
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+    if ((e.target as HTMLElement).isContentEditable) return;
 
     const key = e.key.toUpperCase();
 
     // Alt + letter: labels and the magnifier. Read from `code`, not `key` — on a Mac Alt turns
     // the letter into a symbol (Alt+N is "˜"). PRO and 3-D only, where these labels exist.
-    if (e.altKey && !e.ctrlKey && !e.metaKey && (uiStore.analysisMode === 'pro' || uiStore.analysisMode === '3d')) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && uiStore.is3DWorkspace) {
       const handled = ({
         KeyN: () => { uiStore.showNodeLabels3D = !uiStore.showNodeLabels3D; },
         KeyB: () => { uiStore.showElementLabels3D = !uiStore.showElementLabels3D; },
@@ -278,6 +255,7 @@
 
     // Ctrl+C: Copy
     if ((e.ctrlKey || e.metaKey) && key === 'C') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       return;
@@ -285,6 +263,7 @@
 
     // Ctrl+X: Cut
     if ((e.ctrlKey || e.metaKey) && key === 'X') {
+      if (textSelected() || !modelSelected()) return;
       e.preventDefault();
       handleCopy();
       const nodesToDelete = [...uiStore.selectedNodes];
@@ -299,6 +278,7 @@
 
     // Ctrl+V: Paste
     if ((e.ctrlKey || e.metaKey) && key === 'V') {
+      if (!uiStore.clipboard) return;
       e.preventDefault();
       handlePaste();
       return;
@@ -318,7 +298,7 @@
 
     // F: Zoom to fit
     if (key === 'F') {
-      if (uiStore.analysisMode === '3d') {
+      if (uiStore.is3DWorkspace) {
         window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
       } else {
         zoomToFit();
@@ -338,7 +318,7 @@
 
     // Diagram shortcuts (0-9)
     if (resultsStore.results || resultsStore.results3D) {
-      const is3D = uiStore.analysisMode === '3d';
+      const is3D = uiStore.is3DWorkspace;
       switch (e.key) {
         case '0': resultsStore.diagramType = 'none'; return;
         case '1': resultsStore.diagramType = 'deformed'; return;
@@ -353,43 +333,9 @@
       }
     }
 
-    // Delete selected supports/nodes/elements/loads
+    // Delete: everything selected, every kind, one undo step (lib/actions/delete-selection).
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (uiStore.selectedSupports.size > 0) {
-        const supToDelete = [...uiStore.selectedSupports];
-        modelStore.batch(() => {
-          for (const supId of supToDelete) modelStore.removeSupport(supId);
-        });
-        uiStore.clearSelectedSupports();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads holds load data ids (the 2D viewport selects by data.id)
-        const ids = [...uiStore.selectedLoads];
-        modelStore.batch(() => {
-          for (const id of ids) modelStore.removeLoad(id);
-        });
-        uiStore.clearSelectedLoads();
-        resultsStore.clear();
-      } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
-        // Delete strictly from the EXPLICIT selection channels — never infer an
-        // entity kind from a numeric id. Frame elements, plates and quads have
-        // INDEPENDENT id spaces (all count from 1), so a frame id can collide
-        // with an unrelated quad/plate id. `selectedElements` only ever holds
-        // FRAME ids (box-select, element-row clicks); shells are selected and
-        // highlighted ONLY via `selectedShells` ("p<id>"/"q<id>"). The old code
-        // re-derived shells from `selectedElements` numeric ids in shell mode,
-        // which deleted unselected (any-floor) shells whose id happened to match
-        // a selected frame id. Highlight == delete target now.
-        const targets = resolveDeleteTargets(
-          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
-          (id) => modelStore.elements.has(id),
-        );
-        modelStore.deleteEntities(targets);
-        uiStore.clearSelection();
-        resultsStore.clear();
-      }
+      deleteSelection();
       return;
     }
 
@@ -411,7 +357,7 @@
     // G: toggle grid (2D and 3D)
     if (key === 'G') {
       // PRO is a 3-D viewport too; toggling the 2-D grid there changed nothing on screen.
-      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+      if (uiStore.is3DWorkspace) {
         uiStore.showGrid3D = !uiStore.showGrid3D;
       } else {
         uiStore.showGrid = !uiStore.showGrid;
@@ -421,7 +367,7 @@
 
     // H: toggle axes (2D and 3D)
     if (key === 'H' && !e.ctrlKey && !e.metaKey) {
-      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+      if (uiStore.is3DWorkspace) {
         uiStore.showAxes3D = !uiStore.showAxes3D;
       } else {
         uiStore.showAxes = !uiStore.showAxes;
@@ -429,9 +375,10 @@
       return;
     }
 
-    // Enter: solve (both 2D and 3D)
+    // Enter: solve (both 2D and 3D); with a connection question open, it answers yes instead.
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (connectionPrompt.current) { connectionPrompt.accept(); return; }
       runSolve();
       return;
     }

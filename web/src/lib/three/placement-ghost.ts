@@ -105,6 +105,9 @@ export class PlacementGhost {
 
   /** Move the ghost under T, mark the welds, and put the anchor cross at `target`. */
   update(T: Affine, target: Vec3, welds: Vec3[], size: number, onNode = false): void {
+    // Shown by being placed: a placement started again with the same fragment (a second
+    // paste of the clipboard) skips setFragment, and the ghost stayed hidden from the last one.
+    this.group.visible = true;
     const sp = this.snap.geometry.getAttribute('position') as THREE.BufferAttribute;
     sp.setXYZ(0, target[0], target[1], target[2]);
     sp.needsUpdate = true;

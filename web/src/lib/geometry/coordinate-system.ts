@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { is3DWorkspace } from '../utils/workspace';
 
 export type AnalysisAxis = 'x' | 'y' | 'z';
 export type VerticalAxis = 'z';
@@ -233,7 +234,7 @@ export function shouldProjectModelToXZ(params: {
   // 3D and PRO modes always use direct 3D coordinates — never project to XZ.
   // Projection in 3D/PRO is only allowed when the viewport is explicitly showing
   // a flat 2D model upright inside the 3D workspace.
-  if ((params.analysisMode === '3d' || params.analysisMode === 'pro') && params.viewportPresentation3D !== 'upright2dIn3d') return false;
+  if (is3DWorkspace(params.analysisMode ?? '') && params.viewportPresentation3D !== 'upright2dIn3d') return false;
   if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
 
   let hasNodes = false;

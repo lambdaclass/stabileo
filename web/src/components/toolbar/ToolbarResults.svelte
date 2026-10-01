@@ -130,8 +130,8 @@
 {#if !flat}
 <div class="toolbar-section">
   {#if !flat}<h3>{t('results.solve')}</h3>{/if}
-  <button class="solve-btn" data-tour="calcular-btn" class:ready={modelReady} onclick={handleSolve} use:tooltip={'solve'} title={uiStore.analysisMode === '3d' ? t('results.analysis3dTooltip') : ''}>
-    {uiStore.analysisMode === '3d' ? t('results.solve3d') : t('results.solve')}
+  <button class="solve-btn" data-tour="calcular-btn" class:ready={modelReady} onclick={handleSolve} use:tooltip={'solve'} title={uiStore.is3DWorkspace ? t('results.analysis3dTooltip') : ''}>
+    {uiStore.is3DWorkspace ? t('results.solve3d') : t('results.solve')}
   </button>
 </div>
 {/if}
@@ -154,7 +154,7 @@
       <div class="diagram-grid">
         <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => showDiagram('none')} title={t('results.noDiagramTooltip')} use:tooltip={'diag-none'}>{t('results.none')}</button>
         <button class="diagram-btn" class:active={resultsStore.diagramType === 'deformed'} onclick={() => showDiagram('deformed')} title={t('results.deformedTooltip')} use:tooltip={'diag-deformed'}>{t('results.deformed')}</button>
-        {#if uiStore.analysisMode !== '3d'}
+        {#if !uiStore.is3DWorkspace}
           <button class="diagram-btn" class:active={resultsStore.diagramType === 'moment'} onclick={() => showDiagram('moment')} title={t('results.momentTooltip')} use:tooltip={'diag-moment'}>{t('results.moment')}</button>
           <button class="diagram-btn" class:active={resultsStore.diagramType === 'shear'} onclick={() => showDiagram('shear')} title={t('results.shearTooltip')} use:tooltip={'diag-shear'}>{t('results.shear')}</button>
           <button class="diagram-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => showDiagram('axial')} title={t('results.axialTooltip')} use:tooltip={'diag-axial'}>{t('results.axial')}</button>
@@ -386,7 +386,7 @@
         && activeRepresentation() === 'diagram'}
       {#if resultsStore.hasCombinations && (showsPrimary || showsSecondary)
         && (activeQuantity() !== null || resultsStore.diagramType === 'deformed')}
-        {@const is3D = uiStore.analysisMode === '3d'}
+        {@const is3D = uiStore.is3DWorkspace}
         {@const caseKeys = is3D ? [...resultsStore.perCase3D.keys()] : [...resultsStore.perCase.keys()]}
         {@const comboKeys = is3D ? [...resultsStore.perCombo3D.keys()] : [...resultsStore.perCombo.keys()]}
         {@const hasEnvelope = is3D ? resultsStore.fullEnvelope3D !== null : resultsStore.fullEnvelope !== null}

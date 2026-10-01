@@ -452,7 +452,12 @@ pub fn solve_cable_2d(
             // The modulus the displacements were solved with: the one this pass assembled.
             let factor = ernst_factor(ci.w, horizontal_projection_2d(ci), ci.ea, old_tension, iter);
             assembled_factor.insert(ci.elem_id, factor);
-            let tension = if strain > 0.0 { factor * ci.ea * strain } else { 0.0 };
+            // A slack cable has no assembled stiffness, but positive trial strain must
+            // reactivate it. This trial tension forces another iteration, which restores
+            // its stiffness before a converged result can be published.
+            let tension = if strain > 0.0 {
+                (if factor == 0.0 { 1.0 } else { factor }) * ci.ea * strain
+            } else { 0.0 };
 
             let change = (tension - old_tension).abs();
             let ref_val = old_tension.abs().max(tension.abs()).max(1.0);
@@ -852,7 +857,12 @@ pub fn solve_cable_3d(
             // The modulus the displacements were solved with: the one this pass assembled.
             let factor = ernst_factor(ci.w, horizontal_projection_3d(ci), ci.ea, old_tension, iter);
             assembled_factor.insert(ci.elem_id, factor);
-            let tension = if strain > 0.0 { factor * ci.ea * strain } else { 0.0 };
+            // A slack cable has no assembled stiffness, but positive trial strain must
+            // reactivate it. This trial tension forces another iteration, which restores
+            // its stiffness before a converged result can be published.
+            let tension = if strain > 0.0 {
+                (if factor == 0.0 { 1.0 } else { factor }) * ci.ea * strain
+            } else { 0.0 };
 
             let change = (tension - old_tension).abs();
             let ref_val = old_tension.abs().max(tension.abs()).max(1.0);

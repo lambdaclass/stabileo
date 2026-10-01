@@ -10,7 +10,7 @@ import type {
   SolverInput3D, SolverSupport3D,
   SolverDistributedLoad3D, SolverPointLoad3D, SolverThermalLoad3D, SolverElement3D,
 } from './types-3d';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { solveAllowingNullModes } from './dense-solve';
 
 // Re-export the same DSMStepData interface so the StepWizard can display both 2D and 3D
@@ -737,6 +737,9 @@ export function solveDetailed3D(input: SolverInput3D): DSMStepData {
         const a = dl.a ?? 0;
         const b = dl.b ?? L;
 
+        const [axI, axJ] = axialDistributedFEF(dl, a, b, L);
+        fef[0] += axI; fef[6] += axJ;
+
         // Y-plane FEF -> DOFs 1,5,7,11
         if (Math.abs(dl.qYI) > 1e-15 || Math.abs(dl.qYJ) > 1e-15) {
           let vi0: number, mi0: number, vj0: number, mj0: number;
@@ -888,6 +891,8 @@ function assembleDistLoadDetailed(
   // Build 12-vector of equivalent nodal forces in local coords
   const fLocal = new Float64Array(12);
 
+  [fLocal[0], fLocal[6]] = axialDistributedFEF(load, a, b, L);
+
   // Y-plane FEF
   if (Math.abs(load.qYI) > 1e-15 || Math.abs(load.qYJ) > 1e-15) {
     let vi0: number, mi0: number, vj0: number, mj0: number;
@@ -922,7 +927,7 @@ function assembleDistLoadDetailed(
   }
 
   // Scatter to global F with tracking
-  const desc = `Carga distrib. elem ${elem.id}`;
+  const desc = tp('detailed.distLoadDesc', { id: elem.id });
   const dofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   const dofs = [elem.nodeI, elem.nodeJ];
   for (let n = 0; n < 2; n++) {
@@ -936,7 +941,7 @@ function assembleDistLoadDetailed(
         loadContributions.push({
           dofIndex: idx,
           dofLabel: allDofLabels[idx],
-          source: `${desc}, nodo ${n === 0 ? 'I' : 'J'} ${dofNames[d]}`,
+          source: tp('detailed.atNodeEnd', { desc, end: n === 0 ? 'I' : 'J', dof: dofNames[d] }),
           value: val,
         });
       }
@@ -1042,7 +1047,7 @@ function assemblePointLoadDetailed(
   }
 
   // Scatter to global F with tracking
-  const desc = `Carga puntual elem ${elem.id}`;
+  const desc = tp('detailed.pointLoadDesc', { id: elem.id });
   const dofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   const dofs = [elem.nodeI, elem.nodeJ];
   for (let n = 0; n < 2; n++) {
@@ -1056,10 +1061,19 @@ function assemblePointLoadDetailed(
         loadContributions.push({
           dofIndex: idx,
           dofLabel: allDofLabels[idx],
-          source: `${desc}, nodo ${n === 0 ? 'I' : 'J'} ${dofNames[d]}`,
+          source: tp('detailed.atNodeEnd', { desc, end: n === 0 ? 'I' : 'J', dof: dofNames[d] }),
           value: val,
         });
       }
     }
   }
+}
+
+/** Consistent axial loads from the linear axial shape functions. */
+function axialDistributedFEF(load: SolverDistributedLoad3D, a: number, b: number, L: number): [number, number] {
+  const span = b - a;
+  if (!(span > 0)) return [0, 0];
+  const fi = (load.qXI ?? 0) * span / 2, fj = (load.qXJ ?? 0) * span / 2;
+  const atJ = (fi * (a + span / 3) + fj * (a + 2 * span / 3)) / L;
+  return [fi + fj - atJ, atJ];
 }

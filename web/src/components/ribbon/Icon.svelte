@@ -58,6 +58,11 @@
     <path d="M12 3v18M3 12h18" />
     <path d="M12 3l-2.4 2.6M12 3l2.4 2.6M12 21l-2.4-2.6M12 21l2.4-2.6" />
     <path d="M3 12l2.6-2.4M3 12l2.6 2.4M21 12l-2.6-2.4M21 12l-2.6 2.4" />
+  {:else if name === 'moveNode'}
+    <!-- A joint dragged: where it was (dashed), the drag, where it lands. -->
+    <circle cx="6.5" cy="17.5" r="2.4" stroke-dasharray="1.6 1.6" />
+    <path d="M8.6 15.4l5.2-5.2M13.8 10.2h-3.9M13.8 10.2v3.9" />
+    <circle cx="17" cy="7" r="3" />
   {:else if name === 'view2d'}
     <!-- A framed plane with its grid. -->
     <rect x="3.5" y="4.5" width="17" height="15" rx="1" />

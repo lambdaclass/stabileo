@@ -61,7 +61,7 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
     nodes: modelStore.nodes.values(), supports: modelStore.supports.values(), loads: modelStore.loads,
     plateCount: modelStore.plates.size, quadCount: modelStore.quads.size,
   });
-  if (flat && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) uiStore.useUpright2DIn3DPresentation();
+  if (flat && uiStore.is3DWorkspace) uiStore.useUpright2DIn3DPresentation();
   else uiStore.useNative3DPresentation();
   modelStore.bumpModelVersion();
 

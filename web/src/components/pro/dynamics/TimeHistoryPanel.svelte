@@ -45,29 +45,49 @@
   let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(stored())));
   let epoch = modelStore.loadEpoch;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const cancel = () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; } };
+  const storedSpec = () => JSON.stringify(stored());
+  let observed = storedSpec();
+  let pending: string | null = null;
+  function cancelSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    pending = null;
+  }
+  function save(snapshot: string) {
+    cancelSave();
+    observed = snapshot;
+    if (snapshot !== storedSpec()) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) });
+  }
+  // Undo, redo and project loading replace the stored spec without editing this component; a new
+  // project (a new loadEpoch) re-reads the draft even when its run reads the same.
   $effect(() => {
+    const snapshot = storedSpec();
     const e = modelStore.loadEpoch;
     untrack(() => {
-      if (e === epoch) return;
+      if (snapshot === observed && e === epoch) return;
+      cancelSave();
+      observed = snapshot;
       epoch = e;
-      cancel();
-      spec = JSON.parse(JSON.stringify(stored()));
+      spec = JSON.parse(snapshot);
     });
   });
   $effect(() => {
     const snapshot = JSON.stringify(spec);
     untrack(() => {
-      if (snapshot === JSON.stringify(stored())) return;
-      cancel();
+      cancelSave();
+      if (snapshot === observed) return;
+      pending = snapshot;
       const at = epoch;
-      saveTimer = setTimeout(() => { saveTimer = null; if (modelStore.loadEpoch === at) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) }); }, 600);
+      // A write meant for this project never lands in the next one.
+      saveTimer = setTimeout(() => { if (modelStore.loadEpoch === at) save(snapshot); else cancelSave(); }, 600);
     });
   });
   onDestroy(() => {
-    if (!saveTimer) return;
-    cancel();
-    if (modelStore.loadEpoch === epoch) modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) });
+    // Flush only an unsaved edit of the same project state. Never overwrite an undo/load
+    // that happened just before destruction, before the synchronisation effect could run.
+    const snapshot = pending;
+    cancelSave();
+    if (snapshot !== null && storedSpec() === observed && modelStore.loadEpoch === epoch) save(snapshot);
   });
 
   let running = $state(false);
@@ -95,7 +115,7 @@
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);
-      modelStore.setDynamics({ timeHistory: JSON.parse(JSON.stringify(spec)) });
+      save(JSON.stringify(spec));
     } catch (e) {
       onError(`${t('pro.th.title')}: ${errorText(e, 'Error')}`);
     } finally {

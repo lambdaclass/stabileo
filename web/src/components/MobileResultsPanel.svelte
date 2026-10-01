@@ -2,7 +2,7 @@
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const hasResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   const hasModel = $derived(modelStore.nodes.size > 0);
 
@@ -82,7 +82,7 @@
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
             <!-- Also unconditional now: this whole panel is PRO. -->
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification') !== 'results.verification' ? t('results.verification') : 'Verification'}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification')}</button>
           {/if}
         </div>
 

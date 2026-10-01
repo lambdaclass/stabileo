@@ -74,6 +74,7 @@ export interface DirectAnalysisResult {
 /** One P-Delta solve: on a worker when the caller has one, on this thread otherwise. */
 export type PDeltaRunner = (input: SolverInput3D, maxIter: number, tol: number) => Promise<{
   results: AnalysisResults3D; linearResults?: AnalysisResults3D; converged: boolean; iterations: number;
+  isStable?: boolean;
   b2Factor?: number; amplification?: Array<{ nodeId: number; ratio: number }>;
 }>;
 
@@ -84,7 +85,7 @@ export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, 
   return async (input, maxIter, tol) => {
     try {
       const r = await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
-      // The worker answers as the engine does; the main-thread wrapper's correction applies here.
+      // The worker finishes the solve (`solve-finish.ts`); the geometric correction applies here.
       return { ...r, results: correctPDeltaForces(input, r.results) };
     } catch {
       return mainThreadPDelta(input, maxIter, tol);
@@ -119,12 +120,12 @@ export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], leftHan
     } else if (l.type === 'distributed') {
       const m = axesOf(l.data.elementId);
       if (!m) continue;
-      const { ey, ez, L } = m.axes;
+      const { ex, ey, ez, L } = m.axes;
       const a = l.data.a ?? 0, b = l.data.b ?? L, span = b - a;
       if (!(span > 0)) continue;
       // Global vector of the load at each end of its stretch, then the trapezoid's resultant.
-      const gI = (i: 0 | 1 | 2) => l.data.qYI * ey[i]! + l.data.qZI * ez[i]!;
-      const gJ = (i: 0 | 1 | 2) => l.data.qYJ * ey[i]! + l.data.qZJ * ez[i]!;
+      const gI = (i: 0 | 1 | 2) => (l.data.qXI ?? 0) * ex[i]! + l.data.qYI * ey[i]! + l.data.qZI * ez[i]!;
+      const gJ = (i: 0 | 1 | 2) => (l.data.qXJ ?? 0) * ex[i]! + l.data.qYJ * ey[i]! + l.data.qZJ * ez[i]!;
       const total = (i: 0 | 1 | 2) => ((gI(i) + gJ(i)) / 2) * span;
       const tz = total(2);
       // Centroid of the trapezoid from end I of the member.
@@ -217,7 +218,7 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
-  const settings = opts.settings ?? DEFAULT_DIRECT_SETTINGS;
+  const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
   const maxIter = settings.maxIter ?? 30, tol = settings.tol ?? 1e-5;
@@ -262,41 +263,46 @@ export async function runDirectAnalysis(
       // A lateral combination takes notional loads only past a drift ratio of 1.7.
       const firstB2 = amplification(r).b2;
       if (ratio(firstB2) !== ratio(0)) r = await solveWith(tau, ratio(firstB2), ux, uy);
+      let tauConverged = settings.tauB !== 'iterate';
       if (settings.tauB === 'iterate') {
-        for (let k = 0; k < 5; k++) {
+        for (let k = 0; k <= 5; k++) {
+          if (!r.converged || !amplification(r).stable) break;
           const next = new Map<number, number>();
           for (const [id, c] of compression(r.results)) {
             const p = pns.get(id);
             if (p) { const t = tauBOf(c, p); if (t < 1) next.set(id, t); }
           }
           const moved = [...new Set([...next.keys(), ...tau.keys()])].some((id) => Math.abs((next.get(id) ?? 1) - (tau.get(id) ?? 1)) > 0.01);
-          if (!moved) break;
+          if (!moved) { tauConverged = true; break; }
+          if (k === 5) break;
           tau = next;
           r = await solveWith(tau, ratio(amplification(r).b2), ux, uy);
         }
       }
-      return { r, tau };
+      return { r, tau, converged: r.converged && tauConverged };
     };
 
-    let chosen: { r: Awaited<ReturnType<PDeltaRunner>>; tau: Map<number, number>; dir: NotionalDirection };
+    let chosen: Awaited<ReturnType<typeof solveDirection>> & { dir: NotionalDirection };
     if (hasLateral) {
       const ux = lateral.x / hMag, uy = lateral.y / hMag;
-      const { r, tau } = await solveDirection((b2) => (b2 > 1.7 ? settings.notional : 0) + extra, ux, uy);
+      const answer = await solveDirection((b2) => (b2 > 1.7 ? settings.notional : 0) + extra, ux, uy);
+      const { r } = answer;
       const applied = amplification(r).b2 > 1.7 || extra > 0;
-      chosen = { r, tau, dir: applied ? 'lateral' : 'none' };
+      chosen = { ...answer, dir: applied ? 'lateral' : 'none' };
     } else {
       const dirs: Array<[NotionalDirection, number, number]> = [['+X', 1, 0], ['-X', -1, 0], ['+Y', 0, 1], ['-Y', 0, -1]];
       const tried = await Promise.all(dirs.map(async ([dir, ux, uy]) => ({ dir, ...(await solveDirection(() => settings.notional + extra, ux, uy)) })));
       // An unstable direction governs outright: it is the one the structure cannot carry.
       const unstable = tried.find((x) => !amplification(x.r).stable);
-      chosen = unstable ?? tried.reduce((a, b) => (sway(b.r.results) > sway(a.r.results) ? b : a));
+      chosen = unstable ?? tried.find((x) => !x.converged)
+        ?? tried.reduce((a, b) => (sway(b.r.results) > sway(a.r.results) ? b : a));
     }
     const amp = amplification(chosen.r);
-    // An unstable combination publishes no forces: there are none to design for.
-    if (amp.stable) perCombo.set(combo.id, chosen.r.results);
+    // Both the P-Delta solve and the stiffness iteration must have converged.
+    if (amp.stable && chosen.converged) perCombo.set(combo.id, chosen.r.results);
     info.set(combo.id, {
       comboId: combo.id, notional: chosen.dir, b2: amp.b2, stable: amp.stable,
-      converged: chosen.r.converged, iterations: chosen.r.iterations, tauB: chosen.tau,
+      converged: chosen.converged, iterations: chosen.r.iterations, tauB: chosen.tau,
     });
   }));
 

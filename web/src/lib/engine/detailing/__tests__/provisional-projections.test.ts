@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene } from './helpers/workspace-scene';
+import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { detailingStore } from '../../../store/detailing.svelte';
@@ -41,7 +41,7 @@ const NOT_FOR_CONSTRUCTION = /NO APTO PARA EMISI/i;
  * A generous per-test ceiling, because these tests render a WHOLE BUILDING.
  *
  * Vitest's default is 5 s and these run in a pool of 271 files. Each of the assertions below
- * renders a whole-building document — the report, the sheets, the schedule — which takes about
+ * renders the 203-member document — the report, the sheets, the schedule — which takes about
  * 1,9 s on an idle machine and rather more when fifteen workers are competing for the same
  * cores. Three of them timed out in a full-suite run while every assertion in them passed,
  * which is the worst kind of red: it says "broken" and means "busy".
@@ -55,10 +55,8 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
   let provisional: number[];
 
   beforeAll(async () => {
-    // The 408-member frame, whose wind bends 13 beams about both axes. The 7-storey example
-    // stopped producing proposals once self-weight became a member load: its weight's
-    // strong-axis moment took every beam there under the biaxial threshold.
-    const w = await workspaceScene('rc-design-frame');
+    // Five beams turned about their axis, so they bend about both (see `ROLLED_BEAMS`).
+    const w = await workspaceScene('pro-edificio-7p', ROLLED_BEAMS);
     scene = w.scene;
     doc = w.doc;
     provisional = scene.provisionalMembers;

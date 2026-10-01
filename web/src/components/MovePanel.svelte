@@ -24,6 +24,7 @@
    */
   import { uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import Icon from './ribbon/Icon.svelte';
 
   const mode = $derived(uiStore.currentTool === 'moveNodes' ? 'nodes' : 'view');
 
@@ -46,7 +47,7 @@
     onclick={() => pick('view')}
     data-testid="move-view"
   >
-    <span class="mv-glyph" aria-hidden="true">✥</span>
+    <span class="mv-glyph" aria-hidden="true"><Icon name="pan" size={18} /></span>
     <span>
       <strong>{t('move.view')}</strong>
       <em>{t('move.viewWhat')}</em>
@@ -59,7 +60,7 @@
     onclick={() => pick('nodes')}
     data-testid="move-nodes"
   >
-    <span class="mv-glyph" aria-hidden="true">⊹</span>
+    <span class="mv-glyph" aria-hidden="true"><Icon name="moveNode" size={18} /></span>
     <span>
       <strong>{t('move.nodes')}</strong>
       <em>{t('move.nodesWhat')}</em>
@@ -110,9 +111,10 @@
     background: var(--st-selected-bg);
   }
 
+  /* The same drawings the pointer button shows while each mode is on. */
   .mv-glyph {
-    font-size: 0.95rem;
-    line-height: 1.1;
+    display: flex;
+    flex: none;
     color: var(--st-text-3);
   }
 

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
-import { runDirectAnalysis, tauBOf, nodeGravity, notionalLoads } from '../direct-analysis';
+import { runDirectAnalysis, tauBOf, nodeGravity, notionalLoads, mainThreadPDelta } from '../direct-analysis';
 import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from '../solver-service';
 
 beforeAll(async () => { await initSolver(); });
@@ -108,6 +108,48 @@ describe('the direct analysis of a cantilever column', () => {
     if (typeof r === 'string') throw new Error(r);
     expect(r.info.get(combo)!.notional).toBe('lateral');
   });
+
+  it('does not hide a nonconvergent notional direction behind another direction', async () => {
+    const { combo } = column();
+    const r = await runDirectAnalysis(data(), modelStore.model.loadCases,
+      modelStore.model.combinations.filter(c => c.id === combo), {
+        includeSelfWeight: false,
+        run: async (...args) => {
+          const answer = await mainThreadPDelta(...args);
+          const failed = args[0].loads.some(l => l.type === 'nodal' && l.data.fy > 0);
+          if (!failed) return answer;
+          return { ...answer, converged: false, results: { ...answer.results,
+            displacements: answer.results.displacements.map(d => ({ ...d, ux: d.ux * .01, uy: d.uy * .01 })),
+          } };
+        },
+      });
+    if (typeof r === 'string') throw Error(r);
+    expect(r.info.get(combo)).toMatchObject({ notional: '+Y', converged: false });
+    expect(r.perCombo.has(combo)).toBe(false);
+  });
+
+  it('requires the outer stiffness iteration to converge as well as each P-Delta solve', async () => {
+    const { combo } = column(5);
+    let calls = 0;
+    const r = await runDirectAnalysis(data(), modelStore.model.loadCases,
+      modelStore.model.combinations.filter(c => c.id === combo), {
+        includeSelfWeight: false,
+        run: async (...args) => {
+          const answer = await mainThreadPDelta(...args);
+          const ratio = ++calls % 2 ? .6 : .8;
+          return { ...answer, results: { ...answer.results, elementForces: answer.results.elementForces.map(f => {
+            const el = modelStore.elements.get(f.elementId)!;
+            const pns = modelStore.materials.get(el.materialId)!.fy! * 1000 * modelStore.sections.get(el.sectionId)!.a;
+            return { ...f, nStart: -ratio * pns, nEnd: -ratio * pns };
+          }) } };
+        },
+      });
+    if (typeof r === 'string') throw Error(r);
+    expect(calls).toBe(6);
+    expect(r.info.get(combo)?.converged).toBe(false);
+    expect(r.perCombo.has(combo)).toBe(false);
+  });
+
 });
 
 import { memberContexts } from '../design/other-codes/run';

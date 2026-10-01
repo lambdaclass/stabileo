@@ -44,15 +44,17 @@
     element: 'float.element',
     support: 'float.support',
     load: 'float.load',
+    moveNodes: 'float.moveNodes',
     influenceLine: 'float.influenceLine',
   };
   /*
-   * Icon.svelte has glyphs for the four build tools and nothing else — an
+   * Icon.svelte has glyphs for the four build tools and moving nodes, and nothing else — an
    * unknown name renders an EMPTY svg, so the influence-line tool (labelled
    * above) must not be passed through as an icon name.
    */
   const TOOL_ICON: Record<string, string> = {
     node: 'node', element: 'element', support: 'support', load: 'load',
+    moveNodes: 'moveNode',
   };
   const iconName = $derived(isPan ? 'pan' : isSelect ? 'select' : (TOOL_ICON[tool] ?? 'select'));
   /** What the mode IS — present tense, because that is what the reader is in. */
@@ -63,7 +65,7 @@
    * view" is not vague in 3D, it is wrong.
    */
   const mode = $derived(
-    isPan ? (uiStore.analysisMode === '3d' ? t('viewport.modePan3d') : t('viewport.modePan'))
+    isPan ? (uiStore.is3DWorkspace ? t('viewport.modePan3d') : t('viewport.modePan'))
     : isSelect ? t('viewport.modeSelect')
     : t(TOOL_LABEL[tool] ?? 'float.select'),
   );

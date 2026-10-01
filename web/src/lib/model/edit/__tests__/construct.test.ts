@@ -211,3 +211,37 @@ describe('the preview of a construction', () => {
     expect({ n: modelStore.nodes.size, e: modelStore.elements.size }).toEqual(before);
   });
 });
+
+describe('hole filling past the mesher’s cap', () => {
+  it('is refused, and nothing is built, rather than coarsened in silence', () => {
+    // One 12 m bay: a 1 mm element asks for 12 000 per side.
+    const n = [modelStore.addNode(0, 0, 3), modelStore.addNode(12, 0, 3), modelStore.addNode(12, 12, 3), modelStore.addNode(0, 12, 3)];
+    const els = [0, 1, 2, 3].map((k) => modelStore.addElement(n[k]!, n[(k + 1) % 4]!, 'frame'));
+    historyStore.clear();
+    const before = { quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size };
+    const r = fillHoles(els, 1, 0.15, { density: { mode: 'targetSize', size: 0.001 } });
+    expect(r).toEqual({ refused: 'tooManyDivisions' });
+    expect({ quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size }).toEqual(before);
+  });
+});
+
+describe('hole filling the mesher refuses', () => {
+  it('past its cell cap, though within the per-side cap: refused, and nothing built', async () => {
+    // 150 × 150 = 22 500 cells: under 256 a side, over the mesher's 20 000.
+    const n = [modelStore.addNode(0, 0, 3), modelStore.addNode(15, 0, 3), modelStore.addNode(15, 15, 3), modelStore.addNode(0, 15, 3)];
+    const els = [0, 1, 2, 3].map((k) => modelStore.addElement(n[k]!, n[(k + 1) % 4]!, 'frame'));
+    historyStore.clear();
+    const before = { quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size };
+    const r = fillHoles(els, 1, 0.15, { density: { mode: 'fixedDivisions', nx: 150, ny: 150 } });
+    expect(r).toEqual({ refused: 'tooManyDivisions' });
+    expect({ quads: modelStore.quads.size, nodes: modelStore.nodes.size, elements: modelStore.elements.size }).toEqual(before);
+  });
+
+  it('a warped four-corner region: meshQuadRegion says so instead of an empty success', async () => {
+    const { meshQuadRegion } = await import('../mesh-region');
+    const c = [modelStore.addNode(0, 0, 0), modelStore.addNode(4, 0, 0), modelStore.addNode(4, 4, 1), modelStore.addNode(0, 4, 0)] as [number, number, number, number];
+    const r = meshQuadRegion(c, { density: { mode: 'fixedDivisions', nx: 2, ny: 2 }, materialId: 1, thickness: 0.15, splitBeams: false });
+    expect(r).toEqual({ refused: 'cannotMesh' });
+    expect(modelStore.quads.size).toBe(0);
+  });
+});

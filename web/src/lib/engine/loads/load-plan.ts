@@ -40,14 +40,10 @@ import {
   findOccupancy, reduceLiveLoad,
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
-import {
-  applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
-  type Enclosure, type Exposure, type WindProject,
-} from '../../codes/cirsoc102/wind';
-import { expandCombinations } from './combination-cases';
-import { windLoadCases, type WindDirection, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
-import { SERVICE_WIND_FACTOR, type ServiceRecurrence } from '../../codes/cirsoc102/wind';
-import { snowLoadCases } from './snow-loads';
+import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
+import type { WindCaseSet, WindDirection } from './wind-cases';
+import { planWind } from './load-plan-wind';
+import { planSnow } from './load-plan-snow';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
@@ -66,12 +62,15 @@ import { dedupeMessages, msg, round, type EngineMessage } from '../../codes/mess
 import type { ProjectRegulations } from '../../codes/roles';
 import { findOption, optionLabel, roleUsable } from '../../codes/roles';
 
+import { createSectionWeight } from '../../section/weight';
+import type { DrawnSection } from '../../section/drawn';
+
 // ─── Model slice ─────────────────────────────────────────────────
 
 export interface LoadModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>;
-  sections: Map<number, { id: number; a: number }>;
+  sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   materials: Map<number, { id: number; rho: number }>;
   loadCases: Array<{ id: number; type: string; name: string }>;
 }
@@ -219,6 +218,8 @@ export interface PlannedCase {
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
+  /** Patterns of one action, taken one at a time in a combination (see LoadCase.alternatives). */
+  alternatives?: string;
 }
 
 export interface PlannedDistributed {
@@ -240,6 +241,18 @@ export interface PlannedNodal {
   fz: number;
   /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
   mz?: number;
+}
+
+/** The lists a planning step appends to: the plan's cases, loads and what it says about them. */
+export interface PlanSink {
+  cases: PlannedCase[];
+  nodal: PlannedNodal[];
+  distributed: PlannedDistributed[];
+  derivation: EngineMessage[];
+  refs: ClauseRef[];
+  assumptions: EngineMessage[];
+  unsupportedKeys: LoadPlan['unsupportedKeys'];
+  blockedKeys: LoadPlan['blockedKeys'];
 }
 
 export interface LevelMass {
@@ -310,7 +323,6 @@ export interface LoadPlan {
 }
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
-const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
@@ -343,15 +355,16 @@ function selfWeightByLevel(
   model: LoadModelData, levelOfNode: Map<number, number>, count: number,
 ): { weights: number[]; skipped: number } {
   const weights = new Array(count).fill(0);
+  const sectionWeight = createSectionWeight(model.materials);
   let skipped = 0;
   for (const el of model.elements.values()) {
     const nI = model.nodes.get(el.nodeI);
     const nJ = model.nodes.get(el.nodeJ);
     const sec = model.sections.get(el.sectionId);
     const mat = model.materials.get(el.materialId);
-    if (!nI || !nJ || !sec || !mat || !(sec.a > 0) || !(mat.rho > 0)) { skipped++; continue; }
+    if (!nI || !nJ || !sec || !mat || !(sec.a > 0)) { skipped++; continue; }
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
-    const w = sec.a * L * mat.rho;
+    const w = sectionWeight(sec, el.materialId) * L;
     for (const id of [el.nodeI, el.nodeJ]) {
       const lv = levelOfNode.get(id);
       if (lv !== undefined) weights[lv] += w / 2;
@@ -543,191 +556,13 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     }));
   }
 
-  // ── Wind ──
+  // ── Wind (load-plan-wind.ts) ──
   const nodal: PlannedNodal[] = [];
-  const windAxes: WindAxis[] = [];
-  let windQh: ProvenancedValue<number> | undefined;
-  if (input.wind?.enabled) {
-    const elevations = levels.map((l) => l.elevation);
-    const h = Math.max(...elevations, 0);
-    const xs = [...input.model.nodes.values()].map((n) => n.x);
-    const ys = [...input.model.nodes.values()].map((n) => n.y);
-    const bx = Math.max(...xs) - Math.min(...xs);
-    const by = Math.max(...ys) - Math.min(...ys);
+  const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
+  const { windQh } = planWind(input, levels, sink);
 
-    const windDirs = windDirectionsOf(input.wind);
-    /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
-    const axesFor = (speed: number, service: boolean): WindAxis[] => {
-      const out: WindAxis[] = [];
-      for (const [dir, enabled, along, across] of [
-        ['x', windDirs.some((d) => d.endsWith('x')), bx, by],
-        ['y', windDirs.some((d) => d.endsWith('y')), by, bx],
-      ] as const) {
-        if (!enabled) continue;
-        const project: WindProject = {
-          basicSpeed: speed, exposure: input.wind!.exposure,
-          siteAltitudeM: input.wind!.siteAltitudeM, kzt: input.wind!.kzt,
-          kztSurveyed: input.wind!.kztSurveyed, structureKind: 'building',
-          enclosure: input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
-          L: Math.max(along, 1), B: Math.max(across, 1),
-          roofSlopeDeg: input.wind!.roofSlopeDeg, rigid: input.wind!.rigid,
-        };
-        const res = computeWindPressures(project);
-        if (!service) {
-          refs.push(...res.factors.kd.refs, ...res.factors.kh.refs);
-          assumptions.push(...res.assumptions);
-          unsupportedKeys.push(...res.unsupported);
-        }
-
-        if (res.pressures.length === 0) continue;
-        if (!service) windQh = fromProject(res.qhNm2, 'N/m²');
-
-        /*
-         * Windward + leeward on each level, distributed over that level's nodes.
-         *
-         * The windward wall sees q_z, which grows with height (§2.4.1); the leeward wall
-         * sees q_h everywhere. The internal pressure acts on both walls and cancels in the
-         * net lateral force. This used to take the windward row evaluated at
-         * z = min(5 m, h) and apply it at every level, so the upper storeys of anything
-         * taller than 5 m got the base's pressure: about 40 % short at the top of a 30 m
-         * building in exposure B. Each level's band is now integrated over its own heights.
-         */
-        const cpWw = res.pressures.find((p) => p.surface === 'windwardWall')?.cp ?? 0;
-        const cpLw = res.pressures.find((p) => p.surface === 'leewardWall')?.cp ?? 0;
-        const qz = (z: number) => velocityPressure(Math.max(z, 0), project);
-        /** Net lateral pressure on the band [z0, z1], averaged over it, kPa. */
-        const bandNet = (z0: number, z1: number) => {
-          if (z1 <= z0) return (qz(z0) * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
-          // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
-          const n = 8, hh = (z1 - z0) / n;
-          let sum = qz(z0) + qz(z1);
-          for (let k = 1; k < n; k++) sum += (k % 2 ? 4 : 2) * qz(z0 + k * hh);
-          const meanQz = (sum * hh / 3) / (z1 - z0);
-          return (meanQz * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
-        };
-        const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
-
-        const elevated = levels.filter((l) => l.elevation > 0);
-        const windLevels: WindLevel[] = [];
-        for (let i = 0; i < elevated.length; i++) {
-          const lv = elevated[i];
-          const below = i === 0 ? 0 : elevated[i - 1].elevation;
-          const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
-          // The lower half of the first storey goes straight to the foundation, as before.
-          const z0 = (below + lv.elevation) / 2;
-          const z1 = (lv.elevation + above) / 2;
-          const tribH = z1 - z0;
-          const levelNet = bandNet(z0, z1);
-          const force = levelNet * across * tribH;
-          if (!service) derivation.push(msg('loadPlan.derivation.windLevel', {
-            dir: dir.toUpperCase(), level: round(lv.elevation, 2),
-            z0: round(z0, 2), z1: round(z1, 2), net: round(levelNet, 3), force: round(force, 1),
-          }));
-          const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
-          const applied = min.totalN / 1000;
-          if (!service && min.governedByMinimum) {
-            unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
-              level: round(lv.elevation, 2),
-            }));
-            refs.push(...min.refs);
-          }
-          // §2.1.5's minimum is a design load; service wind (Wa) is the pressures alone.
-          windLevels.push({ elevation: lv.elevation, nodeIds: lv.nodeIds, force: service ? force : applied, pressureForce: force });
-        }
-        out.push({
-          axis: dir, across, along, levels: windLevels, project, qhNm2: res.qhNm2,
-          gcpi: internalPressureCoefficient(input.wind!.enclosure),
-        });
-        if (!service) derivation.push(msg('loadPlan.derivation.wind', {
-          dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
-          net: round(net, 3), front: round(across, 1),
-        }));
-      }
-      return out;
-    };
-    windAxes.push(...axesFor(input.wind.basicSpeed, false));
-    if (windAxes.length > 0) {
-      const set = input.wind.caseSet ?? 'all';
-      const generated = windLoadCases({
-        model: input.model, axes: windAxes, set, directions: windDirs,
-        tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
-      });
-      unsupportedKeys.push(...generated.notes);
-      refs.push(R102('2.4.6', 'casos de carga de viento de diseño'));
-      derivation.push(msg('loadPlan.derivation.windCases', { set, count: generated.cases.length }));
-      for (const c of generated.cases) {
-        const index = cases.length;
-        cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
-        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
-      }
-    }
-
-    /*
-     * Wa, for the service combinations of B.4.2: the same procedure at the speed of a shorter
-     * recurrence, the 50-year speed of Figura C AB.4.2-1 times its conversion factor. Case 1 in
-     * each direction and sense: the torsional and simultaneous cases are for strength.
-     */
-    const sw = input.wind.service;
-    if (sw?.enabled && sw.v50 > 0) {
-      const factor = SERVICE_WIND_FACTOR[sw.mri];
-      const speed = sw.v50 * factor;
-      const waAxes = axesFor(speed, true);
-      if (waAxes.length > 0) {
-        const generated = windLoadCases({
-          model: input.model, axes: waAxes, set: 'case1', directions: windDirs,
-          tributaryWidth: input.tributaryWidth, speed: round(speed, 1),
-        });
-        refs.push(R102('B.4.2', 'servicio'));
-        derivation.push(msg('loadPlan.derivation.windService', { v50: sw.v50, mri: sw.mri, factor, v: round(speed, 1), count: generated.cases.length }));
-        for (const c of generated.cases) {
-          const index = cases.length;
-          cases.push({ existingId: null, type: 'Wa', nameKey: c.nameKey.replace('windCase1', 'windCaseWa'), nameParams: { ...c.nameParams, mri: sw.mri } });
-          for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'Wa', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-          for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
-        }
-      }
-    }
-  }
-
-  // ── Snow ──
-  let snowPlanned = false;
-  if (input.snow?.enabled) {
-    const sn = input.snow;
-    const out = snowLoadCases({ model: input.model, snow: sn, tributaryWidth: input.tributaryWidth });
-    if (!out) {
-      unsupportedKeys.push(msg('snow.note.noRoof'));
-    } else if (out.result.refused) {
-      blockedKeys.push(msg(out.result.refused));
-    } else {
-      const r = out.result;
-      refs.push(...r.refs);
-      derivation.push(msg('snow.derivation.pf', {
-        pg: round(sn.pg, 2), source: sn.source, ce: r.ce, ct: r.ct, i: r.importance,
-        pf: round(r.pfComputed, 3),
-      }));
-      if (r.pfMinimum !== null) derivation.push(msg('snow.derivation.minimum', { min: round(r.pfMinimum, 3), pf: round(r.pf, 3) }));
-      derivation.push(msg('snow.derivation.ps', {
-        slope: round(sn.roofSlopeDeg ?? out.geometry.slopeDeg, 1), cs: round(r.cs, 3), ps: round(r.ps, 3),
-        w: round(out.geometry.W, 2),
-      }));
-      if (r.rainOnSnow > 0) derivation.push(msg('snow.derivation.rain', { add: round(r.rainOnSnow, 3) }));
-      if (r.unbalanced) {
-        derivation.push(msg('snow.derivation.unbalanced', {
-          leeward: round(r.unbalanced.leeward, 3), windward: round(r.unbalanced.windward, 3),
-        }));
-      }
-      if ((sn.roofSlopeDeg ?? out.geometry.slopeDeg) < 1.2) unsupportedKeys.push(msg('snow.note.ponding'));
-      unsupportedKeys.push(msg('snow.note.notCovered'));
-      for (const c of out.cases) {
-        const index = cases.length;
-        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams });
-        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'S', caseIndex: index, q: d.q });
-        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
-        snowPlanned = true;
-      }
-    }
-  }
+  // ── Snow (load-plan-snow.ts) ──
+  const snowPlanned = planSnow(input, sink);
 
   /*
    * ── Seismic ────────────────────────────────────────────────────
@@ -900,171 +735,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   };
 }
 
-// ─── Delta, for the before/after preview ─────────────────────────
-
-/**
- * How many combinations applying the plan adds, counted by the same expansion the apply runs
- * (`combination-cases.ts`): one per wind, service-wind or seismic case, twice for earthquake
- * when both senses are asked for, and none for a spec naming a symbol the plan has no case of.
- * Counting by hand left the service wind and the reversed earthquake out of the preview.
- */
-function plannedCombinationCount(plan: LoadPlan, bothSenses: boolean): number {
-  const cases = plan.cases.map((c, i) => ({ id: i, type: String(c.type), name: String(i) }));
-  return expandCombinations(plan.combinations, cases, { bothSenses: { E: bothSenses } }).length;
-}
-
-
-/**
- * What happens to one load case type when the plan is applied.
- *
- * This type exists because the preview used to lie. It reported `after` as the plan's own
- * counts, which is only true when the user has ticked "replace existing loads"; with the
- * box clear, applying a 28-load plan to a model that already had 28 leaves 56, not 28. And
- * a model carrying W and E cases from an earlier run, re-planned with wind and seismic
- * switched off, silently lost every combination that referenced them — the plan simply
- * stopped mentioning them and nothing said so.
- *
- * So every case type present before or after now gets an explicit disposition, and the
- * preview is a function of the replace flag rather than of wishful thinking.
- */
-export type CaseAction =
-  /** The plan creates this case; the model had none. */
-  | 'created'
-  /** The plan regenerates loads into a case that already exists. */
-  | 'regenerated'
-  /**
-   * The model has this case, the plan does not produce it, and replace is OFF — so its
-   * loads survive untouched. Combinations that referenced it are still regenerated
-   * without it, which is why this is reported rather than passed over.
-   */
-  | 'retained'
-  /** The model has this case, the plan does not produce it, and replace is ON: deleted. */
-  | 'cleared';
-
-export interface CaseDisposition {
-  caseType: string;
-  action: CaseAction;
-  /** Why — always present, so no disposition is unexplained. */
-  reason: EngineMessage;
-  /** True when the user loses data or a case stops participating in combinations. */
-  lossy: boolean;
-}
-
-export interface PlanDelta {
-  /** Loads the model currently has, by case type. */
-  before: { distributed: number; nodal: number; combinations: number; cases: string[] };
-  /** Loads the model WILL have. Accounts for the replace flag. */
-  after: { distributed: number; nodal: number; combinations: number; cases: string[] };
-  /** New case types the plan introduces. */
-  addedCaseTypes: string[];
-  /** Case types the plan no longer produces. */
-  removedCaseTypes: string[];
-  /** One entry per case type touched, added or left behind. Never elides one. */
-  dispositions: CaseDisposition[];
-  /** Dispositions a user must see before applying. Rendered as warnings, not notes. */
-  warnings: EngineMessage[];
-  /** True when the plan changes anything at all. */
-  changes: boolean;
-  /** Echo of the flag the counts were computed under. */
-  replaceExisting: boolean;
-}
-
-export interface CurrentLoadState {
-  distributed: number;
-  nodal: number;
-  combinations: number;
-  caseTypes: string[];
-  /** Existing load counts per case type. Enables an honest `after` when replace is off. */
-  perCaseType?: Record<string, { distributed: number; nodal: number }>;
-}
-
-/**
- * The before/after the user sees, computed under the flag they actually have set.
- *
- * `replaceExisting` is not optional: getting it wrong is the defect this signature exists
- * to prevent, so a caller has to state it.
- */
-export function describePlanDelta(
-  plan: LoadPlan,
-  current: CurrentLoadState,
-  options: { replaceExisting: boolean; bothSenses?: boolean },
-): PlanDelta {
-  const replace = options.replaceExisting;
-  const plannedCombinations = plannedCombinationCount(plan, options.bothSenses ?? false);
-  const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
-  const beforeTypes = [...new Set(current.caseTypes)].sort();
-  const added = afterTypes.filter((t) => !beforeTypes.includes(t));
-  const removed = beforeTypes.filter((t) => !afterTypes.includes(t));
-
-  const dispositions: CaseDisposition[] = [];
-  for (const t of afterTypes) {
-    const existed = beforeTypes.includes(t);
-    dispositions.push({
-      caseType: t,
-      action: existed ? 'regenerated' : 'created',
-      reason: msg(existed
-        ? 'loadPlan.disposition.regenerated'
-        : 'loadPlan.disposition.created', { caseType: t }),
-      // Regenerating into a case that keeps its old loads doubles them up. Say so.
-      lossy: existed && !replace,
-    });
-  }
-  for (const t of removed) {
-    dispositions.push({
-      caseType: t,
-      action: replace ? 'cleared' : 'retained',
-      reason: msg(replace
-        ? 'loadPlan.disposition.cleared'
-        : 'loadPlan.disposition.retained', { caseType: t }),
-      lossy: true,
-    });
-  }
-  dispositions.sort((a, b) => a.caseType.localeCompare(b.caseType));
-
-  // Counts. With replace ON the plan is the whole model; with it OFF the plan is added to
-  // what is there, except combinations, which are always regenerated wholesale.
-  const after = replace
-    ? {
-        distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinations, cases: afterTypes,
-      }
-    : {
-        distributed: current.distributed + plan.distributed.length,
-        nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinations,
-        cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
-      };
-
-  const warnings: EngineMessage[] = [];
-  for (const t of removed) {
-    // The load case is one thing; its participation in the combinations is another, and
-    // that participation ends either way. That is the part users were not being told.
-    warnings.push(msg(replace
-      ? 'loadPlan.warning.caseCleared'
-      : 'loadPlan.warning.caseRetainedNotCombined', { caseType: t }));
-  }
-  if (!replace) {
-    const duplicated = afterTypes.filter((t) => beforeTypes.includes(t));
-    if (duplicated.length > 0) {
-      warnings.push(msg('loadPlan.warning.addedOnTopOfExisting', {
-        cases: duplicated.join(', '), count: duplicated.length,
-      }));
-    }
-  }
-
-  return {
-    before: {
-      distributed: current.distributed, nodal: current.nodal,
-      combinations: current.combinations, cases: beforeTypes,
-    },
-    after, addedCaseTypes: added, removedCaseTypes: removed,
-    dispositions, warnings, replaceExisting: replace,
-    changes: current.distributed !== after.distributed
-      || current.nodal !== after.nodal
-      || current.combinations !== after.combinations
-      || added.length > 0 || removed.length > 0,
-  };
-}
+export { describePlanDelta, type CaseAction, type CaseDisposition, type PlanDelta, type CurrentLoadState } from './load-plan-delta';
 
 /** Symbols a combination references, for mapping onto real case ids at apply time. */
 export function combinationSymbols(spec: LoadCombinationSpec): LoadSymbol[] {

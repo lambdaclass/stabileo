@@ -14,6 +14,7 @@ import type { ViewportPresentation3D } from '../geometry/coordinate-system';
 import { t, isDefaultName } from '../i18n';
 import { hydrateProjectProvenance } from './project-provenance';
 import { seedProStarterLibrary } from '../pro/pro-starter-library';
+import { whatIf } from './whatif.svelte';
 
 export interface TabState {
   id: string;
@@ -108,9 +109,12 @@ function createTabManager() {
     return {
       id: activeTabId ?? generateTabId(),
       name: modelStore.model.name,
-      modelSnapshot: modelStore.snapshot(),
+      // While Explore is open the model is the sliders' version of it; leaving
+      // the tab closes Explore without restoring, so the tab keeps the model
+      // Explore started from — the one the user built.
+      modelSnapshot: whatIf.baseline ?? modelStore.snapshot(),
       analysisMode: uiStore.analysisMode,
-      viewportPresentation3D: uiStore.viewportPresentation3D,
+      viewportPresentation3D: whatIf.baseline?.presentation3D ?? uiStore.viewportPresentation3D,
       // Results visualization
       diagramType: resultsStore.diagramType,
       deformedScale: resultsStore.deformedScale,
@@ -181,6 +185,7 @@ function createTabManager() {
     try {
       // Clear everything first
       resultsStore.clear();
+      resultsStore.forgetView();
       dsmStepsStore.clear();
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
@@ -442,6 +447,7 @@ function createTabManager() {
       // A new PRO model starts with its concrete pair beside the steel default.
       if (uiStore.analysisMode === 'pro') seedProStarterLibrary();
       resultsStore.clear();
+      resultsStore.forgetView();
       historyStore.clear();
       dsmStepsStore.clear();
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */

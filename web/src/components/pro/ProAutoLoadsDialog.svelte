@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { expandCombinations } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { proNav } from '../../lib/store/pro-nav.svelte';
@@ -299,7 +300,7 @@
     plan = p;
     // The flag has to go in: the same plan produces a different model depending on it, and
     // reporting the plan's own counts as "after" was the defect the audit caught.
-    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses });
+    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses } });
   }
 
   /**
@@ -333,9 +334,22 @@
   function onClearExistingChange(next: boolean) {
     clearExisting = next;
     if (plan && plan.outcome === 'READY') {
-      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses });
+      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses: { E: bothSenses } });
     }
   }
+
+  /**
+   * Both senses of the earthquake change how many combinations Apply adds: the preview follows.
+   * The checkbox lives in ProAutoLoadsCombos (bound), so the change is watched here.
+   */
+  $effect(() => {
+    const both = bothSenses;
+    untrack(() => {
+      if (plan && plan.outcome === 'READY') {
+        delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: both } });
+      }
+    });
+  });
 
   /** Step 2 — commit the previewed plan and invalidate downstream. */
   function handleApply() {
@@ -361,10 +375,7 @@
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = tp(pc.nameKey, pc.nameParams);
-      let id = pc.existingId
-        ?? modelStore.model.loadCases.find((c) => c.type === pc.type && c.name === name)?.id
-        ?? null;
-      if (id === null) id = modelStore.addLoadCase(name, pc.type);
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -386,9 +397,10 @@
     }
 
     // One combination per wind or seismic direction, never both directions in one.
-    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => ({
-      id, type, name: modelStore.model.loadCases.find((c) => c.id === id)?.name ?? type,
-    })));
+    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
+      const lc = modelStore.model.loadCases.find((c) => c.id === id);
+      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}) };
+    }));
     // Wind from −X and −Y is generated as cases of its own (`wind-cases.ts`); earthquake is
     // reversed by the sign in the combination.
     addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: bothSenses } }));

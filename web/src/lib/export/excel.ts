@@ -29,7 +29,6 @@ import type * as Xlsx from 'xlsx';
 type XlsxModule = typeof import('xlsx');
 let XLSX!: XlsxModule;
 import { modelStore, resultsStore, uiStore } from '../store';
-import { isMode3D } from '../store/file';
 import { activePerCombo3D, activeCombinations } from '../store/active-results';
 import { computeStationDemands } from '../engine/verification-service';
 import type { AnalysisResults } from '../engine/types';
@@ -105,7 +104,7 @@ export const releaseLabel = (r?: { my: boolean; mz: boolean; t: boolean }): stri
 };
 
 function createSummarySheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const data: (string | number)[][] = [];
@@ -187,7 +186,7 @@ function createSummarySheet(): Xlsx.WorkSheet {
 }
 
 function createElementsSheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
@@ -227,7 +226,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
 
     const row: (string | number)[] = [
       elem.id,
-      elem.type === 'frame' ? 'Frame' : 'Truss',
+      elem.type === 'frame' ? t('table.frame') : t('table.truss'),
       elem.nodeI, elem.nodeJ,
       Number(L.toFixed(4)),
       mat?.name ?? '-', mat?.e ?? 0,
@@ -275,7 +274,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
 }
 
 function createNodesSheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
@@ -332,7 +331,7 @@ function createNodesSheet(): Xlsx.WorkSheet {
 }
 
 function createReactionsSheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
 
@@ -379,8 +378,8 @@ function createReactionsSheet(): Xlsx.WorkSheet {
       fixed: t('excel.fixed'), pinned: t('excel.pinned'),
       rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), rollerZ: t('excel.rollerY'), spring: t('excel.spring'),
       fixed3d: t('excel.fixed'), pinned3d: t('excel.pinned'),
-      rollerXY: 'Roller XY', rollerXZ: 'Roller XZ', rollerYZ: 'Roller YZ',
-      spring3d: t('excel.spring'), custom3d: 'Custom 3D',
+      rollerXY: t('selEntity.supRollerXY'), rollerXZ: t('selEntity.supRollerXZ'), rollerYZ: t('selEntity.supRollerYZ'),
+      spring3d: t('excel.spring'), custom3d: t('selEntity.supCustom3d'),
     } as Record<string, string>)[sup.type] ?? sup.type : '-';
 
     data.push([
@@ -415,7 +414,7 @@ function createMaterialsSheet(): Xlsx.WorkSheet {
 }
 
 function createSectionsSheet(): Xlsx.WorkSheet {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const headers = ['ID', t('excel.name'), t('excel.shape'), 'A (m²)', 'Iy (m⁴)'];
   if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
   headers.push('b (m)', 'h (m)', 'tw (m)', 'tf (m)');
@@ -448,11 +447,11 @@ function createShellsSheet(): Xlsx.WorkSheet {
   const data: (string | number)[][] = [headers];
 
   for (const p of modelStore.plates.values()) {
-    data.push([p.id, 'Plate', (p.nodes ?? []).join(' '),
+    data.push([p.id, t('excel.plateType'), (p.nodes ?? []).join(' '),
       modelStore.materials.get(p.materialId)?.name ?? p.materialId, p.thickness]);
   }
   for (const q of modelStore.quads.values()) {
-    data.push([q.id, 'Quad', (q.nodes ?? []).join(' '),
+    data.push([q.id, t('excel.quadType'), (q.nodes ?? []).join(' '),
       modelStore.materials.get(q.materialId)?.name ?? q.materialId, q.thickness]);
   }
 
@@ -483,7 +482,7 @@ function createCombinationsSheet(): Xlsx.WorkSheet {
 
 /** One row per combination: its name, and its peak displacement (mm), moment, shear and axial force. */
 export function combinationPeakRows(): Array<[string, number, number, number, number]> {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const data: Array<[string, number, number, number, number]> = [];
 
   /*
@@ -560,7 +559,7 @@ export async function exportToExcel(options: ExcelExportOptions = {}): Promise<v
     onlyExtras = false,
   } = options;
 
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const hasResults = is3D ? !!resultsStore.results3D : !!resultsStore.results;
 
   const wb = XLSX.utils.book_new();

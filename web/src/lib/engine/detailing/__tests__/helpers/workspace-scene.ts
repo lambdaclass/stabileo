@@ -40,7 +40,47 @@ export interface WorkspaceScene {
   outcomes: Map<number, DesignOutcomeSummary>;
 }
 
-async function compute(example: string): Promise<WorkspaceScene> {
+/**
+ * A variant of a committed example with some members turned about their own axis.
+ *
+ * The provisional-biaxial path needs beams that genuinely bend about both axes. The flagship
+ * building used to supply five — but their secondary moments came from a shell drilling term
+ * that held floor nodes against rotation about the vertical, and once that was corrected their
+ * ratio fell from 0.11–0.24 to 0.010–0.028. A beam turned about its axis under gravity bends
+ * about both of its own axes for a reason that is real: M·cos θ and M·sin θ.
+ */
+export interface Variant { rollBeams: { ids: readonly number[]; degrees: number } }
+
+/** The five beams the flagship building's biaxial tests turn, and by how much. */
+export const ROLLED_BEAMS: Variant = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } };
+
+/** Apply a variant to the loaded model, before it is solved. */
+export function applyVariant(variant: Variant): void {
+  for (const id of variant.rollBeams.ids) {
+    const e = modelStore.elements.get(id);
+    expect(e, `element ${id} exists in the loaded example`).toBeTruthy();
+    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams.degrees) % 360 });
+  }
+}
+
+/**
+ * One turn of the worker's event loop, between long synchronous stages.
+ *
+ * Vitest's worker reports progress to the coordinator over an RPC whose reply has 60 s to
+ * arrive (birpc's default; vitest 3 does not expose it). The reply is a message, and a
+ * worker that stays inside synchronous code never reads it: when the code returns, the
+ * expired timer runs before the message does, and the run ends in
+ * `[vitest-worker]: Timeout calling "onTaskUpdate"` with every assertion passed. The design
+ * chain on a whole building is 20–45 s of synchronous work here and more on a CI runner.
+ *
+ * `setImmediate`, not `setTimeout(0)`: a timer continues in the timers phase, before the
+ * loop reaches the poll phase where the message is read; an immediate runs after it.
+ */
+export function turn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
   modelStore.clear();
   resultsStore.clear();
   detailingStore.clear();
@@ -49,6 +89,7 @@ async function compute(example: string): Promise<WorkspaceScene> {
 
   await modelStore.loadExample(example);
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
+  if (variant) applyVariant(variant);
 
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   expect(typeof solved, 'the solver returned results rather than an error string')
@@ -58,9 +99,13 @@ async function compute(example: string): Promise<WorkspaceScene> {
 
   designRunStore.computeDemands();
   designRunStore.runCodeCheck();
+  await turn();
   designRunStore.designAll();
+  await turn();
   detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
   detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
 
   const doc = detailingStore.buildDocument({ author: 'bench', at: '2026-08-09T00:00:00Z' });
   expect(doc, 'the chain produced a document').toBeTruthy();
@@ -93,6 +138,7 @@ async function compute(example: string): Promise<WorkspaceScene> {
     });
   }
 
+  await turn();
   return { doc: doc!, scene: buildSceneModel(doc!, { members }), outcomes };
 }
 
@@ -105,10 +151,11 @@ const cache = new Map<string, Promise<WorkspaceScene>>();
  * without paying for either twice. The promise itself is cached, so two concurrent callers
  * share one run rather than racing two.
  */
-export function workspaceScene(example: string): Promise<WorkspaceScene> {
-  const hit = cache.get(example);
+export function workspaceScene(example: string, variant?: Variant): Promise<WorkspaceScene> {
+  const key = variant ? `${example}:${JSON.stringify(variant)}` : example;
+  const hit = cache.get(key);
   if (hit) return hit;
-  const run = compute(example);
-  cache.set(example, run);
+  const run = compute(example, variant);
+  cache.set(key, run);
   return run;
 }

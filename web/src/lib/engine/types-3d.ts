@@ -124,6 +124,8 @@ export interface SolverNodalLoad3D {
 }
 
 export interface SolverDistributedLoad3D {
+  qXI?: number;
+  qXJ?: number;
   elementId: number;
   qYI: number;  // kN/m in local Y at node I
   qYJ: number;  // kN/m in local Y at node J
@@ -395,6 +397,7 @@ export interface ElementForces3D {
   qZI: number;
   qZJ: number;
   distributedLoadsZ: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
   pointLoadsZ: Array<{ a: number; p: number }>;
 }
 
@@ -440,6 +443,7 @@ export interface AnalysisResults3D {
   constraintForces?: import('./types').ConstraintForce[];
   diagnostics?: import('./types').AssemblyDiagnostic[];
   solverDiagnostics?: import('./types').SolverDiagnostic[];
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   plateStresses?: PlateStress[];
   quadStresses?: QuadStress[];
   timings?: SolveTimings;
@@ -469,6 +473,11 @@ export interface NonlinearReport {
    * and the equivalent (Ernst) modulus the solve settled on, in kN/m². A slack cable reads zero.
    */
   cables?: Array<{ elementId: number; tension: number; horizontalThrust: number; sag: number; ernstModulus: number }>;
+  /**
+   * Present, and false, when the engine's cable iteration did not settle on the last solve: the
+   * cables' results are those of its last iteration, and `converged` is false with it.
+   */
+  cablesConverged?: false;
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

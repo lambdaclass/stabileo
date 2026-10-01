@@ -4,6 +4,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
+import { is3DWorkspace } from '../utils/workspace';
 import type { ModelSnapshot } from './history.svelte';
 import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
@@ -74,11 +75,6 @@ export function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
     delete elem.hingeStart;
     delete elem.hingeEnd;
   }
-}
-
-/** Returns true when the given analysis mode uses the 3D solver / export paths */
-export function isMode3D(mode: string): boolean {
-  return mode === '3d' || mode === 'pro';
 }
 
 export interface DedalSessionFile {
@@ -297,6 +293,7 @@ export function deserializeProject(text: string): boolean {
   if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
+  resultsStore.forgetView();
   noteAxisConventionMigrationIfNeeded(data.snapshot, data.analysisMode);
   return true;
 }
@@ -316,7 +313,7 @@ export function noteAxisConventionMigrationIfNeeded(
   analysisMode: string | undefined,
 ): void {
   if (!snap) return;
-  if (!snap.localAxisConvention && isMode3D(analysisMode ?? '')
+  if (!snap.localAxisConvention && is3DWorkspace(analysisMode ?? '')
     && Array.isArray(snap.elements) && snap.elements.length > 0) {
     uiStore.toast(t('file.loadedNoAxisConvention'), 'info');
   }
@@ -379,7 +376,7 @@ function validateDedalFile(data: unknown): data is DedalFile {
  */
 function validateAxisSafety(data: DedalFile): void {
   const mode = data.analysisMode ?? '2d';
-  if (isMode3D(mode)) return; // 3D/PRO files can have any coordinates
+  if (is3DWorkspace(mode)) return; // 3D/PRO files can have any coordinates
 
   const nodes = data.snapshot.nodes as Array<[number, { x: number; y: number; z?: number }]>;
   if (nodes.length === 0) return;
@@ -462,7 +459,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
 // ─── Export Results CSV ─────────────────────────────────────────
 
 export function exportResultsCSV(): string {
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
 
@@ -794,7 +791,7 @@ export function generateReportHTML(): string {
   }
 
   // Nodes table
-  const is3D = isMode3D(uiStore.analysisMode);
+  const is3D = uiStore.is3DWorkspace;
   html += `<h2>${t('file.geometry')}</h2>`;
   if (is3D) {
     html += `<h3>${t('file.nodes')}</h3>
@@ -820,7 +817,7 @@ export function generateReportHTML(): string {
     const sec = m.sections.get(elem.sectionId);
     const hI = elem.releaseI?.mz === true;
     const hJ = elem.releaseJ?.mz === true;
-    html += `<tr><td>${elem.id}</td><td>${elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${hI ? t('file.yes') : '-'}</td><td>${hJ ? t('file.yes') : '-'}</td></tr>`;
+    html += `<tr><td>${elem.id}</td><td>${elem.type === 'truss' ? t('table.truss') : elem.type === 'frame' ? t('table.frame') : elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${hI ? t('file.yes') : '-'}</td><td>${hJ ? t('file.yes') : '-'}</td></tr>`;
   }
   html += `</tbody></table>`;
 
@@ -882,21 +879,21 @@ export function generateReportHTML(): string {
       case 'distributed': {
         const d = load.data;
         tipo = t('file.loadDistributed');
-        destino = `Elem ${d.elementId}`;
+        destino = `${t('table.elemLabel')} ${d.elementId}`;
         valores = d.qI === d.qJ ? `q=${fmtNum(d.qI)} kN/m` : `qI=${fmtNum(d.qI)}, qJ=${fmtNum(d.qJ)} kN/m`;
         break;
       }
       case 'pointOnElement': {
         const d = load.data;
         tipo = t('file.loadPointOnElement');
-        destino = `Elem ${d.elementId}`;
+        destino = `${t('table.elemLabel')} ${d.elementId}`;
         valores = `P=${fmtNum(d.p)} kN, a=${fmtNum(d.a)} m`;
         break;
       }
       case 'thermal': {
         const d = load.data;
         tipo = t('file.loadThermal');
-        destino = `Elem ${d.elementId}`;
+        destino = `${t('table.elemLabel')} ${d.elementId}`;
         valores = `ΔT=${fmtNum(d.dtUniform)} °C, ΔTg=${fmtNum(d.dtGradient)} °C`;
         break;
       }
@@ -928,7 +925,7 @@ export function generateReportHTML(): string {
 
     // 3D Internal forces
     html += `<h3>${t('file.internalForces')}</h3>
-<table style="font-size:9px"><thead><tr><th>Elem</th><th>L (m)</th><th>N_i</th><th>N_j</th><th>Vy_i</th><th>Vy_j</th><th>Vz_i</th><th>Vz_j</th><th>Mx_i</th><th>Mx_j</th><th>My_i</th><th>My_j</th><th>Mz_i</th><th>Mz_j</th></tr></thead><tbody>`;
+<table style="font-size:9px"><thead><tr><th>${t('table.elemLabel')}</th><th>L (m)</th><th>N_i</th><th>N_j</th><th>Vy_i</th><th>Vy_j</th><th>Vz_i</th><th>Vz_j</th><th>Mx_i</th><th>Mx_j</th><th>My_i</th><th>My_j</th><th>Mz_i</th><th>Mz_j</th></tr></thead><tbody>`;
     for (const f of r3D.elementForces) {
       html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vyStart)}</td><td>${fmtNum(f.vyEnd)}</td><td>${fmtNum(f.vzStart)}</td><td>${fmtNum(f.vzEnd)}</td><td>${fmtNum(f.mxStart)}</td><td>${fmtNum(f.mxEnd)}</td><td>${fmtNum(f.myStart)}</td><td>${fmtNum(f.myEnd)}</td><td>${fmtNum(f.mzStart)}</td><td>${fmtNum(f.mzEnd)}</td></tr>`;
     }
@@ -954,7 +951,7 @@ export function generateReportHTML(): string {
 
     // Internal forces
     html += `<h3>${t('file.internalForces')}</h3>
-<table><thead><tr><th>Elem</th><th>L (m)</th><th>N_i (kN)</th><th>N_j (kN)</th><th>V_i (kN)</th><th>V_j (kN)</th><th>M_i (kN·m)</th><th>M_j (kN·m)</th></tr></thead><tbody>`;
+<table><thead><tr><th>${t('table.elemLabel')}</th><th>L (m)</th><th>N_i (kN)</th><th>N_j (kN)</th><th>V_i (kN)</th><th>V_j (kN)</th><th>M_i (kN·m)</th><th>M_j (kN·m)</th></tr></thead><tbody>`;
     for (const f of r.elementForces) {
       html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vStart)}</td><td>${fmtNum(f.vEnd)}</td><td>${fmtNum(f.mStart)}</td><td>${fmtNum(f.mEnd)}</td></tr>`;
     }

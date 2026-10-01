@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, resultsStore } from '../../lib/store';
   import {
-    loadFile, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, isMode3D,
+    loadFile, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel,
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
@@ -399,10 +399,10 @@
           >?</button>
         </span>
         <div class="file-grid">
-          <button class="file-btn" onclick={downloadDXF} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
+          <button class="file-btn" onclick={downloadDXF} disabled={uiStore.is3DWorkspace} title={uiStore.is3DWorkspace ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
             DXF
           </button>
-          <button class="file-btn" onclick={downloadSVG} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
+          <button class="file-btn" onclick={downloadSVG} disabled={uiStore.is3DWorkspace} title={uiStore.is3DWorkspace ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
             SVG
           </button>
           <button class="file-btn" onclick={handleExportPNG} title={t('project.exportPngTooltip')}>

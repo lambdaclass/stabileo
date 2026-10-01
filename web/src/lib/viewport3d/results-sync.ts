@@ -30,6 +30,9 @@ import { colourMapUnit } from '../three/colour-ramp';
 import { restoreShellColor } from '../three/create-shell-mesh';
 import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
+/** A screen-sized label's height, as a fraction of the viewport's (see the node labels). */
+const LABEL_SCREEN = 0.038;
+
 /** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
 function projectFlag(): boolean {
   return getCachedProjectModelToXZ(
@@ -126,6 +129,9 @@ function computeStructureBBox(): number {
 
 // ─── Deformed shape ──────────────────────────────────────────
 
+/** How far a mode shape's largest motion reaches, as a share of the structure's size. */
+const MODE_SPAN = 0.15;
+
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
   if (!ctx.initialized) return;
 
@@ -140,7 +146,9 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     && timeHistoryView.modelVersion === modelStore.modelVersion;
 
   // Restore element opacity when not showing deformed shape
-  const showingDeformed = (resultsStore.results3D && isDeformedLike) || thFrame;
+  // A mode shape needs its own analysis, not a static solve.
+  const shapeShown = (dt === 'modeShape' && !!resultsStore.modalResult3D) || (dt === 'bucklingMode' && !!resultsStore.bucklingResult3D);
+  const showingDeformed = (resultsStore.results3D && isDeformedLike) || shapeShown || thFrame;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
       // Skip picking helpers, heatmap overlays and section edge outlines —
@@ -204,9 +212,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     if (!modal || !modal.modes.length) { dropDeformed(); return; }
     const mode = modal.modes[resultsStore.activeModeIndex];
     if (!mode) { dropDeformed(); return; }
-    // Scale mode shapes relative to structure size (eigenvectors are normalized to max=1)
+    /*
+     * A mode is a shape with no physical amplitude (the eigenvector is
+     * normalized to max = 1), so its largest motion spans 15 % of the structure
+     * whatever the deformed view's scale, as the 2D view draws it at a fixed
+     * size. This used that scale divided by 100, from when it started at 100;
+     * since it starts at 1 a mode moved 0.15 % of the structure and read as
+     * standing still, and at 1000 it would span 150 %.
+     */
     const structureSize = computeStructureBBox();
-    const modeScale = structureSize * 0.15 * (scale / 100);
+    const modeScale = structureSize * MODE_SPAN;
     scale = modeScale * Math.sin(performance.now() / 500);
     displacements = mode.displacements;
     modeColor = 0x7fd4cc; // --st-value
@@ -215,9 +230,9 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     if (!buckling || !buckling.modes.length) { dropDeformed(); return; }
     const mode = buckling.modes[resultsStore.activeBucklingMode];
     if (!mode) { dropDeformed(); return; }
-    // Scale buckling modes relative to structure size (eigenvectors are normalized to max=1)
+    // As a mode shape: 15 % of the structure.
     const structureSize = computeStructureBBox();
-    const modeScale = structureSize * 0.15 * (scale / 100);
+    const modeScale = structureSize * MODE_SPAN;
     scale = modeScale * Math.sin(performance.now() / 500);
     displacements = mode.displacements;
     modeColor = 0xd9a441; // --st-warn
@@ -315,8 +330,8 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
       const n = nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
-      // Screen-sized like every other label (`syncLabels3D`): a fraction of the viewport height.
-      sprite.scale.set(0.032, 0.032, 1);
+      // Screen-sized: without a scale the sprite keeps the default 0.6 — 60 % of the viewport.
+      sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       labels.add(sprite);
       placed.push({ sprite, x: n.x, y: n.y, z: n.z ?? 0, d });
     }
@@ -1090,7 +1105,6 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
      report. `LABEL_SCREEN` is a fraction of the viewport height.
   */
   const spriteScale = modelSize * 0.025;
-  const LABEL_SCREEN = 0.038;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {

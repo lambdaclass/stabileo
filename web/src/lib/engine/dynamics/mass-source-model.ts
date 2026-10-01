@@ -14,7 +14,7 @@ import {
   applyMassSource, resolveMassFactors,
   type CaseMassLoads, type MassSource, type MassSourceReport, type ResolvedFactor,
 } from './mass-source';
-import { massDensities } from './requests';
+import { withSectionMass } from './section-mass';
 
 export function caseMassLoads(
   model: ModelData,
@@ -32,7 +32,7 @@ export function caseMassLoads(
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      loads: buildSolverLoads3D(model, rest, false, leftHand),
+      loads: buildSolverLoads3D(model, rest, [], leftHand),
       surface,
     });
   }
@@ -55,13 +55,17 @@ export function withMassSource(
   const factors = resolveMassFactors(loadCases, stated);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
+  const physical = withSectionMass(input, model);
   // A member solved on a section scaled by stiffness modifiers weighs with its own section's A.
+  // A drawn section is left to withSectionMass, whose density already turns the solved area
+  // into the section's real weight.
   const realArea = (id: number) => {
     const own = model.elements.get(id)?.sectionId;
     const solved = input.elements.get(id)?.sectionId;
-    return own !== undefined && own !== solved ? input.sections.get(own)?.a : undefined;
+    if (own === undefined || own === solved || model.sections.get(own)?.drawn) return undefined;
+    return input.sections.get(own)?.a;
   };
-  const r = applyMassSource(input, massDensities(model.materials), cases, realArea);
+  const r = applyMassSource(physical.input, physical.densities, cases, realArea);
   return { ...r, factors };
 }
 

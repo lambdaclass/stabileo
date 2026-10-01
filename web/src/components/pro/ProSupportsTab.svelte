@@ -11,7 +11,7 @@
   import SupportDofFields from './SupportDofFields.svelte';
   import { DOF_SPRING } from '../../lib/model/support-3d';
 
-  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const is3D = $derived(uiStore.is3DWorkspace);
 
   const supportTypes = $derived(supportTypeOptions(is3D, t));
 
