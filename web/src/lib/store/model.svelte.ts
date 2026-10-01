@@ -35,12 +35,15 @@ import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-so
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { findCoincidentNode } from '../engine/mesh-weld';
+import { NodeIndex } from '../model/edit/node-index';
+import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
-import { shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
@@ -51,6 +54,8 @@ import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
 // below), never during module initialisation.
+import { materializeStandingPlaneModel } from './materialize-space';
+import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
@@ -635,7 +640,7 @@ export interface ThermalLoad {
   id: number;
   elementId: number;
   dtUniform: number;  // °C (uniform temperature change)
-  dtGradient: number; // °C (temperature difference top-bottom)
+  dtGradient: number; // °C, ΔT(bottom face) − ΔT(top face), top = drawn local z (the course's ∇T·h)
   caseId?: number;
 }
 
@@ -705,6 +710,12 @@ export interface LoadCase {
   id: number;
   type: LoadCaseType;
   name: string;
+  /**
+   * Cases of one type sharing this key are patterns of one action — the balanced and the
+   * unbalanced snow of one roof — and a combination takes one of them, not their sum
+   * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
+   */
+  alternatives?: string;
 }
 
 export interface LoadCombination {
@@ -1236,6 +1247,8 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
+  let _onReplaced: (() => void) | null = null;
   // Bulk mutation mode: during loadExample (and other wholesale mutations) we
   // want a single reactive commit instead of one per entity. Add/update methods
   // skip their per-call Map / array reassignment while this flag is true;
@@ -1266,7 +1279,7 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const cuts = [...ts].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const cuts = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
     if (cuts.length === 0) return null;
 
     if (!_undoBatching) _pushUndo?.();
@@ -1279,12 +1292,18 @@ function createModelStore() {
         : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
       const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
-      for (const t of cuts) {
+      const axisLength = Math.max(Math.abs(nj.x - ni.x), Math.abs(nj.y - ni.y), Math.abs((nj.z ?? 0) - (ni.z ?? 0)));
+      for (let k = 0; k < cuts.length; k++) {
+        const t = cuts[k];
         const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
         let id: number | null = null;
         if (opts.reuseNodeTol !== undefined) {
-          const tol = opts.reuseNodeTol;
+          // Keep the per-axis weld boxes disjoint, including at the member ends.
+          // Dense cuts must not reuse an endpoint or the same node for two cuts.
+          const gap = Math.min(t - fractions[k], fractions[k + 2] - t);
+          const tol = Math.min(opts.reuseNodeTol, axisLength * gap / 2);
           for (const n of model.nodes.values()) {
+            if (n.id === elem.nodeI || n.id === elem.nodeJ) continue;
             if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
           }
         }
@@ -1309,6 +1328,12 @@ function createModelStore() {
       const bounds = segmentBounds(L, cuts);
       const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
       model.loads = [...kept, ...added];
+      if (model.analysis?.selfWeight) {
+        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.map(w =>
+          w.elements?.includes(elementId)
+            ? { ...w, elements: [...new Set(w.elements.flatMap(id => id === elementId ? segmentIds : [id]))] }
+            : w) };
+      }
 
       // A group that held the member now holds every segment of it.
       let touched = false;
@@ -1383,6 +1408,7 @@ function createModelStore() {
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setOnReplaced(fn: () => void) { _onReplaced = fn; },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
      *  set of element ids written. Wired in store/index.ts so this store never
@@ -1570,6 +1596,19 @@ function createModelStore() {
      * the inner call became its own undo step — a composite command could not nest a helper
      * that batched.
      */
+    /**
+     * Run edits as part of the last undo step instead of a new one: the
+     * follow-up the user was asked about right after an edit (join the node a
+     * drag left on another, connect the member just drawn where it crosses),
+     * so one undo takes back the edit and its follow-up together.
+     */
+    amendLastStep(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+      this.bumpModelVersion();
+    },
+
     batch(fn: () => void): void {
       if (_undoBatching) { fn(); return; }
       _pushUndo?.();
@@ -1802,6 +1841,7 @@ function createModelStore() {
     },
 
     restore(rawSnapshot: ModelSnapshot): void {
+      _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
       // Every family below is copied ONE level deep (`{ ...v }`), which is enough to stop the
@@ -2032,8 +2072,26 @@ function createModelStore() {
       model.provenance = { ...model.provenance, status: 'reviewed' as ModelProvenance['status'] };
     },
 
+    /**
+     * Before an edit that makes a standing plane model a space one: rewrite it
+     * in space coordinates as it is shown (materialize-space.ts). A no-op
+     * outside the space workspace, or when the model is not a standing plane one.
+     */
+    ensureSpaceCoordinates(): boolean {
+      if (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro') return false;
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
+      const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
+      if (changed) {
+        modelVersion++;
+        _onMutation?.();
+      }
+      uiStore.useNative3DPresentation();
+      return changed;
+    },
+
     addNode(x: number, y: number, z?: number): number {
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.node++;
       const node: Node = { id, x, y };
       if (z !== undefined && z !== 0) node.z = z;
@@ -2045,6 +2103,68 @@ function createModelStore() {
         }
       }
       return id;
+    },
+
+    /**
+     * A node at this position: the one already there within `tol` per axis, else a
+     * new one. The one canonical weld.
+     *
+     * `addNode` stays deliberately blind — project load, undo/redo and model code
+     * must reproduce ids exactly. But an interactive path that wants "a node here"
+     * (paste, coordinate import, a table row) and creates a second node in an
+     * occupied place leaves two nodes that look joined and analyse as a cut, with
+     * no visible symptom. Those paths come through here.
+     *
+     * A weld is not a mutation: no undo step, no modelVersion bump — nothing changed.
+     * A plane model standing in the space workspace is rewritten in space coordinates
+     * first (`ensureSpaceCoordinates`), as `addNode` would: the point arrives in the
+     * coordinates the reader sees, and compared with nodes still stored in the plane's,
+     * the column top shown at (0, 0, 3) was missed and a twin made on it.
+     */
+    addNodeWelded(x: number, y: number, z?: number, tol = weldTolerance()): number {
+      this.spaceBeforeWeld();
+      const existing = findCoincidentNode(model.nodes.values(), x, y, z ?? 0, tol);
+      if (existing !== null) return existing;
+      return this.addNode(x, y, z);
+    },
+
+    /**
+     * `addNodeWelded` for many points at once: one spatial index for the lookups, not a scan
+     * of every node per point, and one undo step — none when every point welds. Points of the
+     * batch that coincide with each other share one new node. `ids` follows `points`;
+     * `created` are the nodes it added.
+     */
+    addNodesWelded(points: ReadonlyArray<readonly [number, number, number?]>, tol = weldTolerance()): { ids: number[]; created: number[] } {
+      this.spaceBeforeWeld();
+      const index = new NodeIndex(tol);
+      for (const n of model.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);
+      // Points still to create stand in the index under negative ids until they have real ones.
+      const pending: Array<[number, number, number]> = [];
+      const where = (id: number): [number, number, number] | undefined => {
+        if (id < 0) return pending[-id - 1];
+        const n = model.nodes.get(id);
+        return n ? [n.x, n.y, n.z ?? 0] : undefined;
+      };
+      const hits = points.map(([x, y, z]) => {
+        const p: [number, number, number] = [x, y, z ?? 0];
+        const hit = index.find(p, where);
+        if (hit !== null) return hit;
+        pending.push(p);
+        index.add(-pending.length, p);
+        return -pending.length;
+      });
+      if (pending.length === 0) return { ids: hits, created: [] };
+      const created: number[] = [];
+      this.batch(() => { for (const [x, y, z] of pending) created.push(this.addNode(x, y, z || undefined)); });
+      return { ids: hits.map((id) => (id < 0 ? created[-id - 1]! : id)), created };
+    },
+
+    /** A standing plane model becomes a space one before a space point is looked up in it. */
+    spaceBeforeWeld(): void {
+      if (uiStore.viewportPresentation3D !== 'upright2dIn3d' || (uiStore.analysisMode !== '3d' && uiStore.analysisMode !== 'pro')) return;
+      // The rewrite changes every node's coordinates: it is undoable, as when `addNode` makes it.
+      if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
     },
 
     /**
@@ -2070,11 +2190,27 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
+    /** Reverse a member (I ↔ J) without changing the structure; see reverse-element.ts. */
+    /** `undo: false` when the caller already recorded the step (the member card). */
+    reverseElement(id: number, opts: { undo?: boolean } = {}): void {
+      if (!model.elements.has(id)) return;
+      if (!_undoBatching && opts.undo !== false) _pushUndo?.();
+      modelVersion++;
+      _onMutation?.();
+      reverseElementInModel(model, id, uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+      model.elements = new Map(model.elements);
+    },
+
     updateNodeZ(id: number, z: number): void {
-      const node = model.nodes.get(id);
-      if (node) {
+      if (model.nodes.has(id)) {
         if (!_undoBatching) _pushUndo?.();
-        model.nodes.set(id, { ...node, z });
+        // A depth given to one node of a standing plane model makes it a space
+        // one; without the rewrite every other y is read as a depth and the
+        // frame lies down. In the plane model's coordinates z is the depth, so
+        // after the rewrite it is y.
+        const rewrote = (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates();
+        const node = model.nodes.get(id)!;
+        model.nodes.set(id, rewrote ? { ...node, y: z } : { ...node, z });
         model.nodes = new Map(model.nodes);
       }
     },
@@ -2201,6 +2337,8 @@ function createModelStore() {
 
     addSupport(nodeId: number, type: SupportType, springs?: { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }, opts?: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
+      // A space support on a standing plane model makes it a space one.
+      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)) this.ensureSpaceCoordinates();
       // Remove existing support on this node (only one support per node allowed)
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === nodeId) {
@@ -2292,7 +2430,9 @@ function createModelStore() {
     // ─── 3D Load CRUD ─────────────────────────────────────────────
 
     addNodalLoad3D(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number {
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -2307,6 +2447,7 @@ function createModelStore() {
       opts: { frame?: import('../engine/member-loads').MemberFrame; qXI?: number; qXJ?: number } = {},
     ): number {
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
       if (opts.frame && opts.frame !== 'local') data.frame = opts.frame;
@@ -2321,7 +2462,9 @@ function createModelStore() {
     },
 
     addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number): number {
+      // Undo first, so that undoing the load stands the plane model back up.
       if (!_undoBatching) _pushUndo?.();
+      this.ensureSpaceCoordinates();
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
@@ -3027,6 +3170,7 @@ function createModelStore() {
     },
 
     clear(): void {
+      _onReplaced?.();
       if (!_undoBatching) _pushUndo?.();
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();
@@ -3116,6 +3260,15 @@ function createModelStore() {
     },
 
     updateNode(id: number, x: number, y: number, z?: number): void {
+      // A move in the space workspace is in space coordinates. When this is the
+      // edit that rewrites a standing plane model, the caller read the node
+      // before the rewrite — (x, y, z) in the plane model's own coordinates — so
+      // they are mapped the way the nodes were: (x, y, z) → (x, z, y). Callers
+      // that move several nodes, or that work in space coordinates from the
+      // start (the 3D drag), call ensureSpaceCoordinates() before reading.
+      if ((uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') && this.ensureSpaceCoordinates()) {
+        [y, z] = [z ?? 0, y];
+      }
       const node = model.nodes.get(id);
       if (node) {
         modelVersion++;
@@ -3149,8 +3302,10 @@ function createModelStore() {
 
     subdivideElement(elementId: number, n: number): void {
       if (n < 2 || n > 20) return;
-      // The original id stays on the first segment, and the cuts always get new nodes.
-      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true });
+      // The original id stays on the first segment. A cut landing on an existing
+      // node — the midpoint a secondary frames into — reuses it: a fresh node in
+      // the same place would look connected and analyse as a cut.
+      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true, reuseNodeTol: weldTolerance() });
     },
 
     /** Toggle a single per-axis release on a single element-end. The canonical release API. */
@@ -3239,10 +3394,10 @@ function createModelStore() {
       if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
-    /** True if any element carries a Basic 3D internal joint (released DOF). */
+    /** True if any member end needs helper nodes, including semi-rigid connections. */
     hasJoint3D(): boolean {
       for (const e of model.elements.values()) {
-        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ)) return true;
+        if (jointHasRelease(e.jointI) || jointHasRelease(e.jointJ) || e.semiRigid?.i || e.semiRigid?.j) return true;
       }
       return false;
     },
@@ -3357,10 +3512,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = ''): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
       return id;
     },
 
@@ -3484,6 +3639,23 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
+    },
+
+    /**
+     * The case of this type and name, created when missing — what a load generator applies
+     * into. Its alternatives group is set either way: a case reused from an earlier generation
+     * (or an older project) carried none, and its snow patterns kept adding up.
+     */
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
+        ?? model.loadCases.find((c) => c.type === type && c.name === name);
+      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
+      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+        if (!_undoBatching) _pushUndo?.();
+        found.alternatives = opts.alternatives;
+        model.loadCases = [...model.loadCases];
+      }
+      return found.id;
     },
 
     updateLoadCase(id: number, name: string): void {

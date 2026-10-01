@@ -21,11 +21,11 @@ pub struct PlateStressLocal {
     pub sigma_yy: f64,
     /// Membrane shear stress τ_xy (kN/m²).
     pub tau_xy: f64,
-    /// Bending moment m_x (kN·m/m).
+    /// Bending moment m_x (kN·m/m), positive for bottom-face tension (sagging).
     pub mx: f64,
-    /// Bending moment m_y (kN·m/m).
+    /// Bending moment m_y (kN·m/m), positive for bottom-face tension (sagging).
     pub my: f64,
-    /// Twisting moment m_xy (kN·m/m).
+    /// Twisting moment m_xy (kN·m/m), with the same sign convention as MITC4/9.
     pub mxy: f64,
     /// Maximum principal stress (kN/m²).
     pub sigma_1: f64,
@@ -182,29 +182,49 @@ fn cst_stiffness(p: &[(f64, f64); 3], e: f64, nu: f64, t: f64) -> [f64; 36] {
 // ---------------------------------------------------------------------------
 
 /// Geometric quantities for DKT element edges.
+#[allow(dead_code)] // `area` is read; the edge terms are recomputed in `dkt_b_matrix`.
 struct DktGeom {
+    /// Edge lengths squared: l_ij^2 for edges 4-5 (01), 5-6 (12), 6-4 (20)
+    lij_sq: [f64; 3],
+    /// x_ij = x_j - x_i for each edge
+    xij: [f64; 3],
+    /// y_ij = y_j - y_i for each edge
+    yij: [f64; 3],
     /// Area of the triangle.
     area: f64,
 }
 
 fn dkt_geometry(p: &[(f64, f64); 3]) -> DktGeom {
-    DktGeom { area: twice_area(p).abs() / 2.0 }
+    // Edges: k=0 → (0,1), k=1 → (1,2), k=2 → (2,0)
+    let idx = [(0, 1), (1, 2), (2, 0)];
+    let mut xij = [0.0; 3];
+    let mut yij = [0.0; 3];
+    let mut lij_sq = [0.0; 3];
+    for k in 0..3 {
+        let (i, j) = idx[k];
+        xij[k] = p[j].0 - p[i].0;
+        yij[k] = p[j].1 - p[i].1;
+        lij_sq[k] = xij[k] * xij[k] + yij[k] * yij[k];
+    }
+    let two_a = twice_area(p);
+    let area = two_a.abs() / 2.0;
+    DktGeom { lij_sq, xij, yij, area }
 }
 
-/// Evaluate the DKT B-matrix (3×9) at natural coordinates (xi, eta), xi = L2 and eta = L3.
+/// Evaluate the DKT B-matrix (3×9) at natural coordinates (xi, eta).
 ///
-/// The DOF ordering per node is (w, θx, θy), with θx = ∂w/∂y and θy = −∂w/∂x, which are the
-/// shell's rx and ry for a plate in its own xy plane.
+/// The DOF ordering per node is (w, θx, θy), right-handed rotations: θx = ∂w/∂y,
+/// θy = −∂w/∂x, the convention every other element in the model shares.
 ///
-/// Batoz, Bathe & Ho (1980), "A study of three-node triangular plate bending elements", IJNME 15,
-/// eqs. for H_x and H_y and their derivatives, with their sides k = 4, 5, 6 for the edges 2–3,
-/// 3–1 and 1–2, x_ij = x_i − x_j, and
-///   P_k = −6 x_ij / l²,  t_k = −6 y_ij / l²,  q_k = 3 x_ij y_ij / l²,  r_k = 3 y_ij² / l².
+/// Batoz, Bathe & Ho (1980), "A study of three-node triangular plate bending
+/// elements", IJNME 15, eqs. for Hx,ξ … Hy,η and B. With xᵢⱼ = xᵢ − xⱼ,
+/// lᵢⱼ² = xᵢⱼ² + yᵢⱼ² and k = 4, 5, 6 for sides ij = 23, 31, 12:
+///   Pₖ = −6xᵢⱼ/lᵢⱼ², qₖ = 3xᵢⱼyᵢⱼ/lᵢⱼ², tₖ = −6yᵢⱼ/lᵢⱼ², rₖ = 3yᵢⱼ²/lᵢⱼ².
 ///
-/// The previous version defined P_k as −6 x_ij y_ij / l² and t_k as −6 y_ij² / l², which have no
-/// length in them: the w terms of the curvature did not scale with the element, and the element
-/// grew stiffer as the mesh was refined (a cantilever strip 10 times too stiff on an 8×2 mesh and
-/// 15 times on 32×8, where the quad converged). Its H_x,ξ also carried (q6 − q5) for (q5 + q6).
+/// The previous coefficients were Pₖ = −6xy/l², qₖ = 3x²/l², tₖ = −6y²/l² on
+/// xⱼ − xᵢ: dimensionally wrong (Pₖ and tₖ must scale as 1/length), and the
+/// element neither annihilated a rigid tilt nor converged — a simply supported
+/// square plate read about 3.8× Navier's deflection at any mesh density.
 fn dkt_b_matrix(
     p: &[(f64, f64); 3],
     _g: &DktGeom,
@@ -214,18 +234,24 @@ fn dkt_b_matrix(
     let (x1, y1) = p[0];
     let (x2, y2) = p[1];
     let (x3, y3) = p[2];
-    // Sides 4 = 2–3, 5 = 3–1, 6 = 1–2, as x_ij = x_i − x_j.
-    let side = |xi_: f64, yi_: f64, xj_: f64, yj_: f64| {
-        let (x, y) = (xi_ - xj_, yi_ - yj_);
-        let l2 = x * x + y * y;
-        (-6.0 * x / l2, -6.0 * y / l2, 3.0 * x * y / l2, 3.0 * y * y / l2)
-    };
-    let (p4, t4, q4, r4) = side(x2, y2, x3, y3);
-    let (p5, t5, q5, r5) = side(x3, y3, x1, y1);
-    let (p6, t6, q6, r6) = side(x1, y1, x2, y2);
-    let (x31, y31, x12, y12) = (x3 - x1, y3 - y1, x1 - x2, y1 - y2);
-    let two_a = x31 * y12 - x12 * y31;
-
+    // Sides k = 4, 5, 6 ↔ ij = 23, 31, 12 (stored at index 0, 1, 2).
+    let xs = [x2 - x3, x3 - x1, x1 - x2];
+    let ys = [y2 - y3, y3 - y1, y1 - y2];
+    let mut pk = [0.0; 3];
+    let mut qk = [0.0; 3];
+    let mut tk = [0.0; 3];
+    let mut rk = [0.0; 3];
+    for k in 0..3 {
+        let l2 = xs[k] * xs[k] + ys[k] * ys[k];
+        pk[k] = -6.0 * xs[k] / l2;
+        qk[k] = 3.0 * xs[k] * ys[k] / l2;
+        tk[k] = -6.0 * ys[k] / l2;
+        rk[k] = 3.0 * ys[k] * ys[k] / l2;
+    }
+    let (p4, p5, p6) = (pk[0], pk[1], pk[2]);
+    let (q4, q5, q6) = (qk[0], qk[1], qk[2]);
+    let (t4, t5, t6) = (tk[0], tk[1], tk[2]);
+    let (r4, r5, r6) = (rk[0], rk[1], rk[2]);
     let a = 1.0 - 2.0 * xi;
     let b = 1.0 - 2.0 * eta;
 
@@ -274,8 +300,11 @@ fn dkt_b_matrix(
         -q5 * b - xi * (q4 - q5),
     ];
 
-    // κ = (1/2A) [ y31·Hx,ξ + y12·Hx,η ;  −x31·Hy,ξ − x12·Hy,η ;
+    // B = 1/(2A)·[ y31·Hx,ξ + y12·Hx,η ;
+    //              −x31·Hy,ξ − x12·Hy,η ;
     //              −x31·Hx,ξ − x12·Hx,η + y31·Hy,ξ + y12·Hy,η ]
+    let (x31, y31, x12, y12) = (xs[1], ys[1], xs[2], ys[2]);
+    let two_a = x31 * y12 - x12 * y31;
     let mut b_dkt = [0.0; 27];
     for j in 0..9 {
         b_dkt[j] = (y31 * hx_xi[j] + y12 * hx_eta[j]) / two_a;
@@ -325,14 +354,16 @@ fn dkt_stiffness(p: &[(f64, f64); 3], e: f64, nu: f64, t: f64) -> [f64; 81] {
             }
         }
 
-        // K += w * Bt * DB  (9×9)
+        // K += w * Bt * DB  (9×9): upper triangle, mirrored, so the matrix is
+        // exactly symmetric rather than symmetric to round-off.
         for i in 0..9 {
-            for j in 0..9 {
+            for j in i..9 {
                 let mut s = 0.0;
                 for k in 0..3 {
                     s += b[k * 9 + i] * db[k * 9 + j];
                 }
                 kb[i * 9 + j] += gauss_w * s;
+                if j != i { kb[j * 9 + i] += gauss_w * s; }
             }
         }
     }
@@ -402,24 +433,44 @@ pub fn plate_local_stiffness(
         }
     }
 
-    // Drilling stiffness using Hughes-Brezzi approach:
-    // K_drill = gamma * G * t * A / 3 per node, where gamma ~ 1/1000.
-    // This is physically grounded in the element's shear modulus and
-    // provides consistent scaling with material properties.
-    let area = twice_area(&p).abs() / 2.0;
+    // Drilling stabilization (Hughes & Brezzi 1989): γ·∫(θz − ω)² dA with
+    // ω = ½(∂v/∂x − ∂u/∂y), γ = G·t/1000. Against the membrane's own rotation, not
+    // θz alone: a penalty on θz alone resists a rigid rotation about the normal and
+    // acts as a spring to ground wherever a beam, a nodal moment or a fold turns
+    // those nodes. The CST's ω is constant, so the integrals are exact:
+    // ∫NᵢNⱼ = A(1 + δᵢⱼ)/12, ∫Nᵢ = A/3.
+    let two_a = twice_area(&p);
+    let area = two_a.abs() / 2.0;
     let g_shear = e / (2.0 * (1.0 + nu));
-    // Also add off-diagonal coupling between drilling DOFs for consistency.
-    // Full consistent drilling stiffness: K_drill_ij = (gamma * G * t * A) * N_i * N_j
-    // For linear triangle with equal-weight integration: diag = 1/6, off-diag = 1/12.
-    let k_drill_diag = g_shear * t * area / (1000.0 * 6.0);
-    let k_drill_off = g_shear * t * area / (1000.0 * 12.0);
-    for i in 0..3 {
-        for j in 0..3 {
-            if i == j {
-                k[DRILL_DOFS[i] * n + DRILL_DOFS[j]] += k_drill_diag;
-            } else {
-                k[DRILL_DOFS[i] * n + DRILL_DOFS[j]] += k_drill_off;
-            }
+    let gamma = g_shear * t / 1000.0;
+    // Row of −ω on the membrane DOFs: u_i → +½ ∂Nᵢ/∂y, v_i → −½ ∂Nᵢ/∂x.
+    let mut w_row = [0.0; 18];
+    for a in 0..3 {
+        let (b, c) = ((a + 1) % 3, (a + 2) % 3);
+        let dn_dx = (p[b].1 - p[c].1) / two_a;
+        let dn_dy = (p[c].0 - p[b].0) / two_a;
+        w_row[MEM_DOFS[2 * a]] = 0.5 * dn_dy;
+        w_row[MEM_DOFS[2 * a + 1]] = -0.5 * dn_dx;
+    }
+    // Upper triangle, mirrored: exactly symmetric, not symmetric to round-off.
+    for r in 0..18 {
+        if w_row[r] == 0.0 { continue; }
+        for c in r..18 {
+            let v = gamma * area * w_row[r] * w_row[c];
+            k[r * n + c] += v;
+            if c != r { k[c * n + r] += v; }
+        }
+    }
+    for a in 0..3 {
+        for r in 0..18 {
+            if w_row[r] == 0.0 { continue; }
+            let v = gamma * area / 3.0 * w_row[r];
+            k[r * n + DRILL_DOFS[a]] += v;
+            k[DRILL_DOFS[a] * n + r] += v;
+        }
+        for b in 0..3 {
+            let nn = if a == b { area / 6.0 } else { area / 12.0 };
+            k[DRILL_DOFS[a] * n + DRILL_DOFS[b]] += gamma * nn;
         }
     }
 
@@ -569,9 +620,7 @@ pub fn plate_thermal_load(
                 for k in 0..3 {
                     val += b[k * 9 + i] * kappa_th[k];
                 }
-                // Batoz's curvature is the quad's with the opposite sign (−w,xx against +w,xx), so
-                // the load that gives the quad's free curvature α·ΔT/t is −∫Bᵀ·M_T here.
-                f_local[BEND_DOFS[i]] -= gauss_w * area * val;
+                f_local[BEND_DOFS[i]] += gauss_w * area * val;
             }
         }
     }
@@ -719,9 +768,7 @@ pub fn plate_stress_recovery(
     let mut kappa = [0.0; 3];
     for i in 0..3 {
         for j in 0..9 {
-            // Batoz's κ = (βx,x, βy,y, βx,y + βy,x) is the quad's curvature with the opposite
-            // sign; the moments are reported in the quad's convention, one for both elements.
-            kappa[i] -= b_dkt[i * 9 + j] * u_bend[j];
+            kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
         }
     }
 
@@ -738,35 +785,37 @@ pub fn plate_stress_recovery(
         0.0,              0.0,              db_coeff * (1.0 - nu) / 2.0,
     ];
 
-    // Moments m = D_bending * kappa  (kN·m / m)
+    // DKT B returns the physical through-thickness strain gradient (-Hessian(w)).
+    // Negate its stress resultants for public sagging-positive moments, matching
+    // MITC4/9 and the reinforcement design convention. Keep B and thermal loads as-is.
     let mut mom = [0.0; 3];
     for i in 0..3 {
         for j in 0..3 {
             mom[i] += d_bend[i * 3 + j] * kappa[j];
         }
     }
-    let mx = mom[0];
-    let my = mom[1];
-    let mxy = mom[2];
+    let mx = -mom[0];
+    let my = -mom[1];
+    let mxy = -mom[2];
 
     // -----------------------------------------------------------------------
     // Combined top/bottom fibre stresses and principal / von Mises
     // -----------------------------------------------------------------------
     // Bending stress at extreme fibre (z = ±t/2):
-    //   sigma_bending = ±6 * M / t²
+    //   sigma_bending = ∓6 * M / t² (M is sagging-positive)
     let bend_xx = 6.0 * mx / (t * t);
     let bend_yy = 6.0 * my / (t * t);
     let bend_xy = 6.0 * mxy / (t * t);
 
-    // Top fibre (z = +t/2): membrane + bending.
-    let sx_top = sigma_xx + bend_xx;
-    let sy_top = sigma_yy + bend_yy;
-    let txy_top = tau_xy + bend_xy;
+    // Top fibre (z = +t/2): membrane - bending.
+    let sx_top = sigma_xx - bend_xx;
+    let sy_top = sigma_yy - bend_yy;
+    let txy_top = tau_xy - bend_xy;
 
-    // Bottom fibre (z = -t/2): membrane - bending.
-    let sx_bot = sigma_xx - bend_xx;
-    let sy_bot = sigma_yy - bend_yy;
-    let txy_bot = tau_xy - bend_xy;
+    // Bottom fibre (z = -t/2): membrane + bending.
+    let sx_bot = sigma_xx + bend_xx;
+    let sy_bot = sigma_yy + bend_yy;
+    let txy_bot = tau_xy + bend_xy;
 
     // Principal stresses and von Mises on both faces; report worst case.
     let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
@@ -909,9 +958,7 @@ pub fn plate_stress_at_nodes(
         let mut kappa = [0.0; 3];
         for i in 0..3 {
             for j in 0..9 {
-                // Batoz's κ = (βx,x, βy,y, βx,y + βy,x) is the quad's curvature with the opposite
-            // sign; the moments are reported in the quad's convention, one for both elements.
-            kappa[i] -= b_dkt[i * 9 + j] * u_bend[j];
+                kappa[i] += b_dkt[i * 9 + j] * u_bend[j];
             }
         }
         let mut mom = [0.0; 3];
@@ -921,20 +968,21 @@ pub fn plate_stress_at_nodes(
             }
         }
 
-        let mx = mom[0];
-        let my = mom[1];
-        let mxy = mom[2];
+        // DKT curvature is physical; public moments are sagging-positive.
+        let mx = -mom[0];
+        let my = -mom[1];
+        let mxy = -mom[2];
 
         let bend_xx = 6.0 * mx / (t * t);
         let bend_yy = 6.0 * my / (t * t);
         let bend_xy = 6.0 * mxy / (t * t);
 
-        let sx_top = sigma_xx + bend_xx;
-        let sy_top = sigma_yy + bend_yy;
-        let txy_top = tau_xy + bend_xy;
-        let sx_bot = sigma_xx - bend_xx;
-        let sy_bot = sigma_yy - bend_yy;
-        let txy_bot = tau_xy - bend_xy;
+        let sx_top = sigma_xx - bend_xx;
+        let sy_top = sigma_yy - bend_yy;
+        let txy_top = tau_xy - bend_xy;
+        let sx_bot = sigma_xx + bend_xx;
+        let sy_bot = sigma_yy + bend_yy;
+        let txy_bot = tau_xy + bend_xy;
 
         let (s1_top, s2_top, vm_top) = principal_and_von_mises(sx_top, sy_top, txy_top);
         let (s1_bot, s2_bot, vm_bot) = principal_and_von_mises(sx_bot, sy_bot, txy_bot);

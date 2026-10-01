@@ -116,6 +116,7 @@ fn make_2d_beam(n: usize) -> SolverInput {
     })];
 
     SolverInput {
+        solver_options: None,
         nodes,
         materials,
         sections,
@@ -260,6 +261,7 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         .collect();
 
     SolverInput3D {
+        solver_options: None,
         nodes,
         materials: mats,
         sections: HashMap::new(),

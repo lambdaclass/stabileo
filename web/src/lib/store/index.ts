@@ -13,6 +13,7 @@ import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 // is populated before any component queries it. Importing for side effects only.
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
+import { connectionPrompt } from './connection-prompt.svelte';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -22,6 +23,9 @@ import '../engine/design/adapters/unsupported-adapter';
 // a micro-optimisation that made the analysis-revision counter conditional, which
 // would let a mutation silently fail to advance it and leave a stale result reading
 // as current.
+// Questions about connections in the old model mean nothing in a replaced one.
+modelStore._setOnReplaced(() => connectionPrompt.clear());
+
 modelStore._setOnMutation(() => {
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
@@ -76,6 +80,15 @@ modelStore._setOnFoundationChange(() => {
 // cycle through design-run → verification → regulations. See `project-provenance.ts`.
 modelStore._setCaptureProvenance(captureProjectProvenance);
 
+/* Plane results in the drawn axes: the sign of each member, from the geometry the canvas draws. */
+resultsStore._setTransverseSignProvider((elementId) => {
+  const el = modelStore.elements.get(elementId);
+  const a = el && modelStore.nodes.get(el.nodeI), b = el && modelStore.nodes.get(el.nodeJ);
+  if (!a || !b) return 1;
+  const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
+  return transverseSign(pb.x - pa.x, pb.y - pa.y);
+});
+
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();
 });
@@ -112,6 +125,8 @@ export { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, fmSteps
 // The editing/reading exclusion is a rule of the app, not of a component, so it
 // is installed once here rather than remembered at each of the six places that
 // arm a tool.
+import { projectNode } from '../geometry/plane-projection';
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { installViewModeRules } from './view-mode';
 import { captureProjectProvenance } from './project-provenance';
 installViewModeRules();

@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { modelStore, resultsStore, historyStore, uiStore } from '../../store';
+import { isSolverReady } from '../../engine/wasm-solver';
+import type { AnalysisResults, SolverInput } from '../../engine/types';
+import { generate, FAMILIES } from '../../engine/__tests__/helpers/random-models-2d';
 import {
   memberAxes, shrinkMember, despieceScales, drawDespiece,
   computeDespieceVectors, computeDespieceSegments, momentArrowhead,
@@ -54,6 +58,13 @@ describe('memberAxes', () => {
     const a = memberAxes({ x: 0, y: 0 }, { x: 0, y: 3 });
     expect(a.ux).toBeCloseTo(0, 9); expect(a.uy).toBeCloseTo(1, 9);
     expect(a.px).toBeCloseTo(-1, 9); expect(a.py).toBeCloseTo(0, 9);
+  });
+  it('zs is the drawn/solver transverse sign (−1 drawn right to left or upward)', () => {
+    expect(memberAxes({ x: 0, y: 0 }, { x: 4, y: 0 }).zs).toBe(1);
+    expect(memberAxes({ x: 4, y: 0 }, { x: 0, y: 0 }).zs).toBe(-1);
+    expect(memberAxes({ x: 0, y: 0 }, { x: 0, y: 3 }).zs).toBe(-1);
+    expect(memberAxes({ x: 0, y: 3 }, { x: 0, y: 0 }).zs).toBe(1);
+    expect(memberAxes({ x: 0, y: 0 }, { x: -3, y: 2 }).zs).toBe(-1);
   });
   it('zero-length member: safe fallback', () => {
     const a = memberAxes({ x: 1, y: 1 }, { x: 1, y: 1 });
@@ -309,7 +320,16 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     const mI = v.find(x => x.side === 'member' && x.component === 'M' && x.end === 'I')!;
     const mJ = v.find(x => x.side === 'member' && x.component === 'M' && x.end === 'J')!;
     expect(mI.ccw).toBe(!mJ.ccw);                              // opposite glyph sense
-    expect(mI.ccw).toBe(false);                                // requested: I positive ⇒ clockwise
+    // I positive ⇒ COUNTER-clockwise. The engine reports a positive end moment as
+    // the hogging moment a support puts on the member (fixed-fixed beam under
+    // gravity: M = +wL²/12 at both ends). Isolate that beam: the end shears are
+    // +wL/2 up at each end and balance the load, and by symmetry their moments
+    // about the midspan cancel, so the two end moments must cancel on their own —
+    // opposite senses — and the left wall, which holds the beam's left end up
+    // against sagging, turns it CCW. A cantilever fixed at I with a tip load P
+    // gives the same: ΣM about I = M_I − P·L = 0 needs M_I = +P·L acting CCW, the
+    // sense of the reaction My = +P·L. Drawing it CW left ΣM = −2·P·L.
+    expect(mI.ccw).toBe(true);
     const nI = v.find(x => x.side === 'node' && x.component === 'M' && x.end === 'I')!;
     expect(nI.ccw).toBe(!mI.ccw);                              // node-side opposite to member
   });
@@ -594,5 +614,202 @@ describe('despiece size controls affect drawing', () => {
     const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
     const cross = Math.abs((A.x - x0) * dy - (A.y - y0) * dx) / Math.sqrt(L2);
     expect(cross).toBeLessThan(0.5 * maxLen); // small perpendicular offset, not detached
+  });
+});
+
+// ─── Equilibrium of the view, with the real solver ─────────────────
+//
+// The proof that the despiece is right is that what it DRAWS balances: every
+// isolated member with its own loads (ΣFx = ΣFz = 0, ΣM = 0) and every joint
+// with its nodal loads and reaction. The check below reads the glyphs, not the
+// labels: a force is its world direction × |value|, a moment is ±|value| by its
+// drawn sense. It runs on the published (drawn-axes) forces the view is fed,
+// on members drawn in every direction, in every basis.
+
+describe('despiece equilibrium on solved models (members drawn in every direction)', () => {
+  const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
+  beforeAll(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+    expect(isSolverReady()).toBe(true);
+    uiStore.analysisMode = '2d';
+    for (const k of ['log', 'warn', 'info'] as const) quiet.push(vi.spyOn(console, k).mockImplementation(() => {}));
+  });
+  afterAll(() => { quiet.forEach((q) => q.mockRestore()); });
+
+  const N = (x: number, y: number) => modelStore.addNode(x, y);
+  const E = (a: number, b: number) => modelStore.addElement(a, b, 'frame');
+  function solve(fn: () => void): { res: AnalysisResults; input: SolverInput } {
+    historyStore.clear();
+    modelStore.clear();
+    modelStore.batch(fn);
+    const input = modelStore.buildSolverInput(false)!;
+    const res = modelStore.solve();
+    if (!res || typeof res === 'string') throw new Error(`static solve refused: ${res}`);
+    resultsStore.setResults(res);
+    return { res, input };
+  }
+
+  /** World resultant and moment about node I of the loads the solver applies on a member. */
+  function memberLoads(input: SolverInput, id: number) {
+    const e = input.elements.get(id)!;
+    const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.z - a.z), c = (b.x - a.x) / L, s = (b.z - a.z) / L;
+    let fx = 0, fz = 0, m = 0;
+    for (const l of input.loads) {
+      if (l.type === 'distributed' && l.data.elementId === id) {
+        const x0 = l.data.a ?? 0, x1 = l.data.b ?? L, { qI, qJ } = l.data;
+        const total = ((qI + qJ) / 2) * (x1 - x0);
+        fx += -s * total; fz += c * total;
+        m += ((x1 - x0) * (qI * (2 * x0 + x1) + qJ * (x0 + 2 * x1))) / 6;
+      } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
+        const p = l.data.p ?? 0, px = l.data.px ?? 0;
+        fx += -s * p + c * px; fz += c * p + s * px; m += p * l.data.a + (l.data.my ?? 0);
+      }
+    }
+    return { fx, fz, m, L, c, s };
+  }
+
+  const force = (v: { dirx?: number; diry?: number; value: number }) =>
+    [(v.dirx ?? 0) * Math.abs(v.value), (v.diry ?? 0) * Math.abs(v.value)];
+  const moment = (v: { ccw?: boolean; value: number }) => (v.ccw ? 1 : -1) * Math.abs(v.value);
+
+  function vectors(res: AnalysisResults, basis: DespieceBasis, resultant: boolean) {
+    return computeDespieceVectors({
+      elements: [...modelStore.elements.values()].map((e) => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ })),
+      getNode: (id) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y } : undefined; },
+      getElementForces: (id) => resultsStore.getElementForces(id),
+      reactions: new Map(res.reactions.map((r) => [r.nodeId, r])),
+      sep: 1, vectorMode: 'all', basis, showReactions: true, resultant, fmt: String,
+    });
+  }
+
+  /** Largest residual (relative) over every member and joint of the view. */
+  function residuals(res: AnalysisResults, input: SolverInput, basis: DespieceBasis, resultant: boolean) {
+    const v = vectors(res, basis, resultant);
+    const out: string[] = [];
+    let scale = 1;
+    for (const x of v) scale = Math.max(scale, Math.abs(x.value));
+    const tol = 1e-6 * scale;
+    for (const id of input.elements.keys()) {
+      const ld = memberLoads(input, id);
+      let fx = ld.fx, fz = ld.fz, mm = ld.m;
+      for (const x of v) {
+        if (x.side !== 'member' || x.elementId !== id) continue;
+        if (x.glyph === 'moment') { mm += moment(x); continue; }
+        const [gx, gz] = force(x);
+        fx += gx; fz += gz;
+        if (x.end === 'J') mm += ld.L * (ld.c * gz - ld.s * gx); // r(I→J) × F
+      }
+      if (Math.abs(fx) > tol || Math.abs(fz) > tol || Math.abs(mm) > tol * Math.max(1, ld.L)) {
+        out.push(`member ${id}: ΣFx=${fx.toExponential(2)} ΣFz=${fz.toExponential(2)} ΣM=${mm.toExponential(2)}`);
+      }
+    }
+    for (const n of input.nodes.keys()) {
+      let fx = 0, fz = 0, mm = 0;
+      for (const x of v) {
+        if (x.nodeId !== n || x.side === 'member') continue; // node-side actions and the reaction
+        if (x.glyph === 'moment') { mm += moment(x); continue; }
+        const [gx, gz] = force(x);
+        fx += gx; fz += gz;
+      }
+      for (const l of input.loads) if (l.type === 'nodal' && l.data.nodeId === n) { fx += l.data.fx; fz += l.data.fz; mm += l.data.my; }
+      if (Math.abs(fx) > tol || Math.abs(fz) > tol || Math.abs(mm) > tol) {
+        out.push(`node ${n}: ΣFx=${fx.toExponential(2)} ΣFz=${fz.toExponential(2)} ΣM=${mm.toExponential(2)}`);
+      }
+    }
+    return out;
+  }
+
+  const MODELS: Array<[string, () => void]> = [
+    ['simply supported beam drawn right to left, q = −10', () => {
+      const a = N(0, 0), b = N(6, 0); const e = E(b, a);
+      modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX'); modelStore.addDistributedLoad(e, -10);
+    }],
+    ['cantilever drawn left to right, tip load', () => {
+      const a = N(0, 0), b = N(4, 0); E(a, b); modelStore.addSupport(a, 'fixed'); modelStore.addNodalLoad(b, 0, -10);
+    }],
+    ['cantilever drawn right to left, tip load', () => {
+      const a = N(0, 0), b = N(4, 0); E(b, a); modelStore.addSupport(a, 'fixed'); modelStore.addNodalLoad(b, 0, -10);
+    }],
+    ['fixed-fixed beam drawn each way, q and a point load', () => {
+      const a = N(0, 0), b = N(5, 0), c = N(9, 0); const e1 = E(a, b), e2 = E(c, b);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'fixed');
+      modelStore.addDistributedLoad(e1, -12); modelStore.addDistributedLoad(e2, -6, -14);
+      modelStore.addPointLoadOnElement(e2, 1.5, -20);
+    }],
+    ['portal: one column drawn upward, one downward, beam right to left, sway load', () => {
+      const a = N(0, 0), b = N(0, 4), c = N(6, 4), d = N(6, 0);
+      E(a, b); const beam = E(c, b); E(c, d);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'pinned');
+      modelStore.addDistributedLoad(beam, -15); modelStore.addNodalLoad(b, 8, 0, 0); modelStore.addNodalLoad(c, 0, -5, 3);
+    }],
+    ['star: four inclined members in all four quadrants, drawn in and out', () => {
+      const o = N(0, 0), ne = N(3, 2), nw = N(-2, 3), sw = N(-3, -2), se = N(2, -3);
+      const e1 = E(o, ne), e2 = E(nw, o), e3 = E(o, sw), e4 = E(se, o);
+      for (const n of [ne, nw, sw, se]) modelStore.addSupport(n, 'fixed');
+      modelStore.addNodalLoad(o, 7, -11, 4);
+      modelStore.addDistributedLoad(e1, -9); modelStore.addDistributedLoad(e2, 5, -3);
+      modelStore.addPointLoadOnElement(e3, 1.2, 6); modelStore.addDistributedLoad(e4, -4);
+    }],
+  ];
+
+  for (const [label, fn] of MODELS) {
+    for (const [basis, resultant] of [['local', false], ['global', false], ['global', true]] as const) {
+      it(`${label}: every member and joint balances (${basis}${resultant ? ', resultant' : ''})`, () => {
+        const { res, input } = solve(fn);
+        expect(residuals(res, input, basis, resultant)).toEqual([]);
+      });
+    }
+  }
+
+  // The generated models of the Basic 2D audit (beams, frames, gables, arches,
+  // trusses, mixed, cantilevers — drawn every way, with hinges, springs,
+  // settlements, thermal and inclined supports), a few seeds per family.
+  const SEEDS = Number(process.env.DESPIECE_SEEDS ?? 50);
+  it(`generated models (${SEEDS} per family): every member and joint of the view balances`, () => {
+    const bad: string[] = [];
+    let solvedCount = 0;
+    for (const fam of FAMILIES) {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        historyStore.clear();
+        const meta = generate(fam, seed);
+        const input = modelStore.buildSolverInput(false);
+        const res = modelStore.solve();
+        if (!input || !res || typeof res === 'string') continue;
+        resultsStore.setResults(res);
+        solvedCount++;
+        for (const [basis, resultant] of [['local', false], ['global', false], ['global', true]] as const) {
+          for (const r of residuals(res, input, basis, resultant)) bad.push(`${meta.label} ${basis}${resultant ? '+R' : ''} ${r}`);
+        }
+      }
+    }
+    expect(solvedCount).toBeGreaterThan(FAMILIES.length * SEEDS * 0.8);
+    expect(bad.slice(0, 20)).toEqual([]);
+  }, 120_000);
+
+  it('inspection agrees with the glyphs: a beam drawn right to left under gravity has Fz = +30 at both ends', () => {
+    solve(MODELS[0][1]);
+    const args = {
+      elements: [...modelStore.elements.values()].map((e) => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ })),
+      getNode: (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y } : undefined; },
+      getElementForces: (id: number) => resultsStore.getElementForces(id),
+      basis: 'global' as const,
+    };
+    for (const e of inspectMember(args, 1)!.ends) {
+      expect(e.components.find((c) => c.label === 'Fz')!.value).toBeCloseTo(30, 6);
+    }
+  });
+
+  it('the member-side moment at a fixed end has the sense of the support reaction (drawn either way)', () => {
+    for (const fn of [MODELS[1][1], MODELS[2][1]]) {
+      const { res } = solve(fn);
+      const v = vectors(res, 'local', false);
+      const fixedNode = res.reactions.find((r) => Math.abs(r.my) > 1e-6)!.nodeId;
+      const member = v.find((x) => x.side === 'member' && x.glyph === 'moment' && x.nodeId === fixedNode)!;
+      const reaction = v.find((x) => x.side === 'reaction' && x.glyph === 'moment')!;
+      expect(reaction.ccw).toBe(true);           // My = +40: the wall turns the member CCW
+      expect(member.ccw).toBe(reaction.ccw);
+      expect(Math.abs(member.value)).toBeCloseTo(40, 6);
+    }
   });
 });

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
-  import { t, i18n } from '../lib/i18n';
+  import { t, tp, i18n } from '../lib/i18n';
   import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
@@ -100,19 +100,19 @@
     const sections = snapshot.sections as Array<[number, unknown]> | undefined;
 
     if (!nodes || !Array.isArray(nodes) || nodes.length < 2) {
-      errors.push('Model must have at least 2 nodes');
+      errors.push(t('ai.val.minNodes'));
     }
     if (!elements || !Array.isArray(elements) || elements.length < 1) {
-      errors.push('Model must have at least 1 element');
+      errors.push(t('ai.val.minElements'));
     }
     if (!supports || !Array.isArray(supports) || supports.length < 1) {
-      errors.push('Model must have at least 1 support');
+      errors.push(t('ai.val.minSupports'));
     }
     if (!materials || !Array.isArray(materials) || materials.length < 1) {
-      errors.push('Model must have at least 1 material');
+      errors.push(t('ai.val.minMaterials'));
     }
     if (!sections || !Array.isArray(sections) || sections.length < 1) {
-      errors.push('Model must have at least 1 section');
+      errors.push(t('ai.val.minSections'));
     }
 
     // Early return if basic structure is missing
@@ -125,26 +125,26 @@
     // Validate element node references
     for (const [id, elem] of elements!) {
       if (!nodeIds.has(elem.nodeI)) {
-        errors.push(`Element ${id} references non-existent node ${elem.nodeI}`);
+        errors.push(tp('ai.val.elemMissingNode', { id, node: elem.nodeI }));
       }
       if (!nodeIds.has(elem.nodeJ)) {
-        errors.push(`Element ${id} references non-existent node ${elem.nodeJ}`);
+        errors.push(tp('ai.val.elemMissingNode', { id, node: elem.nodeJ }));
       }
       // Typed end releases are optional (absent -> NO_RELEASE on apply), but
       // when present must have the { my, mz, t } boolean shape.
       const e = elem as unknown as { releaseI?: unknown; releaseJ?: unknown };
       if (!isValidReleaseShape(e.releaseI)) {
-        errors.push(`Element ${id} has an invalid releaseI shape`);
+        errors.push(tp('ai.val.badReleaseI', { id }));
       }
       if (!isValidReleaseShape(e.releaseJ)) {
-        errors.push(`Element ${id} has an invalid releaseJ shape`);
+        errors.push(tp('ai.val.badReleaseJ', { id }));
       }
     }
 
     // Validate support node references
     for (const [id, sup] of supports!) {
       if (!nodeIds.has(sup.nodeId)) {
-        errors.push(`Support ${id} references non-existent node ${sup.nodeId}`);
+        errors.push(tp('ai.val.supportMissingNode', { id, node: sup.nodeId }));
       }
     }
 
@@ -154,10 +154,10 @@
       for (const load of loads) {
         const d = (load.data as Record<string, unknown>) ?? load;
         if (d.elementId && !elementIds.has(d.elementId as number)) {
-          errors.push(`Load references non-existent element ${d.elementId}`);
+          errors.push(tp('ai.val.loadMissingElement', { id: String(d.elementId) }));
         }
         if (d.nodeId && !nodeIds.has(d.nodeId as number)) {
-          errors.push(`Load references non-existent node ${d.nodeId}`);
+          errors.push(tp('ai.val.loadMissingNode', { id: String(d.nodeId) }));
         }
       }
     }
@@ -165,7 +165,7 @@
     // Validate coordinates are finite
     for (const [id, node] of nodes!) {
       if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
-        errors.push(`Node ${id} has invalid coordinates`);
+        errors.push(tp('ai.val.badCoords', { id }));
       }
     }
 
@@ -182,7 +182,7 @@
     const text = (descriptionOverride ?? chatInput).trim();
     if (!text || buildLoading) return;
     if (text.length > MAX_MESSAGE_LENGTH) {
-      buildError = `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`;
+      buildError = tp('ai.msgTooLong', { max: MAX_MESSAGE_LENGTH });
       return;
     }
 
@@ -205,13 +205,13 @@
       historyStore.pushState();
       resultsStore.clear();
       modelStore.clear();
-      chatMessages.push({ role: 'system', text: 'Model cleared.' });
+      chatMessages.push({ role: 'system', text: t('ai.modelCleared') });
       scrollChatToBottom();
       return;
     }
 
     // Add building indicator
-    chatMessages.push({ role: 'ai', text: 'Building...', isBuilding: true });
+    chatMessages.push({ role: 'ai', text: t('ai.building'), isBuilding: true });
     scrollChatToBottom();
     buildLoading = true;
     const ac = new AbortController();
@@ -244,7 +244,7 @@
       if (resp.scopeRefusal || !hasStructure) {
         chatMessages.push({
           role: 'ai',
-          text: resp.message || 'Try describing a structure to build.',
+          text: resp.message || t('ai.tryDescribing'),
           rawAiResponse: resp.rawAiResponse,
           meta: {
             modelUsed: resp.meta.modelUsed,
@@ -261,11 +261,11 @@
       if (!validation.valid) {
         chatMessages.push({
           role: 'ai',
-          text: resp.message || 'The generated model has issues.',
+          text: resp.message || t('ai.generatedHasIssues'),
         });
         chatMessages.push({
           role: 'system',
-          text: `Validation failed:\n${validation.errors.join('\n')}`,
+          text: `${t('ai.validationFailed')}\n${validation.errors.join('\n')}`,
         });
         scrollChatToBottom();
         return;
@@ -296,11 +296,11 @@
     } catch (e: any) {
       chatMessages = chatMessages.filter(m => !m.isBuilding);
       if (e.name === 'AbortError') {
-        chatMessages.push({ role: 'system', text: 'Request cancelled.' });
+        chatMessages.push({ role: 'system', text: t('ai.requestCancelled') });
       } else {
-        const msg = e.message || 'Failed to build model';
+        const msg = e.message || t('ai.buildFailed');
         const friendly = msg.includes('Could not generate')
-          ? 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Try describing a structure, e.g. "simply supported beam, 6m, 10 kN/m".'
+          ? t('ai.canBuild')
           : msg;
         chatMessages.push({ role: 'ai', text: friendly });
       }
@@ -333,8 +333,8 @@
     chatMessages.push({
       role: 'system',
       text: lastSolverDiagnostics.length > 0
-        ? `Model applied and solved. ${lastSolverDiagnostics.length} issue(s) found.`
-        : 'Model applied and solved.',
+        ? tp('ai.appliedWithIssues', { n: lastSolverDiagnostics.length })
+        : t('ai.applied'),
     });
     scrollChatToBottom();
   }
@@ -345,7 +345,7 @@
     pendingDraft = null;
     chatMessages.push({
       role: 'system',
-      text: 'Draft discarded.',
+      text: t('ai.draftDiscarded'),
     });
     scrollChatToBottom();
   }
@@ -365,8 +365,8 @@
     buildError = null;
     justApplied = false;
 
-    chatMessages.push({ role: 'user', text: 'Fix the solver issues' });
-    chatMessages.push({ role: 'ai', text: 'Fixing...', isBuilding: true });
+    chatMessages.push({ role: 'user', text: t('ai.fixRequest') });
+    chatMessages.push({ role: 'ai', text: t('ai.fixing'), isBuilding: true });
     scrollChatToBottom();
 
     try {
@@ -401,7 +401,7 @@
       if (resp.scopeRefusal || !hasStructure) {
         chatMessages.push({
           role: 'ai',
-          text: resp.message || 'Could not fix the issues automatically.',
+          text: resp.message || t('ai.couldNotFix'),
           meta: resp.meta ? { modelUsed: resp.meta.modelUsed, latencyMs: resp.meta.latencyMs, tokens: resp.meta.inputTokens + resp.meta.outputTokens } : undefined,
         });
         scrollChatToBottom();
@@ -410,8 +410,8 @@
 
       const validation = validateSnapshot(snap);
       if (!validation.valid) {
-        chatMessages.push({ role: 'ai', text: resp.message || 'Fixed model has issues.' });
-        chatMessages.push({ role: 'system', text: `Validation failed:\n${validation.errors.join('\n')}` });
+        chatMessages.push({ role: 'ai', text: resp.message || t('ai.fixedHasIssues') });
+        chatMessages.push({ role: 'system', text: `${t('ai.validationFailed')}\n${validation.errors.join('\n')}` });
         scrollChatToBottom();
         return;
       }
@@ -434,7 +434,7 @@
       scrollChatToBottom();
     } catch (e: any) {
       chatMessages = chatMessages.filter(m => !m.isBuilding);
-      chatMessages.push({ role: 'ai', text: e.message || 'Failed to fix issues' });
+      chatMessages.push({ role: 'ai', text: e.message || t('ai.fixFailed') });
       scrollChatToBottom();
     } finally {
       buildLoading = false;
@@ -570,8 +570,8 @@
 <svelte:element this={docked ? 'div' : 'aside'} class="ai-drawer" class:ai-docked={docked}>
   {#if !docked}
     <div class="drawer-header">
-      <span class="drawer-title">Stabileo AI</span>
-      <button class="close-btn" onclick={close} title="Close">×</button>
+      <span class="drawer-title">{t('ai.title')}</span>
+      <button class="close-btn" onclick={close} title={t('config.close')}>×</button>
     </div>
   {/if}
 
@@ -611,14 +611,14 @@
               <span class="risk-dot" style="background: {riskColor(reviewResponse.riskLevel)}"></span>
               <span class="risk-text" style="color: {riskColor(reviewResponse.riskLevel)}">{reviewResponse.riskLevel.toUpperCase()}</span>
             </div>
-            <button class="regen-btn" onclick={handleReview} disabled={reviewLoading} title="Re-run review">↻</button>
+            <button class="regen-btn" onclick={handleReview} disabled={reviewLoading} title={t('ai.rerunReview')}>↻</button>
           </div>
 
           <p class="summary">{reviewResponse.summary}</p>
 
           {#if reviewResponse.findings.length > 0}
             <div class="findings">
-              <span class="section-label">Findings ({reviewResponse.findings.length})</span>
+              <span class="section-label">{tp('ai.findings', { n: reviewResponse.findings.length })}</span>
               {#each reviewResponse.findings as finding, i}
                 <div class="finding" class:expanded={expandedFinding === i} role="button" tabindex="0" onclick={() => handleFindingClick(finding, i)} onkeydown={(e) => { if (e.key === 'Enter') handleFindingClick(finding, i); }}>
                   <div class="finding-header">
@@ -634,7 +634,7 @@
                       {/if}
                       {#if finding.affectedIds.length > 0}
                         <div class="finding-actions">
-                          <button class="finding-action" onclick={(e) => { e.stopPropagation(); handleFindingClick(finding, i); }}>Zoom to issue</button>
+                          <button class="finding-action" onclick={(e) => { e.stopPropagation(); handleFindingClick(finding, i); }}>{t('ai.zoomToIssue')}</button>
                         </div>
                       {/if}
                     </div>
@@ -714,7 +714,7 @@
             {/if}
             {#if msg.rawAiResponse}
               <details class="raw-response">
-                <summary>LLM response</summary>
+                <summary>{t('ai.llmResponse')}</summary>
                 <pre>{msg.rawAiResponse}</pre>
               </details>
             {/if}
@@ -743,9 +743,9 @@
             holding one with no way out of it. A disabled escape is not a safer state than an
             enabled one; it is the same state with the door locked.
           -->
-          <button class="draft-btn draft-apply" onclick={handleApply} disabled={AI_IN_DEVELOPMENT}>Apply</button>
-          <button class="draft-btn draft-retry" onclick={handleRetry} disabled={AI_IN_DEVELOPMENT}>Retry</button>
-          <button class="draft-btn draft-cancel" onclick={handleCancel}>Cancel</button>
+          <button class="draft-btn draft-apply" onclick={handleApply} disabled={AI_IN_DEVELOPMENT}>{t('pro.apply')}</button>
+          <button class="draft-btn draft-retry" onclick={handleRetry} disabled={AI_IN_DEVELOPMENT}>{t('ai.retry')}</button>
+          <button class="draft-btn draft-cancel" onclick={handleCancel}>{t('app.cancel')}</button>
         </div>
       {/if}
 
@@ -767,7 +767,7 @@
             says so. One `AI_IN_DEVELOPMENT ||` makes the guarantee stated instead of derived.
           -->
           <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={AI_IN_DEVELOPMENT || buildLoading}>
-            Fix {lastSolverDiagnostics.length} solver issue{lastSolverDiagnostics.length > 1 ? 's' : ''}
+            {lastSolverDiagnostics.length > 1 ? tp('ai.fixIssuesMany', { n: lastSolverDiagnostics.length }) : t('ai.fixIssuesOne')}
           </button>
         </div>
       {/if}
@@ -775,7 +775,7 @@
       <!-- Post-build review shortcut -->
       {#if justApplied && hasResults && lastSolverDiagnostics.length === 0}
         <div class="post-build-bar">
-          <button class="post-build-btn" onclick={handlePostBuildReview}>Review this model</button>
+          <button class="post-build-btn" onclick={handlePostBuildReview}>{t('ai.reviewThisModel')}</button>
         </div>
       {/if}
 
@@ -790,7 +790,7 @@
           rows="2"
         ></textarea>
         {#if buildLoading}
-          <button class="chat-send stop-btn" onclick={handleAbortBuild} title="Stop">■</button>
+          <button class="chat-send stop-btn" onclick={handleAbortBuild} title={t('ai.stop')}>■</button>
         {:else}
           <button class="chat-send" onclick={() => handleBuildSend()} disabled={AI_IN_DEVELOPMENT || !chatInput.trim() || !!pendingDraft} data-testid="ai-send">→</button>
         {/if}
@@ -801,8 +801,8 @@
     <div class="drawer-body">
       <div class="placeholder">
         <span class="placeholder-icon">?</span>
-        <p>Select a diagnostic or finding to get a detailed explanation.</p>
-        <p class="hint">Coming soon</p>
+        <p>{t('ai.explainPlaceholder')}</p>
+        <p class="hint">{t('ai.comingSoon')}</p>
       </div>
     </div>
 
@@ -810,8 +810,8 @@
     <div class="drawer-body">
       <div class="placeholder">
         <span class="placeholder-icon">⌕</span>
-        <p>Ask questions about your analysis results.</p>
-        <p class="hint">Coming soon</p>
+        <p>{t('ai.queryPlaceholder')}</p>
+        <p class="hint">{t('ai.comingSoon')}</p>
       </div>
     </div>
   {/if}

@@ -9,7 +9,12 @@
 //   - member action: internal force ON the member, anchored at the shrunken end;
 //   - node action: equal/opposite force ON the joint, anchored near the node side
 //     of the remnant — distinct per connected member at high-valence nodes;
-//   - support reaction: one-sided EXTERNAL action, drawn ONCE (never mirrored).
+//   - support reaction: one-sided EXTERNAL action (force and, at a restrained
+//     rotation, moment), drawn ONCE (never mirrored).
+//
+// Every glyph carries the signed world vector it stands for (userData.forceVec /
+// momentVec; loads also userData.loadAt), so the drawn free bodies can be checked
+// for ΣF = 0 and ΣM = 0 on real solves (despiece-3d-equilibrium.test.ts).
 //
 // Basis:
 //   - 'local'  → N along ex (red), shear resultant in the ey–ez plane (cyan).
@@ -41,14 +46,58 @@ export const DESPIECE_COL = {
 
 export type DespieceLoadMode = 'off' | 'resultant' | 'all';
 
-/** Equivalent resultant of a trapezoidal/partial distributed component (qI@a..qJ@b). */
-function distResultant(qI: number, qJ: number, a: number, b: number): { mag: number; centroid: number } {
-  const L = b - a, sum = qI + qJ;
-  const raw = Math.abs(sum) < 1e-9 ? a + L / 2 : a + (L / 3) * (qI + 2 * qJ) / sum;
-  // Clamp to [a, b]: a sign-reversing trapezoid can otherwise place the
-  // resultant centroid far off the member (mirror of draw-despiece.ts).
-  return { mag: sum / 2 * L, centroid: Math.min(b, Math.max(a, raw)) };
+/**
+ * Point resultants of one trapezoidal/partial distributed component (qI@a..qJ@b),
+ * statically EXACT: the same force and the same moment about any point as the
+ * load. When qI and qJ share a sign that is one force at the trapezoid centroid
+ * (always inside [a, b]). A sign-reversing trapezoid has no single equivalent
+ * force on the span (its resultant can even vanish while its couple does not),
+ * so it is split into its two triangles: qI·L/2 at a + L/3 and qJ·L/2 at
+ * a + 2L/3. (A clamped centroid used to keep the arrow on the member at the
+ * price of a wrong moment.)
+ */
+function distPointResultants(qI: number, qJ: number, a: number, b: number): Array<{ mag: number; at: number }> {
+  const L = b - a;
+  if (!(L > 1e-12)) return [];
+  if (qI * qJ >= 0) {
+    const sum = qI + qJ;
+    if (Math.abs(sum) < 1e-12) return [];
+    return [{ mag: sum / 2 * L, at: a + (L / 3) * (qI + 2 * qJ) / sum }];
+  }
+  return [{ mag: qI * L / 2, at: a + L / 3 }, { mag: qJ * L / 2, at: a + 2 * L / 3 }];
 }
+
+type Vec3 = [number, number, number];
+
+/**
+ * The action the joint exerts ON the member at one end, in world axes.
+ *
+ * Engine convention (checked against real solves in
+ * despiece-3d-equilibrium.test.ts): ElementForces3D are section resultants with
+ * N positive in tension and V, M, T signed on the member's NEGATIVE face, so
+ * that V(x) = V_I + ∫q and M(x) = M_I ∓ V·x along the member (diagrams-3d.ts).
+ * At I the joint acts on the member with −N·ex + Vy·ey + Vz·ez and with the
+ * moment T·ex + My·ey + Mz·ez; at J with the same expression of the J values
+ * times −1 (`axialOut` = +1 at I, −1 at J, the opposite outward normals of the
+ * two cuts). A cantilever along +X fixed at I: a tip Fy = +10 gives
+ * vy = −10, mzStart = −20, and the fixed end's reaction (−10·ey, −20·ez) is
+ * exactly the I action. Unloaded, V and M are the same sign at both ends, so the
+ * two end shears are OPPOSITE and form the couple the end moments balance.
+ *
+ * The local basis is the solver's right-handed one; the left-hand convention
+ * only changes how the axes are labelled, never these vectors.
+ */
+export function memberEndAction3D(
+  ex: Vec3, ey: Vec3, ez: Vec3, axialOut: 1 | -1,
+  n: number, vy: number, vz: number, mx: number, my: number, mz: number,
+): { force: Vec3; moment: Vec3 } {
+  const f = (k: number) => (-n * ex[k] + vy * ey[k] + vz * ez[k]) * axialOut;
+  const m = (k: number) => (mx * ex[k] + my * ey[k] + mz * ez[k]) * axialOut;
+  return { force: [f(0), f(1), f(2)], moment: [m(0), m(1), m(2)] };
+}
+
+const v3 = (v: THREE.Vector3): Vec3 => [v.x, v.y, v.z];
+const tv = (a: Vec3) => new THREE.Vector3(a[0], a[1], a[2]);
 
 export type DespieceVectorMode = 'all' | 'members' | 'nodes';
 export type DespieceBasis = 'local' | 'global';
@@ -89,6 +138,10 @@ function fixedArrow(dir: THREE.Vector3, len: number, colorHex: number): THREE.Ar
   if (dir.lengthSq() < 1e-12 || len < 1e-9) return null;
   const a = new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(0, 0, 0), len, colorHex, len * 0.34, len * 0.2);
   a.userData.glyphLen = len;
+  // The signed world force the glyph stands for (arrows are fixed-size symbols;
+  // the value lives here and in the label). Callers overwrite it when `dir` is
+  // only a direction.
+  a.userData.forceVec = [dir.x, dir.y, dir.z];
   return a;
 }
 
@@ -110,6 +163,7 @@ function momentArc(momentVec: THREE.Vector3, radius: number, colorHex: number): 
   const grp = new THREE.Group();
   grp.userData.despieceMoment = true;
   grp.userData.momentAxis = [axis.x, axis.y, axis.z];
+  grp.userData.momentVec = [momentVec.x, momentVec.y, momentVec.z];   // the signed moment the glyph stands for
 
   const SEG = 28, sweep = Math.PI * 1.5;
   const pts: number[] = [];
@@ -132,49 +186,45 @@ function momentArc(momentVec: THREE.Vector3, radius: number, colorHex: number): 
   return grp;
 }
 
-interface ForceArrow { dir: THREE.Vector3; len: number; color: number; }
+/** `vec` is the signed world force the glyph stands for (its share of the end action). */
+interface ForceArrow { dir: THREE.Vector3; vec: THREE.Vector3; len: number; color: number; }
 
 /** Member-side force arrows in the requested basis (sign baked into direction). */
 function memberForceArrows(
-  ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, axialOut: 1 | -1,
-  n: number, vy: number, vz: number, basis: DespieceBasis, arrowLen: number,
-  colAxial: number, colShear: number, resultant: boolean,
+  ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, force: THREE.Vector3,
+  basis: DespieceBasis, arrowLen: number, colAxial: number, colShear: number, resultant: boolean,
 ): ForceArrow[] {
   const out: ForceArrow[] = [];
-  // FREE-BODY END-FACE CONVENTION (mirrors 2D): the member-side end ACTION is the
-  // local force vector assembled from diagram values, multiplied by `axialOut`
-  // (+1 at I, −1 at J) which encodes the opposite outward face normals at the two
-  // cuts. ElementForces3D are diagram values: axial same-sign at both ends, shear
-  // opposite-sign — so the single axialOut factor makes axial point OUT at both
-  // ends for tension and makes shear point the SAME physical way at both ends
-  // (the separated member is then in equilibrium under its end actions + loads).
-  const fVec = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
+  // `force` is the end action ON the member (memberEndAction3D): tension points
+  // OUT of both ends; an unloaded member's two end shears are opposite.
+  const push = (axis: THREE.Vector3, comp: number, len: number, color: number) => {
+    if (Math.abs(comp) > FORCE_EPS) out.push({ dir: axis.clone().multiplyScalar(Math.sign(comp)), vec: axis.clone().multiplyScalar(comp), len, color });
+  };
   // Resultant mode: ONE composed force arrow (the true member-side force vector).
   if (resultant) {
-    if (fVec.length() > FORCE_EPS) out.push({ dir: fVec, len: arrowLen, color: colAxial });
+    if (force.length() > FORCE_EPS) out.push({ dir: force.clone(), vec: force.clone(), len: arrowLen, color: colAxial });
     return out;
   }
   if (basis === 'global') {
-    if (Math.abs(fVec.x) > FORCE_EPS) out.push({ dir: new THREE.Vector3(Math.sign(fVec.x), 0, 0), len: arrowLen, color: colAxial });
-    if (Math.abs(fVec.y) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, Math.sign(fVec.y), 0), len: arrowLen, color: colAxial });
-    if (Math.abs(fVec.z) > FORCE_EPS) out.push({ dir: new THREE.Vector3(0, 0, Math.sign(fVec.z)), len: arrowLen, color: colAxial });
+    push(new THREE.Vector3(1, 0, 0), force.x, arrowLen, colAxial);
+    push(new THREE.Vector3(0, 1, 0), force.y, arrowLen, colAxial);
+    push(new THREE.Vector3(0, 0, 1), force.z, arrowLen, colAxial);
     return out;
   }
-  // Local, separate components: axial N + the two shears Vy, Vz (each ×axialOut).
-  if (Math.abs(n) > FORCE_EPS) out.push({ dir: ex.clone().multiplyScalar(-Math.sign(n) * axialOut), len: arrowLen, color: colAxial });
-  if (Math.abs(vy) > FORCE_EPS) out.push({ dir: ey.clone().multiplyScalar(Math.sign(vy) * axialOut), len: arrowLen * 0.85, color: colShear });
-  if (Math.abs(vz) > FORCE_EPS) out.push({ dir: ez.clone().multiplyScalar(Math.sign(vz) * axialOut), len: arrowLen * 0.85, color: colShear });
+  // Local, separate components along the member's own axes: axial + the two shears.
+  push(ex, force.dot(ex), arrowLen, colAxial);
+  push(ey, force.dot(ey), arrowLen * 0.85, colShear);
+  push(ez, force.dot(ez), arrowLen * 0.85, colShear);
   return out;
 }
 
 /** Compact end label in the requested basis. */
 function endLabel(
-  ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, axialOut: 1 | -1,
-  n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
+  force: THREE.Vector3, n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
 ): string {
   const parts: string[] = [];
   if (basis === 'global') {
-    const f = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
+    const f = force;
     if (Math.abs(f.x) > FORCE_EPS) parts.push(`Fx ${f.x.toFixed(1)}`);
     if (Math.abs(f.y) > FORCE_EPS) parts.push(`Fy ${f.y.toFixed(1)}`);
     if (Math.abs(f.z) > FORCE_EPS) parts.push(`Fz ${f.z.toFixed(1)}`);
@@ -246,22 +296,25 @@ export function createDespiece3DGroup(opts: {
   const members: MemberAnim[] = [];
 
   function buildEnd(
-    elemId: number, nodeId: number, side: 'member' | 'node',
+    elemId: number, nodeId: number, end: 'I' | 'J', side: 'member' | 'node',
     ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, axialOut: 1 | -1,
     n: number, vy: number, vz: number, mx: number, my: number, mz: number,
   ): THREE.Group {
     const eg = new THREE.Group();
-    eg.userData = { despieceEnd: true, side, elemId, nodeId };
+    eg.userData = { despieceEnd: true, side, elemId, nodeId, end };
     const sign = side === 'member' ? 1 : -1;  // node action is opposite
+    const act = memberEndAction3D(v3(ex), v3(ey), v3(ez), axialOut, n, vy, vz, mx, my, mz);
+    const force = tv(act.force), moment = tv(act.moment);
     // Outward = from the end toward the node/gap (−ex·axialOut). Used to keep the
     // arrow BODY in the gap: if a force points into the member, draw it with the
     // head at the anchor and the tail extending outward, so it never lies on the
     // solid member (parity with the 2D outward-flip).
     const outward = ex.clone().multiplyScalar(-axialOut);
-    for (const fa of memberForceArrows(ex, ey, ez, axialOut, n, vy, vz, basis, ARROW_LEN, colAxial, colShear, resultant)) {
+    for (const fa of memberForceArrows(ex, ey, ez, force, basis, ARROW_LEN, colAxial, colShear, resultant)) {
       const d = fa.dir.clone().multiplyScalar(sign);
       const a = fixedArrow(d, fa.len, fa.color);
       if (!a) continue;
+      a.userData.forceVec = v3(fa.vec.clone().multiplyScalar(sign));
       if (d.dot(outward) < 0) {
         // points into the member → shift tail outward so the head lands on the anchor
         const u = d.clone().normalize().multiplyScalar(-fa.len);
@@ -269,22 +322,21 @@ export function createDespiece3DGroup(opts: {
       }
       eg.add(a);
     }
-    // Curved moment/torsion glyphs. Capped like labels to limit clutter. Per-end
-    // face flip (axialOut) so I/J senses are opposite for the same stored moment,
-    // plus the node-side flip (sign) for the action/reaction pair. Resultant mode
-    // → ONE composed moment arc; otherwise separate arcs per local axis (T,My,Mz).
+    // Curved moment/torsion glyphs, right-hand sense about the end moment ON the
+    // member (memberEndAction3D), flipped for the node side (action/reaction
+    // pair). Capped like labels to limit clutter. Resultant mode → ONE composed
+    // moment arc; otherwise separate arcs per local axis (T, My, Mz).
     if (showLabels) {
-      const k = sign * axialOut;
+      const mv = moment.clone().multiplyScalar(sign);
       if (resultant) {
-        const mVec = ex.clone().multiplyScalar(mx).add(ey.clone().multiplyScalar(my)).add(ez.clone().multiplyScalar(mz)).multiplyScalar(k);
-        const mg = momentArc(mVec, ARROW_LEN * 0.5, colMoment);
+        const mg = momentArc(mv, ARROW_LEN * 0.5, colMoment);
         if (mg) eg.add(mg);
       } else {
         // Separate per-axis arcs (radii staggered so co-incident axes don't overlap).
         const comps: Array<[THREE.Vector3, number]> = [
-          [ex.clone().multiplyScalar(mx * k), 0.50],
-          [ey.clone().multiplyScalar(my * k), 0.62],
-          [ez.clone().multiplyScalar(mz * k), 0.74],
+          [ex.clone().multiplyScalar(mv.dot(ex)), 0.50],
+          [ey.clone().multiplyScalar(mv.dot(ey)), 0.62],
+          [ez.clone().multiplyScalar(mv.dot(ez)), 0.74],
         ];
         for (const [cv, r] of comps) {
           const mg = momentArc(cv, ARROW_LEN * r, colMoment);
@@ -296,7 +348,7 @@ export function createDespiece3DGroup(opts: {
     // in 'nodes' mode (where node vectors are all that's shown).
     const showThis = side === 'member' ? !labelNode : labelNode;
     if (showLabels && showThis) {
-      const txt = endLabel(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz, basis);
+      const txt = endLabel(force, n, vy, vz, mx, my, mz, basis);
       if (txt) {
         const lbl = createTextSpriteCached(txt, basis === 'global' ? DESPIECE_COL.axial : DESPIECE_COL.moment, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
@@ -337,11 +389,11 @@ export function createDespiece3DGroup(opts: {
     ];
     for (const [end, nodeId, node, axialOut, n, vy, vz, mx, my, mz] of endSpecs) {
       if (wantMember) {
-        const eg = buildEnd(elem.id, nodeId, 'member', exV, eyV, ezV, axialOut, n, vy, vz, mx, my, mz);
+        const eg = buildEnd(elem.id, nodeId, end, 'member', exV, eyV, ezV, axialOut, n, vy, vz, mx, my, mz);
         group.add(eg); anim.ends.push({ group: eg, node, isNodeSide: false });
       }
       if (wantNode) {
-        const eg = buildEnd(elem.id, nodeId, 'node', exV, eyV, ezV, axialOut, n, vy, vz, mx, my, mz);
+        const eg = buildEnd(elem.id, nodeId, end, 'node', exV, eyV, ezV, axialOut, n, vy, vz, mx, my, mz);
         group.add(eg); anim.ends.push({ group: eg, node, isNodeSide: true });
       }
       // Dashed remnant: node → shrunken end (updated in despieceUpdate).
@@ -361,32 +413,50 @@ export function createDespiece3DGroup(opts: {
       const Llen = Math.hypot(pJ.x - pI.x, pJ.y - pI.y, pJ.z - pI.z) || 1;
       /* Member loads are typed along the y the user sees: negated under the left-hand convention. */
       const eyUser = leftHand ? eyV.clone().negate() : eyV;
-      const addLoad = (dir: THREE.Vector3, len: number, frac: number) => {
+      // `at` = metres from I on the real member: where the load acts (userData.loadAt,
+      // world) — the glyph itself rides the shrunken span at the same fraction.
+      const addLoad = (dir: THREE.Vector3, len: number, at: number, force?: THREE.Vector3) => {
         const a = fixedArrow(dir, len, colLoad);
-        if (a) { a.userData.despieceLoad = true; group.add(a); anim.loads.push({ obj: a, frac: Math.max(0, Math.min(1, frac)) }); }
+        if (!a) return;
+        a.userData.despieceLoad = true;
+        a.userData.elemId = elem.id;
+        if (force) {
+          a.userData.forceVec = v3(force);
+          a.userData.loadAt = [pI.x + exV.x * at, pI.y + exV.y * at, pI.z + exV.z * at];
+        } else {
+          delete a.userData.forceVec;      // a sampled intensity (kN/m), not a force
+        }
+        group.add(a); anim.loads.push({ obj: a, frac: Math.max(0, Math.min(1, at / Llen)) });
       };
       for (const ld of loads) {
         if (ld.type === 'distributed3d' && ld.data.elementId === elem.id) {
           const d = ld.data; const a0 = d.a ?? 0, b0 = d.b ?? Llen;
           if (loadMode === 'resultant') {
-            const RY = distResultant(d.qYI, d.qYJ, a0, b0), RZ = distResultant(d.qZI, d.qZJ, a0, b0);
-            const dir = eyUser.clone().multiplyScalar(RY.mag).add(ezV.clone().multiplyScalar(RZ.mag));
-            const wsum = Math.abs(RY.mag) + Math.abs(RZ.mag);
-            const centroid = wsum < 1e-9 ? (a0 + b0) / 2 : (Math.abs(RY.mag) * RY.centroid + Math.abs(RZ.mag) * RZ.centroid) / wsum;
-            if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, centroid / Llen);
+            // Statically exact point resultants (distPointResultants). One arrow when
+            // the y and z parts share a single line of action, one per part otherwise:
+            // two forces at different stations are not one force.
+            const RY = distPointResultants(d.qYI, d.qYJ, a0, b0), RZ = distPointResultants(d.qZI, d.qZJ, a0, b0);
+            const parts: Array<{ f: THREE.Vector3; at: number }> = [];
+            if (RY.length === 1 && RZ.length === 1 && Math.abs(RY[0].at - RZ[0].at) <= 1e-9 * Llen) {
+              parts.push({ f: eyUser.clone().multiplyScalar(RY[0].mag).add(ezV.clone().multiplyScalar(RZ[0].mag)), at: RY[0].at });
+            } else {
+              for (const r of RY) parts.push({ f: eyUser.clone().multiplyScalar(r.mag), at: r.at });
+              for (const r of RZ) parts.push({ f: ezV.clone().multiplyScalar(r.mag), at: r.at });
+            }
+            for (const p of parts) if (p.f.length() > FORCE_EPS) addLoad(p.f, ARROW_LEN, p.at, p.f);
           } else {
             const SAMPLES = 5;
             for (let i = 0; i <= SAMPLES; i++) {
               const t = i / SAMPLES, pos = a0 + (b0 - a0) * t;
               const qY = d.qYI + (d.qYJ - d.qYI) * t, qZ = d.qZI + (d.qZJ - d.qZI) * t;
               const dir = eyUser.clone().multiplyScalar(qY).add(ezV.clone().multiplyScalar(qZ));
-              if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN * 0.7, pos / Llen);
+              if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN * 0.7, pos);
             }
           }
         } else if (ld.type === 'pointOnElement3d' && ld.data.elementId === elem.id) {
           const d = ld.data;
           const dir = eyUser.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
-          if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, (d.a ?? 0) / Llen);
+          if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, d.a ?? 0, dir);
         }
       }
     }
@@ -394,21 +464,36 @@ export function createDespiece3DGroup(opts: {
     members.push(anim);
   }
 
-  // Support reactions: one-sided EXTERNAL action arrows (drawn once, never mirrored).
+  // Support reactions: one-sided EXTERNAL actions (drawn once, never mirrored):
+  // the force arrow and, where the support restrains a rotation, the reaction
+  // moment (without it a fixed joint's free body could not balance; the 2D view
+  // draws its reaction moment too).
   if (showReactions) {
     for (const r of reactions) {
       const node = nodes.get(r.nodeId);
       if (!node) continue;
       const pos = projectNodeToScene(node, project2D);
       const fv = new THREE.Vector3(r.fx, r.fy, r.fz);
-      if (fv.length() <= FORCE_EPS) continue;
-      const a = fixedArrow(fv, ARROW_LEN, colReaction);
-      if (!a) continue;
-      a.position.set(pos.x, pos.y, pos.z);
-      a.userData.despieceReaction = true;
-      group.add(a);
+      const mv = new THREE.Vector3(r.mx ?? 0, r.my ?? 0, r.mz ?? 0);
+      const hasF = fv.length() > FORCE_EPS, hasM = mv.length() > FORCE_EPS;
+      if (!hasF && !hasM) continue;
+      const a = hasF ? fixedArrow(fv, ARROW_LEN, colReaction) : null;
+      if (a) {
+        a.position.set(pos.x, pos.y, pos.z);
+        a.userData.despieceReaction = true;
+        a.userData.nodeId = r.nodeId;
+        group.add(a);
+      }
+      const mg = hasM ? momentArc(mv, ARROW_LEN * 0.5, colReaction) : null;
+      if (mg) {
+        mg.position.set(pos.x, pos.y, pos.z);
+        mg.userData.despieceReaction = true;
+        mg.userData.nodeId = r.nodeId;
+        group.add(mg);
+      }
       if (showLabels) {
-        const lbl = createTextSpriteCached(`R ${fv.length().toFixed(1)}`, DESPIECE_COL.reaction, 20);
+        const txt = [hasF ? `R ${fv.length().toFixed(1)}` : '', hasM ? `M ${mv.length().toFixed(1)}` : ''].filter(Boolean).join('  ');
+        const lbl = createTextSpriteCached(txt, DESPIECE_COL.reaction, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
         lbl.position.set(pos.x, pos.y - labelOffset, pos.z);
         group.add(lbl);
@@ -428,12 +513,12 @@ export function createDespiece3DGroup(opts: {
       const fv = new THREE.Vector3(ld.data.fx, ld.data.fy, ld.data.fz);
       if (fv.length() > FORCE_EPS) {
         const a = fixedArrow(fv, ARROW_LEN, colLoad);
-        if (a) { a.position.set(pos.x, pos.y, pos.z); a.userData.despieceLoad = true; group.add(a); }
+        if (a) { a.position.set(pos.x, pos.y, pos.z); a.userData.despieceLoad = true; a.userData.loadAt = [pos.x, pos.y, pos.z]; a.userData.nodeId = ld.data.nodeId; group.add(a); }
       }
       const mv = new THREE.Vector3(ld.data.mx, ld.data.my, ld.data.mz);
       if (mv.length() > FORCE_EPS) {
         const mg = momentArc(mv, ARROW_LEN * 0.5, colLoad);
-        if (mg) { mg.position.set(pos.x, pos.y, pos.z); mg.userData.despieceLoad = true; group.add(mg); }
+        if (mg) { mg.position.set(pos.x, pos.y, pos.z); mg.userData.despieceLoad = true; mg.userData.loadAt = [pos.x, pos.y, pos.z]; mg.userData.nodeId = ld.data.nodeId; group.add(mg); }
       }
     }
   }
@@ -509,15 +594,21 @@ interface Inspect3DArgs {
   basis: DespieceBasis;
   leftHand?: boolean;
 }
-export interface DespieceElement3D { id: number; nodeI: number; nodeJ: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; }
+/**
+ * `sectionRotation` is the section's own rotation (Section.rotation, degrees): the
+ * solver folds it into the roll angle, so the basis here has to as well, or the
+ * inspected Fx/Fy/Fz of a member with a rotated section disagree with the arrows.
+ */
+export interface DespieceElement3D { id: number; nodeI: number; nodeJ: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; sectionRotation?: number; }
 
 function end3DComponents(
-  ex: THREE.Vector3, ey: THREE.Vector3, ez: THREE.Vector3, axialOut: 1 | -1,
+  ex: Vec3, ey: Vec3, ez: Vec3, axialOut: 1 | -1,
   n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
 ): Array<{ label: string; value: number }> {
   if (basis === 'global') {
-    const f = ex.clone().multiplyScalar(-n).add(ey.clone().multiplyScalar(vy)).add(ez.clone().multiplyScalar(vz)).multiplyScalar(axialOut);
-    return [{ label: 'Fx', value: f.x }, { label: 'Fy', value: f.y }, { label: 'Fz', value: f.z }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
+    // The same end action the arrows draw (memberEndAction3D).
+    const f = memberEndAction3D(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz).force;
+    return [{ label: 'Fx', value: f[0] }, { label: 'Fy', value: f[1] }, { label: 'Fz', value: f[2] }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
   }
   return [{ label: 'N', value: n }, { label: 'Vy', value: vy }, { label: 'Vz', value: vz }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
 }
@@ -529,13 +620,13 @@ function endAction3D(args: Inspect3DArgs, el: DespieceElement3D, end: 'I' | 'J')
   let axes;
   try {
     const localY = (el.localYx !== undefined && el.localYy !== undefined && el.localYz !== undefined) ? { x: el.localYx, y: el.localYy, z: el.localYz } : undefined;
-    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, el.rollAngle, false); // the solver's right-handed frame
+    const roll = (el.rollAngle ?? 0) + (el.sectionRotation ?? 0);
+    axes = computeLocalAxes3D({ id: 0, ...nI }, { id: 0, ...nJ }, localY, roll, false); // the solver's right-handed frame
   } catch { return null; }
-  const ex = new THREE.Vector3(...axes.ex), ey = new THREE.Vector3(...axes.ey), ez = new THREE.Vector3(...axes.ez);
   const [axialOut, n, vy, vz, mx, my, mz, nodeId]: [1 | -1, number, number, number, number, number, number, number] =
     end === 'I' ? [1, ef.nStart, ef.vyStart, ef.vzStart, ef.mxStart, ef.myStart, ef.mzStart, el.nodeI]
                 : [-1, ef.nEnd, ef.vyEnd, ef.vzEnd, ef.mxEnd, ef.myEnd, ef.mzEnd, el.nodeJ];
-  return { elementId: el.id, end, nodeId, components: end3DComponents(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz, args.basis) };
+  return { elementId: el.id, end, nodeId, components: end3DComponents(axes.ex, axes.ey, axes.ez, axialOut, n, vy, vz, mx, my, mz, args.basis) };
 }
 
 /** Both end actions (I and J) of one member. */

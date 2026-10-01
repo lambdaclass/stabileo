@@ -90,6 +90,7 @@ fn tripod(tie_down: bool) -> SolverInput3D {
     if tie_down { elements.insert("4".into(), cable(4, 5, 4)); }
     let supports = [1, 2, 3, 5].into_iter().map(|n| (n.to_string(), pin(n))).collect();
     SolverInput3D {
+        solver_options: None,
         nodes,
         materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: 160_000.0, nu: 0.3 })]),
         sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 1e-3, iy: 1e-10, iz: 1e-10, j: 1e-10, cw: None, as_y: None, as_z: None })]),
@@ -135,4 +136,42 @@ fn a_cable_the_load_would_compress_goes_slack_everywhere() {
     for c in r.cable_forces.iter().filter(|c| c.element_id != 4) {
         assert!((c.tension - 50.0).abs() < GEOMETRY * 50.0, "cable {}: T = {}", c.element_id, c.tension);
     }
+}
+
+/// Removing initially compressed cables lets the spring-supported joint move far enough
+/// to stretch cable 3. Its zero assembled stiffness must not make slackness permanent.
+#[test]
+fn a_slack_cable_can_become_taut_after_load_redistribution() {
+    let mut input = tripod(false);
+    input.nodes.clear();
+    for (k, angle) in [0.0_f64, 30.0, 150.0].into_iter().enumerate() {
+        let a = angle.to_radians();
+        let id = k + 1;
+        input.nodes.insert(id.to_string(), SolverNode3D { id, x: -10.0 * a.cos(), y: 0.0, z: -10.0 * a.sin() });
+    }
+    input.nodes.insert("4".into(), SolverNode3D { id: 4, x: 0.0, y: 0.0, z: 0.0 });
+    input.materials.get_mut("1").unwrap().e = 200_000.0;
+    input.supports.remove("5");
+    input.supports.insert("4".into(), SolverSupport3D { rx: false, rz: false, kx: Some(2000.0), kz: Some(2000.0), ..pin(4) });
+    input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 4, fx: -3.0f64.sqrt()/2.0, fy: 0.0, fz: -0.5, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
+    let mut planar = make_input(
+        input.nodes.values().map(|n| (n.id, n.x, n.z)).collect(),
+        vec![(1, 200_000.0, 0.3)], vec![(1, 1e-3, 1e-10)],
+        (1..=3).map(|id| (id, "cable", id, 4, 1, 1, false, false)).collect(),
+        vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed"), (4, 4, "spring")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: -3.0f64.sqrt()/2.0, fz: -0.5, my: 0.0 })],
+    );
+    let spring = planar.supports.values_mut().find(|s| s.node_id == 4).unwrap();
+    spring.kx = Some(2000.0); spring.ky = Some(2000.0);
+    let planar = cable::solve_cable_2d(&planar, &HashMap::new(), 100, 1e-10).unwrap();
+    assert!(planar.converged);
+    let planar_taut = planar.cable_forces.iter().find(|c| c.element_id == 3).unwrap();
+    assert!((planar_taut.tension - 5.0/11.0).abs() < GEOMETRY * 5.0/11.0);
+    let r = cable::solve_cable_3d(&input, &HashMap::new(), 100, 1e-10).unwrap();
+    assert!(r.converged);
+    let taut = r.cable_forces.iter().find(|c| c.element_id == 3).unwrap();
+    // K = 2000 I + 20000 a a^T for the sole taut cable, a = (-sqrt(3)/2, 1/2).
+    let expected = 5.0 / 11.0;
+    assert!((taut.tension - expected).abs() < GEOMETRY * expected, "reactivated tension {} vs {expected}", taut.tension);
+    for c in r.cable_forces.iter().filter(|c| c.element_id != 3) { assert_eq!(c.tension, 0.0); }
 }

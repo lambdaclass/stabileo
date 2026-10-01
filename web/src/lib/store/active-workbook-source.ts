@@ -8,6 +8,14 @@ import type { WorkbookSource } from '../export/workbook-results';
 export function activeWorkbookSource(): WorkbookSource | null {
   const results = resultsStore.results3D;
   if (!results) return null;
+  // Advanced analyses temporarily replace the displayed results while retaining the static
+  // view selection for Back. Its case/combination/envelope label does not describe this solve.
+  if (resultsStore.pdeltaResult3D?.results === results) {
+    return { kind: 'single', id: 0, name: t('advanced.pdelta'), results };
+  }
+  if (resultsStore.spectralResult3D?.results === results) {
+    return { kind: 'single', id: 0, name: t('advanced.spectral'), results };
+  }
   if (resultsStore.activeView === 'envelope') {
     return { kind: 'envelope', id: 0, name: resultsStore.viewedEnvelopeName ?? t('pro.viewEnvelope'), results };
   }

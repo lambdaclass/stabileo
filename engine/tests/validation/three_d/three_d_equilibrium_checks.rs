@@ -300,6 +300,7 @@ fn validation_3d_eq_distributed() {
 
     let loads: Vec<SolverLoad3D> = (1..=n)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q_y, q_yj: q_y, q_zi: 0.0, q_zj: 0.0,
             a: None, b: None,

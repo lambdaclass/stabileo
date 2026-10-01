@@ -37,4 +37,25 @@ describe('DXF section outline', () => {
     expect(r.parts).toEqual([]);
     expect(r.open).toBe(2);
   });
+
+  it('a tube drawn as two concentric circles is a ring: the inner circle is the hole', () => {
+    // Circles contain too — before, only loops counted as containers and the tube
+    // came in as two solid discs (and a spurious overlap warning).
+    const r = dxfSectionParts(dxf(circle(500, 500, 100), circle(500, 500, 80)), 'mm');
+    expect(r.parts).toHaveLength(2);
+    const solid = r.parts.filter((p) => !p.void), holes = r.parts.filter((p) => p.void);
+    expect(solid).toHaveLength(1);
+    expect(holes).toHaveLength(1);
+    expect(holes[0]!.shape).toMatchObject({ kind: 'circle', d: 0.16 });
+    const asm = assembleDrawn({ version: 1, parts: r.parts }, () => null);
+    expect(asm.issues).toEqual([]);
+    const want = Math.PI * (0.1 ** 2 - 0.08 ** 2);
+    expect(Math.abs(areaOf(asm.pieces) - want) / want).toBeLessThan(2e-3);
+  });
+
+  it('a loop inside a circle is a hole in it', () => {
+    const r = dxfSectionParts(dxf(circle(0, 0, 100), box(-20, -20, 20, 20)), 'mm');
+    expect(r.parts.filter((p) => p.void)).toHaveLength(1);
+    expect(r.parts.find((p) => p.void)!.shape.kind).toBe('polygon');
+  });
 });

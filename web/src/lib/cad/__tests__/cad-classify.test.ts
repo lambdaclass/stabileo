@@ -45,6 +45,23 @@ describe('suggestLayerMappings', () => {
 });
 
 describe('extractArchPlan', () => {
+  it('keeps a LINE column whose closing gap rounds to the 5 mm weld tolerance', () => {
+    const layer = 'PILARES';
+    const doc = parseCadDxf(buildDxf({
+      layers: [layer], insunits: 6,
+      entities: [
+        dxfLine(layer, -1e-19, 0, 0.3, 0),
+        dxfLine(layer, 0.3, 0, 0.3, 0.3),
+        dxfLine(layer, 0.3, 0.3, 0, 0.3),
+        dxfLine(layer, 0, 0.3, 0.005, 0),
+      ].join('\n'),
+    }), 'tolerance-boundary.dxf');
+    const plan = extractArchPlan(doc, suggestLayerMappings(doc, 'm'), 'm');
+    expect(plan.columns).toHaveLength(1);
+    expect(plan.columns[0]).toMatchObject({ b: 0.3, h: 0.3, srcLayer: layer });
+    expect(plan.skipped).toEqual([]);
+  });
+
   it('extracts columns, beams, double-line walls, slabs, and openings from the fixture', () => {
     const doc = planDoc();
     const mappings = suggestLayerMappings(doc, 'm');

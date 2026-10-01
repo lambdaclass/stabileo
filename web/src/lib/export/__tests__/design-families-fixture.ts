@@ -8,6 +8,7 @@
  * run on separate workers.
  */
 import { expect } from 'vitest';
+import { applyVariant, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -19,13 +20,14 @@ import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
 /** Load and solve, ready for a design run. */
-export async function ready(example: string) {
+export async function ready(example: string, variant?: Variant) {
   modelStore.clear();
   resultsStore.clear();
   detailingStore.clear();
   designRunStore.resetMarks();
   verificationStore.clear();
   await modelStore.loadExample(example);
+  if (variant) applyVariant(variant);
   expect(isSolverReady()).toBe(true);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };

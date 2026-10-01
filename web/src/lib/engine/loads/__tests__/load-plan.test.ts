@@ -1,3 +1,4 @@
+import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
 import {
@@ -421,6 +422,21 @@ describe('the plan is a plan, not a mutation', () => {
       seismic: { enabled: true, coefficient: 0.15, liveParticipation: 0.25, directions: { x: true, y: false } },
     }));
     expect(p.cases.find((c) => c.type === 'E')!.existingId).toBeNull();
+  });
+
+  it('previews as many combinations as Apply adds, with both senses of the earthquake', () => {
+    const reg = applied(defaultRegulations());
+    reg.seismic = { ...bindRole('seismic', 'inpres103-2018'), configComplete: true, state: 'applied' };
+    const p = buildLoadPlan(input({
+      regulations: reg,
+      seismic: { enabled: true, coefficient: 0.15, liveParticipation: 0.25, directions: { x: true, y: true } },
+    }));
+    const planned = p.cases.map((c, i) => ({ id: i + 1, type: c.type, name: `c${i}`, ...(c.alternatives ? { alternatives: c.alternatives } : {}) }));
+    const current = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
+    for (const both of [true, false]) {
+      const applied = expandCombinations(p.combinations, planned, { bothSenses: { E: both } }).length;
+      expect(describePlanDelta(p, current, { replaceExisting: true, bothSenses: { E: both } }).after.combinations, `both senses ${both}`).toBe(applied);
+    }
   });
 
   it('adds to the existing loads when replace is off — the count the audit caught', () => {

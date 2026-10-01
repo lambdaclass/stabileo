@@ -42,11 +42,12 @@
   }
 
   function addNode() {
-    historyStore.pushState();
+    // Welded, so a row typed on top of an existing node reuses it instead of
+    // stacking a twin. No pushState: the mutation pushes its own undo step.
     if (uiStore.analysisMode === '3d') {
-      modelStore.addNode(newNodeX, newNodeY, newNodeZ);
+      modelStore.addNodeWelded(newNodeX, newNodeY, newNodeZ);
     } else {
-      modelStore.addNode(newNodeX, newNodeY);
+      modelStore.addNodeWelded(newNodeX, newNodeY);
     }
     resultsStore.clear();
   }

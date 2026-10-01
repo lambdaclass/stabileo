@@ -73,6 +73,7 @@ fn make_3d_input_modal(
             });
     }
     SolverInput3D {
+        solver_options: None,
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
             curved_shells: HashMap::new(),

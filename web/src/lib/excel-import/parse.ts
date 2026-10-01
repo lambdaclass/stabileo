@@ -31,6 +31,7 @@
 import type { JSONModel } from '../templates/load-fixture';
 import { ALL_PROFILES, profileToSectionFull } from '../data/steel-profiles';
 import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
+import { t, tp } from '../i18n';
 
 /**
  * A catalogue profile by the name a person would write.
@@ -71,7 +72,7 @@ interface Row {
 }
 
 const EMPTY_MODEL = (): JSONModel => ({
-  name: 'Importado de Excel',
+  name: t('xls.defaultName'),
   materials: [], sections: [], nodes: [], elements: [], supports: [],
   loads: [], plates: [], quads: [], constraints: [], loadCases: [], combinations: [],
 });
@@ -122,12 +123,9 @@ const SUPPORT_TYPES = [
  * are different conversations to have with a spreadsheet.
  */
 const NOT_IMPORTABLE = {
-  pointOnElement3d:
-    '"pointOnElement3d" todavía no es importable: el cargador de modelos no lo conecta',
-  surface3d:
-    '"surface3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
-  thermalQuad3d:
-    '"thermalQuad3d" carga sobre quads, y el formato no tiene hoja de quads todavía',
+  pointOnElement3d: () => t('xls.err.notImportablePointOnElement3d'),
+  surface3d: () => tp('xls.err.quadLoadNoSheet', { type: 'surface3d' }),
+  thermalQuad3d: () => tp('xls.err.quadLoadNoSheet', { type: 'thermalQuad3d' }),
 } as const;
 
 /** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
@@ -143,7 +141,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
       if (k && !known.has(k)) {
         problems.push({
           sheet: sheetName, row: 1, column: k,
-          message: `columna desconocida "${k}" — se ignora`,
+          message: tp('xls.err.unknownColumn', { col: k }),
         });
       }
     }
@@ -170,7 +168,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
 function reqNum(row: Row, key: string, sheet: string, problems: RowProblem[]): number | null {
   const v = num(row.cells[key]);
   if (v === null) {
-    problems.push({ sheet, row: row.n, column: key, message: `falta un número en "${key}"` });
+    problems.push({ sheet, row: row.n, column: key, message: tp('xls.err.missingNumber', { col: key }) });
     return null;
   }
   return v;
@@ -179,7 +177,7 @@ function reqNum(row: Row, key: string, sheet: string, problems: RowProblem[]): n
 function reqStr(row: Row, key: string, sheet: string, problems: RowProblem[]): string | null {
   const v = str(row.cells[key]);
   if (v === '') {
-    problems.push({ sheet, row: row.n, column: key, message: `falta "${key}"` });
+    problems.push({ sheet, row: row.n, column: key, message: tp('xls.err.missingValue', { col: key }) });
     return null;
   }
   return v;
@@ -238,7 +236,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     let invalidCoordinate = false;
     for (const key of ['y', 'z'] as const) {
       if (str(row.cells[key]) !== '' && num(row.cells[key]) === null) {
-        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: 'se esperaba un número' });
+        problems.push({ sheet: 'Nodes', row: row.n, column: key, message: t('xls.err.expectedNumber') });
         invalidCoordinate = true;
       }
     }
@@ -246,7 +244,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (yCell === null && zCell === null) {
       problems.push({
         sheet: 'Nodes', row: row.n, column: 'z',
-        message: 'falta la posición: completá Z (la altura) o Y (la profundidad en planta)',
+        message: t('xls.err.missingPosition'),
       });
       continue;
     }
@@ -342,9 +340,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (a === null || iz === null) {
       problems.push({
         sheet: 'Sections', row: row.n,
-        message:
-          `"${name}": no está en el catálogo de perfiles; ` +
-          'poné b y h, o bien A e Iz',
+        message: tp('xls.err.notInCatalog', { name }),
       });
       continue;
     }
@@ -384,7 +380,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (missing.length) {
       problems.push({
         sheet: 'Members', row: row.n,
-        message: `no existe: ${missing.join(', ')}`,
+        message: tp('xls.err.missingRefs', { list: missing.join(', ') }),
       });
       continue;
     }
@@ -399,7 +395,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (rawType !== 'frame' && rawType !== 'truss') {
       problems.push({
         sheet: 'Members', row: row.n, column: 'type',
-        message: `tipo "${str(row.cells.type)}" desconocido — válidos: frame, truss`,
+        message: tp('xls.err.unknownType', { type: str(row.cells.type), valid: 'frame, truss' }),
       });
       continue;
     }
@@ -428,13 +424,13 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const type = reqStr(row, 'type', 'Supports', problems);
     if (nodeId === null || type === null) continue;
     if (!nodeIds.has(nodeId)) {
-      problems.push({ sheet: 'Supports', row: row.n, message: `no existe el nodo ${nodeId}` });
+      problems.push({ sheet: 'Supports', row: row.n, message: tp('xls.err.noSuchNode', { id: nodeId }) });
       continue;
     }
     if (type.toLowerCase() === 'custom3d') {
       problems.push({
         sheet: 'Supports', row: row.n, column: 'type',
-        message: '"custom3d" necesita restricciones por GDL que una celda no puede expresar',
+        message: t('xls.err.custom3d'),
       });
       continue;
     }
@@ -442,7 +438,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!canonical) {
       problems.push({
         sheet: 'Supports', row: row.n, column: 'type',
-        message: `tipo "${type}" desconocido — v\u00e1lidos: ${SUPPORT_TYPES.join(', ')}`,
+        message: tp('xls.err.unknownType', { type, valid: SUPPORT_TYPES.join(', ') }),
       });
       continue;
     }
@@ -491,7 +487,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const factor = reqNum(row, 'factor', 'Combinations', problems);
     if (name === null || caseId === null || factor === null) continue;
     if (!caseIds.has(caseId)) {
-      problems.push({ sheet: 'Combinations', row: row.n, message: `no existe el estado ${caseId}` });
+      problems.push({ sheet: 'Combinations', row: row.n, message: tp('xls.err.noSuchCase', { id: caseId }) });
       continue;
     }
     if (!byName.has(name)) { byName.set(name, []); order.push(name); }
@@ -528,17 +524,17 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       if (!want.includes(nodes.length)) {
         problems.push({
           sheet, row: row.n, column: 'nodes',
-          message: `necesita ${want.join(' o ')} nodos y tiene ${nodes.length}`,
+          message: tp('xls.err.wrongNodeCount', { want: want.join(` ${t('xls.err.or')} `), n: nodes.length }),
         });
         continue;
       }
       const missing = nodes.filter((n) => !nodeIds.has(n));
       if (missing.length) {
-        problems.push({ sheet, row: row.n, message: `no existen los nodos: ${missing.join(', ')}` });
+        problems.push({ sheet, row: row.n, message: tp('xls.err.noSuchNodes', { list: missing.join(', ') }) });
         continue;
       }
       if (!matIds.has(materialId)) {
-        problems.push({ sheet, row: row.n, message: `no existe el material ${materialId}` });
+        problems.push({ sheet, row: row.n, message: tp('xls.err.noSuchMaterial', { id: materialId }) });
         continue;
       }
       /* `curved` exists on quads only — a triangle has no fourth node to
@@ -565,14 +561,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      */
     const referenced = [master, nI, nJ].filter((n): n is number => n !== null).concat(slaves);
     if (referenced.length === 0) {
-      problems.push({ sheet: 'Constraints', row: row.n, message: 'no nombra ningún nodo' });
+      problems.push({ sheet: 'Constraints', row: row.n, message: t('xls.err.noNodes') });
       continue;
     }
     const missing = referenced.filter((n) => !nodeIds.has(n));
     if (missing.length) {
       problems.push({
         sheet: 'Constraints', row: row.n,
-        message: `no existen los nodos: ${[...new Set(missing)].join(', ')}`,
+        message: tp('xls.err.noSuchNodes', { list: [...new Set(missing)].join(', ') }),
       });
       continue;
     }
@@ -597,14 +593,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!type) {
       problems.push({
         sheet: 'Loads', row: row.n, column: 'type',
-        message: `tipo "${rawType}" desconocido — válidos: ${LOAD_TYPES.join(', ')}`,
+        message: tp('xls.err.unknownType', { type: rawType, valid: LOAD_TYPES.join(', ') }),
       });
       continue;
     }
     const caseId = reqNum(row, 'case', 'Loads', problems);
     if (caseId === null) continue;
     if (caseIds.size > 0 && !caseIds.has(caseId)) {
-      problems.push({ sheet: 'Loads', row: row.n, message: `no existe el estado ${caseId}` });
+      problems.push({ sheet: 'Loads', row: row.n, message: tp('xls.err.noSuchCase', { id: caseId }) });
       continue;
     }
 
@@ -618,7 +614,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      */
     const notImportable = NOT_IMPORTABLE[type as keyof typeof NOT_IMPORTABLE];
     if (notImportable) {
-      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable });
+      problems.push({ sheet: 'Loads', row: row.n, column: 'type', message: notImportable() });
       continue;
     }
 
@@ -627,16 +623,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const wantsNode = type.startsWith('nodal');
     const target = wantsNode ? nodeId : elementId;
     const targetSet = wantsNode ? nodeIds : elemIds;
-    const what = wantsNode ? 'nodo' : 'barra';
     if (target === null) {
       problems.push({
         sheet: 'Loads', row: row.n,
-        message: `"${type}" necesita ${wantsNode ? 'un nodo' : 'una barra'}`,
+        message: tp(wantsNode ? 'xls.err.needsNode' : 'xls.err.needsMember', { type }),
       });
       continue;
     }
     if (!targetSet.has(target)) {
-      problems.push({ sheet: 'Loads', row: row.n, message: `no existe el ${what} ${target}` });
+      problems.push({ sheet: 'Loads', row: row.n, message: tp(wantsNode ? 'xls.err.noSuchNode' : 'xls.err.noSuchMember', { id: target }) });
       continue;
     }
 
@@ -680,7 +675,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         else if (dir !== '' && dir !== 'local') {
           problems.push({
             sheet: 'Loads', row: row.n, column: 'dir',
-            message: `dirección "${str(row.cells.dir)}" desconocida — válidas: global, local`,
+            message: tp('xls.err.unknownDir', { dir: str(row.cells.dir) }),
           });
           continue;
         }

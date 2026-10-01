@@ -103,7 +103,5 @@ test.describe('@smoke PRO — the shells\' faces and criteria', () => {
     const excel = await excelWait;
     const wb = XLSX.read(readFileSync((await excel.path())!), { type: 'buffer' });
     assertSource(wb.Sheets.ShellCentres!);
-
   });
 });
-

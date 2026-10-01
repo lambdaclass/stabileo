@@ -31,7 +31,8 @@ it('leaves curved-shell faces and bending unavailable even when the panel carrie
   for (const id of [nodes[1], nodes[2]]) modelStore.addNodalLoad3D(id, 0, 0, -1, 0, 0, 0, 1);
   const solved = modelStore.solve3D(false, false, true);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
-  expect(solved.reactions.reduce((sum, r) => sum + r.my, 0)).toBeCloseTo(4, 8);
+  // Two downward unit loads at x = 2 produce +4 about global Y.
+  expect(solved.reactions.reduce((sum, r) => sum + r.my, 0)).toBeCloseTo(-4, 8);
   resultsStore.setResults3D(solved);
   const sheets = currentWorkbookSheets(5);
   const centre = records(sheets.find((s) => s.name === 'ShellCentres')!)[0]!;
@@ -91,6 +92,15 @@ it('exports the displayed result and its identity through case, combination and 
   assertExport('envelope', 0, 'Service envelope', 8);
   resultsStore.viewEnvelope3D(null);
   assertExport('envelope', 0, t('pro.viewEnvelope'), 6);
+  resultsStore.setPDeltaResult3D({
+    results: result(10), linearResults: single, iterations: 1, converged: true,
+    isStable: true, b2Factor: 1, amplification: [],
+  });
+  assertExport('single', 0, t('advanced.pdelta'), 10);
+  resultsStore.clearPDelta3D();
+  assertExport('envelope', 0, t('pro.viewEnvelope'), 6);
+  resultsStore.setSpectralResult3D({ results: result(12), baseShear: 1, perMode: [], rule: 'SRSS' });
+  assertExport('single', 0, t('advanced.spectral'), 12);
   resultsStore.clear();
   expect(activeWorkbookSource()).toBeNull();
 });

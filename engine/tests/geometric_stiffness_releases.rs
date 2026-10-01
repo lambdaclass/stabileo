@@ -59,6 +59,7 @@ fn frame_with_leaning_column(p: f64, lateral: f64) -> SolverInput3D {
         loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: lateral, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
     }
     SolverInput3D {
+        solver_options: None,
         nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]), sections, elements,
         supports, loads, constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
@@ -100,6 +101,7 @@ fn fixed_pinned_column(released: bool) -> SolverInput3D {
     // Torsion needs a hold somewhere when the head is free to turn.
     let head = if released { head } else { SolverSupport3D { rrz: true, ..head } };
     SolverInput3D {
+        solver_options: None,
         nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
         sections: HashMap::from([("1".into(), SolverSection3D { id: 1, name: None, a: 0.01, iy: I, iz: I, j: 2.0 * I, cw: None, as_y: None, as_z: None })]),
         elements,

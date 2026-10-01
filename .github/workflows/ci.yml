@@ -226,7 +226,8 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: bash .github/scripts/install-wasm-pack.sh
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -260,7 +261,8 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: bash .github/scripts/install-wasm-pack.sh
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -314,7 +316,8 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: bash .github/scripts/install-wasm-pack.sh
+        timeout-minutes: 5
 
       - uses: Swatinem/rust-cache@v2
         with:

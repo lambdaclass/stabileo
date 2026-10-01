@@ -11,7 +11,11 @@ const fixtures2D: Record<string, FixtureLoader> = {
   'cantilever': () => import('./fixtures/cantilever.json'),
   'cantilever-point': () => import('./fixtures/cantilever-point.json'),
   'continuous-beam': () => import('./fixtures/continuous-beam.json'),
+  /* Unequal spans and loads with a fixed left end: moment distribution has something to distribute. */
+  'continuous-beam-unequal': () => import('./fixtures/continuous-beam-unequal.json'),
   'portal-frame': () => import('./fixtures/portal-frame.json'),
+  /* The portal with its top held sideways: no sway, for moment distribution without sway. */
+  'portal-frame-braced': () => import('./fixtures/portal-frame-braced.json'),
   'two-story-frame': () => import('./fixtures/two-story-frame.json'),
   'multi-section-frame': () => import('./fixtures/multi-section-frame.json'),
   'color-map-demo': () => import('./fixtures/color-map-demo.json'),
@@ -149,6 +153,11 @@ export const INTENTIONALLY_UNSOLVABLE = new Set<string>([
 
 export function getFixture(name: string): FixtureLoader | undefined {
   return fixtures2D[name] ?? fixtures3D[name];
+}
+
+/** Every 2D example's name (the explained step-by-step sweep runs every method on each). */
+export function fixtureNames2D(): string[] {
+  return Object.keys(fixtures2D);
 }
 
 export function is2DFixture(name: string): boolean {

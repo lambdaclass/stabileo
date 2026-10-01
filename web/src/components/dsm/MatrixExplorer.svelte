@@ -185,7 +185,7 @@
           rowLabels={data.freeDofLabels} colLabels={data.freeDofLabels} precision={is3D ? 0 : 1} compact />
         <!-- Load and displacement side by side, one row per free DOF: the pair the system relates. -->
         <table class="fu-table" data-testid="dsm-explorer-fu">
-          <thead><tr><th>GDL</th><th>{'{Ff}'}</th><th>{'{uf} = [Kff]⁻¹{Ff}'}</th></tr></thead>
+          <thead><tr><th>{t('dsm.explorer.dof')}</th><th>{'{Ff}'}</th><th>{'{uf} = [Kff]⁻¹{Ff}'}</th></tr></thead>
           <tbody>
             {#each data.freeDofLabels as lbl, k (lbl)}
               <tr><td>{lbl}</td><td>{fmtV(data.FfMod[k], 3)}</td><td>{fmtV(data.uFree[k], 4)}</td></tr>

@@ -328,8 +328,17 @@
                 step.actionButton!.action();
                 // A step that advances itself when its condition holds is left to do so (`actionAdvances`).
                 if (actionAdvances(step, step.actionButton!.advanceAfter)) {
-                  // Small delay so the action can take effect (e.g. model loads)
-                  setTimeout(() => tourStore.next(), 100);
+                  /*
+                   * And only once the step's own condition holds. This advanced
+                   * blindly after 100 ms, and an action that is async — a
+                   * solve on a slow machine — is not done by then: the next
+                   * step started without the results it was built on. The
+                   * section walkthrough's "arm" step then armed stress mode
+                   * with no results, the viewport dropped it back to elements,
+                   * and "click the beam" never registered a click (CI, under
+                   * software GL, lost that race almost every time).
+                   */
+                  setTimeout(() => { if (tourStore.canAdvance) tourStore.next(); }, 100);
                 }
               }}
             >

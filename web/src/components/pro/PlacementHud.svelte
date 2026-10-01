@@ -8,6 +8,7 @@
   import { placementStore } from '../../lib/store/placement.svelte';
   import { t, tp } from '../../lib/i18n';
   import { untrack } from 'svelte';
+  import { keyPlace, placementKeyAction } from '../../lib/store/placement-keys';
 
   const fmt = (v: number) => String(Math.round(v * 1000) / 1000);
   let tx = $state(''), ty = $state(''), tz = $state('');
@@ -31,26 +32,18 @@
     return v.every(Number.isFinite) ? (v as [number, number, number]) : null;
   });
 
-  const CAMERA_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Shift', 'Control', 'Meta', 'Alt']);
-
   function onKey(e: KeyboardEvent) {
     if (!placementStore.active) return;
-    const inField = (e.target as HTMLElement)?.closest?.('[data-placement-hud]') && (e.target as HTMLElement).tagName === 'INPUT';
-    const k = e.key;
-    const hold = () => { e.preventDefault(); e.stopImmediatePropagation(); };
-    if (k === 'Escape') { hold(); placementStore.cancel(); return; }
-    if (k === 'Enter') {
-      hold();
-      if (inField && typed) placementStore.commitAt(typed, e.shiftKey);
-      else placementStore.commit(e.shiftKey);
-      return;
-    }
-    if (k === 'Tab' && !inField) { hold(); placementStore.cycleAnchor(e.shiftKey ? -1 : 1); return; }
-    if (inField) return;
-    if (!e.ctrlKey && !e.metaKey && (k === 'r' || k === 'R')) { hold(); placementStore.rotate(e.shiftKey ? -90 : 90); return; }
-    if (!e.ctrlKey && !e.metaKey && (k === 'f' || k === 'F')) { hold(); placementStore.mirror(); return; }
-    if (CAMERA_KEYS.has(k) && !e.ctrlKey && !e.metaKey) return;
-    hold();
+    const place = keyPlace(e.target);
+    const action = placementKeyAction(e, place);
+    if (action === 'pass') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (action === 'cancel') placementStore.cancel();
+    else if (action === 'commitAt') { if (typed) placementStore.commitAt(typed, e.shiftKey); else placementStore.commit(e.shiftKey); }
+    else if (action === 'commit') placementStore.commit(e.shiftKey);
+    else if (action === 'cycleAnchor') placementStore.cycleAnchor(e.shiftKey ? -1 : 1);
+    else if (action === 'rotate') placementStore.rotate(e.shiftKey ? -90 : 90);
+    else if (action === 'mirror') placementStore.mirror();
   }
 </script>
 

@@ -14,6 +14,7 @@
  * into another project does not point a member at whatever section happens to carry its old id.
  */
 import { modelStore } from '../../store/model.svelte';
+import { generatedMetadata } from './generated-metadata';
 import type {
   Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support,
 } from '../../store/model.svelte';
@@ -92,6 +93,11 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
   };
   const matIds = new Set([...frag.elements.map((e) => e.materialId), ...frag.quads.map((q) => q.materialId), ...frag.plates.map((p) => p.materialId)]);
   const secIds = new Set(frag.elements.map((e) => e.sectionId));
+  // Preserve the original generated section too when a member has been manually resized.
+  for (const g of frag.groups) {
+    const data = generatedMetadata(g);
+    for (const e of data?.elements ?? []) if (e) secIds.add(e.sectionId);
+  }
   frag.materials = [...matIds].map((id) => modelStore.materials.get(id)).filter(Boolean).map((m) => clone(m!));
   frag.sections = [...secIds].map((id) => modelStore.sections.get(id)).filter(Boolean).map((s) => clone(s!));
   const caseIds = new Set(frag.loads.map((l) => (l.data as { caseId?: number }).caseId).filter((c): c is number => c !== undefined));
@@ -104,10 +110,22 @@ export function detach(frag: Fragment): Fragment {
   return { ...clone(frag), local: false };
 }
 
-/** A definition without its id and without what is derived from it (the canonical digest). */
+/** Keys sorted at every depth, so equal definitions serialise alike whatever order they were built in. */
+const stable = (v: unknown): unknown =>
+  Array.isArray(v) ? v.map(stable)
+    : v !== null && typeof v === 'object'
+      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable((v as Record<string, unknown>)[k])]))
+      : v;
+
+/**
+ * A definition without its id and without what is derived from it (the canonical digest).
+ * An array replacer — the sorted top-level keys — was a whitelist at every depth: a section's
+ * `composition` and `built.params` came out as {}, so two built-up assemblies that differed
+ * only there were one definition, and a pasted member took the model's.
+ */
 const definitionKey = (v: { id: number }) => {
   const { id: _id, canonical: _c, ...rest } = v as Record<string, unknown> & { id: number };
-  return JSON.stringify(rest, Object.keys(rest).sort());
+  return JSON.stringify(stable(rest));
 };
 
 /**
@@ -142,7 +160,8 @@ export function mapDefinitions(frag: Fragment): { material: Map<number, number>;
   for (const c of frag.loadCases) {
     const hit = modelStore.model.loadCases.find((x) => x.type === c.type && x.name === c.name);
     if (hit) { loadCase.set(c.id, hit.id); continue; }
-    loadCase.set(c.id, modelStore.addLoadCase(c.name, c.type));
+    // With its alternatives group: pasted snow patterns stay alternatives, not a sum.
+    loadCase.set(c.id, modelStore.addLoadCase(c.name, c.type, c.alternatives ? { alternatives: c.alternatives } : {}));
     added.loadCases++;
   }
   return { material, section, loadCase, added };

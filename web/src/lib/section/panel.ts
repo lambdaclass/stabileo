@@ -28,6 +28,8 @@ import type { TorsionProvenance } from './state';
 import type { ElementForces } from '../engine/types';
 import { analyzeSectionBending, type BendingResponse } from '../engine/wasm-solver';
 import { computeDiagramValueAt } from '../engine/diagrams';
+import { evaluateDiagramAt } from '../engine/diagrams-3d';
+import type { ElementForces3D } from '../engine/types-3d';
 import { resolveDrawingGeometry, assertSameGeometry, type DrawingGeometry, type DrawingRefusal } from './drawing';
 
 export type StressComponentSource = 'canonical' | 'legacy' | 'unavailable';
@@ -82,7 +84,24 @@ export function stationForces2D(
   };
 }
 
-/** Interpolate a 3D element's resultants at a station. */
+type SpanLoads = Array<{ qI: number; qJ: number; a: number; b: number }>;
+type PointLoads = Array<{ a: number; p: number }>;
+
+/**
+ * A 3D element's resultants at a station.
+ *
+ * For a solver result (it carries its `length` and the start shears) every
+ * resultant is the DIAGRAM's own value, `evaluateDiagramAt` — the same the 3D
+ * diagrams draw and the legacy stress branch reads. Inside a loaded span the
+ * moments are not a straight line between the member ends: a simply supported
+ * beam under q has My = 0 at both ends and qL²/8 at midspan, which a linear
+ * interpolation reads as zero. The 2D twin reads `computeDiagramValueAt` for the
+ * same reason.
+ *
+ * A caller that only has end values (no length, no loads) gets the straight
+ * line between them, which is exact for an unloaded member and the only thing
+ * such a caller can mean.
+ */
 export function stationForces3D(
   ef: {
     nStart: number; nEnd: number;
@@ -105,21 +124,50 @@ export function stationForces3D(
      */
     mxStart?: number; mxEnd?: number;
     txStart?: number; txEnd?: number;
+    /** Present on a solver result: the member's length and the loads on it. */
+    length?: number;
+    distributedLoadsY?: SpanLoads; pointLoadsY?: PointLoads;
+    distributedLoadsZ?: SpanLoads; pointLoadsZ?: PointLoads;
   },
   t: number,
 ): { n: number; my: number; mz: number; vy: number; vz: number; tx: number } {
   const lerp = (a: number, b: number) => a + (b - a) * t;
   const opt = (a: number | undefined, b: number | undefined) =>
     a == null || b == null ? 0 : lerp(a, b);
+  // Torsion and axial force are linear in the diagram too (no distributed
+  // torque or axial load reaches the element forces).
+  const tx = opt(ef.mxStart ?? ef.txStart, ef.mxEnd ?? ef.txEnd);
+  const n = lerp(ef.nStart, ef.nEnd);
+
+  if (ef.length != null && ef.length > 0 && ef.vyStart != null && ef.vzStart != null) {
+    const full = {
+      ...ef,
+      length: ef.length,
+      vyStart: ef.vyStart, vyEnd: ef.vyEnd ?? ef.vyStart,
+      vzStart: ef.vzStart, vzEnd: ef.vzEnd ?? ef.vzStart,
+      mxStart: ef.mxStart ?? ef.txStart ?? 0, mxEnd: ef.mxEnd ?? ef.txEnd ?? 0,
+      distributedLoadsY: ef.distributedLoadsY ?? [], pointLoadsY: ef.pointLoadsY ?? [],
+      distributedLoadsZ: ef.distributedLoadsZ ?? [], pointLoadsZ: ef.pointLoadsZ ?? [],
+    } as ElementForces3D;
+    return {
+      n,
+      my: evaluateDiagramAt(full, 'momentY', t),
+      mz: evaluateDiagramAt(full, 'momentZ', t),
+      vy: evaluateDiagramAt(full, 'shearY', t),
+      vz: evaluateDiagramAt(full, 'shearZ', t),
+      tx,
+    };
+  }
+
   return {
-    n: lerp(ef.nStart, ef.nEnd),
+    n,
     my: lerp(ef.myStart, ef.myEnd),
     mz: lerp(ef.mzStart, ef.mzEnd),
     // Shear and torsion are optional so a caller with only bending resultants
     // still works; absent means zero, never "unknown scaled to something".
     vy: opt(ef.vyStart, ef.vyEnd),
     vz: opt(ef.vzStart, ef.vzEnd),
-    tx: opt(ef.mxStart ?? ef.txStart, ef.mxEnd ?? ef.txEnd),
+    tx,
   };
 }
 
