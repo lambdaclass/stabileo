@@ -238,14 +238,22 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     loads: transverseToNodes(input.loads, (id) => refs.get(id) ?? null),
   };
   let cableForces: NonlinearReport['cables'];
+  // Whether the engine's cable iteration settled on the last solve. It need not: a cable that
+  // shares its load with a stiffer member and carries little tension for its weight makes the
+  // equivalent-modulus iteration oscillate, and more iterations do not help. That is reported,
+  // with the last iteration's results, as the active-set loop reports its own; it does not abort
+  // the whole analysis.
+  let cablesConverged = true;
   const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
     if (cables.size === 0) return solve3D(trial);
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
     const r = solveCable3D(typed, 50, 1e-8, densities);
-    if (!r.converged) throw new Error('the cable analysis did not converge');
+    cablesConverged = r.converged;
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
     return r.results;
   };
+
+  const cableReport = () => ({ ...(cableForces ? { cables: cableForces } : {}), ...(cablesConverged ? {} : { cablesConverged: false as const }) });
 
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
   const normals = new Map<number, [number, number, number]>();
@@ -349,7 +357,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
 
     const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
     if (!changed) {
-      return { results: withZeroRows(results, lengths), report: { converged: true, iterations: it, lifted: [...lifted], slack: [...off], ...(cableForces ? { cables: cableForces } : {}) } };
+      return { results: withZeroRows(results, lengths), report: { converged: cablesConverged, iterations: it, lifted: [...lifted], slack: [...off], ...cableReport() } };
     }
     const key = stateKey();
     if (seen.has(key)) {
@@ -358,13 +366,13 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       const a = new Set(key.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const b = new Set(prevKey.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const oscillating = [...new Set([...a, ...b])].filter((x) => !(a.has(x) && b.has(x))).map(Number);
-      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating, ...(cableForces ? { cables: cableForces } : {}) } };
+      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating, ...cableReport() } };
     }
     seen.set(key, it);
     prevKey = key;
   }
   const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
-  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: maxIterations, lifted: [...lifted], slack: [...off], ...(cableForces ? { cables: cableForces } : {}) } };
+  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: maxIterations, lifted: [...lifted], slack: [...off], ...cableReport() } };
 }
 
 // ─── The solve-only sections for stiffness modifiers ──────────────

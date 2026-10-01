@@ -473,6 +473,11 @@ export interface NonlinearReport {
    * and the equivalent (Ernst) modulus the solve settled on, in kN/m². A slack cable reads zero.
    */
   cables?: Array<{ elementId: number; tension: number; horizontalThrust: number; sag: number; ernstModulus: number }>;
+  /**
+   * Present, and false, when the engine's cable iteration did not settle on the last solve: the
+   * cables' results are those of its last iteration, and `converged` is false with it.
+   */
+  cablesConverged?: false;
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

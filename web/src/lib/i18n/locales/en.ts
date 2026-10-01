@@ -4632,6 +4632,7 @@ const en: Record<string, string> = {
   'nonlinear.title': 'One-way members and supports that lift off',
   'nonlinear.converged': 'Settled in {n} iterations.',
   'nonlinear.notConverged': 'Did not settle in {n} iterations: the results are those of the last one.',
+  'nonlinear.cablesNotConverged': 'The cables\' equivalent modulus did not settle: their tension, sag and every result are those of the last iteration. A cable carrying little tension for its weight beside a stiffer member does this; a truss there, or a heavier load on the cable, avoids it.',
   'nonlinear.slack': 'Left out, with zero force: members {ids}.',
   'nonlinear.lifted': 'Lifted off: supports at nodes {ids}.',
   'nonlinear.oscillating': 'Switch state without settling: {ids}.',

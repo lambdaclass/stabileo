@@ -2422,6 +2422,7 @@ function superposedReport(
     lifted: [...new Set(reports.flatMap((r) => r.lifted))],
     slack: [...new Set(reports.flatMap((r) => r.slack))],
     signViolations: { members, supports },
+    ...(reports.some((r) => r.cablesConverged === false) ? { cablesConverged: false as const } : {}),
   };
 }
 

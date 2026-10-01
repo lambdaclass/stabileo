@@ -4625,6 +4625,7 @@ const es: Record<string, string> = {
   'nonlinear.title': 'Barras de un sentido y apoyos que se levantan',
   'nonlinear.converged': 'Se asentó en {n} iteraciones.',
   'nonlinear.notConverged': 'No se asentó en {n} iteraciones: los resultados son los de la última.',
+  'nonlinear.cablesNotConverged': 'El módulo equivalente de los cables no se asentó: su tensión, su flecha y todos los resultados son los de la última iteración. Lo hace un cable con poca tensión para su peso junto a un miembro más rígido; una barra articulada en su lugar, o más carga sobre el cable, lo evita.',
   'nonlinear.slack': 'Fuera del modelo, con esfuerzo nulo: barras {ids}.',
   'nonlinear.lifted': 'Levantados: apoyos en los nudos {ids}.',
   'nonlinear.oscillating': 'Cambian de estado sin asentarse: {ids}.',

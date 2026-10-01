@@ -3538,6 +3538,7 @@ const pt: Translations = {
   'nonlinear.title': 'Barras de um sentido e apoios que se levantam',
   'nonlinear.converged': 'Estabilizou em {n} iterações.',
   'nonlinear.notConverged': 'Não estabilizou em {n} iterações: os resultados são os da última.',
+  'nonlinear.cablesNotConverged': 'O módulo equivalente dos cabos não estabilizou: sua tração, sua flecha e todos os resultados são os da última iteração. Isso acontece com um cabo pouco tracionado para o seu peso ao lado de um membro mais rígido; uma barra de treliça no lugar, ou mais carga no cabo, evita.',
   'nonlinear.slack': 'Fora do modelo, com esforço nulo: barras {ids}.',
   'nonlinear.lifted': 'Levantados: apoios nos nós {ids}.',
   'nonlinear.oscillating': 'Mudam de estado sem estabilizar: {ids}.',
