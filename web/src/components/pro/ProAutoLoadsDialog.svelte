@@ -22,6 +22,8 @@
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import ProSnowSection from './ProSnowSection.svelte';
   import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
+  import ProAutoLoadsApplying, { type GravityMode } from './ProAutoLoadsApplying.svelte';
+  import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
@@ -105,6 +107,9 @@
   let reductionElementKind = $state<ElementKind>('interiorBeam');
   let floorsSupported = $state(1);
   let tributaryWidth = $state(3.0);
+  let gravityMode = $state<GravityMode>('panels');
+  let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
+  let gravitySpan = $state<'x' | 'y'>('x');
 
   // ─── Seismic config ────────────────────
   // Off by default: seismic loads require a bound seismic regulation, and a dialog that
@@ -218,10 +223,12 @@
         sections: modelStore.model.sections as never,
         materials: modelStore.model.materials as never,
         loadCases: modelStore.model.loadCases,
+        quads: modelStore.model.quads as never,
       },
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       occupancyKey: selectedOccupancy,
       tributaryWidth,
+      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
       reductionElementKind,
       floorsSupported,
       applyLiveReduction,
@@ -363,47 +370,7 @@
     }
     applyError = null;
 
-    if (clearExisting) {
-      for (const id of modelStore.loads.map(l => l.data.id)) modelStore.removeLoad(id);
-      for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
-    }
-
-    // Resolve every planned case to a real id, creating only what is missing. A case the plan
-    // has no match for is still reused when one of the same type already carries its name, so
-    // applying twice does not duplicate the wind cases of Fig. 2.4-8.
-    const caseIds: number[] = [];
-    const caseIdByType = new Map<string, number[]>();
-    for (const pc of p.cases) {
-      const name = tp(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives });
-      caseIds.push(id);
-      const list = caseIdByType.get(pc.type) ?? [];
-      list.push(id);
-      caseIdByType.set(pc.type, list);
-    }
-    const caseOf = (type: string, index?: number) =>
-      index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0];
-
-    for (const d of p.distributed) {
-      const id = caseOf(d.caseType, d.caseIndex);
-      if (id === undefined) continue;
-      modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, d.q, undefined, undefined, id);
-    }
-
-    for (const n of p.nodal) {
-      const id = caseOf(n.caseType, n.caseIndex);
-      if (id === undefined) continue;
-      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
-    }
-
-    // One combination per wind or seismic direction, never both directions in one.
-    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
-      const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}) };
-    }));
-    // Wind from −X and −Y is generated as cases of its own (`wind-cases.ts`); earthquake is
-    // reversed by the sign in the combination.
-    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: bothSenses } }));
+    applyLoadPlan(p, { clearExisting, bothSenses, nameOf: (key, params) => tp(key, params) });
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -715,19 +682,8 @@
         {/if}
       </section>
 
-      <!-- How the loads go onto the model: the strip of slab each beam carries, and what
-           happens to the loads already there. -->
-      <section class="al-sec">
-        <div class="al-sec-head"><span class="al-sec-title">{t('autoLoad.applying')}</span></div>
-        <div class="al-sec-body">
-          <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.tributaryWidth')}</span>
-            <span class="al-unit-field"><input type="number" step="0.5" min="0.1" bind:value={tributaryWidth} data-testid="al-trib" /><span>m</span></span>
-          </label>
-          <p class="al-hint">{t('autoLoad.tributaryHint')}</p>
-          <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
-            onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
-        </div>
-      </section>
+      <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan}
+        bind:tributaryWidth {clearExisting} onClearChange={onClearExistingChange} />
       {/if}
     </div>
 

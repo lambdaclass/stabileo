@@ -44,6 +44,7 @@ import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc1
 import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
+import { gravityLayout } from './plan-gravity';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
@@ -69,8 +70,10 @@ import type { DrawnSection } from '../../section/drawn';
 
 export interface LoadModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>;
+  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
+  /** Quads, for a floor drawn as a slab of shells (`plan-gravity.ts`). */
+  quads?: Map<number, { id: number; nodes: number[] }>;
   materials: Map<number, { id: number; rho: number }>;
   loadCases: Array<{ id: number; type: string; name: string }>;
 }
@@ -120,6 +123,11 @@ export interface LoadPlanInput {
   occupancyKey: string;
   /** Tributary width used to convert area loads to line loads on beams, m. */
   tributaryWidth: number;
+  /**
+   * How area loads reach the structure (`plan-gravity.ts`): by the real tributary area of the
+   * panels the beams close, or with `tributaryWidth` on every beam. Absent: the width.
+   */
+  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y' };
   /** Element kind for the §4.7.2 live-load reduction. */
   reductionElementKind: ElementKind;
   /** Floors the reduced member supports, for the 0,5/0,4 Lo floor. */
@@ -227,7 +235,23 @@ export interface PlannedDistributed {
   caseType: PlannedCase['type'];
   /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
   caseIndex?: number;
-  /** Local-z line load, kN/m, negative downward. */
+  /**
+   * Line load, kN/m, negative downward: along local z by default, along global Z per metre of
+   * member (`global`) or per metre of horizontal projection (`projected`) when `frame` says so.
+   * `qJ` and the stretch [a, b] from node I when it is not uniform over the whole member.
+   */
+  q: number;
+  qJ?: number;
+  a?: number;
+  b?: number;
+  frame?: 'local' | 'global' | 'projected';
+}
+
+/** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
+export interface PlannedSurface {
+  quadId: number;
+  caseType: PlannedCase['type'];
+  caseIndex?: number;
   q: number;
 }
 
@@ -299,6 +323,7 @@ export interface LoadPlan {
   cases: PlannedCase[];
   distributed: PlannedDistributed[];
   nodal: PlannedNodal[];
+  surface: PlannedSurface[];
   combinations: LoadCombinationSpec[];
   /** Provenanced scalars for the report's basis-of-calculation block. */
   factors: {
@@ -373,19 +398,6 @@ function selfWeightByLevel(
   return { weights, skipped };
 }
 
-/** True when a member is close enough to horizontal to carry an area load. */
-function isBeamLike(
-  model: LoadModelData, el: { nodeI: number; nodeJ: number },
-): { ok: boolean; length: number } {
-  const nI = model.nodes.get(el.nodeI);
-  const nJ = model.nodes.get(el.nodeJ);
-  if (!nI || !nJ) return { ok: false, length: 0 };
-  const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = elevationOf(nJ) - elevationOf(nI);
-  const L = Math.hypot(dx, dy, dz);
-  if (L < 0.01) return { ok: false, length: 0 };
-  return { ok: Math.abs(dz) / L <= 0.5, length: L };
-}
-
 function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
   const c = model.loadCases.find((x) =>
     x.type === type && (nameMatch === undefined || x.name.includes(nameMatch)));
@@ -425,7 +437,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
 
   const empty: LoadPlan = {
-    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], combinations: [],
+    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [],
     factors: {
       occupancy: fromProject(0, 'kN/m²'),
       liveReduced: fromProject(0, 'kN/m²'),
@@ -481,6 +493,8 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       // *passenger* garage, and §4.7.4's 20 % applies only to passenger vehicles.
       passengerGarage: occ.assemblyKind === 'passengerGarage',
       publicAssembly: occ.assemblyKind === 'publicAssembly',
+      // Table 4.1 note (a) and the rows printed "(No se puede reducir)".
+      noReduction: occ.noReduction === true,
     });
     liveDesign = red.lKNm2;
     refs.push(...red.refs);
@@ -495,16 +509,53 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     { existingId: findCase(input.model, 'L'), type: 'L', nameKey: 'autoLoad.liveCase' },
   ];
 
-  // ── Distributed dead + live on beam-like members ──
-  const distributed: PlannedDistributed[] = [];
-  for (const el of input.model.elements.values()) {
-    const { ok } = isBeamLike(input.model, el);
-    if (!ok) continue;
-    const qDead = -deadTotal * input.tributaryWidth;
-    const qLive = -liveDesign * input.tributaryWidth;
-    if (Math.abs(qDead) > 1e-3) distributed.push({ elementId: el.id, caseType: 'D', q: qDead });
-    if (Math.abs(qLive) > 1e-3) distributed.push({ elementId: el.id, caseType: 'L', q: qLive });
+  // ── Dead and live, where the area loads go (`plan-gravity.ts`) ──
+  const layout = gravityLayout(input.model, {
+    mode: input.gravity?.mode ?? 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
+    tributaryWidth: input.tributaryWidth,
+  });
+  derivation.push(...layout.notes);
+  const perMemberReduction = input.applyLiveReduction && input.gravity?.mode === 'panels';
+  /** The live load a member is designed for: reduced by its own tributary area in panel mode. */
+  const liveOf = (elementId: number): number => {
+    if (!perMemberReduction) return liveDesign;
+    return reduceLiveLoad({
+      loKNm2: lo, tributaryAreaM2: layout.areaOf.get(elementId) ?? 0, elementKind: input.reductionElementKind,
+      floorsSupported: input.floorsSupported,
+      passengerGarage: occ.assemblyKind === 'passengerGarage', publicAssembly: occ.assemblyKind === 'publicAssembly',
+      noReduction: occ.noReduction === true,
+    }).lKNm2;
+  };
+  if (perMemberReduction) {
+    const ls = [...layout.areaOf.keys()].map(liveOf);
+    if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
+  const distributed: PlannedDistributed[] = [];
+  const surface: PlannedSurface[] = [];
+  const legacyWidth = (input.gravity?.mode ?? 'width') === 'width';
+  /** One area load on what carries it: `perProjection` for loads given per horizontal area. */
+  const areaLoad = (caseType: PlannedCase['type'], qOf: (elementId: number) => number, perProjection: boolean, caseIndex?: number, onShells = true) => {
+    const ci = caseIndex !== undefined ? { caseIndex } : {};
+    for (const p of layout.pieces) {
+      const q = qOf(p.elementId);
+      if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
+      distributed.push({ elementId: p.elementId, caseType, ...ci, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global' });
+    }
+    for (const m of layout.widthMembers) {
+      const q = -qOf(m.elementId) * input.tributaryWidth;
+      if (Math.abs(q) <= 1e-3) continue;
+      // The plan's original form, a local-z load, where the width is all it was asked for.
+      if (legacyWidth) distributed.push({ elementId: m.elementId, caseType, ...ci, q });
+      else distributed.push({ elementId: m.elementId, caseType, ...ci, q, frame: perProjection ? 'projected' : 'global' });
+    }
+    if (onShells) for (const sq of layout.shellQuads) {
+      const q = qOf(-1);
+      if (q > 1e-6) surface.push({ quadId: sq.quadId, caseType, ...ci, q });
+    }
+  };
+  areaLoad('D', () => deadTotal, false);
+  // On a slab of shells the live load is not a member's: it goes unreduced.
+  areaLoad('L', (id) => (id < 0 ? lo : liveOf(id)), true);
 
   // ── Level masses from real geometry ──
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
@@ -537,12 +588,20 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     assumptions.push(participation.assumption!);
   }
 
+  /* The area a level's area loads cover: the panels and slabs found when loading by area, else
+     the extent of its nodes. */
+  const loadedAreaAt = (z: number): number | null => {
+    let a = 0, any = false;
+    for (const [k, v] of layout.areaByLevel) if (Math.abs(k - z) <= 0.05) { a += v; any = true; }
+    return any ? a : null;
+  };
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const superimposed = deadTotal * lv.planAreaM2;
-    const liveTotal = lo * lv.planAreaM2;
+    const area = loadedAreaAt(lv.elevation) ?? lv.planAreaM2;
+    const superimposed = deadTotal * area;
+    const liveTotal = lo * area;
     const liveP = liveTotal * participation.value;
     return {
-      elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: lv.planAreaM2,
+      elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
       selfWeightKN: sw.weights[i], superimposedKN: superimposed,
       liveTotalKN: liveTotal, liveParticipatingKN: liveP,
       weightKN: sw.weights[i] + superimposed + liveP,
@@ -721,7 +780,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   return {
     outcome: 'READY',
-    cases, distributed, nodal, combinations,
+    cases, distributed, nodal, surface, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),

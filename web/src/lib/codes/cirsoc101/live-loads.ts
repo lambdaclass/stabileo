@@ -153,9 +153,9 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   e('cubierta_usual', 'roof', 1.0),
   e('cubierta_jardin', 'roof', 5.0),
   e('cubierta_toldos', 'roof', 0.25, null,
-    { seeArticle: 'no reducible' }),
+    { seeArticle: 'no reducible', noReduction: true }),
   e('cubierta_cerramiento', 'roof', 0.25, 1.0,
-    { seeArticle: 'no reducible' }),
+    { seeArticle: 'no reducible', noReduction: true }),
   e('cubierta_otras', 'roof', 1.0),
 
   // Depósitos
