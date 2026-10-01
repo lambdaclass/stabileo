@@ -1240,3 +1240,29 @@ describe('4 · units — m, MPa, kN, kN·m in; cm² and cm out', () => {
     expect(fromPanel.AsCm2).toBeCloseTo(r.AsCm2!, 12);
   });
 });
+
+describe('5 · FCR verify by levels — the fit is judged on each level\'s own cover', () => {
+  const keys = (r: FlexOutput) => r.steps.map((s) => s.key);
+  /*
+   * 30 × 60, 19 cm² a level: 4 Ø25 a face. Four bars across b = 30 take
+   * 4·2.5 + 3·2.5 = 17.5 cm of clear width, so they fit at 5 cm to the bar
+   * centre (20 cm of room) and not at 9 (12). The panel does not ask d′/d′s
+   * in this mode — whatever they hold is another case's leftover.
+   */
+  it('levels at 5 cm fit, although the leftover covers say 9', () => {
+    const r = solve({
+      kase: 'FCR', mode: 'verify', dPrime: 0.09, dPrimeS: 0.09,
+      levels: [{ distanceFromBottom: 0.05, areaCm2: 19 }, { distanceFromBottom: 0.55, areaCm2: 19 }],
+      AstGiven: 38, Pu: 500, Mu: 100,
+    });
+    expect(keys(r)).not.toContain('flex.step.wontFitColumn');
+  });
+  it('levels at 9 cm do not fit, although the leftover covers say 2', () => {
+    const r = solve({
+      kase: 'FCR', mode: 'verify', dPrime: 0.02, dPrimeS: 0.02,
+      levels: [{ distanceFromBottom: 0.09, areaCm2: 19 }, { distanceFromBottom: 0.51, areaCm2: 19 }],
+      AstGiven: 38, Pu: 500, Mu: 100,
+    });
+    expect(keys(r)).toContain('flex.step.wontFitColumn');
+  });
+});

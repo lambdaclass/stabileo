@@ -295,10 +295,15 @@ export function unheldNodalMoment3D(input: SolverInput3D): number | null {
     const m = [mx ?? 0, my ?? 0, mz ?? 0];
     const scale = Math.hypot(m[0], m[1], m[2]);
     if (!(scale > 1e-12)) continue;
-    if (frames && (skip.has(nodeId) || (resisted.get(nodeId)?.length ?? 0) > 0)) continue;
-    // A pure truss model has no rotations at all: the solver drops every moment.
+    if (frames && skip.has(nodeId)) continue;
+    /* Per axis, not per node: an end that resists one rotation says nothing about
+       the others — a moment about a released, unsupported axis still vanishes.
+       A pure truss model has no rotations at all: the solver drops every moment. */
+    const axes = frames ? (resisted.get(nodeId) ?? []) : [];
     const sp = frames ? supOf.get(nodeId) : undefined;
-    const held = [0, 1, 2].map((i) => !!sp && (sp[ROT_FLAGS[i]] || ((sp[ROT_SPRINGS[i]] ?? 0) > 0 && !(sp.stabilised && sp.stabilisedAxes?.[i]))));
+    const held = [0, 1, 2].map((i) =>
+      axes.some((v) => Math.abs(v[i]!) > 1e-9) ||
+      (!!sp && (sp[ROT_FLAGS[i]] || ((sp[ROT_SPRINGS[i]] ?? 0) > 0 && !(sp.stabilised && sp.stabilisedAxes?.[i])))));
     if (m.some((c, i) => Math.abs(c) > 1e-9 * scale && !held[i])) return nodeId;
   }
   return null;

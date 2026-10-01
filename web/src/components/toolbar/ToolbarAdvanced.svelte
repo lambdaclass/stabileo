@@ -452,6 +452,9 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    // A support settlement is not part of a moving-load envelope: every position is
+    // solved on the unsettled supports, as the influence line and the 3D sweep do.
+    for (const s of input.supports.values()) { s.dx = undefined; s.dz = undefined; s.dry = undefined; }
     const train = getPredefinedTrains()[trainIndex];
     if (!train) return;
 

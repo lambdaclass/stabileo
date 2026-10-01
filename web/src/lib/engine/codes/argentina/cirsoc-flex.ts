@@ -909,11 +909,31 @@ export function solveFlex(i: FlexInput): FlexOutput {
 
   let choice: BarChoice | undefined;
   let choiceComp: BarChoice | undefined;
+  let levelChoices: BarChoice[] | undefined;
   let barFaces: FlexOutput['barFaces'];
   if (i.kase === 'FCR') {
-    choice = chooseBarsPerLevel(AsTension, levelOpts);
-    /* A lighter compression level gets its own line; at A′s/As = 1 one line is both. */
-    if (rLevels < 1) choiceComp = chooseBarsPerLevel(AsCompression, levelOpts);
+    if (byLevels) {
+      /*
+       * Verify by levels asks for no d′/d′s, so the stale covers of whichever case
+       * was open before cannot be the ones the fit is judged on: each level's own
+       * distance from the nearest face is its cover (the one-cover-on-every-face
+       * reading the levels' positions allow), and each level's own area decides
+       * its own bars — halving the total assumed two equal levels.
+       */
+      levelChoices = i.levels
+        .filter((l) => l.areaCm2 > 0)
+        .map((l) => chooseBarsPerLevel(l.areaCm2, {
+          widthM: i.b,
+          coverM: Math.max(0, Math.min(l.distanceFromBottom, i.h - l.distanceFromBottom)),
+          heightM: i.h,
+        }));
+      choice = levelChoices[0];
+      choiceComp = levelChoices.length > 1 ? levelChoices[levelChoices.length - 1] : undefined;
+    } else {
+      choice = chooseBarsPerLevel(AsTension, levelOpts);
+      /* A lighter compression level gets its own line; at A′s/As = 1 one line is both. */
+      if (rLevels < 1) choiceComp = chooseBarsPerLevel(AsCompression, levelOpts);
+    }
   } else if (i.kase === 'FCO') {
     const sh = faceShares(fcoPct(i), fcoCounts(i));
     barFaces = ([['A1', sh.a1, i.nA1], ['A2', sh.a2, i.nA2], ['A3', sh.a3, i.nA3]] as const)
@@ -999,7 +1019,7 @@ export function solveFlex(i: FlexInput): FlexOutput {
     ...(i.mode === 'design' && choice ? [msg('flex.step.steel', { bars: choice.label, area: choice.areaCm2 })] : []),
     ...(i.mode === 'design' && choiceComp
       ? [msg('flex.step.asCompBars', { as: AsCompression, bars: choiceComp.label })] : []),
-    ...(columnWontFit(choice) || columnWontFit(choiceComp) ? [msg('flex.step.wontFitColumn')] : []),
+    ...(columnWontFit(choice) || columnWontFit(choiceComp) || (levelChoices ?? []).some(columnWontFit) ? [msg('flex.step.wontFitColumn')] : []),
   );
 
   return {

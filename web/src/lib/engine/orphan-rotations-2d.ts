@@ -69,6 +69,38 @@ export function mergeAllHingedJoints2D(input: SolverInput): SolverInput {
 }
 
 /**
+ * A nodal moment nothing at its node can take, refused by node.
+ *
+ * The mirror of `unheldNodalMoment3D` for the plane: a moment on a node that only
+ * truss bars meet, or where every frame end is hinged, has no member to go into.
+ * The linear solve puts it into the vanishing spring and shows reactions that do
+ * not balance the loads; a pure truss model has no rotations at all and drops it;
+ * and the eigenvalue analyses would let `restrainOrphanRotations2D` hold the
+ * rotation to zero and absorb the moment into the constraint reaction. Three
+ * silent answers to one modeling error — it is refused instead, wherever the
+ * solve's own checks run.
+ */
+export function unheldNodalMoment2D(input: SolverInput): number | null {
+  const resisted = new Set<number>();
+  for (const el of input.elements.values()) {
+    if (el.type !== 'frame') continue;
+    if (!el.hingeStart) resisted.add(el.nodeI);
+    if (!el.hingeEnd) resisted.add(el.nodeJ);
+  }
+  for (const s of input.supports.values()) {
+    if (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0) || s.dry) resisted.add(s.nodeId);
+  }
+  for (const c of input.connectors?.values() ?? []) { resisted.add(c.nodeI); resisted.add(c.nodeJ); }
+  // The nodes a constraint names, by its type — not every number in it: an
+  // equalDOF's DOF indices [0, 2] would otherwise "resist" nodes 0 and 2.
+  addConstraintConnectivity(resisted, input.constraints as never);
+  for (const l of input.loads) {
+    if (l.type === 'nodal' && l.data.my && !resisted.has(l.data.nodeId)) return l.data.nodeId;
+  }
+  return null;
+}
+
+/**
  * Rotations no member reaches, held exactly for the eigenvalue analyses.
  *
  * ── The defect ─────────────────────────────────────────────────────
