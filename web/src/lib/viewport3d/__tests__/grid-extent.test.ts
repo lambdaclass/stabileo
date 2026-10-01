@@ -16,9 +16,15 @@
  *    one over the whole extent — made the floor visibly DENSER at 0,0,0 than
  *    a few thousand metres out, because near the middle you saw both. One
  *    spacing everywhere is the only thing that reads as even, so the grid
- *    follows the view instead: the spacing tracks the zoom, the patch is
- *    centred on what the camera is looking at, and the reader's extent is a
- *    hard limit it is clipped to.
+ *    follows the view instead: the patch is centred on what the camera is
+ *    looking at, and the reader's extent is a hard limit it is clipped to.
+ *
+ *  · And "al hacer zoom cambia completamente la dimensión entre las líneas":
+ *    the spacing used to track the zoom (1, 2, 5, 10 … times the reader's)
+ *    while the pointer kept snapping to the reader's, so the lines stopped
+ *    saying where a node lands. The pitches are now the reader's spacing and
+ *    ten times it, fixed; the zoom only fades the fine lines out when they
+ *    crowd.
  */
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
@@ -34,9 +40,9 @@ function build(size: number, extent: number, view?: { u: number; v: number; span
 /** Looking at the origin, with `span` metres of world across the screen. */
 const looking = (span: number) => ({ u: 0, v: 0, span });
 
-/** Every GridHelper in the returned object, with the extent and step it draws. */
-function helpers(o: THREE.Object3D): Array<{ extent: number; step: number }> {
-  const out: Array<{ extent: number; step: number }> = [];
+/** Every GridHelper in the returned object, finest first, with the extent and step it draws. */
+function helpers(o: THREE.Object3D): Array<{ extent: number; step: number; helper: THREE.GridHelper }> {
+  const out: Array<{ extent: number; step: number; helper: THREE.GridHelper }> = [];
   o.traverse((c) => {
     if (!(c instanceof THREE.GridHelper)) return;
     const pos = c.geometry.getAttribute('position');
@@ -50,28 +56,75 @@ function helpers(o: THREE.Object3D): Array<{ extent: number; step: number }> {
     const sorted = [...xs].sort((a, b) => a - b);
     let step = Infinity;
     for (let i = 1; i < sorted.length; i++) step = Math.min(step, sorted[i] - sorted[i - 1]);
-    out.push({ extent: max - min, step });
+    out.push({ extent: max - min, step, helper: c });
   });
-  return out;
+  return out.sort((a, b) => a.step - b.step);
 }
 
-describe('the alignment, which is what a zoom must not disturb', () => {
-  /*
-   * The report: "al hacer zoom out o zoom in cambia completamente la alineación de la
-   * grilla, y solo se actualiza una vez que generás un nodo."
-   *
-   * Both halves were real and both were mine.
-   *
-   *  · `GridHelper(size, n)` places its lines at `centre + (i − n/2)·spacing`. With n
-   *    EVEN they land on the centre and on multiples of the spacing either side; with n
-   *    ODD they land half a cell off. The division count is derived from the zoom, so
-   *    its parity flipped as you zoomed and the whole floor jumped by half a cell.
-   *
-   *  · The rebuild was triggered by the camera having moved 8 % of its distance, which
-   *    misses a zoom that crosses a spacing threshold by less — so the grid appeared to
-   *    refresh only when something else forced a render, such as adding a node.
-   */
+/** The spans of a working zoom on a 1 m grid: from a connection to a whole building. */
+const WORKING = [3, 8, 17, 30, 60, 100];
+
+describe('the lines are where a node snaps', () => {
+  it('draws the reader\'s spacing at every working zoom, not a pitch picked by the zoom', () => {
+    for (const s of [0.25, 0.5, 1, 2.5]) {
+      for (const span of WORKING.map((w) => w * s)) {
+        const l = gridLayout(s, 1000, looking(span));
+        expect(l.spacing, `s ${s} span ${span}`).toBeCloseTo(s, 12);
+        expect(l.major, `s ${s} span ${span}`).toBeCloseTo(10 * s, 12);
+      }
+    }
+  });
+
+  it('only ever draws the reader\'s spacing times a power of ten, with the next power emphasised', () => {
+    for (let span = 1; span <= 50000; span = span * 1.07) {
+      const l = gridLayout(1, 100000, looking(span));
+      const k = Math.log10(l.spacing);
+      expect(Math.abs(k - Math.round(k)), `span ${span}`).toBeLessThan(1e-9);
+      expect(l.major).toBeCloseTo(10 * l.spacing, 9);
+    }
+  });
+
+  it('does not move a line that stays drawn: every level lands on its own multiples', () => {
+    for (const span of [3, 17, 60, 137, 400, 1500, 9000]) {
+      for (const u of [0, 3.3, -47.9, 812.4]) {
+        const l = gridLayout(1, 100000, { u, v: -u / 2, span });
+        for (const pitch of [l.spacing, l.major]) {
+          const first = l.cu - l.extent / 2;
+          const k = first / pitch;
+          expect(Math.abs(k - Math.round(k)), `span ${span} u ${u} pitch ${pitch}`).toBeLessThan(1e-9);
+        }
+      }
+    }
+  });
+
+  it('fades the fine lines as they crowd, and drops them only when they would be a few pixels apart', () => {
+    expect(gridLayout(1, 1000, looking(30)).fade).toBe(1);
+    const crowded = gridLayout(1, 1000, looking(100));
+    expect(crowded.spacing).toBe(1);
+    expect(crowded.fade).toBeLessThan(1);
+    expect(crowded.fade).toBeGreaterThanOrEqual(0.2);
+    /* Past that the metre lines go and the ten-metre lines, drawn all along, are the fine ones. */
+    const far = gridLayout(1, 1000, looking(200));
+    expect(far.spacing).toBe(10);
+    expect(far.major).toBe(100);
+  });
+
+  it('draws both levels in one colour each, with no centre line: the patch centre is not the origin', () => {
+    const [fine, major] = helpers(build(1, 1000, { u: 37, v: 12, span: 30 }));
+    for (const h of [fine, major]) {
+      const col = h.helper.geometry.getAttribute('color');
+      const first = [col.getX(0), col.getY(0), col.getZ(0)].join();
+      for (let i = 1; i < col.count; i++) expect([col.getX(i), col.getY(i), col.getZ(i)].join()).toBe(first);
+    }
+    expect(fine.step).toBeCloseTo(1, 9);
+    expect(major.step).toBeCloseTo(10, 9);
+  });
+});
+
+describe('the layout the viewport checks every frame', () => {
   it('draws an even number of divisions at every zoom and extent', () => {
+    /* GridHelper(size, n) puts its lines at centre + (i − n/2)·spacing: with n odd they would
+       sit half a cell off the coordinates. */
     for (const extent of [20, 100, 1000, 10000, 100000]) {
       for (const span of [1, 5, 17, 50, 137, 500, 1500, 5000, 50000]) {
         const l = gridLayout(1, extent, looking(span));
@@ -80,92 +133,53 @@ describe('the alignment, which is what a zoom must not disturb', () => {
     }
   });
 
-  it('puts its lines on multiples of the spacing, whatever the zoom', () => {
-    /* The invariant the parity bug broke: a line at x = 40 stays at x = 40 when the
-       spacing changes from 10 m to 20 m, instead of moving to x = 45. */
-    for (const span of [17, 60, 137, 400, 1500]) {
-      const l = gridLayout(1, 100000, looking(span));
-      const first = l.cu - l.extent / 2;
-      const k = first / l.spacing;
-      expect(Math.abs(k - Math.round(k)), `span ${span}`).toBeLessThan(1e-9);
-    }
-  });
-
   it('reports the same layout for a camera move that changes nothing', () => {
-    /* What makes per-frame checking affordable: orbiting does not move the target and
-       does not change the span, so the key is identical and nothing is rebuilt. */
-    const a = gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 100 }));
-    const b = gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 100 }));
-    expect(b).toBe(a);
-    /* …and a pan of less than one cell does not move the snapped patch either. */
-    const l = gridLayout(1, 1000, { u: 0, v: 0, span: 100 });
-    expect(gridKey(gridLayout(1, 1000, { u: l.spacing * 0.2, v: 0, span: 100 }))).toBe(a);
+    const a = gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 30 }));
+    expect(gridKey(gridLayout(1, 1000, { u: 0, v: 0, span: 30 }))).toBe(a);
+    /* …and a pan of less than half the coarsest pitch does not move the snapped patch either. */
+    const l = gridLayout(1, 1000, { u: 0, v: 0, span: 30 });
+    expect(gridKey(gridLayout(1, 1000, { u: l.major * 0.2, v: 0, span: 30 }))).toBe(a);
   });
 
-  it('reports a different layout as soon as the spacing would change', () => {
-    /* And this is the half the 8 % distance threshold missed. */
-    let prev = gridKey(gridLayout(1, 100000, looking(10)));
-    let changes = 0;
-    for (let span = 11; span <= 3000; span = Math.round(span * 1.05)) {
-      const k = gridKey(gridLayout(1, 100000, looking(span)));
-      if (k !== prev) changes++;
-      prev = k;
-    }
-    // A 5 % zoom step crosses several spacing thresholds between 10 m and 3 km.
-    expect(changes).toBeGreaterThan(3);
+  it('reports a different layout when the fine lines fade or change level', () => {
+    const keys = new Set<string>();
+    for (let span = 20; span <= 3000; span = Math.round(span * 1.05)) keys.add(gridKey(gridLayout(1, 100000, looking(span))));
+    expect(keys.size).toBeGreaterThan(3);
   });
 });
 
 describe('the grid at a large extent', () => {
-  it('draws ONE grid, so the floor is not denser in the middle than at the edge', () => {
-    /*
-     * It used to draw two: a fine grid at the requested spacing over as much
-     * as a line budget allowed, and a coarse one carrying the full extent.
-     * Near the origin you therefore saw BOTH — a metre grid on top of an
-     * eighty-metre one — and past the fine patch only the coarse. The floor
-     * was visibly denser at 0,0,0 than a few thousand metres out.
-     */
-    expect(helpers(build(1, 10000, looking(200))).length).toBe(1);
-  });
-
-  it('keeps roughly the same number of lines on screen at any zoom', () => {
-    /* Uniform density is the whole point: what changes with the zoom is the
-       spacing, not how much of the screen is covered in lines. */
-    for (const span of [20, 200, 2000, 20000]) {
-      const h = helpers(build(1, 100000, looking(span)))[0];
-      const onScreen = span / h.step;
-      expect(onScreen, `span ${span}`).toBeGreaterThan(4);
-      expect(onScreen, `span ${span}`).toBeLessThan(60);
-    }
-  });
-
-  it('spaces on a round multiple of what the reader asked for', () => {
-    /* 1 m becomes 10 m, never 8.3 m, so a line always lands on a coordinate a
-       reader recognises. */
-    for (const span of [20, 200, 2000, 20000]) {
-      const ratio = helpers(build(1, 100000, looking(span)))[0].step / 1;
-      expect([1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000])
-        .toContain(Math.round(ratio));
-    }
+  it('is as dense at the edge of the site as in the middle', () => {
+    /* One patch that follows the view, never a fine patch near the origin over a coarse floor. */
+    const near = gridLayout(1, 10000, { u: 0, v: 0, span: 60 });
+    const far = gridLayout(1, 10000, { u: 4000, v: -3500, span: 60 });
+    expect(far.spacing).toBe(near.spacing);
+    expect(far.divisions).toBe(near.divisions);
   });
 
   it('never draws wider than the extent that was asked for', () => {
     /* "10 000 × 10 000" has to still mean that, however far out you pull. */
     for (const extent of [20, 100, 1000, 10000]) {
-      const h = helpers(build(1, extent, looking(1e6)))[0];
-      expect(h.extent, `extent ${extent}`).toBeLessThanOrEqual(extent + 1e-6);
+      for (const h of helpers(build(1, extent, looking(1e6)))) {
+        expect(h.extent, `extent ${extent}`).toBeLessThanOrEqual(extent + 1e-6);
+      }
     }
+  });
+
+  it('stays inside the extent when the camera looks past its edge', () => {
+    const l = gridLayout(1, 1000, { u: 5000, v: 0, span: 60 });
+    expect(l.cu + l.extent / 2).toBeLessThanOrEqual(500 + 1e-9);
   });
 
   it('shows the reader\'s own spacing before there is a camera to ask', () => {
     expect(helpers(build(1, 1000))[0].step).toBeCloseTo(1, 9);
   });
 
-  it('never exceeds the line budget, at any extent or zoom', () => {
+  it('keeps the line count bounded at any extent or zoom', () => {
     for (const extent of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
-      for (const span of [5, 50, 500, 5000]) {
+      for (const span of [0.5, 5, 50, 500, 5000, 50000]) {
         for (const h of helpers(build(1, extent, looking(span)))) {
-          expect(h.extent / h.step, `extent ${extent} span ${span}`).toBeLessThanOrEqual(241);
+          expect(h.extent / h.step, `extent ${extent} span ${span}`).toBeLessThanOrEqual(330);
         }
       }
     }

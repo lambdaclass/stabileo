@@ -5,8 +5,6 @@
   import NextMemberPicker from './NextMemberPicker.svelte';
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
-  import MemberOffsetEditor from '../property/MemberOffsetEditor.svelte';
-  import ProMemberBehaviour from './ProMemberBehaviour.svelte';
 
   const is3DMode = $derived(uiStore.is3DWorkspace);
 
@@ -265,8 +263,11 @@
 <div class="pro-elems">
   <NextMemberPicker />
   {#if uiStore.selectedElements.size > 0}
-    <div style="padding: 6px 10px;"><MemberOffsetEditor /></div>
-    <ProMemberBehaviour />
+    <!-- What the selected members are told beyond geometry, section and material is edited in
+         one place, Specifications › Members; this opens it on them. -->
+    <button class="pro-elems-spec" onclick={() => { uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; }} data-testid="elems-open-spec">
+      {t('spec.openForSelection').replace('{n}', String(uiStore.selectedElements.size))}
+    </button>
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
@@ -458,6 +459,7 @@
 </div>
 
 <style>
+  .pro-elems-spec { margin: 6px 10px; align-self: flex-start; font-size: 0.66rem; }
   .pro-elems {
     display: flex;
     flex-direction: column;

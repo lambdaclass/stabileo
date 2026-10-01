@@ -322,9 +322,10 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   // Combinations
   if (snapshot.combinations?.length) c.co = snapshot.combinations;
 
-  // Plates: [[id, [n1,n2,n3], matId, thickness, shellFamily?, offset?], ...]
-  // Slot 4 is the family string (or 0 when absent but an offset follows);
-  // slot 5 is a compact offset [frame, x, y, z]. Decode disambiguates by type.
+  // Plates: [[id, [n1,n2,n3], matId, thickness, 0?, offset?], ...]
+  // Slot 4 held a shell family, a field nothing read and that was removed; it is written as 0
+  // when an offset follows, so older links keep their layout. Slot 5 is a compact offset
+  // [frame, x, y, z].
   const encShellOffset = (v: any): unknown[] | null => {
     const o = v.offset;
     return o ? [o.frame === 'local' ? 'l' : 'g', r(o.x), r(o.y), r(o.z)] : null;
@@ -333,19 +334,17 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     c.pl = snapshot.plates.map(([, v]) => {
       const arr: unknown[] = [v.id, v.nodes, v.materialId, r(v.thickness)];
       const off = encShellOffset(v);
-      if (off) { arr.push((v as any).shellFamily ?? 0); arr.push(off); }
-      else if ((v as any).shellFamily) arr.push((v as any).shellFamily);
+      if (off) { arr.push(0); arr.push(off); }
       return arr;
     });
   }
 
-  // Quads: [[id, [n1,n2,n3,n4], matId, thickness, shellFamily?, offset?], ...]
+  // Quads: [[id, [n1,n2,n3,n4], matId, thickness, 0?, offset?], ...]
   if (snapshot.quads?.length) {
     c.qu = snapshot.quads.map(([, v]) => {
       const arr: unknown[] = [v.id, v.nodes, v.materialId, r(v.thickness)];
       const off = encShellOffset(v);
-      if (off) { arr.push((v as any).shellFamily ?? 0); arr.push(off); }
-      else if ((v as any).shellFamily) arr.push((v as any).shellFamily);
+      if (off) { arr.push(0); arr.push(off); }
       return arr;
     });
   }
@@ -519,17 +518,15 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     loadCases: c.lc as ModelSnapshot['loadCases'],
     combinations: c.co as ModelSnapshot['combinations'],
 
-    // Plates (a[4] = family string when truthy; a[5] = offset [f,x,y,z])
+    // Plates (a[4] held a shell family, ignored now; a[5] = offset [f,x,y,z])
     plates: (c.pl as any[] | undefined)?.map((a: any) => [a[0], {
       id: a[0], nodes: a[1], materialId: a[2], thickness: a[3],
-      ...(typeof a[4] === 'string' && a[4] ? { shellFamily: a[4] } : {}),
       ...(Array.isArray(a[5]) ? { offset: { frame: a[5][0] === 'l' ? 'local' : 'global', x: a[5][1], y: a[5][2], z: a[5][3] } } : {}),
     }]) as ModelSnapshot['plates'],
 
     // Quads
     quads: (c.qu as any[] | undefined)?.map((a: any) => [a[0], {
       id: a[0], nodes: a[1], materialId: a[2], thickness: a[3],
-      ...(typeof a[4] === 'string' && a[4] ? { shellFamily: a[4] } : {}),
       ...(Array.isArray(a[5]) ? { offset: { frame: a[5][0] === 'l' ? 'local' : 'global', x: a[5][1], y: a[5][2], z: a[5][3] } } : {}),
     }]) as ModelSnapshot['quads'],
 

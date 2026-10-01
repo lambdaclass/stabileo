@@ -24,13 +24,18 @@
  */
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D, ElementForces3D, NonlinearReport } from './types-3d';
-import { solve3D, solveSSI3D } from './wasm-solver';
+import { solve3D, solveSSI3D, solveCable3D, type SolverInputCable3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 
-export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive';
+/**
+ * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
+ * engine's cable analysis; it reports tension, thrust, sag and that modulus. Every other analysis
+ * takes a cable as a truss. There is no pretension: the unstretched length is the chord.
+ */
+export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive' | 'cable';
 
 export type StiffnessPreset = 'column' | 'wallUncracked' | 'wallCracked' | 'beam' | 'slab';
 
@@ -82,7 +87,7 @@ export function activeModel<M extends ModelData>(model: M): M {
 export function hasNonlinearBehaviour(model: ModelData): boolean {
   for (const e of model.elements.values()) {
     const b = (e as El).behaviour;
-    if (b === 'tensionOnly' || b === 'compressionOnly') return true;
+    if (b === 'tensionOnly' || b === 'compressionOnly' || b === 'cable') return true;
   }
   for (const s of model.supports.values()) if ((s as { uplift?: boolean }).uplift || hasCurves(s)) return true;
   return false;
@@ -212,15 +217,43 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
   if (oneWay.size && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
+  // Cables go to the engine's cable solve, which lets them go slack itself.
+  const cables = new Set<number>();
+  for (const e of model.elements.values()) if (input.elements.has(e.id) && (e as El).behaviour === 'cable') cables.add(e.id);
+  if (cables.size && soilSprings.length) throw new Error('multilinear springs and cables cannot be solved together');
+  // Their own weight sets their sag and softens them, from the density in kg/m³. It is not a load
+  // to the engine: the self-weight already in the loads carries it.
+  const densities: Record<string, number> = {};
+  for (const id of cables) {
+    const m = model.materials.get(input.elements.get(id)!.materialId) as { rho?: number } | undefined;
+    if (m?.rho) densities[String(input.elements.get(id)!.materialId)] = (m.rho * 1000) / 9.80665;
+  }
 
-  // One-way members as trusses, their transverse loads at their end nodes.
+  // One-way members and cables as trusses, their transverse loads at their end nodes.
   const refs = new Map<number, MemberRef>();
-  for (const id of oneWay.keys()) { const r = inputRef(input, id); if (r) refs.set(id, r); }
-  const base: SolverInput3D = oneWay.size === 0 ? input : {
+  for (const id of [...oneWay.keys(), ...cables]) { const r = inputRef(input, id); if (r) refs.set(id, r); }
+  const base: SolverInput3D = oneWay.size === 0 && cables.size === 0 ? input : {
     ...input,
-    elements: new Map([...input.elements].map(([id, e]) => [id, oneWay.has(id) ? { ...e, type: 'truss' as const } : e])),
+    elements: new Map([...input.elements].map(([id, e]) => [id, oneWay.has(id) || cables.has(id) ? { ...e, type: 'truss' as const } : e])),
     loads: transverseToNodes(input.loads, (id) => refs.get(id) ?? null),
   };
+  let cableForces: NonlinearReport['cables'];
+  // Whether the engine's cable iteration settled on the last solve. It need not: a cable that
+  // shares its load with a stiffer member and carries little tension for its weight makes the
+  // equivalent-modulus iteration oscillate, and more iterations do not help. That is reported,
+  // with the last iteration's results, as the active-set loop reports its own; it does not abort
+  // the whole analysis.
+  let cablesConverged = true;
+  const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
+    if (cables.size === 0) return solve3D(trial);
+    const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
+    const r = solveCable3D(typed, 50, 1e-8, densities);
+    cablesConverged = r.converged;
+    cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
+    return r.results;
+  };
+
+  const cableReport = () => ({ ...(cableForces ? { cables: cableForces } : {}), ...(cablesConverged ? {} : { cablesConverged: false as const }) });
 
   const upliftNodes = [...model.supports.values()].filter((s) => (s as { uplift?: boolean }).uplift).map((s) => s.nodeId);
   const normals = new Map<number, [number, number, number]>();
@@ -261,7 +294,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     for (const [sid, s] of trial.supports) if (lifted.has(s.nodeId)) trial.supports.set(sid, s.isInclined ? { ...s, isInclined: false } : { ...s, rz: false, kz: undefined, dz: undefined });
     // A node that only one-way members held in rotation needs the same vanishing spring the
     // input builder gives any orphan rotation.
-    if (oneWay.size) stabiliseOrphanRotations3D(trial);
+    if (oneWay.size || cables.size) stabiliseOrphanRotations3D(trial);
 
     let results: AnalysisResults3D;
     if (soilSprings.length) {
@@ -277,7 +310,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       }
       results = solve3D({ ...trial, supports });
     } else {
-      results = solve3D(trial);
+      results = linearSolve(trial);
     }
     results = stripStabilisedReactions(results, trial);
     last = results;
@@ -324,7 +357,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
 
     const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
     if (!changed) {
-      return { results: withZeroRows(results, lengths), report: { converged: true, iterations: it, lifted: [...lifted], slack: [...off] } };
+      return { results: withZeroRows(results, lengths), report: { converged: cablesConverged, iterations: it, lifted: [...lifted], slack: [...off], ...cableReport() } };
     }
     const key = stateKey();
     if (seen.has(key)) {
@@ -333,13 +366,13 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
       const a = new Set(key.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const b = new Set(prevKey.split('|').flatMap((p) => p.split(',').filter(Boolean)));
       const oscillating = [...new Set([...a, ...b])].filter((x) => !(a.has(x) && b.has(x))).map(Number);
-      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating } };
+      return { results: withZeroRows(results, lengths), report: { converged: false, iterations: it, lifted: [...lifted], slack: [...off], oscillating, ...cableReport() } };
     }
     seen.set(key, it);
     prevKey = key;
   }
   const lengths = [...off].map((id) => ({ id, length: refs.get(id)?.axes.L ?? 0 }));
-  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: maxIterations, lifted: [...lifted], slack: [...off] } };
+  return { results: withZeroRows(last!, lengths), report: { converged: false, iterations: maxIterations, lifted: [...lifted], slack: [...off], ...cableReport() } };
 }
 
 // ─── The solve-only sections for stiffness modifiers ──────────────

@@ -43,7 +43,9 @@ test.describe('PRO analysis rules', () => {
 
   test('the combination method and P-Delta per combination are written to the model', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    await openLoads(page);
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-specifications').click();
+    await page.getByTestId('spec-section-analysis').click();
     await expect(page.getByTestId('combo-solve-each')).toBeChecked();
     await page.getByTestId('combo-superpose').check();
     await expect.poll(async () => (await rules(page))?.combinationMethod).toBe('superpose');
@@ -91,7 +93,7 @@ test.describe('PRO analysis rules', () => {
     await expect(page.getByTestId('nonlinear-report'), 'a linear model has nothing to report').toHaveCount(0);
 
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-elements').click();
+    await page.getByTestId('pr-cmd-specifications').click();
     await page.evaluate(() => (window.__stabileoActions as unknown as { selectElements(ids: number[]): void }).selectElements([7]));
     await page.getByTestId('mb-behaviour').selectOption('tensionOnly');
     await solveModel(page);

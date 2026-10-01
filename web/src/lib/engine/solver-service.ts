@@ -1548,7 +1548,7 @@ export function buildSolverInput3D(
           // would only fire for an INVALID one — null, NaN or negative — and
           // passing that through would be worse than the placeholder.)
           j: props.j ?? outOfPlaneIz * 0.001,
-          ...shearOf(s),
+          ...(model.analysis?.shearDeformation === 'none' ? {} : shearOf(s)),
         }];
       }
       // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
@@ -1566,7 +1566,7 @@ export function buildSolverInput3D(
         // See the note on the projected branch above: J never comes from the
         // polygon engine's Routh approximation.
         j: props.j ?? aboutY * 0.001,
-        ...shearOf(s),
+        ...(model.analysis?.shearDeformation === 'none' ? {} : shearOf(s)),
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {
@@ -1576,7 +1576,9 @@ export function buildSolverInput3D(
       // and the θy/My display labels agree). So the 2D `mz` release maps to releaseMy,
       // NOT releaseMz. Genuine 3D models (project2DToXZ=false) keep my→My, mz→Mz.
       const elem: any = {
-        id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
+        // A cable is a truss to every analysis but the cable solve, which `member-behaviour.ts`
+        // hands it to with its own type.
+        id: e.id, type: e.behaviour === 'cable' ? 'truss' : e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
         releaseMyStart: project2DToXZ ? (e.releaseI?.mz === true) : (e.releaseI?.my === true),
         releaseMyEnd: project2DToXZ ? (e.releaseJ?.mz === true) : (e.releaseJ?.my === true),
@@ -2428,6 +2430,7 @@ function superposedReport(
     lifted: [...new Set(reports.flatMap((r) => r.lifted))],
     slack: [...new Set(reports.flatMap((r) => r.slack))],
     signViolations: { members, supports },
+    ...(reports.some((r) => r.cablesConverged === false) ? { cablesConverged: false as const } : {}),
   };
 }
 

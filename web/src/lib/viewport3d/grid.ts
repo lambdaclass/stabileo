@@ -7,109 +7,114 @@ import { disposeObject } from '../three/selection-helpers';
 import { setPlaneOffset, type WorkingPlane3D } from '../geometry/coordinate-system';
 
 /**
- * How the grid is laid out for a given zoom — spacing, size and where it sits.
+ * How the grid is laid out for a given zoom: its pitches, size and where it sits.
  *
- * Separated from the drawing because the VIEWPORT has to ask this question every
- * frame, cheaply, to know whether anything would change. It used to guess with a
- * distance threshold instead: rebuild when the camera has moved 8 %. That is both
- * wasteful when nothing changed and late when something did, and "late" is what a
- * reader sees as a grid that updates only when something else forces a render.
+ * Separated from the drawing because the viewport asks this every frame, cheaply, to know
+ * whether anything would change; a rebuild happens only when the answer does.
  */
 export interface GridLayout {
+  /** The finest pitch drawn: the reader's spacing, or ten or a hundred times it when zoomed far out. */
   spacing: number;
+  /** The emphasised lines, every ten of `spacing`; 0 when the extent cannot hold two of them. */
+  major: number;
+  /** Cells of `spacing` across the patch; always even. */
   divisions: number;
   extent: number;
-  /** Centre of the patch, in the working plane's own two axes. */
+  /** Centre of the patch, in the working plane's own two axes, on a multiple of the coarsest pitch drawn. */
   cu: number;
   cv: number;
+  /** Opacity of the fine lines, 0.2 to 1, in steps of 0.2: they fade as they crowd. */
+  fade: number;
 }
 
 /*
- * ── One grid, at a density that does not change across the floor ───
+ * ── The lines are where a node snaps, at every zoom ───────────────────
  *
- * It was two: a FINE grid at the requested spacing over as much as a line budget
- * allowed, and a COARSE one carrying the full extent. Near the origin you saw both — a
- * metre grid on top of an eighty-metre one — and past the fine patch only the coarse.
- * The floor was far denser at 0,0,0 than a few thousand metres out.
+ * The grid used to pick its spacing from the zoom, as a round multiple of the reader's
+ * (1, 2, 5, 10, 20 …), so about 28 lines crossed the screen at any zoom. The pointer kept
+ * snapping to the reader's spacing, so a zoom out showed 5 m cells over a 1 m snap, and each
+ * step of the wheel redrew the floor at another pitch: the grid stopped saying where a node
+ * would land.
  *
- * One spacing everywhere fixes the density, and the cost is that the spacing cannot then
- * also be the one that was asked for at every zoom: ten kilometres of one-metre grid is
- * ten thousand divisions, a line per pixel.
+ * Now the pitches are fixed by the reader's spacing s alone: fine lines every s, emphasised
+ * lines every 10·s. The zoom only decides whether the fine lines are drawn: they fade as they
+ * crowd and, past `MAX_CELLS` across the screen, the level goes and 10·s becomes the fine one
+ * (with 100·s emphasised). A line that is drawn sits on the same coordinate at every zoom.
  *
- * So the grid FOLLOWS THE VIEW, which is what every CAD program does with one. The
- * spacing is a round multiple of the reader's, chosen so roughly `TARGET_LINES` of them
- * cross what is on screen; the patch is centred on what the camera is looking at; and
- * the reader's extent is a hard limit it is clipped to, so "10 000 × 10 000" still means
- * what it says.
+ * The patch follows the view, clipped to the reader's extent, so a ten-kilometre site does not
+ * cost a line every metre over ten kilometres.
  */
-const MAX_DIVISIONS = 240;
-const TARGET_LINES = 28;
-const ROUND_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+/** Fine cells across the screen past which the finest level is dropped. */
+const MAX_CELLS = 120;
+/** Fine cells across the screen at which they start to fade. */
+const FADE_FROM = 50;
+const LEVEL = 10;
 
 export function gridLayout(
   gridSize3D: number, gridExtent: number,
   view?: { u: number; v: number; span: number },
 ): GridLayout {
-  const base = Math.max(gridSize3D, 1e-6);
-  /* No camera yet (first build): show the reader's own spacing. */
-  const span = view && view.span > 0 ? view.span : base * TARGET_LINES;
+  const s = Math.max(gridSize3D, 1e-6);
+  const extentMax = Math.max(gridExtent, 2 * s);
+  /* No camera yet (first build): the reader's spacing, a comfortable patch of it. */
+  const span = view && view.span > 0 ? view.span : s * 28;
 
-  let spacing = base;
-  for (const k of ROUND_STEPS) {
-    spacing = base * k;
-    if (span / spacing <= TARGET_LINES) break;
-  }
-  /*
-   * Never coarser than the extent can hold two of. Without this the floor below
-   * multiplies it straight back up: pulled far enough out the spacing reaches 10 km,
-   * and a 20 m grid rounded to "at least two divisions" drew 20 KILOMETRES.
-   */
-  spacing = Math.min(spacing, gridExtent / 2);
+  /* The finest level that is not a line every few pixels, and never coarser than the extent holds two of. */
+  let spacing = s;
+  while (span / spacing > MAX_CELLS && spacing * LEVEL * 2 <= extentMax) spacing *= LEVEL;
+  const cells = span / spacing;
+  const fade = cells <= FADE_FROM ? 1
+    : Math.max(0.2, Math.round((1 - (cells - FADE_FROM) / (MAX_CELLS - FADE_FROM)) * 5) / 5);
 
-  /*
-   * Whole cells, bounded, and never wider than the extent that was asked for —
-   * and an EVEN number of them.
-   *
-   * The parity is the bug this file was reported for. `GridHelper(size, n)` places its
-   * lines at `centre + (i − n/2)·spacing`, so with n even they land on the centre and on
-   * multiples of the spacing either side, and with n odd they land HALF A CELL off. The
-   * division count changes with every zoom, so its parity flipped constantly and the
-   * whole floor jumped by half a cell each time — "la alineación cambia completamente al
-   * hacer zoom", exactly. Rounding to an even count makes the lines sit on the same
-   * world coordinates at every zoom level.
-   */
-  const wanted = Math.min(gridExtent, spacing * MAX_DIVISIONS, Math.max(span * 2.5, spacing * 4));
-  const raw = Math.round(wanted / spacing);
-  const divisions = Math.max(2, Math.min(MAX_DIVISIONS - (MAX_DIVISIONS % 2), 2 * Math.round(raw / 2)));
-  const extent = divisions * spacing;
+  let major = spacing * LEVEL;
+  if (2 * major > extentMax) major = 0;
+  /* The coarsest pitch drawn: the patch is a whole, even number of these, so both levels land on it. */
+  const unit = major || spacing;
+
+  const half = Math.min(extentMax / 2, Math.max(span * 1.25, 2 * unit));
+  let halfCells = Math.ceil(half / unit - 1e-9);
+  while (halfCells > 1 && 2 * halfCells * unit > extentMax + 1e-9) halfCells--;
+  const extent = 2 * Math.max(1, halfCells) * unit;
+  const divisions = Math.round(extent / spacing);
 
   /*
-   * Centred on what the camera is looking at, snapped to the spacing so the lines stay
-   * on their coordinates while you pan instead of crawling, and clamped so the patch
-   * never leaves the extent the reader asked for.
+   * Centred on what the camera is looking at, on a multiple of the coarsest pitch so the lines
+   * keep their coordinates while you pan, and kept inside the extent the reader asked for.
    */
   let cu = 0;
   let cv = 0;
   if (view) {
-    const half = Math.max(0, (gridExtent - extent) / 2);
-    const snap = (v: number) => {
-      const q = Math.round(v / spacing) * spacing;
-      return Math.max(-half, Math.min(half, q));
-    };
+    const room = Math.floor(Math.max(0, (extentMax - extent) / 2) / unit + 1e-9) * unit;
+    const snap = (v: number) => Math.max(-room, Math.min(room, Math.round(v / unit) * unit));
     cu = snap(view.u);
     cv = snap(view.v);
   }
-  return { spacing, divisions, extent, cu, cv };
+  return { spacing, major, divisions, extent, cu, cv, fade };
 }
 
 /**
  * A layout's identity, for deciding whether the grid needs rebuilding at all.
  *
- * Rounded, because `cu` and `cv` are already snapped to the spacing and floating-point
- * noise in the last digits would otherwise rebuild the grid every frame of an orbit.
+ * Rounded, because `cu` and `cv` are already snapped and floating-point noise in the last digits
+ * would otherwise rebuild the grid every frame of an orbit.
  */
 export function gridKey(l: GridLayout): string {
-  return `${l.spacing}|${l.divisions}|${Math.round(l.cu / l.spacing)}|${Math.round(l.cv / l.spacing)}`;
+  return `${l.spacing}|${l.major}|${l.divisions}|${Math.round(l.cu / l.spacing)}|${Math.round(l.cv / l.spacing)}|${l.fade}`;
+}
+
+const FINE = 0x27333d;
+const MAJOR = 0x3d4b57;
+
+/** A GridHelper with one colour throughout: its centre is the patch's, which is not the origin. */
+function gridLines(extent: number, divisions: number, color: number, opacity: number): THREE.GridHelper {
+  const g = new THREE.GridHelper(extent, divisions, color, color);
+  if (opacity < 1) {
+    const m = g.material as THREE.LineBasicMaterial;
+    m.transparent = true;
+    m.opacity = opacity;
+    m.depthWrite = false;
+  }
+  return g;
 }
 
 /**
@@ -141,9 +146,17 @@ export function updateGrid(
 
   if (!showGrid) return null;
 
-  const { divisions, extent, cu, cv } = gridLayout(gridSize3D, gridExtent, view);
+  const { spacing, major, divisions, extent, cu, cv, fade } = gridLayout(gridSize3D, gridExtent, view);
 
-  const grid: THREE.Object3D = new THREE.GridHelper(extent, divisions, 0x3d4b57, 0x27333d);
+  const grid = new THREE.Group();
+  grid.add(gridLines(extent, divisions, FINE, fade));
+  if (major) {
+    /* Drawn after the fine lines, so where the two coincide the emphasised one shows. */
+    const m = gridLines(extent, Math.round(extent / major), MAJOR, 1);
+    m.renderOrder = 1;
+    grid.add(m);
+  }
+  grid.userData.gridSpacing = spacing;
 
   setPlaneOffset(grid, workingPlane, nodeCreateZ);
 

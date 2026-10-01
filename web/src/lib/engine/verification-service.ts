@@ -404,7 +404,14 @@ export function runSteelVerification(
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L <= 0) continue;
 
+    // A member out of the analysis is not verified; a one-way member only in the sense it works:
+    // a tension-only brace or a cable never faces a compression check, whatever a superposed
+    // combination sums to (that is reported as a sign violation where the result is).
+    const behaviour = (elem as { behaviour?: string }).behaviour;
+    if (behaviour === 'inactive') continue;
     const demand = steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId));
+    if (behaviour === 'tensionOnly' || behaviour === 'cable') demand.Nc = 0;
+    if (behaviour === 'compressionOnly') demand.Nt = 0;
     const e3 = elem as { kStrong?: number; kWeak?: number };
     const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
     const len = lengths?.get(ef.elementId);

@@ -1,19 +1,19 @@
 <script lang="ts">
   /**
-   * What the selected members do beyond the linear: inactive, tension only, compression only, and
-   * stiffness factors for the analysis (CIRSOC 201-2025 Tabla 6.6.3.1.1(a) presets, or typed).
+   * The selected members' stiffness factors for the analysis (CIRSOC 201-2025 Tabla
+   * 6.6.3.1.1(a) presets, or typed), their global end joints and their semi-rigid ends. Part of
+   * Specifications › Members, which edits their axial behaviour and local releases beside it.
    * Stored on each member and honoured by every solve (`engine/member-behaviour.ts`). One undo
    * step per change, over the whole selection.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { JOINT3D_DOF_LABELS } from '../../lib/store/model.svelte';
-  import { CIRSOC201_STIFFNESS, presetModifiers, type MemberBehaviour, type StiffnessPreset, type StiffnessModifiers } from '../../lib/engine/member-behaviour';
+  import { CIRSOC201_STIFFNESS, presetModifiers, type StiffnessPreset, type StiffnessModifiers } from '../../lib/engine/member-behaviour';
 
   const ids = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
   const first = $derived(ids.length ? modelStore.elements.get(ids[0]!) : undefined);
   const same = <T,>(f: (id: number) => T) => { const v = ids.map(f); return v.every((x) => JSON.stringify(x) === JSON.stringify(v[0])) ? v[0] : undefined; };
-  const behaviour = $derived(same((id) => modelStore.elements.get(id)?.behaviour ?? 'linear') ?? 'mixed');
   const presetNow = $derived(same((id) => modelStore.elements.get(id)?.stiffness?.preset ?? (modelStore.elements.get(id)?.stiffness ? 'custom' : 'none')) ?? 'mixed');
   const PRESETS = Object.keys(CIRSOC201_STIFFNESS) as StiffnessPreset[];
 
@@ -23,11 +23,6 @@
     if (s && !s.preset) custom = { a: s.a ?? 1, iy: s.iy ?? 1, iz: s.iz ?? 1, j: s.j ?? 1 };
   });
 
-  function setBehaviour(v: string) {
-    modelStore.batch(() => {
-      for (const id of ids) modelStore.updateElement(id, { behaviour: v === 'linear' ? undefined : (v as MemberBehaviour) });
-    });
-  }
   function setStiffness(m: StiffnessModifiers | undefined) {
     modelStore.batch(() => { for (const id of ids) modelStore.updateElement(id, { stiffness: m }); });
   }
@@ -77,19 +72,6 @@
 
 {#if ids.length > 0}
   <div class="mb" data-testid="member-behaviour">
-    <div class="mb-title">{tp('behaviour.title', { n: ids.length })}</div>
-    <label class="mb-row">{t('behaviour.label')}
-      <select value={behaviour} onchange={(e) => setBehaviour(e.currentTarget.value)} data-testid="mb-behaviour">
-        {#if behaviour === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
-        <option value="linear">{t('behaviour.linear')}</option>
-        <option value="tensionOnly">{t('behaviour.tensionOnly')}</option>
-        <option value="compressionOnly">{t('behaviour.compressionOnly')}</option>
-        <option value="inactive">{t('behaviour.inactive')}</option>
-      </select>
-    </label>
-    {#if behaviour === 'tensionOnly' || behaviour === 'compressionOnly'}
-      <p class="mb-hint">{t('behaviour.nonlinearHint')}</p>
-    {/if}
     <label class="mb-row">{t('behaviour.stiffness')}
       <select value={presetNow} onchange={(e) => setPreset(e.currentTarget.value)} data-testid="mb-stiffness">
         {#if presetNow === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}

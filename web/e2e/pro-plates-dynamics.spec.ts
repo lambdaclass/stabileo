@@ -16,9 +16,9 @@ test.describe('@smoke PRO plates and dynamics', () => {
   test('member behaviour and a CIRSOC 201 stiffness preset land on the member', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-elements').click();
+    await page.getByTestId('pr-cmd-specifications').click();
     await page.evaluate(() => window.__stabileoActions.selectElements([1]));
-    await expect(page.getByTestId('member-behaviour')).toBeVisible();
+    await expect(page.getByTestId('spec-members')).toBeVisible();
     await page.getByTestId('mb-behaviour').selectOption('tensionOnly');
     await page.getByTestId('mb-stiffness').selectOption('column');
     const e = await data(page, 'element', 1);
@@ -39,7 +39,8 @@ test.describe('@smoke PRO plates and dynamics', () => {
   test('foundation springs from a typed ks, one way', async ({ pro: page }) => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-supports').click();
+    await page.getByTestId('pr-cmd-specifications').click();
+    await page.getByTestId('spec-section-supports').click();
     await expect(page.getByTestId('fs-apply')).toBeDisabled();
     const before = await page.evaluate(() => window.__stabileo.modelCensus().supports);
     await page.evaluate(() => window.__stabileoActions.selectShells([]));
@@ -171,8 +172,10 @@ test.describe('@smoke PRO plates and dynamics', () => {
 
   test('advanced analyses refuse semi-rigid ends instead of treating them as rigid', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
+    // Semi-rigid ends are set under Model › Specifications, members section (its default).
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-elements').click();
+    await page.getByTestId('pr-cmd-specifications').click();
+    await expect(page.getByTestId('spec-tab')).toBeVisible();
     await page.evaluate(() => window.__stabileoActions.selectElements([1]));
     await page.getByTestId('mb-semi-i-on').check();
     await page.getByTestId('pr-stage-analyse').click();

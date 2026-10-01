@@ -71,6 +71,10 @@ export type JointType = 'hinge' | 'slideX' | 'slideZ';
 export type JointAxisMode = 'global' | 'local';
 export type { ElementColorMode } from '../viewport/element-colour';
 import type { ElementColorMode } from '../viewport/element-colour';
+
+/** The parts of PRO's Specifications, and what each one selects. */
+export type SpecSection = 'members' | 'supports' | 'links' | 'surfaces' | 'analysis' | 'list';
+const SPEC_SELECT = { members: 'elements', supports: 'supports', links: 'nodes', surfaces: 'shells', analysis: 'elements', list: 'elements' } as const;
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
 // 3D-specific types
@@ -433,6 +437,8 @@ function createUIStore() {
 
   // PRO panel active tab (shared so App.svelte can render the nav strip)
   let proActiveTab = $state('nodes');
+  /** Which part of Specifications is open: members, supports, links, surfaces, analysis, list. */
+  let specSection = $state<SpecSection>('members');
 
   // AI drawer
   let aiDrawerOpen = $state(false);
@@ -567,7 +573,7 @@ function createUIStore() {
   /*
    * PRO models are buildings and sites, not test frames: 50 m of floor runs
    * out before the model does. A kilometre by default, and the control goes
-   * to ten — `updateGrid` coarsens the spacing so the line count stays sane.
+   * to ten; `updateGrid` draws a patch around the view, so the line count stays sane.
    */
   let gridExtent3D_pro = $state<number>(1000);
   let showNodeLabels3D_pro = $state<boolean>(true);
@@ -1002,7 +1008,11 @@ function createUIStore() {
     set proPanelWidth(v: number) { proPanelWidth = v; },
     get proActiveTab() { return proActiveTab; },
     set proActiveTab(v: string) {
+      // Constraints and connectors are edited in Specifications › Links; the old destination
+      // still leads there.
+      if (v === 'constraints') { specSection = 'links'; v = 'specifications'; }
       proActiveTab = v;
+      if (v === 'specifications') { applySelectMode(SPEC_SELECT[specSection]); return; }
       // Auto-align selectMode when entering a geometry subsection so that
       // row-click selection targets the correct entity class.
       if (v === 'nodes') applySelectMode('nodes');
@@ -1010,6 +1020,11 @@ function createUIStore() {
       else if (v === 'shells') applySelectMode('shells');
       else if (v === 'supports') applySelectMode('supports');
       else if (v === 'loads') applySelectMode('loads');
+    },
+    get specSection() { return specSection; },
+    set specSection(v: SpecSection) {
+      specSection = v;
+      if (proActiveTab === 'specifications') applySelectMode(SPEC_SELECT[v]);
     },
     get aiDrawerOpen() { return aiDrawerOpen; },
     set aiDrawerOpen(v: boolean) { aiDrawerOpen = v; },

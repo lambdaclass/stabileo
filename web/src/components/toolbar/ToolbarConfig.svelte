@@ -6,8 +6,9 @@
    * The floor sizes worth offering, in metres.
    *
    * Round numbers an order of magnitude apart: a test frame, a building, a
-   * site, a district. `updateGrid` coarsens the line spacing at the top end
-   * so a 10 km floor does not ask for twenty thousand line segments.
+   * site, a district. `updateGrid` draws only a patch around the view, and drops
+   * the finest lines when zoomed far out, so a 10 km floor does not ask for
+   * twenty thousand line segments.
    */
   const GRID_EXTENTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
   import { t } from '../../lib/i18n';

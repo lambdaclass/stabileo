@@ -494,6 +494,7 @@ Make the browser the go-to tool for earthquake engineering, replacing OpenSees f
 - Dynamic time-history UI (Newmark-beta, HHT-alpha, ground motion input)
 - Pushover analysis (capacity spectrum, N2, MPA)
 - Construction staging UI
+- P-Delta with a configurable number of iterations in PRO, to reproduce models from programs that stop after a fixed count: converged remains the default, the fixed count is chosen on purpose and saved with the model, and a result that did not converge says so wherever it is shown
 - Seismic workflow end-to-end (spectra, ground motion selection, IDA)
 - AI-powered nonlinear/dynamic result interpretation — explain convergence, flag unusual hysteresis, detect soft-story mechanisms, suggest damping parameters
 - AI ground motion selection — suggest appropriate records from site parameters and target spectrum

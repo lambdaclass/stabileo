@@ -25,7 +25,8 @@ import { exportToExcel } from '../export/excel';
 import { projectWorkbookSheets, type ProjectWorkbookInput } from '../export/project-workbook';
 import type { WorkbookModel } from '../export/workbook-model';
 import type { WorkbookSource } from '../export/workbook-results';
-import { fitsInXlsx, type WorkbookSheet } from '../export/workbook-cells';
+import { fitsInXlsx, safeText, type WorkbookSheet } from '../export/workbook-cells';
+import { specificationRows } from '../pro/specification-list';
 import { BUILD_COMMIT } from '../build-info';
 
 function workbookModel(): WorkbookModel {
@@ -83,9 +84,17 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
     },
     tr: t,
     include: { model: opts.model, results: opts.results },
-    extra: opts.extra,
+    // The model's specifications, grouped by value as Specifications › List shows them; the
+    // fields themselves are already in the Members, Supports and Quads sheets.
+    extra: [...(opts.model === false ? [] : [specificationsSheet()]), ...(opts.extra ?? [])],
   };
   return projectWorkbookSheets(input);
+}
+
+function specificationsSheet(): WorkbookSheet {
+  const rows: WorkbookSheet['rows'] = [['entity', 'specification', 'value', 'count', 'ids']];
+  for (const r of specificationRows(modelStore.model, t)) rows.push([r.kind, safeText(r.what), safeText(r.value), r.ids.length, r.ids.join(' ')]);
+  return { name: 'Specifications', rows };
 }
 
 /** One CSV per sheet, in a zip, for a workbook an xlsx file cannot hold. */

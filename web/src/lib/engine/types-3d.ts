@@ -193,7 +193,6 @@ export interface SolverPlateElement {
   nodes: [number, number, number]; // 3 node IDs
   materialId: number;
   thickness: number; // m
-  shellFamily?: ShellFamily;
 }
 
 /** MITC4 quadrilateral shell element (4-node shell) */
@@ -202,7 +201,6 @@ export interface SolverQuadElement {
   nodes: [number, number, number, number]; // 4 node IDs
   materialId: number;
   thickness: number; // m
-  shellFamily?: ShellFamily;
 }
 
 /** Degenerated-continuum curved shell (4-node, captures curvature via covariant
@@ -470,6 +468,16 @@ export interface NonlinearReport {
    * lifting supports it leaves pulling. Each case had its own active set; the sum need not.
    */
   signViolations?: { members: number[]; supports: number[] };
+  /**
+   * Members specified as cables: their tension, horizontal thrust, sag under their own weight,
+   * and the equivalent (Ernst) modulus the solve settled on, in kN/m². A slack cable reads zero.
+   */
+  cables?: Array<{ elementId: number; tension: number; horizontalThrust: number; sag: number; ernstModulus: number }>;
+  /**
+   * Present, and false, when the engine's cable iteration did not settle on the last solve: the
+   * cables' results are those of its last iteration, and `converged` is false with it.
+   */
+  cablesConverged?: false;
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

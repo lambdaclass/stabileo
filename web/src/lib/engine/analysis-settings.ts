@@ -33,6 +33,11 @@ export interface AnalysisSettings {
   selfWeight?: SelfWeightLoad[];
   combinationMethod?: CombinationMethod;
   perCombination?: PerCombination;
+  /**
+   * `none`: members deform in bending only, whatever shear areas their sections carry. Absent:
+   * each section says (`Section.shearAreas`).
+   */
+  shearDeformation?: 'none';
 }
 
 /** The self-weight rule a gravity case gets when none is written: the whole model, downward. */
@@ -40,7 +45,7 @@ export const GRAVITY_SELF_WEIGHT = { direction: 'Z' as const, factor: -1 };
 
 /** Whether settings say anything; an empty object is stored as absent. */
 export function isEmptyAnalysis(a: AnalysisSettings | undefined): boolean {
-  return !a || ((a.selfWeight === undefined) && a.combinationMethod === undefined && a.perCombination === undefined);
+  return !a || ((a.selfWeight === undefined) && a.combinationMethod === undefined && a.perCombination === undefined && a.shearDeformation === undefined);
 }
 
 export interface SelfWeightPlan {

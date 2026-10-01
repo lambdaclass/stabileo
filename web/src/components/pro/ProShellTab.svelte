@@ -183,81 +183,6 @@
   }
 
   let showMeshGen = $state(false);
-  let showCurv = $state(false);
-
-  /* ── Curvature, on a shell that already exists ─────────────────────
-   *
-   * The `curved` flag was settable only while CREATING a quad, so "is this a
-   * cáscara" had to be decided before the geometry was on screen, and a slab
-   * whose corner is later lifted out of plane had no way to say so. Quads
-   * only: three points are coplanar by definition, which is the same reason
-   * the creator offers the tick only at four corners.
-   */
-  const selectedQuads = $derived(
-    [...uiStore.selectedShells]
-      .filter((k) => k[0] === 'q')
-      .map((k) => modelStore.model.quads.get(parseInt(k.slice(1))))
-      .filter((q): q is NonNullable<typeof q> => !!q),
-  );
-  /** Out-of-plane distance of a quad's fourth corner, metres, or null. */
-  function quadOutOfPlane(nodes: [number, number, number, number]): number | null {
-    const ns = nodes.map((id) => modelStore.nodes.get(id));
-    if (ns.some((n) => !n)) return null;
-    const p = ns.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: (n! as { z?: number }).z ?? 0 }));
-    const u = { x: p[1].x - p[0].x, y: p[1].y - p[0].y, z: p[1].z - p[0].z };
-    const v = { x: p[2].x - p[0].x, y: p[2].y - p[0].y, z: p[2].z - p[0].z };
-    const nx = u.y * v.z - u.z * v.y, ny = u.z * v.x - u.x * v.z, nz = u.x * v.y - u.y * v.x;
-    const len = Math.hypot(nx, ny, nz);
-    if (len < 1e-12) return null;
-    const w = { x: p[3].x - p[0].x, y: p[3].y - p[0].y, z: p[3].z - p[0].z };
-    return Math.abs((w.x * nx + w.y * ny + w.z * nz) / len);
-  }
-  const selectedAllCurved = $derived(selectedQuads.length > 0 && selectedQuads.every((q) => q.curved));
-  /** The largest out-of-plane distance in the selection — what is at stake. */
-  const selectedOutOfPlane = $derived.by(() => {
-    let max = 0;
-    for (const q of selectedQuads) max = Math.max(max, quadOutOfPlane(q.nodes) ?? 0);
-    return max;
-  });
-  function setSelectedCurved(on: boolean) {
-    modelStore.batch(() => {
-      for (const q of selectedQuads) modelStore.setQuadCurved(q.id, on);
-    });
-  }
-
-  // ─── Shell offset editor (operates on the selected shells) ───
-  let showOffset = $state(false);
-  let offFrame = $state<'global' | 'local'>('local');
-  let offX = $state(0);
-  let offY = $state(0);
-  let offZ = $state(0);
-  const selectedShellKeys = $derived([...uiStore.selectedShells]);
-
-  function eachSelectedShell(fn: (kind: 'plate' | 'quad', id: number) => void) {
-    for (const key of uiStore.selectedShells) {
-      fn(key[0] === 'p' ? 'plate' : 'quad', parseInt(key.slice(1)));
-    }
-  }
-  function applyShellOffset() {
-    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, { frame: offFrame, x: offX, y: offY, z: offZ }));
-  }
-  function clearShellOffset() {
-    eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined));
-  }
-  /** Quick preset: offset along the shell normal by ±half its thickness so the
-   *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
-  function applyHalfThickness(sign: 1 | -1) {
-    offFrame = 'local';
-    offX = 0; offY = 0;
-    // Use the first selected shell's thickness as the reference.
-    const key = [...uiStore.selectedShells][0];
-    if (!key) return;
-    const id = parseInt(key.slice(1));
-    const shell = key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
-    const t = shell?.thickness ?? 0.2;
-    offZ = sign * t / 2;
-    applyShellOffset();
-  }
 
 
 
@@ -309,10 +234,9 @@
       The formulation is still SHOWN — the recommendation below names it and
       says why — but it is no longer chooseable, and the `auto` choice the two
       creators used to write onto the element is not written either. That is
-      worth knowing rather than glossing: `shellFamily` is read by nothing in
-      the engine. Its only readers are `url-sharing.ts` and its tests, so a
-      shell created here round-trips without one and solves exactly as it did
-      before. Restoring the override is a product decision, not a repair.
+      worth knowing rather than glossing: the engine chooses the formulation by
+      the shell's node count, and the `shellFamily` field that stood for a choice
+      was read by nothing and has been removed.
     -->
     <div class="section">
       <div class="shell-new">
@@ -389,42 +313,10 @@
       </div>
     </div>
 
-    <!--
-      ── Editing a shell that already exists ──────────────────────────
-      Curvature was a decision the creator asked for and no one could revisit.
-      Here it acts on the SELECTION, states how far out of plane those quads
-      actually are, and says what the flag changes in the solve — because
-      "cáscara" on its own does not tell a reader that a flat MITC4 is being
-      swapped for a degenerated continuum.
-    -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showCurv = !showCurv} data-testid="curv-toggle">
-        <span class="toggle-arrow">{showCurv ? '▾' : '▸'}</span>
-        {t('pro.shellCurvature')}
-      </button>
-      {#if showCurv}
-        <div class="section-body">
-          <div class="mesh-hint">{t('pro.shellCurvatureHint')}</div>
-          {#if selectedQuads.length === 0}
-            <div class="field-error">{t('pro.shellCurvatureSelect')}</div>
-          {:else}
-            <div class="offset-sel-count">{selectedQuads.length} {t('pro.selected')}</div>
-            <div class="mesh-hint" data-testid="curv-oop">
-              {tp('pro.shellCurvatureOop', { mm: (selectedOutOfPlane * 1000).toFixed(1) })}
-            </div>
-            <label class="mesh-check">
-              <input
-                type="checkbox"
-                checked={selectedAllCurved}
-                onchange={(e) => setSelectedCurved(e.currentTarget.checked)}
-                data-testid="curv-toggle-check"
-              />
-              {t('pro.curvedShell')}
-            </label>
-          {/if}
-        </div>
-      {/if}
-    </div>
+    <!-- Curvature and the offset of existing shells are specified in Specifications › Surfaces. -->
+    <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
+      {t('spec.surfaces.open')}
+    </button>
 
     <!-- Stairs: the same plate, with its far edge lifted -->
     <ProStairSection />
@@ -460,47 +352,6 @@
       {/if}
     </div>
 
-    <!-- Shell offset (eccentric mid-surface) -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showOffset = !showOffset}>
-        <span class="toggle-arrow">{showOffset ? '▾' : '▸'}</span>
-        {t('pro.shellOffset')}
-      </button>
-      {#if showOffset}
-        <div class="section-body">
-          <div class="mesh-hint">{t('pro.shellOffsetHint')}</div>
-          {#if selectedShellKeys.length === 0}
-            <div class="field-error">{t('pro.shellOffsetSelect')}</div>
-          {:else}
-            <div class="offset-sel-count">{selectedShellKeys.length} {t('pro.selected')}</div>
-          {/if}
-          <div class="input-row">
-            <label>{t('pro.offsetFrame')}:</label>
-            <select bind:value={offFrame} class="family-select">
-              <option value="local">{t('pro.offsetLocal')}</option>
-              <option value="global">{t('pro.offsetGlobal')}</option>
-            </select>
-          </div>
-          <div class="input-row">
-            <label>{offFrame === 'local' ? 'x,y,n (m)' : 'X,Y,Z (m)'}:</label>
-            <input type="number" bind:value={offX} step="0.01" class="thick-input" />
-            <input type="number" bind:value={offY} step="0.01" class="thick-input" />
-            <input type="number" bind:value={offZ} step="0.01" class="thick-input" />
-          </div>
-          {#if offFrame === 'local'}
-            <div class="input-row offset-presets">
-              <button class="pro-btn" onclick={() => applyHalfThickness(1)}>{t('pro.offsetTopFace')}</button>
-              <button class="pro-btn" onclick={() => applyHalfThickness(-1)}>{t('pro.offsetBottomFace')}</button>
-            </div>
-          {/if}
-          <div class="input-row offset-actions">
-            <button class="pro-btn pro-btn-accent" disabled={selectedShellKeys.length === 0} onclick={applyShellOffset}>{t('pro.applyOffset')}</button>
-            <button class="pro-btn" disabled={selectedShellKeys.length === 0} onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
-          </div>
-          <div class="rec-warning">{t('pro.shellOffsetWarn')}</div>
-        </div>
-      {/if}
-    </div>
 
     <!--
       ── Tools above, the shared table below ────────────────────────────
@@ -668,28 +519,6 @@
     outline: none;
   }
 
-  .sub-input {
-    width: 44px;
-    padding: 3px 5px;
-    background: var(--st-surface);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text);
-    font-size: 0.72rem;
-    font-family: monospace;
-    text-align: center;
-  }
-
-  .sub-input:focus {
-    border-color: var(--st-surface-3);
-    outline: none;
-  }
-
-  .x-label {
-    font-size: 0.72rem;
-    color: var(--st-text-3);
-  }
-
   /* Buttons */
   .pro-btn {
     padding: 5px 14px;
@@ -736,17 +565,6 @@
     background: rgba(120, 80, 0, 0.25); border: 1px solid var(--st-warn);
     color: var(--st-warn); font-size: 0.68rem; line-height: 1.35;
   }
-
-  .pro-btn-pick {
-    border-color: var(--st-text-3);
-    color: var(--st-text);
-  }
-  .pro-btn-pick.picking {
-    background: var(--st-hair-strong);
-    border-color: var(--st-text-2);
-    color: var(--st-text);
-    animation: pickPulse 1.2s ease-in-out infinite;
-  }
   @keyframes pickPulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
     50% { box-shadow: 0 0 0 4px rgba(0, 255, 255, 0); }
@@ -759,175 +577,11 @@
     padding: 2px 0;
   }
 
-  .field-success {
-    font-size: 0.68rem;
-    color: var(--st-text-2);
-    padding: 2px 0;
-  }
-
   .mesh-hint {
     font-size: 0.72rem;
     color: var(--st-text-3);
     font-style: italic;
     line-height: 1.4;
-  }
-
-  .mesh-check {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    cursor: pointer;
-  }
-  .mesh-check input { accent-color: var(--st-text-2); }
-
-  /* Tables */
-  .table-label {
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: var(--st-text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    margin-top: 4px;
-    margin-bottom: 2px;
-  }
-
-  .pro-shells-table-wrap {
-    overflow-x: auto;
-  }
-
-  .pro-shells-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.72rem;
-  }
-
-  .pro-shells-table thead {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-
-  .pro-shells-table th {
-    padding: 4px 4px;
-    text-align: left;
-    font-size: 0.6rem;
-    font-weight: 600;
-    color: var(--st-text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    background: var(--st-surface);
-    border-bottom: 1px solid var(--st-surface-3);
-    white-space: nowrap;
-  }
-
-  .pro-shells-table td {
-    padding: 3px 4px;
-    border-bottom: 1px solid var(--st-surface-2);
-  }
-
-  .pro-shells-table tbody tr {
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-
-  .pro-shells-table tbody tr:hover {
-    background: rgba(127, 212, 204, 0.08);
-  }
-
-  .pro-shells-table tbody tr.selected {
-    background: rgba(127, 212, 204, 0.18);
-    box-shadow: inset 3px 0 0 var(--st-value);
-  }
-
-  .inline-select {
-    background: transparent; border: 1px solid transparent; border-radius: 3px;
-    color: var(--st-text-2); font-size: 0.72rem; padding: 2px 4px; cursor: pointer; width: 100%;
-  }
-  .inline-select:hover { border-color: var(--st-surface-3); }
-  .inline-select:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }
-  .inline-select option { background: var(--st-surface); color: var(--st-text-2); }
-  .inline-input {
-    background: transparent; border: 1px solid transparent; border-radius: 3px;
-    color: var(--st-text-2); font-size: 0.72rem; font-family: monospace; padding: 2px 4px; width: 70px;
-  }
-  .inline-input:hover { border-color: var(--st-surface-3); }
-  .inline-input:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }
-
-  .col-id {
-    width: 30px;
-    color: var(--st-text-3);
-    font-family: monospace;
-    font-size: 0.68rem;
-    text-align: center;
-  }
-
-  .col-nodes {
-    font-family: monospace;
-    font-size: 0.68rem;
-    color: var(--st-text-2);
-  }
-
-  .col-mat {
-    font-size: 0.68rem;
-    color: var(--st-text-2);
-  }
-
-  .col-thick {
-    font-family: monospace;
-    font-size: 0.68rem;
-    color: var(--st-text-2);
-    text-align: right;
-  }
-
-  .col-actions {
-    width: 20px;
-    text-align: center;
-  }
-
-  .pro-delete-btn {
-    background: none;
-    border:  none;
-    color: var(--st-text-3);
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-  }
-
-  .pro-delete-btn:hover {
-    color: var(--st-danger);
-  }
-
-  .pro-empty {
-    text-align: center;
-    color: var(--st-text-3);
-    font-style: italic;
-    padding: 16px 10px;
-    font-size: 0.72rem;
-  }
-
-  /* Shell family selector */
-  .family-select {
-    flex: 1;
-    padding: 4px 6px;
-    background: var(--st-surface);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text-2);
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-
-  .family-select:focus {
-    border-color: var(--st-surface-3);
-    outline: none;
-  }
-
-  .family-select option:disabled {
-    color: var(--st-text-3);
-    font-style: italic;
   }
 
   /* Recommendation display */
@@ -971,13 +625,5 @@
 
   .rec-warning::before {
     content: '\26A0 ';
-  }
-
-  .col-family {
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: var(--st-text-2);
-    font-family: monospace;
-    white-space: nowrap;
   }
 </style>
