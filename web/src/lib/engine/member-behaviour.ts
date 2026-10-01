@@ -30,6 +30,7 @@ import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import { finishSolve3D } from './solve-finish';
+import { addConstraintConnectivity } from './constraint-connectivity';
 import { t } from '../i18n';
 import { massDensities } from './dynamics/requests';
 
@@ -109,10 +110,10 @@ function nodesInUse(model: ModelData, elements: ModelData['elements']): Set<numb
   for (const q of model.quads?.values() ?? []) q.nodes.forEach((n) => used.add(n));
   for (const p of model.plates?.values() ?? []) p.nodes.forEach((n) => used.add(n));
   for (const c of model.connectors?.values() ?? []) { used.add(c.nodeI); used.add(c.nodeJ); }
-  for (const c of model.constraints ?? []) for (const v of Object.values(c as unknown as Record<string, unknown>)) {
-    if (typeof v === 'number') used.add(v);
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'number') used.add(x);
-  }
+  // Only the fields that name nodes. Reading every number on the constraint missed a linearMPC's
+  // nodes (they sit inside `terms`), so a node tied only by one was dropped with its support, and
+  // it counted `dofs` and offsets as node ids, so a loose node numbered like a DOF was kept.
+  addConstraintConnectivity(used, model.constraints);
   return used;
 }
 

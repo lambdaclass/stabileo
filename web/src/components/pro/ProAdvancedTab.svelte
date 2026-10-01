@@ -510,8 +510,8 @@
        * (78 % short on the seven-storey building). The input with them is solved as it stands.
        */
       const { input: withN, totalH } = withNotionalLoads(buildInput(), imperfRatio, imperfDir);
+      // Shown in this panel only; see `handleStaged` for why it is not published.
       imperfResult = { ...solve3D(withN), notionalTotal: totalH };
-      if (imperfResult.displacements) resultsStore.setResults3D(imperfResult);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, 'Error') });
     }
@@ -698,9 +698,17 @@
         // stage names, so springs and supports that are not fully fixed were dropped before.
         stages: stagedStagesPayload(stages, indicesOf, supportNodes),
       });
+      /*
+       * The panel lists each stage's peak and the finished structure's; nothing is published to
+       * the results store. `setResults3D` replaces the project's results: it cleared every solved
+       * case, combination and envelope, so the report printed this run as the analysis results and
+       * design went stale. And the engine's staged final state is not the linear solve's: its
+       * member forces read axial with the other sign and leave out the member loads' fixed-end
+       * forces (a girder's wL²/12 and wL/2), so they would draw and design wrong. Imperfections and
+       * creep keep their results here too, as they did before: their forces are right, but they
+       * would still wipe the combinations, and the store has no slot of its own for them.
+       */
       stagedResult = res;
-      // The finished structure reaches the viewport; the panel lists each stage's peak.
-      if (res.finalResults) resultsStore.setResults3D(res.finalResults);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: errorText(e, 'Error') });
     }
@@ -742,9 +750,8 @@
       }]));
       if (settingsOf.size === 0) { solveError = t('adv.creepNoConcrete'); solving = false; return; }
       const steps = creepSteps(input, settingsOf, creepTimeSteps.map((s) => s.time), solve3D);
+      // Shown in this panel only; see `handleStaged` for why it is not published.
       creepResult = { steps };
-      const last = steps[steps.length - 1];
-      if (last) resultsStore.setResults3D(last.results);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, 'Error') });
     }
