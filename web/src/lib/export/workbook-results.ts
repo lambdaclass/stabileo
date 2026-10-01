@@ -1,7 +1,7 @@
 /**
  * The result sheets of the project workbook: every case and every combination, in long form.
  *
- * Each row names its source (`case` or `combination`, its id and its name) and its place (node,
+ * Each row names its source (`case`, `combination` or `single`, its id and its name) and its place (node,
  * member end, station), so a sheet can be filtered or pivoted without a lookup. The tables are
  * the PRO result tables' (`engine/result-tables.ts`), the station forces the diagrams'
  * (`station-forces.ts`), the stresses and the deflections the ones their own tables show: the
@@ -19,8 +19,8 @@ import type { StationDeflection } from '../store/service-deflection';
 import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, type ShellModel, type FaceResult } from '../engine/shell-results';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
-/** A solved case or combination. */
-export interface WorkbookSource { kind: 'case' | 'combination'; id: number; name: string; results: AnalysisResults3D }
+/** A solved case, combination, or standalone solve (source id 0, not a load-case id). */
+export interface WorkbookSource { kind: 'case' | 'combination' | 'single'; id: number; name: string; results: AnalysisResults3D }
 
 export interface ResultSheetsInput {
   sources: readonly WorkbookSource[];
@@ -222,7 +222,7 @@ function staticsSheet(statics: StaticsRows | null): WorkbookSheet | null {
   const push = (kind: string, id: number | string, name: string, r: StaticsRows['cases'][number]) => {
     for (const k of K) rows.push([kind, id, safeText(name), k, k.startsWith('f') ? 'kN' : 'kN·m', r.applied[k], r.reactions[k], r.difference[k], r.worstRelative]);
   };
-  for (const r of statics.cases) push('case', r.caseId ?? '', r.caseName, r);
+  for (const r of statics.cases) push(r.caseId === null ? 'single' : 'case', r.caseId ?? 0, r.caseName, r);
   for (const r of statics.combos) push('combination', r.comboId, r.caseName, r);
   return { name: 'Statics', rows };
 }
