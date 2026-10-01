@@ -8,7 +8,8 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import { applyMesh } from './mesh-apply';
+import type { SurfaceLoad3D, ThermalLoadQuad3D } from '../../store/model.svelte';
+import { applyMesh, regionOccupied } from './mesh-apply';
 import { generateMesh, MAX_MESH_CELLS, type MeshInput, type MeshOutput } from './mesher';
 import { MAX_DIVISIONS_PER_AXIS } from '../../engine/shell-mesh-gen';
 
@@ -83,4 +84,53 @@ export function meshQuadRegion(cornerIds: [number, number, number, number], o: M
   if ('refused' in planned) return planned;
   const r = applyMesh(regionMeshInput(corners, o.density), { materialId: o.materialId, thickness: o.thickness, splitBeams: o.splitBeams }, planned.mesh)!;
   return { newNodes: r.newNodes, quadCount: r.quads.length, quads: r.quads, splitCount: r.splitCount };
+}
+
+export interface MeshQuadResult extends MeshRegionResult {
+  /** Surface and thermal loads the quad carried, each now on every quad of the mesh. */
+  carriedLoads: number;
+}
+
+/**
+ * Mesh one quad into a grid in its place, by the same mesher. One undo step.
+ *
+ * The mesh is the quad, finer: what the quad carried, every new quad carries. A surface load is
+ * per square metre, so the same pressure on each new quad is the same total force; a thermal load
+ * likewise. The groups that held the quad hold the mesh — and with them a self-weight load or a
+ * deflection rule scoped to the group — and its offset and curvature stay. Deleting the quad and
+ * meshing its corners lost all of it: the loads and memberships went with the quad.
+ *
+ * Refused, with nothing changed, when the mesher refuses the region or other shells already lie
+ * in it; the quad stays.
+ */
+export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: boolean }): MeshQuadResult | MeshRegionRefusal | { refused: 'occupied' } | null {
+  const quad = modelStore.quads.get(quadId);
+  if (!quad) return null;
+  const cornerIds = [...quad.nodes] as [number, number, number, number];
+  const corners = cornerIds.map((id) => modelStore.nodes.get(id)!);
+  const planned = regionMesh(corners, o.density);
+  if ('refused' in planned) return planned;
+  if (regionOccupied(regionMeshInput(corners, o.density), planned.mesh.plane, quadId)) return { refused: 'occupied' };
+
+  const { materialId, thickness, offset, curved } = quad;
+  const surface = modelStore.loads.flatMap((l) => (l.type === 'surface3d' && l.data.quadId === quadId ? [l.data as SurfaceLoad3D] : []));
+  const thermal = modelStore.loads.flatMap((l) => (l.type === 'thermalQuad3d' && l.data.quadId === quadId ? [l.data as ThermalLoadQuad3D] : []));
+  const groups = [...modelStore.model.groups.values()].filter((g) => g.members.quads?.includes(quadId)).map((g) => g.id);
+  let out!: MeshQuadResult;
+  modelStore.batch(() => {
+    modelStore.removeQuad(quadId);
+    const r = applyMesh(regionMeshInput(corners, o.density), { materialId, thickness, splitBeams: o.splitBeams }, planned.mesh)!;
+    out = { newNodes: r.newNodes, quadCount: r.quads.length, quads: r.quads, splitCount: r.splitCount, carriedLoads: surface.length + thermal.length };
+    for (const q of r.quads) {
+      if (offset) modelStore.setShellOffset('quad', q, offset);
+      if (curved) modelStore.setQuadCurved(q, true);
+      for (const s of surface) modelStore.addSurfaceLoad3D(q, s.q, s.caseId);
+      for (const t of thermal) modelStore.addThermalLoadQuad3D(q, t.dtUniform, t.dtGradient, t.caseId);
+    }
+    for (const gid of groups) {
+      const g = modelStore.model.groups.get(gid);
+      if (g) modelStore.setGroupMembers(gid, { ...g.members, quads: [...new Set([...(g.members.quads ?? []), ...r.quads])] });
+    }
+  });
+  return out;
 }

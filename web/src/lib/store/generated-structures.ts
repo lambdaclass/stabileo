@@ -121,6 +121,8 @@ export interface RegenerateReport {
   welded: number;
   /** Members that already existed end for end, and were not made twice. */
   duplicates: number;
+  /** Supports the generator gives a node that welded onto a model node with its own: the model's was kept. */
+  supportKept: number;
 }
 
 /**
@@ -145,12 +147,38 @@ function placeKeys(points: readonly Vec3[]): string[] {
   return keys;
 }
 
+/**
+ * What named a node of the structure that welded onto a model node now names that node: shell
+ * corners, constraints (connectors and footings keep a node from welding), the groups other than
+ * the structure's own, which is rewritten whole, and the time-history forces. The old node is then
+ * removed; `removeNode` drops a constraint on it and leaves a shell's corner pointing at nothing.
+ */
+function followWelds(to: Map<number, number>, ownGroup: number): void {
+  const r = (n: number) => to.get(n) ?? n;
+  for (const q of modelStore.quads.values()) {
+    if (q.nodes.some((n) => to.has(n))) modelStore.updateQuadNodes(q.id, q.nodes.map(r) as typeof q.nodes);
+  }
+  for (const p of modelStore.plates.values()) {
+    if (p.nodes.some((n) => to.has(n))) modelStore.updatePlateNodes(p.id, p.nodes.map(r) as typeof p.nodes);
+  }
+  modelStore.remapNodeReferences(to);
+  for (const grp of modelStore.model.groups.values()) {
+    const list = grp.members.nodes;
+    if (grp.id === ownGroup || !list?.some((n) => to.has(n))) continue;
+    modelStore.setGroupMembers(grp.id, { ...grp.members, nodes: [...new Set(list.map(r))] });
+  }
+  const th = modelStore.model.dynamics?.timeHistory;
+  if (th?.forces.some((f) => to.has(f.nodeId))) {
+    modelStore.setDynamics({ ...modelStore.model.dynamics, timeHistory: { ...th, forces: th.forces.map((f) => ({ ...f, nodeId: r(f.nodeId) })) } });
+  }
+}
+
 /** Replace the group's structure by `g`, in place. One undo step. */
 export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMeta, roles: readonly string[] = []): RegenerateReport | null {
   const old = generatedData(groupId);
   if (!old) return null;
   const T = old.transform;
-  const out: RegenerateReport = { kept: 0, added: 0, removed: 0, resized: 0, keptSections: 0, welded: 0, duplicates: 0 };
+  const out: RegenerateReport = { kept: 0, added: 0, removed: 0, resized: 0, keptSections: 0, welded: 0, duplicates: 0, supportKept: 0 };
   modelStore.batch(() => {
     const frag = fragmentFromJSONModel(g.json);
     // A profile the old generation already used is that section, by name: the model's copy has
@@ -201,7 +229,9 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
      * insertion; moving it there instead left two coincident nodes and nothing joining them.
      * Only a node that carries nothing but the structure is welded: one with a load, a
      * connector, a footing or a member the user drew on it is moved, as before. The node welded
-     * away is no longer the structure's, and goes with the other old nodes it does not use.
+     * away is no longer the structure's, and goes with the other old nodes it does not use; what
+     * else named it — a shell corner, a constraint, a group, a time-history force — names the
+     * node it became (below), and its support goes there too.
      */
     const ownedElements = new Set(old.elements.flatMap((e) => e ? [e.id] : []));
     const onlyTheStructure = (id: number) =>
@@ -211,6 +241,8 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       && ![...modelStore.footings.values()].some((f) => f.nodeId === id);
 
     const nodes: GeneratedData['nodes'] = [];
+    // Old node → the model node it welded onto.
+    const weldedTo = new Map<number, number>();
     g.json.nodes.forEach((_n, k) => {
       const p = newPts[k]!;
       const prev = oldByKey.get(newNodeKey[k]!);
@@ -219,6 +251,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
         const hit = index.find(p, pos);
         if (hit !== null && onlyTheStructure(prev.id)) {
           nodes.push({ id: hit, owned: false });
+          weldedTo.set(prev.id, hit);
           out.welded++;
           return;
         }
@@ -231,6 +264,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       nodes.push({ id: modelStore.addNode(p[0], p[1], p[2]), owned: true });
     });
     const nodeOf = (jsonId: number) => nodes[jsonId - 1]!.id;
+    if (weldedTo.size > 0) followWelds(weldedTo, groupId);
 
     // Old members by role and place: a new column takes the place of the old column that was at
     // the same place of the same level (see placeKeys above).
@@ -324,16 +358,22 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const n = nodes[k] ?? old.nodes[k];
       if (n?.owned && !supportNodes.includes(k)) { const sid = supportAt.get(n.id); if (sid !== undefined) modelStore.removeSupport(sid); }
     }
+    // A node welded away gives its support to the node it became, unless that one has its own:
+    // removed with the old node, the support was lost and the base stood on nothing.
+    const weldTargets = new Set(weldedTo.values());
     for (const s of g.json.supports) {
       const n = nodes[s.nodeId - 1]!;
-      if (!n.owned) continue;
+      if (!n.owned && !weldTargets.has(n.id)) continue;
+      if (!n.owned && supportAt.has(n.id)) { out.supportKept++; continue; }
       const c = carriedSupport(T, { ...(s as unknown as Support), id: 0 }, n.id, elementMap);
       if (c) modelStore.addSupportEntry(c);
     }
 
-    // Nodes the old generation owned and the new one does not use, and the ones welded away.
+    // Nodes the old generation owned and the new one does not use, and the ones welded away. A
+    // shell on one keeps it: removing a node leaves the shells on it a corner that is not there.
     const used = new Set<number>();
     for (const el of modelStore.elements.values()) { used.add(el.nodeI); used.add(el.nodeJ); }
+    for (const sh of [...modelStore.quads.values(), ...modelStore.plates.values()]) sh.nodes.forEach((n) => used.add(n));
     const kept = new Set(nodes.map((n) => n.id));
     for (const n of old.nodes) {
       if (n.owned && !kept.has(n.id) && modelStore.nodes.has(n.id) && !used.has(n.id)) modelStore.removeNode(n.id);

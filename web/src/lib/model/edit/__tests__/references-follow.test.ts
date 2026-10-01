@@ -80,7 +80,8 @@ describe('merge collinear', () => {
     const spring = { ky: 1000, kz: 2000 };
     snap.elements = snap.elements.map(([id, el]: [number, Record<string, unknown>]) => [id, id === e2 ? { ...el, semiRigid: { j: spring } } : el]);
     modelStore.restore(snap);
-    withRefs([e2], m);
+    // The force on an end node: one on m keeps m, and the members are not merged through it.
+    withRefs([e2], b);
     const r = mergeCollinear([e1, e2]);
     expect(r.merged.length).toBe(1);
     const [kept] = [...modelStore.elements.values()];

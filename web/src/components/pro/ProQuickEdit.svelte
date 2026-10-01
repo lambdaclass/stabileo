@@ -17,7 +17,7 @@
   import EditorCard from '../EditorCard.svelte';
   import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
-  import { meshQuadRegion } from '../../lib/model/edit/mesh-region';
+  import { meshQuad } from '../../lib/model/edit/mesh-region';
   import { parseIdList } from '../../lib/model/select-ops';
 
   const target = $derived(quickEdit.target);
@@ -119,19 +119,19 @@
     else modelStore.updateQuad(shell.id, patch);
   }
 
-  /** Mesh a quad into a grid of the size given, welded to the members around it; one undo step. */
+  /**
+   * Mesh a quad into a grid of the size given, welded to the members around it; one undo step.
+   * The mesh keeps the quad's loads and groups (`meshQuad`); a region the mesher refuses leaves
+   * the quad as it was.
+   */
   let meshSize = $state(0.5);
   let meshNote = $state<string | null>(null);
   function mesh() {
     if (!shell || target?.kind !== 'quad' || !(meshSize > 0)) return;
-    const corners = [...shell.nodes] as [number, number, number, number];
-    const { materialId, thickness } = shell;
-    let made = 0;
-    modelStore.batch(() => {
-      modelStore.removeQuad(shell.id);
-      made = meshQuadRegion(corners, { density: { mode: 'targetSize', size: meshSize }, materialId, thickness, splitBeams: true }).quadCount;
-    });
-    meshNote = tp('quickEdit.meshed', { n: made });
+    const r = meshQuad(shell.id, { density: { mode: 'targetSize', size: meshSize }, splitBeams: true });
+    if (!r) return;
+    if ('refused' in r) { uiStore.toast(t(r.refused === 'occupied' ? 'mesher.occupied' : 'mesher.failed'), 'error'); return; }
+    meshNote = tp('quickEdit.meshed', { n: r.quadCount });
     uiStore.toast(meshNote, 'success');
     quickEdit.close();
   }
