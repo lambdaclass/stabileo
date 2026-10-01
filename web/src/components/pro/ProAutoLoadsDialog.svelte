@@ -109,6 +109,7 @@
   let tributaryWidth = $state(3.0);
   let gravityMode = $state<GravityMode>('panels');
   let roofCfg = $state(defaultRoofConfig());
+  let livePatterns = $state(true);
   let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
   let gravitySpan = $state<'x' | 'y'>('x');
 
@@ -230,6 +231,7 @@
       occupancyKey: selectedOccupancy,
       tributaryWidth,
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
+      patterns: livePatterns,
       roof: roofCfg.enabled ? {
         use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
         weight: roofCfg.weight ?? roofWeightClass(roofCfg.dead ?? totalDead),
@@ -464,6 +466,10 @@
           <label class="al-check">
             <input type="checkbox" bind:checked={applyLiveReduction} data-testid="al-live-reduction" />
             {t('autoLoad.applyLiveReduction')}
+          </label>
+          <label class="al-check" title={t('autoLoad.patternsHint')}>
+            <input type="checkbox" bind:checked={livePatterns} data-testid="al-live-patterns" />
+            {t('autoLoad.patterns')}
           </label>
           {#if applyLiveReduction}
             <div class="al-grid">

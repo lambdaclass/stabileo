@@ -136,6 +136,8 @@ export interface LoadPlanInput {
    * Absent: roofs are loaded as floors.
    */
   roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
+  /** L and Lr also on alternate panels and spans, two checkerboard cases each (§4.3.3). */
+  patterns?: boolean;
   /** Element kind for the §4.7.2 live-load reduction. */
   reductionElementKind: ElementKind;
   /** Floors the reduced member supports, for the 0,5/0,4 Lo floor. */
@@ -357,6 +359,10 @@ export interface LoadPlan {
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
 
+/** The alternatives groups of the live load and roof live load with their checkerboards (§4.3.3). */
+export const LIVE_PATTERNS = 'live-patterns';
+export const ROOF_LIVE_PATTERNS = 'roof-live-patterns';
+
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
 /** Group nodes into levels and compute each level's true plan extent. */
@@ -569,15 +575,29 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   const area = planAreaLoads({
     layout, tributaryWidth: input.tributaryWidth, legacyWidth: !panelMode,
-    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads,
+    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns,
   });
   derivation.push(...area.derivation);
   refs.push(...area.refs);
-  const distributed: PlannedDistributed[] = area.distributed.map((d) => ({ ...d }));
   const surface: PlannedSurface[] = area.surface.map((d) => ({ ...d }));
   if (area.planned.has('Lr')) cases.push({ existingId: findCase(input.model, 'Lr'), type: 'Lr', nameKey: 'autoLoad.roofLiveCase' });
   // A building that is only a maintenance roof has no L; its case would be empty.
   if (input.roof && !area.planned.has('L')) cases.splice(cases.findIndex((c) => c.type === 'L'), 1);
+  // The checkerboards, one case each: alternatives to the full load, never added to it.
+  // The full load and its two checkerboards are one action three ways: an alternatives group
+  // (`LoadCase.alternatives`), so a combination takes one of the three.
+  const arrangementIndex = new Map<string, number>();
+  for (const sym of area.arranged) {
+    const group = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
+    const full = cases.find((c) => c.type === sym && c.alternatives === undefined);
+    if (full) full.alternatives = group;
+    for (const k of [0, 1]) {
+      arrangementIndex.set(`${sym}${k}`, cases.length);
+      cases.push({ existingId: null, type: sym, nameKey: sym === 'L' ? 'autoLoad.liveCasePattern' : 'autoLoad.roofLiveCasePattern', nameParams: { k: k === 0 ? 'A' : 'B' }, alternatives: group });
+    }
+  }
+  const distributed: PlannedDistributed[] = area.distributed.map(({ arrangement, ...d }) =>
+    (arrangement !== undefined ? { ...d, caseIndex: arrangementIndex.get(`${d.caseType}${arrangement}`)! } : d));
 
   // ── Level masses from real geometry ──
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);

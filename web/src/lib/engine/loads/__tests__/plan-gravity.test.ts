@@ -192,3 +192,39 @@ describe('roofs: what nothing higher covers', () => {
     expect(p.combinations.every((c) => c.terms.every((f) => f.symbol !== 'L'))).toBe(true);
   });
 });
+
+describe('alternate loading (§4.3.3): checkerboards that replace the full live load', () => {
+  it('a 2 × 2 bay floor: two arrangements, each half the area, neighbours apart', () => {
+    const m = floor(2, 2, 5, 5);
+    const p = buildLoadPlan(planInput(m, { patterns: true, generateCombinations: true }));
+    const pats = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'L' && c.nameKey === 'autoLoad.liveCasePattern');
+    expect(pats).toHaveLength(2);
+    for (const { i } of pats) {
+      const loads = p.distributed.filter((d) => d.caseIndex === i);
+      expect(totalKN(loads, m)).toBeCloseTo(-2 * 50, 4);   // two of the four 25 m² bays
+    }
+    const full = p.distributed.filter((d) => d.caseType === 'L' && d.caseIndex === undefined);
+    expect(totalKN(full, m)).toBeCloseTo(-2 * 100, 4);
+    // The full load and both checkerboards are one alternatives group: one of the three per combination.
+    expect(p.cases.filter((c) => c.type === 'L').map((c) => c.alternatives)).toEqual(['live-patterns', 'live-patterns', 'live-patterns']);
+    // 1.2 D + 1.6 L becomes three combinations: full, A and B.
+    expect(p.derivation.some((x) => x.key === 'loadPlan.derivation.patterns')).toBe(true);
+  });
+
+  it('a single panel has nothing to alternate with, and no arrangement case', () => {
+    const p = buildLoadPlan(planInput(floor(1, 1, 6, 4), { patterns: true }));
+    expect(p.cases.filter((c) => c.alternatives)).toHaveLength(0);
+  });
+
+  it('the floors above alternate the other way', () => {
+    const m = building();   // one bay, two levels: one panel each, neighbours only across floors
+    const p = buildLoadPlan(planInput(m, { patterns: true }));
+    // One panel per level is still one colour per level, so A is one floor and B the other.
+    const pats = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'L' && c.nameKey === 'autoLoad.liveCasePattern');
+    expect(pats).toHaveLength(2);
+    const levelsOf = (i: number) => new Set(p.distributed.filter((d) => d.caseIndex === i).map((d) => m.nodes.get(m.elements.get(d.elementId)!.nodeI)!.z));
+    expect([...levelsOf(pats[0]!.i)]).toHaveLength(1);
+    expect([...levelsOf(pats[1]!.i)]).toHaveLength(1);
+    expect([...levelsOf(pats[0]!.i)][0]).not.toBe([...levelsOf(pats[1]!.i)][0]);
+  });
+});

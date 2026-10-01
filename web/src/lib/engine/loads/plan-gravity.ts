@@ -51,7 +51,7 @@ export interface GravityOptions {
  * A stretch of a member and the depth of area it collects there, m (so q·w is kN/m), from one
  * panel; `roof` when nothing higher covers that panel.
  */
-export interface GravityPiece { elementId: number; a?: number; b?: number; wI: number; wJ: number; roof: boolean }
+export interface GravityPiece { elementId: number; a?: number; b?: number; wI: number; wJ: number; roof: boolean; panel: number }
 
 export interface GravityLayout {
   pieces: GravityPiece[];
@@ -70,6 +70,13 @@ export interface GravityLayout {
   roofQuads: Set<number>;
   /** Mid-height of each member that carries an area load, m. */
   zOf: Map<number, number>;
+  /**
+   * The checkerboard of alternate loading (CIRSOC 101 §4.3.3): a colour, 0 or 1, for each panel
+   * (by `GravityPiece.panel`) and for each member loaded by width, so that neighbours on a level
+   * differ and the pattern turns over from one level to the next.
+   */
+  panelColour: number[];
+  widthColour: Map<number, number>;
   notes: EngineMessage[];
 }
 
@@ -98,7 +105,7 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
     pieces: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
-    roof: new Set(), roofQuads: new Set(), zOf: new Map(), notes: [],
+    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), notes: [],
   };
   const width = (id: number, length: number, horizontalLength: number) => {
     out.widthMembers.push({ elementId: id, length, horizontalLength });
@@ -163,6 +170,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   // Second pass: each panel on its own, as a floor or as a roof.
   let byWidth = 0, nonConvex = 0;
+  const panelBeams: Array<Set<number>> = [];
+  const panelLevel: number[] = [];
+  const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const [z, { beams, res }] of levels) {
     nonConvex += res.skipped.nonConvex;
     const loaded = new Set<number>();
@@ -172,8 +182,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const one = floorLoad({ nodes: model.nodes, beams: own, q: 1, ...slab });
       const c = centroid(panel.polygon);
       const roof = !covered(c, z);
+      const index = panelBeams.length;
+      panelBeams.push(new Set(one.perBeam.keys()));
+      panelLevel.push(levelOrder.indexOf(z));
       for (const l of one.loads) {
-        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof });
+        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
         loaded.add(l.elementId);
       }
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
@@ -186,6 +199,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       byWidth++;
     }
   }
+
+  out.panelColour = checkerboard(panelBeams.length, panelLevel,
+    (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
+  out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
 
   // What goes by width is a roof when nothing higher stands over its midpoint.
   for (const m of out.widthMembers) {
@@ -262,4 +279,43 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
   }
   return (pt, zTop) => covers.some((c) => c.z > zTop + 0.05
     && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))));
+}
+
+/**
+ * Two colours over units, neighbours apart (breadth first; a unit with no neighbour starts its
+ * own island at colour 0), turned over on odd levels so floors alternate in elevation too.
+ */
+function checkerboard(n: number, level: number[], adjacent: (i: number, j: number) => boolean): number[] {
+  const colour = new Array<number>(n).fill(-1);
+  for (let s = 0; s < n; s++) {
+    if (colour[s] !== -1) continue;
+    colour[s] = 0;
+    const queue = [s];
+    while (queue.length) {
+      const i = queue.shift()!;
+      for (let j = 0; j < n; j++) {
+        if (colour[j] !== -1 || !adjacent(i, j)) continue;
+        colour[j] = 1 - colour[i]!;
+        queue.push(j);
+      }
+    }
+  }
+  return colour.map((c, i) => (level[i]! % 2 === 0 ? c : 1 - c));
+}
+
+/** Members loaded by width: alternate spans along each line of collinear members on a level. */
+function widthCheckerboard(model: GravityModel, ids: number[]): Map<number, number> {
+  const ends = ids.map((id) => {
+    const e = model.elements.get(id)!;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { id, i: e.nodeI, j: e.nodeJ, dir: [(b.x - a.x) / L, (b.y - a.y) / L] as const, z: Math.min(a.z ?? 0, b.z ?? 0) };
+  });
+  const zs = [...new Set(ends.map((e) => Math.round(e.z / 0.05)))].sort((a, b) => a - b);
+  const colour = checkerboard(ends.length, ends.map((e) => zs.indexOf(Math.round(e.z / 0.05))), (p, q) => {
+    const A = ends[p]!, B = ends[q]!;
+    const shared = A.i === B.i || A.i === B.j || A.j === B.i || A.j === B.j;
+    return shared && Math.abs(A.dir[0] * B.dir[1] - A.dir[1] * B.dir[0]) < 0.17;
+  });
+  return new Map(ends.map((e, k) => [e.id, colour[k]!]));
 }
