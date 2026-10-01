@@ -30,6 +30,8 @@ import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos';
+import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
+import { withDiaphragmRotation } from './diaphragm-rotation';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -1673,7 +1675,8 @@ export function buildSolverInput3D(
     // `curved` flag; both keyed by their own id, stresses return in quadStresses).
     quads: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => !q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
-    constraints: model.constraints ?? [],
+    // A rigid diaphragm holds the rotation about its normal as well (`diaphragm-rotation.ts`).
+    constraints: withDiaphragmRotation(model.constraints ?? []),
     connectors: model.connectors,
     leftHand: false, // see buildSolverLoads3D: the analysis is always right-handed
   };
@@ -2014,7 +2017,9 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     const t0 = performance.now();
     let results: AnalysisResults3D;
     try {
-      results = await solve3DInWorker(wire);
+      // The worker answers as the engine does: the axial shares are given back here, as the
+      // main-thread solve3D does (`axial-shares.ts`).
+      results = giveBackAxialShares(await solve3DInWorker(wire), axialShares(input.loads));
     } catch (e) {
       if (!(e instanceof PoolUnavailableError)) throw e;
       results = solve3DEngine(input);
@@ -2193,6 +2198,20 @@ function solveCombinations3DCore(
     for (const cr of mcResult.combinationResults) {
       const id = comboNameToId.get(cr.name);
       if (id != null) perCombo.set(id, cr.results);
+    }
+
+    // The axial part of member loads, given back to the members (`axial-shares.ts`): to each
+    // case from its own loads, to each combination with its factors, and the envelope, which
+    // the engine took over the uncorrected combinations, taken again.
+    const caseShares = new Map(mcLoadCases.map((c) => [caseNameToId.get(c.name)!, axialShares(c.loads)] as const));
+    if ([...caseShares.values()].some((m) => m.size > 0)) {
+      for (const [id, r] of perCase) giveBackAxialShares(r, caseShares.get(id) ?? new Map());
+      for (const combo of combinations) {
+        const r = perCombo.get(combo.id);
+        if (r) giveBackAxialShares(r, combineShares(combo.factors, caseShares));
+      }
+      const again = computeEnvelope3D([...perCombo.values()]);
+      if (again) mcResult.envelope = again;
     }
 
     // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
@@ -2439,6 +2458,9 @@ const LOAD_KEYS_KEPT = new Set(['nodeId', 'elementId', 'quadId', 'plateId', 'id'
 export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(l.data)) data[k] = typeof v === 'number' && !LOAD_KEYS_KEPT.has(k) ? v * f : v;
+  // The axial share a nodal load carries for its member (`axial-shares.ts`) is a magnitude too.
+  const ax = (l.data as { axialOf?: { elementId: number; end: 'i' | 'j'; p: number } }).axialOf;
+  if (ax) data.axialOf = { ...ax, p: ax.p * f };
   return { ...l, data } as unknown as SolverLoad3D;
 }
 
@@ -2496,14 +2518,14 @@ async function solveCombinations3DParallelCore(
 
   // Build per-case inputs (plain wire objects — structured-cloned to workers,
   // no JSON.stringify per case)
-  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any> }> = [];
+  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any>; loads: SolverLoad3D[] }> = [];
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
     // Create full solver input with this case's loads
     const fullInput = { ...baseWire, loads };
-    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput });
+    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput, loads });
   }
 
   if (caseInputs.length === 0) return t('svc.noLoadsApplied');
@@ -2527,6 +2549,8 @@ async function solveCombinations3DParallelCore(
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
+      // Each case from its own loads; the combinations below are linear in the cases.
+      giveBackAxialShares(result, axialShares(ci.loads));
       const mech = excitedMechanism3D(result);
       if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {

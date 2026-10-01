@@ -12,10 +12,10 @@ axes zUpStrongAxis
 material 1 name="Acero" e=205000 nu=0.3 rho=76.8195 alpha=0.000012
 
 # Sections: A, Iy, Iz, J and the shear areas, as declared
-section 1 name="Tubo 3½" Sch 40" a=0.001335481157 iy=1.186259523e-6 iz=1.186259523e-6 j=2.372519047e-6 shearAreas={"basis":"declared","asY":0.0007157416026,"asZ":0.0007157416026}
-section 2 name="Tubo 2" Sch 40" a=0.0006580631877 iy=2.609770931e-7 iz=2.609770931e-7 j=5.219541863e-7 shearAreas={"basis":"declared","asY":0.0003541488256,"asZ":0.0003541488256}
-section 3 name="Tubo 1½" Sch 40" a=0.0004832248483 iy=1.21955813e-7 iz=1.21955813e-7 j=2.439116259e-7 shearAreas={"basis":"declared","asY":0.000264247685,"asZ":0.000264247685}
-section 4 name="Barra Ø25,4" a=0.0005067074932 iy=2.043171289e-8 iz=2.043171289e-8 j=4.086342579e-8 shearAreas={"basis":"declared","asY":0.0004509696478,"asZ":0.0004509696478}
+section 1 name="Tubo 3½" declared=true Sch 40" a=0.001335481157 iy=1.186259523e-6 iz=1.186259523e-6 j=2.372519047e-6 shearAreas={"basis":"declared","asY":0.0007157416026,"asZ":0.0007157416026}
+section 2 name="Tubo 2" declared=true Sch 40" a=0.0006580631877 iy=2.609770931e-7 iz=2.609770931e-7 j=5.219541863e-7 shearAreas={"basis":"declared","asY":0.0003541488256,"asZ":0.0003541488256}
+section 3 name="Tubo 1½" declared=true Sch 40" a=0.0004832248483 iy=1.21955813e-7 iz=1.21955813e-7 j=2.439116259e-7 shearAreas={"basis":"declared","asY":0.000264247685,"asZ":0.000264247685}
+section 4 name="Barra Ø25,4" declared=true a=0.0005067074932 iy=2.043171289e-8 iz=2.043171289e-8 j=4.086342579e-8 shearAreas={"basis":"declared","asY":0.0004509696478,"asZ":0.0004509696478}
 
 # Nodes: id x y z
 node 1 -1.2 -0.6928 0

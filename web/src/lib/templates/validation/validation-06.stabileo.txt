@@ -12,7 +12,7 @@ axes zUpStrongAxis
 material 1 name="Acero" e=205000 nu=0.3 rho=76.8195 alpha=0.000012
 
 # Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
-section 1 name="HW 300×300" a=0.01184500017 iy=0.0002018600217 iz=6.753001119e-5 j=8.356000401e-7 shearAreas={"basis":"declared","asY":0.002999999907,"asZ":0.005999850302}
+section 1 name="HW 300×300" declared=true a=0.01184500017 iy=0.0002018600217 iz=6.753001119e-5 j=8.356000401e-7 shearAreas={"basis":"declared","asY":0.002999999907,"asZ":0.005999850302}
 
 # Nodes: id x y z
 node 1 0 0 0

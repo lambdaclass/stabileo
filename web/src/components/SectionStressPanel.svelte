@@ -185,7 +185,7 @@
     if (st?.kind === 'geometry-backed' && st.composite) return { kind: 'composite', name: sec.name || '—' };
     const dataGap =
       st?.kind === 'properties-only' &&
-      st.reason.kind !== 'noGeometry';
+      st.reason.kind !== 'noGeometry' && st.reason.kind !== 'declared';
     return { kind: dataGap ? 'noGeometryData' : 'amorphous', name: sec.name || '—' };
   });
 

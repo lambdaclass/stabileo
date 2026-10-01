@@ -253,8 +253,8 @@ levante, y reemplazan el apoyo que tuviera el nodo.
 
 - **Vínculo rígido:** un nodo esclavo sigue a un nodo maestro como si estuvieran unidos por una
   barra infinitamente rígida.
-- **Diafragma:** los nodos de un plano se mueven juntos en ese plano. Es la hipótesis habitual
-  de losa rígida en su plano. **Auto-detectar diafragmas** agrupa los nodos por nivel (con una
+- **Diafragma:** los nodos de un plano se mueven juntos en ese plano y giran juntos alrededor de
+  su normal. Es la hipótesis habitual de losa rígida en su plano. **Auto-detectar diafragmas** agrupa los nodos por nivel (con una
   tolerancia de 5 cm) y toma como maestro el nodo más cercano al centro.
 - **DOF iguales:** dos nodos comparten uno o más grados de libertad (DOF).
 - **Conexión excéntrica**, **MPC lineal** (restricción multipunto: una relación lineal entre
@@ -267,7 +267,8 @@ levante, y reemplazan el apoyo que tuviera el nodo.
 - **Peso propio:** es una carga de un caso. Cada fila dice en qué caso entra, en qué dirección
   global, con qué factor (−1 en Z es la gravedad) y sobre qué: todo el modelo, una lista de barras
   o un grupo. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
-  en las placas es ρ·t por el área. Entra una vez, en ese caso, y cada combinación lo toma con el
+  en una columna o una barra inclinada la parte a lo largo de la barra queda en ella, así que su
+  axil crece hacia el extremo de abajo. En las placas es ρ·t por el área. Entra una vez, en ese caso, y cada combinación lo toma con el
   factor de ese caso. Un proyecto guardado antes de esta regla se abre con el peso propio en su
   primer caso D, y un aviso lo dice; si tenía varios casos D, el aviso recuerda que antes el peso
   se contaba en cada uno.
@@ -398,7 +399,10 @@ PRO revisa el modelo mientras lo armás. Si hay errores, aparece un aviso que ab
 - **Información:** casos de carga vacíos, modelo sin cargas.
 
 Después de resolver, el motor informa además la **calidad de la malla** de placas (relación de
-aspecto, alabeo, ángulos muy chicos).
+aspecto, alabeo, ángulos muy chicos). Una malla gruesa o distorsionada deja las losas y los muros
+más rígidos de lo que son: conviene refinarla hasta que el resultado que interesa deje de moverse.
+En los modelos de validación, la flecha de una losa se movió cerca de un 20 % entre la malla
+original y la misma malla subdividida dos veces.
 
 ## La pestaña Análisis
 

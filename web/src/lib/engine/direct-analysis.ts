@@ -32,6 +32,7 @@ import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject } from './wasm-solver';
+import { axialShares, giveBackAxialShares } from './axial-shares';
 import { correctPDeltaForces, solvePDelta3DCorrected, amplification } from './pdelta-forces';
 export { amplification } from './pdelta-forces';
 
@@ -84,7 +85,10 @@ export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, 
     try {
       const r = await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
       // The worker answers as the engine does; the main-thread wrapper's correction applies here.
-      return { ...r, results: correctPDeltaForces(input, r.results) };
+      // So do the axial shares of members that take no bending (`axial-shares.ts`).
+      const shares = axialShares(input.loads);
+      if (r?.linearResults) giveBackAxialShares(r.linearResults, shares);
+      return { ...r, results: correctPDeltaForces(input, giveBackAxialShares(r.results, shares)) };
     } catch {
       return mainThreadPDelta(input, maxIter, tol);
     }

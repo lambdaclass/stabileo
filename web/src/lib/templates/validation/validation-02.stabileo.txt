@@ -14,10 +14,10 @@ axes zUpStrongAxis
 material 1 name="Acero" e=199947.9615 nu=0.2946428571 rho=76.81953992 alpha=1.17e-5
 
 # Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
-section 1 name="W10X88" a=0.01677416 iy=0.0002222675813 iz=7.450542518e-5 j=3.134222722e-6 shearAreas={"basis":"declared","asY":0.004215475696,"asZ":0.008771376141}
-section 2 name="2L 2½×2½×¼" a=0.001535480874 iy=5.853419156e-7 iz=1.092625653e-6 j=2.063814199e-8 shearAreas={"basis":"declared","asY":0.0005376333205,"asZ":0.0005376333205}
-section 3 name="2L 2×2×¼" a=0.001218062087 iy=2.8936968e-7 iz=5.606945447e-7 j=1.637176899e-8 shearAreas={"basis":"declared","asY":0.0004301066795,"asZ":0.0004301066795}
-section 4 name="C6X8.2" a=0.001541932468 iy=5.452631834e-6 iz=2.859509797e-7 j=3.06346336e-8 shearAreas={"basis":"declared","asY":0.0007741920308,"asZ":0.0005665020611}
+section 1 name="W10X88" declared=true a=0.01677416 iy=0.0002222675813 iz=7.450542518e-5 j=3.134222722e-6 shearAreas={"basis":"declared","asY":0.004215475696,"asZ":0.008771376141}
+section 2 name="2L 2½×2½×¼" declared=true a=0.001535480874 iy=5.853419156e-7 iz=1.092625653e-6 j=2.063814199e-8 shearAreas={"basis":"declared","asY":0.0005376333205,"asZ":0.0005376333205}
+section 3 name="2L 2×2×¼" declared=true a=0.001218062087 iy=2.8936968e-7 iz=5.606945447e-7 j=1.637176899e-8 shearAreas={"basis":"declared","asY":0.0004301066795,"asZ":0.0004301066795}
+section 4 name="C6X8.2" declared=true a=0.001541932468 iy=5.452631834e-6 iz=2.859509797e-7 j=3.06346336e-8 shearAreas={"basis":"declared","asY":0.0007741920308,"asZ":0.0005665020611}
 
 # Nodes: id x y z
 node 1 0 0 0

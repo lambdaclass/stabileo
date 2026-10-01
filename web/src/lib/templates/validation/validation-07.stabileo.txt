@@ -13,8 +13,8 @@ axes zUpStrongAxis
 material 1 name="Hormigón" e=21718.5 nu=0.17 rho=23.5616 alpha=0.00001
 
 # Sections: A, Iy (strong), Iz (weak), J and the shear areas, as declared
-section 1 name="400×400" a=0.1600000049 iy=0.002133333404 iz=0.002133333404 j=0.003605333605 shearAreas={"basis":"declared","asY":0.1360000056,"asZ":0.1360000056}
-section 2 name="200×400" a=0.08000000243 iy=0.001066666702 iz=0.0002666666755 j=0.0007324167097 shearAreas={"basis":"declared","asY":0.06800000281,"asZ":0.06800000281}
+section 1 name="400×400" declared=true a=0.1600000049 iy=0.002133333404 iz=0.002133333404 j=0.003605333605 shearAreas={"basis":"declared","asY":0.1360000056,"asZ":0.1360000056}
+section 2 name="200×400" declared=true a=0.08000000243 iy=0.001066666702 iz=0.0002666666755 j=0.0007324167097 shearAreas={"basis":"declared","asY":0.06800000281,"asZ":0.06800000281}
 
 # Nodes: id x y z
 node 1 0 0 0

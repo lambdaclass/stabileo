@@ -19,7 +19,9 @@
  * Frame loads stay distributed in all three local directions so recovery retains the axial
  * variation along the member. On a member that carries no bending (a
  * truss, or a one-way member in the active-set loop) the load goes to the end nodes, as the reactions of a simply supported span: the engine's truss assembly drops a
- * transverse member load, and the load would otherwise vanish.
+ * transverse member load, and the load would otherwise vanish. Its axial part is tagged with its
+ * member and end, so the member's axial force is given it back after the solve (`axial-shares.ts`):
+ * the member never sees that part, and would otherwise carry its average along its length.
  */
 import type { SolverLoad3D } from './types-3d';
 import type { ModelData } from './solver-service';
@@ -103,17 +105,23 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
   const yI = dot(gI, ey), yJ = dot(gJ, ey), zI = dot(gI, ez), zJ = dot(gJ, ez);
   const xI = dot(gI, ex), xJ = dot(gJ, ex);
   const tiny = (v: number) => Math.abs(v) < 1e-12;
-  const toNodes = (vI: Vec3, vJ: Vec3) => {
+  const toNodes = (vI: Vec3, vJ: Vec3, axial = false) => {
     let fI: Vec3 = [0, 0, 0], fJ: Vec3 = [0, 0, 0];
     for (const p of trapezoidPieces(vI, vJ, a, b)) {
       const r = toEnds(p.force, p.s, L);
       fI = add(fI, r.fI); fJ = add(fJ, r.fJ);
     }
-    if (fI.some((v) => !tiny(v))) out.push(nodal(m.nodeI, fI, m.armI));
-    if (fJ.some((v) => !tiny(v))) out.push(nodal(m.nodeJ, fJ, m.armJ));
+    // The axial part says which member it came from: the member itself never sees it, and its
+    // end forces are given it back after the solve (`axial-shares.ts`).
+    const tag = (l: SolverLoad3D, end: 'i' | 'j', f: Vec3): SolverLoad3D =>
+      axial && l.type === 'nodal' ? { type: 'nodal', data: { ...l.data, axialOf: { elementId: m.elementId, end, p: dot(f, ex) } } } : l;
+    if (fI.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeI, fI, m.armI), 'i', fI));
+    if (fJ.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeJ, fJ, m.armJ), 'j', fJ));
   };
   if (axialOnly) {
-    toNodes(gI, gJ);
+    // The transverse part and the axial part separately: the axial one is tagged.
+    if (![yI, yJ, zI, zJ].every(tiny)) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
+    if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ), true);
   } else if (![xI, xJ, yI, yJ, zI, zJ].every(tiny)) {
     out.push({ type: 'distributed', data: { elementId: m.elementId, qXI: xI, qXJ: xJ, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
   }

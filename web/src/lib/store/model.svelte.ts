@@ -147,6 +147,14 @@ export interface Section {
    */
   shearAreas?: import('../section/shear-areas').ShearAreaSpec;
   /**
+   * A, Iy, Iz and J are the section, as given, and its name is only a label: the catalogue is
+   * not consulted, even when the name matches a profile in it. For a model written as code or
+   * brought from another program, where the numbers are the other program's and a catalogue
+   * outline of the same name (with its own fillets and rounding) would quietly change the
+   * stiffness. A drawn section or an explicit polygon still wins.
+   */
+  declared?: boolean;
+  /**
    * Which catalogue family this section was picked from (IPE, W, UPN...).
    *
    * Same reasoning as `Material.gradeId`: recorded at selection time, never

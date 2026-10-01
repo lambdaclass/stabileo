@@ -13,8 +13,8 @@ material 1 name="Acero" e=205000 nu=0.3 rho=76.8195 alpha=0.000012
 material 2 name="Hormigón" e=21718.5 nu=0.17 rho=23.5616 alpha=0.00001
 
 # Sections: A, Iy, Iz, J and the shear areas, as declared
-section 1 name="L6×6×¾" a=0.005458053625 iy=4.820331818e-6 iz=1.861771868e-5 j=6.60247077e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00193548}
-section 2 name="MC10X8.4" a=0.001587093625 iy=1.327778232e-5 iz=1.356914468e-7 j=1.719035736e-8 shearAreas={"basis":"declared","asY":0.001096772031,"asZ":0.0003612896015}
+section 1 name="L6×6×¾" declared=true a=0.005458053625 iy=4.820331818e-6 iz=1.861771868e-5 j=6.60247077e-7 shearAreas={"basis":"declared","asY":0.00193548,"asZ":0.00193548}
+section 2 name="MC10X8.4" declared=true a=0.001587093625 iy=1.327778232e-5 iz=1.356914468e-7 j=1.719035736e-8 shearAreas={"basis":"declared","asY":0.001096772031,"asZ":0.0003612896015}
 
 # Nodes: id x y z
 node 1 0 -6 5

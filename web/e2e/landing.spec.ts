@@ -799,7 +799,7 @@ test.describe('@landing the model the deck states', () => {
      * can drift.
      */
     const pricing = page.locator('section[data-section="pricing"]');
-    await expect(pricing).toContainText('gratuito para las universidades');
+    await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
 
     /*
      * And the table agrees. Every module is free for universities, and the
