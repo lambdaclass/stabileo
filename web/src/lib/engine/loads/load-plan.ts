@@ -44,6 +44,7 @@ import {
   applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
+import { expandCombinations } from './combination-cases';
 import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
 import { SERVICE_WIND_FACTOR, type ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import { snowLoadCases } from './snow-loads';
@@ -187,6 +188,11 @@ export interface LoadPlanInput {
    * §2.3.2 (the default), the characteristic service ones, or both.
    */
   combinationSet?: 'ultimate' | 'service' | 'both';
+  /**
+   * The project's own combination rules, as specs, in place of the regulation's when given
+   * (`combination-rules.ts`). They are expanded over the planned cases the same way.
+   */
+  projectCombinations?: LoadCombinationSpec[];
 }
 
 // ─── Plan ────────────────────────────────────────────────────────
@@ -850,13 +856,15 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
     const set = input.combinationSet ?? 'ultimate';
-    if (set !== 'service') {
+    if (input.projectCombinations) {
+      combinations = [...input.projectCombinations];
+    } else if (set !== 'service') {
       combinations = generateCombinations(ci);
       const exc = liveLoadFactorInCompanion(ci);
       if (exc.note) derivation.push(exc.note);
       refs.push(R101('2.3.2', 'combinaciones básicas'));
     }
-    if (set !== 'ultimate') combinations = [...combinations, ...generateServiceCombinations(ci)];
+    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...generateServiceCombinations(ci)];
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
@@ -879,15 +887,14 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 // ─── Delta, for the before/after preview ─────────────────────────
 
 /**
- * How many combinations applying the plan adds: a combination with a wind or seismic term
- * becomes one per direction the plan has a case for (`combination-cases.ts`).
+ * How many combinations applying the plan adds, counted by the same expansion the apply runs
+ * (`combination-cases.ts`): one per wind, service-wind or seismic case, twice for earthquake
+ * when both senses are asked for, and none for a spec naming a symbol the plan has no case of.
+ * Counting by hand left the service wind and the reversed earthquake out of the preview.
  */
-function plannedCombinationCount(plan: LoadPlan): number {
-  const per = (sym: string) => plan.cases.filter((c) => c.type === sym).length;
-  return plan.combinations.reduce((n, c) => {
-    const alt = c.terms.find((t) => t.factor !== 0 && (t.symbol === 'W' || t.symbol === 'E'));
-    return n + (alt ? Math.max(1, per(alt.symbol)) : 1);
-  }, 0);
+function plannedCombinationCount(plan: LoadPlan, bothSenses: boolean): number {
+  const cases = plan.cases.map((c, i) => ({ id: i, type: String(c.type), name: String(i) }));
+  return expandCombinations(plan.combinations, cases, { bothSenses: { E: bothSenses } }).length;
 }
 
 
@@ -964,9 +971,10 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean },
+  options: { replaceExisting: boolean; bothSenses?: boolean },
 ): PlanDelta {
   const replace = options.replaceExisting;
+  const plannedCombinations = plannedCombinationCount(plan, options.bothSenses ?? false);
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
   const beforeTypes = [...new Set(current.caseTypes)].sort();
   const added = afterTypes.filter((t) => !beforeTypes.includes(t));
@@ -1002,12 +1010,12 @@ export function describePlanDelta(
   const after = replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinationCount(plan), cases: afterTypes,
+        combinations: plannedCombinations, cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinationCount(plan),
+        combinations: current.combinations + plannedCombinations,
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 

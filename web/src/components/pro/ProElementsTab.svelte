@@ -2,7 +2,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
-  import NextMemberPicker from './NextMemberPicker.svelte';
+  import NextMemberFields from './NextMemberFields.svelte';
   import { nextMember } from '../../lib/store/next-member.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
@@ -144,7 +144,7 @@
   });
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.materialId ?? 1, sectionId: nextMember.sectionId ?? 1, hingeI: false, hingeJ: false }];
+    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.resolvedMaterialId, sectionId: nextMember.resolvedSectionId, hingeI: nextMember.endI === 'pinned', hingeJ: nextMember.endJ === 'pinned' }];
   }
 
   function commitRow(idx: number) {
@@ -264,7 +264,6 @@
 </script>
 
 <div class="pro-elems">
-  <NextMemberPicker />
   {#if uiStore.selectedElements.size > 0}
     <!-- What the selected members are told beyond geometry, section and material is edited in
          one place, Specifications › Members; this opens it on them. -->
@@ -274,8 +273,8 @@
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
-    <!-- "Draw a member" works the MODEL; "+ Member" adds a table row, and
-         belongs to the table, which is where Basic keeps it. -->
+    <!-- "Draw" works the MODEL; "Write" takes the two node ids. Both make the member the
+         fields in their card or bar describe (`NextMemberFields`). -->
     <div class="pro-elems-actions">
       <DrawInModelButton tool="element" label={t('pro.oneElement')} icon="element" testid="draw-element" />
       <WriteInPanelButton kind="element" label={t('pro.oneElement')} testid="write-element" />
@@ -353,10 +352,13 @@
     <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneElement')}`} submitLabel={`${t('pro.add')} ${t('pro.oneElement')}`} onsubmit={writeMember} error={wError} testid="write-element-card">
       <label>{t('pro.thNodeI')} <input class="wc-num" inputmode="numeric" bind:value={wI} placeholder="ID" data-testid="write-element-i" /></label>
       <label>{t('pro.thNodeJ')} <input class="wc-num" inputmode="numeric" bind:value={wJ} placeholder="ID" data-testid="write-element-j" /></label>
-      <select bind:value={uiStore.elementCreateType} aria-label={t('drawBar.memberType')}>
-        <option value="frame">{t('table.frame')}</option>
-        <option value="truss">{t('table.truss')}</option>
-      </select>
+      <label>{t('pro.thType')}
+        <select bind:value={uiStore.elementCreateType} data-testid="write-element-type">
+          <option value="frame">{t('table.frame')}</option>
+          <option value="truss">{t('table.truss')}</option>
+        </select>
+      </label>
+      <NextMemberFields />
     </WriteCard>
   {/if}
 
@@ -449,9 +451,6 @@
         {/if}
       </tbody>
     </table>
-    <div class="pro-table-footer">
-      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-element">{t('pro.addElement')}</button>
-    </div>
   </div>
 
   <!--
@@ -579,7 +578,6 @@
     flex-direction: column;
     gap: 6px;
   }
-  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-arc-fields { display: flex; gap: 8px; }
   .pro-arc-field { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }

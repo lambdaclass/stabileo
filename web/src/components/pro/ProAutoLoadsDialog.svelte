@@ -20,6 +20,8 @@
   import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import ProSnowSection from './ProSnowSection.svelte';
+  import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
+  import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
@@ -42,7 +44,7 @@
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
   /** Which load the reader came in to define. */
-  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'snow' | 'seismic';
+  export type AutoLoadFocus = 'dead' | 'live' | 'wind' | 'snow' | 'seismic' | 'combos';
 
   interface Props {
     open: boolean;
@@ -160,6 +162,10 @@
   let comboSet = $state<'ultimate' | 'service' | 'both'>('ultimate');
   /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
   let bothSenses = $state(true);
+  /** Where the combinations come from: the regulation, or the project's rules. */
+  let comboSource = $state<ComboSource>('regulation');
+  /** Loads, or combinations: two tabs, one Preview and Apply for both. */
+  let tab = $state<'loads' | 'combos'>('loads');
   let clearExisting = $state(false);
 
   /* The fieldsets, so a focused open can bring one into view. */
@@ -171,6 +177,8 @@
 
   $effect(() => {
     if (!open || !focus) return;
+    tab = focus === 'combos' ? 'combos' : 'loads';
+    if (focus === 'combos') return;
     /* Turning the section ON is the point: arriving at a disabled wind block from a
        row that says "W" is arriving nowhere. */
     if (focus === 'wind' && windAvailable) enableWind = true;
@@ -245,6 +253,8 @@
       } : undefined,
       generateCombinations: genCombos,
       combinationSet: comboSet,
+      projectCombinations: comboSource === 'project' && modelStore.combinationRules.length > 0
+        ? modelStore.combinationRules.map(ruleToSpec) : undefined,
     };
   }
 
@@ -290,7 +300,7 @@
     plan = p;
     // The flag has to go in: the same plan produces a different model depending on it, and
     // reporting the plan's own counts as "after" was the defect the audit caught.
-    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting });
+    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses });
   }
 
   /**
@@ -324,7 +334,7 @@
   function onClearExistingChange(next: boolean) {
     clearExisting = next;
     if (plan && plan.outcome === 'READY') {
-      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next });
+      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses });
     }
   }
 
@@ -412,7 +422,16 @@
       <button class="al-close" onclick={onclose}>&times;</button>
     </div>
 
+    <div class="al-tabs" role="tablist">
+      {#each [['loads', 'autoLoad.tabLoads'], ['combos', 'autoLoad.tabCombos']] as const as [k, key] (k)}
+        <button role="tab" class="al-tab" class:on={tab === k} aria-selected={tab === k} onclick={() => (tab = k)} data-testid="al-tab-{k}">{t(key)}</button>
+      {/each}
+    </div>
+
     <div class="al-body">
+      {#if tab === 'combos'}
+        <ProAutoLoadsCombos bind:generate={genCombos} bind:source={comboSource} bind:set={comboSet} bind:bothSenses />
+      {:else}
       <!-- Which regulations these loads come from. Selection lives in Project
            Regulations; this surface states what is bound and whether it is pending. -->
       <fieldset class="al-fieldset" data-testid="al-regulations">
@@ -708,17 +727,6 @@
       <!-- Options -->
       <fieldset class="al-fieldset">
         <legend>{t('autoLoad.options')}</legend>
-        <label class="al-check"><input type="checkbox" bind:checked={genCombos} data-testid="al-gen-combos" /> {t('autoLoad.genCombos')}</label>
-        {#if genCombos}
-          <div class="al-row al-comboset" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">
-            <span>{t('autoLoad.comboSet')}</span>
-            {#each ['ultimate', 'service', 'both'] as const as k (k)}
-              <label><input type="radio" name="al-combo-set" value={k} bind:group={comboSet} data-testid="al-combo-set-{k}" /> {t(`autoLoad.comboSet.${k}`)}</label>
-            {/each}
-          </div>
-          {#if comboSet !== 'ultimate'}<p class="al-hint">{t('autoLoad.comboSetServiceHint')}</p>{/if}
-          <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('combos.bothSenses')}</label>
-        {/if}
         <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
           onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
         <label class="al-check">
@@ -742,6 +750,7 @@
           </select>
         </div>
       </fieldset>
+      {/if}
     </div>
 
     {#if plan}
@@ -862,8 +871,7 @@
   .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
   .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
   .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
-  .al-comboset { flex-wrap: wrap; padding-left: 1.3rem; }
-  .al-hint { margin: 0.1rem 0 0.3rem 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
+    .al-hint { margin: 0.1rem 0 0.3rem 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
   .al-row label { min-width: 11rem; }
   .al-seismic-preview { margin-top: 6px; font-size: 0.78rem; opacity: 0.9; }
   .al-link { background: none; border:  none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }
@@ -884,6 +892,13 @@
   .al-close { background: none; border:  none; color: var(--st-text-3); font-size: 22px; cursor: pointer; }
   .al-close:hover { color: var(--st-text); }
   .al-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+  .al-tabs { display: flex; gap: 2px; padding: 8px 18px 0; border-bottom: 1px solid var(--st-surface-3); }
+  .al-tab {
+    padding: 6px 12px; background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--st-text-3); font: inherit; font-size: 12px; cursor: pointer; margin-bottom: -1px;
+  }
+  .al-tab:hover { color: var(--st-text); }
+  .al-tab.on { color: var(--st-text); border-bottom-color: var(--st-accent); }
   .al-fieldset {
     border: 1px solid var(--st-surface-3); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
   }

@@ -17,6 +17,9 @@ async function openLoads(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-loads').click();
   await expect(page.getByTestId('analysis-rules')).toBeVisible();
+  // The self-weight is one closed row until it is opened.
+  await expect(page.getByTestId('sw-row')).toHaveCount(0);
+  await page.getByTestId('sw-toggle').click();
 }
 
 const rules = (page: Page) => page.evaluate(() => window.__stabileo.analysisSettings());

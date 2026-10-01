@@ -41,8 +41,8 @@
   /** New members take the next-member choice, falling back to the model's first. */
   const spec = $derived({
     type: uiStore.elementCreateType,
-    materialId: nextMember.materialId ?? [...modelStore.materials.keys()][0] ?? 1,
-    sectionId: nextMember.sectionId ?? [...modelStore.sections.keys()][0] ?? 1,
+    materialId: nextMember.resolvedMaterialId,
+    sectionId: nextMember.resolvedSectionId,
   });
   const selNodes = $derived([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
   const designDocs = $derived.by(() => { void modelStore.modelVersion; return designDocumentFields(); });

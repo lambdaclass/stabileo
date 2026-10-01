@@ -1867,7 +1867,7 @@
     if (nodeId === start) return; // same node
 
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
+    // The next-member choice (section, material, ends) applies to what is drawn here. PRO sets it.
     const elemId = nextMember.add(start, nodeId, uiStore.elementCreateType);
     uiStore.selectElement(elemId, false);
     uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');

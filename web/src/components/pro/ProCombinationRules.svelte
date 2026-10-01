@@ -4,6 +4,10 @@
    * expanded onto the load cases by the same generator as the regulation's
    * (`engine/loads/combination-rules.ts`). A set can start from CIRSOC 101 and travel between
    * projects as a template file.
+   *
+   * It lives in the regulation dialog's Combinations tab, beside the regulation's set, because
+   * that is the choice it is: which combinations the loads are combined with. The Loads tab
+   * uses the same rules over the cases already in the model.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -15,9 +19,6 @@
     RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
   import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
-
-  interface Props { onGenerate: () => void }
-  let { onGenerate }: Props = $props();
 
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
@@ -70,9 +71,9 @@
   }
 </script>
 
-<details class="cr" data-testid="combo-rules">
-  <summary>{tp('combos.rules.title', { n: rules.length })}</summary>
+<div class="cr" data-testid="combo-rules">
   <p class="cr-hint">{t('combos.rules.hint')}</p>
+  {#if rules.length === 0}<p class="cr-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
       <table class="cr-table">
@@ -102,18 +103,16 @@
     </div>
   {/if}
   <div class="cr-row">
-    <button class="pro-btn" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
-    <button class="pro-btn" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
-    <button class="pro-btn pro-btn-accent" disabled={rules.length === 0} onclick={onGenerate} data-testid="combo-rule-generate">{t('combos.rules.generate')}</button>
-    <button class="pro-btn" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
-    <button class="pro-btn" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
+    <button class="pk-btn" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
+    <button class="pk-btn" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
+    <button class="pk-btn" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
+    <button class="pk-btn" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />
   </div>
-</details>
+</div>
 
 <style>
-  .cr { margin: 6px 0; font-size: 0.66rem; color: var(--st-text-2); }
-  .cr summary { cursor: pointer; }
+  .cr { font-size: 0.68rem; color: var(--st-text-2); }
   .cr-hint { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
   .cr-wrap { overflow-x: auto; }
   .cr-table { border-collapse: collapse; }

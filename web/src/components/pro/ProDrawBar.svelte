@@ -10,10 +10,10 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { nextMember } from '../../lib/store/next-member.svelte';
   import { supportTypeOptions } from '../../lib/pro/support-types';
   import { t, tp } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
+  import NextMemberFields from './NextMemberFields.svelte';
 
   const pick = $derived(uiStore.shellNodePick);
   const drawingPlate = $derived(pick.target === 'quad' && (pick.active || pick.picked.length > 0));
@@ -41,10 +41,8 @@
 
   const levelAxis = $derived(({ XY: 'Z', XZ: 'Y', YZ: 'X' } as const)[uiStore.workingPlane]);
   const materials = $derived([...modelStore.materials.values()]);
-  const sections = $derived([...modelStore.sections.values()]);
   const supportTypes = $derived(supportTypeOptions(true, t));
   const cases = $derived(modelStore.loadCases);
-  const parseId = (v: string) => (v === '' ? null : Number(v));
   const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0;
 
   function undoCorner() {
@@ -75,14 +73,7 @@
           <button class:on={uiStore.elementCreateType === 'frame'} aria-pressed={uiStore.elementCreateType === 'frame'} onclick={() => (uiStore.elementCreateType = 'frame')}>{t('table.frame')}</button>
           <button class:on={uiStore.elementCreateType === 'truss'} aria-pressed={uiStore.elementCreateType === 'truss'} onclick={() => (uiStore.elementCreateType = 'truss')}>{t('table.truss')}</button>
         </div>
-        <select value={nextMember.materialId ?? ''} onchange={(e) => (nextMember.materialId = parseId(e.currentTarget.value))} aria-label={t('nextMember.material')}>
-          <option value="">{t('nextMember.default')}</option>
-          {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-        </select>
-        <select value={nextMember.sectionId ?? ''} onchange={(e) => (nextMember.sectionId = parseId(e.currentTarget.value))} aria-label={t('nextMember.section')}>
-          <option value="">{t('nextMember.default')}</option>
-          {#each sections as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
-        </select>
+        <NextMemberFields />
         <label class="db-check" title={t('drawBar.chainHint')}>
           <input type="checkbox" bind:checked={drawState.memberChain} data-testid="draw-chain" /> {t('drawBar.chain')}
         </label>

@@ -147,3 +147,46 @@ test('Write node, member and support add from the panel, Enter by Enter', async 
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await census(page)).supports).toBe(7);
 });
+
+test('the next member is described where it is made: section, material and ends, named and one width', async ({ pro: page }) => {
+  await open(page, 'elements');
+  // No separate "next member" line in the panel any more.
+  await expect(page.locator('.pro-elems > [data-testid="next-member"]')).toHaveCount(0);
+
+  await page.getByTestId('write-element').click();
+  const card = page.getByTestId('write-element-card');
+  for (const id of ['nm-section', 'nm-material', 'nm-end-i', 'nm-end-j']) await expect(card.getByTestId(id)).toBeVisible();
+  // Each picker says what it picks, and shows the model's own name rather than a placeholder.
+  await expect(card.getByText('Section', { exact: true })).toBeVisible();
+  await expect(card.getByText('Material', { exact: true })).toBeVisible();
+  await expect(card.getByTestId('nm-section').locator('option:checked')).not.toHaveText(/default/i);
+  const widths = await Promise.all(['nm-section', 'nm-material', 'nm-end-i', 'nm-end-j']
+    .map(async (id) => Math.round((await card.getByTestId(id).boundingBox())!.width)));
+  expect(new Set(widths).size, `widths ${widths}`).toBe(1);
+
+  await card.getByTestId('nm-end-j').selectOption('pinned');
+  await page.getByTestId('write-element-i').fill('5');
+  await page.getByTestId('write-element-j').fill('7');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await census(page)).elements).toBe(9);
+  const made = await page.evaluate(() => window.__stabileo.entityData('element', 9) as { releaseI?: { my?: boolean }; releaseJ?: { my?: boolean; mz?: boolean } });
+  expect(made.releaseJ).toMatchObject({ my: true, mz: true });
+  expect(made.releaseI?.my ?? false).toBe(false);
+
+  // Drawing offers the same four, in the bar, and a truss is not asked for its ends.
+  await page.getByTestId('draw-element').click();
+  const bar = page.getByTestId('pro-draw-bar');
+  await expect(bar.getByTestId('nm-end-j')).toHaveValue('pinned');
+  await bar.getByRole('button', { name: 'Truss' }).click();
+  await expect(bar.getByTestId('nm-end-i')).toHaveCount(0);
+  await expect(bar.getByTestId('nm-section')).toBeVisible();
+});
+
+test('the tables add rows by writing, not by a footer button', async ({ pro: page }) => {
+  await open(page, 'nodes');
+  await expect(page.getByTestId('pro-add-node')).toHaveCount(0);
+  await expect(page.getByTestId('write-node')).toBeVisible();
+  await open(page, 'elements');
+  await expect(page.getByTestId('pro-add-element')).toHaveCount(0);
+  await expect(page.getByTestId('write-element')).toBeVisible();
+});

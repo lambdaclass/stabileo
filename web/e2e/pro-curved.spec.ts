@@ -24,18 +24,16 @@ test.describe('@smoke PRO — curved geometry', () => {
     await page.getByTestId('pr-cmd-nodes').click();
 
     // Three nodes by coordinate — the flow this panel exists for.
+    await page.getByTestId('write-node').click();
     const add = async (x: number, y: number, z: number) => {
-      await page.getByTestId('pro-add-node').click();
-      const row = page.locator('.pro-nodes-table tbody tr').last();
-      await row.locator('input[data-col="x"]').fill(String(x));
-      await row.locator('input[data-col="y"]').fill(String(y));
-      await row.locator('input[data-col="z"]').fill(String(z));
-      await row.locator('input[data-col="z"]').blur();
+      await page.getByTestId('write-node-x').fill(String(x));
+      await page.getByTestId('write-node-y').fill(String(y));
+      await page.getByTestId('write-node-z').fill(String(z));
+      await page.getByTestId('write-node-card-submit').click();
     };
     await add(-5, 0, 0);
     await add(0, 0, 5);
     await add(5, 0, 0);
-    await page.getByTestId('pro-apply-nodes').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(3);
 
     await page.getByTestId('pr-cmd-elements').click();

@@ -189,12 +189,10 @@
   <div class="pro-nodes-header">
     <span class="pro-nodes-count">{t('pro.nNodes').replace('{n}', String(nodeCount))}</span>
     <!--
-      ── Two different verbs, two different places ──────────────────────
-      "Draw a node" puts the pointer to work in the MODEL, so it sits at the
-      top with the other things you do to this kind of entity. "+ Node" adds
-      a ROW to the table, so it belongs to the table — which is where Basic
-      has always kept it. They were side by side and both read as "make a
-      node", leaving the reader to discover which one used the mouse.
+      ── Two ways to make a node, side by side ─────────────────────────
+      "Draw" puts the pointer to work in the MODEL; "Write" opens a card for
+      the coordinates. The table's own "+ Node" row did what "Write" does,
+      less precisely, so it went; Enter on the last row still adds one.
     -->
     <div class="pro-nodes-actions">
       <DrawInModelButton tool="node" label={t('pro.oneNode')} icon="node" testid="draw-node" />
@@ -285,9 +283,6 @@
       </tbody>
     </table>
     <!-- Adding a ROW belongs to the table, which is where Basic keeps it. -->
-    <div class="pro-table-footer">
-      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-node">{t('pro.addNode')}</button>
-    </div>
   </div>
 </div>
 
@@ -366,7 +361,6 @@
     flex-shrink: 0;
   }
 
-  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-nodes-table-wrap {
     flex: 1;

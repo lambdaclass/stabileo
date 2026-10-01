@@ -14,17 +14,26 @@ export interface CombinationRule {
   terms: CombinationTerm[];
 }
 
-export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'E', 'F', 'H', 'T'];
+/** The symbols a rule can name; Wa is the service-level wind of B.4.2. */
+export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
-/** The rule's formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L`). */
-export function ruleLabel(rule: CombinationRule): string {
-  const t = rule.terms.filter((x) => x.factor !== 0);
+/**
+ * Terms as a formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L − 1.0 W`):
+ * one decimal at least, more when the factor has them.
+ */
+export function termsLabel(terms: ReadonlyArray<{ label: string; factor: number }>): string {
+  const t = terms.filter((x) => x.factor !== 0);
   if (t.length === 0) return '—';
   return t.map((x, i) => {
     const f = Math.abs(x.factor);
     const sign = x.factor < 0 ? (i === 0 ? '−' : ' − ') : i === 0 ? '' : ' + ';
-    return `${sign}${Number.isInteger(f) ? f.toFixed(1) : String(+f.toFixed(3))} ${x.symbol}`;
+    return `${sign}${Number.isInteger(f) ? f.toFixed(1) : String(+f.toFixed(3))} ${x.label}`;
   }).join('');
+}
+
+/** The rule's formula (`1.2 D + 1.6 L`). */
+export function ruleLabel(rule: CombinationRule): string {
+  return termsLabel(rule.terms.map((x) => ({ label: x.symbol, factor: x.factor })));
 }
 
 export function ruleToSpec(rule: CombinationRule): LoadCombinationSpec {
