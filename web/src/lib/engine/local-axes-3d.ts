@@ -13,6 +13,18 @@ export interface LocalAxes3D {
   L: number;                     // element length
 }
 
+/**
+ * The roll a member's local axes take, in degrees: its own roll angle and its section's
+ * rotation, which the solver input composes into one. A check that predicts the solve's axes
+ * reads this, or it judges a member the solve sees turned.
+ */
+export function memberRoll(
+  e: { rollAngle?: number; sectionId: number },
+  sections: ReadonlyMap<number, { rotation?: number }> | undefined,
+): number {
+  return (e.rollAngle ?? 0) + (sections?.get(e.sectionId)?.rotation ?? 0);
+}
+
 /** Global up (Z) — the auto-orient reference: local z aligns with up. */
 export const AUTO_ORIENT_UP_REFERENCE: [number, number, number] = [0, 0, 1];
 /** Stable horizontal fallback (global X) for near-vertical (column) members. */

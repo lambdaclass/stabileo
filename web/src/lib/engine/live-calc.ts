@@ -232,7 +232,6 @@ async function ensureWasmReady(context: string): Promise<void> {
  *  Lives in `solve-diagnostics.ts` so Education shares the same reporting. */
 const showSolverWarningToasts = reportSolverDiagnostics;
 
-/** Detect if an error message is mechanism/hipostatic-related */
 /**
  * The action a failed solve's message offers. When members pass nodes they are not cut at,
  * which is how a first model usually falls apart, the fix is one command away and the message
@@ -243,6 +242,7 @@ function solveErrorAction(msg: string): string | undefined {
   return isMechanismError(msg) ? 'kinematic' : undefined;
 }
 
+/** Detect if an error message is mechanism/hipostatic-related */
 function isMechanismError(msg: string): boolean {
   const lc = msg.toLowerCase();
   return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')

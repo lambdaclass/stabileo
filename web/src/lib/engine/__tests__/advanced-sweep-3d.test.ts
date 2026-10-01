@@ -970,6 +970,8 @@ describe('edge cases', () => {
     const r = everything();
     const st = (r.st as { value: unknown }).value;
     expect(typeof st).toBe('string');
+    // Refused as not connected, not as a mechanism: that is what sends the user to the stray node.
+    expect(st).toMatch(/not connected|no está conectado/i);
     for (const o of [r.pd, r.bk, r.md]) {
       expect(o!.ok).toBe(false);
       expect((o as { msg: string }).msg).toBe(st);

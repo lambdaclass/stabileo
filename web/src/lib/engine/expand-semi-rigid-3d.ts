@@ -13,7 +13,7 @@
 import type { SolverInput3D } from './types-3d';
 import type { Constraint3D } from './types-3d';
 import type { Element } from '../store/model.svelte';
-import { computeLocalAxes3D } from './local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 
 export interface SemiRigidEnd { ky: number; kz: number }
 export interface SemiRigid { i?: SemiRigidEnd; j?: SemiRigidEnd }
@@ -54,14 +54,18 @@ function bendingAxes(nI: P3, nJ: P3, e: Axes): { ay: number; az: number } | null
 
 /**
  * The members whose semi-rigid ends a solve refuses (`SemiRigidError`), because their bending axes do not lie along
- * global axes (see the header). The model check reports them before a solve.
+ * global axes (see the header). The model check reports them before a solve, so it reads the axes the solve reads:
+ * the member's roll with its section's rotation (`memberRoll`, as the solver input composes them). The member's
+ * roll alone passed a member along X on a section turned 30°, which the solve then refused.
  */
-export function semiRigidNotAligned(elements: Iterable<Element>, nodes: ReadonlyMap<number, P3>): number[] {
+export function semiRigidNotAligned(
+  elements: Iterable<Element>, nodes: ReadonlyMap<number, P3>, sections: ReadonlyMap<number, { rotation?: number }>,
+): number[] {
   const out: number[] = [];
   for (const e of elements) {
     if (!e.semiRigid?.i && !e.semiRigid?.j) continue;
     const nI = nodes.get(e.nodeI), nJ = nodes.get(e.nodeJ);
-    if (nI && nJ && !bendingAxes(nI, nJ, e as Axes)) out.push(e.id);
+    if (nI && nJ && !bendingAxes(nI, nJ, { ...(e as Axes), rollAngle: memberRoll(e, sections) })) out.push(e.id);
   }
   return out.sort((a, b) => a - b);
 }

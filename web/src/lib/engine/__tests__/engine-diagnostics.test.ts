@@ -31,7 +31,7 @@ describe('semi-rigid ends', () => {
   beforeEach(() => { modelStore.clear(); });
   const m = () => ({ ...modelStore.model, loads: modelStore.loads as never });
 
-  it('on a sloped member they are reported as solved rigid; on a level beam they are not', () => {
+  it('on a sloped member they are named before the solve refuses them; on a level beam they are not', () => {
     const a = modelStore.addNode(0, 0, 4), b = modelStore.addNode(5, 0, 4), c = modelStore.addNode(10, 0, 5);
     const beam = modelStore.addElement(a, b, 'frame');
     const rafter = modelStore.addElement(b, c, 'frame');

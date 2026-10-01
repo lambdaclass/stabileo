@@ -43,6 +43,8 @@
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
+  // The SSI and Winkler wrappers return the engine's answer as is; whoever shows it finishes it.
+  import { finishSolve3D } from '../../lib/engine/solve-finish';
   // Every solver below is a WASM export that throws a bare string, which has no
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
@@ -551,7 +553,10 @@
         })),
       });
       // The Winkler export returns AnalysisResults3D directly — reading
-      // `res.results` meant the solve never reached the viewport.
+      // `res.results` meant the solve never reached the viewport. The engine
+      // solved the nodal loads a truss member's load becomes; finishing gives
+      // the axial part back to the member, as every other solve does.
+      if (res.elementForces) finishSolve3D(res, input);
       winklerResult = res;
       if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
@@ -620,6 +625,9 @@
         maxIter: ssiMaxIter,
         tolerance: ssiTolerance,
       });
+      // As Winkler: the engine's member forces miss the axial share of a truss
+      // member's load until it is given back.
+      if (res.results) finishSolve3D(res.results, input);
       ssiResult = res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {

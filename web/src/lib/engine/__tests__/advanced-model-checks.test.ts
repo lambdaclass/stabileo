@@ -265,7 +265,10 @@ describe('3D D10 / D3 / D6 / D9 — the static solve\'s refusal, from every anal
       modelStore.addNodalLoad3D(b, 1, 0, -10, 0, 0, 0);
       modelStore.addNodalLoad3D(c, 0, 0, -1, 0, 0, 0);
     });
-    expect(typeof staticSolve3D()).toBe('string');
+    const st = staticSolve3D();
+    expect(typeof st).toBe('string');
+    // Refused as not connected, not as a mechanism: that is what sends the user to the stray node.
+    expect(st).toMatch(/not connected|no está conectado/i);
     refusedAlike();
   });
   it('D10: a stray node with nothing on it is left out, and the rest solves', () => {

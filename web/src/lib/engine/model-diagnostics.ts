@@ -118,10 +118,10 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   }
 
   // ─── Semi-rigid ends the solve cannot honour ───
-  // Their connector acts in global axes; a member whose bending axes are not global ones keeps
-  // its ends rigid, which a reader has to know before trusting the result.
-  const rigidAnyway = semiRigidNotAligned(m.elements.values(), m.nodes);
-  if (rigidAnyway.length) out.push(diag('warning', 'MODEL_SEMIRIGID_NOT_ALIGNED', 'diag.model.semiRigidNotAligned', { elementIds: rigidAnyway }));
+  // Their connector acts in global axes; a member whose bending axes are not global ones has its
+  // semi-rigid ends refused by the solve, so it is named here first.
+  const refused = semiRigidNotAligned(m.elements.values(), m.nodes, m.sections);
+  if (refused.length) out.push(diag('warning', 'MODEL_SEMIRIGID_NOT_ALIGNED', 'diag.model.semiRigidNotAligned', { elementIds: refused }));
 
   // ─── Coincident nodes ──────────────────────────
   // Flag at the weld tolerance the clean-up merges at — `weldTolerance()`, the one every weld

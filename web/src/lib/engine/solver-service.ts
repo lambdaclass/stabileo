@@ -15,7 +15,7 @@ import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
-import { computeLocalAxes3D } from './local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
@@ -1615,9 +1615,7 @@ export function buildSolverInput3D(
         }
       }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z
-      const sec = model.sections.get(e.sectionId);
-      const secRot = sec?.rotation ?? 0;
-      const effectiveRoll = (e.rollAngle ?? 0) + secRot;
+      const effectiveRoll = memberRoll(e, model.sections);
       if (effectiveRoll !== 0) { elem.rollAngle = effectiveRoll; }
       return [id, elem];
     })),
@@ -2514,7 +2512,6 @@ export async function solveCombinations3DParallel(
    * the workers.
    */
   const done = async (): Promise<Bundle3D | string | null> => {
-    if (model.analysis?.perCombination === 'pdelta' && !hasNonlinearBehaviour(model)) return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
