@@ -172,8 +172,10 @@ test.describe('@smoke PRO plates and dynamics', () => {
 
   test('advanced analyses refuse semi-rigid ends instead of treating them as rigid', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
+    // Semi-rigid ends are set under Model › Specifications, members section (its default).
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-elements').click();
+    await page.getByTestId('pr-cmd-specifications').click();
+    await expect(page.getByTestId('spec-tab')).toBeVisible();
     await page.evaluate(() => window.__stabileoActions.selectElements([1]));
     await page.getByTestId('mb-semi-i-on').check();
     await page.getByTestId('pr-stage-analyse').click();

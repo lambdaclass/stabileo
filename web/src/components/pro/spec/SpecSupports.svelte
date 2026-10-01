@@ -11,7 +11,7 @@
   import ProSupportEditor from '../ProSupportEditor.svelte';
   import ProFoundationSprings from '../ProFoundationSprings.svelte';
 
-  const is3D = $derived(uiStore.analysisMode !== '2d');
+  const is3D = $derived(uiStore.is3DWorkspace);
   const types = $derived(supportTypeOptions(is3D, t));
   const selected = $derived([...uiStore.selectedSupports].map((id) => modelStore.supports.get(id)).filter((s): s is Support => !!s));
   const same = <T,>(f: (s: Support) => T): T | undefined => {
