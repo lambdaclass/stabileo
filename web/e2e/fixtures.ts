@@ -276,11 +276,19 @@ export async function loadModel(page: Page, name: string): Promise<number[]> {
   return page.evaluate(() => window.__stabileo.elementIds());
 }
 
-/** Solve, then run the three design commands. Returns the run counts. */
+/**
+ * Solve, then run the three design commands. Returns the run counts.
+ *
+ * The wait is the one `project-restore.spec.ts` gives the same command. Polling's default 10 s
+ * covered the 7-storey building, not the 408-member frame `rebar-workspace-notices.spec.ts`
+ * prepares: on CI its design outlasted the 10 s and failed the preparation of every test in
+ * that file (the attempt that got through took 43.7 s for solve and design together).
+ */
 export async function designAll(page: Page): Promise<Record<string, number>> {
   await solveModel(page);
   await page.evaluate(() => window.__stabileoActions.designAll());
-  await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
+    { timeout: 180_000 }).toBeGreaterThan(0);
   return (await page.evaluate(() => window.__stabileo.runCounts()))!;
 }
 
