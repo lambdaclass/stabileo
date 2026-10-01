@@ -17,7 +17,7 @@
   import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
   import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
-  import type { WindCaseSet } from '../../lib/engine/loads/wind-cases';
+  import { WIND_DIRECTIONS, type WindCaseSet, type WindDirection } from '../../lib/engine/loads/wind-cases';
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import ProSnowSection from './ProSnowSection.svelte';
   import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
@@ -150,10 +150,9 @@
   let windKztSurveyed = $state(false);
   let windRoofSlope = $state(0);
   let windRigid = $state(true);
-  let windDirX = $state(true);
-  let windDirZ = $state(false);
+  /** The wind directions to generate: all four unless the reader narrows them (`wind-cases.ts`). */
+  let windDirs = $state<WindDirection[]>([...WIND_DIRECTIONS]);
   let windCaseSet = $state<WindCaseSet>('all');
-  let windBothSenses = $state(true);
   let windService = $state<{ enabled: boolean; v50: number; mri: ServiceRecurrence }>({ enabled: false, v50: 0, mri: 10 });
 
   // ─── Options ───────────────────────────
@@ -230,8 +229,8 @@
         enclosure: windEnclosure, siteAltitudeM: windAltitude,
         kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, rigid: windRigid,
-        directions: { x: windDirX, y: windDirZ },
-        caseSet: windCaseSet, bothSenses: windBothSenses,
+        directions: { x: windDirs.some((d) => d.endsWith('x')), y: windDirs.some((d) => d.endsWith('y')) },
+        caseSet: windCaseSet, senses: [...windDirs],
         service: windService.enabled ? { ...windService } : undefined,
       } : undefined,
       snow: snowCfg.enabled ? {
@@ -434,322 +433,289 @@
       {:else}
       <!-- Which regulations these loads come from. Selection lives in Project
            Regulations; this surface states what is bound and whether it is pending. -->
-      <fieldset class="al-fieldset" data-testid="al-regulations">
-        <legend>{t('autoLoad.appliedRegulations')}</legend>
-        <ul class="al-regs">
-          {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','snow','seismic'].includes(s.role)) as st (st.role)}
-            <li>
-              <span class="al-reg-role">{t(`regulations.role.${st.role}`)}</span>
-              <span class="al-reg-name">{te(st.label)}</span>
-              <span class="al-reg-state al-state-{st.state}">{t(`regulations.state.${st.state}`)}</span>
-            </li>
-          {/each}
-        </ul>
-        {#if regulationsStore.pendingNeedsLoadRegeneration}
-          <p class="al-warn" data-testid="al-pending-banner">{t('autoLoad.pendingRegulation')}</p>
-        {/if}
-      </fieldset>
-
-      <!-- Dead Loads -->
-      <fieldset class="al-fieldset" bind:this={deadFieldset} data-testid="al-dead-section">
-        <legend>{t('autoLoad.deadLoads')} ({totalDead.toFixed(2)} kN/m²)</legend>
-        <ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} />
-      </fieldset>
-
-      <!-- Live Loads -->
-      <fieldset class="al-fieldset" bind:this={liveFieldset} data-testid="al-live-section">
-        <legend>{t('autoLoad.liveLoads')} ({occupancyQ} kN/m²)</legend>
-        <select bind:value={selectedOccupancy} class="al-select">
-          {#each OCCUPANCY_TABLE_2025 as occ}
-            <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` — ${occ.uniformKNm2} kN/m²` : ''}</option>
-          {/each}
-        </select>
-      </fieldset>
-
-      <!-- Seismic -->
-      <fieldset class="al-fieldset" bind:this={seismicFieldset} data-testid="al-seismic-section">
-        <legend>
-          <label class="al-check-legend">
-            <input type="checkbox" bind:checked={enableSeismic}
-                   disabled={!seismicAvailable} data-testid="al-enable-seismic" />
-            {t('autoLoad.seismic')} ({te(bindingLabel(regulationsStore.binding('seismic')))})
-          </label>
-        </legend>
-        {#if !seismicAvailable}
-          <!-- Why it is disabled, and where to fix it. A disabled control with no
-               explanation is the defect this whole repair exists to remove. -->
-          <p class="al-warn" data-testid="al-seismic-unavailable">
-            {t('autoLoad.seismicNeedsRole')}
-            <button class="al-link" data-testid="al-goto-regulations"
-                    onclick={() => { proNav.openRegulations(); onclose(); }}>
-              {t('autoLoad.openRegulations')}
-            </button>
-          </p>
-        {/if}
-        {#if enableSeismic && seismicAvailable}
-          <div class="al-grid">
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.zone')}</label>
-              <select bind:value={seismicZone} class="al-select-sm">
-                <option value={4}>4 — {t('autoLoad.zoneVeryHigh')}</option>
-                <option value={3}>3 — {t('autoLoad.zoneHigh')}</option>
-                <option value={2}>2 — {t('autoLoad.zoneModerate')}</option>
-                <option value={1}>1 — {t('autoLoad.zoneLow')}</option>
-                <option value={0}>0 — {t('autoLoad.zoneNone')}</option>
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label" for="al-site">{t('autoLoad.site')}</label>
-              <select id="al-site" bind:value={siteClass} class="al-select-sm" data-testid="al-site">
-                <option value="SA">SA — {t('autoLoad.soilSA')}</option>
-                <option value="SB">SB — {t('autoLoad.soilSB')}</option>
-                <option value="SC">SC — {t('autoLoad.soilSC')}</option>
-                <option value="SD">SD — {t('autoLoad.soilSD')}</option>
-                <option value="SE">SE — {t('autoLoad.soilSE')}</option>
-                <option value="SF">SF — {t('autoLoad.soilSF')}</option>
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label" for="al-group">{t('autoLoad.importance')}</label>
-              <select id="al-group" bind:value={destinationGroup} class="al-select-sm" data-testid="al-group">
-                <option value="Ao">Ao (γr={RISK_FACTOR.Ao}) — {t('autoLoad.impEssential')}</option>
-                <option value="A">A (γr={RISK_FACTOR.A}) — {t('autoLoad.impImportant')}</option>
-                <option value="B">B (γr={RISK_FACTOR.B}) — {t('autoLoad.impNormal')}</option>
-                <option value="C">C (γr={RISK_FACTOR.C}) — {t('autoLoad.impLow')}</option>
-              </select>
-            </div>
-            <!--
-              Two different classifications, and they are not the same list: Tabla 5.1
-              says how ductile the system is (R), Tabla 6.2 says how stiff it is (Ta).
-              A concrete frame is row 2 in one and `concreteMomentFrame` in the other,
-              and collapsing them into one control would silently pick a row.
-            -->
-            <div class="al-field al-field-wide">
-              <label class="al-label" for="al-system">{t('autoLoad.system')}</label>
-              <select id="al-system" bind:value={systemKey} class="al-select-sm" data-testid="al-system">
-                {#each BEHAVIOUR_TABLE_2018 as sys (sys.key)}
-                  <option value={sys.key}>
-                    {sys.row}. {t(sys.labelKey)}{sys.r !== null ? ` — R = ${sys.r}` : ` — ${t('autoLoad.rFormula')}`}
-                  </option>
-                {/each}
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label" for="al-period-system">{t('autoLoad.periodSystem')}</label>
-              <select id="al-period-system" bind:value={periodSystem} class="al-select-sm" data-testid="al-period-system">
-                <option value="concreteMomentFrame">{t('autoLoad.sysRCFrame')}</option>
-                <option value="steelMomentFrame">{t('autoLoad.sysSteelFrame')}</option>
-                <option value="steelEccentricOrBRB">{t('autoLoad.sysSteelBraced')}</option>
-                <option value="other">{t('autoLoad.sysOther')}</option>
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label" for="al-occupancy-f1">{t('autoLoad.simultaneity')}</label>
-              <select id="al-occupancy-f1" bind:value={seismicOccupancy} class="al-select-sm" data-testid="al-f1">
-                <option value="exceptional">{t('autoLoad.f1Exceptional')} — f1 = 0</option>
-                <option value="reduced">{t('autoLoad.f1Reduced')} — f1 = 0,25</option>
-                <option value="intermediate">{t('autoLoad.f1Intermediate')} — f1 = 0,50</option>
-                <option value="high">{t('autoLoad.f1High')} — f1 = 0,75</option>
-                <option value="full">{t('autoLoad.f1Full')} — f1 = 1,00</option>
-                <option value="other">{t('autoLoad.f1Other')} — f1 = 0,20</option>
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label" for="al-regularity">{t('autoLoad.regularity')}</label>
-              <select id="al-regularity" bind:value={regularity} class="al-select-sm" data-testid="al-regularity">
-                <option value="regular">{t('autoLoad.regRegular')}</option>
-                <option value="medium">{t('autoLoad.regMedium')}</option>
-                <option value="irregular">{t('autoLoad.regIrregular')}</option>
-              </select>
-            </div>
-          </div>
-          <label class="al-elastic">
-            <input type="checkbox" bind:checked={elasticDesign} data-testid="al-elastic" />
-            {t('autoLoad.elasticDesign')}
-          </label>
-
-          <!--
-            What the zone and site imply, before anything is generated. The spectrum is
-            the input the reader is least able to check by eye, so the panel prints the
-            two coefficients and the two corner periods it produced.
-          -->
-          {#if isBlocked(spectrumPreview)}
-            <p class="al-warn" data-testid="al-spectrum-blocked">{te(spectrumPreview.blocked)}</p>
-          {:else}
-            <div class="al-spectrum" data-testid="al-spectrum">
-              {tp('autoLoad.spectrumLine', {
-                type: spectrumPreview.type,
-                ca: spectrumPreview.ca.toFixed(3),
-                cv: spectrumPreview.cv.toFixed(3),
-                t1: spectrumPreview.t1.toFixed(3),
-                t2: spectrumPreview.t2.toFixed(3),
-                t3: spectrumPreview.t3,
-              })}
-            </div>
+      <section class="al-sec" data-testid="al-regulations">
+        <div class="al-sec-head"><span class="al-sec-title">{t('autoLoad.appliedRegulations')}</span></div>
+        <div class="al-sec-body">
+          <ul class="al-regs">
+            {#each regulationsStore.stamps.filter(s => ['basis','loads','wind','snow','seismic'].includes(s.role)) as st (st.role)}
+              <li>
+                <span class="al-reg-role">{t(`regulations.role.${st.role}`)}</span>
+                <span class="al-reg-name">{te(st.label)}</span>
+                <span class="al-reg-state al-state-{st.state}">{t(`regulations.state.${st.state}`)}</span>
+              </li>
+            {/each}
+          </ul>
+          {#if regulationsStore.pendingNeedsLoadRegeneration}
+            <p class="al-warn" data-testid="al-pending-banner">{t('autoLoad.pendingRegulation')}</p>
           {/if}
-          {#if effectiveR === null}
-            <p class="al-warn" data-testid="al-no-r">{t('autoLoad.rFormulaWarning')}</p>
-          {/if}
-          <div class="al-directions">
-            <label><input type="checkbox" bind:checked={seismicDirectionX} /> {t('autoLoad.dirX')}</label>
-            <label><input type="checkbox" bind:checked={seismicDirectionZ} /> {t('autoLoad.dirZ')}</label>
-          </div>
+        </div>
+      </section>
 
-          <!-- The seismic figures come from the PLAN, whose level masses are real. The
-               old block read T / Sa / R off a preview object that no longer exists and
-               crashed the whole tab on undefined.toFixed. -->
-          {#if seismicPreview}
-            <div class="al-seismic-preview" data-testid="al-seismic-preview">
-              <div class="al-preview-title">{t('autoLoad.previewTitle')}</div>
-              <div class="al-preview-row">
-                {tp('autoLoad.baseShear', {
-                  w: seismicPreview.W.toFixed(1), v: seismicPreview.V0.toFixed(1) })}
-              </div>
-              {#if plan?.seismic?.source === 'cirsoc103'}
-                <div class="al-preview-row" data-testid="al-seismic-coefficient">
-                  {tp('autoLoad.coefficientLine', {
-                    c: plan.seismic.c.toFixed(4),
-                    t: (plan.seismic.t ?? 0).toFixed(3),
-                    ta: (plan.seismic.ta ?? 0).toFixed(3),
-                    r: plan.seismic.r ?? 0,
-                    gammaR: plan.seismic.gammaR ?? 0,
-                  })}
-                </div>
-                {#if plan.seismic.periodCapped}
-                  <div class="al-preview-note">{t('autoLoad.periodCapped')}</div>
-                {/if}
-                {#if plan.seismic.floorApplied === 'nearFault'}
-                  <div class="al-preview-note">{t('autoLoad.floorNearFault')}</div>
-                {:else if plan.seismic.floorApplied === 'lowZone'}
-                  <div class="al-preview-note">{t('autoLoad.floorLowZone')}</div>
-                {/if}
-                {#if plan.seismic.topHeavy}
-                  <div class="al-preview-note">{t('autoLoad.topHeavy')}</div>
-                {/if}
-              {/if}
-              {#each seismicPreview.levels as lv (lv.elevation)}
-                <div class="al-preview-floor">
-                  +{lv.elevation.toFixed(2)} m → Wi = {lv.weightKN.toFixed(1)} kN
-                </div>
-              {/each}
-            </div>
-          {/if}
-        {/if}
-      </fieldset>
+      <!-- Dead loads: the build-up, from Tabla 3.1. -->
+      <section class="al-sec" bind:this={deadFieldset} data-testid="al-dead-section">
+        <div class="al-sec-head">
+          <span class="al-sec-title">{t('autoLoad.deadLoads')}</span>
+          <span class="al-sec-value" data-testid="dead-total">{totalDead.toFixed(2)} kN/m²</span>
+        </div>
+        <div class="al-sec-body">
+          <ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} />
+        </div>
+      </section>
 
-      <!-- Wind -->
-      <fieldset class="al-fieldset" bind:this={windFieldset} data-testid="al-wind-section">
-        <legend>
-          <label class="al-check-legend">
-            <input type="checkbox" bind:checked={enableWind}
-                   disabled={!windAvailable} data-testid="al-enable-wind" />
-            {t('autoLoad.wind')} ({te(bindingLabel(regulationsStore.binding('wind')))})
-          </label>
-        </legend>
-        {#if !windAvailable}
-          <p class="al-warn" data-testid="al-wind-unavailable">
-            {t('autoLoad.windNeedsRole')}
-            <button class="al-link" data-testid="al-goto-regulations-wind"
-                    onclick={() => { proNav.openRegulations(); onclose(); }}>
-              {t('autoLoad.openRegulations')}
-            </button>
-          </p>
-        {/if}
-        {#if enableWind && windAvailable}
-          <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
-          <label class="al-row" data-testid="al-wind-edition">
-            <span class="al-label">{t('autoLoad.windEdition')}</span>
-            <select class="al-select-sm" value={regulationsStore.binding('wind').adapterId ?? ''}
-              onchange={(e) => regulationsStore.requestChange('wind', e.currentTarget.value)}>
-              {#each windEditions as o (o.adapterId)}
-                <option value={o.adapterId} disabled={!optionIsAvailable(o)}>
-                  {te(optionLabel(o))}{optionIsAvailable(o) ? '' : ` · ${t('autoLoad.editionNoText')}`}
-                </option>
+      <!-- Live loads: the occupancy, and the reduction by tributary area that goes with it. -->
+      <section class="al-sec" bind:this={liveFieldset} data-testid="al-live-section">
+        <div class="al-sec-head">
+          <span class="al-sec-title">{t('autoLoad.liveLoads')}</span>
+          <span class="al-sec-value">{occupancyQ} kN/m²</span>
+        </div>
+        <div class="al-sec-body">
+          <label class="al-field"><span class="al-label">{t('loads.cirsoc101.occupancy')}</span>
+            <select bind:value={selectedOccupancy} data-testid="al-occupancy">
+              {#each OCCUPANCY_TABLE_2025 as occ}
+                <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` · ${occ.uniformKNm2} kN/m²` : ''}</option>
               {/each}
             </select>
           </label>
-          {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
-          <div class="al-grid">
-            <div class="al-field">
-              <label class="al-label">V (m/s)</label>
-              <input type="number" class="al-input-sm" bind:value={windV} min={10} max={120} step={1} />
+          <label class="al-check">
+            <input type="checkbox" bind:checked={applyLiveReduction} data-testid="al-live-reduction" />
+            {t('autoLoad.applyLiveReduction')}
+          </label>
+          {#if applyLiveReduction}
+            <div class="al-grid">
+              <label class="al-field"><span class="al-label">{t('autoLoad.reductionElement')}</span>
+                <select bind:value={reductionElementKind} data-testid="al-elemkind">
+                  {#each ['interiorColumn','exteriorColumnNoCantilever','edgeColumnWithCantilever','cornerColumnWithCantilever','edgeBeamNoCantilever','interiorBeam','other'] as k (k)}
+                    <option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.floorsSupported')}</span>
+                <input type="number" step="1" min="1" bind:value={floorsSupported} data-testid="al-floors" />
+              </label>
             </div>
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.windExposure')}</label>
-              <select class="al-select-sm" bind:value={windExposure}>
-                <option value="B">B — {t('autoLoad.windExpB')}</option>
-                <option value="C">C — {t('autoLoad.windExpC')}</option>
-                <option value="D">D — {t('autoLoad.windExpD')}</option>
-              </select>
-            </div>
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.windEnclosure')}</label>
-              <select class="al-select-sm" bind:value={windEnclosure} data-testid="al-wind-enclosure">
-                {#each ['enclosed','partiallyEnclosed','partiallyOpen','open'] as e (e)}
-                  <option value={e}>{t(`loads.cirsoc102.enclosure.${e}`)}</option>
+          {/if}
+        </div>
+      </section>
+
+      <!-- Wind -->
+      <section class="al-sec" class:off={!enableWind} bind:this={windFieldset} data-testid="al-wind-section">
+        <div class="al-sec-head">
+          <label class="al-check al-sec-title">
+            <input type="checkbox" bind:checked={enableWind} disabled={!windAvailable} data-testid="al-enable-wind" />
+            {t('autoLoad.wind')}
+          </label>
+          <span class="al-sec-code">{te(bindingLabel(regulationsStore.binding('wind')))}</span>
+        </div>
+        {#if !windAvailable}
+          <div class="al-sec-body">
+            <p class="al-warn" data-testid="al-wind-unavailable">
+              {t('autoLoad.windNeedsRole')}
+              <button class="al-link" data-testid="al-goto-regulations-wind"
+                      onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
+            </p>
+          </div>
+        {:else if enableWind}
+          <div class="al-sec-body">
+            <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
+            <label class="al-field" data-testid="al-wind-edition">
+              <span class="al-label">{t('autoLoad.windEdition')}</span>
+              <select value={regulationsStore.binding('wind').adapterId ?? ''}
+                onchange={(e) => regulationsStore.requestChange('wind', e.currentTarget.value)}>
+                {#each windEditions as o (o.adapterId)}
+                  <option value={o.adapterId} disabled={!optionIsAvailable(o)}>
+                    {te(optionLabel(o))}{optionIsAvailable(o) ? '' : ` · ${t('autoLoad.editionNoText')}`}
+                  </option>
                 {/each}
               </select>
+            </label>
+            {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
+            <div class="al-grid">
+              <label class="al-field"><span class="al-label">{t('autoLoad.windSpeed')}</span>
+                <span class="al-unit-field"><input type="number" bind:value={windV} min={10} max={120} step={1} data-testid="al-wind-speed" /><span>m/s</span></span>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.windExposure')}</span>
+                <select bind:value={windExposure}>
+                  <option value="B">B · {t('autoLoad.windExpB')}</option>
+                  <option value="C">C · {t('autoLoad.windExpC')}</option>
+                  <option value="D">D · {t('autoLoad.windExpD')}</option>
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.windEnclosure')}</span>
+                <select bind:value={windEnclosure} data-testid="al-wind-enclosure">
+                  {#each ['enclosed','partiallyEnclosed','partiallyOpen','open'] as e (e)}
+                    <option value={e}>{t(`loads.cirsoc102.enclosure.${e}`)}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.windAltitude')}</span>
+                <span class="al-unit-field"><input type="number" bind:value={windAltitude} min={0} step={10} data-testid="al-wind-altitude" /><span>m</span></span>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.windRoofSlope')}</span>
+                <span class="al-unit-field"><input type="number" bind:value={windRoofSlope} min={0} max={90} step={1} data-testid="al-wind-slope" /><span>°</span></span>
+              </label>
+              <div class="al-field">
+                <label class="al-check"><input type="checkbox" bind:checked={windKztSurveyed} data-testid="al-wind-kzt-surveyed" /> {t('autoLoad.windKztSurveyed')}</label>
+                {#if windKztSurveyed}
+                  <span class="al-unit-field"><input type="number" bind:value={windKzt} min={1} step={0.05} data-testid="al-wind-kzt" aria-label="Kzt" /><span>Kzt</span></span>
+                {/if}
+              </div>
             </div>
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.windAltitude')} (m)</label>
-              <input type="number" class="al-input-sm" bind:value={windAltitude} min={0} step={10} data-testid="al-wind-altitude" />
-            </div>
-            <div class="al-field">
-              <label class="al-label">{t('autoLoad.windRoofSlope')} (°)</label>
-              <input type="number" class="al-input-sm" bind:value={windRoofSlope} min={0} max={90} step={1} data-testid="al-wind-slope" />
-            </div>
+            <label class="al-check"><input type="checkbox" bind:checked={windRigid} data-testid="al-wind-rigid" /> {t('autoLoad.windRigid')}</label>
+            <ProWindCasesPanel
+              bind:caseSet={windCaseSet} bind:directions={windDirs} bind:enclosure={windEnclosure}
+              bind:service={windService}
+              speed={windV} exposure={windExposure} altitude={windAltitude}
+              kzt={windKztSurveyed ? windKzt : 1}
+              elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
+            />
           </div>
-          <div class="al-directions" style="margin-top: 6px;">
-            <label><input type="checkbox" bind:checked={windKztSurveyed} data-testid="al-wind-kzt-surveyed" /> {t('autoLoad.windKztSurveyed')}</label>
-            {#if windKztSurveyed}
-              <input type="number" class="al-input-sm" bind:value={windKzt} min={1} step={0.05} data-testid="al-wind-kzt" />
-            {/if}
-            <label><input type="checkbox" bind:checked={windRigid} data-testid="al-wind-rigid" /> {t('autoLoad.windRigid')}</label>
-          </div>
-          <div class="al-directions" style="margin-top: 6px;">
-            <label><input type="checkbox" bind:checked={windDirX} /> {t('autoLoad.dirX')}</label>
-            <label><input type="checkbox" bind:checked={windDirZ} /> {t('autoLoad.dirZ')}</label>
-          </div>
-          <ProWindCasesPanel
-            bind:caseSet={windCaseSet} bind:bothSenses={windBothSenses} bind:enclosure={windEnclosure}
-            bind:service={windService}
-            speed={windV} exposure={windExposure} altitude={windAltitude}
-            kzt={windKztSurveyed ? windKzt : 1}
-            elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
-          />
         {/if}
-      </fieldset>
+      </section>
 
       <div bind:this={snowFieldset}>
         <ProSnowSection bind:config={snowCfg} available={snowAvailable} roof={snowRoof} />
       </div>
 
-      <!-- Options -->
-      <fieldset class="al-fieldset">
-        <legend>{t('autoLoad.options')}</legend>
-        <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
-          onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
-        <label class="al-check">
-          <input type="checkbox" bind:checked={applyLiveReduction} data-testid="al-live-reduction" />
-          {t('autoLoad.applyLiveReduction')}
-        </label>
-        <div class="al-row">
-          <label for="al-trib">{t('autoLoad.tributaryWidth')}</label>
-          <input id="al-trib" type="number" step="0.5" min="0.1" bind:value={tributaryWidth} class="al-input-sm" data-testid="al-trib" /> m
+      <!-- Seismic -->
+      <section class="al-sec" class:off={!enableSeismic} bind:this={seismicFieldset} data-testid="al-seismic-section">
+        <div class="al-sec-head">
+          <label class="al-check al-sec-title">
+            <input type="checkbox" bind:checked={enableSeismic} disabled={!seismicAvailable} data-testid="al-enable-seismic" />
+            {t('autoLoad.seismic')}
+          </label>
+          <span class="al-sec-code">{te(bindingLabel(regulationsStore.binding('seismic')))}</span>
         </div>
-        <div class="al-row">
-          <label for="al-floors">{t('autoLoad.floorsSupported')}</label>
-          <input id="al-floors" type="number" step="1" min="1" bind:value={floorsSupported} class="al-input-sm" data-testid="al-floors" />
+        {#if !seismicAvailable}
+          <!-- Why it is disabled, and where to fix it. -->
+          <div class="al-sec-body">
+            <p class="al-warn" data-testid="al-seismic-unavailable">
+              {t('autoLoad.seismicNeedsRole')}
+              <button class="al-link" data-testid="al-goto-regulations"
+                      onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
+            </p>
+          </div>
+        {:else if enableSeismic}
+          <div class="al-sec-body">
+            <div class="al-grid">
+              <label class="al-field"><span class="al-label">{t('autoLoad.zone')}</span>
+                <select bind:value={seismicZone} data-testid="al-zone">
+                  <option value={4}>4 · {t('autoLoad.zoneVeryHigh')}</option>
+                  <option value={3}>3 · {t('autoLoad.zoneHigh')}</option>
+                  <option value={2}>2 · {t('autoLoad.zoneModerate')}</option>
+                  <option value={1}>1 · {t('autoLoad.zoneLow')}</option>
+                  <option value={0}>0 · {t('autoLoad.zoneNone')}</option>
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.site')}</span>
+                <select bind:value={siteClass} data-testid="al-site">
+                  {#each ['SA', 'SB', 'SC', 'SD', 'SE', 'SF'] as const as k (k)}<option value={k}>{k} · {t(`autoLoad.soil${k}`)}</option>{/each}
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.importance')}</span>
+                <select bind:value={destinationGroup} data-testid="al-group">
+                  <option value="Ao">Ao (γr = {RISK_FACTOR.Ao}) · {t('autoLoad.impEssential')}</option>
+                  <option value="A">A (γr = {RISK_FACTOR.A}) · {t('autoLoad.impImportant')}</option>
+                  <option value="B">B (γr = {RISK_FACTOR.B}) · {t('autoLoad.impNormal')}</option>
+                  <option value="C">C (γr = {RISK_FACTOR.C}) · {t('autoLoad.impLow')}</option>
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.regularity')}</span>
+                <select bind:value={regularity} data-testid="al-regularity">
+                  <option value="regular">{t('autoLoad.regRegular')}</option>
+                  <option value="medium">{t('autoLoad.regMedium')}</option>
+                  <option value="irregular">{t('autoLoad.regIrregular')}</option>
+                </select>
+              </label>
+              <!--
+                Two different classifications, and they are not the same list: Tabla 5.1
+                says how ductile the system is (R), Tabla 6.2 says how stiff it is (Ta).
+              -->
+              <label class="al-field al-field-wide"><span class="al-label">{t('autoLoad.system')}</span>
+                <select bind:value={systemKey} data-testid="al-system">
+                  {#each BEHAVIOUR_TABLE_2018 as sys (sys.key)}
+                    <option value={sys.key}>{sys.row}. {t(sys.labelKey)}{sys.r !== null ? ` · R = ${sys.r}` : ` · ${t('autoLoad.rFormula')}`}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.periodSystem')}</span>
+                <select bind:value={periodSystem} data-testid="al-period-system">
+                  <option value="concreteMomentFrame">{t('autoLoad.sysRCFrame')}</option>
+                  <option value="steelMomentFrame">{t('autoLoad.sysSteelFrame')}</option>
+                  <option value="steelEccentricOrBRB">{t('autoLoad.sysSteelBraced')}</option>
+                  <option value="other">{t('autoLoad.sysOther')}</option>
+                </select>
+              </label>
+              <label class="al-field"><span class="al-label">{t('autoLoad.simultaneity')}</span>
+                <select bind:value={seismicOccupancy} data-testid="al-f1">
+                  <option value="exceptional">{t('autoLoad.f1Exceptional')} · f1 = 0</option>
+                  <option value="reduced">{t('autoLoad.f1Reduced')} · f1 = 0,25</option>
+                  <option value="intermediate">{t('autoLoad.f1Intermediate')} · f1 = 0,50</option>
+                  <option value="high">{t('autoLoad.f1High')} · f1 = 0,75</option>
+                  <option value="full">{t('autoLoad.f1Full')} · f1 = 1,00</option>
+                  <option value="other">{t('autoLoad.f1Other')} · f1 = 0,20</option>
+                </select>
+              </label>
+            </div>
+            <div class="al-row">
+              <span class="al-label">{t('autoLoad.seismicDirections')}</span>
+              <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionX} data-testid="al-seismic-dir-x" /> X</label>
+              <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionZ} data-testid="al-seismic-dir-y" /> Y</label>
+            </div>
+            <label class="al-check"><input type="checkbox" bind:checked={elasticDesign} data-testid="al-elastic" /> {t('autoLoad.elasticDesign')}</label>
+
+            <!-- What the zone and site imply, before anything is generated. -->
+            {#if isBlocked(spectrumPreview)}
+              <p class="al-warn" data-testid="al-spectrum-blocked">{te(spectrumPreview.blocked)}</p>
+            {:else}
+              <p class="al-readout" data-testid="al-spectrum">
+                {tp('autoLoad.spectrumLine', {
+                  type: spectrumPreview.type, ca: spectrumPreview.ca.toFixed(3), cv: spectrumPreview.cv.toFixed(3),
+                  t1: spectrumPreview.t1.toFixed(3), t2: spectrumPreview.t2.toFixed(3), t3: spectrumPreview.t3,
+                })}
+              </p>
+            {/if}
+            {#if effectiveR === null}
+              <p class="al-warn" data-testid="al-no-r">{t('autoLoad.rFormulaWarning')}</p>
+            {/if}
+
+            <!-- The seismic figures come from the PLAN, whose level masses are real. -->
+            {#if seismicPreview}
+              <div class="al-readout" data-testid="al-seismic-preview">
+                <div>{tp('autoLoad.baseShear', { w: seismicPreview.W.toFixed(1), v: seismicPreview.V0.toFixed(1) })}</div>
+                {#if plan?.seismic?.source === 'cirsoc103'}
+                  <div data-testid="al-seismic-coefficient">
+                    {tp('autoLoad.coefficientLine', {
+                      c: plan.seismic.c.toFixed(4), t: (plan.seismic.t ?? 0).toFixed(3), ta: (plan.seismic.ta ?? 0).toFixed(3),
+                      r: plan.seismic.r ?? 0, gammaR: plan.seismic.gammaR ?? 0,
+                    })}
+                  </div>
+                  {#if plan.seismic.periodCapped}<p class="al-hint">{t('autoLoad.periodCapped')}</p>{/if}
+                  {#if plan.seismic.floorApplied === 'nearFault'}<p class="al-hint">{t('autoLoad.floorNearFault')}</p>
+                  {:else if plan.seismic.floorApplied === 'lowZone'}<p class="al-hint">{t('autoLoad.floorLowZone')}</p>{/if}
+                  {#if plan.seismic.topHeavy}<p class="al-hint">{t('autoLoad.topHeavy')}</p>{/if}
+                {/if}
+                {#each seismicPreview.levels as lv (lv.elevation)}
+                  <div>+{lv.elevation.toFixed(2)} m · Wi = {lv.weightKN.toFixed(1)} kN</div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </section>
+
+      <!-- How the loads go onto the model: the strip of slab each beam carries, and what
+           happens to the loads already there. -->
+      <section class="al-sec">
+        <div class="al-sec-head"><span class="al-sec-title">{t('autoLoad.applying')}</span></div>
+        <div class="al-sec-body">
+          <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.tributaryWidth')}</span>
+            <span class="al-unit-field"><input type="number" step="0.5" min="0.1" bind:value={tributaryWidth} data-testid="al-trib" /><span>m</span></span>
+          </label>
+          <p class="al-hint">{t('autoLoad.tributaryHint')}</p>
+          <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
+            onchange={(e) => onClearExistingChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
         </div>
-        <div class="al-row">
-          <label for="al-elemkind">{t('autoLoad.reductionElement')}</label>
-          <select id="al-elemkind" bind:value={reductionElementKind} class="al-select" data-testid="al-elemkind">
-            {#each ['interiorColumn','exteriorColumnNoCantilever','edgeColumnWithCantilever','cornerColumnWithCantilever','edgeBeamNoCantilever','interiorBeam','other'] as k (k)}
-              <option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>
-            {/each}
-          </select>
-        </div>
-      </fieldset>
+      </section>
       {/if}
     </div>
 
@@ -847,115 +813,129 @@
 {/if}
 
 <style>
-  .al-regs { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; }
-  .al-regs li { display: flex; gap: 0.5rem; align-items: center; padding: 0.1rem 0; }
-  .al-reg-role { min-width: 8rem; opacity: 0.8; }
-  .al-reg-name { flex: 1; }
-  .al-reg-state { font-size: 0.7rem; font-weight: 600; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(143, 163, 179,0.3); }
-  .al-state-applied { background: var(--st-surface-3); color: var(--st-text); }
-  .al-state-pending { background: var(--st-surface-3); color: var(--st-text); }
-  .al-state-stale { background: var(--st-accent); color: var(--st-text); }
-  .al-lossy { color: var(--st-text-2); }
-  .al-preview { padding: 0.6rem 1rem; border-top: 1px solid var(--st-surface-3); max-height: 40vh; overflow: auto; font-size: 0.82rem; }
-  .al-preview h3 { margin: 0 0 0.4rem; font-size: 0.9rem; }
-  .al-delta { width: 100%; border-collapse: collapse; margin: 0.3rem 0; }
-  .al-delta th, .al-delta td { border: 1px solid var(--st-surface-3); padding: 0.15rem 0.4rem; text-align: right; }
-  .al-delta th:first-child, .al-delta td:first-child { text-align: left; }
   /*
-     11 px, like every other piece of body text in this dialog. Without a size these
-     two inherited the dialog's base and came out as the LARGEST text on screen —
-     "seismic loads need a seismic regulation bound" shouting over the numbers the
-     reader is there to set.
-  */
-  .al-warn { background: var(--st-surface-3); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
-  .al-error { background: var(--st-accent); color: var(--st-text); padding: 0.35rem 0.5rem; border-radius: 4px; margin: 0.35rem 0; font-size: 11px; line-height: 1.5; }
-  .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
-  .al-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; }
-    .al-hint { margin: 0.1rem 0 0.3rem 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
-  .al-row label { min-width: 11rem; }
-  .al-seismic-preview { margin-top: 6px; font-size: 0.78rem; opacity: 0.9; }
-  .al-link { background: none; border:  none; text-decoration: underline; color: inherit; cursor: pointer; padding: 0; font: inherit; }
+   * One look for the whole dialog and the sections it hosts (dead load, wind cases, snow,
+   * combinations): each load is a card with its name, its regulation and what it comes to;
+   * fields carry their label above; every control is one height. The rules are scoped to the
+   * dialog with :global so the child components read the same ones, which is what the dialog
+   * lacked: its classes were local, and the snow block and the wind cases, rendered by children,
+   * fell back to the browser's controls.
+   */
   .al-overlay {
     position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center;
   }
   .al-dialog {
-    background: var(--st-surface-2); color: var(--st-text); border-radius: 10px;
-    width: 520px; max-height: 85vh; display: flex; flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid var(--st-surface-3);
+    background: var(--st-surface-2); color: var(--st-text);
+    border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius-lg, 8px);
+    width: min(620px, calc(100vw - 32px)); max-height: 88vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    font-family: var(--st-sans); font-size: 0.72rem; color-scheme: dark;
   }
-  .al-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 18px; border-bottom: 1px solid var(--st-surface-3);
-  }
-  .al-header h2 { margin: 0; font-size: 15px; color: var(--st-text); }
-  .al-close { background: none; border:  none; color: var(--st-text-3); font-size: 22px; cursor: pointer; }
+  .al-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 10px; }
+  .al-header h2 { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--st-text); }
+  .al-close { background: none; border: none; color: var(--st-text-3); font-size: 1.2rem; line-height: 1; cursor: pointer; }
   .al-close:hover { color: var(--st-text); }
-  .al-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
-  .al-tabs { display: flex; gap: 2px; padding: 8px 18px 0; border-bottom: 1px solid var(--st-surface-3); }
+  .al-tabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--st-hair); }
   .al-tab {
     padding: 6px 12px; background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--st-text-3); font: inherit; font-size: 12px; cursor: pointer; margin-bottom: -1px;
+    color: var(--st-text-3); font: inherit; font-size: 0.74rem; cursor: pointer; margin-bottom: -1px;
   }
   .al-tab:hover { color: var(--st-text); }
   .al-tab.on { color: var(--st-text); border-bottom-color: var(--st-accent); }
-  .al-fieldset {
-    border: 1px solid var(--st-surface-3); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
-  }
-  .al-fieldset legend { color: var(--st-text-2); font-size: 11px; font-weight: 600; padding: 0 6px; text-transform: uppercase; }
-  .al-field-wide { grid-column: 1 / -1; }
-  .al-elastic {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 0.73rem; color: var(--st-text-2); margin-top: 6px;
-  }
-  .al-spectrum {
-    margin-top: 6px; font-size: 0.7rem; color: var(--st-text-3);
-    font-variant-numeric: tabular-nums; line-height: 1.5;
-  }
-  .al-preview-note { font-size: 0.68rem; color: var(--st-text-3); line-height: 1.45; }
+  .al-body { padding: 12px 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; }
 
-  .al-dead-row {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px;
+  /* ── Sections ── */
+  .al-dialog :global(.al-sec) {
+    border: 1px solid var(--st-hair); border-radius: var(--st-radius-lg, 8px); background: var(--st-surface);
   }
-  .al-dead-label { flex: 1; color: var(--st-text-2); }
-  .al-input-sm {
-    width: 55px; padding: 3px 5px; background: var(--st-bg); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; color: var(--st-text); font-size: 11px; text-align: right;
+  .al-dialog :global(.al-sec-head) { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 12px; }
+  .al-dialog :global(.al-sec-title) { font-size: 0.76rem; font-weight: 600; color: var(--st-text); }
+  .al-dialog :global(.al-sec-code) { color: var(--st-text-3); font-size: 0.66rem; }
+  .al-dialog :global(.al-sec-value) { margin-left: auto; color: var(--st-value); font-family: var(--st-mono); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+  .al-dialog :global(.al-sec.off .al-sec-title) { color: var(--st-text-2); }
+  .al-dialog :global(.al-sec-body) {
+    display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--st-hair);
   }
-  .al-input-sm:focus { border-color: var(--st-text-2); outline: none; }
-  .al-select, .al-select-sm {
-    width: 100%; padding: 5px 6px; background: var(--st-bg); border: 1px solid var(--st-surface-3);
-    border-radius: 4px; color: var(--st-text); font-size: 11px;
+  .al-dialog :global(.al-sub) { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--st-hair); }
+  .al-dialog :global(.al-sub-title) {
+    font-family: var(--st-mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--st-text-3);
   }
-  .al-select-sm { width: 100%; }
-  .al-select:focus, .al-select-sm:focus { border-color: var(--st-text-2); outline: none; }
-  .al-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .al-field { display: flex; flex-direction: column; gap: 3px; }
-  .al-label { font-size: 10px; color: var(--st-text-3); }
-  .al-directions { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; }
-  .al-directions label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .al-directions input { accent-color: var(--st-value); }
-  .al-check { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; margin-bottom: 4px; }
-  .al-check input { accent-color: var(--st-text-2); }
-  .al-check-legend { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .al-check-legend input { accent-color: var(--st-text-2); }
-  .al-preview {
-    margin-top: 8px; padding: 8px; background: var(--st-bg); border-radius: 4px; font-size: 10px;
-    font-family: monospace;
+
+  /* ── Fields ── */
+  .al-dialog :global(.al-grid) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  .al-dialog :global(.al-field) { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .al-dialog :global(.al-field-wide) { grid-column: 1 / -1; }
+  .al-dialog :global(.al-field-narrow) { max-width: 12rem; }
+  .al-dialog :global(.al-label) { font-size: 0.66rem; color: var(--st-text-3); }
+  .al-dialog :global(.al-row) { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
+  .al-dialog :global(.al-check) { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--st-text-2); }
+  .al-dialog :global(.al-check input) { margin: 0; accent-color: var(--st-accent); }
+  .al-dialog :global(.al-unit-field) { display: flex; align-items: center; gap: 6px; color: var(--st-text-3); }
+  .al-dialog :global(.al-unit-field input) { flex: 1; min-width: 0; }
+  .al-dialog :global(select),
+  .al-dialog :global(input[type='number']),
+  .al-dialog :global(input[type='text']) {
+    box-sizing: border-box; height: 26px; width: 100%; padding: 0 6px;
+    background: var(--st-surface-3); color: var(--st-text);
+    border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
+    font-family: var(--st-sans); font-size: 0.72rem;
   }
-  .al-preview-title { color: var(--st-text-2); font-weight: 600; margin-bottom: 4px; }
-  .al-preview-row { color: var(--st-text-2); margin-bottom: 2px; }
-  .al-preview-floor { color: var(--st-text-2); padding-left: 8px; }
-  .al-footer {
-    display: flex; justify-content: flex-end; gap: 8px;
-    padding: 12px 18px; border-top: 1px solid var(--st-surface-3);
+  .al-dialog :global(input[type='number']) { font-family: var(--st-mono); text-align: right; }
+  .al-dialog :global(select:focus-visible), .al-dialog :global(input:focus-visible) { outline: 2px solid var(--st-interactive); outline-offset: 0; }
+  .al-dialog :global(select:disabled), .al-dialog :global(input:disabled) { opacity: 0.5; }
+
+  /* ── Text ── */
+  .al-dialog :global(.al-hint) { margin: 0; font-size: 0.64rem; line-height: 1.45; color: var(--st-text-3); }
+  .al-dialog :global(.al-warn) {
+    margin: 0; padding: 5px 8px; border-left: 2px solid var(--st-warn); background: var(--st-surface-3);
+    border-radius: 0 var(--st-radius) var(--st-radius) 0; color: var(--st-text); font-size: 0.68rem; line-height: 1.45;
   }
-  .al-btn {
-    padding: 8px 20px; border-radius: 6px; font-size: 12px; font-weight: 600;
-    cursor: pointer; border: none; transition: background 0.15s;
+  .al-dialog :global(.al-error) {
+    margin: 0; padding: 5px 8px; border-left: 2px solid var(--st-danger); background: var(--st-surface-3);
+    border-radius: 0 var(--st-radius) var(--st-radius) 0; color: var(--st-text); font-size: 0.68rem; line-height: 1.45;
   }
-  .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent); }
-  .al-btn-primary:hover { background: var(--st-accent-hover); }
-  .al-btn-secondary { background: var(--st-surface-3); color: var(--st-text-2); }
-  .al-btn-secondary:hover { background: var(--st-hair-strong); }
+  .al-dialog :global(.al-readout) {
+    margin: 0; padding: 6px 8px; background: var(--st-surface-2); border-radius: var(--st-radius);
+    font-family: var(--st-mono); font-size: 0.66rem; line-height: 1.55; color: var(--st-text-2); font-variant-numeric: tabular-nums;
+  }
+  .al-dialog :global(.al-link) { background: none; border: none; padding: 0; color: var(--st-text); text-decoration: underline; font: inherit; cursor: pointer; }
+  .al-dialog :global(.al-link:disabled) { opacity: 0.45; cursor: default; }
+  .al-dialog :global(details > summary) { cursor: pointer; color: var(--st-text-2); }
+  .al-dialog :global(details[open] > summary) { margin-bottom: 6px; }
+  .al-dialog :global(.al-btn-sm) {
+    height: 26px; padding: 0 10px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
+    color: var(--st-text-2); font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .al-dialog :global(.al-btn-sm:hover:not(:disabled)) { color: var(--st-text); border-color: var(--st-accent); }
+  .al-dialog :global(.al-btn-sm:disabled) { opacity: 0.45; cursor: not-allowed; }
+
+  /* ── Regulations ── */
+  .al-regs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .al-regs li { display: flex; gap: 8px; align-items: center; }
+  .al-reg-role { min-width: 7.5rem; color: var(--st-text-3); }
+  .al-reg-name { flex: 1; color: var(--st-text-2); }
+  .al-reg-state { font-size: 0.62rem; padding: 1px 6px; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text-2); }
+  .al-state-stale { background: var(--st-accent); color: var(--st-text-on-accent, #fff); }
+
+  /* ── Preview ── */
+  .al-preview { padding: 10px 16px; border-top: 1px solid var(--st-hair); max-height: 40vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .al-preview h3 { margin: 0; font-size: 0.78rem; font-weight: 600; }
+  .al-preview p { margin: 0; }
+  .al-delta { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .al-delta th, .al-delta td { border-bottom: 1px solid var(--st-hair); padding: 3px 6px; text-align: right; }
+  .al-delta th { color: var(--st-text-3); font-weight: 500; }
+  .al-delta th:first-child, .al-delta td:first-child { text-align: left; }
+  .al-list { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+  .al-lossy { color: var(--st-text-2); }
+
+  /* ── Footer ── */
+  .al-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--st-hair); }
+  .al-btn { height: 30px; padding: 0 16px; border-radius: var(--st-radius); font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+  .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent, #fff); }
+  .al-btn-primary:hover:not(:disabled) { background: var(--st-accent-hover, var(--st-accent)); }
+  .al-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .al-btn-secondary { background: none; border-color: var(--st-hair-strong); color: var(--st-text-2); }
+  .al-btn-secondary:hover { color: var(--st-text); border-color: var(--st-text-3); }
+  .al-dialog > .al-error { margin: 0 16px 12px; }
 </style>

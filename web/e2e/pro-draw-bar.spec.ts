@@ -90,7 +90,7 @@ test('a plate of three nodes: corners ringed as they go, made on the last one', 
 test('a drawn support and a drawn load take what the bar says', async ({ pro: page }) => {
   await open(page, 'supports');
   await page.getByTestId('draw-support').click();
-  await page.getByTestId('draw-support-type').selectOption('pinned3d');
+  await page.getByTestId('pro-draw-bar').getByTestId('sup-preset-pinned').click();
   await click(page, 5);
   await expect.poll(() => page.evaluate(() =>
     (window.__stabileo.entityData('setting', 'supports') as Array<[number, { nodeId: number; type: string }]>)
@@ -142,44 +142,72 @@ test('Write node, member and support add from the panel, Enter by Enter', async 
 
   await open(page, 'supports');
   await page.getByTestId('write-support').click();
-  await page.getByTestId('write-support-type').selectOption('pinned3d');
+  await page.getByTestId('write-support-card').getByTestId('sup-preset-pinned').click();
   await page.getByTestId('write-support-nodes').fill('5, 7-8');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await census(page)).supports).toBe(7);
 });
 
-test('the next member is described where it is made: section, material and ends, named and one width', async ({ pro: page }) => {
+test('the next member is its section and material, named and one width; the rest is a specification', async ({ pro: page }) => {
   await open(page, 'elements');
-  // No separate "next member" line in the panel any more.
   await expect(page.locator('.pro-elems > [data-testid="next-member"]')).toHaveCount(0);
 
   await page.getByTestId('write-element').click();
   const card = page.getByTestId('write-element-card');
-  for (const id of ['nm-section', 'nm-material', 'nm-end-i', 'nm-end-j']) await expect(card.getByTestId(id)).toBeVisible();
-  // Each picker says what it picks, and shows the model's own name rather than a placeholder.
   await expect(card.getByText('Section', { exact: true })).toBeVisible();
   await expect(card.getByText('Material', { exact: true })).toBeVisible();
-  await expect(card.getByTestId('nm-section').locator('option:checked')).not.toHaveText(/default/i);
-  const widths = await Promise.all(['nm-section', 'nm-material', 'nm-end-i', 'nm-end-j']
+  // No ends and no frame/truss where a member is made.
+  await expect(card.locator('select')).toHaveCount(2);
+  const widths = await Promise.all(['nm-section', 'nm-material']
     .map(async (id) => Math.round((await card.getByTestId(id).boundingBox())!.width)));
-  expect(new Set(widths).size, `widths ${widths}`).toBe(1);
+  expect(widths[0]).toBe(widths[1]);
 
-  await card.getByTestId('nm-end-j').selectOption('pinned');
   await page.getByTestId('write-element-i').fill('5');
   await page.getByTestId('write-element-j').fill('7');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await census(page)).elements).toBe(9);
-  const made = await page.evaluate(() => window.__stabileo.entityData('element', 9) as { releaseI?: { my?: boolean }; releaseJ?: { my?: boolean; mz?: boolean } });
-  expect(made.releaseJ).toMatchObject({ my: true, mz: true });
-  expect(made.releaseI?.my ?? false).toBe(false);
+  const made = await page.evaluate(() => window.__stabileo.entityData('element', 9) as { type: string; releaseJ?: { my?: boolean } });
+  expect(made.type).toBe('frame');
 
-  // Drawing offers the same four, in the bar, and a truss is not asked for its ends.
+  // The list says what a member has beyond the default, and opens Specifications on it.
+  await expect(page.locator('.pro-elems-table th')).toContainText(['Specification']);
+  await expect(page.getByTestId('elem-spec-9')).toHaveText('—');
+  await page.getByTestId('elem-spec-9').click();
+  await page.getByTestId('mb-behaviour').selectOption('truss');
+  await open(page, 'elements');
+  await expect(page.getByTestId('elem-spec-9')).toContainText('Truss');
+
+  // Drawing offers the same two, in the bar.
   await page.getByTestId('draw-element').click();
   const bar = page.getByTestId('pro-draw-bar');
-  await expect(bar.getByTestId('nm-end-j')).toHaveValue('pinned');
-  await bar.getByRole('button', { name: 'Truss' }).click();
-  await expect(bar.getByTestId('nm-end-i')).toHaveCount(0);
   await expect(bar.getByTestId('nm-section')).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Truss' })).toHaveCount(0);
+});
+
+test('a support restrains what is ticked, and a restraint with a stiffness is a spring', async ({ pro: page }) => {
+  await open(page, 'supports');
+  await page.getByTestId('write-support').click();
+  const card = page.getByTestId('write-support-card');
+  for (const d of ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']) await expect(card.getByTestId(`sup-dof-${d}`)).toBeChecked();
+  await card.getByTestId('sup-preset-pinned').click();
+  await expect(card.getByTestId('sup-dof-rx')).not.toBeChecked();
+  await card.getByTestId('sup-elastic').check();
+  // Springs are offered on the restrained ones only.
+  await expect(card.getByTestId('sup-k-krx')).toHaveCount(0);
+  await card.getByTestId('sup-k-kz').fill('5000');
+  await card.getByTestId('sup-k-kz').dispatchEvent('change');
+  await page.getByTestId('write-support-nodes').fill('5');
+  await page.keyboard.press('Enter');
+  const s = await page.evaluate(() =>
+    (window.__stabileo.entityData('setting', 'supports') as Array<[number, { nodeId: number; type: string; kz?: number; dofRestraints?: Record<string, boolean> }]>)
+      .find(([, x]) => x.nodeId === 5)?.[1]);
+  expect(s?.type).toBe('custom3d');
+  expect(s?.kz).toBe(5000);
+  expect(s?.dofRestraints).toMatchObject({ tx: true, ty: true, tz: false, rx: false, ry: false, rz: false });
+
+  // The bar draws the same draft.
+  await page.getByTestId('draw-support').click();
+  await expect(page.getByTestId('pro-draw-bar').getByTestId('sup-k-kz')).toHaveValue('5000');
 });
 
 test('the tables add rows by writing, not by a footer button', async ({ pro: page }) => {

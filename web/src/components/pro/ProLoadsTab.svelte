@@ -211,8 +211,14 @@
   let activeTemplate = $state<ComboTemplate>('lrfd');
   const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
   const hasSeismicCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'E'));
-  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
-  let bothSenses = $state(true);
+  /**
+   * Earthquake in both senses by sign, on by default: a seismic case reversed is the same
+   * action the other way. Wind by sign is off by default: the code's wind cases already hold
+   * each direction as a case of its own, and a roof suction times −1 is a pressure that never
+   * acts. It is there for a wind case loaded by hand in one sense (`combination-cases.ts`).
+   */
+  let seismicBothSenses = $state(true);
+  let windBySign = $state(false);
 
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
@@ -249,7 +255,7 @@
       : template === 'service'
       ? generateServiceCombinations({ present })
       : generateCombinations({ present });
-    const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
+    const out = expandCombinations(specs, cases, { bothSenses: { W: windBySign, E: seismicBothSenses } }).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
     });
@@ -630,12 +636,18 @@
         <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : activeTemplate === 'project' ? t('combos.rules.sub') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
-      {#if hasWindCases || hasSeismicCases}
+      {#if hasSeismicCases}
         <label class="combo-wind-basis" data-testid="combo-both-senses">
-          <input type="checkbox" bind:checked={bothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
-          <span>{t('combos.bothSenses')}</span>
+          <input type="checkbox" bind:checked={seismicBothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('autoLoad.seismicBothSenses')}</span>
         </label>
-        <p class="combo-senses-hint">{t('combos.bothSensesHint')}</p>
+      {/if}
+      {#if hasWindCases}
+        <label class="combo-wind-basis" data-testid="combo-wind-by-sign">
+          <input type="checkbox" bind:checked={windBySign} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('combos.windBySign')}</span>
+        </label>
+        <p class="combo-senses-hint">{t('combos.windBySignHint')}</p>
       {/if}
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}

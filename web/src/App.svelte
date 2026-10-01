@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
@@ -614,6 +615,7 @@
       resultsStore.showReactions = false;
     } else {
       uiStore.analysisMode = 'pro';
+      if (!saved) { seedProStarterLibrary(); historyStore.clear(); }
       // Note: self-weight defaults ON in PRO via the per-mode selfWeightPro
       // state — do not force it here, or a user's explicit opt-out would be
       // silently reverted on every mode round-trip (double-counting gravity).
@@ -852,6 +854,8 @@
       uiStore.analysisMode = 'edu';
     } else if (currentAppMode === 'pro') {
       uiStore.analysisMode = 'pro';
+      // A first visit opens on an untouched model: give it the starter sections and materials.
+      if (seedProStarterLibrary()) historyStore.clear();
     } else {
       uiStore.analysisMode = '2d';
     }

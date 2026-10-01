@@ -435,7 +435,9 @@ export function syncSupports(ctx: SceneSyncContext): void {
       else gizmoType = 'custom3d';
     }
 
-    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}`;
+    const symbols = uiStore.analysisMode === 'pro';
+    const springs = { kx: sup.kx, ky: sup.ky, kz: sup.kz, krx: sup.krx, kry: sup.kry, krz: sup.krz };
+    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}|${symbols ? JSON.stringify(springs) : ''}`;
     const old = ctx.supportGizmos.get(id);
     if (old && old.userData.supportSig === sig) continue; // unchanged → reuse
     if (old) {
@@ -445,7 +447,7 @@ export function syncSupports(ctx: SceneSyncContext): void {
 
     const gizmo = createSupportGizmo(
       projectNodeToScene(node, project2D),
-      { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints },
+      { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints, restraintSymbols: symbols, springs },
     );
     gizmo.userData.supportSig = sig;
     ctx.supportsParent.add(gizmo);

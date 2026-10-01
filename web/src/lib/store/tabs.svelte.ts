@@ -13,6 +13,7 @@ import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
 import type { ViewportPresentation3D } from '../geometry/coordinate-system';
 import { t, isDefaultName } from '../i18n';
 import { hydrateProjectProvenance } from './project-provenance';
+import { seedProStarterLibrary } from '../pro/pro-starter-library';
 
 export interface TabState {
   id: string;
@@ -438,6 +439,8 @@ function createTabManager() {
 
       // Clear stores for clean slate
       modelStore.clear();
+      // A new PRO model starts with its concrete pair beside the steel default.
+      if (uiStore.analysisMode === 'pro') seedProStarterLibrary();
       resultsStore.clear();
       historyStore.clear();
       dsmStepsStore.clear();

@@ -7,9 +7,9 @@
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
+  import { memberSpecifications } from '../../lib/pro/specification-list';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
 
-  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   interface ElemRow {
     id: number | null;
@@ -17,8 +17,6 @@
     nodeJ: string;
     materialId: number;
     sectionId: number;
-    hingeI: boolean;
-    hingeJ: boolean;
   }
 
   let rows = $state<ElemRow[]>([]);
@@ -86,22 +84,14 @@
     if (made.length === 0) arcError = t('pro.arcFailed');
   }
 
-  /*
-   * What a member end is, read from every field that can release it: fixed, pinned (both
-   * bending moments released), semi-rigid, or partly released (anything else). The table shows
-   * it; the ends are edited in one place, Specifications › Members.
-   */
-  function endKind(id: number, end: 'i' | 'j'): 'fixed' | 'pinned' | 'semi' | 'partial' {
+  /** What each member is told beyond geometry, section and material (`specification-list.ts`). */
+  const specsOf = (id: number) => {
     const e = modelStore.elements.get(id);
-    if (!e) return 'fixed';
-    if (e.semiRigid?.[end]) return 'semi';
-    const r = end === 'i' ? e.releaseI : e.releaseJ;
-    const joint = (end === 'i' ? e.jointI : e.jointJ)?.dof?.some(Boolean);
-    if (!r?.my && !r?.mz && !r?.t && !joint) return 'fixed';
-    if (r?.my && r?.mz && !r?.t && !joint) return 'pinned';
-    return 'partial';
-  }
-  function openEnds(id: number) {
+    return e ? memberSpecifications(e, t) : [];
+  };
+  /** The axial behaviour reads as its value (Truss, Cable); the rest by what they are. */
+  const specLabel = (x: { what: string; value: string }) => (x.what === t('spec.members.axial') ? x.value : x.what);
+  function openSpec(id: number) {
     uiStore.specSection = 'members';
     uiStore.proActiveTab = 'specifications';
     uiStore.setSelection(new Set(), new Set([id]));
@@ -122,8 +112,6 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.releaseI?.mz === true || e.releaseI?.my === true,
-          hingeJ: e.releaseJ?.mz === true || e.releaseJ?.my === true,
         })),
         ...unsavedRows,
       ];
@@ -144,7 +132,7 @@
   });
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.resolvedMaterialId, sectionId: nextMember.resolvedSectionId, hingeI: nextMember.endI === 'pinned', hingeJ: nextMember.endJ === 'pinned' }];
+    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.resolvedMaterialId, sectionId: nextMember.resolvedSectionId }];
   }
 
   function commitRow(idx: number) {
@@ -158,8 +146,6 @@
       const eid = modelStore.addElement(ni, nj);
       modelStore.updateElementMaterial(eid, row.materialId);
       modelStore.updateElementSection(eid, row.sectionId);
-      if (row.hingeI) modelStore.toggleHinge3D(eid, 'start');
-      if (row.hingeJ) modelStore.toggleHinge3D(eid, 'end');
       rows[idx] = { ...rows[idx], id: eid };
     } else {
       // Update existing element properties
@@ -167,9 +153,6 @@
       if (!elem) return;
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
-      // Sync hinges
-      if ((elem.releaseI?.mz === true || elem.releaseI?.my === true) !== row.hingeI) modelStore.toggleHinge3D(row.id, 'start');
-      if ((elem.releaseJ?.mz === true || elem.releaseJ?.my === true) !== row.hingeJ) modelStore.toggleHinge3D(row.id, 'end');
     }
   }
 
@@ -226,8 +209,6 @@
         nodeJ: String(nj),
         materialId: made.materialId,
         sectionId: made.sectionId,
-        hingeI: false,
-        hingeJ: false,
       }];
     }
   }
@@ -255,7 +236,7 @@
     if (!modelStore.nodes.has(i) || !modelStore.nodes.has(j)) { wError = t('pro.errNodesExist'); return; }
     if (i === j) { wError = t('pro.errNodesDistinct'); return; }
     wError = null;
-    const id = nextMember.add(i, j, uiStore.elementCreateType);
+    const id = nextMember.add(i, j);
     uiStore.selectElement(id, false);
     uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(id)), 'success');
     // The next member most often starts where this one ended.
@@ -352,12 +333,6 @@
     <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneElement')}`} submitLabel={`${t('pro.add')} ${t('pro.oneElement')}`} onsubmit={writeMember} error={wError} testid="write-element-card">
       <label>{t('pro.thNodeI')} <input class="wc-num" inputmode="numeric" bind:value={wI} placeholder="ID" data-testid="write-element-i" /></label>
       <label>{t('pro.thNodeJ')} <input class="wc-num" inputmode="numeric" bind:value={wJ} placeholder="ID" data-testid="write-element-j" /></label>
-      <label>{t('pro.thType')}
-        <select bind:value={uiStore.elementCreateType} data-testid="write-element-type">
-          <option value="frame">{t('table.frame')}</option>
-          <option value="truss">{t('table.truss')}</option>
-        </select>
-      </label>
       <NextMemberFields />
     </WriteCard>
   {/if}
@@ -380,8 +355,7 @@
           <th class="col-node">{t('pro.thNodeJ')}</th>
           <th class="col-mat">{t('pro.thMaterial')}</th>
           <th class="col-sec">{t('pro.thSection')}</th>
-          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
-          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
+          <th class="col-spec" title={t('pro.thSpecHint')}>{t('pro.thSpec')}</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -424,21 +398,16 @@
                 {/each}
               </select>
             </td>
-            {#each ['i', 'j'] as const as end (end)}
-              <td class="col-hinge">
-                {#if row.id === null}
-                  <!-- A member not made yet: its ends are set here, pinned or fixed. -->
-                  <button class="hinge-btn" class:hinged={end === 'i' ? row.hingeI : row.hingeJ} onclick={() => {
-                    if (end === 'i') row.hingeI = !row.hingeI; else row.hingeJ = !row.hingeJ;
-                  }}>{(end === 'i' ? row.hingeI : row.hingeJ) ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
-                {:else}
-                  <!-- The end as it is, and the way to its one editor: Specifications › Members. -->
-                  {@const k = endKind(row.id, end)}
-                  <button class="hinge-btn" class:hinged={k !== 'fixed'} title={t('pro.endOpenSpec')}
-                    onclick={() => openEnds(row.id!)} data-testid="elem-end-{end}-{row.id}">{t(`pro.end.${k}`)}</button>
-                {/if}
-              </td>
-            {/each}
+            <td class="col-spec">
+              {#if row.id !== null}
+                <!-- What the member is told beyond this row, and the way to its one editor. -->
+                {@const specs = specsOf(row.id)}
+                <button class="spec-btn" class:set={specs.length > 0} title={specs.length ? specs.map((x) => `${x.what}: ${x.value}`).join('\n') : t('pro.specOpen')}
+                  onclick={(e) => { e.stopPropagation(); openSpec(row.id!); }} data-testid="elem-spec-{row.id}">
+                  {specs.length ? specs.map(specLabel).join(' · ') : '—'}
+                </button>
+              {/if}
+            </td>
             <td class="col-actions">
               <button class="pro-delete-btn" onclick={() => deleteRow(idx)}>×</button>
             </td>
@@ -446,7 +415,7 @@
         {/each}
         {#if rows.length === 0}
           <tr>
-            <td colspan="8" class="pro-empty">{t('pro.emptyElements')}</td>
+            <td colspan="7" class="pro-empty">{t('pro.emptyElements')}</td>
           </tr>
         {/if}
       </tbody>
@@ -635,25 +604,14 @@
     outline: none;
   }
 
-  .col-hinge { width: 40px; text-align: center; }
-
-  .hinge-btn {
-    padding: 3px 6px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--st-surface-3);
-    color: var(--st-text-3);
-    min-width: 34px;
+  .col-spec { max-width: 9rem; }
+  .spec-btn {
+    max-width: 100%; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: none; border: 1px solid transparent; border-radius: var(--st-radius);
+    color: var(--st-text-3); font-size: 0.68rem; cursor: pointer; text-align: left;
   }
-
-  .hinge-btn.hinged {
-    background: var(--st-surface-2);
-    border-color: var(--st-warn);
-    color: var(--st-warn);
-  }
+  .spec-btn.set { color: var(--st-warn); border-color: var(--st-hair-strong); }
+  .spec-btn:hover { color: var(--st-text); border-color: var(--st-accent); }
 
   .col-actions { width: 20px; text-align: center; }
 

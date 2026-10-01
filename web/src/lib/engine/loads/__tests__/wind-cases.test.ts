@@ -4,7 +4,7 @@
  * and the roof loads against p = q_h·G·C_p − q_i·(GC_pi) zone by zone.
  */
 import { describe, it, expect } from 'vitest';
-import { levelLoads, roofMembers, roofLoads, windLoadCases, type WindAxis, type WindModel } from '../wind-cases';
+import { levelLoads, roofMembers, roofLoads, windLoadCases, WIND_DIRECTIONS, type WindAxis, type WindModel } from '../wind-cases';
 import { flatRoofCp, G_RIGID, type WindProject } from '../../../codes/cirsoc102/wind';
 
 /** A one-storey box: 4 columns at the corners of Bx × By, 4 roof beams at height h. */
@@ -64,7 +64,7 @@ describe('levelLoads', () => {
 describe('the cases of Fig. 2.4-8', () => {
   const bx = 12, by = 8, h = 4, FX = 40, FY = 60;
   const m = box(bx, by, h);
-  const run = windLoadCases({ model: m, axes: axes(bx, by, h, FX, FY), set: 'all', bothSenses: true, tributaryWidth: 2, speed: 45 });
+  const run = windLoadCases({ model: m, axes: axes(bx, by, h, FX, FY), set: 'all', directions: WIND_DIRECTIONS, tributaryWidth: 2, speed: 45 });
   const byKey = (key: string, params: Record<string, string>) => run.cases.filter((c) =>
     c.nameKey === key && Object.entries(params).every(([k, v]) => c.nameParams[k] === v));
 
@@ -105,9 +105,23 @@ describe('the cases of Fig. 2.4-8', () => {
 
   it('counts: 8 + 8 + 4 + 8 cases with a roof, both senses and both axes', () => {
     expect(run.cases).toHaveLength(28);
-    const one = windLoadCases({ model: m, axes: axes(bx, by, h, FX, FY), set: 'cases13', bothSenses: false, tributaryWidth: 2, speed: 45 });
-    // case 1: 2 axes × 2 internal-pressure signs; case 3: +X with ±Y.
-    expect(one.cases).toHaveLength(4 + 2);
+    const one = windLoadCases({ model: m, axes: axes(bx, by, h, FX, FY), set: 'cases13', directions: ['+x', '+y'], tributaryWidth: 2, speed: 45 });
+    // case 1: 2 directions × 2 internal-pressure signs; case 3: +X with +Y.
+    expect(one.cases).toHaveLength(4 + 1);
+  });
+
+  it('generates only the directions chosen', () => {
+    const only = (directions: Parameters<typeof windLoadCases>[0]['directions']) =>
+      windLoadCases({ model: m, axes: axes(bx, by, h, FX, FY), set: 'all', directions, tributaryWidth: 2, speed: 45 });
+    // One direction: case 1 (two internal-pressure signs) and case 2 (both eccentricities); no case 3 or 4.
+    const minusX = only(['-x']);
+    expect(minusX.cases.map((c) => c.nameParams.dir)).toEqual(['−X', '−X', '−X', '−X']);
+    expect(minusX.notes.map((n) => n.key)).toContain('loadPlan.note.windCases34NeedBothAxes');
+    // Three directions: cases 3 and 4 over the pairs (+X, +Y) and (−X, +Y).
+    const three = only(['+x', '-x', '+y']);
+    const pairs = three.cases.filter((c) => c.nameKey === 'autoLoad.windCase3').map((c) => `${c.nameParams.dirX}${c.nameParams.dirY}`);
+    expect(pairs).toEqual(['+X+Y', '−X+Y']);
+    expect(three.cases).toHaveLength(6 + 6 + 2 + 4);
   });
 });
 

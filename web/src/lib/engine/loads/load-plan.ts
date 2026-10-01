@@ -45,7 +45,7 @@ import {
   type Enclosure, type Exposure, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { expandCombinations } from './combination-cases';
-import { windLoadCases, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
+import { windLoadCases, type WindDirection, type WindAxis, type WindCaseSet, type WindLevel } from './wind-cases';
 import { SERVICE_WIND_FACTOR, type ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import { snowLoadCases } from './snow-loads';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
@@ -140,8 +140,13 @@ export interface LoadPlanInput {
     directions: { x: boolean; y: boolean };
     /** Which cases of Fig. 2.4-8 to generate. Absent: all four (§2.4.6). */
     caseSet?: WindCaseSet;
-    /** Wind from −X and −Y as well. Absent: true. */
+    /** Wind from −X and −Y as well. Absent: true. Read only when `senses` is absent. */
     bothSenses?: boolean;
+    /**
+     * The directions to generate, any of +X, −X, +Y and −Y. Absent: the axes of `directions`,
+     * in both senses unless `bothSenses` is false.
+     */
+    senses?: WindDirection[];
     /** Service-level wind Wa (B.4.2): the 50-year speed and the recurrence to convert it to. */
     service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
   };
@@ -193,6 +198,16 @@ export interface LoadPlanInput {
    * (`combination-rules.ts`). They are expanded over the planned cases the same way.
    */
   projectCombinations?: LoadCombinationSpec[];
+}
+
+/** The wind directions a plan input asks for (see `senses`). */
+export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bothSenses?: boolean; senses?: WindDirection[] }): WindDirection[] {
+  if (w.senses) return [...w.senses];
+  const both = w.bothSenses ?? true;
+  return [
+    ...(w.directions.x ? (['+x', ...(both ? ['-x'] : [])] as WindDirection[]) : []),
+    ...(w.directions.y ? (['+y', ...(both ? ['-y'] : [])] as WindDirection[]) : []),
+  ];
 }
 
 // ─── Plan ────────────────────────────────────────────────────────
@@ -540,12 +555,13 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     const bx = Math.max(...xs) - Math.min(...xs);
     const by = Math.max(...ys) - Math.min(...ys);
 
+    const windDirs = windDirectionsOf(input.wind);
     /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
     const axesFor = (speed: number, service: boolean): WindAxis[] => {
       const out: WindAxis[] = [];
       for (const [dir, enabled, along, across] of [
-        ['x', input.wind!.directions.x, bx, by],
-        ['y', input.wind!.directions.y, by, bx],
+        ['x', windDirs.some((d) => d.endsWith('x')), bx, by],
+        ['y', windDirs.some((d) => d.endsWith('y')), by, bx],
       ] as const) {
         if (!enabled) continue;
         const project: WindProject = {
@@ -633,7 +649,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     if (windAxes.length > 0) {
       const set = input.wind.caseSet ?? 'all';
       const generated = windLoadCases({
-        model: input.model, axes: windAxes, set, bothSenses: input.wind.bothSenses ?? true,
+        model: input.model, axes: windAxes, set, directions: windDirs,
         tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
       });
       unsupportedKeys.push(...generated.notes);
@@ -659,7 +675,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       const waAxes = axesFor(speed, true);
       if (waAxes.length > 0) {
         const generated = windLoadCases({
-          model: input.model, axes: waAxes, set: 'case1', bothSenses: input.wind.bothSenses ?? true,
+          model: input.model, axes: waAxes, set: 'case1', directions: windDirs,
           tributaryWidth: input.tributaryWidth, speed: round(speed, 1),
         });
         refs.push(R102('B.4.2', 'servicio'));

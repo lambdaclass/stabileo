@@ -10,10 +10,10 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { supportTypeOptions } from '../../lib/pro/support-types';
   import { t, tp } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
+  import SupportDofFields from './SupportDofFields.svelte';
 
   const pick = $derived(uiStore.shellNodePick);
   const drawingPlate = $derived(pick.target === 'quad' && (pick.active || pick.picked.length > 0));
@@ -41,7 +41,6 @@
 
   const levelAxis = $derived(({ XY: 'Z', XZ: 'Y', YZ: 'X' } as const)[uiStore.workingPlane]);
   const materials = $derived([...modelStore.materials.values()]);
-  const supportTypes = $derived(supportTypeOptions(true, t));
   const cases = $derived(modelStore.loadCases);
   const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0;
 
@@ -69,10 +68,6 @@
           <input type="number" step="0.5" value={uiStore.nodeCreateZ} onchange={(e) => (uiStore.nodeCreateZ = num(e))} data-testid="draw-level" /> m
         </label>
       {:else if tool === 'element'}
-        <div class="db-seg" role="group" aria-label={t('drawBar.memberType')}>
-          <button class:on={uiStore.elementCreateType === 'frame'} aria-pressed={uiStore.elementCreateType === 'frame'} onclick={() => (uiStore.elementCreateType = 'frame')}>{t('table.frame')}</button>
-          <button class:on={uiStore.elementCreateType === 'truss'} aria-pressed={uiStore.elementCreateType === 'truss'} onclick={() => (uiStore.elementCreateType = 'truss')}>{t('table.truss')}</button>
-        </div>
         <NextMemberFields />
         <label class="db-check" title={t('drawBar.chainHint')}>
           <input type="checkbox" bind:checked={drawState.memberChain} data-testid="draw-chain" /> {t('drawBar.chain')}
@@ -95,18 +90,7 @@
           <input type="number" step="any" min="0.001" value={drawState.plateThickness} onchange={(e) => (drawState.plateThickness = num(e))} /> m
         </label>
       {:else if tool === 'support'}
-        <select bind:value={drawState.support.type} aria-label={t('pro.thType')} data-testid="draw-support-type">
-          {#each supportTypes as st (st.value)}<option value={st.value}>{st.label}</option>{/each}
-        </select>
-        {#if drawState.support.type === 'custom3d'}
-          {#each ['tx', 'ty', 'tz', 'rx', 'ry', 'rz'] as const as d (d)}
-            <label class="db-check"><input type="checkbox" bind:checked={drawState.support.dofs[d]} /> {d.replace('t', 'u')}</label>
-          {/each}
-        {:else if drawState.support.type === 'spring3d'}
-          {#each ['kx', 'ky', 'kz'] as const as k (k)}
-            <label>{k} <input type="number" value={drawState.support.springs[k] ?? ''} onchange={(e) => (drawState.support.springs[k] = num(e) || undefined)} placeholder="kN/m" /></label>
-          {/each}
-        {/if}
+        <SupportDofFields />
       {:else if tool === 'load'}
         <select bind:value={uiStore.activeLoadCaseId} aria-label={t('pro.loadCases')} data-testid="draw-load-case">
           {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}

@@ -193,9 +193,12 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await expect(rows.first().locator('td').first()).toHaveText('3.20');
       expect(Number(await rows.first().locator('td:nth-child(3)').innerText())).toBeGreaterThan(0);
 
-      // Case 1 only, one sense: one case per direction (twice with a roof, one per internal-pressure sign).
+      // All four directions are on by default; leave +X and +Y. Case 1 only: one case per
+      // direction (twice with a roof, one per internal-pressure sign).
+      for (const d of ['+x', '-x', '+y', '-y']) await expect(page.getByTestId(`al-wind-dir-${d}`)).toBeChecked();
       await page.getByTestId('al-wind-caseset').selectOption('case1');
-      await page.getByTestId('al-wind-both-senses').uncheck();
+      await page.getByTestId('al-wind-dir--x').uncheck();
+      await page.getByTestId('al-wind-dir--y').uncheck();
       // Service wind Wa at 10 years from a 40 m/s 50-year speed.
       await page.getByTestId('al-wind-service').check();
       await page.getByTestId('al-wind-service-v50').fill('40');
@@ -205,6 +208,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
       expect(wind.length).toBeGreaterThan(0);
       expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
+      expect(wind.some((n) => /\+X/.test(n)) && wind.some((n) => /\+Y/.test(n))).toBe(true);
       expect(names.filter((n) => /Wa/.test(n))).toEqual(expect.arrayContaining([expect.stringMatching(/^Service wind Wa \+X, 10 years/)]));
     });
 });

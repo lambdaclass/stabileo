@@ -13,10 +13,21 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { defaultShellMaterial } from '../pro/design-home';
 import type { MemberFrame } from '../engine/member-loads';
-import type { SupportType } from './model.svelte';
+import { DOF_SPRING, support3DFrom, type Dof3D } from '../model/support-3d';
 import { t, tp } from '../i18n';
 
 type Springs = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
+
+/** The draft's restraints as the model takes them: an elastic restraint is a free DOF with a spring. */
+function supportRestraints(s: { dofs: Record<Dof3D, boolean>; elastic: boolean; springs: Springs }): [Record<Dof3D, boolean>, Springs] {
+  const dofs = { ...s.dofs };
+  const springs: Springs = {};
+  for (const [dof, key] of DOF_SPRING) {
+    const k = s.springs[key] ?? 0;
+    if (s.dofs[dof] && s.elastic && k > 0) { dofs[dof] = false; springs[key] = k; }
+  }
+  return [dofs, springs];
+}
 
 function createDrawState() {
   /** The first node of the member being drawn, once picked. */
@@ -37,10 +48,14 @@ function createDrawState() {
   /** The member load a click applies in PRO: uniform, along the chosen axes. */
   let memberLoad = $state<{ frame: MemberFrame; qx: number; qy: number; qz: number }>({ frame: 'global', qx: 0, qy: 0, qz: -10 });
 
-  /** The support a click places and the panel's "Write support" adds: the same one. */
-  let support = $state<{ type: SupportType; dofs: Record<'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz', boolean>; springs: Springs }>({
-    type: 'fixed3d',
-    dofs: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false },
+  /**
+   * The support a click places and the panel's "Write support" adds: the same one. As in Basic's
+   * 3D tool, a ticked degree of freedom is restrained; with `elastic` on, a restrained one with a
+   * stiffness becomes a spring of that stiffness instead (`model/support-3d.ts`).
+   */
+  let support = $state<{ dofs: Record<Dof3D, boolean>; elastic: boolean; springs: Springs }>({
+    dofs: { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true },
+    elastic: false,
     springs: {},
   });
 
@@ -59,10 +74,8 @@ function createDrawState() {
     get support() { return support; },
     /** Put the support being drawn on a node; returns its id. */
     addSupportAt(nodeId: number): number {
-      const s = support;
-      const springs = s.type === 'spring3d' ? { ...s.springs } : undefined;
-      const opts = s.type === 'custom3d' ? { dofRestraints: { ...s.dofs } } : undefined;
-      return modelStore.addSupport(nodeId, s.type, springs, opts as never);
+      const { type, springs, opts } = support3DFrom(...supportRestraints(support), 'global');
+      return modelStore.addSupport(nodeId, type, springs, opts);
     },
 
     get memberStart() { return memberStart; },

@@ -54,11 +54,23 @@ describe('drawState', () => {
     expect(drawState.writing).toBeNull();
   });
 
-  it('a drawn support is the draft', () => {
-    const [a] = square();
-    drawState.support.type = 'pinned3d';
-    const id = drawState.addSupportAt(a!);
-    expect(modelStore.supports.get(id)?.type).toBe('pinned3d');
-    drawState.support.type = 'fixed3d';
+  it('a drawn support is the draft: ticked is restrained, an elastic restraint is a spring', () => {
+    const [a, b, c] = square();
+    const d = drawState.support;
+    expect(modelStore.supports.get(drawState.addSupportAt(a!))?.type).toBe('fixed3d');
+
+    for (const k of ['rx', 'ry', 'rz'] as const) d.dofs[k] = false;
+    expect(modelStore.supports.get(drawState.addSupportAt(b!))?.type).toBe('pinned3d');
+
+    // Uz held by a 5000 kN/m spring; Ux and Uy rigid.
+    d.elastic = true; d.springs.kz = 5000;
+    const s = modelStore.supports.get(drawState.addSupportAt(c!))!;
+    expect(s.type).toBe('custom3d');
+    expect(s.dofRestraints).toMatchObject({ tx: true, ty: true, tz: false, rx: false });
+    expect(s.kz).toBe(5000);
+    expect(s.kx).toBeUndefined();
+
+    d.elastic = false; d.springs.kz = undefined;
+    for (const k of ['rx', 'ry', 'rz'] as const) d.dofs[k] = true;
   });
 });

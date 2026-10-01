@@ -1,20 +1,18 @@
 <script lang="ts">
   /**
-   * Section, material and the two ends of the next member, each with its name beside it.
+   * Section and material of the next member, each with its name beside it.
    *
-   * The same four fields wherever a member is made: in the panel's "Write a member" card and in
-   * the drawing bar under the ribbon. The pickers show the name the member will get (the model's
-   * first until something else is chosen), and all four share one width so they read as a set.
-   * A truss carries no moment, so its ends are not asked for. See `store/next-member.svelte.ts`.
+   * The same two fields wherever a member is made: in the panel's "Write a member" card and in
+   * the drawing bar under the ribbon. The pickers show the name the member will get (the last
+   * member's until something else is chosen), and both share one width so they read as a pair.
+   * The rest of what a member is told is in Specifications. See `store/next-member.svelte.ts`.
    */
-  import { modelStore, uiStore } from '../../lib/store';
+  import { modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { nextMember, type NextMemberEnd } from '../../lib/store/next-member.svelte';
+  import { nextMember } from '../../lib/store/next-member.svelte';
 
   const materials = $derived([...modelStore.materials.values()]);
   const sections = $derived([...modelStore.sections.values()]);
-  const frame = $derived(uiStore.elementCreateType === 'frame');
-  const ENDS: NextMemberEnd[] = ['fixed', 'pinned'];
 </script>
 
 <span class="nmf" data-testid="next-member">
@@ -30,20 +28,6 @@
       {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
     </select>
   </label>
-  {#if frame}
-    <label class="nmf-field" title={t('nextMember.endHint')}>
-      <span class="nmf-name">{t('stress.endI')}</span>
-      <select bind:value={nextMember.endI} data-testid="nm-end-i">
-        {#each ENDS as k (k)}<option value={k}>{t(`nextMember.end.${k}`)}</option>{/each}
-      </select>
-    </label>
-    <label class="nmf-field" title={t('nextMember.endHint')}>
-      <span class="nmf-name">{t('stress.endJ')}</span>
-      <select bind:value={nextMember.endJ} data-testid="nm-end-j">
-        {#each ENDS as k (k)}<option value={k}>{t(`nextMember.end.${k}`)}</option>{/each}
-      </select>
-    </label>
-  {/if}
 </span>
 
 <style>

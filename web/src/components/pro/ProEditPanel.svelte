@@ -40,7 +40,7 @@
 
   /** New members take the next-member choice, falling back to the model's first. */
   const spec = $derived({
-    type: uiStore.elementCreateType,
+    type: 'frame' as const,
     materialId: nextMember.resolvedMaterialId,
     sectionId: nextMember.resolvedSectionId,
   });

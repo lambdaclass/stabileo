@@ -8,13 +8,14 @@
   import { parseIdList } from '../../lib/model/select-ops';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
+  import SupportDofFields from './SupportDofFields.svelte';
+  import { DOF_SPRING } from '../../lib/model/support-3d';
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   const supportTypes = $derived(supportTypeOptions(is3D, t));
 
   /* The support written here and the one drawn in the model are the same draft (`drawState`). */
-  const draft = drawState.support;
   let newNodeIds = $state('');
   let wError = $state<string | null>(null);
 
@@ -44,16 +45,28 @@
     });
   }
 
-  function typeLabel(type: string): string {
-    return supportTypes.find(st => st.value === type)?.label ?? type;
+  const DOF_NAME: Record<string, string> = { tx: 'Fx', ty: 'Fy', tz: 'Fz', rx: 'Mx', ry: 'My', rz: 'Mz' };
+  /**
+   * Fixed and pinned by name; any other support by what it holds (`Fx Fy · Mz`) and what it
+   * holds elastically (`kz`), the same reading its symbol in the model gives.
+   */
+  function kindLabel(s: { type: string; dofRestraints?: Record<string, boolean> } & Partial<Record<'kx' | 'ky' | 'kz' | 'krx' | 'kry' | 'krz', number>>): string {
+    if (s.type === 'fixed3d' || s.type === 'pinned3d' || !s.dofRestraints && s.type !== 'spring3d') {
+      return supportTypes.find((st) => st.value === s.type)?.label ?? s.type;
+    }
+    const held = DOF_SPRING.filter(([d]) => s.dofRestraints?.[d]).map(([d]) => DOF_NAME[d]);
+    const springs = DOF_SPRING.filter(([, k]) => (s[k] ?? 0) > 0).map(([, k]) => k);
+    return [held.join(' '), springs.join(' ')].filter(Boolean).join(' · ') || t('pro.supportFree');
   }
 
   /** What a support adds to its type: it lifts off, it has springs or curves, it is inclined. */
-  function supportTags(s: { uplift?: boolean; isInclined?: boolean; curves?: unknown; kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }): string[] {
+  function supportTags(s: { type: string; dofRestraints?: unknown; uplift?: boolean; isInclined?: boolean; curves?: unknown; kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number }): string[] {
     const tags: string[] = [];
+    // A support described by its restraints already names its springs (`kindLabel`).
+    const named = !!s.dofRestraints || s.type === 'spring3d';
     if (s.uplift) tags.push(t('support.uplift'));
     if (s.curves) tags.push(t('spec.list.curves'));
-    else if (['kx', 'ky', 'kz', 'krx', 'kry', 'krz'].some((k) => ((s as Record<string, number | undefined>)[k] ?? 0) > 0)) tags.push(t('spec.list.springs'));
+    else if (!named && ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'].some((k) => ((s as unknown as Record<string, number | undefined>)[k] ?? 0) > 0)) tags.push(t('spec.list.springs'));
     if (s.isInclined) tags.push(t('spec.list.inclined'));
     return tags;
   }
@@ -77,34 +90,7 @@
   {#if drawState.writing === 'support'}
     <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
       <label>{t('pro.thNode')} <input class="wc-ids" bind:value={newNodeIds} placeholder={t('pro.idsPlaceholder')} data-testid="write-support-nodes" /></label>
-      <label>{t('pro.thType')}
-        <select bind:value={draft.type} class="pro-select-sm" data-testid="write-support-type">
-          {#each supportTypes as st}
-            <option value={st.value}>{st.label}</option>
-          {/each}
-        </select>
-      </label>
-
-      {#if draft.type === 'custom3d'}
-        <div class="dof-grid">
-          <span class="dof-section-label">{t('pro.dofTranslation')}</span>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.tx} /> ux</label>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.ty} /> uy</label>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.tz} /> uz</label>
-          <span class="dof-section-label">{t('pro.dofRotation')}</span>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.rx} /> rx</label>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.ry} /> ry</label>
-          <label class="dof-check"><input type="checkbox" bind:checked={draft.dofs.rz} /> rz</label>
-        </div>
-      {/if}
-
-      {#if draft.type === 'spring3d'}
-        <div class="spring-grid">
-          {#each [['kx', 'kN/m'], ['ky', 'kN/m'], ['kz', 'kN/m'], ['krx', 'kN·m/rad'], ['kry', 'kN·m/rad'], ['krz', 'kN·m/rad']] as [k, unit] (k)}
-            <label class="spring-field">{k} <input type="number" value={draft.springs[k as 'kx'] ?? ''} onchange={(e) => (draft.springs[k as 'kx'] = Number(e.currentTarget.value) || undefined)} placeholder={unit} class="pro-input-sm" /></label>
-          {/each}
-        </div>
-      {/if}
+      <SupportDofFields />
 
       {#if uiStore.selectedNodes.size > 0}
         <button type="button" class="pro-btn pro-btn-selection" onclick={addFromSelection}>
@@ -133,7 +119,7 @@
             <td class="col-id">{s.id}</td>
             <td class="col-num">{s.nodeId}</td>
             <!-- What the support is, read here; edited in its one place, Specifications › Supports. -->
-            <td class="sup-kind">{supportTypes.find((st) => st.value === s.type)?.label ?? s.type}{#each supportTags(s) as tag (tag)}<span class="sup-tag">{tag}</span>{/each}</td>
+            <td class="sup-kind" data-testid="sup-kind-{s.id}">{kindLabel(s)}{#each supportTags(s) as tag (tag)}<span class="sup-tag">{tag}</span>{/each}</td>
             <td><button class="pro-edit-btn" title={t('spec.supports.open')} aria-label={t('spec.supports.open')}
                   onclick={(e) => { e.stopPropagation(); openSpec(s.id); }} data-testid="sup-spec-{s.id}">✎</button></td>
             <td><button class="pro-delete-btn" onclick={() => removeSupport(s.id)}>×</button></td>
@@ -163,28 +149,8 @@
 
 
 
-  .pro-input-sm {
-    width: 55px;
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text);
-    font-size: 0.78rem;
-    font-family: monospace;
-  }
 
-  .pro-input-sm:focus { border-color: var(--st-surface-3); outline: none; }
 
-  .pro-select-sm {
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text-2);
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
 
   .pro-btn {
     padding: 5px 12px;
@@ -203,44 +169,6 @@
     color: var(--st-text-2);
     border-color: var(--st-hair-strong);
   }
-
-  .dof-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 10px;
-    align-items: center;
-    padding: 4px 0;
-  }
-  .dof-section-label {
-    font-size: 0.65rem;
-    color: var(--st-text-3);
-    text-transform: uppercase;
-    font-weight: 600;
-    width: 100%;
-  }
-  .dof-check {
-    font-size: 0.75rem;
-    color: var(--st-text-2);
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    cursor: pointer;
-  }
-  .dof-check input { accent-color: var(--st-text-2); }
-
-  .spring-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .spring-field {
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .spring-field .pro-input-sm { width: 65px; }
 
   .pro-sup-table-wrap { flex: 1; overflow: auto; }
 

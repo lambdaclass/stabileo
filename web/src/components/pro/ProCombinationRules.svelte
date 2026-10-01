@@ -72,8 +72,8 @@
 </script>
 
 <div class="cr" data-testid="combo-rules">
-  <p class="cr-hint">{t('combos.rules.hint')}</p>
-  {#if rules.length === 0}<p class="cr-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
+  <p class="al-hint">{t('combos.rules.hint')}</p>
+  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
       <table class="cr-table">
@@ -90,7 +90,7 @@
                 </select>
               </td>
               {#each RULE_SYMBOLS as s (s)}
-                <td><input class="cr-f" inputmode="decimal" value={factorOf(r, s) || ''}
+                <td><input type="text" class="cr-f" inputmode="decimal" value={factorOf(r, s) || ''}
                   onchange={(e) => setFactor(r.id, s, e.currentTarget.value)} aria-label={`${s} · ${ruleLabel(r)}`}
                   data-testid="combo-rule-{r.id}-{s}" /></td>
               {/each}
@@ -103,23 +103,23 @@
     </div>
   {/if}
   <div class="cr-row">
-    <button class="pk-btn" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
-    <button class="pk-btn" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
-    <button class="pk-btn" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
-    <button class="pk-btn" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
+    <button class="al-btn-sm" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
+    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
+    <button class="al-btn-sm" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
+    <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />
   </div>
 </div>
 
 <style>
-  .cr { font-size: 0.68rem; color: var(--st-text-2); }
-  .cr-hint { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
+  .cr { display: flex; flex-direction: column; gap: 6px; color: var(--st-text-2); }
   .cr-wrap { overflow-x: auto; }
   .cr-table { border-collapse: collapse; }
   .cr-table th { font-weight: 500; padding: 2px 3px; color: var(--st-text-3); }
   .cr-table td { padding: 1px 2px; }
-  .cr-f { width: 34px; font-family: monospace; font-size: 0.62rem; text-align: right; }
+  .cr .cr-wrap .cr-table select { width: auto; height: 24px; }
+  .cr .cr-wrap .cr-table input.cr-f { width: 40px; height: 24px; padding: 0 4px; text-align: right; font-family: var(--st-mono); }
   .cr-label td { font-family: monospace; font-size: 0.6rem; color: var(--st-text-3); padding-bottom: 4px; border-bottom: 1px solid var(--st-hair); }
   .cr-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
-  .cr-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+  .cr-row { display: flex; gap: 6px; flex-wrap: wrap; }
 </style>

@@ -23,45 +23,47 @@
 </script>
 
 <div class="ac" data-testid="al-combos">
-  <label class="al-check"><input type="checkbox" bind:checked={generate} data-testid="al-gen-combos" /> {t('autoLoad.genCombos')}</label>
-  {#if generate}
-    <div class="ac-source" role="radiogroup" aria-label={t('autoLoad.comboSource')}>
-      <label class="ac-opt">
-        <input type="radio" name="al-combo-source" value="regulation" bind:group={source} data-testid="al-combo-source-regulation" />
-        <span>{t('autoLoad.comboSource.regulation')}</span>
-      </label>
-      {#if source === 'regulation'}
-        <div class="ac-sub" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">
-          {#each ['ultimate', 'service', 'both'] as const as k (k)}
-            <label><input type="radio" name="al-combo-set" value={k} bind:group={set} data-testid="al-combo-set-{k}" /> {t(`autoLoad.comboSet.${k}`)}</label>
-          {/each}
-        </div>
-        {#if set !== 'ultimate'}<p class="ac-hint">{t('autoLoad.comboSetServiceHint')}</p>{/if}
-      {/if}
-      <label class="ac-opt">
-        <input type="radio" name="al-combo-source" value="project" bind:group={source} disabled={rules.length === 0} data-testid="al-combo-source-project" />
-        <span>{tp('autoLoad.comboSource.project', { n: rules.length })}</span>
-      </label>
-      {#if rules.length === 0}<p class="ac-hint">{t('autoLoad.comboSourceProjectEmpty')}</p>{/if}
+  <section class="al-sec" class:off={!generate}>
+    <div class="al-sec-head">
+      <label class="al-check al-sec-title"><input type="checkbox" bind:checked={generate} data-testid="al-gen-combos" /> {t('autoLoad.genCombos')}</label>
     </div>
-    <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('autoLoad.seismicBothSenses')}</label>
-    <p class="ac-hint">{t('autoLoad.seismicBothSensesHint')}</p>
-  {/if}
+    {#if generate}
+      <div class="al-sec-body">
+        <div class="ac-source" role="radiogroup" aria-label={t('autoLoad.comboSource')}>
+          <span class="al-label">{t('autoLoad.comboSource')}</span>
+          <label class="al-check">
+            <input type="radio" name="al-combo-source" value="regulation" bind:group={source} data-testid="al-combo-source-regulation" />
+            {t('autoLoad.comboSource.regulation')}
+          </label>
+          {#if source === 'regulation'}
+            <div class="al-row ac-sub" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">
+              {#each ['ultimate', 'service', 'both'] as const as k (k)}
+                <label class="al-check"><input type="radio" name="al-combo-set" value={k} bind:group={set} data-testid="al-combo-set-{k}" /> {t(`autoLoad.comboSet.${k}`)}</label>
+              {/each}
+            </div>
+            {#if set !== 'ultimate'}<p class="al-hint ac-sub">{t('autoLoad.comboSetServiceHint')}</p>{/if}
+          {/if}
+          <label class="al-check">
+            <input type="radio" name="al-combo-source" value="project" bind:group={source} disabled={rules.length === 0} data-testid="al-combo-source-project" />
+            {tp('autoLoad.comboSource.project', { n: rules.length })}
+          </label>
+          {#if rules.length === 0}<p class="al-hint ac-sub">{t('autoLoad.comboSourceProjectEmpty')}</p>{/if}
+        </div>
+        <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('autoLoad.seismicBothSenses')}</label>
+        <p class="al-hint">{t('autoLoad.seismicBothSensesHint')}</p>
+      </div>
+    {/if}
+  </section>
 
-  <section class="ac-rules">
-    <h4 class="ac-heading">{tp('combos.rules.title', { n: rules.length })}</h4>
-    <ProCombinationRules />
+  <section class="al-sec">
+    <div class="al-sec-head"><span class="al-sec-title">{tp('combos.rules.title', { n: rules.length })}</span></div>
+    <div class="al-sec-body"><ProCombinationRules /></div>
   </section>
 </div>
 
 <style>
-  .ac { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--st-text-2); }
-  .al-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .ac-source { display: flex; flex-direction: column; gap: 4px; padding-left: 1.3rem; }
-  .ac-opt { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .ac-sub { display: flex; gap: 10px; flex-wrap: wrap; padding-left: 1.3rem; }
-  .ac-sub label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .ac-hint { margin: 0 0 0 1.3rem; font-size: 0.62rem; color: var(--st-text-3); }
-  .ac-rules { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--st-surface-3); display: flex; flex-direction: column; gap: 4px; }
-  .ac-heading { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--st-text-2); }
+  /* The dialog's sections, fields and text (`ProAutoLoadsDialog`); only the indents are here. */
+  .ac { display: flex; flex-direction: column; gap: 10px; }
+  .ac-source { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .ac-sub { padding-left: 1.4rem; }
 </style>

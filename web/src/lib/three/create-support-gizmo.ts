@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { COLORS, markShared } from './selection-helpers';
 import { GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../geometry/coordinate-system';
+import { addRestraintGizmo, type SupportSprings } from './create-restraint-gizmo';
 
 export type SupportGizmoType =
   | 'fixed' | 'fixed3d'
@@ -21,6 +22,13 @@ export interface CreateSupportOpts {
   supportType: SupportGizmoType;
   selected?: boolean;
   dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
+  /**
+   * Draw a custom or spring support as what it restrains, from the node out
+   * (`create-restraint-gizmo.ts`). PRO asks for it; Basic keeps the older indicators.
+   */
+  restraintSymbols?: boolean;
+  /** The support's spring constants, for `restraintSymbols`. */
+  springs?: SupportSprings;
 }
 
 export function createSupportGizmo(
@@ -62,10 +70,15 @@ export function createSupportGizmo(
       break;
     case 'spring':
     case 'spring3d':
-      addSpringGizmo(group, color);
-      break;
     case 'custom3d':
-      addCustom3DGizmo(group, color, opts.dofRestraints);
+      if (opts.restraintSymbols && opts.supportType !== 'spring') {
+        addRestraintGizmo(group, { geo: sharedGeo, mat: sharedStandardMat, ground: GROUND_COLOR },
+          opts.dofRestraints ?? { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false }, opts.springs ?? {});
+      } else if (opts.supportType === 'custom3d') {
+        addCustom3DGizmo(group, color, opts.dofRestraints);
+      } else {
+        addSpringGizmo(group, color);
+      }
       break;
     default:
       addPinnedGizmo(group, color);
