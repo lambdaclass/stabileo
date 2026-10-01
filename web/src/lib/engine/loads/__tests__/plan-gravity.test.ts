@@ -51,10 +51,12 @@ describe('area loads by the panels the beams close', () => {
   it('a 6 × 4 m panel sends its whole area to its four beams, triangles and trapezoids', () => {
     const m = floor(1, 1, 6, 4);
     const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const area = [...g.areaOf.values()].reduce((s, a) => s + a, 0);
+    // Nothing stands over this floor: what it collects is roof area.
+    expect(g.areaOf.size).toBe(0);
+    const area = [...g.roofAreaOf.values()].reduce((s, a) => s + a, 0);
     expect(area).toBeCloseTo(24, 6);
     // Short sides (4 m) take a triangle of height 2: 4 m²; long sides the rest, 8 m² each.
-    const byLen = [...g.areaOf].map(([id, a]) => {
+    const byLen = [...g.roofAreaOf].map(([id, a]) => {
       const e = m.elements.get(id)!;
       const L = Math.abs(m.nodes.get(e.nodeJ)!.x - m.nodes.get(e.nodeI)!.x) + Math.abs(m.nodes.get(e.nodeJ)!.y - m.nodes.get(e.nodeI)!.y);
       return [L, a];
@@ -120,5 +122,73 @@ describe('area loads by the panels the beams close', () => {
     const p = buildLoadPlan(planInput(m));
     const lvl = p.levels.find((l) => l.elevation === 3)!;
     expect(lvl.planAreaM2).toBeCloseTo(75, 4);
+  });
+});
+
+/** Two levels of one 6 × 6 bay; with `stepTo`, a second bay at x 6–12 rises only to the first. */
+function building(step = false): LoadModelData {
+  const nodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
+  const elements = new Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>();
+  let n = 1, e = 1;
+  const id = new Map<string, number>();
+  const node = (x: number, y: number, z: number) => {
+    const k = `${x},${y},${z}`;
+    if (!id.has(k)) { id.set(k, n); nodes.set(n, { id: n, x, y, z }); n++; }
+    return id.get(k)!;
+  };
+  const seen = new Set<string>();
+  const ring = (x0: number, x1: number, z: number) => {
+    const c = [node(x0, 0, z), node(x1, 0, z), node(x1, 6, z), node(x0, 6, z)];
+    for (let i = 0; i < 4; i++) {
+      const k = [c[i]!, c[(i + 1) % 4]!].sort().join('-');
+      if (seen.has(k)) continue;
+      seen.add(k);
+      elements.set(e, { id: e++, nodeI: c[i]!, nodeJ: c[(i + 1) % 4]!, sectionId: 1, materialId: 1 });
+    }
+  };
+  const posts = (x0: number, x1: number, z0: number, z1: number) => {
+    for (const [x, y] of [[x0, 0], [x1, 0], [x1, 6], [x0, 6]] as const) elements.set(e, { id: e++, nodeI: node(x, y, z0), nodeJ: node(x, y, z1), sectionId: 1, materialId: 1 });
+  };
+  posts(0, 6, 0, 3); ring(0, 6, 3); posts(0, 6, 3, 6); ring(0, 6, 6);
+  if (step) { for (const [x, y] of [[12, 0], [12, 6]] as const) elements.set(e, { id: e++, nodeI: node(x, y, 0), nodeJ: node(x, y, 3), sectionId: 1, materialId: 1 }); ring(6, 12, 3); }
+  return {
+    nodes, elements, sections: new Map([[1, { id: 1, a: 0.09 }]]), materials: new Map([[1, { id: 1, rho: 25 }]]),
+    loadCases: [{ id: 1, type: 'D', name: 'D' }],
+  };
+}
+
+describe('roofs: what nothing higher covers', () => {
+  const roof = { use: 'maintenance' as const, weight: 'heavy' as const, dead: 1.5, slopeDeg: 0 };
+
+  it('the top floor takes the roof dead load and Lr; the floor under it D and L', () => {
+    const m = building();
+    const p = buildLoadPlan(planInput(m, { roof, generateCombinations: true }));
+    const top = (d: { elementId: number }) => (m.nodes.get(m.elements.get(d.elementId)!.nodeI)!.z ?? 0) === 6;
+    const dead = p.distributed.filter((d) => d.caseType === 'D');
+    expect(totalKN(dead.filter(top), m)).toBeCloseTo(-1.5 * 36, 4);
+    expect(totalKN(dead.filter((d) => !top(d)), m)).toBeCloseTo(-2 * 36, 4);
+    // Lr only on the roof: each beam collects 9 m² (< 20 m², R1 = 1), flat: 0,96 kN/m².
+    const lr = p.distributed.filter((d) => d.caseType === 'Lr');
+    expect(lr.length).toBeGreaterThan(0);
+    expect(lr.every(top)).toBe(true);
+    expect(totalKN(lr, m)).toBeCloseTo(-0.96 * 36, 4);
+    expect(p.distributed.filter((d) => d.caseType === 'L').every((d) => !top(d))).toBe(true);
+    expect(p.cases.some((c) => c.type === 'Lr')).toBe(true);
+    expect(p.combinations.some((c) => c.terms.some((f) => f.symbol === 'Lr'))).toBe(true);
+  });
+
+  it('a lower roof beside a step is a roof too', () => {
+    const m = building(true);
+    const p = buildLoadPlan(planInput(m, { roof }));
+    const lr = p.distributed.filter((d) => d.caseType === 'Lr');
+    // The 6 × 6 upper roof and the 6 × 6 lower roof beside it.
+    expect(totalKN(lr, m)).toBeCloseTo(-0.96 * 72, 4);
+  });
+
+  it('a one-storey roof for maintenance has no L case', () => {
+    const m = floor(1, 1, 6, 6);
+    const p = buildLoadPlan(planInput(m, { roof, generateCombinations: true }));
+    expect(p.cases.map((c) => c.type)).toEqual(['D', 'Lr']);
+    expect(p.combinations.every((c) => c.terms.every((f) => f.symbol !== 'L'))).toBe(true);
   });
 });

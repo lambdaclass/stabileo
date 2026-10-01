@@ -1,7 +1,5 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { expandCombinations } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -23,6 +21,8 @@
   import ProSnowSection from './ProSnowSection.svelte';
   import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
   import ProAutoLoadsApplying, { type GravityMode } from './ProAutoLoadsApplying.svelte';
+  import ProRoofLoadSection, { defaultRoofConfig } from './ProRoofLoadSection.svelte';
+  import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { defaultSnowConfig, snowPg, type SnowConfig } from '../../lib/engine/loads/snow-config';
@@ -108,6 +108,7 @@
   let floorsSupported = $state(1);
   let tributaryWidth = $state(3.0);
   let gravityMode = $state<GravityMode>('panels');
+  let roofCfg = $state(defaultRoofConfig());
   let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
   let gravitySpan = $state<'x' | 'y'>('x');
 
@@ -229,6 +230,11 @@
       occupancyKey: selectedOccupancy,
       tributaryWidth,
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
+      roof: roofCfg.enabled ? {
+        use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
+        weight: roofCfg.weight ?? roofWeightClass(roofCfg.dead ?? totalDead),
+        occupancyKey: roofCfg.occupancyKey, slopeDeg: roofCfg.slopeDeg ?? (snowRoof?.slopeDeg ?? windRoofSlope),
+      } : undefined,
       reductionElementKind,
       floorsSupported,
       applyLiveReduction,
@@ -475,6 +481,8 @@
           {/if}
         </div>
       </section>
+
+      <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} />
 
       <!-- Wind -->
       <section class="al-sec" class:off={!enableWind} bind:this={windFieldset} data-testid="al-wind-section">

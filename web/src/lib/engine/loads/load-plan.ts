@@ -45,6 +45,8 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
 import { gravityLayout } from './plan-gravity';
+import { planAreaLoads, type RoofLoads } from './plan-area-loads';
+import type { RoofWeight } from '../../codes/cirsoc101/roof-live';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
@@ -128,6 +130,12 @@ export interface LoadPlanInput {
    * panels the beams close, or with `tributaryWidth` on every beam. Absent: the width.
    */
   gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y' };
+  /**
+   * The roof's own loads (`plan-area-loads.ts`): its superimposed dead load and either the roof
+   * live load Lr of §4.8.1 (`maintenance`) or the live load of an occupancy (`occupancy`, §4.8.2).
+   * Absent: roofs are loaded as floors.
+   */
+  roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
   /** Element kind for the §4.7.2 live-load reduction. */
   reductionElementKind: ElementKind;
   /** Floors the reduced member supports, for the 0,5/0,4 Lo floor. */
@@ -509,53 +517,67 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     { existingId: findCase(input.model, 'L'), type: 'L', nameKey: 'autoLoad.liveCase' },
   ];
 
-  // ── Dead and live, where the area loads go (`plan-gravity.ts`) ──
+  // ── Dead, live and roof live, where the area loads go (`plan-gravity.ts`, `plan-area-loads.ts`) ──
+  const panelMode = input.gravity?.mode === 'panels';
   const layout = gravityLayout(input.model, {
-    mode: input.gravity?.mode ?? 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
+    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
-  const perMemberReduction = input.applyLiveReduction && input.gravity?.mode === 'panels';
-  /** The live load a member is designed for: reduced by its own tributary area in panel mode. */
-  const liveOf = (elementId: number): number => {
-    if (!perMemberReduction) return liveDesign;
+  /** The design live load of a member for an occupancy: by its own tributary area in panel mode. */
+  const reducedFor = (entry: OccupancyEntry, loKNm2: number, uniform: number, areas: Map<number, number>) => (elementId: number): number => {
+    if (!input.applyLiveReduction) return loKNm2;
+    if (!panelMode) return uniform;
     return reduceLiveLoad({
-      loKNm2: lo, tributaryAreaM2: layout.areaOf.get(elementId) ?? 0, elementKind: input.reductionElementKind,
+      loKNm2, tributaryAreaM2: areas.get(elementId) ?? 0, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
-      passengerGarage: occ.assemblyKind === 'passengerGarage', publicAssembly: occ.assemblyKind === 'publicAssembly',
-      noReduction: occ.noReduction === true,
+      passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',
+      noReduction: entry.noReduction === true,
     }).lKNm2;
   };
-  if (perMemberReduction) {
-    const ls = [...layout.areaOf.keys()].map(liveOf);
+  // Without roof settings a roof is a floor: its area counts as floor area.
+  const floorAreas = input.roof ? layout.areaOf : new Map([...layout.areaOf].map(([id, a]) => [id, a + (layout.roofAreaOf.get(id) ?? 0)]));
+  for (const [id, a] of layout.roofAreaOf) if (!input.roof && !floorAreas.has(id)) floorAreas.set(id, a);
+  const liveOf = reducedFor(occ, lo, liveDesign, floorAreas);
+  if (input.applyLiveReduction && panelMode) {
+    const ls = [...floorAreas.keys()].map(liveOf);
     if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
-  const distributed: PlannedDistributed[] = [];
-  const surface: PlannedSurface[] = [];
-  const legacyWidth = (input.gravity?.mode ?? 'width') === 'width';
-  /** One area load on what carries it: `perProjection` for loads given per horizontal area. */
-  const areaLoad = (caseType: PlannedCase['type'], qOf: (elementId: number) => number, perProjection: boolean, caseIndex?: number, onShells = true) => {
-    const ci = caseIndex !== undefined ? { caseIndex } : {};
-    for (const p of layout.pieces) {
-      const q = qOf(p.elementId);
-      if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
-      distributed.push({ elementId: p.elementId, caseType, ...ci, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global' });
+  let roofLoads: RoofLoads | undefined;
+  if (input.roof) {
+    const r = input.roof;
+    const slopePercent = Math.tan((r.slopeDeg * Math.PI) / 180) * 100;
+    if (r.use === 'occupancy') {
+      const roofOcc = findOccupancy(r.occupancyKey ?? '');
+      if (!roofOcc || roofOcc.uniformKNm2 === null) {
+        blockedKeys.push(msg('loadPlan.blocked.unknownOccupancy', { key: r.occupancyKey ?? '' }));
+        return { ...empty, blockedKeys };
+      }
+      const rlo = roofOcc.uniformKNm2;
+      refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
+      const uniform = input.applyLiveReduction
+        ? reduceLiveLoad({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
+            passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
+            noReduction: roofOcc.noReduction === true }).lKNm2
+        : rlo;
+      roofLoads = { dead: r.dead, use: 'occupancy', weight: r.weight, slopePercent, lo: rlo, liveOf: reducedFor(roofOcc, rlo, uniform, layout.roofAreaOf) };
+      derivation.push(msg('loadPlan.derivation.roofOccupancy', { occupancy: msg(roofOcc.labelKey), lo: rlo, dead: round(r.dead, 3), n: layout.roof.size }));
+    } else {
+      roofLoads = { dead: r.dead, use: 'maintenance', weight: r.weight, slopePercent };
+      derivation.push(msg('loadPlan.derivation.roofDead', { dead: round(r.dead, 3), n: layout.roof.size + layout.roofQuads.size }));
     }
-    for (const m of layout.widthMembers) {
-      const q = -qOf(m.elementId) * input.tributaryWidth;
-      if (Math.abs(q) <= 1e-3) continue;
-      // The plan's original form, a local-z load, where the width is all it was asked for.
-      if (legacyWidth) distributed.push({ elementId: m.elementId, caseType, ...ci, q });
-      else distributed.push({ elementId: m.elementId, caseType, ...ci, q, frame: perProjection ? 'projected' : 'global' });
-    }
-    if (onShells) for (const sq of layout.shellQuads) {
-      const q = qOf(-1);
-      if (q > 1e-6) surface.push({ quadId: sq.quadId, caseType, ...ci, q });
-    }
-  };
-  areaLoad('D', () => deadTotal, false);
-  // On a slab of shells the live load is not a member's: it goes unreduced.
-  areaLoad('L', (id) => (id < 0 ? lo : liveOf(id)), true);
+  }
+  const area = planAreaLoads({
+    layout, tributaryWidth: input.tributaryWidth, legacyWidth: !panelMode,
+    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads,
+  });
+  derivation.push(...area.derivation);
+  refs.push(...area.refs);
+  const distributed: PlannedDistributed[] = area.distributed.map((d) => ({ ...d }));
+  const surface: PlannedSurface[] = area.surface.map((d) => ({ ...d }));
+  if (area.planned.has('Lr')) cases.push({ existingId: findCase(input.model, 'Lr'), type: 'Lr', nameKey: 'autoLoad.roofLiveCase' });
+  // A building that is only a maintenance roof has no L; its case would be empty.
+  if (input.roof && !area.planned.has('L')) cases.splice(cases.findIndex((c) => c.type === 'L'), 1);
 
   // ── Level masses from real geometry ──
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
@@ -588,17 +610,40 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     assumptions.push(participation.assumption!);
   }
 
-  /* The area a level's area loads cover: the panels and slabs found when loading by area, else
-     the extent of its nodes. */
-  const loadedAreaAt = (z: number): number | null => {
-    let a = 0, any = false;
-    for (const [k, v] of layout.areaByLevel) if (Math.abs(k - z) <= 0.05) { a += v; any = true; }
-    return any ? a : null;
+  /*
+   * What the area loads add to each level's mass. By area, each member and slab brings the area
+   * it carries, at the dead and live load of the floor or roof it belongs to. By width, the
+   * extent of the level's nodes, at the roof's loads when every member there is a roof member.
+   */
+  const levelIndexOf = (z: number) => {
+    let best = 0;
+    levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
+    return best;
+  };
+  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0, any: false }));
+  if (panelMode) {
+    for (const [areas, m] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
+      for (const [id, a] of areas) {
+        const k = levelIndexOf(layout.zOf.get(id) ?? 0);
+        byArea[k]!.area += a; byArea[k]!.dead += a * m.dead; byArea[k]!.live += a * m.live; byArea[k]!.any = true;
+      }
+    }
+    for (const sq of layout.shellQuads) {
+      const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
+      byArea[k]!.area += sq.area; byArea[k]!.dead += sq.area * m.dead; byArea[k]!.live += sq.area * m.live; byArea[k]!.any = true;
+    }
+  }
+  const roofLevel = (k: number) => {
+    if (!roofLoads) return false;
+    const ids = [...layout.zOf].filter(([, z]) => levelIndexOf(z) === k).map(([id]) => id);
+    return ids.length > 0 && ids.every((id) => layout.roof.has(id));
   };
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const area = loadedAreaAt(lv.elevation) ?? lv.planAreaM2;
-    const superimposed = deadTotal * area;
-    const liveTotal = lo * area;
+    const ba = byArea[i]!;
+    const atRoof = !ba.any && roofLevel(i);
+    const area = ba.any ? ba.area : lv.planAreaM2;
+    const superimposed = ba.any ? ba.dead : (atRoof ? roofLoads!.dead : deadTotal) * area;
+    const liveTotal = ba.any ? ba.live : (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
@@ -755,7 +800,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   let combinations: LoadCombinationSpec[] = [];
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
-      L: true, Lr: false, S: snowPlanned, R: false,
+      L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
       W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
       Wa: nodal.some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
