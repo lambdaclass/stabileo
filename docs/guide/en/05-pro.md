@@ -32,6 +32,17 @@ As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Expor
 Excel or CSV, the report, and the view to DXF or SVG). See
 [chapter 1](01-getting-started.md#saving-opening-and-sharing).
 
+**Project workbook.** **Export → Project workbook** writes one Excel file with a cover (the project
+data, the date, the build and the units), the conventions, the model and every case and
+combination: reactions, displacements, member end forces, forces, deflections and stresses at the
+**stations** you choose (5, 13 or the critical ones: quarters, load positions and zero shear), the
+maxima with where they occur, the envelope of each node and member end with the combination that
+governs it, the statics and the second-order status. Numbers keep every digit and the solver's
+sign, the one the diagrams show. The model sheets use the names and columns of the Excel import,
+so they can be read back. When the workbook is larger than an Excel file handles well (a sheet past
+its rows, or more than four million cells), it comes as a zip with one CSV per sheet. The report dialog's Excel is the same workbook, with the sections you
+tick.
+
 **Project data.** Client, job, job number, site, the revisions with their date and description,
 and who designed, checked and approved it, with dates. Saved with the project and printed on the
 report's cover.

@@ -21,7 +21,7 @@ import { viewportCanvas } from '../utils/viewport-canvas';
 import { buildProReportData } from '../engine/pro-report-inputs';
 import { openReport } from '../engine/pro-report';
 import type { ReportConfig, ReportData } from '../engine/pro-report';
-import { downloadExcel } from '../store/file';
+import { downloadProjectWorkbook } from '../store/project-workbook';
 import { modelStore, resultsStore } from '../store';
 import { activePerCombo3D, activeCombinations } from '../store/active-results';
 import { computeStationDemands, runUnifiedVerification } from '../engine/verification-service';
@@ -46,13 +46,17 @@ function screenshotOfCanvas(): string | undefined {
 /**
  * Produce whichever document the dialog asked for.
  *
- * The workbook is the same results in another form, so it is reached from the
- * same dialog and goes out through `downloadExcel` — the route the results
- * table already uses. One exporter with two doors, rather than a second one
- * here that could come to disagree with it.
+ * The workbook is the same results in another form, so it is the project workbook
+ * (`store/project-workbook.ts`), the one the Project tab writes, narrowed to the sections the
+ * dialog chose. One exporter with two doors, rather than a second one here that could come to
+ * disagree with it.
  */
 export function exportReportAs(input: ReportExportInputs): void {
-  if (input.config.format === 'xlsx') { void downloadExcel(workbookOptions(input)); return; }
+  if (input.config.format === 'xlsx') {
+    const o = workbookOptions(input);
+    void downloadProjectWorkbook(5, { model: o.includeModel, results: o.includeResults, extra: o.extraSheets });
+    return;
+  }
 
   const data = buildProReportData({
     config: input.config,

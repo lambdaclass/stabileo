@@ -141,11 +141,14 @@ export interface LocalCurve {
  *
  * Without EI or forces there is no particular solution and no release correction: the curve is
  * the Hermite cubic of the nodal values alone — what "quick" asks for.
+ *
+ * `segments`: that many equal segments, or the ξ ∈ [0, 1] to sample at, which a reading
+ * relative to the chord needs to include 0 and 1.
  */
 export function memberLocalCurve(
   nodeI: Pt, nodeJ: Pt, dispI: Displacement3D, dispJ: Displacement3D,
   ef: ElementForces3D | undefined, ei: ElementEI | undefined,
-  localY?: Pt, rollAngle?: number, leftHand?: boolean, segments = 20,
+  localY?: Pt, rollAngle?: number, leftHand?: boolean, segments: number | readonly number[] = 20,
 ): LocalCurve | null {
   let axes;
   try {
@@ -193,8 +196,9 @@ export function memberLocalCurve(
   }
 
   const out: LocalCurve = { L, ex, ey, ez, xi: [], u: [], v: [], w: [] };
-  for (let i = 0; i <= segments; i++) {
-    const xi = i / segments, x = xi * L, xi2 = xi * xi, xi3 = xi2 * xi;
+  const xis = typeof segments === 'number' ? Array.from({ length: segments + 1 }, (_, i) => i / segments) : segments;
+  for (const xi of xis) {
+    const x = xi * L, xi2 = xi * xi, xi3 = xi2 * xi;
     const N1 = 1 - 3 * xi2 + 2 * xi3, N2 = (xi - 2 * xi2 + xi3) * L, N3 = 3 * xi2 - 2 * xi3, N4 = (-xi2 + xi3) * L;
     let v = N1 * vI + N2 * sYI + N3 * vJ + N4 * sYJ;
     if (yLoads) v += particular(x, ef!.distributedLoadsY, ef!.pointLoadsY, L, EIz!);

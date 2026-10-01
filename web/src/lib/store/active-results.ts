@@ -35,10 +35,17 @@ export function activeCombinations() {
 }
 
 /**
+ * The combinations the last published solve left out for having no second-order equilibrium.
+ * Meaningful while those results are the ones on screen, which is when the exports read it.
+ */
+export function unstableCombinations(): readonly number[] {
+  return resultsStore.unstableCombinations3D;
+}
+
+/**
  * Publish a solved combination bundle and the governing combination of each member.
- *
  * Every entry point that solves combinations goes through here, so the governing search sees
- * the same active list as the envelope does. Before, only the live calculation computed it.
+ * the same active list as the envelope does.
  */
 export function publishCombinations3D(bundle: {
   perCase: Map<number, AnalysisResults3D>;
@@ -47,7 +54,7 @@ export function publishCombinations3D(bundle: {
   /** Solved with P-Delta and left out: no second-order equilibrium at their load. */
   unstable?: number[];
 }): void {
-  resultsStore.setCombinationResults3D(bundle.perCase, bundle.perCombo, bundle.envelope);
+  resultsStore.setCombinationResults3D(bundle.perCase, bundle.perCombo, bundle.envelope, bundle.unstable);
   const names = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
   resultsStore.setGoverning3D(computeGoverning3D(activePerCombo3D(), names));
   if (bundle.unstable?.length) {

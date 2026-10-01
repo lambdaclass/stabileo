@@ -95,6 +95,19 @@ export function buildCriticalStations(ef: ElementForces3D): number[] {
   return Array.from(tSet).sort((a, b) => a - b);
 }
 
+/**
+ * Where along a member results are read: `n` equally spaced stations, ends included, or the
+ * critical ones of `buildCriticalStations` (quarters, load positions, zero shear).
+ */
+export type StationSpec = number | 'critical';
+
+/** The stations of one member under `spec`, as t ∈ [0, 1], ends included, ascending. */
+export function stationTs(ef: ElementForces3D, spec: StationSpec): number[] {
+  if (spec === 'critical') return buildCriticalStations(ef);
+  const n = Math.max(2, Math.floor(spec));
+  return Array.from({ length: n }, (_, k) => k / (n - 1));
+}
+
 /** Extract the full force tuple at a single station. */
 export function extractForcesAtStation(ef: ElementForces3D, t: number): StationForces {
   const x = t * ef.length;

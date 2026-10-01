@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { existsSync } from 'fs';
+import { execSync } from 'child_process';
 import { resolve } from 'path';
 
 /**
@@ -62,8 +63,19 @@ const PRODUCTION_BUILD_TESTS = [
 ];
 
 
+/** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
+function buildCommit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
+  try {
+    return execSync('git rev-parse --short=12 HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 export default defineConfig({
   plugins: [wasmStubPlugin(), svelte()],
+  define: { __STABILEO_COMMIT__: JSON.stringify(buildCommit()) },
   base: process.env.BASE_PATH || '/',
   server: {
     port: 4000,
