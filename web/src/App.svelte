@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
@@ -1114,7 +1115,7 @@
       // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
       if (_lc && _mode !== 'pro' && _mode !== 'edu') {
         cancelPendingLiveCalc();
-        const delay = (_mode === '2d') ? 120 : 200;
+        const delay = !is3DWorkspace(_mode) ? 120 : 200;
         liveCalcTimer = setTimeout(() => {
           liveCalcTimer = null;
           runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
@@ -1758,7 +1759,7 @@
 
     <div class="main-area">
       <main class="viewport-container">
-        {#if uiStore.analysisMode === '2d' || uiStore.analysisMode === 'edu'}
+        {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}
           <Viewport3D />
