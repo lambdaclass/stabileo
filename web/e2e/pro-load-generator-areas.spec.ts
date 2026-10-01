@@ -100,3 +100,29 @@ test.describe('@smoke T, H and F from the dialog', () => {
     expect(names).toContain('Temperature');
   });
 });
+
+test.describe('@smoke combination rule templates kept in the browser', () => {
+  test('saved from one project, added to another', async ({ pro: page }) => {
+    const openRules = async () => {
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-loads').click();
+      await page.getByTestId('load-tab-combos').click();
+      await page.getByTestId('combo-rules-edit').click();
+    };
+    await loadModel(page, 'rc-design-qa-8');
+    await openRules();
+    await page.getByTestId('combo-rule-add').click();
+    await page.getByTestId('combo-rule-r1-D').fill('1.4');
+    await page.getByTestId('combo-rule-r1-D').press('Tab');
+    await page.getByTestId('combo-library-name').fill('Office');
+    await page.getByTestId('combo-library-save').click();
+    await expect(page.getByTestId('combo-library-item')).toHaveCount(1);
+    await page.getByTestId('al-cancel').click();
+
+    await loadModel(page, '3d-portal-frame');
+    await openRules();
+    await expect(page.getByTestId('combo-library-item')).toContainText('Office');
+    await page.getByTestId('combo-library-use').click();
+    await expect(page.getByTestId('combo-rules')).toContainText('1.4 D');
+  });
+});
