@@ -2009,7 +2009,9 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     const t0 = performance.now();
     let results: AnalysisResults3D;
     try {
-      results = await solve3DInWorker(wire);
+      // The worker answers as the engine does: the axial shares are given back here, as the
+      // main-thread solve3D does (`axial-shares.ts`).
+      results = giveBackAxialShares(await solve3DInWorker(wire), axialShares(input.loads));
     } catch (e) {
       if (!(e instanceof PoolUnavailableError)) throw e;
       results = solve3DEngine(input);
@@ -2508,14 +2510,14 @@ async function solveCombinations3DParallelCore(
 
   // Build per-case inputs (plain wire objects — structured-cloned to workers,
   // no JSON.stringify per case)
-  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any> }> = [];
+  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any>; loads: SolverLoad3D[] }> = [];
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
     // Create full solver input with this case's loads
     const fullInput = { ...baseWire, loads };
-    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput });
+    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput, loads });
   }
 
   if (caseInputs.length === 0) return t('svc.noLoadsApplied');
@@ -2539,6 +2541,8 @@ async function solveCombinations3DParallelCore(
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
+      // Each case from its own loads; the combinations below are linear in the cases.
+      giveBackAxialShares(result, axialShares(ci.loads));
       const mech = excitedMechanism3D(result);
       if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {
