@@ -28,7 +28,7 @@ import { expandMemberOffsets, pruneHelperNodeResults, modelHasMemberOffsets } fr
 import { expandSlidingJoints2D, modelHasSlidingJoints } from './sliding-joints';
 import { expandJoints3D, modelHasJoints3D, EMBED_XZ_DOF_PERMUTATION } from './expand-joints-3d';
 import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
-import { enrichComboShellStresses } from './shell-combos';
+import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -2192,7 +2192,7 @@ function solveCombinations3DCore(
     // per-case results (which DO carry them). No solver change.
     const t1 = performance.now();
     if (hasShells) {
-      enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations);
+      enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations, model.plates ?? new Map());
     }
     const tShell = performance.now() - t1;
 
@@ -2251,7 +2251,7 @@ function solveCombinations3DFallback(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope3D(allComboResults);
   if (!envelope) return t('svc.envelopeError3d');
-  if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
+  if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
   return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
 }
 
@@ -2313,7 +2313,7 @@ function solveCombinations3DNonlinear(
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
     const envelope = computeEnvelope3D([...perCombo.values()]);
     if (!envelope) return t('svc.envelopeError3d');
-    if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never);
+    if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never, model.plates ?? new Map());
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
     return t('svc.solver3dError').replace('{n}', err.message);
@@ -2367,6 +2367,8 @@ function solveCombinations3DPDelta(
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return t('svc.envelopeError3d');
+  // The engine's envelope drops shells; each combination here carries its own second-order ones.
+  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo.values()]));
   return { ...pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model), unstable };
 }
 
@@ -2553,7 +2555,7 @@ async function solveCombinations3DParallelCore(
     const allComboResults = Array.from(perCombo.values());
     const envelope = computeEnvelope3D(allComboResults);
     if (!envelope) return t('svc.envelopeError3d');
-    if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations);
+    if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
 
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);

@@ -1,7 +1,7 @@
 /**
  * The result sheets of the project workbook: every case and every combination, in long form.
  *
- * Each row names its source (`case`, `combination` or `single`, its id and its name) and its place (node,
+ * Each row names its source (`case`, `combination`, `single` or `envelope`, its id and its name) and its place (node,
  * member end, station), so a sheet can be filtered or pivoted without a lookup. The tables are
  * the PRO result tables' (`engine/result-tables.ts`), the station forces the diagrams'
  * (`station-forces.ts`), the stresses and the deflections the ones their own tables show: the
@@ -16,10 +16,11 @@ import { memberStationStresses, type SectionStressModel } from '../engine/member
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
 import type { StaticsRows } from '../store/statics-rows';
 import type { StationDeflection } from '../store/service-deflection';
+import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, type ShellModel, type FaceResult } from '../engine/shell-results';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
-/** A solved case, combination, or standalone solve (source id 0, not a load-case id). */
-export interface WorkbookSource { kind: 'case' | 'combination' | 'single'; id: number; name: string; results: AnalysisResults3D }
+/** A result source; standalone solves and envelope views use id 0, not a load-case id. */
+export interface WorkbookSource { kind: 'case' | 'combination' | 'single' | 'envelope'; id: number; name: string; results: AnalysisResults3D }
 
 export interface ResultSheetsInput {
   sources: readonly WorkbookSource[];
@@ -33,6 +34,8 @@ export interface ResultSheetsInput {
   stressModel?: (elementId: number) => SectionStressModel | null;
   /** Combination names, for the unstable ones, which have no results to carry theirs. */
   comboNames?: ReadonlyMap<number, string>;
+  /** The shells' geometry and thickness, for their face and global results. */
+  shells?: ShellModel;
 }
 
 const UNITS: Record<TableKind, string[]> = {
@@ -96,6 +99,88 @@ function stressesSheet(input: ResultSheetsInput): WorkbookSheet | null {
   return { name: 'Stresses', rows };
 }
 
+
+const FACE_COLS = (f: string) => [`${f}Sxx [kN/m²]`, `${f}Syy [kN/m²]`, `${f}Txy [kN/m²]`, `${f}S1 [kN/m²]`, `${f}S2 [kN/m²]`, `${f}Angle [°]`, `${f}VonMises [kN/m²]`, `${f}Tresca [kN/m²]`];
+const faceCells = (f: FaceResult | undefined) => f
+  ? [f.sxx, f.syy, f.txy, f.s1, f.s2, f.angleDeg, f.vonMises, f.tresca]
+  : ['', '', '', '', '', '', '', ''];
+const T6 = ['xx', 'yy', 'zz', 'xy', 'yz', 'zx'] as const;
+const hasShells = (input: ResultSheetsInput) => input.sources.some((s) => (s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0) > 0);
+
+/** The shell centres of some results, as the workbook writes them; the results panel exports the same table. */
+export function shellCentreTable(sources: readonly WorkbookSource[], shells: ShellModel): WorkbookSheet {
+  return shellCentresSheet({ sources, shells, stations: 2, statics: null });
+}
+
+function shellCentresSheet(input: ResultSheetsInput): WorkbookSheet {
+  const rows: WorkbookSheet['rows'] = [[
+    ...SOURCE, 'element', 'id', 't [m]',
+    'sigmaXx [kN/m²]', 'sigmaYy [kN/m²]', 'tauXy [kN/m²]', 'mx [kN·m/m]', 'my [kN·m/m]', 'mxy [kN·m/m]', 'qx [kN/m]', 'qy [kN/m]',
+    ...FACE_COLS('membrane'), ...FACE_COLS('top'), ...FACE_COLS('bottom'),
+    ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`), 'QX [kN/m]', 'QY [kN/m]', 'QZ [kN/m]',
+  ]];
+  const opt = (v: number | undefined) => (v === undefined ? '' : v);
+  for (const s of input.sources) {
+    for (const r of shellCentreRows(s.results, input.shells!)) {
+      const g = r.global;
+      rows.push([
+        ...src(s), r.kind, r.id, r.thickness,
+        r.sigmaXx, r.sigmaYy, r.tauXy, opt(r.mx), opt(r.my), opt(r.mxy), opt(r.qx), opt(r.qy),
+        ...faceCells(r.membrane), ...faceCells(r.top), ...faceCells(r.bottom),
+        ...T6.map((k) => (g ? g.stress[k] : '')), ...T6.map((k) => (g ? g.moment[k] : '')),
+        ...(g?.shear ? g.shear : ['', '', '']),
+      ]);
+    }
+  }
+  return { name: 'ShellCentres', rows };
+}
+
+function shellNodesSheet(input: ResultSheetsInput): WorkbookSheet {
+  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'node', 'elements', ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`)]];
+  for (const s of input.sources) {
+    for (const n of shellNodeRows(shellCentreRows(s.results, input.shells!), input.shells!)) {
+      rows.push([...src(s), n.node, n.elements, ...T6.map((k) => n.stress[k]), ...T6.map((k) => n.moment[k])]);
+    }
+  }
+  return { name: 'ShellNodes', rows };
+}
+
+function shellCornersSheet(input: ResultSheetsInput): WorkbookSheet {
+  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'element', 'id', 'corner', 'node', 'vonMises [kN/m²]']];
+  for (const s of input.sources) for (const c of shellCornerRows(s.results, input.shells!)) rows.push([...src(s), c.kind, c.id, c.corner, c.node, c.vonMises]);
+  return { name: 'ShellCorners', rows };
+}
+
+/** The shell components the maxima sheet reads, with their units. */
+const SHELL_MAXIMA: Array<[string, string, (r: ShellCentreRow) => number | undefined]> = [
+  ['membraneVonMises', 'kN/m²', (r) => r.membrane.vonMises], ['topVonMises', 'kN/m²', (r) => r.top?.vonMises], ['bottomVonMises', 'kN/m²', (r) => r.bottom?.vonMises],
+  ['topTresca', 'kN/m²', (r) => r.top?.tresca], ['bottomTresca', 'kN/m²', (r) => r.bottom?.tresca],
+  ['topS1', 'kN/m²', (r) => r.top?.s1], ['topS2', 'kN/m²', (r) => r.top?.s2],
+  ['bottomS1', 'kN/m²', (r) => r.bottom?.s1], ['bottomS2', 'kN/m²', (r) => r.bottom?.s2],
+  ['mx', 'kN·m/m', (r) => r.mx], ['my', 'kN·m/m', (r) => r.my], ['mxy', 'kN·m/m', (r) => r.mxy], ['qx', 'kN/m', (r) => r.qx], ['qy', 'kN/m', (r) => r.qy],
+];
+
+function shellMaximaRows(input: ResultSheetsInput): WorkbookSheet['rows'] {
+  const out: WorkbookSheet['rows'] = [];
+  const best = SHELL_MAXIMA.map(() => ({ max: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource }, min: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource } }));
+  for (const s of governing(input.sources)) {
+    for (const r of shellCentreRows(s.results, input.shells!)) {
+      SHELL_MAXIMA.forEach(([, , get], i) => {
+        const v = get(r);
+        if (v === undefined || !Number.isFinite(v)) return;
+        if (!best[i]!.max || v > best[i]!.max!.v) best[i]!.max = { v, r, s };
+        if (!best[i]!.min || v < best[i]!.min!.v) best[i]!.min = { v, r, s };
+      });
+    }
+  }
+  SHELL_MAXIMA.forEach(([key, unit], i) => {
+    for (const [extreme, e] of [['max', best[i]!.max], ['min', best[i]!.min]] as const) {
+      if (e) out.push(['shells', key, unit, extreme, e.v, `${e.r.kind} ${e.r.id}`, '', '', e.s.kind, e.s.id, safeText(e.s.name)]);
+    }
+  });
+  return out;
+}
+
 /** The sources an envelope or a maximum is taken over: the combinations, or the cases when there are none. */
 function governing(sources: readonly WorkbookSource[]): WorkbookSource[] {
   const combos = sources.filter((s) => s.kind === 'combination');
@@ -115,6 +200,7 @@ function maximaSheet(input: ResultSheetsInput): WorkbookSheet {
       }
     });
   }
+  if (input.shells && hasShells(input)) rows.push(...shellMaximaRows(input));
   return { name: 'Maxima', rows };
 }
 
@@ -179,6 +265,7 @@ export function resultSheets(input: ResultSheetsInput): WorkbookSheet[] {
     stressesSheet(input),
     maximaSheet(input),
     envelopeSheet(input),
+    ...(input.shells && hasShells(input) ? [shellCentresSheet(input), shellNodesSheet(input), shellCornersSheet(input)] : []),
     staticsSheet(input.statics),
     secondOrderSheet(input),
     oneWaySheet(input.sources),

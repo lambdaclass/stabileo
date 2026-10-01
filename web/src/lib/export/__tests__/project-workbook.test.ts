@@ -178,4 +178,35 @@ describe('the project workbook', () => {
     const csv = strFromU8(files[Object.keys(files).find((k) => k.endsWith('-EndForces.csv'))!]!);
     expect(csv.split('\n')).toHaveLength(ends.rows.length);
   });
+
+  it('records a wall\'s shells at their centres, in global axes as statics has them', () => {
+    // A wall 4 m long and 3 m high in the XZ plane, 0.2 m thick, in 8 × 6 quads, held along its
+    // foot and pressed down by 40 kN/m along its head: away from the edges σzz = −40/0.2.
+    const nx = 8, nz = 6, L = 4, H = 3, t = 0.2, q = 40;
+    const id: number[][] = [];
+    for (let i = 0; i <= nx; i++) { id.push([]); for (let k = 0; k <= nz; k++) id[i]!.push(modelStore.addNode((L * i) / nx, 0, (H * k) / nz)); }
+    const mat = [...modelStore.materials.keys()][0]!;
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) modelStore.addQuad([id[i]![k]!, id[i + 1]![k]!, id[i + 1]![k + 1]!, id[i]![k + 1]!], mat, t);
+    for (let i = 0; i <= nx; i++) modelStore.addSupport(id[i]![0]!, 'custom3d', undefined, { dofRestraints: { tx: i === 0, ty: true, tz: true, rx: true, ry: false, rz: true } });
+    const dead = modelStore.model.loadCases[0]!.id;
+    for (let i = 0; i <= nx; i++) modelStore.addNodalLoad3D(id[i]![nz]!, 0, 0, (-q * L) / nx * (i === 0 || i === nx ? 0.5 : 1), 0, 0, 0, dead);
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    modelStore.addCombination('1.4 D', [{ caseId: dead, factor: 1.4 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    publishCombinations3D(r);
+    const sheets = currentWorkbookSheets(5);
+    const centres = records(sheet(sheets, 'ShellCentres'));
+    const combo = centres.filter((x) => x.source === 'combination');
+    expect(combo).toHaveLength(nx * nz);
+    // The middle of the wall: columns 3–4 of 8, rows 2–3 of 6.
+    const middle = combo.filter((x) => { const k = (x.id as number) - 1; const i = Math.floor(k / nz), j = k % nz; return i >= 3 && i <= 4 && j >= 2 && j <= 3; });
+    for (const x of middle) {
+      expect(Math.abs((x['SZZ [kN/m²]'] as number) - (-1.4 * q) / t) / ((1.4 * q) / t)).toBeLessThan(0.02);
+      expect(Math.abs(x['SYY [kN/m²]'] as number)).toBeLessThan(1e-6);
+    }
+    expect(sheet(sheets, 'ShellNodes').rows.length).toBeGreaterThan(1);
+    const maxima = records(sheet(sheets, 'Maxima')).filter((x) => x.table === 'shells');
+    expect(maxima.some((x) => x.component === 'membraneVonMises' && x.extreme === 'max')).toBe(true);
+  });
 });

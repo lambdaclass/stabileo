@@ -39,11 +39,13 @@ carátula (los datos del proyecto, la fecha, la versión y las unidades), las co
 y todos los casos y combinaciones: reacciones, desplazamientos, esfuerzos de extremo, esfuerzos,
 flechas y tensiones en las **estaciones** que elijas (5, 13 o las críticas: cuartos, posiciones de
 carga y corte nulo), los máximos con el lugar donde ocurren, la envolvente de cada nudo y extremo de
-barra con la combinación que la gobierna, la estática y el estado de segundo orden. Los números van
-con todos sus dígitos y con el signo del solver, que es el que muestran los diagramas. Las hojas del
-modelo usan los nombres y columnas de la importación desde Excel, así que se pueden volver a leer.
-Si el libro es más grande de lo que un archivo de Excel maneja bien (una hoja con más filas de las
-que admite, o más de cuatro millones de celdas), sale como un zip con un CSV por hoja. El Excel del diálogo de reporte es el mismo libro, con las secciones que marques.
+barra con la combinación que la gobierna, las placas en su centro, sus nudos y sus esquinas, la
+estática y el estado de segundo orden. Los números van con todos sus dígitos y con el signo del
+solver, que es el que muestran los diagramas. Las hojas del modelo usan los nombres y columnas de la
+importación desde Excel, así que se pueden volver a leer. Si el libro es más grande de lo que un
+archivo de Excel maneja bien (una hoja con más filas de las que admite, o más de cuatro millones de
+celdas), sale como un zip con un CSV por hoja. El Excel del diálogo de reporte es el mismo libro,
+con las secciones que marques.
 
 **Datos del proyecto.** Comitente, obra, número de obra, ubicación, las revisiones con su fecha
 y descripción, y quién proyectó, revisó y aprobó, con fechas. Se guardan con el proyecto y los
@@ -426,6 +428,12 @@ En el panel de **Resultados**:
   reacciones y las fuerzas en vínculos.
 - Las **salidas** en tablas: reacciones, solicitaciones, desplazamientos, tensiones en losas y
   muros (por elemento y por nodo), fuerzas en vínculos y diagnósticos.
+- Para las placas, una tabla de **caras y criterios**: Von Mises y Tresca en la cara superior y en
+  la inferior (membrana ± 6M/t², la superior en z = +t/2 según el z local del elemento) y, en los
+  cuadriláteros, los cortes transversales qx y qy. Su CSV y su Excel llevan todas las columnas,
+  también las tensiones, momentos y cortes en ejes globales. Los valores de placa de una
+  combinación significan lo mismo que los de un caso: Von Mises en la peor cara para un triángulo,
+  de la membrana para un cuadrilátero.
 - **Consulta de resultados:** busca el valor gobernante de un esfuerzo en todo el modelo, en la
   selección o en una lista de elementos, con filtros, y lo exporta a CSV.
 - **Reporte de esfuerzos crudos:** reacciones, desplazamientos y esfuerzos por barra y por

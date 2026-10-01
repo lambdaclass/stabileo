@@ -87,7 +87,7 @@ export function addSettlementCase(
   }
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return null;
-  if (shells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, withIt as never);
+  if (shells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, withIt as never, shells.plates);
   return { perCase, perCombo, envelope };
 }
 

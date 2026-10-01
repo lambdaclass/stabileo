@@ -292,7 +292,7 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
         ? combineResults3D(caseIds.map((caseId) => ({ caseId, factor: 1 })), comboResult.perCase)
         : null;
       firstCaseResult = combined
-        ? allLoadsResult3D(combined, comboResult.perCase)
+        ? allLoadsResult3D(combined, comboResult.perCase, modelStore.plates)
         : comboResult.perCase.get(caseIds[0]);
     }
     if (!firstCaseResult) return t('results.emptyModelError');

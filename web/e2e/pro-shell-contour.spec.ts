@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import * as XLSX from 'xlsx';
 import { test, expect, loadModel, solveModel } from './fixtures';
 
 /**
@@ -60,5 +62,46 @@ test.describe('@smoke PRO — the shell contour opens on something worth looking
        possibly to confirm exactly that it is negligible. */
     await page.waitForTimeout(300);
     await expect(component).toHaveValue('vonMises');
+  });
+});
+
+test.describe('@smoke PRO — the shells\' faces and criteria', () => {
+  test('a raft lists its faces\' Von Mises and Tresca, and exports every column', async ({ pro: page }) => {
+    await loadModel(page, 'mat-foundation');
+    await solveModel(page);
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('res-tab-shells').click();
+    const faces = page.getByTestId('shell-faces');
+    await expect(faces).toBeVisible();
+    // A slab in bending: its faces carry what its membrane does not.
+    await expect(faces.locator('tbody tr').first()).toBeVisible();
+    await page.locator('.pro-view-selector .pro-view-btn').nth(1).click();
+    const selected = page.getByTestId('pr-combo-select');
+    await expect(selected).toBeVisible();
+    const comboId = await selected.inputValue();
+    const comboName = await selected.locator('option:checked').textContent();
+    const wait = page.waitForEvent('download');
+    await page.getByTestId('shell-faces-csv').click();
+    const dl = await wait;
+    expect(dl.suggestedFilename()).toBe('shells.csv');
+    const text = readFileSync((await dl.path())!, 'utf8');
+    const header = text.split('\n')[0]!;
+    for (const col of ['topVonMises [kN/m²]', 'bottomTresca [kN/m²]', 'SZZ [kN/m²]', 'MXX [kN·m/m]']) expect(header).toContain(col);
+    const csv = XLSX.read(text, { type: 'string' });
+    const assertSource = (sheet: XLSX.WorkSheet) => {
+      const rows = XLSX.utils.sheet_to_json<{ source: string; sourceId: number; sourceName: string }>(sheet);
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.source).toBe('combination');
+        expect(row.sourceId).toBe(Number(comboId));
+        expect(row.sourceName).toBe(comboName);
+      }
+    };
+    assertSource(csv.Sheets[csv.SheetNames[0]!]!);
+    const excelWait = page.waitForEvent('download');
+    await page.getByTestId('shell-faces-xlsx').click();
+    const excel = await excelWait;
+    const wb = XLSX.read(readFileSync((await excel.path())!), { type: 'buffer' });
+    assertSource(wb.Sheets.ShellCentres!);
   });
 });
