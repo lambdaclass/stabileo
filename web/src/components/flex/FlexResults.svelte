@@ -7,6 +7,7 @@
    * Read-only: everything arrives computed from the panel.
    */
   import { t } from '../../lib/i18n';
+  import { teAll } from '../../lib/i18n/engine-text';
   import InteractionDiagram from './InteractionDiagram.svelte';
   import SurfaceCut from './SurfaceCut.svelte';
   import BarTable from './BarTable.svelte';
@@ -42,6 +43,12 @@
 
   <div class="fp-result" class:fp-fail={!(r?.ok ?? false)} data-testid="flex-result">
     <div class="fp-headline">{rows.headline}</div>
+    {#if r?.invalid}
+      <!-- Refused inputs: which number to fix, in the box itself rather than only in the memo. -->
+      <ul class="fp-refusal" data-testid="flex-refusal">
+        {#each teAll(r.steps) as reason}<li>{reason}</li>{/each}
+      </ul>
+    {/if}
     {#if r && Number.isFinite(r.ratio)}
       <div class="fp-ratio">
         <!-- Four decimals, the sheets' own: at three a ratio of 1,0003 printed
@@ -253,6 +260,7 @@
     color: var(--st-accent);
     font-variant-numeric: tabular-nums;
   }
+  .fp-refusal { margin: 0.25rem 0 0; padding-left: 1rem; color: var(--st-warn); font-size: 0.75rem; }
   .fp-ratio { margin-top: 0.15rem; color: var(--st-text-2); font-variant-numeric: tabular-nums; }
   .fp-ratio strong { color: var(--st-text); }
   .fp-verdict { margin-left: 0.4rem; color: var(--st-ok); }

@@ -241,6 +241,7 @@ fn validation_3d_cantilever_biaxial_udl() {
     let mut loads = Vec::new();
     for i in 1..=n {
         loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q_y, q_yj: q_y,
             q_zi: q_z, q_zj: q_z,

@@ -2,19 +2,28 @@
  * Reverse members: I becomes J. The section keeps its orientation (its local y is pinned to what
  * it was, so the web stays where it was), which reverses local x and so local z. Everything stated
  * per end or along the member follows: releases, joints, semi-rigid ends and offsets swap ends;
- * member loads are mirrored along the length, and their local z components change sign.
+ * member loads are mirrored along the length, and their local z components change sign — a
+ * temperature gradient too, since it is stated across local z.
+ *
+ * A plane load (`distributed`, `pointOnElement`) is stated against the member's direction, so
+ * what the reversal does to it is what reversing that direction does: its axial part turns
+ * round, and so does its transverse part unless it is in the drawn axes of a flat model, which
+ * do not depend on the direction (`transverse-sign-2d.ts`). Global ones only move along.
  *
  * A member with reinforcement is not reversed: its regions are laid from end I, and reversing
  * them is the design's to redo. One undo step.
  */
 import { modelStore } from '../../store/model.svelte';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
+import { shouldEmbedFlat2DModelIn3D } from '../../engine/solver-service';
 
 export interface FlipReport { flipped: number[]; skipped: Array<{ id: number; reason: 'reinforced' | 'missing' }> }
 
 export function flipMembers(ids: Iterable<number>): FlipReport {
   const report: FlipReport = { flipped: [], skipped: [] };
   const todo = [...new Set(ids)];
+  // Flat models state plane loads in the drawn axes; reversing a member does not change that.
+  const flat = shouldEmbedFlat2DModelIn3D(modelStore.model as never);
   modelStore.batch(() => {
     for (const id of todo) {
       const e = modelStore.elements.get(id);
@@ -50,6 +59,19 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
           return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
         }
         if (l.type === 'pointOnElement3d') return { ...l, data: { ...d, a: L - (d.a ?? 0), pz: -(d.pz ?? 0) } };
+        if (l.type === 'thermal') return { ...l, data: { ...d, dtGradient: -(d.dtGradient ?? 0) } };
+        const local = !(l.data as { isGlobal?: boolean }).isGlobal;
+        // A local plane load: axial part reversed; transverse part too, outside a flat model.
+        // In a flat model that is the angle's sign; elsewhere the whole load's.
+        const turn = (q: number | undefined) => (local && !flat ? -(q ?? 0) : q);
+        const angle = local && flat && d.angle ? { angle: -d.angle } : {};
+        if (l.type === 'distributed') {
+          const aa = d.a ?? 0, bb = d.b ?? L;
+          return { ...l, data: { ...d, qI: turn(d.qJ), qJ: turn(d.qI), ...angle, ...(d.a !== undefined || d.b !== undefined ? { a: L - bb, b: L - aa } : {}) } };
+        }
+        if (l.type === 'pointOnElement') {
+          return { ...l, data: { ...d, a: L - (d.a ?? 0), p: turn(d.p), ...angle, ...(d.px !== undefined ? { px: -d.px } : {}) } };
+        }
         return l;
       });
       modelStore.replaceLoads(next as never);

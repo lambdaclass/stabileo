@@ -8,11 +8,12 @@
  * six components. How their results compare with the source program's is checked outside the
  * repository.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
 import '../../../store';
 import { initSolver, solveBuckling3D } from '../../../engine/wasm-solver';
+import * as wasm from '../../../engine/wasm-solver';
 import { solveCombinations3D, buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from '../../../engine/solver-service';
 import { staticsCheck } from '../../../engine/statics-check';
 import { codeToModel, modelToCode } from '../../../model/code/format';
@@ -44,24 +45,21 @@ const md = () => ({
 
 const ids = Object.keys(VALIDATION_MODELS) as ValidationModelId[];
 
-/** Models with shells, and the moment components the engine's drilling penalty leaves exact. */
-const SHELL_DRILLING = new Map<ValidationModelId, { balanced: Array<'mx' | 'my' | 'mz'> }>([
-  // Slabs normal to Z and core walls normal to X and to Y: every moment is touched.
-  ['validation-01', { balanced: [] }],
-  // Walls in planes x = constant: the normal is X.
-  ['validation-03', { balanced: ['my', 'mz'] }],
-]);
-
 /**
- * Every case solved and checked. The cases are what is checked, so the solve goes through one
- * combination per case rather than the model's own: a model whose combinations are solved with
- * P-Delta (04) would otherwise spend its time on them. They have a test of their own below.
+ * Check every linear case using one combination per case. The hangar's own
+ * second-order combinations are checked separately below.
  */
 async function statics(id: ValidationModelId) {
   await loadValidationModel(id);
   const cases = modelStore.model.loadCases;
   const combinations = cases.map((c, i) => ({ id: 100000 + i, name: c.name, factors: [{ caseId: c.id, factor: 1 }] }));
-  const r = solveCombinations3D({ ...md(), analysis: { ...modelStore.analysis, perCombination: undefined } } as never, cases, combinations as never, true, false);
+  const single = vi.spyOn(wasm, 'solve3D');
+  let r;
+  try {
+    r = solveCombinations3D({ ...md(), analysis: { ...modelStore.analysis, perCombination: undefined } } as never, cases, combinations as never, true, false);
+    // Duplicate case names used to reject the shared factorization and solve all 22 separately.
+    if (id === 'validation-04') expect(single).not.toHaveBeenCalled();
+  } finally { single.mockRestore(); }
   if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
   const rows = staticsCheck({
     model: md() as never,
@@ -72,13 +70,6 @@ async function statics(id: ValidationModelId) {
   } as never);
   expect(rows).toHaveLength(cases.length);
   return rows;
-}
-
-/** The force and moment scales of a row, the way the check itself scales its differences. */
-function scales(row: { applied: Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', number> }) {
-  const f = Math.max(1e-9, ...(['fx', 'fy', 'fz'] as const).map((k) => Math.abs(row.applied[k]!)));
-  const m = Math.max(1e-9, ...(['mx', 'my', 'mz'] as const).map((k) => Math.abs(row.applied[k]!)));
-  return { f, m };
 }
 
 describe.each(ids)('%s', (id) => {
@@ -95,6 +86,7 @@ describe.each(ids)('%s', (id) => {
     expect(modelStore.elements.size).toBe(s.members);
     expect(modelStore.supports.size).toBe(s.supports);
     expect(modelStore.model.loadCases.length).toBe(s.cases);
+    expect(new Set(modelStore.model.loadCases.map((c) => c.name)).size).toBe(s.cases);
     expect(modelStore.combinations.length).toBe(s.combinations);
     // The source's numbering is kept: the store holds exactly the ids the file states.
     const code = codeToModel(await validationModelCode(id)).snapshot as unknown as { nodes: Array<[number, unknown]>; elements: Array<[number, unknown]> };
@@ -118,31 +110,9 @@ describe.each(ids)('%s', (id) => {
   it('balances every case in six components', async () => {
     for (const row of await statics(id)) {
       expect(row.uncovered, `${row.caseName}: every load kind is accounted for`).toEqual([]);
-      if (SHELL_DRILLING.has(id)) {
-        // Forces, and the moments about the in-plane axes of the shells, balance exactly; the
-        // moment about the shells' normal is short by the engine's drilling penalty (M14, pinned
-        // below). What is asserted is everything that defect does not touch.
-        const d = row.difference, sc = scales(row);
-        for (const k of ['fx', 'fy', 'fz'] as const) expect(Math.abs(d[k]) / sc.f, `${row.caseName} ${k}`).toBeLessThan(1e-9);
-        for (const k of SHELL_DRILLING.get(id)!.balanced) expect(Math.abs(d[k]) / sc.m, `${row.caseName} ${k}`).toBeLessThan(1e-9);
-      } else {
-        expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
-      }
+      expect(row.worstRelative, `${row.caseName} balances`).toBeLessThan(1e-9);
     }
-  });
-});
-
-/**
- * M14 in the engine's pending list: the quad's drilling stabilisation stiffens the rotation about
- * the shell normal with α·Nᵢ·Nⱼ alone, uncoupled from the in-plane translations, so a rigid
- * rotation about the normal meets a restoring moment. The element acts as a weak spring to ground
- * about its normal, and the reactions come short of the loads by that moment: 7·10⁻⁷ of it on the
- * walls of model 03. Fixing the engine makes these pass, and then they and SHELL_DRILLING go.
- */
-describe.each([...SHELL_DRILLING.keys()])('%s, about the shells\' normals (engine defect M14)', (id) => {
-  it.fails('balances every moment too', async () => {
-    for (const row of await statics(id)) expect(row.worstRelative).toBeLessThan(1e-9);
-  });
+  }, 60_000); // Large WASM fixtures can exceed the default timeout under concurrent CI load.
 });
 
 describe('the validation models, as regression fixtures', () => {
@@ -171,6 +141,22 @@ describe('the validation models, as regression fixtures', () => {
   });
 });
 
+it('loading a validation card restores the previous model with one undo, and supports redo', async () => {
+  modelStore.addNode(123, 4, 5);
+  const before = modelStore.snapshot();
+  historyStore.clear();
+  await loadValidationModel('validation-06');
+  const loaded = modelStore.snapshot();
+  expect(historyStore.undoCount).toBe(1);
+  historyStore.undo();
+  expect(modelStore.snapshot().nodes).toEqual(before.nodes);
+  expect(modelStore.snapshot().elements).toEqual(before.elements);
+  expect(modelStore.analysis).toEqual(before.analysis);
+  historyStore.redo();
+  expect(modelStore.snapshot().nodes).toEqual(loaded.nodes);
+  expect(modelStore.snapshot().elements).toEqual(loaded.elements);
+  expect(modelStore.analysis).toEqual(loaded.analysis);
+});
 
 /**
  * 04's own combinations go to second order (`analysis.perCombination: 'pdelta'`). The engine's 3D

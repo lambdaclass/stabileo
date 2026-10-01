@@ -145,3 +145,15 @@ describe('regulation stack and revision vector persistence', () => {
  * reasons unrelated to persistence. The model round trip above is the real seam; the
  * store's reactivity over it is Svelte's, exercised in the app and by Playwright.
  */
+
+describe('the regulations store, called twice in a row from plain code', () => {
+  it('builds the second change on the first, not on the roles before it', async () => {
+    const { regulationsStore } = await import('../regulations.svelte');
+    modelStore.clear();
+    expect(regulationsStore.requestChange('seismic', 'inpres103-2018').kind).toBe('needsLoadReview');
+    regulationsStore.setJurisdiction('seismic', 'Mendoza', 'adopted');
+    expect(regulationsStore.binding('seismic')).toMatchObject({ adapterId: 'inpres103-2018', state: 'pending', jurisdiction: 'Mendoza' });
+    regulationsStore.cancelPending();
+    expect(regulationsStore.binding('seismic').adapterId).toBeNull();
+  });
+});

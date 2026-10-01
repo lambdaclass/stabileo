@@ -221,19 +221,13 @@ describe('solveDetailed agrees with the analysis solver', () => {
 });
 
 /*
- * ── A couple on a member: checked against closed forms, not the solver ──
+ * ── A couple on a member: both solvers checked against closed forms ──
  *
- * A point couple `my` on a member is the one load where the two solvers do
- * NOT agree, and the closed forms say which is right. The wizard's equivalent
- * loads are the consistent ones, M·N′(a); the analysis solver's
- * `fef_point_load_2d` (engine/src/element/fef.rs) carries the two MOMENT
- * terms with the opposite sign — its shear terms are right. On a cantilever
- * with a 6 kN·m couple it reports a fixed-end moment of −11,28, where
- * equilibrium alone requires −6.
- *
- * The solver is not touched from here. The `it.fails` below documents the
- * defect and will start failing — asking to be turned into a plain `it` —
- * the day it is fixed.
+ * A point couple `my` loads a member through the consistent equivalent
+ * loads M·N′(a). The analysis solver previously reversed the two moment
+ * terms while keeping the shear terms correct. These closed forms guard
+ * the corrected signs independently of agreement between implementations:
+ * a cantilever carrying a 6 kN·m couple must have a wall reaction of −6.
  */
 describe('a point couple on a member', () => {
   const EI = 200e6 * 1e-4;
@@ -265,7 +259,7 @@ describe('a point couple on a member', () => {
     expect(rz[1]).toBeCloseTo(1.2, 9);
   });
 
-  it.fails('the analysis solver: the same cantilever’s wall takes −M (engine defect, reported)', () => {
+  it('the analysis solver: the same cantilever’s wall takes −M', () => {
     const r = solve(cantilever);
     expect(r.reactions[0].my).toBeCloseTo(-6, 6);
   });

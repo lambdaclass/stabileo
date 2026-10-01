@@ -29,6 +29,7 @@
  * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
  * corner of a triangle), so the moment side agrees with the solve.
  */
+import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
 import { selfWeightFor, selfWeightScope } from './self-weight';
@@ -201,6 +202,7 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
     const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
     const weights = selfWeightFor(model, caseRef, includeSelfWeight);
     const selfWeightHere = weights.length > 0;
+    const sectionWeight = createSectionWeight(model.materials);
     for (const sw of weights) {
       const dir: [number, number, number] = sw.direction === 'X' ? [1, 0, 0] : sw.direction === 'Y' ? [0, 1, 0] : [0, 0, 1];
       const scope = selfWeightScope(model, sw);
@@ -211,7 +213,7 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
         const line = memberLine(model, el);
         if (!mat || !sec || !line) continue;
         // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
-        const W = mat.rho * sec.a * line.ax.L * sw.factor;
+        const W = sectionWeight(sec, el.materialId) * line.ax.L * sw.factor;
         const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
         addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
       }

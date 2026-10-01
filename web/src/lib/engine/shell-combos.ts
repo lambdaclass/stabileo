@@ -139,3 +139,46 @@ export function enrichComboShellStresses(
     envelopeMaxAbs.quadStresses = env.quadStresses;
   }
 }
+
+/**
+ * Every load case at factor 1, as a full result — the "All loads" baseline.
+ *
+ * `combined` is the engine's combination of the cases (displacements, reactions, member
+ * forces). The engine leaves out everything else, and the baseline is read for more than the
+ * frame: the floor design takes the slab moments from its quad stresses, the solve toasts its
+ * solver diagnostics, and the diagnostics panel its structured findings. So, from the cases:
+ *   · shell stresses and constraint forces are summed — both linear in the displacements;
+ *   · the diagnostics, which describe the model and the solve rather than one case's loads,
+ *     and the timings are the first case's.
+ * Nodal shell stresses are not carried, as for every combination (see the header).
+ */
+export function allLoadsResult3D(
+  combined: AnalysisResults3D,
+  perCase: Map<number, AnalysisResults3D>,
+  plateThickness: PlateThickness,
+): AnalysisResults3D {
+  const cases = [...perCase.values()];
+  const first = cases[0];
+  const factors = [...perCase.keys()].map((caseId) => ({ caseId, factor: 1 }));
+  const plates = new Map([...perCase].map(([id, r]) => [id, toMembraneMap(r.plateStresses)]));
+  const quads = new Map([...perCase].map(([id, r]) => [id, toMembraneMap(r.quadStresses)]));
+  const shells = combineShellStresses(factors, plates, quads, plateThickness);
+  const constraint = new Map<string, { nodeId: number; dof: string; force: number }>();
+  for (const r of cases) {
+    for (const c of r.constraintForces ?? []) {
+      const key = `${c.nodeId}:${c.dof}`;
+      const acc = constraint.get(key);
+      if (acc) acc.force += c.force; else constraint.set(key, { ...c });
+    }
+  }
+  return {
+    ...combined,
+    ...(shells.plateStresses.length ? { plateStresses: shells.plateStresses } : {}),
+    ...(shells.quadStresses.length ? { quadStresses: shells.quadStresses } : {}),
+    ...(constraint.size ? { constraintForces: [...constraint.values()] } : {}),
+    ...(first?.diagnostics ? { diagnostics: first.diagnostics } : {}),
+    ...(first?.solverDiagnostics ? { solverDiagnostics: first.solverDiagnostics } : {}),
+    ...(first?.structuredDiagnostics ? { structuredDiagnostics: first.structuredDiagnostics } : {}),
+    ...(first?.timings ? { timings: first.timings } : {}),
+  };
+}

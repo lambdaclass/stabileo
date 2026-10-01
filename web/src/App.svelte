@@ -17,10 +17,12 @@
   import MaterialEditor from './components/MaterialEditor.svelte';
   import SectionEditor from './components/SectionEditor.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, fmStepsStore, tabManager, historyStore } from './lib/store';
+  import { explainedSteps } from './lib/store/explained-steps.svelte';
+  import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
-  import { resolveDeleteTargets } from './lib/store/delete-selection';
+  import { deleteSelection } from './lib/actions/delete-selection';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
@@ -119,6 +121,22 @@
     basicPanel = toggle && basicPanel === panel ? null : panel;
   }
 
+  /*
+   * On a phone an editing tool shows its options in the modelling sheet, and
+   * only there. With any other sheet open — or none — an armed Node or Load
+   * tool would keep placing things with its options out of sight, so the
+   * pointer goes back to selecting.
+   */
+  $effect(() => {
+    const phone = uiStore.isMobile && uiStore.appMode === 'basico';
+    const panel = basicPanel;
+    untrack(() => {
+      if (phone && panel !== 'data' && (EDIT_TOOLS as readonly string[]).includes(uiStore.currentTool)) {
+        uiStore.currentTool = 'select';
+      }
+    });
+  });
+
   /**
    * Close the right panel without stranding the pointer.
    *
@@ -154,13 +172,19 @@
    * `untrack` so switching panels by hand while a wizard is open does not
    * re-run this and yank the panel back.
    */
-  let wizardWasOpen = false;
+  /* A wizard opened from the explained step-by-step catalog goes back to the catalog when it closes. */
+  let wizardOnlyWasOpen = false;
   $effect(() => {
-    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen;
-    const basic = uiStore.appMode === 'basico';
-    if (open && basic) basicPanel = 'data';
-    if (!open && wizardWasOpen && basic && untrack(() => basicPanel) === 'data') basicPanel = 'advanced';
-    wizardWasOpen = open;
+    const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    wizardOnlyWasOpen = w;
+  });
+
+  $effect(() => {
+    const open = dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen;
+    // A step-by-step solution is an advanced function: it opens in the Advanced
+    // panel, and closing it leaves the list of functions there.
+    if (open && uiStore.appMode === 'basico') basicPanel = 'advanced';
   });
 
   /**
@@ -283,6 +307,7 @@
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
+  import { whatIf } from './lib/store/whatif.svelte';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
@@ -688,21 +713,19 @@
 
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
-    let created = 0;
-    const nodeIds: number[] = [];
+    const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        const id = modelStore.addNode(parts[0], parts[1]);
-        nodeIds.push(id);
-        created++;
-      }
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
     }
-    // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
-    // or just create elements between consecutive pairs if requested
-    if (created > 0) {
-      uiStore.toast(t('app.nodesImported').replace('{n}', String(created)), 'success');
-      resultsStore.clear();
+    // One undo step for the whole import — none when every point is a node already there — and
+    // each point welds to a node already at its coordinates: a wireframe listing repeats shared
+    // vertices line to line, and a blind addNode per line stacked twins on the same point.
+    const { created } = modelStore.addNodesWelded(points);
+    if (points.length > 0) {
+      // The nodes it added, not every line: a point already there is not an imported node.
+      uiStore.toast(t('app.nodesImported').replace('{n}', String(created.length)), 'success');
+      if (created.length > 0) resultsStore.clear();
     } else {
       uiStore.toast(t('app.noValidCoords'), 'error');
     }
@@ -765,40 +788,9 @@
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (uiStore.selectedSupports.size > 0) {
-        const sups = [...uiStore.selectedSupports];
-        modelStore.batch(() => { for (const id of sups) modelStore.removeSupport(id); });
-        uiStore.clearSelectedSupports();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedLoads.size > 0) {
-        // selectedLoads holds load data ids (stable across array mutations)
-        const ids = [...uiStore.selectedLoads];
-        modelStore.batch(() => {
-          for (const id of ids) modelStore.removeLoad(id);
-        });
-        uiStore.clearSelectedLoads();
-        resultsStore.clear();
-        return;
-      }
-      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0 || uiStore.selectedShells.size > 0) {
-        // Delete strictly from the EXPLICIT selection channels (mirrors
-        // Toolbar.handleKeydown) — never infer an entity kind from a numeric id.
-        // Frames, plates and quads have independent id spaces, and shells live
-        // ONLY in selectedShells ("p<id>"/"q<id>"). The previous PRO handler
-        // re-derived shells from selectedElements ids (the exact id-collision bug
-        // delete-selection.ts fixes) and ignored selectedShells entirely, so a
-        // plate/quad selected in the 3D viewport could not be deleted by keyboard.
-        const targets = resolveDeleteTargets(
-          { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
-          (id) => modelStore.elements.has(id),
-        );
-        modelStore.deleteEntities(targets);
-        uiStore.clearSelection();
-        resultsStore.clear();
-        return;
-      }
+      // The same deletion as Basic's keyboard layer and the on-screen button.
+      deleteSelection();
+      return;
     }
   }
 
@@ -866,8 +858,18 @@
       setTimeout(() => startDemo(DEFAULT_DEMO), 600);
     }
 
-    // Check for URL hash (shared model link or embed)
-    const hashMode = loadFromURLHash();
+    // Check for URL hash (shared model link or embed). The link is untrusted
+    // input and restore() is not atomic: whatever a link still manages to break
+    // must not take the app down before it starts, nor leave a half-loaded model.
+    let hashMode: ReturnType<typeof loadFromURLHash> = null;
+    try {
+      hashMode = loadFromURLHash();
+    } catch (err) {
+      console.error('shared link failed to load', err);
+      modelStore.clear();
+      history.replaceState(null, '', location.pathname + location.search);
+      uiStore.toast(t('app.sharedLinkBroken'), 'error');
+    }
     const queryParams = new URLSearchParams(location.search);
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
@@ -1122,6 +1124,31 @@
 
     // Cleanup: cancel pending timer when effect re-runs or component unmounts
     return () => { cancelPendingLiveCalc(); };
+  });
+
+  /*
+   * Explore was closed by something other than its own ✕ — a tab switch
+   * resets the session. The model it would restore is gone, so only live calc
+   * goes back to how it was.
+   */
+  $effect(() => {
+    const version = modelStore.modelVersion;
+    const shown = uiStore.showWhatIf;
+    untrack(() => {
+      if (!whatIf.active) return;
+      if (!shown) { whatIf.abandon(); return; }
+      /*
+       * And an edit from anywhere else — the canvas, undo, a file, an example —
+       * leaves the session's baseline describing a model that is no longer
+       * there: restoring it on close would throw the edit away. The session
+       * ends here, keeping the model as it now is.
+       */
+      if (whatIf.changedFromOutside(version)) {
+        whatIf.abandon();
+        uiStore.showWhatIf = false;
+        uiStore.toast(t('whatif.closedByEdit'), 'info');
+      }
+    });
   });
 
   // ─── PRO panel drag-resize ────────────────────────────────────────
@@ -2070,7 +2097,7 @@
 <RebarWorkspace />
 
 {#if uiStore.toasts.length > 0}
-  <div class="toast-container">
+  <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2079,7 +2106,7 @@
             {t('app.viewKinematic')}
           </button>
         {/if}
-        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title="Dismiss">&times;</button>
+        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title={t('toast.dismiss')}>&times;</button>
       </div>
     {/each}
   </div>
@@ -3791,17 +3818,19 @@
        screen. See `pointer-events` below for what that cost.
     */
     .toast-container {
-      /*
-         Stops short of the canvas's own two buttons — pointer mode and
-         zoom-to-fit sit at the top-right of the model, from x = 331. Running
-         the toast to the edge put its ✕ directly on top of them: two round
-         controls overlapping, one of them unreachable for as long as the
-         message lasted, which reads as a bug even though it heals itself.
-      */
-      right: 56px;
+      right: 10px;
       left: 10px;
-      top: 146px;
-      bottom: auto;
+      /*
+         At the foot of the screen, and above the sheet when one is open.
+         Under the ribbon it covered the tools and, more often than not, the
+         model; the sheet's top edge is the one place that is neither.
+      */
+      top: auto;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .toast-container.toast-over-sheet {
+      bottom: calc(var(--st-sheet-h) + 8px);
     }
 
     .toast {

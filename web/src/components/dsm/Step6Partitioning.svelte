@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
-  import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
@@ -21,7 +21,7 @@
     <p>{@html t('dsm.step6.explanation')}</p>
   </div>
 
-  <MathEquation equation={eqPartition} displayMode />
+  <FitMath tex={eqPartition} narrow />
 
   <div class="info-row">
     <div class="info-card">
@@ -65,7 +65,7 @@
     <div class="explanation">
       <p>{@html t('dsm.step6.prescribedNote')}</p>
     </div>
-    <MathEquation equation={eqFmod} displayMode />
+    <FitMath tex={eqFmod} narrow />
   {/if}
 
   <VectorDisplay
@@ -78,7 +78,7 @@
 
 <style>
   .step { display: flex; flex-direction: column; gap: 0.6rem; }
-  .explanation { font-size: 0.72rem; color: var(--st-text-2); line-height: 1.5; }
+  .explanation { font-size: 0.82rem; color: var(--st-text); line-height: 1.45; }
   .explanation p { margin: 0; }
 
   .info-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }

@@ -122,13 +122,15 @@ describe('despiece 3D builder', () => {
     expect(Math.max(tailX, tipX)).toBeLessThanOrEqual(anchorX + 1e-6);   // head lands at the anchor, not beyond
   });
 
-  it('3D end-face convention: axial OUT at both ends; shear SAME physical way at both ends', () => {
+  it('3D end-face convention: axial OUT at both ends; an unloaded member\'s end shears OPPOSITE', () => {
     // Member along +X (ex=(1,0,0), ey=(0,1,0), ez=(0,0,1)). Constant tension
-    // (nStart=nEnd=+10) and a transverse shear with diagram convention vzStart=+5,
-    // vzEnd=−5 (opposite-signed at the two ends).
+    // (nStart=nEnd=+10) and, as the engine reports an unloaded span, the same
+    // shear at both ends (V(x) = vzStart + ∫q, so vzEnd = vzStart = +5). The end
+    // actions are +5·ez at I and −5·ez at J, a couple the end moments balance
+    // (despiece-3d-equilibrium.test.ts checks this on real solves).
     const { nodes, elements } = horizModel();
     const f: ElementForces3D = { elementId: 1, length: 4, nStart: 10, nEnd: 10, vyStart: 0, vyEnd: 0,
-      vzStart: 5, vzEnd: -5, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 } as ElementForces3D;
+      vzStart: 5, vzEnd: 5, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 } as ElementForces3D;
     const g = build({ nodes, elements, forces: [f], vectorMode: 'members', sep: 1 });
     const mI = endGroups(g, 'member').find(e => e.userData.nodeId === 1)! as THREE.Group;
     const mJ = endGroups(g, 'member').find(e => e.userData.nodeId === 2)! as THREE.Group;
@@ -138,7 +140,8 @@ describe('despiece 3D builder', () => {
     expect(arrowDir(axJ).x).toBeGreaterThan(0);  // axial out at J (+x, toward node J)
     const shI = arrows(mI).find(a => Math.abs(arrowDir(a).z) > 0.9)!;
     const shJ = arrows(mJ).find(a => Math.abs(arrowDir(a).z) > 0.9)!;
-    expect(Math.sign(arrowDir(shI).z)).toBe(Math.sign(arrowDir(shJ).z)); // both same way ⇒ member balances
+    expect(arrowDir(shI).z).toBeGreaterThan(0);  // +Vz·ez at I
+    expect(arrowDir(shJ).z).toBeLessThan(0);     // −Vz·ez at J: ΣF = 0 with no load on the span
   });
 
   it('resultant toggle: separate N/Vy/Vz arrows (OFF) collapse to one force arrow (ON)', () => {

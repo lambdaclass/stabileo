@@ -3,6 +3,7 @@
 import type { AnalysisResults } from '../engine/types';
 import { computeDeformedShape } from '../engine/diagrams';
 import { canvasTheme } from './theme';
+import { transverseSign } from '../engine/transverse-sign-2d';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -57,6 +58,11 @@ export function drawDeformed(
     const sec = dc.getSection(elem.sectionId);
     const EI = (mat && sec) ? mat.e * 1000 * sec.iz : undefined; // kN·m²
 
+    /*
+     * The member's loads are published in the drawn axes; the particular
+     * solution is the solver's, so it gets them back in the solver's.
+     */
+    const zs = transverseSign(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y);
     const points = computeDeformedShape(
       nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
       dI.ux, dI.uz, dI.ry,
@@ -64,9 +70,9 @@ export function drawDeformed(
       scale, ef.length,
       ef.hingeStart, ef.hingeEnd,
       EI,
-      ef.qI, ef.qJ,
-      ef.pointLoads,
-      ef.distributedLoads,
+      zs * ef.qI, zs * ef.qJ,
+      zs > 0 ? ef.pointLoads : ef.pointLoads.map((p) => ({ ...p, p: -p.p, ...(p.my !== undefined ? { my: -p.my } : {}) })),
+      zs > 0 ? ef.distributedLoads : ef.distributedLoads.map((d) => ({ ...d, qI: -d.qI, qJ: -d.qJ })),
     );
 
     if (points.length < 2) continue;

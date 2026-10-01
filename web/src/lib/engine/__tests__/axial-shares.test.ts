@@ -6,7 +6,7 @@
  * reaches the nodes and the member used to report −20 kN all along, the average; a validation
  * model's column read −23.68 where it carries −26.04 at the foot.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
@@ -53,5 +53,51 @@ describe('the axial part of a member load', () => {
     const pd = modelStore.solveCombinations3D(false, false, true);
     if (!pd || typeof pd === 'string') throw new Error(String(pd));
     expect(forces(pd.perCombo.get(k)!, e).nStart).toBeCloseTo(-1.4 * q * L, 6);
+  });
+});
+
+describe('the axial part of a load on a member that takes no bending', () => {
+  /*
+   * A truss post 4 m tall, held at its head by three inclined bars, under 10 kN/m down along
+   * it. A truss has its whole load moved to its end nodes, the axial part tagged; whatever the
+   * bars around it take, the post's own load makes its foot carry q·L more than its head.
+   */
+  function post(): number {
+    const foot = modelStore.addNode(0, 0, 0), head = modelStore.addNode(0, 0, 4);
+    const p = modelStore.addElement(foot, head, 'truss');
+    modelStore.addSupport(foot, 'pinned3d');
+    for (let k = 0; k < 3; k++) {
+      const a = modelStore.addNode(5 * Math.cos((2 * Math.PI * k) / 3), 5 * Math.sin((2 * Math.PI * k) / 3), 0);
+      modelStore.addElement(a, head, 'truss');
+      modelStore.addSupport(a, 'pinned3d');
+    }
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    modelStore.addDistributedLoad3D(p, 0, 0, -q, -q, undefined, undefined, 1, { frame: 'global' });
+    return p;
+  }
+
+  it('reaches the post on this thread', async () => {
+    const p = post();
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(forces(r, p).nStart - forces(r, p).nEnd).toBeCloseTo(-q * L, 9);
+  });
+
+  it('reaches the post through the worker pool, as the browser solves', async () => {
+    // The worker answers as the engine does (solver-worker.ts: the raw solve, then the
+    // stabilised reactions stripped); the correction is the caller's.
+    const pool = await import('../solver-pool');
+    const { stripStabilisedReactions } = await import('../stabilised-reactions');
+    const wasm = await import('../../wasm/dedaliano_engine.js');
+    const spy = vi.spyOn(pool, 'solve3DInWorker').mockImplementation(async (wire: any) => stripStabilisedReactions(wasm.solve_3d(wire), wire));
+    try {
+      const p = post();
+      const r = await modelStore.solve3DAsync(false, false, true);
+      if (!r || typeof r === 'string') throw new Error(String(r));
+      expect(spy).toHaveBeenCalled();
+      expect(forces(r, p).nStart - forces(r, p).nEnd).toBeCloseTo(-q * L, 9);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

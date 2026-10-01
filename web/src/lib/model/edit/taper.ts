@@ -44,6 +44,7 @@ export function validateTaper(s: TaperSpec): TaperProblem[] {
   const out: TaperProblem[] = [];
   if (!(Number.isInteger(s.segments) && s.segments >= 2 && s.segments <= 50)) out.push('segments');
   if (![s.hI, s.hJ, s.b, s.tf, s.tw].every((v) => Number.isFinite(v) && v > 0)) out.push('dimensions');
+  else if (s.tw >= s.b) out.push('dimensions');
   else if (Math.min(s.hI, s.hJ) <= 2 * s.tf) out.push('webTooShallow');
   return out;
 }
@@ -75,18 +76,18 @@ export function taperMembers(ids: Iterable<number>, spec: TaperSpec, name = 'I')
   }
   const plan = taperPlan(spec);
   /** Depth in 0.1 mm → section id, for this call and for what the model already has. */
-  const byDepth = new Map<number, number>();
-  const key = (h: number) => Math.round(h * 1e4);
+  const byDepth = new Map<string, number>();
+  const key = (h: number, rotation: number) => `${Math.round(h * 1e4)}/${rotation}`;
   for (const s of modelStore.sections.values()) {
-    if (s.shape === 'I' && s.b === spec.b && s.tf === spec.tf && s.tw === spec.tw && s.h != null && s.name.startsWith(`${name} `)) {
-      byDepth.set(key(s.h), s.id);
+    if (!s.drawn && !s.built && !s.composition && s.shape === 'I' && s.b === spec.b && s.tf === spec.tf && s.tw === spec.tw && s.h != null && s.name.startsWith(`${name} `)) {
+      byDepth.set(key(s.h, s.rotation ?? 0), s.id);
     }
   }
-  const sectionFor = (h: number): number => {
-    const k = key(h);
+  const sectionFor = (h: number, rotation: number): number => {
+    const k = key(h, rotation);
     const have = byDepth.get(k);
     if (have != null) return have;
-    const fields = { name: `${name} ${(h * 1000).toFixed(0)}x${(spec.b * 1000).toFixed(0)}`, shape: 'I', h, b: spec.b, tw: spec.tw, tf: spec.tf, a: 1e-4, iz: 1e-8 };
+    const fields = { name: `${name} ${(h * 1000).toFixed(0)}x${(spec.b * 1000).toFixed(0)}`, shape: 'I', h, b: spec.b, tw: spec.tw, tf: spec.tf, rotation, a: 1e-4, iz: 1e-8 };
     const st = resolveSectionState({ id: 0, ...fields } as Section);
     const id = modelStore.addSection({ ...fields, ...(st.kind === 'geometry-backed' ? { a: st.a, iy: st.iy, iz: st.iz } : {}) } as Omit<Section, 'id'>);
     byDepth.set(k, id);
@@ -99,10 +100,11 @@ export function taperMembers(ids: Iterable<number>, spec: TaperSpec, name = 'I')
       const e = modelStore.elements.get(id);
       if (!e) { report.skipped.push({ id, reason: 'missing' }); continue; }
       if (e.reinforcement) { report.skipped.push({ id, reason: 'reinforced' }); continue; }
+      const rotation = modelStore.sections.get(e.sectionId)?.rotation ?? 0;
       const cuts = plan.slice(1).map((p) => p.from);
       const r = modelStore.splitMember(id, cuts, { keepOriginalId: false });
       if (!r || r.segmentIds.length !== plan.length) { report.skipped.push({ id, reason: 'missing' }); continue; }
-      r.segmentIds.forEach((seg, i) => modelStore.updateElementSection(seg, sectionFor(plan[i]!.h)));
+      r.segmentIds.forEach((seg, i) => modelStore.updateElementSection(seg, sectionFor(plan[i]!.h, rotation)));
       report.tapered.push(...r.segmentIds);
     }
   });

@@ -153,6 +153,58 @@ describe('propose, apply, re-verify', () => {
     expect(modelStore.sections.get(sid)!.name).toBe(pick);
     for (const e of modelStore.elements.values()) expect(e.sectionId).toBe(sid);
   });
+
+  it('limits an application by section to the members actually checked', () => {
+    const { sid, beamId, cols } = portal();
+    solve();
+    steelOptimise.run('section', [beamId]);
+    const row = steelOptimise.rows[0]!;
+    steelOptimise.apply([row.key]);
+    expect(modelStore.sections.get(modelStore.elements.get(beamId)!.sectionId)!.name).toBe(row.result.chosen!.profile.name);
+    for (const id of cols) expect(modelStore.elements.get(id)!.sectionId).toBe(sid);
+    expect(modelStore.sections.get(sid)!.name).toBe(row.currentName);
+  });
+
+  it('refuses an old proposal after the model is edited', () => {
+    const { beamId, sid } = portal();
+    solve();
+    steelOptimise.run('member');
+    const keys = steelOptimise.rows.map(r => r.key);
+    modelStore.updateElement(beamId, { rollAngle: 90 });
+    steelOptimise.apply(keys);
+    expect(modelStore.elements.get(beamId)!.sectionId).toBe(sid);
+    expect(steelOptimise.error).not.toBeNull();
+  });
+
+  it('refuses an old proposal after the design result scope changes', () => {
+    const { beamId, sid } = portal();
+    solve();
+    steelOptimise.run('member');
+    const keys = steelOptimise.rows.map(r => r.key);
+    modelStore.setResultScopes({ active: [] });
+    steelOptimise.apply(keys);
+    expect(modelStore.elements.get(beamId)!.sectionId).toBe(sid);
+    expect(steelOptimise.error).not.toBeNull();
+  });
+
+  it.each(['profile', 'material'] as const)('does not re-verify a group against its old %s', (changed) => {
+    const { beamId } = portal();
+    solve();
+    steelOptimise.run('section');
+    steelOptimise.apply(steelOptimise.rows.map(r => r.key));
+    if (changed === 'profile') {
+      const p = PROFILE_FAMILIES.IPE[0]!;
+      const sid = modelStore.addSection({ ...profileToSectionFull(p), name: p.name } as never);
+      modelStore.updateElementSection(beamId, sid);
+    } else {
+      const mid = modelStore.addMaterial({ name: 'Weaker steel', e: 200000, nu: .3, rho: 78.5, fy: 100, fu: 150 } as never);
+      modelStore.updateElementMaterial(beamId, mid);
+    }
+    solve();
+    steelOptimise.recheck();
+    expect(steelOptimise.applied[0]!.status).toBe('unchecked');
+    expect(steelOptimise.converged).toBe(false);
+  });
 });
 
 describe('a stated Lb is part of the model', () => {
@@ -207,6 +259,38 @@ describe('by named group', () => {
   beforeAll(async () => { await initSolver(); });
   beforeEach(() => { uiStore.analysisMode = 'pro'; });
   afterEach(() => { uiStore.analysisMode = '3d'; steelOptimise.clearApplied(); });
+
+  it.each([false, true])('keeps each member orientation and applies a common profile when the heaviest already has it: %s', (sameAsHeaviest) => {
+    modelStore.clear();
+    const heavy = PROFILE_FAMILIES.IPE[PROFILE_FAMILIES.IPE.length - 1]!;
+    const light = PROFILE_FAMILIES.IPE.find(p => p.name === 'IPE 300')!;
+    const mid = modelStore.addMaterial({ name: 'S235', e: 200000, nu: .3, rho: 78.5, fy: 250, fu: 400 } as never);
+    const members = [0, 1].map(i => {
+      const p = sameAsHeaviest && i === 1 ? light : heavy;
+      const sid = modelStore.addSection({ ...profileToSectionFull(p), name: p.name, rotation: i * 90 } as never);
+      const a = modelStore.addNode(0, i * 5, 0), b = modelStore.addNode(2, i * 5, 0);
+      const id = modelStore.addElement(a, b, 'frame');
+      modelStore.updateElementSection(id, sid);
+      modelStore.updateElementMaterial(id, mid);
+      modelStore.addSupport(a, 'fixed3d');
+      modelStore.addNodalLoad3D(b, 0, 0, -1, 0, 0, 0);
+      return id;
+    });
+    modelStore.addElement(1, 3, 'frame'); // Connect the two fixed bases.
+    modelStore.addGroup('Both', 'selection', { elements: members });
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw Error(String(r));
+    resultsStore.setResults3D(r);
+    steelOptimise.run('group', undefined, sameAsHeaviest ? { hMinMm: heavy.h, hMaxMm: heavy.h } : {});
+    const row = steelOptimise.rows[0]!;
+    expect(row.result.chosen).not.toBeNull();
+    steelOptimise.apply([row.key]);
+    members.forEach((id, i) => {
+      const s = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!;
+      expect(s.rotation ?? 0).toBe(i * 90);
+      expect(s.name).toBe(row.result.chosen!.profile.name);
+    });
+  });
 
   it('one profile for all the group\'s members, named by the group', () => {
     modelStore.clear();

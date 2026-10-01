@@ -41,9 +41,11 @@ export async function loadValidationModel(id: ValidationModelId): Promise<void> 
   if (!parsed.snapshot) {
     throw new Error(`${id}: ${parsed.errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}`);
   }
-  modelStore.clear();
-  const { snapshot } = mergeCode(modelStore.snapshot(), parsed.snapshot);
-  modelStore.batch(() => modelStore.restore(snapshot));
-  modelStore.refreshCanonicalSections();
+  modelStore.batch(() => {
+    modelStore.clear();
+    const { snapshot } = mergeCode(modelStore.snapshot(), parsed.snapshot!);
+    modelStore.restore(snapshot);
+    modelStore.refreshCanonicalSections();
+  });
   uiStore.useNative3DPresentation();
 }

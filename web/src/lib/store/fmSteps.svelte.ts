@@ -6,6 +6,7 @@
  * panel, and they are mutually exclusive in it — opening one closes the other.
  */
 import type { ForceMethodResult } from '../engine/force-method/solve';
+import { forceMethodToDrawnAxes } from '../engine/force-method/drawn-axes';
 
 export const FM_STEPS = 9;
 
@@ -36,7 +37,7 @@ function createFMStepsStore() {
     set showMatrix(v: boolean) { showMatrix = v; },
 
     setResult(r: ForceMethodResult) {
-      result = r;
+      result = forceMethodToDrawnAxes(r);
       currentStep = 1;
       selectedState = r.redundants.length > 0 ? 1 : 0;
       selectedI = 0;

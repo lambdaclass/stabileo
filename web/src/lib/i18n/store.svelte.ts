@@ -4,6 +4,7 @@ import pt from './locales/pt';
 import steelEs from './locales/steel/es';
 import steelEn from './locales/steel/en';
 import steelPt from './locales/steel/pt';
+import { stepsEs, stepsEn, stepsPt } from './locales/steps';
 import type { Translations } from './types';
 
 /**
@@ -37,9 +38,9 @@ import type { Translations } from './types';
  * are the offered three, and a PRO surface must speak all of them.
  */
 const dicts: Record<string, Translations> = {
-  es: { ...es, ...steelEs },
-  en: { ...en, ...steelEn },
-  pt: { ...pt, ...steelPt },
+  es: { ...es, ...steelEs, ...stepsEs },
+  en: { ...en, ...steelEn, ...stepsEn },
+  pt: { ...pt, ...steelPt, ...stepsPt },
 };
 
 /** Safe localStorage check — vitest defines localStorage but without working methods. */

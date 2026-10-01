@@ -32,7 +32,7 @@ const ALPHA = 12e-6;
 
 /** Loads along a space bar, local axes: transverse y and z. */
 interface BarLoads3D {
-  dist: Array<{ qYI: number; qYJ: number; qZI: number; qZJ: number; a: number; b: number }>;
+  dist: Array<{ qXI?: number; qXJ?: number; qYI: number; qYJ: number; qZI: number; qZJ: number; a: number; b: number }>;
   point: Array<{ a: number; py: number; pz: number }>;
 }
 const NONE: BarLoads3D = { dist: [], point: [] };
@@ -61,6 +61,7 @@ const asPlane = (l: BarLoads3D): BarLoads => ({
  * sign in its load terms because θy = −dw/dx.
  */
 function internal3D(f: number[], loads: BarLoads3D, x: number) {
+  let n = -f[0];
   let mz = f[5] - f[1] * x;
   let my = f[4] + f[2] * x;
   for (const p of loads.point) {
@@ -74,12 +75,13 @@ function internal3D(f: number[], loads: BarLoads3D, x: number) {
     const qz = (s: number) => d.qZI + (span > 0 ? ((d.qZJ - d.qZI) * (s - d.a)) / span : 0);
     const mid = (d.a + hi) / 2;
     const len = hi - d.a;
+    n -= (d.qXI ?? 0) * len + ((d.qXJ ?? 0) - (d.qXI ?? 0)) * len * len / (2 * span);
     const simpson = (q: (s: number) => number) =>
       (len / 6) * ((d.a - x) * q(d.a) + 4 * (mid - x) * q(mid) + (hi - x) * q(hi));
     mz += simpson(qy);
     my -= simpson(qz);
   }
-  return { n: -f[0], t: f[3], mz, my };
+  return { n, t: f[3], mz, my };
 }
 
 interface Solved3D {

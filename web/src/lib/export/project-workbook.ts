@@ -60,7 +60,7 @@ function coverSheet(input: ProjectWorkbookInput): WorkbookSheet {
 
 /** The conventions, one statement per row. Keys `wb.conv.*`, in the order a reader needs them. */
 const CONVENTIONS = [
-  'axes', 'localAxes', 'units', 'displacements', 'reactions', 'memberForces', 'stations', 'deflections',
+  'axes', 'localAxes', 'sources', 'selfWeight', 'units', 'displacements', 'reactions', 'memberForces', 'stations', 'deflections',
   'stresses', 'shells', 'shellFaces', 'shellNodes', 'envelope', 'maxima', 'statics', 'secondOrder', 'oneWay', 'model', 'text', 'precision',
 ] as const;
 

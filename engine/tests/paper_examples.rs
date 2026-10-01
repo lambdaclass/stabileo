@@ -112,6 +112,7 @@ fn build_frame() -> SolverInput3D {
         .iter()
         .map(|&element_id| {
             SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0,
                 element_id,
                 q_yi: 0.0,
                 q_yj: 0.0,

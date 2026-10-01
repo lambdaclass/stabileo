@@ -35,6 +35,7 @@ function workbookModel(): WorkbookModel {
     loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
     quads: modelStore.quads, plates: modelStore.plates, constraints: m.constraints,
     connectors: m.connectors, analysis: modelStore.analysis, groups: m.groups,
+    includeSelfWeight: uiStore.includeSelfWeight,
     loadCases: m.loadCases, combinations: modelStore.combinations,
     namedGroups: [...(m.groups?.values() ?? [])].map((g) => ({ id: g.id, name: g.name, kind: g.kind, members: g.members })),
   } as WorkbookModel;
@@ -49,8 +50,7 @@ function workbookSources(): WorkbookSource[] {
     ...[...resultsStore.perCombo3D].map(([id, results]) => ({ kind: 'combination' as const, id, name: comboName.get(id) ?? String(id), results })),
   ];
   if (out.length === 0 && resultsStore.results3D) {
-    const only = modelStore.model.loadCases[0];
-    out.push({ kind: 'case', id: only?.id ?? 1, name: only?.name ?? '', results: resultsStore.results3D });
+    out.push({ kind: 'single', id: 0, name: t('pro.statics.singleSolve'), results: resultsStore.results3D });
   }
   return out;
 }

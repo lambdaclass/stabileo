@@ -18,8 +18,12 @@
   import { editPreview } from '../lib/store/edit-preview.svelte';
   import { snapToAxes } from '../lib/model/grid';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
+  import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import PointerModeButton from './PointerModeButton.svelte';
+  import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
+  import ConnectionPrompt from './ConnectionPrompt.svelte';
+  import { askToConnectMember } from '../lib/model/edit/connection-questions';
   import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
@@ -216,8 +220,10 @@
     const y = parseFloat(coordY);
     const z = parseFloat(coordZ);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
+    // Welded: typing the coordinates of an existing node selects it rather than
+    // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNode(x, y, z);
+    const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
     showCoordDialog = false;
@@ -1721,6 +1727,23 @@
   let ghost: PlacementGhost | null = null;
   let ghostFragment: unknown = null;
 
+  /*
+   * The placement target, once per animation frame: every mousemove ran a recursive raycast and
+   * bumped the revision, where the ordinary hover is throttled the same way.
+   */
+  let pendingPlacementHover: MouseEvent | null = null;
+  let placementHoverFrame = 0;
+  function schedulePlacementHover(e: MouseEvent) {
+    pendingPlacementHover = e;
+    if (placementHoverFrame) return;
+    placementHoverFrame = requestAnimationFrame(() => {
+      placementHoverFrame = 0;
+      const ev = pendingPlacementHover;
+      pendingPlacementHover = null;
+      if (ev && placementStore.active && placementStore.follow) placementHover(ev);
+    });
+  }
+
   /** The pointer's target while placing: a node under it, else the snapped working-plane point. */
   function placementHover(e: MouseEvent) {
     const nodeId = findNodeHit(e);
@@ -1739,6 +1762,8 @@
     if (!scene) return;
     if (!placementStore.active || !placementStore.fragment) {
       ghost?.hide();
+      // The next placement sets its fragment again, even if it is this one (a second paste).
+      ghostFragment = null;
       invalidate();
       return;
     }
@@ -1790,6 +1815,13 @@
 
     // Full 3D snap: snap all coordinates to grid, then onto the structural grid's axes
     const snapped = snapToStructure(pos);
+    // Duplicate-coincident-node guard (`viewport/node-placement.ts`): a click on a node of the
+    // working plane, or one the snap put the placement point on, selects it instead of a twin.
+    const onExisting = nodeAtPlacement3D(findNodeHit(e), snapped, uiStore.workingPlane, modelStore.nodes);
+    if (onExisting !== null) {
+      uiStore.selectNode(onExisting, e.shiftKey);
+      return;
+    }
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
@@ -1847,16 +1879,28 @@
       uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
-      if (nodeId === pendingElementNodeI) return; // same node
+      if (nodeId === pendingElementNodeI) {
+        // The last node again ends a polyline; single members wait for a second node.
+        if (uiStore.memberChains) cancelPendingElement();
+        return;
+      }
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
       const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
       uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
+      // Across other members or over nodes without touching them: ask, as in 2D.
+      if (uiStore.appMode !== 'pro') askToConnectMember(elemId);
 
-      // Clean up
-      cancelPendingElement();
+      if (uiStore.memberChains) {
+        // Polyline: the next member starts where this one ends.
+        nodesInstanced.restoreColor(pendingElementNodeI);
+        pendingElementNodeI = nodeId;
+        nodesInstanced.setColor(nodeId, 0x00ff00);
+      } else {
+        cancelPendingElement();
+      }
     }
   }
 
@@ -2124,7 +2168,8 @@
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      if (moved < 5 && placementStore.follow) { placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
+      // At the click itself, not a frame late.
+      if (moved < 5 && placementStore.follow) { pendingPlacementHover = null; placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
       return;
     }
 
@@ -2665,7 +2710,7 @@
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
 
-    if (placementStore.active) { if (placementStore.follow) placementHover(e); return; }
+    if (placementStore.active) { if (placementStore.follow) schedulePlacementHover(e); return; }
 
     // Schedule the expensive hover/diagram raycast on the next animation frame.
     // During orbit we clear any stale hover and skip entirely — recursive raycasts
@@ -2676,6 +2721,9 @@
     if (draggedNodeId3D !== null && dragStartWorld3D) {
       const newWorld = getGroundIntersection(e);
       if (newWorld) {
+        // The drag works in space coordinates: a standing plane model is
+        // rewritten in them before any node is read (undo was pushed on press).
+        modelStore.ensureSpaceCoordinates();
         const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
         const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
         const delta = snappedVec.clone().sub(dragStartWorld3D);
@@ -3272,6 +3320,17 @@
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="vp-prompt" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
+    ontouchstart={(e) => e.stopPropagation()}><ConnectionPrompt /></div>
+  {#if uiStore.isMobile && uiStore.appMode === 'basico'}
+    <!-- The phone's delete button: over the model's lower right corner, level
+         with the axes; the canvas shrinks for the sheet, so it rises with it.
+         A press here is not a press on the model. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="vp-delete" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
+      ontouchstart={(e) => e.stopPropagation()}><SelectionDeleteButton floating /></div>
+  {/if}
   <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
        draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
        teardown/rebuild churn. -->
@@ -3617,6 +3676,17 @@
   }
   .lasso-path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; }
   .lasso-path polygon { fill: rgba(127, 212, 204, 0.12); stroke: #7fd4cc; stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+  /* The card positions itself; this only keeps presses on it off the model. */
+  .vp-prompt { display: contents; }
+
+  .vp-delete {
+    position: absolute;
+    right: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 11;
+  }
+
   .axis-gizmo {
     position: absolute;
     bottom: 8px;

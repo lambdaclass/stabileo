@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { windCaseReversible } from '../../lib/store/wind-reversal';
   import ProAnalysisRules from './ProAnalysisRules.svelte';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
@@ -331,7 +332,11 @@
       : template === 'service'
       ? generateServiceCombinations({ present })
       : generateCombinations({ present });
-    const out = expandCombinations(specs, cases, { bothSenses: { W: bothSenses, E: bothSenses } }).map((c) => {
+    const out = expandCombinations(specs, cases, {
+      bothSenses: { W: bothSenses, E: bothSenses },
+      // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
+      reversible: (id) => windCaseReversible(modelStore.model, id),
+    }).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
     });
