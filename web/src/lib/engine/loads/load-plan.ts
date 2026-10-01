@@ -45,6 +45,8 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
 import { gravityLayout } from './plan-gravity';
+import { modalStoryForces, type ModeShape } from './seismic-modal';
+import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
 import type { RoofWeight } from '../../codes/cirsoc101/roof-live';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
@@ -52,7 +54,7 @@ import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
 import {
-  designSpectrum, isBlocked, SIMULTANEITY_F1,
+  designSpectrum, isBlocked, spectralOrdinate, SIMULTANEITY_F1,
   type DestinationGroup, type OccupancyProbability,
   type SeismicZone, type SiteClass,
 } from '../../codes/cirsoc103/spectrum';
@@ -203,6 +205,17 @@ export interface LoadPlanInput {
     /** Fraction of the imposed load in the seismic weight; null → recorded assumption. */
     liveParticipation: number | null;
     directions: { x: boolean; y: boolean };
+    /**
+     * The modal response spectrum method (Cap. 7, `seismic-modal.ts`): the model's modes, for
+     * the forces per level in place of the static distribution. Needs the code path.
+     */
+    modal?: { modes: ModeShape[] };
+    /** E = EH ± EV with EV = (Ca/2)·γr·D (§3.5.2, [3.18]), as the D factor of each seismic combination. */
+    vertical?: boolean;
+    /** Tabla 6.3: the accidental eccentricity by torsional irregularity (§6.2.4.2). */
+    torsion?: TorsionalIrregularity;
+    /** §3.2: also at 45°, for lateral systems not in two perpendicular directions. */
+    diagonal?: boolean;
   };
   generateCombinations: boolean;
   /**
@@ -739,8 +752,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
             regularity: code.regularity, t: uncappedT, t2,
           });
           refs.push(...applicability.refs);
+          // With the modal method the static one need not apply (§2.7.3 asks for the modal one
+          // where it does not); it still gives Voe for §7.2.5.
+          const modal = input.seismic.modal && input.seismic.modal.modes.length > 0;
           for (const r of applicability.reasons) {
-            if (r.key.startsWith('seismic.blocked.')) blockedKeys.push(r);
+            if (r.key.startsWith('seismic.blocked.')) (modal ? derivation : blockedKeys).push(r);
             else assumptions.push(r);
           }
 
@@ -750,7 +766,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
             /* Tabla 5.1 row 1 prints a formula on the wall layout, not a value; an
                unknown key is the same hole. Either way there is no R to divide by. */
             blockedKeys.push(msg('loadPlan.blocked.seismicNoR', { system: code.systemKey }));
-          } else if (applicability.allowed) {
+          } else if (applicability.allowed || modal) {
             const coeff = designSeismicCoefficient({
               spectrum, group: code.group, r: R, t: period.t,
             });
@@ -779,25 +795,47 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       refs.push(...dist.refs);
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
+      let forcesX = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
+      let forcesY = forcesX;
 
-      const exIndex = input.seismic.directions.x ? cases.length : -1;
-      if (exIndex >= 0) {
-        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
-      }
-      const eyIndex = input.seismic.directions.y ? cases.length : -1;
-      if (eyIndex >= 0) {
-        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
-      }
-      elevated.forEach((lv, i) => {
-        const Fk = dist.forces[i]?.f ?? 0;
-        const per = Fk / Math.max(1, lv.nodeIds.length);
-        for (const id of lv.nodeIds) {
-          if (exIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: exIndex, fx: per, fy: 0, fz: 0 });
-          if (eyIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: eyIndex, fx: 0, fy: per, fz: 0 });
+      // ── The modal response spectrum method, Cap. 7 ──
+      const modes = input.seismic.modal?.modes ?? [];
+      if (modes.length > 0 && seismicDetail?.source === 'cirsoc103' && code) {
+        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
+        if (!isBlocked(spectrum)) {
+          const r = seismicDetail.r!, gr = seismicDetail.gammaR!;
+          refs.push(clause('inpres-cirsoc-103-i', '2018', '7.2', 'método modal espectral'));
+          const byDir = (dir: 'x' | 'y') => {
+            const m = modalStoryForces(elevated, modes, dir, (t) => (spectralOrdinate(t, spectrum) * gr) / r);
+            // §7.2.5: no less than 85 % of the static base shear.
+            const scale = m.baseShear > 0 && m.baseShear < 0.85 * V0 ? (0.85 * V0) / m.baseShear : 1;
+            derivation.push(msg('loadPlan.derivation.modal', {
+              dir: dir.toUpperCase(), modes: m.perMode.length, ratio: round(m.massRatio * 100, 1),
+              vod: round(m.baseShear, 1), voe: round(V0, 1), scale: round(scale, 3),
+            }));
+            if (m.massRatio < 0.9) unsupportedKeys.push(msg('loadPlan.note.modalMassShort', { dir: dir.toUpperCase(), ratio: round(m.massRatio * 100, 1) }));
+            return m.forces.map((f) => f * scale);
+          };
+          if (input.seismic.directions.x) forcesX = byDir('x');
+          if (input.seismic.directions.y) forcesY = byDir('y');
         }
-      });
+      }
+
+      const torsion = input.seismic.torsion ?? 'low';
+      if (torsion !== 'low') {
+        refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
+        derivation.push(msg('loadPlan.derivation.accidentalTorsion', { e: ACCIDENTAL_ECCENTRICITY[torsion] * 100 }));
+      }
+      if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
+      for (const c of seismicCases({
+        nodes: input.model.nodes, levels: elevated, forcesX, forcesY,
+        directions: input.seismic.directions, torsion, diagonal: input.seismic.diagonal,
+      })) {
+        const index = cases.length;
+        const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';
+        cases.push({ existingId: plain ? findCase(input.model, 'E', c.axis) : null, type: 'E', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'E', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
+      }
 
       derivation.push(msg('loadPlan.derivation.seismic', {
         weight: round(W, 1), coefficient: round(C, 4), baseShear: round(V0, 1),
@@ -840,6 +878,22 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       refs.push(R101('2.3.2', 'combinaciones básicas'));
     }
     if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...generateServiceCombinations(ci)];
+    // E = EH ± EV, EV = (Ca/2)·γr·D (§3.5.2): a seismic combination twice, D's factor ± (Ca/2)·γr.
+    if (input.seismic?.enabled && input.seismic.vertical && seismicDetail?.source === 'cirsoc103' && seismicDetail.ca && seismicDetail.gammaR) {
+      const kv = (seismicDetail.ca / 2) * seismicDetail.gammaR;
+      combinations = combinations.flatMap((c) => {
+        const hasE = c.terms.some((t) => t.symbol === 'E' && t.factor !== 0);
+        const d = c.terms.find((t) => t.symbol === 'D');
+        if (!hasE || !d) return [c];
+        return [1, -1].map((sg) => ({
+          ...c, id: `${c.id}${sg > 0 ? '+' : '-'}Ev`,
+          label: `${c.label} ${sg > 0 ? '+' : '−'} Ev`,
+          terms: c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + sg * kv).toFixed(4) } : t)),
+        }));
+      });
+      refs.push(clause('inpres-cirsoc-103-i', '2018', '3.5.2', 'acción sísmica vertical'));
+      derivation.push(msg('loadPlan.derivation.verticalSeismic', { ca: round(seismicDetail.ca, 3), gr: seismicDetail.gammaR, kv: round(kv, 4) }));
+    }
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 

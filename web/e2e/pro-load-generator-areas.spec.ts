@@ -45,3 +45,28 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
     expect(names).not.toContain('Roof live');
   });
 });
+
+test.describe('@smoke the seismic action: modal method, vertical component, torsion', () => {
+  test('modal response spectrum from the dialog: modes, the derivation, the eccentric cases', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-design').click();
+    await page.getByTestId('pr-cmd-design').click();
+    await expect(page.getByTestId('design-toolbar')).toBeVisible();
+    const d = page.locator('details').filter({ hasText: 'Project regulations' }).first();
+    await d.locator('summary').first().click();
+    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
+    await page.getByTestId('pending-review-in-loads').click();
+    await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+    await page.getByTestId('al-enable-seismic').check();
+    await page.getByTestId('al-seismic-method-select').selectOption('modal');
+    await page.getByTestId('al-seismic-torsion').selectOption('medium');
+    await expect(page.getByTestId('al-seismic-vertical')).toBeChecked();
+    await page.getByTestId('al-preview-btn').click();
+    await expect(page.getByTestId('al-apply-error')).toHaveCount(0);
+    await expect(page.getByTestId('al-preview')).toContainText(/Modal response spectrum along X/);
+    await expect(page.getByTestId('al-preview')).toContainText(/Vertical component/);
+    await page.getByTestId('al-apply').click();
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
+  });
+});

@@ -9,6 +9,7 @@ import {
   bindRole, defaultRegulations, unsetBinding, type ProjectRegulations,
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
+import { modalStoryForces, cqcRho } from '../seismic-modal';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -697,5 +698,80 @@ describe('the combinations the preview counts are the ones applying adds', () =>
     const p = buildLoadPlan(input({ projectCombinations: rules }));
     expect(p.combinations.map((c) => c.id)).toEqual(['project-r1', 'project-r2']);
     expect(describePlanDelta(p, current, { replaceExisting: true }).after.combinations).toBe(1);
+  });
+});
+
+describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsion, 45°', () => {
+  const code103 = {
+    zone: 4 as const, site: 'SB' as const, group: 'B' as const, systemKey: 'rc_frame_full_ductility',
+    periodSystem: 'concreteMomentFrame' as const, regularity: 'regular' as const, occupancy: 'reduced' as const,
+  };
+  const regs = () => applied({ ...applied(defaultRegulations()), seismic: bindRole('seismic', 'inpres103-2018') });
+  const seismic = (over: Record<string, unknown> = {}) => input({
+    regulations: regs(), model: frame(4),
+    seismic: { enabled: true, coefficient: 0.15, liveParticipation: null, directions: { x: true, y: false }, code: code103, ...over } as LoadPlanInput['seismic'],
+  });
+  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => p.nodal.filter((n) => n.caseIndex === i).reduce((s, n) => s + n.fx, 0);
+
+  it('one mass, one mode: the whole weight times the ordinate, all of the mass', () => {
+    const m = modalStoryForces([{ elevation: 3, weightKN: 100, nodeIds: [1] }], [{ period: 0.5, shape: new Map([[1, { ux: 2, uy: 0 }]]) }], 'x', () => 0.3);
+    expect(m.forces[0]).toBeCloseTo(30, 9);
+    expect(m.massRatio).toBeCloseTo(1, 9);
+  });
+
+  it('two equal storeys: the two modes carry all the mass, and well apart CQC is SRSS', () => {
+    const lv = [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: [2] }];
+    const phi = (a: number, b: number) => new Map([[1, { ux: a, uy: 0 }], [2, { ux: b, uy: 0 }]]);
+    const golden = (1 + Math.sqrt(5)) / 2;
+    const modes = [{ period: 1.0, shape: phi(1, golden) }, { period: 0.38, shape: phi(1, 1 - golden) }];
+    const m = modalStoryForces(lv, modes, 'x', () => 0.2);
+    expect(m.massRatio).toBeCloseTo(1, 9);
+    const srss = Math.hypot(m.perMode[0]!.baseShear, m.perMode[1]!.baseShear);
+    expect(m.baseShear).toBeCloseTo(srss, 1);
+    expect(cqcRho(1, 1)).toBeCloseTo(1, 12);
+  });
+
+  it('the modal forces replace the static ones, raised to 85 % of the static base shear', () => {
+    const model = frame(4);
+    // A first mode growing linearly with height, nothing else: a fraction of the mass.
+    const shape = new Map([...model.nodes.values()].map((n) => [n.id, { ux: (n.z ?? 0) / 12, uy: 0 }]));
+    const st = buildLoadPlan(seismic());
+    const dy = buildLoadPlan(seismic({ modal: { modes: [{ period: 0.6, shape }] } }));
+    expect(dy.outcome).toBe('READY');
+    expect(dy.derivation.some((d) => d.key === 'loadPlan.derivation.modal')).toBe(true);
+    const ex = dy.cases.findIndex((c) => c.type === 'E');
+    const V0 = st.factors.baseShear!.value;
+    expect(sumFx(dy, ex)).toBeGreaterThanOrEqual(0.85 * V0 - 1e-6);
+  });
+
+  it('a medium torsional irregularity: ±5 % eccentricity, two cases per direction, no net force across', () => {
+    const p = buildLoadPlan(seismic({ torsion: 'medium' }));
+    const e = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'E');
+    expect(e.map(({ c }) => c.nameKey)).toEqual(['autoLoad.seismicCaseEcc', 'autoLoad.seismicCaseEcc']);
+    const st = buildLoadPlan(seismic());
+    for (const { i } of e) {
+      expect(sumFx(p, i)).toBeCloseTo(st.factors.baseShear!.value, 6);
+      const fy = p.nodal.filter((n) => n.caseIndex === i);
+      expect(fy.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
+      expect(fy.some((n) => Math.abs(n.fy) > 1e-6)).toBe(true);
+    }
+  });
+
+  it('the vertical component splits each seismic combination, D at its factor ± (Ca/2)·γr', () => {
+    const p = buildLoadPlan(seismic({ vertical: true }));
+    const kv = (p.seismic!.ca! / 2) * p.seismic!.gammaR!;
+    const withE = p.combinations.filter((c) => c.terms.some((t) => t.symbol === 'E'));
+    expect(withE.length).toBeGreaterThan(0);
+    expect(withE.every((c) => /Ev$/.test(c.label))).toBe(true);
+    const d = withE.map((c) => c.terms.find((t) => t.symbol === 'D')!.factor);
+    expect(d).toEqual(expect.arrayContaining([+(1.2 + kv).toFixed(4), +(1.2 - kv).toFixed(4), +(0.9 + kv).toFixed(4), +(0.9 - kv).toFixed(4)]));
+  });
+
+  it('a third direction at 45°, the forces split equally along X and Y', () => {
+    const p = buildLoadPlan(seismic({ diagonal: true }));
+    const i = p.cases.findIndex((c) => c.nameParams?.dir === '45°');
+    expect(i).toBeGreaterThan(-1);
+    const own = p.nodal.filter((n) => n.caseIndex === i);
+    for (const n of own) expect(n.fx).toBeCloseTo(n.fy, 9);
   });
 });

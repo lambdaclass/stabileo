@@ -22,6 +22,8 @@
   import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
   import ProAutoLoadsApplying, { type GravityMode } from './ProAutoLoadsApplying.svelte';
   import ProRoofLoadSection, { defaultRoofConfig } from './ProRoofLoadSection.svelte';
+  import ProSeismicMethod, { defaultSeismicMethod } from './ProSeismicMethod.svelte';
+  import { modesForPlan } from '../../lib/store/seismic-modes';
   import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
@@ -40,7 +42,7 @@
    * behind it, inside a dialog that cites a clause for everything else.
    */
   import {
-    designSpectrum, isBlocked, RISK_FACTOR,
+    designSpectrum, isBlocked, RISK_FACTOR, SIMULTANEITY_F1,
     type SeismicZone, type SiteClass, type DestinationGroup, type OccupancyProbability,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { BEHAVIOUR_TABLE_2018, findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -110,6 +112,7 @@
   let gravityMode = $state<GravityMode>('panels');
   let roofCfg = $state(defaultRoofConfig());
   let livePatterns = $state(true);
+  let seismicMethod = $state(defaultSeismicMethod());
   let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
   let gravitySpan = $state<'x' | 'y'>('x');
 
@@ -265,6 +268,7 @@
         },
         liveParticipation: null,
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
+        vertical: seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
       } : undefined,
       generateCombinations: genCombos,
       combinationSet: comboSet,
@@ -311,7 +315,14 @@
   function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
-    const p = buildLoadPlan(planInput());
+    let p = buildLoadPlan(planInput());
+    // The modal method needs the model's modes under the plan's own masses (`seismic-modes.ts`).
+    if (enableSeismic && seismicMethod.method === 'modal' && p.outcome === 'READY') {
+      const m = modesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
+      if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
+      const base = planInput();
+      p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
+    }
     plan = p;
     // The flag has to go in: the same plan produces a different model depending on it, and
     // reporting the plan's own counts as "after" was the defect the audit caught.
@@ -649,6 +660,7 @@
                 </select>
               </label>
             </div>
+            <ProSeismicMethod bind:config={seismicMethod} />
             <div class="al-row">
               <span class="al-label">{t('autoLoad.seismicDirections')}</span>
               <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionX} data-testid="al-seismic-dir-x" /> X</label>
