@@ -13,6 +13,8 @@
   import { modelStore, resultsStore, historyStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { parseIdList } from '../../lib/model/select-ops';
+  import { shellSpecifications } from '../../lib/pro/specification-list';
+  import BatchEditBar from '../pro/BatchEditBar.svelte';
 
   type Row = {
     key: string;
@@ -67,6 +69,55 @@
    * nodes, in the order that sets the local axes.
    */
   const editNodes = $derived(uiStore.analysisMode === 'pro');
+  /*
+   * In PRO the table is a view of the model's selection, as the members table is: a row click
+   * selects that shell (Shift, Ctrl or Cmd adds or removes it), every selected shell's row is lit,
+   * several selected get group editing above the table, and the last column says what each shell
+   * is told beyond the default, opening Specifications › Surfaces on it. Basic keeps its table.
+   */
+  const pro = $derived(uiStore.analysisMode === 'pro');
+  const selectedKeys = $derived([...uiStore.selectedShells].filter((k) => rows.some((r) => r.key === k)));
+  function rowClick(row: Row, e: MouseEvent) {
+    if (!pro) return;
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON') return;
+    uiStore.selectMode = 'shells';
+    const add = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (!add) { uiStore.selectShell(row.key, false); return; }
+    const next = new Set(uiStore.selectedShells);
+    if (next.has(row.key)) next.delete(row.key); else next.add(row.key);
+    uiStore.setSelection(new Set(), new Set(), true, next);
+  }
+  // The first selected shell scrolled into view, wherever it was selected.
+  $effect(() => {
+    if (!pro) return;
+    const first = selectedKeys[0];
+    if (first) queueMicrotask(() => document.querySelector(`tr[data-shell="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
+  });
+  const specsOf = (row: Row) => {
+    const sh = row.kind === 'plate' ? modelStore.plates.get(row.id) : modelStore.quads.get(row.id);
+    return sh ? shellSpecifications(sh as never, t) : [];
+  };
+  function openSpec(row: Row) {
+    uiStore.selectMode = 'shells';
+    if (!uiStore.selectedShells.has(row.key)) uiStore.selectShell(row.key, false);
+    uiStore.specSection = 'surfaces';
+    uiStore.proActiveTab = 'specifications';
+  }
+  const sameOf = (f: (r: Row) => number) => {
+    const v = selectedKeys.map((k) => f(rows.find((r) => r.key === k)!));
+    return v.length && v.every((x) => x === v[0]) ? String(v[0]) : '';
+  };
+  function batchUpdate(patch: { materialId?: number; thickness?: number }) {
+    if (patch.thickness !== undefined && !(patch.thickness > 0)) return;
+    modelStore.batch(() => {
+      for (const k of selectedKeys) {
+        const id = Number(k.slice(1));
+        if (k[0] === 'p') modelStore.updatePlate(id, patch); else modelStore.updateQuad(id, patch);
+      }
+    });
+    resultsStore.clear();
+  }
   let nodesError = $state<{ key: string; msg: string } | null>(null);
   function setNodes(row: Row, value: string, input: HTMLInputElement) {
     const want = row.kind === 'plate' ? 3 : 4;
@@ -108,6 +159,21 @@
   }
 </script>
 
+{#if pro && selectedKeys.length > 1}
+  <BatchEditBar count={selectedKeys.length} labelKey="batch.shells" testid="shells-batch">
+    <label>{t('pro.thMaterial')}
+      <select value={sameOf((r) => r.materialId)} onchange={(e) => batchUpdate({ materialId: Number(e.currentTarget.value) })} data-testid="batch-shell-material">
+        {#if sameOf((r) => r.materialId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}
+        {#each materials as m (m.id)}<option value={String(m.id)}>{m.name}</option>{/each}
+      </select>
+    </label>
+    <label>{t('pro.thickness')}
+      <input type="number" step="0.01" min="0.001" value={sameOf((r) => r.thickness)} placeholder={t('behaviour.mixed')}
+        onchange={(e) => batchUpdate({ thickness: parseFloat(e.currentTarget.value) })} data-testid="batch-shell-thickness" />
+    </label>
+    <button class="pk-btn" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="batch-shell-spec">{t('pro.thSpec')}…</button>
+  </BatchEditBar>
+{/if}
 {#if rows.length > 0}
   <table>
     <thead>
@@ -117,13 +183,13 @@
         <th>{t('pro.nodes')}</th>
         <th>{t('pro.thMaterial')}</th>
         <th>{t('pro.thickness')}</th>
-        <th title={t('pro.shellCurvatureHint')}>≈</th>
+        {#if pro}<th title={t('pro.thSpecHint')}>{t('pro.thSpec')}</th>{:else}<th title={t('pro.shellCurvatureHint')}>≈</th>{/if}
         <th></th>
       </tr>
     </thead>
     <tbody>
       {#each rows as row (row.key)}
-        <tr>
+        <tr class:selected={pro && uiStore.selectedShells.has(row.key)} class:pickable={pro} onmousedown={(e) => { if (pro && (e.shiftKey || e.metaKey || e.ctrlKey) && !(e.target instanceof HTMLInputElement)) e.preventDefault(); }} onclick={(e) => rowClick(row, e)} data-shell={row.key}>
           <td class="id-cell">{row.id}</td>
           <td class="kind-cell">
             {row.nodes.length}
@@ -146,6 +212,13 @@
             <input type="number" step="0.01" min="0.001" value={row.thickness}
                    onchange={(e) => setThickness(row, e.currentTarget.value)} />
           </td>
+          {#if pro}
+            {@const specs = specsOf(row)}
+            <td class="spec-cell">
+              <button class="spec-btn" class:set={specs.length > 0} title={specs.length ? specs.map((x) => `${x.what}: ${x.value}`).join('\n') : t('pro.specOpen')}
+                onclick={() => openSpec(row)} data-testid="shell-spec-{row.key}">{specs.length ? specs.map((x) => x.what).join(' · ') : '—'}</button>
+            </td>
+          {:else}
           <td class="curv-cell">
             {#if row.kind === 'quad'}
               <input
@@ -158,6 +231,7 @@
               />
             {/if}
           </td>
+          {/if}
           <td><button class="del" onclick={() => remove(row)}>&#10005;</button></td>
         </tr>
       {/each}
@@ -185,6 +259,18 @@
   }
 
   .id-cell { color: var(--st-value); font-weight: 600; }
+  tr.pickable { cursor: pointer; }
+  tr.pickable:hover td { background: var(--st-surface-3); }
+  tr.selected td { background: var(--st-selected-bg); }
+  tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--st-selected, var(--st-accent)); }
+  .spec-cell { max-width: 9rem; }
+  .spec-btn {
+    max-width: 100%; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: none; border: 1px solid transparent; border-radius: var(--st-radius);
+    color: var(--st-text-3); font-size: 0.68rem; cursor: pointer; text-align: left;
+  }
+  .spec-btn.set { color: var(--st-warn); border-color: var(--st-hair-strong); }
+  .spec-btn:hover { color: var(--st-text); border-color: var(--st-accent); }
   .kind-cell { color: var(--st-text-3); }
   .nodes-cell { font-variant-numeric: tabular-nums; }
   .nodes-cell .nodes-input { width: 9rem; font-family: var(--st-mono); }

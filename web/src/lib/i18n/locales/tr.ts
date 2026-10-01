@@ -2620,7 +2620,6 @@ const tr: Translations = {
   'pro.add': 'Ekle',
   'pro.delete': 'Sil',
   'pro.pasteHintNodes': 'İpucu: Excel\'den X, Y, Z sütunlarını kopyalayıp Ctrl+V ile yapıştırın',
-  'pro.pasteHintElems': 'İpucu: Excel\'den Nodo_i, Nodo_j sütunlarını Ctrl+V ile yapıştırın',
   'pro.emptyNodes': 'Düğüm yok — ekleyin veya Excel\'den yapıştırın',
   'pro.emptyElements': 'Eleman yok — ekleyin, görünümde çizin veya Excel\'den yapıştırın',
   'pro.pasteRowError': 'Satır {n}: en az {cols} sütun gerekli ({names})',

@@ -2516,7 +2516,6 @@ const ja: Translations = {
   'pro.add': '追加',
   'pro.delete': '削除',
   'pro.pasteHintNodes': 'ヒント：ExcelからX, Y, Z列をコピーしてCtrl+Vで貼り付け',
-  'pro.pasteHintElems': 'ヒント：ExcelからNode_i, Node_j列をCtrl+Vで貼り付け',
   'pro.emptyNodes': '節点がありません — 追加するかExcelから貼り付けてください',
   'pro.emptyElements': '要素がありません — 追加、ビューポートで描画、またはExcelから貼り付け',
   'pro.pasteRowError': '行 {n}：最低 {cols} 列が必要です（{names}）',

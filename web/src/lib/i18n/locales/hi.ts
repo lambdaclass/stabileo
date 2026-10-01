@@ -2620,7 +2620,6 @@ const hi: Translations = {
   'pro.add': 'जोड़ें',
   'pro.delete': 'हटाएँ',
   'pro.pasteHintNodes': 'सुझाव: Excel से X, Y, Z कॉलम कॉपी करें और Ctrl+V से चिपकाएँ',
-  'pro.pasteHintElems': 'सुझाव: Excel से Nodo_i, Nodo_j कॉलम Ctrl+V से चिपकाएँ',
   'pro.emptyNodes': 'कोई नोड नहीं — जोड़ें या Excel से चिपकाएँ',
   'pro.emptyElements': 'कोई तत्व नहीं — जोड़ें, व्यूपोर्ट में बनाएँ या Excel से चिपकाएँ',
   'pro.pasteRowError': 'पंक्ति {n}: कम से कम {cols} कॉलम चाहिए ({names})',

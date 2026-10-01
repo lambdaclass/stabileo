@@ -104,7 +104,7 @@
 {:else if ids.length > 0 && part === 'ends'}
   <div class="mb" data-testid="member-ends">
     <div class="mb-joints">
-      <span>{t('behaviour.releases')}</span>
+      <span class="pk-label">{t('behaviour.releases')}</span>
       {#each ['i', 'j'] as const as end (end)}
         {@const mask = jointOf(end)}
         <div class="mb-row" data-testid="mb-joint-{end}">
@@ -118,7 +118,7 @@
       <p class="mb-hint">{t('behaviour.releasesHint')}</p>
     </div>
     <div class="mb-joints">
-      <span>{t('behaviour.semiRigid')}</span>
+      <span class="pk-label">{t('behaviour.semiRigid')}</span>
       {#each ['i', 'j'] as const as end (end)}
         {@const sr = semiOf(end)}
         <div class="mb-row" data-testid="mb-semi-{end}">
@@ -137,12 +137,12 @@
 {/if}
 
 <style>
-  .mb { display: flex; flex-direction: column; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); }
+  .mb { display: flex; flex-direction: column; gap: 0.45rem; color: var(--st-text-2); }
   .mb-row { display: flex; gap: 8px; align-items: center; }
   .mb-wrap { flex-wrap: wrap; }
   .mb-row input { width: 56px; }
-  .mb-joints { display: flex; flex-direction: column; gap: 2px; }
+  .mb-joints { display: flex; flex-direction: column; gap: 3px; padding-top: 0.35rem; border-top: 1px solid var(--st-hair); }
   .mb-end { font-weight: 600; width: 12px; }
   .mb-dof { display: flex; gap: 2px; align-items: center; font-family: var(--st-mono); font-size: 0.62rem; }
-  .mb-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
+  .mb-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
 </style>

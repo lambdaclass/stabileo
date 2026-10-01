@@ -2656,7 +2656,6 @@ const id: Translations = {
   'pro.add': 'Tambah',
   'pro.delete': 'Hapus',
   'pro.pasteHintNodes': 'Tips: Salin kolom X, Y, Z dari Excel dan tempel dengan Ctrl+V',
-  'pro.pasteHintElems': 'Tips: Tempel kolom Node_i, Node_j dari Excel dengan Ctrl+V',
   'pro.emptyNodes': 'Tidak ada titik simpul — tambah satu atau tempel dari Excel',
   'pro.emptyElements': 'Tidak ada elemen — tambah satu, gambar di viewport, atau tempel dari Excel',
   'pro.pasteRowError': 'Baris {n}: minimal {cols} kolom diperlukan ({names})',

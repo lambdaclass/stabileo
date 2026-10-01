@@ -3,6 +3,7 @@
   import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
+  import BatchEditBar from './BatchEditBar.svelte';
   import { nextMember } from '../../lib/store/next-member.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
@@ -21,7 +22,6 @@
 
   let rows = $state<ElemRow[]>([]);
   let pasteError = $state<string | null>(null);
-  let selectedRowIdx = $state<number | null>(null);
 
   // ── Curved members ───────────────────────────────────────────────
   let showArc = $state(false);
@@ -91,10 +91,11 @@
   };
   /** The axial behaviour reads as its value (Truss, Cable); the rest by what they are. */
   const specLabel = (x: { what: string; value: string }) => (x.what === t('spec.members.axial') ? x.value : x.what);
-  function openSpec(id: number) {
+  /** Specifications › Members on this member, or on the whole selection when `keep`. */
+  function openSpec(id: number, keep = false) {
     uiStore.specSection = 'members';
     uiStore.proActiveTab = 'specifications';
-    uiStore.setSelection(new Set(), new Set([id]));
+    if (!keep) uiStore.setSelection(new Set(), new Set([id]));
   }
 
   // Sync rows from store on mount. Preserve unsaved rows (id === null).
@@ -122,14 +123,33 @@
      This panel used to build members of its own from the selected node at the same time, so a
      third click joined a stale first node to the new one. */
 
-  // Listen for element selection from viewport
+  /*
+   * The table shows the model's selection, wherever it was made and whenever the panel opens:
+   * every selected member's row is lit, and the first is scrolled into view.
+   */
+  let tableWrap = $state<HTMLElement | null>(null);
   $effect(() => {
-    if (uiStore.selectedElements.size === 1) {
-      const elemId = [...uiStore.selectedElements][0];
-      const idx = rows.findIndex(r => r.id === elemId);
-      if (idx >= 0) selectedRowIdx = idx;
-    }
+    const sel = uiStore.selectedElements;
+    if (sel.size === 0 || !tableWrap) return;
+    const first = [...sel].find((id) => modelStore.elements.has(id));
+    if (first === undefined) return;
+    queueMicrotask(() => tableWrap?.querySelector(`tr[data-elem="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
   });
+
+  // ── Group editing over a selection of more than one member ──
+  const selectedIds = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
+  const sameOf = (f: (e: { materialId: number; sectionId: number }) => number) => {
+    const v = selectedIds.map((id) => f(modelStore.elements.get(id)!));
+    return v.length && v.every((x) => x === v[0]) ? String(v[0]) : '';
+  };
+  function batchSet(patch: { materialId?: number; sectionId?: number }) {
+    modelStore.batch(() => {
+      for (const id of selectedIds) {
+        if (patch.materialId !== undefined) modelStore.updateElementMaterial(id, patch.materialId);
+        if (patch.sectionId !== undefined) modelStore.updateElementSection(id, patch.sectionId);
+      }
+    });
+  }
 
   function addEmptyRow() {
     rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.resolvedMaterialId, sectionId: nextMember.resolvedSectionId }];
@@ -213,13 +233,15 @@
     }
   }
 
-  function handleRowClick(idx: number) {
-    selectedRowIdx = idx;
+  /** A row click selects that member; with Shift, Ctrl or Cmd it adds or removes it. */
+  function handleRowClick(idx: number, e?: MouseEvent) {
     const row = rows[idx];
-    if (row.id !== null) {
-      uiStore.selectMode = 'elements';
-      uiStore.setSelection(new Set(), new Set([row.id]), true); // manual row click
-    }
+    if (row.id === null) return;
+    uiStore.selectMode = 'elements';
+    const add = !!(e && (e.shiftKey || e.ctrlKey || e.metaKey));
+    const next = add ? new Set(uiStore.selectedElements) : new Set<number>();
+    if (add && next.has(row.id)) next.delete(row.id); else next.add(row.id);
+    uiStore.setSelection(new Set(), next, true); // manual row click
   }
 
   // Available materials and sections
@@ -245,7 +267,7 @@
 </script>
 
 <div class="pro-elems">
-  {#if uiStore.selectedElements.size > 0}
+  {#if selectedIds.length === 1}
     <!-- What the selected members are told beyond geometry, section and material is edited in
          one place, Specifications › Members; this opens it on them. -->
     <button class="pro-elems-spec" onclick={() => { uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; }} data-testid="elems-open-spec">
@@ -341,12 +363,26 @@
     <div class="pro-paste-error">{pasteError}</div>
   {/if}
 
-  <div class="pro-paste-hint">
-    {t('pro.pasteHintElems')}
-  </div>
+  {#if selectedIds.length > 1}
+    <BatchEditBar count={selectedIds.length} labelKey="batch.members" testid="elems-batch">
+      <label>{t('pro.thMaterial')}
+        <select value={sameOf((e) => e.materialId)} onchange={(e) => batchSet({ materialId: Number(e.currentTarget.value) })} data-testid="batch-material">
+          {#if sameOf((e) => e.materialId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}
+          {#each materials as m (m.id)}<option value={String(m.id)}>{m.name}</option>{/each}
+        </select>
+      </label>
+      <label>{t('pro.thSection')}
+        <select value={sameOf((e) => e.sectionId)} onchange={(e) => batchSet({ sectionId: Number(e.currentTarget.value) })} data-testid="batch-section">
+          {#if sameOf((e) => e.sectionId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}
+          {#each sections as sec (sec.id)}<option value={String(sec.id)}>{sec.name}</option>{/each}
+        </select>
+      </label>
+      <button class="pk-btn" onclick={() => openSpec(selectedIds[0]!, true)} data-testid="batch-spec">{t('pro.thSpec')}…</button>
+    </BatchEditBar>
+  {/if}
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="pro-elems-table-wrap" onpaste={handlePaste}>
+  <div class="pro-elems-table-wrap" bind:this={tableWrap} onpaste={handlePaste}>
     <table class="pro-elems-table">
       <thead>
         <tr>
@@ -363,9 +399,11 @@
         {#each rows as row, idx}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <tr
-            class:selected={selectedRowIdx === idx}
+            class:selected={row.id !== null && uiStore.selectedElements.has(row.id)}
             class:unsaved={row.id === null}
-            onclick={() => handleRowClick(idx)}
+            data-elem={row.id ?? ''}
+            onmousedown={(e) => { if ((e.shiftKey || e.metaKey || e.ctrlKey) && !(e.target instanceof HTMLInputElement)) e.preventDefault(); }}
+            onclick={(e) => handleRowClick(idx, e)}
           >
             <td class="col-id">{row.id ?? '—'}</td>
             <td class="col-node">
@@ -489,14 +527,6 @@
     border-bottom: 1px solid var(--st-hair-strong);
   }
 
-  .pro-paste-hint {
-    padding: 6px 12px;
-    font-size: 0.72rem;
-    color: var(--st-text-3);
-    font-style: italic;
-    border-bottom: 1px solid var(--st-surface-3);
-    flex-shrink: 0;
-  }
 
   .pro-elems-table-wrap {
     flex: 1;
@@ -560,7 +590,7 @@
   .pro-arc-err { font-size: 0.7rem; color: var(--st-danger); }
 
   .pro-elems-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
-  .pro-elems-table tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
+  .pro-elems-table tr.selected { background: var(--st-selected-bg); box-shadow: inset 3px 0 0 var(--st-selected, var(--st-accent)); }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }
 
   .col-id {

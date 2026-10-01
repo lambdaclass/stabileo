@@ -2671,7 +2671,6 @@ const it: Translations = {
   'pro.add': 'Aggiungi',
   'pro.delete': 'Elimina',
   'pro.pasteHintNodes': 'Suggerimento: Copia colonne X, Y, Z da Excel e incolla con Ctrl+V',
-  'pro.pasteHintElems': 'Suggerimento: Incolla colonne Nodo_i, Nodo_j da Excel con Ctrl+V',
   'pro.emptyNodes': 'Nessun nodo — aggiungi uno o incolla da Excel',
   'pro.emptyElements': 'Nessun elemento — aggiungi uno, disegna nel viewport o incolla da Excel',
   'pro.pasteRowError': 'Riga {n}: servono almeno {cols} colonne ({names})',

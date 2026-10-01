@@ -2678,7 +2678,6 @@ const de: Translations = {
   'pro.add': 'Hinzufügen',
   'pro.delete': 'Löschen',
   'pro.pasteHintNodes': 'Tipp: Kopiere Spalten X, Y, Z aus Excel und füge sie mit Strg+V ein',
-  'pro.pasteHintElems': 'Tipp: Füge Spalten Knoten_i, Knoten_j aus Excel mit Strg+V ein',
   'pro.emptyNodes': 'Keine Knoten — einen hinzufügen oder aus Excel einfügen',
   'pro.emptyElements': 'Keine Elemente — einen hinzufügen, im Viewport zeichnen oder aus Excel einfügen',
   'pro.pasteRowError': 'Zeile {n}: mindestens {cols} Spalten erforderlich ({names})',

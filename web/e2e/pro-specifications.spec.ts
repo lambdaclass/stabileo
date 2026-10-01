@@ -24,7 +24,7 @@ test.describe('@smoke PRO specifications', () => {
   test('a behaviour set over two members lands on both, as one undo step', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await openSpecifications(page);
-    await expect(page.getByTestId('spec-members-empty')).toBeVisible();
+    await expect(page.getByTestId('spec-empty-elements')).toBeVisible();
     await page.evaluate(() => window.__stabileoActions.selectElements([1, 2]));
     const before = await undos(page);
     await page.getByTestId('mb-behaviour').selectOption('cable');

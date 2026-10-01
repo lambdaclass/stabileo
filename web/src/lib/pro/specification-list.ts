@@ -47,6 +47,17 @@ export function memberSpecifications(e: Element, t: T): Array<{ what: string; va
   return out;
 }
 
+/** What one shell is told beyond its nodes, material and thickness: its curvature and offset. */
+export function shellSpecifications(
+  sh: { curved?: boolean; offset?: { frame: 'global' | 'local'; x: number; y: number; z: number } }, t: T,
+): Array<{ what: string; value: string }> {
+  const out: Array<{ what: string; value: string }> = [];
+  if (sh.curved) out.push({ what: t('pro.shellCurvature'), value: t('pro.curvedShell') });
+  const off = sh.offset;
+  if (off) out.push({ what: t('pro.shellOffset'), value: `${off.frame === 'local' ? 'x, y, n' : 'X, Y, Z'} = ${[off.x, off.y, off.z].map((v) => +v.toFixed(4)).join(', ')} m` });
+  return out;
+}
+
 export function specificationRows(m: StructureModel, t: T): SpecRow[] {
   const rows = new Map<string, SpecRow>();
   const add = (kind: SpecRow['kind'], what: string, value: string, id: number, shellKey?: string) => {
@@ -75,10 +86,7 @@ export function specificationRows(m: StructureModel, t: T): SpecRow[] {
     ...[...m.plates.values()].map((p) => ['p', p] as [string, typeof p]),
   ];
   for (const [k, sh] of shells) {
-    const key = `${k}${sh.id}`;
-    if ((sh as { curved?: boolean }).curved) add('shell', t('pro.shellCurvature'), t('pro.curvedShell'), sh.id, key);
-    const off = sh.offset;
-    if (off) add('shell', t('pro.shellOffset'), `${off.frame === 'local' ? 'x, y, n' : 'X, Y, Z'} = ${[off.x, off.y, off.z].map((v) => +v.toFixed(4)).join(', ')} m`, sh.id, key);
+    for (const x of shellSpecifications(sh, t)) add('shell', x.what, x.value, sh.id, `${k}${sh.id}`);
   }
   return [...rows.values()];
 }

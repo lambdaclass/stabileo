@@ -2668,7 +2668,6 @@ const fr: Translations = {
   'pro.add': 'Ajouter',
   'pro.delete': 'Supprimer',
   'pro.pasteHintNodes': 'Astuce : Copiez les colonnes X, Y, Z depuis Excel et collez avec Ctrl+V',
-  'pro.pasteHintElems': 'Astuce : Collez les colonnes Nœud_i, Nœud_j depuis Excel avec Ctrl+V',
   'pro.emptyNodes': 'Aucun nœud — ajoutez-en un ou collez depuis Excel',
   'pro.emptyElements': 'Aucun élément — ajoutez-en un, dessinez dans le viewport ou collez depuis Excel',
   'pro.pasteRowError': 'Ligne {n} : au moins {cols} colonnes nécessaires ({names})',

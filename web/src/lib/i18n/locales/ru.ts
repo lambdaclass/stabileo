@@ -2662,7 +2662,6 @@ const ru: Translations = {
   'pro.add': 'Добавить',
   'pro.delete': 'Удалить',
   'pro.pasteHintNodes': 'Совет: Скопируйте столбцы X, Y, Z из Excel и вставьте Ctrl+V',
-  'pro.pasteHintElems': 'Совет: Вставьте столбцы Узел_i, Узел_j из Excel через Ctrl+V',
   'pro.emptyNodes': 'Нет узлов — добавьте или вставьте из Excel',
   'pro.emptyElements': 'Нет элементов — добавьте, нарисуйте во вьюпорте или вставьте из Excel',
   'pro.pasteRowError': 'Строка {n}: необходимо минимум {cols} столбцов ({names})',

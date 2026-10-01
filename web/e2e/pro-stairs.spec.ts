@@ -130,21 +130,23 @@ test.describe('@smoke PRO — editing a plate that already exists', () => {
   });
 
   test('curvature can be given to a plate after it is drawn', async ({ pro: page }) => {
-    /* The flag used to be settable only in the creator, so a slab that turns
-       out not to be flat had no way to say it is a cáscara. The table row
-       already printed `≈` for one and offered no way to put it there. */
+    /* The flag used to be settable only in the creator, so a slab that turns out not to be flat
+       had no way to say it is a cáscara. It is a specification: the shells table names it in its
+       Specification column, which opens Specifications › Surfaces on the shell. */
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
 
     expect(await page.evaluate(() => window.__stabileo.quadCurved(1))).toBe(false);
-    await page.getByTestId('plate-curved-1').check();
+    await expect(page.getByTestId('shell-spec-q1')).toHaveText('—');
+    await page.getByTestId('shell-spec-q1').click();
+    await page.getByTestId('curv-toggle-check').check();
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.quadCurved(1)))
       .toBe(true);
 
-    // And back off again — it is a property of the row, not a one-way door.
-    await page.getByTestId('plate-curved-1').uncheck();
+    // And back off again: a property of the shell, not a one-way door.
+    await page.getByTestId('curv-toggle-check').uncheck();
     await expect
       .poll(() => page.evaluate(() => window.__stabileo.quadCurved(1)))
       .toBe(false);

@@ -497,11 +497,15 @@
   .pro-cst-count { font-size: 0.82rem; color: var(--st-value); font-weight: 600; }
 
   .pro-cst-form {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--st-surface-3);
+    /* A card of the PRO panel kit, as every other part of Specifications. */
+    margin: 10px;
+    padding: 0.6rem 0.7rem 0.7rem;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius-lg);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.45rem;
   }
 
   .pro-cst-row {

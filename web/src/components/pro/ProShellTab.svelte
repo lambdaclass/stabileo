@@ -298,9 +298,10 @@
       </WriteCard>
     {/if}
 
-    <!-- Curvature, offset and foundation springs of the selected shells are specified in
-         Specifications › Surfaces; like Members, offered with the selection and its count. -->
-    {#if uiStore.selectedShells.size > 0}
+    <!-- Curvature, offset and foundation springs of the selected shell are specified in
+         Specifications › Surfaces; like Members, offered for one shell. Two or more get the
+         group editing bar of the table, which opens it too. -->
+    {#if uiStore.selectedShells.size === 1}
       <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
         {t('spec.surfaces.open').replace('{n}', String(uiStore.selectedShells.size))}
       </button>

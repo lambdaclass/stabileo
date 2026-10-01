@@ -415,8 +415,8 @@
 {/snippet}
 
 <div class="gen" data-testid="pro-generators-panel">
+  <!-- The panel's frame already says "Generators": the subtitle is all it adds. -->
   <header>
-    <h3>{t('generator.ui.title')}</h3>
     <p class="sub">{t('generator.ui.subtitle')}</p>
   </header>
 

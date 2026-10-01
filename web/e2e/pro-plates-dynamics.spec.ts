@@ -41,7 +41,9 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-specifications').click();
     await page.getByTestId('spec-section-surfaces').click();
-    await expect(page.getByTestId('fs-apply')).toBeDisabled();
+    // Nothing selected: the part says what it edits and how to choose the shells.
+    await expect(page.getByTestId('spec-empty-shells')).toBeVisible();
+    await expect(page.getByTestId('fs-apply')).toHaveCount(0);
     const before = await page.evaluate(() => window.__stabileo.modelCensus().supports);
     await page.evaluate(() => window.__stabileoActions.selectShells([]));
     await page.getByTestId('fs-source').selectOption('typed');

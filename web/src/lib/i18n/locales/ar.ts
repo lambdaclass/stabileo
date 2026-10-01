@@ -2518,7 +2518,6 @@ const ar: Translations = {
   'pro.add': 'إضافة',
   'pro.delete': 'حذف',
   'pro.pasteHintNodes': 'نصيحة: انسخ أعمدة X, Y, Z من Excel وألصق بـ Ctrl+V',
-  'pro.pasteHintElems': 'نصيحة: ألصق أعمدة Node_i, Node_j من Excel بـ Ctrl+V',
   'pro.emptyNodes': 'لا توجد عقد — أضف واحدة أو ألصق من Excel',
   'pro.emptyElements': 'لا توجد عناصر — أضف واحداً، ارسم في العرض، أو ألصق من Excel',
   'pro.pasteRowError': 'الصف {n}: يلزم {cols} أعمدة على الأقل ({names})',

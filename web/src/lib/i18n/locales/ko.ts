@@ -2657,7 +2657,6 @@ const ko: Translations = {
   'pro.add': '추가',
   'pro.delete': '삭제',
   'pro.pasteHintNodes': '팁: Excel에서 X, Y, Z 열을 복사하고 Ctrl+V로 붙여넣기',
-  'pro.pasteHintElems': '팁: Excel에서 Node_i, Node_j 열을 Ctrl+V로 붙여넣기',
   'pro.emptyNodes': '절점 없음 — 추가하거나 Excel에서 붙여넣기',
   'pro.emptyElements': '요소 없음 — 추가하거나 뷰포트에서 그리거나 Excel에서 붙여넣기',
   'pro.pasteRowError': '행 {n}: 최소 {cols}개 열 필요 ({names})',

@@ -2659,7 +2659,6 @@ const zh: Translations = {
   'pro.add': '添加',
   'pro.delete': '删除',
   'pro.pasteHintNodes': '提示：从 Excel 复制 X, Y, Z 列，然后 Ctrl+V 粘贴',
-  'pro.pasteHintElems': '提示：从 Excel 粘贴节点_i, 节点_j 列，Ctrl+V',
   'pro.emptyNodes': '无节点 — 添加一个或从 Excel 粘贴',
   'pro.emptyElements': '无单元 — 添加一个、在视口中绘制或从 Excel 粘贴',
   'pro.pasteRowError': '第 {n} 行：至少需要 {cols} 列（{names}）',
