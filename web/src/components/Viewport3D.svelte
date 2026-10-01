@@ -3,7 +3,7 @@
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
   import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
@@ -43,7 +43,8 @@
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
-  import { resolveHitUserData } from '../lib/viewport3d/picking';
+  import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
+  import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
@@ -2383,14 +2384,14 @@
                * Only what the view draws: a support on a hidden node and a
                * load on a hidden node, member or shell are not drawn, and what
                * is not drawn is not picked — the same rule syncSupports and
-               * syncLoads draw them with.
+               * syncLoads draw them with. For loads that rule is also the
+               * layer toggle, a diagram hiding them and the ticked load cases:
+               * `isLoadDrawn` is the one predicate syncLoads draws by.
                */
               supports: viewVisibility.active
                 ? [...modelStore.supports.values()].filter((s) => !viewVisibility.isNodeHidden(s.nodeId))
                 : modelStore.supports.values(),
-              loads: modelStore.model.loads.filter(
-                (l) => !isLoadHidden(l.data as { nodeId?: number; elementId?: number; quadId?: number }),
-              ) as never,
+              loads: ((v) => modelStore.model.loads.filter((l) => isLoadDrawn(l as never, v)))(currentLoadDrawView()) as never,
               getNode: (id) => modelStore.getNode(id) as never,
               getElement: (id) => modelStore.elements.get(id),
               getQuad: (id) => modelStore.quads.get(id),
@@ -2625,9 +2626,9 @@
     if (sm === 'shells') {
       const shellHits = raycaster.intersectObjects(shellsParent.children, true);
       for (const hit of shellHits) {
-        const ud = resolveHitUserData(hit);
-        if (ud?.type === 'plate' || ud?.type === 'quad') {
-          uiStore.selectElement(ud.id, addToSel);
+        const key = shellSelectionKey(resolveHitUserData(hit));
+        if (key) {
+          uiStore.selectShell(key, addToSel);
           return;
         }
       }

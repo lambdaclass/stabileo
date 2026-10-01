@@ -6,7 +6,7 @@
 
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
-import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../store/view-state.svelte';
+import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
@@ -33,6 +33,7 @@ import {
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
 import { computeLoadDirection } from '../canvas/draw-loads';
+import { currentLoadDrawView, isLoadDrawn, loadsLayerDrawn } from './load-drawn';
 
 /** Stable per-axis release fingerprint for the two ends of an element — 6 bits
  *  (I: my,mz,t then J: my,mz,t) so the element-cache signature rebuilds the mesh
@@ -663,10 +664,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
   ctx.loadsParent.add(ctx.loadGroup);
   ctx.loadFootprints = new Map();
 
-  // Respect showLoads toggle and hideLoadsWithDiagram
-  if (!uiStore.showLoads3D) return;
-  const dt = resultsStore.diagramType;
-  if (uiStore.hideLoadsWithDiagram && dt !== 'none') return;
+  // Respect showLoads toggle and hideLoadsWithDiagram — the rule the box selection picks by too
+  const drawView = currentLoadDrawView();
+  if (!loadsLayerDrawn(drawView)) return;
 
   const loads = modelStore.loads;
   if (loads.length === 0) return;
@@ -700,8 +700,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   const batch = createLoadArrowsBatched();
   const selected = uiStore.selectedLoads;
 
-  // Visibility filter and color helper
-  const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
+  // Color helper
   function getCaseColor(caseId: number | undefined): number {
     const hex = modelStore.getLoadCaseColor(caseId ?? 1);
     return parseInt(hex.replace('#', ''), 16);
@@ -711,10 +710,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
 
-    // Filter by visible load cases
-    if (visibleCases !== null && caseId !== undefined && !visibleCases.includes(caseId)) continue;
-    // Nor on what the view hides.
-    if (isLoadHidden(load.data as { nodeId?: number; elementId?: number; quadId?: number })) continue;
+    // Not a load case left unticked, nor one on what the view hides.
+    if (!isLoadDrawn(load as never, drawView)) continue;
 
     const cc = getCaseColor(caseId);
     batch.own(load.data.id, selected.size === 0 ? null : selected.has(load.data.id) ? COLORS.nodeSelected : LOAD_DIMMED);

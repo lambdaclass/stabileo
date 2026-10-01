@@ -603,6 +603,9 @@ function createUIStore() {
   // Continuous rendering override (forces requestAnimationFrame loop like old behavior)
   let continuousRendering = $state<boolean>(false);
 
+  // Session state kept outside this store, reset with it (see onSessionReset)
+  const sessionResetHooks = new Set<() => void>();
+
   /** Change selectMode, clearing element selection when crossing the
    *  elements↔shells boundary. Frame elements and plates/quads have
    *  independent id counters but share the selectedElements set, so ids kept
@@ -612,14 +615,18 @@ function createUIStore() {
    * The member selection set aside while shells are picked, and given back when members are again.
    * Crossing to shells must empty the shared set (above), but a reader moving between
    * Specifications › Members and Surfaces lost the members they had picked every time.
+   * It is given back only to a mode that picks members, and a clear or a session reset drops it:
+   * restored anywhere else, a member the reader had cleared — or another tab's member ids —
+   * came back selected, and Delete removed them.
    */
   let elementsAside: Set<number> | null = null;
+  const PICKS_MEMBERS: ReadonlySet<SelectMode> = new Set<SelectMode>(['elements', 'stress']);
   function applySelectMode(v: SelectMode) {
     if (v !== selectMode && v === 'shells') {
       elementsAside = selectedElements.size ? new Set(selectedElements) : null;
       selectedElements = new Set();
     } else if (v !== selectMode && selectMode === 'shells') {
-      selectedElements = elementsAside ?? new Set();
+      selectedElements = PICKS_MEMBERS.has(v) && elementsAside ? elementsAside : new Set();
       elementsAside = null;
     }
     selectMode = v;
@@ -1331,6 +1338,7 @@ function createUIStore() {
 
     clearSelection() {
       elementSelectionManual = false;
+      elementsAside = null;
       selectedNodes = new Set();
       selectedElements = new Set();
       selectedLoads = new Set();
@@ -1354,6 +1362,11 @@ function createUIStore() {
     /** Hand selection control back to result-query driving (call when the user
      *  interacts with the query controls). */
     releaseManualSelection() { elementSelectionManual = false; },
+
+    /** Run `hook` on every session reset (tab switch, new project) — for session state kept
+     *  outside this store, such as the selection history, which would otherwise hand back
+     *  another project's ids. */
+    onSessionReset(hook: () => void) { sessionResetHooks.add(hook); },
 
     /** Reset all transient/session state while preserving visualization settings */
     resetSession() {
@@ -1381,6 +1394,8 @@ function createUIStore() {
       selectedLoads = new Set();
       selectedSupports = new Set();
       selectedShells = new Set();
+      elementsAside = null;
+      for (const hook of sessionResetHooks) hook();
       // NOT reset: grid, showGrid, snapToGrid, zoom/pan, labels, analysisMode,
       // showNodeLabels, showElementLabels, showLengths, elementColorMode, showLoads,
       // unitSystem, embedMode, showFloatingTools, showTooltips, showHelpPanel, etc.

@@ -97,6 +97,18 @@ export function resolveHitUserData(hit: THREE.Intersection): { type: string; id:
 }
 
 /**
+ * The `selectedShells` key ("p{id}" / "q{id}") of a hit on a plate or a quad, or null for
+ * anything else. Plates and quads number from 1 like the frame members, so the bare id handed
+ * to `selectElement` named a member: the click highlighted nothing the reader aimed at, and
+ * Delete removed the frame member that shared the number.
+ */
+export function shellSelectionKey(ud: { type: string; id: number } | null | undefined): string | null {
+  if (ud?.type === 'plate') return `p${ud.id}`;
+  if (ud?.type === 'quad') return `q${ud.id}`;
+  return null;
+}
+
+/**
  * Raycast into `nodesParent` and return the id of the first node hit,
  * or null if nothing was hit.
  */

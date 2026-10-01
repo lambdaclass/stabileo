@@ -9,6 +9,9 @@ const LIMIT = 10;
 
 let history = $state<Snap[]>([]);
 let restoring = false;
+/* A tab switch or a new project resets the session: the ids recorded here belong to the model
+   left behind, and "previous selection" would select whatever carries them in the next one. */
+uiStore.onSessionReset(() => { history = []; });
 
 const snap = (): Snap => ({
   nodes: [...uiStore.selectedNodes], elements: [...uiStore.selectedElements], shells: [...uiStore.selectedShells],
