@@ -17,16 +17,12 @@ Básico: al cambiar de modo, cada uno conserva el suyo.
 Para empezar:
 
 - **Un modelo vacío:** el **+** de las pestañas.
-- **Un ejemplo:** **Proyecto → Modelo nuevo → Ejemplos**. Hay dieciséis, agrupados en edificios,
-  industriales, energía y offshore, fundaciones, estructuras de gran luz y modelos grandes de
-  demostración.
-- **Un modelo de validación:** en la misma lista, el grupo **Modelos de validación** tiene siete
-  estructuras publicadas modeladas uno a uno, con su numeración de nudos y barras, sus secciones
-  por propiedades, sus casos y sus combinaciones. Se cargan tal cual, sin generar combinaciones de
-  reglamento encima. La descripción de cada uno dice qué se adaptó (el eje vertical, las unidades,
-  y las cargas que el programa de origen calculaba y acá entran como cargas comunes).
-  **Modelo 04:** P-Delta usa ensamblaje disperso. Las combinaciones sin equilibrio estable
-  de segundo orden se listan sin publicar sus esfuerzos.
+- **Un ejemplo:** **Proyecto → Modelo nuevo → Ejemplos**. Hay veinticuatro, en ocho grupos que van
+  de un primer pórtico a los modelos que ponen a prueba el visor: primeros pasos, edificios, desde
+  CAD, naves y galpones, torres, puentes y gran luz, fundaciones y una vitrina de escala. Dentro de
+  cada grupo van del más chico al más grande. Cada tarjeta dice para qué sirve el modelo, qué mirar
+  una vez resuelto y cuánto pesa, y avisa en los pesados. Con un modelo abierto, la tarjeta
+  pregunta antes de reemplazarlo.
 - **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
   (DXF).
 
@@ -290,7 +286,10 @@ levante, y reemplazan el apoyo que tuviera el nodo.
   en acciones (por ejemplo 1,2 D + 1,0 E + 0,5 L), para resistencia o servicio; se guardan con el
   proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
   Los ejemplos de PRO se cargan con las combinaciones últimas de CIRSOC 101-2025 armadas desde
-  sus casos (salvo la plataforma offshore, cuyo oleaje no es un sismo de CIRSOC 103).
+  los casos que tienen carga, con viento y sismo en los dos sentidos salvo que los casos ya traigan
+  su signo. Algunos conservan las suyas: la plataforma offshore, cuyo oleaje no es un sismo de
+  CIRSOC 103; el hangar, cuyas tres posiciones de grúa son alternativas, y los dos borradores
+  desde CAD, que conservan las combinaciones con las que se armaron.
 - **Piso:** una carga por unidad de superficie sobre un nivel, un grupo de planta o las vigas
   seleccionadas se reparte a las vigas por área tributaria. Los paños son las regiones cerradas
   que forman las vigas en planta; en dos direcciones cada punto carga la viga más cercana (en un

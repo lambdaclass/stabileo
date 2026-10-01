@@ -50,6 +50,34 @@ describe('P-Delta member forces', () => {
     }
   }
 
+  for (const alongX of [true, false]) {
+    it(`${alongX ? 'strong' : 'weak'} axis: the base reactions balance the head load and hold the exact moment`, () => {
+      const { input, exact } = cantilever(4, alongX);
+      const r = solvePDelta3D(input as never).results;
+      const base = r.reactions[0]!;
+      // Horizontal: the reaction is the applied load, exactly, whatever the sway.
+      expect((alongX ? base.fx : base.fy) + H).toBeCloseTo(0, 9);
+      expect(base.fz - P).toBeCloseTo(0, 9);
+      // And the base moment is the second-order one, P·Δ included.
+      expect(Math.abs(Math.abs(alongX ? base.my : base.mx) - exact(0)) / exact(0)).toBeLessThan(0.01);
+    });
+  }
+
+  // A braced frame whose brace is a truss: the brace's string force reaches the support too.
+  it('a truss at a support takes its share of the second-order reaction', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(0, 0, 4), d = modelStore.addNode(4, 0, 4);
+    modelStore.addElement(a, c, 'frame'); modelStore.addElement(b, d, 'frame'); modelStore.addElement(c, d, 'frame');
+    modelStore.addElement(a, d, 'truss');
+    for (const n of [a, b]) modelStore.addSupport(n, 'pinned3d');
+    const m = modelStore.model;
+    const input = buildSolverInput3D({ nodes: m.nodes, elements: m.elements, supports: m.supports, loads: [], materials: m.materials, sections: m.sections } as never, false, false)!;
+    const full = { ...input, loads: [c, d].map((n) => ({ type: 'nodal' as const, data: { nodeId: n, fx: 5, fy: 0, fz: -400, mx: 0, my: 0, mz: 0 } })) };
+    const r = solvePDelta3D(full as never).results;
+    const sum = (k: 'fx' | 'fy' | 'fz') => r.reactions.reduce((s: number, x: Record<string, number>) => s + x[k]!, 0);
+    expect(sum('fx') + 10).toBeCloseTo(0, 6);
+    expect(sum('fz') - 800).toBeCloseTo(0, 6);
+  });
+
   // The engine's reactions had the same defect as the member forces (0.198 kN against 0.12
   // applied, 0.824 against the exact 0.778) until it was fixed on its side. The wrapper must
   // leave them untouched: adding the geometric terms again would double-count them.

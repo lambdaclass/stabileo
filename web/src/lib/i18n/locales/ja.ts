@@ -326,7 +326,6 @@ const ja: Translations = {
   'examples.title': '例題',
   'examples.title2d': '2D例題',
   'examples.title3d': '3D例題',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': '先に節点または要素を選択してください',
   'examples.duplicatedIn': '複製先：',
   // 2D examples

@@ -1,5 +1,7 @@
 <script lang="ts">
   import ProProjectInfo from './ProProjectInfo.svelte';
+  import ProExampleGallery from './ProExampleGallery.svelte';
+  import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
   import ProOfficeTemplates from './ProOfficeTemplates.svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
@@ -34,8 +36,7 @@
    * what anyone actually chooses on.
    */
 
-  type ExGroup = { title: string; examples: Array<Record<string, any>> };
-  type Props = { groups: ExGroup[]; onLoadExample: (ex: any) => void };
+  type Props = { groups: ProExampleGroup[]; onLoadExample: (ex: ProExample) => void };
   let { groups, onLoadExample }: Props = $props();
 
   /* Saving asks what and where, exactly as Basic does. */
@@ -211,21 +212,7 @@
   </HelpTip>
 
   {#if showExamples}
-    <div class="pp-gallery" data-testid="pp-gallery">
-      {#each groups as g (g.title)}
-        <div class="pp-gal-group">{g.title}</div>
-        {#each g.examples as ex (ex.nameKey)}
-          <button class="pp-ex" onclick={() => { onLoadExample(ex); showExamples = false; }}>
-            <span class="pp-ex-name">{t(ex.nameKey)}</span>
-            <span class="pp-ex-desc">{t(ex.descKey)}</span>
-            <span class="pp-ex-meta">
-              {ex.stats.nodes} {t('pro.stats.nodes')} · {ex.stats.members} {t('pro.stats.members')}
-              {#if ex.stats.shells}· {ex.stats.shells} {t('pro.stats.shells')}{/if}
-            </span>
-          </button>
-        {/each}
-      {/each}
-    </div>
+    <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
   {/if}
 
   <!--
@@ -785,40 +772,4 @@
   .pp-disclose { justify-content: space-between; margin-top: 0.3rem; }
   .pp-caret { font-size: 0.6rem; color: var(--st-text-3); }
 
-  .pp-gallery {
-    display: flex;
-    flex-direction: column;
-    margin: 0.3rem 0 0.2rem;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    max-height: 46vh;
-    overflow-y: auto;
-  }
-
-  .pp-gal-group {
-    font-family: var(--st-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--st-text-3);
-    padding: 0.4rem 0.5rem 0.2rem;
-    background: var(--st-surface-2);
-  }
-
-  .pp-ex {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    text-align: left;
-    background: none;
-    border: none;
-    border-top: 1px solid var(--st-hair);
-    padding: 0.4rem 0.5rem;
-    cursor: pointer;
-  }
-
-  .pp-ex:hover { background: var(--st-surface-3); }
-  .pp-ex-name { font-size: 0.76rem; color: var(--st-text); }
-  .pp-ex-desc { font-size: 0.66rem; color: var(--st-text-3); }
-  .pp-ex-meta { font-family: var(--st-mono); font-size: 0.6rem; color: var(--st-text-3); }
 </style>

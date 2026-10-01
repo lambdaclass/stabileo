@@ -53,8 +53,6 @@
    */
 
   type Props = {
-    /** Opens the example gallery, anchored to its button. */
-    onExamples: (btn: HTMLButtonElement) => void;
     onSolve: () => void;
     onReport: () => void;
     canSolve: boolean;
@@ -67,7 +65,7 @@
     onOpenProject: () => void;
   };
   let {
-    onExamples, onSolve, onReport,
+    onSolve, onReport,
     canSolve, canReport, isSolving, errorCount,
     proPanel, onOpenProject,
   }: Props = $props();

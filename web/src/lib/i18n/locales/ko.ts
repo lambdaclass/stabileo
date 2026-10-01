@@ -326,7 +326,6 @@ const ko: Translations = {
   'examples.title': '예제',
   'examples.title2d': '2D 예제',
   'examples.title3d': '3D 예제',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': '먼저 절점 또는 요소를 선택하세요',
   'examples.duplicatedIn': '복제 위치:',
   // 2D examples

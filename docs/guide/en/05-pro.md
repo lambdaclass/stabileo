@@ -17,15 +17,12 @@ when you switch modes, each one keeps its own.
 To start:
 
 - **An empty model:** the **+** on the tabs.
-- **An example:** **Project → New model → Examples**. There are sixteen, grouped into buildings,
-  industrial, energy and offshore, foundations, long-span structures, and large showcase models.
-- **A validation model:** in the same list, the **Validation models** group holds seven published
-  structures modelled one to one, with their node and member numbering, their sections by
-  properties, their cases and their combinations. They load as they are, with no regulation
-  combinations generated over them. Each description says what was adapted (the vertical axis, the
-  units, and the loads the source program computed, which are applied here as ordinary loads).
-  **Model 04:** P-Delta uses sparse assembly. Combinations without stable second-order
-  equilibrium are listed without publishing their forces.
+- **An example:** **Project → New model → Examples**. There are twenty-four, in eight groups that
+  run from a first frame to the models that test the viewer: first steps, buildings, from CAD,
+  sheds and industrial buildings, towers, bridges and long spans, foundations, and a scale
+  showcase. Within a group they go from the smallest to the largest. Each card says what the
+  model is for, what to look at once it is solved, and its size, and it warns on the heavy ones.
+  With a model open, the card asks before replacing it.
 - **Import** (see [below](#importing-models)): an Excel spreadsheet or an AutoCAD drawing (DXF).
 
 As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Export** (results to
@@ -280,8 +277,11 @@ springs can act one way, so the raft can lift, and they replace any support the 
   opposite sign. **Project rules** are your own combinations written in actions (for example
   1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
   CIRSOC 101's, and can be saved as a template for another project.
-  PRO examples load with CIRSOC 101-2025's strength combinations built from their cases (except
-  the offshore platform, whose waves are not a CIRSOC 103 earthquake).
+  PRO examples load with CIRSOC 101-2025's strength combinations built from the cases that carry
+  a load, with wind and earthquake in both senses unless the cases already have their sign. A few
+  keep their own: the offshore platform, whose waves are not a CIRSOC 103 earthquake, the hangar,
+  whose three crane positions are alternatives, and the two drafts from CAD, which keep the
+  combinations they were drafted with.
 - **Floor:** an area load on a level, a floor group or the selected beams is carried to the beams
   by tributary area. Panels are the closed regions the beams bound in plan; two way, each point
   loads the nearest beam (on a rectangular panel, the 45° triangles and trapezoids), and one way,

@@ -47,26 +47,6 @@
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
   ];
 
-  // PRO-only examples — curated larger / more realistic workflows
-  const examplesPro: { id: string; nameKey: string; descKey: string }[] = [
-    { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
-    { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
-    { id: 'rc-qa-diagnostic', nameKey: 'ex.rc-qa-diagnostic', descKey: 'ex.rc-qa-diagnostic.desc' },
-    { id: 'rc-qa-diagnostic-shells', nameKey: 'ex.rc-qa-diagnostic-shells', descKey: 'ex.rc-qa-diagnostic-shells.desc' },
-    { id: 'cad-arch-structure-dxf', nameKey: 'ex.cad-arch-structure-dxf', descKey: 'ex.cad-arch-structure-dxf.desc' },
-    { id: 'cad-arch-only-dxf', nameKey: 'ex.cad-arch-only-dxf', descKey: 'ex.cad-arch-only-dxf.desc' },
-    { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
-    { id: 'cable-stayed-bridge-small', nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc' },
-    { id: 'stadium-canopy', nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc' },
-    { id: 'space-frame', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc' },
-    { id: 'tower-3d-4', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc' },
-    { id: 'grid-beams', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc' },
-    { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
-    { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
-    { id: 'hinged-arch-3d', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc' },
-    { id: 'building-3story-dlw', nameKey: 'ex.building-3story-dlw', descKey: 'ex.building-3story-dlw.desc' },
-    { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
-  ];
 
 
 
@@ -157,9 +137,10 @@
 {/snippet}
 
 <div data-tour="examples-section" class="ex-groups">
-  {#if uiStore.analysisMode === 'pro'}
-    {@render group('examples.titlePro', examplesPro, false, showExamples, () => showExamples = !showExamples)}
-  {:else}
+  <!--
+    PRO has its own gallery, under Project › New model (`ProExampleGallery.svelte`); a second
+    PRO list here was never mounted in PRO and disagreed with it.
+  -->
     <!--
       2D first, then 3D, in BOTH modes.
 
@@ -173,7 +154,6 @@
     -->
     {@render group('examples.title2d', [...examples], false, showExamples, () => showExamples = !showExamples)}
     {@render group('examples.title3d', examples3D, true, showExamples3D, () => showExamples3D = !showExamples3D)}
-  {/if}
 </div>
 
 <style>

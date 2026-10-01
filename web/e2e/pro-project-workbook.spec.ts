@@ -1,5 +1,5 @@
 /**
- * The project workbook from the Project tab: a validation model solved, 13 stations asked for,
+ * The project workbook from the Project tab: an example solved, 13 stations asked for,
  * and the file that arrives holds the cover, the model and every combination's stations.
  * The sheets themselves are checked in `project-workbook.test.ts`; this checks the button
  * reaches them with the stations chosen.
@@ -15,8 +15,8 @@ test.describe('PRO project workbook', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 }).toBe(true);
     await page.getByTestId('pr-project').click();
     await page.getByTestId('pp-examples').click();
-    await page.getByTestId('pp-gallery').locator('.pp-ex').filter({ hasText: 'Validation 06' }).click();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(25);
+    await page.getByTestId('pp-gallery').locator('[data-example="pro-plane-frame-seismic"] .pp-ex').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(28);
     await page.evaluate(() => window.__stabileoActions.solve());
 
     await page.getByTestId('pr-project').click();

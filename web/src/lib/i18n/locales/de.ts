@@ -323,7 +323,6 @@ const de: Translations = {
   'examples.title': 'Beispiele',
   'examples.title2d': '2D-Beispiele',
   'examples.title3d': '3D-Beispiele',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'Zuerst Knoten oder Elemente auswählen',
   'examples.duplicatedIn': 'Dupliziert in',
   // 2D examples

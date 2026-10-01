@@ -326,7 +326,6 @@ const ar: Translations = {
   'examples.title': 'أمثلة',
   'examples.title2d': 'أمثلة ثنائية الأبعاد',
   'examples.title3d': 'أمثلة ثلاثية الأبعاد',
-  'examples.titlePro': 'PRO Examples',
   'examples.selectFirst': 'حدد عقداً أو عناصر أولاً',
   'examples.duplicatedIn': 'تم الاستنساخ في',
   // 2D examples

@@ -252,7 +252,7 @@ describe('GATE: ProPanel was decomposed', () => {
     // edit that inlines any one of them back is what the ceiling alone would only catch once
     // the file had already grown past 600.
     expect(panel, 'the example catalogue is data').toContain("from '../../lib/data/pro-examples'");
-    expect(panel, 'the example gallery is its own overlay').toContain('<ProExampleMenu');
+    expect(read('../../../components/pro/ProProjectTab.svelte'), 'the example gallery is its own component').toContain('<ProExampleGallery');
     /*
      * The PROPERTY, not one module's name.
      *
@@ -282,7 +282,7 @@ describe('GATE: ProPanel was decomposed', () => {
 
   it('the extracted example catalogue carries no markup and one loader per fixture', () => {
     const examples = readCode('../../data/pro-examples.ts');
-    const fixtures = [...examples.matchAll(/(?:loadExample|loadWithRegulationCombinations)\('([^']+)'\)/g)].map(m => m[1]);
+    const fixtures = [...examples.matchAll(/entry\(\{ id: '([^']+)'/g)].map(m => m[1]);
     expect(fixtures.length).toBeGreaterThan(10);
     expect(new Set(fixtures).size, 'two cards loading the same fixture').toBe(fixtures.length);
   });
