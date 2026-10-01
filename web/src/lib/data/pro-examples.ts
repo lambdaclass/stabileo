@@ -27,6 +27,7 @@ import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
+import { loadValidationModel } from '../templates/validation';
 
 /**
  * Load an example with the strength combinations of CIRSOC 101-2025 (§2.3.2) built from its
@@ -51,7 +52,7 @@ async function loadWithRegulationCombinations(id: string): Promise<void> {
 }
 
 export type ExampleGroup =
-  | 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
+  | 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl' | 'validation';
 
 /**
  * Which display preferences an example wants on arrival.
@@ -86,7 +87,7 @@ export interface ProExampleGroup {
 
 /** The order the groups are shown in: what most projects are, down to what stresses the app. */
 export const PRO_EXAMPLE_GROUP_ORDER: readonly ExampleGroup[] =
-  ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl'] as const;
+  ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl', 'validation'] as const;
 
 export const PRO_EXAMPLES: readonly ProExample[] = [
   {
@@ -270,6 +271,80 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
     load: () => loadWithRegulationCombinations('xl-diagrid-tower'),
   },
   // Sagrada Familia removed upstream — fixture no longer available
+
+  // The validation models load as they are, with their own cases and combinations: reproducing
+  // the source structure is the point, so no regulation combinations are generated for them.
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-01',
+    descKey: 'ex.validation-01.desc',
+    purposeKey: 'ex.validation-01.purpose',
+    tags: ['pro.tagValidation', 'pro.tagShells'],
+    stats: { nodes: '1153', members: '552', shells: '1000' },
+    load: () => loadValidationModel('validation-01'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-02',
+    descKey: 'ex.validation-02.desc',
+    purposeKey: 'ex.validation-02.purpose',
+    tags: ['pro.tagValidation', 'pro.tagSteel'],
+    stats: { nodes: '56', members: '119' },
+    load: () => loadValidationModel('validation-02'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-03',
+    descKey: 'ex.validation-03.desc',
+    purposeKey: 'ex.validation-03.purpose',
+    tags: ['pro.tagValidation', 'pro.tagShells'],
+    stats: { nodes: '230', members: '97', shells: '156' },
+    load: () => loadValidationModel('validation-03'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-04',
+    descKey: 'ex.validation-04.desc',
+    purposeKey: 'ex.validation-04.purpose',
+    tags: ['pro.tagValidation', 'pro.tagCrane'],
+    stats: { nodes: '1149', members: '2482' },
+    preset: 'xl',
+    load: () => loadValidationModel('validation-04'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-05',
+    descKey: 'ex.validation-05.desc',
+    purposeKey: 'ex.validation-05.purpose',
+    tags: ['pro.tagValidation', 'pro.tagCables'],
+    stats: { nodes: '150', members: '450' },
+    load: () => loadValidationModel('validation-05'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-06',
+    descKey: 'ex.validation-06.desc',
+    purposeKey: 'ex.validation-06.purpose',
+    tags: ['pro.tagValidation', 'pro.tagSteel'],
+    stats: { nodes: '18', members: '25' },
+    load: () => loadValidationModel('validation-06'),
+  },
+  {
+    group: 'validation',
+    groupKey: 'pro.examples.groupValidation',
+    nameKey: 'ex.validation-07',
+    descKey: 'ex.validation-07.desc',
+    purposeKey: 'ex.validation-07.purpose',
+    tags: ['pro.tagValidation', 'pro.tagRC'],
+    stats: { nodes: '40', members: '76' },
+    load: () => loadValidationModel('validation-07'),
+  },
 ];
 
 /**

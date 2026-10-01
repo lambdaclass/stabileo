@@ -364,9 +364,25 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
      * design. A beam whose design produced none must have exactly two, marked, and they must be
      * the top face rather than something that merely counted as longitudinal.
      */
+    //
+    // Which of the reported beams those are is read from the design, not listed: 163, 146 and
+    // 89 were bottom-only until self-weight became a member load, and now carry 7Ø10 over each
+    // support from their own weight's hogging moment.
+    const topSteel = (id: number) => {
+      const r = modelStore.model.elements.get(id)?.reinforcement as
+        { regions?: { topStart?: { count: number }; topEnd?: { count: number } } } | undefined;
+      return (r?.regions?.topStart?.count ?? 0) + (r?.regions?.topEnd?.count ?? 0);
+    };
+    const bottomOnly = REPORTED.filter((id) => topSteel(id) === 0);
+    expect(bottomOnly, 'the bottom-only beams among the reported ones')
+      .toEqual([197, 199, 201, 203, 198, 140, 143]);
     for (const id of REPORTED) {
       const hangers = scene.bars.filter((b) =>
         b.elementIds.includes(id) && b.purpose === 'stirrupHanger');
+      if (!bottomOnly.includes(id)) {
+        expect(hangers, `member ${id} designed top steel, so no hanger`).toEqual([]);
+        continue;
+      }
       expect(hangers.length, `member ${id} hanger pair`).toBe(2);
       for (const h of hangers) {
         expect(h.role).toBe('longitudinal');
@@ -400,11 +416,15 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
      * A proposal that came out of this with a VERIFIED outcome would be a false pass wearing an
      * honest name — the exact failure `assertOutcomeInvariants` exists to stop, reasserted here
      * on the real building because that is where the 62 of them are.
+     *
+     * 28 members carry a hanger since self-weight became a member load (74 before): a beam's
+     * own weight now gives most supports a hogging moment and the top steel that answers it.
+     * The building has no proposal left, so what this still guards is the VERIFIED half.
      */
     const hangers = new Set(scene.bars
       .filter((b) => b.purpose === 'stirrupHanger')
       .flatMap((b) => b.elementIds));
-    expect(hangers.size).toBeGreaterThan(50);
+    expect(hangers.size).toBeGreaterThan(20);
     for (const id of hangers) {
       const o = verificationStore.outcomeFor(id);
       if (!o) continue;

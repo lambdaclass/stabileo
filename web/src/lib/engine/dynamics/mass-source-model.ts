@@ -32,7 +32,7 @@ export function caseMassLoads(
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      loads: buildSolverLoads3D(model, rest, false, leftHand),
+      loads: buildSolverLoads3D(model, rest, [], leftHand),
       surface,
     });
   }

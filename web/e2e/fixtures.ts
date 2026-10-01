@@ -80,6 +80,7 @@ export interface TestHooks {
   reinforcement(id: number): unknown;
   rebarSummary(id: number): string;
   elementIds(): number[];
+  quadIds(): number[];
   /** The names of the sections in the model — what the model actually stored. */
   sectionNames(): string[];
   orientationSuspectCount(): number;
@@ -113,6 +114,13 @@ export interface TestHooks {
     reason: string; at: string; ok: boolean; backend: string;
     revision: number | null; failureKind: string | null;
   } | null;
+  /** The model's analysis rules (`model.analysis`); null when none. */
+  analysisSettings(): {
+    selfWeight?: Array<{ caseId: number; direction: string; factor: number; elements?: number[]; groupId?: number }>;
+    combinationMethod?: string; perCombination?: string;
+  } | null;
+  /** The 3D distributed loads, as plain copies of their data. */
+  distributedLoads3D(): Array<Record<string, unknown>>;
 }
 
 /** Actions a spec may drive — the same operations the UI controls perform. */

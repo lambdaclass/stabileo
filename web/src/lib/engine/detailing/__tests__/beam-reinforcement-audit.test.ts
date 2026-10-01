@@ -308,20 +308,15 @@ describe('beam reinforcement audit — pro-edificio-7p, five beams turned 20° a
     // producing anything at all.
     expect(ratios.length, 'there is something to check').toBeGreaterThan(0);
     expect(Math.min(...ratios)).toBeGreaterThan(BIAXIAL_RATIO_THRESHOLD);
-    /**
-     * The ceiling, not a floor.
-     *
-     * This used to assert `> 1` — that some beam bent HARDER about its weak axis than its
-     * strong one. On a gravity-loaded floor beam that is not a spread, it is a symptom, and it
-     * was: it appeared while the fixture's transposed iy/iz went straight to the solver, which
-     * inflated every beam's secondary moment. With the inertias derived from geometry the whole
-     * spread sits between the 10 % threshold and 0.25, which is what a real secondary bending
-     * demand looks like. The header carries the full account.
-     *
-     * Asserted as a bound so the number is not a snapshot: anything above 0.5 on this fixture
-     * means the demands are contaminated again, and that is worth failing for.
-     */
-    expect(Math.max(...ratios)).toBeLessThan(0.5);
+    // Bound the physical weak/strong MOMENT ratio, independent of the axis the design
+    // chooses by elastic stress. Distributed self-weight now supplies bending directly;
+    // for member 88 Mz/(h*b²) governs although My remains the larger moment, so its
+    // secondary/primary ratio is the reciprocal of weak/strong.
+    const weakStrong = of('provisional-biaxial').map((r) => {
+      const axes = verificationStore.outcomeFor(r.elementId)!.axes!;
+      return axes.flexure === 'My' ? r.secondaryRatio! : 1 / r.secondaryRatio!;
+    });
+    expect(Math.max(...weakStrong)).toBeLessThan(0.5);
     expect(of('provisional-biaxial').every((r) => r.outcome === 'PROVISIONAL_BIAXIAL')).toBe(true);
   });
 

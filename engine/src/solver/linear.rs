@@ -4065,7 +4065,7 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
             SolverLoad3D::Nodal(l) => l.fx.is_finite() && l.fy.is_finite() && l.fz.is_finite()
                 && l.mx.is_finite() && l.my.is_finite() && l.mz.is_finite()
                 && l.bw.is_none_or(|v| v.is_finite()),
-            SolverLoad3D::Distributed(l) => l.q_yi.is_finite() && l.q_yj.is_finite()
+            SolverLoad3D::Distributed(l) => l.q_xi.is_finite() && l.q_xj.is_finite() && l.q_yi.is_finite() && l.q_yj.is_finite()
                 && l.q_zi.is_finite() && l.q_zj.is_finite()
                 && l.a.is_none_or(|v| v.is_finite()) && l.b.is_none_or(|v| v.is_finite()),
             SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.py.is_finite() && l.pz.is_finite(),
@@ -4665,9 +4665,21 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                 }
             }
 
+            let mut axial_fef = [0.0, 0.0];
+            let mut axial_loads = Vec::new();
+            for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
+                if let SolverLoad3D::Distributed(dl) = load {
+                    let a = dl.a.unwrap_or(0.0); let b = dl.b.unwrap_or(l);
+                    let f = element::axial_distributed_fef(dl.q_xi, dl.q_xj, a, b, l);
+                    axial_fef[0] += f[0]; axial_fef[1] += f[1];
+                    if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
+                        axial_loads.push(DistributedLoadInfo { q_i: dl.q_xi, q_j: dl.q_xj, a, b });
+                    }
+                }
+            }
             forces.push(ElementForces3D {
                 element_id: elem.id, length: l,
-                n_start: n_axial, n_end: n_axial,
+                n_start: n_axial + axial_fef[0], n_end: n_axial - axial_fef[1],
                 vy_start: 0.0, vy_end: 0.0,
                 vz_start: 0.0, vz_end: 0.0,
                 mx_start: 0.0, mx_end: 0.0,
@@ -4677,6 +4689,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                 q_yi: 0.0, q_yj: 0.0,
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
+                distributed_loads_x: axial_loads,
                 distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
             continue;
         }
@@ -4777,6 +4790,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
         let (mut q_zi_total, mut q_zj_total) = (0.0, 0.0);
         let mut dist_loads_y = Vec::new();
         let mut dist_loads_z = Vec::new();
+        let mut dist_loads_x = Vec::new();
         let mut pt_loads_y = Vec::new();
         let mut pt_loads_z = Vec::new();
 
@@ -4791,6 +4805,9 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     } else {
                         element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
                     };
+                    let axial = element::axial_distributed_fef(dl.q_xi, dl.q_xj, a_param, b_param, l);
+                    fef12[0] = axial[0];
+                    fef12[6] = axial[1];
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
@@ -4813,6 +4830,9 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     }
                     dist_loads_y.push(DistributedLoadInfo { q_i: dl.q_yi, q_j: dl.q_yj, a, b });
                     dist_loads_z.push(DistributedLoadInfo { q_i: dl.q_zi, q_j: dl.q_zj, a, b });
+                    if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
+                        dist_loads_x.push(DistributedLoadInfo { q_i: dl.q_xi, q_j: dl.q_xj, a, b });
+                    }
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
                     let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
@@ -4890,6 +4910,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
             point_loads_y: pt_loads_y,
             q_zi: q_zi_total,
             q_zj: q_zj_total,
+            distributed_loads_x: dist_loads_x,
             distributed_loads_z: dist_loads_z,
             point_loads_z: pt_loads_z,
             bimoment_start,

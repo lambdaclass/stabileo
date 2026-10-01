@@ -293,6 +293,10 @@ pub struct SolverNodalLoad3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverDistributedLoad3D {
+    #[serde(default, rename = "qXI")]
+    pub q_xi: f64,
+    #[serde(default, rename = "qXJ")]
+    pub q_xj: f64,
     pub element_id: usize,
     #[serde(rename = "qYI")]
     pub q_yi: f64,

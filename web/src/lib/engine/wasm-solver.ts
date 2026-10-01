@@ -5,6 +5,7 @@
  * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
 
+import { assertPDeltaMemoryBudget } from './pdelta-memory';
 import { mergeAllHingedJoints2D, restrainOrphanRotations2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
@@ -865,10 +866,12 @@ export function solveMovingLoads(config: {
  */
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
+  const wire = input3DToWireObject(input);
+  assertPDeltaMemoryBudget(wire, guards?.text('advanced.pdeltaTooLarge'));
   refuse(guards?.refuse3D(input));
   let result;
   try {
-    result = JSON.parse(wasmSolvePdelta3d(serializeInput3D(input), maxIter, tolerance));
+    result = JSON.parse(wasmSolvePdelta3d(JSON.stringify(wire), maxIter, tolerance));
   } catch (e) {
     if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
     throw e;

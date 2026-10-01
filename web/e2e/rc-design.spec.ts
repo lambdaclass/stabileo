@@ -414,12 +414,16 @@ test.describe('@slow RC design at scale', () => {
      *
      * The sibling vitest test in `autodesign-regression.test.ts` makes the same claims against
      * the engine; this one makes them through the browser, against what the UI reports.
+     *
+     * 13, not 22, since self-weight became a member load: it bends every beam about its strong
+     * axis and adds nothing lateral, and nine of the 22 fell under the threshold (0,104–0,125
+     * before, 0,080–0,097 after). They are verified now.
      */
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
-    expect(counts.verified).toBe(386);
+    expect(counts.verified).toBe(395);
     expect(counts.searchExhausted, 'nothing was exhausted').toBe(0);
     expect(counts.unsupported, 'and nothing is refused outright any more').toBe(0);
-    expect(counts.provisionalBiaxial, 'the 22 are proposals').toBe(22);
+    expect(counts.provisionalBiaxial, 'the 13 are proposals').toBe(13);
     expect(counts.aborted).toBe(0);
     expect(counts.notReached).toBe(0);
     // Every member is accounted for by exactly one bucket. A member that fell out of the
@@ -445,7 +449,7 @@ test.describe('@slow RC design at scale', () => {
       }));
     });
     const proposals = outcomes.filter((o) => o.outcome === 'PROVISIONAL_BIAXIAL');
-    expect(proposals.length, 'proposals per member match the run count').toBe(22);
+    expect(proposals.length, 'proposals per member match the run count').toBe(13);
 
     for (const p of proposals) {
       const where = `member ${p.id}`;
@@ -501,16 +505,17 @@ test.describe('@slow RC design at scale', () => {
      * Nothing about the engineering moved with it: the outcome, the verdict, the certificate
      * and the utilisation are what they were, and the assertions above still hold unchanged.
      *
-     * Measured, not assumed: 386 checked, 22 provisional, 0 fail, 0 unavailable.
+     * Measured, not assumed: 395 checked, 13 provisional, 0 fail, 0 unavailable (386 and 22
+     * until self-weight became a member load; see above).
      */
     const display = await page.evaluate(() => window.__stabileo.counts());
-    expect(display.ok + display.warn, 'the fully checked members').toBe(386);
-    expect(display.provisional, 'the proposals, named as proposals').toBe(22);
+    expect(display.ok + display.warn, 'the fully checked members').toBe(395);
+    expect(display.provisional, 'the proposals, named as proposals').toBe(13);
     expect(display.fail, 'and nothing is called a failure that is not one').toBe(0);
     expect(display.unavailable, 'nothing is left without a status at all').toBe(0);
     // A proposal is never folded into the passes. This is the assertion that would catch the
     // exception being widened into a way of making red things green.
-    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(386);
+    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(395);
     // Every member lands in exactly one display bucket. A member missing from all of them
     // would be a row the summary bar does not describe.
     expect(display.ok + display.warn + display.fail + display.provisional

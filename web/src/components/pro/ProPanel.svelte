@@ -37,6 +37,7 @@
    * branch has already fixed twice.
    */
   import { t } from '../../lib/i18n';
+  import { migrateSelfWeightIfNeeded, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
@@ -192,9 +193,13 @@
     });
   }
 
+  // A model without a self-weight rule (older file, link, tab, first member) is given one.
+  $effect(selfWeightRuleEffect);
+
   async function loadProExample(ex: ProExample) {
-    await ex.load();
     uiStore.includeSelfWeight = true;
+    await ex.load();
+    migrateSelfWeightIfNeeded({ quiet: true });
     // Label overlays off on arrival, whatever the preset: they are unreadable on the large
     // models and unnecessary on the small ones. Grid and axes stay user-controlled.
     uiStore.showLengths3D = false;

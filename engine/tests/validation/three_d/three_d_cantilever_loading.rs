@@ -241,6 +241,7 @@ fn validation_3d_cantilever_udl_y() {
 
     let loads: Vec<SolverLoad3D> = (1..=n)
         .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q, q_zi: 0.0, q_zj: 0.0,
             a: None, b: None,

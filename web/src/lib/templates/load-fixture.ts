@@ -50,6 +50,8 @@ export interface JSONModel {
   /** Optional model provenance (CAD-derived draft examples carry their source
    *  DXF, assumptions, and review status). Passed through to the model. */
   provenance?: Record<string, unknown>;
+  /** The project's analysis rules (self-weight as case loads, combination method). */
+  analysis?: import('../engine/analysis-settings').AnalysisSettings;
 }
 
 /**
@@ -73,7 +75,8 @@ export interface FixtureLoader {
   toggleHinge?(elemId: number, end: 'start' | 'end'): void;
   toggleRelease?(elemId: number, end: 'i' | 'j', axis: 'my' | 'mz' | 't'): void;
   // 3D loads
-  addDistributedLoad3D?(elemId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number;
+  addDistributedLoad3D?(elemId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number,
+    opts?: { frame?: import('../engine/member-loads').MemberFrame; qXI?: number; qXJ?: number }): number;
   addNodalLoad3D?(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number;
   addSurfaceLoad3D?(quadId: number, q: number, caseId?: number): number;
   // Shell elements
@@ -229,6 +232,7 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
           elemMap.get(d.elementId as number)!, d.qYI as number, d.qYJ as number,
           d.qZI as number, d.qZJ as number, d.a as number | undefined,
           d.b as number | undefined, d.caseId as number | undefined,
+          { frame: d.frame as never, qXI: d.qXI as number | undefined, qXJ: d.qXJ as number | undefined },
         );
         break;
       }
@@ -283,6 +287,15 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
   if (json.combinations.length > 0) {
     api.model.combinations = json.combinations as any;
     api.nextId.combination = Math.max(...json.combinations.map(c => c.id)) + 1;
+  }
+
+  // Analysis rules, with any member list re-pointed at the ids this load gave the members.
+  if (json.analysis) {
+    const analysis = JSON.parse(JSON.stringify(json.analysis)) as NonNullable<JSONModel['analysis']>;
+    for (const sw of analysis.selfWeight ?? []) {
+      if (sw.elements) sw.elements = sw.elements.map((id) => elemMap.get(id) ?? id);
+    }
+    (api.model as { analysis?: unknown }).analysis = analysis;
   }
 
   // Provenance passthrough (CAD-derived draft examples).

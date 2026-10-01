@@ -90,6 +90,14 @@ function whyNot(a: Element, b: Element): RefuseReason | null {
   if (a.type !== b.type || a.materialId !== b.materialId || a.sectionId !== b.sectionId) return 'differentProperties';
   if (a.localYx !== b.localYx || a.localYy !== b.localYy || a.localYz !== b.localYz || (a.rollAngle ?? 0) !== (b.rollAngle ?? 0)) return 'differentProperties';
   if (released(a.releaseJ) || released(b.releaseI) || a.jointJ || b.jointI || a.offset?.j || b.offset?.i) return 'endConditions';
+  // A semi-rigid end where the two meet is an end condition the merged member would lose.
+  const sa = (a as { semiRigid?: { j?: unknown } }).semiRigid, sb = (b as { semiRigid?: { i?: unknown } }).semiRigid;
+  if (sa?.j || sb?.i) return 'endConditions';
+  // What the analysis and the design read off the member: the merged one keeps only one of them.
+  const same = (x: unknown, y: unknown) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
+  const e = (m: Element) => m as { behaviour?: unknown; stiffness?: unknown; kStrong?: unknown; kWeak?: unknown; unbracedLength?: unknown };
+  if (!same(e(a).behaviour, e(b).behaviour) || !same(e(a).stiffness, e(b).stiffness)
+    || !same(e(a).kStrong, e(b).kStrong) || !same(e(a).kWeak, e(b).kWeak) || !same(e(a).unbracedLength, e(b).unbracedLength)) return 'differentProperties';
   return null;
 }
 
