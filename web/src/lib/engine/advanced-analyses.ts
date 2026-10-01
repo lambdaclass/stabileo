@@ -48,8 +48,8 @@ export function lumpedNodalForces(input: SolverInput3D): Map<number, Vec3> {
     const v = out.get(node) ?? [0, 0, 0];
     out.set(node, [v[0] + f[0], v[1] + f[1], v[2] + f[2]]);
   };
-  const toGlobal = (g: NonNullable<ReturnType<typeof memberAxes>>, fy: number, fz: number): Vec3 => [
-    fy * g.ey[0] + fz * g.ez[0], fy * g.ey[1] + fz * g.ez[1], fy * g.ey[2] + fz * g.ez[2],
+  const toGlobal = (g: NonNullable<ReturnType<typeof memberAxes>>, fy: number, fz: number, fx = 0): Vec3 => [
+    fx * g.ex[0] + fy * g.ey[0] + fz * g.ez[0], fx * g.ex[1] + fy * g.ey[1] + fz * g.ez[1], fx * g.ex[2] + fy * g.ey[2] + fz * g.ez[2],
   ];
   // A resultant R at distance x from end I: I takes R·(L − x)/L, J takes R·x/L.
   const split = (g: NonNullable<ReturnType<typeof memberAxes>>, r: Vec3, x: number) => {
@@ -65,9 +65,11 @@ export function lumpedNodalForces(input: SolverInput3D): Map<number, Vec3> {
       if (!g) continue;
       const a = l.data.a ?? 0, b = l.data.b ?? g.L, c = b - a;
       if (!(c > 0)) continue;
-      // Uniform part at mid-length, triangular part at two thirds.
-      const uni = toGlobal(g, l.data.qYI * c, l.data.qZI * c);
-      const tri = toGlobal(g, (l.data.qYJ - l.data.qYI) * c / 2, (l.data.qZJ - l.data.qZI) * c / 2);
+      // Uniform part at mid-length, triangular part at two thirds. The axial part (qX) too: a
+      // frame's load along it, a column's own weight for one, reaches the engine as qX.
+      const qXI = l.data.qXI ?? 0, qXJ = l.data.qXJ ?? 0;
+      const uni = toGlobal(g, l.data.qYI * c, l.data.qZI * c, qXI * c);
+      const tri = toGlobal(g, (l.data.qYJ - l.data.qYI) * c / 2, (l.data.qZJ - l.data.qZI) * c / 2, (qXJ - qXI) * c / 2);
       split(g, uni, a + c / 2);
       split(g, tri, a + (2 * c) / 3);
     } else if (l.type === 'pointOnElement') {
