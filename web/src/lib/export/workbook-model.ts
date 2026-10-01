@@ -15,11 +15,14 @@
 import type { ModelData } from '../engine/solver-service';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
+import { selfWeightFor } from '../engine/self-weight';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
 export interface WorkbookModel extends ModelData {
   loadCases: readonly LoadCase[];
   combinations: readonly LoadCombination[];
+  /** Legacy self-weight toggle; explicit analysis.selfWeight takes precedence. */
+  includeSelfWeight?: boolean;
   /** Full groups, with names and kinds; `ModelData.groups` carries only the members. */
   namedGroups?: ReadonlyArray<{ id: number; name: string; kind: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] } }>;
 }
@@ -46,7 +49,7 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
     rows.push([
       e.id, e.type, e.nodeI, e.nodeJ, e.materialId, e.sectionId,
       // The importer reads a hinge as the release about local z, as the model's own migration does.
-      b(e.releaseI?.mz), b(e.releaseJ?.mz), e.rollAngle ?? 0,
+      b(e.releaseI?.mz), b(e.releaseJ?.mz), (e.rollAngle ?? 0) + (m.sections.get(e.sectionId)?.rotation ?? 0),
       length, b(e.releaseI?.my), b(e.releaseI?.mz), b(e.releaseI?.t), b(e.releaseJ?.my), b(e.releaseJ?.mz), b(e.releaseJ?.t),
       opt(e.localYx), opt(e.localYy), opt(e.localYz),
       o ? o.frame : '', opt(o?.i?.x), opt(o?.i?.y), opt(o?.i?.z), opt(o?.j?.x), opt(o?.j?.y), opt(o?.j?.z),
@@ -166,11 +169,31 @@ function groupsSheet(m: WorkbookModel): WorkbookSheet | null {
   return { name: 'Groups', rows };
 }
 
+/** Explicit weights belong to cases and are also included in a standalone all-loads solve.
+ * Legacy weights are recorded separately for cases and the standalone solve, matching the
+ * solver's rule without assigning the standalone weight to an arbitrary dead-load case. */
+function selfWeightSheet(m: WorkbookModel): WorkbookSheet {
+  const rows: WorkbookSheet['rows'] = [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group']];
+  const stated = m.analysis?.selfWeight;
+  const entries = stated !== undefined
+    ? stated.map((s) => ({ source: 'case', load: s }))
+    : [
+      ...m.loadCases.flatMap((c) => selfWeightFor(m, c, m.includeSelfWeight ?? false).map((s) => ({ source: 'case', load: s }))),
+      ...selfWeightFor(m, null, m.includeSelfWeight ?? false).map((s) => ({ source: 'single', load: s })),
+    ];
+  for (const { source, load: s } of entries) rows.push([
+    source, source === 'case' ? s.caseId : '', s.direction, s.factor,
+    s.groupId !== undefined ? 'group' : s.elements !== undefined ? 'members' : 'all',
+    s.elements?.join(' ') ?? '', s.groupId ?? '',
+  ]);
+  return { name: 'SelfWeight', rows };
+}
+
 /** The model's sheets, in the order a reader looks for them. */
 export function modelSheets(m: WorkbookModel, solved: SolverInput3D | null): WorkbookSheet[] {
   return [
     nodesSheet(m), membersSheet(m), materialsSheet(m), sectionsSheet(m, solved), supportsSheet(m, solved),
-    ...shellSheets(m), casesSheet(m), loadsSheet(m), combinationsSheet(m),
+    ...shellSheets(m), casesSheet(m), loadsSheet(m), selfWeightSheet(m), combinationsSheet(m),
     ...[constraintsSheet(m), groupsSheet(m)].filter((s): s is WorkbookSheet => !!s),
   ];
 }
