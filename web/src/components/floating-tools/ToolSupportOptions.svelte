@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { isMode3D } from '../../lib/store/file';
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -13,7 +12,7 @@
   const SUP_GLYPH = { fixed: 'supFixed', pinned: 'supPinned', roller: 'supRoller', spring: 'supSpring' } as const;
 </script>
 
-{#if isMode3D(uiStore.analysisMode)}
+{#if uiStore.is3DWorkspace}
   <!-- Per-DOF checkboxes (global frame) -->
   <label class="ft-chk ft-dof" title={t('float.supportRestrainTx')}><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
   <label class="ft-chk ft-dof" title={t('float.supportRestrainTy')}><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>

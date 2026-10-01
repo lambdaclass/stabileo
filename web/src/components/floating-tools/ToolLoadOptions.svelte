@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { isMode3D } from '../../lib/store/file';
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -40,7 +39,7 @@
 <span class="ft-break" aria-hidden="true"></span>
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
       onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
@@ -110,7 +109,7 @@
     <span class="ft-unit">°C</span>
   </label>
 {:else if uiStore.loadType === 'distributed'}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
       <span>qYI:</span>
       <input type="number" bind:value={uiStore.loadValueY3D} step="1" />
@@ -133,7 +132,7 @@
       <span class="ft-unit">kN/m</span>
     </label>
   {/if}
-  {#if isMode3D(uiStore.analysisMode)}
+  {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
       <span>qZI:</span>
       <input type="number" bind:value={uiStore.loadValueZ} step="1" />

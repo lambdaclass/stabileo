@@ -8,9 +8,8 @@
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { isMode3D } from '../../lib/store/file';
 
-  const is3D = $derived(isMode3D(uiStore.analysisMode));
+  const is3D = $derived(uiStore.is3DWorkspace);
   const hintKey = $derived(
     (uiStore.memberDrawMode === 'polyline' ? 'float.elementHintPolyline' : 'float.elementHintSingle')
       + (is3D ? '3d' : ''),

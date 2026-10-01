@@ -150,27 +150,11 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
     }
   });
 
-  it('isMode3D answers space for Basic 3D and PRO, and plane for the rest', async () => {
-    // What it answers, not how its body is spelled: it now delegates to `is3DWorkspace`.
-    const { isMode3D } = await import('../../store/file');
-    expect(['2d', '3d', 'pro', 'edu'].map(isMode3D)).toEqual([false, true, true, false]);
-  });
-
-  it('no raw analysisMode === \'3d\' checks outside isMode3D definition', () => {
-    const fileTs = readSource('../../store/file.ts');
-    // Remove the isMode3D function definition and comments before checking
-    const withoutIsMode3D = fileTs
-      .replace(/\/\*\*[^*]*\*\//g, '')             // block comments
-      .replace(/\/\/.*$/gm, '')                      // line comments
-      .replace(/function isMode3D\([^)]*\)[^{]*\{[^}]+\}/g, ''); // isMode3D body
-    const rawChecks = withoutIsMode3D.match(/analysisMode === '3d'/g) || [];
-    expect(rawChecks.length, 'file.ts should use isMode3D() helper instead of raw 3d checks').toBe(0);
-  });
-
-  it('excel.ts uses isMode3D, not raw analysisMode === \'3d\'', () => {
-    const excelTs = readSource('../../export/excel.ts');
-    expect(excelTs).toContain('isMode3D');
-    expect(excelTs).not.toMatch(/analysisMode === '3d'/);
+  it('is3DWorkspace answers space for Basic 3D and PRO, and plane for the rest', async () => {
+    // What it answers, not how a caller spells it. That no caller compares the mode by hand is
+    // `utils/__tests__/workspace-gate.test.ts`, repo-wide.
+    const { is3DWorkspace } = await import('../../utils/workspace');
+    expect(['2d', '3d', 'pro', 'edu'].map(is3DWorkspace)).toEqual([false, true, true, false]);
   });
 });
 

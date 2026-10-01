@@ -42,7 +42,6 @@ export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'
 /** The four modes the app has. */
 export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
 export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
-export { is3DWorkspace } from '../utils/workspace';
 import { is3DWorkspace } from '../utils/workspace';
 export function isAnalysisMode(v: unknown): v is AnalysisMode {
   return (ANALYSIS_MODES as readonly unknown[]).includes(v);
