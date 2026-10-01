@@ -111,7 +111,6 @@
 </div>
 
 <style>
-  .gm-warn { margin: 2px 0 0; font-size: 0.62rem; color: var(--st-warn); }
   .gm { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; border-top: 1px solid var(--st-surface-3); font-size: 0.66rem; color: var(--st-text-2); }
   .gm-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .gm-row input[type='number'] { width: 56px; }

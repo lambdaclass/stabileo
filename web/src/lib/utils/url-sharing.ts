@@ -954,7 +954,7 @@ export function loadFromShareLink(url: string): boolean {
     if (!r.snapshot) return false;
     modelStore.clear();
     const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
-    if (snapshot.analysisMode) uiStore.analysisMode = snapshot.analysisMode;
+    applyLinkMode(snapshot.analysisMode);
     modelStore.restore(snapshot);
     queueMicrotask(() => window.dispatchEvent(new Event('stabileo-restore-camera-3d')));
     return true;

@@ -77,6 +77,14 @@ test('@smoke a new node can share X and Y with another and still stand apart', a
   await page.getByTestId('write-node-z').fill('3');
   await page.getByTestId('write-node-card-submit').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
+  // Writing a complete duplicate still welds, rather than adding a twin. The card empties its
+  // fields once the node is written, so the count read after that is the final one.
+  await page.getByTestId('write-node-x').fill('0');
+  await page.getByTestId('write-node-y').fill('0');
+  await page.getByTestId('write-node-z').fill('3');
+  await page.getByTestId('write-node-card-submit').click();
+  await expect(page.getByTestId('write-node-z')).toHaveValue('');
+  expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
 });
 
 test('@smoke a second fallback paste welds onto the first without stacking a member', async ({ page }) => {

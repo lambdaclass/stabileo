@@ -189,7 +189,9 @@
     const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : Number(s.replace(',', '.'))));
     if (v.some((n) => !Number.isFinite(n))) { wError = t('pro.writeNumbers'); return; }
     wError = null;
-    const id = modelStore.addNode(v[0]!, v[1]!, v[2]!);
+    // Welded, as the table's rows and the paste are: the coordinates of an existing node
+    // select it rather than stacking a twin that looks joined and analyses as a cut.
+    const id = modelStore.addNodeWelded(v[0]!, v[1]!, v[2]!);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
     wX = ''; wY = ''; wZ = '';

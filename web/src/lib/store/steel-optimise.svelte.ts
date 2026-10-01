@@ -296,11 +296,14 @@ function createSteelOptimise() {
           return { ...a, status: 'unchecked' as const };
         }
         const { members, materialOf } = membersFor(ids);
-        const material = materialOf.get(ids[0]!);
+        // An inactive member follows its section but is not designed, as when the row was
+        // proposed: every designed member must be checked, and only those.
+        const designed = ids.filter(id => isDesigned(modelStore.elements.get(id)!.behaviour));
+        const material = designed.length > 0 ? materialOf.get(designed[0]!) : undefined;
         // Rows start out homogeneous. A later material assignment can split the group, so its
         // first member's grade no longer represents all members; propose the groups again.
         const materialIds = new Set(ids.map(id => modelStore.elements.get(id)!.materialId));
-        if (!p || !material || members.length !== ids.length || members.length === 0 || materialIds.size !== 1) {
+        if (!p || !material || members.length !== designed.length || members.length === 0 || materialIds.size !== 1) {
           return { ...a, status: 'unchecked' as const };
         }
         const criteria = criteriaFor(lastSettings, ids);
