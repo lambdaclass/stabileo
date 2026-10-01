@@ -52,7 +52,8 @@ export interface JointDemands {
    * What the bolts carry at the same instant: axial and resultant shear of ONE member end in ONE
    * combination, for the members the joint connects. A member that runs straight through the
    * node (a continuous column) is left out, since its axial force passes the node without
-   * reaching the bolts; when every member runs through (a splice) all of them count.
+   * reaching the bolts; when every member runs through (a splice) all of them count. Which line
+   * runs through is `throughMembers`' rule: the column, and none at a column head.
    *
    * The J.3.7 interaction reads these pairs. It read the governing axial and the governing shear,
    * which could come from different members and different combinations, so a column's pass-
@@ -72,11 +73,36 @@ export interface BoltPair {
 
 interface NodeXYZ { x: number; y: number; z?: number }
 
-/** Members that continue straight through the node: two collinear ones on opposite sides. */
+/**
+ * The members whose force passes the node without reaching the bolts.
+ *
+ * Two collinear members on opposite sides of the node form a LINE that could run through it. The
+ * analysis model cannot say which line is continuous in the steel — every member ends at a node —
+ * so the rule is the one a detailer applies:
+ *
+ *   · Where several lines cross (an interior joint: column below and above, beams both sides),
+ *     the column runs through and the beams are bolted to it. «The column» is the steepest line,
+ *     with Z vertical as `classifyElement` reads it. Treating every collinear pair as through left
+ *     no member to bolt, and the fallback then counted the column's 800 kN pass-through axial as
+ *     bolt tension.
+ *   · Where one line meets a steeper member that ends at the node — a column head with beams from
+ *     both sides — the model holds two details at once. A beam continuous over a cap plate puts
+ *     the column's reaction through the bolts, and that reaction is the sum of the beams' end
+ *     shears; beams framing into a column that stops at their level put each beam's own end shear
+ *     through its own bolts. Dropping the beams (the old rule) kept only the first, so the beams'
+ *     shear reached the bolts as the column's axial and never as shear. Both details are checked:
+ *     the line's members are not through, and the worst pair governs. The price is that a beam
+ *     that really is continuous over a cap has its axial counted as bolt tension — conservative,
+ *     and named here so it is not mistaken for the bug above.
+ *   · Where the steeper member is axial-only — a truss member, or a frame end released in both
+ *     bending axes — it is a web member on a continuous chord, the gusset detail: the chord runs
+ *     through and only the web is bolted.
+ *
+ * When every member at the node is on the through line (a splice) the caller counts them all.
+ */
 function throughMembers(nodeId: number, elementIds: readonly number[], elements: ReadonlyMap<number, ElemData>, nodes?: ReadonlyMap<number, NodeXYZ>): Set<number> {
-  const out = new Set<number>();
   const at = nodes?.get(nodeId);
-  if (!at) return out;
+  if (!at) return new Set();
   const dir = (id: number): number[] | null => {
     const e = elements.get(id); if (!e) return null;
     const far = nodes!.get(e.nodeI === nodeId ? e.nodeJ : e.nodeI); if (!far) return null;
@@ -84,13 +110,32 @@ function throughMembers(nodeId: number, elementIds: readonly number[], elements:
     const L = Math.hypot(d[0]!, d[1]!, d[2]!);
     return L > 0 ? d.map((v) => v / L) : null;
   };
+  const dirs = new Map<number, number[]>();
+  for (const id of elementIds) { const d = dir(id); if (d) dirs.set(id, d); }
+  const steepness = (id: number) => Math.abs(dirs.get(id)?.[2] ?? 0);
+
+  const lines: Array<[number, number]> = [];
   for (let i = 0; i < elementIds.length; i++) {
     for (let j = i + 1; j < elementIds.length; j++) {
-      const a = dir(elementIds[i]!), b = dir(elementIds[j]!);
-      if (a && b && a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]! < -0.9999) { out.add(elementIds[i]!); out.add(elementIds[j]!); }
+      const a = dirs.get(elementIds[i]!), b = dirs.get(elementIds[j]!);
+      if (a && b && a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]! < -0.9999) lines.push([elementIds[i]!, elementIds[j]!]);
     }
   }
-  return out;
+  if (lines.length === 0) return new Set();
+  // The steepest line is the column; on a tie (two crossing beams of a grillage) the first.
+  let line = lines[0]!;
+  for (const l of lines) if (steepness(l[0]) > steepness(line[0]) + 1e-9) line = l;
+
+  const axialOnly = (id: number): boolean => {
+    const e = elements.get(id);
+    if (!e) return false;
+    if (e.type === 'truss') return true;
+    const r = e.nodeI === nodeId ? e.releaseI : e.releaseJ;
+    return !!r?.my && !!r?.mz;
+  };
+  const columnEndsHere = elementIds.some((id) =>
+    !line.includes(id) && steepness(id) > steepness(line[0]) + 1e-9 && !axialOnly(id));
+  return columnEndsHere ? new Set() : new Set(line);
 }
 
 /** One combination's results, as much of them as this module reads. */
@@ -100,7 +145,13 @@ export interface ComboResults {
   elementForces: ReadonlyArray<Record<string, unknown>>;
 }
 
-interface ElemData { id: number; nodeI: number; nodeJ: number }
+interface ElemData {
+  id: number; nodeI: number; nodeJ: number;
+  /** Read to tell a web member (axial only) from a column; absent reads as a rigid frame end. */
+  type?: string;
+  releaseI?: { my?: boolean; mz?: boolean };
+  releaseJ?: { my?: boolean; mz?: boolean };
+}
 
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
