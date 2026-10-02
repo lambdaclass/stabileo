@@ -5654,7 +5654,7 @@ const pt: Translations = {
   'xls.tpl.required': 'obrigatório',
   'xls.tpl.optionalMark': 'opcional',
   'xls.tpl.downloaded': 'Planilha-modelo baixada',
-  'project.longLink': 'Link longo ({n} caracteres): o navegador abre sem problema, mas alguns e-mails e chats o cortam ao colar. Se falhar, envie o arquivo .ded.',
+  'project.linkTooLongFile': "Este modelo é grande demais para compartilhar por link ({n} caracteres): e-mails e chats o cortam ao colar. Para compartilhá-lo, salve o modelo e envie o arquivo .ded, que abre igual.",
   'project.noLinkFound': 'Nenhum link Stabileo encontrado na área de transferência',
   'project.open': 'Abrir',
   'project.openDed': 'Abrir .ded',

@@ -967,7 +967,7 @@ const es: Record<string, string> = {
   'xls.tpl.required': 'obligatorio',
   'xls.tpl.optionalMark': 'opcional',
   'xls.tpl.downloaded': 'Plantilla descargada',
-  'project.longLink': 'Enlace largo ({n} caracteres): el navegador lo abre bien, pero algunos mails y chats lo cortan al pegarlo. Si falla, mandá el archivo .ded.',
+  'project.linkTooLongFile': "Este modelo es demasiado grande para compartirlo por link ({n} caracteres): mails y chats lo cortan al pegarlo. Para compartirlo, guardá el modelo y mandá el archivo .ded, que se abre igual.",
   'project.linkCopied': 'Enlace copiado al portapapeles',
   'project.noLinkFound': 'No se encontró un enlace de Stabileo en el portapapeles',
   'project.linkLoadedNewTab': 'Enlace cargado en nueva pestaña',

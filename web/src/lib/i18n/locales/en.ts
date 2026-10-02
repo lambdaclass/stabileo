@@ -974,7 +974,7 @@ const en: Record<string, string> = {
   'xls.tpl.required': 'required',
   'xls.tpl.optionalMark': 'optional',
   'xls.tpl.downloaded': 'Template downloaded',
-  'project.longLink': 'Long link ({n} characters): browsers open it fine, but some mail and chat clients cut it when pasted. If it fails, send the .ded file instead.',
+  'project.linkTooLongFile': "This model is too large to share as a link ({n} characters): mail and chat clients cut it when pasted. To share it, save the model and send the .ded file, which opens the same.",
   'project.linkCopied': 'Link copied to clipboard',
   'project.noLinkFound': 'No Stabileo link found in clipboard',
   'project.linkLoadedNewTab': 'Link loaded in new tab',
