@@ -92,7 +92,7 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
     local: true,
   };
   const matIds = new Set([...frag.elements.map((e) => e.materialId), ...frag.quads.map((q) => q.materialId), ...frag.plates.map((p) => p.materialId)]);
-  const secIds = new Set(frag.elements.map((e) => e.sectionId));
+  const secIds = new Set(frag.elements.flatMap((e) => (e.variableSection ? [e.sectionId, e.variableSection.sectionJ] : [e.sectionId])));
   // Preserve the original generated section too when a member has been manually resized.
   for (const g of frag.groups) {
     const data = generatedMetadata(g);

@@ -183,6 +183,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         signs.set(id, { sy: o.sy, sz: o.sz });
         const { id: _id, nodeI: _i, nodeJ: _j, localYx: _x, localYy: _y, localYz: _z, rollAngle: _r, jointI, jointJ, offset, arc, reinforcement: _rf, ...rest } = e;
         const patch: Partial<Element> = { ...rest, ...o.fields, materialId: mat(e.materialId), sectionId: sec(e.sectionId) };
+        // A member of variable section names its end J's section too.
+        if (rest.variableSection) patch.variableSection = { ...rest.variableSection, sectionJ: sec(rest.variableSection.sectionJ) };
         const jI = carriedJoint(T, jointI), jJ = carriedJoint(T, jointJ);
         if (jI === null || jJ === null) warn('jointDropped');
         if (jI) patch.jointI = jI;

@@ -56,6 +56,8 @@ export interface GeneratedMeta {
   generator: string;
   params: Record<string, unknown>;
   profiles: Record<string, unknown>;
+  /** The two ends of each role of variable section, as the form held them. */
+  variable?: Record<string, unknown>;
   gradeId: string | null;
   name: string;
 }
@@ -188,8 +190,11 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
     // been settled against its geometry since, so it no longer equals the generator's definition.
     const oldByName = new Map<string, number>();
     for (const e of old.elements) {
-      const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
-      if (sec) oldByName.set(sec.name, sec.id);
+      const el = e ? modelStore.elements.get(e.id) : undefined;
+      for (const id of e ? [e.sectionId, ...(el?.variableSection ? [el.variableSection.sectionJ] : [])] : []) {
+        const sec = modelStore.sections.get(id);
+        if (sec) oldByName.set(sec.name, sec.id);
+      }
     }
     const byName = new Map<number, number>();
     frag.sections = frag.sections.filter((s) => {
@@ -327,6 +332,8 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const a = g.json.nodes[e.nodeI - 1]!, b = g.json.nodes[e.nodeJ - 1]!;
       const o = carriedOrientation(T, src, a, b, modelStore.nodes.get(i2)!, modelStore.nodes.get(j2)!, modelStore.sections.get(secOf(e.sectionId)), false);
       const newSec = secOf(e.sectionId);
+      // A member of variable section, its end J's section mapped the same way.
+      const variableSection = src.variableSection ? { ...src.variableSection, sectionJ: secOf(src.variableSection.sectionJ) } : undefined;
       const prev = takeOld(k);
       const cur = prev ? modelStore.elements.get(prev.id) : undefined;
       if (prev && cur) {
@@ -335,7 +342,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
           nodeI: i2, nodeJ: j2, type: e.type, materialId: matOf(e.materialId),
           localYx: undefined, localYy: undefined, localYz: undefined, rollAngle: undefined, ...o.fields,
         };
-        if (unedited) { patch.sectionId = newSec; if (newSec !== cur.sectionId) out.resized++; } else out.keptSections++;
+        if (unedited) { patch.sectionId = newSec; patch.variableSection = variableSection; if (newSec !== cur.sectionId) out.resized++; } else out.keptSections++;
         modelStore.updateElement(prev.id, patch);
         elements.push({ id: prev.id, sectionId: unedited ? newSec : prev.sectionId, ...(role ? { role } : {}) });
         elementMap.set(e.id, prev.id);
@@ -344,7 +351,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
         return;
       }
       const id = modelStore.addElement(i2, j2, e.type);
-      modelStore.updateElement(id, { materialId: matOf(e.materialId), sectionId: newSec, ...o.fields });
+      modelStore.updateElement(id, { materialId: matOf(e.materialId), sectionId: newSec, ...(variableSection ? { variableSection } : {}), ...o.fields });
       elements.push({ id, sectionId: newSec, ...(role ? { role } : {}) });
       elementMap.set(e.id, id);
       existingPairs.set(pairKey(i2, j2), id);

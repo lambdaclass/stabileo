@@ -81,8 +81,13 @@
      * accepted and dropped.
      */
     catalogueOnly?: boolean;
+    /**
+     * Catalogue picks and templates, no drawing: a generator member of variable section takes a
+     * welded I typed into a template, and its two ends must blend, which a free drawing need not.
+     */
+    noDrawing?: boolean;
   }
-  const { open, spec, onApply, onClose, source = steelProfileSource, label = '', drawn = null, built = null, catalogueOnly = false }: Props = $props();
+  const { open, spec, onApply, onClose, source = steelProfileSource, label = '', drawn = null, built = null, catalogueOnly = false, noDrawing = false }: Props = $props();
 
   /** Exactly two. The type is the guarantee, not a convention. */
   type Division = 'standard' | 'build';
@@ -243,10 +248,14 @@
   let templateDraft = $state<SectionChoice | null>(null);
   let drawDraft = $state<SectionChoice | null>(null);
   const builtDraft = $derived(buildMode === 'template' ? templateDraft : drawDraft);
-  /** Closing with something built and not applied asks first. */
+  /** Closing with something built and not applied asks first; a template reopened and left as it was does not. */
   let confirmClose = $state(false);
+  const sameParams = (a: Record<string, number>, b: Record<string, number>) =>
+    Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v);
+  const untouched = $derived(buildMode === 'template' && !!built && builtDraft?.kind === 'built'
+    && builtDraft.shapeType === built.shapeType && sameParams(builtDraft.params, built.params));
   function requestClose() {
-    if (division === 'build' && builtDraft && !confirmClose) { confirmClose = true; return; }
+    if (division === 'build' && builtDraft && !untouched && !confirmClose) { confirmClose = true; return; }
     confirmClose = false;
     onClose();
   }
@@ -376,14 +385,16 @@
               onClose={() => {}}
             />
           {:else}
+            {#if !noDrawing}
             <div class="build-modes" role="radiogroup" aria-label={t('drawn.buildMode')}>
               <button type="button" role="radio" aria-checked={buildMode === 'template'} class:active={buildMode === 'template'}
                 data-testid="build-mode-template" onclick={() => { buildMode = 'template'; }}>{t('drawn.modeTemplate')}</button>
               <button type="button" role="radio" aria-checked={buildMode === 'draw'} class:active={buildMode === 'draw'}
                 data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; }}>{t('drawn.modeDraw')}</button>
             </div>
+            {/if}
             <div hidden={buildMode !== 'template'}><BuiltSectionPanel initial={built} onDraft={(c) => (templateDraft = c)} /></div>
-            <div hidden={buildMode !== 'draw'}><DrawnSectionEditor initial={drawn} onDraft={(c) => (drawDraft = c)} /></div>
+            {#if !noDrawing}<div hidden={buildMode !== 'draw'}><DrawnSectionEditor initial={drawn} onDraft={(c) => (drawDraft = c)} /></div>{/if}
           {/if}
         </div>
 

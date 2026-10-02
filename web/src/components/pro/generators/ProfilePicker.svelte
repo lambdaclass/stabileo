@@ -16,13 +16,22 @@
   import type { ProfileSpec } from '../../../lib/engine/generators/emit';
   import type { MemberRole } from '../../../lib/engine/generators/member-roles';
   import SectionFigure from './SectionFigure.svelte';
+  import { builtSectionFields, builtSpec } from '../../../lib/engine/generators/variable-pair';
 
   interface Props {
     role: MemberRole;
     spec: ProfileSpec;
     onChange: (next: ProfileSpec) => void;
+    /** The row's name, when it is not the role's: one end of a member of variable section. */
+    label?: string;
+    /** Distinguishes two rows of one role. Defaults to the role. */
+    key?: string;
+    /** Templates too (a welded I), beside the catalogue: the ends of a member of variable section. */
+    allowBuilt?: boolean;
   }
-  const { role, spec, onChange }: Props = $props();
+  const { role, spec, onChange, label, key = role, allowBuilt = false }: Props = $props();
+  const name = $derived(label ?? t(`generator.role.${role}`));
+  const builtArea = $derived(spec.built ? builtSectionFields(spec)?.a : undefined);
 
   /** The popover is per-row: two roles open at once would be two dialogs over one panel. */
   let open = $state(false);
@@ -36,7 +45,7 @@
 
 </script>
 
-<div class="row" data-testid={`gen-profile-${role}`}>
+<div class="row" data-testid={`gen-profile-${key}`}>
   <!-- The figure first, because it is what the row is about. -->
   <SectionFigure
     profileName={spec.profileName}
@@ -44,8 +53,9 @@
     gapMm={spec.gapMm}
     rotationDeg={spec.rotationDeg}
     colour={ROLE_COLOUR[role]}
+    built={spec.built}
   />
-  <label class="lbl" for={`prof-${role}`}>{t(`generator.role.${role}`)}</label>
+  <label class="lbl" for={`prof-${key}`}>{name}</label>
 
   <!--
     A trigger, not a list.
@@ -68,13 +78,13 @@
       which is why the bug never showed in unit-level clicks and only real input hit it.
     -->
     <button
-      id={`prof-${role}`}
+      id={`prof-${key}`}
       type="button"
       class="trigger"
       aria-haspopup="dialog"
       aria-expanded={open}
       onclick={(e) => { e.stopPropagation(); open = !open; }}
-      data-testid={`gen-profile-trigger-${role}`}
+      data-testid={`gen-profile-trigger-${key}`}
     >
       <span class="tname">{spec.profileName}</span>
       <!--
@@ -82,10 +92,14 @@
         weighs, and whether it is one profile or four. `IPE 200` and `HEA 200` are both "200"
         and are not interchangeable.
       -->
-      <span class="tmeta" data-testid={`gen-profile-meta-${role}`}>
-        {resolved?.family ?? '—'}
-        {#if resolved}· {(resolved.profile.a * 1e4).toFixed(1)} cm²{/if}
-        {#if compound}· ×{ARRANGEMENTS[spec.arrangement].count}{/if}
+      <span class="tmeta" data-testid={`gen-profile-meta-${key}`}>
+        {#if spec.built}
+          {t('generator.ui.builtSection')} {#if builtArea}· {(builtArea * 1e4).toFixed(1)} cm²{/if}
+        {:else}
+          {resolved?.family ?? '—'}
+          {#if resolved}· {(resolved.profile.a * 1e4).toFixed(1)} cm²{/if}
+          {#if compound}· ×{ARRANGEMENTS[spec.arrangement].count}{/if}
+        {/if}
       </span>
     </button>
 
@@ -100,10 +114,15 @@
     -->
     <ProSectionModal
       open={open}
-      spec={spec}
-      label={t(`generator.role.${role}`)}
-      catalogueOnly
-      onApply={(choice) => { if (choice.kind === 'standard') onChange(choice.spec); }}
+      spec={spec.built ? { ...spec, built: undefined } : spec}
+      label={name}
+      catalogueOnly={!allowBuilt}
+      noDrawing={allowBuilt}
+      built={spec.built ?? null}
+      onApply={(choice) => {
+        if (choice.kind === 'standard') onChange(choice.spec);
+        else if (choice.kind === 'built' && allowBuilt) onChange(builtSpec(choice.shapeType, choice.params));
+      }}
       onClose={() => { open = false; }}
     />
   </div>
@@ -120,12 +139,12 @@
 </div>
 
 {#if compound && isClosedArrangement(spec.arrangement)}
-  <p class="note" data-testid={`gen-closed-${role}`}>
+  <p class="note" data-testid={`gen-closed-${key}`}>
     {t('generator.builtUp.torsion.closedCellNotComputed')}
   </p>
 {/if}
-{#if refusalCount > 0}
-  <p class="note" data-testid={`gen-refused-${role}`}>
+{#if refusalCount > 0 && !spec.built}
+  <p class="note" data-testid={`gen-refused-${key}`}>
     {t('generator.problem.centroidUnknown')
       .replace('{profile}', spec.profileName)
       .replace('{family}', resolved?.family ?? '')}
