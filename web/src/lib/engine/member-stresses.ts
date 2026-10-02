@@ -83,12 +83,18 @@ export function sectionStressModel(sec: SectionLike): SectionStressModel | null 
 }
 
 /** The stations of one member, `n` equally spaced (ends included) or the critical ones, with σmax and σmin at each. */
-export function memberStationStresses(ef: ElementForces3D, model: SectionStressModel, n: StationSpec = 5): StationStress[] {
+/**
+ * `model` is one section's, or for a member of variable section the section's at each station
+ * (`section/variable.ts`); a station with no model is skipped.
+ */
+export function memberStationStresses(ef: ElementForces3D, model: SectionStressModel | ((t: number) => SectionStressModel | null), n: StationSpec = 5): StationStress[] {
   const out: StationStress[] = [];
   for (const t of stationTs(ef, n)) {
+    const m = typeof model === 'function' && !('basis' in model) ? (model as (t: number) => SectionStressModel | null)(t) : model as SectionStressModel;
+    if (!m) continue;
     const s = extractForcesAtStation(ef, t);
-    const r = model(s.n, s.my, s.mz);
-    out.push({ elementId: ef.elementId, x: t * ef.length, sigmaMax: r.max, sigmaMin: r.min, basis: model.basis });
+    const r = m(s.n, s.my, s.mz);
+    out.push({ elementId: ef.elementId, x: t * ef.length, sigmaMax: r.max, sigmaMin: r.min, basis: m.basis });
   }
   return out;
 }

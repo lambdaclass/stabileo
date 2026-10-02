@@ -499,6 +499,12 @@ export interface Element extends Element3DMetadata {
   type: 'frame' | 'truss';
   nodeI: number;
   nodeJ: number;
+  /**
+   * A section that changes along the member: `sectionId` is end I's, `sectionJ` end J's, and the
+   * section between them is their blend as geometry (`section/variable.ts`). Solved as `segments`
+   * prismatic pieces and reported as one member (`engine/variable-members.ts`). PRO, frames.
+   */
+  variableSection?: { sectionJ: number; segments?: number };
   materialId: number;
   sectionId: number;
   releaseI: Release;
@@ -4217,7 +4223,8 @@ function createModelStore() {
 
     removeSection(id: number): boolean {
       for (const elem of model.elements.values()) {
-        if (elem.sectionId === id) return false;
+        // A member of variable section uses its end J's section too.
+        if (elem.sectionId === id || elem.variableSection?.sectionJ === id) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.sections);

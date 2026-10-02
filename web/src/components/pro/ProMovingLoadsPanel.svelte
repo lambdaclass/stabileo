@@ -44,6 +44,8 @@
 
   async function run() {
     error = null; result = null;
+    // The path names the model's members; one of variable section is cut into pieces for the solve.
+    if ([...modelStore.elements.values()].some((e) => e.variableSection)) { error = t('advanced.variableUnsupported'); return; }
     // The train alone: a support settlement is not part of a moving-load envelope, and solving
     // every position on the settled supports mixed its forces into every peak. The project's
     // axis convention, as the other solves use it.

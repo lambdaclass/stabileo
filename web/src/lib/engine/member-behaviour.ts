@@ -22,6 +22,7 @@
  * None of this is linear, so a combination is not the sum of its cases: each one is solved
  * with its own factored loads. Each case is solved on its own too, for the per-case results.
  */
+import { expandVariableMembers } from './variable-members';
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D, ElementForces3D, NonlinearReport } from './types-3d';
 import { solve3D, solveSSI3D, solveCable3D, type SolverInputCable3D } from './wasm-solver';
@@ -71,7 +72,10 @@ export function activeModel<M extends ModelData>(model: M): M {
  * the load in silence would change the answer.
  */
 export function solvableModel<M extends ModelData>(model: M): M {
-  return pruneModel(model, true);
+  // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
+  // Ids counted from the model given, so a reader of the results can plan the same expansion from
+  // it (`variableExpansionFor`).
+  return expandVariableMembers(pruneModel(model, true), model);
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {

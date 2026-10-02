@@ -399,6 +399,12 @@ export interface ElementForces3D {
   distributedLoadsZ: Array<{ qI: number; qJ: number; a: number; b: number }>;
   distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
   pointLoadsZ: Array<{ a: number; p: number }>;
+  /**
+   * A member of variable section, solved as prismatic pieces (`variable-members.ts`): each piece's
+   * own forces, where it lies along the member and its end displacements. Diagrams are read piece
+   * by piece; the fields above are the member's ends.
+   */
+  pieces?: import('./variable-members').ResultPiece[];
 }
 
 /** Plate stress output (triangular) */

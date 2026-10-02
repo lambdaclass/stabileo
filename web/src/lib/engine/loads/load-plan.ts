@@ -31,6 +31,7 @@
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
+import { memberMeanArea } from '../../section/variable';
 import {
   generateCombinations, liveLoadFactorInCompanion,
   type CombinationInputs, type LoadCombinationSpec, type LoadSymbol,
@@ -438,7 +439,9 @@ function selfWeightByLevel(
     const mat = model.materials.get(el.materialId);
     if (!nI || !nJ || !sec || !mat || !(sec.a > 0)) { skipped++; continue; }
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
-    const w = sectionWeight(sec, el.materialId) * L;
+    // A member of variable section weighs its mean area along it (`section/variable.ts`).
+    const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
+    const w = sectionWeight(sec, el.materialId) * L * meanRatio;
     for (const id of [el.nodeI, el.nodeJ]) {
       const lv = levelOfNode.get(id);
       if (lv !== undefined) weights[lv] += w / 2;

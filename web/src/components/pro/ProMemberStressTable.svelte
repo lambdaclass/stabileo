@@ -4,6 +4,7 @@
    * largest tension and the largest compression on the cross-section (`engine/member-stresses.ts`).
    * Sorted by the largest magnitude, narrowed to the selection if wanted, exportable.
    */
+  import { memberSectionAt } from '../../lib/section/variable';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { downloadText } from '../../lib/store/file';
@@ -24,6 +25,11 @@
       if (sel && !sel.has(ef.elementId)) continue;
       const e = modelStore.elements.get(ef.elementId);
       if (!e) continue;
+      if (e.variableSection) {
+        // Each station with the section it has there.
+        out.push(...memberStationStresses(ef, (t: number) => { const s = memberSectionAt(modelStore.sections, e, t); return s ? sectionStressModel(s as never) : null; }, stations));
+        continue;
+      }
       if (!models.has(e.sectionId)) {
         const s = modelStore.sections.get(e.sectionId);
         models.set(e.sectionId, s ? sectionStressModel(s as never) : null);

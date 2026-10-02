@@ -18,6 +18,15 @@ type Behaviour = string | undefined;
 
 export const isDesigned = (behaviour: Behaviour): boolean => behaviour !== 'inactive';
 
+/**
+ * Whether design checks this member: not inactive, and not of variable section. A member whose
+ * section changes along it is analysed (`engine/variable-members.ts`), but its strength and
+ * stability checks need the methods for non-prismatic members, which the design code here does
+ * not have; it is reported as not checked rather than checked as if prismatic.
+ */
+export const isDesignedMember = (e: { behaviour?: string; variableSection?: unknown } | undefined): boolean =>
+  !!e && isDesigned(e.behaviour) && !e.variableSection;
+
 const noCompression = (b: Behaviour) => b === 'tensionOnly' || b === 'cable';
 const noTension = (b: Behaviour) => b === 'compressionOnly';
 

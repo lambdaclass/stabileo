@@ -24,6 +24,7 @@
  * reachable only from `exportToExcel`, which awaits the import first. That is
  * why this is a `let` rather than being threaded through ten signatures.
  */
+import { memberSectionLabel } from '../section/variable';
 // Type-only: erased at build time, so it costs the bundle nothing.
 import type * as Xlsx from 'xlsx';
 type XlsxModule = typeof import('xlsx');
@@ -230,7 +231,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
       elem.nodeI, elem.nodeJ,
       Number(L.toFixed(4)),
       mat?.name ?? '-', mat?.e ?? 0,
-      sec?.name ?? '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
+      sec ? memberSectionLabel(modelStore.sections, elem) : '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
     ];
     if (is3D) row.push(sec?.iz ?? 0, sec?.j ?? 0);
     row.push(releaseLabel(elem.releaseI), releaseLabel(elem.releaseJ));

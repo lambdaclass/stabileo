@@ -281,6 +281,12 @@ function createResultsStore() {
   // verificationStore can stamp a solve-generation counter without this store
   // importing verificationStore (mirrors modelStore's `_onMutation` wiring).
   let _onResultsPublish: (() => void) | null = null;
+  /**
+   * What a 3D result is put through before it is published: members of variable section back to
+   * one member each (`engine/variable-members.ts`), whichever analysis produced it. Idempotent.
+   */
+  let _normalise3D: ((r: AnalysisResults3D) => AnalysisResults3D) | null = null;
+  let _normaliseEnvelope3D: ((e: FullEnvelope3D) => FullEnvelope3D) | null = null;
 
   // Diagram-shown notification — set by view-mode.ts so that putting a result
   // on screen disarms an armed build tool, without this store importing the UI
@@ -393,6 +399,7 @@ function createResultsStore() {
      *  its solve-generation counter — including a plain re-solve with no
      *  structural mutation (self-weight / axis-convention toggle). */
     _setOnResultsPublish(fn: () => void) { _onResultsPublish = fn; },
+    _setNormalise3D(r: (x: AnalysisResults3D) => AnalysisResults3D, e: (x: FullEnvelope3D) => FullEnvelope3D) { _normalise3D = r; _normaliseEnvelope3D = e; },
 
     /** Wired by view-mode.ts's installViewModeRules(). Fired whenever the
      *  diagramType setter puts a diagram on screen, so EVERY entry point —
@@ -1072,6 +1079,7 @@ function createResultsStore() {
     get results3D() { return results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
+      if (_normalise3D) r = _normalise3D(r);
       noteStructuralSolve();
       _onResultsPublish?.();
       results3D = r;
@@ -1158,6 +1166,12 @@ function createResultsStore() {
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
+      if (_normalise3D) {
+        const n = _normalise3D;
+        pc = new Map([...pc].map(([k, r]) => [k, n(r)]));
+        pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
+        if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
+      }
       noteStructuralSolve();
       _onResultsPublish?.();
       perCase3D = pc;

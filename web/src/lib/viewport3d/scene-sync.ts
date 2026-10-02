@@ -22,7 +22,9 @@ import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { createLocalAxesTriad } from '../three/create-local-axes';
 import { createMemberOffsetViz } from '../three/create-offset-viz';
 import { hasMemberOffset, resolveOffsetWorldVectors } from '../engine/member-offsets';
-import { jointHasRelease } from '../store/model.svelte';
+import { jointHasRelease, type Section } from '../store/model.svelte';
+import { variableSectionPlan } from '../section/variable';
+import { DEFAULT_VARIABLE_SEGMENTS } from '../engine/variable-members';
 import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offsets';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
@@ -285,6 +287,7 @@ export function syncElements(ctx: SceneSyncContext): void {
       : `${renderMode}|${elem.type}|${releaseKey}` +
         `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
         `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.tw ?? ''}:${sec?.tf ?? ''}:${sec?.t ?? ''}:${sec?.tl ?? ''}:${sec?.rotation ?? ''}:${sec?.canonical?.kind === 'geometry-backed' ? sec.canonical.digest : ''}` +
+        `|vs:${variableKey(elem)}` +
         `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
         `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
         `|jnt:${jointKey}`;
@@ -354,6 +357,7 @@ export function syncElements(ctx: SceneSyncContext): void {
         elementRollAngle: elem.rollAngle,
         renderMode,
         localAxes,
+        ...variableDrawing(elem, sec),
       },
     );
     // Basic 3D internal-joint glyph: a small orange octahedron at each released
@@ -1259,4 +1263,19 @@ export function syncShellOffsets(ctx: SceneSyncContext): void {
 
   ctx.shellOffsetVizGroup = group;
   ctx.scene.add(group);
+}
+
+/** A member of variable section draws from its sections along it (`create-element-mesh.ts`). */
+function variableDrawing(elem: { variableSection?: { sectionJ: number; segments?: number } }, sec: Section | undefined): { sectionAt?: (t: number) => Section; variableSegments?: number } {
+  const v = elem.variableSection;
+  if (!v) return {};
+  const plan = variableSectionPlan(sec, modelStore.sections.get(v.sectionJ));
+  return plan.ok ? { sectionAt: plan.at, variableSegments: v.segments ?? DEFAULT_VARIABLE_SEGMENTS } : {};
+}
+
+function variableKey(elem: { variableSection?: { sectionJ: number; segments?: number } }): string {
+  const v = elem.variableSection;
+  if (!v) return '';
+  const j = modelStore.sections.get(v.sectionJ);
+  return `${v.sectionJ}:${v.segments ?? ''}:${j?.canonical?.kind === 'geometry-backed' ? j.canonical.digest : j?.name ?? ''}`;
 }

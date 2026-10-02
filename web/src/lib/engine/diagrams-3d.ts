@@ -32,12 +32,15 @@ const NUM_POINTS = 21;
 function buildSamplingPositions(
   length: number,
   pointLoads: Array<{ a: number; p: number }>,
+  pieces?: ElementForces3D['pieces'],
 ): number[] {
   const tSet = new Set<number>();
 
   for (let i = 0; i < NUM_POINTS; i++) {
     tSet.add(i / (NUM_POINTS - 1));
   }
+  // A member of variable section: each piece's ends too, where the diagram may kink.
+  for (const p of pieces ?? []) tSet.add(Math.min(1, p.x1 / length));
 
   const eps = 1e-6;
   for (const pl of pointLoads) {
@@ -65,7 +68,7 @@ export function computeDiagram3D(
         ? ef.pointLoadsZ
         : [];
 
-  const positions = buildSamplingPositions(ef.length, relevantPointLoads);
+  const positions = buildSamplingPositions(ef.length, relevantPointLoads, ef.pieces);
   const points: DiagramPoint3D[] = [];
   let maxVal = -Infinity;
   let minVal = Infinity;
@@ -128,6 +131,11 @@ export function evaluateDiagramAt(
 ): number {
   const L = ef.length;
   const x = t * L;
+  // A member of variable section is read on the piece the point falls in (`variable-members.ts`).
+  if (ef.pieces?.length) {
+    const p = ef.pieces.find((q) => x <= q.x1 + 1e-9) ?? ef.pieces[ef.pieces.length - 1]!;
+    return evaluateDiagramAt(p.forces, kind, Math.min(1, Math.max(0, (x - p.x0) / Math.max(p.x1 - p.x0, 1e-12))));
+  }
 
   switch (kind) {
     case 'momentZ': {

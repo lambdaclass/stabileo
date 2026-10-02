@@ -3,6 +3,7 @@
 // Uses window.print() for PDF output (browser native)
 // Groups identical element designs to reduce report length
 
+import { memberSectionLabel } from '../section/variable';
 import { plainNumber } from '../utils/units';
 import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
@@ -665,7 +666,7 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
     for (const e of elements) {
       const matName = materials.find(m => m.id === e.materialId)?.name ?? String(e.materialId);
-      const secName = sections.find(s => s.id === e.sectionId)?.name ?? String(e.sectionId);
+      const secName = memberSectionLabel(sections, e as never);
       html.push(`<tr><td>${e.id}</td><td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${escHtml(matName)}</td><td>${escHtml(secName)}</td></tr>`);
     }
     html.push(`</tbody></table>`);

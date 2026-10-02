@@ -87,7 +87,7 @@
   /** What each member is told beyond geometry, section and material (`specification-list.ts`). */
   const specsOf = (id: number) => {
     const e = modelStore.elements.get(id);
-    return e ? memberSpecifications(e, t) : [];
+    return e ? memberSpecifications(e, t, modelStore.model) : [];
   };
   /** The axial behaviour reads as its value (Truss, Cable); the rest by what they are. */
   const specLabel = (x: { what: string; value: string }) => (x.what === t('spec.members.axial') ? x.value : x.what);

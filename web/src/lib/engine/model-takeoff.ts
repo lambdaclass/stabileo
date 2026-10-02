@@ -15,6 +15,7 @@
  * Does NOT touch the solver.
  */
 
+import { memberMeanArea } from '../section/variable';
 import { drawnMaterialAreas } from '../section/weight';
 import type { DrawnSection } from '../section/drawn';
 import { materialFamilyOf } from './steel/material-family';
@@ -113,8 +114,10 @@ export function takeoffFromModel(model: TakeoffModel): ModelTakeoff {
     } else if (drawn?.parts?.length) {
       try { areas = drawnMaterialAreas(drawn, e.materialId); } catch { areas = null; }
     }
-    if (areas) for (const part of areas) (bucket(part.materialId) ?? b).volume += part.area * L;
-    else b.volume += sec.a * L;
+    // A member of variable section: its mean area along it, each material's share scaled alike.
+    const scale = (e as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, e as never) ?? sec.a) / sec.a : 1;
+    if (areas) for (const part of areas) (bucket(part.materialId) ?? b).volume += part.area * L * scale;
+    else b.volume += sec.a * L * scale;
     b.memberLength += L;
     b.memberCount++;
   }

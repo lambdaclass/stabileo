@@ -1,3 +1,4 @@
+import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor } from '../engine/variable-members';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
@@ -88,6 +89,13 @@ resultsStore._setTransverseSignProvider((elementId) => {
   const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
 });
+
+// Members of variable section are published as one member each, from any analysis that solved
+// them as pieces (`engine/variable-members.ts`).
+resultsStore._setNormalise3D(
+  (r) => collapseVariableResults(r, variableExpansionFor(modelStore.model as never)),
+  (e) => collapseVariableEnvelope(e, variableExpansionFor(modelStore.model as never)),
+);
 
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();

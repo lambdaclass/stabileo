@@ -1,6 +1,7 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
@@ -1958,6 +1959,8 @@ setAdvancedGuards({
 
 /** Post-solve 3D result enrichment: shell stresses + helper-node pruning. */
 function finalizeSolve3DResults(results: AnalysisResults3D, model: ModelData): AnalysisResults3D {
+  // Variable members first, while their interior nodes are still in the result.
+  results = collapseVariableResults(results, variableExpansionFor(model));
   results = withDeclaredInactive(results, model);
   // PRO-only: post-process shell stresses
   if (model.quads?.size || model.plates?.size) {
@@ -2109,10 +2112,12 @@ function withDeclaredInactive(results: AnalysisResults3D, model: ModelData): Ana
   return off.length ? withZeroRows(results, off) : results;
 }
 
-function withDeclaredInactiveBundle<B extends { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D> }>(b: B | string | null, model: ModelData): B | string | null {
+function withDeclaredInactiveBundle<B extends { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope?: FullEnvelope3D }>(b: B | string | null, model: ModelData): B | string | null {
   if (!b || typeof b === 'string') return b;
-  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, withDeclaredInactive(r, model)]));
-  return { ...b, perCase: map(b.perCase), perCombo: map(b.perCombo) };
+  // Variable members back to one member each, the envelope with them (`variable-members.ts`).
+  const exp = variableExpansionFor(model);
+  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, withDeclaredInactive(collapseVariableResults(r, exp), model)]));
+  return { ...b, perCase: map(b.perCase), perCombo: map(b.perCombo), ...(exp && b.envelope ? { envelope: collapseVariableEnvelope(b.envelope, exp) } : {}) };
 }
 
 export function solveCombinations3D(
@@ -2460,6 +2465,8 @@ function superposedReport(
 export function caseSolverLoads3D(
   model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean,
 ): Map<number, SolverLoad3D[]> {
+  // On the members the solver input has: a variable member's loads are its pieces' (idempotent).
+  model = solvableModel(model);
   const caseLoads = new Map<number, SolverLoad3D[]>();
   for (const lc of loadCases) {
     const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
