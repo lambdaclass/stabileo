@@ -58,4 +58,30 @@ describe('DXF section outline', () => {
     expect(r.parts.filter((p) => p.void)).toHaveLength(1);
     expect(r.parts.find((p) => p.void)!.shape.kind).toBe('polygon');
   });
+
+  it('arcs close a loop with the lines they meet', () => {
+    const arc = (x: number, y: number, r: number, a0: number, a1: number) =>
+      ['0', 'ARC', '8', '0', '10', `${x}`, '20', `${y}`, '30', '0', '40', `${r}`, '50', `${a0}`, '51', `${a1}`].join('\n');
+    // A half disc of radius 100 mm: the diameter as a line, the curve as an arc.
+    const r = dxfSectionParts(dxf(line(-100, 0, 100, 0), arc(0, 0, 100, 0, 180)), 'mm');
+    expect(r.loops).toBe(1);
+    expect(r.open).toBe(0);
+    const asm = assembleDrawn({ version: 1, parts: r.parts }, () => null);
+    const want = (Math.PI * 0.1 ** 2) / 2;
+    expect(Math.abs(areaOf(asm.pieces) - want) / want).toBeLessThan(3e-3);
+  });
+
+  it('closed polylines that share an edge are both read', () => {
+    const lw = (pts: Array<[number, number]>) =>
+      ['0', 'LWPOLYLINE', '8', '0', '90', `${pts.length}`, '70', '1', ...pts.flatMap(([x, y]) => ['10', `${x}`, '20', `${y}`])].join('\n');
+    const r = dxfSectionParts(dxf(lw([[0, 0], [100, 0], [100, 50], [0, 50]]), lw([[0, 50], [100, 50], [100, 100], [0, 100]])), 'mm');
+    expect(r.loops).toBe(2);
+    expect(r.parts.filter((p) => p.void)).toHaveLength(0);
+  });
+
+  it('a file that is not a DXF says so, rather than reporting no outlines', () => {
+    const r = dxfSectionParts('this is not a drawing', 'mm');
+    expect(r.parts).toEqual([]);
+    expect(r.problem).toBe('parseError');
+  });
 });

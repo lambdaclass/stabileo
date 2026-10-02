@@ -49,26 +49,26 @@
     };
 
     // Extract load descriptions from model
-    const loads = modelStore.loads.map((l, i) => {
+    const loads = modelStore.loads.map((l) => {
       const d = l.data as any;
       let description = '';
       let caseLabel = modelStore.getLoadCaseName(d.caseId ?? 1) || undefined;
-      if (l.type === 'nodal' || l.type === 'nodal3d') {
-        const parts: string[] = [];
-        if (d.fx) parts.push(`Fx=${d.fx} kN`);
-        if (d.fy) parts.push(`Fy=${d.fy} kN`);
-        if (d.fz) parts.push(`Fz=${d.fz} kN`);
-        // `||` (not `??`) so a present-but-zero component falls through to the
-        // axis that actually carries the moment (e.g. my=0, mz=5 → M=5).
-        if (d.my || d.mz) parts.push(`M=${d.my || d.mz} kN·m`);
-        description = `${t('table.nodeLabel')} ${d.nodeId}: ${parts.join(', ') || t('calcReport.loadZero')}`;
-      } else if (l.type === 'distributed' || l.type === 'distributed3d') {
-        // A distributed load stores its magnitude on whichever axis it acts;
-        // the off-axis fields can be present as 0. Use `||` so a 0 on one axis
-        // doesn't shadow the real value on another (qZI=0, qYI=5 → q=5).
-        const qI = d.qI ?? (d.qZI || d.qYI || 0);
-        const qJ = d.qJ ?? (d.qZJ || d.qYJ || 0);
-        description = `${t('table.elemLabel')} ${d.elementId}: q=${qI}→${qJ} kN/m`;
+      // Every non-zero component, named by its axis, to four significant figures. The 3D forms
+      // used to show one moment (my or mz, without saying which) and one line load (qZ or qY).
+      const num = (v: number) => { const r = +Number(v).toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
+      const named = (comps: Array<[string, number | undefined, string]>) =>
+        comps.filter(([, v]) => v !== undefined && Math.abs(v) > 1e-12).map(([k, v, u]) => `${k}=${num(v!)} ${u}`).join(', ');
+      if (l.type === 'nodal') {
+        description = `${t('table.nodeLabel')} ${d.nodeId}: ${named([['Fx', d.fx, 'kN'], ['Fy', d.fy, 'kN'], ['M', d.mz, 'kN·m']]) || t('calcReport.loadZero')}`;
+      } else if (l.type === 'nodal3d') {
+        description = `${t('table.nodeLabel')} ${d.nodeId}: ${named([['Fx', d.fx, 'kN'], ['Fy', d.fy, 'kN'], ['Fz', d.fz, 'kN'], ['Mx', d.mx, 'kN·m'], ['My', d.my, 'kN·m'], ['Mz', d.mz, 'kN·m']]) || t('calcReport.loadZero')}`;
+      } else if (l.type === 'distributed') {
+        description = `${t('table.elemLabel')} ${d.elementId}: q=${num(d.qI)}→${num(d.qJ)} kN/m`;
+      } else if (l.type === 'distributed3d') {
+        const ax = d.frame === 'global' || d.frame === 'projected' ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
+        const pair = (k: string, i: number | undefined, j: number | undefined): Array<[string, number | undefined, string]> =>
+          (i || j) ? [[`q${k}`, i ?? 0, `→ ${num(j ?? i ?? 0)} kN/m`]] : [];
+        description = `${t('table.elemLabel')} ${d.elementId}: ${named([...pair(ax[0]!, d.qXI, d.qXJ), ...pair(ax[1]!, d.qYI, d.qYJ), ...pair(ax[2]!, d.qZI, d.qZJ)]) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${tp('calcReport.pointAt', { p: d.p, a: d.a })}`;
       } else if (l.type === 'thermal') {

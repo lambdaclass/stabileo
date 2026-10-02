@@ -268,7 +268,9 @@ function drawnTorsion(sec: Section, solve: boolean, digest: string): { j: number
   if (!solve) {
     return sec.j != null && sec.j > 0 ? { j: sec.j, jProvenance: 'saintVenant' } : { j: null, jProvenance: 'unavailable' };
   }
-  const key = `drawn:${digest}`;
+  // The ratios of the parts' materials belong in the key: the geometry digest has none, so a
+  // material's E or ν edited after the section was drawn kept the J of the old ratios.
+  const key = `drawn:${digest}:${sec.drawn!.parts.map((p) => (p.ratio ? `${p.ratio.e},${p.ratio.g}` : '1')).join(';')}`;
   let j = torsionJCache.get(key);
   if (j === undefined) {
     try {

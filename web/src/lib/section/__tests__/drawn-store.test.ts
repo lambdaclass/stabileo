@@ -12,6 +12,7 @@ import { sectionStressModel } from '../../engine/member-stresses';
 import { modelToCode, codeToModel } from '../../model/code/format';
 import { hasCanonicalGeometryExport } from '../../engine/wasm-solver';
 import { starterParts } from '../drawn-starters';
+import { sectionShearAreas } from '../shear-areas';
 import type { DrawnSection } from '../drawn';
 
 const d = hasCanonicalGeometryExport() ? describe : describe.skip;
@@ -74,6 +75,34 @@ d('drawn sections in the model', () => {
     const r = model(-1000, 0, 0);
     expect(r.min).toBeCloseTo(-1000 / sec.a / 1000, 9);
     expect(r.max).toBeCloseTo((n * -1000) / sec.a / 1000, 9);
+  });
+
+  it('a drawn section on the geometric basis shears with the areas of its own outline', () => {
+    const drawn: DrawnSection = { version: 1, parts: starterParts('doubleAngle', catalogueOutline) };
+    const sec = { ...toSectionFields(choiceOf(drawn), 0)!, id: 1, shearAreas: { basis: 'geometry' } } as never;
+    const sa = sectionShearAreas(sec)!;
+    const p = analyzeDrawn(drawn, catalogueOutline).properties!;
+    // Two separate angles are two pieces: no single shear-flow solve, so no area at all.
+    expect(p.shearAreas).toBeNull();
+    expect(sa).toBeNull();
+    const one: DrawnSection = { version: 1, parts: starterParts('lippedC', catalogueOutline) };
+    const c = sectionShearAreas({ ...toSectionFields(choiceOf(one), 0)!, id: 2, shearAreas: { basis: 'geometry' } } as never)!;
+    const pc = analyzeDrawn(one, catalogueOutline).properties!;
+    expect(c.asY).toBeCloseTo(pc.shearAreas!.asY, 12);
+    // The web carries the shear along the depth: about h·t, and well short of the whole area.
+    expect(c.asY / (0.2 * 0.002)).toBeGreaterThan(0.7);
+    expect(c.asY).toBeLessThan(pc.a);
+  });
+
+  it('a filled tube twists with the tube and the core each at its own G', () => {
+    const steel = modelStore.materials.values().next().value!;
+    const n = 0.12;
+    const parts = starterParts('filledTube', catalogueOutline).map((p) => (p.id === 2 ? { ...p, materialId: steel.id + 99, ratio: { e: n, g: n } } : p));
+    const p = analyzeDrawn({ version: 1, parts, refMaterialId: steel.id }, catalogueOutline).properties!;
+    const d0 = 0.2191, di = d0 - 2 * 0.0063;
+    // For concentric circles J is the polar moment, so the homogenised J is exact.
+    const expected = (Math.PI / 32) * (d0 ** 4 - di ** 4) + n * (Math.PI / 32) * di ** 4;
+    expect(Math.abs(p.j! - expected) / expected).toBeLessThan(5e-3);
   });
 
   it('the model code carries the parts and reads them back', () => {

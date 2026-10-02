@@ -112,3 +112,41 @@ export function numericOrKeep(
   const parsed = parseNumericInput(raw, rules);
   return parsed.kind === 'value' ? parsed.value : previous;
 }
+
+/**
+ * A decimal number as people type and paste it: a comma or a point for the decimals, and
+ * thousands grouped by the other one. Null when it is not a number or cannot be read without
+ * guessing.
+ *
+ * It replaces `parseFloat(s.replace(',', '.'))`, which read only the first comma and stopped at
+ * the next separator: "1,234.5" became 1.234 and "6,123,456.78" became 6.123, with no error.
+ *
+ *   "1,5" · "1.5"                → 1.5
+ *   "1,234.5" · "1.234,5"        → 1234.5 (the last separator is the decimal one, the other groups by three)
+ *   "1,234,567" · "1.234.567"    → 1234567 (one separator, repeated in groups of three)
+ *   "1,23,4" · "1.2.3" · "1,2.3" → null
+ */
+export function parseDecimal(raw: string): number | null {
+  const s = raw.trim().replace(/\s+/g, '');
+  if (s === '') return null;
+  const commas = (s.match(/,/g) ?? []).length, points = (s.match(/\./g) ?? []).length;
+  const grouped = (body: string, sep: string) => new RegExp(`^[+-]?\\d{1,3}(\\${sep}\\d{3})+$`).test(body);
+  let clean: string;
+  if (commas > 0 && points > 0) {
+    const last = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+    const dec = s[last]!, group = dec === ',' ? '.' : ',';
+    if ((dec === ',' ? commas : points) !== 1) return null;
+    const intPart = s.slice(0, last);
+    if (!grouped(intPart, group)) return null;
+    clean = intPart.split(group).join('') + '.' + s.slice(last + 1);
+  } else if (commas > 1 || points > 1) {
+    const sep = commas > 1 ? ',' : '.';
+    if (!grouped(s, sep)) return null;
+    clean = s.split(sep).join('');
+  } else {
+    clean = s.replace(',', '.');
+  }
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(clean)) return null;
+  const v = Number(clean);
+  return Number.isFinite(v) ? v : null;
+}

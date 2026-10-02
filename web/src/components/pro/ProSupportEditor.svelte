@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * One editor for everything a support holds: which degrees of freedom are fixed, a spring on
    * the free ones, a multilinear curve where a spring is not linear, and an inclined plane.
@@ -42,16 +43,20 @@
     modelStore.updateSupport(support.id, { dofRestraints: { ...restraints, [key]: v } });
   }
   function setSpring(k: string, v: string) {
-    modelStore.updateSupport(support.id, { [k]: parseFloat(v.replace(',', '.')) || 0 } as never);
+    // Empty clears the spring; text that is not a number changes nothing (it used to become 0).
+    const n = v.trim() === '' ? 0 : parseDecimal(v);
+    if (n === null) return;
+    modelStore.updateSupport(support.id, { [k]: n } as never);
   }
 
   /** "d F; d F" in mm and kN, as typed. */
   const curveText = (c: 'x' | 'y' | 'z') =>
-    (support.curves?.[c] ?? []).map(([d, f]) => `${+(d * 1000).toFixed(3)} ${+f.toFixed(3)}`).join('; ');
+    // Full precision: editing one point rewrites the text of all of them, which must not round them.
+    (support.curves?.[c] ?? []).map(([d, f]) => `${+(d * 1000).toPrecision(12)} ${+f.toPrecision(12)}`).join('; ');
   function setCurve(c: 'x' | 'y' | 'z', text: string) {
     const pts: Array<[number, number]> = [];
     for (const part of text.split(';').map((x) => x.trim()).filter(Boolean)) {
-      const [d, f] = part.split(/\s+/).map((x) => Number(x.replace(',', '.')));
+      const [d, f] = part.split(/\s+/).map((x) => parseDecimal(x) ?? NaN);
       if (!(d! > 0) || !Number.isFinite(f)) return;
       pts.push([d! / 1000, f!]);
     }
@@ -85,7 +90,8 @@
     <tbody>
       {#each DOF as d (d.key)}
         <tr>
-          <td class="se-dof">{d.label}</td>
+          <!-- The spring's unit beside its DOF: as a placeholder it went away once a value was typed. -->
+          <td class="se-dof">{d.label} <span class="se-unit">{d.unit}</span></td>
           <td><input type="checkbox" checked={fixed(d.key)} disabled={!isCustom} title={isCustom ? '' : t('support.fixedByType')}
             onchange={(e) => setFixed(d.key, e.currentTarget.checked)} data-testid="sup-fix-{support.id}-{d.key}" aria-label="{t('support.fixed')} {d.label}" /></td>
           <td>
@@ -128,4 +134,5 @@
   .se-mono { font-family: var(--st-mono); }
   .se-hint { margin: 0; color: var(--st-text-3); font-size: 0.6rem; }
   button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
+  .se-unit { color: var(--st-text-3); font-size: 0.58rem; white-space: nowrap; }
 </style>

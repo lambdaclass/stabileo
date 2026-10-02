@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * PRO's double-click editor: what Basic's node and member cards offer, in PRO's terms, and a
    * card for shells, which Basic does not have.
@@ -46,7 +47,7 @@
       : '',
   );
 
-  const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const num = (v: string) => parseDecimal(v);
   const AXIAL_LABEL: Record<Axial, string> = {
     frame: 'spec.axial.frame', truss: 'spec.axial.truss', tensionOnly: 'behaviour.tensionOnly',
     compressionOnly: 'behaviour.compressionOnly', cable: 'spec.axial.cable', inactive: 'behaviour.inactive',

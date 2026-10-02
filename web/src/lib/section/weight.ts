@@ -8,6 +8,20 @@ type WeightSection = { a: number; drawn?: DrawnSection };
  * stiffness; weight must instead integrate each material's real area after unions and holes.
  * The cache belongs to one calculation, so density/geometry edits are read on the next run.
  */
+/**
+ * Each material's real area of a drawn section, after unions and holes, m²: a part with no
+ * material of its own is the reference's when the section has one, else the member's. The one
+ * rule weight and quantities both read.
+ */
+export function drawnMaterialAreas(drawn: DrawnSection, memberMaterialId: number): Array<{ materialId: number; area: number }> {
+  const assembled = assembleDrawn(drawn, catalogueOutline);
+  if (assembled.issues.some((i) => i.severity === 'error') || assembled.regions.length === 0) {
+    throw new Error('Section weight: invalid drawn geometry');
+  }
+  const reference = drawn.refMaterialId ?? memberMaterialId;
+  return assembled.regions.map((r) => ({ materialId: r.materialId ?? reference, area: areaOf(r.region) }));
+}
+
 export function createSectionWeight(materials: ReadonlyMap<number, { rho: number }>) {
   const areas = new Map<DrawnSection, Array<{ materialId: number | null; area: number }>>();
   return (section: WeightSection, memberMaterialId: number): number => {

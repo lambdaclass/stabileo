@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, resultsStore } from '../../lib/store';
+  import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import {
     loadFile, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel,
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
@@ -119,11 +119,26 @@
     };
   });
 
+  /*
+   * The link's length, measured ahead of the click so the button can say it has none, as PRO's
+   * does. Measured a moment after the model stops changing rather than on every change: encoding
+   * the model is a full pass over it, and a drag changes it on every frame.
+   */
+  let linkLength = $state<number | null>(null);
+  $effect(() => {
+    void modelStore.modelVersion;
+    const id = setTimeout(() => { linkLength = generateShareURL()?.length ?? null; }, 400);
+    return () => clearTimeout(id);
+  });
+  const linkTooLong = $derived(linkLength != null && linkLength > MAX_URL_SAFE);
+
   async function handleCopyShareLink() {
     const result = generateShareURL();
     if (!result) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
     if (result.length > MAX_URL_SAFE) {
-      uiStore.toast(t('project.longLink').replace('{n}', String(result.length)), 'info');
+      linkLength = result.length;
+      uiStore.toast(t('project.linkTooLongFile').replace('{n}', String(result.length)), 'info');
+      return;
     }
     await navigator.clipboard.writeText(result.url);
     uiStore.toast(t('project.linkCopied'), 'success');
@@ -185,14 +200,18 @@
     <!-- A testid, because the LABEL is what changed here: "Copiar enlace" became
          "Compartir link" when this moved up beside Abrir, and a spec filtering on
          the old text stopped finding the button it had always pressed. -->
-    <button
-      class="file-btn"
-      data-testid="project-share-link"
-      onclick={handleCopyShareLink}
-      title={t('project.copyLinkTooltip')}
-    >
-      {t('project.shareLink')}
-    </button>
+    <!-- The title sits on a wrapper: a disabled button takes no pointer, so its own would never show. -->
+    <span class="share-wrap" class:blocked={linkTooLong} title={linkTooLong ? t('project.linkTooLongFile').replace('{n}', String(linkLength)) : t('project.copyLinkTooltip')} data-testid="project-share-link-wrap">
+      <button
+        class="file-btn"
+        data-testid="project-share-link"
+        onclick={handleCopyShareLink}
+        disabled={linkTooLong}
+        aria-label={linkTooLong ? t('project.linkTooLongFile').replace('{n}', String(linkLength)) : undefined}
+      >
+        {t('project.shareLink')}
+      </button>
+    </span>
   </div>
 
   {#if showSave}
@@ -597,6 +616,10 @@
   }
 
   .file-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .share-wrap { display: flex; }
+  .share-wrap.blocked { cursor: not-allowed; }
+  .share-wrap > .file-btn { flex: 1; }
+  .share-wrap > .file-btn:disabled { pointer-events: none; }
 
   /* Section headings, matching every other heading in the right panel. */
   .proj-heading {

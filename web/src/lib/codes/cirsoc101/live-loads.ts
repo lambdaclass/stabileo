@@ -153,9 +153,9 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   e('cubierta_usual', 'roof', 1.0),
   e('cubierta_jardin', 'roof', 5.0),
   e('cubierta_toldos', 'roof', 0.25, null,
-    { seeArticle: 'no reducible' }),
+    { seeArticle: 'no reducible', noReduction: true }),
   e('cubierta_cerramiento', 'roof', 0.25, 1.0,
-    { seeArticle: 'no reducible' }),
+    { seeArticle: 'no reducible', noReduction: true }),
   e('cubierta_otras', 'roof', 1.0),
 
   // Depósitos
@@ -368,13 +368,3 @@ export function reduceLiveLoad(inputs: ReductionInputs): ReductionResult {
   };
 }
 
-// ─── §4.8 minimum roof imposed loads ─────────────────────────────
-
-/**
- * §4.8.1 — roofs inaccessible except for maintenance carry a minimum ordinary imposed
- * load of 1,0 kN/m² (Table 4.1, "cubiertas de techo … usuales").
- */
-export const ROOF_MIN_KNM2 = 1.0;
-
-export const ROOF_MIN_REF = clause('cirsoc-101', '2025', '4.8.1',
-  'cubiertas inaccesibles salvo con fines de mantenimiento');

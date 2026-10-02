@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * The catalogue as a table: every column the property card has, for every profile of the
    * chosen families, sortable by any of them and exportable.
@@ -58,7 +59,7 @@
     return first ? UNIT[first.unit] ?? first.unit : '';
   };
   const fmt = (v: number | null) =>
-    v == null ? '—' : v.toLocaleString(undefined, { maximumFractionDigits: v >= 100 ? 0 : v >= 10 ? 1 : 2 });
+    v == null ? '—' : plainNumber(v, v >= 100 ? 0 : v >= 10 ? 1 : 2);
 
   function sortBy(k: PropertyKey | 'name') {
     if (sortKey === k) ascending = !ascending;

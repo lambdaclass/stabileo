@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
+  import { plainNumber } from '../../lib/utils/units';
   import PickKind from './PickKind.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
@@ -298,17 +300,17 @@
     uiStore.toast(`${toAdd.length} ${label}`, 'success');
   }
 
+  /** The stored value, whole: two decimals showed 0,004 kN as 0,00 in a cell that edits it. */
   function fmtNum(n: number): string {
-    if (n === 0) return '0';
-    return n.toFixed(2);
+    return plainNumber(n, 6);
   }
 
   /** Parse a user-entered numeric string, tolerating a comma decimal separator
    *  (es/de/fr keyboards) so "1,5" becomes 1.5 instead of being truncated to 1
    *  by parseFloat. Returns `fallback` for empty/invalid input. */
   function parseNum(value: string, fallback = 0): number {
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) ? n : fallback;
+    // One reader for the whole app: a comma or a point, thousands grouped by the other.
+    return parseDecimal(String(value)) ?? fallback;
   }
 
   /*
@@ -521,7 +523,7 @@
     {#if nodalLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.nodalLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Nodo</th><th>Fx</th><th>Fy</th><th>Fz</th><th>Mx</th><th>My</th><th>Mz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Nodo</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th><th></th></tr></thead>
         <tbody>
           {#each nodalLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -543,7 +545,7 @@
     {#if distLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.distLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i (kN/m)</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -573,7 +575,7 @@
     {#if pointLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py (kN)</th><th>Pz (kN)</th><th></th></tr></thead>
         <tbody>
           {#each pointLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -609,7 +611,7 @@
     {#if thermalQuadLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')}</th><th>{t('pro.dtGradient')}</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')} (°C)</th><th>{t('pro.dtGradient')} (°C)</th><th></th></tr></thead>
         <tbody>
           {#each thermalQuadLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>

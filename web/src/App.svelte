@@ -339,7 +339,9 @@
        */
       const { locale, path } = parsePublicPath(redirectedRoute.split('?')[0]);
       const normalised = locale ? publicHref(path, locale) : redirectedRoute;
-      history.replaceState(null, '', normalised);
+      // 404.html keeps the fragment out of `route` (a shared model's `#data=` is too long for
+      // the host's request line), so it is still on this address and goes back after the path.
+      history.replaceState(null, '', normalised + (redirectedRoute.includes('#') ? '' : location.hash));
     }
   }
 

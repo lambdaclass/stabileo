@@ -6,16 +6,18 @@
 import { snowLoadCases } from './snow-loads';
 import { msg, round } from '../../codes/message';
 import type { LoadPlanInput, PlanSink } from './load-plan';
+import type { GravityLayout } from './plan-gravity';
 
 /** The alternatives group of the snow patterns the planner generates for one roof. */
 export const SNOW_PATTERNS = 'snow-roof';
 
-export function planSnow(input: LoadPlanInput, sink: PlanSink): boolean {
+/** With `layout`, the snow goes by the plan's panels, with the drifts and sliding snow (`snow-loads.ts`). */
+export function planSnow(input: LoadPlanInput, sink: PlanSink, layout?: GravityLayout): boolean {
   const { cases, nodal, distributed, derivation, refs, unsupportedKeys, blockedKeys } = sink;
   let snowPlanned = false;
   if (input.snow?.enabled) {
     const sn = input.snow;
-    const out = snowLoadCases({ model: input.model, snow: sn, tributaryWidth: input.tributaryWidth });
+    const out = snowLoadCases({ model: input.model, snow: sn, tributaryWidth: input.tributaryWidth, layout });
     if (!out) {
       unsupportedKeys.push(msg('snow.note.noRoof'));
     } else if (out.result.refused) {
@@ -39,13 +41,16 @@ export function planSnow(input: LoadPlanInput, sink: PlanSink): boolean {
         }));
       }
       if ((sn.roofSlopeDeg ?? out.geometry.slopeDeg) < 1.2) unsupportedKeys.push(msg('snow.note.ponding'));
-      unsupportedKeys.push(msg('snow.note.notCovered'));
+      derivation.push(...out.derivation);
+      refs.push(...out.refs);
+      // Drifts and sliding snow are read off the panels; by width there are none to read.
+      unsupportedKeys.push(msg(layout ? 'snow.note.notCoveredPanels' : 'snow.note.notCovered'));
       // Balanced and unbalanced are the same snow on the same roof, three ways: alternatives.
       const alternatives = out.cases.length > 1 ? SNOW_PATTERNS : undefined;
       for (const c of out.cases) {
         const index = cases.length;
-        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}) });
-        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'S', caseIndex: index, q: d.q });
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) });
+        for (const d of c.distributed) distributed.push({ ...d, caseType: 'S', caseIndex: index });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
         snowPlanned = true;
       }

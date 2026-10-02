@@ -31,6 +31,7 @@
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
+import { memberMeanArea } from '../../section/variable';
 import {
   generateCombinations, liveLoadFactorInCompanion,
   type CombinationInputs, type LoadCombinationSpec, type LoadSymbol,
@@ -44,12 +45,19 @@ import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc1
 import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
+import { gravityLayout } from './plan-gravity';
+import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
+import type { OtherStructure } from './wind-other';
+import { modalStoryForces, type ModeShape } from './seismic-modal';
+import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
+import { planAreaLoads, type RoofLoads } from './plan-area-loads';
+import type { RoofWeight } from '../../codes/cirsoc101/roof-live';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
 import {
-  designSpectrum, isBlocked, SIMULTANEITY_F1,
+  designSpectrum, isBlocked, spectralOrdinate, SIMULTANEITY_F1,
   type DestinationGroup, type OccupancyProbability,
   type SeismicZone, type SiteClass,
 } from '../../codes/cirsoc103/spectrum';
@@ -69,8 +77,10 @@ import type { DrawnSection } from '../../section/drawn';
 
 export interface LoadModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>;
+  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
+  /** Quads, for a floor drawn as a slab of shells (`plan-gravity.ts`). */
+  quads?: Map<number, { id: number; nodes: number[] }>;
   materials: Map<number, { id: number; rho: number }>;
   loadCases: Array<{ id: number; type: string; name: string }>;
 }
@@ -120,6 +130,26 @@ export interface LoadPlanInput {
   occupancyKey: string;
   /** Tributary width used to convert area loads to line loads on beams, m. */
   tributaryWidth: number;
+  /**
+   * How area loads reach the structure (`plan-gravity.ts`): by the real tributary area of the
+   * panels the beams close, or with `tributaryWidth` on every beam. Absent: the width.
+   */
+  gravity?: { mode: 'panels' | 'width'; slab?: 'twoWay' | 'oneWay'; spanAxis?: 'x' | 'y' };
+  /**
+   * The roof's own loads (`plan-area-loads.ts`): its superimposed dead load and either the roof
+   * live load Lr of §4.8.1 (`maintenance`) or the live load of an occupancy (`occupancy`, §4.8.2).
+   * Absent: roofs are loaded as floors.
+   */
+  roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
+  /**
+   * Partial live loading of §4.3.3 (`plan-area-loads.ts`): L and Lr also as two checkerboards and,
+   * with `all`, on the spans each side of every interior grid line. `true` is the checkerboard.
+   */
+  patterns?: boolean | 'none' | 'checkerboard' | 'all';
+  /** T, H and F (`special-loads.ts`). `soil.permanent`: the soil's pressure is permanent (§2.3.2's 0,9). */
+  thermal?: ThermalInput;
+  soil?: SoilInput & { permanent?: boolean };
+  fluid?: FluidInput;
   /** Element kind for the §4.7.2 live-load reduction. */
   reductionElementKind: ElementKind;
   /** Floors the reduced member supports, for the 0,5/0,4 Lo floor. */
@@ -148,6 +178,8 @@ export interface LoadPlanInput {
     senses?: WindDirection[];
     /** Service-level wind Wa (B.4.2): the 50-year speed and the recurrence to convert it to. */
     service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
+    /** What the structure is, when not a closed building (`wind-other.ts`). Absent: a building. */
+    structure?: { kind: 'building' } | OtherStructure;
   };
   /** CIRSOC 104-2005 roof snow (`snow-loads.ts`). */
   snow?: {
@@ -160,10 +192,14 @@ export interface LoadPlanInput {
     exposure: RoofExposure;
     thermal: ThermalCondition;
     category: SnowCategory;
-    roofKind: 'mono' | 'gable';
+    roofKind: 'mono' | 'gable' | 'curved' | 'multiple' | 'dome';
     slippery: boolean;
     /** The roof slope, degrees; absent: read from the roof members. */
     roofSlopeDeg?: number;
+    /** The partial loads of Cap. 5 (default on), parapets (Cap. 8) and separate structures (§7.2). */
+    partial?: boolean;
+    parapet?: { height: number };
+    adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
   };
   seismic?: {
     enabled: boolean;
@@ -185,6 +221,17 @@ export interface LoadPlanInput {
     /** Fraction of the imposed load in the seismic weight; null → recorded assumption. */
     liveParticipation: number | null;
     directions: { x: boolean; y: boolean };
+    /**
+     * The modal response spectrum method (Cap. 7, `seismic-modal.ts`): the model's modes, for
+     * the forces per level in place of the static distribution. Needs the code path.
+     */
+    modal?: { modes: ModeShape[] };
+    /** E = EH ± EV with EV = (Ca/2)·γr·D (§3.5.2, [3.18]), as the D factor of each seismic combination. */
+    vertical?: boolean;
+    /** Tabla 6.3: the accidental eccentricity by torsional irregularity (§6.2.4.2). */
+    torsion?: TorsionalIrregularity;
+    /** §3.2: also at 45°, for lateral systems not in two perpendicular directions. */
+    diagonal?: boolean;
   };
   generateCombinations: boolean;
   /**
@@ -214,12 +261,14 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 export interface PlannedCase {
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
-  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E';
+  type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E' | 'T' | 'H' | 'F';
   /** i18n key for the case name. */
   nameKey: string;
   nameParams?: Record<string, string | number>;
   /** Patterns of one action, taken one at a time in a combination (see LoadCase.alternatives). */
   alternatives?: string;
+  /** An arrangement over part of the structure (see LoadCase.pattern). */
+  pattern?: boolean;
 }
 
 export interface PlannedDistributed {
@@ -227,7 +276,26 @@ export interface PlannedDistributed {
   caseType: PlannedCase['type'];
   /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
   caseIndex?: number;
-  /** Local-z line load, kN/m, negative downward. */
+  /**
+   * Line load, kN/m, negative downward: along local z by default, along global Z per metre of
+   * member (`global`) or per metre of horizontal projection (`projected`) when `frame` says so.
+   * `qJ` and the stretch [a, b] from node I when it is not uniform over the whole member.
+   */
+  q: number;
+  qJ?: number;
+  a?: number;
+  b?: number;
+  frame?: 'local' | 'global' | 'projected';
+  /** With a global frame, the X and Y components, kN/m, uniform. */
+  qX?: number;
+  qY?: number;
+}
+
+/** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
+export interface PlannedSurface {
+  quadId: number;
+  caseType: PlannedCase['type'];
+  caseIndex?: number;
   q: number;
 }
 
@@ -299,6 +367,9 @@ export interface LoadPlan {
   cases: PlannedCase[];
   distributed: PlannedDistributed[];
   nodal: PlannedNodal[];
+  surface: PlannedSurface[];
+  /** Temperature on members and shells, case T. */
+  thermal: Array<{ elementId?: number; quadId?: number; dtUniform: number; dtGradient: number }>;
   combinations: LoadCombinationSpec[];
   /** Provenanced scalars for the report's basis-of-calculation block. */
   factors: {
@@ -323,6 +394,10 @@ export interface LoadPlan {
 }
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
+
+/** The alternatives groups of the live load and roof live load with their checkerboards (§4.3.3). */
+export const LIVE_PATTERNS = 'live-patterns';
+export const ROOF_LIVE_PATTERNS = 'roof-live-patterns';
 
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
@@ -364,26 +439,15 @@ function selfWeightByLevel(
     const mat = model.materials.get(el.materialId);
     if (!nI || !nJ || !sec || !mat || !(sec.a > 0)) { skipped++; continue; }
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
-    const w = sectionWeight(sec, el.materialId) * L;
+    // A member of variable section weighs its mean area along it (`section/variable.ts`).
+    const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
+    const w = sectionWeight(sec, el.materialId) * L * meanRatio;
     for (const id of [el.nodeI, el.nodeJ]) {
       const lv = levelOfNode.get(id);
       if (lv !== undefined) weights[lv] += w / 2;
     }
   }
   return { weights, skipped };
-}
-
-/** True when a member is close enough to horizontal to carry an area load. */
-function isBeamLike(
-  model: LoadModelData, el: { nodeI: number; nodeJ: number },
-): { ok: boolean; length: number } {
-  const nI = model.nodes.get(el.nodeI);
-  const nJ = model.nodes.get(el.nodeJ);
-  if (!nI || !nJ) return { ok: false, length: 0 };
-  const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = elevationOf(nJ) - elevationOf(nI);
-  const L = Math.hypot(dx, dy, dz);
-  if (L < 0.01) return { ok: false, length: 0 };
-  return { ok: Math.abs(dz) / L <= 0.5, length: L };
 }
 
 function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
@@ -425,7 +489,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
 
   const empty: LoadPlan = {
-    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], combinations: [],
+    outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], thermal: [], combinations: [],
     factors: {
       occupancy: fromProject(0, 'kN/m²'),
       liveReduced: fromProject(0, 'kN/m²'),
@@ -481,6 +545,8 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       // *passenger* garage, and §4.7.4's 20 % applies only to passenger vehicles.
       passengerGarage: occ.assemblyKind === 'passengerGarage',
       publicAssembly: occ.assemblyKind === 'publicAssembly',
+      // Table 4.1 note (a) and the rows printed "(No se puede reducir)".
+      noReduction: occ.noReduction === true,
     });
     liveDesign = red.lKNm2;
     refs.push(...red.refs);
@@ -495,16 +561,84 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     { existingId: findCase(input.model, 'L'), type: 'L', nameKey: 'autoLoad.liveCase' },
   ];
 
-  // ── Distributed dead + live on beam-like members ──
-  const distributed: PlannedDistributed[] = [];
-  for (const el of input.model.elements.values()) {
-    const { ok } = isBeamLike(input.model, el);
-    if (!ok) continue;
-    const qDead = -deadTotal * input.tributaryWidth;
-    const qLive = -liveDesign * input.tributaryWidth;
-    if (Math.abs(qDead) > 1e-3) distributed.push({ elementId: el.id, caseType: 'D', q: qDead });
-    if (Math.abs(qLive) > 1e-3) distributed.push({ elementId: el.id, caseType: 'L', q: qLive });
+  // ── Dead, live and roof live, where the area loads go (`plan-gravity.ts`, `plan-area-loads.ts`) ──
+  const panelMode = input.gravity?.mode === 'panels';
+  const layout = gravityLayout(input.model, {
+    mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis,
+    tributaryWidth: input.tributaryWidth,
+  });
+  derivation.push(...layout.notes);
+  /** The design live load of a member for an occupancy: by its own tributary area in panel mode. */
+  const reducedFor = (entry: OccupancyEntry, loKNm2: number, uniform: number, areas: Map<number, number>) => (elementId: number): number => {
+    if (!input.applyLiveReduction) return loKNm2;
+    if (!panelMode) return uniform;
+    return reduceLiveLoad({
+      loKNm2, tributaryAreaM2: areas.get(elementId) ?? 0, elementKind: input.reductionElementKind,
+      floorsSupported: input.floorsSupported,
+      passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',
+      noReduction: entry.noReduction === true,
+    }).lKNm2;
+  };
+  // Without roof settings a roof is a floor: its area counts as floor area.
+  const floorAreas = input.roof ? layout.areaOf : new Map([...layout.areaOf].map(([id, a]) => [id, a + (layout.roofAreaOf.get(id) ?? 0)]));
+  for (const [id, a] of layout.roofAreaOf) if (!input.roof && !floorAreas.has(id)) floorAreas.set(id, a);
+  const liveOf = reducedFor(occ, lo, liveDesign, floorAreas);
+  if (input.applyLiveReduction && panelMode) {
+    const ls = [...floorAreas.keys()].map(liveOf);
+    if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
+  let roofLoads: RoofLoads | undefined;
+  if (input.roof) {
+    const r = input.roof;
+    const slopePercent = Math.tan((r.slopeDeg * Math.PI) / 180) * 100;
+    if (r.use === 'occupancy') {
+      const roofOcc = findOccupancy(r.occupancyKey ?? '');
+      if (!roofOcc || roofOcc.uniformKNm2 === null) {
+        blockedKeys.push(msg('loadPlan.blocked.unknownOccupancy', { key: r.occupancyKey ?? '' }));
+        return { ...empty, blockedKeys };
+      }
+      const rlo = roofOcc.uniformKNm2;
+      refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
+      const uniform = input.applyLiveReduction
+        ? reduceLiveLoad({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
+            passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
+            noReduction: roofOcc.noReduction === true }).lKNm2
+        : rlo;
+      roofLoads = { dead: r.dead, use: 'occupancy', weight: r.weight, slopePercent, lo: rlo, liveOf: reducedFor(roofOcc, rlo, uniform, layout.roofAreaOf) };
+      derivation.push(msg('loadPlan.derivation.roofOccupancy', { occupancy: msg(roofOcc.labelKey), lo: rlo, dead: round(r.dead, 3), n: layout.roof.size }));
+    } else {
+      roofLoads = { dead: r.dead, use: 'maintenance', weight: r.weight, slopePercent };
+      derivation.push(msg('loadPlan.derivation.roofDead', { dead: round(r.dead, 3), n: layout.roof.size + layout.roofQuads.size }));
+    }
+  }
+  const area = planAreaLoads({
+    layout, tributaryWidth: input.tributaryWidth, legacyWidth: !panelMode,
+    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
+  });
+  derivation.push(...area.derivation);
+  refs.push(...area.refs);
+  const surface: PlannedSurface[] = area.surface.map((d) => ({ ...d }));
+  if (area.planned.has('Lr')) cases.push({ existingId: findCase(input.model, 'Lr'), type: 'Lr', nameKey: 'autoLoad.roofLiveCase' });
+  // A building that is only a maintenance roof has no L; its case would be empty.
+  if (input.roof && !area.planned.has('L')) cases.splice(cases.findIndex((c) => c.type === 'L'), 1);
+  // The checkerboards, one case each: alternatives to the full load, never added to it.
+  // The full load and its two checkerboards are one action three ways: an alternatives group
+  // (`LoadCase.alternatives`), so a combination takes one of the three.
+  for (const sym of area.arranged) {
+    const full = cases.find((c) => c.type === sym && c.alternatives === undefined);
+    if (full) full.alternatives = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
+  }
+  // One case per arrangement, a pattern of its group: it varies where its action is principal.
+  const arrangementCase = area.arrangements.map((a) => {
+    cases.push({
+      existingId: null, type: a.symbol, pattern: true,
+      nameKey: `autoLoad.${a.symbol === 'L' ? 'liveCase' : 'roofLiveCase'}${a.kind === 'checkerboard' ? 'Pattern' : 'Adjacent'}`,
+      nameParams: a.nameParams, alternatives: a.symbol === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS,
+    });
+    return cases.length - 1;
+  });
+  const distributed: PlannedDistributed[] = area.distributed.map(({ arrangement, ...d }) =>
+    (arrangement !== undefined ? { ...d, caseIndex: arrangementCase[arrangement]! } : d));
 
   // ── Level masses from real geometry ──
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
@@ -537,12 +671,43 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     assumptions.push(participation.assumption!);
   }
 
+  /*
+   * What the area loads add to each level's mass. By area, each member and slab brings the area
+   * it carries, at the dead and live load of the floor or roof it belongs to. By width, the
+   * extent of the level's nodes, at the roof's loads when every member there is a roof member.
+   */
+  const levelIndexOf = (z: number) => {
+    let best = 0;
+    levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
+    return best;
+  };
+  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0, any: false }));
+  if (panelMode) {
+    for (const [areas, m] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
+      for (const [id, a] of areas) {
+        const k = levelIndexOf(layout.zOf.get(id) ?? 0);
+        byArea[k]!.area += a; byArea[k]!.dead += a * m.dead; byArea[k]!.live += a * m.live; byArea[k]!.any = true;
+      }
+    }
+    for (const sq of layout.shellQuads) {
+      const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
+      byArea[k]!.area += sq.area; byArea[k]!.dead += sq.area * m.dead; byArea[k]!.live += sq.area * m.live; byArea[k]!.any = true;
+    }
+  }
+  const roofLevel = (k: number) => {
+    if (!roofLoads) return false;
+    const ids = [...layout.zOf].filter(([, z]) => levelIndexOf(z) === k).map(([id]) => id);
+    return ids.length > 0 && ids.every((id) => layout.roof.has(id));
+  };
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const superimposed = deadTotal * lv.planAreaM2;
-    const liveTotal = lo * lv.planAreaM2;
+    const ba = byArea[i]!;
+    const atRoof = !ba.any && roofLevel(i);
+    const area = ba.any ? ba.area : lv.planAreaM2;
+    const superimposed = ba.any ? ba.dead : (atRoof ? roofLoads!.dead : deadTotal) * area;
+    const liveTotal = ba.any ? ba.live : (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area;
     const liveP = liveTotal * participation.value;
     return {
-      elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: lv.planAreaM2,
+      elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
       selfWeightKN: sw.weights[i], superimposedKN: superimposed,
       liveTotalKN: liveTotal, liveParticipatingKN: liveP,
       weightKN: sw.weights[i] + superimposed + liveP,
@@ -562,7 +727,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   const { windQh } = planWind(input, levels, sink);
 
   // ── Snow (load-plan-snow.ts) ──
-  const snowPlanned = planSnow(input, sink);
+  const snowPlanned = planSnow(input, sink, panelMode ? layout : undefined);
 
   /*
    * ── Seismic ────────────────────────────────────────────────────
@@ -615,8 +780,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
             regularity: code.regularity, t: uncappedT, t2,
           });
           refs.push(...applicability.refs);
+          // With the modal method the static one need not apply (§2.7.3 asks for the modal one
+          // where it does not); it still gives Voe for §7.2.5.
+          const modal = input.seismic.modal && input.seismic.modal.modes.length > 0;
           for (const r of applicability.reasons) {
-            if (r.key.startsWith('seismic.blocked.')) blockedKeys.push(r);
+            if (r.key.startsWith('seismic.blocked.')) (modal ? derivation : blockedKeys).push(r);
             else assumptions.push(r);
           }
 
@@ -626,7 +794,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
             /* Tabla 5.1 row 1 prints a formula on the wall layout, not a value; an
                unknown key is the same hole. Either way there is no R to divide by. */
             blockedKeys.push(msg('loadPlan.blocked.seismicNoR', { system: code.systemKey }));
-          } else if (applicability.allowed) {
+          } else if (applicability.allowed || modal) {
             const coeff = designSeismicCoefficient({
               spectrum, group: code.group, r: R, t: period.t,
             });
@@ -655,25 +823,47 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       refs.push(...dist.refs);
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
+      let forcesX = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
+      let forcesY = forcesX;
 
-      const exIndex = input.seismic.directions.x ? cases.length : -1;
-      if (exIndex >= 0) {
-        cases.push({ existingId: findCase(input.model, 'E', 'X'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' } });
-      }
-      const eyIndex = input.seismic.directions.y ? cases.length : -1;
-      if (eyIndex >= 0) {
-        cases.push({ existingId: findCase(input.model, 'E', 'Y'), type: 'E',
-          nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'Y' } });
-      }
-      elevated.forEach((lv, i) => {
-        const Fk = dist.forces[i]?.f ?? 0;
-        const per = Fk / Math.max(1, lv.nodeIds.length);
-        for (const id of lv.nodeIds) {
-          if (exIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: exIndex, fx: per, fy: 0, fz: 0 });
-          if (eyIndex >= 0) nodal.push({ nodeId: id, caseType: 'E', caseIndex: eyIndex, fx: 0, fy: per, fz: 0 });
+      // ── The modal response spectrum method, Cap. 7 ──
+      const modes = input.seismic.modal?.modes ?? [];
+      if (modes.length > 0 && seismicDetail?.source === 'cirsoc103' && code) {
+        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
+        if (!isBlocked(spectrum)) {
+          const r = seismicDetail.r!, gr = seismicDetail.gammaR!;
+          refs.push(clause('inpres-cirsoc-103-i', '2018', '7.2', 'método modal espectral'));
+          const byDir = (dir: 'x' | 'y') => {
+            const m = modalStoryForces(elevated, modes, dir, (t) => (spectralOrdinate(t, spectrum) * gr) / r);
+            // §7.2.5: no less than 85 % of the static base shear.
+            const scale = m.baseShear > 0 && m.baseShear < 0.85 * V0 ? (0.85 * V0) / m.baseShear : 1;
+            derivation.push(msg('loadPlan.derivation.modal', {
+              dir: dir.toUpperCase(), modes: m.perMode.length, ratio: round(m.massRatio * 100, 1),
+              vod: round(m.baseShear, 1), voe: round(V0, 1), scale: round(scale, 3),
+            }));
+            if (m.massRatio < 0.9) unsupportedKeys.push(msg('loadPlan.note.modalMassShort', { dir: dir.toUpperCase(), ratio: round(m.massRatio * 100, 1) }));
+            return m.forces.map((f) => f * scale);
+          };
+          if (input.seismic.directions.x) forcesX = byDir('x');
+          if (input.seismic.directions.y) forcesY = byDir('y');
         }
-      });
+      }
+
+      const torsion = input.seismic.torsion ?? 'low';
+      if (torsion !== 'low') {
+        refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
+        derivation.push(msg('loadPlan.derivation.accidentalTorsion', { e: ACCIDENTAL_ECCENTRICITY[torsion] * 100 }));
+      }
+      if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
+      for (const c of seismicCases({
+        nodes: input.model.nodes, levels: elevated, forcesX, forcesY,
+        directions: input.seismic.directions, torsion, diagonal: input.seismic.diagonal,
+      })) {
+        const index = cases.length;
+        const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';
+        cases.push({ existingId: plain ? findCase(input.model, 'E', c.axis) : null, type: 'E', nameKey: c.nameKey, nameParams: c.nameParams });
+        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'E', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
+      }
 
       derivation.push(msg('loadPlan.derivation.seismic', {
         weight: round(W, 1), coefficient: round(C, 4), baseShear: round(V0, 1),
@@ -692,18 +882,39 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
    */
   if (blockedKeys.length > 0) return empty;
 
+  // ── T, H and F (`special-loads.ts`) ──
+  const special = specialLoads(input.model, { thermal: input.thermal, soil: input.soil, fluid: input.fluid });
+  derivation.push(...special.derivation);
+  unsupportedKeys.push(...special.notes);
+  if (special.thermal.length) {
+    cases.push({ existingId: findCase(input.model, 'T'), type: 'T', nameKey: 'autoLoad.thermalCase' });
+    refs.push(clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
+  }
+  if (special.soil.length) {
+    const index = cases.length;
+    cases.push({ existingId: findCase(input.model, 'H'), type: 'H', nameKey: 'autoLoad.soilCase' });
+    for (const n of special.soil) nodal.push({ ...n, caseType: 'H', caseIndex: index });
+  }
+  if (special.fluid.length || special.fluidBottom.length) {
+    const index = cases.length;
+    cases.push({ existingId: findCase(input.model, 'F'), type: 'F', nameKey: 'autoLoad.fluidCase' });
+    for (const n of special.fluid) nodal.push({ ...n, caseType: 'F', caseIndex: index });
+    for (const b of special.fluidBottom) surface.push({ quadId: b.quadId, caseType: 'F', caseIndex: index, q: b.q });
+  }
+
   // ── Combinations from the basis role ──
   let combinations: LoadCombinationSpec[] = [];
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
-      L: true, Lr: false, S: snowPlanned, R: false,
+      L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
       W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
       Wa: nodal.some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
-      F: false, H: false,
+      F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
+      T: special.thermal.length > 0,
     };
     const ci: CombinationInputs = {
-      present, maxLoKNm2: lo,
+      present, maxLoKNm2: lo, earthPressurePermanent: input.soil?.permanent ?? true,
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
     const set = input.combinationSet ?? 'ultimate';
@@ -716,12 +927,28 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       refs.push(R101('2.3.2', 'combinaciones básicas'));
     }
     if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...generateServiceCombinations(ci)];
+    // E = EH ± EV, EV = (Ca/2)·γr·D (§3.5.2): a seismic combination twice, D's factor ± (Ca/2)·γr.
+    if (input.seismic?.enabled && input.seismic.vertical && seismicDetail?.source === 'cirsoc103' && seismicDetail.ca && seismicDetail.gammaR) {
+      const kv = (seismicDetail.ca / 2) * seismicDetail.gammaR;
+      combinations = combinations.flatMap((c) => {
+        const hasE = c.terms.some((t) => t.symbol === 'E' && t.factor !== 0);
+        const d = c.terms.find((t) => t.symbol === 'D');
+        if (!hasE || !d) return [c];
+        return [1, -1].map((sg) => ({
+          ...c, id: `${c.id}${sg > 0 ? '+' : '-'}Ev`,
+          label: `${c.label} ${sg > 0 ? '+' : '−'} Ev`,
+          terms: c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + sg * kv).toFixed(4) } : t)),
+        }));
+      });
+      refs.push(clause('inpres-cirsoc-103-i', '2018', '3.5.2', 'acción sísmica vertical'));
+      derivation.push(msg('loadPlan.derivation.verticalSeismic', { ca: round(seismicDetail.ca, 3), gr: seismicDetail.gammaR, kv: round(kv, 4) }));
+    }
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
   return {
     outcome: 'READY',
-    cases, distributed, nodal, combinations,
+    cases, distributed, nodal, surface, thermal: special.thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),

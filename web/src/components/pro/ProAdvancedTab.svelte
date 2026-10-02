@@ -457,6 +457,8 @@
          * holds f'c, and f'c·Zp is no plastic moment at all, so a model with concrete members is
          * refused by name rather than pushed over on numbers that mean nothing.
          */
+        // Hinges are placed and named by member, and Mp read from the member's section.
+        if (hasVariable()) { solveError = t('advanced.variableUnsupported'); solving = false; return; }
         const nonSteel = pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never);
         if (nonSteel.length > 0) {
           solveError = tp('adv.pushoverNonSteel', { materials: nonSteel.join(', ') });
@@ -682,8 +684,12 @@
     stages = stages.filter((_, i) => i !== idx);
   }
 
+  /** Analyses whose input names members (stages, an influence path) do not take one cut into pieces. */
+  const hasVariable = () => [...modelStore.elements.values()].some((e) => e.variableSection);
+
   function handleStaged() {
     solveError = null;
+    if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
       const base = buildInput();
@@ -785,6 +791,7 @@
 
   function handleInfluenceLine3D() {
     solveError = null;
+    if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
       let input = buildInput();

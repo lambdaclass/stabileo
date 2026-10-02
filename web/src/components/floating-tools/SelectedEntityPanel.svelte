@@ -410,13 +410,13 @@
         </label>
         <label class="ft-input-group" title={t('float.prescribedDy')}>
           <span>dy:</span>
-          <input type="number" step="0.001" value={selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dy', e.currentTarget.value)} />
+          <input type="number" step="0.001" value={selectedSup.dz ?? selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dy', e.currentTarget.value)} />
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
         <label class="ft-input-group" title={t('float.prescribedDrz')}>
           <span>dθz:</span>
-          <input type="number" step="0.001" value={selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'drz', e.currentTarget.value)} />
+          <input type="number" step="0.001" value={selectedSup.dry ?? selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'drz', e.currentTarget.value)} />
         </label>
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>

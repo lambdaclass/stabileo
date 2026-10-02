@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
@@ -20,15 +21,19 @@
   let pasteError = $state<string | null>(null);
   let selectedRowIdx = $state<number | null>(null);
 
-  // Sync rows from modelStore on mount and when nodes change.
-  // Preserve unsaved rows (id === null) so Add → type → commit works.
+  /*
+   * Sync rows from modelStore on mount and whenever a node is added, removed or moved. Unsaved
+   * rows (id === null) are kept so Add → type → commit works. The rows used to be rebuilt only
+   * when the list of ids changed, so a node moved elsewhere (Transform, a drag, the quick editor,
+   * undo) kept its old text here, and leaving one of its cells wrote that old position back.
+   */
+  let synced = '';
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
-    const savedRows = rows.filter(r => r.id !== null);
     const unsavedRows = rows.filter(r => r.id === null);
-    const storeIds = storeNodes.map(n => n.id).join(',');
-    const rowIds = savedRows.map(r => r.id).join(',');
-    if (storeIds !== rowIds || storeNodes.length !== savedRows.length) {
+    const signature = storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}`).join('|');
+    if (signature !== synced) {
+      synced = signature;
       rows = [
         ...storeNodes.map(n => ({
           id: n.id,
@@ -41,13 +46,7 @@
     }
   });
 
-  function parseNumber(s: string): number | null {
-    // Accept both . and , as decimal separator
-    const cleaned = s.trim().replace(',', '.');
-    if (cleaned === '') return null;
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
-  }
+  const parseNumber = (s: string): number | null => parseDecimal(s);
 
   function addEmptyRow() {
     rows = [...rows, { id: null, x: '', y: '', z: '' }];
@@ -67,11 +66,14 @@
       const realId = modelStore.addNodeWelded(x, y, z);
       rows[idx] = { ...rows[idx], id: realId };
     } else {
-      // Update existing node. `updateNode` pushes no undo of its own — its callers are expected
-      // to — so without the batch this edit could not be undone. Moved onto another node, it
-      // becomes that node: left as a twin in the same place it would look joined and analyse
-      // as a cut, the defect the welds exist to prevent.
+      // Only a real change is written: leaving a cell untouched is not an edit.
       const id = row.id;
+      const n = modelStore.nodes.get(id);
+      if (n && n.x === x && n.y === y && (n.z ?? 0) === z) return;
+      // `updateNode` pushes no undo of its own — its callers are expected to — so without the
+      // batch this edit could not be undone. Moved onto another node, it becomes that node: left
+      // as a twin in the same place it would look joined and analyse as a cut, the defect the
+      // welds exist to prevent.
       const onto = findCoincidentNode([...modelStore.nodes.values()].filter((n) => n.id !== id), x, y, z);
       if (onto !== null) {
         modelStore.batch(() => { modelStore.updateNode(id, x, y, z); mergeNodesInto(new Map([[id, onto]])); });
@@ -186,7 +188,7 @@
   let wX = $state(''), wY = $state(''), wZ = $state('');
   let wError = $state<string | null>(null);
   function writeNode() {
-    const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : Number(s.replace(',', '.'))));
+    const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : parseDecimal(s) ?? NaN));
     if (v.some((n) => !Number.isFinite(n))) { wError = t('pro.writeNumbers'); return; }
     wError = null;
     // Welded, as the table's rows and the paste are: the coordinates of an existing node

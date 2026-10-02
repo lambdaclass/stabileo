@@ -263,8 +263,10 @@
           </select>
         </label>
         <label>{t('pro.thickness')}
-          <input type="number" value={drawState.plateThickness} onchange={(e) => (drawState.plateThickness = Number(e.currentTarget.value) || 0)} step="any" min="0.001" class="thick-input"
-                 data-testid="shell-thickness" /> m
+          <!-- An empty or non-positive thickness keeps the last one: it used to become 0, and the
+               next shell was drawn with no thickness. The unit is in the label. -->
+          <input type="number" value={drawState.plateThickness} onchange={(e) => { const v = Number(e.currentTarget.value); if (v > 0) drawState.plateThickness = v; else e.currentTarget.value = String(drawState.plateThickness); }} step="any" min="0.001" class="thick-input"
+                 data-testid="shell-thickness" />
         </label>
 
         <!--

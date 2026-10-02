@@ -73,8 +73,21 @@
     label?: string;
     /** A drawn section to reopen: the modal starts in the drawing. */
     drawn?: { name: string; drawn: DrawnSection } | null;
+    /** A template section to reopen: the modal starts in the template, with its numbers. */
+    built?: { shapeType: string; params: Record<string, number> } | null;
+    /**
+     * Catalogue picks only. A generator role places copies of a catalogue profile, so a section
+     * built or drawn here would have nowhere to go; the division is not offered rather than
+     * accepted and dropped.
+     */
+    catalogueOnly?: boolean;
+    /**
+     * Catalogue picks and templates, no drawing: a generator member of variable section takes a
+     * welded I typed into a template, and its two ends must blend, which a free drawing need not.
+     */
+    noDrawing?: boolean;
   }
-  const { open, spec, onApply, onClose, source = steelProfileSource, label = '', drawn = null }: Props = $props();
+  const { open, spec, onApply, onClose, source = steelProfileSource, label = '', drawn = null, built = null, catalogueOnly = false, noDrawing = false }: Props = $props();
 
   /** Exactly two. The type is the guarantee, not a convention. */
   type Division = 'standard' | 'build';
@@ -89,6 +102,7 @@
   let dimsOpen = $state(false);
   $effect.pre(() => {
     if (open && drawn) untrack(() => { division = 'build'; buildMode = 'draw'; });
+    else if (open && built) untrack(() => { division = 'build'; buildMode = 'template'; });
   });
 
   /** Working copy. Applying is an explicit act, so Escape can leave the model untouched. */
@@ -97,6 +111,7 @@
   let gapProblem = $state<string | null>(null);
 
   let dialogEl: HTMLDivElement | undefined = $state();
+  let overlayEl: HTMLDivElement | undefined = $state();
   /**
    * Whatever had focus when the modal opened.
    *
@@ -226,7 +241,24 @@
    * momentarily empty is the failure this prevents, and it is not hypothetical — a half-typed
    * number input reads as `null`, not as the last good value.
    */
-  let builtDraft = $state<SectionChoice | null>(null);
+  /*
+   * Each build mode keeps its own draft, and both editors stay mounted while the dialog is open:
+   * switching Template ↔ Draw used to unmount the drawing and start it again from the starter.
+   */
+  let templateDraft = $state<SectionChoice | null>(null);
+  let drawDraft = $state<SectionChoice | null>(null);
+  const builtDraft = $derived(buildMode === 'template' ? templateDraft : drawDraft);
+  /** Closing with something built and not applied asks first; a template reopened and left as it was does not. */
+  let confirmClose = $state(false);
+  const sameParams = (a: Record<string, number>, b: Record<string, number>) =>
+    Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v);
+  const untouched = $derived(buildMode === 'template' && !!built && builtDraft?.kind === 'built'
+    && builtDraft.shapeType === built.shapeType && sameParams(builtDraft.params, built.params));
+  function requestClose() {
+    if (division === 'build' && builtDraft && !untouched && !confirmClose) { confirmClose = true; return; }
+    confirmClose = false;
+    onClose();
+  }
 
   /**
    * Whether Apply can do anything.
@@ -251,6 +283,7 @@
       division === 'standard' ? { kind: 'standard', spec: draft } : builtDraft;
     if (!choice) return;
     onApply(choice);
+    confirmClose = false;
     onClose();
   }
 
@@ -261,8 +294,19 @@
    * control lands on the browser chrome and the modal is still covering the page — which is
    * the failure mode a11y checkers describe and users experience as the page freezing.
    */
+  const outside = (e: Event) => open && !(e.target instanceof Node && overlayEl?.contains(e.target));
+  function outsideKey(e: KeyboardEvent) {
+    if (!outside(e)) return;
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); requestClose(); }
+  }
+  function outsideClip(e: ClipboardEvent) { if (outside(e)) e.stopPropagation(); }
+
   function keydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); requestClose(); return; }
+    // Nothing typed in the dialog reaches the model behind it: Delete, Ctrl+Z, Ctrl+C/V went to
+    // the app's own shortcuts and deleted or undid the model's selection.
+    e.stopPropagation();
     if (e.key !== 'Tab' || !dialogEl) return;
     const focusable = [...dialogEl.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -274,12 +318,19 @@
   }
 </script>
 
+<!--
+  Keys pressed with the focus outside the dialog: a click on the drawing's canvas, which takes no
+  focus, leaves it on the page body, and from there a key or a paste went past the dialog's own
+  handlers straight to the app's shortcuts. Caught on the way down instead, before any of them.
+-->
+<svelte:window onkeydowncapture={outsideKey} onpastecapture={outsideClip} oncopycapture={outsideClip} oncutcapture={outsideClip} />
+
 {#if open}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="overlay" role="presentation" onkeydown={keydown}>
+  <div class="overlay" role="presentation" bind:this={overlayEl} onkeydown={keydown} onpaste={(e) => e.stopPropagation()} oncopy={(e) => e.stopPropagation()} oncut={(e) => e.stopPropagation()}>
     <!-- The backdrop is a button so it has a name and is reachable, rather than a div that
          only a mouse can use. -->
-    <button class="backdrop" type="button" aria-label={t('section.modal.close')} onclick={onClose}></button>
+    <button class="backdrop" type="button" aria-label={t('section.modal.close')} onclick={requestClose}></button>
     <div
       class="modal"
       bind:this={dialogEl}
@@ -290,7 +341,7 @@
     >
       <header>
         <h2>{t('section.modal.title')}</h2>
-        <button type="button" class="close" onclick={onClose} aria-label={t('section.modal.close')}>✕</button>
+        <button type="button" class="close" onclick={requestClose} aria-label={t('section.modal.close')}>✕</button>
       </header>
 
       <!-- Exactly two divisions. -->
@@ -302,6 +353,7 @@
           data-testid="section-division-standard"
           onclick={() => (division = 'standard')}
         >{t('section.modal.standard')}</button>
+        {#if !catalogueOnly}
         <button
           type="button" role="tab"
           aria-selected={division === 'build'}
@@ -309,6 +361,7 @@
           data-testid="section-division-build"
           onclick={() => (division = 'build')}
         >{t('section.modal.build')}</button>
+        {/if}
       </div>
 
       <div class="body">
@@ -332,21 +385,20 @@
               onClose={() => {}}
             />
           {:else}
+            {#if !noDrawing}
             <div class="build-modes" role="radiogroup" aria-label={t('drawn.buildMode')}>
               <button type="button" role="radio" aria-checked={buildMode === 'template'} class:active={buildMode === 'template'}
-                data-testid="build-mode-template" onclick={() => { buildMode = 'template'; builtDraft = null; }}>{t('drawn.modeTemplate')}</button>
+                data-testid="build-mode-template" onclick={() => { buildMode = 'template'; }}>{t('drawn.modeTemplate')}</button>
               <button type="button" role="radio" aria-checked={buildMode === 'draw'} class:active={buildMode === 'draw'}
-                data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; builtDraft = null; }}>{t('drawn.modeDraw')}</button>
+                data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; }}>{t('drawn.modeDraw')}</button>
             </div>
-            {#if buildMode === 'template'}
-              <BuiltSectionPanel onDraft={(c) => (builtDraft = c)} />
-            {:else}
-              <DrawnSectionEditor initial={drawn} onDraft={(c) => (builtDraft = c)} />
             {/if}
+            <div hidden={buildMode !== 'template'}><BuiltSectionPanel initial={built} onDraft={(c) => (templateDraft = c)} /></div>
+            {#if !noDrawing}<div hidden={buildMode !== 'draw'}><DrawnSectionEditor initial={drawn} onDraft={(c) => (drawDraft = c)} /></div>{/if}
           {/if}
         </div>
 
-        {#if !(division === 'build' && buildMode === 'draw')}
+        {#if division === 'standard'}
         <aside class="side">
           <!-- The large preview the brief asks for: the composition as it will be built,
                not a thumbnail of one part. -->
@@ -477,7 +529,12 @@
         <span class="current" data-testid="section-current">
           {division === 'standard' ? draft.profileName : (builtDraft && builtDraft.kind !== 'standard' ? builtDraft.name : '—')}
         </span>
-        <button type="button" class="ghost" onclick={onClose}>{t('section.modal.cancel')}</button>
+        {#if confirmClose}
+          <span class="confirm" role="alert" data-testid="section-confirm-close">{t('section.modal.discardAsk')}
+            <button type="button" class="ghost" onclick={requestClose} data-testid="section-discard">{t('section.modal.discard')}</button>
+            <button type="button" class="ghost" onclick={() => (confirmClose = false)}>{t('section.modal.keepEditing')}</button></span>
+        {/if}
+        <button type="button" class="ghost" onclick={requestClose}>{t('section.modal.cancel')}</button>
         <button type="button" class="primary" onclick={apply} disabled={!canApply} data-testid="section-apply">
           {t('section.modal.apply')}
         </button>
@@ -559,6 +616,7 @@
   }
   .current { flex: 1; font-family: var(--st-mono, monospace); font-size: 0.74rem; color: var(--st-text); }
   footer button { padding: 5px 14px; font-size: 0.74rem; border-radius: 4px; cursor: pointer; }
+  .confirm { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text); }
   .ghost { background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); }
   .primary { background: var(--st-interactive); color: var(--st-bg); border: 1px solid var(--st-interactive); }
 

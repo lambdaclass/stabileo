@@ -5,8 +5,11 @@
     <title>Stabileo</title>
     <script>
       (function () {
-        var route = window.location.pathname + window.location.search + window.location.hash;
-        window.location.replace('/?route=' + encodeURIComponent(route));
+        // The fragment stays a fragment. Folded into the query it reached the
+        // server, and a shared model's #data=... (thousands of characters) got
+        // a 414 URI Too Long from the host before the app could read it.
+        var route = window.location.pathname + window.location.search;
+        window.location.replace('/?route=' + encodeURIComponent(route) + window.location.hash);
       })();
     </script>
   </head>

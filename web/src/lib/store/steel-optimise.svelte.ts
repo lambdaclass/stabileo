@@ -23,7 +23,7 @@ import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, 
 import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
-import { isDesigned, maskAxialDemand } from '../engine/design/behaviour-demands';
+import { isDesignedMember, maskAxialDemand } from '../engine/design/behaviour-demands';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { isColdFormedSection } from '../profiles/cold-formed-catalogue';
@@ -113,7 +113,7 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
   for (const id of ids) {
     const ef = forces.get(id);
     const e = modelStore.elements.get(id);
-    if (!ef || !e || !isDesigned(e.behaviour)) continue;
+    if (!ef || !e || !isDesignedMember(e)) continue;
     const len = lengths.get(id);
     const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
@@ -298,7 +298,7 @@ function createSteelOptimise() {
         const { members, materialOf } = membersFor(ids);
         // An inactive member follows its section but is not designed, as when the row was
         // proposed: every designed member must be checked, and only those.
-        const designed = ids.filter(id => isDesigned(modelStore.elements.get(id)!.behaviour));
+        const designed = ids.filter(id => isDesignedMember(modelStore.elements.get(id)));
         const material = designed.length > 0 ? materialOf.get(designed[0]!) : undefined;
         // Rows start out homogeneous. A later material assignment can split the group, so its
         // first member's grade no longer represents all members; propose the groups again.

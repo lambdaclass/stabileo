@@ -26,20 +26,21 @@
    */
   import { t, tp } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store/model.svelte';
-  import { taperSupportedColumns } from '../../../lib/model/edit/taper';
   import {
-    DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies,
-    generateTruss, validateTrussParams, type Topology, type TrussParams,
+    DEFAULT_TRUSS_PARAMS, generateTruss, validateTrussParams, type Topology, type TrussParams,
   } from '../../../lib/engine/generators/truss-topology';
   import {
-    DEFAULT_LATTICE_COLUMN_PARAMS, LACING_PATTERNS,
+    DEFAULT_LATTICE_COLUMN_PARAMS,
     generateLatticeColumn, validateLatticeColumnParams, type LatticeColumnParams,
   } from '../../../lib/engine/generators/lattice-column';
+  import { weldedIPair } from '../../../lib/engine/generators/variable-pair';
+  import TrussFields from './TrussFields.svelte';
+  import LatticeColumnFields from './LatticeColumnFields.svelte';
   import {
     BRACING_BAYS, DEFAULT_SHED_PARAMS, generateShed, validateShedParams, type ShedParams,
   } from '../../../lib/engine/generators/shed';
   import {
-    emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
+    emitModel, requiredRoles, validateProfiles, defaultProfileSpec, variableRoles,
     type GeneratorMaterial, type ProfileSpec,
   } from '../../../lib/engine/generators/emit';
   import ProMaterialModal from '../material/ProMaterialModal.svelte';
@@ -114,6 +115,17 @@
     purlin: defaultProfileSpec('UPN 100'),
     bracing: defaultProfileSpec('L 50x50x5'),
   });
+
+  /**
+   * The two ends of a role's members of variable section: at the supports and at mid-span for a
+   * beam, at the base and at the head for a column. Until the user picks them, a welded I with
+   * the role's profile's plates, twice as deep at the far end: the usual tapered girder.
+   */
+  let variablePairs = $state<Partial<Record<MemberRole, { start: ProfileSpec; end: ProfileSpec }>>>({});
+  const pairOf = (role: MemberRole) => variablePairs[role] ?? weldedIPair(profiles[role]);
+  function setPair(role: MemberRole, end: 'start' | 'end', next: ProfileSpec) {
+    variablePairs = { ...variablePairs, [role]: { ...pairOf(role), [end]: next } };
+  }
 
   /** Parameter problems, before anything is generated. */
   const paramProblems = $derived<Array<{ key: string }>>(
@@ -197,7 +209,15 @@
   });
 
   const roles = $derived(topology ? requiredRoles(topology) : []);
-  const profileProblems = $derived(topology ? validateProfiles(topology, profiles) : []);
+  const varying = $derived(new Set(topology ? variableRoles(topology) : []));
+  /** What the emitter gets: a varying role's own profile is its start section. */
+  const emitProfiles = $derived.by(() => {
+    const out = { ...profiles };
+    for (const role of varying) out[role] = pairOf(role).start;
+    return out;
+  });
+  const emitVariable = $derived(Object.fromEntries([...varying].map((role) => [role, pairOf(role).end])) as Partial<Record<MemberRole, ProfileSpec>>);
+  const profileProblems = $derived(topology ? validateProfiles(topology, emitProfiles, emitVariable) : []);
   const canGenerate = $derived(
     topology !== null && paramProblems.length === 0 && profileProblems.length === 0,
   );
@@ -261,11 +281,12 @@
     if (!gradeId) return [] as string[];
     const out: string[] = [];
     for (const role of roles) {
-      const spec = profiles[role];
-      if (!spec) continue;
-      const family = resolveProfile(spec.profileName)?.family;
-      if (!family) continue;
-      if (pairing(family, gradeId).verdict === 'unusual') out.push(role);
+      const specs = [emitProfiles[role], emitVariable[role]];
+      const unusual = specs.some((spec) => {
+        const family = spec ? resolveProfile(spec.profileName)?.family : undefined;
+        return !!family && pairing(family, gradeId!).verdict === 'unusual';
+      });
+      if (unusual) out.push(role);
     }
     return out;
   });
@@ -287,12 +308,12 @@
   /** The generated model as it would be emitted now, with the supports as chosen. */
   function build(supports: SupportMode) {
     if (!topology || !canGenerate) return null;
-    return emitModel(withSupportMode(topology, supports), { name: nameOf(), profiles, ...(material ? { material } : {}) });
+    return emitModel(withSupportMode(topology, supports), { name: nameOf(), profiles: emitProfiles, variable: emitVariable, ...(material ? { material } : {}) });
   }
 
   const generatorId = () => (kind === 'structure' ? structureKind : kind);
   function meta() {
-    return { generator: generatorId(), params: paramsOf(), profiles: { ...profiles }, gradeId, name: nameOf() };
+    return { generator: generatorId(), params: paramsOf(), profiles: { ...profiles }, variable: { ...variablePairs }, gradeId, name: nameOf() };
   }
 
   /** Load a generated group's parameters back into the form, to regenerate it. */
@@ -307,6 +328,7 @@
     else if (d.generator === 'column') { kind = 'column'; column = { ...column, ...(d.params as Partial<LatticeColumnParams>) }; }
     else if (d.generator === 'shed') { kind = 'shed'; shed = { ...shed, ...(d.params as Partial<ShedParams>) }; }
     profiles = { ...profiles, ...(d.profiles as Record<MemberRole, ProfileSpec>) };
+    variablePairs = { ...variablePairs, ...((d.variable ?? {}) as typeof variablePairs) };
     gradeId = d.gradeId;
     editingGroupId = id;
     view = 'form';
@@ -315,18 +337,6 @@
   /** In a generator's form, the structures it made in this model, to regenerate one in place. */
   const formGroups = $derived(groups.filter((g) => generatedData(g.id)?.generator === generatorId()));
 
-  /**
-   * Solid shed columns as welded I tapered from base to head, applied right after the frame lands.
-   * Flanges and web are the chosen column profile's; only the depth varies.
-   */
-  let taperColumns = $state({ on: false, baseMm: 300, headMm: 600 });
-
-  /** After a shed goes in: its solid columns tapered, in the same undo step (`GeneratorOutput`). */
-  function afterInsert(elements: number[]): string | null {
-    if (!(kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on)) return null;
-    const r = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000, undefined, new Set(elements));
-    return tp('generator.ui.taperedColumns', { n: r.tapered.length, notI: r.notI });
-  }
 </script>
 
 <!--
@@ -408,7 +418,7 @@
     </div>
   {/if}
 
-  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta} {afterInsert}
+  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta}
     {editingGroupId}
     describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
 
@@ -459,57 +469,10 @@
   <!-- ── Parameters ── -->
   <div class="fields">
     {#if kind === 'truss'}
-      <label><span>{t('generator.ui.trussShape')}</span>
-        <select bind:value={truss.kind}>
-          {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
-        </select></label>
-      <label>{@render fieldHead('span')}<input type="number" min="0.5" step="0.5" bind:value={truss.spanM} aria-describedby="gen-hint-span" /></label>
-      <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={truss.riseM} aria-describedby="gen-hint-rise" /></label>
-      {#if truss.kind === 'trapezoidal' || truss.kind === 'arch'}
-        <label>{@render fieldHead('endDepth')}<input type="number" min="0" step="0.1" bind:value={truss.endDepthM} aria-describedby="gen-hint-endDepth" /></label>
-      {/if}
-      {#if truss.kind === 'parallelChord' || truss.kind === 'pratt'}
-        <label>{@render fieldHead('depth')}<input type="number" min="0.1" step="0.1" bind:value={truss.depthM} aria-describedby="gen-hint-depth" /></label>
-      {/if}
-      {#if truss.kind === 'trapezoidal'}
-        <label>{@render fieldHead('plateau')}<input type="number" min="0" step="0.1" bind:value={truss.plateauM} aria-describedby="gen-hint-plateau" /></label>
-      {/if}
-      {#if truss.kind === 'arch'}
-        <label><span>{t('generator.ui.archCurve')}</span>
-          <select bind:value={truss.archCurve}>
-            {#each ARCH_CURVES as c (c)}<option value={c}>{t(`generator.archCurve.${c}`)}</option>{/each}
-          </select></label>
-      {/if}
-      {#if truss.kind !== 'rolledPortal'}
-        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={truss.panelsPerHalf} aria-describedby="gen-hint-panels" data-testid="gen-panels" /></label>
-        <label><span>{t('generator.ui.webPattern')}</span>
-          <select bind:value={truss.webPattern} data-testid="gen-web-pattern">
-            {#each WEB_PATTERNS as w (w)}<option value={w}>{t(`generator.webPattern.${w}`)}</option>{/each}
-          </select></label>
-        <!--
-          Shown only where it does something. `subdivisionApplies` refuses a single panel per
-          half, where the new panel point would land on the existing midspan one, so the
-          control cannot be ticked into a no-op.
-        -->
-        {#if subdivisionApplies(truss)}
-          <label class="check">
-            <input type="checkbox" bind:checked={truss.subdivideDiagonals} data-testid="gen-subdivide" />
-            <span>{t('generator.ui.subdivideDiagonals')}</span>
-          </label>
-          <p class="gen-hint" data-testid="gen-subdivide-hint">{t('generator.ui.subdivideDiagonalsHelp')}</p>
-        {/if}
-      {/if}
-      <label class="check"><input type="checkbox" bind:checked={truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
+      <TrussFields bind:p={truss} withSpan />
 
     {:else if kind === 'column'}
-      <label>{@render fieldHead('height')}<input type="number" min="0.5" step="0.5" bind:value={column.heightM} aria-describedby="gen-hint-height" /></label>
-      <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={column.widthM} aria-describedby="gen-hint-width" /></label>
-      <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={column.divisions} aria-describedby="gen-hint-divisions" /></label>
-      <label><span>{t('generator.ui.lacing')}</span>
-        <select bind:value={column.lacing}>
-          {#each LACING_PATTERNS as l (l)}<option value={l}>{t(`generator.lacing.${l}`)}</option>{/each}
-        </select></label>
-      <label class="check"><input type="checkbox" bind:checked={column.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+      <LatticeColumnFields bind:p={column} standalone />
 
     {:else if kind === 'structure'}
       {#each STRUCTURE_FIELDS[structureKind] as f (structureKind + f.key)}
@@ -535,31 +498,20 @@
       <label>{@render fieldHead('frames')}<input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></label>
       <label>{@render fieldHead('clearHeight')}<input type="number" min="1" step="0.5" bind:value={shed.clearHeightM} aria-describedby="gen-hint-clearHeight" /></label>
       <label><span>{t('generator.ui.columnKind')}</span>
-        <select bind:value={shed.columnKind}>
+        <select bind:value={shed.columnKind} data-testid="gen-column-kind">
           <option value="lattice">{t('generator.ui.columnLattice')}</option>
           <option value="solid">{t('generator.ui.columnSolid')}</option>
         </select></label>
       {#if shed.columnKind === 'solid'}
-        <label class="check"><input type="checkbox" bind:checked={taperColumns.on} data-testid="gen-taper-columns" /><span>{t('generator.ui.taperColumns')}</span></label>
-        {#if taperColumns.on}
-          <label><span>{t('generator.ui.taperBase')}</span><input type="number" min="50" step="10" bind:value={taperColumns.baseMm} data-testid="gen-taper-base" /></label>
-          <label><span>{t('generator.ui.taperHead')}</span><input type="number" min="50" step="10" bind:value={taperColumns.headMm} data-testid="gen-taper-head" /></label>
-        {/if}
-      {/if}
-      {#if shed.columnKind === 'lattice'}
-        <label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={shed.column.widthM} aria-describedby="gen-hint-width" /></label>
-        <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={shed.column.divisions} aria-describedby="gen-hint-divisions" /></label>
+        <label class="check"><input type="checkbox" checked={!!shed.variableColumns} onchange={(e) => { shed.variableColumns = e.currentTarget.checked; }} data-testid="gen-variable-columns" /><span>{t('generator.ui.variableSection')}</span></label>
+        <p class="gen-hint">{t('generator.ui.variableColumnHelp')}</p>
+      {:else}
+        <LatticeColumnFields bind:p={shed.column} />
       {/if}
       <label class="check"><input type="checkbox" bind:checked={shed.longitudinalBeams} /><span>{t('generator.ui.beams')}</span></label>
       <label class="check"><input type="checkbox" bind:checked={shed.roof} /><span>{t('generator.ui.roof')}</span></label>
       {#if shed.roof}
-        <label><span>{t('generator.ui.roofTrussShape')}</span>
-          <select bind:value={shed.truss.kind}>
-            {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
-          </select></label>
-        <label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={shed.truss.riseM} aria-describedby="gen-hint-rise" /></label>
-        <label>{@render fieldHead('panels')}<input type="number" min="1" step="1" bind:value={shed.truss.panelsPerHalf} aria-describedby="gen-hint-panels" /></label>
-        <label class="check"><input type="checkbox" bind:checked={shed.truss.halfTruss} /><span>{t('generator.ui.halfTruss')}</span></label>
+        <TrussFields bind:p={shed.truss} shapeKey="generator.ui.roofTrussShape" />
         <label class="check"><input type="checkbox" bind:checked={shed.purlins} /><span>{t('generator.ui.purlins')}</span></label>
       {/if}
       <label class="check"><input type="checkbox" bind:checked={shed.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
@@ -612,11 +564,27 @@
   {#if roles.length > 0}
     <h4>{t('generator.ui.profiles')}</h4>
     {#each roles as role (role)}
-      <ProfilePicker
-        {role}
-        spec={profiles[role]}
-        onChange={(next) => { profiles = { ...profiles, [role]: next }; }}
-      />
+      {#if varying.has(role)}
+        <!-- A member of variable section: the section where it starts, and where it grows to. -->
+        <ProfilePicker
+          {role} key={`${role}-start`} allowBuilt
+          label={`${t(`generator.role.${role}`)} · ${t(`generator.variable.start.${role}`)}`}
+          spec={pairOf(role).start}
+          onChange={(next) => setPair(role, 'start', next)}
+        />
+        <ProfilePicker
+          {role} key={`${role}-end`} allowBuilt
+          label={`${t(`generator.role.${role}`)} · ${t(`generator.variable.end.${role}`)}`}
+          spec={pairOf(role).end}
+          onChange={(next) => setPair(role, 'end', next)}
+        />
+      {:else}
+        <ProfilePicker
+          {role}
+          spec={profiles[role]}
+          onChange={(next) => { profiles = { ...profiles, [role]: next }; }}
+        />
+      {/if}
     {/each}
   {/if}
 
@@ -708,7 +676,7 @@
       </ul>
     {/if}
     <h4>{t('generator.out.where')}</h4>
-    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} {afterInsert} {editingGroupId} />
+    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} {editingGroupId} />
 
 
     {#if !previewDocked}{@render previewAndActions()}{/if}
@@ -784,13 +752,13 @@
     screen reader still announces it as a spinbutton and a mobile keyboard is still numeric.
     Only the painted arrows go.
   */
-  .gen input[type='number']::-webkit-outer-spin-button,
-  .gen input[type='number']::-webkit-inner-spin-button {
+  .gen :global(input[type='number']::-webkit-outer-spin-button),
+  .gen :global(input[type='number']::-webkit-inner-spin-button) {
     -webkit-appearance: none;
     appearance: none;
     margin: 0;
   }
-  .gen input[type='number'] {
+  .gen :global(input[type='number']) {
     -moz-appearance: textfield;
     appearance: textfield;
     /* The room the arrows used to take, given back to the number. */
@@ -800,14 +768,14 @@
   h4 { margin: 6px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--st-text-2); }
   .sub { margin: 2px 0 0; font-size: 0.7rem; color: var(--st-text-2); }
   .fields { display: flex; flex-direction: column; gap: 3px; }
-  .fields label { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text-2); }
-  .fields label > span:first-child { min-width: 9rem; }
-  .fields input[type='number'], .fields select {
+  .fields :global(label) { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text-2); }
+  .fields :global(label > span:first-child) { min-width: 9rem; }
+  .fields :global(input[type='number']), .fields :global(select) {
     background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
     border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 6rem; text-align: right;
   }
-  .fields select { text-align: left; width: auto; min-width: 8rem; }
-  .fields label.check > span { min-width: 0; }
+  .fields :global(select) { text-align: left; width: auto; min-width: 8rem; }
+  .fields :global(label.check > span) { min-width: 0; }
   .fields input.bays {
     background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
     border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 9rem;
@@ -815,7 +783,7 @@
   .gen-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; }
   .gen-groups li { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px; }
   .gen-groups li.editing { background: var(--st-surface-3); }
-  .fields input:focus-visible, .fields select:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
+  .fields :global(input:focus-visible), .fields :global(select:focus-visible) { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .problems { margin: 0; padding-left: 16px; font-size: 0.68rem; color: var(--st-danger); }
   /* Warn, not error: the model will generate. `--st-warn` is the token that means exactly
      "this is going to cost you something", which is what an unsolvable roof is. */
@@ -842,7 +810,7 @@
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
   /* The hint under a field: it had no rule of its own and took the page's body size. */
-  .gen-hint { margin: 0 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
+  .gen-hint, .fields :global(.gen-hint) { margin: 0 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
 
   /* The material row reads like a profile row, because it is the same kind of choice. */
   .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
@@ -876,8 +844,8 @@
   }
 
   /* Field head: the name, and the line that says what the number controls. */
-  .fname { font-size: 0.7rem; color: var(--st-text); }
-  .fhint {
+  .fname, .fields :global(.fname) { font-size: 0.7rem; color: var(--st-text); }
+  .fhint, .fields :global(.fhint) {
     display: block;
     font-size: 0.64rem;
     line-height: 1.35;

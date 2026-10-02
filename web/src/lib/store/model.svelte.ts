@@ -1,6 +1,7 @@
 import {
   defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
 } from '../codes/project-code-settings';
+import { refreshRatios } from '../section/drawn';
 import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
@@ -498,6 +499,12 @@ export interface Element extends Element3DMetadata {
   type: 'frame' | 'truss';
   nodeI: number;
   nodeJ: number;
+  /**
+   * A section that changes along the member: `sectionId` is end I's, `sectionJ` end J's, and the
+   * section between them is their blend as geometry (`section/variable.ts`). Solved as `segments`
+   * prismatic pieces and reported as one member (`engine/variable-members.ts`). PRO, frames.
+   */
+  variableSection?: { sectionJ: number; segments?: number };
   materialId: number;
   sectionId: number;
   releaseI: Release;
@@ -724,6 +731,12 @@ export interface LoadCase {
    * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
    */
   alternatives?: string;
+  /**
+   * An arrangement of the action over part of the structure (a checkerboard, the spans each side
+   * of a grid line, a partial snow load): it varies only where its action is the principal one
+   * of a combination (`combination-cases.ts`).
+   */
+  pattern?: boolean;
 }
 
 export interface LoadCombination {
@@ -3660,10 +3673,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}) });
       return id;
     },
 
@@ -3799,13 +3812,15 @@ function createModelStore() {
      * into. Its alternatives group is set either way: a case reused from an earlier generation
      * (or an older project) carried none, and its snow patterns kept adding up.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean } = {}): number {
       const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
         ?? model.loadCases.find((c) => c.type === type && c.name === name);
-      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
-      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+      if (!found) return this.addLoadCase(name, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+      const pattern = opts.pattern ? true : undefined;
+      if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
         if (!_undoBatching) _pushUndo?.();
-        found.alternatives = opts.alternatives;
+        if (opts.alternatives) found.alternatives = opts.alternatives;
+        if (pattern) found.pattern = true; else delete found.pattern;
         model.loadCases = [...model.loadCases];
       }
       return found.id;
@@ -4067,12 +4082,29 @@ function createModelStore() {
       const m = new Map(model.materials);
       m.set(id, { ...mat, ...data, id });
       model.materials = m;
+      // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
+      // keeps the stiffness of the material as it was when the section was drawn.
+      if (data.e !== undefined || data.nu !== undefined) {
+        const secs = new Map(model.sections);
+        let touched = false;
+        for (const [sid, sec] of model.sections) {
+          if (!sec.drawn) continue;
+          const next = refreshRatios(sec.drawn, m);
+          if (next) { secs.set(sid, { ...sec, drawn: next }); touched = true; }
+        }
+        if (touched) model.sections = secs;
+      }
       this.bumpModelVersion();
     },
 
     removeMaterial(id: number): boolean {
       for (const elem of model.elements.values()) {
         if (elem.materialId === id) return false;
+      }
+      // A drawn section made of it, or expressed in it, needs it too: removed, every solve with
+      // self-weight failed on a density nobody could find.
+      for (const sec of model.sections.values()) {
+        if (sec.drawn && (sec.drawn.refMaterialId === id || sec.drawn.parts.some((p) => p.materialId === id))) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.materials);
@@ -4191,7 +4223,8 @@ function createModelStore() {
 
     removeSection(id: number): boolean {
       for (const elem of model.elements.values()) {
-        if (elem.sectionId === id) return false;
+        // A member of variable section uses its end J's section too.
+        if (elem.sectionId === id || elem.variableSection?.sectionJ === id) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.sections);
