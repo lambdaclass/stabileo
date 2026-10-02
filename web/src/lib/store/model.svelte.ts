@@ -725,6 +725,12 @@ export interface LoadCase {
    * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
    */
   alternatives?: string;
+  /**
+   * An arrangement of the action over part of the structure (a checkerboard, the spans each side
+   * of a grid line, a partial snow load): it varies only where its action is the principal one
+   * of a combination (`combination-cases.ts`).
+   */
+  pattern?: boolean;
 }
 
 export interface LoadCombination {
@@ -3661,10 +3667,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}) });
       return id;
     },
 
@@ -3800,13 +3806,15 @@ function createModelStore() {
      * into. Its alternatives group is set either way: a case reused from an earlier generation
      * (or an older project) carried none, and its snow patterns kept adding up.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean } = {}): number {
       const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
         ?? model.loadCases.find((c) => c.type === type && c.name === name);
-      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
-      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+      if (!found) return this.addLoadCase(name, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+      const pattern = opts.pattern ? true : undefined;
+      if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
         if (!_undoBatching) _pushUndo?.();
-        found.alternatives = opts.alternatives;
+        if (opts.alternatives) found.alternatives = opts.alternatives;
+        if (pattern) found.pattern = true; else delete found.pattern;
         model.loadCases = [...model.loadCases];
       }
       return found.id;

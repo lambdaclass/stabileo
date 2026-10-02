@@ -13,6 +13,14 @@
   export const defaultRoofConfig = (): RoofConfig => ({
     enabled: true, use: 'maintenance', dead: null, weight: null, occupancyKey: 'azotea_privada', slopeDeg: null,
   });
+
+  import { roofLiveLoad as lrOf, roofWeightClass as weightOf } from '../../lib/codes/cirsoc101/roof-live';
+  /** Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts. */
+  export function roofLrRange(c: RoofConfig, floorDead: number, modelSlopeDeg: number): { lo: number; hi: number } {
+    const weight = c.weight ?? weightOf(c.dead ?? floorDead);
+    const pct = Math.tan(((c.slopeDeg ?? modelSlopeDeg) * Math.PI) / 180) * 100;
+    return { lo: lrOf({ weight, atM2: 80, slopePercent: pct }).lr, hi: lrOf({ weight, atM2: 10, slopePercent: pct }).lr };
+  }
 </script>
 
 <script lang="ts">
@@ -24,7 +32,7 @@
    */
   import { t, tp } from '../../lib/i18n';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
-  import { roofLiveLoad, roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
+  import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
 
   interface Props {
     config: RoofConfig;
@@ -37,23 +45,10 @@
 
   const roofRows = OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras');
   const dead = $derived(config.dead ?? floorDead);
-  const weight = $derived(config.weight ?? roofWeightClass(dead));
-  const slope = $derived(config.slopeDeg ?? modelSlopeDeg);
-  const pct = $derived(Math.tan((slope * Math.PI) / 180) * 100);
-  const lrSmall = $derived(roofLiveLoad({ weight, atM2: 10, slopePercent: pct }).lr);
-  const lrLarge = $derived(roofLiveLoad({ weight, atM2: 80, slopePercent: pct }).lr);
+
 </script>
 
-<section class="al-sec" class:off={!config.enabled} data-testid="al-roof-section">
-  <div class="al-sec-head">
-    <label class="al-check al-sec-title">
-      <input type="checkbox" bind:checked={config.enabled} data-testid="al-roof" /> {t('autoLoad.roof.title')}
-    </label>
-    <span class="al-sec-code">CIRSOC 101-2025 §4.8</span>
-    {#if config.enabled && config.use === 'maintenance'}<span class="al-sec-value" data-testid="al-roof-lr">Lr {lrLarge.toFixed(2)}–{lrSmall.toFixed(2)} kN/m²</span>{/if}
-  </div>
-  {#if config.enabled}
-    <div class="al-sec-body">
+<div class="al-pane-body" data-testid="al-roof-section">
       <p class="al-hint">{t('autoLoad.roof.hint')}</p>
       <div class="al-row">
         <label class="al-field"><span class="al-label">{t('autoLoad.roof.use')}</span>
@@ -89,6 +84,4 @@
           </select>
         </label>
       {/if}
-    </div>
-  {/if}
-</section>
+</div>

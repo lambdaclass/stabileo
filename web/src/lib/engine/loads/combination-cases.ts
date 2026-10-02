@@ -19,6 +19,16 @@
  * time. Directional symbols (W, E) are alternatives: each case of the symbol gets a
  * combination of its own, never alongside another case of the same symbol.
  *
+ * ── Patterns of partial loading ──────────────────────────────────
+ *
+ * A case marked `pattern` (a checkerboard or the spans each side of a grid line of CIRSOC 101
+ * §4.3.3, a partial snow load of CIRSOC 104 Cap. 5) is an arrangement of its group's action over
+ * part of the structure. It enters the combinations where that action is the principal one,
+ * the term with the largest factor among the variable actions; as a companion the action enters
+ * whole. That is the usual reading, and what keeps two patterned actions in one rule from
+ * multiplying their arrangements: 1,2 D + 1,6 L + 0,5 Lr arranges L, 1,2 D + 1,6 Lr + L
+ * arranges Lr. `patternsInCompanions` arranges every term instead.
+ *
  * ── Both senses ──────────────────────────────────────────────────
  *
  * Wind and earthquake act either way along a direction, and a case holds one of the two. With
@@ -68,19 +78,24 @@ export interface ExpandOptions {
    * −1 it becomes pressure the code never prescribes. Absent: every case of a reversed symbol.
    */
   reversible?: (caseId: number) => boolean;
+  /** Patterns also in the terms where their action is a companion (see the header). */
+  patternsInCompanions?: boolean;
 }
+
+/** Actions that vary: the ones a rule has a principal among. D, F and H are permanent. */
+const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T']);
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  type Case = { id: number; name: string; alternatives?: string };
+  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean };
   const bySymbol = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
     const s = symbolOfType(c.type);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives }]);
+    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern }]);
   }
   /** One way of taking a term: the cases it adds, their sign, and what names it. */
   type Pick = { cases: Case[]; sense: 1 | -1; label: string };
@@ -97,6 +112,7 @@ export function expandCombinations(
      * is taken one case at a time too; it used to sum every direction of it.
      */
     const slots: Array<{ factor: number; picks: Pick[] }> = [];
+    const principal = Math.max(0, ...terms.filter((t) => VARIABLE.has(t.symbol)).map((t) => Math.abs(t.factor)));
     for (const t of terms) {
       const all = bySymbol.get(t.symbol)!;
       if (ALTERNATIVE.has(t.symbol)) {
@@ -113,7 +129,11 @@ export function expandCombinations(
       if (plain.length > 0) slots.push({ factor: t.factor, picks: [{ cases: plain, sense: 1, label: '' }] });
       const groups = new Map<string, Case[]>();
       for (const c of all) if (c.alternatives) groups.set(c.alternatives, [...(groups.get(c.alternatives) ?? []), c]);
-      for (const g of groups.values()) {
+      const companion = !opts.patternsInCompanions && Math.abs(t.factor) < principal - 1e-9;
+      for (const g0 of groups.values()) {
+        // A companion takes its action whole: the group's cases that are no pattern.
+        const whole = g0.filter((c) => !c.pattern);
+        const g = companion && whole.length > 0 ? whole : g0;
         slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 ? c.name : '' })) });
       }
     }

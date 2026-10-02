@@ -16,6 +16,11 @@
  *
  * §7.2 reduces a drift from a separate structure within 6 m by (6 − s)/6.
  *
+ * ── Cap. 8, parapets and projections ──────────────────────────────
+ *
+ * The method of §7.1 with 0,75 h_d, l_u the roof's length upwind of the parapet, h_c from the
+ * balanced snow to the parapet's top.
+ *
  * ── Figura 9 ──────────────────────────────────────────────────────
  *
  * The regulation gives h_d as curves only, no expression: the table below was read from the
@@ -42,6 +47,7 @@ export const REF_DRIFT = R('7.1', 'cubierta más baja de una estructura');
 export const REF_DRIFT_ADJACENT = R('7.2', 'estructuras adyacentes');
 export const REF_FIG9 = R('Figura 9', 'altura de la nieve acumulada');
 export const REF_SLIDING = R('9', 'nieve caída por deslizamiento');
+export const REF_PARAPET = R('8', 'salientes de cubierta');
 
 const LU = [7.5, 15, 30, 60, 120, 180] as const;
 const PG = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 4.75] as const;
@@ -106,6 +112,11 @@ export interface StepDrift {
   outside: boolean;
 }
 
+/** The triangle of §7.1 for a drift height h_d under a clear height h_c (see the header). */
+function driftShape(hd: number, hc: number): { height: number; w: number } {
+  return { height: hd <= hc ? hd : hc, w: Math.min(hd <= hc ? 4 * hd : (4 * hd * hd) / hc, 8 * hc) };
+}
+
 export function stepDrift(i: StepDriftInputs): StepDrift {
   const gamma = snowDensity(i.pg);
   const hb = i.balanced / gamma;
@@ -117,9 +128,26 @@ export function stepDrift(i: StepDriftInputs): StepDrift {
   const s = i.separation ?? 0;
   if (hb <= 0 || hc / hb < 0.2 || s >= 6) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
   const reduce = (6 - s) / 6;
-  const height = (hd <= hc ? hd : hc) * reduce;
-  const w = Math.min(hd <= hc ? 4 * hd : (4 * hd * hd) / hc, 8 * hc);
-  return { ...base, applies: true, height, w, pd: height * gamma };
+  const shape = driftShape(hd, hc);
+  const height = shape.height * reduce;
+  return { ...base, applies: true, height, w: shape.w, pd: height * gamma };
+}
+
+/**
+ * Cap. 8: the drift against a parapet wall (or a roof projection) of height `parapetHeight` above
+ * the roof, by the method of §7.1 with 0,75 h_d of Figura 9 and l_u the roof's length upwind of
+ * the parapet. h_c is from the balanced snow to the parapet's top.
+ */
+export function parapetDrift(i: { pg: number; balanced: number; parapetHeight: number; lu: number }): StepDrift {
+  const gamma = snowDensity(i.pg);
+  const hb = i.balanced / gamma;
+  const hc = Math.max(0, i.parapetHeight - hb);
+  const f = figure9Hd(i.pg, i.lu);
+  const hd = 0.75 * f.hd;
+  const base = { gamma, hb, hc, hdLeeward: 0, hdWindward: hd, governs: 'windward' as const, outside: f.outside };
+  if (hb <= 0 || hc / hb < 0.2) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
+  const shape = driftShape(hd, hc);
+  return { ...base, applies: true, height: shape.height, w: shape.w, pd: shape.height * gamma };
 }
 
 /** Cap. 9: whether snow slides off a higher roof of this slope (%), and the load it brings. */

@@ -16,6 +16,8 @@ export interface ApplyLoadPlanOptions {
   bothSenses: boolean;
   /** A planned case's name in the app's language. */
   nameOf: (key: string, params?: Record<string, string | number>) => string;
+  /** Patterns of partial loading also where their action is a companion (`combination-cases.ts`). */
+  patternsInCompanions?: boolean;
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
@@ -32,7 +34,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -72,8 +74,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     // −Y is generated as cases of its own (`wind-cases.ts`); earthquake is reversed by the sign.
     const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
       const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}) };
+      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
     }));
-    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses } }));
+    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
   });
 }

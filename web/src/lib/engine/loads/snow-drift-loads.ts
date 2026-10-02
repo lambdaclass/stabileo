@@ -1,5 +1,5 @@
 /**
- * Where CIRSOC 104's drifts (Cap. 7) and sliding snow (Cap. 9) land on the model
+ * Where CIRSOC 104's drifts (Cap. 7 and 8) and sliding snow (Cap. 9) land on the model
  * (`codes/cirsoc104/drift.ts` for the regulation's numbers).
  *
  * ── Steps ─────────────────────────────────────────────────────────
@@ -8,6 +8,13 @@
  * (`plan-gravity.ts` gives the panels and which are roofs). The upper roof's length upwind of
  * the step, l_u, is how far its panels reach from the step line on their side; the lower roof's,
  * on the other.
+ *
+ * ── Parapets and separate structures ──────────────────────────────
+ *
+ * An exterior edge of a roof (no roof of its level, nor a higher one, just outside it) takes the
+ * drift of Cap. 8 against a parapet of the height given, and the drift of §7.2 from a separate
+ * higher structure standing on that side of the model, reduced by its separation. l_u is the
+ * roof's length from the edge into it.
  *
  * ── Sliding ───────────────────────────────────────────────────────
  *
@@ -25,7 +32,7 @@
  * Pure: no store.
  */
 import type { GravityLayout, GravityModel } from './plan-gravity';
-import { stepDrift, slidingSnow, REF_DRIFT, REF_FIG9, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
+import { stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 
@@ -76,6 +83,13 @@ export interface DriftInputs {
   pf: number;
   slippery: boolean;
   tributaryWidth: number;
+  /** A parapet of this height above the roof on every exterior edge of the roofs, m (Cap. 8). */
+  parapet?: { height: number };
+  /**
+   * Separate structures higher than the roof beside it (§7.2): the side of the model they stand
+   * on, the elevation of their roof, the gap to them and the length of their roof, m.
+   */
+  adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
 }
 
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs): {
@@ -115,6 +129,56 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
       bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n, z: L.z,
         p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
+    }
+  }
+
+  // ── Exterior edges: parapets (Cap. 8) and separate structures (§7.2) ──
+  const inside = (pt: P2, poly: P2[]) => {
+    let c = false;
+    for (let k = 0, j = poly.length - 1; k < poly.length; j = k++) {
+      const [xi, yi] = poly[k]!, [xj, yj] = poly[j]!;
+      if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  if (i.parapet || i.adjacent?.length) {
+    for (const L of roofs) {
+      for (let e = 0; e < L.polygon.length; e++) {
+        const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
+        const line = lineInto(a, b, L.polygon);
+        if (line.len < 0.1) continue;
+        // Exterior: just outside the edge there is no roof of this level, nor a higher one (a step).
+        const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
+        if (roofs.some((p) => p.k !== L.k && p.z >= L.z - 0.05 && inside(mid, p.polygon))) continue;
+        // The roof's length from this edge into it, for l_u.
+        const lu = Math.max(0, ...roofs.filter((p) => Math.abs(p.z - L.z) <= 0.05).flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
+        const band = (dr: StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, z: L.z, p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
+        if (i.parapet && i.parapet.height > 0) {
+          const dr = parapetDrift({ pg: i.pg, balanced: i.balanced, parapetHeight: i.parapet.height, lu });
+          derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
+            z: round(L.z, 2), hp: round(i.parapet.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+            hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
+          }));
+          if (dr.applies) { band(dr); if (!refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9); }
+        }
+        for (const adj of i.adjacent ?? []) {
+          // The edge faces the side the structure stands on, and nothing of the model is beyond it.
+          const out: P2 = [-line.n[0], -line.n[1]];
+          const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
+          if (dot(out, want) < 0.95) continue;
+          const beyond = layout.panels.some((p) => {
+            const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), out));
+            return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
+          });
+          if (beyond || adj.topZ <= L.z + 0.1) continue;
+          const dr = stepDrift({ pg: i.pg, balanced: i.balanced, stepHeight: adj.topZ - L.z, luUpper: adj.length, luLower: lu, separation: adj.separation });
+          derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
+            z: round(L.z, 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
+            hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
+          }));
+          if (dr.applies) { band(dr); if (!refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9); }
+        }
+      }
     }
   }
 

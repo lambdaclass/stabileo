@@ -31,9 +31,8 @@
   let { config = $bindable() }: Props = $props();
 </script>
 
-<section class="al-sec" data-testid="al-special-section">
-  <div class="al-sec-head"><span class="al-sec-title">{t('autoLoad.special.title')}</span><span class="al-sec-code">CIRSOC 101-2025 §2.2, §2.3.2, §2.3.4</span></div>
-  <div class="al-sec-body">
+<div class="al-pane-body" data-testid="al-special-section">
+  <div class="al-sub">
     <label class="al-check"><input type="checkbox" bind:checked={config.thermal.on} data-testid="al-thermal" /> {t('autoLoad.special.thermal')}</label>
     {#if config.thermal.on}
       <div class="al-row">
@@ -43,6 +42,8 @@
           <span class="al-unit-field"><input type="number" step="5" bind:value={config.thermal.grad} /><span>°C</span></span></label>
       </div>
     {/if}
+  </div>
+  <div class="al-sub">
     <label class="al-check"><input type="checkbox" bind:checked={config.soil.on} data-testid="al-soil" /> {t('autoLoad.special.soil')}</label>
     {#if config.soil.on}
       <div class="al-row">
@@ -63,6 +64,8 @@
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.permanent} /> {t('autoLoad.special.permanent')}</label>
       <p class="al-hint">{t('autoLoad.special.soilHint')}</p>
     {/if}
+  </div>
+  <div class="al-sub">
     <label class="al-check"><input type="checkbox" bind:checked={config.fluid.on} data-testid="al-fluid" /> {t('autoLoad.special.fluid')}</label>
     {#if config.fluid.on}
       <div class="al-row">
@@ -74,4 +77,4 @@
       <p class="al-hint">{t('autoLoad.special.fluidHint')}</p>
     {/if}
   </div>
-</section>
+</div>

@@ -18,9 +18,9 @@
   let { mode = $bindable(), slab = $bindable(), spanAxis = $bindable(), tributaryWidth = $bindable(), clearExisting, onClearChange }: Props = $props();
 </script>
 
-<section class="al-sec">
-  <div class="al-sec-head"><span class="al-sec-title">{t('autoLoad.applying')}</span></div>
-  <div class="al-sec-body">
+<div class="al-pane-body" data-testid="al-applying-section">
+  <div class="al-sub">
+    <span class="al-sub-title">{t('autoLoad.applying.areaTitle')}</span>
     <div class="al-row">
       <label class="al-field"><span class="al-label">{t('autoLoad.gravity.mode')}</span>
         <select bind:value={mode} data-testid="al-gravity-mode">
@@ -49,7 +49,11 @@
     <label class="al-field al-field-narrow"><span class="al-label">{t(mode === 'panels' ? 'autoLoad.gravity.fallbackWidth' : 'autoLoad.tributaryWidth')}</span>
       <span class="al-unit-field"><input type="number" step="0.5" min="0.1" bind:value={tributaryWidth} data-testid="al-trib" /><span>m</span></span>
     </label>
+  </div>
+  <div class="al-sub">
+    <span class="al-sub-title">{t('autoLoad.applying.existingTitle')}</span>
     <label class="al-check"><input type="checkbox" checked={clearExisting} data-testid="al-clear"
       onchange={(e) => onClearChange(e.currentTarget.checked)} /> {t('autoLoad.clearExisting')}</label>
+    <p class="al-hint">{t('autoLoad.applying.existingHint')}</p>
   </div>
-</section>
+</div>

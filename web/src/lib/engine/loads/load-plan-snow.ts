@@ -49,7 +49,7 @@ export function planSnow(input: LoadPlanInput, sink: PlanSink, layout?: GravityL
       const alternatives = out.cases.length > 1 ? SNOW_PATTERNS : undefined;
       for (const c of out.cases) {
         const index = cases.length;
-        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}) });
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) });
         for (const d of c.distributed) distributed.push({ ...d, caseType: 'S', caseIndex: index });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz });
         snowPlanned = true;

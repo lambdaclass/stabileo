@@ -10,7 +10,8 @@
  *
  * Pure: no store.
  */
-import type { GravityLayout } from './plan-gravity';
+import type { GravityLayout, GravityModel } from './plan-gravity';
+import { adjacentSpanPatterns, layoutSpans, layoutUnits, type Unit } from './plan-spans';
 import { roofLiveLoad, type RoofWeight } from '../../codes/cirsoc101/roof-live';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
@@ -39,17 +40,28 @@ export interface AreaLoadsInput {
   floor: { dead: number; lo: number; liveOf: (elementId: number) => number };
   roof?: RoofLoads;
   /**
-   * Alternate loading (CIRSOC 101 §4.3.3, and Tabla 4.1 note n for a reduced Lr): L and Lr also
-   * as two checkerboard arrangements, the panels and spans of one colour each.
+   * Partial loading (CIRSOC 101 §4.3.3, and Tabla 4.1 note n for a reduced Lr): L and Lr also as
+   * two checkerboard arrangements, the panels and spans of one colour each (`checkerboard`), and
+   * with `all` as the spans each side of every interior grid line too (`plan-spans.ts`). `true`
+   * is the checkerboard alone.
    */
-  patterns?: boolean;
+  patterns?: boolean | 'none' | 'checkerboard' | 'all';
+  /** The model, for the grid lines of the members loaded by width (`all` only). */
+  model?: GravityModel;
+}
+
+/** An arrangement of L or Lr a case of its own is planned for. */
+export interface AreaArrangement {
+  symbol: 'L' | 'Lr';
+  kind: 'checkerboard' | 'adjacent';
+  nameParams: Record<string, string | number>;
 }
 
 export interface AreaLoad {
   elementId: number; caseType: AreaCaseType; q: number; qJ?: number; a?: number; b?: number;
   frame?: 'global' | 'projected';
-  /** The checkerboard arrangement this load belongs to; absent: the symbol's full load. */
-  arrangement?: 0 | 1;
+  /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
+  arrangement?: number;
 }
 export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
 
@@ -57,8 +69,9 @@ export interface AreaLoadsResult {
   distributed: AreaLoad[];
   surface: AreaSurface[];
   planned: Set<AreaCaseType>;
-  /** The symbols that got checkerboard arrangements. */
+  /** The symbols that got arrangements, and the arrangements, by `AreaLoad.arrangement`. */
   arranged: Set<'L' | 'Lr'>;
+  arrangements: AreaArrangement[];
   derivation: EngineMessage[];
   refs: ClauseRef[];
   /** kN/m² of dead and of (unreduced) live load a floor's and a roof's area bring to the seismic mass. */
@@ -75,7 +88,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const floorMass = { dead: i.floor.dead, live: i.floor.lo };
   const roofMass = roof ? { dead: roof.dead, live: roof.use === 'occupancy' ? roof.lo ?? 0 : 0 } : floorMass;
   const out: AreaLoadsResult = {
-    distributed: [], surface: [], planned: new Set(), arranged: new Set(), derivation: [], refs: [], floorMass, roofMass,
+    distributed: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
     massOfQuad: (id) => (isRoofQuad(id) ? roofMass : floorMass),
   };
 
@@ -100,17 +113,18 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
    * One area load on what carries it: `qOf(id, roof)` for a member's floor or roof part,
    * `perProjection` for loads given per horizontal area.
    */
-  const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfQuad: (id: number) => number, perProjection: boolean, arrangement?: 0 | 1) => {
-    const arr = arrangement !== undefined ? { arrangement } : {};
+  const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfQuad: (id: number) => number, perProjection: boolean,
+    arrangement?: { index: number; loads: (u: Unit) => boolean }) => {
+    const arr = arrangement !== undefined ? { arrangement: arrangement.index } : {};
     for (const p of layout.pieces) {
-      if (arrangement !== undefined && layout.panelColour[p.panel] !== arrangement) continue;
+      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
       if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const m of layout.widthMembers) {
-      if (arrangement !== undefined && layout.widthColour.get(m.elementId) !== arrangement) continue;
+      if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
       const q = -qOf(m.elementId, isRoof(m.elementId)) * i.tributaryWidth;
       if (Math.abs(q) <= 1e-3) continue;
       out.distributed.push(i.legacyWidth
@@ -136,19 +150,48 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
     put('Lr', lrQ, (id) => (isRoofQuad(id) ? shellLr : 0), true);
   }
-  if (i.patterns) {
-    // An arrangement is worth a case only when it loads less than everything: some of the
-    // units carrying the symbol are of the other colour.
+  const mode = i.patterns === true ? 'checkerboard' : i.patterns === false || i.patterns === undefined ? 'none' : i.patterns;
+  if (mode !== 'none') {
     const before = out.distributed.length;
+    const spans = mode === 'all' && i.model ? layoutSpans(i.model, layout) : null;
+    let adjacent = 0;
     for (const [sym, q] of [['L', liveQ], ['Lr', lrQ]] as const) {
       if (!out.planned.has(sym)) continue;
-      const start = out.distributed.length;
-      for (const k of [0, 1] as const) put(sym, q, () => 0, true, k);
-      const added = out.distributed.slice(start);
-      if ([0, 1].every((k) => added.some((d) => d.arrangement === k))) out.arranged.add(sym);
-      else out.distributed.length = start;
+      /*
+       * The units carrying the symbol: a panel or member whose load under the symbol is not zero.
+       * An arrangement is worth a case only when it loads some of them and not all.
+       */
+      const carries = (u: Unit) => ('panel' in u
+        ? layout.pieces.some((p) => p.panel === u.panel && Math.abs(q(p.elementId, !!roof && p.roof)) > 1e-6)
+        : Math.abs(q(u.member, isRoof(u.member))) > 1e-6);
+      const units = layoutUnits(layout, carries);
+      const colour = (u: Unit) => ('panel' in u ? layout.panelColour[u.panel] : layout.widthColour.get(u.member));
+      const partOf = (loads: (u: Unit) => boolean) => { const n = units.filter(loads).length; return n > 0 && n < units.length; };
+      const candidates: Array<{ a: AreaArrangement; loads: (u: Unit) => boolean }> = [];
+      // The checkerboard is a pair: both colours, or neither.
+      const boards = [0, 1].map((k) => ({
+        a: { symbol: sym, kind: 'checkerboard' as const, nameParams: { k: k === 0 ? 'A' : 'B' } },
+        loads: (u: Unit) => colour(u) === k,
+      }));
+      if (boards.every((b) => partOf(b.loads))) candidates.push(...boards);
+      if (spans) {
+        for (const pt of adjacentSpanPatterns(spans, units)) {
+          const loads = (u: Unit) => pt.factor(u) > 0;
+          if (partOf(loads)) candidates.push({ a: { symbol: sym, kind: 'adjacent', nameParams: { axis: pt.axis.toUpperCase(), at: round(pt.at ?? 0, 2) } }, loads });
+        }
+      }
+      for (const c of candidates) {
+        const index = out.arrangements.length;
+        out.arrangements.push(c.a);
+        put(sym, q, () => 0, true, { index, loads: c.loads });
+        if (c.a.kind === 'adjacent') adjacent++;
+      }
+      if (candidates.length > 0) out.arranged.add(sym);
     }
-    if (out.arranged.size > 0) out.derivation.push(msg('loadPlan.derivation.patterns', { symbols: [...out.arranged].join(', '), loads: out.distributed.length - before }));
+    if (out.arranged.size > 0) {
+      out.derivation.push(msg('loadPlan.derivation.patterns', { symbols: [...out.arranged].join(', '), loads: out.distributed.length - before }));
+      if (adjacent > 0) out.derivation.push(msg('loadPlan.derivation.adjacentSpans', { n: adjacent, x: spans!.lines.x.length, y: spans!.lines.y.length }));
+    }
   }
   return out;
 }

@@ -21,8 +21,41 @@ describe('CIRSOC 102 Cap. 5, components and cladding', () => {
     expect(r.aRoof).toBeNull();
   });
 
-  it('refuses above 20 m', () => {
-    expect(claddingPressures({ qhNm2: 1000, meanRoofHeight: 25, leastDimension: 30, roofSlopeDeg: 5, gcpi: 0.18, areaM2: 1 }).refused).toBe('height');
+  it('above 20 m, Fig. 5.4-1: qz for wall pressure, qh for suction, a no less than 1 m', () => {
+    const r = claddingPressures({ qhNm2: 1200, qzNm2: 900, meanRoofHeight: 40, leastDimension: 30, roofSlopeDeg: 0, gcpi: 0.18, areaM2: 2 });
+    expect(r.part).toBe(2);
+    expect(r.aWalls).toBeCloseTo(3, 9);
+    const w5 = r.rows.find((x) => x.surface === 'wall' && x.zone === '5')!;
+    expect(w5.gcpNeg).toBeCloseTo(-1.8, 9);
+    expect(w5.pPos).toBeCloseTo(0.9 * 0.9 + 1.2 * 0.18, 9);
+    expect(w5.pNeg).toBeCloseTo(1.2 * -1.8 - 1.2 * 0.18, 9);
+    const r3 = r.rows.find((x) => x.surface === 'roof' && x.zone === '3')!;
+    expect(r3.gcpPos).toBeNull();
+    // A = 2 m², between 1 and 50: −3,2 + 0,9·log(2)/log(50).
+    expect(r3.gcpNeg).toBeCloseTo(-3.2 + 0.9 * Math.log10(2) / Math.log10(50), 9);
+    // A parapet of 1 m: zone 3 as zone 2.
+    const p = claddingPressures({ qhNm2: 1200, meanRoofHeight: 40, leastDimension: 30, roofSlopeDeg: 0, gcpi: 0.18, areaM2: 2, parapet: true });
+    expect(p.rows.find((x) => x.zone === '3')!.gcpNeg).toBeCloseTo(p.rows.find((x) => x.surface === 'roof' && x.zone === '2')!.gcpNeg, 9);
+    // 25 m tall and 30 m wide: §5.4 lets it take Parte 1.
+    const low = claddingPressures({ qhNm2: 1000, meanRoofHeight: 25, leastDimension: 30, roofSlopeDeg: 5, gcpi: 0.18, areaM2: 1, lowRise: true });
+    expect(low.lowRiseAllowed).toBe(true);
+    expect(low.part).toBe(1);
+  });
+
+  it('hip, monoslope and sawtooth roofs', () => {
+    const at = (roof: 'hip' | 'monoslope' | 'sawtooth', slope: number, zone: string, area = 1) =>
+      claddingPressures({ qhNm2: 1000, meanRoofHeight: 8, leastDimension: 30, roofSlopeDeg: slope, gcpi: 0, areaM2: area, roof }).rows.find((x) => x.surface === 'roof' && x.zone === zone);
+    // Tabla C 5.3-6, zone 1, A = 10 m²: −2,1010 + log 10.
+    expect(at('hip', 15, '1', 10)!.gcpNeg).toBeCloseTo(-1.101, 3);
+    expect(at('hip', 45, '3')!.gcpNeg).toBeCloseTo(-2.4, 9);
+    expect(claddingPressures({ qhNm2: 1000, meanRoofHeight: 8, leastDimension: 30, roofSlopeDeg: 35, gcpi: 0, areaM2: 1, roof: 'hip' }).refused).toBe('slope');
+    expect(at('monoslope', 8, "3'")!.gcpNeg).toBeCloseTo(-2.6, 9);
+    expect(at('monoslope', 20, '3', 10)!.gcpNeg).toBeCloseTo(-2.0, 9);
+    // Fig. 5.3-6, zone 3 of the first span: three corners.
+    expect(at('sawtooth', 20, '3A', 10)!.gcpNeg).toBeCloseTo(-3.7, 9);
+    expect(at('sawtooth', 20, '3A', 50)!.gcpNeg).toBeCloseTo(-2.1, 9);
+    expect(at('sawtooth', 20, '2')!.gcpPos).toBeCloseTo(1.1, 9);
+    expect(claddingPressures({ qhNm2: 1000, meanRoofHeight: 25, leastDimension: 20, roofSlopeDeg: 20, gcpi: 0, areaM2: 1, roof: 'sawtooth' }).refused).toBe('kind');
   });
 });
 

@@ -140,8 +140,11 @@ export interface LoadPlanInput {
    * Absent: roofs are loaded as floors.
    */
   roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
-  /** L and Lr also on alternate panels and spans, two checkerboard cases each (§4.3.3). */
-  patterns?: boolean;
+  /**
+   * Partial live loading of §4.3.3 (`plan-area-loads.ts`): L and Lr also as two checkerboards and,
+   * with `all`, on the spans each side of every interior grid line. `true` is the checkerboard.
+   */
+  patterns?: boolean | 'none' | 'checkerboard' | 'all';
   /** T, H and F (`special-loads.ts`). `soil.permanent`: the soil's pressure is permanent (§2.3.2's 0,9). */
   thermal?: ThermalInput;
   soil?: SoilInput & { permanent?: boolean };
@@ -188,10 +191,14 @@ export interface LoadPlanInput {
     exposure: RoofExposure;
     thermal: ThermalCondition;
     category: SnowCategory;
-    roofKind: 'mono' | 'gable';
+    roofKind: 'mono' | 'gable' | 'curved' | 'multiple' | 'dome';
     slippery: boolean;
     /** The roof slope, degrees; absent: read from the roof members. */
     roofSlopeDeg?: number;
+    /** The partial loads of Cap. 5 (default on), parapets (Cap. 8) and separate structures (§7.2). */
+    partial?: boolean;
+    parapet?: { height: number };
+    adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
   };
   seismic?: {
     enabled: boolean;
@@ -259,6 +266,8 @@ export interface PlannedCase {
   nameParams?: Record<string, string | number>;
   /** Patterns of one action, taken one at a time in a combination (see LoadCase.alternatives). */
   alternatives?: string;
+  /** An arrangement over part of the structure (see LoadCase.pattern). */
+  pattern?: boolean;
 }
 
 export interface PlannedDistributed {
@@ -601,7 +610,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   const area = planAreaLoads({
     layout, tributaryWidth: input.tributaryWidth, legacyWidth: !panelMode,
-    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns,
+    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
   refs.push(...area.refs);
@@ -612,18 +621,21 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // The checkerboards, one case each: alternatives to the full load, never added to it.
   // The full load and its two checkerboards are one action three ways: an alternatives group
   // (`LoadCase.alternatives`), so a combination takes one of the three.
-  const arrangementIndex = new Map<string, number>();
   for (const sym of area.arranged) {
-    const group = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
     const full = cases.find((c) => c.type === sym && c.alternatives === undefined);
-    if (full) full.alternatives = group;
-    for (const k of [0, 1]) {
-      arrangementIndex.set(`${sym}${k}`, cases.length);
-      cases.push({ existingId: null, type: sym, nameKey: sym === 'L' ? 'autoLoad.liveCasePattern' : 'autoLoad.roofLiveCasePattern', nameParams: { k: k === 0 ? 'A' : 'B' }, alternatives: group });
-    }
+    if (full) full.alternatives = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
   }
+  // One case per arrangement, a pattern of its group: it varies where its action is principal.
+  const arrangementCase = area.arrangements.map((a) => {
+    cases.push({
+      existingId: null, type: a.symbol, pattern: true,
+      nameKey: `autoLoad.${a.symbol === 'L' ? 'liveCase' : 'roofLiveCase'}${a.kind === 'checkerboard' ? 'Pattern' : 'Adjacent'}`,
+      nameParams: a.nameParams, alternatives: a.symbol === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS,
+    });
+    return cases.length - 1;
+  });
   const distributed: PlannedDistributed[] = area.distributed.map(({ arrangement, ...d }) =>
-    (arrangement !== undefined ? { ...d, caseIndex: arrangementIndex.get(`${d.caseType}${arrangement}`)! } : d));
+    (arrangement !== undefined ? { ...d, caseIndex: arrangementCase[arrangement]! } : d));
 
   // ── Level masses from real geometry ──
   const sw = selfWeightByLevel(input.model, levelOfNode, levelsRaw.length);
