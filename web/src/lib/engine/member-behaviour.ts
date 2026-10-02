@@ -419,13 +419,32 @@ type SolverSection = SolverInput3D['sections'] extends Map<number, infer S> ? S 
  * Give every member with stiffness modifiers a section of its own, scaled, in the solver input.
  * The model's sections are untouched.
  */
+/**
+ * A composite drawn section stores its A, I and J transformed to its reference material: a
+ * member of another material, which the solver gives its own E and G, solves it scaled by
+ * E_ref/E_member (A, I) and G_ref/G_member (J). Without it a steel member on a section drawn
+ * with concrete as reference came out about seven times too stiff. 1 when there is nothing to
+ * convert: no reference, a section of one material, or a member in the reference.
+ */
+export function compositeReferenceFactor(model: ModelData, memberId: number): { e: number; g: number } {
+  const el = model.elements.get(memberId);
+  const sec = el ? model.sections.get(el.sectionId) as { drawn?: { refMaterialId?: number; parts: Array<{ materialId?: number; void?: boolean }> } } | undefined : undefined;
+  const ref = sec?.drawn?.refMaterialId;
+  if (!el || ref == null || el.materialId === ref) return { e: 1, g: 1 };
+  if (!sec!.drawn!.parts.some((p) => !p.void && p.materialId != null && p.materialId !== ref)) return { e: 1, g: 1 };
+  const mr = model.materials.get(ref), mm = model.materials.get(el.materialId);
+  if (!mr || !mm || !(mm.e > 0)) return { e: 1, g: 1 };
+  const g = (m: { e: number; nu: number }) => m.e / (2 * (1 + m.nu));
+  return { e: mr.e / mm.e, g: g(mr) / g(mm) };
+}
+
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {
   let next = Math.max(0, ...input.sections.keys()) + 1;
   const made = new Map<string, number>();
   for (const [id, el] of input.elements) {
-    const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness;
-    if (!m) continue;
-    const f = { a: m.a ?? 1, iy: m.iy ?? 1, iz: m.iz ?? 1, j: m.j ?? 1 };
+    const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
+    const c = compositeReferenceFactor(model, id);
+    const f = { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
     if (f.a === 1 && f.iy === 1 && f.iz === 1 && f.j === 1) continue;
     const key = `${el.sectionId}|${f.a}|${f.iy}|${f.iz}|${f.j}`;
     let sid = made.get(key);

@@ -1221,7 +1221,7 @@ const es: Record<string, string> = {
   'table.newMaterial': 'Nuevo material',
   'table.addMaterialCustom': '+ Agregar material (personalizado)',
   'table.chooseMaterial': 'Elegir material predefinido',
-  'table.cannotDeleteMaterial': 'No se puede eliminar: hay barras usando este material.',
+  'table.cannotDeleteMaterial': 'No se puede eliminar: hay barras o secciones dibujadas que usan este material.',
   'table.newSection': 'Nueva sección',
   'table.addSectionManual': '+ Agregar sección (manual)',
   'table.changeSection': 'Cambiar sección',

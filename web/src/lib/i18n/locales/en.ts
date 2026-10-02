@@ -1228,7 +1228,7 @@ const en: Record<string, string> = {
   'table.newMaterial': 'New material',
   'table.addMaterialCustom': '+ Add material (custom)',
   'table.chooseMaterial': 'Choose predefined material',
-  'table.cannotDeleteMaterial': 'Cannot delete: members are using this material.',
+  'table.cannotDeleteMaterial': 'Cannot delete: members or drawn sections use this material.',
   'table.newSection': 'New section',
   'table.addSectionManual': '+ Add section (manual)',
   'table.changeSection': 'Change section',

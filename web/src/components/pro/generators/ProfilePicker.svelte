@@ -102,6 +102,7 @@
       open={open}
       spec={spec}
       label={t(`generator.role.${role}`)}
+      catalogueOnly
       onApply={(choice) => { if (choice.kind === 'standard') onChange(choice.spec); }}
       onClose={() => { open = false; }}
     />

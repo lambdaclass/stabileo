@@ -127,7 +127,9 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       shape: d?.shape, tw: d?.tw, tf: d?.tf, t: d?.t,
       profileFamily: d?.profileName ? findProfileFamily(d.profileName) : undefined,
       a: props.a, iy: props.iy, iz: props.iz,
-      ...(props.j != null ? { j: props.j } : {}),
+      // Written even when the drawing has no torsion constant: a previous one would otherwise
+      // survive and be reported for a section it was never computed for.
+      j: props.j ?? undefined,
       b: props.b, h: props.h,
     };
   }

@@ -6735,7 +6735,7 @@ const pt: Translations = {
   'table.addNode': '+ Nó',
   'table.addSectionManual': '+ Adicionar seção (manual)',
   'table.addSupport': '+ Apoio',
-  'table.cannotDeleteMaterial': 'Não é possível excluir: barras estão usando este material.',
+  'table.cannotDeleteMaterial': 'Não é possível excluir: barras ou seções desenhadas usam este material.',
   'table.cannotDeleteSection': 'Não é possível excluir: barras estão usando esta seção.',
   'table.case': 'Caso',
   'table.changeSection': 'Alterar seção',

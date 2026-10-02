@@ -168,7 +168,10 @@
     // Null when the catalogue does not know the name. Nothing is added rather than a section
     // with no area, which the canonical resolver would report as having no known geometry.
     if (!fields) return;
-    if (editingId != null && modelStore.sections.has(editingId)) modelStore.updateSection(editingId, fields as never);
+    const editing = editingId != null ? modelStore.sections.get(editingId) : undefined;
+    // A drawing and a template have no rotation control, so editing one keeps the roll it had.
+    if (editing && choice.kind !== 'standard') fields.rotation = editing.rotation ?? 0;
+    if (editing && editingId != null) modelStore.updateSection(editingId, fields as never);
     else modelStore.addSection(fields as never);
     editingId = null;
   }
@@ -178,6 +181,11 @@
   const editingDrawn = $derived.by(() => {
     const s = editingId != null ? modelStore.sections.get(editingId) : undefined;
     return s?.drawn ? { name: s.name, drawn: $state.snapshot(s.drawn) as import('../../lib/section/drawn').DrawnSection } : null;
+  });
+  /** The template section being reopened: its template and the numbers typed into it. */
+  const editingBuilt = $derived.by(() => {
+    const s = editingId != null ? modelStore.sections.get(editingId) : undefined;
+    return !s?.drawn && s?.built ? $state.snapshot(s.built) as { shapeType: string; params: Record<string, number> } : null;
   });
 
   // ─── Sections list ──────────────────────
@@ -273,6 +281,11 @@
                     class="row-act" title={t('drawn.edit')} data-testid="pro-sec-edit-drawn-{s.id}"
                     onclick={() => { editingId = s.id; modalOpen = true; }}
                   >&#9998;</button>
+                {:else if s.built}
+                  <button
+                    class="row-act" title={t('section.modal.editBuilt')} data-testid="pro-sec-edit-built-{s.id}"
+                    onclick={() => { editingId = s.id; modalOpen = true; }}
+                  >&#9998;</button>
                 {/if}
                 <button class="del-btn" onclick={() => removeSec(s.id)}>×</button>
               </td>
@@ -318,6 +331,7 @@
   open={modalOpen}
   spec={modalSpec}
   drawn={editingDrawn}
+  built={editingBuilt}
   onApply={applyChoice}
   onClose={() => { modalOpen = false; editingId = null; }}
 />

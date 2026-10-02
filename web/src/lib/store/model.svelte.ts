@@ -1,6 +1,7 @@
 import {
   defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
 } from '../codes/project-code-settings';
+import { refreshRatios } from '../section/drawn';
 import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
@@ -4067,12 +4068,29 @@ function createModelStore() {
       const m = new Map(model.materials);
       m.set(id, { ...mat, ...data, id });
       model.materials = m;
+      // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
+      // keeps the stiffness of the material as it was when the section was drawn.
+      if (data.e !== undefined || data.nu !== undefined) {
+        const secs = new Map(model.sections);
+        let touched = false;
+        for (const [sid, sec] of model.sections) {
+          if (!sec.drawn) continue;
+          const next = refreshRatios(sec.drawn, m);
+          if (next) { secs.set(sid, { ...sec, drawn: next }); touched = true; }
+        }
+        if (touched) model.sections = secs;
+      }
       this.bumpModelVersion();
     },
 
     removeMaterial(id: number): boolean {
       for (const elem of model.elements.values()) {
         if (elem.materialId === id) return false;
+      }
+      // A drawn section made of it, or expressed in it, needs it too: removed, every solve with
+      // self-weight failed on a density nobody could find.
+      for (const sec of model.sections.values()) {
+        if (sec.drawn && (sec.drawn.refMaterialId === id || sec.drawn.parts.some((p) => p.materialId === id))) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.materials);
