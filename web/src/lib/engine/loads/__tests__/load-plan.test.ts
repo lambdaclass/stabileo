@@ -670,3 +670,32 @@ describe('seismic loads from INPRES-CIRSOC 103 rather than a typed coefficient',
     }
   });
 });
+
+// ─── Combinations the preview counts ─────────────────────────────
+
+describe('the combinations the preview counts are the ones applying adds', () => {
+  const seismic = { enabled: true, coefficient: 0.15, liveParticipation: 0.25, directions: { x: true, y: true } };
+  const current = { distributed: 0, nodal: 0, combinations: 0, caseTypes: ['D', 'L'] };
+
+  it('counts each seismic direction, twice when both senses are asked for', () => {
+    const reg = applied(defaultRegulations());
+    reg.seismic = { ...bindRole('seismic', 'inpres103-2018'), configComplete: true, state: 'applied' };
+    const p = buildLoadPlan(input({ regulations: reg, seismic }));
+    expect(p.cases.filter((c) => c.type === 'E')).toHaveLength(2);
+    const withE = p.combinations.filter((c) => c.terms.some((t) => t.symbol === 'E' && t.factor !== 0)).length;
+    expect(withE).toBeGreaterThan(0);
+    const one = describePlanDelta(p, current, { replaceExisting: true }).after.combinations;
+    const both = describePlanDelta(p, current, { replaceExisting: true, bothSenses: { E: true } }).after.combinations;
+    expect(both - one).toBe(withE * 2);
+  });
+
+  it('takes the project\'s rules in place of the regulation\'s, and drops a rule with no case', () => {
+    const rules = [
+      { id: 'project-r1', terms: [{ symbol: 'D' as const, factor: 1.4 }], label: '1.4 D', refs: [], notes: [], purpose: 'strength' as const },
+      { id: 'project-r2', terms: [{ symbol: 'D' as const, factor: 1.2 }, { symbol: 'Lr' as const, factor: 1.6 }], label: '1.2 D + 1.6 Lr', refs: [], notes: [], purpose: 'strength' as const },
+    ];
+    const p = buildLoadPlan(input({ projectCombinations: rules }));
+    expect(p.combinations.map((c) => c.id)).toEqual(['project-r1', 'project-r2']);
+    expect(describePlanDelta(p, current, { replaceExisting: true }).after.combinations).toBe(1);
+  });
+});

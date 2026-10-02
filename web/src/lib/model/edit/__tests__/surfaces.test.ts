@@ -3,7 +3,7 @@
  * shell that solves.
  */
 import { describe, it, expect } from 'vitest';
-import { SURFACE_DEFAULTS, surfaceArea, surfaceMesh } from '../surfaces';
+import { SURFACE_DEFAULTS, surfaceArea, surfaceFragment, surfaceMesh } from '../surfaces';
 
 const mesh = (k: keyof typeof SURFACE_DEFAULTS, over: Record<string, number> = {}) => surfaceMesh(k, { ...SURFACE_DEFAULTS[k], ...over })!;
 
@@ -24,6 +24,28 @@ describe('surfaces', () => {
     const m = mesh('cone', { radius: 3, topRadius: 1, height: 4 });
     const rs = m.points.map((p) => [Math.hypot(p[0], p[1]), p[2]]);
     for (const [r, z] of rs) expect(r).toBeCloseTo(3 - (2 * z!) / 4, 9);
+  });
+
+  it('a cone to a point ends in one apex node and a ring of triangles', () => {
+    const m = mesh('cone', { radius: 3, topRadius: 0, height: 4, around: 12, along: 3 });
+    const apex = m.points.filter((p) => Math.abs(p[2] - 4) < 1e-9);
+    expect(apex).toHaveLength(1);
+    expect(m.cells.filter((c) => c.length === 3)).toHaveLength(12);
+    expect(m.cells.filter((c) => c.length === 4)).toHaveLength(24);
+    for (const c of m.cells) expect(new Set(c).size).toBe(c.length);
+    // The lateral area of the inscribed pyramid, band by band.
+    const slant = Math.hypot(3, 4);
+    expect(surfaceArea(m) / (Math.PI * 3 * slant)).toBeGreaterThan(0.95);
+    const f = surfaceFragment(m, 1, 0.1);
+    expect(f.plates).toHaveLength(12);
+    expect(f.quads).toHaveLength(24);
+  });
+
+  it('a spherical zone up to the pole closes on one node', () => {
+    const m = mesh('sphericalZone', { radius: 6, fromDeg: 30, toDeg: 90, around: 16, along: 4 });
+    expect(m.points.filter((p) => Math.hypot(p[0], p[1]) < 1e-9)).toHaveLength(1);
+    expect(m.cells.filter((c) => c.length === 3)).toHaveLength(16);
+    for (const c of m.cells) expect(new Set(c).size).toBe(c.length);
   });
 
   it('a spherical cap lies on its sphere and reaches its rise', () => {
@@ -53,8 +75,7 @@ describe('surfaces', () => {
   });
 
   it('refuses what cannot be built', () => {
-    expect(surfaceMesh('cone', { ...SURFACE_DEFAULTS.cone, topRadius: 0 })).toBeNull();
-    expect(surfaceMesh('sphericalZone', { ...SURFACE_DEFAULTS.sphericalZone, toDeg: 90 })).toBeNull();
+    // A cone to a point and a zone up to the pole are built, on one apex node (above).
     expect(surfaceMesh('sphericalCap', { ...SURFACE_DEFAULTS.sphericalCap, rise: 10 })).toBeNull();
     expect(surfaceMesh('hyperboloid', { ...SURFACE_DEFAULTS.hyperboloid, bottomRadius: 3 })).toBeNull();
   });

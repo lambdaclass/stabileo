@@ -1,7 +1,7 @@
 // Map parsed IFC structural members to Dedaliano model structures
 // This mapper is independent of web-ifc and operates on pre-parsed data.
 
-import { searchProfiles, profileToSectionFull } from '../data/steel-profiles';
+import { profileByName, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -40,6 +40,26 @@ export interface IfcMapperOptions {
 
 // ─── Known material defaults ──────────────────────────────────
 
+/*
+ * Matched as substrings of the name with case, spacing and accents removed, in this order:
+ * a grade first, then the family word. The words are the ones a model is written with in
+ * Spanish and Portuguese too: "Hormigón H-30" or "Concreto C25" came in as steel with a warning,
+ * and every concrete member was fifteen times too stiff.
+ */
+const STEEL = { e: 200000, nu: 0.3, rho: 78.5 };
+const TIMBER = { e: 12000, nu: 0.3, rho: 5.0 };
+const ALUMINIUM = { e: 70000, nu: 0.33, rho: 27.0 };
+const CONCRETE = { e: 30000, nu: 0.2, rho: 25.0 };
+/** An Argentine grade (H-30) names f'c, and E = 4700·√f'c as in CIRSOC 201. */
+function concreteOfFc(fc: number) { return { e: Math.round(4700 * Math.sqrt(fc)), nu: 0.2, rho: 25.0 }; }
+
+const MATERIAL_WORDS: Array<[string, { e: number; nu: number; rho: number }]> = [
+  ['hormigon', CONCRETE], ['concreto', CONCRETE], ['betao', CONCRETE], ['beton', CONCRETE],
+  ['acero', STEEL], ['aco', STEEL],
+  ['madera', TIMBER], ['madeira', TIMBER],
+  ['aluminio', ALUMINIUM], ['aluminium', ALUMINIUM],
+];
+
 const MATERIAL_DEFAULTS: Record<string, { e: number; nu: number; rho: number }> = {
   steel:    { e: 200000, nu: 0.3,  rho: 78.5 },
   s235:     { e: 200000, nu: 0.3,  rho: 78.5 },
@@ -56,6 +76,19 @@ const MATERIAL_DEFAULTS: Record<string, { e: number; nu: number; rho: number }> 
   wood:     { e: 12000,  nu: 0.3,  rho: 5.0  },
   aluminum: { e: 70000,  nu: 0.33, rho: 27.0 },
 };
+
+function materialFor(name: string): { e: number; nu: number; rho: number } | null {
+  const plain = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const key = plain.replace(/[\s_-]/g, '');
+  // An H-grade names f'c, which is the better answer than a family default.
+  const h = key.match(/h(\d{2})(?!\d)/);
+  if (h && /hormigon|concreto|^h\d/.test(key)) return concreteOfFc(Number(h[1]));
+  const known = Object.entries(MATERIAL_DEFAULTS).find(([k]) => key.includes(k));
+  if (known) return known[1];
+  // Whole words, so that "aco" (aço) does not match inside another word.
+  const words = plain.split(/[^a-z]+/).filter(Boolean);
+  return MATERIAL_WORDS.find(([w]) => words.some((x) => x === w || (w.length >= 6 && x.startsWith(w))))?.[1] ?? null;
+}
 
 // ─── Main mapping function ────────────────────────────────────
 
@@ -89,7 +122,7 @@ export function mapIfcToModel(
     const ni = findOrAddNode(member.start.x, member.start.y, member.start.z);
     const nj = findOrAddNode(member.end.x, member.end.y, member.end.z);
     if (ni === nj) {
-      warnings.push(tp('ifc.zeroLengthMember', { n: member.name }));
+      warnings.push(tp('ifc.memberZeroLength', { n: member.name }));
       continue;
     }
     const type = member.type === 'brace' && asTruss ? 'truss' as const : 'frame' as const;
@@ -107,20 +140,19 @@ export function mapIfcToModel(
   const materialIndex = new Map<string, number>();
   for (const name of materialNames) {
     materialIndex.set(name, materials.length);
-    const key = name.toLowerCase().replace(/[\s-_]/g, '');
-    const known = Object.entries(MATERIAL_DEFAULTS).find(([k]) => key.includes(k));
+    const known = materialFor(name);
     if (known) {
-      materials.push({ name, ...known[1] });
+      materials.push({ name, ...known });
     } else {
       // Default to steel
       warnings.push(tp('ifc.materialUnknown', { n: name }));
-      materials.push({ name, e: 200000, nu: 0.3, rho: 78.5 });
+      materials.push({ name, ...STEEL });
     }
   }
 
   // If no materials found, add default steel
   if (materials.length === 0) {
-    materials.push({ name: 'Acero', e: 200000, nu: 0.3, rho: 78.5 });
+    materials.push({ name: t('ifc.defaultSteel'), ...STEEL });
   }
 
   // ── Sections ──
@@ -133,10 +165,14 @@ export function mapIfcToModel(
   const sectionIndex = new Map<string, number>();
   for (const name of profileNames) {
     sectionIndex.set(name, sections.length);
-    // Try to match with steel profiles database
-    const results = searchProfiles(name);
-    if (results.length > 0) {
-      const p = results[0];
+    /*
+     * The catalogue by exact name, and only a name that starts with letters. The substring
+     * search this used took the first profile whose name CONTAINED the text: "IPE 30" became
+     * the IPE 300, a solid "300x300" became a hollow SHS 300x300, and "HEB200", which contains
+     * no "HEB 200", fell through to a 200 mm square.
+     */
+    const p = /^\s*[A-Za-z]/.test(name) ? profileByName(name) : null;
+    if (p) {
       const sec = profileToSectionFull(p);
       sections.push({
         name: p.name,
@@ -163,8 +199,9 @@ export function mapIfcToModel(
         // Estimate properties
         const a = tw ? 2 * (h + b) * tw : h * b; // hollow vs solid
         const iz = tw ? (h ** 3 * b / 12 - (h - 2 * tw) ** 3 * (b - 2 * tw) / 12) : h ** 3 * b / 12;
+        const iy = tw ? (b ** 3 * h / 12 - (b - 2 * tw) ** 3 * (h - 2 * tw) / 12) : b ** 3 * h / 12;
         sections.push({
-          name, a, iz, h, b, t: tw,
+          name, a, iz, iy, h, b, t: tw,
           shape: tw ? 'RHS' : 'rect',
         });
         warnings.push(t('ifc.profileEstimated').replace('{n}', name));
@@ -175,6 +212,7 @@ export function mapIfcToModel(
           name,
           a: 0.04,     // 200mm x 200mm
           iz: 1.33e-4, // bh³/12
+          iy: 1.33e-4,
           h: 0.2,
           b: 0.2,
           shape: 'rect',

@@ -40,6 +40,6 @@ test.describe('@smoke moving loads in PRO', () => {
     await page.getByTestId('pr-cmd-advanced').click();
     await page.getByTestId('adv-chip-moving').click();
     await page.getByTestId('moving-run').click();
-    await expect(page.getByTestId('moving-error')).toContainText(/one continuous row/);
+    await expect(page.getByTestId('moving-error')).toContainText(/one continuous chain/);
   });
 });

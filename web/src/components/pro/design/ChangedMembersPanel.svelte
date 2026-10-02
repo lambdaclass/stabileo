@@ -69,7 +69,7 @@
           <OutcomeBadge flag="provisional" />
           {#if o?.provisional}
             <span class="mono">u {Number.isFinite(o.provisional.worstUtilization) ? o.provisional.worstUtilization.toFixed(2) : '∞'}</span>
-            <span class="muted">{o.provisional.failingCheckCount} failing</span>
+            <span class="muted">{tp('rcUi.failingChecks', { n: o.provisional.failingCheckCount })}</span>
           {/if}
           {#if o?.limiting?.length}<span class="muted">{o.limiting.join(', ')}</span>{/if}
         </li>

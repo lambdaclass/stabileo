@@ -8,6 +8,7 @@ import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
 import { generateStructure, DEFAULT_STRUCTURE_PARAMS } from '../../engine/generators/structures';
+import { generateTruss } from '../../engine/generators/truss-topology';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../../engine/generators/emit';
 import { insertGenerated, regenerate, generatedData } from '../generated-structures';
 import { compose, rotation, translation, applyPoint } from '../../model/edit/affine';
@@ -166,6 +167,35 @@ describe('generated structures', () => {
     historyStore.undo();
     expect(modelStore.nodes.size).toBe(nodes0);
     expect(modelStore.elements.size).toBe(5);
+  });
+
+  it('regenerating onto a model node welds to it, and does not draw a member twice', () => {
+    const r = ins('6; 6', translation([0, 0, 0]));
+    // A column the user drew where the regenerated end column will stand.
+    const a = modelStore.addNode(14, 0, 0), b = modelStore.addNode(14, 0, 3);
+    const userCol = modelStore.addElement(a, b, 'frame');
+    const rr = regen(r.groupId, '7; 7')!;
+    const at = (x: number, z: number) => [...modelStore.nodes.values()].filter((n) => Math.abs(n.x - x) < 1e-9 && Math.abs((n.z ?? 0) - z) < 1e-9);
+    expect(at(14, 0)).toHaveLength(1);
+    expect(at(14, 3)).toHaveLength(1);
+    expect(rr.welded).toBe(2);
+    expect(rr.duplicates).toBe(1);
+    const pair = (e: { nodeI: number; nodeJ: number }) => [Math.min(e.nodeI, e.nodeJ), Math.max(e.nodeI, e.nodeJ)].join('-');
+    const pairs = [...modelStore.elements.values()].map(pair);
+    expect(new Set(pairs).size).toBe(pairs.length);
+    expect(modelStore.elements.has(userCol)).toBe(true);
+    // The beam reaches the user's column.
+    expect([...modelStore.elements.values()].some((e) => e.nodeJ === b || e.nodeI === b)).toBe(true);
+    expect(modelStore.elements.size).toBe(5);
+  });
+
+  it('places a pointed truss with every member it was generated with', () => {
+    const t = generateTruss({ kind: 'trapezoidal', endDepthM: 0, riseM: 1.5, panelsPerHalf: 4, webPattern: 'pratt' });
+    const g = emitModel(t, { name: 'T', profiles: PROFILES });
+    const r = insertGenerated(g, translation([0, 0, 0]), { generator: 'truss', params: {}, profiles: {}, gradeId: null, name: 'T' }, t.members.map((m) => m.role));
+    expect(r.duplicates).toBe(0);
+    expect(r.welded).toBe(0);
+    expect(modelStore.elements.size).toBe(g.json.elements.length);
   });
 
   it('regenerating to fewer bays removes what is no longer there', () => {

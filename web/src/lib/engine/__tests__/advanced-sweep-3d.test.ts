@@ -958,18 +958,23 @@ describe('edge cases', () => {
    * stiffness matrix — structure is a mechanism" from P-Δ and buckling, and "Eigenvalue
    * decomposition failed" from modal. The user is sent looking for a mechanism that is not there.
    */
-  it('D10: a stray node gets the same "not connected" refusal from P-Δ, buckling and modal', () => {
+  it('D10: a loaded stray node gets the same refusal from the static solve, P-Δ, buckling and modal', () => {
+    // An unloaded stray node is left out of every solve (`solvableModel`); a loaded one is refused.
     resetModel3D();
     modelStore.bulkMutate(() => {
-      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3); modelStore.addNode(2, 2, 2);
+      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(2, 2, 2);
       frame(a, b, 1); support(a, 'fixed3d');
       modelStore.addNodalLoad3D(b, 1, 0, -10, 0, 0, 0);
+      modelStore.addNodalLoad3D(c, 0, 0, -1, 0, 0, 0);
     });
     const r = everything();
-    expect((r.st as { value: string }).value).toMatch(/not connected|no está conectado/i);
+    const st = (r.st as { value: unknown }).value;
+    expect(typeof st).toBe('string');
+    // Refused as not connected, not as a mechanism: that is what sends the user to the stray node.
+    expect(st).toMatch(/not connected|no está conectado/i);
     for (const o of [r.pd, r.bk, r.md]) {
       expect(o!.ok).toBe(false);
-      expect((o as { msg: string }).msg).toMatch(/not connected|no está conectado/i);
+      expect((o as { msg: string }).msg).toBe(st);
     }
   });
 

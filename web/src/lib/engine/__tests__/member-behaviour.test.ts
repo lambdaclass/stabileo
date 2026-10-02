@@ -12,6 +12,7 @@ import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolve
 import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
 import { modelHasJoints3D } from '../expand-joints-3d';
+import { t } from '../../i18n';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -90,6 +91,40 @@ describe('inactive members', () => {
     const plain = bracedBay();
     modelStore.removeElement(plain.d5);
     expect(inactive).toBeCloseTo(disp(solve(), plain.n3).ux, 9);
+  });
+});
+
+describe('loose nodes', () => {
+  /*
+   * One click in empty space with the node tool left a node nothing holds. Its free degrees of
+   * freedom made the stiffness matrix singular, so every solve failed and no result could be
+   * shown until the node was found and deleted.
+   */
+  it('a node nothing holds is left out of the solve, with its support', () => {
+    const { n3 } = bracedBay();
+    const plain = disp(solve(), n3).ux;
+    const bare = modelStore.addNode(9, 0, 9);
+    const supported = modelStore.addNode(12, 0, 0);
+    modelStore.addSupport(supported, 'pinned3d' as never);
+    const r = solve();
+    expect(disp(r, n3).ux).toBeCloseTo(plain, 9);
+    expect(r.displacements.some((d) => [bare, supported].includes(d.nodeId))).toBe(false);
+  });
+
+  it('a loose node that carries a load still stops the solve and is named', () => {
+    bracedBay();
+    const loaded = modelStore.addNode(15, 0, 3);
+    modelStore.addNodalLoad3D(loaded, 10, 0, 0, 0, 0, 0, 1);
+    const r = validateAndSolve3D(md() as never, false, false);
+    expect(r).toBe(t('svc.disconnectedNode').replace('{n}', String(loaded)));
+  });
+
+  it('combinations solve too', () => {
+    bracedBay();
+    modelStore.addNode(9, 0, 9);
+    modelStore.model.combinations = [{ id: 1, name: 'c', factors: [{ caseId: 1, factor: 1.2 }] }];
+    const b = solveCombinations3D(md() as never, modelStore.model.loadCases, modelStore.model.combinations);
+    expect(typeof b === 'object' && b !== null && b.perCombo.has(1)).toBe(true);
   });
 });
 

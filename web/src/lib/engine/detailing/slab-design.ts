@@ -328,6 +328,12 @@ export interface SlabPanelInput {
   edition: RegulationEdition;
   /** Envelope shell moments at the governing station, kN·m/m. */
   moments: { mx: number; my: number; mxy: number };
+  /**
+   * The moments in each design combination. Each face is then designed for the largest
+   * Wood-Armer demand among them: a sagging combination sets the bottom steel and a hogging one
+   * the top, which one set of moments, the one on screen, could not.
+   */
+  momentSets?: ReadonlyArray<{ mx: number; my: number; mxy: number }>;
   /** Factored area load, kPa — for the one-way shear free body. */
   qu: number;
   /** Openings, as plan rectangles. Presence changes the outcome, see below. */
@@ -363,7 +369,13 @@ export function designSlabPanel(input: SlabPanelInput): SlabDesignResult {
   memo.push(cls.note);
   refs.push(...cls.refs);
 
-  const design = woodArmer(input.moments.mx, input.moments.my, input.moments.mxy);
+  const sets = input.momentSets?.length ? input.momentSets : [input.moments];
+  const design = sets.map((m) => woodArmer(m.mx, m.my, m.mxy)).reduce((a, b) => ({
+    bottomX: Math.max(a.bottomX, b.bottomX), bottomY: Math.max(a.bottomY, b.bottomY),
+    topX: Math.max(a.topX, b.topX), topY: Math.max(a.topY, b.topY),
+    corrected: a.corrected || b.corrected,
+  }));
+  if (sets.length > 1) memo.push(`Envolvente de ${sets.length} combinaciones: cada cara se diseña para la mayor demanda de Wood-Armer.`);
   memo.push(
     `Wood-Armer sobre mx = ${input.moments.mx.toFixed(1)}, my = ${input.moments.my.toFixed(1)}, ` +
     `mxy = ${input.moments.mxy.toFixed(1)} kN·m/m → ` +
@@ -383,9 +395,9 @@ export function designSlabPanel(input: SlabPanelInput): SlabDesignResult {
   ];
 
   for (const [face, direction, m] of want) {
-    // A_s ≈ M / (0,9 d f_y) — the standard lever-arm approximation for a lightly
-    // reinforced slab, which is what a slab of ordinary thickness always is.
-    const asReq = m > 0 ? (m * 1000) / (0.9 * d * input.fy * 1e6) : 0;
+    // A_s = Mu / (φ·0,9·d·f_y), φ = 0,90 and the lever arm of a lightly reinforced slab. The
+    // φ was missing, which left the steel about a tenth short of Mu ≤ φMn.
+    const asReq = m > 0 ? (m * 1000) / (0.9 * 0.9 * d * input.fy * 1e6) : 0;
     const layer = selectSlabBars({
       asRequired: asReq, thickness: input.thickness, behaviour: cls.behaviour,
       critical: face === 'top', face, direction,

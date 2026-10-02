@@ -8,6 +8,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { runSteelVerification } from '../verification-service';
+import { designDemands } from '../design/behaviour-demands';
+import { memberContexts } from '../design/other-codes/run';
 import type { AnalysisResults3D } from '../types-3d';
 
 /** IPE 200, app catalogue values, SI; 5 m long its weak-axis critical load is about 112 kN. */
@@ -44,5 +46,36 @@ describe('one-way members in the steel check', () => {
 
   it('an inactive member is not verified', () => {
     expect(runSteelVerification(compressed, model('inactive'))).toEqual([]);
+  });
+});
+
+describe('the same rule on every design path', () => {
+  const demands = new Map([[1, { elementId: 1, length: 5, demands: [
+    { category: 'N_compression', value: -300, absValue: 300 },
+    { category: 'N_tension', value: 20, absValue: 20 },
+    { category: 'My+', value: 5, absValue: 5 },
+  ] }]]) as never;
+
+  it('design demands: an inactive member is out, a tension-only one keeps no compression', () => {
+    const cats = (b?: string) => designDemands(demands, () => b).get(1)?.demands.map((d) => d.category);
+    expect(cats(undefined)).toEqual(['N_compression', 'N_tension', 'My+']);
+    expect(cats('tensionOnly')).toEqual(['N_tension', 'My+']);
+    expect(cats('cable')).toEqual(['N_tension', 'My+']);
+    expect(cats('compressionOnly')).toEqual(['N_compression', 'My+']);
+    expect(designDemands(demands, () => 'inactive').has(1)).toBe(false);
+  });
+
+  it('the other codes read a tension-only brace without its compression, and skip an inactive one', () => {
+    // The station extraction reads the whole result record, loads and releases included.
+    const full = { ...compressed, elementForces: compressed.elementForces.map((f) => ({
+      ...f, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
+      qYI: 0, qYJ: 0, distributedLoadsY: [], pointLoadsY: [], qZI: 0, qZJ: 0, distributedLoadsZ: [], pointLoadsZ: [],
+    })) } as unknown as AnalysisResults3D;
+    const perCombo = new Map([[1, full]]);
+    const combos = [{ id: 1, name: 'U1', factors: [] }] as never;
+    const cats = (b?: string) => memberContexts({ ...(model(b) as object), supports: new Map(), loads: [], plates: new Map(), quads: new Map() } as never, perCombo, combos).find((c) => c.elementId === 1)?.demands.map((d) => d.category) ?? null;
+    expect(cats(undefined)).toContain('N_compression');
+    expect(cats('tensionOnly')).not.toContain('N_compression');
+    expect(cats('inactive')).toBeNull();
   });
 });

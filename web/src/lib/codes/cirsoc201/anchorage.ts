@@ -91,6 +91,30 @@ export interface DevelopmentResult {
   derivation: EngineMessage;
 }
 
+/** §25.4.2.5's depth of fresh concrete below a horizontal bar beyond which ψt = 1,3. */
+export const TOP_BAR_CONCRETE_BELOW_MM = 300;
+
+/**
+ * ψt from §25.4.2.5, given the concrete cast below the bar, in METRES.
+ *
+ * 1,3 for horizontal reinforcement with more than 300 mm of fresh concrete placed below it:
+ * the bleed water and settlement under it weaken the bond, so a top bar in a 50 cm beam needs
+ * 30 % more length than the same bar at the bottom. 1,0 otherwise — bottom bars, shallow
+ * members and vertical bars, for which the caller passes 0.
+ */
+export function topBarFactor(concreteBelowM: number): number {
+  return concreteBelowM * 1000 > TOP_BAR_CONCRETE_BELOW_MM ? 1.3 : 1.0;
+}
+
+/**
+ * Concrete cast below a beam's top bars, m: the depth less the top cover, the stirrup and the
+ * outermost bar. Deeper rows of a top layer sit lower and have less below them; the outermost
+ * is the one §25.4.2.5 is decided on, which errs long for the rows below it.
+ */
+export function concreteBelowTopBars(h: number, cover: number, stirrupDiaMm: number, barDiaMm: number): number {
+  return h - cover - (stirrupDiaMm + barDiaMm) / 1000;
+}
+
 /** ψg from §25.4.2.5, by specified grade. */
 export function gradeFactor(fy: number): number {
   if (fy <= 420) return 1.0;

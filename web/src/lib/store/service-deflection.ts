@@ -19,6 +19,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { activePerCombo3D } from './active-results';
+import { combineResults3D } from '../engine/wasm-solver';
 import { memberLocalCurve, chordDeflection, tangentDeflection, eiOf, type ChordDeflection, type LocalCurve } from '../engine/member-deflection';
 import { deflectionSpans, type Span, type SpanModel } from '../engine/deflection-spans';
 import { constraintNodes } from '../engine/steel/unbraced-length';
@@ -27,9 +28,14 @@ import { envelopeMembers } from '../engine/result-scopes';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
 
-export type DeflectionBasis = 'service' | 'unfactored' | 'factored' | 'shown';
+export type DeflectionBasis = 'service' | 'gravity' | 'unfactored' | 'factored' | 'shown';
 
 export interface ServiceSets { basis: DeflectionBasis; names: string[]; sets: Array<{ id: number; name: string; results: AnalysisResults3D }> }
+
+/** The case types that act together under gravity in service: dead, live, roof live, snow, rain. */
+const GRAVITY = new Set(['D', 'L', 'LR', 'S', 'R']);
+/** The id of the gravity sum among the sets; cases take their negated ids, combinations theirs. */
+const GRAVITY_SUM_ID = -1e9;
 
 /** The result sets the deflection check reads, and on what basis. */
 export function serviceSets(): ServiceSets {
@@ -48,6 +54,28 @@ export function serviceSets(): ServiceSets {
       : { id: -m.id, name: caseName.get(m.id) ?? String(m.id), results: m.results });
     if (sets.length > 0) return { basis: 'service', names: envs.map((e) => e.name), sets };
   }
+  /*
+   * Solved by load case with no service envelope: the gravity cases added up unfactored, and each
+   * case on its own. This read `singleResults3D`, which after a solve by cases is the FIRST case,
+   * so a beam was checked under its dead load alone (9,6 mm against 38,5 mm under D + L).
+   */
+  const perCase = resultsStore.perCase3D;
+  if (perCase.size > 0) {
+    const caseName = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
+    // Only the cases that carry something: an empty default case would only lengthen the name.
+    const loaded = new Set<number>([
+      ...modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1),
+      ...(modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
+    ]);
+    const gravity = modelStore.loadCases.filter((c) => GRAVITY.has((c.type || '').toUpperCase()) && perCase.has(c.id) && loaded.has(c.id));
+    const sets: ServiceSets['sets'] = [];
+    if (gravity.length > 1) {
+      const sum = combineResults3D(gravity.map((c) => ({ caseId: c.id, factor: 1 })), perCase);
+      if (sum) sets.push({ id: GRAVITY_SUM_ID, name: gravity.map((c) => c.name).join(' + '), results: sum });
+    }
+    for (const [id, results] of perCase) sets.push({ id: -id, name: caseName.get(id) ?? String(id), results });
+    return { basis: 'gravity', names: [], sets };
+  }
   if (resultsStore.singleResults3D) return { basis: 'unfactored', names: [], sets: [{ id: 0, name: '', results: resultsStore.singleResults3D }] };
   const active = activePerCombo3D();
   if (active.size > 0) return { basis: 'factored', names: [], sets: [...active].map(([id, results]) => ({ id, name: comboName.get(id) ?? String(id), results })) };
@@ -56,7 +84,11 @@ export function serviceSets(): ServiceSets {
 }
 
 export type MemberDeflection = ChordDeflection & {
+  /** The set of the largest resultant (`max`, `x`). */
   setName: string;
+  /** The sets of the largest local y and local z deflections, which `maxV` and `maxW` are. */
+  setNameV?: string;
+  setNameW?: string;
   /** Measured as a cantilever, from the tangent at its root. */
   cantilever?: boolean;
   /** The span measured: its elements in order, one for a member drawn as one element. */
@@ -95,6 +127,13 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
     const parts = span.elements.map((id) => memberGeometry(id, embed)).filter((g): g is NonNullable<typeof g> => !!g);
     if (parts.length !== span.elements.length) continue;
     let best: MemberDeflection | null = null;
+    /*
+     * Each direction keeps its own governing set. A rule along local z reads maxW, and the set
+     * with the largest resultant need not be the one with the largest w: a wind set sways a beam
+     * sideways more than gravity bends it, and its small w passed a check the gravity set fails.
+     */
+    let bestV: { v: number; set: string } | null = null;
+    let bestW: { w: number; set: string } | null = null;
     for (const s of indexed) {
       const curve = spanCurve(span, parts, s, leftHand);
       if (!curve) continue;
@@ -112,8 +151,13 @@ export function serviceDeflections(elementIds: Iterable<number>, sets: ServiceSe
         }
       }
       if (!best || d.max > best.max) best = { ...d, setName: s.name, span: span.elements, ...(span.free ? { cantilever: true } : {}) };
+      if (!bestV || d.maxV > bestV.v) bestV = { v: d.maxV, set: s.name };
+      if (!bestW || d.maxW > bestW.w) bestW = { w: d.maxW, set: s.name };
     }
-    if (best) for (const id of span.elements) out.set(id, best);
+    if (best) {
+      const merged: MemberDeflection = { ...best, maxV: bestV!.v, maxW: bestW!.w, setNameV: bestV!.set, setNameW: bestW!.set };
+      for (const id of span.elements) out.set(id, merged);
+    }
   }
   return out;
 }

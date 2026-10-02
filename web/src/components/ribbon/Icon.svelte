@@ -138,6 +138,11 @@
     <!-- An eye: how the model is looked at, not what it is. -->
     <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
     <circle cx="12" cy="12" r="2.8" />
+  {:else if name === 'eye-off'}
+    <!-- The same eye, struck through: hidden from the view, still in the model. -->
+    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+    <circle cx="12" cy="12" r="2.8" />
+    <path d="M4 20L20 4" />
   {:else if name === 'data'}
     <!-- A table, because that is literally what the panel shows. -->
     <rect x="3.5" y="4.5" width="17" height="15" rx="1" />

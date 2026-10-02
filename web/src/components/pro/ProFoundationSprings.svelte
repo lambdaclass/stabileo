@@ -51,7 +51,7 @@
 </script>
 
 <div class="fs" data-testid="foundation-springs">
-  <div class="fs-title">{t('foundation.title')}</div>
+  <!-- Its card in Specifications › Surfaces carries the title. -->
   <p class="fs-hint">{t('foundation.hint')}</p>
   <label class="fs-row">ks
     <select bind:value={source} data-testid="fs-source">
@@ -62,19 +62,19 @@
     </select>
     {#if source === 'typed'}<input type="number" min="1" step="1000" bind:value={ksTyped} data-testid="fs-ks" /> kN/m³{/if}
   </label>
-  <label class="fs-row"><input type="checkbox" bind:checked={uplift} data-testid="fs-uplift" /> {t('foundation.oneWay')}</label>
-  <label class="fs-row"><input type="checkbox" bind:checked={holdHorizontal} /> {t('foundation.holdHorizontal')}</label>
+  <label class="pk-check"><input type="checkbox" bind:checked={uplift} data-testid="fs-uplift" /> {t('foundation.oneWay')}</label>
+  <label class="pk-check"><input type="checkbox" bind:checked={holdHorizontal} /> {t('foundation.holdHorizontal')}</label>
   <p class="fs-hint" data-testid="fs-summary">
     {shells.length === 0 ? t('foundation.selectShells') : tp('foundation.summary', { n: springs.length, area: totalArea.toFixed(2), shells: shells.length })}
   </p>
-  <button class="pro-btn" disabled={springs.length === 0} onclick={apply} data-testid="fs-apply">{t('foundation.apply')}</button>
+  <button class="pk-btn pk-btn-primary fs-go" disabled={springs.length === 0} onclick={apply} data-testid="fs-apply">{t('foundation.apply')}</button>
   {#if done}<p class="fs-hint" data-testid="fs-done">{done}</p>{/if}
 </div>
 
 <style>
-  .fs { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-top: 1px solid var(--st-hair); font-size: 0.68rem; color: var(--st-text-2); }
-  .fs-title { font-weight: 600; color: var(--st-text); }
+  .fs { display: flex; flex-direction: column; gap: 0.45rem; color: var(--st-text-2); }
+  .fs-go { align-self: flex-start; }
   .fs-row { display: flex; gap: 6px; align-items: center; }
   .fs-row input[type='number'] { width: 80px; }
-  .fs-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
+  .fs-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
 </style>

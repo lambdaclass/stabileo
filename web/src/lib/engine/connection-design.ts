@@ -5,7 +5,9 @@
 
 // ─── Data tables (CIRSOC 301 Tabla J.3.2) ─────────────────
 
-export type BoltGrade = '4.6' | '5.6' | '8.8' | '10.9';
+// Tabla J.3.2 lists A307 (read here as 4.6), A325 (8.8) and A490 (10.9); it has no 5.6 row, and
+// the 5.6 this offered carried strengths the table does not publish.
+export type BoltGrade = '4.6' | '8.8' | '10.9';
 
 interface BoltProps {
   Ft: number;        // MPa — nominal tensile strength
@@ -15,7 +17,6 @@ interface BoltProps {
 
 export const BOLT_TABLE: Record<BoltGrade, BoltProps> = {
   '4.6':  { Ft: 260, FvIncl: 140, FvExcl: 0 },
-  '5.6':  { Ft: 310, FvIncl: 165, FvExcl: 0 },
   '8.8':  { Ft: 620, FvIncl: 330, FvExcl: 415 },
   '10.9': { Ft: 778, FvIncl: 414, FvExcl: 517 },
 };
@@ -73,7 +74,8 @@ export function checkBoltGroup(input: BoltInput): BoltResult {
   const phiRnTension = PHI_BOLT * props.Ft * Ab * n / 1000; // kN
 
   // Bearing capacity: Rn = min(1.2×Lc×t×Fu, 2.4×d×t×Fu) per bolt
-  const holeD = d + 2; // standard hole = d + 2mm
+  // Tabla J.3.3: the standard hole is d + 2 mm up to M22 and d + 3 mm from M24.
+  const holeD = d + (d >= 24 ? 3 : 2);
   const Lc = Math.max(Le - holeD / 2, 0); // clear distance to edge
   const RnBearingPerBolt = Math.min(1.2 * Lc * t * Fu, 2.4 * d * t * Fu);
   const phiRnBearing = PHI_BEARING * RnBearingPerBolt * n / 1000; // kN
@@ -82,8 +84,17 @@ export function checkBoltGroup(input: BoltInput): BoltResult {
   const ratioTension = Math.abs(Tu) > 0.001 ? Math.abs(Tu) / phiRnTension : 0;
   const ratioBearing = Math.abs(Vu) > 0.001 ? Math.abs(Vu) / phiRnBearing : 0;
 
-  // Interaction: (fv/Fv)² + (ft/Ft)² ≤ 1.0 (simplified elliptic)
-  const ratioInteraction = ratioShear * ratioShear + ratioTension * ratioTension;
+  /*
+   * J.3.7: tension and shear together. The tension strength is reduced by the shear stress,
+   *   F'nt = 1,3·Fnt − Fnt/(φ·Fnv)·frv ≤ Fnt,
+   * and the tension demand is checked against it. This read the elliptic (fv/Fv)² + (ft/Ft)²,
+   * which is not the clause's form.
+   */
+  const frv = Math.abs(Vu) * 1000 / (Ab * m * n); // MPa
+  const FntReduced = Math.max(0, Math.min(props.Ft, 1.3 * props.Ft - (props.Ft / (PHI_BOLT * Fv)) * frv));
+  const ratioInteraction = Math.abs(Tu) > 0.001 && Math.abs(Vu) > 0.001
+    ? (FntReduced > 0 ? Math.abs(Tu) / (PHI_BOLT * FntReduced * Ab * n / 1000) : Infinity)
+    : 0;
 
   const governingRatio = Math.max(ratioShear, ratioTension, ratioBearing, ratioInteraction);
   const status: BoltResult['status'] = governingRatio > 1.0 ? 'fail' : governingRatio > 0.9 ? 'warn' : 'ok';

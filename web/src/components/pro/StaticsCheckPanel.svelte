@@ -73,7 +73,7 @@
           {@const k = dominant(r)}
           {@const key = 'comboId' in r ? `c${r.comboId}` : (r.caseId ?? 'single')}
           <tr data-testid="statics-row-{key}" class:sc-combo={'comboId' in r}>
-            <td>{r.caseName || t('pro.statics.singleSolve')}{#if r.selfWeightIncluded}<span class="sc-sw"> +PP</span>{/if}</td>
+            <td>{r.caseName || t('pro.statics.singleSolve')}{#if r.selfWeightIncluded}<span class="sc-sw"> {t('pro.statics.selfWeightBadge')}</span>{/if}</td>
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.applied[k])}</td>
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.reactions[k])}</td>
             <td class="num">{pct(r.worstRelative)}</td>

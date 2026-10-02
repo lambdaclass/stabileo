@@ -136,6 +136,13 @@
       pin-on-roller is a real end condition. Sliding joints are a plane-frame
       device, so in 3D only one already set is offered (to remove it).
     -->
+    {#if uiStore.analysisMode === 'pro'}
+      <!-- In PRO a member's ends have one editor, Specifications › Members; this opens it. -->
+      <button class="ee-btn ee-spec" data-testid="element-editor-ends"
+        onclick={() => { const id = elemId!; close(); uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; uiStore.setSelection(new Set(), new Set([id])); }}>
+        {t('pro.endOpenSpec')}
+      </button>
+    {:else}
     <div class="rel">
       <div class="rel-title">{t('editor.releases')}</div>
 
@@ -172,6 +179,7 @@
         {/each}
       </div>
     {/if}
+    {/if}
 
     <div class="info">
       {t('editor.nodesLabel')}: {elem.nodeI} → {elem.nodeJ}
@@ -186,6 +194,7 @@
 {/if}
 
 <style>
+  .ee-spec { align-self: flex-start; margin: 4px 0; }
   .field {
     display: flex;
     align-items: center;

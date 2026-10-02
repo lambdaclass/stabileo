@@ -2,6 +2,7 @@
  * The office's templates: kept in this browser, exported and imported as files, and applied to
  * the open project as one undo step (`model/office-template.ts`).
  */
+import type { DrawnSection } from '../section/drawn';
 import { modelStore } from './model.svelte';
 import { regulationsStore } from './regulations.svelte';
 import { templateFrom, planTemplate, parseTemplate, type OfficeTemplate } from '../model/office-template';
@@ -84,8 +85,30 @@ export function applyTemplate(t: OfficeTemplate): ReturnType<typeof planTemplate
   } as never);
   let regulationChanges: TemplateRegulations = { applied: [], review: [], refused: [] };
   modelStore.batch(() => {
-    for (const mat of plan.materials) { const { id: _i, ...rest } = mat; modelStore.addMaterial(rest as never); }
-    for (const sec of plan.sections) { const { id: _i, ...rest } = sec; modelStore.addSection(rest as never); }
+    /*
+     * The template's material ids are the template's. Each one lands as a new material or, when
+     * the project already has one of that name, as that one; a drawn section names materials by
+     * id (its reference, its parts, its areas), so those ids follow. Kept as they were, a drawn
+     * part pointed at whatever project material had the template's number.
+     */
+    const byName = new Map([...m.materials.values()].map((x) => [x.name.trim().toLowerCase(), x.id]));
+    const materialId = new Map<number, number>();
+    for (const mat of t.materials) { const hit = byName.get(mat.name.trim().toLowerCase()); if (hit !== undefined) materialId.set(mat.id, hit); }
+    for (const mat of plan.materials) { const { id, ...rest } = mat; materialId.set(id, modelStore.addMaterial(rest as never)); }
+    const remap = (id: number | null | undefined) => (id == null ? id : materialId.get(id) ?? id);
+    for (const sec of plan.sections) {
+      const { id: _i, ...rest } = sec as typeof sec & { drawn?: DrawnSection };
+      const drawn = rest.drawn;
+      if (drawn) {
+        rest.drawn = {
+          ...drawn,
+          ...(drawn.refMaterialId !== undefined ? { refMaterialId: remap(drawn.refMaterialId)! } : {}),
+          parts: drawn.parts.map((p) => (p.materialId !== undefined ? { ...p, materialId: remap(p.materialId)! } : p)),
+          ...(drawn.areas ? { areas: drawn.areas.map((x) => ({ ...x, materialId: remap(x.materialId) ?? null })) } : {}),
+        };
+      }
+      modelStore.addSection(rest as never);
+    }
     const caseId = new Map(plan.existingCase);
     for (const c of plan.loadCases) caseId.set(c.id, modelStore.addLoadCase(c.name, c.type as never));
     for (const c of plan.combinations) {

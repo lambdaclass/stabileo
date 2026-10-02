@@ -24,12 +24,14 @@ export function migrateSelfWeightIfNeeded(opts: { quiet?: boolean } = {}): boole
   const hadMembers = modelStore.elements.size > 0;
   const plan = planSelfWeight(modelStore.model.loadCases, uiStore.includeSelfWeight);
   let selfWeight = plan.selfWeight;
-  if (uiStore.includeSelfWeight && plan.caseId === null && hadMembers) {
-    // Self-weight on and no dead-load case to hold it: one is made for it.
-    const id = modelStore.addLoadCase(t('selfWeight.caseName'), 'D');
-    selfWeight = [{ caseId: id, ...GRAVITY_SELF_WEIGHT }];
-  }
-  modelStore.adoptAnalysis({ selfWeight });
+  modelStore.withoutUndo(() => {
+    if (uiStore.includeSelfWeight && plan.caseId === null && hadMembers) {
+      // Self-weight on and no dead-load case to hold it: one is made for it.
+      const id = modelStore.addLoadCase(t('selfWeight.caseName'), 'D');
+      selfWeight = [{ caseId: id, ...GRAVITY_SELF_WEIGHT }];
+    }
+    modelStore.adoptAnalysis({ selfWeight });
+  });
   // Said only for a project that already had members and loads: someone drawing a first member
   // has nothing that changed under them.
   if (!opts.quiet && hadMembers && modelStore.loads.length > 0 && uiStore.includeSelfWeight && selfWeight.length) {

@@ -27,12 +27,13 @@
  * Pure of stores: the model and its combinations come in, results go out.
  */
 import type { ModelData } from './solver-service';
+import { materialFamilyOf } from './steel/material-family';
+import { catalogueGradeFamily } from './steel/grade-family';
 import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from './solver-service';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject } from './wasm-solver';
-import { axialShares, giveBackAxialShares } from './axial-shares';
 import { correctPDeltaForces, solvePDelta3DCorrected, amplification } from './pdelta-forces';
 export { amplification } from './pdelta-forces';
 
@@ -84,11 +85,8 @@ export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, 
   return async (input, maxIter, tol) => {
     try {
       const r = await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
-      // The worker answers as the engine does; the main-thread wrapper's correction applies here.
-      // So do the axial shares of members that take no bending (`axial-shares.ts`).
-      const shares = axialShares(input.loads);
-      if (r?.linearResults) giveBackAxialShares(r.linearResults, shares);
-      return { ...r, results: correctPDeltaForces(input, giveBackAxialShares(r.results, shares)) };
+      // The worker finishes the solve (`solve-finish.ts`); the geometric correction applies here.
+      return { ...r, results: correctPDeltaForces(input, r.results) };
     } catch {
       return mainThreadPDelta(input, maxIter, tol);
     }
@@ -228,12 +226,15 @@ export async function runDirectAnalysis(
   if (!base) return 'empty';
   const caseLoads = caseSolverLoads3D(model, loadCases, opts.includeSelfWeight, leftHand);
 
-  // Pns = Fy·Ag for every member whose material has a yield stress (MPa → kPa).
+  // Pns = Fy·Ag for every STEEL member (MPa → kPa). A concrete material carries f'c in `fy`, and
+  // τb on it would cut a column's stiffness, to zero past f'c·Ag; the family decides, as the
+  // steel codes decide which members they check.
   const pns = new Map<number, number>();
   for (const [id, el] of base.elements) {
-    const fy = model.materials.get(el.materialId)?.fy;
+    const mat = model.materials.get(el.materialId);
+    if (materialFamilyOf(mat as never, catalogueGradeFamily).family !== 'steel') continue;
     const a = base.sections.get(el.sectionId)?.a;
-    if (fy && a) pns.set(id, fy * 1000 * a);
+    if (mat?.fy && a) pns.set(id, mat.fy * 1000 * a);
   }
 
   const perCombo = new Map<number, AnalysisResults3D>();

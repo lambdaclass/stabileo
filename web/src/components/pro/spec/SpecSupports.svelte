@@ -2,14 +2,14 @@
   /**
    * Specifications › Supports: the selected supports' type and uplift over the whole selection,
    * one undo step per change; the full editor (restraints, springs, curves, inclined) for one
-   * support at a time; and the foundation-spring generator for selected shells.
+   * support at a time. Foundation springs, made on selected shells, are under Surfaces.
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import type { Support, SupportType } from '../../../lib/store/model.svelte';
   import { supportTypeOptions } from '../../../lib/pro/support-types';
   import ProSupportEditor from '../ProSupportEditor.svelte';
-  import ProFoundationSprings from '../ProFoundationSprings.svelte';
+  import SpecEmpty from './SpecEmpty.svelte';
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const types = $derived(supportTypeOptions(is3D, t));
@@ -29,33 +29,38 @@
   }
 </script>
 
-<div class="ss" data-testid="spec-supports">
-  {#if selected.length === 0}
-    <p class="ss-empty">{t('spec.supports.empty')}</p>
-  {:else}
-    <div class="ss-title">{tp('spec.supports.title', { n: selected.length })}</div>
-    <label class="ss-row">{t('pro.thType')}
-      <select value={type} onchange={(e) => setType(e.currentTarget.value as SupportType)} data-testid="spec-support-type">
-        {#if type === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
-        {#each types as st (st.value)}<option value={st.value}>{st.label}</option>{/each}
-      </select>
-    </label>
-    <label class="ss-row" title={t('support.upliftHint')}>
+{#if selected.length === 0}
+  <SpecEmpty kind="supports" items={[
+    { title: 'pro.thType', hint: 'spec.item.supportType' },
+    { title: 'support.uplift', hint: 'spec.item.uplift' },
+    { title: 'spec.item.restraintsTitle', hint: 'spec.item.restraints' },
+  ]} />
+{:else}
+<div class="pk" data-testid="spec-supports">
+  <p class="ss-title">{tp('spec.supports.title', { n: selected.length })}</p>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('pro.thType')}</h4>
+    <select value={type} onchange={(e) => setType(e.currentTarget.value as SupportType)} data-testid="spec-support-type">
+      {#if type === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
+      {#each types as st (st.value)}<option value={st.value}>{st.label}</option>{/each}
+    </select>
+    <label class="pk-check" title={t('support.upliftHint')}>
       <input type="checkbox" checked={!!uplift} indeterminate={uplift === undefined} onchange={(e) => setUplift(e.currentTarget.checked)} data-testid="spec-support-uplift" />
       {t('support.uplift')}
     </label>
+    <p class="pk-hint">{t('support.upliftHint')}</p>
+  </section>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('spec.item.restraintsTitle')}</h4>
     {#if selected.length === 1}
       <ProSupportEditor support={selected[0]!} />
     {:else}
-      <p class="ss-hint">{t('spec.supports.oneForDetail')}</p>
+      <p class="pk-hint">{t('spec.supports.oneForDetail')}</p>
     {/if}
-  {/if}
-  <ProFoundationSprings />
+  </section>
 </div>
+{/if}
 
 <style>
-  .ss { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; font-size: 0.68rem; color: var(--st-text-2); }
-  .ss-empty, .ss-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); }
-  .ss-title { font-weight: 600; color: var(--st-text); font-size: 0.72rem; }
-  .ss-row { display: flex; gap: 6px; align-items: center; }
+  .ss-title { margin: 0; font-weight: 600; color: var(--st-text); font-size: 0.74rem; }
 </style>

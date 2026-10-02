@@ -491,7 +491,7 @@
   async function handlePDelta3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handlePDelta3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
@@ -509,7 +509,7 @@
   async function handleModal3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleModal3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
@@ -530,7 +530,7 @@
   async function handleBuckling3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleBuckling3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();

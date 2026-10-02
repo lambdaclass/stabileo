@@ -3,7 +3,7 @@
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../lib/store/view-state.svelte';
+  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
   import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
@@ -21,6 +21,11 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
+  import { memberNearPointer, nodeNearPointer } from '../lib/viewport3d/screen-pick';
+  import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
+  import { pickLoadAt } from '../lib/viewport/load-pick';
+  import { drawState } from '../lib/store/draw-state.svelte';
+  import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
@@ -38,7 +43,8 @@
   import { ElementsBatched } from '../lib/three/elements-batched';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
-  import { resolveHitUserData } from '../lib/viewport3d/picking';
+  import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
+  import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
@@ -202,8 +208,8 @@
   });
 
   // ─── Tool interaction state ─────────────────────────────────
-  let pendingElementNodeI: number | null = null;  // first node for element tool
-  let pendingLine: THREE.Line | null = null;       // preview line for element tool
+  // The first node of the member being drawn is `drawState.memberStart`, shared with the bar.
+  const drawFeedback = createDrawFeedback();
 
   // ─── Coordinate input dialog state ──────────────────────────
   let showCoordDialog = $state(false);
@@ -238,6 +244,9 @@
   let cursorStyle = $derived.by(() => {
     if (uiStore.measureMode) return 'crosshair';
     if (uiStore.selectMode === 'stress') return 'crosshair';
+    // Picking a plate's corners is drawing, as a member is: the cross, not the hand the select
+    // and pan tools show over a node.
+    if (uiStore.shellNodePick.active) return 'crosshair';
     const tool = uiStore.currentTool;
     if (tool === 'select') {
       if (draggedNodeId3D !== null) return 'grabbing';
@@ -515,7 +524,7 @@
     // inside `elementsParent`, so it stays rendered even when LOD hides the
     // parent during orbit. One mesh, one draw call, one toggle — no parallel
     // orbit proxy needed.
-    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent);
+    scene.add(elementsBatched.mesh, elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent, localAxesParent, jointsParent, drawFeedback.group);
     syncResultsProjection();
 
     /*
@@ -1547,7 +1556,25 @@
   // Cancel pending element when tool changes
   $effect(() => {
     uiStore.currentTool;
-    cancelPendingElement();
+    untrack(() => cancelPendingElement());
+  });
+
+  /*
+   * Rings around what has been picked: the first node of a member, the corners of a plate (or
+   * the nodes any other pick is collecting). Follows the nodes if they move.
+   */
+  $effect(() => {
+    const pick = uiStore.shellNodePick;
+    const ids = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
+      : pick.active || (pick.target === 'quad' && pick.picked.length > 0) ? pick.picked : [];
+    const pts: THREE.Vector3[] = [];
+    for (const id of ids) {
+      const n = modelStore.nodes.get(id);
+      if (n) pts.push(new THREE.Vector3(n.x, n.y, n.z ?? 0));
+    }
+    drawFeedback.setPicked(pts);
+    if (pts.length === 0) drawFeedback.setPreview([], null);
+    invalidate();
   });
 
   // ─── Stress query marker in 3D viewport ─────────────────────
@@ -1665,23 +1692,22 @@
 
       // In select/pan tool: check for node drag or box select initiation
       if (tool === 'select' || tool === 'pan') {
-        const nodeId = findNodeHit(e);
+        /*
+         * A press on a node is only a drag CANDIDATE, and only while nodes are what a click
+         * selects. It used to push an undo state and select the node here, and the release
+         * without movement undid that state: the click never reached the selection (in PRO a
+         * node could not be picked at all), the previous selection came back, and the redo
+         * history was lost. The drag now starts on the first real movement (below, in the move
+         * handler); a release before that is a plain click.
+         */
+        const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
-        if (nodeId !== null && tool === 'select') {
-          // Start dragging this node
+        if (nodeId !== null) {
           controls.enabled = false;
-          historyStore.pushState();
           draggedNodeId3D = nodeId;
           dragMoved3D = false;
           dragStartWorld3D = getGroundIntersection(e);
-
-          // If node isn't selected, select it (with shift for additive)
-          if (!uiStore.selectedNodes.has(nodeId) && !e.shiftKey) {
-            uiStore.selectNode(nodeId, false);
-          } else if (!uiStore.selectedNodes.has(nodeId) && e.shiftKey) {
-            uiStore.selectNode(nodeId, true);
-          }
-        } else if (nodeId === null && tool === 'select') {
+        } else if (tool === 'select') {
           // Always start box select candidate — distinguish click vs drag in mouseUp
           const rect = container.getBoundingClientRect();
           const mx = e.clientX - rect.left;
@@ -1870,57 +1896,41 @@
       return;
     }
 
-    if (pendingElementNodeI === null) {
-      // First click → set node I
-      pendingElementNodeI = nodeId;
+    const start = drawState.memberStart;
+    if (start === null) {
+      // First click → node I, ringed in the model. PRO names it in its drawing bar; Basic has
+      // no bar, so it is said here.
+      drawState.memberStart = nodeId;
       uiStore.selectNode(nodeId, false);
-
-      // Highlight node I
-      nodesInstanced.setColor(nodeId, 0x00ff00);
-      uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
-    } else {
-      // Second click → create element
-      if (nodeId === pendingElementNodeI) {
-        // The last node again ends a polyline; single members wait for a second node.
-        if (uiStore.memberChains) cancelPendingElement();
-        return;
-      }
-
-      // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      // The next-member choice (material, section) applies to what is drawn here. PRO sets it.
-      const elemId = nextMember.add(pendingElementNodeI, nodeId, uiStore.elementCreateType);
-      uiStore.selectElement(elemId, false);
-      uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
-      // Across other members or over nodes without touching them: ask, as in 2D.
-      if (uiStore.appMode !== 'pro') askToConnectMember(elemId);
-
-      if (uiStore.memberChains) {
-        // Polyline: the next member starts where this one ends.
-        nodesInstanced.restoreColor(pendingElementNodeI);
-        pendingElementNodeI = nodeId;
-        nodesInstanced.setColor(nodeId, 0x00ff00);
-      } else {
-        cancelPendingElement();
-      }
+      if (uiStore.appMode !== 'pro') uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
+      return;
     }
+    if (nodeId === start) {
+      // The last node again ends a Basic polyline; otherwise a member waits for a second node.
+      if (uiStore.memberChains) cancelPendingElement();
+      return;
+    }
+
+    // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
+    // The next-member choice (section, material, ends) applies to what is drawn here. PRO sets it.
+    const elemId = nextMember.add(start, nodeId, uiStore.elementCreateType);
+    uiStore.selectElement(elemId, false);
+    uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
+    // Across other members or over nodes without touching them: ask, as in 2D.
+    if (uiStore.appMode !== 'pro') askToConnectMember(elemId);
+    // Chained (PRO's drawing bar, Basic's polyline mode), the far end starts the next member;
+    // otherwise the next click starts afresh.
+    const chain = uiStore.appMode === 'pro' ? drawState.memberChain : uiStore.memberChains;
+    drawState.memberStart = chain ? nodeId : null;
+    drawFeedback.setPreview([], null);
+    invalidate();
   }
 
   function cancelPendingElement() {
-    let changed = false;
-    if (pendingElementNodeI !== null) {
-      // Restore node color
-      nodesInstanced.restoreColor(pendingElementNodeI);
-      changed = true;
-    }
-    pendingElementNodeI = null;
-    if (pendingLine) {
-      scene?.remove(pendingLine);
-      pendingLine.geometry?.dispose();
-      (pendingLine.material as THREE.Material)?.dispose();
-      pendingLine = null;
-      changed = true;
-    }
-    if (changed) invalidate();
+    if (drawState.memberStart === null) return;
+    drawState.memberStart = null;
+    drawFeedback.setPreview([], null);
+    invalidate();
   }
 
   function handleSupportTool(e: MouseEvent) {
@@ -1932,7 +1942,8 @@
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
     if (is3D) {
-      const supId = addSupportFromTool3D(nodeId);
+      // PRO places the support its drawing bar describes; 3D Basic keeps its own strip.
+      const supId = uiStore.appMode === 'pro' ? drawState.addSupportAt(nodeId) : addSupportFromTool3D(nodeId);
       uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
@@ -1962,7 +1973,12 @@
       if (nodeId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (is3D) {
+      if (uiStore.appMode === 'pro') {
+        // PRO: all six components, as the drawing bar and the Loads table hold them.
+        const v = drawState.nodalLoad;
+        if ([v.fx, v.fy, v.fz, v.mx, v.my, v.mz].every((x) => x === 0)) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
+        modelStore.addNodalLoad3D(nodeId, v.fx, v.fy, v.fz, v.mx, v.my, v.mz, uiStore.activeLoadCaseId);
+      } else if (is3D) {
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
@@ -1988,7 +2004,12 @@
       if (elemId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (is3D) {
+      if (uiStore.appMode === 'pro') {
+        // PRO: uniform, along the axes the drawing bar names.
+        const q = drawState.memberLoad;
+        if (q.qx === 0 && q.qy === 0 && q.qz === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
+        modelStore.addDistributedLoad3D(elemId, q.qy, q.qy, q.qz, q.qz, undefined, undefined, uiStore.activeLoadCaseId, { frame: q.frame, qXI: q.qx, qXJ: q.qx });
+      } else if (is3D) {
         modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
@@ -2176,16 +2197,16 @@
 
     // ── Finalize node dragging ──
     if (draggedNodeId3D !== null) {
-      if (!dragMoved3D) {
-        // No movement → undo the pushState
-        historyStore.undo();
-      }
+      const moved = dragMoved3D;
       draggedNodeId3D = null;
       dragMoved3D = false;
       dragStartWorld3D = null;
       controls.enabled = true;
-      finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
-      return;
+      if (moved) {
+        finalizeDecorAfterDrag(); // triads/offset viz were suppressed during the drag
+        return;
+      }
+      // Never moved: a click on the node, handled as every other click is.
     }
 
     // ── The magnifier's window: frame what the rectangle holds, select nothing ──
@@ -2245,8 +2266,9 @@
       const isWindow = boxSelect3D.endX >= boxSelect3D.startX;
       const additive = boxSelect3D.additive; // shift was held at drag start
 
-      // Only count as box select if dragged at least a few pixels
-      if (x2 - x1 > 3 || y2 - y1 > 3) {
+      // Only count as box select if dragged past the click slop: a hand's click moves a few
+      // pixels, and a rectangle that small selects nothing, so the click was lost.
+      if (x2 - x1 > clickSlop() || y2 - y1 > clickSlop()) {
         /*
          * Respect the active select subtype: what is highlighted has to be
          * what a Delete would remove, and plates and quads share the frame
@@ -2362,16 +2384,17 @@
                * Only what the view draws: a support on a hidden node and a
                * load on a hidden node, member or shell are not drawn, and what
                * is not drawn is not picked — the same rule syncSupports and
-               * syncLoads draw them with.
+               * syncLoads draw them with. For loads that rule is also the
+               * layer toggle, a diagram hiding them and the ticked load cases:
+               * `isLoadDrawn` is the one predicate syncLoads draws by.
                */
               supports: viewVisibility.active
                 ? [...modelStore.supports.values()].filter((s) => !viewVisibility.isNodeHidden(s.nodeId))
                 : modelStore.supports.values(),
-              loads: modelStore.model.loads.filter(
-                (l) => !isLoadHidden(l.data as { nodeId?: number; elementId?: number; quadId?: number }),
-              ) as never,
+              loads: ((v) => modelStore.model.loads.filter((l) => isLoadDrawn(l as never, v)))(currentLoadDrawView()) as never,
               getNode: (id) => modelStore.getNode(id) as never,
               getElement: (id) => modelStore.elements.get(id),
+              getQuad: (id) => modelStore.quads.get(id),
             },
           });
           /*
@@ -2407,7 +2430,7 @@
     // Only count as click if mouse didn't move much (not an orbit drag)
     const dx = e.clientX - mouseDownPos.x;
     const dy = e.clientY - mouseDownPos.y;
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) return;
+    if (Math.abs(dx) > Math.max(5, clickSlop()) || Math.abs(dy) > Math.max(5, clickSlop())) return;
 
     // Measurement tool intercepts all clicks when active
     if (uiStore.measureMode) {
@@ -2439,6 +2462,64 @@
     handleSelectionClick(e);
   }
 
+  /** The load whose drawn arrows are nearest the pointer, within a few pixels. */
+  function loadUnderPointer(e: MouseEvent): number | null {
+    const fp = sceneCtx?.loadFootprints;
+    if (!fp || fp.size === 0) return null;
+    const rect = container.getBoundingClientRect();
+    const pointLoads = new Set<number>();
+    for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
+    return pickLoadAt(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
+  }
+
+  /** How far a press may wander and still be a click. PRO allows a hand's tremor; Basic keeps its 3 px. */
+  function clickSlop(): number { return uiStore.analysisMode === 'pro' ? 6 : 3; }
+
+  /**
+   * In PRO, a click whose ray hit nothing takes the nearest node or member on the screen
+   * (`viewport3d/screen-pick.ts`): the picking cylinder of a member is a pixel or two wide once a
+   * building is framed whole.
+   */
+  function screenPick(e: MouseEvent, kind: 'node' | 'member'): number | null {
+    if (uiStore.analysisMode !== 'pro' || !camera) return null;
+    const rect = container.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const v = new THREE.Vector3();
+    const project = (x: number, y: number, z: number) => {
+      v.set(x, y, z).project(camera);
+      if (v.z < -1 || v.z > 1) return null;
+      return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
+    };
+    if (kind === 'node') return nodeNearPointer(px, py, [...visibleNodes().values()], project, 9);
+    return memberNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, 7);
+  }
+
+  /**
+   * Double-click in PRO opens the quick editor on what is under the pointer: a node first, as
+   * a point is the most specific thing at a joint, then a member, then a shell
+   * (`ProQuickEdit.svelte`). The two clicks before it have already selected it.
+   */
+  function handleDoubleClick3D(e: MouseEvent) {
+    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera) return;
+    if (uiStore.shellNodePick.active || drawState.active) return;
+    updateMouseNDC(e);
+    raycaster.setFromCamera(mouse, camera);
+    raycaster.camera = camera;
+    const first = (parent: THREE.Object3D, types: string[]) => {
+      for (const h of raycaster.intersectObjects(parent.children, true)) {
+        const ud = resolveHitUserData(h);
+        if (ud && types.includes(ud.type)) return ud;
+      }
+      return null;
+    };
+    const nodeHit = first(nodesParent, ['node'])?.id ?? screenPick(e, 'node');
+    if (nodeHit !== null && nodeHit !== undefined) { quickEdit.open({ kind: 'node', id: nodeHit }, e.clientX, e.clientY); return; }
+    const memberHit = first(elementsParent, ['element'])?.id ?? screenPick(e, 'member');
+    if (memberHit !== null && memberHit !== undefined) { quickEdit.open({ kind: 'member', id: memberHit }, e.clientX, e.clientY); return; }
+    const shellHit = first(shellsParent, ['plate', 'quad']);
+    if (shellHit) quickEdit.open({ kind: shellHit.type as 'plate' | 'quad', id: shellHit.id }, e.clientX, e.clientY);
+  }
+
   function handleSelectionClick(e: MouseEvent) {
     updateMouseNDC(e);
     if (!camera) return;
@@ -2453,6 +2534,8 @@
         const ud = resolveHitUserData(hit);
         if (ud?.type === 'node') { uiStore.pushShellNodePick(ud.id); break; }
       }
+      // The last corner makes the plate; see `drawState.finishPlate`.
+      drawState.finishPlate();
       return; // consume the click while picking (no normal selection / clear)
     }
 
@@ -2543,9 +2626,9 @@
     if (sm === 'shells') {
       const shellHits = raycaster.intersectObjects(shellsParent.children, true);
       for (const hit of shellHits) {
-        const ud = resolveHitUserData(hit);
-        if (ud?.type === 'plate' || ud?.type === 'quad') {
-          uiStore.selectElement(ud.id, addToSel);
+        const key = shellSelectionKey(resolveHitUserData(hit));
+        if (key) {
+          uiStore.selectShell(key, addToSel);
           return;
         }
       }
@@ -2558,10 +2641,8 @@
      *
      * Mirrors the 2D viewport's multi-kind click. Tried in the order a click
      * identifies things — a node is a point, a member a line, a support a
-     * glyph — so the most specific answer wins at a joint, where all three
-     * sit on the same spot. Loads have no picking in 3D at all (they are
-     * selected from the Loads tab rows), so an armed 'loads' kind simply
-     * never hits here; the drag path DOES cover them via box-select.
+     * glyph, a load its arrows — so the most specific answer wins at a joint,
+     * where all of them sit on the same spot.
      * ('shells' is not re-checked: that mode returned just above.)
      */
     if (uiStore.multiKindSelect && sm !== 'stress') {
@@ -2584,6 +2665,10 @@
           }
         }
       }
+      if (!hit && uiStore.selectsKind('nodes')) {
+        const id = screenPick(e, 'node');
+        if (id !== null) { uiStore.selectNode(id, addToSel); hit = true; }
+      }
       if (!hit && uiStore.selectsKind('elements')) {
         for (const h of raycaster.intersectObjects(elementsParent.children, true)) {
           const ud = resolveHitUserData(h);
@@ -2595,6 +2680,10 @@
           }
         }
       }
+      if (!hit && uiStore.selectsKind('elements')) {
+        const id = screenPick(e, 'member');
+        if (id !== null) { uiStore.selectElement(id, addToSel); hit = true; }
+      }
       if (!hit && uiStore.selectsKind('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
           const ud = findUserData(h.object);
@@ -2604,6 +2693,10 @@
             break;
           }
         }
+      }
+      if (!hit && uiStore.selectsKind('loads')) {
+        const id = loadUnderPointer(e);
+        if (id !== null) uiStore.selectLoad(id, addToSel);
       }
       return;
     }
@@ -2617,6 +2710,8 @@
           return;
         }
       }
+      const nearNode = screenPick(e, 'node');
+      if (nearNode !== null) { uiStore.selectNode(nearNode, addToSel); return; }
       if (!addToSel) uiStore.clearSelection();
       return;
     }
@@ -2635,26 +2730,20 @@
     }
 
     if (sm === 'loads') {
-      // 3D has no viewport load picking (loads are selected from the Loads
-      // tab rows); a click in loads mode must not select frame elements.
-      if (!addToSel) uiStore.clearSelection();
+      // Measured against the arrows each load drew; never a member or a node.
+      const id = loadUnderPointer(e);
+      if (id !== null) uiStore.selectLoad(id, addToSel);
+      else if (!addToSel) uiStore.clearSelection();
       return;
     }
 
-    // ── Elements mode (default): nodes first, then elements, then supports ──
-    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
-    const elemHits = raycaster.intersectObjects(elementsParent.children, true);
-    const supHits = raycaster.intersectObjects(supportsParent.children, true);
-
-    for (const hit of nodeHits) {
-      const ud = resolveHitUserData(hit);
-      if (ud?.type === 'node') {
-        uiStore.selectNode(ud.id, addToSel);
-        return;
-      }
-    }
-
-    for (const hit of elemHits) {
+    /*
+     * ── Members mode: members only ──
+     * Each kind brings exactly itself, as in 2D and as the panel says. This took a node first,
+     * then a support or a shell, so a click near a joint took whatever lay there, and what
+     * Delete would then remove was not what the mode promised.
+     */
+    for (const hit of raycaster.intersectObjects(elementsParent.children, true)) {
       const ud = resolveHitUserData(hit);
       if (ud?.type === 'element') {
         uiStore.selectElement(ud.id, addToSel);
@@ -2664,24 +2753,8 @@
       }
     }
 
-    for (const hit of supHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'support') {
-        uiStore.selectSupport(ud.id, addToSel);
-        return;
-      }
-    }
-
-    // Shells (plates + quads) — lowest priority so frames/nodes on top win.
-    const shellHits = raycaster.intersectObjects(shellsParent.children, true);
-    for (const hit of shellHits) {
-      const ud = resolveHitUserData(hit);
-      if (ud?.type === 'plate' || ud?.type === 'quad') {
-        const key = (ud.type === 'plate' ? 'p' : 'q') + ud.id;
-        uiStore.selectShell(key, addToSel);
-        return;
-      }
-    }
+    const nearMember = screenPick(e, 'member');
+    if (nearMember !== null) { uiStore.selectElement(nearMember, addToSel); return; }
 
     // Clicked on empty space → clear selection
     if (!addToSel) {
@@ -2720,6 +2793,12 @@
 
     // ─── Node dragging ────────────────────────────────────────
     if (draggedNodeId3D !== null && dragStartWorld3D) {
+      /*
+       * A pixel of jitter during a click is not a drag. It moved the node onto its own snapped
+       * position and cleared every result, so clicking a node to look at it took the results
+       * away. Past the click threshold, and only when the node would actually move.
+       */
+      if (!dragMoved3D && Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) <= 5) return;
       const newWorld = getGroundIntersection(e);
       if (newWorld) {
         // The drag works in space coordinates: a standing plane model is
@@ -2728,6 +2807,12 @@
         const snapped = uiStore.snapWorld3D(newWorld.x, newWorld.y, newWorld.z);
         const snappedVec = new THREE.Vector3(snapped.x, snapped.y, snapped.z);
         const delta = snappedVec.clone().sub(dragStartWorld3D);
+        if (delta.lengthSq() < 1e-18) return;
+        if (!dragMoved3D) {
+          historyStore.pushState();
+          // Dragging a node that is not selected takes it (shift adds it).
+          if (!uiStore.selectedNodes.has(draggedNodeId3D)) uiStore.selectNode(draggedNodeId3D, e.shiftKey);
+        }
 
         if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId3D)) {
           for (const nodeId of uiStore.selectedNodes) {
@@ -2759,41 +2844,17 @@
       return;
     }
 
-    // ─── Preview line for element creation tool ──────────────
+    // ─── Preview while drawing a member or a plate: from what is picked to the pointer ──
     // Uses cached hoveredData (may lag ≤1 frame behind mouse) so this stays cheap.
-    if (uiStore.currentTool === 'element' && pendingElementNodeI !== null && scene) {
-      const nodeI = modelStore.nodes.get(pendingElementNodeI);
-      if (nodeI) {
-        const groundPt = getGroundIntersection(e);
-        let endPt: THREE.Vector3;
-        if (hoveredData?.type === 'node') {
-          const nJ = modelStore.nodes.get(hoveredData.id);
-          endPt = nJ ? new THREE.Vector3(nJ.x, nJ.y, nJ.z ?? 0) : (groundPt ?? new THREE.Vector3());
-        } else {
-          endPt = groundPt ?? new THREE.Vector3();
-        }
-
-        const startPt = new THREE.Vector3(nodeI.x, nodeI.y, nodeI.z ?? 0);
-
-        if (pendingLine) {
-          const pos = pendingLine.geometry.attributes.position as THREE.BufferAttribute;
-          pos.setXYZ(0, startPt.x, startPt.y, startPt.z);
-          pos.setXYZ(1, endPt.x, endPt.y, endPt.z);
-          pos.needsUpdate = true;
-          pendingLine.computeLineDistances();
-        } else {
-          const geo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
-          const mat = new THREE.LineDashedMaterial({
-            color: 0x44ff88,
-            dashSize: 0.15,
-            gapSize: 0.1,
-            depthTest: false,
-          });
-          pendingLine = new THREE.Line(geo, mat);
-          pendingLine.computeLineDistances();
-          pendingLine.renderOrder = 999;
-          scene.add(pendingLine);
-        }
+    {
+      const pick = uiStore.shellNodePick;
+      const picked = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
+        : pick.active && pick.target === 'quad' ? pick.picked : [];
+      if (picked.length > 0) {
+        const at = (id: number) => { const n = modelStore.nodes.get(id); return n ? new THREE.Vector3(n.x, n.y, n.z ?? 0) : null; };
+        const pts = picked.map(at).filter((v): v is THREE.Vector3 => v !== null);
+        const hovered = hoveredData?.type === 'node' ? at(hoveredData.id) : null;
+        drawFeedback.setPreview(pts, hovered ?? getGroundIntersection(e));
         invalidate();
       }
     }
@@ -2957,7 +3018,7 @@
       controls.enabled = true;
     }
     if (draggedNodeId3D !== null) {
-      if (!dragMoved3D) historyStore.undo();
+      // Nothing was pushed before the first movement, so there is nothing to take back.
       draggedNodeId3D = null;
       dragMoved3D = false;
       dragStartWorld3D = null;
@@ -3317,6 +3378,7 @@
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
   onmouseup={handleMouseUp}
+  ondblclick={handleDoubleClick3D}
   onmousemove={handleMouseMove}
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}

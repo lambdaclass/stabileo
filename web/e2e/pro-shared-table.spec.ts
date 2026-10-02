@@ -46,8 +46,10 @@ test.describe('@smoke PRO — one table, under the tools', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(3);
 
     await page.getByTestId('pr-cmd-shells').click();
+    await page.getByTestId('write-plate').click();
+    await page.getByTestId('write-corners-3').click();
     for (let i = 0; i < 3; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
-    await page.getByTestId('shell-add').click();
+    await page.getByTestId('write-plate-card-submit').click();
 
     /* Three corners made a triangle — the table says so in its own row. */
     await expect(page.locator('.data-table tbody tr')).toHaveCount(1);

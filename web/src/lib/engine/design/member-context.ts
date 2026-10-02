@@ -13,6 +13,8 @@
  * Pure: no store access, no side effects.
  */
 
+import { columnDeltaNs } from './slenderness';
+import { computeJointPsiFromModel } from '../codes/argentina/cirsoc201';
 import { classifyElement } from '../codes/argentina/cirsoc201';
 import {
   computeBeamCriticalSections,
@@ -303,6 +305,15 @@ export function buildAllMemberContexts(
     const ctx = buildMemberContext(id, model, opts);
     if (!ctx) continue;
     if (ctx.materialFamily !== 'concrete' && ctx.materialFamily !== 'unknown') continue;
+    /*
+     * The slenderness magnifier of a column (§6.6.4), when the caller states none. The verifier
+     * applies it and nothing supplied it, so every column was checked with δns = 1 while the
+     * capability matrix said the check ran with the value supplied.
+     */
+    if (ctx.elementType === 'column' && !opts.slenderDeltaNs?.has(id) && model.supports) {
+      const psi = computeJointPsiFromModel(id, model.nodes as never, model.elements as never, model.sections as never, model.materials as never, model.supports as never);
+      ctx.slenderDeltaNs = Math.max(1, columnDeltaNs(ctx, psi));
+    }
     out.set(id, ctx);
   }
   return out;

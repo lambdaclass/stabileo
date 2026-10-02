@@ -1,7 +1,8 @@
 /**
  * The placement ghost: the fragment's members and shell outlines as light lines, moved by a
- * matrix while the pointer moves, with a ring on every node that will weld onto the model and a
- * cross at the anchor.
+ * matrix while the pointer moves, with a ring on every node that will weld onto the model, and the
+ * anchor (the node that goes where the pointer or the typed coordinates say) marked by a large
+ * dot and a cross, so which node of the structure is being placed is never in doubt.
  *
  * Built once per placement; each move only sets the group's matrix and rewrites the weld rings,
  * so a building's worth of members follows the pointer without rebuilding geometry. Nothing here
@@ -14,6 +15,7 @@ import { disposeObject } from './selection-helpers';
 
 const GHOST_COLOR = 0x39b3ff;
 const WELD_COLOR = 0xffb020;
+const ANCHOR_COLOR = 0xff5a36;
 const MAX_WELDS = 2048;
 
 const noRaycast = () => {};
@@ -23,6 +25,8 @@ export class PlacementGhost {
   private body = new THREE.Group();
   private welds: THREE.Points;
   private anchor: THREE.LineSegments;
+  /** The anchor node itself, large and on top: the point being placed. */
+  private anchorDot: THREE.Points;
 
   private copies = new THREE.Group();
   /** A ring on the model node the pointer has snapped to. */
@@ -49,6 +53,13 @@ export class PlacementGhost {
     this.anchor.raycast = noRaycast;
     this.anchor.frustumCulled = false;
     this.group.add(this.anchor);
+    const dg = new THREE.BufferGeometry();
+    dg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+    this.anchorDot = new THREE.Points(dg, new THREE.PointsMaterial({ color: ANCHOR_COLOR, size: 14, sizeAttenuation: false, depthTest: false }));
+    this.anchorDot.raycast = noRaycast;
+    this.anchorDot.frustumCulled = false;
+    this.anchorDot.renderOrder = 12;
+    this.group.add(this.anchorDot);
     this.group.add(this.copies);
 
     const sg = new THREE.BufferGeometry();
@@ -111,6 +122,10 @@ export class PlacementGhost {
     wp.needsUpdate = true;
     this.welds.geometry.setDrawRange(0, n);
 
+    const dp = this.anchorDot.geometry.getAttribute('position') as THREE.BufferAttribute;
+    dp.setXYZ(0, target[0], target[1], target[2]);
+    dp.needsUpdate = true;
+
     const s = size;
     const ap = this.anchor.geometry.getAttribute('position') as THREE.BufferAttribute;
     const [x, y, z] = target;
@@ -127,6 +142,7 @@ export class PlacementGhost {
     for (const c of [...this.copies.children]) this.copies.remove(c);
     this.body.visible = false;
     this.anchor.visible = false;
+    this.anchorDot.visible = false;
     this.welds.visible = false;
     this.snap.visible = false;
     for (const T of transforms) {
@@ -154,6 +170,7 @@ export class PlacementGhost {
     for (const c of [...this.copies.children]) this.copies.remove(c);
     this.body.visible = true;
     this.anchor.visible = true;
+    this.anchorDot.visible = true;
     this.welds.visible = true;
   }
 

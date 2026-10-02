@@ -22,6 +22,7 @@
  * Nothing was rewritten. The bodies are the ones that were in the store, moved verbatim.
  */
 
+import { activePerCombo3D } from './active-results';
 import { activeCombinations } from './active-results';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
@@ -71,15 +72,33 @@ export function scopedShells(wants: (f: 'slab' | 'wall' | 'footing') => boolean)
 }
 
 
-/** Shell stresses from the active result set, quads and plates in one list. */
+/**
+ * Shell stresses, quads and plates in one list, with each shell's moments in every design
+ * combination.
+ *
+ * The record itself is the result on screen; `sets` carries the combinations, and a slab is
+ * designed face by face for the worst of them. It read only the result on screen, which after
+ * a solve is the first load case, or whichever case or combination the user was looking at,
+ * while the shear check of the same run used the factored envelope load.
+ */
 export function collectStresses(): FloorShellStress[] {
-  const r = resultsStore.results3D;
+  const r = resultsStore.results3D ?? [...activePerCombo3D().values()][0];
   if (!r) return [];
+  const combos = [...activePerCombo3D().values()];
+  const setsOf = new Map<number, Array<{ mx: number; my: number; mxy: number }>>();
+  for (const c of combos) {
+    for (const s of [...(c.quadStresses ?? []), ...(c.plateStresses ?? [])]) {
+      const list = setsOf.get(s.elementId) ?? [];
+      list.push({ mx: s.mx, my: s.my, mxy: s.mxy });
+      setsOf.set(s.elementId, list);
+    }
+  }
   return [...(r.quadStresses ?? []), ...(r.plateStresses ?? [])]
     .map((s) => ({
       elementId: s.elementId,
       sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy,
       mx: s.mx, my: s.my, mxy: s.mxy,
+      ...(setsOf.get(s.elementId)?.length ? { sets: setsOf.get(s.elementId)! } : {}),
     }))
     .sort((a, b) => a.elementId - b.elementId);
 }

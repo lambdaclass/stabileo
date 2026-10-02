@@ -23,7 +23,7 @@ function blocked(): boolean {
 
 function inputFor(threeD: boolean) {
   return threeD
-    ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false })
+    ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false })
     : modelStore.buildSolverInput(uiStore.includeSelfWeight);
 }
 

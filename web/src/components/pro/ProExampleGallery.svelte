@@ -54,16 +54,15 @@
 
 <style>
   .pg {
-    display: flex;
-    flex-direction: column;
-    margin: 0.3rem 0 0.2rem;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    max-height: 46vh;
-    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 6px;
   }
 
   .pg-group {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    border-radius: var(--st-radius);
     font-family: var(--st-mono);
     font-size: 0.6rem;
     letter-spacing: 0.11em;
@@ -73,7 +72,7 @@
     background: var(--st-surface-2);
   }
 
-  .pg-card { border-top: 1px solid var(--st-hair); }
+  .pg-card { border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
   .pg-card.asking { background: var(--st-surface-3); }
 
   .pp-ex {

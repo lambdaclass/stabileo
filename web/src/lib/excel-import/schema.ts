@@ -27,8 +27,8 @@
  *
  * `x [m]`, not `x`. A spreadsheet has no type system and no tooltip; the one
  * place a unit is guaranteed to be read is next to the number being typed. The
- * parser matches on the key BEFORE the bracket, so a translator or a user can
- * decorate the rest of the cell without breaking anything.
+ * parser matches on the key BEFORE the bracket and converts the unit inside it,
+ * so a reader who works in millimetres can say so in the header.
  */
 
 /** A column the importer knows how to read. */
@@ -341,13 +341,13 @@ export const SHEETS: SheetSpec[] = [
      * as one table.
      */
     columns: [
-      { key: 'type', required: true, helpKey: 'xls.col.constraintType', example: 'rigidDiaphragm' },
+      { key: 'type', required: true, helpKey: 'xls.col.constraintType', example: 'diaphragm' },
       { key: 'master', helpKey: 'xls.col.constraintMaster', example: 1 },
       { key: 'slaves', helpKey: 'xls.col.constraintSlaves', example: '2 3 4' },
       { key: 'nodeI', helpKey: 'xls.col.nodeI', example: '' },
       { key: 'nodeJ', helpKey: 'xls.col.nodeJ', example: '' },
     ],
-    examples: [['rigidDiaphragm', 1, '2 3', '', '']],
+    examples: [['diaphragm', 1, '2 3', '', '']],
   },
 
   {
@@ -406,11 +406,9 @@ export function sheetSpec(name: string): SheetSpec | undefined {
 /**
  * The header a column is written with: `qi [kN/m]`.
  *
- * Parsing goes the other way and keeps only what precedes the bracket, so the
- * unit is decoration on the way out and ignored on the way in. That asymmetry
- * is deliberate: it lets the template become clearer over time — a longer
- * unit, a note in the cell — without invalidating a single file anyone has
- * already filled in.
+ * Parsing matches the key on what precedes the bracket and reads the unit
+ * inside it: `x [mm]` is converted to metres, and a unit the importer cannot
+ * convert leaves the column out with a line in the report (`parse.ts`).
  */
 export function headerFor(col: ColumnSpec): string {
   return col.unit ? `${col.key} [${col.unit}]` : col.key;

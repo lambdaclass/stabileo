@@ -79,6 +79,12 @@ export interface FloorShellStress {
   mx: number;
   my: number;
   mxy: number;
+  /**
+   * The same shell's moments in each design combination, when the caller has them. A slab is
+   * then designed face by face for the worst of them (`designSlabPanel`), and the record says
+   * the demand is the envelope of the combinations instead of the solved state.
+   */
+  sets?: ReadonlyArray<{ mx: number; my: number; mxy: number }>;
 }
 
 export interface RunFloorDesignInput {
@@ -399,6 +405,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
         maxAggregateSizeMm: input.maxAggregateSizeMm,
         edition: input.edition,
         moments: { mx: stress.mx, my: stress.my, mxy: stress.mxy },
+        ...(stress.sets?.length ? { momentSets: stress.sets } : {}),
         qu,
       });
       slabs.push(design);
@@ -582,6 +589,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
  * certificate knows the demand is the solved state and not an enveloped design combination.
  */
 const SHELL_DEMAND_NOT_PER_COMBINATION = msg('detailing.floorRun.shellDemandNotPerCombination');
+const SHELL_DEMAND_ENVELOPED = msg('detailing.floorRun.shellDemandEnveloped');
 
 /** Common record fields for a shell family — the two differ only in their evidence. */
 function shellRecordCommon(args: {
@@ -598,7 +606,7 @@ function shellRecordCommon(args: {
   refs: readonly ClauseRef[];
   maturity: Maturity;
   input: Pick<RunFloorDesignInput,
-    'fc' | 'fy' | 'cover' | 'edition' | 'regulationIds' | 'revisions' | 'demandRevision'>;
+    'fc' | 'fy' | 'cover' | 'edition' | 'regulationIds' | 'revisions' | 'demandRevision' | 'stresses'>;
   barDiameterMm: number | null;
 } & { thickness: number }) {
   const materialHash = familyHash({
@@ -633,7 +641,8 @@ function shellRecordCommon(args: {
     // named combination by this adapter. An invented name would be worse than none.
     governingCombinations: [] as string[],
     checks: args.checks,
-    assumptions: [...args.assumptions, SHELL_DEMAND_NOT_PER_COMBINATION],
+    assumptions: [...args.assumptions,
+      args.input.stresses.some((s) => s.sets?.length) ? SHELL_DEMAND_ENVELOPED : SHELL_DEMAND_NOT_PER_COMBINATION],
     unsupported: [...args.unsupported],
     refs: [...args.refs],
     maturity: args.maturity,

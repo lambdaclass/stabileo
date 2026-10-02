@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { untrack } from 'svelte';
   /**
    * Cut, merge and clean up — the topology commands over the selection.
@@ -29,7 +30,7 @@
 
   let parts = $state(2);
   let message = $state<string | null>(null);
-  let fillMaterial = $state(1);
+  let fillMaterial = $state(defaultShellMaterial(modelStore.materials));
   let fillThickness = $state(0.15);
   /** Target element size, m; 0 fills each hole with one quad. */
   let fillSize = $state(1.0);
@@ -39,9 +40,9 @@
 
   /** New members take the next-member choice, falling back to the model's first. */
   const spec = $derived({
-    type: uiStore.elementCreateType,
-    materialId: nextMember.materialId ?? [...modelStore.materials.keys()][0] ?? 1,
-    sectionId: nextMember.sectionId ?? [...modelStore.sections.keys()][0] ?? 1,
+    type: 'frame' as const,
+    materialId: nextMember.resolvedMaterialId,
+    sectionId: nextMember.resolvedSectionId,
   });
   const selNodes = $derived([...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)));
   const designDocs = $derived.by(() => { void modelStore.modelVersion; return designDocumentFields(); });
@@ -88,7 +89,8 @@
   function doFill() {
     const r = fillHoles(scope, fillMaterial, fillThickness, fillSize > 0 ? { density: { mode: 'targetSize', size: fillSize } } : {});
     if ('refused' in r) { refusal(r); return; }
-    message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting });
+    message = tp('edit.filled', { quads: r.quads.length, plates: r.plates.length, skipped: r.skippedExisting })
+      + (r.openings > 0 ? ` ${tp('edit.filledOpenings', { n: r.openings })}` : '');
   }
   let renumberShells = $state(false);
   let renumberOnlySel = $state(false);

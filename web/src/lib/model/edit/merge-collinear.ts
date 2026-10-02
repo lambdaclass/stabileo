@@ -10,8 +10,8 @@
  * everything but name:
  *
  *   · the node has exactly these two members and nothing else — no third member, no shell corner,
- *     no support, no nodal load, no constraint, connector or footing. Removing it must lose
- *     nothing;
+ *     no support, no nodal load, no constraint, connector or footing, no time-history force.
+ *     Removing it must lose nothing;
  *   · they are collinear and drawn head to tail, so the merged member's I→J is theirs;
  *   · same type, material and section, and the same local frame (same explicit reference and roll);
  *   · no release, joint or offset at the shared ends — an interior hinge is a structure, not a
@@ -82,6 +82,9 @@ function nodeIsBusy(nodeId: number): boolean {
   if ([...(modelStore.model.connectors?.values() ?? [])].some((c) => c.nodeI === nodeId || c.nodeJ === nodeId)) return true;
   if ((modelStore.model.constraints ?? []).some((c) => constraintNodes(c).includes(nodeId))) return true;
   if ([...(modelStore.model.footings?.values() ?? [])].some((f) => f.nodeId === nodeId)) return true;
+  // Kept beside the model and named by node id: removing the node left the force on a number the
+  // next node drawn would take.
+  if ((modelStore.model.dynamics?.timeHistory?.forces ?? []).some((f) => f.nodeId === nodeId)) return true;
   return false;
 }
 
@@ -201,6 +204,8 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
       }
 
       const interior = segs.slice(1).map((e) => e.nodeI);
+      // A self-weight list, deflection rule or view that named a segment names the merged member.
+      for (const e of segs.slice(1)) modelStore.followMember(e.id, [keep.id]);
       for (const e of segs.slice(1)) modelStore.removeElement(e.id);
       const offset = keep.offset || last.offset
         ? { frame: (keep.offset ?? last.offset)!.frame, ...(keep.offset?.i ? { i: keep.offset.i } : {}), ...(last.offset?.j ? { j: last.offset.j } : {}) }
@@ -208,6 +213,10 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
       const patch: Partial<Element> = {
         nodeJ: last.nodeJ, releaseJ: { ...(last.releaseJ ?? { my: false, mz: false, t: false }) },
         jointJ: last.jointJ, offset: offset && (offset.i || offset.j) ? offset : undefined, reinforcement: undefined,
+        // The J end is the last segment's, its spring included.
+        semiRigid: keep.semiRigid?.i || last.semiRigid?.j
+          ? { ...(keep.semiRigid?.i ? { i: keep.semiRigid.i } : {}), ...(last.semiRigid?.j ? { j: last.semiRigid.j } : {}) }
+          : undefined,
       };
       if (segs.some((e) => e.reinforcement)) report.reinforcementDropped++;
       modelStore.updateElement(keep.id, patch);

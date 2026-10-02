@@ -15,43 +15,35 @@
     || [...modelStore.supports.values()].some((s) => s.uplift));
 </script>
 
-<div class="rules" data-testid="spec-analysis">
-  <div class="block">
-    <span class="title">{t('analysisRules.combinations')}</span>
-    <label class="row">
+<div class="pk" data-testid="spec-analysis">
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('analysisRules.combinations')}</h4>
+    <label class="pk-check">
       <input type="radio" name="combo-method" checked={method === 'solveEach'} onchange={() => modelStore.setAnalysis({ combinationMethod: undefined })} data-testid="combo-solve-each" />
       {t('analysisRules.solveEach')}
     </label>
-    <label class="row">
+    <label class="pk-check">
       <input type="radio" name="combo-method" checked={method === 'superpose'} onchange={() => modelStore.setAnalysis({ combinationMethod: 'superpose' })} data-testid="combo-superpose" />
       {t('analysisRules.superpose')}
     </label>
-    {#if !oneWay}<p class="note">{t('analysisRules.methodLinear')}</p>{/if}
-    <label class="row">
+    {#if !oneWay}<p class="pk-hint">{t('analysisRules.methodLinear')}</p>{/if}
+    <label class="pk-check">
       {t('analysisRules.perCombination')}
       <select value={perCombination} onchange={(e) => modelStore.setAnalysis({ perCombination: e.currentTarget.value === 'pdelta' ? 'pdelta' : undefined })} data-testid="per-combination">
         <option value="linear">{t('analysisRules.linear')}</option>
         <option value="pdelta">{t('analysisRules.pdelta')}</option>
       </select>
     </label>
-    {#if perCombination === 'pdelta' && oneWay}<p class="note warn">{t('analysisRules.pdeltaOneWay')}</p>{/if}
-  </div>
-  <div class="block">
-    <span class="title">{t('spec.analysis.shear')}</span>
-    <label class="row">
+    {#if perCombination === 'pdelta' && oneWay}<p class="pk-warn">{t('analysisRules.pdeltaOneWay')}</p>{/if}
+  </section>
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('spec.analysis.shear')}</h4>
+    <label class="pk-check">
       <input type="checkbox" checked={shear} onchange={(e) => modelStore.setAnalysis({ shearDeformation: e.currentTarget.checked ? undefined : 'none' })} data-testid="spec-shear" />
       {t('spec.analysis.shearOn')}
     </label>
-    <p class="note">{t('spec.analysis.shearHint')}</p>
-  </div>
+    <p class="pk-hint">{t('spec.analysis.shearHint')}</p>
+  </section>
 </div>
 
-<style>
-  .rules { display: flex; flex-direction: column; gap: 8px; padding: 6px 10px; font-size: 0.68rem; color: var(--st-text-2); }
-  .block { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--st-hair); border-radius: 4px; padding: 6px; }
-  .title { color: var(--st-text); font-weight: 600; }
-  .row { display: flex; align-items: center; gap: 6px; }
-  select, input { background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3); border-radius: 3px; padding: 1px 4px; font-size: 0.66rem; }
-  .note { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.35; }
-  .note.warn { color: var(--st-warn); }
-</style>
+

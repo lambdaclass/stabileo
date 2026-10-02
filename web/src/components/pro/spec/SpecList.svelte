@@ -27,7 +27,8 @@
       <tbody>
         {#each rows as r (r.key)}
           <tr onclick={() => select(r)} data-testid="spec-list-row">
-            <td>{r.what}</td><td>{r.value}</td><td class="n">{r.ids.length}</td>
+            <!-- The row's control, so a keyboard reaches it too. -->
+            <td><button class="sl-go" onclick={(e) => { e.stopPropagation(); select(r); }}>{r.what}</button></td><td>{r.value}</td><td class="n">{r.ids.length}</td>
           </tr>
         {/each}
       </tbody>
@@ -37,6 +38,8 @@
 </div>
 
 <style>
+  .sl-go { padding: 0; background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .sl-go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .sl { padding: 6px 10px; font-size: 0.66rem; color: var(--st-text-2); }
   .sl-empty, .sl-hint { margin: 4px 0 0; font-size: 0.62rem; color: var(--st-text-3); }
   table { width: 100%; border-collapse: collapse; }

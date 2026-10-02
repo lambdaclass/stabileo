@@ -7,7 +7,7 @@
    * symmetric total AFTER the maximum-steel check had already run on the
    * pre-rounding count, so an accepted design could exceed 8 % with no flag.
    */
-  import { t } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
   import { REBAR_DB } from '../../../lib/engine/codes/argentina/cirsoc201';
   import { resolveColumnReinf, computeColumnLayout } from '../../../lib/engine/station-design-forces';
   import { maxTieSpacing, COLUMN_LIMITS } from '../../../lib/engine/design/candidate-enumerate-column';
@@ -77,7 +77,7 @@
     </div>
     {#if state.col}
       <div class="line total-line">
-        <span class="total">{state.col.totalCount} bars = 4 + {state.nBottom + state.nTop + state.nLeft + state.nRight}</span>
+        <span class="total">{tp('rcUi.columnBars', { n: state.col.totalCount, m: state.nBottom + state.nTop + state.nLeft + state.nRight })}</span>
         <span class="total" data-testid={`col-rho-${elementId}`}
               class:bad={state.rho < COLUMN_LIMITS.rhoMin || state.rho > COLUMN_LIMITS.rhoMax}>
           ρ = {(state.rho * 100).toFixed(2)} % (1–8 %)

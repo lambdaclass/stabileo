@@ -77,6 +77,14 @@
    * Six ids and then nothing, like `detailing-prerequisites` above it: the count is the figure
    * that matters and a list of forty element numbers is not a sentence anyone reads.
    */
+  /**
+   * The conflicts the last detailing left open. The claim above is about which members the
+   * drawing covers; it said «detailed and verified» while the bars of the last run ran through
+   * each other, so the conflicts are stated beside it.
+   */
+  const openConflicts = $derived(detailingStore.assemblies.reduce(
+    (n, a) => n + (a.conflicts ?? []).filter((c) => c.severity !== 'marginal').length, 0));
+
   const gaps = $derived(convergence.gaps
     .map((g) => tp(g.key, { n: g.count, ids: g.elementIds.slice(0, 6).join(', ') }))
     .join(' '));
@@ -99,6 +107,9 @@
     {/if}
     {#if gaps}
       <span class="gaps" data-testid="detailing-convergence-gaps">{gaps}</span>
+    {/if}
+    {#if openConflicts > 0}
+      <span class="gaps" data-testid="detailing-convergence-conflicts">{tp('detailing.convergence.openConflicts', { n: openConflicts })}</span>
     {/if}
   </p>
 {/if}

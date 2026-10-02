@@ -61,7 +61,9 @@ test('@smoke a coordinate paste validates every row before changing the model', 
   expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(0);
 });
 
-test('@smoke a new node can share X and Y while the user is still entering Z', async ({ pro: page }) => {
+test('@smoke a new node can share X and Y with another and still stand apart', async ({ pro: page }) => {
+  // PRO adds nodes through the Write card, not an empty table row: nothing is placed (or welded)
+  // until the card's Add, so a node that shares X and Y with another is kept apart by its Z.
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-nodes').click();
   await page.locator('.pro-nodes-table-wrap').evaluate((el) => {
@@ -69,22 +71,19 @@ test('@smoke a new node can share X and Y while the user is still entering Z', a
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true }));
   });
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(1);
-  await page.getByTestId('pro-add-node').click();
-  const row = page.locator('.pro-nodes-table tbody tr').last();
-  await row.locator('input[data-col="x"]').fill('0');
-  await row.locator('input[data-col="y"]').fill('0');
-  await row.locator('input[data-col="y"]').press('Tab');
-  await expect(page.locator('.pro-nodes-table tbody tr')).toHaveCount(2);
-  await row.locator('input[data-col="z"]').fill('3');
-  await row.locator('input[data-col="z"]').blur();
+  await page.getByTestId('write-node').click();
+  await page.getByTestId('write-node-x').fill('0');
+  await page.getByTestId('write-node-y').fill('0');
+  await page.getByTestId('write-node-z').fill('3');
+  await page.getByTestId('write-node-card-submit').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
-  // Explicitly confirming a complete duplicate still welds, rather than adding a twin.
-  await page.getByTestId('pro-add-node').click();
-  await row.locator('input[data-col="x"]').fill('0');
-  await row.locator('input[data-col="y"]').fill('0');
-  await row.locator('input[data-col="z"]').fill('3');
-  await row.locator('input[data-col="z"]').blur();
-  await expect(page.locator('.pro-nodes-table tbody tr')).toHaveCount(2);
+  // Writing a complete duplicate still welds, rather than adding a twin. The card empties its
+  // fields once the node is written, so the count read after that is the final one.
+  await page.getByTestId('write-node-x').fill('0');
+  await page.getByTestId('write-node-y').fill('0');
+  await page.getByTestId('write-node-z').fill('3');
+  await page.getByTestId('write-node-card-submit').click();
+  await expect(page.getByTestId('write-node-z')).toHaveValue('');
   expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
 });
 
@@ -116,19 +115,8 @@ test('@smoke a second fallback paste welds onto the first without stacking a mem
   expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
 });
 
-test('@smoke a new row is kept when focus leaves it through its own delete button', async ({ pro: page }) => {
-  await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-nodes').click();
-  await page.getByTestId('pro-add-node').click();
-  const row = page.locator('.pro-nodes-table tbody tr').last();
-  await row.locator('input[data-col="x"]').fill('1');
-  await row.locator('input[data-col="y"]').fill('2');
-  await row.locator('input[data-col="z"]').fill('3');
-  await row.locator('input[data-col="z"]').press('Tab');
-  // Focus is on the row's × now; leaving it for anything else commits the row.
-  await page.locator('.pro-nodes-table thead').click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(1);
-});
+// "A new row is kept when focus leaves it through its own delete button" went with the table's
+// empty row: PRO 19 adds nodes through the Write card, and the table edits the rows that exist.
 
 test('@smoke moving a node onto another through its row joins them', async ({ pro: page }) => {
   await page.getByTestId('pr-stage-model').click();

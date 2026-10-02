@@ -486,7 +486,7 @@ node 478 12 24 4.5
 node 479 13 24 4.757142857
 node 480 13 24 4.5
 
-material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=235
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 material 2 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
 section 1 name="L 101.6x101.6x7.9" profileFamily="L" shape="L" a=0.001565 iy=0.00000151084 iz=0.00000151084 b=0.1016 h=0.1016 t=0.0079
 section 2 name="L 63.5x63.5x4.8" profileFamily="L" shape="L" a=0.0006 iy=2.25781e-7 iz=2.25781e-7 b=0.0635 h=0.0635 t=0.0048

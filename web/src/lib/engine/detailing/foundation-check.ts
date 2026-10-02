@@ -271,6 +271,27 @@ interface OneWaySide {
  * upward soil pressure acting on it.
  */
 export function checkOneWayShear(f: FootingInput, qFactored: number): OneWayShearResult {
+  /*
+   * Both directions. This checked the strips along B only, so the verdict depended on how the
+   * footing was oriented: the same 1,5 × 3,0 m base passed one way round and failed at 380
+   * against 158 kN turned 90°. The L direction is the B one on the base turned: B and L,
+   * the column sides, the moments and the eccentricities swap.
+   */
+  const alongB = oneWayShearAlongB(f, qFactored);
+  const turned: FootingInput = {
+    ...f, B: f.L, L: f.B, columnB: f.columnH, columnH: f.columnB,
+    serviceMomentB: f.serviceMomentL, serviceMomentL: f.serviceMomentB,
+    factoredMomentB: f.factoredMomentL, factoredMomentL: f.factoredMomentB,
+    eccentricityB: f.eccentricityL, eccentricityL: f.eccentricityB,
+  };
+  const alongL = oneWayShearAlongB(turned, qFactored);
+  if (alongL.utilization > alongB.utilization) {
+    return { ...alongL, memo: ['Dirección L (franjas a lo largo de L):', ...alongL.memo] };
+  }
+  return alongB;
+}
+
+function oneWayShearAlongB(f: FootingInput, qFactored: number): OneWayShearResult {
   const memo: string[] = [];
   const act = factoredActions(f);
   const uCol = act.b.columnOffset;

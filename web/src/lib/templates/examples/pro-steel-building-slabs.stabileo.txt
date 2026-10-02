@@ -842,7 +842,7 @@ node 834 0 8 9.6
 node 835 3 8 8.4
 node 836 3 8 9.6
 
-material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=235
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 material 2 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
 section 1 name="HEB 240" profileFamily="HEB" shape="H" a=0.0106 iy=0.0001126 iz=0.00003923 b=0.24 h=0.24 tw=0.01 tf=0.017
 section 2 name="IPE 360" profileFamily="IPE" shape="I" a=0.00727 iy=0.0001627 iz=0.00001043 b=0.17 h=0.36 tw=0.008 tf=0.0127

@@ -195,7 +195,7 @@ test.describe('the claim holds its layout and its three languages', () => {
   }
 
   for (const [locale, word] of [
-    ['en', 'columns'], ['es', 'columnas'], ['pt', 'colunas'],
+    ['en', 'columns'], ['es', 'columnas'], ['pt', 'pilares'],
   ] as const) {
     test(`DC-L ${locale} — the families are named in the reader's language`, async (
       { pro: page },

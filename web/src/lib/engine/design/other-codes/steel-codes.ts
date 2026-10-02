@@ -22,7 +22,29 @@ function steelOnly(ctx: MemberContext): { skip: string } | null {
 }
 
 /** Shear across the web: the larger of the two components, as the CIRSOC path takes it. */
-const shear = (d: GoverningDemand) => Math.max(Math.abs(d.forces.vy), Math.abs(d.forces.vz)) * N;
+/*
+ * The checkers take one shear force against the web area. The web (parallel to h) carries vz, the
+ * shear of the strong-axis moment; vy runs across it and is carried by the flanges of an I or the
+ * side walls of a tube. The larger of the two was sent against the web area for either direction,
+ * so an RHS 200×100×6 under Vy = 300 kN passed at 0,84 where its side walls give 1,68. vy is now
+ * scaled to the web area by the ratio of the two, which sends the same utilisation.
+ */
+const shear = (d: GoverningDemand, p?: { Aw: number; AwWeak: number }) =>
+  Math.max(Math.abs(d.forces.vz), Math.abs(d.forces.vy) * (p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)) * N;
+/**
+ * The two shear areas of each member being checked, once per member: `shear` reads them once per
+ * demand, and running the section engine (steelProps) there is what `ec3WebSlenderness` below
+ * stopped doing. `member` fills them from the properties it already has; a context it has not
+ * seen reads them here, once. Keyed by the member's context, which lives for one run.
+ */
+const webAreas = new WeakMap<object, { Aw: number; AwWeak: number } | undefined>();
+function areasOf(ctx: MemberContext): { Aw: number; AwWeak: number } | undefined {
+  if (!webAreas.has(ctx)) {
+    const p = steelProps(ctx.section);
+    webAreas.set(ctx, 'skip' in p ? undefined : { Aw: p.Aw, AwWeak: p.AwWeak });
+  }
+  return webAreas.get(ctx);
+}
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const bends = (d: GoverningDemand) => Math.abs(d.forces.my) > MOMENT_NOISE_FLOOR || Math.abs(d.forces.mz) > MOMENT_NOISE_FLOOR;
@@ -68,6 +90,7 @@ export const AISC360: OtherCode = {
     if (bad) return bad;
     const p = steelProps(ctx.section);
     if ('skip' in p) return p;
+    webAreas.set(ctx, { Aw: p.Aw, AwWeak: p.AwWeak });
     const E = ctx.material.e * PA;
     return {
       data: {
@@ -98,7 +121,7 @@ export const AISC360: OtherCode = {
     return { data: rest, unevaluated: flags };
   },
   forces(ctx, d) {
-    return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vy: shear(d) };
+    return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vy: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkSteelMembers(input),
   read(r): CheckReading {
@@ -136,6 +159,7 @@ export const EC3: OtherCode = {
     const cls = ec3Class(p, ctx.material.fy!, compressed);
     if (cls === 4) return { skip: 'otherCodes.skip.ec3Class4' };
     const curves = ec3Curves(p);
+    webAreas.set(ctx, { Aw: p.Aw, AwWeak: p.AwWeak });
     // The web slenderness `at` checks shear buckling against, once per member, not per demand.
     ec3WebSlenderness.set(ctx, p.shape === 'CHS' ? null : (p.shape === 'RHS' ? p.h - 3 * p.tw : p.h - 2 * p.tf) / p.tw);
     return {
@@ -163,14 +187,14 @@ export const EC3: OtherCode = {
     if (d.forces.n < 0 && bends(d)) flags.push('otherCodes.check.ec3Interaction');
     const fy = ctx.material.fy!;
     const vpl = ((data.av as number) * fy * 1e3) / Math.sqrt(3); // kN
-    if (bends(d) && shear(d) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');
+    if (bends(d) && shear(d, areasOf(ctx)) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');
     const slender = ec3WebSlenderness.get(ctx);
     // 72ε/η with η = 1,2 (steels up to S460), the lower of the two the code allows.
     if (slender != null && sheared(d) && slender > (72 * Math.sqrt(235 / fy)) / 1.2) flags.push('otherCodes.check.ec3ShearBuckling');
     return { data, unevaluated: flags };
   },
   forces(ctx, d) {
-    return { elementId: ctx.elementId, nEd: d.forces.n * N, myEd: d.forces.my * N, mzEd: d.forces.mz * N, vEd: shear(d) };
+    return { elementId: ctx.elementId, nEd: d.forces.n * N, myEd: d.forces.my * N, mzEd: d.forces.mz * N, vEd: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkEc3Members(input),
   read(r): CheckReading {

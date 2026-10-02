@@ -193,9 +193,12 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await expect(rows.first().locator('td').first()).toHaveText('3.20');
       expect(Number(await rows.first().locator('td:nth-child(3)').innerText())).toBeGreaterThan(0);
 
-      // Case 1 only, one sense: one case per direction (twice with a roof, one per internal-pressure sign).
+      // All four directions are on by default; leave +X and +Y. Case 1 only: one case per
+      // direction (twice with a roof, one per internal-pressure sign).
+      for (const d of ['+x', '-x', '+y', '-y']) await expect(page.getByTestId(`al-wind-dir-${d}`)).toBeChecked();
       await page.getByTestId('al-wind-caseset').selectOption('case1');
-      await page.getByTestId('al-wind-both-senses').uncheck();
+      await page.getByTestId('al-wind-dir--x').uncheck();
+      await page.getByTestId('al-wind-dir--y').uncheck();
       // Service wind Wa at 10 years from a 40 m/s 50-year speed.
       await page.getByTestId('al-wind-service').check();
       await page.getByTestId('al-wind-service-v50').fill('40');
@@ -205,6 +208,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
       expect(wind.length).toBeGreaterThan(0);
       expect(wind.every((n) => /case 1/.test(n) && /\+/.test(n))).toBe(true);
+      expect(wind.some((n) => /\+X/.test(n)) && wind.some((n) => /\+Y/.test(n))).toBe(true);
       expect(names.filter((n) => /Wa/.test(n))).toEqual(expect.arrayContaining([expect.stringMatching(/^Service wind Wa \+X, 10 years/)]));
     });
 });
@@ -234,8 +238,12 @@ test.describe('@smoke the project states its own combination rules', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('load-tab-combos').click();
+    // The rules are edited in the regulation dialog, on its Combinations tab.
+    await expect(page.getByTestId('combo-rules')).toHaveCount(0);
+    await expect(page.getByTestId('combo-rule-generate')).toBeDisabled();
+    await page.getByTestId('combo-rules-edit').click();
+    await expect(page.getByTestId('al-tab-combos')).toHaveAttribute('aria-selected', 'true');
     const rules = page.getByTestId('combo-rules');
-    await rules.locator('summary').click();
     await page.getByTestId('combo-rule-add').click();
     // 1,4 D + 0,7 L, typed with a decimal comma.
     await page.getByTestId('combo-rule-r1-D').fill('1,4');
@@ -243,15 +251,36 @@ test.describe('@smoke the project states its own combination rules', () => {
     await page.getByTestId('combo-rule-r1-L').fill('0,7');
     await page.getByTestId('combo-rule-r1-L').press('Tab');
     await expect(rules).toContainText('1.4 D + 0.7 L');
+    // Saved as a template file.
+    const download = page.waitForEvent('download');
+    await page.getByTestId('combo-rule-export').click();
+    expect((await download).suggestedFilename()).toBe('combination-rules.json');
+    await page.getByTestId('al-cancel').click();
+
+    // The Loads tab uses them over the cases already in the model.
     const before = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
     await page.getByTestId('combo-rule-generate').click();
     await page.getByRole('button', { name: /generate selected/i }).click();
     const after = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
     expect(after).toBe(before + 1);
-    // Saved as a template file.
-    const download = page.waitForEvent('download');
-    await page.getByTestId('combo-rule-export').click();
-    expect((await download).suggestedFilename()).toBe('combination-rules.json');
+    await expect(page.getByTestId('combo-definition').last()).toHaveText('1.4 D + 0.7 L');
+  });
+
+  test('the regulation dialog applies the project rules in place of CIRSOC 101 when asked', async ({ pro: page }) => {
+    await openDialog(page);
+    await page.getByTestId('al-tab-combos').click();
+    await expect(page.getByTestId('al-combo-source-project')).toBeDisabled();
+    await page.getByTestId('combo-rule-add').click();
+    await page.getByTestId('combo-rule-r1-D').fill('1.4');
+    await page.getByTestId('combo-rule-r1-D').press('Tab');
+    await page.getByTestId('al-combo-source-project').check();
+    // Replacing what the model has, so the count is the rule's alone.
+    await page.getByTestId('al-tab-loads').click();
+    await page.getByTestId('al-clear').check();
+    await page.getByTestId('al-preview-btn').click();
+    await expect(page.getByTestId('al-after-combos')).toHaveText('1');
+    await page.getByTestId('al-apply').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(1);
   });
 });
 

@@ -24,15 +24,13 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
     // ── 1. Nodes, by coordinate, in the panel ───────────────────────
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-nodes').click();
+    await page.getByTestId('write-node').click();
     for (const [x, y, z] of N) {
-      await page.getByTestId('pro-add-node').click();
-      const row = page.locator('.pro-nodes-table tbody tr').last();
-      await row.locator('input[data-col="x"]').fill(String(x));
-      await row.locator('input[data-col="y"]').fill(String(y));
-      await row.locator('input[data-col="z"]').fill(String(z));
-      await row.locator('input[data-col="z"]').blur();
+      await page.getByTestId('write-node-x').fill(String(x));
+      await page.getByTestId('write-node-y').fill(String(y));
+      await page.getByTestId('write-node-z').fill(String(z));
+      await page.getByTestId('write-node-card-submit').click();
     }
-    await page.getByTestId('pro-apply-nodes').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(4);
 
     // ── 2. Members, by clicking those nodes ─────────────────────────
@@ -45,8 +43,18 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
     await page.locator('.cam-menu .cam-item').first().click();
     await page.waitForTimeout(500);
 
+    /* The drawing bar changes height with the tool (a member's has more to say than a
+       support's), and the viewport follows it a frame later: read the node where it has
+       settled, not where it was mid-resize. */
     const click = async (id: number) => {
-      const p = await page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id);
+      const at = () => page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id);
+      let p = await at();
+      for (let k = 0; k < 20; k++) {
+        await page.waitForTimeout(50);
+        const q = await at();
+        if (p && q && Math.abs(p.x - q.x) < 0.5 && Math.abs(p.y - q.y) < 0.5) break;
+        p = q;
+      }
       expect(p, `node ${id} is on screen`).toBeTruthy();
       await page.mouse.click(p!.x, p!.y);
     };

@@ -49,6 +49,11 @@ export interface MemberLengths {
   source: LengthSource;
   /** The elements that make up the unbraced length, in order; one for a single element. */
   chain: number[];
+  /**
+   * One end of the chain reaches a node nothing else holds: no other member, support, shell,
+   * constraint or connector. That is a cantilever's free end, where F.1.1 sets Cb = 1.
+   */
+  freeEnd: boolean;
 }
 
 /** Two directions this close to parallel are one straight member (|cos| ≥ 1 − 1e-6). */
@@ -131,6 +136,16 @@ export function memberLengths(model: LengthModel): Map<number, MemberLengths> {
     };
     const chain = [...walk(e.nodeI, e.id).reverse(), e.id, ...walk(e.nodeJ, e.id)];
     const total = chain.reduce((s, id) => s + (lengthOf.get(id) ?? 0), 0);
+    // The chain's two end nodes: each end element's node that the next one does not share.
+    const endNode = (endId: number, nextId: number | undefined): number[] => {
+      const end = model.elements.get(endId)!;
+      if (nextId === undefined) return [end.nodeI, end.nodeJ];
+      const next = model.elements.get(nextId)!;
+      return [end.nodeI, end.nodeJ].filter((n) => n !== next.nodeI && n !== next.nodeJ);
+    };
+    const ends = chain.length === 1 ? endNode(chain[0]!, undefined)
+      : [...endNode(chain[0]!, chain[1]), ...endNode(chain[chain.length - 1]!, chain[chain.length - 2])];
+    const freeEnd = ends.some((n) => !held.has(n) && (incident.get(n)?.length ?? 0) === 1);
     for (const id of chain) {
       seen.add(id);
       const own = model.elements.get(id)!;
@@ -140,6 +155,7 @@ export function memberLengths(model: LengthModel): Map<number, MemberLengths> {
         Lb: declared ?? total,
         source: declared !== undefined ? 'declared' : chain.length > 1 ? 'chain' : 'element',
         chain,
+        freeEnd,
       });
     }
   }

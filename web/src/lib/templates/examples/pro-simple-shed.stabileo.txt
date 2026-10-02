@@ -86,7 +86,7 @@ node 78 12 18 5
 node 79 14 18 6.4
 node 80 14 18 5
 
-material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=235
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 section 1 name="IPE 300" profileFamily="IPE" shape="I" a=0.00538 iy=0.00008356 iz=0.00000604 b=0.15 h=0.3 tw=0.0071 tf=0.0107
 section 2 name="L 76.2x76.2x9.5" profileFamily="L" shape="L" a=0.001364 iy=7.19991e-7 iz=7.19991e-7 b=0.0762 h=0.0762 t=0.0095
 section 3 name="L 50.8x50.8x7.9" profileFamily="L" shape="L" a=0.000749 iy=1.70472e-7 iz=1.70472e-7 b=0.0508 h=0.0508 t=0.0079

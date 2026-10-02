@@ -13,7 +13,7 @@
 import type { SolverInput3D } from './types-3d';
 import type { Constraint3D } from './types-3d';
 import type { Element } from '../store/model.svelte';
-import { computeLocalAxes3D } from './local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 
 export interface SemiRigidEnd { ky: number; kz: number }
 export interface SemiRigid { i?: SemiRigidEnd; j?: SemiRigidEnd }
@@ -41,6 +41,35 @@ const globalAxis = (v: readonly number[]) => {
 /** Stiffness about global X, Y, Z on a zero-length connector's own fields. */
 const CONNECTOR_ROT = ['kMoment', 'kBendZ', 'kBendY'] as const;
 
+type P3 = { x: number; y: number; z?: number };
+type Axes = { localYx?: number; localYy?: number; localYz?: number; rollAngle?: number };
+
+/** The global axes a member's local y and z lie along, or null when they do not. */
+function bendingAxes(nI: P3, nJ: P3, e: Axes): { ay: number; az: number } | null {
+  const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
+  const axes = computeLocalAxes3D({ id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 }, { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 }, localY, e.rollAngle ?? 0, false);
+  const ay = globalAxis(axes.ey), az = globalAxis(axes.ez);
+  return ay === null || az === null ? null : { ay, az };
+}
+
+/**
+ * The members whose semi-rigid ends a solve refuses (`SemiRigidError`), because their bending axes do not lie along
+ * global axes (see the header). The model check reports them before a solve, so it reads the axes the solve reads:
+ * the member's roll with its section's rotation (`memberRoll`, as the solver input composes them). The member's
+ * roll alone passed a member along X on a section turned 30°, which the solve then refused.
+ */
+export function semiRigidNotAligned(
+  elements: Iterable<Element>, nodes: ReadonlyMap<number, P3>, sections: ReadonlyMap<number, { rotation?: number }>,
+): number[] {
+  const out: number[] = [];
+  for (const e of elements) {
+    if (!e.semiRigid?.i && !e.semiRigid?.j) continue;
+    const nI = nodes.get(e.nodeI), nJ = nodes.get(e.nodeJ);
+    if (nI && nJ && !bendingAxes(nI, nJ, { ...(e as Axes), rollAngle: memberRoll(e, sections) })) out.push(e.id);
+  }
+  return out.sort((a, b) => a - b);
+}
+
 export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<number, Element>): { helpers: Set<number> } {
   const helpers = new Set<number>();
   const els = [...modelElements.values()].filter((e) => e.semiRigid?.i || e.semiRigid?.j).sort((a, b) => a.id - b.id);
@@ -55,10 +84,10 @@ export function expandSemiRigid3D(input: SolverInput3D, modelElements: Map<numbe
     if (!se) continue;
     const nI = input.nodes.get(se.nodeI), nJ = input.nodes.get(se.nodeJ);
     if (!nI || !nJ) continue;
-    const localY = se.localYx !== undefined && se.localYy !== undefined && se.localYz !== undefined ? { x: se.localYx, y: se.localYy, z: se.localYz } : undefined;
-    const axes = computeLocalAxes3D(nI, nJ, localY, se.rollAngle ?? 0, false);
-    const ay = globalAxis(axes.ey), az = globalAxis(axes.ez);
-    if (ay === null || az === null) throw new SemiRigidError('notAligned', e.id);
+    const aligned = bendingAxes(nI, nJ, se as Axes);
+    // Refused, not solved rigid: main's rule (`SemiRigidError`); the model check names them first.
+    if (!aligned) throw new SemiRigidError('notAligned', e.id);
+    const { ay, az } = aligned;
     for (const end of ['i', 'j'] as const) {
       const spec = e.semiRigid?.[end];
       if (!spec) continue;

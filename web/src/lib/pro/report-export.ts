@@ -23,6 +23,7 @@ import { openReport } from '../engine/pro-report';
 import type { ReportConfig, ReportData } from '../engine/pro-report';
 import { downloadProjectWorkbook } from '../store/project-workbook';
 import { modelStore, resultsStore } from '../store';
+import { verificationStore } from '../store/verification.svelte';
 import { activePerCombo3D, activeCombinations } from '../store/active-results';
 import { computeStationDemands, runUnifiedVerification } from '../engine/verification-service';
 import type { ElementVerification } from '../engine/codes/argentina/cirsoc201';
@@ -51,6 +52,29 @@ function screenshotOfCanvas(): string | undefined {
  * dialog chose. One exporter with two doors, rather than a second one here that could come to
  * disagree with it.
  */
+/**
+ * The concrete design as the Design panel verified it, member by member, for the report.
+ *
+ * The report used to re-design every member with the older checker: bars of its own choosing,
+ * a linear P-M interaction, fy 420, 25 mm cover and Ø8 stirrups hard-wired, 2005 clause
+ * numbers, so the document described a different design from the panel's. It now prints what
+ * the panel checked: the member's own reinforcement against the adapter the project binds.
+ */
+export function reportDesignChecks(): NonNullable<ReportData['designChecks']> {
+  const out: NonNullable<ReportData['designChecks']> = [];
+  for (const [id, ctx] of verificationStore.contexts) {
+    const pv = verificationStore.providedFor(id);
+    if (!pv || !pv.hasProvided) continue;
+    const gov = [...pv.checks].sort((a, b) => b.ratio - a.ratio)[0];
+    out.push({
+      elementId: id, elementType: pv.elementType, section: ctx.section.name,
+      status: pv.overallStatus, worstUtilization: pv.worstUtilization, checks: pv.strengthCheckCount,
+      ...(gov ? { governing: gov.category, demand: gov.demand, capacity: gov.capacity, unit: gov.unit, comboName: gov.comboName } : {}),
+    });
+  }
+  return out.sort((a, b) => a.elementId - b.elementId);
+}
+
 export function exportReportAs(input: ReportExportInputs): void {
   if (input.config.format === 'xlsx') {
     const o = workbookOptions(input);
@@ -60,7 +84,7 @@ export function exportReportAs(input: ReportExportInputs): void {
 
   const data = buildProReportData({
     config: input.config,
-    verifications: input.verifications,
+    verifications: [],
     advancedResults: Object.keys(input.advancedResults).length > 0
       ? input.advancedResults as ReportData['advancedResults']
       : undefined,
@@ -68,6 +92,7 @@ export function exportReportAs(input: ReportExportInputs): void {
     t: input.t,
   });
   if (!data) return;
+  data.designChecks = reportDesignChecks();
   openReport(data);
 }
 
@@ -82,15 +107,16 @@ export function exportReportAs(input: ReportExportInputs): void {
 export function workbookOptions(input: ReportExportInputs): { includeModel: boolean; includeResults: boolean; extraSheets: Array<{ name: string; rows: (string | number)[][] }> } {
   const s = input.config.sections;
   const extraSheets: Array<{ name: string; rows: (string | number)[][] }> = [];
-  if (s.verification && input.verifications && input.verifications.length > 0) {
+  const checks = s.verification ? reportDesignChecks() : [];
+  if (checks.length > 0) {
     extraSheets.push({
       name: input.t('report.verificationTitle') || 'Verification',
-      rows: [['ID', input.t('report.type') || 'Type', 'Mu (kN·m)', 'Vu (kN)', 'Nu (kN)', input.t('report.status') || 'Status'],
-        ...input.verifications.map((v) => [v.elementId, v.elementType, v.Mu, v.Vu, v.Nu, v.overallStatus])],
+      rows: [['ID', input.t('report.type') || 'Type', input.t('report.sectionLabel') || 'Section', input.t('report.design.governing'), input.t('report.design.demand'), input.t('report.design.capacity'), 'u', input.t('report.status') || 'Status'],
+        ...checks.map((c) => [c.elementId, c.elementType, c.section, c.governing ?? '', c.demand ?? '', c.capacity ?? '', c.worstUtilization, c.status])],
     });
   }
   if (s.storyDrift) {
-    const data = buildProReportData({ config: input.config, verifications: input.verifications, advancedResults: undefined, screenshot: undefined, t: input.t });
+    const data = buildProReportData({ config: input.config, verifications: [], advancedResults: undefined, screenshot: undefined, t: input.t });
     const drifts = data?.storyDrifts ?? [];
     if (drifts.length > 0) {
       extraSheets.push({

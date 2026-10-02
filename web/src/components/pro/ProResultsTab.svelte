@@ -4,7 +4,6 @@
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs } from '../../lib/store/result-view';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
-  import { publishCombinations3D } from '../../lib/store/active-results';
   import ProResultScopes from './ProResultScopes.svelte';
   import ProNonlinearReport from './ProNonlinearReport.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
@@ -13,7 +12,6 @@
   import { deformedView } from '../../lib/store/deformed-view.svelte';
   import { downloadText } from '../../lib/store/file';
   import { t } from '../../lib/i18n';
-  import { runGlobalSolve } from '../../lib/engine/live-calc';
   // The raw forces report is one more answer to "which output am I reading", which is the
   // question this tab's strip already asks. It is NOT in Documentos: §5 keeps raw solver
   // results and reinforcement design as two documents.
@@ -41,8 +39,6 @@
     shellComponentStats, type ShellComponentGroup,
   } from '../../lib/engine/shell-stress';
 
-  let solveError = $state<string | null>(null);
-  let solving = $state(false);
 
   const results = $derived(resultsStore.results3D);
 
@@ -142,43 +138,6 @@
   const viewMode = $derived<ViewMode>(resultsStore.activeView);
   /** Per table: the result set on screen, or read across the active combinations. */
   let tableModes = $state<Record<'reactions' | 'forces' | 'displacements', TableMode>>({ reactions: 'current', forces: 'current', displacements: 'current' });
-
-  function handleSolve() {
-    solveError = null;
-    solving = true;
-    try {
-      // First solve single (all loads)
-      runGlobalSolve();
-      if (!resultsStore.results3D) {
-        solveError = t('pro.noResults');
-        solving = false;
-        return;
-      }
-
-      // Now solve combinations if load cases exist
-      if (modelStore.loadCases.length > 0 && modelStore.combinations.length > 0) {
-        try {
-          const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
-          if (typeof comboResult === 'string') {
-            // Refused (an empty active list, say): said, not only logged.
-            uiStore.toast(comboResult, 'info');
-          } else if (comboResult) {
-            publishCombinations3D(comboResult);
-            // Sync BOTH the local toggle and the store view: setting only the
-            // local viewMode left activeView='single', so the Envelope button
-            // rendered active while the query card/CSV honestly said 'Case'.
-            switchView('envelope');
-          }
-        } catch (comboErr: any) {
-          console.warn('Combinations 3D failed (results still available):', comboErr);
-        }
-      }
-    } catch (e: any) {
-      console.error('PRO solve error:', e);
-      solveError = e?.message || String(e) || t('pro.unknownError');
-    }
-    solving = false;
-  }
 
   function switchView(mode: ViewMode) {
     if (mode === 'combo') {
@@ -436,9 +395,6 @@
       on screen with two different appearances, and the panel copy sat above
       the results it would replace.
     -->
-    {#if solveError}
-      <div class="pro-solve-error">{solveError}</div>
-    {/if}
     {#if results}
       <span class="pro-res-status">{t('pro.solvedStatus').replace('{reactions}', String(results.reactions.length)).replace('{elements}', String(results.elementForces.length))}</span>
     {/if}
@@ -1212,15 +1168,6 @@
   }
 
   .pro-sw-label input { cursor: pointer; }
-
-  .pro-solve-error {
-    margin-top: 6px;
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    color: var(--st-danger);
-    background: rgba(229, 72, 42, 0.1);
-    border-radius: 3px;
-  }
 
   .pro-res-status {
     display: block;

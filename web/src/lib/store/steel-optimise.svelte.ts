@@ -23,6 +23,10 @@ import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, 
 import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
+import { isDesigned, maskAxialDemand } from '../engine/design/behaviour-demands';
+import { materialFamilyOf } from '../engine/steel/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
+import { isColdFormedSection } from '../profiles/cold-formed-catalogue';
 
 export type OptimiseScope = 'section' | 'member' | 'group';
 
@@ -81,9 +85,13 @@ export interface AppliedRow { key: string; scope: OptimiseScope; profileName: st
 
 const byName = new Map(ALL_PROFILES.map((p) => [p.name, p]));
 
-/** A section that is exactly one catalogue profile — the only kind this search can replace. */
-function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; drawn?: unknown; built?: unknown } | undefined): SteelProfile | null {
-  if (!sec || sec.composition || sec.drawn || sec.built) return null;
+/**
+ * A section that is exactly one catalogue profile — the only kind this search can replace. A
+ * declared section (its own properties under a catalogue-looking name), a drawn one or a built-up
+ * one is not, whatever its name.
+ */
+function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown; built?: unknown } | undefined): SteelProfile | null {
+  if (!sec || sec.composition || sec.declared || sec.drawn || sec.built) return null;
   const p = byName.get(sec.name);
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
 }
@@ -105,13 +113,14 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
   for (const id of ids) {
     const ef = forces.get(id);
     const e = modelStore.elements.get(id);
-    if (!ef || !e) continue;
+    if (!ef || !e || !isDesigned(e.behaviour)) continue;
     const len = lengths.get(id);
     const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
       elementId: id,
-      demand: steelDemandOf(ef, demands.get(id), stations.get(id)),
-      lengths: { ...(len ? { L: len.L, Lb: len.Lb } : { L: ef.length, Lb: ef.length }), ...k },
+      // As the check reads it: a tension-only brace is not sized for buckling.
+      demand: maskAxialDemand(steelDemandOf(ef, demands.get(id), stations.get(id)), e.behaviour),
+      lengths: { ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),
     });
@@ -128,9 +137,13 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
  * Members of one group are checked against one material — the group's first — and members of a
  * section with different materials are split so that is always true.
  */
+/** Members the last grouping left out because the checker does not cover their material or section. */
+const outOfScope = new Set<number>();
+
 function groups(scope: OptimiseScope, ids?: readonly number[]) {
   const wanted = ids ? new Set(ids) : null;
   const out = new Map<string, { sectionId: number; materialId: number; profile: SteelProfile; elementIds: number[]; groupName?: string }>();
+  outOfScope.clear();
   /*
    * A named group is a design group: one profile for all its steel members. A member in two
    * groups is optimised with the first, so no member receives two answers.
@@ -145,6 +158,10 @@ function groups(scope: OptimiseScope, ids?: readonly number[]) {
     if (wanted && !wanted.has(e.id)) continue;
     const m = modelStore.materials.get(e.materialId);
     if (!m?.fy || m.fy <= 80) continue;
+    // The checker is CIRSOC 301's hot-rolled steel one: aluminium is out of its scope, and so is
+    // a cold-formed section (CIRSOC 303), whatever a catalogue lookup of its name returns.
+    if (materialFamilyOf(m as never, catalogueGradeFamily).family !== 'steel') { outOfScope.add(e.id); continue; }
+    if (isColdFormedSection(modelStore.sections.get(e.sectionId))) { outOfScope.add(e.id); continue; }
     const p = catalogueProfileOf(modelStore.sections.get(e.sectionId));
     if (!p) continue;
     const grp = groupOf.get(e.id);
@@ -167,23 +184,33 @@ function createSteelOptimise() {
   let error = $state<string | null>(null);
   /** The criteria of the last run, which the re-verification applies again. */
   let lastSettings: OptimiseSettings = {};
-  let proposedAt = -1;
+  /**
+   * The project and the model version the proposals were made on. Proposals outlived a project
+   * change and an edit, and "Apply" then wrote another project's picks by section id onto
+   * whatever carried that id now.
+   */
+  let ranOn = $state<{ epoch: number; version: number } | null>(null);
+  let skipped = $state(0);
+  let appliedEpoch = $state<number | null>(null);
+  const fresh = () => ranOn !== null && ranOn.epoch === modelStore.loadEpoch && ranOn.version === modelStore.modelVersion;
+  /** The analysis the proposals were checked against: a new solve makes them stale too. */
   let proposedResults: AnalysisResults3D | null = null;
 
   return {
-    get rows() { return rows; },
-    get applied() { return applied; },
+    get rows() { return fresh() ? rows : []; },
+    get applied() { return appliedEpoch === modelStore.loadEpoch ? applied : []; },
     get error() { return error; },
     /** Picks written, and no solve since: the model is designed but not re-verified. */
-    get awaitingReverify() { return applied.length > 0 && applied.every((a) => a.status === 'unchecked'); },
-    get converged() { return applied.length > 0 && applied.every((a) => a.status === 'holds'); },
+    get awaitingReverify() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'unchecked'); },
+    get converged() { const a = this.applied; return a.length > 0 && a.every((x) => x.status === 'holds'); },
     get appliedAt() { return appliedAt; },
+    /** Members of the last run left out: aluminium or cold-formed, which the checker does not cover. */
+    get outOfScope() { return fresh() ? skipped : 0; },
 
     /** Propose the lightest passing profile per group, against the analysis on hand. */
     run(scope: OptimiseScope, ids?: readonly number[], settings: OptimiseSettings = {}): void {
       error = null;
       lastSettings = settings;
-      proposedAt = modelStore.modelVersion;
       proposedResults = resultsStore.results3D;
       if (!resultsStore.results3D) { rows = []; error = 'opt.needSolve'; return; }
       if (scope === 'group' && modelStore.model.groups.size === 0) { rows = []; error = 'opt.noGroups'; return; }
@@ -203,6 +230,8 @@ function createSteelOptimise() {
         });
       }
       rows = out;
+      skipped = outOfScope.size;
+      ranOn = { epoch: modelStore.loadEpoch, version: modelStore.modelVersion };
     },
 
     /**
@@ -213,7 +242,9 @@ function createSteelOptimise() {
      * reusing an existing section only when its profile properties also match.
      */
     apply(keys: readonly string[]): void {
-      if (proposedAt !== modelStore.modelVersion || proposedResults !== resultsStore.results3D || !proposedResults) {
+      // Proposals made on another project or model version are not applied, and the panel says so.
+      if (!fresh()) { rows = []; error = 'opt.needSolve'; return; }
+      if (proposedResults !== resultsStore.results3D || !proposedResults) {
         rows = []; error = 'opt.needSolve'; return;
       }
       const chosen = rows.filter((r) => keys.includes(r.key) && r.result.chosen && r.changes);
@@ -228,10 +259,13 @@ function createSteelOptimise() {
             // The section in place: every member sharing it follows.
             modelStore.updateSection(r.sectionId, fields);
           } else {
+            // Each member keeps its own orientation. A section is reused only when it is that
+            // catalogue profile with the same properties: a declared, drawn or built-up section of
+            // the same name carries other properties.
             for (const id of r.elementIds) {
               const rotation = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)?.rotation ?? 0;
               const existing = [...modelStore.sections.values()].find(s => {
-                if (s.composition || s.drawn || s.built || (s.rotation ?? 0) !== rotation) return false;
+                if (s.composition || s.declared || s.drawn || s.built || (s.rotation ?? 0) !== rotation) return false;
                 return Object.entries(fields).every(([key, value]) => s[key as keyof typeof s] === value);
               });
               const sid = existing?.id ?? modelStore.addSection({ ...fields, rotation } as never);
@@ -242,7 +276,9 @@ function createSteelOptimise() {
       });
       applied = chosen.map((r) => ({ key: r.key, scope: r.scope, profileName: r.result.chosen!.profile.name, elementIds: r.elementIds, status: 'unchecked' as const }));
       appliedAt = modelStore.modelVersion;
+      appliedEpoch = modelStore.loadEpoch;
       rows = [];
+      ranOn = null;
     },
 
     /**
@@ -251,6 +287,7 @@ function createSteelOptimise() {
      */
     recheck(): void {
       error = null;
+      if (appliedEpoch !== modelStore.loadEpoch) { applied = []; appliedAt = null; return; }
       if (!resultsStore.results3D) { error = 'opt.needSolve'; return; }
       applied = applied.map((a) => {
         const p = byName.get(a.profileName);
@@ -259,11 +296,14 @@ function createSteelOptimise() {
           return { ...a, status: 'unchecked' as const };
         }
         const { members, materialOf } = membersFor(ids);
-        const material = materialOf.get(ids[0]!);
+        // An inactive member follows its section but is not designed, as when the row was
+        // proposed: every designed member must be checked, and only those.
+        const designed = ids.filter(id => isDesigned(modelStore.elements.get(id)!.behaviour));
+        const material = designed.length > 0 ? materialOf.get(designed[0]!) : undefined;
         // Rows start out homogeneous. A later material assignment can split the group, so its
         // first member's grade no longer represents all members; propose the groups again.
         const materialIds = new Set(ids.map(id => modelStore.elements.get(id)!.materialId));
-        if (!p || !material || members.length !== ids.length || members.length === 0 || materialIds.size !== 1) {
+        if (!p || !material || members.length !== designed.length || members.length === 0 || materialIds.size !== 1) {
           return { ...a, status: 'unchecked' as const };
         }
         const criteria = criteriaFor(lastSettings, ids);

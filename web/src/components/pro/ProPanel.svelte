@@ -51,8 +51,7 @@
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
-  import { exportReportAs, reportVerification } from '../../lib/pro/report-export';
-  import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { exportReportAs } from '../../lib/pro/report-export';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProReportDialog from './ProReportDialog.svelte';
@@ -68,6 +67,8 @@
   import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
+  import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
+  import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
@@ -92,11 +93,6 @@
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
   const activeTab = $derived(uiStore.proActiveTab as ProTab);
-  /** Verification results — derived from verificationStore (single source of truth).
-   *  No longer a local $state — reads directly from the store. */
-  const verificationsRef = $derived(verificationStore.concrete);
-  /** The verification the report prints, taken when its dialog opens; the store is left alone. */
-  let reportVerifications = $state<ElementVerification[] | null>(null);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
@@ -171,8 +167,6 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Re-verified against the current model, for the report only — see `reportVerification`.
-    reportVerifications = reportVerification();
 
     showReportDialog = true;
   }
@@ -183,7 +177,8 @@
     showReportDialog = false;
     exportReportAs({
       config,
-      verifications: reportVerifications ?? verificationsRef,
+      // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
+      verifications: [],
       advancedResults: advancedResultsRef,
       t,
     });
@@ -195,6 +190,9 @@
   async function loadProExample(ex: ProExample) {
     // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`).
     await ex.load();
+    // A new project: nothing of the previous one's session state (figures, direct analysis,
+    // export records) belongs to it.
+    resetProjectProvenance();
     // Label overlays off on arrival, whatever the preset: they are unreadable on the large
     // models and unnecessary on the small ones. Grid and axes stay user-controlled.
     uiStore.showLengths3D = false;
@@ -241,9 +239,9 @@
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
     otherCodes: 'proRibbon.groupOtherCodes',
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
-    // (`proRibbon.cmdSteelStructures` / `proRibbon.cmdSteelProfiles`), not the fallback
+    // (`proRibbon.cmdGenerators` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
-    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdSteelStructures',
+    steel: 'proRibbon.cmdSteelProfiles', generators: 'proRibbon.cmdGenerators',
     settings: 'config.title',
     grid: 'grid.title',
     transform: 'transform.title',
@@ -365,8 +363,10 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'design'}
+          <ProDesignCompleteness />
           <ProRcWorkflowTab />
         {:else if activeTab === 'steel'}
+          <ProDesignCompleteness />
           <ProSteelWorkflowTab />
         {:else if activeTab === 'generators'}
           <ProGeneratorsPanel />

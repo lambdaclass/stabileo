@@ -364,6 +364,11 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
 // ─── Force/moment diagrams ─────────────────────────────────
 
+/** How many member diagrams the scene holds now, for the specs that check a diagram is drawn. */
+function publishDiagramState(members: number): void {
+  if (typeof window !== 'undefined') (window as unknown as { __diagramMembers?: number }).__diagramMembers = members;
+}
+
 export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
 
@@ -381,6 +386,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 
   const r3d = resultsStore.results3D;
   const dt = resultsStore.diagramType;
+  publishDiagramState(0);
   if (!r3d || !DIAGRAM_3D_TYPES.has(dt)) return;
 
   const leftHand = uiStore.axisConvention3D === 'leftHand';
@@ -422,6 +428,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
       uiStore.unitSystem,
     );
     ctx.resultsParent.add(ctx.diagramGroup);
+    publishDiagramState(ctx.diagramGroup.children.length);
 
     // Overlay diagram (comparison)
     const overlay3D = resultsStore.overlayResults3D;

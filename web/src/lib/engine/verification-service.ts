@@ -36,6 +36,7 @@ import { verifySteelElement, type SteelVerification, type SteelVerificationInput
 import { momentGradient, type StationMoment } from './steel/moment-gradient';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
+import { isDesigned, maskAxialDemand } from './design/behaviour-demands';
 
 // ─── Station Demands ─────────────────────────────────────────
 
@@ -404,14 +405,10 @@ export function runSteelVerification(
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L <= 0) continue;
 
-    // A member out of the analysis is not verified; a one-way member only in the sense it works:
-    // a tension-only brace or a cable never faces a compression check, whatever a superposed
-    // combination sums to (that is reported as a sign violation where the result is).
+    // Design follows the member's behaviour (`design/behaviour-demands.ts`).
     const behaviour = (elem as { behaviour?: string }).behaviour;
-    if (behaviour === 'inactive') continue;
-    const demand = steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId));
-    if (behaviour === 'tensionOnly' || behaviour === 'cable') demand.Nc = 0;
-    if (behaviour === 'compressionOnly') demand.Nt = 0;
+    if (!isDesigned(behaviour)) continue;
+    const demand = maskAxialDemand(steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId)), behaviour);
     const e3 = elem as { kStrong?: number; kWeak?: number };
     const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
     const len = lengths?.get(ef.elementId);
@@ -611,7 +608,7 @@ export function checkSteelMember(
   demand: SteelMemberDemand,
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number },
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
   /**
    * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
    * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
@@ -687,8 +684,10 @@ export function checkSteelMember(
     tStart: segment?.tStart,
     tEnd: segment?.tEnd,
     shape: (section as { shape?: string }).shape,
-    // A free cantilever end is a topology fact this loop does not have; left undefined rather
-    // than guessed, which keeps `Cb = 1` for those members via the diagram path.
+    // A cantilever's free end, from the model's topology (`memberLengths`): F.1.1 sets Cb = 1.
+    // Left out, the diagram path computed Cb on cantilevers and raised their capacity by up to
+    // two thirds.
+    cantileverFreeEnd: lengths.freeEnd === true,
   });
 
   const sdp: SteelDesignParams = {
@@ -741,6 +740,8 @@ export function checkSteelMember(
         ...(k.Cw !== undefined ? { Cw: k.Cw } : {}),
         ...(k.Zx !== undefined ? { Zx: k.Zx } : {}),
         ...(k.Zy !== undefined ? { Zy: k.Zy } : {}),
+        ...(k.c !== undefined ? { c: k.c } : {}),
+        ...(k.Sy !== undefined ? { Sy: k.Sy } : {}),
       };
     })(),
     // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).

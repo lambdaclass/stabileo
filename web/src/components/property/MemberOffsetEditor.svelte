@@ -7,6 +7,10 @@
   // Analytical member offset editor. Applies a single parallel offset vector to
   // BOTH ends (i = j) — the supported "parallel member offset" case. Works on the
   // selected element(s); batch-applies to a multi-selection. 3D/PRO only.
+  //
+  // `bare`: inside a card that already names it (Specifications › Members), without its own title
+  // and rule, and in the app's tokens rather than the old blue of the property panel.
+  let { bare = false }: { bare?: boolean } = $props();
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const selectedIds = $derived([...uiStore.selectedElements]);
@@ -61,8 +65,8 @@
 </script>
 
 {#if is3D && count > 0}
-  <div class="mo">
-    <div class="mo-title">{t('pro.memberOffset')} <span class="mo-count">({count})</span></div>
+  <div class="mo" class:bare>
+    {#if !bare}<div class="mo-title">{t('pro.memberOffset')} <span class="mo-count">({count})</span></div>{/if}
 
     <div class="mo-row">
       <label>{t('pro.offsetFrame')}
@@ -80,17 +84,17 @@
     </div>
 
     {#if embedBlocksOffsets}
-      <div class="mo-warn">⚠ {t('pro.offsetEmbedWarn')}</div>
+      <div class="mo-warn">{bare ? '' : '⚠ '}{t('pro.offsetEmbedWarn')}</div>
     {/if}
     <div class="mo-actions">
-      <button class="mo-btn" onclick={apply} disabled={embedBlocksOffsets}>{t('pro.offsetApply')}</button>
-      <button class="mo-btn mo-clear" onclick={clear} disabled={count === 1 && !current}>{t('pro.offsetClear')}</button>
+      <button class={bare ? 'pk-btn pk-btn-primary' : 'mo-btn'} onclick={apply} disabled={embedBlocksOffsets}>{t('pro.offsetApply')}</button>
+      <button class={bare ? 'pk-btn' : 'mo-btn mo-clear'} onclick={clear} disabled={count === 1 && !current}>{t('pro.offsetClear')}</button>
     </div>
 
     {#if current}
       <div class="mo-active">{t('pro.offsetActive')}</div>
     {/if}
-    <div class="mo-warn">⚠ {t('pro.offsetWarn')}</div>
+    <div class="mo-warn">{bare ? '' : '⚠ '}{t('pro.offsetWarn')}</div>
   </div>
 {/if}
 
@@ -110,4 +114,14 @@
   .mo-clear:disabled { opacity: 0.4; cursor: not-allowed; }
   .mo-active { font-size: 0.66rem; color: #4ecdc4; }
   .mo-warn { font-size: 0.66rem; color: #e0a030; font-style: italic; }
+  /* In the PRO panel kit: tokens, no rule, the card's own heading. */
+  .mo.bare { border-top: none; padding-top: 0; gap: 0.45rem; }
+  .mo.bare .mo-row label { font-size: 0.7rem; color: var(--st-text-2); }
+  .mo.bare .mo-vec input, .mo.bare .mo-row select {
+    background: var(--st-surface-3); border: 1px solid var(--st-hair-strong); color: var(--st-text); font-family: var(--st-mono);
+  }
+  .mo.bare .mo-row select { font-family: var(--st-sans); }
+  .mo.bare .mo-unit { color: var(--st-text-3); }
+  .mo.bare .mo-active { color: var(--st-value); }
+  .mo.bare .mo-warn { color: var(--st-text-3); font-style: normal; font-size: 0.64rem; }
 </style>

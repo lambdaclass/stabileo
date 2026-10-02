@@ -210,3 +210,42 @@ describe('the project workbook', () => {
     expect(maxima.some((x) => x.component === 'membraneVonMises' && x.extreme === 'max')).toBe(true);
   });
 });
+
+describe('the sheets of 18/18', () => {
+  it('lists the model\'s specifications, one row per value with the entities that hold it', () => {
+    const { beam } = portal();
+    modelStore.updateElement(beam, { releaseJ: { my: false, mz: true, t: false } } as never);
+    const specs = records(sheet(currentWorkbookSheets(5), 'Specifications'));
+    const row = specs.find((r) => r.entity === 'member' && String(r.value) === 'Mz')!;
+    expect(row).toBeDefined();
+    expect(row.count).toBe(1);
+    expect(String(row.ids)).toBe(String(beam));
+    // Without the model, no Specifications sheet: it describes the model.
+    expect(currentWorkbookSheets(5, { model: false }).some((s) => s.name === 'Specifications')).toBe(false);
+  });
+
+  it('gives each cable its tension, thrust, sag and modulus, per result', () => {
+    // A tripod of cables holding a node: statically determinate, each at P / (3 sin θ).
+    const top = [0, 1, 2].map((k) => modelStore.addNode(6 * Math.cos((2 * Math.PI * k) / 3), 6 * Math.sin((2 * Math.PI * k) / 3), 10));
+    const hub = modelStore.addNode(0, 0, 2);
+    const ids = top.map((n) => modelStore.addElement(n, hub, 'truss'));
+    const sec = [...modelStore.sections.keys()][0]!;
+    modelStore.updateSection(sec, { a: 1e-3, iy: 1e-10, iz: 1e-10, j: 1e-10 } as never);
+    for (const id of ids) modelStore.updateElement(id, { behaviour: 'cable' } as never);
+    for (const n of top) modelStore.addSupport(n, 'pinned3d');
+    for (const x of [...modelStore.combinations]) modelStore.removeCombination(x.id);
+    const c = modelStore.addLoadCase('P', 'L');
+    modelStore.addNodalLoad3D(hub, 0, 0, -120, 0, 0, 0, c);
+    modelStore.adoptAnalysis({ selfWeight: [] });
+    const k = modelStore.addCombination('1.0 P', [{ caseId: c, factor: 1 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    publishCombinations3D(r);
+    const cables = records(sheet(currentWorkbookSheets(5), 'Cables')).filter((x) => x.sourceId === k && x.source === 'combination');
+    expect(cables.map((x) => x.member).sort()).toEqual([...ids].sort());
+    for (const x of cables) {
+      expect(Math.abs(Number(x['tension [kN]']) - 120 / (3 * 0.8))).toBeLessThan(0.05);
+      expect(Number(x['sag [m]'])).toBeGreaterThan(0);
+    }
+  });
+});

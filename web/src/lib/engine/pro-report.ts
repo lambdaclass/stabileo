@@ -115,6 +115,14 @@ export interface ReportData {
     ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
+  /** The Design panel's verification, member by member (`reportDesignChecks`). */
+  designChecks?: Array<{
+    elementId: number; elementType: string; section: string;
+    status: 'ok' | 'warn' | 'fail' | 'none'; worstUtilization: number; checks: number;
+    governing?: string; demand?: number; capacity?: number; unit?: string; comboName?: string;
+  }>;
+  /** What the story drift was checked against: C_d, the group, Tabla 6.4's limit, the cases. */
+  storyDriftBasis?: { cd: number; group: string; limit: number; cases: string[] };
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
@@ -476,13 +484,19 @@ export function generateReportHtml(data: ReportData): string {
 
   const showSection = (key: keyof NonNullable<ReportConfig['sections']>) => !cfg?.sections || cfg.sections[key];
 
+  // Sub-section numbers in the order the sections appear: written by hand, they came out as
+  // 1.5, 1.7, 1.6 and repeated 3.4 and 3.6 when optional sections were present.
+  const subCount = new Map<number, number>();
+  const subNo = (major: number) => { const n = (subCount.get(major) ?? 0) + 1; subCount.set(major, n); return `${major}.${n}`; };
+
   // ─── Table of Contents ──────────────────────────────────
   html.push(`<div class="page-break"></div>`);
   html.push(`<div class="toc"><h2>${escHtml(tr('report.toc') || 'Table of Contents')}</h2>`);
   const tocEntries: { label: string; anchor: string }[] = [];
-  if (showSection('modelData')) tocEntries.push({ label: '1. ' + tr('report.modelData'), anchor: 'sec-model-data' });
-  if (showSection('results')) tocEntries.push({ label: '2. ' + tr('report.results'), anchor: 'sec-results' });
-  if (showSection('verification') && verifications.length > 0) tocEntries.push({ label: '3. ' + tr('report.verification'), anchor: 'sec-verification' });
+  if (showSection('modelData')) tocEntries.push({ label: tr('report.modelData'), anchor: 'sec-model-data' });
+  if (showSection('results')) tocEntries.push({ label: tr('report.results'), anchor: 'sec-results' });
+  if (showSection('verification') && verifications.length > 0) tocEntries.push({ label: tr('report.verification'), anchor: 'sec-verification' });
+  if (showSection('verification') && verifications.length === 0) tocEntries.push({ label: tr('report.design.title'), anchor: 'sec-design' });
   if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: '4. ' + (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
@@ -617,7 +631,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // Nodes table
-  html.push(`<h2>1.1 ${escHtml(tr('report.nodes'))} (${nodes.length})</h2>`);
+  html.push(`<h2>${subNo(1)} ${escHtml(tr('report.nodes'))} (${nodes.length})</h2>`);
   {
     html.push(`<table><thead><tr><th>ID</th><th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
     for (const n of nodes) {
@@ -627,7 +641,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // Materials table
-  html.push(`<h2>1.2 ${escHtml(tr('report.materials'))} (${materials.length})</h2>`);
+  html.push(`<h2>${subNo(1)} ${escHtml(tr('report.materials'))} (${materials.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('E')} (MPa)</th><th>${km('\\nu')}</th><th>${km('\\gamma')} (kN/m³)</th><th>${km("f'_c / f_y")} (MPa)</th></tr></thead><tbody>`);
   for (const m of materials) {
     html.push(`<tr><td>${m.id}</td><td>${escHtml(m.name)}</td><td class="num">${m.e.toLocaleString()}</td><td class="num">${m.nu}</td><td class="num">${m.rho}</td><td class="num">${m.fy ?? '—'}</td></tr>`);
@@ -635,7 +649,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`</tbody></table>`);
 
   // Sections table
-  html.push(`<h2>1.3 ${escHtml(tr('report.sections'))} (${sections.length})</h2>`);
+  html.push(`<h2>${subNo(1)} ${escHtml(tr('report.sections'))} (${sections.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('A')} (m²)</th><th>${km('I_y')} (m⁴)</th><th>${km('I_z')} (m⁴)</th><th>${km('J')} (m⁴)</th><th>${km('A_{s,y}')} / ${km('A_{s,z}')}</th><th>${km('b')} (m)</th><th>${km('h')} (m)</th></tr></thead><tbody>`);
   for (const s of sections) {
     const sa = (s as { shearAreas?: { basis: string; asY?: number; asZ?: number } }).shearAreas;
@@ -645,7 +659,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`</tbody></table>`);
 
   // Elements table
-  html.push(`<h2>1.4 ${escHtml(tr('report.elements'))} (${elements.length})</h2>`);
+  html.push(`<h2>${subNo(1)} ${escHtml(tr('report.elements'))} (${elements.length})</h2>`);
   {
     html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
     for (const e of elements) {
@@ -657,7 +671,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // Supports
-  html.push(`<h2>1.5 ${escHtml(tr('report.supports'))} (${supports.length})</h2>`);
+  html.push(`<h2>${subNo(1)} ${escHtml(tr('report.supports'))} (${supports.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodes'))}</th><th>${escHtml(tr('report.type'))}</th></tr></thead><tbody>`);
   for (const s of supports) {
     html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${s.type}</td></tr>`);
@@ -668,7 +682,7 @@ export function generateReportHtml(data: ReportData): string {
 
   // Loads detail table
   if (showSection('loads') && data.loads && data.loads.length > 0) {
-    html.push(`<h2>1.7 ${escHtml(tr('report.loadsDetail'))} (${data.loads.length})</h2>`);
+    html.push(`<h2>${subNo(1)} ${escHtml(tr('report.loadsDetail'))} (${data.loads.length})</h2>`);
     html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.target'))}</th><th>${escHtml(tr('report.values'))}</th></tr></thead><tbody>`);
     for (let i = 0; i < data.loads.length; i++) {
       const ld = data.loads[i];
@@ -735,7 +749,7 @@ export function generateReportHtml(data: ReportData): string {
     const losas = [...quadGroupMap.values()].filter(g => g.type === 'losa');
     const tabiques = [...quadGroupMap.values()].filter(g => g.type === 'tabique');
 
-    html.push(`<h2>1.6 ${escHtml(tr('report.slabsAndWalls'))} (${data.quads.length} ${escHtml(tr('report.shellElements'))})</h2>`);
+    html.push(`<h2>${subNo(1)} ${escHtml(tr('report.slabsAndWalls'))} (${data.quads.length} ${escHtml(tr('report.shellElements'))})</h2>`);
 
     if (losas.length > 0) {
       html.push(`<h3>${escHtml(tr('report.slabs'))}</h3>`);
@@ -767,12 +781,12 @@ export function generateReportHtml(data: ReportData): string {
   }
   // Load combinations reference table (inside modelData section)
   if (showSection('modelData') && data.combinations && data.combinations.length > 0) {
-    html.push(`<h2>1.8 ${escHtml(tr('report.loadCombinations') || 'Load Combinations')} (${data.combinations.length})</h2>`);
+    html.push(`<h2>${subNo(1)} ${escHtml(tr('report.loadCombinations') || 'Load Combinations')} (${data.combinations.length})</h2>`);
     html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.name') || 'Name')}</th><th>${escHtml(tr('report.factors') || 'Factors')}</th></tr></thead><tbody>`);
     for (const c of data.combinations) {
       const factorStr = c.factors
         .filter(f => f.factor !== 0)
-        .map(f => `${f.factor !== 1 ? f.factor.toFixed(1) : ''}${f.caseName}`)
+        .map(f => `${f.factor !== 1 ? `${+f.factor.toFixed(4)} ` : ''}${f.caseName}`)
         .join(' + ') || '—';
       html.push(`<tr><td>${c.id}</td><td>${escHtml(c.name)}</td><td>${escHtml(factorStr)}</td></tr>`);
     }
@@ -796,7 +810,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // Reactions
-  html.push(`<h2>2.1 ${escHtml(tr('report.reactions'))}</h2>`);
+  html.push(`<h2>${subNo(2)} ${escHtml(tr('report.reactions'))}</h2>`);
   html.push(`<table><thead><tr><th>Nodo</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
   for (const r of results.reactions) {
     html.push(`<tr><td>${r.nodeId}</td><td class="num">${fmtNum(r.fx)}</td><td class="num">${fmtNum(r.fy)}</td><td class="num">${fmtNum(r.fz)}</td><td class="num">${fmtNum(r.mx)}</td><td class="num">${fmtNum(r.my)}</td><td class="num">${fmtNum(r.mz)}</td></tr>`);
@@ -804,7 +818,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`</tbody></table>`);
 
   // Element forces
-  html.push(`<h2>2.2 ${escHtml(tr('report.forces'))}</h2>`);
+  html.push(`<h2>${subNo(2)} ${escHtml(tr('report.forces'))}</h2>`);
   {
     html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
     for (const ef of results.elementForces) {
@@ -815,7 +829,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // Displacements
-  html.push(`<h2>2.3 ${escHtml(tr('report.displacements'))}</h2>`);
+  html.push(`<h2>${subNo(2)} ${escHtml(tr('report.displacements'))}</h2>`);
   {
     html.push(`<table><thead><tr><th>Nodo</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
     for (const d of results.displacements) {
@@ -829,7 +843,7 @@ export function generateReportHtml(data: ReportData): string {
     const psList = results.plateStresses ?? [];
     const qsList = results.quadStresses ?? [];
     if (psList.length || qsList.length) {
-      html.push(`<h2>2.4 ${escHtml(tr('report.shellResults'))} (${psList.length + qsList.length})</h2>`);
+      html.push(`<h2>${subNo(2)} ${escHtml(tr('report.shellResults'))} (${psList.length + qsList.length})</h2>`);
       html.push(`<p class="assumption">${escHtml(tr('report.shellResultsAssumptions'))}</p>`);
 
       interface ShellRow {
@@ -897,7 +911,7 @@ export function generateReportHtml(data: ReportData): string {
       return t !== 0 ? t : a.elementId - b.elementId;
     });
 
-    html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
+    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.summary'))}</h2>`);
 
     for (const v of sortedVerifs) {
       const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
@@ -934,7 +948,7 @@ export function generateReportHtml(data: ReportData): string {
     }
 
     // ─── Grouped detail ──────────────────────────────────
-    html.push(`<h2>3.2 ${escHtml(tr('report.detailByType'))}</h2>`);
+    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.detailByType'))}</h2>`);
 
     const groups = groupVerifications(verifications);
     const colGroup = groups.find(g => g.representative.elementType === 'column');
@@ -1051,7 +1065,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // ─── Elevation views (longitudinal sections) ─────────────
     html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>3.3 ${escHtml(tr('report.longitudinalSections'))}</h2>`);
+    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.longitudinalSections'))}</h2>`);
 
     const drawnGroupKeys = new Set<string>();
     for (const group of groups) {
@@ -1101,7 +1115,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // ─── Joint details (upgraded: detailing-aware, multiple types) ──
     if (data.jointDetailOpts && data.jointDetailOpts.length > 0) {
-      html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.jointDetails'))}</h2>`);
       for (const jd of data.jointDetailOpts.slice(0, 4)) {
         html.push(`<div class="svg-container">${generateJointDetailSvg(jd)}</div>`);
       }
@@ -1109,7 +1123,7 @@ export function generateReportHtml(data: ReportData): string {
       // Fallback: old single-representative joint
       const beamGroup = groups.find(g => g.representative.elementType === 'beam');
       if (beamGroup && colGroup) {
-        html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
+        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.jointDetails'))}</h2>`);
         const bv = beamGroup.representative;
         const cv = colGroup.representative;
         html.push(`<div class="svg-container">${generateJointDetailSvg({ beamB: bv.b, beamH: bv.h, colB: cv.b, colH: cv.h, cover: bv.cover, beamBars: bv.flexure.bars, colBars: cv.column?.bars ?? cv.flexure.bars, stirrupDia: cv.shear.stirrupDia, stirrupSpacing: cv.shear.spacing })}</div>`);
@@ -1118,7 +1132,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // ─── Beam continuity elevations ──────────────────────────
     if (data.beamContinuityOpts && data.beamContinuityOpts.length > 0) {
-      html.push(`<h2>3.5 ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
       for (const fl of data.beamContinuityOpts.slice(0, 3)) {
         html.push(`<div class="svg-container" style="overflow-x:auto">${generateFrameLineElevationSvg(fl)}</div>`);
       }
@@ -1126,7 +1140,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // ─── Column continuity elevations ──────────────────────────
     if (data.columnStackOpts && data.columnStackOpts.length > 0) {
-      html.push(`<h2>3.6 ${escHtml(tr('report.columnContinuity') || 'Column Continuity')}</h2>`);
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.columnContinuity') || 'Column Continuity')}</h2>`);
       for (const cs of data.columnStackOpts.slice(0, 3)) {
         html.push(`<div class="svg-container">${generateColumnStackElevationSvg(cs)}</div>`);
       }
@@ -1134,7 +1148,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // ─── Slender column summary ──────────────────────────────
     if (data.slenderSummary && data.slenderSummary.length > 0) {
-      html.push(`<h2>3.6 ${escHtml(tr('report.slenderSummary') || 'Slender Column Summary')}</h2>`);
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slenderSummary') || 'Slender Column Summary')}</h2>`);
       html.push(`<table><thead><tr><th>Elem</th><th>k</th><th>Lu (m)</th><th>k·Lu/r</th><th>λ lim</th><th>${escHtml(tr('report.slenderClass') || 'Class')}</th><th>δ_ns</th><th>C_m</th><th>Mc (kN·m)</th></tr></thead><tbody>`);
       for (const s of data.slenderSummary) {
         const cls = s.isSlender ? 'status-warn' : 'status-ok';
@@ -1177,7 +1191,7 @@ export function generateReportHtml(data: ReportData): string {
 
       if (losasFound.length > 0) {
         html.push(`<div class="page-break"></div>`);
-        html.push(`<h2>3.${colGroup ? '5' : '4'} ${escHtml(tr('report.slabReinforcement'))}</h2>`);
+        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slabReinforcement'))}</h2>`);
 
         for (const losa of losasFound) {
           const ratio = Math.max(losa.spanX, losa.spanZ) / Math.min(losa.spanX, losa.spanZ);
@@ -1221,7 +1235,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // Detailing summary (anchorage / splice / spacing)
     if (verifications.some(v => v.detailing)) {
-      html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '6' : colGroup ? '5' : '4'} ${escHtml(tr('report.detailing'))}</h2>`);
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.detailing'))}</h2>`);
       const allBars = new Map<number, { ld: number; ldh: number; lapSplice: number }>();
       let minSpacing = 0;
       let stirrupHook = '';
@@ -1247,7 +1261,7 @@ export function generateReportHtml(data: ReportData): string {
     if (data.serviceability && data.serviceability.length > 0) {
       const svcItems = data.serviceability.filter(s => s.crack || s.deflection);
       if (svcItems.length > 0) {
-        html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '7' : colGroup ? '6' : '5'} ${escHtml(tr('report.serviceability') || 'Serviceability')}</h2>`);
+        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.serviceability') || 'Serviceability')}</h2>`);
         html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.crackWidth') || 'Crack w_k')} (mm)</th><th>${escHtml(tr('report.crackLimit') || 'Limit')} (mm)</th><th>${escHtml(tr('report.deflRatio') || 'Defl. ratio')}</th><th>${escHtml(tr('report.deflLimit') || 'Limit')}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
         for (const s of svcItems) {
           const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
@@ -1270,7 +1284,7 @@ export function generateReportHtml(data: ReportData): string {
 
     // Rebar schedule (grouped)
     html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '6' : colGroup ? '5' : '4'} ${escHtml(tr('report.rebarSchedule'))}</h2>`);
+    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.rebarSchedule'))}</h2>`);
     html.push(`<table><thead><tr><th>${escHtml(tr('report.elementsLabel'))}</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.sections'))}</th><th>${escHtml(tr('report.longBottom'))}</th><th>${escHtml(tr('report.longTop'))}</th><th>${escHtml(tr('report.stirrups'))}</th></tr></thead><tbody>`);
     for (const group of groups) {
       const v = group.representative;
@@ -1411,7 +1425,12 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.driftTitle'))}</h2>`);
-    html.push(`<p>${escHtml(tr('report.driftLimit'))}</p>`);
+    const b = data.storyDriftBasis;
+    html.push(`<p>${escHtml(b
+      ? (tr('report.driftBasis') || '')
+          .replace('{cd}', String(b.cd)).replace('{group}', b.group)
+          .replace('{limit}', (b.limit * 100).toFixed(2)).replace('{cases}', b.cases.join(', '))
+      : tr('report.driftLimit'))}</p>`);
     html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
@@ -1419,6 +1438,26 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
     html.push(`</tbody></table>`);
+  }
+
+  // ─── The Design panel's verification ──────────────────
+  if (showSection('verification') && verifications.length === 0) {
+    const checks = data.designChecks ?? [];
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-design">${escHtml(tr('report.design.title'))}</h1>`);
+    if (checks.length === 0) {
+      html.push(`<p>${escHtml(tr('report.design.none'))}</p>`);
+    } else {
+      html.push(`<p>${escHtml(tr('report.design.basis'))}</p>`);
+      html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.sectionLabel') || 'Section')}</th><th>${escHtml(tr('report.design.governing'))}</th><th>${escHtml(tr('report.design.demand'))}</th><th>${escHtml(tr('report.design.capacity'))}</th><th>u</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+      for (const c of checks) {
+        const cls = c.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : c.status === 'warn' ? ' style="color:#f0a500"' : '';
+        const st = c.status === 'ok' ? '✓ OK' : c.status === 'fail' ? `✗ ${tr('report.fail')}` : c.status === 'warn' ? `⚠ ${tr('report.attention')}` : '—';
+        const num = (v: number | undefined) => (v === undefined ? '—' : fmtNum(v));
+        html.push(`<tr${cls}><td>${c.elementId}</td><td>${escHtml(c.elementType)}</td><td>${escHtml(c.section)}</td><td>${escHtml(c.governing ?? '—')}${c.comboName ? ` <span class="muted">(${escHtml(c.comboName)})</span>` : ''}</td><td class="num">${num(c.demand)} ${escHtml(c.unit ?? '')}</td><td class="num">${num(c.capacity)} ${escHtml(c.unit ?? '')}</td><td class="num">${Number.isFinite(c.worstUtilization) ? c.worstUtilization.toFixed(3) : '∞'}</td><td>${st}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
   }
 
   // ─── Diagnostics ──────────────────────────────────────

@@ -29,6 +29,11 @@
         nElems++;
       }
     }
+    // A shell clicked in the viewport is selected in its own channel, keyed "p{id}" / "q{id}".
+    for (const key of uiStore.selectedShells) {
+      const id = Number(key.slice(1));
+      if (key[0] === 'p' ? modelStore.plates.has(id) : modelStore.quads.has(id)) nShells++;
+    }
     if (nNodes === 0 && nElems === 0 && nShells === 0 && nSups === 0 && nLoads === 0) return '—';
     const parts: string[] = [];
     if (nNodes > 0) parts.push(`${nNodes} ${nNodes > 1 ? t('status.nodesPlural') : t('status.nodes')}`);

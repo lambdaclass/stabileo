@@ -24,6 +24,13 @@
     !!(resultsStore.results3D?.plateStresses?.length || resultsStore.results3D?.quadStresses?.length),
   );
   const active = $derived(shellMode && hasData);
+  /*
+   * "No shell results" is news only when shells were asked for: a shell map, or the combined
+   * stress view on a model that has shells. On a model of bars the combined view paints the bars,
+   * and a card saying there is nothing to contour sat beside them.
+   */
+  const modelHasShells = $derived((modelStore.model.plates?.size ?? 0) + (modelStore.model.quads?.size ?? 0) > 0);
+  const sayEmpty = $derived(shellMode && !hasData && (resultsStore.colorMapKind !== 'stress' || modelHasShells));
 
   const meta = $derived(shellComponentMeta(resultsStore.shellContourComponent));
 
@@ -88,7 +95,7 @@
   const mid = $derived((range.min + range.max) / 2);
 </script>
 
-{#if shellMode && !hasData}
+{#if sayEmpty}
   <div class="shell-legend shell-legend-empty" role="status">
     <div class="legend-title">{t(shellComponentLabelKey(meta.key))}</div>
     <div class="legend-unavailable">{t('results.shellContourUnavailable')}</div>

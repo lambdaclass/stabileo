@@ -93,6 +93,39 @@ describe('fill holes', () => {
     expect(r.plates.length).toBe(4);
   });
 
+  it('leaves an opening framed inside a bay open, and covers the bay around it once', () => {
+    const ring = (pts: number[][]) => {
+      const n = pts.map(([x, y]) => modelStore.addNode(x!, y!, 0));
+      return n.map((id, k) => modelStore.addElement(id, n[(k + 1) % n.length]!, 'frame'));
+    };
+    const outer = ring([[0, 0], [8, 0], [8, 6], [0, 6]]);
+    const well = ring([[3, 2], [5, 2], [5, 4], [3, 4]]);
+    historyStore.clear();
+    const r = fillHoles([...outer, ...well], 1, 0.15);
+    if ('refused' in r) throw new Error(r.refused);
+    expect(r.openings).toBe(1);
+    // The shells cover the bay less the opening, once: 48 − 4 m².
+    let area = 0;
+    const tri = (a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }) =>
+      Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) / 2;
+    for (const q of modelStore.quads.values()) {
+      const p = q.nodes.map((id) => modelStore.nodes.get(id)!);
+      area += tri(p[0]!, p[1]!, p[2]!) + tri(p[0]!, p[2]!, p[3]!);
+    }
+    for (const t of modelStore.plates.values()) {
+      const p = t.nodes.map((id) => modelStore.nodes.get(id)!);
+      area += tri(p[0]!, p[1]!, p[2]!);
+    }
+    expect(area).toBeCloseTo(44, 6);
+    // No shell has its centre in the opening.
+    for (const q of [...modelStore.quads.values(), ...modelStore.plates.values()]) {
+      const p = q.nodes.map((id) => modelStore.nodes.get(id)!);
+      const cx = p.reduce((s, n) => s + n.x, 0) / p.length, cy = p.reduce((s, n) => s + n.y, 0) / p.length;
+      expect(cx > 3 && cx < 5 && cy > 2 && cy < 4).toBe(false);
+    }
+    expect(historyStore.undoCount).toBe(1);
+  });
+
   it('given a whole frame, fills its floor level by level and leaves the columns alone', () => {
     const els = grid();
     const base = [0, 2, 6, 8].map((k) => [...modelStore.nodes.values()][k]!.id);
@@ -133,7 +166,7 @@ describe('fill refuses degenerate or occupied faces', () => {
     const first = fillHoles(members, 1, 0.15, { density });
     expect('quads' in first && first.quads.length).toBe(4);
     const again = fillHoles([...modelStore.elements.keys()], 1, 0.15, { density });
-    expect(again).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+    expect(again).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
     expect(modelStore.quads.size).toBe(4);
     expect(modelStore.plates.size).toBe(0);
   });
@@ -141,7 +174,7 @@ describe('fill refuses degenerate or occupied faces', () => {
   it('leaves partially occupied faces alone but fills an adjacent empty bay', () => {
     const first = rectangle();
     modelStore.addPlate(first.nodes.slice(0, 3) as [number, number, number], 1, 0.15);
-    expect(fillHoles(first.members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+    expect(fillHoles(first.members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
     const adjacent = rectangle(4);
     const r = fillHoles(adjacent.members, 1, 0.15);
     expect('quads' in r && r.quads.length).toBe(1);
@@ -160,7 +193,7 @@ describe('fill refuses degenerate or occupied faces', () => {
     const { members } = rectangle();
     const shell = rectangle();
     modelStore.addQuad(shell.nodes as [number, number, number, number], 1, 0.15);
-    expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1 });
+    expect(fillHoles(members, 1, 0.15)).toEqual({ quads: [], plates: [], skippedExisting: 1, openings: 0 });
   });
 });
 

@@ -179,6 +179,23 @@ describe('the crown of the arch, which is where a duplicate node appears', () =>
     expect(nextNode - 100).toBe(6);
   });
 
+  it('rounds an odd count up to even when a node stands at the middle point, so the arc reaches it', () => {
+    const crown = { x: 0, y: 5, z: 0 };
+    let nextNode = 100, nextEl = 0;
+    const links: Array<[number, number]> = [];
+    const tags: number[] = [];
+    buildArc({ ...HALF, segments: 7 }, {
+      addNode: () => ++nextNode,
+      addElement: (i, j) => { links.push([i, j]); return ++nextEl; },
+      tag: (_id, tag) => tags.push(tag.spec.segments),
+      nodeAt: (x, y, z) => (Math.hypot(x - crown.x, y - crown.y, z - crown.z) <= 1e-6 ? 2 : null),
+    }, 1, 7, 9);
+    expect(links).toHaveLength(8);
+    expect(new Set(links.flat()).has(2)).toBe(true);
+    // The tag records the count the members were built with, so re-meshing gives the same arc.
+    expect(new Set(tags)).toEqual(new Set([8]));
+  });
+
   it('creates its own points where nothing is there', () => {
     let nextNode = 0, nextEl = 0;
     buildArc({ ...HALF, segments: 8 }, {

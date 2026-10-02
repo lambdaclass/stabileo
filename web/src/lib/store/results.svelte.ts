@@ -8,6 +8,8 @@ import type { GoverningPerElement, GoverningPerElement3D } from '../engine/gover
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
 import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
+import { readSolverDiagnostic } from '../engine/engine-diagnostics';
+import { t } from '../i18n';
 // Counts published structural analyses so browser tests can assert that a
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
@@ -1289,8 +1291,9 @@ function createResultsStore() {
       ));
     },
 
-    get solverDiagnostics(): SolverDiagnostic[] { return results?.solverDiagnostics ?? []; },
-    get solverDiagnostics3D(): SolverDiagnostic[] { return results3D?.solverDiagnostics ?? []; },
+    // Read through `engine-diagnostics.ts`: the engine's own lines come without a source and in English.
+    get solverDiagnostics(): SolverDiagnostic[] { return (results?.solverDiagnostics ?? []).map((d) => readSolverDiagnostic(d, t)); },
+    get solverDiagnostics3D(): SolverDiagnostic[] { return (results3D?.solverDiagnostics ?? []).map((d) => readSolverDiagnostic(d, t)); },
 
     // What the pre-solve gates found about the model (see model-findings.ts).
     // With no single solve (combinations published on their own), a load case

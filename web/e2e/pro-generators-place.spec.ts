@@ -4,13 +4,14 @@
  * pinned in `structures.test.ts`; regeneration in `generated-structures.test.ts`.
  */
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
 async function openGenerators(page: import('@playwright/test').Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
-  await page.getByTestId('gen-kind-structure').click();
+  await pickGenerator(page, 'truss');
 }
 
 test.describe('@smoke generators into the model', () => {
@@ -19,7 +20,7 @@ test.describe('@smoke generators into the model', () => {
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());
     const before = await census();
     await openGenerators(page);
-    await page.getByTestId('gen-structure-kind').selectOption('planeFrame');
+    await pickGenerator(page, 'planeFrame');
     await page.getByTestId('gen-f-baysX').fill('6; 6');
     await page.getByTestId('gen-f-storeys').fill('3');
     await page.getByTestId('gen-out-atPoint').check();
@@ -54,6 +55,8 @@ test.describe('@smoke generators into the model', () => {
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());
     const before = await census();
     await openGenerators(page);
+    // Templates are on the gallery, with the generators.
+    await page.getByTestId('gen-back').click();
     await page.getByTestId('tpl-name').fill('Par');
     await page.getByTestId('tpl-save').click();
     await page.getByTestId('tpl-place-Par').click();

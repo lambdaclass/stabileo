@@ -25,7 +25,7 @@ test.describe('@smoke PRO example gallery', () => {
     // Nothing open: the card loads at once.
     await frame.locator('.pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(28);
-    expect(await page.evaluate(() => window.__stabileo.loadCaseNames())).toContain('Sismo X');
+    expect(await page.evaluate(() => window.__stabileo.loadCaseNames())).toContain('Seismic X'); // the example's case names follow the app's language
 
     // A model open: the next card asks first; cancelling keeps it, loading replaces it.
     await page.getByTestId('pr-project').click();

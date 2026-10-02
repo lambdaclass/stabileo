@@ -42,6 +42,9 @@ const GUARDED_PATHS = [
   'src/components/SectionChanger.svelte',
   'src/components/ProfileSelector.svelte',
   'src/components/tables/SectionsTable.svelte',
+  // PRO's Specifications and drawn-section editors, written clean.
+  'src/components/pro/spec/',
+  'src/components/pro/section/',
 ];
 
 const isGuarded = (file) => GUARDED_PATHS.some((p) => file.startsWith(p));

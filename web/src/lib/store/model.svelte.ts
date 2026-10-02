@@ -1044,6 +1044,12 @@ function createModelStore() {
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
+  /**
+   * Bumped whenever the whole model is replaced (restore: a file, a tab, an undo; or clear). A panel
+   * that holds a draft of project data compares it to know the project under it changed, and must
+   * not write its draft there.
+   */
+  let loadEpoch = $state(0);
 
   /** DOF-name → index map for migrating pre-rename persisted constraints. */
   const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
@@ -1285,7 +1291,40 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const cuts = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const raw = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    /*
+     * Each cut, with the node it reuses. An existing node is reused within `reuseNodeTol` per
+     * axis, but never further than half the way to the neighbouring cut or end: the weld boxes
+     * stay disjoint, so dense cuts on a short member keep nodes of their own and no node serves
+     * two cuts. A cut that lands on the member's own end in that sense (a column ending 0.05 mm
+     * past the beam, a cut 1.5 % along a short member) is no cut: it made a member from that
+     * node to itself.
+     */
+    const pointAt = (t: number) => ({ x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) });
+    const axisLength = Math.max(Math.abs(nj.x - ni.x), Math.abs(nj.y - ni.y), Math.abs((nj.z ?? 0) - (ni.z ?? 0)));
+    const inner = opts.reuseNodeTol === undefined ? raw : raw.filter((t, k) => {
+      const tol = opts.reuseNodeTol!;
+      const prev = raw[k - 1] ?? 0, next = raw[k + 1] ?? 1;
+      const atI = axisLength * t < Math.min(tol, axisLength * (next - t) / 2);
+      const atJ = axisLength * (1 - t) < Math.min(tol, axisLength * (t - prev) / 2);
+      return !atI && !atJ;
+    });
+    const around = [0, ...inner, 1];
+    const cutAt: Array<{ t: number; id: number | null }> = [];
+    inner.forEach((t, k) => {
+      let id: number | null = null;
+      if (opts.reuseNodeTol !== undefined) {
+        const p = pointAt(t);
+        const tol = Math.min(opts.reuseNodeTol, axisLength * Math.min(t - around[k]!, around[k + 2]! - t) / 2);
+        for (const n of model.nodes.values()) {
+          if (n.id === elem.nodeI || n.id === elem.nodeJ) continue;
+          if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
+        }
+      }
+      if (id !== null && cutAt.some((c) => c.id === id)) return;
+      cutAt.push({ t, id });
+    });
+    const cuts = cutAt.map((k) => k.t);
     if (cuts.length === 0) return null;
 
     if (!_undoBatching) _pushUndo?.();
@@ -1298,21 +1337,9 @@ function createModelStore() {
         : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
       const fractions = [0, ...cuts, 1];
       const nodeIds: number[] = [];
-      const axisLength = Math.max(Math.abs(nj.x - ni.x), Math.abs(nj.y - ni.y), Math.abs((nj.z ?? 0) - (ni.z ?? 0)));
-      for (let k = 0; k < cuts.length; k++) {
-        const t = cuts[k];
-        const p = { x: ni.x + t * (nj.x - ni.x), y: ni.y + t * (nj.y - ni.y), z: (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0)) };
-        let id: number | null = null;
-        if (opts.reuseNodeTol !== undefined) {
-          // Keep the per-axis weld boxes disjoint, including at the member ends.
-          // Dense cuts must not reuse an endpoint or the same node for two cuts.
-          const gap = Math.min(t - fractions[k], fractions[k + 2] - t);
-          const tol = Math.min(opts.reuseNodeTol, axisLength * gap / 2);
-          for (const n of model.nodes.values()) {
-            if (n.id === elem.nodeI || n.id === elem.nodeJ) continue;
-            if (Math.abs(n.x - p.x) < tol && Math.abs(n.y - p.y) < tol && Math.abs((n.z ?? 0) - p.z) < tol) { id = n.id; break; }
-          }
-        }
+      for (const k of cutAt) {
+        const p = pointAt(k.t);
+        let id = k.id;
         if (id === null) {
           id = nextId.node++;
           model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
@@ -1334,12 +1361,6 @@ function createModelStore() {
       const bounds = segmentBounds(L, cuts);
       const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
       model.loads = [...kept, ...added];
-      if (model.analysis?.selfWeight) {
-        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.map(w =>
-          w.elements?.includes(elementId)
-            ? { ...w, elements: [...new Set(w.elements.flatMap(id => id === elementId ? segmentIds : [id]))] }
-            : w) };
-      }
 
       // A group that held the member now holds every segment of it.
       let touched = false;
@@ -1351,6 +1372,8 @@ function createModelStore() {
         touched = true;
       }
       if (touched) model.groups = new Map(model.groups);
+      // So do the self-weight rule, the deflection rules on chosen members and the saved views.
+      replaceInSelfWeight(elementId, segmentIds);
 
       const segmentAt = (nodeId: number) => (nodeId === elem.nodeJ ? segmentIds[count - 1]! : segmentIds[0]!);
       for (const sup of model.supports.values()) {
@@ -1372,6 +1395,49 @@ function createModelStore() {
     } finally {
       _undoBatching = outerBatching;
     }
+  }
+
+  /**
+   * The self-weight rule's own member lists follow their members as a group does: a split member
+   * is replaced by its segments, a deleted one leaves the list. Without this a split member's
+   * pieces lost their weight, and a deleted id came to mean whatever member took the number next.
+   */
+  function replaceInSelfWeight(elementId: number, replacements: number[] = []): void {
+    const sw = model.analysis?.selfWeight;
+    if (sw?.some((x) => x.elements?.includes(elementId))) {
+      model.analysis = {
+        ...model.analysis,
+        selfWeight: sw.map((x) => (x.elements?.includes(elementId)
+          ? { ...x, elements: [...new Set(x.elements.flatMap((e) => (e === elementId ? replacements : [e])))] }
+          : x)),
+      };
+    }
+    // Deflection rules on chosen members, and what a saved view hides, follow the same way.
+    const rules = model.deflectionLimits?.rules;
+    if (rules?.some((r) => r.scope.kind === 'members' && r.scope.ids.includes(elementId))) {
+      model.deflectionLimits = {
+        ...model.deflectionLimits!,
+        rules: rules.map((r) => (r.scope.kind === 'members' && r.scope.ids.includes(elementId)
+          ? { ...r, scope: { ...r.scope, ids: [...new Set(r.scope.ids.flatMap((e) => (e === elementId ? replacements : [e])))] } }
+          : r)),
+      };
+    }
+    if (model.views?.some((v) => v.display?.hidden?.elements.includes(elementId))) {
+      model.views = model.views.map((v) => (v.display?.hidden?.elements.includes(elementId)
+        ? { ...v, display: { ...v.display, hidden: { ...v.display.hidden, elements: v.display.hidden.elements.flatMap((e) => (e === elementId ? replacements : [e])) } } }
+        : v));
+    }
+  }
+
+  /**
+   * The analysis rules a solve reads. Basic has its own self-weight toggle and no rule of its own:
+   * a model that visited PRO carries a stated rule (`selfWeight: []` when it had none), and it
+   * silenced Basic's toggle. Basic reads the rest of the settings and its toggle for self-weight.
+   */
+  function analysisFor(isPro: boolean): StructureModel['analysis'] {
+    if (isPro || !model.analysis?.selfWeight) return model.analysis;
+    const { selfWeight: _stated, ...rest } = model.analysis;
+    return Object.keys(rest).length ? rest : undefined;
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -1582,6 +1648,7 @@ function createModelStore() {
      * there is nothing stale to drop.
      */
     restoreViewsOnly(s: ModelSnapshot): void {
+      loadEpoch++;
       const m = model as unknown as Record<string, unknown>;
       const snap = s as unknown as Record<string, unknown>;
       for (const k of VIEW_CHANNEL_FIELDS) {
@@ -1602,6 +1669,20 @@ function createModelStore() {
      * the inner call became its own undo step — a composite command could not nest a helper
      * that batched.
      */
+    /** A member's id references (self-weight lists, deflection rules, hidden in views) moved to `to`. */
+    followMember(elementId: number, to: number[]): void { replaceInSelfWeight(elementId, to); },
+
+    /**
+     * Mutations that are not the user's edit and take no undo step: what a loaded model is given
+     * so it reads under the current rules (the self-weight migration). Undoing past them would
+     * bring back a model the app then fixes again, pushing a new step and clearing redo.
+     */
+    withoutUndo(fn: () => void): void {
+      if (_undoBatching) { fn(); return; }
+      _undoBatching = true;
+      try { fn(); } finally { _undoBatching = false; }
+    },
+
     /**
      * Run edits as part of the last undo step instead of a new one: the
      * follow-up the user was asked about right after an edit (join the node a
@@ -1658,6 +1739,7 @@ function createModelStore() {
     },
 
     get modelVersion() { return modelVersion; },
+    get loadEpoch() { return loadEpoch; },
 
     get model() { return model; },
     get nodes() { return model.nodes; },
@@ -1847,6 +1929,7 @@ function createModelStore() {
     },
 
     restore(rawSnapshot: ModelSnapshot): void {
+      loadEpoch++;
       _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
@@ -1942,8 +2025,10 @@ function createModelStore() {
       model.combinations = s.combinations
         ? s.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) }))
         : [];
-      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
-      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
+      // `shellFamily` was a field nothing read, removed in PRO 18; older files still carry it.
+      const shell = <T,>(v: T): T => { const { shellFamily: _gone, ...rest } = v as T & { shellFamily?: unknown }; return rest as T; };
+      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, shell({ ...v })] as [number, Plate])) : new Map();
+      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, shell({ ...v })] as [number, Quad])) : new Map();
     /*
      * Groups come back whole, `data` included.
      *
@@ -2258,18 +2343,41 @@ function createModelStore() {
     /**
      * Rename node ids in constraints, connectors and footings — the references the edit layer
      * cannot reach through the other mutators. `to` maps old id → new id.
+     *
+     * Renaming can make the two ends of a constraint one node: a weld or a merge of two nodes
+     * that were tied to each other. The two nodes are one now, so the tie says nothing, and kept
+     * it is a node tied to itself, which the solver rejects as a circular chain. Such a
+     * constraint is dropped, as `removeNode` dropped it before references were renamed: a
+     * master–slave pair that became one node; a diaphragm's slave that became its master (and
+     * the diaphragm, when no other slave is left), its slaves counted once; a linear MPC whose
+     * terms on the same node and DOF now cancel (u₇ − u₃ = 0 welded is u₃ − u₃ = 0).
      */
     remapNodeReferences(to: Map<number, number>): void {
       if (to.size === 0) return;
       if (!_undoBatching) _pushUndo?.();
       const r = (n: number) => to.get(n) ?? n;
-      model.constraints = model.constraints.map((c) => {
+      model.constraints = model.constraints.flatMap((c): Constraint3D[] => {
         const x = JSON.parse(JSON.stringify(c)) as Record<string, unknown>;
         if (typeof x.masterNode === 'number') x.masterNode = r(x.masterNode);
         if (typeof x.slaveNode === 'number') x.slaveNode = r(x.slaveNode);
-        if (Array.isArray(x.slaveNodes)) x.slaveNodes = (x.slaveNodes as number[]).map(r);
-        if (Array.isArray(x.terms)) x.terms = (x.terms as Array<{ nodeId: number }>).map((t) => ({ ...t, nodeId: r(t.nodeId) }));
-        return x as unknown as Constraint3D;
+        if (typeof x.slaveNode === 'number' && x.slaveNode === x.masterNode) return [];
+        if (Array.isArray(x.slaveNodes)) {
+          x.slaveNodes = [...new Set((x.slaveNodes as number[]).map(r))].filter((n) => n !== x.masterNode);
+          if ((x.slaveNodes as number[]).length === 0) return [];
+        }
+        if (Array.isArray(x.terms) && (x.terms as Array<{ nodeId: number }>).some((t) => to.has(t.nodeId))) {
+          type Term = { nodeId: number; dof: number; coefficient: number };
+          const terms = new Map<string, Term>();
+          for (const t of x.terms as Term[]) {
+            const key = `${r(t.nodeId)}:${t.dof}`;
+            const prev = terms.get(key);
+            terms.set(key, prev ? { ...prev, coefficient: prev.coefficient + t.coefficient } : { ...t, nodeId: r(t.nodeId) });
+          }
+          const scale = Math.max(...(x.terms as Term[]).map((t) => Math.abs(t.coefficient)));
+          x.terms = [...terms.values()].filter((t) => Math.abs(t.coefficient) > 1e-12 * scale);
+          if ((x.terms as Term[]).length === 0) return [];
+        }
+        return [x as unknown as Constraint3D];
       });
       if (model.connectors.size > 0) {
         model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));
@@ -2622,11 +2730,43 @@ function createModelStore() {
       model.groups = new Map(model.groups);
     },
 
-    removeGroup(id: number): void {
-      if (!model.groups.has(id)) return;
+    /**
+     * Delete a group. A self-weight load or a deflection rule scoped to it keeps covering the
+     * members it held, now named one by one; deleting the group used to leave them pointing at
+     * nothing, so those members lost their weight and their limit without a word. A self-weight
+     * load that also covers the group's shells cannot be written as a member list, and the group
+     * stays: the answer says why.
+     */
+    removeGroup(id: number): 'removed' | 'selfWeightShells' | 'missing' {
+      const g = model.groups.get(id);
+      if (!g) return 'missing';
+      const sw = model.analysis?.selfWeight;
+      const holdsShells = (g.members.plates?.length ?? 0) + (g.members.quads?.length ?? 0) > 0;
+      if (holdsShells && sw?.some((x) => x.groupId === id)) return 'selfWeightShells';
       if (!_undoBatching) _pushUndo?.();
+      const members = [...(g.members.elements ?? [])];
+      if (sw?.some((x) => x.groupId === id)) {
+        model.analysis = {
+          ...model.analysis,
+          selfWeight: sw.map((x) => {
+            if (x.groupId !== id) return x;
+            const { groupId: _g, ...rest } = x;
+            return { ...rest, elements: [...members] };
+          }),
+        };
+      }
+      const rules = model.deflectionLimits?.rules;
+      if (rules?.some((r) => r.scope.kind === 'group' && r.scope.groupId === id)) {
+        model.deflectionLimits = {
+          ...model.deflectionLimits!,
+          rules: rules.map((r) => (r.scope.kind === 'group' && r.scope.groupId === id
+            ? { ...r, scope: { kind: 'members' as const, ids: [...members] } }
+            : r)),
+        };
+      }
       model.groups.delete(id);
       model.groups = new Map(model.groups);
+      return 'removed';
     },
 
     /** Groups an entity belongs to. */
@@ -2654,6 +2794,7 @@ function createModelStore() {
        * group that vanished is a question.
        */
       replaceInGroups('elements', id);
+      replaceInSelfWeight(id);
       model.loads = model.loads.filter(l =>
         !((l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
@@ -3176,6 +3317,7 @@ function createModelStore() {
     },
 
     clear(): void {
+      loadEpoch++;
       _onReplaced?.();
       if (!_undoBatching) _pushUndo?.();
       model.name = t('tabBar.newStructure');
@@ -3539,6 +3681,11 @@ function createModelStore() {
       if (model.massSource?.kind === 'custom') {
         model.massSource = { kind: 'custom', factors: model.massSource.factors.filter(f => f.caseId !== id) };
       }
+      // And the self-weight rule: a row for a case that no longer exists would still load the
+      // single solve (which takes every stated row) and not the combinations.
+      if (model.analysis?.selfWeight?.some((s) => s.caseId === id)) {
+        model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.filter((s) => s.caseId !== id) };
+      }
       // Likewise a named envelope that takes the case on its own.
       if (model.resultScopes) {
         model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)), new Set(model.loadCases.map((c) => c.id)));
@@ -3717,10 +3864,10 @@ function createModelStore() {
     // ─── 3D Analysis ──────────────────────────────────────────────
 
     /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean } = {}): SolverInput3D | null {
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -3735,7 +3882,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3750,7 +3897,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3765,7 +3912,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3777,11 +3924,11 @@ function createModelStore() {
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
-    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: model.analysis, groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,

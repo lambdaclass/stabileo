@@ -69,8 +69,10 @@ export function sectionStressModel(sec: SectionLike): SectionStressModel | null 
       // Fall through to the bounding rectangle.
     }
   }
-  const iy = sec.iy ?? sec.iz;
-  if (!(sec.a > 0 && sec.b && sec.h && iy > 0 && sec.iz > 0)) return null;
+  // No strong-axis inertia is no strong-axis stress: the weak one in its place would read a bound
+  // several times too high, which is the substitution the verification refuses too.
+  const iy = sec.iy;
+  if (!(sec.a > 0 && sec.b && sec.h && iy != null && iy > 0 && sec.iz > 0)) return null;
   const wy = iy / (sec.h / 2), wz = sec.iz / (sec.b / 2);
   const f = ((n: number, my: number, mz: number) => {
     const axial = n / sec.a, bend = Math.abs(my) / wy + Math.abs(mz) / wz;

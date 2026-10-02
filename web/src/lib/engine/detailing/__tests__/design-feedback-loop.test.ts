@@ -204,7 +204,7 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     // Policy O5: prefer <= 0,95 when it costs no additional step. Code compliance (<= 1,00)
     // is the hard boundary that gates the outcome; 0,95 is a preference.
     //
-    // 7 and 8 land at 0,883 and 5 and 6 at 0,922 — all four inside the target. Neither number
+    // 7 and 8 land at 0,883 and 5 and 6 at 0,910 — all four inside the target. Neither number
     // comes from the maximum-spacing rule: both are the member's SHEAR utilisation at its
     // support, already detailed at 225 mm before the repair.
     //
@@ -215,8 +215,11 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     // preference too. Supporting coverage lives in
     // engine/design/__tests__/review-fixes.test.ts — 'shear capacity uses compression-positive
     // axial', beside the P-M bending-depth and opposite-sign-demand cases from the same review.
+    //
+    // 0,910 rather than 0,922 since shear follows CIRSOC 201-2025: Vc = [0,17·√f'c + Nu/(6·Ag)]
+    // with Ag the gross area, where the 2005 expression read √f'c/6 and (1 + Nu/(14·b·d)).
     for (const r of loop().iterations[0].repairs) {
-      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.922;
+      const expected = PAIRS.layerMoved.ids.includes(r.elementId as never) ? 0.883 : 0.910;
       expect(r.certificate!.worstUtilization).toBeCloseTo(expected, 3);
       // The hard code boundary, independent of the characterisation above.
       expect(r.certificate!.worstUtilization).toBeLessThanOrEqual(1.0);

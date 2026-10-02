@@ -277,6 +277,9 @@ export interface SectionRow {
 }
 
 /** The properties the CIRSOC 301 checker reads, and the key naming each. */
+/** Section shapes the CIRSOC 301 member check does not read: it is written for I and channel sections. */
+const OUTSIDE_CHECK_SHAPES = new Set(['L', 'invL', 'T', 'RHS', 'CHS']);
+
 const CHECKER_PROPERTIES = [
   ['a', 'steel.rows.prop.area'],
   ['iy', 'steel.rows.prop.strongInertia'],
@@ -352,9 +355,17 @@ export function sectionRows(
       ? (() => { const d = drawnDesignShape(sec.drawn!); return 'scope' in d ? d.scope : 'freeOutline'; })()
       : null;
 
+    /*
+     * An angle, a tee or a tube: the CIRSOC 301 check here is written for I and channel sections
+     * (it reads a web and flanges), so a thickness of the wall is not the missing datum it looked
+     * like. Listing tw and tf as gaps sent the user after data no angle has, and the stage could
+     * not be passed: 148 angles of the simple shed stopped it. The row names the scope instead.
+     */
+    const shapeScope = sec?.shape && OUTSIDE_CHECK_SHAPES.has(sec.shape) ? sec.shape : null;
+
     const state: StageRowState = outsidePipeline
       ? 'outOfScope'
-      : drawnScope
+      : drawnScope || shapeScope
         ? 'authorityBlocked'
       : absent.length > 0
         ? 'incomplete'
@@ -375,6 +386,8 @@ export function sectionRows(
       absent,
       missing: drawnScope
         ? [{ key: `steel.rows.missing.drawn.${drawnScope}`, whyKey: 'steel.rows.why.drawnScope', severity: 'blocks' }]
+        : shapeScope
+        ? [{ key: 'steel.rows.missing.shapeScope', whyKey: 'steel.rows.why.shapeScope', severity: 'blocks' }]
         : coldFormed && absent.length === 0
         ? [{
             key: 'steel.rows.missing.coldFormedAuthority',

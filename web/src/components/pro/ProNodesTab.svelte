@@ -2,6 +2,9 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
   import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import { mergeNodesInto } from '../../lib/model/edit/cleanup';
@@ -178,25 +181,47 @@
   }
 
   const nodeCount = $derived(rows.filter(r => r.id !== null).length);
+
+  // ── Write a node: its three coordinates, Enter, the next one ──
+  let wX = $state(''), wY = $state(''), wZ = $state('');
+  let wError = $state<string | null>(null);
+  function writeNode() {
+    const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : Number(s.replace(',', '.'))));
+    if (v.some((n) => !Number.isFinite(n))) { wError = t('pro.writeNumbers'); return; }
+    wError = null;
+    // Welded, as the table's rows and the paste are: the coordinates of an existing node
+    // select it rather than stacking a twin that looks joined and analyses as a cut.
+    const id = modelStore.addNodeWelded(v[0]!, v[1]!, v[2]!);
+    uiStore.selectNode(id, false);
+    uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
+    wX = ''; wY = ''; wZ = '';
+  }
 </script>
 
 <div class="pro-nodes">
   <div class="pro-nodes-header">
     <span class="pro-nodes-count">{t('pro.nNodes').replace('{n}', String(nodeCount))}</span>
     <!--
-      ── Two different verbs, two different places ──────────────────────
-      "Draw a node" puts the pointer to work in the MODEL, so it sits at the
-      top with the other things you do to this kind of entity. "+ Node" adds
-      a ROW to the table, so it belongs to the table — which is where Basic
-      has always kept it. They were side by side and both read as "make a
-      node", leaving the reader to discover which one used the mouse.
+      ── Two ways to make a node, side by side ─────────────────────────
+      "Draw" puts the pointer to work in the MODEL; "Write" opens a card for
+      the coordinates. The table's own "+ Node" row did what "Write" does,
+      less precisely, so it went; Enter on the last row still adds one.
     -->
     <div class="pro-nodes-actions">
       <DrawInModelButton tool="node" label={t('pro.oneNode')} icon="node" testid="draw-node" />
+      <WriteInPanelButton kind="node" label={t('pro.oneNode')} testid="write-node" />
       <button class="pro-btn pro-btn-sm" onclick={commitAll} title={t('pro.apply')} data-testid="pro-apply-nodes">{t('pro.apply')}</button>
       <button class="pro-btn pro-btn-sm pro-btn-danger" onclick={clearAll} title={t('pro.clear')}>{t('pro.clear')}</button>
     </div>
   </div>
+
+  {#if drawState.writing === 'node'}
+    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneNode')}`} submitLabel={`${t('pro.add')} ${t('pro.oneNode')}`} onsubmit={writeNode} error={wError} testid="write-node-card">
+      <label>X <input class="wc-num" inputmode="decimal" bind:value={wX} placeholder="0" data-testid="write-node-x" /> m</label>
+      <label>Y <input class="wc-num" inputmode="decimal" bind:value={wY} placeholder="0" data-testid="write-node-y" /> m</label>
+      <label>Z <input class="wc-num" inputmode="decimal" bind:value={wZ} placeholder="0" data-testid="write-node-z" /> m</label>
+    </WriteCard>
+  {/if}
 
   {#if pasteError}
     <div class="pro-paste-error">{pasteError}</div>
@@ -271,9 +296,6 @@
       </tbody>
     </table>
     <!-- Adding a ROW belongs to the table, which is where Basic keeps it. -->
-    <div class="pro-table-footer">
-      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-node">{t('pro.addNode')}</button>
-    </div>
   </div>
 </div>
 
@@ -352,7 +374,6 @@
     flex-shrink: 0;
   }
 
-  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-nodes-table-wrap {
     flex: 1;

@@ -205,7 +205,7 @@ describe('relative to the chord, against closed forms', () => {
 });
 
 describe('under which loads', () => {
-  it('a service envelope when one is stated; unfactored otherwise; the factored combinations as the last resort', () => {
+  it('a service envelope when one is stated; otherwise the gravity cases unfactored, and each case', () => {
     member('pinned', 'roller');
     const dead = modelStore.addLoadCase('Defl dead', 'D');
     modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
@@ -226,8 +226,47 @@ describe('under which loads', () => {
     const r2 = modelStore.solveCombinations3D(false, false, true);
     if (!r2 || typeof r2 === 'string') throw new Error(String(r2));
     publishCombinations3D(r2);
-    expect(serviceSets().basis).toBe('factored');
-    expect(serviceSets().sets.map((x) => x.id)).toEqual([service, strength]);
+    // Solved by case with no envelope: the cases unfactored, never the 1.4D strength combination.
+    expect(serviceSets().basis).toBe('gravity');
+    expect(serviceSets().sets.map((x) => x.name)).toContain('Defl dead');
+    expect(serviceSets().sets.map((x) => x.id)).not.toContain(strength);
+  });
+
+  it('adds the gravity cases up: dead and live together, not the dead load alone', () => {
+    member('pinned', 'roller');
+    const dead = modelStore.addLoadCase('Dd', 'D');
+    const live = modelStore.addLoadCase('Ll', 'L');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, dead);
+    modelStore.addDistributedLoad3D(beam, 0, 0, -3 * q, -3 * q, undefined, undefined, live);
+    modelStore.addCombination('1.2D+1.6L', [{ caseId: dead, factor: 1.2 }, { caseId: live, factor: 1.6 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    // What a PRO solve publishes: the first case on screen, and the combinations.
+    resultsStore.setResults3D([...r.perCase.values()][0]!);
+    publishCombinations3D(r);
+    const d = serviceDeflections([beam], serviceSets().sets).get(beam)!;
+    expect(d.setName).toBe('Dd + Ll');
+    expect(d.max / ((5 * 4 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
+  });
+});
+
+describe('each direction reads its own governing set', () => {
+  it('a sideways set with the larger resultant does not hide the gravity set\'s larger w', () => {
+    member('pinned', 'roller');
+    const g = modelStore.addLoadCase('G', 'D');
+    const w = modelStore.addLoadCase('W', 'W');
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q, undefined, undefined, g);
+    // Sideways, and a little of it down: the resultant is the wind set's, the local z the gravity set's.
+    modelStore.addDistributedLoad3D(beam, 3 * q, 3 * q, -0.1 * q, -0.1 * q, undefined, undefined, w);
+    modelStore.addCombination('G', [{ caseId: g, factor: 1 }]);
+    modelStore.addCombination('W', [{ caseId: w, factor: 1 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    publishCombinations3D(r);
+    const d = serviceDeflections([beam], serviceSets().sets).get(beam)!;
+    expect(d.setName).toBe('W');
+    expect(d.setNameW).toBe('G');
+    expect(d.maxW / ((5 * q * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });
 
@@ -322,7 +361,8 @@ describe('the unfactored basis after a PRO solve', () => {
     vi.spyOn(modelStore, 'solveCombinations3DParallel').mockImplementation(async (w, l, p) => modelStore.solveCombinations3D(w, l, p));
     await runGlobalSolve();
     const s = serviceSets();
-    expect(s.basis).toBe('unfactored');
+    // With no service combination, the gravity cases at factor 1 (here D and L: every case).
+    expect(s.basis).toBe('gravity');
     const d = serviceDeflections([beam], s.sets).get(beam)!;
     const element = modelStore.elements.get(beam)!;
     const ownWeight = withSelfWeight ? modelStore.materials.get(element.materialId)!.rho * modelStore.sections.get(element.sectionId)!.a : 0;

@@ -41,7 +41,7 @@ import {
   type ElementKind, type OccupancyEntry,
 } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
-import type { WindCaseSet } from './wind-cases';
+import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
@@ -139,8 +139,13 @@ export interface LoadPlanInput {
     directions: { x: boolean; y: boolean };
     /** Which cases of Fig. 2.4-8 to generate. Absent: all four (§2.4.6). */
     caseSet?: WindCaseSet;
-    /** Wind from −X and −Y as well. Absent: true. */
+    /** Wind from −X and −Y as well. Absent: true. Read only when `senses` is absent. */
     bothSenses?: boolean;
+    /**
+     * The directions to generate, any of +X, −X, +Y and −Y. Absent: the axes of `directions`,
+     * in both senses unless `bothSenses` is false.
+     */
+    senses?: WindDirection[];
     /** Service-level wind Wa (B.4.2): the 50-year speed and the recurrence to convert it to. */
     service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
   };
@@ -187,6 +192,21 @@ export interface LoadPlanInput {
    * §2.3.2 (the default), the characteristic service ones, or both.
    */
   combinationSet?: 'ultimate' | 'service' | 'both';
+  /**
+   * The project's own combination rules, as specs, in place of the regulation's when given
+   * (`combination-rules.ts`). They are expanded over the planned cases the same way.
+   */
+  projectCombinations?: LoadCombinationSpec[];
+}
+
+/** The wind directions a plan input asks for (see `senses`). */
+export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bothSenses?: boolean; senses?: WindDirection[] }): WindDirection[] {
+  if (w.senses) return [...w.senses];
+  const both = w.bothSenses ?? true;
+  return [
+    ...(w.directions.x ? (['+x', ...(both ? ['-x'] : [])] as WindDirection[]) : []),
+    ...(w.directions.y ? (['+y', ...(both ? ['-y'] : [])] as WindDirection[]) : []),
+  ];
 }
 
 // ─── Plan ────────────────────────────────────────────────────────
@@ -687,13 +707,15 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
     };
     const set = input.combinationSet ?? 'ultimate';
-    if (set !== 'service') {
+    if (input.projectCombinations) {
+      combinations = [...input.projectCombinations];
+    } else if (set !== 'service') {
       combinations = generateCombinations(ci);
       const exc = liveLoadFactorInCompanion(ci);
       if (exc.note) derivation.push(exc.note);
       refs.push(R101('2.3.2', 'combinaciones básicas'));
     }
-    if (set !== 'ultimate') combinations = [...combinations, ...generateServiceCombinations(ci)];
+    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...generateServiceCombinations(ci)];
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 

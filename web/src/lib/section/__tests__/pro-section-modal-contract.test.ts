@@ -307,9 +307,10 @@ describe('the batten panel states the code and draws nothing', () => {
    * and the condition, and must not show a dimension.
    */
   it('renders the unavailable state rather than a plate size', () => {
-    // The literal string lives in `battens.ts`; the panel RENDERS the field, which is the
-    // property worth pinning — a component that hardcoded the word could drift from the module.
-    expect(BATTEN).toContain('{plan.geometry.state}');
+    // The state is said in words, through its key; the module's state token itself
+    // (GEOMETRY_UNAVAILABLE) is an identifier and is not printed on screen.
+    expect(BATTEN).toContain("t('battens.geometryUnavailable')");
+    expect(BATTEN).not.toContain('{plan.geometry.state}');
     expect(BATTEN).toContain('batten-geometry-unavailable');
     for (const invented of ['thicknessMm', 'widthMm', 'depthMm', 'plateThickness']) {
       expect(BATTEN).not.toContain(invented);

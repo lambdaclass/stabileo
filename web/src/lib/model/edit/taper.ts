@@ -119,11 +119,13 @@ export function taperMembers(ids: Iterable<number>, spec: TaperSpec, name = 'I')
  * the catalogue row it was picked from. Columns whose section is not an I are left alone and
  * counted, so the generator can say how many it could not taper.
  */
-export function taperSupportedColumns(baseDepth: number, headDepth: number, segments = DEFAULT_TAPER_SEGMENTS): TaperReport & { notI: number } {
+export function taperSupportedColumns(baseDepth: number, headDepth: number, segments = DEFAULT_TAPER_SEGMENTS, only?: ReadonlySet<number>): TaperReport & { notI: number } {
   const supported = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
   const total: TaperReport & { notI: number } = { tapered: [], skipped: [], sections: 0, notI: 0 };
   const plans: Array<{ id: number; spec: TaperSpec }> = [];
   for (const e of modelStore.elements.values()) {
+    // A structure inserted into a model tapers its own columns, not the model's.
+    if (only && !only.has(e.id)) continue;
     const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
     if (!a || !b) continue;
     const vertical = Math.hypot(b.x - a.x, (b.y ?? 0) - (a.y ?? 0)) < 1e-6 && Math.abs((b.z ?? 0) - (a.z ?? 0)) > 1e-6;

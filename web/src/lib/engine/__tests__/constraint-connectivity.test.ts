@@ -209,8 +209,23 @@ describe('JS preflight validator: constraint-linked nodes are not orphans', () =
       expect(result as string).toMatch(ORPHAN_RX);
     });
 
-    it('3D: orphan error is a STRING via the public contract (regression: PR #75 returned { error, connectedNodes })', () => {
+    /*
+     * In 3D an orphan with nothing on it is left out of the solve (it made the matrix singular
+     * and took every result away); one that carries a load still stops the solve, by name.
+     */
+    const loadedOrphan3D = () => {
       const m = baseModel3D(99);
+      m.loads = [{ type: 'nodal3d', data: { id: 1, nodeId: 99, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0 } }] as never;
+      return m;
+    };
+
+    it('3D: an orphan with nothing on it is left out instead of stopping the solve', () => {
+      const result = validateAndSolve3D(baseModel3D(99));
+      if (typeof result === 'string') expect(result).not.toMatch(ORPHAN_RX);
+    });
+
+    it('3D: orphan error is a STRING via the public contract (regression: PR #75 returned { error, connectedNodes })', () => {
+      const m = loadedOrphan3D();
       const result = validateAndSolve3D(m);
       // Must be the orphan error string — not an { error, connectedNodes }
       // object (which callers can't detect via typeof === 'string') and not a
@@ -220,7 +235,7 @@ describe('JS preflight validator: constraint-linked nodes are not orphans', () =
     });
 
     it('3D async: orphan error resolves to the same STRING (regression: object reached input3DToWireObject and threw)', async () => {
-      const m = baseModel3D(99);
+      const m = loadedOrphan3D();
       const result = await validateAndSolve3DAsync(m);
       expect(typeof result).toBe('string');
       expect(result as string).toMatch(ORPHAN_RX);

@@ -71,7 +71,7 @@ test.describe('@slow a joint arrives undesigned and says so', () => {
   test('and has no plate to draw yet', async ({ page }) => {
     await openShedJoint(page);
     await expect(page.getByTestId('joint-plate-unavailable')).toBeVisible();
-    await expect(page.getByTestId('joint-plate-unavailable')).toContainText('GEOMETRY_UNAVAILABLE');
+    await expect(page.getByTestId('joint-plate-unavailable')).toContainText('No geometry');
   });
 });
 

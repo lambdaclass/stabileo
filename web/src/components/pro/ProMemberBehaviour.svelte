@@ -11,6 +11,9 @@
   import { JOINT3D_DOF_LABELS } from '../../lib/store/model.svelte';
   import { CIRSOC201_STIFFNESS, presetModifiers, type StiffnessPreset, type StiffnessModifiers } from '../../lib/engine/member-behaviour';
 
+  /** Which part: the stiffness factors, or the ends (global joints and semi-rigid ends). */
+  let { part }: { part: 'stiffness' | 'ends' } = $props();
+
   const ids = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
   const first = $derived(ids.length ? modelStore.elements.get(ids[0]!) : undefined);
   const same = <T,>(f: (id: number) => T) => { const v = ids.map(f); return v.every((x) => JSON.stringify(x) === JSON.stringify(v[0])) ? v[0] : undefined; };
@@ -63,20 +66,30 @@
     });
   }
 
+  /*
+   * One factor, on every selected member, each keeping its other three. It used to write the
+   * first member's four factors onto the whole selection, so a mixed selection lost its own.
+   */
   function setCustom(k: keyof typeof custom, v: number) {
     if (!(v > 0)) return;
     custom = { ...custom, [k]: v };
-    setStiffness({ ...custom });
+    modelStore.batch(() => {
+      for (const id of ids) {
+        const s = modelStore.elements.get(id)?.stiffness;
+        const own = s && !s.preset ? { a: s.a ?? 1, iy: s.iy ?? 1, iz: s.iz ?? 1, j: s.j ?? 1 } : { a: 1, iy: 1, iz: 1, j: 1 };
+        modelStore.updateElement(id, { stiffness: { ...own, [k]: v } });
+      }
+    });
   }
 </script>
 
-{#if ids.length > 0}
+{#if ids.length > 0 && part === 'stiffness'}
   <div class="mb" data-testid="member-behaviour">
     <label class="mb-row">{t('behaviour.stiffness')}
       <select value={presetNow} onchange={(e) => setPreset(e.currentTarget.value)} data-testid="mb-stiffness">
         {#if presetNow === 'mixed'}<option value="mixed" disabled>{t('behaviour.mixed')}</option>{/if}
         <option value="none">{t('behaviour.stiffness.none')}</option>
-        {#each PRESETS as p (p)}<option value={p}>{tp(`behaviour.preset.${p}`, { f: String(CIRSOC201_STIFFNESS[p]).replace('.', ',') })}</option>{/each}
+        {#each PRESETS as p (p)}<option value={p}>{tp(`behaviour.preset.${p}`, { f: CIRSOC201_STIFFNESS[p].toLocaleString(t('file.htmlLang')) })}</option>{/each}
         <option value="custom">{t('behaviour.stiffness.custom')}</option>
       </select>
     </label>
@@ -89,8 +102,11 @@
       </div>
     {/if}
     {#if presetNow !== 'none' && presetNow !== 'mixed'}<p class="mb-hint">{t('behaviour.stiffnessHint')}</p>{/if}
+  </div>
+{:else if ids.length > 0 && part === 'ends'}
+  <div class="mb" data-testid="member-ends">
     <div class="mb-joints">
-      <span>{t('behaviour.releases')}</span>
+      <span class="pk-label">{t('behaviour.releases')}</span>
       {#each ['i', 'j'] as const as end (end)}
         {@const mask = jointOf(end)}
         <div class="mb-row" data-testid="mb-joint-{end}">
@@ -104,7 +120,7 @@
       <p class="mb-hint">{t('behaviour.releasesHint')}</p>
     </div>
     <div class="mb-joints">
-      <span>{t('behaviour.semiRigid')}</span>
+      <span class="pk-label">{t('behaviour.semiRigid')}</span>
       {#each ['i', 'j'] as const as end (end)}
         {@const sr = semiOf(end)}
         <div class="mb-row" data-testid="mb-semi-{end}">
@@ -123,13 +139,12 @@
 {/if}
 
 <style>
-  .mb { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--st-hair); font-size: 0.68rem; color: var(--st-text-2); }
-  .mb-title { font-weight: 600; color: var(--st-text); font-size: 0.7rem; }
+  .mb { display: flex; flex-direction: column; gap: 0.45rem; color: var(--st-text-2); }
   .mb-row { display: flex; gap: 8px; align-items: center; }
   .mb-wrap { flex-wrap: wrap; }
   .mb-row input { width: 56px; }
-  .mb-joints { display: flex; flex-direction: column; gap: 2px; }
+  .mb-joints { display: flex; flex-direction: column; gap: 3px; padding-top: 0.35rem; border-top: 1px solid var(--st-hair); }
   .mb-end { font-weight: 600; width: 12px; }
   .mb-dof { display: flex; gap: 2px; align-items: center; font-family: var(--st-mono); font-size: 0.62rem; }
-  .mb-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
+  .mb-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
 </style>

@@ -115,6 +115,7 @@ describe.each(ids)('%s', (id) => {
   }, 60_000); // Large WASM fixtures can exceed the default timeout under concurrent CI load.
 });
 
+
 describe('the validation models, as regression fixtures', () => {
   it('are not PRO examples: the gallery shows examples of its own', () => {
     // They reproduce another program's structures one to one, which is what a regression

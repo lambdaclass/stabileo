@@ -12,7 +12,9 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
+import { nodesOnMembers } from '../../engine/nodes-on-members';
 import { dot, type Vec3 } from './affine';
+import { tp } from '../../i18n';
 
 /** Positions closer than this are the same point, m. */
 export const CUT_TOL = 1e-4;
@@ -22,15 +24,6 @@ const END_T = 1e-6;
 type N = { x: number; y: number; z?: number };
 const v = (n: N): Vec3 => [n.x, n.y, n.z ?? 0];
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-
-/** Where point p projects on segment ab, as t, and how far it is from the segment. */
-function onSegment(a: Vec3, b: Vec3, p: Vec3): { t: number; dist: number } {
-  const ab = sub(b, a), ap = sub(p, a);
-  const L2 = dot(ab, ab);
-  const t = L2 > 0 ? dot(ap, ab) / L2 : 0;
-  const q: Vec3 = [a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2]];
-  return { t, dist: Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) };
-}
 
 export interface CutReport {
   /** Members cut, with the segments each became. */
@@ -62,26 +55,11 @@ function applyCuts(cuts: Map<number, number[]>): CutReport {
  * away from its ends. The node is reused: the member now connects to it.
  */
 export function splitAtNodes(elementIds: Iterable<number>, nodeIds?: Iterable<number>): CutReport {
-  const candidates = nodeIds ? [...nodeIds] : [...modelStore.nodes.keys()];
   const cuts = new Map<number, number[]>();
-  for (const eid of elementIds) {
-    const e = modelStore.elements.get(eid);
-    if (!e) continue;
-    const a = v(modelStore.nodes.get(e.nodeI)!), b = v(modelStore.nodes.get(e.nodeJ)!);
-    const L = Math.hypot(...sub(b, a));
-    if (!(L > 0)) continue;
-    const lo: Vec3 = [Math.min(a[0], b[0]) - CUT_TOL, Math.min(a[1], b[1]) - CUT_TOL, Math.min(a[2], b[2]) - CUT_TOL];
-    const hi: Vec3 = [Math.max(a[0], b[0]) + CUT_TOL, Math.max(a[1], b[1]) + CUT_TOL, Math.max(a[2], b[2]) + CUT_TOL];
-    for (const nid of candidates) {
-      if (nid === e.nodeI || nid === e.nodeJ) continue;
-      const n = modelStore.nodes.get(nid);
-      if (!n) continue;
-      const p = v(n);
-      if (p[0] < lo[0] || p[1] < lo[1] || p[2] < lo[2] || p[0] > hi[0] || p[1] > hi[1] || p[2] > hi[2]) continue;
-      const { t, dist } = onSegment(a, b, p);
-      if (dist <= CUT_TOL && t > END_T && t < 1 - END_T) (cuts.get(eid) ?? cuts.set(eid, []).get(eid)!).push(t);
-    }
-  }
+  const hits = nodesOnMembers(modelStore.nodes, modelStore.elements.values(), {
+    elementIds: new Set(elementIds), ...(nodeIds ? { nodeIds } : {}), tol: CUT_TOL,
+  });
+  for (const h of hits) (cuts.get(h.elementId) ?? cuts.set(h.elementId, []).get(h.elementId)!).push(h.t);
   return applyCuts(cuts);
 }
 
@@ -146,4 +124,20 @@ export function intersectMembers(elementIds: Iterable<number>, anchorId?: number
   // All the cuts are gathered before any split: the anchor may cross several members.
   for (const c of crossingPairs(elementIds, anchorId)) { push(c.a, c.s); push(c.b, c.t); }
   return applyCuts(cuts);
+}
+
+/**
+ * Cut every member at the nodes on it, as one undoable edit, and say what was done.
+ *
+ * What the solve's "disconnected structure" message offers with one click: the same command as
+ * Edit › Cut › "Split at the nodes on them" over the whole model.
+ */
+export function splitAllAtNodes(): { report: CutReport; message: string } {
+  let report!: CutReport;
+  modelStore.batch(() => { report = splitAtNodes([...modelStore.elements.keys()]); });
+  const message = [
+    tp('edit.cutDone', { n: report.cut.length, segments: report.cut.reduce((s, c) => s + c.segments.length, 0), nodes: report.nodes.length }),
+    report.reinforcementDropped > 0 ? tp('edit.reinforcementDropped', { n: report.reinforcementDropped }) : '',
+  ].filter(Boolean).join(' ');
+  return { report, message };
 }

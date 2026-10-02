@@ -88,6 +88,13 @@ const pieceGeometry = (poly: Polygon) => buildSectionGeometry({
   kind: 'custom', outer: openRing(poly[0]!), holes: poly.slice(1).map(openRing),
 }).geometry;
 
+/** The real area of each material, m². */
+export function materialAreas(asm: AssembledSection): Array<{ materialId: number | null; a: number }> {
+  const out = new Map<number | null, number>();
+  for (const r of asm.regions) out.set(r.materialId, (out.get(r.materialId) ?? 0) + areaOf(r.region));
+  return [...out].map(([materialId, a]) => ({ materialId, a }));
+}
+
 /** The canonical geometry of the assembled regions: one solid per outline, holes as voids. */
 export function drawnGeometry(asm: AssembledSection): CanonicalGeometry | null {
   const polygons: CanonicalGeometry['polygons'] = [];

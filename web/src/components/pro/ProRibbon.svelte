@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { designHome } from '../../lib/pro/design-home';
   import ProCommandPalette from './ProCommandPalette.svelte';
   import { t } from '../../lib/i18n';
   /*
@@ -157,7 +158,9 @@
   function openStage(s: ProStage) {
     // Landing on a stage lands on its first destination, so the panel always
     // agrees with the tab.
-    if (TAB_STAGE[uiStore.proActiveTab] !== s.id) uiStore.proActiveTab = s.home;
+    if (TAB_STAGE[uiStore.proActiveTab] !== s.id) {
+      uiStore.proActiveTab = s.id === 'design' ? designHome(modelStore.elements.values(), modelStore.materials) : s.home;
+    }
     uiStore.proPanelVisible = true;
   }
 

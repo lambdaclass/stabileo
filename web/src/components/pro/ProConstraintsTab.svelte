@@ -1,8 +1,14 @@
 <script lang="ts">
+  /**
+   * Specifications › Node links: ties between the degrees of freedom of nodes (rigid links,
+   * diaphragms, equal DOFs, eccentric connections, linear MPCs) and connectors, stiffness between
+   * two nodes. Drawn with the PRO panel kit, as every other part of Specifications: a card to
+   * make one, the model's list under it.
+   */
   import { modelStore } from '../../lib/store';
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import DataTable from '../DataTable.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
 
   /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
    *  '0,5' must read as 0.5, not silently truncate to 0 via parseFloat. */
@@ -291,354 +297,172 @@
   function connectorLabel(c: { kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }): string {
     return `kAxial=${fmtStiff(c.kAxial)}, kShear=${fmtStiff(c.kShear)}, kMoment=${fmtStiff(c.kMoment)}, kShearZ=${fmtStiff(c.kShearZ)}, kBendY=${fmtStiff(c.kBendY)}, kBendZ=${fmtStiff(c.kBendZ)}`;
   }
+  /** Clearing every link or connector at once asks first, in place. */
+  let asking = $state<'constraints' | 'connectors' | null>(null);
 </script>
 
-<div class="pro-cst">
-  <div class="pro-cst-header">
-    <span class="pro-cst-count">{t('pro.nConstraints').replace('{n}', String(constraints.length))}</span>
-    {#if constraints.length > 0}
-      <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConstraints()}>{t('pro.clear')}</button>
-    {/if}
-  </div>
+<div class="pk" data-testid="spec-links">
+  <section class="pk-card" data-testid="links-new">
+    <h4 class="pk-heading">{t('spec.links.new')}</h4>
+    <label class="ln-field">
+      <span class="pk-label">{t('adv.type')}</span>
+      <select bind:value={selectedKind} data-testid="links-kind">
+        {#each constraintKinds as ck (ck.value)}
+          <option value={ck.value}>{ck.label}</option>
+        {/each}
+      </select>
+    </label>
 
-  <div class="pro-cst-form">
-    <div class="pro-cst-row">
-      <label>Tipo:
-        <select bind:value={selectedKind} class="pro-select-sm">
-          {#each constraintKinds as ck}
-            <option value={ck.value}>{ck.label}</option>
-          {/each}
-        </select>
+    {#if selectedKind === 'linearMPC'}
+      <label class="ln-field">
+        <span class="pk-label">{t('pro.terms')}</span>
+        <input type="text" bind:value={mpcTerms} placeholder={t('pro.mpcPlaceholder')} />
       </label>
-    </div>
-
-    {#if selectedKind === 'rigidLink'}
-      <div class="pro-cst-row">
-        <label>Master: <input type="text" bind:value={rlMaster} placeholder="ID" class="pro-input-sm" /></label>
-        <label>{t('pro.slave')}: <input type="text" bind:value={rlSlave} placeholder="ID" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-dofs">
-        {#each dofLabels as dof, i}
-          <label class="pro-dof-check">
-            <input type="checkbox" bind:checked={rlDofs[i]} />
-            <span>{dof}</span>
+      <p class="pk-hint">{t('pro.formatHint')}</p>
+    {:else}
+      <div class="pk-row ln-fields">
+        {#if selectedKind === 'rigidLink'}
+          <label class="ln-field"><span class="pk-label">{t('pro.master')}</span><input class="ln-id" type="text" bind:value={rlMaster} placeholder="ID" /></label>
+          <label class="ln-field"><span class="pk-label">{t('pro.slave')}</span><input class="ln-id" type="text" bind:value={rlSlave} placeholder="ID" /></label>
+        {:else if selectedKind === 'diaphragm'}
+          <label class="ln-field"><span class="pk-label">{t('pro.master')}</span><input class="ln-id" type="text" bind:value={dMaster} placeholder="ID" /></label>
+          <label class="ln-field"><span class="pk-label">{t('pro.plane')}</span>
+            <select bind:value={dPlane}>
+              {#each planeOptions as p (p)}<option value={p}>{p}</option>{/each}
+            </select>
           </label>
-        {/each}
+          <label class="ln-field pk-grow"><span class="pk-label">{t('pro.slaves')}</span><input type="text" bind:value={dSlaves} placeholder="1, 2, 3..." /></label>
+        {:else if selectedKind === 'equalDOF'}
+          <label class="ln-field"><span class="pk-label">{t('pro.master')}</span><input class="ln-id" type="text" bind:value={eqMaster} placeholder="ID" /></label>
+          <label class="ln-field"><span class="pk-label">{t('pro.slave')}</span><input class="ln-id" type="text" bind:value={eqSlave} placeholder="ID" /></label>
+        {:else if selectedKind === 'eccentricConnection'}
+          <label class="ln-field"><span class="pk-label">{t('pro.master')}</span><input class="ln-id" type="text" bind:value={ecMaster} placeholder="ID" /></label>
+          <label class="ln-field"><span class="pk-label">{t('pro.slave')}</span><input class="ln-id" type="text" bind:value={ecSlave} placeholder="ID" /></label>
+        {/if}
       </div>
 
-    {:else if selectedKind === 'diaphragm'}
-      <div class="pro-cst-row">
-        <label>Master: <input type="text" bind:value={dMaster} placeholder="ID" class="pro-input-sm" /></label>
-        <label>{t('pro.plane')}:
-          <select bind:value={dPlane} class="pro-select-sm">
-            {#each planeOptions as p}
-              <option value={p}>{p}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-      <div class="pro-cst-row">
-        <label class="pro-label-wide">{t('pro.slaves')}: <input type="text" bind:value={dSlaves} placeholder="1, 2, 3..." class="pro-input-wide" /></label>
-      </div>
+      {#if selectedKind === 'eccentricConnection'}
+        <span class="pk-label">{t('spec.links.offset')}</span>
+        <div class="pk-row">
+          <input class="ln-num" type="text" bind:value={ecOffsetX} placeholder="0" aria-label="X" />
+          <input class="ln-num" type="text" bind:value={ecOffsetY} placeholder="0" aria-label="Y" />
+          <input class="ln-num" type="text" bind:value={ecOffsetZ} placeholder="0" aria-label="Z" />
+        </div>
+      {/if}
 
-    {:else if selectedKind === 'equalDOF'}
-      <div class="pro-cst-row">
-        <label>Master: <input type="text" bind:value={eqMaster} placeholder="ID" class="pro-input-sm" /></label>
-        <label>{t('pro.slave')}: <input type="text" bind:value={eqSlave} placeholder="ID" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-dofs">
-        {#each dofLabels as dof, i}
-          <label class="pro-dof-check">
-            <input type="checkbox" bind:checked={eqDofs[i]} />
-            <span>{dof}</span>
-          </label>
-        {/each}
-      </div>
-
-    {:else if selectedKind === 'eccentricConnection'}
-      <div class="pro-cst-row">
-        <label>Master: <input type="text" bind:value={ecMaster} placeholder="ID" class="pro-input-sm" /></label>
-        <label>{t('pro.slave')}: <input type="text" bind:value={ecSlave} placeholder="ID" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-row">
-        <label>{t('pro.offsetX')}: <input type="text" bind:value={ecOffsetX} placeholder="0" class="pro-input-sm" /></label>
-        <label>{t('pro.offsetY')}: <input type="text" bind:value={ecOffsetY} placeholder="0" class="pro-input-sm" /></label>
-        <label>{t('pro.offsetZ')}: <input type="text" bind:value={ecOffsetZ} placeholder="0" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-row">
-        <span class="pro-cst-sublabel">{t('pro.releases')}:</span>
-      </div>
-      <div class="pro-cst-dofs">
-        {#each dofLabels as dof, i}
-          <label class="pro-dof-check">
-            <input type="checkbox" bind:checked={ecReleases[i]} />
-            <span>{dof}</span>
-          </label>
-        {/each}
-      </div>
-      <div class="pro-cst-hint">{t('pro.eccentricHint')}</div>
-
-    {:else if selectedKind === 'linearMPC'}
-      <div class="pro-cst-row">
-        <label class="pro-label-wide">{t('pro.terms')}: <input type="text" bind:value={mpcTerms} placeholder="nodo:dof:coef; ... (ej: 1:ux:1; 2:ux:-1)" class="pro-input-wide" /></label>
-      </div>
-      <div class="pro-cst-hint">{t('pro.formatHint')}</div>
+      {#if selectedKind === 'rigidLink' || selectedKind === 'equalDOF' || selectedKind === 'eccentricConnection'}
+        <span class="pk-label">{selectedKind === 'eccentricConnection' ? t('pro.releases') : t('spec.links.dofs')}</span>
+        <div class="ln-dofs">
+          {#each dofLabels as dof, i (dof)}
+            <label class="pk-check">
+              {#if selectedKind === 'rigidLink'}<input type="checkbox" bind:checked={rlDofs[i]} />
+              {:else if selectedKind === 'equalDOF'}<input type="checkbox" bind:checked={eqDofs[i]} />
+              {:else}<input type="checkbox" bind:checked={ecReleases[i]} />{/if}
+              {dof}
+            </label>
+          {/each}
+        </div>
+        {#if selectedKind === 'eccentricConnection'}<p class="pk-hint">{t('pro.eccentricHint')}</p>{/if}
+      {/if}
     {/if}
 
-    <div class="pro-cst-actions">
-      <button class="pro-btn" onclick={addConstraint}>{t('pro.add')}</button>
-      <button class="pro-btn pro-btn-auto" onclick={autoDetectDiaphragms} title={t('pro.autoDetectTitle')}>
-        {t('pro.autoDetect')}
-      </button>
+    <div class="pk-row">
+      <button class="pk-btn pk-btn-primary" onclick={addConstraint} data-testid="links-add">{t('pro.add')}</button>
+      <button class="pk-btn" onclick={autoDetectDiaphragms} title={t('pro.autoDetectTitle')}>{t('pro.autoDetect')}</button>
     </div>
-  </div>
+  </section>
 
   <!--
-    Tools above, the shared table below — the shape every modelling panel has.
-    This listed the constraints itself, which is a second set of columns over
-    the same rows and a second place to keep in step. Connectors keep their
-    own list further down: they are a different entity, stiffness between two
-    nodes rather than a tie between degrees of freedom.
+    The tools above, the shared table below: the shape every modelling panel has. Connectors keep
+    their own list: they are a different entity, stiffness between two nodes rather than a tie
+    between degrees of freedom.
   -->
-  <DataTable pinned="constraints" />
-
-  <!-- ─── Connectors (joint/spring/bearing) ──────────────────────── -->
-  <!-- Connectors are NOT structural members. They live alongside elements in -->
-  <!-- the solver model, but they don't carry section properties, don't appear -->
-  <!-- in M/V/N diagrams, and don't go through RC/steel design. The mental    -->
-  <!-- model is "stiffness between two nodes in named directions". A zero in  -->
-  <!-- a direction means sliding/flexibility there.                            -->
-  <div class="pro-conn-section">
-    <div class="pro-cst-header">
-      <span class="pro-cst-count">{t('pro.nConnectors').replace('{n}', String(connectors.length))}</span>
-      {#if connectors.length > 0}
-        <button class="pro-btn pro-btn-clear" onclick={() => modelStore.clearConnectors()}>{t('pro.clear')}</button>
+  <section class="pk-card">
+    <div class="pk-row ln-head">
+      <h4 class="pk-heading pk-grow">{t('pro.nConstraints').replace('{n}', String(constraints.length))}</h4>
+      {#if constraints.length > 0}
+        {#if asking === 'constraints'}
+          <span class="pk-row">{tp('pro.clearAsk', { n: modelStore.constraints.length })}
+            <button class="pk-btn ln-danger" onclick={() => { modelStore.clearConstraints(); asking = null; }} data-testid="links-clear-yes">{t('pro.clearYes')}</button>
+            <button class="pk-btn" onclick={() => (asking = null)}>{t('pro.examples.cancel')}</button></span>
+        {:else}
+          <button class="pk-btn ln-danger" onclick={() => (asking = 'constraints')} data-testid="links-clear">{t('pro.clear')}</button>
+        {/if}
       {/if}
     </div>
+    <div class="ln-table"><DataTable pinned="constraints" /></div>
+  </section>
 
-    <div class="pro-cst-form">
-      <div class="pro-cst-hint">{t('pro.connectorIntro')}</div>
-      <div class="pro-cst-row">
-        <label>{t('pro.nodeI')}: <input type="text" bind:value={connNodeI} placeholder="ID" class="pro-input-sm" /></label>
-        <label>{t('pro.nodeJ')}: <input type="text" bind:value={connNodeJ} placeholder="ID" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-row">
-        <span class="pro-cst-sublabel">{t('pro.kInPlane')}:</span>
-      </div>
-      <div class="pro-cst-row">
-        <label>kAxial: <input type="text" bind:value={connKAxial} placeholder="0" class="pro-input-sm" /></label>
-        <label>kShear: <input type="text" bind:value={connKShear} placeholder="0" class="pro-input-sm" /></label>
-        <label>kMoment: <input type="text" bind:value={connKMoment} placeholder="0" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-row">
-        <span class="pro-cst-sublabel">{t('pro.k3D')}:</span>
-      </div>
-      <div class="pro-cst-row">
-        <label>kShearZ: <input type="text" bind:value={connKShearZ} placeholder="0" class="pro-input-sm" /></label>
-        <label>kBendY: <input type="text" bind:value={connKBendY} placeholder="0" class="pro-input-sm" /></label>
-        <label>kBendZ: <input type="text" bind:value={connKBendZ} placeholder="0" class="pro-input-sm" /></label>
-      </div>
-      <div class="pro-cst-hint">{t('pro.connectorHint')}</div>
-      <div class="pro-cst-actions">
-        <button class="pro-btn" onclick={addConnector}>{t('pro.addConnector')}</button>
-      </div>
+  <!-- Connectors are not structural members: they carry no section, appear in no M/V/N diagram
+       and go through no design. A zero in a direction means sliding or flexibility there. -->
+  <section class="pk-card" data-testid="links-connectors">
+    <div class="pk-row ln-head">
+      <h4 class="pk-heading pk-grow">{t('pro.nConnectors').replace('{n}', String(connectors.length))}</h4>
+      {#if connectors.length > 0}
+        {#if asking === 'connectors'}
+          <span class="pk-row">{tp('pro.clearAsk', { n: modelStore.model.connectors?.size ?? 0 })}
+            <button class="pk-btn ln-danger" onclick={() => { modelStore.clearConnectors(); asking = null; }}>{t('pro.clearYes')}</button>
+            <button class="pk-btn" onclick={() => (asking = null)}>{t('pro.examples.cancel')}</button></span>
+        {:else}
+          <button class="pk-btn ln-danger" onclick={() => (asking = 'connectors')}>{t('pro.clear')}</button>
+        {/if}
+      {/if}
     </div>
-
-    <div class="pro-cst-table-wrap">
-      <table class="pro-cst-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>{t('pro.thNodes')}</th>
-            <th>{t('pro.thStiffness')}</th>
-            <th></th>
-          </tr>
-        </thead>
+    <p class="pk-hint">{t('pro.connectorIntro')}</p>
+    <div class="pk-row ln-fields">
+      <label class="ln-field"><span class="pk-label">{t('pro.nodeI')}</span><input class="ln-id" type="text" bind:value={connNodeI} placeholder="ID" /></label>
+      <label class="ln-field"><span class="pk-label">{t('pro.nodeJ')}</span><input class="ln-id" type="text" bind:value={connNodeJ} placeholder="ID" /></label>
+    </div>
+    <span class="pk-label">{t('pro.kInPlane')}</span>
+    <div class="pk-row ln-fields">
+      <label class="ln-field"><span class="pk-label">kAxial</span><input class="ln-num" type="text" bind:value={connKAxial} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kShear</span><input class="ln-num" type="text" bind:value={connKShear} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kMoment</span><input class="ln-num" type="text" bind:value={connKMoment} placeholder="0" /></label>
+    </div>
+    <span class="pk-label">{t('pro.k3D')}</span>
+    <div class="pk-row ln-fields">
+      <label class="ln-field"><span class="pk-label">kShearZ</span><input class="ln-num" type="text" bind:value={connKShearZ} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kBendY</span><input class="ln-num" type="text" bind:value={connKBendY} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kBendZ</span><input class="ln-num" type="text" bind:value={connKBendZ} placeholder="0" /></label>
+    </div>
+    <p class="pk-hint">{t('pro.connectorHint')}</p>
+    <div class="pk-row">
+      <button class="pk-btn pk-btn-primary" onclick={addConnector} data-testid="connector-add">{t('pro.addConnector')}</button>
+    </div>
+    {#if connectors.length > 0}
+      <table class="ln-conn">
+        <thead><tr><th>#</th><th>{t('pro.thNodes')}</th><th>{t('pro.thStiffness')}</th><th></th></tr></thead>
         <tbody>
-          {#each connectors as c}
+          {#each connectors as c (c.id)}
             <tr>
-              <td class="col-id">{c.id}</td>
-              <td class="col-type">{c.nodeI} → {c.nodeJ}</td>
-              <td class="col-desc">{connectorLabel(c)}</td>
-              <td><button class="pro-delete-btn" onclick={() => removeConnector(c.id)}>×</button></td>
+              <td class="ln-cid">{c.id}</td>
+              <td class="ln-nowrap">{c.nodeI} → {c.nodeJ}</td>
+              <td>{connectorLabel(c)}</td>
+              <td><button class="ln-del" onclick={() => removeConnector(c.id)} aria-label={t('pro.clear')}>×</button></td>
             </tr>
           {/each}
         </tbody>
       </table>
-    </div>
-  </div>
+    {/if}
+  </section>
 </div>
 
 <style>
-  .pro-cst { display: flex; flex-direction: column; height: 100%; }
-
-  .pro-cst-header {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--st-surface-3);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .pro-cst-count { font-size: 0.82rem; color: var(--st-value); font-weight: 600; }
-
-  .pro-cst-form {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--st-surface-3);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .pro-cst-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .pro-cst-row label {
-    font-size: 0.75rem;
-    color: var(--st-text-3);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .pro-label-wide {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .pro-input-sm {
-    width: 55px;
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text);
-    font-size: 0.78rem;
-    font-family: monospace;
-  }
-
-  .pro-input-sm:focus { border-color: var(--st-surface-3); outline: none; }
-
-  .pro-input-wide {
-    flex: 1;
-    min-width: 100px;
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text);
-    font-size: 0.78rem;
-    font-family: monospace;
-  }
-
-  .pro-input-wide:focus { border-color: var(--st-surface-3); outline: none; }
-
-  .pro-select-sm {
-    padding: 4px 6px;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    color: var(--st-text-2);
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-
-  .pro-cst-dofs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 4px 0;
-  }
-
-  .pro-dof-check {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    cursor: pointer;
-  }
-
-  .pro-dof-check input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--st-text-2);
-    cursor: pointer;
-  }
-
-  .pro-cst-hint {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    font-style: italic;
-  }
-
-  .pro-cst-sublabel {
-    font-size: 0.72rem;
-    color: var(--st-text-3);
-    font-weight: 600;
-  }
-
-  /* Connectors section sits below the constraints table; visually separated
-   * with a top border + slight color shift so it reads as its own surface
-   * inside the same right-side workflow. */
-  .pro-conn-section {
-    border-top: 2px solid var(--st-surface-3);
-    background: var(--st-surface);
-  }
-  .pro-conn-section .pro-cst-header { background: var(--st-surface); }
-
-  .pro-cst-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .pro-btn {
-    padding: 5px 12px;
-    font-size: 0.75rem;
-    color: var(--st-text-2);
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .pro-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
-
-  .pro-btn-auto {
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    border-color: var(--st-hair-strong);
-  }
-
-  .pro-btn-auto:hover { background: var(--st-hair-strong); }
-
-  .pro-btn-clear {
-    font-size: 0.68rem;
-    color: var(--st-danger);
-    border-color: var(--st-hair-strong);
-    background: transparent;
-    padding: 4px 8px;
-  }
-
-  .pro-btn-clear:hover { background: var(--st-surface-2); }
-
-  .pro-cst-table-wrap { flex: 1; overflow: auto; }
-
-  .pro-cst-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  .pro-cst-table thead { position: sticky; top: 0; z-index: 1; }
-  .pro-cst-table th {
-    padding: 6px 8px; text-align: left; font-size: 0.7rem; font-weight: 600;
-    color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3);
-  }
-  .pro-cst-table td { padding: 5px 8px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
-  .col-id { width: 34px; color: var(--st-text-3); font-family: monospace; text-align: center; }
-  .col-type { font-size: 0.72rem; color: var(--st-text-2); white-space: nowrap; }
-  .col-desc { font-size: 0.72rem; color: var(--st-text-2); }
-  .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
-  .pro-delete-btn:hover { color: var(--st-danger); }
+  .ln-field { display: flex; flex-direction: column; gap: 2px; }
+  .ln-fields { align-items: flex-end; gap: 0.5rem; }
+  .ln-id { width: 64px; }
+  .ln-num { width: 72px; }
+  .ln-dofs { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px 14px; }
+  .ln-head { gap: 0.5rem; }
+  .ln-head .pk-heading { margin-bottom: 0; }
+  .ln-danger { color: var(--st-danger); }
+  /* The shared table sits inside the card, edge to edge. */
+  .ln-table { margin: 0 -0.7rem -0.7rem; border-top: 1px solid var(--st-hair); max-height: 320px; overflow: auto; }
+  .ln-conn { width: 100%; border-collapse: collapse; font-size: 0.68rem; }
+  .ln-conn th { padding: 4px 6px; text-align: left; font-family: var(--st-mono); font-size: 0.62rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--st-text-3); border-bottom: 1px solid var(--st-hair); }
+  .ln-conn td { padding: 4px 6px; border-bottom: 1px solid var(--st-hair); color: var(--st-text-2); }
+  .ln-cid { width: 28px; color: var(--st-text-3); font-family: var(--st-mono); }
+  .ln-nowrap { white-space: nowrap; }
+  .ln-del { background: none; border: none; color: var(--st-text-3); font-size: 0.9rem; cursor: pointer; padding: 0; }
+  .ln-del:hover { color: var(--st-danger); }
 </style>

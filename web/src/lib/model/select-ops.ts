@@ -19,6 +19,8 @@ export interface SelectableModel {
   elements: Map<number, unknown>;
   plates?: Map<number, unknown>;
   quads?: Map<number, unknown>;
+  supports?: Map<number, unknown>;
+  loads?: ReadonlyArray<{ data: { id: number } }>;
 }
 
 export interface Selection {
@@ -26,6 +28,12 @@ export interface Selection {
   elements: Set<number>;
   /** Shells are keyed `p<id>` / `q<id>`, because the two id spaces overlap. */
   shells: Set<string>;
+  /**
+   * Supports and loads, when the operation reaches them. Absent means "not touched", which is
+   * how the operations on nodes and members leave a support or load selection alone.
+   */
+  supports?: Set<number>;
+  loads?: Set<number>;
 }
 
 export const EMPTY: Selection = { nodes: new Set(), elements: new Set(), shells: new Set() };
@@ -51,6 +59,8 @@ export function selectAll(model: SelectableModel, kinds: ReadonlySet<string>): S
     nodes: kinds.has('nodes') ? new Set(model.nodes.keys()) : new Set(),
     elements: kinds.has('elements') ? new Set(model.elements.keys()) : new Set(),
     shells: kinds.has('shells') ? allShellKeys(model) : new Set(),
+    supports: kinds.has('supports') ? new Set(model.supports?.keys() ?? []) : new Set(),
+    loads: kinds.has('loads') ? new Set((model.loads ?? []).map((l) => l.data.id)) : new Set(),
   };
 }
 
@@ -70,6 +80,8 @@ export function invertSelection(
     nodes: not(all.nodes, current.nodes),
     elements: not(all.elements, current.elements),
     shells: not(all.shells, current.shells),
+    supports: not(all.supports!, current.supports ?? new Set()),
+    loads: not(all.loads!, current.loads ?? new Set()),
   };
 }
 
@@ -141,10 +153,11 @@ export function selectByIds(
  * the shells with surface loads. Loads with no case belong to case 1, as the solve reads them.
  */
 export function loadedInCase(loads: ReadonlyArray<{ type: string; data: Record<string, unknown> }>, caseId: number): Selection {
-  const out: Selection = { nodes: new Set(), elements: new Set(), shells: new Set() };
+  const out: Selection = { nodes: new Set(), elements: new Set(), shells: new Set(), loads: new Set() };
   for (const l of loads) {
     if (((l.data.caseId as number | undefined) ?? 1) !== caseId) continue;
     const d = l.data;
+    if (typeof d.id === 'number') out.loads!.add(d.id);
     if (typeof d.nodeId === 'number') out.nodes.add(d.nodeId);
     if (typeof d.elementId === 'number') out.elements.add(d.elementId);
     if (typeof d.quadId === 'number') out.shells.add(`q${d.quadId}`);

@@ -40,8 +40,10 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-specifications').click();
-    await page.getByTestId('spec-section-supports').click();
-    await expect(page.getByTestId('fs-apply')).toBeDisabled();
+    await page.getByTestId('spec-section-surfaces').click();
+    // Nothing selected: the part says what it edits and how to choose the shells.
+    await expect(page.getByTestId('spec-empty-shells')).toBeVisible();
+    await expect(page.getByTestId('fs-apply')).toHaveCount(0);
     const before = await page.evaluate(() => window.__stabileo.modelCensus().supports);
     await page.evaluate(() => window.__stabileoActions.selectShells([]));
     await page.getByTestId('fs-source').selectOption('typed');
@@ -165,7 +167,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('pr-cmd-advanced').click();
     await page.getByTestId('modal-auto').check();
-    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await page.getByTestId('adv-run-modal').click();
     await expect(page.getByTestId('modal-auto-note')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('adv-modal-row-0')).toBeVisible();
   });
@@ -180,7 +182,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('mb-semi-i-on').check();
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('pr-cmd-advanced').click();
-    await page.getByRole('button', { name: 'Modal', exact: true }).click();
+    await page.getByTestId('adv-run-modal').click();
     await expect(page.locator('.adv-error')).toContainText(/semirrígidas|semi-rigid/);
     await expect(page.getByTestId('adv-modal-row-0')).toHaveCount(0);
     await page.getByTestId('adv-chip-timehistory').click();

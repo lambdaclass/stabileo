@@ -174,18 +174,17 @@ describe('a roof with no purlins, and what is actually missing', () => {
    * ties nodes sideways. So the diagnosis is unchanged and the test now says which restraint
    * is which instead of over-claiming about all three.
    */
-  it('is not fixed by restraining rotation about either in-plane axis', () => {
-    for (const dof of [{ rx: true }, { rz: true }] as Array<Record<string, boolean>>) {
+  /*
+   * With the latticed columns' outer faces on the truss ends (the truss bearing on the outer
+   * chord, its bottom chord joined at the inner chord head), clamping `ry` at the roof nodes no
+   * longer removes the singularity either: the in-plane rotation the old cap node allowed is
+   * gone, and what is left free is translation alone. So no rotational restraint is a fix, and
+   * the diagnosis is the plain one: the roof needs holding sideways, which purlins do.
+   */
+  it('is not fixed by restraining rotation about any axis', () => {
+    for (const dof of [{ rx: true }, { ry: true }, { rz: true }] as Array<Record<string, boolean>>) {
       expect(typeof solveRestrained(aboveHeads, dof), JSON.stringify(dof)).toBe('string');
     }
-  });
-
-  it('is fixed by clamping in-plane rotation, which no real component supplies', () => {
-    // Recorded rather than hidden: it is a genuine restraint of the mode, and leaving it out
-    // of the suite would let the next reader repeat the assumption this replaced.
-    const res = solveRestrained(aboveHeads, { ry: true });
-    expect(typeof res, typeof res === 'string' ? String(res) : '').not.toBe('string');
-    expect(maxDisplacement(res)).toBeLessThan(0.05);
   });
 
   it('the eave beams cannot supply it, which is why turning them on does not help', () => {

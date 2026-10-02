@@ -263,3 +263,20 @@ describe('mass source under the displayed axis convention', () => {
     expect(left.modal.totalMass).toBeCloseTo(left.report.totalT, 6);
   });
 });
+
+describe('stiffness modifiers', () => {
+  it('scale the stiffness a member is solved with, and leave the mass it weighs alone', () => {
+    frame();
+    const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
+    // A factor on A for stiffness: the column is solved on half its area.
+    snap.elements = snap.elements.map(([id, e]: [number, Record<string, unknown>]) => [id, id === 1 ? { ...e, stiffness: { a: 0.5, iy: 0.7, iz: 0.7 } } : e]);
+    modelStore.restore(snap);
+    const { report, modal, input } = run();
+    // The column is on a solve-only section at half the area…
+    const solvedA = input.sections.get(input.elements.get(1)!.sectionId)!.a;
+    expect(solvedA).toBeCloseTo(0.045, 12);
+    // …and still weighs its whole section, in the report and in the engine's mass matrix.
+    expect(report.totalT).toBeCloseTo(PORTAL_SELF_T, 6);
+    expect(modal.totalMass).toBeCloseTo(PORTAL_SELF_T, 6);
+  });
+});

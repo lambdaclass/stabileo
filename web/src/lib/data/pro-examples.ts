@@ -26,12 +26,14 @@
  */
 
 import { modelStore } from '../store/model.svelte';
+import { t } from '../i18n';
 import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
 import { loadCodeExample, type CodeExampleId } from '../templates/examples';
-import { PRO_EXAMPLE_FIXES } from './pro-example-fixes';
+import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
+import { localiseExampleNames } from './example-names';
 
 export type ExampleGroup =
   | 'firstSteps' | 'buildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
@@ -89,7 +91,17 @@ const GROUP_KEYS: Record<ExampleGroup, string> = {
 /** Cases that carry nothing, dropped so no combination is built over an empty action. */
 function dropEmptyCases(keep: number | undefined): void {
   const loaded = new Set(modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1));
+  const before = new Map(modelStore.combinations.map((c) => [c.id, c.factors.length]));
   for (const c of [...modelStore.model.loadCases]) if (!loaded.has(c.id) && c.id !== keep) modelStore.removeLoadCase(c.id);
+  // A combination that lost a term to a dropped case is named from what it now adds up: the
+  // offshore platform's own "U2: 1.2D + 1.6L" otherwise listed an L it no longer had.
+  const typeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type || c.name]));
+  for (const c of modelStore.combinations) {
+    if (before.get(c.id) === c.factors.length) continue;
+    const label = c.name.includes(':') ? c.name.slice(0, c.name.indexOf(':')) : c.name;
+    const terms = c.factors.map((f) => `${+f.factor.toFixed(3)}${typeOf.get(f.caseId) ?? '?'}`).join(' + ');
+    modelStore.updateCombination(c.id, { name: `${label}: ${terms}` });
+  }
 }
 
 function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined): void {
@@ -97,7 +109,7 @@ function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined):
   const gravity = { caseId: deadCase, direction: 'Z' as const, factor: -1 };
   if (rule === 'all') { modelStore.adoptAnalysis({ selfWeight: [gravity] }); return; }
   const quads = [...modelStore.quads.keys()], plates = [...modelStore.plates.keys()];
-  const groupId = modelStore.addGroup('Losa (peso propio)', 'custom', { elements: [], quads, plates } as never);
+  const groupId = modelStore.addGroup(t('pro.examples.slabWeightGroup'), 'custom', { elements: [], quads, plates } as never);
   modelStore.adoptAnalysis({ selfWeight: [{ ...gravity, groupId }] });
 }
 
@@ -119,6 +131,10 @@ async function loadExample(ex: ProExample): Promise<void> {
   else await modelStore.loadExample(ex.id);
   modelStore.batch(() => {
     PRO_EXAMPLE_FIXES[ex.id]?.();
+    declareSteelGrades();
+    // After the fixes and grades, which read the names as written; before the combinations,
+    // which are named from the cases.
+    localiseExampleNames(ex.nameKey);
     // A model written as code states its own self-weight rule; a fixture gets the example's.
     const stated = ex.source === 'code' ? modelStore.analysis?.selfWeight : undefined;
     const dead = stated?.[0]?.caseId ?? modelStore.model.loadCases.find((c) => (c.type || '').toUpperCase() === 'D')?.id;

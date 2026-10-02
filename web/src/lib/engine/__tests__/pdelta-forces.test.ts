@@ -119,4 +119,14 @@ describe('P-Delta member forces', () => {
     const base = byId(solvePDelta3DRaw(input as never).results, baseId);
     expect(Math.abs(moment(base) - exact(0)) / exact(0)).toBeLessThan(0.01);
   });
+
+  // The known gap, bounded: the engine's own moment is about 6 % off (without Kg·u), not some
+  // other failure the it.fails above would also accept.
+  it('the engine\'s own weak-axis moment is off by the geometric part alone', () => {
+    const { input, exact, baseId } = cantilever(1, false);
+    const base = byId(solvePDelta3DRaw(input as never).results, baseId);
+    const err = Math.abs(moment(base) - exact(0)) / exact(0);
+    expect(err).toBeGreaterThan(0.01);
+    expect(err).toBeLessThan(0.1);
+  });
 });

@@ -157,6 +157,11 @@ export interface RcFlowReadings {
   designUnresolved: number;
   /** Coordinated assemblies exist — `detailingStore.assemblies.length > 0`. */
   detailed: boolean;
+  /**
+   * Bar conflicts left open in those assemblies (marginal ones aside). Optional so older
+   * readings keep their meaning; absent reads as none.
+   */
+  detailingConflicts?: number;
   /** A document has been built — `detailingStore.document !== null`. */
   documented: boolean;
 }
@@ -291,7 +296,11 @@ function isComplete(id: RcStageId, r: RcFlowReadings): boolean {
         && r.designProposed === r.designApplicable
         && r.designVerified === r.designApplicable
         && r.designUnresolved === 0;
-    case 'detailing': return r.detailed;
+    /*
+     * Drawn is not done while bars run through each other: the flagship frame closed this stage
+     * with a tick over 7322 open conflicts while its sheet read NOT CONSTRUCTIBLE.
+     */
+    case 'detailing': return r.detailed && (r.detailingConflicts ?? 0) === 0;
     case 'documents': return r.detailed && r.documented;
   }
 }

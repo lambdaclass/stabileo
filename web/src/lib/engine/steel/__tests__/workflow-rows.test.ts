@@ -212,6 +212,17 @@ describe('stage 3 — section detail, and what kind of missing it is', () => {
     expect(row.blockedBy).toBeNull();
   });
 
+  it('names the scope, not a thickness to chase, for an angle or a tube', () => {
+    const L75 = { id: 2, name: 'L 75x75x6', shape: 'L', a: 8.73e-4, iy: 45.8e-8, iz: 45.8e-8, h: 0.075, b: 0.075, t: 0.006 } as unknown as RowSection;
+    const { inv, sections, sectionOf } = model(
+      [STEEL_DECLARED], [[1, L75]], [{ id: 10, materialId: 1, sectionId: 1 }],
+    );
+    const [row] = sectionRows(inv, sections, sectionOf, steelProfileSource);
+    expect(row.state).toBe('authorityBlocked');
+    expect(row.blockedBy).toBe('authority');
+    expect(row.missing.map((m) => m.key)).toEqual(['steel.rows.missing.shapeScope']);
+  });
+
   it('names each absent property on an old bare section', () => {
     /*
      * The compatibility case: a model saved before the profile catalogue existed carries a name, an

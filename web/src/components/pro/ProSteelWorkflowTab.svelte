@@ -332,6 +332,17 @@
   let documentsOpen = $state(false);
   let regOpen = $state(false);
   let limitsOpen = $state(true);
+
+  /** The missing inputs of the grade stage, grouped by kind, with how many members each holds back. */
+  const missingSummary = $derived.by(() => {
+    const byKey = new Map<string, { key: string; severity: string; whyKey: string; count: number }>();
+    for (const row of gRows) for (const d of row.missing) {
+      const cur = byKey.get(d.key) ?? { key: d.key, severity: d.severity, whyKey: d.whyKey, count: 0 };
+      cur.count++;
+      byKey.set(d.key, cur);
+    }
+    return [...byKey.values()];
+  });
 </script>
 
 <div class="steel-workflow" data-testid="pro-steel-workflow">
@@ -420,6 +431,23 @@
           One row per member. A count told a user how many were unresolved; this tells them WHICH,
           and what is missing from each — which is the part a number cannot carry.
         -->
+        <!--
+          What is missing, once per kind with how many members it holds back and why it matters;
+          each row below then names its gaps without the sentence. The sentence repeated under
+          every member made a wall of the same paragraph on any model without grades.
+        -->
+        {#if missingSummary.length > 0}
+          <ul class="missing-summary" data-testid="steel-grade-missing-summary">
+            {#each missingSummary as m (m.key)}
+              <li>
+                <strong>{t(m.key)}</strong>
+                <span class="sev">{t(`steel.rows.severity.${m.severity}`)}</span>
+                <span class="count">{tp('steel.rows.membersCount', { n: m.count })}</span>
+                <span>{t(m.whyKey)}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
         <table class="rows" data-testid="steel-grade-rows">
           <thead>
             <tr>
@@ -436,7 +464,7 @@
                 <td>
                   <span class="id">#{row.elementId}</span>
                   <span class="name">{row.memberName}</span>
-                  <span class="fam">{row.family}</span>
+                  <span class="fam">{t(`steel.family.${row.family}`)}</span>
                   {#if row.familyCaveatKey}
                     <!-- Inferred, and said so: a family shown without its caveat is a guess made fact. -->
                     <span class="caveat" data-testid={`steel-grade-inferred-${row.elementId}`}
@@ -469,7 +497,6 @@
                         <li>
                           <strong>{t(d.key)}</strong>
                           <span class="sev">{t(`steel.rows.severity.${d.severity}`)}</span>
-                          <span>{t(d.whyKey)}</span>
                         </li>
                       {/each}
                     </ul>
@@ -707,11 +734,10 @@
         <dd data-testid="steel-results-missing">{t('steel.workflow.results.missingData')}</dd>
         <dt>{t('steel.workflow.results.humanTitle')}</dt>
         <dd data-testid="steel-results-human">{t('steel.workflow.results.human')}</dd>
-        <!-- The two specific departures the clause mapping found, named where a reader will look. -->
+        <!-- The departure the clause mapping found, named where a reader will look. The second one,
+             the Mp ≤ 1,5·My cap of F.2.1, is applied now and left this list. -->
         <dt>{t('steel.workflow.results.aeTitle')}</dt>
         <dd data-testid="steel-results-ae">{t('steel.workflow.results.ae')}</dd>
-        <dt>{t('steel.workflow.results.capTitle')}</dt>
-        <dd data-testid="steel-results-cap">{t('steel.workflow.results.cap')}</dd>
       </dl>
 
       <!--
@@ -776,6 +802,9 @@
 </div>
 
 <style>
+  .missing-summary { margin: 4px 0 6px; padding-left: 16px; font-size: 0.64rem; color: var(--st-text-2); }
+  .missing-summary li { margin: 2px 0; }
+  .missing-summary .count { margin: 0 4px; color: var(--st-text-3); }
   .steel-workflow { display: flex; flex-direction: column; gap: 0.4rem; }
   .line { font-size: 0.75rem; margin: 0; color: var(--st-text); }
   .list, .blockers { list-style: none; margin: 0; padding: 0; font-size: 0.72rem; }

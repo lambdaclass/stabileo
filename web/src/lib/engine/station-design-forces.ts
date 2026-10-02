@@ -28,7 +28,8 @@ import {
   requiredVsForTable, type TransverseSpacingLimits,
 } from '../codes/cirsoc201/transverse-spacing';
 import type { RegulationEdition } from '../codes/regulation';
-import { REBAR_DB, classifyElement } from './codes/argentina/cirsoc201';
+import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../codes/cirsoc201/anchorage';
+import { REBAR_DB, classifyElement, slenderMinimumMoment } from './codes/argentina/cirsoc201';
 // Axis resolution + the shared utilization convention. Both modules import only
 // TYPES from this file, so there is no runtime import cycle.
 import {
@@ -396,6 +397,7 @@ export function resolveBarGroups(
  * @param regionLength Available anchorage length (m)
  * @param fc f'c (MPa)
  * @param fy fy (MPa)
+ * @param conditions Tabla 25.4.2.3 row and ψt for this face (`requiredLd`); absent, the long ones
  * @returns { layers, area, allAnchored, anchorageIssues }
  */
 export function continuingGroupsInto(
@@ -403,6 +405,7 @@ export function continuingGroupsInto(
   direction: 'start' | 'end',
   regionLength: number,
   fc: number, fy: number,
+  conditions: DevelopmentConditions = {},
 ): { layers: RebarLayer[]; area: number; groups: LongBarGroup[]; anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> } {
   const continuing: LongBarGroup[] = [];
   const anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> = [];
@@ -413,7 +416,7 @@ export function continuingGroupsInto(
 
     const maxDia = Math.max(...g.layers.map(l => l.diameter), 0);
     if (maxDia === 0) continue;
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = (direction === 'start' ? g.extensionStart : g.extensionEnd) ?? regionLength;
     const anchorType = direction === 'start' ? g.anchorageStart : g.anchorageEnd;
@@ -450,11 +453,71 @@ export function continuingGroupsInto(
 
 // ─── Development Length / Anchorage ──────────────────────
 
-/** Required development length per CIRSOC 201 §12.2.3 simplified. */
-export function requiredLd(barDia: number, fc: number, fy: number): number {
-  const db = barDia / 1000; // mm → m
-  const ldCalc = (fy * db) / (4 * 0.8 * Math.sqrt(fc)); // α=β=λ=1.0
-  return Math.max(ldCalc, 0.3); // minimum 300mm per §12.2.1
+/**
+ * What the caller knows about a bar being developed, for Tabla 25.4.2.3 and §25.4.2.5.
+ *
+ * Both default to the conservative answer, because only the caller knows the layout.
+ */
+export interface DevelopmentConditions {
+  /**
+   * The first row of Tabla 25.4.2.3 — clear spacing and cover — has been ESTABLISHED for these
+   * bars (`favourableRowHolds`). Absent or false takes the «other cases» row, half as long again.
+   * `deriveDevelopment` refuses to default it: assuming it silently shortens every anchorage by
+   * a third.
+   */
+  favourableSpacing?: boolean;
+  /** Fresh concrete cast below the bar, m; more than 300 mm makes it a top bar, ψt = 1,3. */
+  concreteBelowM?: number;
+}
+
+/** Required development length, Tabla 25.4.2.3 with §25.4.2.1(b)'s 300 mm floor. */
+export function requiredLd(barDia: number, fc: number, fy: number, conditions: DevelopmentConditions = {}): number {
+  /*
+   * Tabla 25.4.2.3 through `deriveDevelopment`, the same source the detailing and the drawings
+   * read. This was the 2005 fy·db/(3,2·√f'c), about half the table: 0,42 m for a Ø16 in H-25
+   * against 0,64 m, which let a curtailed group count in a region it does not reach and passed
+   * anchorages the drawings then lengthened.
+   *
+   * It then took the favourable row and ψt = 1 for every bar. A top Ø16 in a 50 cm beam with
+   * nothing known about its spacing needs 420·1,3/(1,4·√25)·16 = 1,25 m, not 0,64 m: the row
+   * and ψt are now the caller's to establish, and absent they are the conservative ones.
+   */
+  return deriveDevelopment({
+    diameterMm: barDia, fy, fc,
+    favourableSpacing: conditions.favourableSpacing === true,
+    psiT: topBarFactor(conditions.concreteBelowM ?? 0),
+    edition: '2025',
+  }).ldM;
+}
+
+/**
+ * Whether the first row of Tabla 25.4.2.3 holds for a face's bars, from the layout itself.
+ *
+ * The row asks for clear cover ≥ db AND either clear spacing ≥ 2·db, or clear spacing ≥ db with
+ * stirrups throughout ld at no less than the code minimum (§9.6.3.4: Av/s ≥ 0,062·√f'c·bw/fyt
+ * and 0,35·bw/fyt; §9.7.6.2.2: s ≤ d/2). The spacing is the one the bars actually get spread
+ * across the width (`checkRowFit`), the clear cover is to the bar (cover + stirrup), and the
+ * stirrups are every set the bars cross. A row that does not fit, or a missing stirrup set,
+ * leaves the «other cases» row.
+ */
+export function favourableRowHolds(
+  layers: RebarLayer[], section: { b: number; cover: number; stirrupDia: number; fc: number; fy: number },
+  stirrups: ReadonlyArray<StirrupDef | undefined>, d: number,
+): boolean {
+  if (layers.length === 0) return false;
+  const clearCover = section.cover + section.stirrupDia / 1000;
+  const avMin = Math.max(0.062 * Math.sqrt(section.fc), 0.35) * section.b / section.fy; // m²/m
+  const stirrupsAtMinimum = stirrups.length > 0 && stirrups.every((st) => {
+    if (!st || !(st.spacing > 0)) return false;
+    const av = st.legs * Math.PI * (st.diameter / 1000) ** 2 / 4;
+    return av / st.spacing >= avMin - 1e-12 && st.spacing <= d / 2 + 1e-9;
+  });
+  return checkRowFit(layers, section.b, section.cover, section.stirrupDia).rows.every((r) => {
+    const db = r.diameter / 1000;
+    if (!r.fits || clearCover < db - 1e-9) return false;
+    const spacing = r.count > 1 ? r.clearSpacing : Number.POSITIVE_INFINITY;
+    return spacing >= 2 * db - 1e-9 || (stirrupsAtMinimum && spacing >= db - 1e-9);
+  });
 }
 
 /** Required hooked development length per CIRSOC 201 §12.5. */
@@ -492,6 +555,7 @@ export function checkBeamAnchorage(
   topStartLayers: RebarLayer[], topEndLayers: RebarLayer[], bottomLayers: RebarLayer[],
   tStartEnd: number, tEndStart: number, L: number,
   fc: number, fy: number,
+  conditions: { top?: DevelopmentConditions; bottom?: DevelopmentConditions } = {},
 ): AnchorageCheck[] {
   const checks: AnchorageCheck[] = [];
   const cont = continuity ?? {};
@@ -503,7 +567,7 @@ export function checkBeamAnchorage(
   // Bottom bars into start support
   if (bIntoS && bottomLayers.length > 0) {
     const maxDia = Math.max(...bottomLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.bottom);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = cont.ldStart ?? tStartEnd * L; // user-specified or region length
     checks.push({
@@ -518,7 +582,7 @@ export function checkBeamAnchorage(
   // Bottom bars into end support
   if (bIntoE && bottomLayers.length > 0) {
     const maxDia = Math.max(...bottomLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.bottom);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = cont.ldEnd ?? (1 - tEndStart) * L;
     checks.push({
@@ -533,7 +597,7 @@ export function checkBeamAnchorage(
   // Top start bars into span
   if (tsIntoSpan && topStartLayers.length > 0) {
     const maxDia = Math.max(...topStartLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.top);
     const ldh = requiredLdh(maxDia, fc, fy);
     // Available: how far top bars extend past the start region boundary into span
     // Conservative: assume they extend to midspan from the boundary
@@ -550,7 +614,7 @@ export function checkBeamAnchorage(
   // Top end bars into span
   if (teIntoSpan && topEndLayers.length > 0) {
     const maxDia = Math.max(...topEndLayers.map(l => l.diameter));
-    const ld = requiredLd(maxDia, fc, fy);
+    const ld = requiredLd(maxDia, fc, fy, conditions.top);
     const ldh = requiredLdh(maxDia, fc, fy);
     const avail = (tEndStart - tStartEnd) * L * 0.5;
     checks.push({
@@ -1311,27 +1375,51 @@ export function computeFlexureCapacity(
 export function computeShearCapacity(
   stirrupDia: number, legs: number, spacing: number,
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
-): { phiVn: number; phiVc: number; VsProv: number; phi: number } {
+  /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
+  opts: { Ag?: number; rhoW?: number } = {},
+): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean } {
   const phi = 0.75; // φ for shear per CIRSOC 201
+  /*
+   * CIRSOC 201-2025, the way the code writes it (it read the 2005 expressions):
+   *
+   *   Av ≥ Av,min (9.6.3.4):  Vc = [0,17·√f'c + Nu/(6·Ag)]·bw·d                    Tabla 22.5.5.1 (a)
+   *   Av < Av,min:            Vc = [0,66·λs·ρw^⅓·√f'c + Nu/(6·Ag)]·bw·d            Tabla 22.5.5.1 (c)
+   *                           λs = √(2/(1 + 0,004·d)) ≤ 1, d in mm
+   *   0 ≤ Vc ≤ 0,42·√f'c·bw·d,  Nu/(6·Ag) ≤ 0,05·f'c
+   *   Av,min = max(0,062·√f'c, 0,35)·bw·s/fyt
+   *   Vs ≤ 0,66·√f'c·bw·d, the section limit of §22.5.1.2.
+   *
+   * Without the section limit a 20×40 H-20 beam with Ø12 4 legs c/5 was certified for 700 kN
+   * where the section takes about 197; without Av,min and row (c) a 30×60 H-30 with Ø6 c/25
+   * passed at 0,77 where it fails.
+   */
+  const bw = b * 1000, dmm = d * 1000;              // mm
+  const Ag = (opts.Ag ?? b * d) * 1e6;              // mm²
+  const sq = Math.sqrt(fc);
+  const axial = Math.min(Nu * 1000 / (6 * Ag), 0.05 * fc); // MPa, compression positive
 
-  // Vc = (1/6)·√f'c·bw·d (kN)
-  const Ag = b * d * 1000; // approximate for Vc modification (m² → use b*h ideally)
-  const Vc0 = (1 / 6) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000;
-  let Vc: number;
-  if (Nu > 0) {
-    Vc = (1 + Nu / (14 * b * d * 1000)) * Vc0; // simplified Ag = b*d for beam
-  } else if (Nu < 0) {
-    Vc = Math.max(0, (1 + 0.3 * Nu / (b * d * 1000)) * Vc0);
-  } else {
-    Vc = Vc0;
-  }
-  const phiVc = phi * Vc;
-
-  // Vs from provided stirrups: Vs = (Av · fy · d) / s
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
   const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
   const Av = legs * legArea; // cm²
-  const VsProv = (Av / spacing) * fy * d / 10; // kN (Av in cm², spacing in m, fy MPa, d m)
+  const AvMin = Math.max(0.062 * sq, 0.35) * bw * (spacing * 1000) / fy / 100; // cm²
+  const avBelowMin = Av < AvMin;
+
+  let vc: number; // MPa
+  if (avBelowMin) {
+    const lambdaS = Math.min(1, Math.sqrt(2 / (1 + 0.004 * dmm)));
+    const rhoW = Math.max(0, opts.rhoW ?? 0);
+    vc = 0.66 * lambdaS * Math.cbrt(rhoW) * sq + axial;
+  } else {
+    vc = 0.17 * sq + axial;
+  }
+  vc = Math.min(Math.max(vc, 0), 0.42 * sq);
+  const Vc = vc * bw * dmm / 1000; // kN
+  const phiVc = phi * Vc;
+
+  const VsRaw = (Av / spacing) * fy * d / 10; // kN (Av in cm², spacing in m, fy MPa, d m)
+  const VsMax = 0.66 * sq * bw * dmm / 1000;
+  const capped = VsRaw > VsMax;
+  const VsProv = Math.min(VsRaw, VsMax);
 
   const phiVn = phi * (Vc + VsProv);
 
@@ -1339,7 +1427,7 @@ export function computeShearCapacity(
     phiVn: +phiVn.toFixed(2),
     phiVc: +phiVc.toFixed(2),
     VsProv: +VsProv.toFixed(2),
-    phi,
+    phi, avBelowMin, capped,
   };
 }
 
@@ -1393,6 +1481,8 @@ export function computeColumnCapacity(
   const b1 = beta1(fc);
   const NuAbs = Math.abs(Nu);
   const MuAbs = Math.abs(Mu);
+  /** Compression positive. Below this (a negative number) the section cannot carry the tension. */
+  let phiPtMax = -Infinity;
   const sectionDepth = axis === 'z' ? h : b;
   const sectionWidth = axis === 'z' ? b : h;
 
@@ -1445,28 +1535,38 @@ export function computeColumnCapacity(
       return { N: Cc + Nsteel, M: Mc + Msteel, epsTmax: Math.abs(epsTmax) };
     }
 
-    // Find c that gives N = NuAbs (bisection)
-    // Search range: c from 0.01·h to 5·h
+    /*
+     * The point of the design curve where φ(c)·Pn(c) = Pu, and φ·Mn there.
+     *
+     * This solved Pn(c) = Pu, the NOMINAL curve, then took φ·Mn at that c. The design curve is
+     * φPn, so the point sat at a smaller c than it should, where Mn is larger: on a 30×30 with
+     * 8Ø16 in H-25 it gave 71,7 kN·m at Pu = 1200 kN against a correct 47,7.
+     *
+     * Pu carries its sign (compression positive): a column in tension was checked as if the same
+     * force compressed it, and read the same capacity. In tension the bisection finds the c at
+     * which the section, cracked through most of its depth, carries that tension.
+     *
+     * φ follows CIRSOC 201-2025 Tabla 21.2.2: 0,65 up to εty, 0,90 from εty + 0,003.
+     */
+    const epsY = fy / 200000;
+    const epsTC = epsY + 0.003;
+    const phiOf = (epsT: number) => epsT >= epsTC ? 0.9 : epsT >= epsY ? 0.65 + 0.25 * (epsT - epsY) / (epsTC - epsY) : 0.65;
+    const phiN = (c: number) => { const f = sectionForces(c); return phiOf(f.epsTmax) * f.N; };
     let cLow = 0.001;
     let cHigh = sectionDepth * 5;
-    const targetN = NuAbs; // kN (compression positive)
-    for (let iter = 0; iter < 50; iter++) {
+    const targetN = Math.min(Nu, phiPn); // kN, compression positive; the axial cap is checked below
+    for (let iter = 0; iter < 60; iter++) {
       const cMid = (cLow + cHigh) / 2;
-      const { N } = sectionForces(cMid);
-      if (N < targetN) cLow = cMid;
+      if (phiN(cMid) < targetN) cLow = cMid;
       else cHigh = cMid;
-      if (Math.abs(cHigh - cLow) < 0.0001) break;
+      if (Math.abs(cHigh - cLow) < 1e-5) break;
     }
     const cSolved = (cLow + cHigh) / 2;
     cNeutral = +cSolved.toFixed(4);
     const result = sectionForces(cSolved);
-
-    // φ from max tension strain
-    const epsY = fy / 200000;
-    let phi: number;
-    if (result.epsTmax >= 0.005) phi = 0.9;
-    else if (result.epsTmax >= epsY) phi = 0.65 + 0.25 * (result.epsTmax - epsY) / (0.005 - epsY);
-    else phi = 0.65;
+    const phi = phiOf(result.epsTmax);
+    // The tension the section can carry at all: every bar yielded, φ = 0,90 (compression positive).
+    phiPtMax = -0.9 * fy_kPa * barData.reduce((sum, bd) => sum + bd.area_m2, 0);
 
     phiMn = phi * Math.abs(result.M);
   } else {
@@ -1482,11 +1582,16 @@ export function computeColumnCapacity(
     // Direct capacity check: φMn IS the moment capacity at the applied Nu.
     // Check Mu ≤ φMn(Nu). The ratio is capacity/demand (≥1 = OK).
     // Also check Nu ≤ φPn (axial limit).
-    if (NuAbs > phiPn + 0.1) {
+    if (Nu > phiPn + 0.1) {
       // Axial overload — section fails regardless of moment
       ratio = phiPn > 0.01 ? +(phiPn / NuAbs).toFixed(3) : 0;
+    } else if (Nu < phiPtMax - 0.1) {
+      // Tension beyond what the yielded bars carry
+      ratio = +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else if (MuAbs < 0.01) {
-      ratio = phiPn > 0.01 ? +(phiPn / NuAbs).toFixed(3) : 999;
+      ratio = Nu >= 0
+        ? (phiPn > 0.01 ? +(phiPn / Math.max(NuAbs, 1e-9)).toFixed(3) : 999)
+        : +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else {
       // Direct: capacity/demand for moment at this axial load
       ratio = phiMn > 0.01 ? +(phiMn / MuAbs).toFixed(3) : 0;
@@ -1581,6 +1686,20 @@ export function computeBiaxialCapacity(
     // Uniaxial eccentric capacity: φPn at eccentricity e = Mu/Nu
     // For strain-compatible: if Mn(c@Nu) ≥ Mu, section is adequate → φPnx = Nu
     // Otherwise: φPnx = Nu · (φMn / Mu) — ratio of capacity to demand
+    if (Nu <= 0.01) {
+      /*
+       * Bresler's reciprocal load is a compression method. Under tension (or no axial force) the
+       * two moments are checked on the load contour at that axial force, linearly:
+       * Muz/φMnz + Muy/φMny ≤ 1, with each φMn taken where φPn equals the (signed) Nu.
+       */
+      const demand = (Muz > 0.01 ? Muz / Math.max(capZ.phiMn, 1e-9) : 0) + (Muy > 0.01 ? Muy / Math.max(capY.phiMn, 1e-9) : 0);
+      const axial = Nu < -0.01 ? 1 / Math.max(capZ.ratio, 1e-9) : 0;
+      const d = Math.max(demand, axial);
+      const ratio = d > 1e-6 ? +(1 / d).toFixed(3) : 999;
+      let status: 'ok' | 'warn' | 'fail' = 'ok';
+      if (!rhoOk) status = 'fail'; else if (ratio < 1.0) status = 'fail'; else if (ratio < 1.18) status = 'warn';
+      return { phiPn: +phiPn0.toFixed(1), phiPn0: +phiPn0.toFixed(1), phiPnx: 0, phiPny: 0, ratio, rhoPercent, rhoOk, method: 'bresler', geometryAware, strainCompatible, status };
+    }
     phiPnx = (Muz > 0.01 && capZ.phiMn > 0.01) ? Nu * (capZ.phiMn / Muz) : phiPn0;
     phiPny = (Muy > 0.01 && capY.phiMn > 0.01) ? Nu * (capY.phiMn / Muy) : phiPn0;
     // Clamp to phiPn0
@@ -1849,13 +1968,31 @@ export function verifyProvidedReinforcement(
     const endRegLen = (1 - tEndStart) * beamL;
     const spanHalfLen = (tEndStart - tStartEnd) * beamL * 0.5;
 
-    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy);
-    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy);
-    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy);
+    /*
+     * Tabla 25.4.2.3's row and §25.4.2.5's ψt, per face, from the layout this check holds: the
+     * favourable row only where `favourableRowHolds` establishes it across both stirrup sets
+     * the bars cross, and ψt = 1,3 for top bars with more than 300 mm of concrete cast below.
+     * The section here is flex-rotated, so `h` is the depth the top face is measured across.
+     */
+    const stirrupsCrossed = [stirSupport, stirSpan];
+    const maxDiaOf = (ls: RebarLayer[]) => Math.max(0, ...ls.map((l) => l.diameter));
+    const bottomDev: DevelopmentConditions = {
+      favourableSpacing: favourableRowHolds(bottomLayers, section, stirrupsCrossed, dBottom),
+    };
+    const topDev = (ls: RebarLayer[], dTop: number): DevelopmentConditions => ({
+      favourableSpacing: favourableRowHolds(ls, section, stirrupsCrossed, dTop),
+      concreteBelowM: concreteBelowTopBars(section.h, section.cover, section.stirrupDia, maxDiaOf(ls)),
+    });
+    const topStartDev = topDev(topStartLayers, dTopStart);
+    const topEndDev = topDev(topEndLayers, dTopEnd);
+
+    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy, bottomDev);
+    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy, bottomDev);
+    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy, topStartDev);
     // End-side top continuation into the span: used by the opposite-sign sweep
     // below (hogging demand in the span). Its anchorage issues are intentionally
     // not merged — the anchorage report above keeps its previous coverage.
-    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy);
+    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy, topEndDev);
 
     const allAnchIssues = [...botIntoStartResult.anchorageIssues, ...botIntoEndResult.anchorageIssues, ...topIntoSpanResult.anchorageIssues];
     for (const issue of allAnchIssues) {
@@ -2109,9 +2246,14 @@ export function verifyProvidedReinforcement(
     }
 
     // ─── Shear: support and span regions, on the GOVERNING shear axis ───
-    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number] }> = [
-      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd] },
-      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] },
+    // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
+    // end, conservatively), the bottom along the span.
+    const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
+    const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
+    const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
+    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
+      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
+      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
     ];
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
@@ -2127,7 +2269,8 @@ export function verifyProvidedReinforcement(
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
-        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n);
+        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n,
+          { Ag: section.b * section.h, rhoW: ss.rhoW });
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
       }
@@ -2270,50 +2413,74 @@ export function verifyProvidedReinforcement(
       let worst: {
         util: number; phiMn: number; Nu: number; Mprim: number; Msec: number; phiPn: number;
         biaxial: boolean; geo: boolean; sc: boolean; comboName: string; stationX: number; cN?: number;
+        minMoment: boolean;
       } | null = null;
       let count = 0;
       for (const t of allTuples) {
-        const Nu = Math.abs(t.n);
-        const Mprim = Math.abs(tupleMoment(t, axes.flexure)) * deltaNs;
-        const Msec = Math.abs(tupleMoment(t, axes.secondaryFlexure)) * deltaNs;
-        if (Nu < 0.01 && Mprim < 0.01 && Msec < 0.01) continue;
+        // Compression positive: the solver's n is positive in tension. The column check read
+        // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
+        const Nu = -t.n;
+        const Mp0 = Math.abs(tupleMoment(t, axes.flexure));
+        const Ms0 = Math.abs(tupleMoment(t, axes.secondaryFlexure));
+        if (Math.abs(Nu) < 0.01 && Mp0 * deltaNs < 0.01 && Ms0 * deltaNs < 0.01) continue;
         count++;
-        const isBiax = Mprim > 0.1 && Msec > 0.1;
-        // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
-        // invert to the demand/capacity convention used across the design surface.
-        let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
-        if (isBiax) {
-          // The section arrives flex-rotated (b=bFlex, h=hFlex): the PRIMARY axis
-          // always bends over depth h, the SECONDARY axis over depth b — same
-          // mapping as the uniaxial branch below (primary→'z', secondary→'y'),
-          // NOT moment-name→axis. computeBiaxialCapacity internally pairs Muz
-          // with depth h (capAxis 'z') and Muy with depth b (capAxis 'y'), so Muz
-          // must carry the PRIMARY moment and Muy the SECONDARY one regardless of
-          // which of My/Mz happens to be primary. Forwarding by name (muy=My,
-          // muz=Mz) was only correct when Mz was primary; when My was primary
-          // both moments hit the wrong bending depth.
-          const muz = Mprim;
-          const muy = Msec;
-          const cap = computeBiaxialCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, muy, muz, colBars);
-          util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
-          phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
+        /*
+         * §6.6.4.5.4: a slender column's M2 is at least M2,min = Pu·(15 mm + 0.03·h), «about each
+         * axis separately» — the commentary is explicit that the minimum is not applied about
+         * both axes at once. So a slender tuple is checked twice, with the minimum on the primary
+         * axis (depth h of the flex-rotated section) and then on the secondary one (depth b), and
+         * the worse governs. Without it a column with no end moment was magnified from zero: a
+         * pin-ended 6 m 30×30 at 680 kN, δns ≈ 5.3, passed as pure compression while
+         * `checkSlender`, the report's path, asked for Mc = δns·M2,min and failed it.
+         * `slenderMinimumMoment` is the one both read. δns > 1 is what tells this path the column is slender; a slender column
+         * whose δns clamps to exactly 1 (Cm well below 1, light axial) is not reached by it.
+         */
+        const cases: Array<{ Mprim: number; Msec: number; minMoment: boolean }> = [];
+        if (deltaNs > 1 && Nu > 0) {
+          const minP = slenderMinimumMoment(Nu, section.h), minS = slenderMinimumMoment(Nu, section.b);
+          cases.push({ Mprim: Math.max(Mp0, minP) * deltaNs, Msec: Ms0 * deltaNs, minMoment: minP > Mp0 });
+          if (minS > Ms0) cases.push({ Mprim: Mp0 * deltaNs, Msec: minS * deltaNs, minMoment: true });
         } else {
-          const Mu = Math.max(Mprim, Msec);
-          // The section arrives flex-rotated (b=bFlex, h=hFlex): a moment on the
-          // primary axis bends over h, a moment on the secondary axis bends over
-          // b. computeColumnCapacity takes depth=h for 'z' and depth=b for 'y',
-          // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
-          // which inverted the depth for My-governed rectangular columns and
-          // over-estimated φMn (checked at the strong axis) by ~2x.
-          const primaryIsLarger = Mprim >= Msec;
-          const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
-          const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
-          const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
-          util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
-          phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
+          cases.push({ Mprim: Mp0 * deltaNs, Msec: Ms0 * deltaNs, minMoment: false });
         }
-        if (!worst || util > worst.util) {
-          worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN };
+        for (const { Mprim, Msec, minMoment } of cases) {
+          const isBiax = Mprim > 0.1 && Msec > 0.1;
+          // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
+          // invert to the demand/capacity convention used across the design surface.
+          let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
+          if (isBiax) {
+            // The section arrives flex-rotated (b=bFlex, h=hFlex): the PRIMARY axis
+            // always bends over depth h, the SECONDARY axis over depth b — same
+            // mapping as the uniaxial branch below (primary→'z', secondary→'y'),
+            // NOT moment-name→axis. computeBiaxialCapacity internally pairs Muz
+            // with depth h (capAxis 'z') and Muy with depth b (capAxis 'y'), so Muz
+            // must carry the PRIMARY moment and Muy the SECONDARY one regardless of
+            // which of My/Mz happens to be primary. Forwarding by name (muy=My,
+            // muz=Mz) was only correct when Mz was primary; when My was primary
+            // both moments hit the wrong bending depth.
+            const muz = Mprim;
+            const muy = Msec;
+            const cap = computeBiaxialCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, muy, muz, colBars);
+            util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
+            phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
+          } else {
+            const Mu = Math.max(Mprim, Msec);
+            // The section arrives flex-rotated (b=bFlex, h=hFlex): a moment on the
+            // primary axis bends over h, a moment on the secondary axis bends over
+            // b. computeColumnCapacity takes depth=h for 'z' and depth=b for 'y',
+            // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
+            // which inverted the depth for My-governed rectangular columns and
+            // over-estimated φMn (checked at the strong axis) by ~2x.
+            const primaryIsLarger = Mprim >= Msec;
+            const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
+            const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
+            const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
+            util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
+            phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
+          }
+          if (!worst || util > worst.util) {
+            worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN, minMoment };
+          }
         }
       }
       if (worst) {
@@ -2324,7 +2491,7 @@ export function verifyProvidedReinforcement(
           ? `Biaxial P-M (Bresler, ${axes.flexure}+${axes.secondaryFlexure})`
           : `Uniaxial P-M (${axes.flexure})`;
         const geoTag = worst.sc ? ' [strain-compat]' : worst.geo ? ' [bar-geom]' : '';
-        const slenderTag = deltaNs > 1.0001 ? ` [δns=${deltaNs.toFixed(3)}]` : '';
+        const slenderTag = deltaNs > 1.0001 ? ` [δns=${deltaNs.toFixed(3)}${worst.minMoment ? ', M2,min' : ''}]` : '';
         const Mu = Math.max(worst.Mprim, worst.Msec);
         pushStrength({
           category: methodLabel, demandCategory: 'N_compression',
@@ -2381,6 +2548,10 @@ export function verifyProvidedReinforcement(
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
       const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
+      // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
+      // the sides), over the gross section; used only where the ties are below Av,min.
+      const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
+      const colRhoW = colArea / 3 / (section.b * section.h * 1e4);
       const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
         { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
@@ -2396,7 +2567,8 @@ export function verifyProvidedReinforcement(
           if (!provided.stirrups) continue;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n);
+          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n,
+            { Ag: section.b * section.h, rhoW: colRhoW });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }

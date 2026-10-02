@@ -1,16 +1,19 @@
 <script lang="ts">
+  import PickKind from './PickKind.svelte';
+  import ProLoadCases from './ProLoadCases.svelte';
+  import ProCombinationsList from './ProCombinationsList.svelte';
   import { windCaseReversible } from '../../lib/store/wind-reversal';
-  import ProAnalysisRules from './ProAnalysisRules.svelte';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
-  import ProCombinationRules from './ProCombinationRules.svelte';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
   import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
-  import { modelStore, uiStore, resultsStore } from '../../lib/store';
-  import type { LoadCaseType } from '../../lib/store/model.svelte';
-  import { t } from '../../lib/i18n';
+  import { modelStore, uiStore } from '../../lib/store';
+  import { t, tp } from '../../lib/i18n';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
@@ -25,41 +28,6 @@
    * table kept its own, so a load drawn in the viewport went to Basic's case, not the one chosen
    * here.
    */
-
-  // Load visibility toggle per case
-  function isCaseVisible(caseId: number): boolean {
-    const vis = uiStore.visibleLoadCases3D;
-    return vis === null || vis.includes(caseId);
-  }
-
-  function toggleCaseVisibility(caseId: number) {
-    const current = uiStore.visibleLoadCases3D;
-    if (current === null) {
-      // Currently showing all → hide this one (show all except this)
-      uiStore.visibleLoadCases3D = loadCases.map(lc => lc.id).filter(id => id !== caseId);
-    } else {
-      if (current.includes(caseId)) {
-        const next = current.filter(id => id !== caseId);
-        uiStore.visibleLoadCases3D = next;
-      } else {
-        const next = [...current, caseId];
-        // If all cases are visible, reset to null (show all)
-        uiStore.visibleLoadCases3D = next.length >= loadCases.length ? null : next;
-      }
-    }
-    // Ensure loads are shown
-    uiStore.showLoads3D = true;
-  }
-
-  function showAllCases() {
-    uiStore.visibleLoadCases3D = null;
-    uiStore.showLoads3D = true;
-    uiStore.hideLoadsWithDiagram = false;
-  }
-
-  function hideAllCases() {
-    uiStore.visibleLoadCases3D = [];
-  }
 
   // Nodal load fields
   let nlNodeId = $state('');
@@ -96,13 +64,6 @@
   let tqDtUniform = $state('');
   let tqDtGradient = $state('');
 
-  // New load case fields
-  let newCaseName = $state('');
-  let newCaseType = $state<LoadCaseType>('');
-
-  // New combination fields
-  let newComboName = $state('');
-
   const loads = $derived(modelStore.loads);
   const loadCases = $derived(modelStore.model.loadCases);
   const combinations = $derived(modelStore.model.combinations);
@@ -114,16 +75,6 @@
   const pointLoads = $derived(caseLoads.filter(l => l.type === 'pointOnElement3d'));
   const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
   const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
-
-  /** Select all loads belonging to a given load case in the viewport.
-   *  selectedLoads holds load data ids — assign the whole set once. */
-  function selectLoadsByCase(caseId: number) {
-    uiStore.selectMode = 'loads';
-    uiStore.clearSelection();
-    uiStore.selectedLoads = new Set(
-      modelStore.loads.filter(l => (l.data.caseId ?? 1) === caseId).map(l => l.data.id),
-    );
-  }
 
   /** Select a load in the viewport by its data.id. */
   function selectLoadById(dataId: number) {
@@ -137,16 +88,6 @@
   function isLoadSelected(dataId: number): boolean {
     return uiStore.selectedLoads.has(dataId);
   }
-
-  const caseTypeLabels = $derived<Record<string, string>>({
-    'D': t('pro.caseTypeD'),
-    'L': t('pro.caseTypeL'),
-    'W': t('pro.caseTypeW'),
-    'E': t('pro.caseTypeE'),
-    'S': t('pro.caseTypeS'),
-    'T': t('pro.caseTypeT'),
-    '': t('pro.caseTypeOther'),
-  });
 
   function addNodalLoad() {
     const nodeId = parseInt(nlNodeId);
@@ -252,29 +193,6 @@
     uiStore.deleteSelectedLoad(loadId);
   }
 
-  function addLoadCase() {
-    if (!newCaseName.trim()) return;
-    const id = modelStore.addLoadCase(newCaseName.trim(), newCaseType);
-    uiStore.activeLoadCaseId = id;
-    newCaseName = '';
-    newCaseType = '';
-  }
-
-  function removeLoadCase(id: number) {
-    modelStore.removeLoadCase(id);
-    if (uiStore.activeLoadCaseId === id) {
-      uiStore.activeLoadCaseId = loadCases[0]?.id ?? 1;
-    }
-  }
-
-  function addCombination() {
-    if (!newComboName.trim()) return;
-    // Default: all cases ×1.0
-    const factors = loadCases.map(lc => ({ caseId: lc.id, factor: 1.0 }));
-    modelStore.addCombination(newComboName.trim(), factors);
-    newComboName = '';
-  }
-
   // ─── Combination Generator with Review Modal ──────────
 
   type ComboTemplate = 'lrfd' | 'service' | 'project';
@@ -294,8 +212,14 @@
   let activeTemplate = $state<ComboTemplate>('lrfd');
   const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
   const hasSeismicCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'E'));
-  /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
-  let bothSenses = $state(true);
+  /**
+   * Earthquake in both senses by sign, on by default: a seismic case reversed is the same
+   * action the other way. Wind by sign is off by default: the code's wind cases already hold
+   * each direction as a case of its own, and a roof suction times −1 is a pressure that never
+   * acts. It is there for a wind case loaded by hand in one sense (`combination-cases.ts`).
+   */
+  let seismicBothSenses = $state(true);
+  let windBySign = $state(false);
 
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
@@ -333,7 +257,7 @@
       ? generateServiceCombinations({ present })
       : generateCombinations({ present });
     const out = expandCombinations(specs, cases, {
-      bothSenses: { W: bothSenses, E: bothSenses },
+      bothSenses: { W: windBySign, E: seismicBothSenses },
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
       reversible: (id) => windCaseReversible(modelStore.model, id),
     }).map((c) => {
@@ -374,25 +298,6 @@
     uiStore.toast(`${toAdd.length} ${label}`, 'success');
   }
 
-  function removeCombination(id: number) {
-    modelStore.removeCombination(id);
-  }
-
-  function updateComboFactor(comboId: number, caseId: number, value: string) {
-    const f = parseFloat(value);
-    if (isNaN(f)) return;
-    const combo = combinations.find(c => c.id === comboId);
-    if (!combo) return;
-    const existing = combo.factors.find(ff => ff.caseId === caseId);
-    if (existing) {
-      existing.factor = f;
-    } else {
-      combo.factors.push({ caseId, factor: f });
-    }
-    // Trigger reactivity
-    modelStore.updateCombination(comboId, { name: combo.name, factors: combo.factors });
-  }
-
   function fmtNum(n: number): string {
     if (n === 0) return '0';
     return n.toFixed(2);
@@ -412,23 +317,6 @@
    */
   let loadSection = $state('cases');
 
-  /**
-   * Which of the dialog's four sections a case row asks for.
-   *
-   * `Lr` and `S` map to nothing: the generator covers dead, imposed, wind and seismic,
-   * and a button that opened a dialog with no roof-live or snow section in it would be
-   * promising something that is not there. Returning null hides the button instead.
-   */
-  function codeFocusFor(type: string | undefined): AutoLoadFocus | null {
-    switch ((type ?? '').toUpperCase()) {
-      case 'D': return 'dead';
-      case 'L': return 'live';
-      case 'W': return 'wind';
-      case 'S': return 'snow';
-      case 'E': return 'seismic';
-      default: return null;
-    }
-  }
   let autoLoadsFocus = $state<AutoLoadFocus | null>(null);
 </script>
 
@@ -437,190 +325,20 @@
        load rather than as a band across the panel. -->
   <div class="pro-autogen-bar">
     <DrawInModelButton tool="load" label={t('pro.oneLoad')} icon="load" testid="draw-load" />
+    <WriteInPanelButton kind="load" label={t('pro.oneLoad')} testid="write-load" />
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
 
-  <ProAutoLoadsDialog open={showAutoLoadsDialog} focus={autoLoadsFocus}
-    onclose={() => { showAutoLoadsDialog = false; autoLoadsFocus = null; }} />
-
-  <!-- Load Cases Management (collapsible) -->
-  <div class="pro-cases-section">
-    <!--
-      One question — which part of the load definition am I editing — asked
-      once.
-      ────────────────────────────────────────────────────────────────────
-      Load cases, combinations and the load-entry form were three collapsible
-      sections stacked in one column, the first and third open by default. So
-      the case table and the entry form competed for the same height while the
-      combinations sat between them, and adding a load to a case you had just
-      selected meant scrolling past twelve combinations to reach the form.
-
-      They are three stages of one task, not three things to watch at once. The
-      strip carries each one's count, so you can see there are ten cases and
-      twelve combinations without opening either.
-    -->
-    <div class="load-tabs" role="tablist">
-      {#each [
-        { id: 'cases', labelKey: 'pro.loadCases', n: loadCases.length },
-        { id: 'combos', labelKey: 'pro.combos', n: combinations.length },
-        { id: 'add', labelKey: 'pro.addLoad', n: caseLoads.length },
-        { id: 'floor', labelKey: 'floorLoad.tab', n: null },
-      ] as sec (sec.id)}
-        <button
-          class="load-tab"
-          class:on={loadSection === sec.id}
-          role="tab"
-          aria-selected={loadSection === sec.id}
-          onclick={() => (loadSection = sec.id)}
-          data-testid="load-tab-{sec.id}"
-        >{t(sec.labelKey)}{#if sec.n !== null}<span class="load-tab-n">{sec.n}</span>{/if}</button>
-      {/each}
-    </div>
-
-    {#if loadSection === 'cases'}
-    <div class="pro-section-content">
-    <!-- Load visibility controls -->
-    <div class="pro-vis-bar">
-      <label class="pro-vis-toggle">
-        <input type="checkbox" checked={uiStore.showLoads3D} onchange={(e) => { uiStore.showLoads3D = e.currentTarget.checked; if (e.currentTarget.checked) uiStore.hideLoadsWithDiagram = false; }} />
-        {t('pro.showLoads')}
-      </label>
-      {#if !uiStore.showLoads3D}
-        <span class="pro-vis-status pro-vis-off">{t('pro.visOff')}</span>
-      {:else if uiStore.hideLoadsWithDiagram && resultsStore.diagramType !== 'none'}
-        <button class="pro-vis-btn pro-vis-btn-warn" onclick={() => { uiStore.hideLoadsWithDiagram = false; uiStore.showLoads3D = true; }}>
-          {t('pro.loadsHiddenByDiagram')}
-        </button>
-      {:else}
-        <span class="pro-vis-status pro-vis-on">{loads.length} {t('pro.tabLoads').toLowerCase()}</span>
-      {/if}
-      <button class="pro-vis-btn" onclick={showAllCases} title={t('pro.showAll')}>{t('pro.showAll')}</button>
-      <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
-    </div>
-    <ProAnalysisRules />
-    <table class="pro-lc-table">
-      <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th></tr></thead>
-      <tbody>
-        {#if modelStore.analysis?.selfWeight === undefined}
-        <tr class="sw-row" class:sw-active={uiStore.includeSelfWeight}>
-          <td><input type="checkbox" class="sw-check" bind:checked={uiStore.includeSelfWeight} /></td>
-          <td class="lc-type">D</td>
-          <td class="lc-name">{t('pro.selfWeight')} <span class="sw-auto-badge">{uiStore.includeSelfWeight ? t('pro.swOn') : t('pro.swOff')}</span></td>
-          <td class="lc-count">—</td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        {/if}
-        {#each loadCases as lc}
-          {@const caseLoadCount = loads.filter(l => (l.data.caseId ?? 1) === lc.id).length}
-          <tr class:active={uiStore.activeLoadCaseId === lc.id} onclick={() => { uiStore.activeLoadCaseId = lc.id; selectLoadsByCase(lc.id); }} style="cursor:pointer">
-            <td><span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-lr={lc.type === 'Lr'} class:type-w={lc.type === 'W' || lc.type === 'Wa'} class:type-e={lc.type === 'E'}></span></td>
-            <td class="lc-type"><select class="lc-type-select" value={lc.type} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCaseType(lc.id, e.currentTarget.value)}><option value="D">D</option><option value="L">L</option><option value="Lr">Lr</option><option value="W">W</option><option value="Wa">Wa</option><option value="E">E</option><option value="S">S</option><option value="">—</option></select></td>
-            <td class="lc-name"><input class="lc-name-input" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
-            <td class="lc-count">{caseLoadCount}</td>
-            <!--
-              The regulation for THIS case, from the row that names it.
-              ──────────────────────────────────────────────────────────
-              There was one "generate from code" button for the whole project, which is
-              right while setting a project up and wrong once it has its gravity loads
-              and needs wind. A reader looking at a row that says W wants the wind
-              parameters, not a dialog where they are the fourth section down and off.
-            -->
-            <td class="lc-code">{#if codeFocusFor(lc.type)}<button
-              class="lc-code-btn"
-              onclick={(e) => { e.stopPropagation(); autoLoadsFocus = codeFocusFor(lc.type); showAutoLoadsDialog = true; }}
-              title={t('autoLoad.defineFromCode')}
-              aria-label={t('autoLoad.defineFromCode')}
-              data-testid="lc-code-{lc.type}"
-            >§</button>{/if}</td>
-            <td class="lc-vis"><button class="lc-vis-btn" class:visible={isCaseVisible(lc.id)} class:hidden-case={!isCaseVisible(lc.id)} onclick={(e) => { e.stopPropagation(); toggleCaseVisibility(lc.id); }} title={isCaseVisible(lc.id) ? t('pro.hideCase') : t('pro.showCase')}>👁</button></td>
-            <td class="lc-del">{#if loadCases.length > 1}<button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }}>×</button>{/if}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    <div class="pro-case-add">
-      <input type="text" bind:value={newCaseName} placeholder={t('pro.newCase')} class="inp-case" />
-      <select bind:value={newCaseType} class="pro-sel-sm">
-        <option value="D">D</option>
-        <option value="L">L</option>
-        <option value="Lr">Lr</option>
-        <option value="W">W</option>
-        <option value="Wa">Wa</option>
-        <option value="E">E</option>
-        <option value="S">S</option>
-        <option value="">{t('pro.caseTypeOther')}</option>
-      </select>
-      <button class="pro-btn-sm" onclick={addLoadCase}>+</button>
-    </div>
-    </div>
-    {/if}
-  </div>
-
-  <!-- Combinations -->
-  <div class="pro-combos-section">
-    {#if loadSection === 'combos'}
-      <div class="pro-combos-list">
-        {#each combinations as combo}
-          <div class="pro-combo-card">
-            <div class="combo-header">
-              <span class="combo-name">{combo.name}</span>
-              {#if /^U\d+:/.test(combo.name)}
-                <span class="combo-prov-badge combo-prov-lrfd">LRFD</span>
-              {:else if /^S\d+:/.test(combo.name)}
-                <span class="combo-prov-badge combo-prov-svc">SVC</span>
-              {/if}
-              <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
-            </div>
-            <table class="combo-factor-table">
-              {#if modelStore.analysis?.selfWeight === undefined && uiStore.includeSelfWeight}
-                {@const swFactor = (() => {
-                  const deadCase = loadCases.find(c => c.type === 'D');
-                  return deadCase ? (combo.factors.find(f => f.caseId === deadCase.id)?.factor ?? 0) : 0;
-                })()}
-                <tr class="sw-factor-row">
-                  <td class="combo-factor-val"><span class="sw-factor-display">{swFactor}</span></td>
-                  <td class="combo-factor-mult">×</td>
-                  <td class="combo-factor-name">D — {t('pro.selfWeight')} <span class="sw-auto-badge">{t('pro.swAuto')}</span></td>
-                </tr>
-              {/if}
-              {#each loadCases as lc}
-                {@const factor = combo.factors.find(f => f.caseId === lc.id)?.factor ?? 0}
-                <tr>
-                  <td class="combo-factor-val"><input type="text" value={factor} class="inp-factor" onchange={(e) => updateComboFactor(combo.id, lc.id, e.currentTarget.value)} /></td>
-                  <td class="combo-factor-mult">×</td>
-                  <td class="combo-factor-name">{lc.name}</td>
-                </tr>
-              {/each}
-            </table>
-          </div>
-        {/each}
-        <div class="pro-combo-add">
-          <input type="text" bind:value={newComboName} placeholder={t('pro.comboPlaceholder')} class="inp-case" />
-          <button class="pro-btn-sm" onclick={addCombination}>{t('pro.addCombo')}</button>
-        </div>
-        <div class="pro-combo-generate">
-          <button class="pro-btn pro-btn-accent" onclick={() => openComboGenerator('lrfd')} title={t('pro.generateLRFDHint')}>
-            {t('pro.generateLRFD')}
-          </button>
-          <button class="pro-btn" onclick={() => openComboGenerator('service')} title={t('pro.generateServiceHint')}>
-            {t('pro.generateService')}
-          </button>
-        </div>
-        <ProCombinationRules onGenerate={() => openComboGenerator('project')} />
-      </div>
-    {/if}
-  </div>
-
-  {#if loadSection === 'floor'}
-    <div class="pro-section-content"><ProFloorLoadSection /></div>
-  {/if}
-
-  <!-- Add Load (collapsible) -->
+  <!-- Write a load: the card the "Write load" button opens, beside "Draw load". -->
+  {#if drawState.writing === 'load'}
   <div class="pro-addload-section">
-    {#if loadSection === 'add'}
+  <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneLoad')}`} testid="write-load-card">
+    <label>{t('pro.writeLoadCase')}
+      <select bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
+        {#each loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      </select>
+    </label>
   <div class="pro-section-content">
 
   <!-- Load kind selector -->
@@ -654,6 +372,8 @@
             <div class="target-sel">
               <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="nodes" /></div>
           {/if}
         </div>
       </div>
@@ -687,8 +407,10 @@
           </div>
           {#if uiStore.selectedElements.size > 0}
             <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
           {/if}
         </div>
       </div>
@@ -706,8 +428,10 @@
           </div>
           {#if uiStore.selectedElements.size > 0}
             <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
             </div>
+          {:else}
+            <div class="target-sel"><PickKind kind="elements" /></div>
           {/if}
         </div>
       </div>
@@ -733,8 +457,64 @@
     {/if}
   </div>
   </div>
+  </WriteCard>
+  </div>
+  {/if}
+
+  <ProAutoLoadsDialog open={showAutoLoadsDialog} focus={autoLoadsFocus}
+    onclose={() => { showAutoLoadsDialog = false; autoLoadsFocus = null; }} />
+
+  <!-- Load Cases Management (collapsible) -->
+  <div class="pro-cases-section">
+    <!--
+      One question — which part of the load definition am I editing — asked
+      once.
+      ────────────────────────────────────────────────────────────────────
+      Load cases, combinations and the load-entry form were three collapsible
+      sections stacked in one column, the first and third open by default. So
+      the case table and the entry form competed for the same height while the
+      combinations sat between them, and adding a load to a case you had just
+      selected meant scrolling past twelve combinations to reach the form.
+
+      They are three stages of one task, not three things to watch at once. The
+      strip carries each one's count, so you can see there are ten cases and
+      twelve combinations without opening either.
+    -->
+    <div class="load-tabs" role="tablist">
+      {#each [
+        { id: 'cases', labelKey: 'pro.loadCases', n: loadCases.length },
+        { id: 'combos', labelKey: 'pro.combos', n: combinations.length },
+        { id: 'floor', labelKey: 'floorLoad.tab', n: null },
+      ] as sec (sec.id)}
+        <button
+          class="load-tab"
+          class:on={loadSection === sec.id}
+          role="tab"
+          aria-selected={loadSection === sec.id}
+          onclick={() => (loadSection = sec.id)}
+          data-testid="load-tab-{sec.id}"
+        >{t(sec.labelKey)}{#if sec.n !== null}<span class="load-tab-n">{sec.n}</span>{/if}</button>
+      {/each}
+    </div>
+
+    {#if loadSection === 'cases'}
+      <div class="pro-section-content">
+        <ProLoadCases oncode={(f) => { autoLoadsFocus = f; showAutoLoadsDialog = true; }} />
+      </div>
     {/if}
   </div>
+
+  <!-- Combinations -->
+  <div class="pro-combos-section">
+    {#if loadSection === 'combos'}
+      <ProCombinationsList ongenerate={openComboGenerator} oneditrules={() => { autoLoadsFocus = 'combos'; showAutoLoadsDialog = true; }} />
+    {/if}
+  </div>
+
+  {#if loadSection === 'floor'}
+    <div class="pro-section-content"><ProFloorLoadSection /></div>
+  {/if}
+
 
   <!-- Loads table for active case -->
   <div class="pro-loads-table-wrap">
@@ -763,7 +543,7 @@
     {#if distLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.distLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Elem</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -793,7 +573,7 @@
     {#if pointLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Elem</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
         <tbody>
           {#each pointLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -861,12 +641,18 @@
         <span class="combo-modal-sub">{activeTemplate === 'service' ? t('pro.comboSubService') : activeTemplate === 'project' ? t('combos.rules.sub') : t('pro.comboSubStrength')}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
-      {#if hasWindCases || hasSeismicCases}
+      {#if hasSeismicCases}
         <label class="combo-wind-basis" data-testid="combo-both-senses">
-          <input type="checkbox" bind:checked={bothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
-          <span>{t('combos.bothSenses')}</span>
+          <input type="checkbox" bind:checked={seismicBothSenses} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('autoLoad.seismicBothSenses')}</span>
         </label>
-        <p class="combo-senses-hint">{t('combos.bothSensesHint')}</p>
+      {/if}
+      {#if hasWindCases}
+        <label class="combo-wind-basis" data-testid="combo-wind-by-sign">
+          <input type="checkbox" bind:checked={windBySign} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('combos.windBySign')}</span>
+        </label>
+        <p class="combo-senses-hint">{t('combos.windBySignHint')}</p>
       {/if}
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
@@ -938,37 +724,6 @@
   .load-tab.on .load-tab-n { color: var(--st-accent); }
 
   .pro-loads { display: flex; flex-direction: column; }
-  .pro-sw-bar {
-    display: flex; align-items: center; padding: 6px 10px;
-    border-bottom: 1px solid var(--st-surface-3); background: var(--st-surface-3);
-  }
-  .pro-sw-toggle {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 0.75rem; color: var(--st-text-2); cursor: pointer; font-weight: 500;
-  }
-  .pro-sw-toggle input { accent-color: var(--st-text-2); cursor: pointer; }
-  .pro-vis-bar {
-    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-    border-bottom: 1px solid var(--st-surface-3); background: var(--st-surface);
-  }
-  .pro-vis-toggle {
-    display: flex; align-items: center; gap: 4px;
-    font-size: 0.72rem; color: var(--st-text-2); cursor: pointer; margin-right: auto;
-  }
-  .pro-vis-toggle input { accent-color: var(--st-text-2); cursor: pointer; }
-  .pro-vis-btn {
-    padding: 2px 8px; font-size: 0.65rem; color: var(--st-text-3);
-    background: transparent; border: 1px solid var(--st-surface-3); border-radius: 3px; cursor: pointer;
-  }
-  .pro-vis-btn:hover { color: var(--st-text-2); border-color: var(--st-text-2); }
-  .pro-vis-status { font-size: 0.62rem; font-weight: 600; }
-  .pro-vis-on { color: var(--st-value); }
-  .pro-vis-off { color: var(--st-accent); }
-  .pro-vis-btn-warn {
-    color: var(--st-warn); border-color: var(--st-hair-strong); font-weight: 600;
-    animation: pulse-warn 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse-warn { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
   .pro-autogen-bar { padding: 8px 10px; border-bottom: 1px solid var(--st-surface-3); display: flex; align-items: center; gap: 8px; }
   /*
      The one command that starts a whole workflow, so it keeps its width — but
@@ -990,113 +745,8 @@
   .pro-cases-section { border-bottom: 1px solid var(--st-surface-3); padding: 6px 10px; }
   .pro-section-content { padding: 6px 0 2px; }
 
-  /* Load case table */
-  .pro-lc-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-  .pro-lc-table th { padding: 4px 6px; font-size: 0.62rem; font-weight: 600; color: var(--st-text-3); text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--st-surface-3); }
-  .pro-lc-table td { padding: 4px 6px; border-bottom: 1px solid var(--st-surface-2); }
-  .pro-lc-table tbody tr { cursor: pointer; transition: background 0.1s; }
-  .pro-lc-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
-  .pro-lc-table tbody tr.active { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
-  .pro-lc-table .sw-row { cursor: default; opacity: 0.5; font-style: italic; }
-  .pro-lc-table .sw-row.sw-active { opacity: 0.85; }
-  .sw-check { cursor: pointer; accent-color: var(--st-text-2); }
-  .lc-type { width: 40px; }
-  /* One character, because the column header is one character: the section sign
-     is what a reader looks for when they want the clause. */
-  .lc-code { width: 20px; text-align: center; }
-  .lc-code-btn {
-    background: none; border: none; color: var(--st-text-3);
-    font-size: 0.8rem; line-height: 1; cursor: pointer; padding: 0 2px;
-  }
-  .lc-code-btn:hover { color: var(--st-accent); }
-  .lc-type-select { background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--st-text-2); font-size: 0.7rem; padding: 1px 2px; cursor: pointer; }
-  .lc-type-select:hover { border-color: var(--st-surface-3); }
-  .lc-type-select:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }
-  .lc-type-select option { background: var(--st-surface); color: var(--st-text-2); }
-  .lc-name { }
-  .lc-name-input { background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--st-text-2); font-size: 0.72rem; padding: 2px 4px; width: 100%; }
-  .lc-name-input:hover { border-color: var(--st-surface-3); }
-  .lc-name-input:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }
-  .lc-count { width: 40px; text-align: center; color: var(--st-text-3); font-family: monospace; font-size: 0.68rem; }
-  .lc-vis { width: 24px; text-align: center; }
-  .lc-vis-btn { background: none; border:  none; font-size: 0.7rem; cursor: pointer; opacity: 0.9; padding: 0; transition: opacity 0.12s; }
-  .lc-vis-btn.hidden-case { opacity: 0.2; text-decoration: line-through; }
-  .lc-del { width: 20px; text-align: center; }
-  .sw-auto-badge {
-    font-size: 0.55rem; color: var(--st-value); background: rgba(127, 212, 204, 0.12);
-    padding: 1px 4px; border-radius: 3px; font-style: normal; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.03em;
-  }
-  .sw-factor-row { opacity: 0.7; }
-  .sw-factor-display {
-    display: inline-block; width: 40px; text-align: center;
-    font-size: 0.72rem; font-family: monospace; color: var(--st-text-2);
-  }
-  .case-eye {
-    background: none; border:  1px solid var(--st-hair); font-size: 0.7rem; cursor: pointer;
-    padding: 0 2px; line-height: 1; opacity: 0.4; transition: opacity 0.15s;
-  }
-  .case-eye.visible { opacity: 0.9; }
-  .case-eye:hover { opacity: 1; }
-  .case-x { background: none; border:  none; color: var(--st-text-3); font-size: 0.8rem; cursor: pointer; padding: 0 0 0 4px; line-height: 1; }
-  .case-x:hover { color: var(--st-danger); }
-
-  /*
-     One hue per case type, all five distinguishable at 6px. D keeps the old turquoise's
-     job via its token successor; Lr takes the green so it stops colliding with L's amber.
-     These are category marks, not status — the table's own column, not a verdict.
-  */
-  .case-type-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-text-3); flex-shrink: 0; }
-  .case-type-dot.type-d { background: var(--st-value); }
-  .case-type-dot.type-l { background: var(--st-warn); }
-  .case-type-dot.type-w { background: var(--st-info); }
-  .case-type-dot.type-lr { background: var(--st-ok); }
-  .case-type-dot.type-e { background: var(--st-accent); }
-
-  .pro-case-add {
-    display: flex; gap: 6px; padding: 6px 10px 8px; align-items: center;
-  }
-  .inp-case {
-    width: 110px; padding: 4px 6px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; color: var(--st-text); font-size: 0.72rem;
-  }
-  .inp-case:focus { border-color: var(--st-surface-3); outline: none; }
-  .pro-sel-sm {
-    padding: 4px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; color: var(--st-text-2); font-size: 0.72rem; cursor: pointer;
-  }
-  .pro-btn-sm {
-    padding: 4px 10px; font-size: 0.72rem; color: var(--st-text-2); background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3); border-radius: 4px; cursor: pointer;
-  }
-  .pro-btn-sm:hover { background: var(--st-surface-3); color: var(--st-text); }
-
   /* Combinations */
   .pro-combos-section { border-bottom: 1px solid var(--st-surface-3); padding: 6px 10px; }
-  .pro-combos-list { padding: 6px 0; display: flex; flex-direction: column; gap: 6px; }
-  .pro-combo-card {
-    background: var(--st-surface); border: 1px solid var(--st-surface-3); border-radius: 5px;
-    padding: 6px 10px; margin-bottom: 6px;
-  }
-  .combo-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .combo-header .pro-delete-btn { margin-left: auto; }
-  .combo-prov-badge { font-size: 0.52rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .combo-prov-lrfd { color: var(--st-accent); background: rgba(229, 72, 42,0.1); border: 1px solid rgba(229, 72, 42,0.2); }
-  .combo-prov-svc { color: var(--st-value); background: rgba(127, 212, 204,0.1); border: 1px solid rgba(127, 212, 204,0.2); }
-  .combo-name { font-size: 0.75rem; color: var(--st-text-2); font-weight: 600; }
-  .combo-factor-table { border-collapse: collapse; width: 100%; }
-  .combo-factor-table td { padding: 2px 4px; font-size: 0.7rem; color: var(--st-text-2); }
-  .combo-factor-val { width: 44px; }
-  .combo-factor-mult { width: 14px; color: var(--st-text-3); text-align: center; }
-  .combo-factor-name { color: var(--st-text-2); }
-  .inp-factor {
-    width: 40px; padding: 3px 4px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; color: var(--st-text); font-size: 0.72rem; font-family: monospace; text-align: center;
-  }
-  .inp-factor:focus { border-color: var(--st-surface-3); outline: none; }
-  .pro-combo-add { display: flex; gap: 6px; align-items: center; padding-top: 6px; }
-  .pro-combo-generate { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid var(--st-surface-3); margin-top: 8px; }
-  .pro-combo-gen-hint { font-size: 0.65rem; color: var(--st-text-3); font-style: italic; }
 
   /* LRFD Generator Modal */
   .combo-modal-backdrop { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
@@ -1124,7 +774,7 @@
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid var(--st-surface-3); }
   .pro-loads-count { font-size: 0.78rem; color: var(--st-value); font-weight: 600; }
 
-  .pro-addload-section { border-bottom: 1px solid var(--st-surface-3); padding: 6px 10px; }
+  .pro-addload-section { border-bottom: 1px solid var(--st-surface-3); }
   .pro-loads-form { padding: 6px 0 4px; }
   .pro-kind-row { display: flex; gap: 5px; margin-bottom: 10px; }
   .pro-type-btn {
@@ -1159,7 +809,7 @@
   .target-sel {  }
   .pro-btn-sel { font-size: 0.72rem; color: var(--st-text-2); border-color: var(--st-hair-strong); background: var(--st-surface-3); padding: 5px 14px; border-radius: 4px; border: 1px solid var(--st-hair-strong); cursor: pointer; }
   .pro-btn-sel:hover { background: var(--st-hair-strong); color: var(--st-text); }
-  .pro-btn-sel::before { content: '\u2714 '; }
+  .pro-btn-sel::before { content: '\2714\00a0'; }
 
   .pro-loads-table-wrap { }
   .pro-load-section-title { padding: 8px 12px 4px; font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }

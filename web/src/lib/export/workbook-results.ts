@@ -209,7 +209,8 @@ function envelopeSheet(input: ResultSheetsInput): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName']];
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
-    for (const e of envelopeRows(kind, sources)) {
+    // At the same stations as Maxima, so the two sheets read the same members the same way.
+    for (const e of envelopeRows(kind, sources, kind === 'forces' ? { stations: input.stations } : {})) {
       head(kind).forEach((h, c) => {
         const mx = e.max[c]!, mn = e.min[c]!;
         rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name)]);

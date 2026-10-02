@@ -13,6 +13,7 @@
   import { t } from '../../lib/i18n';
   import { placementStore } from '../../lib/store/placement.svelte';
   import type { Support } from '../../lib/store/model.svelte';
+  import { supportDofs3D } from '../../lib/engine/support-dofs-3d';
   import { inclinePatch } from '../../lib/model/edit/support-incline';
 
   let { support }: { support: Support } = $props();
@@ -28,7 +29,14 @@
 
   const isCustom = $derived(support.type === 'custom3d');
   const restraints = $derived(support.dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false });
-  const fixed = (key: (typeof DOF)[number]['key']) => (isCustom ? restraints[key] : false);
+  /*
+   * What the type restrains, read from the same mapping the solver uses. A standard type showed no
+   * Fixed column and let a spring be typed on a degree it already restrains; now its restraints
+   * are shown, read only, and those degrees take no spring.
+   */
+  const typeDofs = $derived(supportDofs3D(support));
+  const TYPE_KEY = { tx: 'rx', ty: 'ry', tz: 'rz', rx: 'rrx', ry: 'rry', rz: 'rrz' } as const;
+  const fixed = (key: (typeof DOF)[number]['key']) => (isCustom ? restraints[key] : typeDofs[TYPE_KEY[key]] && !/spring/.test(support.type));
 
   function setFixed(key: (typeof DOF)[number]['key'], v: boolean) {
     modelStore.updateSupport(support.id, { dofRestraints: { ...restraints, [key]: v } });
@@ -73,22 +81,21 @@
 
 <div class="se" data-testid="sup-editor-{support.id}">
   <table class="se-grid">
-    <thead><tr><th></th>{#if isCustom}<th>{t('support.fixed')}</th>{/if}<th>{t('support.spring')}</th><th>{t('support.curve')}</th></tr></thead>
+    <thead><tr><th></th><th>{t('support.fixed')}</th><th>{t('support.spring')}</th><th>{t('support.curve')}</th></tr></thead>
     <tbody>
       {#each DOF as d (d.key)}
         <tr>
           <td class="se-dof">{d.label}</td>
-          {#if isCustom}
-            <td><input type="checkbox" checked={fixed(d.key)} onchange={(e) => setFixed(d.key, e.currentTarget.checked)} data-testid="sup-fix-{support.id}-{d.key}" /></td>
-          {/if}
+          <td><input type="checkbox" checked={fixed(d.key)} disabled={!isCustom} title={isCustom ? '' : t('support.fixedByType')}
+            onchange={(e) => setFixed(d.key, e.currentTarget.checked)} data-testid="sup-fix-{support.id}-{d.key}" aria-label="{t('support.fixed')} {d.label}" /></td>
           <td>
             <input type="text" class="se-num" value={(support as unknown as Record<string, number | undefined>)[d.k] ?? ''} placeholder={d.unit}
-                   disabled={fixed(d.key)} onchange={(e) => setSpring(d.k, e.currentTarget.value)} />
+                   disabled={fixed(d.key)} onchange={(e) => setSpring(d.k, e.currentTarget.value)} aria-label="{t('support.spring')} {d.label}" />
           </td>
           <td>
             {#if d.c}
               <input type="text" class="se-curve" value={curveText(d.c)} placeholder="mm kN; mm kN" disabled={fixed(d.key)}
-                     onchange={(e) => setCurve(d.c!, e.currentTarget.value)} data-testid="sup-curve-{support.id}-{d.c}" />
+                     onchange={(e) => setCurve(d.c!, e.currentTarget.value)} data-testid="sup-curve-{support.id}-{d.c}" aria-label="{t('support.curve')} {d.label}" />
             {/if}
           </td>
         </tr>
@@ -104,7 +111,7 @@
       <button type="button" onclick={() => setNormal(null)}>{t('support.inclinedOff')}</button>
     {/if}
     <button type="button" onclick={normalFromPoints} data-testid="sup-normal-points-{support.id}">{t('support.normalPoints')}</button>
-    <input type="text" class="se-num" placeholder={t('support.node')} bind:value={towardNode} />
+    <input type="text" class="se-num" placeholder={t('support.node')} bind:value={towardNode} aria-label={t('support.normalNode')} />
     <button type="button" disabled={!towardNode} onclick={normalTowardNode} data-testid="sup-normal-node-{support.id}">{t('support.normalNode')}</button>
   </div>
 </div>

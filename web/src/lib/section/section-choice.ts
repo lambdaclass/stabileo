@@ -154,6 +154,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
      * torsional constant for a closed assembly that does not have one.
      */
     const built = composeBuiltUp(resolved.profile, spec.arrangement, spec.gapMm / 1000);
+    const catalogue = findProfile(spec.profileName);
     const single = built.count === 1;
     return {
       name: built.name,
@@ -167,6 +168,12 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       ...(built.j !== null ? { j: built.j } : {}),
       b: built.b,
       h: built.h,
+      // The profile's own thicknesses, or none: a previous make-up's (a drawn welded I, say) would
+      // otherwise stay, and a section whose dimensions differ from its profile's is not that
+      // profile (`canonical.ts`).
+      tw: single && catalogue?.tw != null ? catalogue.tw / 1000 : undefined,
+      tf: single && catalogue?.tf != null ? catalogue.tf / 1000 : undefined,
+      t: undefined,
       /*
        * `shape` for a single profile only, and this is not stylistic.
        *

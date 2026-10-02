@@ -86,3 +86,22 @@ export function formatCombinationLabel(
     .map((term) => `${nf.format(term.factor)} ${term.symbol}`)
     .join(' + ');
 }
+
+/**
+ * The solver's own error sentences, which it writes in English, in the app's language.
+ *
+ * They reached the user as the engine wrote them: "Singular stiffness matrix — structure is a
+ * mechanism" in a Spanish or Portuguese interface. The known sentences are replaced wherever
+ * they appear in a message; anything else is left as it is.
+ */
+const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
+  ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],
+  ['Singular stiffness matrix', 'svc.engine.singular'],
+];
+
+export function localizeEngineText(message: string): string {
+  let out = message;
+  for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+  return out;
+}

@@ -74,3 +74,15 @@ describe('the Specifications tab', () => {
     expect(uiStore.selectMode).toBe('elements');
   });
 });
+
+describe('the selection across sections', () => {
+  it('members picked, a look at Surfaces, back to Members: the members are still picked', () => {
+    uiStore.proActiveTab = 'specifications';
+    uiStore.specSection = 'members';
+    uiStore.setSelection(new Set(), new Set([3, 4]));
+    uiStore.specSection = 'surfaces';
+    expect(uiStore.selectedElements.size).toBe(0);
+    uiStore.specSection = 'members';
+    expect([...uiStore.selectedElements].sort()).toEqual([3, 4]);
+  });
+});

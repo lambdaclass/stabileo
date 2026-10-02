@@ -1,9 +1,9 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, i18n } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
-  import { mergeFindings, selectionOf, shellRef, formatDetails } from '../../lib/engine/model-findings';
+  import { mergeFindings, selectionOf, shellRef } from '../../lib/engine/model-findings';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
@@ -43,6 +43,8 @@
       quads: modelStore.model.quads,
       connectors: modelStore.model.connectors,
       constraints: modelStore.model.constraints,
+      combinations: modelStore.combinations,
+      selfWeightCaseIds: (modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
     });
   });
 
@@ -104,6 +106,23 @@
     window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
   }
 
+  /**
+   * A diagnostic's details as a reader sees them: named in the app's language where there is a
+   * name (a symbol such as E or Iz stays a symbol), ids as integers, small magnitudes in exponent
+   * form (not "0"), and other numbers to four figures in the app's number format. `toFixed(3)`
+   * printed «caseId: 1.000», which reads as one thousand in Spanish and Portuguese.
+   */
+  function formatDetails(details: Record<string, unknown>): string {
+    const label = (k: string) => { const key = `diag.detail.${k}`; const v = t(key); return v === key ? k : v; };
+    const num = (v: number) => Number.isInteger(v) ? String(v)
+      : Math.abs(v) < 1e-3 ? v.toExponential(2)
+      : Number(v.toPrecision(4)).toLocaleString(i18n.locale);
+    return Object.entries(details)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${label(k)}: ${typeof v === 'number' ? num(v) : Array.isArray(v) ? v.join(', ') : v}`)
+      .join(' | ');
+  }
+
   function shellLabel(key: string): string {
     const { kind, id } = shellRef(key);
     return t(kind === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(id));
@@ -153,6 +172,7 @@
     -->
     <p class="diag-notify-kind" data-testid="diag-kind" data-kind={diagnosticsWarning.kind}>
       {t(`pro.diagKind${diagnosticsWarning.kind === 'empty' ? 'Empty'
+        : diagnosticsWarning.kind === 'clean' ? 'Clean'
         : diagnosticsWarning.kind === 'incomplete' ? 'Incomplete' : 'Blocking'}`)}
     </p>
     {#if diagnosticsWarning.dismissed}
@@ -278,6 +298,7 @@
   /* Each category reads differently without depending on the colour to say which. */
   .diag-notify-kind[data-kind='blocking'] { color: var(--st-danger); font-weight: 600; }
   .diag-notify-kind[data-kind='incomplete'] { color: var(--st-warn); }
+  .diag-notify-kind[data-kind='clean'] { color: var(--st-text-3); }
   .diag-notify-state {
     margin: 0.35rem 0 0;
     font-size: 0.72rem; font-weight: 600; color: var(--st-warn);

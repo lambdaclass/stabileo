@@ -23,11 +23,13 @@
  * largest torsional moment. The sign of e (§2.4.6: "el que cause el efecto de carga más
  * severo") is covered by generating both senses.
  *
- * ── Both senses of each axis ─────────────────────────────────────
+ * ── The four directions ──────────────────────────────────────────
  *
- * The cases for wind from −X and −Y are generated explicitly rather than by a sign in the
- * combination: the lateral forces reverse, the roof suction does not, and a case multiplied by
- * −1 would turn suction into pressure.
+ * Wind from +X, −X, +Y and −Y are four different load states: the windward and leeward faces
+ * swap, and the roof sees its suction from the other edge. Each direction chosen is generated
+ * explicitly rather than by a sign in the combination, because a case multiplied by −1 would
+ * turn roof suction into pressure. Cases 1 and 2 run over every direction chosen; cases 3 and
+ * 4, which act on both axes at once, over every pair of a chosen X direction and a chosen Y one.
  *
  * ── Roof members ─────────────────────────────────────────────────
  *
@@ -50,6 +52,15 @@ export type WindCaseSet = 'case1' | 'cases13' | 'all';
 
 type Axis = 'x' | 'y';
 type Sense = 1 | -1;
+
+/** A direction the wind comes along: +X, −X, +Y or −Y. */
+export type WindDirection = '+x' | '-x' | '+y' | '-y';
+export const WIND_DIRECTIONS: readonly WindDirection[] = ['+x', '-x', '+y', '-y'];
+
+/** The senses chosen on one axis, in the order +, −. */
+export function sensesOn(dirs: readonly WindDirection[], axis: Axis): Sense[] {
+  return ([1, -1] as const).filter((s) => dirs.includes(`${s > 0 ? '+' : '-'}${axis}` as WindDirection));
+}
 
 export interface WindLevel {
   elevation: number;
@@ -178,7 +189,8 @@ export interface WindCasesInput {
   model: WindModel;
   axes: WindAxis[];
   set: WindCaseSet;
-  bothSenses: boolean;
+  /** The directions to generate; an axis with none is skipped. */
+  directions: readonly WindDirection[];
   tributaryWidth: number;
   speed: number;
 }
@@ -188,7 +200,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   const { model, set } = input;
   const notes: EngineMessage[] = [];
   const cases: WindCaseLoads[] = [];
-  const senses: Sense[] = input.bothSenses ? [1, -1] : [1];
+  const sensesOf = (a: Axis) => sensesOn(input.directions, a);
   const roof = roofMembers(model);
   const xs = [...model.nodes.values()].map((n) => n.x), ys = [...model.nodes.values()].map((n) => n.y);
   const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
@@ -214,7 +226,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
 
   // ── Case 1 ──
   for (const a of input.axes) {
-    for (const s of senses) {
+    for (const s of sensesOf(a.axis)) {
       const nodal = a.levels.flatMap((lv) => levelLoads(model.nodes, lv.nodeIds,
         a.axis === 'x' ? s * lv.force : 0, a.axis === 'y' ? s * lv.force : 0, 0));
       const gSigns: Array<1 | -1> = roof.length > 0 && a.gcpi > 0 ? [1, -1] : [1];
@@ -236,7 +248,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   // ── Case 2 ──
   if (set === 'all') {
     for (const a of input.axes) {
-      for (const s of senses) {
+      for (const s of sensesOf(a.axis)) {
         for (const es of [1, -1] as const) {
           push('autoLoad.windCase2', { dir: dirTxt(a.axis, s), e: signTxt(es), v },
             lateral(a, s, 0.75, es * 0.15 * a.across), scaled(roofFor(a, s, 1), 0.75));
@@ -247,7 +259,8 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
 
   // ── Cases 3 and 4: both axes at once ──
   const ax = byAxis.get('x'), ay = byAxis.get('y');
-  if (!ax || !ay) {
+  const quadrants: Array<[Sense, Sense]> = sensesOf('x').flatMap((sx) => sensesOf('y').map((sy) => [sx, sy] as [Sense, Sense]));
+  if (!ax || !ay || quadrants.length === 0) {
     notes.push(msg('loadPlan.note.windCases34NeedBothAxes'));
     return { cases, notes };
   }
@@ -260,8 +273,6 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
     }
     return [...m.values()];
   };
-  const quadrants: Array<[Sense, Sense]> = input.bothSenses
-    ? [[1, 1], [1, -1], [-1, 1], [-1, -1]] : [[1, 1], [1, -1]];
   for (const [sx, sy] of quadrants) {
     const roofQ = larger(roofFor(ax, sx, 1), roofFor(ay, sy, 1));
     push('autoLoad.windCase3', { dirX: dirTxt('x', sx), dirY: dirTxt('y', sy), v },

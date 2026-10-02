@@ -22,8 +22,10 @@ To start:
   sheds and industrial buildings, towers, bridges and long spans, foundations, and a scale
   showcase. Within a group they go from the smallest to the largest. Each card says what the
   model is for, what to look at once it is solved, and its size, and it warns on the heavy ones.
-  With a model open, the card asks before replacing it.
-- **Import** (see [below](#importing-models)): an Excel spreadsheet or an AutoCAD drawing (DXF).
+  With a model open, the card asks before replacing it. The gallery opens over the model, its
+  cards side by side.
+- **Import** (see [below](#importing-models)): an Excel spreadsheet, an AutoCAD drawing (DXF) or
+  an IFC model.
 
 As in Basic, **Project** also has **Save**, **Open**, **Share link** and **Export** (results to
 Excel or CSV, the report, and the view to DXF or SVG). See
@@ -63,20 +65,22 @@ its own **Draw** button (node, member, plate…); pressing it again goes back to
 (X, Y and optionally Z columns).
 
 **Members.** A table with start and end node, material and section, and the **Hinge i** and
-**Hinge j** columns, with a button that toggles **Pin** and **Fix** at each end. Those columns
-release only the **Mz** moment; to release any other degree of freedom, edit the member (see
-below). Also:
+**Hinge j** columns. For a member being added they toggle **Pin** (both bending moments released)
+and **Fix**. For an existing one they show what its end is (fixed, pinned, semi-rigid or partly
+released) and open its end conditions in **Specifications › Members**, the one place they are
+edited. Also:
 
 - **Curved:** an arc through three nodes, built as a chain of straight members. The panel reports
   the chord error.
 - **Member offset (eccentricity):** shifts the member's axis away from its nodes, for instance so a
   beam hangs below the slab. It is set in **Specifications › Members**.
-- Right-clicking a member: **edit** it (material, section and per-degree-of-freedom releases at
-  each end) or **subdivide** it into N parts (2 to 20). With nodes selected, right-clicking empty
-  space mirrors them in X or Y or rotates them by 90°.
+- Right-clicking a member: **edit** its material and section, open its **Specifications…**, or
+  **subdivide** it into N parts (2 to 20). Right-clicking a supported node opens the support's
+  specifications. With nodes selected, right-clicking empty space mirrors them in X or Y or rotates
+  them by 90°.
 
-Members you draw are frame members. Truss members come in from the generators or from an Excel
-spreadsheet, which also lets you set the roll of each member's local axes.
+Members you draw are frame members; **Specifications › Members** makes them trusses, one-way
+members or cables, and sets the roll of their local axes.
 
 **Plates.** A plate is defined by its nodes: **three nodes make a triangle and four a
 quadrilateral**. It is given a material and a thickness.
@@ -203,31 +207,36 @@ section. A drawn section reopens for editing from the list, is saved with the pr
 the model code.
 
 **Shear deformation.** Each section can include it, with shear areas computed from its geometry or
-typed in. One button turns it on or off for every section at once. Without it, members are solved
-with Euler-Bernoulli theory. The switch in **Specifications › Analysis** leaves it out of the whole
-model.
+typed in. One button gives geometric shear areas to every section whose shape has them, and the
+other removes those (typed areas are kept). Without it, members are solved with Euler-Bernoulli
+theory. The switch in **Specifications › Analysis** leaves it out of the whole model, deleting
+nothing, and Sections says so while it is off.
 
 ### Specifications
 
 What a member, support or plate is told beyond its geometry, material and section is in
-**Specifications**, in six sections. Each edits what is selected: several members take the same
-value at once, in one undo step, and a property whose value differs across the selection reads
-**mixed** until it is set. Opening a section points the pointer at what it edits (members,
-supports, nodes or plates).
+**Specifications**, in six sections. Members, Supports and Surfaces edit what is selected: several
+members take the same value at once, in one undo step, and a property whose value differs across
+the selection reads **mixed** until it is set. Opening a section points the pointer at what it
+edits (members, supports, nodes or plates), and moving between sections keeps the members picked.
+The sections are tabs a keyboard walks with the arrow keys.
 
 **Members.**
 
 - **Axial behaviour:** frame, truss (axial force only), **tension only**, **compression only**,
   **cable**, or **inactive** (out of every analysis, without deleting it).
-- **Releases** of My, Mz and T at each end, in the member's local axes.
+- **End conditions**, together: the **releases** of My, Mz and T at each end in the member's local
+  axes, **joints** that release any of the six degrees of freedom at each end in global axes, and
+  **semi-rigid** ends, with a rotational stiffness in kN·m/rad. A semi-rigid end acts in global
+  axes, so on a member whose bending axes are not global ones it is solved rigid, and the model
+  check says so before a solve.
 - **Local axes:** β turns the member's y and z axes about its x axis, on top of the section's own
   rotation.
-- **Offsets** (eccentricity) and **design lengths** (unbraced length and effective length factors
-  for steel design).
 - **Stiffness modifiers** for cracked inertia, with the values of CIRSOC 201-2025 (Table
   6.6.3.1.1(a): columns 0.70 Ig, uncracked walls 0.70 and cracked walls 0.35, beams 0.35, slabs
-  0.25) or your own; **joints** that release any of the six degrees of freedom at each end, in
-  global axes; and **semi-rigid** ends, with a rotational stiffness in kN·m/rad.
+  0.25) or your own; changing one factor over a selection keeps each member's others.
+- **Offsets** (eccentricity) and **design lengths** (unbraced length and effective length factors
+  for steel design).
 
 Inactive members and stiffness modifiers apply to every analysis. Tension or compression only is
 resolved by **Solve**: a member working the wrong way leaves the model and the model is solved
@@ -242,21 +251,19 @@ settles. The results list each cable's tension, horizontal thrust, sag and modul
 pretension (its unstretched length is its chord). The weight that softens it comes from its
 material; the weight that loads it is the project's self-weight, as for any member.
 
-Design follows the behaviour: a tension-only member or a cable is checked in tension only, a
-compression-only member in compression only, and an inactive member is not designed.
+Design follows the behaviour, on every design path (concrete, steel, other codes and the
+optimiser): a tension-only member or a cable is checked in tension only, a compression-only member
+in compression only, and an inactive member is not designed.
 
 **Supports.** The type of every selected support at once, and whether they **lift off** (take
-compression only). A support that lifts off is resolved by **Solve**: if it pulls, it is released
+compression only). The Supports table shows each support's type with what it adds, and its ✎
+opens this section on it. A support that lifts off is resolved by **Solve**: if it pulls, it is released
 and the model is solved again. With one support selected, its own editor: which degrees of freedom
 are fixed, a spring on each one (linear or **multilinear**, with a displacement–force curve typed as
-"mm kN;" pairs) and an **inclined frame**, set by two points or by pointing at a node.
+"mm kN;" pairs) and an **inclined frame**, set by two points or by pointing at a node. A standard type
+shows what it restrains and takes no spring there; the Custom type chooses one by one.
 
-**Foundation springs.** On the selected shells of a slab or raft, this creates vertical springs
-k = ks·A at each node, with each node's tributary area (a quarter of every quadrilateral and a third
-of every triangle around it). ks is typed in or taken from the project's geotechnical profile. The
-springs can act one way, so the raft can lift, and they replace any support the node had.
-
-**Links.** Relations between nodes, with the shared table of links under them:
+**Node links.** Relations between nodes, with the shared table of links under them:
 
 - **Rigid link:** a slave node follows a master node as if they were joined by an infinitely
   rigid member.
@@ -269,7 +276,14 @@ springs can act one way, so the raft can lift, and they replace any support the 
   nodes.
 
 **Surfaces.** On the selected plates, the **curved shell** (for quadrilaterals whose four nodes do
-not lie in one plane) and the **offset** of the mid-plane, each in one undo step.
+not lie in one plane) and the **offset** of the mid-plane, each in one undo step. The offset fields
+show what the plates carry, or that it differs; the top and bottom face presets use each plate's
+own thickness.
+
+**Foundation springs.** On the selected shells of a slab or raft, this creates vertical springs
+k = ks·A at each node, with each node's tributary area (a quarter of every quadrilateral and a third
+of every triangle around it). ks is typed in or taken from the project's geotechnical profile. The
+springs can act one way, so the raft can lift, and they replace any support the node had.
 
 **Analysis.** How combinations are formed: with one-way members, cables or supports that lift off,
 each combination is
@@ -278,12 +292,14 @@ and not in another), or the cases are superposed, each solved with its own set o
 then the members whose state in the sum contradicts the cases' are listed. Without such members
 both methods give the same. Each combination can also be solved **linear** or with **P-Delta**.
 A P-Delta combination whose load the structure cannot carry to second order (it buckles below
-it) publishes no forces, and a notice names it. Large models go through the same sparse solver as
+it) publishes no forces, and a notice names it; the design panels name it too and call the design
+incomplete, since they read the combinations that have forces. With one-way members, cables or
+supports that lift off, combinations are solved linear. Large models go through the same sparse solver as
 the linear analysis: the fourteen combinations of a building of a thousand nodes and two and a
 half thousand members take a few seconds.
 
 P-Delta repeats until the displacements stop changing. Some programs instead stop after a fixed
-number of iterations (two, for instance), whether or not the result has settled; a model solved
+number of iterations, whether or not the result has settled; a model solved
 that way can differ from Stabileo's by a few percent in the members that sway most, and it
 still gives forces for a combination in which Stabileo finds no second-order equilibrium.
 Stabileo keeps the converged result.
@@ -291,8 +307,8 @@ Stabileo keeps the converged result.
 **Shear deformation** is on by default, and each section then decides with its shear areas. Off,
 every member deforms in bending only, whatever its section says.
 
-**List.** Every specification the model holds, one row per value, with the members, supports or
-plates that hold it. Clicking a row selects them and opens the section that edits them. The list is
+**List.** The specifications of the members, supports and plates, one row per value (support
+curves and plate offsets with their values), with the entities that hold it. Clicking a row selects them and opens the section that edits them. The list is
 read from the entities themselves, so it shows what they hold. The project workbook carries it as
 its **Specifications** sheet, and the cables' results as **Cables**.
 
@@ -301,12 +317,15 @@ its **Specifications** sheet, and the cables' results as **Cables**.
 **Supports.** **Fixed 3D**, **Pinned 3D**, rollers in each plane (**Roller XZ**, **XY** and **YZ**),
 **Spring 3D** (with a stiffness for each degree of freedom) and **Custom**, where you tick one by
 one which displacements and rotations are restrained. A roller moves freely within its plane:
-**Roller XZ**, for instance, is restrained only along Y. Springs, lift-off and an inclined frame
+**Roller XZ**, for instance, is restrained only along Y. When a panel acts on selected nodes or
+members and its pointer picks something else, a button switches the pointer to what it needs.
+Springs, lift-off and an inclined frame
 are set in **Specifications › Supports**.
 
-**Loads.** The panel has three parts:
+**Loads.** The panel has four tabs (load cases, with the self-weight rule inside; combinations;
+adding loads; floor loads):
 
-- **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, E earthquake,
+- **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
   S snow) and a button to show or hide it in the viewer.
 - **Self-weight:** a load of a case. Each row says which case it goes into, along which global
   direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
@@ -486,7 +505,9 @@ In the **Results** panel:
 - **Deflections:** each member is checked against the **rule** that applies to it, by kind, group
   or chosen members, with L/n and the direction (resultant or one local plane). With no rule,
   beams are checked at L/360. A **cantilever** is measured from the tangent at its root and its
-  limit is taken over 2L.
+  limit is taken over 2L. Deflections are read from the **service envelopes** when the project
+  defines any; otherwise from the unfactored sum of the loaded gravity cases (D, L, Lr, S) and from
+  each case on its own. The panel says which of the two it reads.
 - **Member stresses:** the largest tension and the largest compression on the section at each
   station, over its geometry.
 - **Shell contours:** at the nodes or at each element's centre, over the range of the results or a
@@ -503,58 +524,88 @@ In the **Results** panel:
 
 PRO's advanced analyses:
 
-- **P-Delta**, **modal**, **spectral** and **buckling**. Modal can ask for modes **up to 90 % of
-  the mass**: it adds modes until the cumulative participating mass reaches 90 % in X and in Y, or
-  says so when the model has no more. With constraints the mass fractions are not reliable, and
-  this option is not offered. Spectral uses a simplified INPRES-CIRSOC 103 spectrum by seismic zone
-  and soil type, combines the modes by CQC (complete quadratic combination, with the ξ you set) or
-  SRSS (square root of the sum of squares), and needs a modal run first.
+- **P-Delta**, **modal**, **spectral** and **buckling**, on the project's rules as **Solve** reads
+  them (self-weight as stated, the shear-deformation switch). This P-Delta takes every load of the
+  model together, unfactored; each combination with its factors is asked for in
+  **Specifications › Analysis**. Modal can ask for modes **up to 90 % of the mass**: it adds modes
+  until the cumulative participating mass reaches 90 % in X and in Y, or says so when the model has
+  no more. The masses come from the **mass source** (self-weight only, or chosen cases with their
+  factors). With node links the engine's mass ratios are not reliable: modal then gives
+  frequencies and shapes but uses the number of modes asked for and says so, and spectral is not
+  offered. Spectral builds the INPRES-CIRSOC 103 spectrum from the zone, the site class and its
+  parameters (ca, cv, T1 to T3, γr, R and ξ), combines the modes by CQC (complete quadratic
+  combination, with the ξ you set) or SRSS (square root of the sum of squares), and needs a modal
+  run first.
 - **Time history**, with Newmark or HHT-α. The settings are saved with the project and travel in
   the model code. Each direction (X, Y and Z, at once) has its own ground acceleration, with a
   scale factor: sinusoidal, a record read from a file (PEER .AT2, a time–acceleration table or a
   single column) or **spectrum-compatible** with the project's INPRES-CIRSOC 103 spectrum, an
   artificial accelerogram generated from a seed and a duration. Each record can be plotted, with
-  its peak acceleration. **Nodal forces in time**, sinusoidal or step, can be added too, with or
+  its peak acceleration, and it warns when its peak reads as a unit mistake, when the run's dt
+  loses its peak, and when the run is shorter than the record; one button fits the steps to the
+  records. **Nodal forces in time**, sinusoidal or step, can be added too, with or
   without ground motion. Damping is Rayleigh, with a single ξ fitted to the first two modes.
 - **Harmonic response**.
 - **Non-linear:** **pushover** (successive formation of plastic hinges under the model's loads, with
-  the same Mp as Basic mode's [plastic collapse](04-advanced-tools.md#plastic-collapse)),
-  corotational (large displacements) and fibre. Pushover shows the **capacity curve**: base shear
+  the same Mp as Basic mode's [plastic collapse](04-advanced-tools.md#plastic-collapse)) and
+  corotational (large displacements). Pushover is for steel: a model with members of another
+  material is refused, and the panel names them. Pushover shows the **capacity curve**: base shear
   against the displacement of a control node, with one point per hinge formed. A slider walks the
   steps; each one lists its new hinges with their moments, and the model shows the deformed shape
   and every hinge formed up to that step. When the run stops because every member end at a joint
   yielded at once, the panel says so: the structure may carry more, and the collapse factor is
   read as a lower bound.
-- **Geometric imperfections**, and, as **experimental** analyses whose data stays in the panel,
-  **foundation on Winkler springs** and **soil-structure interaction** with p-y curves. The springs
+- **Geometric imperfections:** notional loads equal to the chosen out-of-plumbness times each
+  node's total vertical load (nodal loads, member loads and self-weight). As **experimental**
+  analyses whose data stays in the panel, **foundation on Winkler springs**, with ky and kz along
+  the member's local axes, and **soil-structure interaction** with p-y curves. The springs
   and curves the model keeps are set on its supports, in **Specifications › Supports**.
-- **Staged construction** and **creep and shrinkage**.
-- **3D influence lines** and the **section analyser**.
+- **Staged construction:** each stage adds or removes members and shells and picks the load cases
+  it applies; the first starts with the whole model and every case, and the model's supports come
+  in with it. The final state is shown in the view. A member added in a later stage takes its force
+  from the cumulative displacement, and the panel says so; curved shells and connectors are not
+  accepted.
+- **Creep and shrinkage** by the effective-modulus method (EN 1992-1-1, Annex B): the loads are
+  solved with E/(1 + φ) and shrinkage as a shortening on E/(1 + χ·φ). Only concrete creeps, each
+  material with its own f'c (fcm = f'c + 8); humidity, notional size, age at loading and cement come
+  from the panel.
+- **3D influence lines** and the **section analyzer**; its J comes from the Saint-Venant solution on
+  the section's mesh.
 - **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
   in order, and each member keeps its largest and smallest forces with the train's position. The
   lane load is created as an ordinary load case on the same members. The envelope does not enter
   the combinations or the design.
 
-These analyses use the members' axis, without their offsets, and the hinges of the **Hinge i** and
+Unless the analysis says otherwise, these analyses load the unfactored sum of every case. They use
+the members' axis, without their offsets, and the hinges of the **Hinge i** and
 **Hinge j** columns. Sliding joints and per-degree-of-freedom releases set when editing a member are
 taken into account by **Solve**; before an advanced analysis, the program asks for them to be
-removed. **Modal** and **spectral** work with the model's members and shells and with its
-diaphragms, which are set in **Specifications › Links** (the panel says how many there are).
+removed. **Modal** works with the model's members and shells; its diaphragms are set in
+**Specifications › Node links** (the panel says how many there are), and with them it gives
+frequencies and shapes but not reliable mass ratios.
 
 ### Report
 
 **Report** builds a printable **calculation report**: model data with every property, load
-details, results, the summary and the envelope over the combinations, the statics, the
-deflections, the advanced analyses you ran, the **figures** you add from the view (each with its
-caption and scale), material quantities and diagnostics. The tables are complete whatever the size
-of the model. The cover prints the project's data; the office letterhead (logo and company) stays
-in the dialog. It also exports to Excel.
+details, results, the summary of extremes (along the members) and the envelope over the
+combinations, the statics, the deflections, the **design check** as the Design panel ran it (each
+member with its own reinforcement, the governing check, demand, capacity and utilization; the
+report does not size members on its own), the **story drift** with the panel's computation on
+condition D, the advanced analyses you ran (each one can be left out), the **figures** you add from the view (each with its caption and scale), material quantities
+and diagnostics. The tables are complete whatever the size of the model. The cover prints the
+project's data, which the dialog links to; the office letterhead (logo and company) stays in the
+dialog. It also exports to Excel. Figures and the report's choices belong to the session: opening
+another project or example starts them afresh.
 
 The **quantities** (in Documents too) take the concrete and structural steel from the geometry and
 the reinforcement from the **detailing**, by diameter; the steel ratio is taken over the detailed
 members.
 
 ## The Design tab
+
+The Design stage opens on steel design when most members are steel, and on the concrete workflow
+otherwise. Every design panel names the combinations that have no forces (no second-order
+equilibrium) and calls the design incomplete while there are any.
 
 ### Reinforced concrete
 

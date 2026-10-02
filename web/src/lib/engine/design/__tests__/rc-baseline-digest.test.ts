@@ -217,6 +217,20 @@ describe('RC design baseline — the flagship frame, member by member', () => {
  *
  * Re-recorded once more (was `792b6f88ea1fc3a4`) when self-weight became a member load; the
  * member-by-member check is in the test above.
+ *
+ * And again (was `c05971b8f79bb372`) when the column check moved to the design curve: it solved
+ * Pn(c) = Pu and took φ·Mn there, which read φMn up to 50 % high at high axial load. Only
+ * columns moved, 21 of them (1–15, 17–19, 27–29), each still VERIFIED and now with more steel:
+ * their certified utilization rose from 0,86–1,00 to 0,95–1,00 as the search took the next
+ * layout. The counts, 395 verified and 13 provisional, are unchanged.
+ *
+ * And (was `c23ac6b57251ce0b`) when shear followed CIRSOC 201-2025: Vc = [0,17·√f'c + Nu/(6·Ag)]
+ * with the gross area, Av,min and row (c) of Tabla 22.5.5.1 below it, and the §22.5.1.2 limit on
+ * Vs. 191 beams moved, every one still VERIFIED, their certified utilization within ±0,11 of
+ * before; the counts are unchanged.
+ *
+ * And (was `99271275a69883ab`) when the check's development length became Tabla 25.4.2.3, the
+ * one the drawings read: 4 members moved, still VERIFIED, utilization down by 0,004–0,03.
  */
 // Re-recorded after preserving axial distributed self-weight in member force recovery.
 // Replacing only globalDistributedToSolver with its pre-fix implementation reproduces
@@ -224,4 +238,17 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // for columns 1, 3, 6–10, 12–14 (ten members), with no outcome or limiting-constraint
 // changes among all 408 members; 395 remain verified and 13 provisional. The maximum
 // utilization remains 1.0000. See the closed-form axial tests in calculation-fidelity-regressions.test.ts.
-const RECORDED_FINGERPRINT = 'c05971b8f79bb372';
+// And again on PRO 19's design changes (columns on the design curve, shear per 22.5, ld per
+// Tabla 25.4.2.3): the fingerprint PRO 19 recorded, which the merge with main reproduces.
+// And (was `a84e9893c41e5501`) when the check's ld stopped assuming Tabla 25.4.2.3's favourable
+// row and ψt = 1 for every bar: the row is now established from the layout (clear cover ≥ db,
+// and spacing ≥ 2·db, or ≥ db with stirrups at Av,min and s ≤ d/2), and top bars with more
+// than 300 mm of concrete below take ψt = 1,3. One member of 408 moved, beam 161 (35×65, H-30,
+// 7,5 m): on its search path a 7Ø16 bottom with eØ6 c/20 no longer holds the favourable row
+// (29 mm clear < 2·db, Av/s 2,83 < 2,92 cm²/m), its ld into the 86 cm support region went from
+// 58 to 88 cm and drew a «needs hook» warning, and the search settled on top 6Ø25, bottom 5Ø20
+// instead of top 3Ø32, bottom 7Ø16 — still VERIFIED, utilization 0,9940 → 0,9500. No outcome
+// or limiting constraint changed; 395 verified and 13 provisional, as before. M2,min for
+// slender columns (§6.6.4.5.4), in the same change, was measured on its own first: it moves no
+// member of this frame.
+const RECORDED_FINGERPRINT = 'f8a66e1b74ca71f1';

@@ -34,7 +34,8 @@ export type CsvRefusal =
   | { line: number; kind: 'noHeader' }
   | { line: number; kind: 'unknownShape'; value: string }
   | { line: number; kind: 'missing'; fields: string[] }
-  | { line: number; kind: 'notANumber'; field: string; value: string };
+  | { line: number; kind: 'notANumber'; field: string; value: string }
+  | { line: number; kind: 'badGeometry' };
 
 const SHAPES = new Set(['I', 'H', 'U', 'C', 'T', 'L', 'RHS', 'CHS', 'RECT']);
 
@@ -149,7 +150,11 @@ export function importSectionsCsv(text: string): CsvImport {
   const disagreements: CsvImport['disagreements'] = [];
   for (const r of rows) {
     const fields = rowToSectionFields(r) as Omit<Section, 'id'>;
-    const st = resolveSectionState({ id: 0, ...fields } as Section);
+    // A row whose dimensions draw no section (a flange thicker than half the depth, a wall
+    // thicker than the tube) is refused by line; it used to throw and lose the whole file.
+    let st: ReturnType<typeof resolveSectionState>;
+    try { st = resolveSectionState({ id: 0, ...fields } as Section); }
+    catch { refused.push({ line: r.line, kind: 'badGeometry' }); continue; }
     if (st.kind !== 'geometry-backed') {
       refused.push({ line: r.line, kind: 'missing', fields: [] });
       continue;

@@ -43,7 +43,7 @@
     formatColdFormedDesignation, type ColdFormedShape, type ColdFormedSpec,
   } from '../../../lib/profiles/cold-formed';
   import {
-    coldFormedSource, coldFormedSectionFields, COLD_FORMED_BASIS,
+    coldFormedSource, coldFormedSectionFields,
   } from '../../../lib/profiles/cold-formed-catalogue';
   import { COLD_FORMED_SCOPE } from '../../../lib/profiles/cold-formed-scope';
   import { axesNoticeKeyFor } from '../../../lib/section/axes';
@@ -218,7 +218,7 @@
             {/each}
           </tbody>
         </table>
-        <p class="basis" data-testid="cf-basis">{t('steel.coldFormed.derived')} · {COLD_FORMED_BASIS}</p>
+        <p class="basis" data-testid="cf-basis">{t('steel.coldFormed.derived')}</p>
 
         <!--
           Rotated axes. Present only when the shared predicate says so — which for the two shapes

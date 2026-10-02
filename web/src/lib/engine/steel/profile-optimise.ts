@@ -26,7 +26,7 @@ import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand, type Ste
 export interface OptimiseMember {
   elementId: number;
   demand: SteelMemberDemand;
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number };
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean };
   /** The unbraced-segment diagram Cb reads, when the member is a chain. See `checkSteelMember`. */
   segment?: SteelSegmentDiagram;
 }

@@ -11,18 +11,21 @@
    * ── The count is not decoration ───────────────────────────────────
    *
    * It comes from the SAME topology object that Generate then emits, so it cannot disagree
-   * with what lands in the model. `matchesPreview` asserts that after the fact, and the
-   * summary line reports the mismatch rather than hiding it.
+   * with what lands in the model.
    *
-   * ── Generating replaces the model ─────────────────────────────────
+   * ── Generating inserts, it does not replace ──────────────────────
    *
-   * Said before the button, not after. One undo step gets it back, and that is also stated
-   * rather than assumed.
+   * A generated structure goes into the model as a paste does, with its ghost: at the pointer,
+   * or at typed coordinates with its anchor node marked (`GeneratorOutput`). It used to replace
+   * the model by default.
+   *
+   * ── A gallery, then a form ────────────────────────────────────────
+   *
+   * The panel opens on every generator as a card with a drawing of what it makes
+   * (`GeneratorGallery`); a card opens its parameters, and Back returns to the list.
    */
   import { t, tp } from '../../../lib/i18n';
-  import { uiStore } from '../../../lib/store/ui.svelte';
   import { modelStore } from '../../../lib/store/model.svelte';
-  import { applyGeneratedModel, matchesPreview } from '../../../lib/store/generator-apply';
   import { taperSupportedColumns } from '../../../lib/model/edit/taper';
   import {
     DEFAULT_TRUSS_PARAMS, TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies,
@@ -37,7 +40,7 @@
   } from '../../../lib/engine/generators/shed';
   import {
     emitModel, requiredRoles, validateProfiles, defaultProfileSpec,
-    type EmitOptions, type GeneratorMaterial, type ProfileSpec,
+    type GeneratorMaterial, type ProfileSpec,
   } from '../../../lib/engine/generators/emit';
   import ProMaterialModal from '../material/ProMaterialModal.svelte';
   import { choiceGradeId } from '../../../lib/material/material-choice';
@@ -53,11 +56,12 @@
   import { pairing, structuralGradeSource } from '../../../lib/grades/catalogue';
   import { resolveProfile } from '../../../lib/engine/generators/profile-resolve';
   import type { MemberRole } from '../../../lib/engine/generators/member-roles';
-  import type { ProvenanceSource } from '../../../lib/model/provenance';
   import ProfilePicker from './ProfilePicker.svelte';
   import TopologyPreview from './TopologyPreview.svelte';
   import GeneratorOutput from './GeneratorOutput.svelte';
   import ProTemplatesSection from './ProTemplatesSection.svelte';
+  import GeneratorGallery from './GeneratorGallery.svelte';
+  import type { GeneratorEntry } from '../../../lib/pro/generator-catalog';
   import {
     DEFAULT_STRUCTURE_PARAMS, STRUCTURE_FIELDS, STRUCTURE_KINDS, generateStructure, validateStructureParams,
     type StructureKind, type StructureParams,
@@ -73,6 +77,18 @@
   /** A generated group of the model being edited: Generate then regenerates it in place. */
   let editingGroupId = $state<number | null>(null);
   let kind = $state<Kind>('truss');
+  /** The list of generators, or the parameters of the one picked. */
+  let view = $state<'gallery' | 'form'>('gallery');
+  function pick(e: GeneratorEntry) {
+    kind = e.kind;
+    if (e.structureKind) structureKind = e.structureKind;
+    editingGroupId = null;
+    view = 'form';
+  }
+  const KIND_LABEL: Record<Exclude<Kind, 'structure'>, string> = {
+    truss: 'generator.ui.kindTruss', column: 'generator.ui.kindColumn', shed: 'generator.ui.kindShed',
+  };
+  const formTitle = $derived(kind === 'structure' ? t(`generator.structure.${structureKind}`) : t(KIND_LABEL[kind]));
 
   let truss = $state<TrussParams>({ ...DEFAULT_TRUSS_PARAMS });
   let column = $state<LatticeColumnParams>({ ...DEFAULT_LATTICE_COLUMN_PARAMS });
@@ -254,14 +270,7 @@
     return out;
   });
 
-  let lastResult = $state<string | null>(null);
 
-  const SOURCE: Record<Kind, ProvenanceSource> = {
-    truss: 'generator-truss',
-    column: 'generator-lattice-column',
-    shed: 'generator-shed',
-    structure: 'generator-structure',
-  };
 
   function paramsOf(): Record<string, unknown> {
     return kind === 'truss' ? { ...truss } : kind === 'column' ? { ...column }
@@ -300,8 +309,11 @@
     profiles = { ...profiles, ...(d.profiles as Record<MemberRole, ProfileSpec>) };
     gradeId = d.gradeId;
     editingGroupId = id;
+    view = 'form';
   }
   const groups = $derived(generatedGroups());
+  /** In a generator's form, the structures it made in this model, to regenerate one in place. */
+  const formGroups = $derived(groups.filter((g) => generatedData(g.id)?.generator === generatorId()));
 
   /**
    * Solid shed columns as welded I tapered from base to head, applied right after the frame lands.
@@ -309,29 +321,11 @@
    */
   let taperColumns = $state({ on: false, baseMm: 300, headMm: 600 });
 
-  function generate(supports: SupportMode = 'generated') {
-    if (!topology || !canGenerate) return;
-    const opts: EmitOptions = {
-      name: nameOf(), profiles,
-      ...(material ? { material } : {}),
-    };
-    const g = emitModel(withSupportMode(topology, supports), opts);
-    const r = applyGeneratedModel(g, {
-      source: SOURCE[kind],
-      // The clock is read HERE and nowhere below: every module under this one takes the
-      // timestamp as a parameter so its output is reproducible.
-      atIso: new Date().toISOString(),
-      params: paramsOf(),
-      name: opts.name,
-    });
-    lastResult = matchesPreview(g, r)
-      ? tp('generator.ui.generated', { nodes: r.nodes, elements: r.elements, name: opts.name })
-      : tp('generator.ui.mismatch', { promised: g.json.elements.length, got: r.elements });
-    if (kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on) {
-      const tr = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000);
-      lastResult += ` ${tp('generator.ui.taperedColumns', { n: tr.tapered.length, notI: tr.notI })}`;
-    }
-    uiStore.toast(lastResult, matchesPreview(g, r) ? 'success' : 'error');
+  /** After a shed goes in: its solid columns tapered, in the same undo step (`GeneratorOutput`). */
+  function afterInsert(elements: number[]): string | null {
+    if (!(kind === 'shed' && shed.columnKind === 'solid' && taperColumns.on)) return null;
+    const r = taperSupportedColumns(taperColumns.baseMm / 1000, taperColumns.headMm / 1000, undefined, new Set(elements));
+    return tp('generator.ui.taperedColumns', { n: r.tapered.length, notI: r.notI });
   }
 </script>
 
@@ -414,32 +408,24 @@
     </div>
   {/if}
 
-  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta} onNewModel={generate}
-    {editingGroupId} onRegenerated={() => { lastResult = null; }}
+  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta} {afterInsert}
+    {editingGroupId}
     describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
 
-  {#if lastResult}
-    <p class="result" data-testid="gen-result" role="status">{lastResult}</p>
-  {/if}
 {/snippet}
 
 <div class="gen" data-testid="pro-generators-panel">
+  <!-- The panel's frame already says "Generators": the subtitle is all it adds. -->
   <header>
-    <h3>{t('generator.ui.title')}</h3>
     <p class="sub">{t('generator.ui.subtitle')}</p>
   </header>
 
-  <div class="kinds" role="group" aria-label={t('generator.ui.title')}>
-    {#each [['truss', 'kindTruss'], ['column', 'kindColumn'], ['shed', 'kindShed'], ['structure', 'kindStructure']] as [k, key] (k)}
-      <button
-        type="button"
-        class:active={kind === k}
-        data-testid={`gen-kind-${k}`}
-        aria-pressed={kind === k}
-        onclick={() => { kind = k as Kind; }}
-      >{t(`generator.ui.${key}`)}</button>
-    {/each}
-  </div>
+  {#if view === 'form'}
+    <div class="gen-crumb">
+      <button type="button" class="gen-back" onclick={() => { view = 'gallery'; editingGroupId = null; }} data-testid="gen-back">← {t('generator.ui.all')}</button>
+      <span class="gen-current" data-testid="gen-current">{formTitle}</span>
+    </div>
+  {/if}
 
   <!--
     Everything above the dock scrolls. The dock does not.
@@ -450,11 +436,30 @@
     actually pins it.
   -->
   <div class="gen-scroll" data-testid="gen-scroll">
+  {#if view === 'gallery'}
+    <GeneratorGallery onPick={pick} />
+    {#if groups.length > 0}
+      <h4>{t('generator.out.groupsTitle')}</h4>
+      <ul class="gen-groups" data-testid="gen-groups">
+        {#each groups as g (g.id)}
+          <li class:editing={editingGroupId === g.id}>
+            <span>{g.name}</span>
+            {#if editingGroupId === g.id}
+              <button type="button" class="dock-toggle" onclick={() => (editingGroupId = null)}>{t('generator.out.stopEditing')}</button>
+            {:else}
+              <button type="button" class="dock-toggle" onclick={() => editGroup(g.id)} data-testid="gen-edit-group-{g.id}">{t('generator.out.editGroup')}</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <ProTemplatesSection />
+  {:else}
 
   <!-- ── Parameters ── -->
   <div class="fields">
     {#if kind === 'truss'}
-      <label><span>{t('generator.ui.kindTruss')}</span>
+      <label><span>{t('generator.ui.trussShape')}</span>
         <select bind:value={truss.kind}>
           {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
         </select></label>
@@ -507,10 +512,6 @@
       <label class="check"><input type="checkbox" bind:checked={column.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
 
     {:else if kind === 'structure'}
-      <label><span>{t('generator.ui.kindStructure')}</span>
-        <select bind:value={structureKind} data-testid="gen-structure-kind">
-          {#each STRUCTURE_KINDS as k (k)}<option value={k}>{t(`generator.structure.${k}`)}</option>{/each}
-        </select></label>
       {#each STRUCTURE_FIELDS[structureKind] as f (structureKind + f.key)}
         {#if f.type === 'bool'}
           <label class="check"><input type="checkbox" checked={!!structureParams[structureKind][f.key]} onchange={(e) => { structureParams[structureKind][f.key] = e.currentTarget.checked; }} data-testid="gen-f-{f.key}" /><span>{t(`generator.field.${f.key}`)}</span></label>
@@ -552,7 +553,7 @@
       <label class="check"><input type="checkbox" bind:checked={shed.longitudinalBeams} /><span>{t('generator.ui.beams')}</span></label>
       <label class="check"><input type="checkbox" bind:checked={shed.roof} /><span>{t('generator.ui.roof')}</span></label>
       {#if shed.roof}
-        <label><span>{t('generator.ui.kindTruss')}</span>
+        <label><span>{t('generator.ui.roofTrussShape')}</span>
           <select bind:value={shed.truss.kind}>
             {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
           </select></label>
@@ -691,13 +692,10 @@
     </ul>
   {/if}
 
-    <h4>{t('generator.out.where')}</h4>
-    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} onNewModel={generate} {editingGroupId} />
-
-    {#if groups.length > 0}
+    {#if formGroups.length > 0}
       <h4>{t('generator.out.groupsTitle')}</h4>
       <ul class="gen-groups" data-testid="gen-groups">
-        {#each groups as g (g.id)}
+        {#each formGroups as g (g.id)}
           <li class:editing={editingGroupId === g.id}>
             <span>{g.name}</span>
             {#if editingGroupId === g.id}
@@ -709,15 +707,19 @@
         {/each}
       </ul>
     {/if}
-    <ProTemplatesSection />
+    <h4>{t('generator.out.where')}</h4>
+    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} {afterInsert} {editingGroupId} />
+
 
     {#if !previewDocked}{@render previewAndActions()}{/if}
+  {/if}
   </div><!-- /gen-scroll -->
 
   <!--
     The drawing and the count, both from the same topology object Generate then emits — so
     the picture, the numbers and the model agree by construction rather than by care.
   -->
+  {#if view === 'form'}
   <div class="gen-dock" class:docked={previewDocked} data-testid="gen-dock">
     <button
       type="button" class="dock-toggle" data-testid="gen-dock-toggle"
@@ -726,6 +728,7 @@
     >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
     {#if previewDocked}{@render previewAndActions()}{/if}
   </div>
+  {/if}
 
 
   <p class="model-note">
@@ -744,6 +747,13 @@
   */
   /* Horizontal inset comes from `.pro-content`; see ProPanel. */
   .gen { display: flex; flex-direction: column; padding: 10px 0; height: 100%; overflow: hidden; }
+  .gen-crumb { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .gen-back {
+    padding: 2px 8px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
+    color: var(--st-text-2); font: inherit; font-size: 0.7rem; cursor: pointer;
+  }
+  .gen-back:hover { color: var(--st-text); border-color: var(--st-accent); }
+  .gen-current { font-size: 0.8rem; font-weight: 600; color: var(--st-text); }
   .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
   .gen-dock { display: flex; flex-direction: column; gap: 8px; }
   .gen-dock.docked {
@@ -789,13 +799,6 @@
   h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   h4 { margin: 6px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--st-text-2); }
   .sub { margin: 2px 0 0; font-size: 0.7rem; color: var(--st-text-2); }
-  .kinds { display: flex; gap: 4px; }
-  .kinds button {
-    flex: 1; padding: 4px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer;
-    background: var(--st-surface-3); border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text);
-  }
-  .kinds button.active { background: var(--st-hair-strong); border-color: var(--st-interactive); }
-  .kinds button:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .fields { display: flex; flex-direction: column; gap: 3px; }
   .fields label { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text-2); }
   .fields label > span:first-child { min-width: 9rem; }
@@ -838,6 +841,8 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
+  /* The hint under a field: it had no rule of its own and took the page's body size. */
+  .gen-hint { margin: 0 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
 
   /* The material row reads like a profile row, because it is the same kind of choice. */
   .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }

@@ -20,10 +20,12 @@
   const mesh = $derived(surfaceMesh(kind, params[kind]));
   const fragment = () => mesh ? surfaceFragment(mesh, materialId, thickness) : null;
 
+  const doneText = (quads: number, plates: number) => plates > 0 ? tp('surface.doneTri', { quads, plates }) : tp('surface.done', { n: quads });
+
   function place() {
     const f = fragment();
     if (!f) return;
-    placementStore.start({ fragment: f, label: t(`surface.${kind}`), anchors: [[0, 0, 0]], onCommit: (r) => { if (r) done = tp('surface.done', { n: r.quads.length }); } });
+    placementStore.start({ fragment: f, label: t(`surface.${kind}`), anchors: [[0, 0, 0]], onCommit: (r) => { if (r) done = doneText(r.quads.length, r.plates.length); } });
   }
 
   /** The axis along two points: +Z turned onto p→q, the base centre at p. */
@@ -37,7 +39,7 @@
       const ang = (Math.atan2(norm(ax), dot(z, d)) * 180) / Math.PI;
       const R = norm(ax) > 1e-12 ? rotation([0, 0, 0], ax, ang) : ang > 90 ? rotation([0, 0, 0], [1, 0, 0], 180) : translation([0, 0, 0]);
       const r = insertFragment(f, [compose(translation(p!), R)]);
-      done = tp('surface.done', { n: r.quads.length });
+      done = doneText(r.quads.length, r.plates.length);
     });
   }
 </script>
@@ -56,7 +58,7 @@
     <label>{t('pro.thMaterial')} <select bind:value={materialId}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select></label>
     <label>{t('pro.thickness')} <input type="number" min="0.001" step="0.01" bind:value={thickness} /> m</label>
   </div>
-  {#if mesh}<p class="sf-hint" data-testid="sf-summary">{tp('surface.summary', { quads: mesh.cells.length, nodes: mesh.points.length })}</p>
+  {#if mesh}<p class="sf-hint" data-testid="sf-summary">{#if mesh.cells.some((c) => c.length === 3)}{tp('surface.summaryTri', { quads: mesh.cells.filter((c) => c.length === 4).length, plates: mesh.cells.filter((c) => c.length === 3).length, nodes: mesh.points.length })}{:else}{tp('surface.summary', { quads: mesh.cells.length, nodes: mesh.points.length })}{/if}</p>
   {:else}<p class="sf-warn">{t('surface.invalid')}</p>{/if}
   <div class="sf-row">
     <button class="pro-btn pro-btn-accent" disabled={!mesh} onclick={place} data-testid="sf-place">{t('surface.place')}</button>

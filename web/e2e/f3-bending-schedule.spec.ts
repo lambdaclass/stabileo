@@ -146,7 +146,7 @@ test.describe('@smoke a shape with no honest picture keeps its code and says why
     const cell = page.getByTestId('shape-C');
     // The code stays: it is what the mark was grouped on.
     await expect(cell).toContainText('bent2');
-    await expect(page.getByTestId('shape-none-C')).toContainText('bent about two axes');
+    await expect(page.getByTestId('shape-none-C')).toContainText('bent in two planes');
   });
 
   test('S6 — and the other rows are unaffected by it', async ({ pro: page }) => {

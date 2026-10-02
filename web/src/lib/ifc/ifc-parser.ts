@@ -215,7 +215,7 @@ export async function parseIfc(data: ArrayBuffer, opts?: { wasmPath?: string }):
             warnings.push(tp('ifc.noPoints', { n: name }));
           }
         } catch (e: any) {
-          warnings.push(tp('ifc.entityError', { id, msg: e.message }));
+          warnings.push(tp('ifc.entityError', { id, m: e.message }));
         }
       }
     } catch {

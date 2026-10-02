@@ -17,11 +17,14 @@ async function openLoads(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-loads').click();
   await expect(page.getByTestId('analysis-rules')).toBeVisible();
+  // The self-weight is one closed row until it is opened.
+  await expect(page.getByTestId('sw-row')).toHaveCount(0);
+  await page.getByTestId('sw-toggle').click();
 }
 
 const rules = (page: Page) => page.evaluate(() => window.__stabileo.analysisSettings());
 
-test.describe('PRO analysis rules', () => {
+test.describe('@smoke PRO analysis rules', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('self-weight is a row of its own, and its factor is the model\'s', async ({ pro: page }) => {

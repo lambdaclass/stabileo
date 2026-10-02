@@ -251,3 +251,59 @@ describe('what a freshly generated model does NOT have', () => {
     // in the generator.
   });
 });
+
+/*
+ * A pointed truss (end depth 0) has its chords meeting at the bearing. The generator used to
+ * leave two coincident nodes there, one per chord, and only the bottom one was supported: the
+ * top chord and its web hung from nothing but the bottom chord, and the truss deflected several
+ * times what it should. The reference below is the same truss wired by hand, with one node at
+ * each bearing.
+ */
+describe('a pointed truss', () => {
+  it('shares the bearing node between the chords and deflects like the truss wired by hand', () => {
+    const topo = generateTruss({ kind: 'trapezoidal', spanM: 12, riseM: 1.2, endDepthM: 0, plateauM: 0, panelsPerHalf: 2, webPattern: 'pratt', halfTruss: false });
+    const key = (n: { x: number; z: number }) => `${n.x.toFixed(6)},${n.z.toFixed(6)}`;
+    expect(new Set(topo.nodes.map(key)).size).toBe(topo.nodes.length);
+
+    const zTop = (x: number) => Math.max(...topo.nodes.filter((n) => Math.abs(n.x - x) < 1e-9).map((n) => n.z));
+    const xs = [0, 3, 6, 9, 12];
+    // b0..b4 on the bottom chord, then t1..t3 above the inner stations.
+    const nodes = [...xs.map((x, i) => ({ i, x, y: 0, z: 0 })), ...[3, 6, 9].map((x, k) => ({ i: 5 + k, x, y: 0, z: zTop(x) }))];
+    const chord = (a: number, b: number) => ({ a, b, role: 'chord' as const, type: 'frame' as const });
+    const webM = (a: number, b: number, role: 'post' | 'diagonal') => ({ a, b, role, type: 'truss' as const });
+    const members = [
+      chord(0, 1), chord(1, 2), chord(2, 3), chord(3, 4),
+      chord(0, 5), chord(5, 6), chord(6, 7), chord(7, 4),
+      webM(1, 5, 'post'), webM(2, 6, 'post'), webM(3, 7, 'post'),
+      // Pratt: descending toward midspan on both halves.
+      webM(5, 2, 'diagonal'), webM(2, 7, 'diagonal'),
+    ];
+    // Both bearings hold the twist about the span: a lone planar truss on plain pins is free
+    // to turn about the line through its supports, which is not what is being compared here.
+    const supports = [{ node: 0, type: 'forkPinned' as const }, { node: 4, type: 'forkRollerX' as const }];
+    const byHand = { ...topo, nodes, members, supports, counts: { ...topo.counts, chord: 8, post: 3, diagonal: 2 } };
+    expect(topo.members.length).toBe(members.length);
+    expect(topo.supports.map((x) => x.node)).toEqual([0, 4]);
+
+    const midUz = (t: typeof topo) => {
+      const g = emitModel(t, { name: 'p', profiles: PROFILES });
+      const json = g.json as { nodes: Array<{ id: number; x: number; z: number }> };
+      const mid = json.nodes.find((n) => Math.abs(n.x - 6) < 1e-9 && Math.abs(n.z) < 1e-9)!.id;
+      const { res } = solveGenerated(json as never, mid, -20);
+      expect(typeof res, String(res)).not.toBe('string');
+      return (res as { displacements: Array<{ nodeId: number; uz: number }> }).displacements.find((d) => d.nodeId === mid)!.uz;
+    };
+    const generated = midUz({ ...topo, supports }), reference = midUz(byHand);
+    expect(reference).toBeLessThan(0);
+    expect(generated).toBeCloseTo(reference, 9);
+  });
+
+  it('leaves out the end diagonals that would lie on a chord, for every web', () => {
+    for (const webPattern of WEB_PATTERNS) {
+      const t = generateTruss({ kind: 'trapezoidal', spanM: 12, riseM: 1.2, endDepthM: 0, panelsPerHalf: 3, webPattern, subdivideDiagonals: true });
+      const pair = (m: { a: number; b: number }) => [Math.min(m.a, m.b), Math.max(m.a, m.b)].join('-');
+      expect(new Set(t.members.map(pair)).size, webPattern).toBe(t.members.length);
+      for (const m of t.members) expect(m.a, webPattern).not.toBe(m.b);
+    }
+  });
+});

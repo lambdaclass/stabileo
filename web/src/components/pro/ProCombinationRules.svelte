@@ -4,6 +4,10 @@
    * expanded onto the load cases by the same generator as the regulation's
    * (`engine/loads/combination-rules.ts`). A set can start from CIRSOC 101 and travel between
    * projects as a template file.
+   *
+   * It lives in the regulation dialog's Combinations tab, beside the regulation's set, because
+   * that is the choice it is: which combinations the loads are combined with. The Loads tab
+   * uses the same rules over the cases already in the model.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -15,9 +19,6 @@
     RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
   import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
-
-  interface Props { onGenerate: () => void }
-  let { onGenerate }: Props = $props();
 
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
@@ -70,9 +71,9 @@
   }
 </script>
 
-<details class="cr" data-testid="combo-rules">
-  <summary>{tp('combos.rules.title', { n: rules.length })}</summary>
-  <p class="cr-hint">{t('combos.rules.hint')}</p>
+<div class="cr" data-testid="combo-rules">
+  <p class="al-hint">{t('combos.rules.hint')}</p>
+  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
       <table class="cr-table">
@@ -89,7 +90,7 @@
                 </select>
               </td>
               {#each RULE_SYMBOLS as s (s)}
-                <td><input class="cr-f" inputmode="decimal" value={factorOf(r, s) || ''}
+                <td><input type="text" class="cr-f" inputmode="decimal" value={factorOf(r, s) || ''}
                   onchange={(e) => setFactor(r.id, s, e.currentTarget.value)} aria-label={`${s} · ${ruleLabel(r)}`}
                   data-testid="combo-rule-{r.id}-{s}" /></td>
               {/each}
@@ -102,25 +103,23 @@
     </div>
   {/if}
   <div class="cr-row">
-    <button class="pro-btn" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
-    <button class="pro-btn" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
-    <button class="pro-btn pro-btn-accent" disabled={rules.length === 0} onclick={onGenerate} data-testid="combo-rule-generate">{t('combos.rules.generate')}</button>
-    <button class="pro-btn" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
-    <button class="pro-btn" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
+    <button class="al-btn-sm" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
+    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
+    <button class="al-btn-sm" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
+    <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />
   </div>
-</details>
+</div>
 
 <style>
-  .cr { margin: 6px 0; font-size: 0.66rem; color: var(--st-text-2); }
-  .cr summary { cursor: pointer; }
-  .cr-hint { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
+  .cr { display: flex; flex-direction: column; gap: 6px; color: var(--st-text-2); }
   .cr-wrap { overflow-x: auto; }
   .cr-table { border-collapse: collapse; }
   .cr-table th { font-weight: 500; padding: 2px 3px; color: var(--st-text-3); }
   .cr-table td { padding: 1px 2px; }
-  .cr-f { width: 34px; font-family: monospace; font-size: 0.62rem; text-align: right; }
+  .cr .cr-wrap .cr-table select { width: auto; height: 24px; }
+  .cr .cr-wrap .cr-table input.cr-f { width: 40px; height: 24px; padding: 0 4px; text-align: right; font-family: var(--st-mono); }
   .cr-label td { font-family: monospace; font-size: 0.6rem; color: var(--st-text-3); padding-bottom: 4px; border-bottom: 1px solid var(--st-hair); }
   .cr-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
-  .cr-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+  .cr-row { display: flex; gap: 6px; flex-wrap: wrap; }
 </style>

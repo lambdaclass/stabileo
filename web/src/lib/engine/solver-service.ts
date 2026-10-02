@@ -1,9 +1,11 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { nodesOnMembers } from './nodes-on-members';
+import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
-import { activeModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
+import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
@@ -13,7 +15,7 @@ import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
-import { computeLocalAxes3D } from './local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
@@ -498,7 +500,7 @@ function reactionColumns2D(s: SolverSupport, rx: number, rz: number, hasFrames: 
  * a connected walk from the first one does not reach — the message the solve gives
  * for each, or null.
  */
-function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, adj: Map<number, Set<number>>): string | null {
+function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, adj: Map<number, Set<number>>, hint: () => string = () => ''): string | null {
   for (const nodeId of nodeIds) {
     if (!connected.has(nodeId)) return t('svc.disconnectedNode').replace('{n}', String(nodeId));
   }
@@ -515,7 +517,8 @@ function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, 
   }
   if (visited.size < connected.size) {
     const disconnected = [...connected].filter(n => !visited.has(n));
-    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
+    // And, when members pass nodes they are not cut at, why and what joins them (`nodesOnMembersHint`).
+    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', ')) + hint();
   }
   return null;
 }
@@ -594,7 +597,9 @@ function structuralChecks2D(input: SolverInput): string | null {
     for (const e of elements) { adj.get(e.nodeI)!.add(e.nodeJ); adj.get(e.nodeJ)!.add(e.nodeI); }
     for (const c of input.connectors?.values() ?? []) { adj.get(c.nodeI)?.add(c.nodeJ); adj.get(c.nodeJ)?.add(c.nodeI); }
     addConstraintAdjacency(adj, input.constraints ?? []);
-    const refusal = connectivityRefusal([], connected, adj);
+    const refusal = connectivityRefusal([], connected, adj, () => nodesOnMembersHint({
+      nodes: new Map([...input.nodes].map(([id, n]) => [id, { x: n.x, y: n.z }])), elements: input.elements,
+    }));
     if (refusal) return refusal;
   }
 
@@ -1177,7 +1182,7 @@ function solveCombinations2DFallback(
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
     const result = validateAndSolve2D(caseModel, includeSelfWeight && lc.type === 'D');
     if (typeof result === 'string') {
-      return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', result);
+      return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }
     if (result) perCase.set(lc.id, result);
   }
@@ -1504,7 +1509,7 @@ export function buildSolverInput3D(
   userLeftHand = false,
   opts: { expandMemberOffsets?: boolean } = {},
 ): SolverInput3D | null {
-  model = activeModel(model);
+  model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
@@ -1610,9 +1615,7 @@ export function buildSolverInput3D(
         }
       }
       // Compose element rollAngle with section rotation — computeLocalAxes3D rotates local Y/Z
-      const sec = model.sections.get(e.sectionId);
-      const secRot = sec?.rotation ?? 0;
-      const effectiveRoll = (e.rollAngle ?? 0) + secRot;
+      const effectiveRoll = memberRoll(e, model.sections);
       if (effectiveRoll !== 0) { elem.rollAngle = effectiveRoll; }
       return [id, elem];
     })),
@@ -1762,6 +1765,8 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // route through here exactly once) so browser tests can assert that a
   // reinforcement-only edit triggers none. Not part of the solver.
   noteStructuralSolve();
+  // Checked on what the engine will see: inactive members and the nodes nothing holds are out.
+  model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) {
     return t('svc.needNodesAndElements');
   }
@@ -1841,7 +1846,7 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
     }
   }
   addConstraintAdjacency(adj, model.constraints);
-  const disconnected = connectivityRefusal([], connectedNodes, adj);
+  const disconnected = connectivityRefusal([], connectedNodes, adj, () => nodesOnMembersHint(model));
   if (disconnected) return disconnected;
 
   const input = buildSolveInput3D(model, includeSelfWeight, leftHand);
@@ -1900,7 +1905,7 @@ export function advancedRefusal3D(input: SolverInput3D): string | null {
   addConstraintConnectivity(connected, input.constraints);
   for (const n of connected) if (!adj.has(n)) adj.set(n, new Set());
   addConstraintAdjacency(adj, input.constraints);
-  const disconnected = connectivityRefusal(input.nodes.keys(), connected, adj);
+  const disconnected = connectivityRefusal(input.nodes.keys(), connected, adj, () => nodesOnMembersHint(input));
   if (disconnected) return disconnected;
   const moment = unheldMomentRefusal3D(input);
   if (moment) return moment;
@@ -1908,6 +1913,17 @@ export function advancedRefusal3D(input: SolverInput3D): string | null {
   return 'error' in solved
     ? t('svc.solver3dError').replace('{n}', solved.error)
     : excitedMechanism3D(solved.results);
+}
+
+/**
+ * The sentence that follows a disconnected-structure message when members pass nodes they are
+ * not cut at: the usual reason a first model falls apart, and the command that connects them.
+ * Empty when there are none.
+ */
+export function nodesOnMembersHint(model: { nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>; elements: ReadonlyMap<number, { id: number; nodeI: number; nodeJ: number }> }): string {
+  const hits = nodesOnMembers(model.nodes, model.elements.values());
+  if (hits.length === 0) return '';
+  return ' ' + t('svc.nodesOnMembers').replace('{n}', String(new Set(hits.map((h) => h.nodeId)).size));
 }
 
 /**
@@ -1980,7 +1996,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     const t0 = performance.now();
     let results: AnalysisResults3D;
     if (hasNonlinearBehaviour(model)) {
-      const r = solveNonlinear3D(activeModel(model), input);
+      const r = solveNonlinear3D(solvableModel(model), input);
       results = { ...r.results, nonlinear: r.report };
     } else {
       results = solve3DEngine(input);
@@ -2019,9 +2035,8 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     const t0 = performance.now();
     let results: AnalysisResults3D;
     try {
-      // The worker answers as the engine does: the axial shares are given back here, as the
-      // main-thread solve3D does (`axial-shares.ts`).
-      results = giveBackAxialShares(await solve3DInWorker(wire), axialShares(input.loads));
+      // The worker finishes the result as the main thread does (`solve-finish.ts`).
+      results = await solve3DInWorker(wire);
     } catch (e) {
       if (!(e instanceof PoolUnavailableError)) throw e;
       results = solve3DEngine(input);
@@ -2071,9 +2086,9 @@ function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: Lo
   try {
     settlement = solve3DEngine(input);
   } catch (err: any) {
-    return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', err.message);
+    return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', localizeEngineText(err.message));
   }
-  if (typeof settlement === 'string') return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
+  if (typeof settlement === 'string') return t('svc.errorInCase3d').replace('{n}', t('svc.settlementCase')).replace('{err}', localizeEngineText(settlement));
   // The same helper-node pruning the cases went through, so the ids line up when combined.
   const pruned = pruneComboBundle3D({ perCase: new Map([[0, settlement]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
@@ -2107,7 +2122,7 @@ export function solveCombinations3D(
   includeSelfWeight = false,
   leftHand = false,
 ): Bundle3D | string | null {
-  return withDeclaredInactiveBundle(solveCombinations3DActive(activeModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+  return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
 }
 
 function solveCombinations3DActive(
@@ -2150,11 +2165,17 @@ function solveCombinations3DCore(
   const mcLoadCases: Array<{ name: string; loads: SolverLoad3D[] }> = [];
   const caseNameToId = new Map<string, number>();
 
+  /*
+   * The engine keys cases and combinations by name and refuses a repeated one; a project may
+   * repeat names (a validation model has eight cases called CRANE), and the solve then fell back
+   * to one case at a time without a word. Each goes to the engine under its id.
+   */
+  const caseKey = (id: number) => `case#${id}`;
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
-    mcLoadCases.push({ name: lc.name, loads });
-    caseNameToId.set(lc.name, lc.id);
+    mcLoadCases.push({ name: caseKey(lc.id), loads });
+    caseNameToId.set(caseKey(lc.id), lc.id);
   }
 
   if (mcLoadCases.length === 0) return t('svc.noLoadsApplied');
@@ -2167,10 +2188,10 @@ function solveCombinations3DCore(
     const factors: Record<string, number> = {};
     for (const f of combo.factors) {
       const lc = loadCases.find(c => c.id === f.caseId);
-      if (lc) factors[lc.name] = f.factor;
+      if (lc) factors[caseKey(lc.id)] = (factors[caseKey(lc.id)] ?? 0) + f.factor;
     }
-    mcCombinations.push({ name: combo.name, factors });
-    comboNameToId.set(combo.name, combo.id);
+    mcCombinations.push({ name: `combo#${combo.id}`, factors });
+    comboNameToId.set(`combo#${combo.id}`, combo.id);
   }
 
   // Single WASM call: solves all cases, combines, computes envelope
@@ -2253,7 +2274,7 @@ function solveCombinations3DFallback(
     try {
       const result = solve3DEngine(input);
       if (typeof result === 'string') {
-        return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', result);
+        return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
       }
       if (result) {
         const mech = excitedMechanism3D(result);
@@ -2262,7 +2283,7 @@ function solveCombinations3DFallback(
         perCase.set(lc.id, result);
       }
     } catch (err: any) {
-      return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', err.message);
+      return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', localizeEngineText(err.message));
     }
   }
 
@@ -2417,7 +2438,8 @@ function superposedReport(
     const b = (e as { behaviour?: string }).behaviour;
     const v = n.get(e.id);
     if (v === undefined) continue;
-    if ((b === 'tensionOnly' && v < -1e-9 * nMax) || (b === 'compressionOnly' && v > 1e-9 * nMax)) members.push(e.id);
+    // A cable is tension only too: compression in the sum is as much a contradiction for it.
+    if (((b === 'tensionOnly' || b === 'cable') && v < -1e-9 * nMax) || (b === 'compressionOnly' && v > 1e-9 * nMax)) members.push(e.id);
   }
   const rz = new Map(summed.reactions.map((r) => [r.nodeId, r.fz]));
   const scale = Math.max(1e-9, ...summed.reactions.map((r) => Math.abs(r.fz)));
@@ -2482,10 +2504,16 @@ export async function solveCombinations3DParallel(
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
   const original = model;
-  model = activeModel(model);
+  model = solvableModel(model);
+  /*
+   * The same dispatch as `solveCombinations3DActive`, in the same order: this is the entry PRO's
+   * Solve takes, so a rule the sync path honours and this one skipped (P-Delta per combination
+   * was) made the result depend on which button solved the model. Only the linear core runs on
+   * the workers.
+   */
   const done = async (): Promise<Bundle3D | string | null> => {
-    if (model.analysis?.perCombination === 'pdelta' && !hasNonlinearBehaviour(model)) return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
+    if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
     if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
     const solved = await solveCombinations3DParallelCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
     if (!solved || typeof solved === 'string') return solved;
@@ -2521,14 +2549,14 @@ async function solveCombinations3DParallelCore(
 
   // Build per-case inputs (plain wire objects — structured-cloned to workers,
   // no JSON.stringify per case)
-  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any>; loads: SolverLoad3D[] }> = [];
+  const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any> }> = [];
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
     // Create full solver input with this case's loads
     const fullInput = { ...baseWire, loads };
-    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput, loads });
+    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput });
   }
 
   if (caseInputs.length === 0) return t('svc.noLoadsApplied');
@@ -2552,8 +2580,6 @@ async function solveCombinations3DParallelCore(
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
-      // Each case from its own loads; the combinations below are linear in the cases.
-      giveBackAxialShares(result, axialShares(ci.loads));
       const mech = excitedMechanism3D(result);
       if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {

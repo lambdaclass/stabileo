@@ -10,7 +10,7 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, SolverElement3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
-import { axialShares, giveBackAxialShares } from './axial-shares';
+import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import { errorText } from '../utils/error-text';
 
@@ -702,7 +702,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return giveBackAxialShares(stripStabilisedReactions(wasmSolve3d(wire), input), axialShares(input.loads));
+    return finishSolve3D(wasmSolve3d(wire), input);
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
@@ -877,14 +877,8 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
     if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
     throw e;
   }
-  // Same as `solve3D`: a node that only gained a vanishing spring is not a
-  // support, and its zero reaction row is not a result.
-  if (result?.results) stripStabilisedReactions(result.results, input);
-  if (result?.linearResults) stripStabilisedReactions(result.linearResults, input);
-  // The axial part of member loads, given back to the members (`axial-shares.ts`).
-  const shares = axialShares(input.loads);
-  if (result?.results) giveBackAxialShares(result.results, shares);
-  if (result?.linearResults) giveBackAxialShares(result.linearResults, shares);
+  // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
+  finishPDelta3D(result, input);
   if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
   return normalizePDeltaResult(result);
 }
@@ -1413,14 +1407,11 @@ export function solveSSI2D(config: any): any {
 /** Solve 3D soil-structure interaction via WASM. */
 export function solveSSI3D(config: any): any {
   if (!wasmReady || !wasmSolveSsi3d) throw new Error('WASM SSI 3D solver not available.');
-  const shares = axialShares(config.solver?.loads ?? []);
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
   }
-  const out = JSON.parse(wasmSolveSsi3d(JSON.stringify(config)));
-  // The axial shares of members that take no bending, as solve3D gives them (`axial-shares.ts`).
-  if (out?.results) giveBackAxialShares(out.results, shares);
-  return out;
+  // As the engine answers: its caller finishes what it reads (`solve-finish.ts`).
+  return JSON.parse(wasmSolveSsi3d(JSON.stringify(config)));
 }
 
 /** Solve 2D Winkler foundation analysis via WASM. */
@@ -1547,10 +1538,8 @@ export function solveCable3D(
   if (!wasmReady || !wasmSolveCable3d) throw new Error('WASM cable 3D solver not available.');
   // The wire form does not look at the member type; it passes `cable` through to the engine.
   const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities };
-  const out = JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
-  // The axial shares of members that take no bending, as solve3D gives them (`axial-shares.ts`).
-  if (out?.results) giveBackAxialShares(out.results, axialShares(input.loads));
-  return out;
+  // As the engine answers: its caller finishes the results (`solve-finish.ts`, member-behaviour.ts).
+  return JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
 }
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────

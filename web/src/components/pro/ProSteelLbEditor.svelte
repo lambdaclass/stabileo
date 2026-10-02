@@ -14,7 +14,8 @@
   import { memberLengths } from '../../lib/engine/steel/unbraced-length';
   import type { Element } from '../../lib/store/model.svelte';
 
-  let { steelIds }: { steelIds: ReadonlySet<number> } = $props();
+  /** `bare`: inside a card that already names it (Specifications › Members). */
+  let { steelIds, bare = false }: { steelIds: ReadonlySet<number>; bare?: boolean } = $props();
 
   type Field = 'unbracedLength' | 'kStrong' | 'kWeak';
 
@@ -59,8 +60,8 @@
   const anyDeclared = (f: Field) => selected.some((id) => modelStore.elements.get(id)?.[f] !== undefined);
 </script>
 
-<div class="pk-card lb" data-testid="steel-lb-editor">
-  <h4 class="pk-heading">{t('steel.lb.title')}</h4>
+<div class={bare ? 'lb-bare' : 'pk-card lb'} data-testid="steel-lb-editor">
+  {#if !bare}<h4 class="pk-heading">{t('steel.lb.title')}</h4>{/if}
   <p class="pk-hint">{t('steel.lb.hint')}</p>
   {#if selected.length === 0}
     <p class="pk-hint" data-testid="steel-lb-none">{t('steel.lb.none')}</p>
@@ -88,5 +89,6 @@
 
 <style>
   .lb { margin-top: 6px; }
+  .lb-bare { display: flex; flex-direction: column; gap: 0.45rem; }
   .lb-now { margin: 0 0 4px; font-size: 0.64rem; color: var(--st-text-2); }
 </style>

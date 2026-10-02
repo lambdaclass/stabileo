@@ -172,6 +172,7 @@
       + verificationStore.providedSummary.unavailable
       + verificationStore.providedSummary.stale,
     detailed: detailingStore.assemblies.length > 0,
+    detailingConflicts: detailingStore.assemblies.reduce((n, a) => n + (a.conflicts ?? []).filter((c) => c.severity !== 'marginal').length, 0),
     documented: detailingStore.document !== null,
   });
   const stages = $derived(rcStages(readings));

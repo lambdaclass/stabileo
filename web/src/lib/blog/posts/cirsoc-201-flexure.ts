@@ -32,8 +32,9 @@
  *   · It promised D/C = 0.81 on screen. Nothing on screen said 0.81 after the
  *     full flow, and Mu = 92.5 is never displayed at all.
  *
- * The 5 m span is two elements, so there are two rows: 0.89 governed by
- * positive bending and 0.88 governed by shear (0.86 while self-weight was lumped at the nodes,
+ * The 5 m span is two elements, so there are two rows, 0.89 and 0.87, both governed by the
+ * anchorage of the bars since development length follows Tabla 25.4.2.3 (before that: 0.89
+ * governed by positive bending and 0.88 by shear; 0.86 while self-weight was lumped at the nodes,
  * where the share at the supports went straight into the reactions and never through the beam's
  * shear). Shear governs the summary line
  * on essentially any beam here — six spans from 5 to 8 m and sections from
@@ -141,7 +142,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: "Calcular solicitaciones", "Calcular acero requerido" y "Diseñar todo". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice "sin armadura". El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 gobernado por la flexión positiva del tramo, el segundo en 0,88 gobernado por el corte, los dos con la combinación 1,2D+1,6L. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
+          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: "Calcular solicitaciones", "Calcular acero requerido" y "Diseñar todo". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice "sin armadura". El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 y el segundo en 0,87, los dos gobernados por el anclaje de las barras (Tabla 25.4.2.3): la flexión y el corte quedan por debajo. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
         },
 
         { k: 'h', t: 'En resumen' },
@@ -240,7 +241,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'The beam in Stabileo, in PRO\'s design workflow. Three buttons, in this order: "Compute demands", "Run code check" and "Design all". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; the first closes at D/C = 0.89 governed by positive bending in the span, the second at 0.88 governed by shear, both under the 1.2D+1.6L combination. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
+          label: 'The beam in Stabileo, in PRO\'s design workflow. Three buttons, in this order: "Compute demands", "Run code check" and "Design all". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; the first closes at D/C = 0.89 and the second at 0.87, both governed by the anchorage of the bars (Table 25.4.2.3): bending and shear stay below. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
         },
 
         { k: 'h', t: 'In short' },
@@ -339,7 +340,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Três botões, nesta ordem: "Calcular solicitações", "Executar verificação normativa" e "Dimensionar tudo". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz "sem armadura". O vão de 5 m está modelado com dois elementos; o primeiro fecha em D/C = 0,89 governado pela flexão positiva do vão, o segundo em 0,88 governado pelo cortante, ambos com a combinação 1,2D+1,6L. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
+          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Três botões, nesta ordem: "Calcular solicitações", "Executar verificação normativa" e "Dimensionar tudo". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz "sem armadura". O vão de 5 m está modelado com dois elementos; o primeiro fecha em D/C = 0,89 e o segundo em 0,87, ambos governados pela ancoragem das barras (Tabela 25.4.2.3): a flexão e o cortante ficam abaixo. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
         },
 
         { k: 'h', t: 'Em resumo' },

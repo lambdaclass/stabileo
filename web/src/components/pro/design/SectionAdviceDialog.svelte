@@ -69,7 +69,7 @@
     <span>{t('design.advice.driver')}</span>
     <span class="mono">{advice.driver}</span>
     {#if advice.screenedUtilization !== undefined}
-      <span>screen u</span><span class="mono">≈ {advice.screenedUtilization.toFixed(2)}</span>
+      <span>{t('rcUi.screenU')}</span><span class="mono">≈ {advice.screenedUtilization.toFixed(2)}</span>
     {/if}
   </div>
 
@@ -79,13 +79,13 @@
 
   {#if section && shared > 1}
     <p class="shared" data-testid="advice-shared-warning">
-      ⚠ {section.name} is used by {shared} elements — all of them change.
+      {tp('rcUi.sharedSection', { name: section.name, n: shared })}
     </p>
   {/if}
 
   <p class="guard" data-testid="advice-guard">
     {#if verdict.ok}
-      Iteration {guard.iterations + 1} / {MAX_SECTION_ITERATIONS}
+      {tp('rcUi.iteration', { i: guard.iterations + 1, max: MAX_SECTION_ITERATIONS })}
     {:else}
       {t(`design.advice.guard.${verdict.reason}`)}
     {/if}

@@ -22,6 +22,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design' } as const;
@@ -33,6 +34,7 @@ async function openTab(page: Page, tab: 'generators' | 'steel'): Promise<void> {
 
 async function openGenerators(page: Page): Promise<void> {
   await openTab(page, 'generators');
+  await pickGenerator(page, 'truss');
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
 }
 
@@ -49,10 +51,7 @@ async function openGradePicker(page: Page): Promise<void> {
 
 /** Switch the generator kind. The shed is the only one with bracing controls. */
 async function selectShed(page: Page): Promise<void> {
-  await page.getByTestId('gen-kind-shed').click().catch(async () => {
-    // The kind selector is a set of buttons in this build; fall back to a labelled control.
-    await page.getByRole('button', { name: /nave|shed|galpão/i }).first().click();
-  });
+  await pickGenerator(page, 'shed');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -307,7 +306,7 @@ test.describe('the grade picker', () => {
 
     await expect(page.getByTestId('gen-grade-line')).toContainText('F-36');
     // Generate stays available: this is cost and lead time, not correctness.
-    await expect(page.getByTestId('gen-generate')).toBeEnabled();
+    await expect(placeButton(page)).toBeEnabled();
   });
 });
 
@@ -323,7 +322,7 @@ test.describe('the shed bracing controls', () => {
     await page.getByLabel(/arriostramiento de cubierta|roof bracing|contraventamento de cobertura/i).check();
     const notice = page.getByTestId('gen-bracing-notice');
     await expect(notice).toBeVisible();
-    await expect(page.getByTestId('gen-generate')).toBeEnabled();
+    await expect(placeButton(page)).toBeEnabled();
 
     // All three plus the eave beams: nothing left to warn about.
     await page.getByLabel(/entre cerchas|between trusses|entre treliças/i).check();
@@ -339,7 +338,7 @@ test.describe('the shed bracing controls', () => {
     await page.getByLabel(/correas|purlins|terças/i).first().uncheck();
     await expect(page.getByTestId('gen-stability-notice')).toBeVisible();
     // A `status`, not an `alert`: nothing is wrong yet and Generate stays available.
-    await expect(page.getByTestId('gen-generate')).toBeEnabled();
+    await expect(placeButton(page)).toBeEnabled();
   });
 });
 
@@ -350,7 +349,7 @@ test.describe('the metallic inventory', () => {
     await openGenerators(page);
     // Generate without choosing a grade: the model takes the placeholder and declares it.
     await expect(page.getByTestId('gen-grade-line')).toContainText(/sin grado|no grade|sem grau/i);
-    await page.getByTestId('gen-generate').click();
+    await insertGenerated(page);
 
     await openTab(page, 'steel');
     await expect(page.getByTestId('pro-steel-panel')).toBeVisible();
@@ -367,7 +366,7 @@ test.describe('the metallic inventory', () => {
     await openGradePicker(page);
     await page.getByTestId('grade-search').fill('F-24');
     await page.getByTestId('grade-option-iram-f24').click();
-    await page.getByTestId('gen-generate').click();
+    await insertGenerated(page);
 
     await openTab(page, 'steel');
     const table = page.getByTestId('steel-member-table');

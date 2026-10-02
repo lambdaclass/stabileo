@@ -264,6 +264,38 @@ describe('DXF Mapper', () => {
   });
 });
 
+describe('DXF Mapper — what a drawing writes', () => {
+  const parsed = (over: Partial<DxfParseResult>): DxfParseResult => ({
+    lines: [], points: [], inserts: [], texts: [], circles: [], layers: ['BARRAS'], ...over,
+  });
+
+  it('reads a decimal comma and an exponent in a load text', () => {
+    const r = mapDxfToModel(parsed({
+      lines: [{ layer: 'BARRAS', start: { x: 0, y: 0 }, end: { x: 5, y: 0 } }],
+      texts: [
+        { layer: 'CARGAS', position: { x: 2.5, y: 0.5 }, value: 'q=-12,5' },
+        { layer: 'CARGAS', position: { x: 5, y: 0.1 }, value: 'Fx=1.5e1' },
+      ],
+    }), { unit: 'm', snapTolerance: 0.01 });
+    expect(r.distributedLoads[0]!.q).toBe(-12.5);
+    expect(r.nodalLoads[0]!.fx).toBe(15);
+  });
+
+  it('connects a line drawn to the middle of another one', () => {
+    // A beam 0–10 and a column rising from its midspan: a T.
+    const r = mapDxfToModel(parsed({
+      lines: [
+        { layer: 'BARRAS', start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
+        { layer: 'BARRAS', start: { x: 5, y: 0 }, end: { x: 5, y: 4 } },
+      ],
+    }), { unit: 'm', snapTolerance: 0.01 });
+    expect(r.nodes).toHaveLength(4);
+    expect(r.elements).toHaveLength(3);
+    const mid = r.nodes.find((n) => n.x === 5 && n.y === 0)!.id;
+    expect(r.elements.filter((e) => e.nodeI === mid || e.nodeJ === mid)).toHaveLength(3);
+  });
+});
+
 // ─── Section/Material text parsing ─────────────────────────────
 
 describe('parseSectionText', () => {
@@ -297,6 +329,11 @@ describe('parseSectionText', () => {
 
   it('should return null for unknown text', () => {
     expect(parseSectionText('unknown section')).toBeNull();
+  });
+
+  it('matches a profile by its exact name, not by a substring', () => {
+    expect(parseSectionText('HEB200')!.name).toBe('HEB 200');
+    expect(parseSectionText('IPE 30')).toBeNull();
   });
 });
 

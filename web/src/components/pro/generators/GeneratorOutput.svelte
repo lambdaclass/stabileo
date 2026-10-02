@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
-   * Where a generated structure goes: as a new model (replacing the current one), at a point
-   * (coordinates, a rotation, the plane it stands in, the anchor picked on a schema, with the
-   * ghost shown in the model while the numbers change), or at a node picked with the mouse.
+   * Where a generated structure goes, as a paste does: with the mouse (its ghost follows the
+   * pointer and snaps to nodes; R turns it, F mirrors it, Tab changes the anchor, Shift+click
+   * places another), or at typed coordinates (the anchor picked on a schema and marked on the
+   * ghost in the model, which follows the numbers as they change). It no longer replaces the
+   * model: on an empty one, the structure simply goes in at the point given.
    *
    * Inserted structures become regenerable groups (`store/generated-structures.ts`).
    */
@@ -25,8 +27,8 @@
     /** Emit with the current profiles and material, supports as chosen here. */
     build: (supports: SupportMode) => GeneratedModel | null;
     meta: () => GeneratedMeta;
-    /** Replace the model (the existing path). */
-    onNewModel: (supports: SupportMode) => void;
+    /** Runs inside the insertion's undo step with the members it made; its note joins the result. */
+    afterInsert?: (elements: number[]) => string | null;
     /** A generated group being edited: offer to regenerate it instead of inserting a new one. */
     editingGroupId?: number | null;
     onRegenerated?: () => void;
@@ -36,20 +38,33 @@
     /** What the Generate button is described by (the problem list on screen). */
     describedBy?: string;
   }
-  let { topology, canGenerate, build, meta, onNewModel, editingGroupId = null, onRegenerated, st, part, describedBy }: Props = $props();
+  let { topology, canGenerate, build, meta, afterInsert, editingGroupId = null, onRegenerated, st, part, describedBy }: Props = $props();
 
   const grid = $derived(modelStore.grid);
   const gridAxes = $derived([...axesOf(grid, 'x'), ...axesOf(grid, 'y')]);
 
-  /** The points a structure can be placed by: its supports, then the corners of its box. */
+  /**
+   * The points a structure can be placed by: its supports, then the corners of its box. A
+   * structure with more than six supports (a shed has two per chord per column per frame) is
+   * offered the four corners of its base instead, so the schema stays readable and the anchor
+   * is a point a reader can name.
+   */
+  const MAX_SUPPORT_ANCHORS = 6;
   const anchors = $derived.by((): Array<{ p: Vec3; label: string }> => {
     if (!topology) return [];
     const out: Array<{ p: Vec3; label: string }> = [];
-    topology.supports.forEach((s, k) => { const n = topology.nodes[s.node]!; out.push({ p: [n.x, n.y, n.z], label: tp('generator.out.anchorSupport', { k: k + 1 }) }); });
     const xs = topology.nodes.map((n) => n.x), ys = topology.nodes.map((n) => n.y), zs = topology.nodes.map((n) => n.z);
     const lo: Vec3 = [Math.min(...xs), Math.min(...ys), Math.min(...zs)];
     const hi: Vec3 = [Math.max(...xs), Math.max(...ys), Math.max(...zs)];
-    out.push({ p: lo, label: t('generator.out.anchorMin') });
+    if (topology.supports.length <= MAX_SUPPORT_ANCHORS) {
+      topology.supports.forEach((s, k) => { const n = topology.nodes[s.node]!; out.push({ p: [n.x, n.y, n.z], label: tp('generator.out.anchorSupport', { k: k + 1 }) }); });
+      out.push({ p: lo, label: t('generator.out.anchorMin') });
+    } else {
+      out.push({ p: lo, label: t('generator.out.anchorMin') });
+      out.push({ p: [hi[0], lo[1], lo[2]], label: tp('generator.out.anchorCorner', { k: 2 }) });
+      out.push({ p: [hi[0], hi[1], lo[2]], label: tp('generator.out.anchorCorner', { k: 3 }) });
+      out.push({ p: [lo[0], hi[1], lo[2]], label: tp('generator.out.anchorCorner', { k: 4 }) });
+    }
     out.push({ p: [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]], label: t('generator.out.anchorBottomCentre') });
     return out;
   });
@@ -72,8 +87,14 @@
   function committer(g: GeneratedModel) {
     const roles = topology?.members.map((m) => m.role) ?? [];
     return (T: Parameters<typeof insertGenerated>[1], o?: { withSupports: boolean }) => {
-      const r = insertGenerated(g, T, meta(), roles, { withSupports: o?.withSupports ?? true });
-      st.result = tp('generator.out.inserted', { members: r.elements.length, nodes: r.nodes.length, welded: r.welded });
+      let r!: ReturnType<typeof insertGenerated>;
+      let note: string | null = null;
+      modelStore.batch(() => {
+        r = insertGenerated(g, T, meta(), roles, { withSupports: o?.withSupports ?? true });
+        note = afterInsert?.(r.elements) ?? null;
+      });
+      st.result = tp('generator.out.inserted', { members: r.elements.length, nodes: r.nodes.length, welded: r.welded })
+        + (note ? ` ${note}` : '');
       return r;
     };
   }
@@ -125,7 +146,10 @@
     const g = build(st.supportMode);
     if (!g || !generatedData(editingGroupId)) return;
     const r = regenerate(editingGroupId, g, meta(), topology?.members.map((m) => m.role) ?? []);
-    if (r) st.result = tp('generator.out.regenerated', { kept: r.kept, added: r.added, removed: r.removed, keptSections: r.keptSections });
+    if (r) {
+      st.result = tp('generator.out.regenerated', { kept: r.kept, added: r.added, removed: r.removed, keptSections: r.keptSections })
+        + (r.welded + r.duplicates > 0 ? ` ${tp('generator.out.regeneratedJoined', { welded: r.welded, duplicates: r.duplicates })}` : '');
+    }
     onRegenerated?.();
   }
 
@@ -169,11 +193,10 @@
   </label>
   {#if editingGroupId === null}
     <div class="go-modes" role="radiogroup" aria-label={t('generator.out.where')}>
-      {#each ['newModel', 'atPoint', 'atNode'] as m (m)}
+      {#each ['atNode', 'atPoint'] as m (m)}
         <label class="go-mode"><input type="radio" name="gen-out" value={m} bind:group={st.mode} data-testid="gen-out-{m}" /> {t(`generator.out.${m}`)}</label>
       {/each}
     </div>
-    {#if st.mode !== 'newModel'}
       {#if schema}
         <svg viewBox="0 0 {W} {H}" class="go-schema" role="img" aria-label={t('generator.out.anchor')}>
           <path d={schema.lines} class="go-lines" />
@@ -208,7 +231,7 @@
           <select bind:value={st.plane} data-testid="gen-plane"><option value="XZ">XZ</option><option value="YZ">YZ</option></select>
         </label>
         <label class="go-field">{t('generator.out.rotation')}
-          <input type="number" step="15" bind:value={st.rot} data-testid="gen-rot" />
+          <input type="number" step="15" bind:value={st.rot} aria-describedby="gen-out-rot-hint" data-testid="gen-rot" />
         </label>
         {#if gridAxes.length > 0}
           <label class="go-field">{t('generator.out.onAxis')}
@@ -219,16 +242,17 @@
           </label>
         {/if}
       </div>
+      <p class="go-hint" id="gen-out-rot-hint">{t('generator.out.rotHint')}</p>
       {#if st.mode === 'atPoint'}
         <div class="go-row">
-          <label class="go-field">X<input type="number" step="0.5" bind:value={st.px} data-testid="gen-x" /></label>
-          <label class="go-field">Y<input type="number" step="0.5" bind:value={st.py} data-testid="gen-y" /></label>
-          <label class="go-field">Z<input type="number" step="0.5" bind:value={st.pz} data-testid="gen-z" /></label>
+          <label class="go-field">X<input type="number" step="0.5" bind:value={st.px} aria-describedby="gen-out-at-hint" data-testid="gen-x" /></label>
+          <label class="go-field">Y<input type="number" step="0.5" bind:value={st.py} aria-describedby="gen-out-at-hint" data-testid="gen-y" /></label>
+          <label class="go-field">Z<input type="number" step="0.5" bind:value={st.pz} aria-describedby="gen-out-at-hint" data-testid="gen-z" /></label>
         </div>
+        <p class="go-hint" id="gen-out-at-hint">{t('generator.out.atHint')}</p>
       {:else}
         <p class="go-hint">{t('generator.out.atNodeHint')}</p>
       {/if}
-    {/if}
   {/if}
 </div>
 {:else}
@@ -236,10 +260,6 @@
   {#if editingGroupId !== null}
     <p class="go-hint">{t('generator.out.regenerateHint')}</p>
     <button class="go" type="button" disabled={!canGenerate} onclick={regen} data-testid="gen-regenerate">{t('generator.out.regenerate')}</button>
-  {:else if st.mode === 'newModel'}
-    <p class="warn">{t('generator.ui.replacesModel')}</p>
-    <button class="go" type="button" data-testid="gen-generate" disabled={!canGenerate}
-      aria-describedby={describedBy} onclick={() => onNewModel(st.supportMode)}>{t('generator.ui.generate')}</button>
   {:else if st.mode === 'atPoint'}
     {#if previewing}
       <div class="go-row">

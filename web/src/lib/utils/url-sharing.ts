@@ -2,6 +2,10 @@
 // v1: LZ-String (legacy, still decoded for old links)
 // v2: compact JSON + fflate deflate + base64url (new default)
 
+import { defaultCodeSettings } from '../codes/project-code-settings';
+import { emptyDetailingStore } from '../engine/detailing/assembly';
+import { emptyGeotechnical } from '../model/geotechnical';
+import { defaultFootingMatPreferences } from '../model/footing';
 import LZString from 'lz-string';
 import { deflateSync, inflateSync } from 'fflate';
 import type { ModelSnapshot } from '../store/history.svelte';
@@ -12,7 +16,7 @@ import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
 import { noteAxisConventionMigrationIfNeeded } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
-import { CODE_HASH, readCodeFragment } from '../model/code/share';
+import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
 import { prepareSharedSnapshot } from './share-snapshot';
 
@@ -205,10 +209,16 @@ function base64urlToUint8(str: string): Uint8Array {
 }
 
 // ─── Round numbers to reduce JSON noise ───────────────────────────────────
-function r(n: number, decimals = 6): number {
-  if (Number.isInteger(n)) return n;
-  const f = Math.pow(10, decimals);
-  return Math.round(n * f) / f;
+// Ten significant figures, not a fixed number of decimals: sections are in m² and m⁴, and six
+// decimals turned an IPE's Iy of 1.42e-6 into 1e-6 and its J into 0 in every link. `decimals`
+// stays for what is a length on screen (the camera), where a fixed step is what is wanted.
+function r(n: number, decimals?: number): number {
+  if (Number.isInteger(n) || !Number.isFinite(n)) return n;
+  if (decimals !== undefined) {
+    const f = Math.pow(10, decimals);
+    return Math.round(n * f) / f;
+  }
+  return Number(n.toPrecision(10));
 }
 
 // ─── v2 compact serialization ─────────────────────────────────────────────
@@ -235,8 +245,20 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
   // Materials: [[id, name, e, nu, rho, fy?], ...]
   c.mt = snapshot.materials.map(([, v]) => {
-    const arr: (string | number)[] = [v.id, v.name, r(v.e), r(v.nu), r(v.rho)];
+    const arr: (string | number | null | Record<string, unknown>)[] = [v.id, v.name, r(v.e), r(v.nu), r(v.rho)];
     if ((v as any).fy != null) arr.push(r((v as any).fy));
+    // The grade and its ultimate strength, which steel design reads: without them a shared steel
+    // model arrived with no fu and no grade, and the link switched to code form to carry them.
+    const m = v as { fu?: number; gradeId?: string; standard?: string; region?: string };
+    const extra: Record<string, unknown> = {};
+    if (m.fu != null) extra.fu = r(m.fu);
+    if (m.gradeId) extra.g = m.gradeId;
+    if (m.standard) extra.st = m.standard;
+    if (m.region) extra.rg = m.region;
+    if (Object.keys(extra).length > 0) {
+      if (arr.length === 5) arr.push(null);
+      arr.push(extra);
+    }
     return arr;
   });
 
@@ -426,9 +448,16 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     nodes: (c.n as number[][]).map(a => [a[0], { id: a[0], x: a[1], y: a[2], ...(a[3] !== undefined ? { z: a[3] } : {}) }]),
 
     // Materials
-    materials: (c.mt as (string | number)[][]).map(a => [
+    materials: (c.mt as unknown[][]).map(a => [
       a[0] as number,
-      { id: a[0] as number, name: a[1] as string, e: a[2] as number, nu: a[3] as number, rho: a[4] as number, ...(a[5] != null ? { fy: a[5] as number } : {}) },
+      {
+        id: a[0] as number, name: a[1] as string, e: a[2] as number, nu: a[3] as number, rho: a[4] as number,
+        ...(a[5] != null ? { fy: a[5] as number } : {}),
+        ...(() => {
+          const x = (a as unknown[])[6] as { fu?: number; g?: string; st?: string; rg?: string } | undefined;
+          return x ? { ...(x.fu != null ? { fu: x.fu } : {}), ...(x.g ? { gradeId: x.g } : {}), ...(x.st ? { standard: x.st } : {}), ...(x.rg ? { region: x.rg } : {}) } : {};
+        })(),
+      },
     ]),
 
     // Sections — handle iy/iz convention migration
@@ -704,12 +733,64 @@ export function generateShareURL(): { url: string; length: number } | null {
   const snapshot = modelStore.snapshot();
   if (snapshot.nodes.length === 0) return null;
 
-  snapshot.analysisMode = sharedMode(uiStore.analysisMode);
+  const mode = uiStore.analysisMode;
+  snapshot.analysisMode = sharedMode(mode);
+  // A model the compact format would change (every PRO addition: behaviours, sections' own
+  // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
+  // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
+  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
   const url = `${location.origin}${location.pathname}#data=${compressed}`;
   return { url, length: compressed.length };
+}
+
+/**
+ * Whether the compact format would open as a different model.
+ *
+ * The compact format predates PRO. A list of the fields it drops went stale every time a field
+ * was added (custom supports, curved shells, saved views, grades, arcs…), so this encodes the
+ * model, decodes it back and compares: what the format does not carry shows up as a difference,
+ * whatever it is called. Absent, null, false, zero, '' and empty lists and objects count as the
+ * same, since the format omits them; numbers compare to the ten figures the format keeps.
+ */
+export function compactLoses(snapshot: ModelSnapshot): boolean {
+  let back: ModelSnapshot;
+  try { back = fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot)))); } catch { return true; }
+  const a = { ...(snapshot as unknown as Record<string, unknown>) }, b = { ...(back as unknown as Record<string, unknown>) };
+  for (const k of IGNORED_TOP) { delete a[k]; delete b[k]; }
+  // The project's documents the store fills in when a model does not state them: a link that
+  // omits them opens with the same defaults.
+  for (const [k, make] of Object.entries(STORE_DEFAULTS)) { if (a[k] === undefined) a[k] = make(); if (b[k] === undefined) b[k] = make(); }
+  return !sameValue(a, b);
+}
+
+const STORE_DEFAULTS: Record<string, () => unknown> = {
+  codeSettings: defaultCodeSettings, detailing: emptyDetailingStore,
+  geotechnical: emptyGeotechnical, footingMatPreferences: defaultFootingMatPreferences,
+};
+
+/** Bookkeeping the decoder rebuilds or the link sets itself. */
+const IGNORED_TOP = ['nextId', 'analysisMode', '_shareMeta', 'localAxisConvention'] as const;
+
+function isBlank(v: unknown): boolean {
+  if (v === undefined || v === null || v === false || v === 0 || v === '') return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).every(isBlank);
+  return false;
+}
+
+function sameValue(x: unknown, y: unknown): boolean {
+  if (isBlank(x) && isBlank(y)) return true;
+  if (typeof x === 'number' && typeof y === 'number') return Math.abs(x - y) <= 1e-9 * Math.max(Math.abs(x), Math.abs(y));
+  if (Array.isArray(x) && Array.isArray(y)) return x.length === y.length && x.every((v, i) => sameValue(v, y[i]));
+  if (x && y && typeof x === 'object' && typeof y === 'object' && !Array.isArray(x) && !Array.isArray(y)) {
+    const ox = x as Record<string, unknown>, oy = y as Record<string, unknown>;
+    for (const k of new Set([...Object.keys(ox), ...Object.keys(oy)])) if (!sameValue(ox[k], oy[k])) return false;
+    return true;
+  }
+  return x === y;
 }
 
 /**
@@ -866,6 +947,18 @@ export function parseShareURL(url: string): { compressed: string; mode: 'data' |
  * Returns true if successfully loaded, false otherwise.
  */
 export function loadFromShareLink(url: string): boolean {
+  // A link that carries the model code (PRO's, and any model the compact format would change).
+  const i = url.indexOf(CODE_HASH);
+  if (i >= 0) {
+    const r = readCodeFragment(url.slice(i));
+    if (!r.snapshot) return false;
+    modelStore.clear();
+    const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
+    applyLinkMode(snapshot.analysisMode);
+    modelStore.restore(snapshot);
+    queueMicrotask(() => window.dispatchEvent(new Event('stabileo-restore-camera-3d')));
+    return true;
+  }
   const parsed = parseShareURL(url);
   if (!parsed) return false;
 

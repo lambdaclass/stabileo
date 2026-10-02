@@ -14,12 +14,13 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { te } from '../../lib/i18n/engine-text';
-  import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import {
     flightGeometry, flightCorners, runDirection, checkStairSpec,
-    stepWeightPerInclinedArea, treadForRun, tiltQuadToFlight, quadRunLength,
-    buildFlight, blondel, type StairSpec, type Vec3,
+    stepWeightPerInclinedArea, treadForRun, quadRunLength,
+    blondel, type StairSpec, type Vec3,
   } from '../../lib/model/stair';
+  import { buildFlightInto, convertQuadToFlight, type FlightOptions } from '../../lib/model/stair-convert';
+  import { defaultShellMaterial } from '../../lib/pro/design-home';
 
   let open = $state(false);
 
@@ -30,7 +31,12 @@
   let tread = $state(0.28);
   let steps = $state(16);
   let waist = $state(0.15);
-  let materialId = $state(1);
+  /* A stair is a concrete slab: the model's first concrete, not material 1, which in a new
+     model is the steel grade and would weigh the steps three times over. */
+  let materialId = $state(defaultShellMaterial(modelStore.materials));
+  $effect(() => {
+    if (!modelStore.materials.has(materialId)) materialId = defaultShellMaterial(modelStore.materials);
+  });
   let flip = $state(false);
   let addStepLoad = $state(true);
   let error = $state<string | null>(null);
@@ -82,29 +88,10 @@
      a halt. */
   const divisions = $derived(Math.min(40, Math.max(1, Math.round(steps))));
 
-  /** Create the quads and, unless told not to, the step weight on each. */
-  function buildInto(corners: [Vec3, Vec3, Vec3, Vec3]): number {
+  /** The quads' material and waist and, unless told not to, the step weight on each. */
+  function flightOptions(): FlightOptions {
     const deadCase = modelStore.model.loadCases.find((c) => c.type === 'D')?.id ?? 1;
-    let built = 0;
-    modelStore.batch(() => {
-      const r = buildFlight(
-        {
-          findNode: (x, y, z) => findCoincidentNode(modelStore.nodes.values(), x, y, z),
-          addNode: (x, y, z) => modelStore.addNode(x, y, z !== 0 ? z : undefined),
-          addQuad: (nodes) => modelStore.addQuad(nodes, materialId, waist),
-        },
-        corners,
-        divisions,
-      );
-      built = r.quadIds.length;
-      if (addStepLoad && stepLoad > 0) {
-        /* Positive q is gravity — `convertSurfaceLoad` resolves it as
-           fz = −q·A/4. Per square metre of INCLINED surface, which is the area
-           that function integrates over. */
-        for (const qid of r.quadIds) modelStore.addSurfaceLoad3D(qid, stepLoad, deadCase);
-      }
-    });
-    return built;
+    return { divisions, materialId, waist, stepLoad: addStepLoad ? stepLoad : 0, deadCase };
   }
 
   function generate() {
@@ -114,7 +101,7 @@
     if (!modelStore.materials.has(materialId)) { error = t('pro.errMaterial'); return; }
     const corners = flightCorners(edgeNodes[0], edgeNodes[1], spec, flip);
     if (!corners) { error = t('stair.errEdgeVertical'); return; }
-    const n = buildInto(corners);
+    const n = buildFlightInto(corners, flightOptions()).length;
     success = tp('stair.built', { quads: n });
     uiStore.cancelShellNodePick();
     edgeIds = ['', ''];
@@ -163,18 +150,14 @@
     if (!convertTarget || !targetCorners) { error = t('stair.errSelectOneQuad'); return; }
     if (convertTarget.nodes.length !== 4) { error = t('stair.errSelectOneQuad'); return; }
     if (check.errors.length > 0) { error = te(check.errors[0]); return; }
-    const tilted = tiltQuadToFlight(targetCorners, lowEdge, geom.rise);
+    if (!modelStore.materials.has(materialId)) { error = t('pro.errMaterial'); return; }
     const id = convertTarget.id;
-    modelStore.batch(() => {
-      /* The original goes first, and `removeQuad` takes its surface loads with
-         it — a load left pointing at a deleted quad is dropped at solve time
-         with nothing said. */
-      modelStore.removeQuad(id);
-      buildInto(tilted);
-    });
+    /* The slab's loads move onto the flight and its corners left behind go. */
+    const r = convertQuadToFlight(id, lowEdge, geom.rise, flightOptions());
+    if (!r) { error = t('stair.errSelectOneQuad'); return; }
     /* The slab the selection pointed at no longer exists. */
     uiStore.clearSelection();
-    success = tp('stair.converted', { id });
+    success = tp('stair.converted', { id }) + (r.carriedLoads > 0 ? ` ${tp('stair.convertedLoads', { n: r.carriedLoads })}` : '');
   }
 </script>
 

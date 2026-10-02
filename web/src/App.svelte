@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
+  import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -295,11 +297,11 @@
   import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
-  import ToolLoadOptions from './components/floating-tools/ToolLoadOptions.svelte';
-  import ToolSupportOptions from './components/floating-tools/ToolSupportOptions.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ProRibbon from './components/pro/ProRibbon.svelte';
+  import ProDrawBar from './components/pro/ProDrawBar.svelte';
+  import { drawState } from './lib/store/draw-state.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import { eduStore } from './components/edu/edu-store.svelte';
   import { leaveExercise } from './components/edu/exercise-session';
@@ -315,6 +317,13 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
+  import { splitAllAtNodes } from './lib/model/edit/cut-members';
+
+  /** The solve's "disconnected structure" toast offers this: cut every member at the nodes on it. */
+  function splitAtNodesFromToast() {
+    const { message } = splitAllAtNodes();
+    uiStore.toast(message, 'success');
+  }
 
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
@@ -526,7 +535,7 @@
     // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
     // there but not here makes `?proTab=` silently no-op for it.
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
+      'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
       'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
       'otherCodes'];
     if (!VALID.includes(tab)) return;
@@ -633,6 +642,7 @@
       resultsStore.showReactions = false;
     } else {
       uiStore.analysisMode = 'pro';
+      if (!saved) { seedProStarterLibrary(); historyStore.clear(); }
       // Note: self-weight defaults ON in PRO via the per-mode selfWeightPro
       // state — do not force it here, or a user's explicit opt-out would be
       // silently reverted on every mode round-trip (double-counting gravity).
@@ -697,6 +707,9 @@
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
+      // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with
+      // the self-weight it was computed with rather than the session's.
+      if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;
@@ -761,6 +774,14 @@
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Escape leaves whatever is being drawn: the pending member end, the plate corners, the tool.
+    // With nothing being drawn it clears the selection.
+    if (e.key === 'Escape') {
+      if (drawState.active) drawState.stop();
+      else uiStore.clearSelection();
+      return;
+    }
 
     // Ctrl/Cmd+Z: Undo
     const key = e.key.toUpperCase();
@@ -827,6 +848,8 @@
       uiStore.analysisMode = 'edu';
     } else if (currentAppMode === 'pro') {
       uiStore.analysisMode = 'pro';
+      // A first visit opens on an untouched model: give it the starter sections and materials.
+      if (seedProStarterLibrary()) historyStore.clear();
     } else {
       uiStore.analysisMode = '2d';
     }
@@ -965,7 +988,10 @@
       // the banner, so "this is not your newest save" is on screen and not only in a toast.
       if (!savedWorkspace) {
         void loadAutosave().then((result) => {
-          if (result.value && result.value.snapshot.nodes.length > 0) {
+          // Offered when it holds work: nodes, or project data stated before the first node.
+          const s = result.value?.snapshot as unknown as Record<string, unknown> | undefined;
+          const holdsWork = !!s && ((s.nodes as unknown[]).length > 0 || ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => s[k] != null));
+          if (result.value && holdsWork) {
             autosaveData = result.value;
             autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
           }
@@ -1263,7 +1289,7 @@
         <span class="autosave-text">
           {t('app.autosaveFound')} <strong>{autosaveData?.name}</strong>
           {#if autosaveStamp.timestamp}
-            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString()})</span>
+            <span class="autosave-stamp">({new Date(autosaveStamp.timestamp).toLocaleString(i18n.locale)})</span>
           {/if}
         </span>
         {#if autosaveStamp.older}
@@ -1534,13 +1560,6 @@
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
   {/if}
-  <!-- PRO has no options strip; "Draw load" and "Draw support" used Basic's hidden settings.
-       While either tool is armed its options show here, the same controls Basic uses. -->
-  {#if uiStore.appMode === 'pro' && (uiStore.currentTool === 'load' || uiStore.currentTool === 'support')}
-    <div class="pro-tool-options" data-testid="pro-tool-options">
-      {#if uiStore.currentTool === 'load'}<ToolLoadOptions />{:else}<ToolSupportOptions />{/if}
-    </div>
-  {/if}
 
   <!--
     The bottom-bar reservation follows the bottom bar.
@@ -1572,6 +1591,8 @@
           onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
         />
     {/if}
+    <!-- What the next click in the model does while drawing, under the bar that started it. -->
+    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -2080,6 +2101,7 @@
 <!-- Inline editors (positioned fixed, rendered outside layout) -->
 <NodeEditor />
 <ElementEditor />
+{#if uiStore.analysisMode === 'pro'}<ProQuickEdit />{/if}
 <DespieceInspector />
 <MaterialEditor />
 <SectionEditor />
@@ -2102,6 +2124,12 @@
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
+        {#if toast.actionId === 'split-at-nodes'}
+          <!-- The one command that connects members to the nodes they pass (Edit › Cut). -->
+          <button class="toast-action" data-testid="toast-split-at-nodes" onclick={() => { splitAtNodesFromToast(); uiStore.dismissToast(toast.id); }}>
+            {t('app.splitAtNodesAction')}
+          </button>
+        {/if}
         {#if toast.actionId === 'kinematic'}
           <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; uiStore.dismissToast(toast.id); }}>
             {t('app.viewKinematic')}
@@ -4084,8 +4112,4 @@
   .btn-help:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .btn-help { width: 26px; padding: 0.3rem 0; text-align: center; }
-  .pro-tool-options {
-    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px 10px;
-    background: var(--st-surface-2); border-bottom: 1px solid var(--st-hair); font-size: 0.72rem;
-  }
 </style>

@@ -18,6 +18,7 @@
  */
 
 import { verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
+import { concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedRebarResult } from '../../station-design-forces';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
 import { peakMy, peakMz, peakVy, peakVz, peakAxial } from '../design-axes';
@@ -125,11 +126,21 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
       barDiameterMm: 8,
       maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
     });
+    /*
+     * One ld per diameter, with no face and no layout: the «other cases» row of Tabla 25.4.2.3,
+     * and for a beam the top-bar ψt of §25.4.2.5 when its depth leaves more than 300 mm below
+     * the top steel — the longer of its two faces, since this answer is not told which one it
+     * is for. A column's bars are vertical and take ψt = 1. The verifier, which has the layout,
+     * establishes the favourable row itself where it holds.
+     */
+    const dev = (d: number) => requiredLd(d, fc, fy, {
+      concreteBelowM: isColumn ? 0 : concreteBelowTopBars(ctx.section.h, ctx.material.cover, ctx.material.stirrupDia, d),
+    });
     return {
       minClearSpacing: spacing.minClear,
-      ld: (d: number) => requiredLd(d, fc, fy),
+      ld: dev,
       ldh: (d: number) => requiredLdh(d, fc, fy),
-      lapSplice: (d: number) => 1.3 * requiredLd(d, fc, fy),
+      lapSplice: (d: number) => 1.3 * dev(d),
       rhoMin,
       rhoMax: isColumn ? COLUMN_LIMITS.rhoMax : 0.025,
     };

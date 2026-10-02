@@ -2,11 +2,15 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
-  import NextMemberPicker from './NextMemberPicker.svelte';
+  import NextMemberFields from './NextMemberFields.svelte';
+  import BatchEditBar from './BatchEditBar.svelte';
   import { nextMember } from '../../lib/store/next-member.svelte';
+  import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import WriteCard from './WriteCard.svelte';
+  import { drawState } from '../../lib/store/draw-state.svelte';
+  import { memberSpecifications } from '../../lib/pro/specification-list';
   import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
 
-  const is3DMode = $derived(uiStore.is3DWorkspace);
 
   interface ElemRow {
     id: number | null;
@@ -14,23 +18,10 @@
     nodeJ: string;
     materialId: number;
     sectionId: number;
-    hingeI: boolean;
-    hingeJ: boolean;
   }
 
   let rows = $state<ElemRow[]>([]);
   let pasteError = $state<string | null>(null);
-  let selectedRowIdx = $state<number | null>(null);
-  /*
-   * Drawing is the POINTER's state, not this panel's.
-   *
-   * The panel kept its own `drawMode` flag beside `uiStore.currentTool`, so
-   * two things claimed to know whether a member was being drawn — and the
-   * pointer box over the model, which reads the store, could say Select
-   * while this panel said it was waiting for a first node. One of them was
-   * always going to be wrong; the store is the one the viewport obeys.
-   */
-  const drawMode = $derived(uiStore.currentTool === 'element');
 
   // ── Curved members ───────────────────────────────────────────────
   let showArc = $state(false);
@@ -66,7 +57,9 @@
     const startId = Number(arcStart);
     const endId = Number(arcEnd);
     const arcId = Date.now();
-    const made = buildArc(
+    // The whole arc, nodes, members and tags, is one undo step.
+    let made!: ReturnType<typeof buildArc>;
+    modelStore.batch(() => { made = buildArc(
       { start: arcPts[0], through: arcPts[1], end: arcPts[2], segments: arcSegments },
       {
         addNode: (x, y, z) => modelStore.addNode(x, y, z),
@@ -87,10 +80,23 @@
         },
       },
       arcId, startId, endId,
-    );
+    ); });
     if (made.length === 0) arcError = t('pro.arcFailed');
   }
-  let drawNodeI = $state<number | null>(null);
+
+  /** What each member is told beyond geometry, section and material (`specification-list.ts`). */
+  const specsOf = (id: number) => {
+    const e = modelStore.elements.get(id);
+    return e ? memberSpecifications(e, t) : [];
+  };
+  /** The axial behaviour reads as its value (Truss, Cable); the rest by what they are. */
+  const specLabel = (x: { what: string; value: string }) => (x.what === t('spec.members.axial') ? x.value : x.what);
+  /** Specifications › Members on this member, or on the whole selection when `keep`. */
+  function openSpec(id: number, keep = false) {
+    uiStore.specSection = 'members';
+    uiStore.proActiveTab = 'specifications';
+    if (!keep) uiStore.setSelection(new Set(), new Set([id]));
+  }
 
   // Sync rows from store on mount. Preserve unsaved rows (id === null).
   $effect(() => {
@@ -107,56 +113,46 @@
           nodeJ: String(e.nodeJ),
           materialId: e.materialId,
           sectionId: e.sectionId,
-          hingeI: e.releaseI?.mz === true || e.releaseI?.my === true,
-          hingeJ: e.releaseJ?.mz === true || e.releaseJ?.my === true,
         })),
         ...unsavedRows,
       ];
     }
   });
 
-  // Listen for node clicks in draw mode
+  /* Drawing members is the viewport's, with the step shown in the drawing bar (`drawState`).
+     This panel used to build members of its own from the selected node at the same time, so a
+     third click joined a stale first node to the new one. */
+
+  /*
+   * The table shows the model's selection, wherever it was made and whenever the panel opens:
+   * every selected member's row is lit, and the first is scrolled into view.
+   */
+  let tableWrap = $state<HTMLElement | null>(null);
   $effect(() => {
-    if (!drawMode) {
-      drawNodeI = null;
-      return;
-    }
-    // When a node is selected in the viewport, use it for drawing
-    if (uiStore.selectedNodes.size === 1) {
-      const nodeId = [...uiStore.selectedNodes][0];
-      if (drawNodeI === null) {
-        drawNodeI = nodeId;
-      } else if (nodeId !== drawNodeI) {
-        // Create element
-        const eid = nextMember.add(drawNodeI, nodeId);
-        const made = modelStore.elements.get(eid)!;
-        rows = [...rows, {
-          id: eid,
-          nodeI: String(drawNodeI),
-          nodeJ: String(nodeId),
-          materialId: made.materialId,
-          sectionId: made.sectionId,
-          hingeI: false,
-          hingeJ: false,
-        }];
-        // Chain: nodeJ becomes next nodeI
-        drawNodeI = nodeId;
-        uiStore.setSelection(new Set(), new Set());
-      }
-    }
+    const sel = uiStore.selectedElements;
+    if (sel.size === 0 || !tableWrap) return;
+    const first = [...sel].find((id) => modelStore.elements.has(id));
+    if (first === undefined) return;
+    queueMicrotask(() => tableWrap?.querySelector(`tr[data-elem="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
   });
 
-  // Listen for element selection from viewport
-  $effect(() => {
-    if (uiStore.selectedElements.size === 1) {
-      const elemId = [...uiStore.selectedElements][0];
-      const idx = rows.findIndex(r => r.id === elemId);
-      if (idx >= 0) selectedRowIdx = idx;
-    }
-  });
+  // ── Group editing over a selection of more than one member ──
+  const selectedIds = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
+  const sameOf = (f: (e: { materialId: number; sectionId: number }) => number) => {
+    const v = selectedIds.map((id) => f(modelStore.elements.get(id)!));
+    return v.length && v.every((x) => x === v[0]) ? String(v[0]) : '';
+  };
+  function batchSet(patch: { materialId?: number; sectionId?: number }) {
+    modelStore.batch(() => {
+      for (const id of selectedIds) {
+        if (patch.materialId !== undefined) modelStore.updateElementMaterial(id, patch.materialId);
+        if (patch.sectionId !== undefined) modelStore.updateElementSection(id, patch.sectionId);
+      }
+    });
+  }
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.materialId ?? 1, sectionId: nextMember.sectionId ?? 1, hingeI: false, hingeJ: false }];
+    rows = [...rows, { id: null, nodeI: '', nodeJ: '', materialId: nextMember.resolvedMaterialId, sectionId: nextMember.resolvedSectionId }];
   }
 
   function commitRow(idx: number) {
@@ -170,8 +166,6 @@
       const eid = modelStore.addElement(ni, nj);
       modelStore.updateElementMaterial(eid, row.materialId);
       modelStore.updateElementSection(eid, row.sectionId);
-      if (row.hingeI) modelStore.toggleHinge3D(eid, 'start');
-      if (row.hingeJ) modelStore.toggleHinge3D(eid, 'end');
       rows[idx] = { ...rows[idx], id: eid };
     } else {
       // Update existing element properties
@@ -179,9 +173,6 @@
       if (!elem) return;
       modelStore.updateElementMaterial(row.id, row.materialId);
       modelStore.updateElementSection(row.id, row.sectionId);
-      // Sync hinges
-      if ((elem.releaseI?.mz === true || elem.releaseI?.my === true) !== row.hingeI) modelStore.toggleHinge3D(row.id, 'start');
-      if ((elem.releaseJ?.mz === true || elem.releaseJ?.my === true) !== row.hingeJ) modelStore.toggleHinge3D(row.id, 'end');
     }
   }
 
@@ -238,19 +229,19 @@
         nodeJ: String(nj),
         materialId: made.materialId,
         sectionId: made.sectionId,
-        hingeI: false,
-        hingeJ: false,
       }];
     }
   }
 
-  function handleRowClick(idx: number) {
-    selectedRowIdx = idx;
+  /** A row click selects that member; with Shift, Ctrl or Cmd it adds or removes it. */
+  function handleRowClick(idx: number, e?: MouseEvent) {
     const row = rows[idx];
-    if (row.id !== null) {
-      uiStore.selectMode = 'elements';
-      uiStore.setSelection(new Set(), new Set([row.id]), true); // manual row click
-    }
+    if (row.id === null) return;
+    uiStore.selectMode = 'elements';
+    const add = !!(e && (e.shiftKey || e.ctrlKey || e.metaKey));
+    const next = add ? new Set(uiStore.selectedElements) : new Set<number>();
+    if (add && next.has(row.id)) next.delete(row.id); else next.add(row.id);
+    uiStore.setSelection(new Set(), next, true); // manual row click
   }
 
   // Available materials and sections
@@ -258,11 +249,25 @@
   const sections = $derived([...modelStore.sections.values()]);
   const elemCount = $derived(rows.filter(r => r.id !== null).length);
 
+
+  // ── Write a member: its two end nodes, Enter, the next one ──
+  let wI = $state(''), wJ = $state('');
+  let wError = $state<string | null>(null);
+  function writeMember() {
+    const i = Number(wI), j = Number(wJ);
+    if (!modelStore.nodes.has(i) || !modelStore.nodes.has(j)) { wError = t('pro.errNodesExist'); return; }
+    if (i === j) { wError = t('pro.errNodesDistinct'); return; }
+    wError = null;
+    const id = nextMember.add(i, j);
+    uiStore.selectElement(id, false);
+    uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(id)), 'success');
+    // The next member most often starts where this one ended.
+    wI = String(j); wJ = '';
+  }
 </script>
 
 <div class="pro-elems">
-  <NextMemberPicker />
-  {#if uiStore.selectedElements.size > 0}
+  {#if selectedIds.length === 1}
     <!-- What the selected members are told beyond geometry, section and material is edited in
          one place, Specifications › Members; this opens it on them. -->
     <button class="pro-elems-spec" onclick={() => { uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; }} data-testid="elems-open-spec">
@@ -271,10 +276,11 @@
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
-    <!-- "Draw a member" works the MODEL; "+ Member" adds a table row, and
-         belongs to the table, which is where Basic keeps it. -->
+    <!-- "Draw" works the MODEL; "Write" takes the two node ids. Both make the member the
+         fields in their card or bar describe (`NextMemberFields`). -->
     <div class="pro-elems-actions">
       <DrawInModelButton tool="element" label={t('pro.oneElement')} icon="element" testid="draw-element" />
+      <WriteInPanelButton kind="element" label={t('pro.oneElement')} testid="write-element" />
       <button class="pro-btn" class:pro-btn-active={showArc} onclick={() => (showArc = !showArc)}
               data-testid="pro-arc-toggle">{t('pro.curvedMember')}</button>
     </div>
@@ -345,26 +351,38 @@
     </div>
   {/if}
 
-  {#if drawMode}
-    <div class="pro-draw-status">
-      {#if drawNodeI === null}
-        {t('pro.drawClickNodeI')}
-      {:else}
-        {@html t('pro.drawNodeISelected').replace('{id}', String(drawNodeI))}
-      {/if}
-    </div>
+  {#if drawState.writing === 'element'}
+    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneElement')}`} submitLabel={`${t('pro.add')} ${t('pro.oneElement')}`} onsubmit={writeMember} error={wError} testid="write-element-card">
+      <label>{t('pro.thNodeI')} <input class="wc-num" inputmode="numeric" bind:value={wI} placeholder="ID" data-testid="write-element-i" /></label>
+      <label>{t('pro.thNodeJ')} <input class="wc-num" inputmode="numeric" bind:value={wJ} placeholder="ID" data-testid="write-element-j" /></label>
+      <NextMemberFields />
+    </WriteCard>
   {/if}
 
   {#if pasteError}
     <div class="pro-paste-error">{pasteError}</div>
   {/if}
 
-  <div class="pro-paste-hint">
-    {t('pro.pasteHintElems')}
-  </div>
+  {#if selectedIds.length > 1}
+    <BatchEditBar count={selectedIds.length} labelKey="batch.members" testid="elems-batch">
+      <label>{t('pro.thMaterial')}
+        <select value={sameOf((e) => e.materialId)} onchange={(e) => batchSet({ materialId: Number(e.currentTarget.value) })} data-testid="batch-material">
+          {#if sameOf((e) => e.materialId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}
+          {#each materials as m (m.id)}<option value={String(m.id)}>{m.name}</option>{/each}
+        </select>
+      </label>
+      <label>{t('pro.thSection')}
+        <select value={sameOf((e) => e.sectionId)} onchange={(e) => batchSet({ sectionId: Number(e.currentTarget.value) })} data-testid="batch-section">
+          {#if sameOf((e) => e.sectionId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}
+          {#each sections as sec (sec.id)}<option value={String(sec.id)}>{sec.name}</option>{/each}
+        </select>
+      </label>
+      <button class="pk-btn" onclick={() => openSpec(selectedIds[0]!, true)} data-testid="batch-spec">{t('pro.thSpec')}…</button>
+    </BatchEditBar>
+  {/if}
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="pro-elems-table-wrap" onpaste={handlePaste}>
+  <div class="pro-elems-table-wrap" bind:this={tableWrap} onpaste={handlePaste}>
     <table class="pro-elems-table">
       <thead>
         <tr>
@@ -373,8 +391,7 @@
           <th class="col-node">{t('pro.thNodeJ')}</th>
           <th class="col-mat">{t('pro.thMaterial')}</th>
           <th class="col-sec">{t('pro.thSection')}</th>
-          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
-          <th class="col-hinge" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('pro.thHingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th>
+          <th class="col-spec" title={t('pro.thSpecHint')}>{t('pro.thSpec')}</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -382,9 +399,11 @@
         {#each rows as row, idx}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <tr
-            class:selected={selectedRowIdx === idx}
+            class:selected={row.id !== null && uiStore.selectedElements.has(row.id)}
             class:unsaved={row.id === null}
-            onclick={() => handleRowClick(idx)}
+            data-elem={row.id ?? ''}
+            onmousedown={(e) => { if ((e.shiftKey || e.metaKey || e.ctrlKey) && !(e.target instanceof HTMLInputElement)) e.preventDefault(); }}
+            onclick={(e) => handleRowClick(idx, e)}
           >
             <td class="col-id">{row.id ?? '—'}</td>
             <td class="col-node">
@@ -417,17 +436,15 @@
                 {/each}
               </select>
             </td>
-            <td class="col-hinge">
-              <button class="hinge-btn" class:hinged={row.hingeI} onclick={() => {
-                row.hingeI = !row.hingeI;
-                if (row.id !== null) commitRow(idx);
-              }}>{row.hingeI ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
-            </td>
-            <td class="col-hinge">
-              <button class="hinge-btn" class:hinged={row.hingeJ} onclick={() => {
-                row.hingeJ = !row.hingeJ;
-                if (row.id !== null) commitRow(idx);
-              }}>{row.hingeJ ? t('pro.hingeArt') : t('pro.hingeEmp')}</button>
+            <td class="col-spec">
+              {#if row.id !== null}
+                <!-- What the member is told beyond this row, and the way to its one editor. -->
+                {@const specs = specsOf(row.id)}
+                <button class="spec-btn" class:set={specs.length > 0} title={specs.length ? specs.map((x) => `${x.what}: ${x.value}`).join('\n') : t('pro.specOpen')}
+                  onclick={(e) => { e.stopPropagation(); openSpec(row.id!); }} data-testid="elem-spec-{row.id}">
+                  {specs.length ? specs.map(specLabel).join(' · ') : '—'}
+                </button>
+              {/if}
             </td>
             <td class="col-actions">
               <button class="pro-delete-btn" onclick={() => deleteRow(idx)}>×</button>
@@ -436,14 +453,11 @@
         {/each}
         {#if rows.length === 0}
           <tr>
-            <td colspan="8" class="pro-empty">{t('pro.emptyElements')}</td>
+            <td colspan="7" class="pro-empty">{t('pro.emptyElements')}</td>
           </tr>
         {/if}
       </tbody>
     </table>
-    <div class="pro-table-footer">
-      <button class="pro-btn pro-btn-sm" onclick={addEmptyRow} data-testid="pro-add-element">{t('pro.addElement')}</button>
-    </div>
   </div>
 
   <!--
@@ -505,18 +519,6 @@
     color: var(--st-text) !important;
   }
 
-  .pro-draw-status {
-    padding: 8px 12px;
-    font-size: 0.78rem;
-    color: var(--st-value);
-    background: rgba(127, 212, 204, 0.08);
-    border-bottom: 1px solid var(--st-surface-3);
-  }
-
-  .pro-draw-status strong {
-    color: var(--st-text);
-  }
-
   .pro-paste-error {
     padding: 4px 10px;
     font-size: 0.7rem;
@@ -525,14 +527,6 @@
     border-bottom: 1px solid var(--st-hair-strong);
   }
 
-  .pro-paste-hint {
-    padding: 6px 12px;
-    font-size: 0.72rem;
-    color: var(--st-text-3);
-    font-style: italic;
-    border-bottom: 1px solid var(--st-surface-3);
-    flex-shrink: 0;
-  }
 
   .pro-elems-table-wrap {
     flex: 1;
@@ -583,7 +577,6 @@
     flex-direction: column;
     gap: 6px;
   }
-  .pro-table-footer { padding: 6px 10px; border-top: 1px solid var(--st-surface-3); }
 
   .pro-arc-fields { display: flex; gap: 8px; }
   .pro-arc-field { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
@@ -597,7 +590,7 @@
   .pro-arc-err { font-size: 0.7rem; color: var(--st-danger); }
 
   .pro-elems-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
-  .pro-elems-table tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
+  .pro-elems-table tr.selected { background: var(--st-selected-bg); box-shadow: inset 3px 0 0 var(--st-selected, var(--st-accent)); }
   .pro-elems-table tr.unsaved td { opacity: 0.6; }
 
   .col-id {
@@ -641,25 +634,14 @@
     outline: none;
   }
 
-  .col-hinge { width: 40px; text-align: center; }
-
-  .hinge-btn {
-    padding: 3px 6px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--st-surface-3);
-    color: var(--st-text-3);
-    min-width: 34px;
+  .col-spec { max-width: 9rem; }
+  .spec-btn {
+    max-width: 100%; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: none; border: 1px solid transparent; border-radius: var(--st-radius);
+    color: var(--st-text-3); font-size: 0.68rem; cursor: pointer; text-align: left;
   }
-
-  .hinge-btn.hinged {
-    background: var(--st-surface-2);
-    border-color: var(--st-warn);
-    color: var(--st-warn);
-  }
+  .spec-btn.set { color: var(--st-warn); border-color: var(--st-hair-strong); }
+  .spec-btn:hover { color: var(--st-text); border-color: var(--st-accent); }
 
   .col-actions { width: 20px; text-align: center; }
 

@@ -19,6 +19,7 @@
  */
 
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -27,6 +28,7 @@ async function openGenerators(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+  await pickGenerator(page, 'truss');
 }
 
 /** The chord row's trigger — every generator kind places a chord. */
@@ -167,8 +169,8 @@ test.describe('the chosen profile persists into the model', () => {
     // Generate, then read the model back: the section name that lands must be the catalogue
     // id, not a display string. A label stored as an id is what breaks a saved file the day
     // the label changes.
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
     const names = await page.evaluate(() => window.__stabileo.sectionNames());
     expect(names.join(' ')).toContain('HEB 220');
   });

@@ -24,7 +24,7 @@ test.describe('@smoke PRO specifications', () => {
   test('a behaviour set over two members lands on both, as one undo step', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await openSpecifications(page);
-    await expect(page.getByTestId('spec-members-empty')).toBeVisible();
+    await expect(page.getByTestId('spec-empty-elements')).toBeVisible();
     await page.evaluate(() => window.__stabileoActions.selectElements([1, 2]));
     const before = await undos(page);
     await page.getByTestId('mb-behaviour').selectOption('cable');
@@ -70,5 +70,18 @@ test.describe('@smoke PRO specifications', () => {
     await page.getByTestId('spec-section-links').click();
     await expect(page.getByTestId('spec-section-links')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('pr-cmd-constraints')).toHaveCount(0);
+  });
+
+  test('a node link is made from its card, as the other parts are drawn', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await openSpecifications(page);
+    await page.getByTestId('spec-section-links').click();
+    const card = page.getByTestId('links-new');
+    await expect(card).toHaveClass(/pk-card/);
+    await card.locator('input.ln-id').nth(0).fill('5');
+    await card.locator('input.ln-id').nth(1).fill('6');
+    await page.getByTestId('links-add').click();
+    await expect(page.getByTestId('spec-links').locator('.data-table tbody tr')).toHaveCount(1);
+    await expect(page.getByTestId('links-clear')).toBeVisible();
   });
 });

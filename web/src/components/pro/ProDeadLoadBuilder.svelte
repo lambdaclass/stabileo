@@ -13,7 +13,7 @@
    * says on its face that it is an assumption. The three are visibly different because
    * they are different.
    */
-  import { t, tp } from '../../lib/i18n';
+  import { t } from '../../lib/i18n';
   import { te } from '../../lib/i18n/engine-text';
   import {
     DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
@@ -59,7 +59,6 @@
   }
 
   const resolved = $derived(rows.map(resolve));
-  const total = $derived(resolved.reduce((s, r) => s + r.q, 0));
   const partitionQ = $derived(
     rows.reduce((s, row, i) => s + (row.isPartition ? resolved[i].q : 0), 0),
   );
@@ -87,10 +86,6 @@
 </script>
 
 <div class="dl">
-  <div class="dl-total" data-testid="dead-total">
-    {tp('autoLoad.deadTotal', { total: total.toFixed(2) })}
-  </div>
-
   <!--
     Keyed by the ROW, not by its index. `remove` filters and the two adders
     append, so a row's identity survives both — whereas an index key makes
@@ -103,19 +98,19 @@
     <div class="dl-row" data-testid="dead-row">
       <span class="dl-label">{t(r.labelKey)}</span>
       {#if row.entryKey === null}
-        <input type="number" step="0.05" min="0" bind:value={rows[i].q}
-               class="dl-num" data-testid="dead-q" />
-        <span class="dl-unit">kN/m²</span>
+        <span class="dl-qty"><input type="number" step="0.05" min="0" bind:value={rows[i].q}
+               class="dl-num" data-testid="dead-q" /> <span class="dl-unit">kN/m²</span></span>
       {:else}
-        {#if r.perVolume}
-          <label class="dl-inline">
-            {t('loads.dead.thickness')}
-            <input type="number" step="0.01" min="0.001" bind:value={rows[i].thickness}
-                   class="dl-num" data-testid="dead-thickness" />
-            m
-          </label>
-        {/if}
-        <span class="dl-value" data-testid="dead-value">{r.q.toFixed(3)} kN/m²</span>
+        <span class="dl-qty">
+          {#if r.perVolume}
+            <label class="dl-inline">
+              <input type="number" step="0.01" min="0.001" bind:value={rows[i].thickness}
+                     class="dl-num" data-testid="dead-thickness" aria-label={t('loads.dead.thickness')} title={t('loads.dead.thickness')} />
+              m
+            </label>
+          {/if}
+          <span class="dl-value" data-testid="dead-value">{r.q.toFixed(3)} kN/m²</span>
+        </span>
       {/if}
       <label class="dl-inline dl-part">
         <input type="checkbox" bind:checked={rows[i].isPartition} data-testid="dead-is-partition" />
@@ -152,9 +147,9 @@
         </optgroup>
       {/each}
     </select>
-    <button class="dl-btn" onclick={addFromTable} disabled={!addKey}
+    <button class="al-btn-sm" onclick={addFromTable} disabled={!addKey}
             data-testid="dead-add-table">{t('loads.dead.addFromTable')}</button>
-    <button class="dl-btn" onclick={addCustom}
+    <button class="al-btn-sm" onclick={addCustom}
             data-testid="dead-add-custom">{t('loads.dead.addCustom')}</button>
   </div>
 
@@ -173,47 +168,25 @@
 </div>
 
 <style>
+  /* Fields, buttons and notes take the dialog's look (`ProAutoLoadsDialog`); this lays out the rows. */
   .dl { display: flex; flex-direction: column; gap: 4px; }
-  .dl-total {
-    font-size: 0.78rem; color: var(--st-value); font-weight: 600;
-    font-variant-numeric: tabular-nums;
+  .dl-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto 18px; align-items: center; gap: 10px;
+    min-height: 28px; padding: 0 2px; border-bottom: 1px solid var(--st-hair);
   }
-  .dl-row { display: flex; align-items: center; gap: 6px; font-size: 0.73rem; }
-  .dl-label { flex: 1; color: var(--st-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-label { color: var(--st-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-qty { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
   .dl-inline { display: inline-flex; align-items: center; gap: 4px; color: var(--st-text-3); white-space: nowrap; }
-  .dl-part { font-size: 0.68rem; }
-  .dl-num {
-    width: 64px; padding: 2px 4px; background: var(--st-surface);
-    border: 1px solid var(--st-hair); border-radius: 3px;
-    color: var(--st-text); font: inherit; font-size: 0.72rem; text-align: right;
-  }
-  .dl-unit, .dl-value {
-    color: var(--st-text-3); font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
-  .dl-value { color: var(--st-value); }
-  .dl-del {
-    background: none; border: none; color: var(--st-text-3);
-    cursor: pointer; font-size: 0.75rem; padding: 0 2px;
-  }
+  .dl-part { font-size: 0.66rem; }
+  .dl .dl-row input.dl-num { width: 64px; }
+  .dl-unit, .dl-value { color: var(--st-text-3); font-family: var(--st-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dl-value { color: var(--st-value); min-width: 6.5rem; text-align: right; }
+  .dl-del { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.75rem; padding: 0; }
   .dl-del:hover { color: var(--st-danger); }
-  .dl-note { font-size: 0.66rem; color: var(--st-text-3); line-height: 1.4; padding-left: 4px; }
-  .dl-err { font-size: 0.68rem; color: var(--st-danger); line-height: 1.4; padding-left: 4px; }
-  .dl-add { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
-  .dl-select {
-    flex: 1; min-width: 140px; padding: 3px 5px; background: var(--st-surface);
-    border: 1px solid var(--st-hair); border-radius: 3px;
-    color: var(--st-text); font: inherit; font-size: 0.72rem;
-  }
-  .dl-btn {
-    padding: 3px 8px; background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
-    color: var(--st-text-2); font: inherit; font-size: 0.7rem; cursor: pointer;
-  }
-  .dl-btn:hover:not(:disabled) { color: var(--st-text); border-color: var(--st-accent); }
-  .dl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .dl-part-check {
-    font-size: 0.68rem; color: var(--st-text-3); line-height: 1.45;
-    margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--st-hair);
-  }
-  .dl-part-check.warn { color: var(--st-warn, #c98a00); }
+  .dl-note { font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; padding: 2px 2px 0; }
+  .dl-err { font-size: 0.66rem; color: var(--st-danger); line-height: 1.4; padding: 2px 2px 0; }
+  .dl-add { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .dl-add .dl-select { flex: 1; min-width: 0; }
+  .dl-part-check { font-size: 0.66rem; color: var(--st-text-3); line-height: 1.45; margin-top: 4px; }
+  .dl-part-check.warn { color: var(--st-warn); }
 </style>

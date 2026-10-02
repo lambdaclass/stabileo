@@ -109,7 +109,12 @@ const FIXTURES: Array<{
     // That is the reinforcement being short, not the geometry being wrong. The remedy is a
     // third bar line on both faces, which is a DESIGN change and belongs to the candidate
     // enumeration, not to a generator that would have to invent the bar.
-    fullyRestrained: false, clashFree: false, outcome: 'ASSIGNMENT_FOUND',
+    //
+    // Since the design check reads Tabla 25.4.2.3 (about 1,5 times the 2005 ld it used) the
+    // search certifies a slightly different arrangement for beams 5–8 (u 0,899 → 0,896), and
+    // with it the same missing bar line leaves the envelope partially exhausted instead of
+    // assigned with the leg off a bar; §25.3.5(d) is still the clause it names.
+    fullyRestrained: false, clashFree: false, outcome: 'PARTIAL_ENVELOPE_EXHAUSTED',
     why: 'a 300 mm web in row 2 needs a third leg and the certified steel offers two bar lines',
   },
   {

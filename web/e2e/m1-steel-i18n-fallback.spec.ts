@@ -22,6 +22,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
@@ -67,9 +68,10 @@ test.describe('a stored locale the app no longer offers', () => {
     // Generate a truss so the panel has rows, then read the joints panel — the one surface where
     // a partial German dictionary would show through, because those 22 keys are its labels.
     await openTab(page, 'generators');
-    await page.getByTestId('gen-kind-truss').click();
-    await page.getByTestId('gen-generate').click();
-    await expect(page.getByTestId('gen-result')).toBeVisible();
+    await pickGenerator(page, 'truss');
+    await pickGenerator(page, 'truss');
+    await insertGenerated(page);
+    await expect(page.getByTestId('gen-out-result')).toBeVisible();
 
     await openTab(page, 'connections');
     await expect(page.getByTestId('conn-experimental-banner')).toBeVisible();
@@ -96,6 +98,8 @@ test.describe('a stored locale the app no longer offers', () => {
     await bootWithStoredLocale(page, 'ja');
 
     await openTab(page, 'generators');
+
+    await pickGenerator(page, 'truss');
     const leaked = await page.evaluate(() => {
       const root = document.querySelector('[data-testid="pro-generators-panel"]')!;
       return [...root.querySelectorAll('*')]
@@ -114,6 +118,8 @@ test.describe('the three offered locales each hold the namespace on their own', 
       expect(await activeLocale(page)).toBe(locale);
 
       await openTab(page, 'generators');
+
+      await pickGenerator(page, 'truss');
       await page.locator('[data-testid^="gen-profile-trigger-"]').first().click();
       await page.getByTestId('profile-search').fill('UPN 200');
       await page.getByTestId('profile-option-UPN 200').hover();

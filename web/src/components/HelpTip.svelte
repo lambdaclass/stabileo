@@ -29,6 +29,7 @@
    * second opens none of them.
    */
   import { onDestroy } from 'svelte';
+  import { portal } from '../lib/utils/portal';
 
   interface Props {
     /** The explanation. One or two sentences; it is a hint, not documentation. */
@@ -88,8 +89,18 @@
    * exactly how PRO's were reported.
    *
    * Toggles, so the same press puts it away.
+   *
+   * Except on a button: pressing Save or Copy link is doing the thing, not asking about it, and
+   * pinning the explanation over the panel after every press was what the Project tab showed.
+   * The press closes the tip and goes on to the button.
    */
   function toggle(e: MouseEvent) {
+    const action = (e.target as HTMLElement | null)?.closest?.('button, a[href]');
+    if (action && wrap?.contains(action)) {
+      if (timer) { clearTimeout(timer); timer = null; }
+      pinned = false; open = false;
+      return;
+    }
     e.stopPropagation();
     if (timer) { clearTimeout(timer); timer = null; }
     pinned = !pinned;
@@ -105,6 +116,30 @@
     return () => window.removeEventListener('mousedown', away);
   });
 
+  /*
+   * Where the tip sits: beside the trigger, on the screen, above everything.
+   *
+   * It was absolutely positioned inside the trigger, so it lived in the stacking context of
+   * whatever panel held it. In PRO's right panel that context sits under the viewport, and a tip
+   * opening to the left went under the model. It is drawn on the document now (`portal`), placed
+   * from the trigger's rectangle, turned to the other side when it would leave the window, and
+   * kept inside it vertically.
+   */
+  let wrap = $state<HTMLElement | null>(null);
+  let tipEl = $state<HTMLElement | null>(null);
+  let place = $state<{ top: number; left?: number; right?: number }>({ top: 0 });
+  const GAP = 8, MARGIN = 8, MAX_W = 230;
+  $effect(() => {
+    if (!open || !wrap || !tipEl) return;
+    const r = wrap.getBoundingClientRect();
+    const w = Math.min(tipEl.offsetWidth || MAX_W, MAX_W);
+    const h = tipEl.offsetHeight;
+    const roomLeft = r.left - GAP, roomRight = window.innerWidth - r.right - GAP;
+    const toLeft = side === 'left' ? roomLeft >= w + MARGIN || roomLeft >= roomRight : roomRight < w + MARGIN && roomLeft > roomRight;
+    const top = Math.min(Math.max(r.top + r.height / 2 - h / 2, MARGIN), window.innerHeight - h - MARGIN);
+    place = toLeft ? { top, right: window.innerWidth - r.left + GAP } : { top, left: r.right + GAP };
+  });
+
   /* A pending timer that fires after the component is gone would set state on
      a destroyed component — harmless today, a leak the moment this is used in
      a list that re-renders. */
@@ -115,6 +150,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <span
   class="ht-wrap"
+  bind:this={wrap}
   onmouseenter={arm}
   onmouseleave={disarm}
   onfocusin={onFocusIn}
@@ -124,7 +160,9 @@
 >
   {@render children?.()}
   {#if open}
-    <span class="ht-tip" class:right={side === 'right'} id={tipId} role="tooltip">{text}</span>
+    <span class="ht-tip" use:portal bind:this={tipEl} id={tipId} role="tooltip"
+      style:top="{place.top}px" style:left={place.left !== undefined ? `${place.left}px` : null}
+      style:right={place.right !== undefined ? `${place.right}px` : null}>{text}</span>
   {/if}
 </span>
 
@@ -137,11 +175,8 @@
   }
 
   .ht-tip {
-    position: absolute;
-    /* Opens away from the panel it lives in, which is docked right. */
-    right: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
+    /* Placed on the screen from the trigger (see the script); drawn on the document. */
+    position: fixed;
     width: max-content;
     max-width: 230px;
     padding: 6px 8px;
@@ -157,11 +192,6 @@
     white-space: normal;
     color: var(--st-text-2);
     pointer-events: none;
-    z-index: 40;
-  }
-
-  .ht-tip.right {
-    right: auto;
-    left: calc(100% + 8px);
+    z-index: 1000;
   }
 </style>

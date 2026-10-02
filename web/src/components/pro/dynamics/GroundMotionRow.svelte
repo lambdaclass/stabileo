@@ -93,6 +93,8 @@
       {@const s = recordSummary(g.record)}
       <p class="gm-hint" data-testid="th-record-{dir}">{g.record.name}: {tp('pro.th.recordSummary', { points: s.points, duration: fmt(s.duration, 2), pga: fmt(s.pga / G) })}</p>
     {/if}
+    <!-- What the run will do to the record: a unit that reads wrong, a dt that loses its peak, a
+         run shorter than the record. -->
     {#each warnings as w (w.code)}
       <p class="gm-warn" data-testid="th-warning-{dir}-{w.code}">{warningText(w)}</p>
     {/each}

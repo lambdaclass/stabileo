@@ -59,7 +59,7 @@
     </table>
 
     <section class="gap" data-testid="batten-geometry-unavailable">
-      <h5>{t('battens.geometryUnavailable')} — {plan.geometry.state}</h5>
+      <h5>{t('battens.geometryUnavailable')}</h5>
       <ul>
         {#each plan.geometry.missingKeys as k (k)}<li>{t(k)}</li>{/each}
       </ul>

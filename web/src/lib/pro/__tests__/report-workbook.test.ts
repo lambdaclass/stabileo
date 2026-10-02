@@ -11,12 +11,13 @@ const sections = { modelData: false, results: true, verification: true, advanced
 const v = { elementId: 3, elementType: 'beam', Mu: 12.5, Vu: 8, Nu: 0, overallStatus: 'ok' } as never;
 
 describe('report workbook', () => {
-  it('model sheets, results and verification as chosen', () => {
+  it('model sheets and results as chosen; the verification sheet is the Design panel\'s', () => {
+    // A verification handed in from the older checker is not printed: the sheet lists what the
+    // Design panel checked (`reportDesignChecks`), and with no design run there is none.
     const o = workbookOptions({ config: { ...base, sections }, verifications: [v], advancedResults: {}, t: (k) => k });
     expect(o.includeModel).toBe(false);
     expect(o.includeResults).toBe(true);
-    expect(o.extraSheets).toHaveLength(1);
-    expect(o.extraSheets[0]!.rows[1]).toEqual([3, 'beam', 12.5, 8, 0, 'ok']);
+    expect(o.extraSheets).toHaveLength(0);
   });
 
   it('opening the report does not write the verification store', () => {

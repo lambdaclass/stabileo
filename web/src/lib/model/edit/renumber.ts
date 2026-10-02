@@ -174,10 +174,14 @@ export function renumber(opts: RenumberOptions): RenumberResult {
       ...(g.members.quads ? { quads: g.members.quads.map(rq) } : {}),
     },
   }]);
-  // What the project keeps beside the model and names by id: a deflection rule on chosen members,
-  // what a saved view hides, a time-history force on a node. Left alone, each kept its old numbers
-  // and so moved to whatever member, shell or node took them.
-  if (snap.deflectionLimits) snap.deflectionLimits = {
+  // What the project keeps beside the model and names by id: the self-weight rule's member list,
+  // a deflection rule on chosen members, what a saved view hides, a time-history force on a node.
+  // Left alone, each kept its old numbers and so moved to whatever member, shell or node took them.
+  if (snap.analysis?.selfWeight) snap.analysis = {
+    ...snap.analysis,
+    selfWeight: snap.analysis.selfWeight.map((w: any) => (w.elements ? { ...w, elements: w.elements.map(re) } : w)),
+  };
+  if (snap.deflectionLimits?.rules) snap.deflectionLimits = {
     ...snap.deflectionLimits,
     rules: snap.deflectionLimits.rules.map((r: any) => (r.scope?.kind === 'members' ? { ...r, scope: { ...r.scope, ids: r.scope.ids.map(re) } } : r)),
   };

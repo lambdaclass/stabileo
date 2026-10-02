@@ -28,12 +28,15 @@
  */
 
 import { deflectionChecks } from '../store/serviceability';
-import { storyDrifts as computeStoryDrifts } from './story-drift';
+import { seismicDrifts } from './seismic-drift';
+import { regulationsStore } from '../store/regulations.svelte';
+import { findBehaviour } from '../codes/cirsoc103/behaviour';
+import type { DestinationGroup } from '../codes/cirsoc103/spectrum';
 import { shouldEmbedFlat2DModelIn3D } from './solver-service';
 import { activeCombinations, activePerCombo3D } from '../store/active-results';
 import { modelStore, resultsStore } from '../store';
+import { i18n } from '../i18n';
 import type { ReportData, ReportConfig } from './pro-report';
-import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { checkCrackWidth } from './codes/argentina/serviceability';
 import { projectQuantities } from './quantities';
@@ -61,7 +64,6 @@ export const REPORT_COLUMN_STACK_CAP = 3;
  * warn band is 80 % of it. It is named here rather than written inline so a reader can see that
  * the three-colour status comes from one number and not from a verification the app did not run.
  */
-export const REPORT_DRIFT_LIMIT = 0.015;
 
 
 type Translate = (key: string) => string;
@@ -369,12 +371,38 @@ function comboForces(): ReportData['comboForces'] {
   return out.size > 0 ? out : undefined;
 }
 
-/** Inter-story drift on the columns, the same computation the verification tab shows. */
-function storyDrifts(results: AnalysisResults3D): ReportData['storyDrifts'] {
-  const drifts = computeStoryDrifts(modelStore.nodes, modelStore.elements.values(), results.displacements, {
-    limit: REPORT_DRIFT_LIMIT, embedded2D: shouldEmbedFlat2DModelIn3D(modelStore.model),
-  });
-  return drifts.length > 0 ? drifts : undefined;
+/**
+ * Story drift under the seismic cases, the check the Results panel shows: INPRES-CIRSOC 103
+ * §6.4, the elastic displacements scaled by Cd/γr and the limit of Tabla 6.4 for the project's
+ * group, on the stricter condition D (the panel lets the reader switch to ND).
+ *
+ * This read the result on screen with no Cd, a fixed 0,015 and a clause that does not state
+ * it, so the report and the panel gave two different checks. Without the seismic settings, or
+ * with no seismic case solved, there is no check to print.
+ */
+function storyDrifts(): { drifts: ReportData['storyDrifts']; basis?: ReportData['storyDriftBasis'] } {
+  const settings = regulationsStore.binding('seismic').settings as { destinationGroup?: DestinationGroup; systemKey?: string };
+  const cd = settings.systemKey ? findBehaviour(settings.systemKey)?.cd ?? null : null;
+  const group = settings.destinationGroup ?? null;
+  if (cd === null || group === null) return { drifts: undefined };
+  const embedded2D = shouldEmbedFlat2DModelIn3D(modelStore.model);
+  const worst = new Map<number, NonNullable<ReportData['storyDrifts']>[number]>();
+  let limit = 0;
+  const cases: string[] = [];
+  for (const c of modelStore.model.loadCases.filter((lc) => (lc.type || '').toUpperCase() === 'E')) {
+    const r = resultsStore.perCase3D.get(c.id);
+    if (!r) continue;
+    const out = seismicDrifts({ nodes: modelStore.nodes, elements: modelStore.elements.values(), displacements: r.displacements, cd, group, condition: 'D', embedded2D });
+    if (!out) continue;
+    limit = out.limit; cases.push(c.name);
+    for (const d of out.stories) {
+      const key = Math.round(d.level * 1000);
+      const prev = worst.get(key);
+      if (!prev || Math.max(d.ratioX, d.ratioY) > Math.max(prev.ratioX, prev.ratioY)) worst.set(key, d);
+    }
+  }
+  if (worst.size === 0) return { drifts: undefined };
+  return { drifts: [...worst.values()].sort((a, b) => a.level - b.level), basis: { cd, group, limit, cases } };
 }
 
 /**
@@ -406,7 +434,7 @@ export function buildProReportData(opts: {
 
   const data: ReportData = {
     projectName: modelStore.model.name || 'Estructura',
-    date: new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
+    date: new Date().toLocaleDateString(i18n.locale, { year: 'numeric', month: 'long', day: 'numeric' }),
     provenance: modelStore.model.provenance,
     nodes: [...modelStore.nodes.values()],
     elements: [...modelStore.elements.values()],
@@ -483,6 +511,8 @@ export function buildProReportData(opts: {
       direction: c.rule.direction, ratio: c.check.ratio, status: c.check.status, cantilever: !!c.deflection.cantilever,
     }];
   }).sort((a, b) => b.ratio - a.ratio);
-  data.storyDrifts = storyDrifts(results);
+  const drift = storyDrifts();
+  data.storyDrifts = drift.drifts;
+  if (drift.basis) data.storyDriftBasis = drift.basis;
   return data;
 }

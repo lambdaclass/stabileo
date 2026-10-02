@@ -255,15 +255,30 @@ describe('3D D10 / D3 / D6 / D9 — the static solve\'s refusal, from every anal
     expect(thrown(() => solveBuckling3D(input))).toBe(st);
     expect(thrown(() => solveModal3D(input, densities()))).toBe(st);
   };
-  it('D10: a stray node', () => {
+  it('D10: a stray node that carries a load', () => {
+    // A stray node with nothing on it is left out of the solve (`solvableModel`); one with a load
+    // is still refused, by name, by the static solve and by every analysis alike.
+    resetModel3D();
+    modelStore.bulkMutate(() => {
+      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(2, 2, 2);
+      frame(a, b, 1); support(a, 'fixed3d');
+      modelStore.addNodalLoad3D(b, 1, 0, -10, 0, 0, 0);
+      modelStore.addNodalLoad3D(c, 0, 0, -1, 0, 0, 0);
+    });
+    const st = staticSolve3D();
+    expect(typeof st).toBe('string');
+    // Refused as not connected, not as a mechanism: that is what sends the user to the stray node.
+    expect(st).toMatch(/not connected|no está conectado/i);
+    refusedAlike();
+  });
+  it('D10: a stray node with nothing on it is left out, and the rest solves', () => {
     resetModel3D();
     modelStore.bulkMutate(() => {
       const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3); modelStore.addNode(2, 2, 2);
       frame(a, b, 1); support(a, 'fixed3d');
       modelStore.addNodalLoad3D(b, 1, 0, -10, 0, 0, 0);
     });
-    expect(staticSolve3D()).toMatch(/not connected/);
-    refusedAlike();
+    expect(typeof staticSolve3D()).toBe('object');
   });
   it('D3: a portal on pins with every beam end hinged (a sway mechanism the load excites)', () => {
     resetModel3D();

@@ -286,7 +286,7 @@
       </div>
       <div class="summary" data-testid="batch-summary">
         {tp('design.batch.summary', { change: plan.changeCount, unchanged: plan.unchangedCount, blocked: plan.blockedCount })}
-        {#if plan.protectedCount > 0}· {plan.protectedCount} protected{/if}
+        {#if plan.protectedCount > 0}{tp('rcUi.protected', { n: plan.protectedCount })}{/if}
       </div>
       {#if plan.changeCount > BATCH_BULK_WARN_THRESHOLD}
         <div class="bulk-warn" data-testid="batch-bulk-warning">⚠ {tp('design.batch.bulkWarning', { n: plan.changeCount })}</div>

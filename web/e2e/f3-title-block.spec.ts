@@ -155,7 +155,7 @@ test.describe('@smoke the project’s half is stated, not edited', () => {
   test('T7 — and it says where they come from, so the list is not a forgotten field', async ({ pro: page }) => {
     await ready(page);
     await expect(page.getByTestId('rotulo-codes-source'))
-      .toContainText('come from the Reglamentos stage');
+      .toContainText('come from the Project regulations stage');
   });
 
   test('T8 — the bound regulation reaches the sheet', async ({ pro: page }) => {

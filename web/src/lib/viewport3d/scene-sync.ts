@@ -6,7 +6,7 @@
 
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
-import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads, isLoadHidden } from '../store/view-state.svelte';
+import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { NodesInstanced } from '../three/nodes-instanced';
@@ -33,6 +33,7 @@ import {
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
 import { computeLoadDirection } from '../canvas/draw-loads';
+import { currentLoadDrawView, isLoadDrawn, loadsLayerDrawn } from './load-drawn';
 
 /** Stable per-axis release fingerprint for the two ends of an element — 6 bits
  *  (I: my,mz,t then J: my,mz,t) so the element-cache signature rebuilds the mesh
@@ -107,6 +108,8 @@ export interface SceneSyncContext {
   // Memo of the last inputs syncLoads rendered from, so an unrelated model
   // mutation (e.g. dragging a node with no loads on it) skips the full rebuild.
   lastLoadsSig?: string;
+  /** The world segments each drawn load occupies, by load id: what a click in loads mode picks from. */
+  loadFootprints?: Map<number, number[]>;
 }
 
 // ─── 3D internal-joint glyph ──────────────────────────────────
@@ -433,7 +436,8 @@ export function syncSupports(ctx: SceneSyncContext): void {
       else gizmoType = 'custom3d';
     }
 
-    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}`;
+    const springs = { kx: sup.kx, ky: sup.ky, kz: sup.kz, krx: sup.krx, kry: sup.kry, krz: sup.krz };
+    const sig = `${node.x},${node.y},${node.z ?? 0}|${gizmoType}|${project2D ? 1 : 0}|${sup.dofRestraints ? JSON.stringify(sup.dofRestraints) : ''}|${JSON.stringify(springs)}`;
     const old = ctx.supportGizmos.get(id);
     if (old && old.userData.supportSig === sig) continue; // unchanged → reuse
     if (old) {
@@ -443,7 +447,7 @@ export function syncSupports(ctx: SceneSyncContext): void {
 
     const gizmo = createSupportGizmo(
       projectNodeToScene(node, project2D),
-      { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints },
+      { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints, springs },
     );
     gizmo.userData.supportSig = sig;
     ctx.supportsParent.add(gizmo);
@@ -593,6 +597,12 @@ export function applyShellSelection(ctx: SceneSyncContext): void {
 
 // ─── Loads ───────────────────────────────────────────────────
 
+/**
+ * The loads beside a selected one. The selection colour and the load red are close, so with the
+ * rest in their case colours a selected load did not stand out; dimmed, it does.
+ */
+const LOAD_DIMMED = 0x5d6d7a;
+
 /** Cheap O(loads) hash of everything syncLoads renders from (load data → arrow
  *  scale/colour, referenced node positions, and the UI toggles). When it matches
  *  the previous run the entire load-group rebuild is skipped — so dragging a node
@@ -606,6 +616,8 @@ function loadsSignature(project2D: boolean): string {
     (uiStore.visibleLoadCases3D ?? []).join(','),
     project2D ? 1 : 0,
     viewVisibility.version,
+    // A selected load is drawn in the selection colour and the rest dimmed beside it.
+    [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -650,11 +662,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
   ctx.loadGroup = new THREE.Group();
   ctx.loadGroup.name = 'loadsContainer';
   ctx.loadsParent.add(ctx.loadGroup);
+  ctx.loadFootprints = new Map();
 
-  // Respect showLoads toggle and hideLoadsWithDiagram
-  if (!uiStore.showLoads3D) return;
-  const dt = resultsStore.diagramType;
-  if (uiStore.hideLoadsWithDiagram && dt !== 'none') return;
+  // Respect showLoads toggle and hideLoadsWithDiagram — the rule the box selection picks by too
+  const drawView = currentLoadDrawView();
+  if (!loadsLayerDrawn(drawView)) return;
 
   const loads = modelStore.loads;
   if (loads.length === 0) return;
@@ -686,9 +698,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
   // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
   const batch = createLoadArrowsBatched();
+  const selected = uiStore.selectedLoads;
 
-  // Visibility filter and color helper
-  const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
+  // Color helper
   function getCaseColor(caseId: number | undefined): number {
     const hex = modelStore.getLoadCaseColor(caseId ?? 1);
     return parseInt(hex.replace('#', ''), 16);
@@ -698,12 +710,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
 
-    // Filter by visible load cases
-    if (visibleCases !== null && caseId !== undefined && !visibleCases.includes(caseId)) continue;
-    // Nor on what the view hides.
-    if (isLoadHidden(load.data as { nodeId?: number; elementId?: number; quadId?: number })) continue;
+    // Not a load case left unticked, nor one on what the view hides.
+    if (!isLoadDrawn(load as never, drawView)) continue;
 
     const cc = getCaseColor(caseId);
+    batch.own(load.data.id, selected.size === 0 ? null : selected.has(load.data.id) ? COLORS.nodeSelected : LOAD_DIMMED);
 
     if (load.type === 'nodal') {
       const node = modelStore.nodes.get(load.data.nodeId);
@@ -896,6 +907,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
   loadGrp.add(batch.build());
+  ctx.loadFootprints = batch.footprints;
+  // Read by the browser tests, which click a load where it is drawn.
+  (window as unknown as { __loadFootprints?: Map<number, number[]> }).__loadFootprints = batch.footprints;
 }
 
 // ─── Selection highlight ─────────────────────────────────────

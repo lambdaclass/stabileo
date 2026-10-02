@@ -33,10 +33,19 @@
     spectrumSa?: ((T: number) => number) | null;
   } = $props();
 
-  // The run as project data: read from the model, written back (coalesced) as it is edited.
-  let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(modelStore.dynamics?.timeHistory ?? defaultTimeHistory())));
+  /*
+   * The run as project data: read from the model, written back (coalesced) as it is edited.
+   *
+   * Only an edit writes. Opening the panel on a project with no run used to store the default and
+   * push an undo step. And the draft follows the project: when the model is replaced under it
+   * (a file, a tab, an undo) the draft is re-read and a pending write is dropped, so one project's
+   * run is never written into another.
+   */
+  const stored = () => modelStore.dynamics?.timeHistory ?? defaultTimeHistory();
+  let spec = $state<TimeHistorySpec>(JSON.parse(JSON.stringify(stored())));
+  let epoch = modelStore.loadEpoch;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const storedSpec = () => JSON.stringify(modelStore.dynamics?.timeHistory ?? defaultTimeHistory());
+  const storedSpec = () => JSON.stringify(stored());
   let observed = storedSpec();
   let pending: string | null = null;
   function cancelSave() {
@@ -49,13 +58,16 @@
     observed = snapshot;
     if (snapshot !== storedSpec()) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) });
   }
-  // Undo, redo and project loading replace the stored spec without editing this component.
+  // Undo, redo and project loading replace the stored spec without editing this component; a new
+  // project (a new loadEpoch) re-reads the draft even when its run reads the same.
   $effect(() => {
     const snapshot = storedSpec();
+    const e = modelStore.loadEpoch;
     untrack(() => {
-      if (snapshot === observed) return;
+      if (snapshot === observed && e === epoch) return;
       cancelSave();
       observed = snapshot;
+      epoch = e;
       spec = JSON.parse(snapshot);
     });
   });
@@ -65,7 +77,9 @@
       cancelSave();
       if (snapshot === observed) return;
       pending = snapshot;
-      saveTimer = setTimeout(() => save(snapshot), 600);
+      const at = epoch;
+      // A write meant for this project never lands in the next one.
+      saveTimer = setTimeout(() => { if (modelStore.loadEpoch === at) save(snapshot); else cancelSave(); }, 600);
     });
   });
   onDestroy(() => {
@@ -73,7 +87,7 @@
     // that happened just before destruction, before the synchronisation effect could run.
     const snapshot = pending;
     cancelSave();
-    if (snapshot !== null && storedSpec() === observed) save(snapshot);
+    if (snapshot !== null && storedSpec() === observed && modelStore.loadEpoch === epoch) save(snapshot);
   });
 
   let running = $state(false);

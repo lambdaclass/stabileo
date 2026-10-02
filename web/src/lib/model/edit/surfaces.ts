@@ -45,15 +45,45 @@ function patch(nu: number, nv: number, closed: boolean, at: (i: number, j: numbe
 
 const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 
+/*
+ * A ring that closes to a point (a cone to its apex, a zone up to the pole) made a row of
+ * quadrilaterals with two corners at the same place, each on its own node: a fan of cells of
+ * no width, joined to nothing at the tip. Points that coincide become one, a cell left with
+ * three corners is a triangle, and one left with fewer is dropped.
+ */
+function weld(m: SurfaceMesh | null): SurfaceMesh | null {
+  if (!m) return null;
+  let span = 0;
+  for (const p of m.points) span = Math.max(span, Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2]));
+  const tol = 1e-9 * Math.max(1, span);
+  const key = (p: Vec3) => p.map((c) => Math.round(c / tol)).join(',');
+  const byKey = new Map<string, number>();
+  const points: Vec3[] = [];
+  const to = m.points.map((p) => {
+    const k = key(p);
+    let i = byKey.get(k);
+    if (i === undefined) { i = points.length; points.push(p); byKey.set(k, i); }
+    return i;
+  });
+  const cells: number[][] = [];
+  for (const c of m.cells) {
+    const out: number[] = [];
+    for (const i of c.map((x) => to[x]!)) if (out[out.length - 1] !== i) out.push(i);
+    if (out.length > 1 && out[0] === out[out.length - 1]) out.pop();
+    if (new Set(out).size === out.length && out.length >= 3) cells.push(out);
+  }
+  return { points, cells };
+}
+
 export function validSurface(kind: SurfaceKind, p: SurfaceParams): boolean {
   const pos = (...k: string[]) => k.every((x) => Number.isFinite(p[x]) && p[x]! > 0);
   switch (kind) {
     case 'cylinder': return pos('radius', 'height', 'angle', 'around', 'along') && p.angle! <= 360;
-    // A quad strip needs a nonzero end ring. A pole needs a different topology, not welded
-    // copies of its corner node (which produce degenerate shell elements).
-    case 'cone': return pos('radius', 'height', 'around', 'along', 'topRadius');
+    // A ring that closes to a point (topRadius 0, a zone up to the pole) is a ring of triangles on
+    // one apex node, not welded copies of its corner node (which made degenerate shells): see above.
+    case 'cone': return pos('radius', 'height', 'around', 'along') && Number.isFinite(p.topRadius) && p.topRadius! >= 0;
     case 'sphericalCap': return pos('baseRadius', 'rise', 'size') && p.rise! <= p.baseRadius!;
-    case 'sphericalZone': return pos('radius', 'around', 'along') && p.fromDeg! >= 0 && p.toDeg! > p.fromDeg! && p.toDeg! < 90;
+    case 'sphericalZone': return pos('radius', 'around', 'along') && p.fromDeg! >= 0 && p.toDeg! > p.fromDeg! && p.toDeg! <= 90;
     case 'hyperboloid': return pos('waist', 'bottomRadius', 'topRadius', 'height', 'around', 'along') && p.waistAt! > 0 && p.waistAt! < p.height!
       && p.bottomRadius! > p.waist! && p.topRadius! > p.waist!;
     case 'hypar': return pos('lx', 'ly', 'nx', 'ny') && Number.isFinite(p.rise);
@@ -86,10 +116,10 @@ function buildSurfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | nu
     }
     case 'cone': {
       const n = clampInt(p.around!, 3, 720), m = clampInt(p.along!, 1, 500);
-      return patch(n, m, true, (i, j) => {
+      return weld(patch(n, m, true, (i, j) => {
         const a = (2 * Math.PI * i) / n, t = j / m, r = p.radius! + (p.topRadius! - p.radius!) * t;
         return [r * Math.cos(a), r * Math.sin(a), t * p.height!];
-      });
+      }));
     }
     case 'sphericalCap': {
       // The O-grid of the base circle, lifted onto the sphere through the base and the crown.
@@ -106,10 +136,10 @@ function buildSurfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | nu
       const f0 = (p.fromDeg! * Math.PI) / 180, f1 = (p.toDeg! * Math.PI) / 180, R = p.radius!;
       // Latitude from the equator: fromDeg at the base ring, toDeg towards the pole; base at z = 0.
       const z0 = R * Math.sin(f0);
-      return patch(n, m, true, (i, j) => {
+      return weld(patch(n, m, true, (i, j) => {
         const a = (2 * Math.PI * i) / n, phi = f0 + ((f1 - f0) * j) / m;
         return [R * Math.cos(phi) * Math.cos(a), R * Math.cos(phi) * Math.sin(a), R * Math.sin(phi) - z0];
-      });
+      }));
     }
     case 'hyperboloid': {
       // r(z)² = a² (1 + (z − z0)² / c²), the waist a at z0. One c fits the bottom radius and
@@ -137,12 +167,14 @@ function buildSurfaceMesh(kind: SurfaceKind, p: SurfaceParams): SurfaceMesh | nu
   }
 }
 
-/** The surface as a fragment of curved quadrilaterals on the given material and thickness. */
+/** The surface as a fragment of curved quadrilaterals, and triangles where a ring closes, on the given material and thickness. */
 export function surfaceFragment(m: SurfaceMesh, materialId: number, thickness: number, material?: import('../../store/model.svelte').Material): Fragment {
+  const quads = m.cells.filter((c) => c.length === 4), tris = m.cells.filter((c) => c.length === 3);
   return {
     nodes: m.points.map((p, i) => ({ id: i + 1, x: p[0], y: p[1], z: p[2] })),
-    elements: [], plates: [], supports: [], loads: [], groups: [], sections: [], loadCases: [],
-    quads: m.cells.map((c, k) => ({ id: k + 1, nodes: c.map((i) => i + 1) as [number, number, number, number], materialId, thickness, curved: true })),
+    elements: [], supports: [], loads: [], groups: [], sections: [], loadCases: [],
+    quads: quads.map((c, k) => ({ id: k + 1, nodes: c.map((i) => i + 1) as [number, number, number, number], materialId, thickness, curved: true })),
+    plates: tris.map((c, k) => ({ id: k + 1, nodes: c.map((i) => i + 1) as [number, number, number], materialId, thickness })),
     materials: material ? [JSON.parse(JSON.stringify(material))] : [],
     local: true,
   };
@@ -151,13 +183,13 @@ export function surfaceFragment(m: SurfaceMesh, materialId: number, thickness: n
 /** Area of a surface mesh (sum of its quads split in two), for checks. */
 export function surfaceArea(m: SurfaceMesh): number {
   let s = 0;
+  const tri = (p: Vec3, q: Vec3, r: Vec3) => {
+    const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+    return Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  };
   for (const c of m.cells) {
-    const [a, b, d, e] = c.map((i) => m.points[i]!) as [Vec3, Vec3, Vec3, Vec3];
-    const tri = (p: Vec3, q: Vec3, r: Vec3) => {
-      const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
-      return Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
-    };
-    s += tri(a, b, d) + tri(a, d, e);
+    const [a, b, d, e] = c.map((i) => m.points[i]!) as [Vec3, Vec3, Vec3, Vec3 | undefined];
+    s += tri(a, b, d) + (e ? tri(a, d, e) : 0);
   }
   return s;
 }

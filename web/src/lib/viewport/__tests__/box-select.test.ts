@@ -594,3 +594,35 @@ describe('every permutation of kinds, in both viewports', () => {
     expect(PERMUTATIONS.filter((p) => p.length === 4)).toHaveLength(1);
   });
 });
+
+/*
+ * The 3D load types are named apart from the 2D ones. They fell through to the member-load
+ * branch, found no member, and were never taken: in PRO a drag over a loaded node selected no
+ * nodal load, and a load on a shell could not be taken at all.
+ */
+describe('3D load types', () => {
+  const QUAD = { nodes: [1, 2, 6, 5] };
+  const loads3D = [
+    { type: 'nodal3d', data: { id: 200, nodeId: 5 } },
+    { type: 'pointOnElement3d', data: { id: 201, elementId: 2, a: 2 } },
+    { type: 'surface3d', data: { id: 202, quadId: 1 } },
+  ];
+  const m3: BoxSelectModel = { ...model, loads: loads3D, getQuad: (id) => (id === 1 ? QUAD : undefined) };
+  const take = (r: ScreenRect, isWindow: boolean) =>
+    boxSelect({ rect: r, isWindow, kinds: ['loads'], model: m3, toScreen }).loads;
+
+  it('a nodal load is the node it acts on', () => {
+    expect(take(rectOf(-1, 2, 1, 4), true).has(200)).toBe(true);
+  });
+
+  it('a point load on a member is its station, not the whole member', () => {
+    expect(take(rectOf(5.5, -1, 6.5, 1), true).has(201)).toBe(true);
+    expect(take(rectOf(3.5, -1, 4.5, 1), false).has(201)).toBe(false);
+  });
+
+  it('a load on a shell: window wants the whole outline, crossing any edge', () => {
+    expect(take(rectOf(-1, -1, 13, 4), true).has(202)).toBe(true);
+    expect(take(rectOf(-1, -1, 5, 1), true).has(202)).toBe(false);
+    expect(take(rectOf(-1, -1, 5, 1), false).has(202)).toBe(true);
+  });
+});

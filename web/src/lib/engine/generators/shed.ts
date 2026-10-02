@@ -50,7 +50,10 @@ export const BRACING_BAYS = ['end', 'all'] as const;
 export type BracingBays = (typeof BRACING_BAYS)[number];
 
 export interface ShedParams {
-  /** VT — transverse span, column centreline to column centreline, m. */
+  /**
+   * VT — transverse span, m: between the column centrelines, or, for latticed columns under a
+   * truss, between the columns' outer faces, which is where the truss ends.
+   */
   spanM: number;
   /** VP — spacing between frames, m. */
   bayM: number;
@@ -247,6 +250,46 @@ function findNode(b: Builder, x: number, y: number, z: number): number {
   return b.index.get(key(x, y, z)) ?? -1;
 }
 
+/**
+ * Join a latticed column's inner chord head, at (x, y, z), to the truss bottom chord passing
+ * over it: the chord segment spanning x in that frame is split there. A bottom chord that is not
+ * at the head's height there (pitched or arched) gets a node of its own at x, tied down to the
+ * head by a short chord of the column.
+ */
+function joinInnerChord(b: Builder, x: number, y: number, z: number): void {
+  const head = findNode(b, x, y, z);
+  if (head < 0) return;
+  const tol = MERGE_TOL * 10;
+  const at = b.members.findIndex((m) => {
+    if (m.role !== 'chord') return false;
+    const a = b.nodes[m.a]!, c = b.nodes[m.b]!;
+    if (Math.abs(a.y - y) > tol || Math.abs(c.y - y) > tol) return false;
+    const lo = Math.min(a.x, c.x), hi = Math.max(a.x, c.x);
+    // A bottom chord: at or above the head, never the column's own vertical chords.
+    return lo < x - tol && hi > x + tol && Math.min(a.z, c.z) >= z - tol && Math.max(a.z, c.z) <= z + Math.max(hi - lo, 1) && Math.abs(a.x - c.x) > tol;
+  });
+  if (at < 0) return;
+  const m = b.members[at]!, a = b.nodes[m.a]!, c = b.nodes[m.b]!;
+  const zc = a.z + ((c.z - a.z) * (x - a.x)) / (c.x - a.x);
+  const on = Math.abs(zc - z) <= tol ? head : addNode(b, x, y, zc);
+  b.members[at] = { ...m, b: on };
+  b.members.push({ ...m, a: on, b: m.b });
+  if (on !== head) b.members.push({ a: head, b: on, role: 'chord', type: 'frame' });
+}
+
+/** Members joining the same two nodes, kept once, a chord in preference to a post. */
+function dropDuplicatePairs(b: Builder): void {
+  const seen = new Map<string, number>();
+  const out: GenMember[] = [];
+  for (const m of b.members) {
+    const k = m.a < m.b ? `${m.a}-${m.b}` : `${m.b}-${m.a}`;
+    const i = seen.get(k);
+    if (i === undefined) { seen.set(k, out.length); out.push(m); continue; }
+    if (m.role === 'chord' && out[i]!.role !== 'chord') out[i] = m;
+  }
+  b.members = out;
+}
+
 /** Place a whole topology into the building, mapping its local frame through `at`. */
 function place(
   b: Builder,
@@ -344,12 +387,21 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
     ? generateTruss({ ...p.truss, spanM: p.spanM } as TrussParams)
     : null;
 
+  /*
+   * A latticed column under a truss stands inside the span with its OUTER face on the truss's
+   * end node, as it is built: the truss bears on the outer chord, and its bottom chord crosses
+   * the inner chord's head, where the two are joined. It used to straddle the truss's end node,
+   * half outside the building. Without a truss the column keeps its axis on the line and its
+   * cap node, which is what the eave beams land on.
+   */
+  const faceOnTruss = p.columnKind === 'lattice' && !!truss;
+  const halfWidth = p.column.widthM / 2;
   const latticeColumn = p.columnKind === 'lattice'
     ? generateLatticeColumn({
         ...p.column,
         heightM: p.clearHeightM,
         fixedBase: p.fixedBase || p.column.fixedBase,
-        capTop: true,
+        capTop: !faceOnTruss,
       })
     : null;
 
@@ -362,8 +414,9 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
     const sideHeads: number[] = [];
     for (const xc of [0, p.spanM]) {
       if (latticeColumn) {
-        // The column's own X is its chord separation; it straddles the centreline.
-        place(b, latticeColumn, (n) => ({ x: xc + n.x, y, z: n.z }), { withSupports: true });
+        // The column's own X is its chord separation, about its axis.
+        const axis = faceOnTruss ? (xc === 0 ? xc + halfWidth : xc - halfWidth) : xc;
+        place(b, latticeColumn, (n) => ({ x: axis + n.x, y, z: n.z }), { withSupports: true });
         sideHeads.push(addNode(b, xc, y, p.clearHeightM));
       } else {
         const foot = addNode(b, xc, y, 0);
@@ -379,7 +432,16 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
       // The truss is generated with its bottom chord on z = 0; it bears at the clear
       // height, so its bearings merge with the column heads by coordinate.
       place(b, truss, (n) => ({ x: n.x, y, z: n.z + p.clearHeightM }));
+      if (faceOnTruss) {
+        for (const xi of [p.column.widthM, p.spanM - p.column.widthM]) joinInnerChord(b, xi, y, p.clearHeightM);
+      }
     }
+  }
+  // The column's head post and the truss's bottom chord between the same two nodes are one
+  // member: the chord is kept.
+  if (faceOnTruss) {
+    dropDuplicatePairs(b);
+    b.assumptions.add('generator.assume.latticeColumnFaceOnTruss');
   }
 
   /*
@@ -458,7 +520,8 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
     for (const f of bays) {
       for (const [side, xc] of ([[0, 0], [1, p.spanM]] as const)) {
         // Outward from the building on each side, so both walls are braced in their own plane.
-        const x = p.columnKind === 'lattice' ? xc + (side === 0 ? -halfW : halfW) : xc;
+        // Under a truss the outer chord is on the line itself.
+        const x = p.columnKind === 'lattice' && !faceOnTruss ? xc + (side === 0 ? -halfW : halfW) : xc;
         const yA = f * p.bayM;
         const yB = (f + 1) * p.bayM;
         const footA = findNode(b, x, yA, 0);

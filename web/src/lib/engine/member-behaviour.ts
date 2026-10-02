@@ -29,6 +29,10 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import { transverseToNodes, type MemberRef } from './member-loads';
 import { stabiliseOrphanRotations3D } from './orphan-rotations-3d';
 import { stripStabilisedReactions } from './stabilised-reactions';
+import { finishSolve3D } from './solve-finish';
+import { addConstraintConnectivity } from './constraint-connectivity';
+import { t } from '../i18n';
+import { massDensities } from './dynamics/requests';
 
 /**
  * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
@@ -55,20 +59,35 @@ type El = { id: number; nodeI: number; nodeJ: number; behaviour?: MemberBehaviou
 
 /** The model without its inactive members, their loads, and the nodes only they held. */
 export function activeModel<M extends ModelData>(model: M): M {
+  return pruneModel(model, false);
+}
+
+/**
+ * What the engine solves: `activeModel`, and without the nodes nothing holds either, with their
+ * supports. Such a node adds nothing to the structure, and its free degrees of freedom made the
+ * stiffness matrix singular, so one stray click with the node tool turned every solve into an
+ * error and left the results unavailable until the node was found and deleted. The diagnostics
+ * still name it. One that carries a load stays, so the solve stops on it and says so: dropping
+ * the load in silence would change the answer.
+ */
+export function solvableModel<M extends ModelData>(model: M): M {
+  return pruneModel(model, true);
+}
+
+function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   const inactive = new Set<number>();
   for (const e of model.elements.values()) if ((e as El).behaviour === 'inactive') inactive.add(e.id);
-  if (inactive.size === 0) return model;
-  const elements = new Map([...model.elements].filter(([id]) => !inactive.has(id)));
-  const used = new Set<number>();
-  for (const e of elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
-  for (const q of model.quads?.values() ?? []) q.nodes.forEach((n) => used.add(n));
-  for (const p of model.plates?.values() ?? []) p.nodes.forEach((n) => used.add(n));
-  for (const c of model.connectors?.values() ?? []) { used.add(c.nodeI); used.add(c.nodeJ); }
-  for (const c of model.constraints ?? []) for (const v of Object.values(c as unknown as Record<string, unknown>)) {
-    if (typeof v === 'number') used.add(v);
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'number') used.add(x);
+  if (inactive.size === 0 && !dropLoose) return model;
+  const elements = inactive.size === 0 ? model.elements : new Map([...model.elements].filter(([id]) => !inactive.has(id)));
+  const used = nodesInUse(model, elements);
+  const heldByAny = inactive.size === 0 ? used : nodesInUse(model, model.elements);
+  for (const id of model.nodes.keys()) if (!dropLoose && !heldByAny.has(id)) used.add(id);
+  for (const l of model.loads) {
+    const n = (l.data as { nodeId?: number }).nodeId;
+    if (n !== undefined && !heldByAny.has(n)) used.add(n);
   }
   const keepNode = (id: number) => used.has(id);
+  if (inactive.size === 0 && [...model.nodes.keys()].every(keepNode)) return model;
   const loads = model.loads.filter((l) => {
     const d = l.data as { elementId?: number; nodeId?: number };
     if (d.elementId !== undefined && inactive.has(d.elementId)) return false;
@@ -82,6 +101,20 @@ export function activeModel<M extends ModelData>(model: M): M {
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
     loads,
   };
+}
+
+/** Nodes held by one of `elements`, a shell, a connector or a constraint. */
+function nodesInUse(model: ModelData, elements: ModelData['elements']): Set<number> {
+  const used = new Set<number>();
+  for (const e of elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
+  for (const q of model.quads?.values() ?? []) q.nodes.forEach((n) => used.add(n));
+  for (const p of model.plates?.values() ?? []) p.nodes.forEach((n) => used.add(n));
+  for (const c of model.connectors?.values() ?? []) { used.add(c.nodeI); used.add(c.nodeJ); }
+  // Only the fields that name nodes. Reading every number on the constraint missed a linearMPC's
+  // nodes (they sit inside `terms`), so a node tied only by one was dropped with its support, and
+  // it counted `dofs` and offsets as node ids, so a loose node numbered like a DOF was kept.
+  addConstraintConnectivity(used, model.constraints);
+  return used;
 }
 
 export function hasNonlinearBehaviour(model: ModelData): boolean {
@@ -216,17 +249,19 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     }
     if (Object.keys(active).length) curved.set(s.nodeId, active);
   }
-  if (oneWay.size && soilSprings.length) throw new Error('multilinear springs and one-way members cannot be solved together');
+  if (oneWay.size && soilSprings.length) throw new Error(t('behaviour.err.springsAndOneWay'));
   // Cables go to the engine's cable solve, which lets them go slack itself.
   const cables = new Set<number>();
   for (const e of model.elements.values()) if (input.elements.has(e.id) && (e as El).behaviour === 'cable') cables.add(e.id);
-  if (cables.size && soilSprings.length) throw new Error('multilinear springs and cables cannot be solved together');
-  // Their own weight sets their sag and softens them, from the density in kg/m³. It is not a load
-  // to the engine: the self-weight already in the loads carries it.
+  if (cables.size && soilSprings.length) throw new Error(t('behaviour.err.springsAndCables'));
+  // Their own weight sets their sag and softens them, from the density in kg/m³ (the one
+  // conversion the dynamic analyses use too). It is not a load to the engine: the self-weight
+  // already in the loads carries it.
+  const kgPerM3 = massDensities(model.materials as Map<number, { rho?: number }>);
   const densities: Record<string, number> = {};
   for (const id of cables) {
-    const m = model.materials.get(input.elements.get(id)!.materialId) as { rho?: number } | undefined;
-    if (m?.rho) densities[String(input.elements.get(id)!.materialId)] = (m.rho * 1000) / 9.80665;
+    const mid = input.elements.get(id)!.materialId;
+    if ((kgPerM3.get(mid) ?? 0) > 0) densities[String(mid)] = kgPerM3.get(mid)!;
   }
 
   // One-way members and cables as trusses, their transverse loads at their end nodes.
@@ -250,7 +285,8 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     const r = solveCable3D(typed, 50, 1e-8, densities);
     cablesConverged = r.converged;
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
-    return r.results;
+    // Finished as a linear solve is: the other members keep the axial part of their loads.
+    return finishSolve3D(r.results, typed);
   };
 
   const cableReport = () => ({ ...(cableForces ? { cables: cableForces } : {}), ...(cablesConverged ? {} : { cablesConverged: false as const }) });

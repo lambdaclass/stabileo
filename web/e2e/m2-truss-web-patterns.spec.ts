@@ -14,6 +14,7 @@
  */
 
 import { test, expect, PRO_URL } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openGenerators(page: Page): Promise<void> {
@@ -21,6 +22,7 @@ async function openGenerators(page: Page): Promise<void> {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
+  await pickGenerator(page, 'truss');
 }
 
 /** The member count the preview promises. */
@@ -31,14 +33,14 @@ async function promisedMembers(page: Page): Promise<number> {
   return Number(m![1]);
 }
 
-test.describe('the three web patterns are offered', () => {
-  test('Warren is in the list beside Pratt and Howe', async ({ page }) => {
+test.describe('the web patterns are offered', () => {
+  test('Warren, X and K are in the list beside Pratt and Howe', async ({ page }) => {
     await openGenerators(page);
     const select = page.getByTestId('gen-web-pattern');
     const values = await select.locator('option').evaluateAll((os) =>
       os.map((o) => (o as HTMLOptionElement).value),
     );
-    expect(values.sort()).toEqual(['howe', 'pratt', 'warren']);
+    expect(values.sort()).toEqual(['howe', 'k', 'pratt', 'warren', 'x']);
   });
 
   /*
@@ -89,10 +91,10 @@ test.describe('every pattern still generates a model', () => {
       const select = page.getByTestId('gen-web-pattern');
       await select.selectOption(pattern);
       const promised = await promisedMembers(page);
-      await page.getByTestId('gen-generate').click();
-      await expect(page.getByTestId('gen-result')).toBeVisible();
+      await insertGenerated(page);
+      await expect(page.getByTestId('gen-out-result')).toBeVisible();
       // The count beside Generate is the count that lands, for every pattern.
-      await expect(page.getByTestId('gen-result')).toContainText(String(promised));
+      await expect(page.getByTestId('gen-out-result')).toContainText(String(promised));
     });
   }
 });

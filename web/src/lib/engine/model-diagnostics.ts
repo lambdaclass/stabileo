@@ -9,6 +9,7 @@ import { addConstraintConnectivity } from './constraint-connectivity';
 import { weldTolerance } from '../model/weld-tolerance';
 import { concreteStrengthConflict } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
+import { semiRigidNotAligned } from './expand-semi-rigid-3d';
 
 interface LoadEntry {
   type: string;
@@ -33,6 +34,10 @@ interface ModelData {
   quads?: Map<number, Quad>;
   connectors?: Map<number, ConnectorElement>;
   constraints?: Constraint3D[];
+  /** Load combinations, for the checks on what they add up. Absent: not checked. */
+  combinations?: ReadonlyArray<{ id: number; name: string; factors: ReadonlyArray<{ caseId: number; factor: number }> }>;
+  /** Whether the project's self-weight enters some case (it counts as permanent load). */
+  selfWeightCaseIds?: ReadonlyArray<number>;
 }
 
 function diag(
@@ -111,6 +116,12 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   if (m.supports.size === 0) {
     out.push(diag('error', 'MODEL_NO_SUPPORTS', 'diag.model.noSupports'));
   }
+
+  // ─── Semi-rigid ends the solve cannot honour ───
+  // Their connector acts in global axes; a member whose bending axes are not global ones has its
+  // semi-rigid ends refused by the solve, so it is named here first.
+  const refused = semiRigidNotAligned(m.elements.values(), m.nodes, m.sections);
+  if (refused.length) out.push(diag('warning', 'MODEL_SEMIRIGID_NOT_ALIGNED', 'diag.model.semiRigidNotAligned', { elementIds: refused }));
 
   // ─── Coincident nodes ──────────────────────────
   // Flag at the weld tolerance the clean-up merges at — `weldTolerance()`, the one every weld
@@ -284,6 +295,30 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
       out.push(diag('info', 'MODEL_EMPTY_CASE', 'diag.model.emptyCase', {
         details: { caseName: lc.name, caseId: lc.id },
       }));
+    }
+  }
+
+  // ─── Combinations ─────────────────────────────
+  /*
+   * A combination with no factor, or none on a case that exists, adds up nothing: its results
+   * are zero and a design that reads it checks nothing. And when no combination takes any
+   * permanent load (a dead case, or the case self-weight enters), every result leaves the
+   * structure's own weight out. A scaffold sent in by a first user had both: "1.4D" empty and
+   * "1.2D + 1.6L" with only the live case.
+   */
+  if (m.combinations && m.combinations.length > 0) {
+    const caseIds = new Set(m.loadCases.map((c) => c.id));
+    const empty = m.combinations.filter((c) => !c.factors.some((f) => f.factor !== 0 && caseIds.has(f.caseId)));
+    for (const c of empty) {
+      out.push(diag('warning', 'MODEL_COMBO_EMPTY', 'diag.model.comboEmpty', { details: { combination: c.name } }));
+    }
+    const permanent = new Set([
+      ...m.loadCases.filter((c) => (c.type || '').toUpperCase() === 'D').map((c) => c.id),
+      ...(m.selfWeightCaseIds ?? []),
+    ]);
+    const anyPermanent = m.combinations.some((c) => c.factors.some((f) => f.factor !== 0 && permanent.has(f.caseId)));
+    if (!anyPermanent && m.elements.size > 0) {
+      out.push(diag('warning', 'MODEL_COMBO_NO_PERMANENT', 'diag.model.comboNoPermanent'));
     }
   }
 

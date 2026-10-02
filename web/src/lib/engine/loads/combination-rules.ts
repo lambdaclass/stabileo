@@ -6,7 +6,6 @@
  * so a rule with W or E still gets one combination per wind or seismic case, and both senses
  * when asked. Rules are saved with the project and travel as a template file between projects.
  */
-import { combinationLabel } from '../../codes/cirsoc101/combinations';
 import type { CombinationTerm, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
 
 export interface CombinationRule {
@@ -19,9 +18,23 @@ export interface CombinationRule {
 // carry it, and a table or template without it dropped the wind from the service envelope.
 export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
-/** The rule's formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L`). */
+/**
+ * Terms as a formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L − 1.0 W`):
+ * one decimal at least, more when the factor has them.
+ */
+export function termsLabel(terms: ReadonlyArray<{ label: string; factor: number }>): string {
+  const t = terms.filter((x) => x.factor !== 0);
+  if (t.length === 0) return '—';
+  return t.map((x, i) => {
+    const f = Math.abs(x.factor);
+    const sign = x.factor < 0 ? (i === 0 ? '−' : ' − ') : i === 0 ? '' : ' + ';
+    return `${sign}${Number.isInteger(f) ? f.toFixed(1) : String(+f.toFixed(3))} ${x.label}`;
+  }).join('');
+}
+
+/** The rule's formula (`1.2 D + 1.6 L`). */
 export function ruleLabel(rule: CombinationRule): string {
-  return combinationLabel(rule.terms);
+  return termsLabel(rule.terms.map((x) => ({ label: x.symbol, factor: x.factor })));
 }
 
 export function ruleToSpec(rule: CombinationRule): LoadCombinationSpec {

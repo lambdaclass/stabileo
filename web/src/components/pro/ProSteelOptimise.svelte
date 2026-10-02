@@ -106,6 +106,7 @@
   </details>
   {#if !hasResults}<p class="so-warn">{t('opt.needSolve')}</p>{/if}
   {#if steelOptimise.error}<p class="so-warn">{t(steelOptimise.error)}</p>{/if}
+  {#if steelOptimise.outOfScope > 0}<p class="so-warn" data-testid="opt-out-of-scope">{tp('opt.onlySteel', { n: steelOptimise.outOfScope })}</p>{/if}
 
   {#if rows.length > 0}
     <table class="so-table" data-testid="opt-rows">
@@ -119,7 +120,7 @@
             <td>{r.scope === 'section' ? r.currentName : r.scope === 'group' ? r.groupName : r.elementIds[0]}</td>
             <td class="num">{r.elementIds.length}</td>
             <td>{r.currentName} <span class="dim">{r.current ? pct(r.current.ratio) : '—'}</span></td>
-            <td>{#if c}{c.profile.name}{:else}<span class="so-fail">{tp('opt.noneInFamily', { family: r.family, best: r.result.best ? pct(r.result.best.ratio) : '—' })}</span>{/if}</td>
+            <td>{#if c}{c.profile.name}{:else if !r.result.best && !r.current}<span class="dim">{tp('opt.notChecked', { family: r.family })}</span>{:else}<span class="so-fail">{tp('opt.noneInFamily', { family: r.family, best: r.result.best ? pct(r.result.best.ratio) : '—' })}</span>{/if}</td>
             <td class="num">{c ? pct(c.ratio) : '—'}</td>
             {#if withDeflection}<td class="num">{c?.deflectionRatio != null ? pct(c.deflectionRatio) : '—'}</td>{/if}
             <td class="num">{c ? `${c.profile.weight.toFixed(1)} kg/m` : '—'}</td>

@@ -14,6 +14,8 @@
     saveTextTo, canChooseSaveLocation, projectPayload, sessionPayload,
   } from '../../lib/store/file';
   import HelpTip from '../HelpTip.svelte';
+  import { portal } from '../../lib/utils/portal';
+  import ExcelImportReport from '../ExcelImportReport.svelte';
   import { downloadProjectWorkbook } from '../../lib/store/project-workbook';
   import type { StationSpec } from '../../lib/engine/station-forces';
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
@@ -72,13 +74,24 @@
     await downloadTemplate();
   }
 
+  /** The last import's report: the rows the file could not give, kept until dismissed. */
+  let xlsReport = $state<import('../../lib/excel-import/apply').ImportOutcome | null>(null);
+
   async function handleImportExcel(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const { importExcelFile } = await import('../../lib/excel-import/apply');
-    await importExcelFile(file);
+    try {
+      const { importExcelFile, announceImport } = await import('../../lib/excel-import/apply');
+      const outcome = await importExcelFile(file);
+      if (!outcome) return; // the library failed to load, and said so
+      xlsReport = outcome;
+      announceImport(outcome);
+    } catch (err) {
+      console.error('[stabileo] Excel import failed:', err);
+      uiStore.toast(t('xls.ui.unreadable'), 'error');
+    }
   }
 
   let fileInput: HTMLInputElement | undefined = $state();
@@ -212,7 +225,22 @@
   </HelpTip>
 
   {#if showExamples}
-    <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
+    <!--
+      Over the viewport, not inside the panel: twenty-four cards of four lines each read as a
+      column of text in the panel's width; here they sit side by side, grouped. Moved to the
+      document (`utils/portal.ts`), or the panel's resize handle lit up through it.
+    -->
+    <div class="pg-overlay" use:portal role="dialog" aria-modal="true" aria-label={t('pro.exampleBtn')} tabindex="-1"
+      onkeydown={(e) => { if (e.key === 'Escape') showExamples = false; }}>
+      <button class="pg-backdrop" aria-label={t('pro.examples.cancel')} onclick={() => (showExamples = false)}></button>
+      <div class="pg-sheet">
+        <div class="pg-sheet-head">
+          <h3>{t('pro.exampleBtn')}</h3>
+          <button class="pg-close" onclick={() => (showExamples = false)} aria-label={t('pro.examples.cancel')} data-testid="pp-gallery-close">×</button>
+        </div>
+        <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
+      </div>
+    </div>
   {/if}
 
   <!--
@@ -349,6 +377,9 @@
           >{t('xls.ui.template')}</button>
         </HelpTip>
       </div>
+      {#if xlsReport}
+        <ExcelImportReport report={xlsReport} onclose={() => (xlsReport = null)} />
+      {/if}
     </div>
     <div class="pp-group">
       <span class="pp-group-label">{t('project.importDrawing')}</span>
@@ -524,6 +555,13 @@
 />
 
 <style>
+  .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }
+  .pg-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); border: none; cursor: default; }
+  .pg-sheet { position: relative; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: 8px; padding: 12px 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+  .pg-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .pg-sheet-head h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
+  .pg-close { background: none; border: none; color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
+  @media (max-width: 767px) { .pg-sheet { width: 100vw; max-height: 100vh; border-radius: 0; } }
   /*
      The panel's own gutter.
      ────────────────────────────────────────────────────────────────

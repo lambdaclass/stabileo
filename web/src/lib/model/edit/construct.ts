@@ -13,6 +13,8 @@ import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
 import { meshQuadRegion, regionMesh, type MeshDensity } from './mesh-region';
+import { applyMesh, modelPoints } from './mesh-apply';
+import { generateMesh, type MeshInput } from './mesher';
 import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
 export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions' | 'cannotMesh';
@@ -94,7 +96,11 @@ export function midpointMember(a: number, b: number, spec: MemberSpec):
 
 // ─── Filling holes ────────────────────────────────────────────────
 
-export interface FillReport { quads: number[]; plates: number[]; skippedExisting: number }
+export interface FillReport {
+  quads: number[]; plates: number[]; skippedExisting: number;
+  /** Closed outlines inside another, left open as openings in the shell around them. */
+  openings: number;
+}
 
 /** The plane of a set of points, or null when they do not share one within `tol`. */
 function planeOf(points: Vec3[], tol: number): { o: Vec3; n: Vec3; u: Vec3; v: Vec3 } | null {
@@ -184,8 +190,14 @@ function earClip(poly: [number, number][]): Array<[number, number, number]> {
   return out;
 }
 
-/** One face to fill: its corners, its triangles, whether a shell already covers it, and whether it is meshed as a quad. */
-interface FillStep { f: number[]; tris: Array<[number, number, number]>; taken: boolean; quad: boolean }
+/**
+ * One face to fill: its corners, its triangles, whether a shell already covers it, whether it is
+ * meshed as a quad, whether it is an opening inside another face, and the openings inside it.
+ */
+interface FillStep {
+  f: number[]; tris: Array<[number, number, number]>; taken: boolean; quad: boolean;
+  opening: boolean; holes: number[][];
+}
 
 /**
  * What filling would build, face by face and plane by plane, decided before anything is: a bay
@@ -263,18 +275,67 @@ function planFill(
     occupied.push([projected[0]!, projected[1]!, projected[2]!]);
     if (projected.length === 4) occupied.push([projected[0]!, projected[2]!, projected[3]!]);
   }
-  const steps = faces.map((f): FillStep => {
+  /*
+   * A closed outline inside another, joined to it by nothing (the beams around a stair well),
+   * is an opening in the face around it. That face used to be filled across the opening and the
+   * opening filled again, two shells over the same ground. The face around it is meshed with the
+   * opening as a hole, and the opening stays open.
+   */
+  const inside = (p: [number, number], poly: Array<[number, number]>) => {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i]!, b = poly[j]!;
+      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  };
+  const holesOf = new Map<number, number[]>();
+  const openingFaces = new Set<number>();
+  faces.forEach((f, i) => {
+    const poly = f.map((id) => uv.get(id)!);
+    faces.forEach((g, j) => {
+      if (i === j || g.some((id) => f.includes(id)) || !g.every((id) => inside(uv.get(id)!, poly))) return;
+      (holesOf.get(i) ?? holesOf.set(i, []).get(i)!).push(j);
+      openingFaces.add(j);
+    });
+  });
+
+  const steps = faces.map((f, i): FillStep => {
     const polygon = f.map((id) => uv.get(id)!);
     const tris = earClip(polygon);
     const taken = tris.some(([a, b, c]) => occupied.some((shell) => trianglesOverlap([polygon[a]!, polygon[b]!, polygon[c]!], shell)));
-    return { f, tris, taken, quad: f.length === 4 && convex(polygon) };
+    // Its own openings: the ones not inside another of them.
+    const within = holesOf.get(i) ?? [];
+    const holes = within.filter((j) => !within.some((k) => holesOf.get(k)?.includes(j))).map((j) => faces[j]!);
+    return { f, tris, taken, quad: f.length === 4 && convex(polygon), opening: openingFaces.has(i), holes };
   });
   for (const p of steps) {
-    if (p.taken || !p.quad) continue;
+    if (p.opening || p.taken) continue;
+    if (p.holes.length > 0) {
+      if (!generateMesh(holedFaceInput(p, density))) return { refused: 'cannotMesh' };
+      continue;
+    }
+    if (!p.quad) continue;
     const planned = regionMesh(p.f.map((id) => modelStore.nodes.get(id)!), density);
     if ('refused' in planned) return planned;
   }
   return [steps];
+}
+
+const at3 = (id: number): Vec3 => pv(modelStore.nodes.get(id)!);
+const edgeMin = (f: number[]) => Math.min(...f.map((id, k) => {
+  const p = at3(id), q = at3(f[(k + 1) % f.length]!);
+  return norm([q[0] - p[0], q[1] - p[1], q[2] - p[2]]);
+}));
+
+/** The mesher's input for a face with openings: the face as outline, its openings as holes, through the model's nodes. */
+function holedFaceInput({ f, holes }: FillStep, density: MeshDensity): MeshInput {
+  const size = density.mode === 'targetSize' ? density.size : Math.min(edgeMin(f), ...holes.map(edgeMin));
+  return {
+    outer: { kind: 'polygon', points: f.map(at3) },
+    holes: holes.map((g) => ({ kind: 'polygon' as const, points: g.map(at3) })),
+    size, element: 'quad', fixedPoints: modelPoints(),
+  };
 }
 
 /**
@@ -283,8 +344,9 @@ function planFill(
  *
  * A convex hole of four corners is meshed with quads —
  * one, or a grid at the requested density, through the same mesher as the shell tab; any other
- * becomes triangles. Faces overlapping an existing coplanar shell are left alone. Nothing is
- * built unless every face can be (see planFill).
+ * becomes triangles. A hole with closed outlines inside it is meshed around them, and they stay
+ * open. Faces overlapping an existing coplanar shell are left alone. Nothing is built unless
+ * every face can be (see planFill).
  */
 export function fillHoles(
   elementIds: Iterable<number>, materialId: number, thickness: number,
@@ -295,10 +357,17 @@ export function fillHoles(
   const density: MeshDensity = opts.density ?? { mode: 'fixedDivisions', nx: 1, ny: 1 };
   const plan = planFill(elementIds, density, opts.tol ?? 1e-3);
   if ('refused' in plan) return plan;
-  const report: FillReport = { quads: [], plates: [], skippedExisting: 0 };
+  const report: FillReport = { quads: [], plates: [], skippedExisting: 0, openings: 0 };
   modelStore.batch(() => {
-    for (const { f, tris, taken, quad } of plan.flat()) {
+    for (const step of plan.flat()) {
+      const { f, tris, taken, quad, opening, holes } = step;
+      if (opening) { report.openings++; continue; }
       if (taken) { report.skippedExisting++; continue; }
+      if (holes.length > 0) {
+        const m = applyMesh(holedFaceInput(step, density), { materialId, thickness, splitBeams: true });
+        if (m) { report.quads.push(...m.quads); report.plates.push(...m.plates); }
+        continue;
+      }
       if (quad) {
         const m = meshQuadRegion(f as [number, number, number, number], { density, materialId, thickness, splitBeams: true });
         if ('refused' in m) continue; // planFill asked the mesher for each of these already

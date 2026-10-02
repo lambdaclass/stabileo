@@ -60,7 +60,7 @@ import type { SolverDiagnostic } from '../engine/types';
  * proposals and bar conflicts are NOT here — they have their own surfaces (the badge, the
  * chips, the banners, the status panel) and folding them in would blur a proposal into a fault.
  */
-export type DiagnosticsKind = 'empty' | 'incomplete' | 'blocking';
+export type DiagnosticsKind = 'empty' | 'clean' | 'incomplete' | 'blocking';
 
 /** Codes that only ever mean "you have not built anything yet". */
 const ABSENCE_CODES = new Set(['MODEL_FEW_NODES', 'MODEL_NO_ELEMENTS']);
@@ -80,6 +80,8 @@ function currentErrors(): SolverDiagnostic[] {
     quads: modelStore.model.quads,
     connectors: modelStore.model.connectors,
     constraints: modelStore.model.constraints,
+      combinations: modelStore.combinations,
+      selfWeightCaseIds: (modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
   }).filter((d) => d.severity === 'error');
 }
 
@@ -140,6 +142,9 @@ function createDiagnosticsWarning() {
   function kindNow(): DiagnosticsKind {
     if (!hasModelNow()) return 'empty';
     const errs = errorsNow();
+    // No error at all is its own state: `every` over nothing is true, which named a model that
+    // solves "missing inputs".
+    if (errs.length === 0) return 'clean';
     if (errs.every((d) => ABSENCE_CODES.has(d.code) || INCOMPLETE_CODES.has(d.code))) {
       return 'incomplete';
     }

@@ -29,6 +29,7 @@
  */
 
 import { viewportCanvas } from './viewport-canvas';
+import { drawState } from '../store/draw-state.svelte';
 import { projectWorld } from '../viewport3d/camera-probe';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
@@ -160,6 +161,8 @@ export interface StabileoTestHooks {
    * joint?». This pair can.
    */
   nodeMarkersDrawn(): boolean;
+  /** Member diagrams the 3D scene holds right now (0 when none is drawn). */
+  diagramMembers(): number;
   renderMode3D(): string;
   /**
    * Everything selected, by kind.
@@ -233,6 +236,10 @@ export interface StabileoTestHooks {
   elementEnds(elementId: number): { i: number; j: number } | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
+  /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
+  loadScreenPos(id: number): { x: number; y: number } | null;
+  /** The nodes the model rings while drawing: a member's first node, a plate's corners. */
+  drawPicked(): number[];
   nodeCount(): number;
   supportCount(): number;
   reinforcement(elementId: number): unknown;
@@ -574,6 +581,7 @@ export function installE2EHooks(): void {
     jointMeshCount: () =>
       (window as unknown as { __jointMeshCount?: number }).__jointMeshCount ?? 0,
     jointScene: () => (window as unknown as { __jointScene?: unknown }).__jointScene ?? null,
+    diagramMembers: () => (window as unknown as { __diagramMembers?: number }).__diagramMembers ?? 0,
     nodeMarkersDrawn: () =>
       (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn ?? true,
     renderMode3D: () => String(uiStore.renderMode3D),
@@ -645,6 +653,14 @@ export function installE2EHooks(): void {
       const r = canvas.getBoundingClientRect();
       return { x: r.left + p.x, y: r.top + p.y };
     },
+    loadScreenPos: (id: number) => {
+      const f = (window as unknown as { __loadFootprints?: Map<number, number[]> }).__loadFootprints?.get(id);
+      if (!f || f.length < 6) return null;
+      const k = 6 * Math.floor(f.length / 12);
+      return projectWorld((f[k]! + f[k + 3]!) / 2, (f[k + 1]! + f[k + 4]!) / 2, (f[k + 2]! + f[k + 5]!) / 2);
+    },
+    drawPicked: () => (drawState.memberStart !== null && uiStore.currentTool === 'element'
+      ? [drawState.memberStart] : [...uiStore.shellNodePick.picked]),
     nodeCount: () => modelStore.nodes.size,
     supportCount: () => modelStore.supports.size,
     selectionByKind: () => {

@@ -45,6 +45,9 @@
   let category = $state<MaterialCategory>('thin');
   let shape = $state<ShapeType>((args.initial?.shapeType as ShapeType | undefined) ?? 'hollow-rect');
   let values = $state<Record<string, number>>({ ...(args.initial?.params ?? {}) });
+  /** A length parameter shown in mm; stored in m. Rounded so 0.0254 m reads 25.4, not 25.400000000000002. */
+  const toShown = (unit: string, v: number) => (unit === 'm' ? Number((v * 1000).toPrecision(10)) : v);
+  const fromShown = (unit: string, v: number) => (unit === 'm' ? v / 1000 : v);
 
   const shapes = $derived(category === 'thin' ? THIN_SHAPES : SOLID_SHAPES);
   const def = $derived(SECTION_SHAPES.find((s) => s.id === shape) ?? SECTION_SHAPES[0]);
@@ -118,16 +121,21 @@
     {#each def.params as p (p.id)}
       <label>
         <span>{t(p.label)}</span>
+        <!--
+          Section dimensions are typed in millimetres and kept in metres. In metres a tube's
+          50.8 × 2.5 was easy to enter as 0.508 × 0.025, ten times its size in each dimension and
+          a hundred times its area and stiffness, which is what a first scaffold model did.
+        -->
         <input
-          type="number" min="0" step={p.step}
+          type="number" min="0" step={toShown(p.unit, p.step)}
           data-testid={`section-param-${p.id}`}
-          value={values[p.id] ?? p.defaultValue}
+          value={toShown(p.unit, values[p.id] ?? p.defaultValue)}
           onchange={(e) => {
             const v = Number(e.currentTarget.value);
-            values = { ...values, [p.id]: Number.isFinite(v) ? v : (p.defaultValue as number) };
+            values = { ...values, [p.id]: Number.isFinite(v) ? fromShown(p.unit, v) : (p.defaultValue as number) };
           }}
         />
-        <span class="unit">{p.unit}</span>
+        <span class="unit">{p.unit === 'm' ? 'mm' : p.unit}</span>
       </label>
     {/each}
   </div>

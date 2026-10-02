@@ -170,7 +170,7 @@ describe('applyGeneratedModel — a whole shed', () => {
   it('discloses the assumptions a 600-member shed was built on', () => {
     const r = applyGeneratedModel(g, { source: 'generator-shed', atIso: AT, params: {} });
     expect(r.provenance.assumptions).toContain('generator.assume.purlinsRolledToPitch');
-    expect(r.provenance.assumptions).toContain('generator.assume.columnCapSharesReaction');
+    expect(r.provenance.assumptions).toContain('generator.assume.latticeColumnFaceOnTruss');
     expect(r.provenance.assumptions).toContain('generator.assume.webPinned');
   });
 });

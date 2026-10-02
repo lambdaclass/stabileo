@@ -141,15 +141,26 @@ describe('generateShed — the joint is a joint, not two nodes at one place', ()
     }
   });
 
-  it('gives a latticed column a cap so the truss has somewhere to land', () => {
+  it('stands a latticed column under the truss with its outer face on the truss end', () => {
+    // The truss bears on the outer chord head, and its bottom chord is joined at the inner
+    // chord head; the column no longer straddles the bearing with a cap on its axis.
     const shed = generateShed(P({ columnKind: 'lattice', roof: true, purlins: false, frames: 2 }));
-    const cap = shed.nodes.findIndex((n) =>
-      Math.abs(n.x) < 1e-9 && Math.abs(n.y) < 1e-9 && Math.abs(n.z - 6) < 1e-9);
-    expect(cap).toBeGreaterThanOrEqual(0);
-    const touching = shed.members.filter((m) => m.a === cap || m.b === cap);
-    // Two cap members to the chord heads, plus the truss bearing.
-    expect(touching.filter((m) => m.role === 'post').length).toBeGreaterThanOrEqual(2);
-    expect(touching.some((m) => m.role === 'chord')).toBe(true);
+    const W = P({}).column.widthM;
+    const at = (x: number, z: number) => shed.nodes.findIndex((n) => Math.abs(n.x - x) < 1e-9 && Math.abs(n.y) < 1e-9 && Math.abs(n.z - z) < 1e-9);
+    const outer = at(0, 6), inner = at(W, 6);
+    expect(outer).toBeGreaterThanOrEqual(0);
+    expect(inner).toBeGreaterThanOrEqual(0);
+    expect(at(-W / 2, 0)).toBe(-1);                        // nothing outside the building
+    const chordsAt = (i: number) => shed.members.filter((m) => (m.a === i || m.b === i) && m.role === 'chord');
+    expect(chordsAt(inner).length).toBeGreaterThanOrEqual(3); // column chord + two bottom-chord segments
+    const pairs = shed.members.map((m) => (m.a < m.b ? `${m.a}-${m.b}` : `${m.b}-${m.a}`));
+    expect(new Set(pairs).size).toBe(pairs.length);
+    expect(shed.assumptions).toContain('generator.assume.latticeColumnFaceOnTruss');
+    expect(shed.assumptions).not.toContain('generator.assume.columnCapSharesReaction');
+  });
+
+  it('keeps the cap on the axis when there is no truss to bear on', () => {
+    const shed = generateShed(P({ columnKind: 'lattice', roof: false, frames: 2 }));
     expect(shed.assumptions).toContain('generator.assume.columnCapSharesReaction');
   });
 

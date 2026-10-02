@@ -22,9 +22,10 @@ Para empezar:
   CAD, naves y galpones, torres, puentes y gran luz, fundaciones y una vitrina de escala. Dentro de
   cada grupo van del más chico al más grande. Cada tarjeta dice para qué sirve el modelo, qué mirar
   una vez resuelto y cuánto pesa, y avisa en los pesados. Con un modelo abierto, la tarjeta
-  pregunta antes de reemplazarlo.
-- **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel o un plano de AutoCAD
-  (DXF).
+  pregunta antes de reemplazarlo. La galería se abre sobre el modelo, con las tarjetas una al lado
+  de otra.
+- **Importar** (ver [más abajo](#importar-modelos)): una planilla de Excel, un plano de AutoCAD
+  (DXF) o un modelo IFC.
 
 **Proyecto** tiene también, como en Básico, **Guardar**, **Abrir**, **Compartir link** y
 **Exportar** (los resultados en Excel o CSV, el reporte, y la vista en DXF o SVG). Ver el
@@ -68,20 +69,22 @@ rehacer.
 (columnas X, Y y opcionalmente Z).
 
 **Barras.** Una tabla con nodo inicial y final, material y sección, y las columnas **Vinc. i** y
-**Vinc. j** con un botón que alterna entre **Art** (articulado) y **Emp** (empotrado) en cada
-extremo. Esas columnas liberan sólo el momento **Mz**; para liberar cualquier otro grado de
-libertad se edita la barra (ver abajo). Además:
+**Vinc. j**. En una barra que se está agregando alternan entre **Art** (los dos momentos de flexión
+liberados) y **Emp**. En una que ya existe muestran cómo es su extremo (empotrado, articulado,
+semirrígido o liberado en parte) y abren sus condiciones de extremo en
+**Especificaciones › Barras**, el único lugar donde se editan. Además:
 
 - **Curva:** un arco que pasa por tres nodos, materializado como una cadena de barras rectas. El
   panel informa el error de cuerda.
 - **Excentricidad de barra (offset):** desplaza el eje de la barra respecto de sus nodos, por
   ejemplo para que una viga cuelgue de la losa. Se define en **Especificaciones › Barras**.
-- Con clic derecho sobre una barra: **editarla** (material, sección y articulaciones por grado de
-  libertad en cada extremo) o **dividirla** en N partes (de 2 a 20). Con nodos seleccionados, clic
-  derecho en un espacio vacío los refleja en X o en Y o los gira 90°.
+- Con clic derecho sobre una barra: **editar** su material y su sección, abrir sus
+  **Especificaciones…** o **dividirla** en N partes (de 2 a 20). Con clic derecho sobre un nodo con
+  apoyo se abren las especificaciones del apoyo. Con nodos seleccionados, clic derecho en un
+  espacio vacío los refleja en X o en Y o los gira 90°.
 
-Las barras que se dibujan son de pórtico. Las de reticulado se incorporan desde los generadores o
-desde una planilla de Excel, que también permite fijar el giro de los ejes locales de cada barra.
+Las barras que se dibujan son de pórtico; en **Especificaciones › Barras** se hacen de reticulado,
+de un solo sentido o cables, y se fija el giro de sus ejes locales.
 
 **Placas.** Una placa se define por sus nodos: **tres nodos forman un triángulo y cuatro un
 cuadrilátero**. Se le asigna material y espesor.
@@ -212,31 +215,37 @@ piezas superpuestas, piezas sueltas o huecos fuera de la sección. La sección d
 abrir para editarla desde la lista, se guarda con el proyecto y viaja en el código de modelo.
 
 **Deformación por corte.** Cada sección puede incluirla, con las áreas de corte calculadas a partir
-de su geometría o escritas a mano. Un botón la activa o la desactiva en todas las secciones a la
-vez. Sin ella, las barras se calculan con la teoría de Euler-Bernoulli. El interruptor de
-**Especificaciones › Análisis** la deja afuera de todo el modelo.
+de su geometría o escritas a mano. Un botón les da áreas de corte geométricas a todas las secciones
+cuya forma las tiene, y el otro quita esas (las escritas a mano quedan). Sin ella, las barras se
+calculan con la teoría de Euler-Bernoulli. El interruptor de **Especificaciones › Análisis** la
+deja afuera de todo el modelo sin borrar nada, y Secciones lo avisa mientras está apagado.
 
 ### Especificaciones
 
 Lo que se le indica a una barra, un apoyo o una placa además de su geometría, su material y su
-sección está en **Especificaciones**, en seis secciones. Cada una edita lo seleccionado: varias
-barras toman el mismo valor a la vez, en un solo paso de deshacer, y una propiedad que difiere
-dentro de la selección se lee **mixto** hasta que se define. Al abrir una sección, el puntero pasa
-a seleccionar lo que ella edita (barras, apoyos, nodos o placas).
+sección está en **Especificaciones**, en seis secciones. Barras, Apoyos y Superficies editan lo
+seleccionado: varias barras toman el mismo valor a la vez, en un solo paso de deshacer, y una
+propiedad que difiere dentro de la selección se lee **(distintos)** hasta que se define. Al abrir
+una sección, el puntero pasa a seleccionar lo que ella edita (barras, apoyos, nodos o placas), y al
+pasar de una sección a otra las barras elegidas se conservan. Las secciones son pestañas que se
+recorren con las flechas del teclado.
 
 **Barras.**
 
 - **Comportamiento axial:** normal (pórtico), reticulado (sólo axil), **sólo tracción**, **sólo
   compresión**, **cable** o **inactiva** (fuera de todos los cálculos, sin borrarla).
-- **Liberaciones** de My, Mz y T en cada extremo, en los ejes locales de la barra.
+- **Condiciones de extremo**, juntas: las **liberaciones** de My, Mz y T en cada extremo en los ejes
+  locales de la barra, las **uniones** que liberan cualquiera de los seis grados de libertad en cada
+  extremo en ejes globales, y los extremos **semirrígidos**, con una rigidez al giro en kN·m/rad. Un
+  extremo semirrígido actúa en ejes globales, así que en una barra cuyos ejes de flexión no siguen
+  los globales se calcula rígido, y el chequeo del modelo lo avisa antes de calcular.
 - **Ejes locales:** β gira los ejes y y z de la barra alrededor de su eje x, sumado a la rotación
   propia de la sección.
-- **Excentricidades** y **longitudes de diseño** (longitud no arriostrada y factores de longitud
-  efectiva del diseño en acero).
 - **Modificadores de rigidez** para la inercia fisurada, con los valores de CIRSOC 201-2025 (Tabla
   6.6.3.1.1(a): columnas 0,70 Ig, muros no fisurados 0,70 y fisurados 0,35, vigas 0,35, losas 0,25)
-  o valores propios; **uniones** que liberan cualquiera de los seis grados de libertad en cada
-  extremo, en ejes globales; y extremos **semirrígidos**, con una rigidez al giro en kN·m/rad.
+  o valores propios; al cambiar un factor sobre una selección, cada barra conserva los otros.
+- **Excentricidades** y **longitudes de diseño** (longitud no arriostrada y factores de longitud
+  efectiva del diseño en acero).
 
 Las barras inactivas y los modificadores de rigidez valen en todos los análisis. Tracción o
 compresión exclusivas se resuelven en **Calcular**: una barra que trabaja al revés de lo indicado
@@ -253,22 +262,20 @@ módulo de cada cable. Un cable no tiene pretensado (su largo sin estirar es la 
 lo ablanda sale de su material; el que lo carga es el peso propio del proyecto, como en cualquier
 barra.
 
-El diseño sigue al comportamiento: una barra sólo a tracción o un cable se verifica sólo a tracción
-y una barra sólo a compresión se verifica sólo a compresión; una barra inactiva no se diseña.
+El diseño sigue al comportamiento en todos sus caminos (hormigón, acero, otras normas y el
+optimizador): una barra sólo a tracción o un cable se verifica sólo a tracción y una barra sólo a
+compresión se verifica sólo a compresión; una barra inactiva no se diseña.
 
 **Apoyos.** El tipo de todos los apoyos seleccionados a la vez, y si **se levantan** (sólo toman
-compresión). Un apoyo que se levanta se resuelve en **Calcular**: si tracciona, se libera y se
+compresión). La tabla de Apoyos muestra el tipo de cada uno con lo que agrega, y su ✎ abre esta
+sección sobre él. Un apoyo que se levanta se resuelve en **Calcular**: si tracciona, se libera y se
 vuelve a calcular. Con un solo apoyo seleccionado, su editor propio: qué grados de libertad se
 fijan, un resorte en cada uno (lineal o **multilineal**, con una curva desplazamiento–fuerza escrita
-como pares "mm kN;") y una **terna inclinada**, definida por dos puntos o apuntando a un nodo.
+como pares "mm kN;") y una **terna inclinada**, definida por dos puntos o apuntando a un nodo. Un
+tipo estándar muestra lo que restringe y no admite resortes ahí; el tipo Personalizado elige uno
+por uno.
 
-**Resortes de fundación.** Sobre las placas seleccionadas de una losa o platea, crea resortes
-verticales k = ks·A en cada nodo, con el área tributaria de cada nodo (un cuarto de cada
-cuadrilátero y un tercio de cada triángulo que lo tocan). El ks se escribe o se toma del perfil
-geotécnico del proyecto. Los resortes pueden ser de un solo sentido, para que la platea se
-levante, y reemplazan el apoyo que tuviera el nodo.
-
-**Vínculos.** Relaciones entre nodos, con la tabla compartida de vínculos debajo:
+**Uniones entre nodos.** Relaciones entre nodos, con la tabla compartida debajo:
 
 - **Vínculo rígido:** un nodo esclavo sigue a un nodo maestro como si estuvieran unidos por una
   barra infinitamente rígida.
@@ -281,7 +288,14 @@ levante, y reemplazan el apoyo que tuviera el nodo.
 
 **Superficies.** Sobre las placas seleccionadas, la **cáscara con curvatura** (para cuadriláteros
 cuyos cuatro nodos no están en un mismo plano) y el **offset** del plano medio, cada uno en un solo
-paso de deshacer.
+paso de deshacer. Los campos del offset muestran lo que tienen las placas, o que difiere; los atajos
+de cara superior e inferior usan el espesor de cada placa.
+
+**Resortes de fundación.** Sobre las placas seleccionadas de una losa o platea, crea resortes
+verticales k = ks·A en cada nodo, con el área tributaria de cada nodo (un cuarto de cada
+cuadrilátero y un tercio de cada triángulo que lo tocan). El ks se escribe o se toma del perfil
+geotécnico del proyecto. Los resortes pueden ser de un solo sentido, para que la platea se
+levante, y reemplazan el apoyo que tuviera el nodo.
 
 **Análisis.** Cómo se combinan: con barras de un solo sentido, cables o apoyos que se levantan, cada
 combinación se resuelve con sus cargas mayoradas (lo que corresponde, porque una barra puede
@@ -289,12 +303,15 @@ trabajar en una combinación y no en otra) o se superponen los casos, cada uno r
 conjunto de barras activas; en ese caso se listan las barras cuyo estado en la suma contradice el de
 los casos. Sin esas barras los dos métodos dan lo mismo. Cada combinación puede resolverse además
 **lineal** o con **P-Delta**. Una combinación con P-Delta cuya carga la estructura no puede llevar
-en segundo orden (pandea antes) no publica esfuerzos, y un aviso la nombra. Los modelos grandes
+en segundo orden (pandea antes) no publica esfuerzos, y un aviso la nombra; los paneles de diseño
+también la nombran y dan el diseño por incompleto, porque leen las combinaciones que tienen
+esfuerzos. Con barras de un solo sentido, cables o apoyos que se levantan, las combinaciones se
+resuelven lineales. Los modelos grandes
 pasan por el mismo solver disperso que el análisis lineal: las catorce combinaciones de un edificio
 de mil nudos y dos mil quinientas barras tardan unos segundos.
 
 El P-Delta se repite hasta que los desplazamientos dejan de cambiar. Algunos programas, en cambio,
-cortan después de un número fijo de iteraciones (dos, por ejemplo), haya convergido o no el
+cortan después de un número fijo de iteraciones, haya convergido o no el
 resultado; un modelo resuelto así puede diferir del de Stabileo en unos pocos por ciento en las
 barras que más se desplazan, y da esfuerzos en una combinación en la que Stabileo no encuentra
 equilibrio de segundo orden. Stabileo se queda con el resultado convergido.
@@ -302,22 +319,25 @@ equilibrio de segundo orden. Stabileo se queda con el resultado convergido.
 La **deformación por corte** está activada de entrada, y entonces cada sección decide con sus áreas
 de corte. Apagada, todas las barras se deforman sólo por flexión, diga lo que diga su sección.
 
-**Listado.** Cada especificación que tiene el modelo, una fila por valor, con las barras, apoyos o
-placas que la tienen. Un clic en una fila las selecciona y abre la sección que las edita. El listado
+**Listado.** Las especificaciones de las barras, los apoyos y las placas, una fila por valor (las
+curvas de los apoyos y los offsets de las placas con sus valores), con las entidades que la tienen. Un clic en una fila las selecciona y abre la sección que las edita. El listado
 se lee de las propias entidades, así que muestra lo que ellas tienen. El libro del proyecto lo lleva
 como hoja **Specifications**, y los resultados de los cables como **Cables**.
 
 ### Condiciones
 
-**Apoyos.** **Empotrado 3D**, **Articulado 3D**, móviles en cada plano (**Roller XZ**, **XY** y
+**Apoyos.** **Empotrado 3D**, **Articulado 3D**, móviles en cada plano (**Móvil XZ**, **XY** y
 **YZ**), **Resorte 3D** (con rigidez en cada grado de libertad) y **Personalizado**, donde se marca
 uno por uno qué desplazamientos y giros se restringen. Un móvil se desplaza libremente dentro de
-su plano: **Roller XZ**, por ejemplo, sólo está restringido en la dirección Y. Los resortes, el
+su plano: **Móvil XZ**, por ejemplo, sólo está restringido en la dirección Y. Cuando un panel
+actúa sobre nodos o barras seleccionados y su puntero elige otra cosa, un botón pasa el puntero a
+lo que hace falta. Los resortes, el
 levantamiento y la terna inclinada se definen en **Especificaciones › Apoyos**.
 
-**Cargas.** El panel tiene tres partes:
+**Cargas.** El panel tiene cuatro pestañas (casos de carga, con la regla de peso propio adentro;
+combinaciones; agregar cargas; cargas de piso):
 
-- **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Lr sobrecarga de
+- **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Wa viento de servicio, Lr sobrecarga de
   cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor.
 - **Peso propio:** es una carga de un caso. Cada fila dice en qué caso entra, en qué dirección
   global, con qué factor (−1 en Z es la gravedad) y sobre qué: todo el modelo, una lista de barras
@@ -327,7 +347,7 @@ levantamiento y la terna inclinada se definen en **Especificaciones › Apoyos**
   factor de ese caso. Un proyecto guardado antes de esta regla se abre con el peso propio en su
   primer caso D, y un aviso lo dice; si tenía varios casos D, el aviso recuerda que antes el peso
   se contaba en cada uno.
-- **Combinaciones:** manuales, o generadas automáticamente. Las últimas son las de CIRSOC
+- **Combinaciones:** manuales, o generadas automáticamente. Las de resistencia (últimas) son las de CIRSOC
   101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se
   genera aparte: las gravitatorias a factor 1,0 y, con viento, las de CIRSOC 102-2025 B.4.2
   (0,6 D + 0,6 W y D + 0,75 L + 0,45 W + 0,75 (Lr ó S ó R)). Al generarlas se puede pedir el viento y el sismo en los dos sentidos: cada caso
@@ -501,6 +521,9 @@ En el panel de **Resultados**:
 - **Flechas:** cada barra se verifica contra la **regla** que le toca, por tipo, grupo o barras
   elegidas, con L/n y la dirección (resultante o un plano local). Sin regla, las vigas van a
   L/360. Un **voladizo** se mide desde la tangente en su empotramiento y su límite se toma sobre 2L.
+  Las flechas se leen de las **envolventes de servicio** si el proyecto define alguna; si no, de la
+  suma sin mayorar de los casos gravitatorios con carga (D, L, Lr, S) y de cada caso por separado.
+  El panel dice cuál de las dos lee.
 - **Tensiones en barras:** la mayor tracción y la mayor compresión de la sección en cada estación,
   sobre su geometría.
 - **Contornos de placas:** en los nodos o en el centro de cada elemento, sobre el rango de los
@@ -517,61 +540,91 @@ En el panel de **Resultados**:
 
 Los análisis avanzados de PRO:
 
-- **P-Delta**, **modal**, **espectral** y **pandeo**. El modal puede pedir modos **hasta el 90 %
-  de la masa**: agrega modos hasta que la masa participante acumulada llega al 90 % en X y en Y, o
-  avisa si el modelo no tiene más. Con vínculos, las fracciones de masa no son confiables y esta
-  opción no se ofrece. El espectral usa un espectro simplificado de INPRES-CIRSOC 103 por zona
-  sísmica y tipo de suelo, combina los modos por CQC (combinación cuadrática completa, con el ξ que
-  se indica) o SRSS (raíz cuadrada de la suma de los cuadrados) y requiere haber corrido antes el
-  modal.
+- **P-Delta**, **modal**, **espectral** y **pandeo**, con las reglas del proyecto tal como las lee
+  **Calcular** (peso propio declarado, el interruptor de corte). Este P-Delta toma todas las cargas
+  del modelo juntas, sin factores; el de cada combinación con sus factores se pide en
+  **Especificaciones › Análisis**. El modal puede pedir modos **hasta el 90 % de la masa**: agrega
+  modos hasta que la masa participante acumulada llega al 90 % en X y en Y, o avisa si el modelo no
+  tiene más. Las masas salen de la **fuente de masas** (sólo peso propio, o casos elegidos con sus
+  factores). Con uniones entre nodos, las razones de masa del motor no son confiables: el modal da
+  frecuencias y formas pero usa la cantidad de modos pedida y lo avisa, y el espectral no se
+  ofrece. El espectral arma el espectro de INPRES-CIRSOC 103 con la zona, la clase de sitio y sus
+  parámetros (ca, cv, T1 a T3, γr, R y ξ), combina los modos por CQC (combinación cuadrática
+  completa, con el ξ que se indica) o SRSS (raíz cuadrada de la suma de los cuadrados) y requiere
+  haber corrido antes el modal.
 - **Historia en el tiempo**, con los métodos de Newmark o HHT-α. La configuración se guarda con el
   proyecto y viaja en el código de modelo. Cada dirección (X, Y y Z, a la vez) tiene su propia
   aceleración de base, con un factor de escala: senoidal, un registro leído de un archivo (PEER
   .AT2, una tabla tiempo–aceleración o una columna de valores) o **compatible con el espectro**
   INPRES-CIRSOC 103 del proyecto, un acelerograma artificial generado a partir de una semilla y una
-  duración. Cada registro se puede graficar con su aceleración máxima. Se agregan también
+  duración. Cada registro se puede graficar con su aceleración máxima, y avisa cuando su pico
+  parece un error de unidad, cuando el dt de la corrida pierde su pico y cuando la corrida es más
+  corta que el registro; un botón ajusta los pasos a los registros. Se agregan también
   **fuerzas nodales en el tiempo**, senoidales o escalón, con o sin aceleración de base. El
   amortiguamiento es de Rayleigh, con un único ξ ajustado en los dos primeros modos.
 - **Respuesta armónica**.
 - **No lineal:** **pushover** (formación sucesiva de rótulas plásticas bajo las cargas del modelo,
   con el mismo cálculo de Mp que el [colapso plástico](04-funciones-avanzadas.md#colapso-plástico)
-  del modo Básico), corrotacional (grandes desplazamientos) y de fibras. El pushover muestra la
+  del modo Básico) y corrotacional (grandes desplazamientos). El pushover es para acero: un modelo
+  con barras de otro material se rechaza y el panel las nombra. El pushover muestra la
   **curva de capacidad**: el corte basal según el desplazamiento de un nodo de control, con un
   punto por cada rótula que se forma. Un deslizador recorre los pasos; en cada uno se ven las
   rótulas nuevas, con sus momentos, y en el modelo la deformada y todas las rótulas formadas hasta
   ese paso. Cuando el análisis se detiene porque plastificaron a la vez todos los extremos que
   llegan a un nudo, el panel lo avisa: la estructura puede resistir más y el factor de colapso se
   toma como un mínimo.
-- **Imperfecciones geométricas** y, como análisis **experimentales** cuyos datos quedan en el
-  panel, **fundación sobre resortes de Winkler** e **interacción suelo-estructura** con curvas p-y.
+- **Imperfecciones geométricas:** cargas nocionales iguales al desplome elegido por la carga vertical
+  total de cada nodo (cargas nodales, cargas de barra y peso propio). Como análisis
+  **experimentales** cuyos datos quedan en el panel, **fundación sobre resortes de Winkler**, con ky
+  y kz según los ejes locales de la barra, e **interacción suelo-estructura** con curvas p-y.
   Los resortes y curvas que guarda el modelo se definen en sus apoyos, en
   **Especificaciones › Apoyos**.
-- **Construcción por etapas** y **fluencia y retracción**.
-- **Líneas de influencia 3D** y el **analizador de sección**.
+- **Construcción por etapas:** cada etapa agrega o saca barras y placas y elige qué casos de carga
+  aplica; la primera arranca con todo el modelo y todos los casos, y los apoyos del modelo entran con
+  ella. El resultado final queda en la vista. Una barra agregada en una etapa posterior toma su
+  esfuerzo del desplazamiento acumulado, y el panel lo avisa; no admite cáscaras curvas ni conectores.
+- **Fluencia y retracción** por el método del módulo efectivo (EN 1992-1-1, Anexo B): las cargas se
+  resuelven con E/(1 + φ) y la retracción como un acortamiento sobre E/(1 + χ·φ). Sólo el hormigón
+  fluye, cada material con su f'c (fcm = f'c + 8); la humedad, el tamaño ficticio, la edad de carga
+  y el cemento son del panel.
+- **Líneas de influencia 3D** y el **analizador de sección**; la J del analizador sale de la
+  solución de Saint-Venant sobre la malla de la sección.
 - **Cargas móviles:** un tren de ejes (predefinido o propio) recorre las barras seleccionadas, en
   orden, y cada barra guarda sus esfuerzos máximos y mínimos con la posición del tren. La carga de
   carril se crea como un caso de carga común sobre las mismas barras. La envolvente no entra en las
   combinaciones ni en el diseño.
 
-Estos análisis usan el eje de las barras, sin su excentricidad, y las articulaciones de las
+Salvo que el análisis diga otra cosa, estos análisis cargan la suma de todos los casos, sin
+mayorar. Usan el eje de las barras, sin su excentricidad, y las articulaciones de las
 columnas **Vinc. i** y **Vinc. j**. Las deslizaderas y las liberaciones por grado de libertad que se
 definen al editar una barra se consideran en **Calcular**; antes de un análisis avanzado, el
-programa pide quitarlas. El **modal** y el **espectral** trabajan con las barras y las placas del
-modelo y con sus diafragmas, que se definen en **Especificaciones › Vínculos** (el panel indica cuántos hay).
+programa pide quitarlas. El **modal** trabaja con las barras y las placas del modelo; sus
+diafragmas se definen en **Especificaciones › Uniones entre nodos** (el panel indica cuántos hay), y
+con ellos da frecuencias y formas pero no razones de masa confiables.
 
 ### Reporte
 
 **Reporte** arma una **memoria de cálculo** imprimible: datos del modelo con todas las propiedades,
-detalle de cargas, resultados, el resumen y la envolvente sobre las combinaciones, la estática, las
-flechas, los análisis avanzados que hayas corrido, las **figuras** que agregues desde la vista
-(cada una con su epígrafe y su escala), el cómputo de materiales y los diagnósticos. Las tablas van
-completas cualquiera sea el tamaño del modelo. La carátula imprime los datos del proyecto; el
-membrete de la oficina (logo y empresa) queda en el diálogo. También se exporta a Excel.
+detalle de cargas, resultados, el resumen de extremos (a lo largo de las barras) y la envolvente
+sobre las combinaciones, la estática, las flechas, la **verificación del diseño** tal como la hizo
+el panel de Diseño (cada barra con su armadura, la verificación que gobierna, solicitación,
+capacidad y utilización; el reporte no dimensiona por su cuenta), la **deriva de piso** con el mismo
+cálculo del panel, en condición D, los análisis avanzados que hayas corrido (cada uno se puede dejar
+afuera), las **figuras** que agregues desde la vista (cada una con su epígrafe y
+su escala), el cómputo de materiales y los diagnósticos. Las tablas van completas cualquiera sea el
+tamaño del modelo. La carátula imprime los datos del proyecto, a los que el diálogo lleva; el
+membrete de la oficina (logo y empresa) queda en el diálogo. También se exporta a Excel. Las
+figuras y las elecciones del reporte son de la sesión: al abrir otro proyecto o un ejemplo empiezan
+de nuevo.
 
 El **cómputo** (también en Documentos) toma el hormigón y el acero estructural de la geometría y
 la armadura del **despiece**, por diámetro; la cuantía se calcula sobre las barras despiezadas.
 
 ## La pestaña Diseño
+
+La etapa Diseño abre el diseño en acero cuando la mayoría de las barras son de acero, y el flujo de
+hormigón si no. Cada panel de diseño nombra las combinaciones que no tienen esfuerzos (sin
+equilibrio de segundo orden) y da el diseño por incompleto mientras haya alguna.
 
 ### Hormigón armado
 

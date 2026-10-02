@@ -13,13 +13,15 @@
  */
 
 import { test, expect } from './fixtures';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 async function openShed(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-generators').click();
   await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
-  await page.getByTestId('gen-kind-shed').click();
+  await pickGenerator(page, 'truss');
+  await pickGenerator(page, 'shed');
 }
 
 const purlins = (page: Page) => page.getByRole('checkbox', { name: /purlins|correas|terças/i });
@@ -50,7 +52,7 @@ test.describe('@smoke the shed warns when it cannot be solved', () => {
       await openShed(page);
       await purlins(page).uncheck();
       await expect(page.getByTestId('gen-stability-notice')).toBeVisible();
-      await expect(page.getByTestId('gen-generate')).toBeEnabled();
+      await expect(placeButton(page)).toBeEnabled();
     });
 
   test('the notice goes when the fix is applied', async ({ pro: page }) => {

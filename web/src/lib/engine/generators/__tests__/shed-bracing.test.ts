@@ -22,10 +22,13 @@
  * The path needs three elements, and the measurements below show each one's contribution by
  * removing it:
  *
- *   roof plane → vertical bracing between trusses → eave line → eave beams → braced wall → ground
+ *   roof plane → vertical bracing between trusses → eave line → braced wall → ground
  *
- * with the full system at 4.4 mm against the unbraced 2.4·10^11 m — eleven orders of magnitude,
- * which is what distinguishes a load path from a stiffer mechanism.
+ * with the full system at 2,7 mm against the unbraced 2.4·10^11 m — eleven orders of magnitude,
+ * which is what distinguishes a load path from a stiffer mechanism. The eave beams were a link
+ * in that chain while the latticed columns straddled the truss bearing; with their outer faces
+ * on the truss ends the eave line is in the wall's plane, as a solid column's always was.
+ * (It read 4,4 mm then.)
  *
  * ── The rule this file inherits ───────────────────────────────────
  *
@@ -189,25 +192,33 @@ describe('each element earns its place, measured by removing it', () => {
   }, SOLVE_TIMEOUT_MS);
 
   it('the vertical bracing needs a wall that reaches the ground', () => {
-    // It ties the roof to the eave line; without the wall bracing that line is itself held only
-    // by the columns' weak-axis bending. 1.9 m for 20 kN: no longer a mechanism, nowhere near a
-    // structure.
+    // It ties the roof to the eave line; without the wall bracing that line is held only by
+    // the columns' weak-axis bending. Measured with the latticed columns' outer faces on the
+    // truss ends: 74 mm for 20 kN against 2,7 mm with the wall braced, 27 times the drift.
+    const full = displacementOf(emit(FULL, 'Completa'), -20)!;
     const d = displacementOf(emit({
       ...DEFAULT_SHED_PARAMS, longitudinalBeams: true, trussBracing: true,
     }, 'Sin arriostramiento de fachada'), -20);
     expect(d).not.toBeNull();
-    expect(d!).toBeGreaterThan(0.5);
+    expect(d!).toBeGreaterThan(full * 10);
     expect(d!).toBeLessThan(1e6);
-  });
+  }, SOLVE_TIMEOUT_MS);
 
-  it('the eave beams are what carry the reaction to the braced bay', () => {
-    // Removing them leaves the path intact only in the braced bays themselves, so the response
-    // degrades by an order of magnitude rather than collapsing.
-    const withBeams = displacementOf(emit(FULL, 'Con vigas de alero'), -20)!;
-    const without = displacementOf(emit({ ...FULL, longitudinalBeams: false }, 'Sin vigas'), -20)!;
-    expect(without).toBeGreaterThan(withBeams * 5);
-    expect(without).toBeLessThan(1);
-  });
+  it('with the columns\' outer faces on the truss line, the braced bay reaches the wall without the eave beams', () => {
+    /*
+     * The truss bearings now sit in the plane of the wall bracing, so the vertical bracing
+     * between trusses drops its reaction straight into the braced wall. The eave beams carried
+     * it there when the columns straddled the bearing and their cap stood half a width inside
+     * the wall plane; now they change the response by under 1 %, exactly as on solid columns,
+     * whose single line was always in that plane (2,68 mm with, 2,69 mm without).
+     */
+    for (const columnKind of ['lattice', 'solid'] as const) {
+      const withBeams = displacementOf(emit({ ...FULL, columnKind }, 'Con vigas de alero'), -20)!;
+      const without = displacementOf(emit({ ...FULL, columnKind, longitudinalBeams: false }, 'Sin vigas'), -20)!;
+      expect(without, columnKind).toBeLessThan(withBeams * 1.05);
+      expect(without, columnKind).toBeLessThan(0.01);
+    }
+  }, SOLVE_TIMEOUT_MS * 2);
 });
 
 describe('a roof with no purlins, and what bracing can and cannot replace', () => {

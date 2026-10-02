@@ -177,7 +177,7 @@
         <input bind:value={base} />
       </label>
       <label class="gr-field gr-grow">{t('grid.levelNames')}
-        <input bind:value={names} placeholder="PB; 1er piso; 2do piso; Techo" />
+        <input bind:value={names} placeholder={t('grid.levelNamesPlaceholder')} />
       </label>
       <button class="pk-btn pk-btn-primary" disabled={!parseBays(heights)} onclick={generateLevels} data-testid="grid-generate-levels">{t('grid.generate')}</button>
     </div>

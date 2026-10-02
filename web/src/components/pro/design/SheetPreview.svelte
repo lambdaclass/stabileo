@@ -19,6 +19,7 @@
    * fitted to the window, because a 1:50 elevation scaled down to a panel column is not a smaller
    * drawing, it is an unreadable one — which is what the preview used to be.
    */
+  import { portal } from '../../../lib/utils/portal';
   import { t, tp } from '../../../lib/i18n';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
@@ -58,28 +59,8 @@
   function zoomOut() { zoomIndex = Math.max(zoomIndex - 1, 0); }
   function zoomReset() { zoomIndex = 2; }
 
-  /**
-   * Move the dialog to `document.body` while it is open.
-   *
-   * `z-index: 950` on a full-screen dialog buys nothing when an ancestor already opened a
-   * stacking context: the value is only ever compared inside that context, and the right panel's
-   * own positioned ancestor sits below the app header. The visible result was that the app's
-   * floating "?" shortcuts button covered the dialog's zoom controls — measured, not guessed:
-   * `elementFromPoint` at the centre of `sheet-zoom-in` returned `<button class="btn btn-help">`,
-   * so the button was visible, stable, enabled and un-clickable.
-   *
-   * Raising the number would not have fixed it. Escaping the context does. The node is put back
-   * on teardown so nothing is orphaned when the component unmounts with the dialog open.
-   */
-  function portal(node: HTMLElement) {
-    const home = node.parentNode;
-    document.body.appendChild(node);
-    return {
-      destroy() {
-        if (home && node.parentNode === document.body) home.appendChild(node);
-      },
-    };
-  }
+  /* Moved to `document.body` while open (`utils/portal.ts`): the right panel's stacking context
+     left the app's "?" button over this dialog's zoom controls. */
 
   const kindLabel = $derived(detailingSheet.kind === 'section'
     ? t('detailing.sheet.section') : t('detailing.sheet.elevation'));

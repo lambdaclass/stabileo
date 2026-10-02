@@ -10,7 +10,7 @@ import {
 import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
 import { msg, round } from '../../codes/message';
-import type { LevelMass, LoadPlanInput, PlanSink } from './load-plan';
+import { windDirectionsOf, type LevelMass, type LoadPlanInput, type PlanSink } from './load-plan';
 
 const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
@@ -27,11 +27,13 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     const by = Math.max(...ys) - Math.min(...ys);
 
     /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
+    // The directions asked for, any of ±X and ±Y (`windDirectionsOf`); an axis is solved when either sense is.
+    const windDirs = windDirectionsOf(input.wind);
     const axesFor = (speed: number, service: boolean): WindAxis[] => {
       const out: WindAxis[] = [];
       for (const [dir, enabled, along, across] of [
-        ['x', input.wind!.directions.x, bx, by],
-        ['y', input.wind!.directions.y, by, bx],
+        ['x', windDirs.some((d) => d.endsWith('x')), bx, by],
+        ['y', windDirs.some((d) => d.endsWith('y')), by, bx],
       ] as const) {
         if (!enabled) continue;
         const project: WindProject = {
@@ -119,7 +121,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     if (windAxes.length > 0) {
       const set = input.wind.caseSet ?? 'all';
       const generated = windLoadCases({
-        model: input.model, axes: windAxes, set, bothSenses: input.wind.bothSenses ?? true,
+        model: input.model, axes: windAxes, set, directions: windDirs,
         tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
       });
       unsupportedKeys.push(...generated.notes);
@@ -145,7 +147,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
       const waAxes = axesFor(speed, true);
       if (waAxes.length > 0) {
         const generated = windLoadCases({
-          model: input.model, axes: waAxes, set: 'case1', bothSenses: input.wind.bothSenses ?? true,
+          model: input.model, axes: waAxes, set: 'case1', directions: windDirs,
           tributaryWidth: input.tributaryWidth, speed: round(speed, 1),
         });
         refs.push(R102('B.4.2', 'servicio'));

@@ -5,6 +5,8 @@
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
+  import ProFoundationSprings from '../ProFoundationSprings.svelte';
+  import SpecEmpty from './SpecEmpty.svelte';
 
   /* ── Curvature, on a shell that already exists ─────────────────────
    *
@@ -52,6 +54,25 @@
   let offY = $state(0);
   let offZ = $state(0);
   const selectedShellKeys = $derived([...uiStore.selectedShells]);
+  const shellOf = (key: string) => {
+    const id = parseInt(key.slice(1));
+    return key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+  };
+  /*
+   * The fields show what the selection holds: its offset when every shell has the same, "mixed"
+   * when they differ. They used to open at zero whatever the shells carried, so reading an offset
+   * meant overwriting it.
+   */
+  const current = $derived.by(() => {
+    const offs = selectedShellKeys.map((k) => JSON.stringify(shellOf(k)?.offset ?? null));
+    if (!offs.length) return { mixed: false, off: null as null | { frame: 'global' | 'local'; x: number; y: number; z: number } };
+    return offs.every((o) => o === offs[0]) ? { mixed: false, off: JSON.parse(offs[0]!) } : { mixed: true, off: null };
+  });
+  $effect(() => {
+    const c = current;
+    if (c.off) { offFrame = c.off.frame; offX = c.off.x; offY = c.off.y; offZ = c.off.z; }
+    else if (!c.mixed) { offX = 0; offY = 0; offZ = 0; }
+  });
 
   function eachSelectedShell(fn: (kind: 'plate' | 'quad', id: number) => void) {
     for (const key of uiStore.selectedShells) {
@@ -68,77 +89,78 @@
   /** Quick preset: offset along the shell normal by ±half its thickness so the
    *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
   function applyHalfThickness(sign: 1 | -1) {
+    // Each shell by its own thickness: a slab and its thicker drop panel both get their face
+    // on the node plane. The first shell's used to be applied to all.
     offFrame = 'local';
-    offX = 0; offY = 0;
-    // Use the first selected shell's thickness as the reference.
-    const key = [...uiStore.selectedShells][0];
-    if (!key) return;
-    const id = parseInt(key.slice(1));
-    const shell = key[0] === 'p' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
-    const t = shell?.thickness ?? 0.2;
-    offZ = sign * t / 2;
-    applyShellOffset();
+    modelStore.batch(() => eachSelectedShell((kind, id) => {
+      const shell = kind === 'plate' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+      if (shell) modelStore.setShellOffset(kind, id, { frame: 'local', x: 0, y: 0, z: sign * shell.thickness / 2 });
+    }));
   }
 </script>
 
-<div class="sf" data-testid="spec-surfaces">
-  <section>
-    <h5>{t('pro.shellCurvature')}</h5>
-    <p class="sf-hint">{t('pro.shellCurvatureHint')}</p>
+{#if selectedShellKeys.length === 0}
+  <SpecEmpty kind="shells" items={[
+    { title: 'pro.shellCurvature', hint: 'spec.item.curvature' },
+    { title: 'pro.shellOffset', hint: 'spec.item.shellOffset' },
+    { title: 'foundation.title', hint: 'spec.item.foundation' },
+  ]} />
+{:else}
+<div class="pk" data-testid="spec-surfaces">
+  <p class="sf-title">{tp('spec.surfaces.title', { n: selectedShellKeys.length })}</p>
+
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('pro.shellCurvature')}</h4>
+    <p class="pk-hint">{t('pro.shellCurvatureHint')}</p>
     {#if selectedQuads.length === 0}
-      <p class="sf-hint">{t('pro.shellCurvatureSelect')}</p>
+      <p class="pk-hint">{t('pro.shellCurvatureSelect')}</p>
     {:else}
-      <div>{selectedQuads.length} {t('pro.selected')}</div>
-      <p class="sf-hint" data-testid="curv-oop">{tp('pro.shellCurvatureOop', { mm: (selectedOutOfPlane * 1000).toFixed(1) })}</p>
-      <label class="sf-row">
+      <p class="pk-hint" data-testid="curv-oop">{tp('pro.shellCurvatureOop', { mm: (selectedOutOfPlane * 1000).toFixed(1) })}</p>
+      <label class="pk-check">
         <input type="checkbox" checked={selectedAllCurved} onchange={(e) => setSelectedCurved(e.currentTarget.checked)} data-testid="curv-toggle-check" />
         {t('pro.curvedShell')}
       </label>
     {/if}
   </section>
 
-  <section>
-    <h5>{t('pro.shellOffset')}</h5>
-    <p class="sf-hint">{t('pro.shellOffsetHint')}</p>
-    {#if selectedShellKeys.length === 0}
-      <p class="sf-hint">{t('pro.shellOffsetSelect')}</p>
-    {:else}
-      <div>{selectedShellKeys.length} {t('pro.selected')}</div>
-    {/if}
-    <label class="sf-row">{t('pro.offsetFrame')}
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('pro.shellOffset')}</h4>
+    <p class="pk-hint">{t('pro.shellOffsetHint')}</p>
+    {#if current.mixed}<p class="pk-hint" data-testid="shell-offset-mixed">{t('behaviour.mixed')}</p>{/if}
+    <label class="pk-row">{t('pro.offsetFrame')}
       <select bind:value={offFrame}>
         <option value="local">{t('pro.offsetLocal')}</option>
         <option value="global">{t('pro.offsetGlobal')}</option>
       </select>
     </label>
-    <div class="sf-row">
-      <span>{offFrame === 'local' ? 'x, y, n (m)' : 'X, Y, Z (m)'}</span>
-      <input type="number" bind:value={offX} step="0.01" />
-      <input type="number" bind:value={offY} step="0.01" />
-      <input type="number" bind:value={offZ} step="0.01" data-testid="shell-offset-z" />
+    <div class="pk-row">
+      <span class="pk-label">{offFrame === 'local' ? 'x, y, n (m)' : 'X, Y, Z (m)'}</span>
+      <input class="sf-num" type="number" bind:value={offX} step="0.01" aria-label={offFrame === 'local' ? 'x' : 'X'} />
+      <input class="sf-num" type="number" bind:value={offY} step="0.01" aria-label={offFrame === 'local' ? 'y' : 'Y'} />
+      <input class="sf-num" type="number" bind:value={offZ} step="0.01" data-testid="shell-offset-z" aria-label={offFrame === 'local' ? 'n' : 'Z'} />
     </div>
     {#if offFrame === 'local'}
-      <div class="sf-row">
-        <button onclick={() => applyHalfThickness(1)}>{t('pro.offsetTopFace')}</button>
-        <button onclick={() => applyHalfThickness(-1)}>{t('pro.offsetBottomFace')}</button>
+      <div class="pk-row">
+        <button class="pk-btn" onclick={() => applyHalfThickness(1)}>{t('pro.offsetTopFace')}</button>
+        <button class="pk-btn" onclick={() => applyHalfThickness(-1)}>{t('pro.offsetBottomFace')}</button>
       </div>
     {/if}
-    <div class="sf-row">
-      <button class="sf-go" disabled={selectedShellKeys.length === 0} onclick={applyShellOffset} data-testid="shell-offset-apply">{t('pro.applyOffset')}</button>
-      <button disabled={selectedShellKeys.length === 0} onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
+    <div class="pk-row">
+      <button class="pk-btn pk-btn-primary" onclick={applyShellOffset} data-testid="shell-offset-apply">{t('pro.applyOffset')}</button>
+      <button class="pk-btn" onclick={clearShellOffset}>{t('pro.clearOffset')}</button>
     </div>
-    <p class="sf-warn">{t('pro.shellOffsetWarn')}</p>
+    <p class="pk-hint">{t('pro.shellOffsetWarn')}</p>
+  </section>
+
+  <!-- On the selected shells, as the rest of this part: here the pointer picks shells. -->
+  <section class="pk-card">
+    <h4 class="pk-heading">{t('foundation.title')}</h4>
+    <ProFoundationSprings />
   </section>
 </div>
+{/if}
 
 <style>
-  .sf { display: flex; flex-direction: column; gap: 8px; padding: 6px 10px; font-size: 0.68rem; color: var(--st-text-2); }
-  section { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--st-hair); padding-top: 6px; }
-  section:first-child { border-top: none; padding-top: 0; }
-  h5 { margin: 0; font-size: 0.66rem; font-weight: 600; color: var(--st-text); }
-  .sf-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .sf-row input[type='number'] { width: 60px; }
-  .sf-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
-  .sf-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }
-  .sf-go { background: var(--st-accent); color: var(--st-text-on-accent); border: none; border-radius: var(--st-radius); padding: 2px 8px; }
+  .sf-title { margin: 0; font-weight: 600; color: var(--st-text); font-size: 0.74rem; }
+  .sf-num { width: 64px; }
 </style>

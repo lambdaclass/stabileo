@@ -319,7 +319,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await expect(page.getByTestId('al-enable-seismic')).toBeDisabled();
     const why = page.getByTestId('al-seismic-unavailable');
     await expect(why).toBeVisible();
-    await expect(why).toContainText(/need a seismic regulation/i);
+    await expect(why).toContainText(/need a seismic code/i);
     await expect(page.getByTestId('al-goto-regulations')).toBeVisible();
   });
 

@@ -53,6 +53,19 @@
     } else if (action === 'rotate-90' || action === 'rotate-neg90') {
       rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
       resultsStore.clear();
+    } else if (action === 'spec-element' && ctx.elementId != null) {
+      // Everything the member is told beyond geometry, section and material, in its one editor.
+      uiStore.specSection = 'members';
+      uiStore.proActiveTab = 'specifications';
+      uiStore.setSelection(new Set(), new Set([ctx.elementId]));
+    } else if (action === 'spec-support' && ctx.nodeId != null) {
+      const sup = [...modelStore.supports.values()].find(s => s.nodeId === ctx.nodeId);
+      if (sup) {
+        uiStore.specSection = 'supports';
+        uiStore.proActiveTab = 'specifications';
+        uiStore.clearSelection();
+        uiStore.selectSupport(sup.id, true);
+      }
     } else if (action === 'rotate-local-axes' && ctx.elementId != null) {
       modelStore.rotateElementLocalAxes(ctx.elementId, 90);
       resultsStore.clear();
@@ -82,6 +95,9 @@
       <button class="ctx-item" onclick={() => handleContextAction('edit-node')}>{t('ctx.editNode')}</button>
       <button class="ctx-item" onclick={() => handleContextAction('add-support')}>{t('ctx.addSupport')}</button>
       <button class="ctx-item" onclick={() => handleContextAction('add-load')}>{t('ctx.addLoad')}</button>
+      {#if ctxNodeSup && uiStore.analysisMode === 'pro'}
+        <button class="ctx-item" onclick={() => handleContextAction('spec-support')} data-testid="ctx-spec-support">{t('ctx.specifications')}</button>
+      {/if}
       {#if ctxNodeSup}
         <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-support')}>{t('ctx.deleteSupport')}</button>
       {/if}
@@ -90,6 +106,9 @@
     {:else if uiStore.contextMenu.elementId != null}
       <button class="ctx-item" onclick={() => handleContextAction('select-element')}>{t('ctx.selectElement')}</button>
       <button class="ctx-item" onclick={() => handleContextAction('edit-element')}>{t('ctx.editElement')}</button>
+      {#if uiStore.analysisMode === 'pro'}
+        <button class="ctx-item" onclick={() => handleContextAction('spec-element')} data-testid="ctx-spec-element">{t('ctx.specifications')}</button>
+      {/if}
       <div class="ctx-divider"></div>
       <div class="ctx-subdivide-row">
         <span class="ctx-label">{t('ctx.subdivide')}</span>

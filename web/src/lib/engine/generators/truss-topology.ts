@@ -77,7 +77,13 @@ export type ArchCurve = (typeof ARCH_CURVES)[number];
  * fewer. Posts are not offered as a variant here; a Warren with verticals is a different
  * truss and should be asked for as one.
  */
-export const WEB_PATTERNS = ['pratt', 'howe', 'warren'] as const;
+export const WEB_PATTERNS = ['pratt', 'howe', 'warren', 'x', 'k'] as const;
+/**
+ * The patterns built from one diagonal per panel, the ones a diagonal subdivision applies to.
+ * X has two crossing diagonals per panel and K two half-diagonals meeting mid-post; both were
+ * the "lattice girder" of the structures list, which this generator now covers.
+ */
+const SINGLE_DIAGONAL: readonly WebPattern[] = ['pratt', 'howe', 'warren'];
 export type WebPattern = (typeof WEB_PATTERNS)[number];
 
 export interface TrussParams {
@@ -271,6 +277,14 @@ export function validateTrussParams(p: TrussParams): ParamProblem[] {
   if (p.kind === 'trapezoidal' && p.endDepthM === 0 && p.riseM === 0) {
     bad('riseM', 'generator.problem.trussHasNoDepth');
   }
+  // K needs a post between two panels to meet at: one panel has none.
+  if (p.webPattern === 'k' && p.kind !== 'rolledPortal' && (p.halfTruss ? p.panelsPerHalf : p.panelsPerHalf * 2) < 2) {
+    bad('panelsPerHalf', 'generator.problem.kPanels');
+  }
+  // Two chords bent to the same arc are that depth apart everywhere: at 0 they are one chord.
+  if (p.kind === 'arch' && p.archCurve === 'parallelChord' && p.endDepthM === 0) {
+    bad('endDepthM', 'generator.problem.trussHasNoDepth');
+  }
   return out;
 }
 
@@ -298,7 +312,7 @@ export function validateTrussParams(p: TrussParams): ParamProblem[] {
  * which is what the brief asks for by "sólo mostrarlo cuando sea aplicable".
  */
 export function subdivisionApplies(p: Pick<TrussParams, 'webPattern' | 'panelsPerHalf'>): boolean {
-  return WEB_PATTERNS.includes(p.webPattern) && p.panelsPerHalf > 1;
+  return SINGLE_DIAGONAL.includes(p.webPattern) && p.panelsPerHalf > 1;
 }
 
 export function generateTruss(params: Partial<TrussParams> = {}): Topology {
@@ -326,14 +340,26 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
     bottomIdx.push(nodes.length);
     nodes.push({ i: nodes.length, x: stations[i], y: 0, z: bottom[i] });
   }
+  /*
+   * Where the chords meet (a pointed bearing, end depth 0) they share the node. Two coincident
+   * nodes left the top chord and the web attached to a node with no support and no member
+   * joining it to the bearing, so the truss hung from its bottom chord alone: about seven
+   * times the deflection of the same truss with its chords joined.
+   */
   for (let i = 0; i < stations.length; i++) {
+    if (Math.abs(top[i] - bottom[i]) < 1e-9) { topIdx.push(bottomIdx[i]); continue; }
     topIdx.push(nodes.length);
     nodes.push({ i: nodes.length, x: stations[i], y: 0, z: top[i] });
   }
 
   const members: GenMember[] = [];
   const chord = (a: number, b: number) => members.push({ a, b, role: 'chord', type: p.chordContinuity });
-  const web = (a: number, b: number, role: MemberRole) => members.push({ a, b, role, type: p.webContinuity });
+  // At a shared bearing node the end diagonal would lie on a chord: it is left out.
+  const onChord = (a: number, b: number) => members.some((m) => m.role === 'chord' && ((m.a === a && m.b === b) || (m.a === b && m.b === a)));
+  const web = (a: number, b: number, role: MemberRole) => {
+    if (a === b || onChord(a, b)) return;
+    members.push({ a, b, role, type: p.webContinuity });
+  };
 
   for (let i = 0; i < panels; i++) {
     chord(bottomIdx[i], bottomIdx[i + 1]);
@@ -350,7 +376,27 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
    * ones already meet at each panel point and the triangle closes without a vertical; adding
    * posts would make it a different truss with different member actions.
    */
-  if (p.webPattern !== 'warren') {
+  /*
+   * K: every interior post has a node at mid-height, where the two half-diagonals of the panel
+   * beside it meet. The end posts run whole.
+   */
+  const midIdx: number[] = [];
+  if (p.webPattern === 'k') {
+    for (let i = 0; i < stations.length; i++) {
+      if (Math.abs(top[i] - bottom[i]) < 1e-9) { midIdx.push(-1); continue; }
+      if (i === 0 || i === stations.length - 1) { midIdx.push(-1); web(bottomIdx[i], topIdx[i], 'post'); continue; }
+      const m = nodes.length;
+      nodes.push({ i: m, x: stations[i], y: 0, z: (top[i] + bottom[i]) / 2 });
+      midIdx.push(m);
+      /*
+       * The two halves are one post with the K attached at mid-height: continuous, whatever
+       * `webContinuity` says, as the subdivision below treats a split diagonal. Pinned, the mid
+       * node meets only pin-ended members in one plane and is free out of it: a mechanism.
+       */
+      members.push({ a: bottomIdx[i], b: m, role: 'post', type: 'frame' });
+      members.push({ a: m, b: topIdx[i], role: 'post', type: 'frame' });
+    }
+  } else if (p.webPattern !== 'warren') {
     for (let i = 0; i < stations.length; i++) {
       if (Math.abs(top[i] - bottom[i]) < 1e-9) continue;
       web(bottomIdx[i], topIdx[i], 'post');
@@ -370,8 +416,31 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
 
   // Diagonals, mirrored about midspan so the web is symmetric. Asymmetric bracing on a
   // symmetric truss under symmetric load is a modelling accident, not a design.
+  const firstDiagonal = members.length;
   for (let i = 0; i < panels; i++) {
     const leftOfCentre = p.halfTruss ? true : (i < panels / 2);
+    if (p.webPattern === 'x') {
+      // Both diagonals in every panel. They cross without a shared node, as rods or angles
+      // bolted back to back do; the assumption says so.
+      web(bottomIdx[i], topIdx[i + 1], 'diagonal');
+      web(topIdx[i], bottomIdx[i + 1], 'diagonal');
+      continue;
+    }
+    if (p.webPattern === 'k') {
+      /*
+       * Each panel's two half-diagonals leave the mid-post node nearer midspan for the top and
+       * bottom of the post nearer the support, so the K opens toward the support on both
+       * halves. A post with no mid node (none of zero length) is closed by one whole diagonal,
+       * and at a pointed bearing the two half-diagonals would meet the same node: one is kept.
+       */
+      // About the middle of the span even on a monopitch, so an odd panel count is symmetric too.
+      const [from, to] = i < panels / 2 ? [i + 1, i] : [i, i + 1];
+      const m = midIdx[from] ?? -1;
+      if (m < 0) { web(bottomIdx[to], topIdx[from], 'diagonal'); continue; }
+      web(m, topIdx[to], 'diagonal');
+      if (bottomIdx[to] !== topIdx[to]) web(m, bottomIdx[to], 'diagonal');
+      continue;
+    }
     if (p.webPattern === 'warren') {
       /*
        * Alternate on the panel index, not on the half. Mirroring a Warren about midspan the
@@ -420,17 +489,19 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
    * checks it on the solver rather than trusting the argument.
    */
   if (p.subdivideDiagonals && subdivisionApplies(p)) {
-    // The diagonals are the last `panels` members pushed, in panel order.
-    const firstDiagonal = members.length - panels;
+    // The diagonals follow the posts, in panel order; a pointed truss has none in its end
+    // panels, so each is found by the panel it spans.
     const added: GenMember[] = [];
     for (let i = 0; i < panels; i++) {
-      const d = members[firstDiagonal + i];
-      if (!d || d.role !== 'diagonal') continue;
+      const at = members.findIndex((m, k) => k >= firstDiagonal && m.role === 'diagonal'
+        && Math.min(nodes[m.a].x, nodes[m.b].x) === stations[i] && Math.max(nodes[m.a].x, nodes[m.b].x) === stations[i + 1]);
+      if (at < 0) continue;
+      const d = members[at];
 
       // Which end of the main diagonal is on the top chord. Either orientation occurs —
       // Pratt descends inward on the left half and rises on the right — so it is read off
       // the member rather than assumed from the pattern.
-      const aIsTop = topIdx.includes(d.a);
+      const aIsTop = topIdx.includes(d.a) && !bottomIdx.includes(d.a);
       const topEnd = aIsTop ? d.a : d.b;
       const botEnd = aIsTop ? d.b : d.a;
 
@@ -465,7 +536,7 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
        * That is measured: the first version of this block used `p.webContinuity` here and all
        * three web patterns failed to solve.
        */
-      members[firstDiagonal + i] = { a: topEnd, b: mIdx, role: 'diagonal', type: 'frame' };
+      members[at] = { a: topEnd, b: mIdx, role: 'diagonal', type: 'frame' };
       added.push({ a: mIdx, b: botEnd, role: 'diagonal', type: 'frame' });
 
       const chordAt = members.findIndex(
@@ -488,6 +559,8 @@ export function generateTruss(params: Partial<TrussParams> = {}): Topology {
     members.push(...added);
     assumptions.push('generator.assume.subdividedDiagonals');
   }
+
+  if (p.webPattern === 'x') assumptions.push('generator.assume.xBracingUnconnected');
 
   const supports: GenSupport[] = [
     { node: bottomIdx[0], type: 'pinned' },

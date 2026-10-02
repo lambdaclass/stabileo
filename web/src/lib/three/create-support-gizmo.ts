@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { COLORS, markShared } from './selection-helpers';
-import { GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../geometry/coordinate-system';
+import { addRestraintGizmo, type SupportSprings } from './create-restraint-gizmo';
 
 export type SupportGizmoType =
   | 'fixed' | 'fixed3d'
@@ -21,6 +21,11 @@ export interface CreateSupportOpts {
   supportType: SupportGizmoType;
   selected?: boolean;
   dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
+  /**
+   * The support's spring constants. A custom or 3D spring support is drawn as what it
+   * restrains, from the node out (`create-restraint-gizmo.ts`), in PRO and Basic 3D alike.
+   */
+  springs?: SupportSprings;
 }
 
 export function createSupportGizmo(
@@ -62,10 +67,16 @@ export function createSupportGizmo(
       break;
     case 'spring':
     case 'spring3d':
-      addSpringGizmo(group, color);
-      break;
     case 'custom3d':
-      addCustom3DGizmo(group, color, opts.dofRestraints);
+      if (opts.supportType !== 'spring') {
+        addRestraintGizmo(group, {
+          geo: sharedGeo, mat: sharedStandardMat, ground: GROUND_COLOR,
+          pinned: (g) => addPinnedGizmo(g, color), rollerPlane: (g) => addRollerGizmo(g, color, 'XY'),
+        },
+          opts.dofRestraints ?? { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false }, opts.springs ?? {});
+      } else {
+        addSpringGizmo(group, color);
+      }
       break;
     default:
       addPinnedGizmo(group, color);
@@ -103,16 +114,6 @@ function sharedStandardMat(color: number, roughness: number): THREE.Material {
   let m = matCache.get(key);
   if (!m) {
     m = markShared(new THREE.MeshStandardMaterial({ color, roughness }));
-    matCache.set(key, m);
-  }
-  return m;
-}
-
-function sharedBasicMat(color: number): THREE.Material {
-  const key = `basic:${color}`;
-  let m = matCache.get(key);
-  if (!m) {
-    m = markShared(new THREE.MeshBasicMaterial({ color }));
     matCache.set(key, m);
   }
   return m;
@@ -280,49 +281,3 @@ function addSpringGizmo(group: THREE.Group, color: number): void {
   addGroundLine(group, -height - 0.1);
 }
 
-/** Custom 3D support: per-DOF restraint indicators */
-function addCustom3DGizmo(
-  group: THREE.Group,
-  _color: number,
-  dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean },
-): void {
-  const r = dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false };
-  const barLen = 0.25;
-
-  // Translation restraints: cylinders along axes
-  const transAxes: [boolean, THREE.Vector3, number][] = [
-    [r.tx, GLOBAL_X, 0xff4444],
-    [r.ty, GLOBAL_Y, 0x44ff44],
-    [r.tz, GLOBAL_Z, 0x4488ff],
-  ];
-  for (const [fixed, axis, axisColor] of transAxes) {
-    if (!fixed) continue;
-    // CylinderGeometry axis is Y. Rotate to align with the target axis.
-    const geo = sharedGeo(`dof-bar:${barLen}`, () => new THREE.CylinderGeometry(0.025, 0.025, barLen, 6));
-    const mesh = new THREE.Mesh(geo, sharedStandardMat(axisColor, 0.5));
-    if (axis.x > 0) mesh.rotation.z = -Math.PI / 2;       // Y → X
-    else if (axis.z > 0) mesh.rotation.x = -Math.PI / 2;   // Y → Z
-    // else axis.y: no rotation needed
-    mesh.position.set(0, 0, -0.2);
-    group.add(mesh);
-  }
-
-  // Rotation restraints: torus arcs
-  const rotAxes: [boolean, THREE.Vector3, number][] = [
-    [r.rx, GLOBAL_X, 0xff8844],
-    [r.ry, GLOBAL_Y, 0x88ff44],
-    [r.rz, GLOBAL_Z, 0x4488ff],
-  ];
-  for (const [fixed, axis, axisColor] of rotAxes) {
-    if (!fixed) continue;
-    const torus = sharedGeo('dof-torus', () => new THREE.TorusGeometry(0.12, 0.015, 6, 12, Math.PI));
-    const mesh = new THREE.Mesh(torus, sharedBasicMat(axisColor));
-    const quat = new THREE.Quaternion();
-    quat.setFromUnitVectors(GLOBAL_Z, axis);
-    mesh.quaternion.copy(quat);
-    mesh.position.set(0, 0, -0.2);
-    group.add(mesh);
-  }
-
-  addGroundCross(group, -0.35);
-}

@@ -1148,7 +1148,7 @@ describe('3 · design is the least steel, and monotonic', () => {
         prev = r.AstCm2;
       }
     }
-  });
+  }, 60_000); // The densest sweep in the file: past 15 s on a loaded CI runner (15.8 s, 23.5 s seen), never thinned.
 
   it('deeper section → less steel, while flexure (not As,min) governs', () => {
     for (const Mu of [80, 150, 300]) {
