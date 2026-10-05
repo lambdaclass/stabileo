@@ -1,3 +1,4 @@
+import { setColumnCapacityReuse } from '../src/lib/engine/station-design-forces';
 import { CollisionGeometry } from '../src/lib/wasm/dedaliano_engine.js';
 import { registerCollisionKernel } from '../src/lib/engine/detailing/collision-kernel';
 // Manual browser benchmark, outside the application import graph. Run via bench:design.
@@ -9,10 +10,11 @@ import '../src/lib/engine/design/adapters/cirsoc201-adapter';
 import '../src/lib/engine/design/adapters/unsupported-adapter';
 import { detailingStore } from '../src/lib/store/detailing.svelte';
 
-export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true, incrementalRepair = true) {
+export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true, incrementalRepair = true, columnCapacity = true) {
   const results = [];
   await initSolver();
   registerCollisionKernel(collisionKernel ? CollisionGeometry : null, incrementalRepair);
+  setColumnCapacityReuse(columnCapacity);
   for (const example of exampleIds) {
     const rows = [];
     // Run 0 warms the solver/design code; report the median of the next three runs.
