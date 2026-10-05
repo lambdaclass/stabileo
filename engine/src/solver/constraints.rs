@@ -1089,9 +1089,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         return Err("No free DOFs".into());
     }
 
-    let n = dof_num.n_total;
     let nf = dof_num.n_free;
-    let nr = n - nf;
 
     // Large models take the sparse path: a single rigid diaphragm used to
     // dominate memory and time with the dense n×n assembly and the dense
@@ -1417,7 +1415,6 @@ pub fn solve_constrained_2d_dense(
     })
 }
 
-/// Solve a 3D constrained analysis.
 /// The 2D constrained solve over sparse matrices, for nf >= SPARSE_THRESHOLD.
 ///
 /// Mirrors the 3D sparse path (`solve_constrained_3d`): triplet assembly of
@@ -1631,6 +1628,7 @@ fn solve_constrained_2d_sparse(
     }))
 }
 
+/// Solve a 3D constrained analysis.
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     if input.constraints.is_empty() {
         return linear::solve_3d(&input.solver);

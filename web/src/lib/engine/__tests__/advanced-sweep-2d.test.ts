@@ -832,7 +832,7 @@ function auditModel(meta: GenMeta) {
 // Each entry is a defect this audit found that is still open; the numbering
 // matches the report (D1…). The findings it matches are asserted in an
 // `it.fails`, so the suite stays green while the defect exists and turns red
-// the day it is fixed. D1–D9, D11 and the JS side of D18 are fixed: their
+// the day it is fixed. D1–D9, D11 and D18 (both sides) are fixed: their
 // findings no longer occur and the plain check covers them. What remains is in
 // the engine (Rust), out of reach of the JS layer; each entry names the line.
 
@@ -1289,12 +1289,11 @@ describe('hand-built: textbook values', () => {
     }
   });
 
-  // D18, engine part: engine/src/solver/assembly.rs:552 (assemble_load_vector_2d) assembles
-  // only the thermal load of a truss or cable element, so a point or distributed load on a
-  // bar is dropped by the solve without a word. The influence line and the moving load now
-  // take a load on a bar to its two nodes by the lever rule (the regression check below);
-  // a load the user puts on a bar still needs the engine.
-  itFails('ENGINE D18 (assembly.rs:552): a point load on a truss bar reaches the supports', () => {
+  // D18, engine part, fixed: the engine's truss assembly took only the thermal load of a
+  // truss or cable element, so a point or distributed load on a bar was dropped by the solve
+  // without a word. It now takes it to the bar's two nodes by the lever rule, as the
+  // influence line and the moving load already did (the regression check below).
+  it('D18: a point load on a truss bar reaches the supports', () => {
     build(() => { const n = [N(0, 0), N(3, 0), N(6, 0)], t = N(3, 3); const e1 = E(n[0], n[1], 'truss'); E(n[1], n[2], 'truss'); E(n[0], t, 'truss'); E(t, n[2], 'truss'); E(n[1], t, 'truss'); modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[2], 'rollerX'); modelStore.addPointLoadOnElement(e1, 1, -10, { isGlobal: true }); });
     const r = solved();
     expect(r.reactions.reduce((sum, x) => sum + x.rz, 0)).toBeCloseTo(10, 6);

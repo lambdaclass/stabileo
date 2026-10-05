@@ -145,3 +145,25 @@ fn a_mechanism_at_size_is_reported_not_solved() {
     let result = solve_constrained_2d(&ci);
     assert!(result.is_err(), "a pinned, all-hinged diaphragm frame must not solve");
 }
+
+#[test]
+fn creep_steps_keep_the_constraints() {
+    // Each creep step re-solves loads on a prepared structure, and the prepared static
+    // solve is the unconstrained one: a diaphragm's nodes moved apart. Without creep
+    // parameters a step is the model's own loads, so it must be the constrained solve.
+    use dedaliano_engine::solver::creep_shrinkage::{solve_creep_shrinkage_2d, CreepShrinkageInput, TimeStep};
+    use dedaliano_engine::solver::linear;
+    let (mut input, constraints) = diaphragm_frame(2, 2);
+    input.constraints = constraints;
+    let expected = linear::solve_2d(&input).unwrap();
+    let cs = CreepShrinkageInput {
+        solver: input, creep_params: HashMap::new(),
+        time_steps: vec![TimeStep { t_days: 28.0, additional_loads: vec![] }], aging_coefficient: 0.8,
+    };
+    let step = &solve_creep_shrinkage_2d(&cs).unwrap().steps[0];
+    for d in &expected.displacements {
+        let s = step.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!((d.ux - s.ux).abs() < 1e-12 && (d.uz - s.uz).abs() < 1e-12,
+            "node {}: step ({}, {}) vs constrained solve ({}, {})", d.node_id, s.ux, s.uz, d.ux, d.uz);
+    }
+}

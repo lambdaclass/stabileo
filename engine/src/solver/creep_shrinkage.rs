@@ -186,8 +186,24 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     // (the age-adjusted modulus enters through equivalent loads, not
     // stiffness), so each step is one load vector and a back-substitution,
     // not a fresh assembly and factorization.
-    let prepared = linear::prepare_static_2d(&input.solver)?;
-    let _base_results = prepared.solve_loads(&input.solver.loads)?;
+    //
+    // Only without constraints: `prepare_static_2d` is the unconstrained solve, and a model
+    // with a diaphragm or a tie must go through `solve_2d`, which hands it to the
+    // constrained solver — prepared, every step came back with the constraints ignored.
+    let prepared = if input.solver.constraints.is_empty() {
+        Some(linear::prepare_static_2d(&input.solver)?)
+    } else {
+        None
+    };
+    let solve = |loads: &[SolverLoad]| match &prepared {
+        Some(p) => p.solve_loads(loads),
+        None => {
+            let mut step = input.solver.clone();
+            step.loads = loads.to_vec();
+            linear::solve_2d(&step)
+        }
+    };
+    let _base_results = solve(&input.solver.loads)?;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad> = Vec::new();
@@ -263,7 +279,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
         step_loads.extend(cumulative_creep_loads.clone());
         step_loads.extend(step.additional_loads.clone());
 
-        let step_results = prepared.solve_loads(&step_loads)?;
+        let step_results = solve(&step_loads)?;
 
         results.push(TimeStepResult {
             t_days: t,
@@ -343,8 +359,21 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
 
     // Initial elastic solution (used for sustained stress baseline). As in
     // 2D, the structure is prepared once and each step re-solves loads only.
-    let prepared = linear::prepare_static_3d(&input.solver)?;
-    let _base_results = prepared.solve_loads(&input.solver.loads)?;
+    // Constraints go through `solve_3d`, for the same reason.
+    let prepared = if input.solver.constraints.is_empty() {
+        Some(linear::prepare_static_3d(&input.solver)?)
+    } else {
+        None
+    };
+    let solve = |loads: &[SolverLoad3D]| match &prepared {
+        Some(p) => p.solve_loads(loads),
+        None => {
+            let mut step = input.solver.clone();
+            step.loads = loads.to_vec();
+            linear::solve_3d(&step)
+        }
+    };
+    let _base_results = solve(&input.solver.loads)?;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad3D> = Vec::new();
@@ -413,7 +442,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
         step_loads.extend(cumulative_creep_loads.clone());
         step_loads.extend(step.additional_loads.clone());
 
-        let step_results = prepared.solve_loads(&step_loads)?;
+        let step_results = solve(&step_loads)?;
 
         results.push(TimeStepResult3D {
             t_days: t,

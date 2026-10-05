@@ -498,6 +498,61 @@ pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sti
     }
 }
 
+/// A member load on a 2D truss bar, at its nodes: the bar's simply-supported reactions (lever
+/// rule), statically exact, since a truss carries nothing transverse. One function for the
+/// dense load vector and the sparse assembly's, which kept its own truss branch and still
+/// dropped these loads (the 2D time history reads that one).
+fn truss_member_load_2d(
+    load: &SolverLoad, elem_id: usize, l: f64, cos: f64, sin: f64,
+    truss_dofs: &[usize; 4], f_global: &mut [f64],
+) {
+    match load {
+        SolverLoad::Distributed(dl) if dl.element_id == elem_id => {
+            let a = dl.a.unwrap_or(0.0);
+            let b = dl.b.unwrap_or(l);
+            let span = b - a;
+            if span.abs() < 1e-15 { return; }
+            // Rectangle + triangle, so an antisymmetric load (W = 0 but
+            // a couple) needs no division by a load magnitude.
+            let parts = [
+                (dl.q_i * span, (a + b) / 2.0),
+                ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0),
+            ];
+            let (mut ri, mut rj) = (0.0, 0.0);
+            for (w, xc) in parts {
+                ri += w * (l - xc) / l;
+                rj += w * xc / l;
+            }
+            // Local transverse y = (−sin, cos)
+            f_global[truss_dofs[0]] += -sin * ri;
+            f_global[truss_dofs[1]] += cos * ri;
+            f_global[truss_dofs[2]] += -sin * rj;
+            f_global[truss_dofs[3]] += cos * rj;
+        }
+        SolverLoad::PointOnElement(pl) if pl.element_id == elem_id => {
+            let a = pl.a;
+            let px = pl.px.unwrap_or(0.0);
+            let mz = pl.my.unwrap_or(0.0);
+            // Transverse: the point load by the lever rule, the moment
+            // (CCW positive) as a couple ±mz/L.
+            let ri = pl.p * (1.0 - a / l) - mz / l;
+            let rj = pl.p * a / l + mz / l;
+            f_global[truss_dofs[0]] += -sin * ri;
+            f_global[truss_dofs[1]] += cos * ri;
+            f_global[truss_dofs[2]] += -sin * rj;
+            f_global[truss_dofs[3]] += cos * rj;
+            // Axial: the lever rule along the bar.
+            let ni = px * (1.0 - a / l);
+            let nj = px * a / l;
+            f_global[truss_dofs[0]] += cos * ni;
+            f_global[truss_dofs[1]] += sin * ni;
+            f_global[truss_dofs[2]] += cos * nj;
+            f_global[truss_dofs[3]] += sin * nj;
+        }
+        _ => {}
+    }
+}
+
 /// Assemble the global force vector for 2D for a given set of loads
 /// (with inclined support rotations applied). Produces exactly the same `f`
 /// as `assemble_2d` would on the same loads.
@@ -569,52 +624,7 @@ pub fn assemble_load_vector_2d(
                         f_global[truss_dofs[2]] +=  fx * cos;  // node J, x
                         f_global[truss_dofs[3]] +=  fx * sin;  // node J, z
                     }
-                    // A truss carries nothing transverse: a member load reaches its
-                    // nodes as the simply-supported reactions of the bar (lever
-                    // rule), statically exact. It used to be dropped silently.
-                    SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
-                        let a = dl.a.unwrap_or(0.0);
-                        let b = dl.b.unwrap_or(l);
-                        let span = b - a;
-                        if span.abs() < 1e-15 { continue; }
-                        // Rectangle + triangle, so an antisymmetric load (W = 0 but
-                        // a couple) needs no division by a load magnitude.
-                        let parts = [
-                            (dl.q_i * span, (a + b) / 2.0),
-                            ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0),
-                        ];
-                        let (mut ri, mut rj) = (0.0, 0.0);
-                        for (w, xc) in parts {
-                            ri += w * (l - xc) / l;
-                            rj += w * xc / l;
-                        }
-                        // Local transverse y = (−sin, cos)
-                        f_global[truss_dofs[0]] += -sin * ri;
-                        f_global[truss_dofs[1]] += cos * ri;
-                        f_global[truss_dofs[2]] += -sin * rj;
-                        f_global[truss_dofs[3]] += cos * rj;
-                    }
-                    SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
-                        let a = pl.a;
-                        let px = pl.px.unwrap_or(0.0);
-                        let mz = pl.my.unwrap_or(0.0);
-                        // Transverse: the point load by the lever rule, the moment
-                        // (CCW positive) as a couple ±mz/L.
-                        let ri = pl.p * (1.0 - a / l) - mz / l;
-                        let rj = pl.p * a / l + mz / l;
-                        f_global[truss_dofs[0]] += -sin * ri;
-                        f_global[truss_dofs[1]] += cos * ri;
-                        f_global[truss_dofs[2]] += -sin * rj;
-                        f_global[truss_dofs[3]] += cos * rj;
-                        // Axial: the lever rule along the bar.
-                        let ni = px * (1.0 - a / l);
-                        let nj = px * a / l;
-                        f_global[truss_dofs[0]] += cos * ni;
-                        f_global[truss_dofs[1]] += sin * ni;
-                        f_global[truss_dofs[2]] += cos * nj;
-                        f_global[truss_dofs[3]] += sin * nj;
-                    }
-                    _ => {}
+                    _ => truss_member_load_2d(load, elem.id, l, cos, sin, &truss_dofs, &mut f_global),
                 }
             }
         } else {
@@ -2010,7 +2020,7 @@ pub fn assemble_sparse_2d_ex(input: &SolverInput, dof_num: &DofNumbering, build_
                 if truss_dofs[i] < nf { diag_vals[truss_dofs[i]] += k_elem[i * 4 + i]; }
             }
 
-            // Assemble thermal FEF for 2D truss elements (sparse path)
+            // Assemble thermal FEF and member loads for 2D truss elements (sparse path)
             for load in &input.loads {
                 if let SolverLoad::Thermal(tl) = load {
                     if tl.element_id == elem.id {
@@ -2021,6 +2031,8 @@ pub fn assemble_sparse_2d_ex(input: &SolverInput, dof_num: &DofNumbering, build_
                         f_global[truss_dofs[2]] +=  fx * cos;
                         f_global[truss_dofs[3]] +=  fx * sin;
                     }
+                } else {
+                    truss_member_load_2d(load, elem.id, l, cos, sin, &truss_dofs, &mut f_global);
                 }
             }
         } else {

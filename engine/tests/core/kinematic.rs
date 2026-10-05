@@ -349,3 +349,27 @@ fn sparse_proof_agrees_with_the_dense_path_on_a_heated_frame() {
 }
 
 // ─── The sparse constrained solve, above its threshold ─────────────
+
+#[test]
+fn a_mechanism_whose_factorization_succeeds_is_still_a_mechanism() {
+    // A singular K need not make the sparse Cholesky fail: the zero pivot comes out of the
+    // elimination as rounding, often positive. Each of these factored and was called solvable.
+    let mut one_pin = big_portal(6, 8, false);
+    one_pin.supports.retain(|_, s| s.id == 1);
+    for s in one_pin.supports.values_mut() { s.support_type = "pinned".into(); }
+
+    let mut rollers = big_portal(6, 8, false);
+    for s in rollers.supports.values_mut() { s.support_type = "rollerX".into(); }
+
+    // 30 frame elements, pin and roller, one internal hinge at midspan.
+    let nodes: Vec<_> = (0..=30).map(|i| (i + 1, i as f64 * 0.5, 0.0)).collect();
+    let elements: Vec<_> = (0..30).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, i == 14)).collect();
+    let hinged_beam = make_input(nodes, vec![(1, 200000.0, 0.3)], vec![(1, 0.01, 0.001)], elements,
+        vec![(1, 1, "pinned"), (2, 31, "rollerX")], vec![]);
+
+    for (name, input) in [("a rigid frame on one pin", one_pin), ("on two rollers", rollers), ("a beam with an internal hinge", hinged_beam)] {
+        let result = analyze_kinematics_2d(&input);
+        assert!(!result.is_solvable, "{name} is a mechanism: {}", result.diagnosis);
+        assert!(result.mechanism_modes > 0, "{name}");
+    }
+}

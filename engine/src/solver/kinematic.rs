@@ -422,7 +422,31 @@ fn fast_solvable_2d(
         }
     }
     let mut symbolic = None;
-    numeric_cholesky(super::sparse_tangent::cached_symbolic(&mut symbolic, &sasm.k_ff), &sasm.k_ff).map(|_| {
+    let factor = numeric_cholesky(super::sparse_tangent::cached_symbolic(&mut symbolic, &sasm.k_ff), &sasm.k_ff)?;
+
+    // A factorization that succeeds is not yet a proof. `numeric_cholesky` refuses only a
+    // pivot at or below an absolute 1e-15, and a mechanism's zero pivot comes out of the
+    // elimination as rounding, often positive: a rigid frame on one pin, or a beam with an
+    // internal hinge, factored "fine" and was called solvable. Every pivot must clear the
+    // dense rank's own tolerance, relative to the largest diagonal; the artificial springs
+    // on the expected pin rotations, checked above, are the only pivots excused.
+    let k = &sasm.k_ff;
+    let mut max_diag = 0.0f64;
+    for col in 0..k.n {
+        for p in k.col_ptr[col]..k.col_ptr[col + 1] {
+            if k.row_idx[p] == col { max_diag = max_diag.max(k.values[p].abs()); }
+        }
+    }
+    let tol = (1e-10f64).max(max_diag * 1e-10);
+    let artificial: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
+    let sym = &factor.symbolic;
+    for j in 0..sym.n {
+        if artificial.contains(&sym.perm[j]) { continue; }
+        let d = factor.l_values[sym.l_col_ptr[j]];
+        if d * d < tol { return None; }
+    }
+
+    Some({
         let classification = if degree > 0 {
             "hyperstatic"
         } else if degree == 0 {

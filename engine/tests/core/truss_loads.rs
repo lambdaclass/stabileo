@@ -148,3 +148,22 @@ fn a_point_load_on_a_3d_truss_reaches_the_nodes() {
     assert!((mag_i - 6.0).abs() < 1e-9, "P(1−a/L) = 6: {mag_i}");
     assert!((mag_j - 2.0).abs() < 1e-9, "P·a/L = 2: {mag_j}");
 }
+
+#[test]
+fn the_sparse_2d_assembly_carries_the_same_truss_member_loads() {
+    // The sparse assembly kept a truss branch of its own, thermal only; the 2D time
+    // history reads its load vector.
+    use dedaliano_engine::solver::assembly::{assemble_2d, assemble_sparse_2d};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    let input = bar("truss", (false, false), vec![
+        SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 1.0, p: -10.0, px: Some(4.0), my: Some(2.0) }),
+        SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -3.0, q_j: -1.0, a: Some(0.5), b: Some(3.0) }),
+    ]);
+    let dof = DofNumbering::build_2d(&input);
+    let dense = assemble_2d(&input, &dof).f;
+    let sparse = assemble_sparse_2d(&input, &dof).f;
+    assert!(dense.iter().any(|v| v.abs() > 1.0), "the loads reach the nodes: {dense:?}");
+    for (a, b) in dense.iter().zip(&sparse) {
+        assert!((a - b).abs() < 1e-12, "dense {dense:?} vs sparse {sparse:?}");
+    }
+}
