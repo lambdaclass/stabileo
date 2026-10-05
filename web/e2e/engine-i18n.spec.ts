@@ -13,7 +13,7 @@
  * UI action; nothing seeds the state under test.
  */
 
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, alSection } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -45,12 +45,14 @@ async function openDialog(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await openLoadsTab(page);
   await page.getByTestId('pro-auto-loads-btn').click();
+  await alSection(page, 'regulations');
   await expect(page.getByTestId('al-regulations')).toBeVisible();
 }
 
 /** Reopen the dialog after an Apply closed it. */
 async function reopenDialog(page: Page) {
   await page.getByTestId('pro-auto-loads-btn').click();
+  await alSection(page, 'regulations');
   await expect(page.getByTestId('al-regulations')).toBeVisible();
 }
 
@@ -185,6 +187,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       // Generate WITH wind, so the model holds a W case. Then regenerate with wind off:
       // the plan stops producing W, and the user must be told before applying.
       await openDialog(page);
+      await alSection(page, 'wind');
       await page.getByTestId('al-enable-wind').check();
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
@@ -193,6 +196,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       // OFF explicitly — which is the scenario: the user changes their mind after
       // generating, and the W case must not vanish without a word.
       await reopenDialog(page);
+      await alSection(page, 'wind');
       await page.getByTestId('al-enable-wind').uncheck();
       await openPreview(page);
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { decimalOrKeep, parseDecimal, loadComponents, lineLoadEnds } from '../../lib/utils/numeric-input';
+  import { plainNumber } from '../../lib/utils/units';
   import PickKind from './PickKind.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
@@ -89,27 +91,47 @@
     return uiStore.selectedLoads.has(dataId);
   }
 
+  /**
+   * The numbers a form holds, read as people type them («1,5», «1.234,5»): a blank field is 0, a
+   * line load's blank J end is its I end, and a field that does not read refuses the load with a
+   * toast — `parseFloat(s) || 0` read «1,5» as 1, and `|| qI` turned a triangular 10 → 0 into a
+   * uniform 10 (`utils/numeric-input.ts`).
+   */
+  function readOrSay<T>(v: T | null): T | null {
+    if (v === null) uiStore.toast(t('pro.loadUnreadable'), 'error');
+    return v;
+  }
+
+  /** The nodal load being typed, or null when it does not read or all of it is zero. */
+  function nodalDraft() {
+    const v = readOrSay(loadComponents([nlFx, nlFy, nlFz, nlMx, nlMy, nlMz]));
+    return v && v.some((x) => x !== 0) ? v as [number, number, number, number, number, number] : null;
+  }
+
   function addNodalLoad() {
     const nodeId = parseInt(nlNodeId);
     if (isNaN(nodeId) || !modelStore.nodes.has(nodeId)) return;
-    const fx = parseFloat(nlFx) || 0;
-    const fy = parseFloat(nlFy) || 0;
-    const fz = parseFloat(nlFz) || 0;
-    const mx = parseFloat(nlMx) || 0;
-    const my = parseFloat(nlMy) || 0;
-    const mz = parseFloat(nlMz) || 0;
-    if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
-    modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
+    const f = nodalDraft();
+    if (!f) return;
+    modelStore.addNodalLoad3D(nodeId, ...f, uiStore.activeLoadCaseId);
     nlNodeId = ''; nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
   }
 
-  /** The distributed load being typed, or null when all of it is zero. */
+  /** The distributed load being typed, or null when it does not read or all of it is zero. */
   function distDraft() {
-    const qxI = parseFloat(dlQxI) || 0, qxJ = parseFloat(dlQxJ) || qxI;
-    const qyI = parseFloat(dlQyI) || 0, qyJ = parseFloat(dlQyJ) || qyI;
-    const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
+    const x = lineLoadEnds(dlQxI, dlQxJ), y = lineLoadEnds(dlQyI, dlQyJ), z = lineLoadEnds(dlQzI, dlQzJ);
+    if (!readOrSay(x && y && z)) return null;
+    const [qxI, qxJ] = x!, [qyI, qyJ] = y!, [qzI, qzJ] = z!;
     if ([qxI, qxJ, qyI, qyJ, qzI, qzJ].every((v) => v === 0)) return null;
     return { qyI, qyJ, qzI, qzJ, opts: { frame: dlFrame, qXI: qxI, qXJ: qxJ } };
+  }
+
+  /** The point load being typed, or null when it does not read, has no position or no load. */
+  function pointDraft() {
+    const a = parseDecimal(plA);
+    const v = readOrSay(a === null && plA.trim() !== '' ? null : loadComponents([plPy, plPz]));
+    if (!v || a === null || a < 0 || (v[0] === 0 && v[1] === 0)) return null;
+    return { a, py: v[0]!, pz: v[1]! };
   }
   function clearDist() { dlQxI = ''; dlQxJ = ''; dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = ''; }
 
@@ -125,11 +147,9 @@
   function addPointLoad() {
     const elemId = parseInt(plElemId);
     if (isNaN(elemId) || !modelStore.elements.has(elemId)) return;
-    const a = parseFloat(plA);
-    const py = parseFloat(plPy) || 0;
-    const pz = parseFloat(plPz) || 0;
-    if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
-    modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
+    const p = pointDraft();
+    if (!p) return;
+    modelStore.addPointLoadOnElement3D(elemId, p.a, p.py, p.pz, uiStore.activeLoadCaseId);
     plElemId = ''; plA = ''; plPy = ''; plPz = '';
   }
 
@@ -140,7 +160,7 @@
       uiStore.toast(t('pro.noQuadFound'), 'error');
       return;
     }
-    const q = parseFloat(slQ) || 0;
+    const [q] = readOrSay(loadComponents([slQ])) ?? [0];
     if (q === 0) return;
     modelStore.addSurfaceLoad3D(quadId, q, uiStore.activeLoadCaseId);
     slQuadId = ''; slQ = '';
@@ -149,19 +169,17 @@
   function addThermalQuadLoad() {
     const quadId = parseInt(tqQuadId);
     if (isNaN(quadId) || !modelStore.model.quads.has(quadId)) return;
-    const dtU = parseFloat(tqDtUniform) || 0;
-    const dtG = parseFloat(tqDtGradient) || 0;
+    const [dtU, dtG] = readOrSay(loadComponents([tqDtUniform, tqDtGradient])) ?? [0, 0];
     if (dtU === 0 && dtG === 0) return;
-    modelStore.addThermalLoadQuad3D(quadId, dtU, dtG, uiStore.activeLoadCaseId);
+    modelStore.addThermalLoadQuad3D(quadId, dtU!, dtG!, uiStore.activeLoadCaseId);
     tqQuadId = ''; tqDtUniform = ''; tqDtGradient = '';
   }
 
   function addNodalLoadToSelection() {
-    const fx = parseFloat(nlFx) || 0, fy = parseFloat(nlFy) || 0, fz = parseFloat(nlFz) || 0;
-    const mx = parseFloat(nlMx) || 0, my = parseFloat(nlMy) || 0, mz = parseFloat(nlMz) || 0;
-    if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
+    const f = nodalDraft();
+    if (!f) return;
     for (const nodeId of uiStore.selectedNodes) {
-      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
+      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, ...f, uiStore.activeLoadCaseId);
     }
     nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
   }
@@ -178,10 +196,10 @@
   }
 
   function addPointLoadToSelection() {
-    const a = parseFloat(plA), py = parseFloat(plPy) || 0, pz = parseFloat(plPz) || 0;
-    if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
+    const p = pointDraft();
+    if (!p) return;
     for (const elemId of uiStore.selectedElements) {
-      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
+      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, p.a, p.py, p.pz, uiStore.activeLoadCaseId);
     }
     plA = ''; plPy = ''; plPz = '';
   }
@@ -298,17 +316,19 @@
     uiStore.toast(`${toAdd.length} ${label}`, 'success');
   }
 
+  /** The stored value, whole: two decimals showed 0,004 kN as 0,00 in a cell that edits it. */
   function fmtNum(n: number): string {
-    if (n === 0) return '0';
-    return n.toFixed(2);
+    return plainNumber(n, 6);
   }
 
-  /** Parse a user-entered numeric string, tolerating a comma decimal separator
-   *  (es/de/fr keyboards) so "1,5" becomes 1.5 instead of being truncated to 1
-   *  by parseFloat. Returns `fallback` for empty/invalid input. */
-  function parseNum(value: string, fallback = 0): number {
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) ? n : fallback;
+  /** A typed load component, read by the app's one reader (a comma or a point, thousands grouped
+   *  by the other). Text it cannot read («12 kN», «1.2.3») changes nothing and the cell shows the
+   *  stored value again; it used to be written as 0. An empty cell clears the component. */
+  function setNum(el: HTMLInputElement, id: number, key: string, previous: number | undefined) {
+    const prev = previous ?? 0;
+    const v = decimalOrKeep(el.value, prev);
+    el.value = fmtNum(v);
+    if (v !== prev) modelStore.updateLoad(id, { [key]: v });
   }
 
   /*
@@ -521,18 +541,18 @@
     {#if nodalLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.nodalLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Nodo</th><th>Fx</th><th>Fy</th><th>Fz</th><th>Mx</th><th>My</th><th>Mz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Nodo</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th><th></th></tr></thead>
         <tbody>
           {#each nodalLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.nodeId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fx: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fy: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fz: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mx: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { my: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mz: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'fx', l.data.fx)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'fy', l.data.fy)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'fz', l.data.fz ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'mx', l.data.mx ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'my', l.data.my ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'mz', l.data.mz ?? 0)} /></td>
               <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
@@ -543,7 +563,7 @@
     {#if distLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.distLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i (kN/m)</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
         <tbody>
           {#each distLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
@@ -557,12 +577,12 @@
                   <option value="projected">{t('loads.frame.projected')}</option>
                 </select>
               </td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXJ: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZJ: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qXI', l.data.qXI ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qXJ', l.data.qXJ ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qYI', l.data.qYI ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qYJ', l.data.qYJ ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qZI', l.data.qZI ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'qZJ', l.data.qZJ ?? 0)} /></td>
               <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
@@ -573,15 +593,15 @@
     {#if pointLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py (kN)</th><th>Pz (kN)</th><th></th></tr></thead>
         <tbody>
           {#each pointLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { a: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { py: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { pz: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'a', l.data.a)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'py', l.data.py ?? 0)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'pz', l.data.pz ?? 0)} /></td>
               <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
@@ -598,7 +618,7 @@
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { q: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'q', l.data.q)} /></td>
               <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}
@@ -609,14 +629,14 @@
     {#if thermalQuadLoads.length > 0}
       <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
       <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')}</th><th>{t('pro.dtGradient')}</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')} (°C)</th><th>{t('pro.dtGradient')} (°C)</th><th></th></tr></thead>
         <tbody>
           {#each thermalQuadLoads as l}
             <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
               <td class="col-id">{l.data.id}</td>
               <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtUniform: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtGradient: parseNum(e.currentTarget.value) })} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'dtUniform', l.data.dtUniform)} /></td>
+              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, l.data.id, 'dtGradient', l.data.dtGradient)} /></td>
               <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
             </tr>
           {/each}

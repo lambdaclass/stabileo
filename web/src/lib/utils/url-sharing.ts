@@ -90,7 +90,10 @@ function unpackRelease(packed: unknown): Release {
  *
  * Servers never see it. The payload rides in the FRAGMENT — `#data=…` — which
  * a browser keeps to itself and never puts on the wire, so there is no request
- * line to overflow and no proxy to trim it.
+ * line to overflow and no proxy to trim it. (The one place that broke this was
+ * our own 404.html, which folded the fragment into `/?route=` on the way to the
+ * app: past about 8 000 characters the host answered 414 URI Too Long. It now
+ * leaves the fragment where it is.)
  *
  * And browsers are nowhere near 2000; that number is the old Internet Explorer
  * address-bar limit. Measured on the 3D industrial shed — 232 nodes, 633
@@ -743,7 +746,8 @@ export function generateShareURL(): { url: string; length: number } | null {
 
   const compressed = compressV2(snapshot, meta);
   const url = `${location.origin}${location.pathname}#data=${compressed}`;
-  return { url, length: compressed.length };
+  // The whole link, as PRO's is measured: the ceiling is about what a reader pastes.
+  return { url, length: url.length };
 }
 
 /**

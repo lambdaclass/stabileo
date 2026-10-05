@@ -92,11 +92,16 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
     local: true,
   };
   const matIds = new Set([...frag.elements.map((e) => e.materialId), ...frag.quads.map((q) => q.materialId), ...frag.plates.map((p) => p.materialId)]);
-  const secIds = new Set(frag.elements.map((e) => e.sectionId));
+  const secIds = new Set(frag.elements.flatMap((e) => (e.variableSection ? [e.sectionId, e.variableSection.sectionJ] : [e.sectionId])));
   // Preserve the original generated section too when a member has been manually resized.
   for (const g of frag.groups) {
     const data = generatedMetadata(g);
-    for (const e of data?.elements ?? []) if (e) secIds.add(e.sectionId);
+    for (const e of data?.elements ?? []) {
+      if (!e) continue;
+      secIds.add(e.sectionId);
+      // And its end J, which a member whose end J the user changed no longer names.
+      if (e.sectionJ !== undefined) secIds.add(e.sectionJ);
+    }
   }
   frag.materials = [...matIds].map((id) => modelStore.materials.get(id)).filter(Boolean).map((m) => clone(m!));
   frag.sections = [...secIds].map((id) => modelStore.sections.get(id)).filter(Boolean).map((s) => clone(s!));

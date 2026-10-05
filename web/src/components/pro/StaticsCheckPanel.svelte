@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../lib/utils/units';
   /**
    * Does the structure balance? One row per solved load case.
    *
@@ -41,7 +42,7 @@
   }
   const AXIS = { fx: 'Fx', fy: 'Fy', fz: 'Fz' } as const;
 
-  const fmt = (v: number) => (Math.abs(v) < 5e-4 ? '0' : v.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+  const fmt = (v: number) => (Math.abs(v) < 5e-4 ? '0' : plainNumber(v, 2));
   const pct = (v: number) => (v < 1e-9 ? '0' : v < 1e-4 ? v.toExponential(1) : (v * 100).toFixed(2) + ' %');
 </script>
 

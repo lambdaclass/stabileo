@@ -9,6 +9,7 @@ import {
   bindRole, defaultRegulations, unsetBinding, type ProjectRegulations,
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
+import { modalStoryForces, cqcRho } from '../seismic-modal';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -697,5 +698,158 @@ describe('the combinations the preview counts are the ones applying adds', () =>
     const p = buildLoadPlan(input({ projectCombinations: rules }));
     expect(p.combinations.map((c) => c.id)).toEqual(['project-r1', 'project-r2']);
     expect(describePlanDelta(p, current, { replaceExisting: true }).after.combinations).toBe(1);
+  });
+});
+
+describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsion, 45°', () => {
+  const code103 = {
+    zone: 4 as const, site: 'SB' as const, group: 'B' as const, systemKey: 'rc_frame_full_ductility',
+    periodSystem: 'concreteMomentFrame' as const, regularity: 'regular' as const, occupancy: 'reduced' as const,
+  };
+  const regs = () => applied({ ...applied(defaultRegulations()), seismic: bindRole('seismic', 'inpres103-2018') });
+  const seismic = (over: Record<string, unknown> = {}) => input({
+    regulations: regs(), model: frame(4),
+    seismic: { enabled: true, coefficient: 0.15, liveParticipation: null, directions: { x: true, y: false }, code: code103, ...over } as LoadPlanInput['seismic'],
+  });
+  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => p.nodal.filter((n) => n.caseIndex === i).reduce((s, n) => s + n.fx, 0);
+
+  it('one mass, one mode: the whole weight times the ordinate, all of the mass', () => {
+    const m = modalStoryForces([{ elevation: 3, weightKN: 100, nodeIds: [1] }], [{ period: 0.5, shape: new Map([[1, { ux: 2, uy: 0 }]]) }], 'x', () => 0.3);
+    expect(m.forces[0]).toBeCloseTo(30, 9);
+    expect(m.massRatio).toBeCloseTo(1, 9);
+  });
+
+  it('two equal storeys: the two modes carry all the mass, and well apart CQC is SRSS', () => {
+    const lv = [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: [2] }];
+    const phi = (a: number, b: number) => new Map([[1, { ux: a, uy: 0 }], [2, { ux: b, uy: 0 }]]);
+    const golden = (1 + Math.sqrt(5)) / 2;
+    const modes = [{ period: 1.0, shape: phi(1, golden) }, { period: 0.38, shape: phi(1, 1 - golden) }];
+    const m = modalStoryForces(lv, modes, 'x', () => 0.2);
+    expect(m.massRatio).toBeCloseTo(1, 9);
+    const srss = Math.hypot(m.perMode[0]!.baseShear, m.perMode[1]!.baseShear);
+    expect(m.baseShear).toBeCloseTo(srss, 1);
+    expect(cqcRho(1, 1)).toBeCloseTo(1, 12);
+  });
+
+  it('the modal forces replace the static ones, raised to 85 % of the static base shear', () => {
+    const model = frame(4);
+    // A first mode growing linearly with height, nothing else: a fraction of the mass.
+    const shape = new Map([...model.nodes.values()].map((n) => [n.id, { ux: (n.z ?? 0) / 12, uy: 0 }]));
+    const st = buildLoadPlan(seismic());
+    const dy = buildLoadPlan(seismic({ modal: { modes: [{ period: 0.6, shape }] } }));
+    expect(dy.outcome).toBe('READY');
+    expect(dy.derivation.some((d) => d.key === 'loadPlan.derivation.modal')).toBe(true);
+    const ex = dy.cases.findIndex((c) => c.type === 'E');
+    const V0 = st.factors.baseShear!.value;
+    expect(sumFx(dy, ex)).toBeGreaterThanOrEqual(0.85 * V0 - 1e-6);
+  });
+
+  it('a medium torsional irregularity: ±5 % eccentricity, two cases per direction, no net force across', () => {
+    const p = buildLoadPlan(seismic({ torsion: 'medium' }));
+    const e = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'E');
+    expect(e.map(({ c }) => c.nameKey)).toEqual(['autoLoad.seismicCaseEcc', 'autoLoad.seismicCaseEcc']);
+    const st = buildLoadPlan(seismic());
+    for (const { i } of e) {
+      expect(sumFx(p, i)).toBeCloseTo(st.factors.baseShear!.value, 6);
+      const fy = p.nodal.filter((n) => n.caseIndex === i);
+      expect(fy.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
+      expect(fy.some((n) => Math.abs(n.fy) > 1e-6)).toBe(true);
+    }
+  });
+
+  it('the vertical component splits each seismic combination, D at its factor ± (Ca/2)·γr', () => {
+    const p = buildLoadPlan(seismic({ vertical: true }));
+    const kv = (p.seismic!.ca! / 2) * p.seismic!.gammaR!;
+    const withE = p.combinations.filter((c) => c.terms.some((t) => t.symbol === 'E'));
+    expect(withE.length).toBeGreaterThan(0);
+    expect(withE.every((c) => /Ev$/.test(c.label))).toBe(true);
+    const d = withE.map((c) => c.terms.find((t) => t.symbol === 'D')!.factor);
+    expect(d).toEqual(expect.arrayContaining([+(1.2 + kv).toFixed(4), +(1.2 - kv).toFixed(4), +(0.9 + kv).toFixed(4), +(0.9 - kv).toFixed(4)]));
+  });
+
+  it('a third direction at 45°, the forces split equally along X and Y', () => {
+    const p = buildLoadPlan(seismic({ diagonal: true }));
+    const i = p.cases.findIndex((c) => c.nameParams?.dir === '45°');
+    expect(i).toBeGreaterThan(-1);
+    const own = p.nodal.filter((n) => n.caseIndex === i);
+    for (const n of own) expect(n.fx).toBeCloseTo(n.fy, 9);
+  });
+});
+
+// ─── T in both senses, and Kd of a chimney ───────────────────────
+
+describe('T in both senses (CIRSOC 101 §2.3.4)', () => {
+  it('ΔT and its reverse are two cases of one action, each combination with T made with each', () => {
+    const p = buildLoadPlan(input({ thermal: { dtUniform: 20, dtGradient: 5 } }));
+    const t = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'T');
+    expect(t.map(({ c }) => c.nameKey)).toEqual(['autoLoad.thermalCase', 'autoLoad.thermalCaseReversed']);
+    expect(t.every(({ c }) => c.alternatives === 'thermal-senses')).toBe(true);
+    const [heat, cool] = t.map(({ i }) => i);
+    const on = (k: number) => p.thermal.filter((x) => x.caseIndex === k);
+    expect(on(heat!).every((x) => x.dtUniform === 20)).toBe(true);
+    expect(on(cool!).every((x) => x.dtUniform === -20 && (x.dtGradient === -5 || x.dtGradient === 0))).toBe(true);
+    expect(on(heat!).length).toBe(on(cool!).length);
+    // Every T rule appears once per sense, never with both senses together.
+    const cases = p.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), alternatives: c.alternatives, pattern: c.pattern }));
+    const withT = expandCombinations(p.combinations.filter((s) => s.terms.some((x) => x.symbol === 'T')), cases);
+    const rules = new Set(withT.map((c) => c.specId));
+    for (const r of rules) {
+      const of = withT.filter((c) => c.specId === r);
+      expect(of.some((c) => c.factors.some((f) => f.caseId === heat! + 1))).toBe(true);
+      expect(of.some((c) => c.factors.some((f) => f.caseId === cool! + 1))).toBe(true);
+      for (const c of of) expect(c.factors.filter((f) => f.caseId === heat! + 1 || f.caseId === cool! + 1)).toHaveLength(1);
+    }
+  });
+
+  it("the user's own T case stays out of the group, so its loads are in the reversed-sense combinations too", () => {
+    const m = frame();
+    m.loadCases.push({ id: 7, type: 'T', name: 'Mine' });
+    const p = buildLoadPlan(input({ model: m, thermal: { dtUniform: 20, dtGradient: 0 } }));
+    const t = p.cases.filter((c) => c.type === 'T');
+    expect(t.map((c) => c.existingId)).toEqual([null, null]);
+    // Expanded over the model's cases, as applied: the user's case, plain, enters every T combination.
+    const planned = p.cases.map((c, i) => ({ id: 100 + i, type: c.type, name: String(i), alternatives: c.alternatives, pattern: c.pattern }));
+    const reversed = 100 + p.cases.findIndex((c) => c.nameKey === 'autoLoad.thermalCaseReversed');
+    const combos = expandCombinations(p.combinations, [...planned, { id: 7, type: 'T', name: 'Mine' }]);
+    const rev = combos.filter((c) => c.factors.some((f) => f.caseId === reversed));
+    expect(rev.length).toBeGreaterThan(0);
+    for (const c of rev) expect(c.factors.some((f) => f.caseId === 7 && f.factor > 0)).toBe(true);
+    // A second apply reuses the generated cases, now of the group, and still not the user's.
+    m.loadCases.push({ id: 8, type: 'T', name: 'T+', alternatives: 'thermal-senses' }, { id: 9, type: 'T', name: 'T−', alternatives: 'thermal-senses' });
+    expect(buildLoadPlan(input({ model: m, thermal: { dtUniform: 20, dtGradient: 0 } })).cases.filter((c) => c.type === 'T').map((c) => c.existingId)).toEqual([8, 9]);
+  });
+});
+
+describe('Kd of a chimney (CIRSOC 102 Tabla 1.6-1)', () => {
+  it('Figura 4.5-1 has one row for hexagonal and octagonal: Kd 1,00, the octagon\'s, never 0,95', () => {
+    const qh = (section: 'hexOct' | 'roundRough' | 'squareNormal') => buildLoadPlan(input({
+      wind: {
+        enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true,
+        roofSlopeDeg: 0, rigid: true, directions: { x: true, y: false }, structure: { kind: 'chimney', section },
+      },
+    })).factors.windQh!.value;
+    expect(qh('hexOct')).toBeCloseTo(qh('roundRough'), 9);   // round: 1,00
+    expect(qh('squareNormal') / qh('hexOct')).toBeCloseTo(0.9, 9);
+  });
+});
+
+describe('the companion live load factor reads the roof occupancy too', () => {
+  // Wind, for combination 4 (1,2 D + 1,0 W + L), where L is a companion.
+  const wind = { enabled: true, basicSpeed: 45, exposure: 'C' as const, enclosure: 'enclosed' as const,
+    siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: true, y: false } };
+  it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
+    const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
+    const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
+    expect(p.outcome).toBe('READY');
+    const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
+    expect(companions.length).toBeGreaterThan(0);
+    for (const t of companions) expect(t.factor).toBe(1);
+    expect(p.derivation.some((d) => d.key === 'loads.cirsoc101.exception1.blockedByAssembly')).toBe(true);
+  });
+
+  it('a private roof terrace of 3 kN/m² is nothing special, and leaves the 0,5', () => {
+    const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_privada', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
+    const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
+    expect(p.combinations.some((c) => c.terms.some((t) => t.symbol === 'L' && t.factor === 0.5))).toBe(true);
   });
 });

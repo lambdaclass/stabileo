@@ -4,7 +4,8 @@
  * The structure must not change, only how the member is described. So
  * everything recorded against an end or a local axis goes with it:
  *
- * - The end records swap: releases, 3D joints, member offsets.
+ * - The end records swap: releases, 3D joints, member offsets, and a variable
+ *   member's two sections (the deep end stays where it was).
  * - Positions measured from I are measured from the new I: a → L − a, and a
  *   partial load's [a, b] → [L − b, L − a] with its end values swapped.
  * - A plane member's local loads are given in its drawn axes, and its drawn
@@ -45,6 +46,7 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
     nodeJ: el.nodeI,
     releaseI: { ...el.releaseJ },
     releaseJ: { ...el.releaseI },
+    ...(el.variableSection ? { sectionId: el.variableSection.sectionJ, variableSection: { ...el.variableSection, sectionJ: el.sectionId } } : {}),
   };
   if (el.jointI || el.jointJ) {
     if (el.jointJ) next.jointI = { dof: [...el.jointJ.dof] as typeof el.jointJ.dof }; else delete next.jointI;

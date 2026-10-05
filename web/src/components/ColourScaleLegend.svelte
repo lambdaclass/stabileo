@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { displayUnits } from '../lib/store/display-units.svelte';
   /**
    * The colour map's scale, bottom-left of the viewport.
    *
@@ -76,6 +77,9 @@
 
   /** Compact enough for a 90 px bar; a scale label is a magnitude, not a result. */
   function fmt(v: number): string {
+    // The reader's decimals for the quantity, when set; a compact form otherwise.
+    const d = qty ? displayUnits.decimals[qty] : undefined;
+    if (d !== undefined) { const s = v.toFixed(d); return Number(s) === 0 ? '0' : s; }
     const a = Math.abs(v);
     if (a === 0) return '0';
     if (a >= 1000) return v.toExponential(1).replace('e+', 'e');
