@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   coordinateFloor, provisionalKeys, repairConflicts,
   type FloorCoordinationInput, type MemberBars,
 } from '../coordinate-floor';
 import { straightSegment, type BarPath } from '../../../codes/cirsoc201/bar-geometry';
 import { DEFAULT_TOLERANCES } from '../collision';
+import * as collision from '../collision';
 import { assessConstructibility } from '../constructibility';
 import { clause } from '../../../codes/regulation';
 import { noFloorFamilies } from '../family-record';
@@ -22,6 +23,7 @@ function bar(id: string, y: number, opts: Partial<BarPath> = {}): BarPath {
 const need25 = () => 0.025;
 
 describe('bounded repair ladder', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
   it('reports no conflicts and does nothing when the cage already fits', () => {
     const r = repairConflicts([bar('a', 0), bar('b', 0.3)], need25);
     expect(r.conflicts).toEqual([]);
@@ -30,7 +32,9 @@ describe('bounded repair ladder', () => {
   });
 
   it('clears a clearance shortfall by nudging the movable bar', () => {
+    const sweep = vi.spyOn(collision, 'detectCollisions');
     const r = repairConflicts([bar('a', 0), bar('b', 0.040)], need25);
+    expect(sweep.mock.calls.length).toBeGreaterThan(1);
     expect(r.conflicts).toEqual([]);
     expect(r.attempts[0].cleared).toBeGreaterThan(0);
     // The moved bar really moved.
@@ -49,6 +53,37 @@ describe('bounded repair ladder', () => {
       [bar('a', 0, { locked: true }), bar('b', 0.040, { locked: true })], need25);
     expect(r.conflicts).toHaveLength(1);
     expect(r.trace.join(' ')).toMatch(/no resueltos tras la escalera acotada/);
+  });
+
+  it.each(['locked', 'transverse'] as const)('reuses unchanged geometry for %s conflicts', kind => {
+    const opts: Partial<BarPath> = kind === 'locked' ? { locked: true } : { role: 'transverse' };
+    const bars = [bar('a', 0, opts), bar('b', 0.040, opts)];
+    const initial = collision.detectCollisions(bars, { requiredClearFor: need25 });
+    const sweep = vi.spyOn(collision, 'detectCollisions');
+    const result = repairConflicts(bars, need25);
+    expect(sweep).toHaveBeenCalledTimes(1);
+    expect(result.bars).toEqual(bars);
+    expect(result.conflicts).toEqual(initial.conflicts);
+    expect(result.attempts).toEqual([{ rung: 'separación mínima', cleared: 0, remaining: 1 }]);
+    expect(result.trace).toEqual([
+      '1 conflicto(s) detectado(s); se intenta la escalera de reparación.',
+      'Rung "separación mínima": 0 resuelto(s), 1 pendiente(s).',
+      'Rung "separación mínima" no mejoró el resultado; se conserva el mejor estado previo.',
+      '1 conflicto(s) no resueltos tras la escalera acotada. Se informan como tales; el resto de la planta sigue produciendo documentación.',
+    ]);
+  });
+
+  it('rechecks a moved cage, then reuses the result when only locked conflicts remain', () => {
+    const sweep = vi.spyOn(collision, 'detectCollisions');
+    const result = repairConflicts([
+      bar('a', 0), bar('b', 0.040),
+      bar('c', 2, { locked: true }), bar('d', 2.040, { locked: true }),
+    ], need25);
+    expect(sweep).toHaveBeenCalledTimes(2);
+    expect(result.conflicts).toHaveLength(1);
+    expect([result.conflicts[0].barA, result.conflicts[0].barB]).toEqual(['c', 'd']);
+    expect(result.attempts.map(a => a.cleared)).toEqual([1, 0]);
+    expect(result.bars.find(b => b.id === 'b')!.segments[0].start.y).toBeGreaterThan(0.040);
   });
 
   it('is bounded — it stops after the ladder rather than looping', () => {

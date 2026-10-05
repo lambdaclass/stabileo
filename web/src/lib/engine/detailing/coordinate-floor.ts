@@ -249,6 +249,7 @@ export function repairConflicts(
 
   for (const [rung, margin] of RUNGS) {
     const before = result.conflicts.length;
+    let moved = false;
     for (const c of result.conflicts) {
       const a = byId.get(c.barA);
       const b = byId.get(c.barB);
@@ -308,6 +309,7 @@ export function repairConflicts(
       for (const member of group) {
         const target = byId.get(member.id) ?? member;
         for (const seg of target.segments) {
+          moved = true;
           seg.start = {
             x: seg.start.x + dir.x * shift,
             y: seg.start.y + dir.y * shift,
@@ -321,8 +323,12 @@ export function repairConflicts(
         }
       }
     }
-    working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
-    result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
+    // Locked bars and cage pieces can leave a rung with no geometry changes. Reuse
+    // its collision result while retaining the same attempt, trace and stop decision.
+    if (moved) {
+      working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
+      result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
+    }
     const cleared = before - result.conflicts.length;
     attempts.push({ rung, cleared, remaining: result.conflicts.length });
     trace.push(

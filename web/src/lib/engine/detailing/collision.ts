@@ -185,9 +185,14 @@ interface SampledBar {
 // ─── Broad phase ─────────────────────────────────────────────────
 
 class SpatialHash {
-  private readonly cells = new Map<number, number[]>();
+  private readonly cells = new Map<number, { indices: number[]; lastQuery: number }>();
+  private lastQuery = -1;
+  private lastX = 0;
+  private lastY = 0;
+  private lastZ = 0;
+  bucketScans = 0;
 
-  constructor(private readonly cell: number) {}
+  constructor(private readonly cell: number, private readonly deduplicateBuckets: boolean) {}
 
   /**
    * Cell key as a NUMBER, not a string.
@@ -216,9 +221,9 @@ class SpatialHash {
     const k = this.key(p.x, p.y, p.z);
     const bucket = this.cells.get(k);
     if (bucket) {
-      if (bucket[bucket.length - 1] !== index) bucket.push(index);
+      if (bucket.indices[bucket.indices.length - 1] !== index) bucket.indices.push(index);
     } else {
-      this.cells.set(k, [index]);
+      this.cells.set(k, { indices: [index], lastQuery: -1 });
     }
   }
 
@@ -234,12 +239,28 @@ class SpatialHash {
     const cx = Math.floor(p.x / this.cell);
     const cy = Math.floor(p.y / this.cell);
     const cz = Math.floor(p.z / this.cell);
+    const previous = this.deduplicateBuckets && this.lastQuery === above;
+    const px = this.lastX, py = this.lastY, pz = this.lastZ;
+    this.lastQuery = above;
+    this.lastX = cx; this.lastY = cy; this.lastZ = cz;
+    // Consecutive samples often occupy the same cell (especially around bends).
+    if (previous && cx === px && cy === py && cz === pz) return;
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
+          // The preceding sample already queried these spatial cells. Avoid even the
+          // hash lookup; bucket stamps below cover nonconsecutive revisits as well.
+          if (previous && Math.abs(cx + dx - px) <= 1
+            && Math.abs(cy + dy - py) <= 1 && Math.abs(cz + dz - pz) <= 1) continue;
           const bucket = this.cells.get(this.cellKey(cx + dx, cy + dy, cz + dz));
           if (!bucket) continue;
-          for (const i of bucket) if (i > above) out.add(i);
+          // The hash is fully built before querying. Overlapping neighbourhoods can
+          // therefore visit each bucket once per bar, preserving first-encounter order.
+          // Hash collisions are safe too: the shared bucket contains BOTH cells' bars.
+          if (this.deduplicateBuckets && bucket.lastQuery === above) continue;
+          bucket.lastQuery = above;
+          this.bucketScans++;
+          for (const i of bucket.indices) if (i > above) out.add(i);
         }
       }
     }
@@ -396,6 +417,8 @@ export interface CollisionResult {
    * phase: against n bars the naive count is n(n-1)/2.
    */
   barPairsTested: number;
+  /** Nonempty spatial buckets scanned, including repeats when deduplication is disabled. */
+  bucketScans: number;
   /** True when nothing worse than `marginal` was found. */
   constructible: boolean;
 }
@@ -465,6 +488,8 @@ export interface DetectCollisionsOptions {
    * output, so the optimisation can never drift from the geometry it is supposed to preserve.
    */
   prune?: boolean;
+  /** Equivalence-test escape hatch: restore repeated bucket scans without changing geometry. */
+  deduplicateBuckets?: boolean;
 }
 
 export function detectCollisions(
@@ -498,7 +523,7 @@ export function detectCollisions(
     };
   });
 
-  const hash = new SpatialHash(cell);
+  const hash = new SpatialHash(cell, opts.deduplicateBuckets !== false);
   for (let i = 0; i < sampled.length; i++) {
     for (const p of sampled[i].hashPoints) hash.insert(i, p);
   }
@@ -627,6 +652,7 @@ export function detectCollisions(
     barCount: bars.length,
     narrowPhaseTests,
     barPairsTested,
+    bucketScans: hash.bucketScans,
     constructible: list.every((c) => c.severity === 'marginal'),
   };
 }
