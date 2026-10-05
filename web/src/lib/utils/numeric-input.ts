@@ -115,8 +115,8 @@ export function numericOrKeep(
 
 /**
  * A decimal number as people type and paste it: a comma or a point for the decimals, and
- * thousands grouped by the other one. Null when it is not a number or cannot be read without
- * guessing.
+ * thousands grouped by the other one. Null when it is not a number (text, a unit after it) or
+ * when its separators contradict each other.
  *
  * It replaces `parseFloat(s.replace(',', '.'))`, which read only the first comma and stopped at
  * the next separator: "1,234.5" became 1.234 and "6,123,456.78" became 6.123, with no error.
@@ -124,7 +124,15 @@ export function numericOrKeep(
  *   "1,5" · "1.5"                → 1.5
  *   "1,234.5" · "1.234,5"        → 1234.5 (the last separator is the decimal one, the other groups by three)
  *   "1,234,567" · "1.234.567"    → 1234567 (one separator, repeated in groups of three)
+ *   "1,234" · "1.234"            → 1.234
  *   "1,23,4" · "1.2.3" · "1,2.3" → null
+ *
+ * ONE separator, written once, is always the decimal one — even before exactly three digits,
+ * where "1,234" could be an English thousand. That is a choice, not a guess: a length of
+ * 1,234 m (three decimals, a millimetre) is how the app's Spanish and Portuguese users write it,
+ * and the old `parseFloat(s.replace(',', '.'))` read it the same way. A thousand with its
+ * grouping is read as one only when the text says so: a second group ("1,234,567") or the other
+ * separator after it ("1,234.0").
  */
 export function parseDecimal(raw: string): number | null {
   const s = raw.trim().replace(/\s+/g, '');
@@ -149,4 +157,16 @@ export function parseDecimal(raw: string): number | null {
   if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(clean)) return null;
   const v = Number(clean);
   return Number.isFinite(v) ? v : null;
+}
+
+/**
+ * A typed decimal, or the previous value when the text cannot be read («12 kN», «1.2.3»).
+ *
+ * For cells that always hold a number, such as a load's components: unreadable text changes
+ * nothing, where `parseDecimal(s) ?? 0` wrote a zero the user never typed. An empty cell is a
+ * cleared component and reads as `empty` (0 unless the caller says otherwise).
+ */
+export function decimalOrKeep(raw: string, previous: number, empty = 0): number {
+  if (raw.trim() === '') return empty;
+  return parseDecimal(raw) ?? previous;
 }

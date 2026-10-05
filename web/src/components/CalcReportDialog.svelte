@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
+  import { loadComponentsText, reportNumber } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
@@ -53,22 +54,14 @@
       const d = l.data as any;
       let description = '';
       let caseLabel = modelStore.getLoadCaseName(d.caseId ?? 1) || undefined;
-      // Every non-zero component, named by its axis, to four significant figures. The 3D forms
-      // used to show one moment (my or mz, without saying which) and one line load (qZ or qY).
-      const num = (v: number) => { const r = +Number(v).toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
-      const named = (comps: Array<[string, number | undefined, string]>) =>
-        comps.filter(([, v]) => v !== undefined && Math.abs(v) > 1e-12).map(([k, v, u]) => `${k}=${num(v!)} ${u}`).join(', ');
-      if (l.type === 'nodal') {
-        description = `${t('table.nodeLabel')} ${d.nodeId}: ${named([['Fx', d.fx, 'kN'], ['Fy', d.fy, 'kN'], ['M', d.mz, 'kN·m']]) || t('calcReport.loadZero')}`;
-      } else if (l.type === 'nodal3d') {
-        description = `${t('table.nodeLabel')} ${d.nodeId}: ${named([['Fx', d.fx, 'kN'], ['Fy', d.fy, 'kN'], ['Fz', d.fz, 'kN'], ['Mx', d.mx, 'kN·m'], ['My', d.my, 'kN·m'], ['Mz', d.mz, 'kN·m']]) || t('calcReport.loadZero')}`;
+      // Every non-zero component, named by its axis, to four significant figures
+      // (`calc-report-loads.ts`, which reads each load type by the store's own field names).
+      if (l.type === 'nodal' || l.type === 'nodal3d') {
+        description = `${t('table.nodeLabel')} ${d.nodeId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
       } else if (l.type === 'distributed') {
-        description = `${t('table.elemLabel')} ${d.elementId}: q=${num(d.qI)}→${num(d.qJ)} kN/m`;
+        description = `${t('table.elemLabel')} ${d.elementId}: q=${reportNumber(d.qI)}→${reportNumber(d.qJ)} kN/m`;
       } else if (l.type === 'distributed3d') {
-        const ax = d.frame === 'global' || d.frame === 'projected' ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
-        const pair = (k: string, i: number | undefined, j: number | undefined): Array<[string, number | undefined, string]> =>
-          (i || j) ? [[`q${k}`, i ?? 0, `→ ${num(j ?? i ?? 0)} kN/m`]] : [];
-        description = `${t('table.elemLabel')} ${d.elementId}: ${named([...pair(ax[0]!, d.qXI, d.qXJ), ...pair(ax[1]!, d.qYI, d.qYJ), ...pair(ax[2]!, d.qZI, d.qZJ)]) || t('calcReport.loadZero')}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${tp('calcReport.pointAt', { p: d.p, a: d.a })}`;
       } else if (l.type === 'thermal') {

@@ -123,10 +123,16 @@
    * The link's length, measured ahead of the click so the button can say it has none, as PRO's
    * does. Measured a moment after the model stops changing rather than on every change: encoding
    * the model is a full pass over it, and a drag changes it on every frame.
+   *
+   * The link is built inside the timeout, where nothing it reads is tracked, so what it depends
+   * on is read here: the model, and the analysis mode, which picks the format (PRO shares the
+   * model's code, much longer than the compact form). The view settings it also carries add a
+   * few characters, not a different link.
    */
   let linkLength = $state<number | null>(null);
   $effect(() => {
     void modelStore.modelVersion;
+    void uiStore.analysisMode;
     const id = setTimeout(() => { linkLength = generateShareURL()?.length ?? null; }, 400);
     return () => clearTimeout(id);
   });
