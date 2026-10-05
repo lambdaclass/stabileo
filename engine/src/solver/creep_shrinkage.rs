@@ -181,8 +181,13 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     let material_by_id: HashMap<usize, &SolverMaterial> =
         input.solver.materials.values().map(|m| (m.id, m)).collect();
 
-    // Initial elastic solution (used for sustained stress baseline)
-    let _base_results = linear::solve_2d(&input.solver)?;
+    // Initial elastic solution (used for sustained stress baseline). The
+    // structure is prepared once: only the load vector changes between steps
+    // (the age-adjusted modulus enters through equivalent loads, not
+    // stiffness), so each step is one load vector and a back-substitution,
+    // not a fresh assembly and factorization.
+    let prepared = linear::prepare_static_2d(&input.solver)?;
+    let _base_results = prepared.solve_loads(&input.solver.loads)?;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad> = Vec::new();
@@ -252,13 +257,13 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
             }));
         }
 
-        // Build modified input with creep/shrinkage loads added
-        let mut modified = input.solver.clone();
-        modified.loads.extend(cs_loads);
-        modified.loads.extend(cumulative_creep_loads.clone());
-        modified.loads.extend(step.additional_loads.clone());
+        // Build the step's load vector: the model's loads plus creep/shrinkage
+        let mut step_loads = input.solver.loads.clone();
+        step_loads.extend(cs_loads);
+        step_loads.extend(cumulative_creep_loads.clone());
+        step_loads.extend(step.additional_loads.clone());
 
-        let step_results = linear::solve_2d(&modified)?;
+        let step_results = prepared.solve_loads(&step_loads)?;
 
         results.push(TimeStepResult {
             t_days: t,
@@ -336,7 +341,10 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
     let material_by_id: HashMap<usize, &SolverMaterial> =
         input.solver.materials.values().map(|m| (m.id, m)).collect();
 
-    let _base_results = linear::solve_3d(&input.solver)?;
+    // Initial elastic solution (used for sustained stress baseline). As in
+    // 2D, the structure is prepared once and each step re-solves loads only.
+    let prepared = linear::prepare_static_3d(&input.solver)?;
+    let _base_results = prepared.solve_loads(&input.solver.loads)?;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad3D> = Vec::new();
@@ -400,12 +408,12 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
             }));
         }
 
-        let mut modified = input.solver.clone();
-        modified.loads.extend(cs_loads);
-        modified.loads.extend(cumulative_creep_loads.clone());
-        modified.loads.extend(step.additional_loads.clone());
+        let mut step_loads = input.solver.loads.clone();
+        step_loads.extend(cs_loads);
+        step_loads.extend(cumulative_creep_loads.clone());
+        step_loads.extend(step.additional_loads.clone());
 
-        let step_results = linear::solve_3d(&modified)?;
+        let step_results = prepared.solve_loads(&step_loads)?;
 
         results.push(TimeStepResult3D {
             t_days: t,

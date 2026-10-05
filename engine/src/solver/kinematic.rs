@@ -179,6 +179,18 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         };
     }
 
+    // Sparse proof of solvability for a large constraint-free model: a
+    // successful sparse Cholesky of K_ff, with no artificial DOF outside the
+    // expected pin-joint rotations, proves full rank without the dense
+    // assembly and the dense LU rank below. Anything unusual — a floating
+    // translation, an unexpected zero, a failed factorization — falls through
+    // to the full path, which names the DOFs.
+    if nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
+        if let Some(result) = fast_solvable_2d(input, &dof_num, nf, degree) {
+            return result;
+        }
+    }
+
     // Assemble K (no artificial stiffness in Rust assembly)
     let asm = assemble_2d(input, &dof_num);
     let n = dof_num.n_total;
@@ -250,48 +262,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     };
 
     // Filter expected zero-stiffness DOFs at valid pin joints
-    let mut expected_zero = std::collections::HashSet::new();
-    if dof_num.dofs_per_node >= 3 {
-        let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
-        let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
-        for elem in input.elements.values() {
-            if elem.elem_type == "frame" {
-                *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-                *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-                if elem.hinge_start {
-                    *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-                }
-                if elem.hinge_end {
-                    *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-                }
-            }
-        }
-
-        let mut rot_restrained = std::collections::HashSet::new();
-        for sup in input.supports.values() {
-            match sup.support_type.as_str() {
-                "fixed" | "guidedX" | "guidedY" => { rot_restrained.insert(sup.node_id); }
-                _ => {
-                    if sup.kz.unwrap_or(0.0) > 0.0 {
-                        rot_restrained.insert(sup.node_id);
-                    }
-                }
-            }
-        }
-
-        // All-hinged frame nodes
-        for (&node_id, &hinges) in &node_hinge_count {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                // Rotation DOF (local_dof=2) at this node is expected to be zero
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < nf {
-                        expected_zero.insert(idx);
-                    }
-                }
-            }
-        }
-    }
+    let mut expected_zero = expected_zero_rotations_2d(input, &dof_num, nf);
 
     for &i in &orphan_phys_dofs {
         expected_zero.insert(i);
@@ -349,6 +320,128 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         is_solvable,
         invalid_input: None,
     }
+}
+
+/// Above this many free DOFs the 2D kinematic analysis tries the sparse proof
+/// of solvability before the dense one.
+const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
+
+/// Rotation DOFs (local_dof = 2) that are expected to carry no stiffness: an
+/// all-hinged frame node with no rotational restraint.
+fn expected_zero_rotations_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    nf: usize,
+) -> std::collections::HashSet<usize> {
+    let mut expected_zero = std::collections::HashSet::new();
+    if dof_num.dofs_per_node < 3 {
+        return expected_zero;
+    }
+    let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
+    let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
+    for elem in input.elements.values() {
+        if elem.elem_type == "frame" {
+            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
+            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
+            if elem.hinge_start {
+                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
+            }
+            if elem.hinge_end {
+                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
+            }
+        }
+    }
+
+    let mut rot_restrained = std::collections::HashSet::new();
+    for sup in input.supports.values() {
+        match sup.support_type.as_str() {
+            "fixed" | "guidedX" | "guidedY" => { rot_restrained.insert(sup.node_id); }
+            _ => {
+                if sup.kz.unwrap_or(0.0) > 0.0 {
+                    rot_restrained.insert(sup.node_id);
+                }
+            }
+        }
+    }
+
+    // All-hinged frame nodes
+    for (&node_id, &hinges) in &node_hinge_count {
+        let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
+        if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
+            if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
+                if idx < nf {
+                    expected_zero.insert(idx);
+                }
+            }
+        }
+    }
+    expected_zero
+}
+
+/// The sparse proof of solvability for a large constraint-free model, or None
+/// to take the full dense path. A sparse Cholesky of K_ff proves full rank
+/// when every artificial DOF the assembly added is an expected zero rotation:
+/// the artificial spring is exactly what a mechanism hides behind, so any
+/// other artificial DOF — a floating translation, or a rotation with an
+/// off-diagonal entry — is left to the dense analysis, which names the DOFs.
+fn fast_solvable_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    nf: usize,
+    degree: i32,
+) -> Option<KinematicResult> {
+    let sasm = assemble_sparse_2d(input, dof_num);
+    if !sasm.artificial_dofs.is_empty() {
+        let expected = expected_zero_rotations_2d(input, dof_num, nf);
+        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
+        for (&(_, ld), &idx) in &dof_num.map {
+            if idx < nf {
+                idx_to_local.insert(idx, ld);
+            }
+        }
+        // The CSC stores the lower triangle: an off-diagonal touching d shows
+        // either in d's column below the diagonal or as row d of an earlier column.
+        let k = &sasm.k_ff;
+        let mut touched_offdiag = std::collections::HashSet::new();
+        for col in 0..k.n {
+            for p in k.col_ptr[col]..k.col_ptr[col + 1] {
+                let row = k.row_idx[p];
+                if row != col {
+                    touched_offdiag.insert(row);
+                    touched_offdiag.insert(col);
+                }
+            }
+        }
+        for &d in &sasm.artificial_dofs {
+            if !expected.contains(&d)
+                || idx_to_local.get(&d) != Some(&2)
+                || touched_offdiag.contains(&d)
+            {
+                return None;
+            }
+        }
+    }
+    let mut symbolic = None;
+    numeric_cholesky(super::sparse_tangent::cached_symbolic(&mut symbolic, &sasm.k_ff), &sasm.k_ff).map(|_| {
+        let classification = if degree > 0 {
+            "hyperstatic"
+        } else if degree == 0 {
+            "isostatic"
+        } else {
+            "hypostatic"
+        }
+        .to_string();
+        KinematicResult {
+            degree,
+            classification,
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: build_diagnosis_2d(degree, 0, &[], &[]),
+            is_solvable: true,
+            invalid_input: None,
+        }
+    })
 }
 
 // ==================== 3D Kinematic Analysis ====================

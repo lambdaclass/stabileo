@@ -275,3 +275,75 @@ fn kinematic_3d_per_axis_release_does_not_overcount_hinges() {
     );
     assert!(result.is_solvable);
 }
+
+// ─── The sparse proof of solvability, above its 64-free-DOF threshold ─────
+//
+// A large constraint-free model takes the sparse Cholesky proof instead of
+// the dense assembly plus dense LU rank; a mechanism at that size still falls
+// through to the full path, which names the DOFs.
+
+/// A fixed-base portal frame of `bays`×`storeys`, fixed at the base corners.
+fn big_portal(bays: usize, storeys: usize, pinned_base: bool) -> dedaliano_engine::types::SolverInput {
+    let (span, h) = (6.0, 3.5);
+    let id = |i: usize, k: usize| 1 + k * (bays + 1) + i;
+    let mut nodes = Vec::new();
+    for k in 0..=storeys {
+        for i in 0..=bays {
+            nodes.push((id(i, k), span * i as f64, h * k as f64));
+        }
+    }
+    let mut elements = Vec::new();
+    let mut eid = 1;
+    for k in 0..=storeys {
+        for i in 0..bays {
+            elements.push((eid, "frame", id(i, k), id(i + 1, k), 1, 1, false, false));
+            eid += 1;
+        }
+    }
+    for k in 0..storeys {
+        for i in 0..=bays {
+            elements.push((eid, "frame", id(i, k), id(i, k + 1), 1, 1, false, false));
+            eid += 1;
+        }
+    }
+    let supports = vec![
+        (1, id(0, 0), if pinned_base { "pinned" } else { "fixed" }),
+        (2, id(bays, 0), if pinned_base { "pinned" } else { "fixed" }),
+    ];
+    make_input(nodes, vec![(1, 200000.0, 0.3)], vec![(1, 0.01, 0.001)], elements, supports, vec![])
+}
+
+#[test]
+fn sparse_proof_solves_a_large_stable_frame() {
+    // 6 bays × 8 storeys: 63 nodes, 189 DOFs, 183 free — past the threshold.
+    let input = big_portal(6, 8, false);
+    let result = analyze_kinematics_2d(&input);
+    assert!(result.is_solvable, "a fixed-base portal is stable: {}", result.diagnosis);
+    assert_eq!(result.mechanism_modes, 0);
+    assert!(result.degree > 0);
+}
+
+#[test]
+fn a_mechanism_at_size_still_falls_through_and_is_named() {
+    // Same frame on pinned bases with every beam end released: a sway mechanism
+    // the sparse proof refuses to pass, so the dense path must name it.
+    let mut input = big_portal(6, 8, true);
+    for e in input.elements.values_mut() {
+        e.hinge_start = true;
+        e.hinge_end = true;
+    }
+    let result = analyze_kinematics_2d(&input);
+    assert!(!result.is_solvable, "a pinned, all-hinged portal is a mechanism");
+    assert!(result.mechanism_modes > 0);
+    assert!(!result.mechanism_nodes.is_empty());
+}
+
+#[test]
+fn sparse_proof_agrees_with_the_dense_path_on_a_heated_frame() {
+    // A thermal load adds nothing to the count but exercises the load-agnostic path.
+    let mut input = big_portal(6, 8, false);
+    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0 }));
+    let result = analyze_kinematics_2d(&input);
+    assert!(result.is_solvable);
+    assert_eq!(result.mechanism_modes, 0);
+}
