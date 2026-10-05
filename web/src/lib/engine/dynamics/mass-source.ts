@@ -138,8 +138,8 @@ export interface CaseMassLoads {
   factor: number;
   /** Element and nodal loads, in the analysis input's own frames. */
   loads: SolverLoad3D[];
-  /** Surface loads, kN/m², positive downward. */
-  surface: ReadonlyArray<{ quadId: number; q: number }>;
+  /** Surface loads, kN/m², positive downward (their weight over the shell's area); a triangle says so. */
+  surface: ReadonlyArray<{ quadId: number; q: number; on?: 'plate' }>;
 }
 
 export interface MassSourceReport {
@@ -254,7 +254,13 @@ export function applyMassSource(
       }
       mw.set(l.data.elementId, (mw.get(l.data.elementId) ?? 0) + down * c.factor);
     }
+    // A triangle is keyed by its id negated: plates and quads number apart.
     for (const s of c.surface) {
+      if (s.on === 'plate') {
+        const p = input.plates?.get(s.quadId);
+        if (p) qw.set(-s.quadId, (qw.get(-s.quadId) ?? 0) + s.q * triArea(input, p.nodes) * c.factor);
+        continue;
+      }
       const q = input.quads?.get(s.quadId) ?? input.curvedShells?.get(s.quadId);
       if (!q) continue;
       qw.set(s.quadId, (qw.get(s.quadId) ?? 0) + s.q * quadArea(input, q.nodes) * c.factor);
@@ -312,7 +318,14 @@ export function applyMassSource(
 
   const quads = input.quads ? new Map(input.quads) : undefined;
   const curvedShells = input.curvedShells ? new Map(input.curvedShells) : undefined;
+  const plates = input.plates ? new Map(input.plates) : undefined;
   for (const [id, w] of quadW) {
+    if (id < 0) {
+      const p = plates?.get(-id);
+      const area = p ? triArea(input, p.nodes) : 0;
+      if (p && area > 0 && p.thickness > 0) plates!.set(-id, { ...p, materialId: cloneMaterial(p.materialId, w * 1000 / (G * area * p.thickness)) });
+      continue;
+    }
     const map = quads?.has(id) ? quads : curvedShells;
     const q = map!.get(id)!;
     const area = quadArea(input, q.nodes);
@@ -320,7 +333,7 @@ export function applyMassSource(
     map!.set(id, { ...q, materialId: cloneMaterial(q.materialId, w * 1000 / (G * area * q.thickness)) });
   }
 
-  const out: SolverInput3D = { ...input, materials, elements, ...(quads ? { quads } : {}), ...(curvedShells ? { curvedShells } : {}) };
+  const out: SolverInput3D = { ...input, materials, elements, ...(quads ? { quads } : {}), ...(curvedShells ? { curvedShells } : {}), ...(plates ? { plates } : {}) };
   const selfWeightT = densityMassT(input, baseDensities, realArea);
   let added = 0;
   for (const t of addedT.values()) added += t;

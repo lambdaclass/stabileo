@@ -27,8 +27,8 @@
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
-import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D } from '../../store/model.svelte';
-import { carryPointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
+import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
 import { applyAxial, applyVector, axisPermutation, dot, isReflection, type Affine, type Vec3 } from './affine';
 
@@ -219,6 +219,7 @@ export function carriedLoad(
   T: Affine, l: Load,
   nodeMap: Map<number, number>, elementMap: Map<number, number>, quadMap: Map<number, number>,
   signsOf: (elementId: number) => { sy: 1 | -1; sz: 1 | -1 },
+  plateMap: Map<number, number> = new Map(),
 ): { load?: Load; warning?: EditWarning } | null {
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
   const d = l.data as unknown as Record<string, unknown>;
@@ -272,13 +273,17 @@ export function carriedLoad(
     }
     case 'surface3d':
     case 'thermalQuad3d': {
-      const to = quadMap.get(d.quadId as number);
+      const onPlate = d.on === 'plate';
+      const to = (onPlate ? plateMap : quadMap).get(d.quadId as number);
       if (to === undefined) return null;
-      // A surface load is vertical by definition, and stays so. On a copy that is no longer
-      // horizontal that is a choice, and it is reported.
+      if (l.type === 'thermalQuad3d') return { load: { ...l, data: { ...l.data, quadId: to } } as Load };
+      const s = l.data as SurfaceLoad3D;
+      // A load with no frame is vertical by definition, and stays so. On a copy that is no longer
+      // horizontal that is a choice, and it is reported. One with a frame turns with the shell.
       const up = applyVector(T, [0, 0, 1]);
-      const tilted = l.type === 'surface3d' && Math.abs(Math.abs(dot(up, [0, 0, 1])) - 1) > 1e-9;
-      return { load: { ...l, data: { ...l.data, quadId: to } } as Load, ...(tilted ? { warning: 'surfaceLoadTilted' as const } : {}) };
+      const tilted = !s.frame && Math.abs(Math.abs(dot(up, [0, 0, 1])) - 1) > 1e-9;
+      const data = { ...carrySurface(s, T, isReflection(T), onPlate ? 'plate' : 'quad'), quadId: to };
+      return { load: { type: 'surface3d', data }, ...(tilted ? { warning: 'surfaceLoadTilted' as const } : {}) };
     }
     default: {
       if (!translationOnly) return { warning: 'loadDropped' };

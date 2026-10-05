@@ -12,7 +12,8 @@
   import { plainNumber, formatValue } from '../../../lib/utils/units';
   import { appliedResultant } from '../../../lib/engine/statics-check';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
-  import type { Load } from '../../../lib/store/model.svelte';
+  import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
+  import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
 
   let scope = $state<'case' | 'all'>('case');
   const cases = $derived(modelStore.model.loadCases);
@@ -190,11 +191,13 @@
 
   {#if surface.length}
     <div class="pro-load-section-title">{t('pro.surfaceLoads')}</div>
-    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>q (kN/m²)</th><th></th></tr></thead><tbody>
+    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>q (kN/m²)</th><th>{t('loads.surface.how')}</th><th></th></tr></thead><tbody>
       {#each surface as l (l.data.id)}
+        {@const d = l.data as SurfaceLoad3D}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
-          <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.quadId}</td>
-          {@render cell(l.data.id, 'q', l.data.q)}{@render x(l.data.id)}
+          <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
+          {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q)}{/if}
+          <td class="col-how">{surfaceHowText(d)}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>
@@ -245,6 +248,7 @@
   .pro-loads-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .pro-loads-table thead { position: sticky; top: 0; z-index: 1; }
   .pro-loads-table th { padding: 6px 6px; text-align: left; font-size: 0.66rem; font-weight: 600; color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); }
+  .col-how { font-size: 0.64rem; color: var(--st-text-3); }
   .pro-loads-table td { padding: 4px 6px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
   .pro-loads-table tbody tr { cursor: pointer; transition: background 0.1s; }
   .pro-loads-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }

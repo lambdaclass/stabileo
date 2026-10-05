@@ -1471,9 +1471,7 @@ export function buildSolverLoads3D(
       if (!m) continue;
       solverLoads.push(...(takesNoBending(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
     } else if (l.type === 'surface3d') {
-      if (model.quads) {
-        solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes));
-      }
+      solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes, model.plates));
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       const k = thermalScaleOfElement(model, d.elementId);
@@ -1512,7 +1510,7 @@ export function buildSolverLoads3D(
       }
     } else if (l.type === 'thermalQuad3d') {
       const tq = l.data as ThermalLoadQuad3D;
-      const quad = model.quads?.get(tq.quadId);
+      const quad = tq.on === 'plate' ? model.plates?.get(tq.quadId) : model.quads?.get(tq.quadId);
       solverLoads.push(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined)));
     }
   }

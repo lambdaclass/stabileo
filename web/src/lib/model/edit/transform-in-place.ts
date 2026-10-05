@@ -10,8 +10,8 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D } from '../../store/model.svelte';
-import { carryPointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
+import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
 import { generatedMetadata } from './generated-metadata';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
@@ -135,6 +135,13 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
         case 'prestress3d': {
           const q = l.data as PrestressLoad3D; const g = signs.get(q.elementId); if (!g) return null;
           return { type: 'prestress3d', data: carryPrestress(q, g.sz) };
+        }
+        case 'surface3d': {
+          // On a shell that moved whole: its direction, variation and region turn with it.
+          const q = l.data as SurfaceLoad3D;
+          const onPlate = q.on === 'plate';
+          if (!(onPlate ? rigidPlates : rigidQuads).includes(q.quadId)) return null;
+          return { type: 'surface3d', data: carrySurface(q, T, isReflection(T), onPlate ? 'plate' : 'quad') };
         }
         case 'displacement3d': {
           const q = l.data as NodeDisplacement3D;

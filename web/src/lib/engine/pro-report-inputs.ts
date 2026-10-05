@@ -27,6 +27,7 @@
  * than buried in a `break`.
  */
 
+import { shellText, surfaceValueText, surfaceHowText } from '../model/loads/surface-load-text';
 import { deflectionChecks } from '../store/serviceability';
 import { seismicDrifts } from './seismic-drift';
 import { regulationsStore } from '../store/regulations.svelte';
@@ -180,8 +181,9 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       }
       case 'surface3d': {
         const d = load.data;
-        tipo = t('report.loadSurface'); destino = `${t('report.loadShell')} ${d.quadId}`;
-        valores = `q=${n(d.q)} kN/m²`;
+        tipo = t('report.loadSurface'); destino = shellText(d);
+        const how = surfaceHowText(d);
+        valores = `q=${surfaceValueText(d)} kN/m²${how ? `, ${how}` : ''}`;
         break;
       }
       case 'thermalQuad3d': {

@@ -249,7 +249,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
 
       const sig = (id: number) => signs.get(id) ?? { sy: 1 as const, sz: 1 as const };
       for (const l of loads0) {
-        const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig);
+        const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig, plateMap);
         if (!c) continue;
         if (c.warning) warn(c.warning);
         /*

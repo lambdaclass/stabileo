@@ -293,6 +293,10 @@ export interface PlannedSurface {
   caseType: PlannedCase['type'];
   caseIndex?: number;
   q: number;
+  /** A pressure that is not a plain downward one (a wall's soil or fluid): as `SurfaceLoad3D` keeps it. */
+  frame?: 'global';
+  dir?: [number, number, number];
+  vary?: { dir: [number, number, number]; c1: number; q1: number; c2: number; q2: number };
 }
 
 export interface PlannedNodal {
@@ -863,12 +867,12 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   if (special.soil.length) {
     const index = cases.length;
     cases.push({ existingId: findCase(input.model, 'H'), type: 'H', nameKey: 'autoLoad.soilCase' });
-    for (const n of special.soil) nodal.push({ ...n, caseType: 'H', caseIndex: index });
+    for (const w of special.soil) surface.push({ quadId: w.quadId, caseType: 'H', caseIndex: index, q: 0, frame: 'global', dir: w.dir, vary: w.vary });
   }
   if (special.fluid.length || special.fluidBottom.length) {
     const index = cases.length;
     cases.push({ existingId: findCase(input.model, 'F'), type: 'F', nameKey: 'autoLoad.fluidCase' });
-    for (const n of special.fluid) nodal.push({ ...n, caseType: 'F', caseIndex: index });
+    for (const w of special.fluid) surface.push({ quadId: w.quadId, caseType: 'F', caseIndex: index, q: 0, frame: 'global', dir: w.dir, vary: w.vary });
     for (const b of special.fluidBottom) surface.push({ quadId: b.quadId, caseType: 'F', caseIndex: index, q: b.q });
   }
 

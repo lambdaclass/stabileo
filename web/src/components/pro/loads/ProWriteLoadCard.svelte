@@ -20,13 +20,15 @@
   import type { Load } from '../../../lib/store/model.svelte';
   import type { MemberFrame, Vec3 } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
+  import ProShellLoadForm from './ProShellLoadForm.svelte';
+  import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
-  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'thermalQuad';
+  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad';
   const KINDS: Array<{ id: Kind; group: 'node' | 'member' | 'slab' }> = [
     { id: 'nodal', group: 'node' }, { id: 'displacement', group: 'node' },
     { id: 'distributed', group: 'member' }, { id: 'point', group: 'member' }, { id: 'thermal', group: 'member' },
     { id: 'strain', group: 'member' }, { id: 'prestress', group: 'member' },
-    { id: 'surface', group: 'slab' }, { id: 'thermalQuad', group: 'slab' },
+    { id: 'surface', group: 'slab' }, { id: 'hydro', group: 'slab' }, { id: 'shellPoint', group: 'slab' }, { id: 'thermalQuad', group: 'slab' },
   ];
   let kind = $state<Kind>('nodal');
   const entity = $derived<TargetEntity>(KINDS.find((k) => k.id === kind)!.group === 'node' ? 'nodes' : KINDS.find((k) => k.id === kind)!.group === 'member' ? 'members' : 'quads');
@@ -63,7 +65,6 @@
   let strainVal = $state('');
   let ps = $state({ force: '', eI: '', eM: '', eJ: '' });
   // ── Slabs ──
-  let sq = $state('');
   let tq = $state({ dt: '', g: '' });
 
   let error = $state<string | null>(null);
@@ -71,13 +72,34 @@
 
   const caseId = $derived(uiStore.activeLoadCaseId);
   const quadSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'q').map((k) => Number(k.slice(1))));
+  const plateSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'p').map((k) => Number(k.slice(1))));
+  const sel = () => ({ nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection, plates: plateSelection });
   const targets = (): number[] => (target.by === 'chain' ? [...uiStore.selectedElements]
-    : resolveTargets(entity, target, modelStore.model as never, { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection }));
+    : resolveTargets(entity, target, modelStore.model as never, sel()));
+  /** The shells picked, quads and triangles; typed ids name quads. */
+  function shellTargets(): ShellRef[] {
+    const of = (kind: 'quads' | 'plates') => (kind === 'plates' && target.by === 'ids' ? [] : resolveTargets(kind, target as never, modelStore.model as never, sel()));
+    const ref = (id: number, on?: 'plate'): ShellRef | null => {
+      const sh = on ? modelStore.plates.get(id) : modelStore.quads.get(id);
+      const pts = sh?.nodes.map((n) => modelStore.nodes.get(n));
+      return sh && pts && pts.every(Boolean) ? { id, ...(on ? { on } : {}), nodes: [...sh.nodes], pts: pts as ShellRef['pts'] } : null;
+    };
+    return [...of('quads').map((id) => ref(id)), ...of('plates').map((id) => ref(id, 'plate'))].filter((r): r is ShellRef => !!r);
+  }
+  let shellForm = $state<ProShellLoadForm | null>(null);
   const lengthOf = (id: number) => memberRef3D(modelStore.model as never, id)?.axes.L ?? modelStore.getElementLength(id);
   const bends = (id: number) => modelStore.elements.get(id)?.type !== 'truss';
 
   /** The loads the form describes, on its targets; a reason when it describes none. */
   function build(): Load[] | string {
+    if (kind === 'surface' || kind === 'hydro' || kind === 'shellPoint') return shellForm ? shellForm.build(shellTargets(), caseId) : t('writeLoad.noTarget');
+    if (kind === 'thermalQuad') {
+      const shells = shellTargets();
+      if (!shells.length) return t('writeLoad.noTarget');
+      const dt = num(tq.dt), g = num(tq.g);
+      if (dt === 0 && g === 0) return t('writeLoad.zero');
+      return shells.map((sh) => ({ type: 'thermalQuad3d', data: { id: 0, quadId: sh.id, ...(sh.on ? { on: sh.on } : {}), dtUniform: dt, dtGradient: g, caseId } }) as Load);
+    }
     const ids = targets();
     if (ids.length === 0) return t('writeLoad.noTarget');
     const c = { caseId };
@@ -191,16 +213,7 @@
         const mm = (s: string) => num(s) / 1000;
         return ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: mm(ps.eI), eM: opt(ps.eM) === null ? (mm(ps.eI) + mm(ps.eJ)) / 2 : mm(ps.eM), eJ: mm(ps.eJ), ...c } }) as Load);
       }
-      case 'surface': {
-        const v = opt(sq);
-        if (v === null || v === 0) return t('writeLoad.zero');
-        return ids.map((id) => ({ type: 'surface3d', data: { id: 0, quadId: id, q: v, ...c } }) as Load);
-      }
-      case 'thermalQuad': {
-        const dt = num(tq.dt), g = num(tq.g);
-        if (dt === 0 && g === 0) return t('writeLoad.zero');
-        return ids.map((id) => ({ type: 'thermalQuad3d', data: { id: 0, quadId: id, dtUniform: dt, dtGradient: g, ...c } }) as Load);
-      }
+      default: return t('writeLoad.noTarget');
     }
   }
 
@@ -350,8 +363,8 @@
       <label>e J <input type="text" bind:value={ps.eJ} class="wl-num" placeholder="mm" data-testid="wl-ps-ej" /></label>
     </div>
     <p class="wl-hint">{t('writeLoad.prestressHint')}</p>
-  {:else if kind === 'surface'}
-    <div class="wl-row"><label>q <input type="text" bind:value={sq} class="wl-num" placeholder="kN/m²" data-testid="wl-sq" /></label></div>
+  {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
+    {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} />{/key}
   {:else}
     <div class="wl-row">
       <label>ΔT <input type="text" bind:value={tq.dt} class="wl-num" placeholder="°C" data-testid="wl-tq-dt" /></label>

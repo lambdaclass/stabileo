@@ -148,7 +148,7 @@ export function renumber(opts: RenumberOptions): RenumberResult {
       ...l.data,
       ...(l.data.nodeId !== undefined ? { nodeId: rn(l.data.nodeId) } : {}),
       ...(l.data.elementId !== undefined ? { elementId: re(l.data.elementId) } : {}),
-      ...(l.data.quadId !== undefined ? { quadId: rq(l.data.quadId) } : {}),
+      ...(l.data.quadId !== undefined ? { quadId: (l.data as { on?: string }).on === 'plate' ? rp(l.data.quadId) : rq(l.data.quadId) } : {}),
       ...(l.data.plateId !== undefined ? { plateId: rp(l.data.plateId) } : {}),
     },
   }));

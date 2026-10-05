@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
 import { tendonEccentricity } from '../engine/prestress';
@@ -647,8 +648,8 @@ function loadsSignature(project2D: boolean): string {
         elem ? (modelStore.sections.get(elem.sectionId)?.rotation ?? 0) : '', uiStore.axisConvention3D,
         (d as { frame?: string }).frame ?? '', (d as { qXI?: number }).qXI ?? '', (d as { qXJ?: number }).qXJ ?? '');
     } else if (load.type === 'surface3d') {
-      const quad = modelStore.quads.get(d.quadId as number);
-      parts.push(quad ? quad.nodes.map((nid: number) => np(nid)).join('') : '_');
+      const shell = (d as { on?: string }).on === 'plate' ? modelStore.plates.get(d.quadId as number) : modelStore.quads.get(d.quadId as number);
+      parts.push(shell ? shell.nodes.map((nid: number) => np(nid)).join('') : '_');
     }
   }
   return parts.join('|');
@@ -696,7 +697,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const d = load.data;
       maxQ = Math.max(maxQ, Math.abs(d.qYI), Math.abs(d.qYJ), Math.abs(d.qZI), Math.abs(d.qZJ), Math.abs(d.qXI ?? 0), Math.abs(d.qXJ ?? 0));
     } else if (load.type === 'surface3d') {
-      maxQ = Math.max(maxQ, Math.abs(load.data.q));
+      const d = load.data;
+      maxQ = Math.max(maxQ, Math.abs(d.q), ...(d.qNodes ?? []).map(Math.abs), ...(d.vary ? [Math.abs(d.vary.q1), Math.abs(d.vary.q2)] : []));
     } else if (load.type === 'pointOnElement3d') {
       const d = load.data;
       maxForce = Math.max(maxForce, Math.abs(d.px ?? 0), Math.abs(d.py), Math.abs(d.pz));
@@ -843,14 +845,21 @@ export function syncLoads(ctx: SceneSyncContext): void {
     }
     // surface3d: render as a grid of arrows covering the quad area
     else if (load.type === 'surface3d') {
-      const quad = modelStore.quads.get(load.data.quadId);
-      if (!quad) continue;
-      const ns = quad.nodes.map((nid: number) => modelStore.nodes.get(nid));
+      const d = load.data;
+      const onPlate = d.on === 'plate';
+      const shell = onPlate ? modelStore.plates.get(d.quadId) : modelStore.quads.get(d.quadId);
+      if (!shell) continue;
+      const ns = shell.nodes.map((nid: number) => modelStore.nodes.get(nid));
       if (ns.some((n: any) => !n)) continue;
-      batch.addSurfaceLoad(
-        ns as Array<{ x: number; y: number; z: number }>,
-        load.data.q, maxQ, cc,
-      );
+      if (!onPlate && !d.frame && !d.qNodes && !d.vary && !d.region) {
+        batch.addSurfaceLoad(ns as Array<{ x: number; y: number; z: number }>, d.q, maxQ, cc);
+      } else {
+        // Sampled from the field the solve integrates (`shell-load-integration.ts`).
+        const s = shellLoadSamples(onPlate ? 'plate' : 'quad', (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D)), d);
+        const v = (x: number) => formatValue(x, 'areaLoad', sys);
+        const text = d.qNodes ? d.qNodes.map(v).join(' / ') : d.vary ? `${v(d.vary.q1)} … ${v(d.vary.q2)}` : v(d.q);
+        if (s) batch.addShellLoad(s.samples, s.dir, maxQ, `${text} ${unitLabel('areaLoad', sys)}`, cc);
+      }
     }
     // pointOnElement (2D): draw the applied load in its actual local direction
     // instead of a hard-coded downward arrow.
@@ -965,7 +974,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
     }
     // A slab's temperature: said at its middle.
     else if (load.type === 'thermalQuad3d') {
-      const quad = modelStore.quads.get(load.data.quadId);
+      const quad = load.data.on === 'plate' ? modelStore.plates.get(load.data.quadId) : modelStore.quads.get(load.data.quadId);
       const ns = quad?.nodes.map((nid: number) => modelStore.nodes.get(nid));
       if (!quad || !ns || ns.some((n) => !n)) continue;
       const ps = (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D));

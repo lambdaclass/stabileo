@@ -29,20 +29,19 @@
  * each pushed toward or away from the middle of them all, which on a single wall is no side at
  * all and fell to the node order; and every horizontal quad below the level, inside or not.
  *
- * ── The nodal forces ─────────────────────────────────────────────
+ * ── The pressure ─────────────────────────────────────────────────
  *
- * The pressure is integrated over the part of each quad below the grade or the level, with the
- * quad's bilinear shape functions: the consistent nodal loads, whose total and moment are exact
- * for a pressure linear in depth. Along a line of one natural coordinate z is linear in the other,
- * so the cut at the grade is found exactly on each line, integrated along it by Gauss and across
- * the lines by composite Gauss, taking first the coordinate z changes along. This used to give
- * each node p(its own depth) times a quarter of the area, which put the whole of a one-quad-high
- * wall's load at its foot, losing its moment about the base, γH³/6 per metre of a hydrostatic
- * wall; and gave a quad cut by the level p(bottom) over half its area, half again the force.
+ * Each wall pushed takes a surface load: horizontal along its normal, linear in depth below the
+ * grade or the level and nothing above it (`shell-load-integration.ts`, the one integral of every
+ * shell load, with the consistent nodal forces whose total and moment are exact for a pressure
+ * linear in depth). It used to be written as nodal forces, which no table, drawing or edit could
+ * read back as a pressure; before that each node took p(its own depth) times a quarter of the
+ * area, which lost the moment of a one-quad-high wall about its base.
  *
  * Pure: no store.
  */
 import { msg, round, type EngineMessage } from '../../codes/message';
+import { shellLoadForces } from '../shell-load-integration';
 
 export interface SpecialModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -58,11 +57,19 @@ export interface FluidInput { levelZ: number; gamma: number; inside?: { x: numbe
 
 export interface SpecialLoads {
   thermal: Array<{ elementId?: number; quadId?: number; dtUniform: number; dtGradient: number }>;
-  soil: Array<{ nodeId: number; fx: number; fy: number; fz: number }>;
-  fluid: Array<{ nodeId: number; fx: number; fy: number; fz: number }>;
+  /** The walls the soil pushes, each a surface load (see the header). */
+  soil: WallPressure[];
+  fluid: WallPressure[];
   fluidBottom: Array<{ quadId: number; q: number }>;
   derivation: EngineMessage[];
   notes: EngineMessage[];
+}
+
+/** A horizontal pressure on a wall: along `dir`, q₁ at the top c₁ and q₂ at c₂ below, nothing above. */
+export interface WallPressure {
+  quadId: number;
+  dir: [number, number, number];
+  vary: { dir: [number, number, number]; c1: number; q1: number; c2: number; q2: number };
 }
 
 const Z = (n: { z?: number }) => n.z ?? 0;
@@ -133,56 +140,6 @@ function enclosed(pt: V2, ws: Wall[], reach: number): boolean {
   return true;
 }
 
-const GAUSS3: ReadonlyArray<[number, number]> = [[-Math.sqrt(0.6), 5 / 9], [0, 8 / 9], [Math.sqrt(0.6), 5 / 9]];
-
-/**
- * Consistent nodal forces of a pressure p(depth) on the part of a quad below `top` (see the
- * header): the integral of N_i p dA for each node. A triangle is a quad with its last node twice.
- */
-export function consistentPressure(pts: V3[], top: number, p: (depth: number) => number): number[] {
-  const P = pts.length === 3 ? [pts[0]!, pts[1]!, pts[2]!, pts[2]!] : pts.slice(0, 4);
-  const N = (xi: number, eta: number) => [(1 - xi) * (1 - eta) / 4, (1 + xi) * (1 - eta) / 4, (1 + xi) * (1 + eta) / 4, (1 - xi) * (1 + eta) / 4];
-  const at = (xi: number, eta: number, k: number) => N(xi, eta).reduce((t, w, i) => t + w * P[i]![k]!, 0);
-  const dA = (xi: number, eta: number) => {
-    const dxi = [0, 1, 2].map((k) => ((1 - eta) * (P[1]![k]! - P[0]![k]!) + (1 + eta) * (P[2]![k]! - P[3]![k]!)) / 4);
-    const deta = [0, 1, 2].map((k) => ((1 - xi) * (P[3]![k]! - P[0]![k]!) + (1 + xi) * (P[2]![k]! - P[1]![k]!)) / 4);
-    return Math.hypot(dxi[1]! * deta[2]! - dxi[2]! * deta[1]!, dxi[2]! * deta[0]! - dxi[0]! * deta[2]!, dxi[0]! * deta[1]! - dxi[1]! * deta[0]!);
-  };
-  // The inner coordinate is the one z changes along at the middle.
-  const dzXi = Math.abs(at(1, 0, 2) - at(-1, 0, 2)), dzEta = Math.abs(at(0, 1, 2) - at(0, -1, 2));
-  const swap = dzXi > dzEta;
-  const point = (a: number, b: number): [number, number] => (swap ? [b, a] : [a, b]);
-  const f = [0, 0, 0, 0];
-  const M = 8;
-  for (let m = 0; m < M; m++) {
-    const a0 = -1 + (2 * m) / M, ha = 1 / M;
-    for (const [ga, wa] of GAUSS3) {
-      const a = a0 + ha + ga * ha;
-      // z along this line is linear in b: z = z0 + z1 b.
-      const zA = at(...point(a, -1), 2), zB = at(...point(a, 1), 2);
-      const z0 = (zA + zB) / 2, z1 = (zB - zA) / 2;
-      let lo = -1, hi = 1;
-      if (Math.abs(z1) < 1e-12) { if (z0 >= top) continue; }
-      else {
-        const bStar = (top - z0) / z1;
-        if (z1 > 0) hi = Math.min(1, bStar); else lo = Math.max(-1, bStar);
-      }
-      if (hi - lo <= 1e-12) continue;
-      const hb = (hi - lo) / 2;
-      for (const [gb, wb] of GAUSS3) {
-        const b = lo + hb + gb * hb;
-        const [xi, eta] = point(a, b);
-        const depth = top - at(xi, eta, 2);
-        if (!(depth > 0)) continue;
-        const w = wa * ha * wb * hb * p(depth) * dA(xi, eta);
-        N(xi, eta).forEach((ni, i) => { f[i] = f[i]! + ni * w; });
-      }
-    }
-  }
-  if (pts.length === 3) return [f[0]!, f[1]!, f[2]! + f[3]!];
-  return f;
-}
-
 type Pushed = { wall: Wall; dir: 1 | -1 };
 
 /**
@@ -215,14 +172,24 @@ function pushedWalls(ws: Wall[], top: number, point: { x: number; y: number } | 
   return { pushed: out, lone };
 }
 
-function pressureOn(model: SpecialModel, pushed: Pushed[], top: number, p: (depth: number) => number) {
+/** Each wall pushed, a pressure linear in depth p(d) = p0 + p1·d below `top`. */
+function pressureOn(pushed: Pushed[], top: number, p0: number, p1: number): WallPressure[] {
+  return pushed.map(({ wall: w, dir }) => ({
+    quadId: w.quadId,
+    dir: [dir * w.n[0], dir * w.n[1], 0],
+    vary: { dir: [0, 0, 1], c1: top, q1: p0, c2: w.zMin, q2: p0 + p1 * (top - w.zMin) },
+  }));
+}
+
+/** The nodal forces of wall pressures: what the solve applies, for a total or a check. */
+export function wallPressureForces(model: SpecialModel, ps: readonly WallPressure[]): Array<{ nodeId: number; fx: number; fy: number; fz: number }> {
   const out: Array<{ nodeId: number; fx: number; fy: number; fz: number }> = [];
-  for (const { wall: w, dir } of pushed) {
-    const f = consistentPressure(w.pts, top, p);
-    w.nodes.forEach((id, i) => {
-      const fi = f[i]!;
-      if (fi > 1e-9 && model.nodes.has(id)) out.push({ nodeId: id, fx: dir * fi * w.n[0], fy: dir * fi * w.n[1], fz: 0 });
-    });
+  for (const p of ps) {
+    const q = model.quads?.get(p.quadId);
+    const pts = q?.nodes.map((id) => model.nodes.get(id));
+    if (!q || !pts || pts.some((x) => !x)) continue;
+    const r = shellLoadForces('quad', pts as never, { q: 0, frame: 'global', dir: p.dir, vary: p.vary });
+    r?.forces.forEach((f, i) => out.push({ nodeId: q.nodes[i]!, fx: f[0], fy: f[1], fz: f[2] }));
   }
   return out;
 }
@@ -242,15 +209,15 @@ export function specialLoads(model: SpecialModel, i: { thermal?: ThermalInput; s
   if (i.soil) {
     const s = i.soil;
     const w = pushedWalls(ws, s.gradeZ, s.side, true, reach);
-    out.soil = pressureOn(model, w.pushed, s.gradeZ, (d) => s.k * (s.gamma * d + s.surcharge));
+    out.soil = pressureOn(w.pushed, s.gradeZ, s.k * s.surcharge, s.k * s.gamma);
     if (w.lone > 0) out.notes.push(msg('loadPlan.note.soilSideUnknown', { n: w.lone }));
     if (out.soil.length === 0) out.notes.push(msg('loadPlan.note.noSoilWalls', { z: round(s.gradeZ, 2) }));
-    else out.derivation.push(msg('loadPlan.derivation.soil', { k: s.k, gamma: s.gamma, q: s.surcharge, z: round(s.gradeZ, 2), total: round(out.soil.reduce((t, n) => t + Math.hypot(n.fx, n.fy), 0), 1) }));
+    else out.derivation.push(msg('loadPlan.derivation.soil', { k: s.k, gamma: s.gamma, q: s.surcharge, z: round(s.gradeZ, 2), total: round(wallPressureForces(model, out.soil).reduce((t, n) => t + Math.hypot(n.fx, n.fy), 0), 1) }));
   }
   if (i.fluid) {
     const f = i.fluid;
     const w = pushedWalls(ws, f.levelZ, f.inside, false, reach);
-    out.fluid = pressureOn(model, w.pushed, f.levelZ, (d) => f.gamma * d);
+    out.fluid = pressureOn(w.pushed, f.levelZ, 0, f.gamma);
     if (w.lone > 0) out.notes.push(msg('loadPlan.note.fluidSideUnknown', { n: w.lone }));
     const around = ws.filter((x) => x.zMin < f.levelZ - 1e-6);
     for (const q of model.quads?.values() ?? []) {

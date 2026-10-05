@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { specialLoads, type SpecialModel } from '../special-loads';
+import { specialLoads as planSpecial, wallPressureForces, type SpecialModel } from '../special-loads';
+
+/** The walls' pressures as the nodal forces the solve applies, the ones that push. */
+function specialLoads(m: SpecialModel, i: Parameters<typeof planSpecial>[1]) {
+  const o = planSpecial(m, i);
+  const pushing = (ps: typeof o.soil) => wallPressureForces(m, ps).filter((n) => Math.hypot(n.fx, n.fy, n.fz) > 1e-9);
+  return { ...o, soil: pushing(o.soil), fluid: pushing(o.fluid) };
+}
 import { generateCombinations } from '../../../codes/cirsoc101/combinations';
 
 /** A 6 × 4 m box, 3 m deep: four vertical quads and a bottom quad. */

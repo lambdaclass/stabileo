@@ -8,6 +8,7 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
+import { shellShapeAt } from '../../engine/shell-load-integration';
 import type { SurfaceLoad3D, ThermalLoadQuad3D } from '../../store/model.svelte';
 import { applyMesh, regionOccupied } from './mesh-apply';
 import { generateMesh, MAX_MESH_CELLS, type MeshInput, type MeshOutput } from './mesher';
@@ -124,7 +125,16 @@ export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: 
     for (const q of r.quads) {
       if (offset) modelStore.setShellOffset('quad', q, offset);
       if (curved) modelStore.setQuadCurved(q, true);
-      for (const s of surface) modelStore.addSurfaceLoad3D(q, s.q, s.caseId);
+      for (const s of surface) {
+        // Everything the load says, on each new quad; a value per corner is the old field at the new corners.
+        const { id: _id, quadId: _q, q: qv, caseId, qNodes, ...extra } = s;
+        const at = qNodes ? modelStore.quads.get(q)?.nodes.map((n) => {
+          const p = modelStore.nodes.get(n)!;
+          const N = shellShapeAt('quad', corners, [p.x, p.y, p.z ?? 0]);
+          return N ? N.reduce((acc, v, i) => acc + v * (qNodes[i] ?? 0), 0) : 0;
+        }) : undefined;
+        modelStore.addSurfaceLoad3D(q, qv, caseId, { ...extra, ...(at ? { qNodes: at } : {}) });
+      }
       for (const t of thermal) modelStore.addThermalLoadQuad3D(q, t.dtUniform, t.dtGradient, t.caseId);
     }
     for (const gid of groups) {

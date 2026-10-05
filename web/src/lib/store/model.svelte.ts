@@ -743,8 +743,25 @@ export interface NodeDisplacement3D {
 
 export interface SurfaceLoad3D {
   id: number;
+  /** The shell it acts on: a quad, or a triangular plate when `on` says so. */
   quadId: number;
-  q: number;    // kN/m² (positive = downward, applied as -Z global)
+  on?: 'plate';
+  /**
+   * kN/m². Without `frame`, downward (−Z) per true area, q positive down. With it, along the
+   * shell's local z (`local`), or along `dir` per true (`global`) or projected (`projected`) area.
+   * The field and the extent are `engine/shell-load-integration.ts`'s.
+   */
+  q: number;
+  frame?: import('../engine/shell-load-integration').ShellLoadFrame;
+  dir?: [number, number, number];
+  /** q at each corner, in node order (replaces q). */
+  qNodes?: number[];
+  /** q linear in a global coordinate between two values, nothing outside them. */
+  vary?: import('../engine/shell-load-integration').ShellLoadSpec['vary'];
+  /** Only inside a polygon projected onto the shell, openings taken out. */
+  region?: import('../engine/shell-load-integration').ShellLoadSpec['region'];
+  /** Written by a stored definition (a floor load), regenerated from it: not edited by hand. */
+  fromDef?: number;
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
@@ -752,7 +769,9 @@ export interface SurfaceLoad3D {
 
 export interface ThermalLoadQuad3D {
   id: number;
+  /** The shell: a quad, or a triangular plate when `on` says so. */
   quadId: number;
+  on?: 'plate';
   dtUniform: number;  // °C uniform temperature change
   dtGradient: number; // °C gradient through thickness
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
@@ -2683,10 +2702,10 @@ function createModelStore() {
       return id;
     },
 
-    addSurfaceLoad3D(quadId: number, q: number, caseId?: number): number {
+    addSurfaceLoad3D(quadId: number, q: number, caseId?: number, extra?: Partial<Omit<SurfaceLoad3D, 'id' | 'quadId' | 'q' | 'caseId'>>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
-      const data: SurfaceLoad3D = { id, quadId, q };
+      const data: SurfaceLoad3D = { id, quadId, q, ...(extra ?? {}) };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'surface3d' as const, data };
       if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
@@ -2945,6 +2964,11 @@ function createModelStore() {
       model.plates.delete(id);
       replaceInGroups('plates', id);
       model.plates = new Map(model.plates);
+      // The loads on it go with it, as a quad's do.
+      const keepLoad = (l: Load) =>
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
 
     updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -2973,7 +2997,7 @@ function createModelStore() {
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
       const keepLoad = (l: Load) =>
-        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id);
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);
       model.loads = model.loads.filter(keepLoad);
       if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
@@ -3324,7 +3348,7 @@ function createModelStore() {
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
-    updateLoad(loadId: number, data: Record<string, number | boolean | string | undefined>): void {
+    updateLoad(loadId: number, data: Record<string, unknown>): void {
       if (!_undoBatching) _pushUndo?.();
       const load = model.loads.find(l => l.data.id === loadId);
       if (!load) return;
@@ -3412,6 +3436,9 @@ function createModelStore() {
       } else if (load.type === 'surface3d') {
         const d = load.data as SurfaceLoad3D;
         if (data.q !== undefined) d.q = data.q as number;
+        for (const k of ['frame', 'dir', 'qNodes', 'vary', 'region'] as const) {
+          if (k in data) { if (data[k] === undefined || data[k] === null) delete d[k]; else (d as unknown as Record<string, unknown>)[k] = data[k]; }
+        }
       } else if (load.type === 'thermalQuad3d') {
         const d = load.data as ThermalLoadQuad3D;
         if (data.dtUniform !== undefined) d.dtUniform = data.dtUniform as number;
