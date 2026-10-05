@@ -560,8 +560,8 @@ pub fn assemble_load_vector_2d(
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
             for load in elem_loads {
-                if let SolverLoad::Thermal(tl) = load {
-                    if tl.element_id == elem.id {
+                match load {
+                    SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                         let alpha = 12e-6; // Steel default
                         let fx = e * sec.a * alpha * tl.dt_uniform;
                         f_global[truss_dofs[0]] += -fx * cos;  // node I, x
@@ -569,6 +569,52 @@ pub fn assemble_load_vector_2d(
                         f_global[truss_dofs[2]] +=  fx * cos;  // node J, x
                         f_global[truss_dofs[3]] +=  fx * sin;  // node J, z
                     }
+                    // A truss carries nothing transverse: a member load reaches its
+                    // nodes as the simply-supported reactions of the bar (lever
+                    // rule), statically exact. It used to be dropped silently.
+                    SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
+                        let a = dl.a.unwrap_or(0.0);
+                        let b = dl.b.unwrap_or(l);
+                        let span = b - a;
+                        if span.abs() < 1e-15 { continue; }
+                        // Rectangle + triangle, so an antisymmetric load (W = 0 but
+                        // a couple) needs no division by a load magnitude.
+                        let parts = [
+                            (dl.q_i * span, (a + b) / 2.0),
+                            ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0),
+                        ];
+                        let (mut ri, mut rj) = (0.0, 0.0);
+                        for (w, xc) in parts {
+                            ri += w * (l - xc) / l;
+                            rj += w * xc / l;
+                        }
+                        // Local transverse y = (−sin, cos)
+                        f_global[truss_dofs[0]] += -sin * ri;
+                        f_global[truss_dofs[1]] += cos * ri;
+                        f_global[truss_dofs[2]] += -sin * rj;
+                        f_global[truss_dofs[3]] += cos * rj;
+                    }
+                    SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
+                        let a = pl.a;
+                        let px = pl.px.unwrap_or(0.0);
+                        let mz = pl.my.unwrap_or(0.0);
+                        // Transverse: the point load by the lever rule, the moment
+                        // (CCW positive) as a couple ±mz/L.
+                        let ri = pl.p * (1.0 - a / l) - mz / l;
+                        let rj = pl.p * a / l + mz / l;
+                        f_global[truss_dofs[0]] += -sin * ri;
+                        f_global[truss_dofs[1]] += cos * ri;
+                        f_global[truss_dofs[2]] += -sin * rj;
+                        f_global[truss_dofs[3]] += cos * rj;
+                        // Axial: the lever rule along the bar.
+                        let ni = px * (1.0 - a / l);
+                        let nj = px * a / l;
+                        f_global[truss_dofs[0]] += cos * ni;
+                        f_global[truss_dofs[1]] += sin * ni;
+                        f_global[truss_dofs[2]] += cos * nj;
+                        f_global[truss_dofs[3]] += sin * nj;
+                    }
+                    _ => {}
                 }
             }
         } else {
@@ -1195,6 +1241,53 @@ fn assemble_frame_loads_3d(
                         for k in 0..3 {
                             if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
                             if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
+                        }
+                        // The transverse parts reach the nodes by the lever rule
+                        // (the bar's simply-supported reactions), as in 2D: a truss
+                        // carries nothing transverse, and they used to be dropped.
+                        let a = dl.a.unwrap_or(0.0);
+                        let b = dl.b.unwrap_or(l);
+                        let span = b - a;
+                        if span.abs() >= 1e-15 && (dl.q_yi != 0.0 || dl.q_yj != 0.0 || dl.q_zi != 0.0 || dl.q_zj != 0.0) {
+                            let (_ex, ey, ez) = compute_local_axes_3d(
+                                node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+                                elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
+                            let lever = |qi: f64, qj: f64| {
+                                let parts = [
+                                    (qi * span, (a + b) / 2.0),
+                                    ((qj - qi) * span / 2.0, a + 2.0 * span / 3.0),
+                                ];
+                                let (mut ri, mut rj) = (0.0, 0.0);
+                                for (w, xc) in parts {
+                                    ri += w * (l - xc) / l;
+                                    rj += w * xc / l;
+                                }
+                                (ri, rj)
+                            };
+                            let (ryi, ryj) = lever(dl.q_yi, dl.q_yj);
+                            let (rzi, rzj) = lever(dl.q_zi, dl.q_zj);
+                            for k in 0..3 {
+                                let comp_i = ryi * ey[k] + rzi * ez[k];
+                                let comp_j = ryj * ey[k] + rzj * ez[k];
+                                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
+                                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
+                            }
+                        }
+                    }
+                }
+                if let SolverLoad3D::PointOnElement(pl) = load {
+                    if pl.element_id == elem.id && (pl.py != 0.0 || pl.pz != 0.0) {
+                        // A point load on a truss reaches its nodes by the lever rule.
+                        let (_ex, ey, ez) = compute_local_axes_3d(
+                            node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+                            elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
+                        let f_i = 1.0 - pl.a / l;
+                        let f_j = pl.a / l;
+                        for k in 0..3 {
+                            let comp_i = pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
+                            let comp_j = pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
+                            if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
+                            if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
                         }
                     }
                 }

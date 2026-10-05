@@ -18,3 +18,4 @@ mod sparse_mass;
 mod diagnostics;
 mod thermal_2d;
 mod thermal_3d;
+mod truss_loads;
