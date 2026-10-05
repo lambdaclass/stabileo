@@ -14,7 +14,7 @@ function bar(id: string, start: Point3, end: Point3, diameterMm = 16): BarPath {
 
 function check(bars: BarPath[], opts: DetectCollisionsOptions = {}) {
   // This reference bypasses the spatial hash as well as segment-box pruning.
-  const reference = detectCollisions(bars, { ...opts, broadPhase: false, prune: false });
+  const reference = detectCollisions(bars, { ...opts, broadPhase: false, prune: false, kernel: false });
   const actual = detectCollisions(bars, opts);
   expect(actual.conflicts).toEqual(reference.conflicts);
   expect(actual.constructible).toBe(reference.constructible);
