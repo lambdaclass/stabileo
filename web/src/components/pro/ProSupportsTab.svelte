@@ -21,6 +21,7 @@
    * node that already has a support takes the new one in its place (one support per node).
    */
   let target = $state<PickedSpec>({ by: 'selection' });
+  let summary = $state<{ text: string; warn: boolean }>({ text: '', warn: false });
   let wError = $state<string | null>(null);
   let done = $state<string | null>(null);
 
@@ -87,8 +88,9 @@
   {#if drawState.writing === 'support'}
     <WriteCard title={`${t('pro.add')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
       <SupportDofFields />
-      {#key drawState.writeSeq}<LoadTargetPicker entity="nodes" bind:spec={target} />{/key}
+      {#key drawState.writeSeq}<LoadTargetPicker entity="nodes" bind:spec={target} bind:summary />{/key}
       {#if done}<p class="pro-sup-done" role="status" data-testid="write-support-done">{done}</p>{/if}
+      {#snippet aside()}<span class="pro-sup-count-to" class:warn={summary.warn} data-testid="load-target-count">{summary.text}</span>{/snippet}
     </WriteCard>
   {/if}
 
@@ -123,6 +125,8 @@
 <style>
   .sup-kind { white-space: nowrap; }
   .pro-sup-done { margin: 0; font-size: 0.66rem; color: var(--st-ok); }
+  .pro-sup-count-to { font-size: 0.66rem; color: var(--st-text-2); }
+  .pro-sup-count-to.warn { color: var(--st-warn); }
   .sup-tag { margin-left: 4px; padding: 0 4px; border: 1px solid var(--st-hair); border-radius: 3px; font-size: 0.58rem; color: var(--st-text-3); }
   .pro-edit-btn { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.72rem; }
   .pro-edit-btn:hover { color: var(--st-accent); }

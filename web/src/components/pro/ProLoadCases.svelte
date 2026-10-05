@@ -9,7 +9,6 @@
    */
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import ProSelfWeight from './ProSelfWeight.svelte';
   import VisibilityToggle from './VisibilityToggle.svelte';
   import Icon from '../ribbon/Icon.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
@@ -163,8 +162,6 @@
     <button class="pk-btn" onclick={hideAllCases} title={t('pro.hideAllCases')} data-testid="lc-hide-all"><Icon name="eye-off" size={14} /> {t('pro.hideAll')}</button>
   </span>
 </div>
-
-<ProSelfWeight />
 
 <table class="lc-table">
   <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th><th></th><th></th></tr></thead>

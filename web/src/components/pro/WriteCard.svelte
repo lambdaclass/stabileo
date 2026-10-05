@@ -17,9 +17,11 @@
     error?: string | null;
     disabled?: boolean;
     testid?: string;
+    /** Beside the card's button: what it will add to ("Goes on 4 nodes."). */
+    aside?: Snippet;
     children: Snippet;
   }
-  const { title, submitLabel, onsubmit = () => {}, error = null, disabled = false, testid = 'write-card', children }: Props = $props();
+  const { title, submitLabel, onsubmit = () => {}, error = null, disabled = false, testid = 'write-card', aside, children }: Props = $props();
 
   let form = $state<HTMLElement | null>(null);
   $effect(() => {
@@ -43,7 +45,12 @@
   </div>
   <div class="wc-fields">{@render children()}</div>
   {#if error}<div class="wc-error" role="alert" data-testid="{testid}-error">{error}</div>{/if}
-  {#if submitLabel}<button type="submit" class="wc-submit" {disabled} data-testid="{testid}-submit">{submitLabel}</button>{/if}
+  {#if submitLabel}
+    <div class="wc-actions">
+      <button type="submit" class="wc-submit" {disabled} data-testid="{testid}-submit">{submitLabel}</button>
+      {#if aside}{@render aside()}{/if}
+    </div>
+  {/if}
 </svelte:element>
 
 <style>
@@ -63,8 +70,9 @@
   .wc-fields :global(input[type='number']), .wc-fields :global(input.wc-num) { width: 70px; }
   .wc-fields :global(input.wc-ids) { width: 110px; }
   .wc-error { color: var(--st-red-text, #e8705f); }
+  .wc-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .wc-submit {
-    align-self: flex-start;
+    flex: none;
     padding: 0.3rem 0.8rem;
     border: 1px solid var(--st-accent); border-radius: var(--st-radius);
     background: var(--st-accent); color: #fff; font: inherit; cursor: pointer;

@@ -70,6 +70,19 @@ the application layer; the engine is untouched.
   (`drawState.writeOnSelection`, `writeSeq`); the load card turns to a node kind.
 - `LoadTargetPicker`: the group filter's precedence fixed (a floor-load definition was offered).
 
+## Self-weight in the Add load card
+
+- `ProWriteLoadCard`: a fourth group of kinds, General, with Self-weight (direction, factor). It
+  writes `analysis.selfWeight` (the rule the solve already reads): `all` is the whole model, a group
+  is `groupId`, any other target an `elements` list. A rule with the same case, direction and reach
+  is replaced. `ProSelfWeight.svelte` is gone; the rules are a table at the top of
+  `ProLoadTables` (case, direction and factor edited in place; removed there), with the older
+  D-case switch while a project has not written its rule.
+- `load-targets.ts`: `{ by: 'all' }`. `LoadTargetPicker` offers it with `allowAll`.
+- The picker no longer shows the count: it hands `summary` to the card, which shows it beside the
+  Add button (`WriteCard`'s `aside` snippet for supports). On the selection, when the pointer is not
+  selecting what it needs, a button beside the choice switches it (`load-target-activate`).
+
 ## Tests
 
 - `engine/__tests__/spectral-case.test.ts`: the engine's spectral displacements for the same modes,

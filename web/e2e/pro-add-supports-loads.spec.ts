@@ -296,4 +296,103 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     added = await addLoad(page);
     expect(added.map((l) => l.data.quadId).sort()).toEqual([q1, q2].sort());
   });
+
+  test('on the selection, a button turns the pointer to selecting, and nothing is added until Add', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    for (const what of ['support', 'load'] as const) {
+      await openCard(page, what);
+      await target(page, 'selection');
+      // The old row under the choice is gone.
+      await expect(page.getByTestId('pick-nodes')).toHaveCount(0);
+      await page.getByTestId('pr-pan').click();
+      expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('pan');
+      await openCard(page, what);
+      const button = page.getByTestId('load-target-activate');
+      await expect(button).toBeVisible();
+      // Beside the choice, on its row.
+      const by = (await page.getByTestId('load-target-by').boundingBox())!;
+      const b = (await button.boundingBox())!;
+      expect(b.x).toBeGreaterThan(by.x + by.width - 1);
+      expect(Math.abs((b.y + b.height / 2) - (by.y + by.height / 2))).toBeLessThan(6);
+      const before = { loads: (await loads(page)).length, supports: (await supports(page)).length };
+      await button.click();
+      expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('select');
+      await expect(button).toHaveCount(0);
+      await page.evaluate(() => window.__stabileoActions.selectNodes([5]));
+      expect((await loads(page)).length).toBe(before.loads);
+      expect((await supports(page)).length).toBe(before.supports);
+    }
+  });
+
+  test('what the card adds to is said beside its Add button', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    for (const [what, add] of [['support', 'write-support-card-submit'], ['load', 'wl-add']] as const) {
+      await openCard(page, what);
+      await target(page, 'ids', '1-3');
+      const count = page.getByTestId('load-target-count');
+      await expect(count).toHaveText('Goes on 3 nodes.');
+      const c = (await count.boundingBox())!, a = (await page.getByTestId(add).boundingBox())!;
+      expect(c.x, what).toBeGreaterThan(a.x + a.width - 1);
+      expect(Math.abs((c.y + c.height / 2) - (a.y + a.height / 2)), what).toBeLessThan(6);
+    }
+  });
+
+  test('self-weight from General: the whole model, members by numbers or by the selection', async ({ pro: page }) => {
+    const ids = await loadModel(page, '3d-portal-frame');
+    type Rule = { caseId: number; direction: string; factor: number; elements?: number[]; groupId?: number };
+    const rules = () => page.evaluate(() => (window.__stabileo.analysisSettings() as { selfWeight?: Rule[] } | null)?.selfWeight ?? []);
+    await openCard(page, 'load');
+    await page.getByTestId('wl-kind-selfWeight').click();
+    await expect(page.getByTestId('load-target-by')).toHaveValue('all');
+    await expect(page.getByTestId('load-target-count')).toContainText(`${ids.length} members`);
+    const caseId = await page.evaluate(() => Number(window.__stabileo.loadCases()[0]!.id));
+    await page.getByTestId('write-load-case').selectOption(String(caseId));
+    const before = (await rules()).length;
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-done')).toBeVisible();
+    let all = await rules();
+    expect(all.length).toBeLessThanOrEqual(before + 1);
+    expect(all).toContainEqual({ caseId, direction: 'Z', factor: -1 });
+    // The same again replaces it.
+    await page.getByTestId('wl-sw-factor').fill('-1,2');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-done')).toContainText('in place of');
+    all = await rules();
+    expect(all.filter((r) => r.caseId === caseId && !r.elements && r.groupId === undefined)).toEqual([{ caseId, direction: 'Z', factor: -1.2 }]);
+
+    // Numbers.
+    await target(page, 'ids', `${ids[0]}, ${ids[1]}`);
+    await page.getByTestId('wl-sw-dir').selectOption('X');
+    await page.getByTestId('wl-sw-factor').fill('0,1');
+    await page.getByTestId('wl-add').click();
+    expect((await rules()).at(-1)).toEqual({ caseId, direction: 'X', factor: 0.1, elements: [ids[0], ids[1]].sort((a, b) => a! - b!) });
+
+    // The selection.
+    await page.evaluate((m) => window.__stabileoActions.selectElements([m]), ids[2]!);
+    await target(page, 'selection');
+    await page.getByTestId('wl-add').click();
+    expect((await rules()).at(-1)).toEqual({ caseId, direction: 'X', factor: 0.1, elements: [ids[2]] });
+
+    // Nothing named: nothing added.
+    const n = (await rules()).length;
+    await target(page, 'ids', '999');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-error')).toBeVisible();
+    expect((await rules()).length).toBe(n);
+
+    // Listed with the loads, and removed there.
+    await page.getByTestId('lt-scope-all').click();
+    await expect(page.getByTestId('sw-row')).toHaveCount(n);
+    await page.getByTestId('sw-remove').last().click();
+    await expect.poll(async () => (await rules()).length).toBe(n - 1);
+
+    // Back to a node kind: the whole model is not offered, and member numbers are not kept as node numbers.
+    await page.getByTestId('wl-kind-nodal').click();
+    await expect(page.getByTestId('load-target-by').locator('option[value="all"]')).toHaveCount(0);
+    await expect(page.getByTestId('load-target-ids')).toHaveValue('');
+    await page.getByTestId('wl-kind-selfWeight').click();
+    await target(page, 'selection');
+    await page.getByTestId('wl-kind-nodal').click();
+    await expect(page.getByTestId('load-target-by')).toHaveValue('selection');
+  });
 });

@@ -328,8 +328,8 @@ list of numbers (`1, 4, 7-12`), a group or a range of coordinates, with the coun
 to. It all goes in one undo step, and a node that already had a support takes the new one in its
 place.
 
-**Loads.** The panel has three tabs (load cases, with the self-weight rule inside; combinations;
-floor loads), the card to write a load, and the load tables:
+**Loads.** The panel has three tabs (load cases; combinations; floor loads), the card to add a
+load, and the load tables:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
   S snow, R rain, T temperature, F fluids, H soil; and, to add when needed, N notional and
@@ -349,9 +349,12 @@ floor loads), the card to write a load, and the load tables:
     with the bound code's formula: the case's loads are multiplied by the factor shown.
 
   **Notional cases** below the table creates one N case per source case and direction.
-- **Self-weight:** a load of a case. Each row says which case it goes into, along which global
-  direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
-  members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
+- **Self-weight:** a load of a case. It is added from **Add load › General › Self-weight**: a
+  global direction, a factor (−1 along Z is gravity) and, under **Apply to**, the whole model, a
+  group or members (by selection, numbers, range, section or kind). One in the same case, along the
+  same direction and on the same reach takes the new factor in its place. The load tables list it
+  first, one row per rule, where its case, direction or factor are changed and where it is removed.
+  On the whole model or a group it includes their plates; on chosen members, only those members. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
   a column or an inclined member the part along the member stays in it, so its axial force grows
   towards the lower end. On plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
   that case's factor. A project saved before this rule opens with self-weight in its first D case,
@@ -416,8 +419,10 @@ floor loads), the card to write a load, and the load tables:
   **Apply to** is the same choice for every kind: the selection, a list of numbers (`1, 4, 7-12`),
   a group, a range of coordinates in X, Y or Z, a section or a kind of member (beams, columns,
   inclined, truss members). Member loads also take a **physical member**: the members picked taken
-  as one straight member, with distances measured along the whole of it. The panel says how many
-  elements the load goes on before adding, and all of it is one undo step.
+  as one straight member, with distances measured along the whole of it. Beside the **Add load**
+  button the card says how many elements it goes on, and all of it is one undo step. On
+  **Selection**, when the pointer has another tool, **Select with the mouse** appears beside it: a
+  click in the model then selects, and nothing is added until Add.
 - **Load tables:** one table per kind, for the active case or every case, with the stretches a–b,
   temperatures and strains, tendons and imposed displacements; every cell is edited in place. Below
   them, **each case's totals** about the origin (ΣF and ΣM, with the self-weight where it applies),

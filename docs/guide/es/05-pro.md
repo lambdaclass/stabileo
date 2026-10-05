@@ -341,8 +341,8 @@ selección, una lista de números (`1, 4, 7-12`), un grupo o un rango de coorden
 nudos a los que va. Todo entra en un solo paso de deshacer, y un nudo que ya tenía apoyo toma el
 nuevo en su lugar.
 
-**Cargas.** El panel tiene tres pestañas (casos de carga, con la regla de peso propio adentro;
-combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas de cargas:
+**Cargas.** El panel tiene tres pestañas (casos de carga; combinaciones; cargas de piso), la
+tarjeta para agregar una carga y las tablas de cargas:
 
 - **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Wa viento de servicio, Lr sobrecarga de
   cubierta, W viento, E sismo, S nieve, R lluvia, T temperatura, F fluidos, H empuje del suelo; y, para
@@ -363,9 +363,12 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
     pisos, con la fórmula de la norma asignada: las cargas del caso se multiplican por el factor.
 
   **Casos nocionales**, debajo de la tabla, crea un caso N por cada caso de origen y dirección.
-- **Peso propio:** es una carga de un caso. Cada fila dice en qué caso entra, en qué dirección
-  global, con qué factor (−1 en Z es la gravedad) y sobre qué: todo el modelo, una lista de barras
-  o un grupo. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
+- **Peso propio:** es una carga de un caso. Se agrega desde **Agregar carga › General › Peso
+  propio**: dirección global, factor (−1 en Z es la gravedad) y, en **Aplicar a**, todo el modelo,
+  un grupo o barras (por selección, números, rango, sección o tipo). Uno en el mismo caso, con la
+  misma dirección y sobre lo mismo toma el factor nuevo en su lugar. Las tablas de cargas lo listan
+  arriba de todo, una fila por regla, donde se cambia el caso, la dirección o el factor y se quita.
+  Sobre todo el modelo o un grupo incluye sus placas; sobre barras elegidas, sólo esas barras. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
   en una columna o una barra inclinada la parte a lo largo de la barra queda en ella, así que su
   axil crece hacia el extremo de abajo. En las placas es ρ·t por el área. Entra una vez, en ese caso, y cada combinación lo toma con el
   factor de ese caso. Un proyecto guardado antes de esta regla se abre con el peso propio en su
@@ -433,8 +436,10 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
   (`1, 4, 7-12`), un grupo, un rango de coordenadas en X, Y o Z, una sección o un tipo de barra
   (vigas, columnas, inclinadas, reticuladas). Para las cargas de barra está además la **barra
   física**: las barras elegidas tomadas como una sola barra recta, con las distancias medidas sobre
-  el total. El panel dice a cuántos elementos va antes de agregar, y todo entra en un solo paso de
-  deshacer.
+  el total. Al lado del botón **Agregar carga** se lee a cuántos elementos va, y todo entra en un
+  solo paso de deshacer. Con **Selección**, si el puntero está en otra herramienta aparece al lado
+  **Activar selección con el mouse**: el clic en el modelo pasa a seleccionar, y nada se agrega
+  hasta tocar Agregar.
 - **Tablas de cargas:** una tabla por tipo, del caso activo o de todos los casos, con los tramos
   a–b, las temperaturas y deformaciones, los cables y los desplazamientos impuestos; cada celda se
   edita en el lugar. Al pie, los **totales de cada caso** respecto del origen (ΣF y ΣM, con el peso

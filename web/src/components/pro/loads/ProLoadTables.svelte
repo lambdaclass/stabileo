@@ -14,6 +14,7 @@
   import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
+  import type { GlobalAxis, SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
 
   let scope = $state<'case' | 'all'>('case');
@@ -55,6 +56,24 @@
     uiStore.selectLoad(id, e.shiftKey || e.metaKey || e.ctrlKey);
   }
   const isSel = (id: number) => uiStore.selectedLoads.has(id);
+
+  // ── Self-weight: the case's rules (`analysis.selfWeight`), added from the Add load card ──
+  /** A project that has not written its rule runs on the older switch, offered here. */
+  const swWritten = $derived(modelStore.analysis?.selfWeight !== undefined);
+  const swAll = $derived(modelStore.analysis?.selfWeight ?? []);
+  const swShown = $derived(swAll.map((w, i) => ({ w, i })).filter(({ w }) => scope === 'all' || w.caseId === uiStore.activeLoadCaseId));
+  function swChange(i: number, patch: Partial<SelfWeightLoad>) {
+    modelStore.setAnalysis({ selfWeight: swAll.map((w, k) => (k === i ? { ...w, ...patch } : w)) });
+  }
+  function swFactor(el: HTMLInputElement, i: number, prev: number) {
+    const v = decimalOrKeep(el.value, prev);
+    el.value = plainNumber(v, 6);
+    if (v !== prev && v !== 0) swChange(i, { factor: v });
+    else el.value = plainNumber(prev, 6);
+  }
+  const swReach = (w: SelfWeightLoad) => (w.groupId !== undefined
+    ? tp('loadTables.swGroup', { name: modelStore.model.groups.get(w.groupId)?.name ?? String(w.groupId) })
+    : w.elements ? tp('selfWeight.scopeList', { n: w.elements.length }) : t('selfWeight.scopeAll'));
 
   // ── Totals per case, before solving ──
   const totals = $derived.by(() => {
@@ -111,6 +130,30 @@
 {/snippet}
 
 <div class="pro-loads-table-wrap" data-testid="load-tables">
+  {#if swShown.length || !swWritten}
+    <div class="pro-load-section-title">{t('selfWeight.title')}</div>
+    {#if !swWritten}
+      <label class="lt-legacy" data-testid="sw-legacy"><input type="checkbox" bind:checked={uiStore.includeSelfWeight} /> {t('selfWeight.legacy')}</label>
+    {/if}
+    {#if swShown.length}
+      <table class="pro-loads-table" data-testid="lt-sw"><thead><tr><th>{t('loadTables.case')}</th><th>{t('selfWeight.direction')}</th><th>{t('selfWeight.factor')}</th><th>{t('selfWeight.scope')}</th><th></th></tr></thead><tbody>
+        {#each swShown as { w, i } (i)}
+          <tr data-testid="sw-row">
+            <td><select class="inp-cell" value={String(w.caseId)} onchange={(e) => swChange(i, { caseId: Number(e.currentTarget.value) })} data-testid="sw-case">
+              {#each cases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
+            </select></td>
+            <td><select class="inp-cell" value={w.direction} onchange={(e) => swChange(i, { direction: e.currentTarget.value as GlobalAxis })} data-testid="sw-dir">
+              <option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>
+            </select></td>
+            <td class="col-num"><input class="inp-cell" value={plainNumber(w.factor, 6)} onchange={(e) => swFactor(e.currentTarget, i, w.factor)} data-testid="sw-factor" /></td>
+            <td>{swReach(w)}</td>
+            <td><button class="pro-delete-btn" onclick={() => modelStore.setAnalysis({ selfWeight: swAll.filter((_, k) => k !== i) })} aria-label={t('selfWeight.remove')} title={t('selfWeight.remove')} data-testid="sw-remove">×</button></td>
+          </tr>
+        {/each}
+      </tbody></table>
+    {/if}
+  {/if}
+
   {#if nodal.length}
     <div class="pro-load-section-title">{t('pro.nodalLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.thNode')}</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th><th></th></tr></thead><tbody>
@@ -227,7 +270,7 @@
     </tbody></table>
   {/if}
 
-  {#if shown.length === 0}<div class="pro-empty">{t('pro.noLoads')}</div>{/if}
+  {#if shown.length === 0 && swShown.length === 0}<div class="pro-empty">{t('pro.noLoads')}</div>{/if}
 
   <!-- What each case applies, about the origin, before solving: the statics check's own reading. -->
   <div class="lt-totals" data-testid="lt-totals">
@@ -280,5 +323,6 @@
   .lt-total-row { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 2px 12px; font-family: var(--st-mono); font-size: 0.66rem; color: var(--st-text-2); }
   .lt-total-case { font-family: var(--st-sans); font-weight: 600; color: var(--st-text); min-width: 6rem; }
   .lt-note { font-family: var(--st-sans); color: var(--st-text-3); }
+  .lt-legacy { display: flex; align-items: center; gap: 5px; padding: 2px 8px 4px; font-size: 0.68rem; color: var(--st-text-2); }
   .lt-warn { font-family: var(--st-sans); color: var(--st-warn); }
 </style>

@@ -78,7 +78,7 @@ test.describe('@smoke PRO member loads', () => {
     const before = await loads(page);
     const mine = before[before.length - 1]!;
     // The row of the load just written: the last of the nodal table.
-    await page.getByTestId('load-tables').locator('table').first().locator('tbody tr').last().locator('td.col-id').click();
+    await page.getByTestId('load-tables').locator('table:not([data-testid="lt-sw"])').first().locator('tbody tr').last().locator('td.col-id').click();
     await expect(page.getByTestId('lt-ops')).toBeVisible();
     await page.getByTestId('lt-ops-factor').fill('1,5');
     await page.getByTestId('lt-ops-copy').click();

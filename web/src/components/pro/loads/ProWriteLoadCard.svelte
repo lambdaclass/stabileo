@@ -20,21 +20,34 @@
   import { orderedChain, loadsOnChain, triangularPeak, hydrostaticLoads, inclinedForce, type GlobalAxis } from '../../../lib/model/loads/member-load-tools';
   import { memberRef3D } from '../../../lib/engine/solver-service';
   import type { Load } from '../../../lib/store/model.svelte';
+  import type { GlobalAxis as SwAxis, SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import type { MemberFrame, Vec3 } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
-  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad';
-  const KINDS: Array<{ id: Kind; group: 'node' | 'member' | 'slab' }> = [
+  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad' | 'selfWeight';
+  type Group = 'node' | 'member' | 'slab' | 'general';
+  const KINDS: Array<{ id: Kind; group: Group }> = [
     { id: 'nodal', group: 'node' }, { id: 'displacement', group: 'node' },
     { id: 'distributed', group: 'member' }, { id: 'point', group: 'member' }, { id: 'thermal', group: 'member' },
     { id: 'strain', group: 'member' }, { id: 'prestress', group: 'member' },
     { id: 'surface', group: 'slab' }, { id: 'hydro', group: 'slab' }, { id: 'shellPoint', group: 'slab' }, { id: 'thermalQuad', group: 'slab' },
+    // The self-weight is a rule of the case, kept on the model (`analysis.selfWeight`), not loads.
+    { id: 'selfWeight', group: 'general' },
   ];
   let kind = $state<Kind>('nodal');
-  const entity = $derived<TargetEntity>(KINDS.find((k) => k.id === kind)!.group === 'node' ? 'nodes' : KINDS.find((k) => k.id === kind)!.group === 'member' ? 'members' : 'quads');
+  const group = $derived(KINDS.find((k) => k.id === kind)!.group);
+  // The self-weight goes on members (and, on the whole model or a group, on their shells too).
+  const entity = $derived<TargetEntity>(group === 'node' ? 'nodes' : group === 'member' || group === 'general' ? 'members' : 'quads');
   let target = $state<PickedSpec>({ by: 'selection' });
+  let summary = $state<{ text: string; warn: boolean }>({ text: '', warn: false });
+  /** Another kind: the self-weight starts on the whole model, the rest on the selection. */
+  function pick(k: Kind) {
+    const was = group;
+    kind = k; error = null; done = null;
+    if (group !== was && (group === 'general' || target.by === 'all')) target = { by: group === 'general' ? 'all' : 'selection' };
+  }
   // Opened on a node from the model's context menu: a node's load, on the selection.
   $effect.pre(() => {
     if (drawState.writeSeq > 0) untrack(() => {
@@ -75,6 +88,9 @@
   let ps = $state({ force: '', eI: '', eM: '', eJ: '' });
   // ── Slabs ──
   let tq = $state({ dt: '', g: '' });
+  // ── Self-weight ──
+  let swDir = $state<SwAxis>('Z');
+  let swFactor = $state('-1');
 
   let error = $state<string | null>(null);
   let done = $state<string | null>(null);
@@ -226,7 +242,26 @@
     }
   }
 
+  /** The self-weight on what Apply to names, in the active case; one with the same case, axis and reach takes the new factor. */
+  function addSelfWeight() {
+    const f = opt(swFactor);
+    if (f === null || f === 0) { error = t('writeLoad.zero'); done = null; return; }
+    const reach: Pick<SelfWeightLoad, 'elements' | 'groupId'> = target.by === 'all' ? {}
+      : target.by === 'group' ? { groupId: target.groupId }
+      : { elements: resolveTargets('members', target as never, modelStore.model as never, sel()) };
+    if (reach.elements?.length === 0 || (reach.groupId !== undefined && !modelStore.model.groups.has(reach.groupId))) { error = t('writeLoad.noTarget'); done = null; return; }
+    const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: swDir, factor: f, ...reach };
+    const key = (r: SelfWeightLoad) => JSON.stringify([r.caseId, r.direction, r.groupId ?? null, r.elements ? [...r.elements].sort((a, b) => a - b) : null]);
+    const now = modelStore.analysis?.selfWeight ?? [];
+    const same = now.findIndex((r) => key(r) === key(rule));
+    modelStore.setAnalysis({ selfWeight: same >= 0 ? now.map((r, i) => (i === same ? rule : r)) : [...now, rule] });
+    error = null;
+    const c = modelStore.model.loadCases.find((lc) => lc.id === rule.caseId)?.name ?? '';
+    done = tp(same >= 0 ? 'writeLoad.swReplaced' : 'writeLoad.swAdded', { case: c, f: String(f).replace('-', '−'), dir: swDir });
+  }
+
   function add() {
+    if (kind === 'selfWeight') { addSelfWeight(); return; }
     const out = build();
     if (typeof out === 'string') { error = out; done = null; return; }
     addLoads(out);
@@ -246,12 +281,12 @@
 
 <div class="wl" data-testid="write-load-form">
   <div class="wl-kinds" role="radiogroup" aria-label={t('writeLoad.kind')}>
-    {#each ['node', 'member', 'slab'] as g (g)}
+    {#each ['node', 'member', 'slab', 'general'] as g (g)}
       <div class="wl-kgroup">
         <span class="wl-kgroup-name">{t(`writeLoad.group.${g}`)}</span>
         {#each KINDS.filter((k) => k.group === g) as k (k.id)}
           <button type="button" role="radio" aria-checked={kind === k.id} class="wl-kind" class:active={kind === k.id}
-            onclick={() => { kind = k.id; error = null; done = null; }} data-testid="wl-kind-{k.id}">{t(`writeLoad.kind.${k.id}`)}</button>
+            onclick={() => pick(k.id)} data-testid="wl-kind-{k.id}">{t(`writeLoad.kind.${k.id}`)}</button>
         {/each}
       </div>
     {/each}
@@ -372,6 +407,13 @@
       <label>e J <input type="text" bind:value={ps.eJ} class="wl-num" placeholder="mm" data-testid="wl-ps-ej" /></label>
     </div>
     <p class="wl-hint">{t('writeLoad.prestressHint')}</p>
+  {:else if kind === 'selfWeight'}
+    <div class="wl-row">
+      <label>{t('selfWeight.direction')}
+        <select bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
+      <label>{t('selfWeight.factor')} <input type="text" bind:value={swFactor} class="wl-num" data-testid="wl-sw-factor" /></label>
+    </div>
+    <p class="wl-hint">{t('writeLoad.swHint')}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} />{/key}
   {:else}
@@ -381,11 +423,15 @@
     </div>
   {/if}
 
-  {#key drawState.writeSeq}<LoadTargetPicker {entity} allowChain={kind === 'distributed' && shape === 'trapezoid' || kind === 'point'} bind:spec={target} />{/key}
+  <!-- A new picker for another family of targets: node numbers are not member numbers. -->
+  {#key `${drawState.writeSeq}:${group}`}<LoadTargetPicker {entity} allowAll={kind === 'selfWeight'} allowChain={kind === 'distributed' && shape === 'trapezoid' || kind === 'point'} bind:spec={target} bind:summary />{/key}
 
   {#if error}<p class="wl-error" role="alert" data-testid="wl-error">{error}</p>{/if}
   {#if done}<p class="wl-done" role="status" data-testid="wl-done">{done}</p>{/if}
-  <button type="button" class="wl-add" onclick={add} data-testid="wl-add">{t('writeLoad.add')}</button>
+  <div class="wl-actions">
+    <button type="button" class="wl-add" onclick={add} data-testid="wl-add">{t('pro.add')} {t('pro.oneLoad')}</button>
+    <span class="wl-count" class:warn={summary.warn} data-testid="load-target-count">{summary.text}</span>
+  </div>
 </div>
 
 <style>
@@ -403,6 +449,9 @@
   .wl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
   .wl-error { margin: 0; font-size: 0.66rem; color: var(--st-danger); }
   .wl-done { margin: 0; font-size: 0.66rem; color: var(--st-ok); }
-  .wl-add { align-self: flex-start; padding: 5px 14px; font-size: 0.74rem; color: var(--st-text); background: var(--st-surface-3); border: 1px solid var(--st-interactive); border-radius: 4px; cursor: pointer; }
-  .wl-add:hover { background: var(--st-hair-strong); }
+  /* The same button and count as the Add support card. */
+  .wl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .wl-add { flex: none; padding: 0.3rem 0.8rem; border: 1px solid var(--st-accent); border-radius: var(--st-radius); background: var(--st-accent); color: #fff; font: inherit; font-size: 0.72rem; cursor: pointer; }
+  .wl-count { font-size: 0.66rem; color: var(--st-text-2); }
+  .wl-count.warn { color: var(--st-warn); }
 </style>
