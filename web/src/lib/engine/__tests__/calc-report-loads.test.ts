@@ -9,7 +9,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
-import { loadComponentsText, reportNumber } from '../calc-report-loads';
+import { loadComponentsText, reportNumber, distributedText, pointOnElementText } from '../calc-report-loads';
+import { serializeLoads } from '../pro-report-inputs';
 
 beforeEach(() => { historyStore.clear(); modelStore.clear(); });
 
@@ -63,6 +64,86 @@ describe('a 3D line load is kept when either end carries load', () => {
   it('a missing J end reads as uniform, and a load with no component gives nothing', () => {
     expect(loadComponentsText('distributed3d', { qXI: 2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 })).toBe('qx=2 → 2 kN/m');
     expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 })).toBe('');
+  });
+});
+
+describe('a partial line load says where it sits', () => {
+  it('qZ = −5 from a = 1 to b = 2 is not read as the full length', () => {
+    expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: -5, qZJ: -5, a: 1, b: 2 }))
+      .toBe('qz=-5 → -5 kN/m, a=1 m, b=2 m');
+  });
+
+  it('a start with no end runs to the end of the member', () => {
+    expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: -5, qZJ: -5, a: 1 })).toBe('qz=-5 → -5 kN/m, a=1 m, b=L');
+  });
+
+  it('a full-length load says nothing about a range', () => {
+    expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 })).toBe('qz=-5 → -5 kN/m');
+  });
+});
+
+describe('a 2D line load names its range, its angle and its axes', () => {
+  const words = { global: 'global axes' };
+
+  it('a uniform load on the whole member', () => {
+    expect(distributedText({ qI: -10, qJ: -10 }, words)).toBe('q=-10 → -10 kN/m');
+  });
+
+  it('a partial, inclined load in global axes, as the store writes it', () => {
+    uiStore.analysisMode = '2d';
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    const e = modelStore.addElement(a, b);
+    modelStore.addDistributedLoad(e, -10, 0, 30, true, undefined, 1, 4);
+    const l = modelStore.loads.find((x) => x.type === 'distributed')!;
+    expect(distributedText(l.data as never, words)).toBe('q=-10 → 0 kN/m, a=1 m, b=4 m, θ=30°, global axes');
+  });
+
+  it('numbers to four significant figures', () => {
+    expect(distributedText({ qI: 1 / 3, qJ: 2 / 3 }, words)).toBe('q=0.3333 → 0.6667 kN/m');
+  });
+});
+
+describe('a 2D point load on a member names every component', () => {
+  const words = { global: 'global axes' };
+
+  it('its axial force and its moment, not only P', () => {
+    uiStore.analysisMode = '2d';
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    const e = modelStore.addElement(a, b);
+    modelStore.addPointLoadOnElement(e, 1.5, -10, { px: 2, my: 5 });
+    const l = modelStore.loads.find((x) => x.type === 'pointOnElement')!;
+    expect(pointOnElementText(l.data as never, words)).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
+  });
+
+  it('rounded, with the legacy moment alias, the angle and the axes', () => {
+    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words))
+      .toBe('P=0.3333 kN, My=1 kN·m, a=0.6667 m, θ=45°, global axes');
+  });
+
+  it('a load with every component zero gives nothing, which the dialog says in words', () => {
+    expect(pointOnElementText({ a: 1, p: 0 }, words)).toBe('');
+  });
+});
+
+describe('the PRO report load table gives every length its unit', () => {
+  it('a partial 3D line load: b in metres, like a', () => {
+    uiStore.analysisMode = '3d';
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const e = modelStore.addElement(a, b);
+    modelStore.addDistributedLoad3D(e, 0, 0, -5, -5, 1, 3);
+    const row = serializeLoads((k) => k).find((r) => r.target.endsWith(` ${e}`))!;
+    expect(row.values).toBe('qzI=-5, qzJ=-5 kN/m, a=1 m, b=3 m');
+  });
+
+  it('a partial 2D line load keeps its range, and a point load its axial force and moment', () => {
+    uiStore.analysisMode = '2d';
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    const e = modelStore.addElement(a, b);
+    modelStore.addDistributedLoad(e, -10, -10, undefined, undefined, undefined, 1, 4);
+    modelStore.addPointLoadOnElement(e, 1.5, -10, { px: 2, my: 5 });
+    const rows = serializeLoads((k) => k);
+    expect(rows.find((r) => r.type === 'file.loadDistributed')!.values).toBe('q=-10 kN/m, a=1 m, b=4 m');
+    expect(rows.find((r) => r.type === 'file.loadPointOnElement')!.values).toBe('P=-10, Px=2 kN, My=5 kN·m, a=1.5 m');
   });
 });
 

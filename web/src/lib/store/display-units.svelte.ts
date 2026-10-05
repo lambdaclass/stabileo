@@ -4,7 +4,7 @@
  * like the unit system itself: a reading preference, not project data.
  */
 import { uiStore } from './ui.svelte';
-import { formatValue, unitLabel, toDisplay, setDisplayDecimals, type Quantity } from '../utils/units';
+import { formatValue, formatCoordinate, unitLabel, toDisplay, setDisplayDecimals, type Quantity } from '../utils/units';
 
 const KEY = 'stabileo-decimals';
 
@@ -30,6 +30,12 @@ export const displayUnits = {
 export function fmtQ(v: number, q: Quantity): string {
   if (!Number.isFinite(v)) return '—';
   return formatValue(v, q, uiStore.unitSystem, decimals[q]);
+}
+
+/** A coordinate or a member length in the chosen units, to the millimetre (`formatCoordinate`). */
+export function fmtCoord(v: number): string {
+  if (!Number.isFinite(v)) return '—';
+  return formatCoordinate(v, uiStore.unitSystem, decimals.length);
 }
 
 /** The unit a quantity is shown in. */

@@ -1229,16 +1229,15 @@
         ctx.moveTo(s.x + 6, s.y - 6); ctx.lineTo(s.x - 6, s.y + 6);
         ctx.stroke();
 
-        const unit = dt === 'moment' ? 'kN·m' : 'kN';
         const label = dt === 'moment' ? 'M' : dt === 'shear' ? 'V' : 'N';
+        // In the chosen units and decimals, as the hover reads the same point: the click printed
+        // kN·m beside a hover in tf·m.
+        const qty = dt === 'moment' ? 'moment' : 'force';
         // Negate moment for display (internal: hogging=+, display: sagging=+)
         const displayVal = dt === 'moment' ? -diagramQuery.value : diagramQuery.value;
-        const abs = Math.abs(displayVal);
-        const formatted = abs >= 100 ? abs.toFixed(1) : abs >= 1 ? abs.toFixed(2) : abs.toFixed(3);
-        const sign = displayVal < 0 ? '-' : '';
         const xPos = (diagramQuery.t * 100).toFixed(1);
         drawTooltip(s.x + 12, s.y - 25, [
-          `${label} = ${sign}${formatted} ${unit}`,
+          `${label} = ${fmtQ(displayVal, qty)} ${unitQ(qty)}`,
           `x/L = ${xPos}%`,
         ]);
       }

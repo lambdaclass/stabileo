@@ -1,6 +1,6 @@
 <script lang="ts">
   import { is3DWorkspace } from '../lib/utils/workspace';
-  import { displayUnits, fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
@@ -2928,8 +2928,9 @@
       if (newHover.type === 'node') {
         const n = modelStore.nodes.get(newHover.id);
         // In the chosen units, as the status bar shows the cursor: the hover read metres beside feet.
+        // To the millimetre (`fmtCoord`): automatic precision read x = 150.25 m as «150.3».
         if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
-          .replace('{x}', `${fmtQ(n.x, 'length')}`).replace('{y}', `${fmtQ(n.y, 'length')}`).replace('{z}', `${fmtQ(n.z ?? 0, 'length')} ${unitQ('length')}`);
+          .replace('{x}', `${fmtCoord(n.x)}`).replace('{y}', `${fmtCoord(n.y)}`).replace('{z}', `${fmtCoord(n.z ?? 0)} ${unitQ('length')}`);
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;

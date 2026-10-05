@@ -12,6 +12,7 @@ export type Quantity =
   | 'length'           // m ↔ ft
   | 'force'            // kN ↔ kip
   | 'moment'           // kN·m ↔ kip·ft
+  | 'bimoment'         // kN·m² ↔ kip·ft² (the warping DOF's reaction)
   | 'distributedLoad'  // kN/m ↔ kip/ft
   | 'stress'           // MPa ↔ ksi
   | 'area'             // m² ↔ in²
@@ -28,6 +29,7 @@ const FACTORS: Record<Quantity, number> = {
   length: 3.28084,             // m → ft
   force: 0.224809,             // kN → kip
   moment: 0.737562,            // kN·m → kip·ft
+  bimoment: 0.224809 * 3.28084 ** 2, // kN·m² → kip·ft²
   distributedLoad: 0.0685218,  // kN/m → kip/ft
   stress: 0.145038,            // MPa → ksi
   area: 1550.003,              // m² → in²
@@ -48,6 +50,7 @@ const MKS_FACTORS: Record<Quantity, number> = {
   length: 1,
   force: TF,
   moment: TF,
+  bimoment: TF,
   distributedLoad: TF,
   stress: 1e6 / 98066.5,  // MPa → kgf/cm²: 1 kgf/cm² = 9.80665 N / 1 cm² = 98 066,5 Pa
   area: 1e4,
@@ -65,6 +68,7 @@ const MKS_LABELS: Record<Quantity, string> = {
   length: 'm',
   force: 'tf',
   moment: 'tf·m',
+  bimoment: 'tf·m²',
   distributedLoad: 'tf/m',
   stress: 'kgf/cm²',
   area: 'cm²',
@@ -82,6 +86,7 @@ const SI_LABELS: Record<Quantity, string> = {
   length: 'm',
   force: 'kN',
   moment: 'kN·m',
+  bimoment: 'kN·m²',
   distributedLoad: 'kN/m',
   stress: 'MPa',
   area: 'm²',
@@ -99,6 +104,7 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   length: 'ft',
   force: 'kip',
   moment: 'kip·ft',
+  bimoment: 'kip·ft²',
   distributedLoad: 'kip/ft',
   stress: 'ksi',
   area: 'in²',
@@ -158,6 +164,26 @@ export function formatValue(value: number, qty: Quantity, system: UnitSystem, de
   if (abs >= 0.995) return fixed(2);
   if (abs >= 0.0099995) return fixed(4);
   return v.toExponential(3);
+}
+
+/**
+ * What a reaction on a degree of freedom is: a force on a translation (ux…), a moment on a
+ * rotation (rx…), and a bimoment on the 3D solver's seventh, `warping`, which reading it as
+ * «not a rotation» labelled kN.
+ */
+export function dofQuantity(dof: string): 'force' | 'moment' | 'bimoment' {
+  return dof === 'warping' ? 'bimoment' : dof.startsWith('r') ? 'moment' : 'force';
+}
+
+/**
+ * A coordinate or a member length as a readout: fixed decimals, enough to show a millimetre in
+ * the unit the length is shown in (3 in metres and in feet, 1 in centimetres), unless the reader
+ * set decimals for lengths. The automatic precision of `formatValue` reads 150.25 m as «150.3»
+ * and 1234.567 m as «1235», which is a node half a metre away from where it is.
+ */
+export function formatCoordinate(value: number, system: UnitSystem, decimals?: number): string {
+  const mm = Math.max(0, Math.ceil(-Math.log10(toDisplay(0.001, 'length', system)) - 1e-9));
+  return formatValue(value, 'length', system, decimals ?? mm);
 }
 
 /**
