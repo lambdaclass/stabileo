@@ -13,6 +13,8 @@
  * Pure.
  */
 import type { ElementDesignDemands } from '../station-design-forces';
+import type { Section } from '../../store/model.svelte';
+import { isVariableMember } from '../../section/variable';
 
 type Behaviour = string | undefined;
 
@@ -23,9 +25,15 @@ export const isDesigned = (behaviour: Behaviour): boolean => behaviour !== 'inac
  * section changes along it is analysed (`engine/variable-members.ts`), but its strength and
  * stability checks need the methods for non-prismatic members, which the design code here does
  * not have; it is reported as not checked rather than checked as if prismatic.
+ *
+ * "Of variable section" as the solve has it (`isVariableMember`): a member whose section at J the
+ * solve does not use (a truss, two sections that do not blend) was analysed prismatic, with end
+ * I's section, and is designed so; the model's findings name it.
  */
-export const isDesignedMember = (e: { behaviour?: string; variableSection?: unknown } | undefined): boolean =>
-  !!e && isDesigned(e.behaviour) && !e.variableSection;
+export const isDesignedMember = (
+  e: { type?: string; behaviour?: string; sectionId: number; variableSection?: { sectionJ: number } } | undefined,
+  sections: ReadonlyMap<number, Section>,
+): boolean => !!e && isDesigned(e.behaviour) && !isVariableMember(sections, e);
 
 const noCompression = (b: Behaviour) => b === 'tensionOnly' || b === 'cable';
 const noTension = (b: Behaviour) => b === 'compressionOnly';

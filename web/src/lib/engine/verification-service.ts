@@ -407,7 +407,7 @@ export function runSteelVerification(
 
     // Design follows the member's behaviour (`design/behaviour-demands.ts`).
     const behaviour = (elem as { behaviour?: string }).behaviour;
-    if (!isDesignedMember(elem as never)) continue;
+    if (!isDesignedMember(elem as never, model.sections as never)) continue;
     const demand = maskAxialDemand(steelDemandOf(ef, stationDemands?.get(ef.elementId), stationDiagrams?.get(ef.elementId)), behaviour);
     const e3 = elem as { kStrong?: number; kWeak?: number };
     const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };

@@ -46,7 +46,7 @@ export function memberContexts(
     const section = model.sections.get(e.sectionId), material = model.materials.get(e.materialId);
     const behaviour = (e as { behaviour?: string }).behaviour;
     const raw = demands.get(id);
-    if (!section || !material || !raw || !isDesignedMember(e as never)) continue;
+    if (!section || !material || !raw || !isDesignedMember(e as never, model.sections as never)) continue;
     // Design follows the member's behaviour, as the CIRSOC check does.
     const d = maskDemands(raw, behaviour);
     const len = lengths.get(id);

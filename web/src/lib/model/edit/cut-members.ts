@@ -13,6 +13,7 @@
 
 import { modelStore } from '../../store/model.svelte';
 import { nodesOnMembers } from '../../engine/nodes-on-members';
+import { variableCutRefused } from '../../section/variable';
 import { dot, type Vec3 } from './affine';
 import { tp } from '../../i18n';
 
@@ -32,16 +33,22 @@ export interface CutReport {
   nodes: number[];
   /** Cut members whose reinforcement was dropped. */
   reinforcementDropped: number;
+  /** Members of variable section left whole: no section can name their cuts (`variableCutRefused`). */
+  variableNotCut: number;
 }
 
 function applyCuts(cuts: Map<number, number[]>): CutReport {
-  const report: CutReport = { cut: [], nodes: [], reinforcementDropped: 0 };
+  const report: CutReport = { cut: [], nodes: [], reinforcementDropped: 0, variableNotCut: 0 };
   const before = new Set(modelStore.nodes.keys());
   modelStore.batch(() => {
     for (const [elementId, ts] of cuts) {
       const unique = [...new Set(ts.map((t) => Math.round(t / 1e-9) * 1e-9))].sort((a, b) => a - b);
       const r = modelStore.splitMember(elementId, unique, { reuseNodeTol: CUT_TOL });
-      if (!r) continue;
+      if (!r) {
+        const e = modelStore.elements.get(elementId);
+        if (e && variableCutRefused(modelStore.sections, e)) report.variableNotCut++;
+        continue;
+      }
       report.cut.push({ elementId, segments: r.segmentIds });
       if (r.droppedReinforcement) report.reinforcementDropped++;
     }

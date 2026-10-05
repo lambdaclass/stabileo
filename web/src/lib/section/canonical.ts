@@ -128,6 +128,16 @@ function catalogueProfile(sec: Section): SteelProfile | undefined {
   return p && ownDimensionsDiffer(sec, p) ? undefined : p;
 }
 
+/**
+ * The catalogue family a section's outline is looked up from (IPE, W, UPN...), or undefined when
+ * its outline is not a catalogue profile's: a drawing, an explicit polygon, declared properties,
+ * or a name the catalogue does not know.
+ */
+export function catalogueFamilyOf(sec: Section): string | undefined {
+  if (sec.drawn || (sec.polygon && sec.polygon.length >= 3) || sec.declared) return undefined;
+  return catalogueProfile(sec)?.family;
+}
+
 function ownDimensionsDiffer(sec: Section, p: SteelProfile): boolean {
   const s = sec as { h?: number; b?: number; tw?: number; tf?: number };
   const off = (own: number | undefined, mm: number | undefined, tol: number) => own != null && mm != null && Math.abs(own * 1000 - mm) > tol;

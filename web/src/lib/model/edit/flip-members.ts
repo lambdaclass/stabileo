@@ -1,7 +1,8 @@
 /**
  * Reverse members: I becomes J. The section keeps its orientation (its local y is pinned to what
  * it was, so the web stays where it was), which reverses local x and so local z. Everything stated
- * per end or along the member follows: releases, joints, semi-rigid ends and offsets swap ends;
+ * per end or along the member follows: releases, joints, semi-rigid ends, offsets and a variable
+ * member's two sections swap ends;
  * member loads are mirrored along the length, and their local z components change sign — a
  * temperature gradient too, since it is stated across local z.
  *
@@ -40,6 +41,7 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
         nodeI: e.nodeJ, nodeJ: e.nodeI,
         releaseI: e.releaseJ, releaseJ: e.releaseI,
         jointI: e.jointJ, jointJ: e.jointI,
+        ...(e.variableSection ? { sectionId: e.variableSection.sectionJ, variableSection: { ...e.variableSection, sectionJ: e.sectionId } } : {}),
         ...(e.semiRigid ? { semiRigid: { ...(e.semiRigid.j ? { i: e.semiRigid.j } : {}), ...(e.semiRigid.i ? { j: e.semiRigid.i } : {}) } } : {}),
         ...(off ? { offset: { frame: off.frame, ...(off.j ? { i: mirror(off.j) } : {}), ...(off.i ? { j: mirror(off.i) } : {}) } } : {}),
         localYx: axes.ey[0], localYy: axes.ey[1], localYz: axes.ey[2], rollAngle: 0,

@@ -44,6 +44,20 @@ function tip(segments: number) {
 }
 
 describe('tapered members', () => {
+  it('leaves a member of variable section as it is, and says so', () => {
+    // It already varies: stepped, its pieces would each keep a pair of end sections and lose end I.
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    const sJ = modelStore.addSection({ name: 'end J', a: 0.005, iy: 1e-5, iz: 1e-5, j: 1e-7 } as never);
+    modelStore.updateElement(e, { variableSection: { sectionJ: sJ } } as never);
+    const before = modelStore.elements.size;
+    const r = taperMembers([e], spec(4));
+    expect(r.skipped).toEqual([{ id: e, reason: 'variable' }]);
+    expect(r.tapered).toEqual([]);
+    expect(modelStore.elements.size).toBe(before);
+    expect(modelStore.elements.get(e)!.variableSection?.sectionJ).toBe(sJ);
+  });
+
   it(`${DEFAULT_TAPER_SEGMENTS} segments reach the exact tip deflection within 0.5 %, and the error falls with n²`, () => {
     const err = (r: { uz: number; exact: number }) => Math.abs(r.uz - r.exact) / r.exact;
     expect(err(tip(DEFAULT_TAPER_SEGMENTS))).toBeLessThan(0.005);

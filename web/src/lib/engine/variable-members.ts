@@ -30,9 +30,10 @@
  */
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D } from './types-3d';
+import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
 import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
-import { variableSectionPlan } from '../section/variable';
+import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 
 /** Pieces a variable member is cut into when it states none. */
@@ -75,14 +76,13 @@ export function variableExpansionFor(model: ModelData): VariableExpansion | unde
   return exp.members.size > 0 ? exp : undefined;
 }
 
-/** Whether a member is solved as pieces: a frame with a section at J that blends with its own. */
+/**
+ * Whether a member is solved as pieces: a frame with a section at J that blends with its own. The
+ * one predicate (`section/variable.ts`); a member that states a section at J and is not one is
+ * solved prismatic and named by the model's findings (`variableRefusal`).
+ */
 export function isVariableMember(model: Pick<ModelData, 'sections'>, e: El): boolean {
-  const v = e.variableSection;
-  if (!v) return false;
-  if (e.type && e.type !== 'frame') return false;
-  const b = (e as { behaviour?: string }).behaviour;
-  if (b && b !== 'frame') return false;
-  return variableSectionPlan(model.sections.get(e.sectionId), model.sections.get(v.sectionJ)).ok;
+  return solvedAsVariable(model.sections as ReadonlyMap<number, Section>, e as never);
 }
 
 interface Planned {
@@ -153,7 +153,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   for (const m of exp.members.values()) elements.delete(m.parentId);
   for (const { parent, k, n, t0, t1, piece, section } of planned.pieces) {
     sections.set(piece.sectionId, section);
-    const { variableSection: _v, ...fields } = segmentFields(parent, k, n, t0, t1) as El;
+    const fields = segmentFields(parent, k, n, t0, t1);
     elements.set(piece.id, { ...fields, id: piece.id, nodeI: piece.nodeI, nodeJ: piece.nodeJ, sectionId: piece.sectionId } as Element);
   }
   const renamed = new Map<number, number[]>();
@@ -259,4 +259,49 @@ export function collapseVariableEnvelope(env: FullEnvelope3D, exp: VariableExpan
     axial: collapseDiagram(env.axial, exp), torsion: collapseDiagram(env.torsion, exp),
     maxAbsResults3D: collapseVariableResults(env.maxAbsResults3D, exp),
   };
+}
+
+/**
+ * A P-Delta result with its variable members back to one member each: its second-order results and
+ * the linear ones beside them, and no interior node among its amplifications.
+ */
+export function collapseVariablePDelta<R extends { results: AnalysisResults3D; linearResults?: AnalysisResults3D; amplification?: Array<{ nodeId: number }> }>(
+  r: R, exp: VariableExpansion | undefined,
+): R {
+  if (!exp || exp.members.size === 0) return r;
+  return {
+    ...r,
+    results: collapseVariableResults(r.results, exp),
+    ...(r.linearResults ? { linearResults: collapseVariableResults(r.linearResults, exp) } : {}),
+    ...(r.amplification ? { amplification: r.amplification.filter((a) => !exp.innerNodes.has(a.nodeId)) } : {}),
+  };
+}
+
+/**
+ * A modal or buckling result as the model has it: the interior nodes leave the mode shapes, and a
+ * buckling row per member. The piece where the member is most slender stands for it, with the
+ * member's length and its effective length over that length; the pieces' own lengths mean nothing
+ * to a reader, who has one member.
+ */
+export function collapseVariableModes<R extends { modes: Array<{ displacements: Array<{ nodeId: number }> }>; elementData?: ElementBucklingData3D[] }>(
+  r: R, exp: VariableExpansion | undefined,
+): R {
+  if (!exp || exp.members.size === 0) return r;
+  const modes = r.modes.map((m) => ({ ...m, displacements: m.displacements.filter((d) => !exp.innerNodes.has(d.nodeId)) }));
+  if (!r.elementData) return { ...r, modes };
+  const pieceOf = new Map<number, VariableMember>();
+  for (const m of exp.members.values()) for (const p of m.pieces) pieceOf.set(p.id, m);
+  const governing = new Map<number, ElementBucklingData3D>();
+  const kept: ElementBucklingData3D[] = [];
+  for (const row of r.elementData) {
+    const m = pieceOf.get(row.elementId);
+    if (!m) { kept.push(row); continue; }
+    const g = governing.get(m.parentId);
+    if (!g || Math.max(row.slendernessY, row.slendernessZ) > Math.max(g.slendernessY, g.slendernessZ)) governing.set(m.parentId, row);
+  }
+  const members = [...governing].map(([parentId, row]) => {
+    const length = exp.members.get(parentId)!.length;
+    return { ...row, elementId: parentId, length, kEffective: length > 0 ? row.effectiveLength / length : row.kEffective };
+  });
+  return { ...r, modes, elementData: [...kept, ...members] };
 }

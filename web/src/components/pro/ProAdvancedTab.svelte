@@ -56,6 +56,8 @@
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
+  import { isVariableMember } from '../../lib/section/variable';
+  import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -180,6 +182,13 @@
     const input = ms.input;
     return { input, densities: densitiesFor(input, ms.densities) };
   }
+
+  /**
+   * A result this panel shows, as the model has it: members of variable section back to one each,
+   * the pieces and interior nodes the solve cut them into out (`engine/variable-members.ts`). What
+   * it publishes goes through the results store, which does the same.
+   */
+  const asModel = (r: any) => (r?.elementForces ? collapseVariableResults(r, variableExpansionFor(modelStore.model as never)) : r);
 
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
@@ -481,7 +490,8 @@
         });
         nlVersion = modelStore.modelVersion;
       } else {
-        nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
+        const co: any = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
+        nlResult = co?.results ? { ...co, results: asModel(co.results) } : co;
       }
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
@@ -515,7 +525,7 @@
        */
       const { input: withN, totalH } = withNotionalLoads(buildInput(), imperfRatio, imperfDir);
       // Shown in this panel only; see `handleStaged` for why it is not published.
-      imperfResult = { ...solve3D(withN), notionalTotal: totalH };
+      imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, 'Error') });
     }
@@ -559,7 +569,7 @@
       // solved the nodal loads a truss member's load becomes; finishing gives
       // the axial part back to the member, as every other solve does.
       if (res.elementForces) finishSolve3D(res, input);
-      winklerResult = res;
+      winklerResult = asModel(res);
       if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, 'Error') });
@@ -630,7 +640,7 @@
       // As Winkler: the engine's member forces miss the axial share of a truss
       // member's load until it is given back.
       if (res.results) finishSolve3D(res.results, input);
-      ssiResult = res;
+      ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, 'Error') });
@@ -685,7 +695,8 @@
   }
 
   /** Analyses whose input names members (stages, an influence path) do not take one cut into pieces. */
-  const hasVariable = () => [...modelStore.elements.values()].some((e) => e.variableSection);
+  // Members the solve cuts into pieces (`section/variable.ts`): one whose section at J it does not use is solved prismatic.
+  const hasVariable = () => [...modelStore.elements.values()].some((e) => isVariableMember(modelStore.sections, e));
 
   function handleStaged() {
     solveError = null;
@@ -765,7 +776,7 @@
       if (settingsOf.size === 0) { solveError = t('adv.creepNoConcrete'); solving = false; return; }
       const steps = creepSteps(input, settingsOf, creepTimeSteps.map((s) => s.time), solve3D);
       // Shown in this panel only; see `handleStaged` for why it is not published.
-      creepResult = { steps };
+      creepResult = { steps: steps.map((st: any) => (st.results ? { ...st, results: asModel(st.results) } : st)) };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, 'Error') });
     }

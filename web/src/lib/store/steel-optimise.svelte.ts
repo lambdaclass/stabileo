@@ -113,7 +113,7 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
   for (const id of ids) {
     const ef = forces.get(id);
     const e = modelStore.elements.get(id);
-    if (!ef || !e || !isDesignedMember(e)) continue;
+    if (!ef || !e || !isDesignedMember(e, modelStore.sections)) continue;
     const len = lengths.get(id);
     const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
@@ -298,7 +298,7 @@ function createSteelOptimise() {
         const { members, materialOf } = membersFor(ids);
         // An inactive member follows its section but is not designed, as when the row was
         // proposed: every designed member must be checked, and only those.
-        const designed = ids.filter(id => isDesignedMember(modelStore.elements.get(id)));
+        const designed = ids.filter(id => isDesignedMember(modelStore.elements.get(id), modelStore.sections));
         const material = designed.length > 0 ? materialOf.get(designed[0]!) : undefined;
         // Rows start out homogeneous. A later material assignment can split the group, so its
         // first member's grade no longer represents all members; propose the groups again.

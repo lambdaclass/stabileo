@@ -66,8 +66,11 @@ export interface GeneratedData extends GeneratedMeta {
   transform: Affine;
   /** By generated index: the model node it became, and whether the structure owns it. */
   nodes: Array<{ id: number; owned: boolean }>;
-  /** By generated index: the member it became, its role, and the section the generator gave it; null when it already existed. */
-  elements: Array<{ id: number; sectionId: number; role?: string } | null>;
+  /**
+   * By generated index: the member it became, its role, and the sections the generator gave it (at
+   * end J too, for a member of variable section); null when it already existed.
+   */
+  elements: Array<{ id: number; sectionId: number; sectionJ?: number; role?: string } | null>;
   /** Generated indices of the nodes the generator supported. */
   supportNodes: number[];
 }
@@ -103,7 +106,8 @@ export function insertGenerated(
     const nodes = g.json.nodes.map((n) => { const id = nm.get(n.id)!; return { id, owned: created.has(id) }; });
     const elements = g.json.elements.map((e, k) => {
       const id = em.get(e.id);
-      return id === undefined ? null : { id, sectionId: modelStore.elements.get(id)!.sectionId, ...(roles[k] ? { role: roles[k] } : {}) };
+      const el = id === undefined ? undefined : modelStore.elements.get(id)!;
+      return id === undefined ? null : { id, sectionId: el!.sectionId, ...(el!.variableSection ? { sectionJ: el!.variableSection.sectionJ } : {}), ...(roles[k] ? { role: roles[k] } : {}) };
     });
     const data: GeneratedData = {
       ...meta, transform: T, nodes, elements,
@@ -283,7 +287,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const a = m && modelStore.nodes.get(m.nodeI), b = m && modelStore.nodes.get(m.nodeJ);
       return e && a && b ? [{ e, role: e.role ?? '', at: midpoint([a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]) }] : [];
     });
-    const oldMemberByKey = new Map<string, { id: number; sectionId: number; role?: string }>();
+    const oldMemberByKey = new Map<string, { id: number; sectionId: number; sectionJ?: number; role?: string }>();
     for (const role of new Set(oldMembers.map((o) => o.role))) {
       const of = oldMembers.filter((o) => o.role === role);
       placeKeys(of.map((o) => o.at)).forEach((key, i) => oldMemberByKey.set(`${role}|${key}`, of[i]!.e));
@@ -337,14 +341,37 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const prev = takeOld(k);
       const cur = prev ? modelStore.elements.get(prev.id) : undefined;
       if (prev && cur) {
-        const unedited = cur.sectionId === prev.sectionId;
-        const patch: Partial<Element> = {
-          nodeI: i2, nodeJ: j2, type: e.type, materialId: matOf(e.materialId),
-          localYx: undefined, localYy: undefined, localYz: undefined, rollAngle: undefined, ...o.fields,
-        };
-        if (unedited) { patch.sectionId = newSec; patch.variableSection = variableSection; if (newSec !== cur.sectionId) out.resized++; } else out.keptSections++;
+        // Unedited: both its sections still the generator's. An end J changed, or variable
+        // section turned on or off, is the user's, as a changed end I is.
+        const unedited = cur.sectionId === prev.sectionId && cur.variableSection?.sectionJ === prev.sectionJ;
+        // A member the user flipped runs J → I against the generator. Its direction is the user's,
+        // as its sections are: put back the generator's node order and the kept sections (swapped
+        // by the flip), releases and orientation would all face the other way, and a member of
+        // variable section would come back tapered end for end.
+        const flipped = cur.nodeI === j2 && cur.nodeJ === i2;
+        const patch: Partial<Element> = flipped
+          ? { type: e.type, materialId: matOf(e.materialId) }
+          : {
+              nodeI: i2, nodeJ: j2, type: e.type, materialId: matOf(e.materialId),
+              localYx: undefined, localYy: undefined, localYz: undefined, rollAngle: undefined, ...o.fields,
+            };
+        if (unedited) {
+          // The pieces it is solved in are the user's setting, not a section.
+          const segments = cur.variableSection?.segments;
+          const withSegments = (v: typeof variableSection) => (v && segments !== undefined ? { ...v, segments } : v);
+          if (flipped && variableSection) {
+            // The generator's end J is this member's end I.
+            patch.sectionId = variableSection.sectionJ;
+            patch.variableSection = withSegments({ ...variableSection, sectionJ: newSec });
+          } else {
+            patch.sectionId = newSec;
+            patch.variableSection = withSegments(variableSection);
+          }
+          if (patch.sectionId !== cur.sectionId) out.resized++;
+        } else out.keptSections++;
         modelStore.updateElement(prev.id, patch);
-        elements.push({ id: prev.id, sectionId: unedited ? newSec : prev.sectionId, ...(role ? { role } : {}) });
+        const sectionJ = unedited ? variableSection?.sectionJ : prev.sectionJ;
+        elements.push({ id: prev.id, sectionId: unedited ? newSec : prev.sectionId, ...(sectionJ !== undefined ? { sectionJ } : {}), ...(role ? { role } : {}) });
         elementMap.set(e.id, prev.id);
         existingPairs.set(pairKey(i2, j2), prev.id);
         out.kept++;
@@ -352,7 +379,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       }
       const id = modelStore.addElement(i2, j2, e.type);
       modelStore.updateElement(id, { materialId: matOf(e.materialId), sectionId: newSec, ...(variableSection ? { variableSection } : {}), ...o.fields });
-      elements.push({ id, sectionId: newSec, ...(role ? { role } : {}) });
+      elements.push({ id, sectionId: newSec, ...(variableSection ? { sectionJ: variableSection.sectionJ } : {}), ...(role ? { role } : {}) });
       elementMap.set(e.id, id);
       existingPairs.set(pairKey(i2, j2), id);
       out.added++;

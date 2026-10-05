@@ -144,7 +144,7 @@ function createDesignRunStore() {
         activePerCombo3D(), activeCombinations(), md as never,
       );
       // Design follows the member's behaviour: inactive members out, one-way ones masked.
-      const stationData = { ...computed, demands: designDemands(computed.demands, (id) => { const e = modelStore.elements.get(id); return isDesignedMember(e) ? e?.behaviour : 'inactive'; }) };
+      const stationData = { ...computed, demands: designDemands(computed.demands, (id) => { const e = modelStore.elements.get(id); return isDesignedMember(e, modelStore.sections) ? e?.behaviour : 'inactive'; }) };
       if (stationData.demands.size === 0) return fail('design.error.noDemands');
 
       const orient = runOrientationDiagnostic(md, stationData.demands, modelStore.model.loads as never);

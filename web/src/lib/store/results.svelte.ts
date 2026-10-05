@@ -71,6 +71,12 @@ export function computeElementStress(ef: ElementForces, sec: Section, mat: Mater
 
 export type ResultsView = 'single' | 'combo' | 'envelope';
 
+/** How the advanced analyses' results reach the model's members (`engine/variable-members.ts`). */
+export interface Normalise3DAdvanced {
+  pdelta: (r: PDeltaResult3D) => PDeltaResult3D;
+  modes: <R extends ModalResult3D | BucklingResult3D>(r: R) => R;
+}
+
 /** Diagrams that draw one advanced function's result, and nothing without it. */
 const FUNCTION_DIAGRAMS: readonly DiagramType[] = ['modeShape', 'bucklingMode', 'plasticHinges', 'influenceLine', 'despiece'];
 const STATIC_DIAGRAMS_2D: readonly DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
@@ -287,6 +293,8 @@ function createResultsStore() {
    */
   let _normalise3D: ((r: AnalysisResults3D) => AnalysisResults3D) | null = null;
   let _normaliseEnvelope3D: ((e: FullEnvelope3D) => FullEnvelope3D) | null = null;
+  /** The same for the advanced analyses' own results: P-Delta's two, and modal and buckling shapes. */
+  let _normaliseAdvanced3D: Normalise3DAdvanced | null = null;
 
   // Diagram-shown notification — set by view-mode.ts so that putting a result
   // on screen disarms an armed build tool, without this store importing the UI
@@ -399,7 +407,9 @@ function createResultsStore() {
      *  its solve-generation counter — including a plain re-solve with no
      *  structural mutation (self-weight / axis-convention toggle). */
     _setOnResultsPublish(fn: () => void) { _onResultsPublish = fn; },
-    _setNormalise3D(r: (x: AnalysisResults3D) => AnalysisResults3D, e: (x: FullEnvelope3D) => FullEnvelope3D) { _normalise3D = r; _normaliseEnvelope3D = e; },
+    _setNormalise3D(r: (x: AnalysisResults3D) => AnalysisResults3D, e: (x: FullEnvelope3D) => FullEnvelope3D, adv?: Normalise3DAdvanced) {
+      _normalise3D = r; _normaliseEnvelope3D = e; _normaliseAdvanced3D = adv ?? null;
+    },
 
     /** Wired by view-mode.ts's installViewModeRules(). Fired whenever the
      *  diagramType setter puts a diagram on screen, so EVERY entry point —
@@ -788,6 +798,7 @@ function createResultsStore() {
     // ─── 3D Advanced Analysis Results ─────────────────────────────
     get pdeltaResult3D() { return pdeltaResult3D; },
     setPDeltaResult3D(r: PDeltaResult3D) {
+      if (_normaliseAdvanced3D) r = _normaliseAdvanced3D.pdelta(r);
       hold();
       this.clearAdvanced();
       pdeltaResult3D = r;
@@ -801,6 +812,7 @@ function createResultsStore() {
 
     get modalResult3D() { return modalResult3D; },
     setModalResult3D(r: ModalResult3D) {
+      if (_normaliseAdvanced3D) r = _normaliseAdvanced3D.modes(r);
       hold();
       this.clearAdvanced();
       staticUnder3D();
@@ -817,6 +829,7 @@ function createResultsStore() {
 
     get bucklingResult3D() { return bucklingResult3D; },
     setBucklingResult3D(r: BucklingResult3D) {
+      if (_normaliseAdvanced3D) r = _normaliseAdvanced3D.modes(r);
       hold();
       this.clearAdvanced();
       staticUnder3D();
@@ -832,6 +845,7 @@ function createResultsStore() {
 
     get spectralResult3D() { return spectralResult3D; },
     setSpectralResult3D(r: SpectralResult3D) {
+      if (_normalise3D) r = { ...r, results: _normalise3D(r.results) };
       hold();
       this.clearAdvanced();
       spectralResult3D = r;

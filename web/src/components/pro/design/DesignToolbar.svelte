@@ -18,6 +18,7 @@
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
   import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
+  import { isVariableMember } from '../../../lib/section/variable';
 
   interface Props {
     selectedCount: number;
@@ -133,7 +134,7 @@
 
 
   /** Members of variable section: analysed, and left out of design (`isDesignedMember`). */
-  const variableCount = $derived([...modelStore.elements.values()].filter((e) => e.variableSection).length);
+  const variableCount = $derived([...modelStore.elements.values()].filter((e) => isVariableMember(modelStore.sections, e)).length);
 </script>
 
 <div class="toolbar" data-testid="design-toolbar">

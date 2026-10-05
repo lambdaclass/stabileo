@@ -1,4 +1,4 @@
-import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor } from '../engine/variable-members';
+import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
@@ -91,10 +91,14 @@ resultsStore._setTransverseSignProvider((elementId) => {
 });
 
 // Members of variable section are published as one member each, from any analysis that solved
-// them as pieces (`engine/variable-members.ts`).
+// them as pieces (`engine/variable-members.ts`), the advanced ones included.
 resultsStore._setNormalise3D(
   (r) => collapseVariableResults(r, variableExpansionFor(modelStore.model as never)),
   (e) => collapseVariableEnvelope(e, variableExpansionFor(modelStore.model as never)),
+  {
+    pdelta: (r) => collapseVariablePDelta(r, variableExpansionFor(modelStore.model as never)),
+    modes: (r) => collapseVariableModes(r, variableExpansionFor(modelStore.model as never)),
+  },
 );
 
 resultsStore._setOnResultsPublish(() => {
