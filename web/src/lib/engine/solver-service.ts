@@ -2199,6 +2199,8 @@ export function solveCombinations3D(
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
+  /** The spectral cases' results (`store/spectral-cases.ts`), by case id. */
+  spectral?: Map<number, AnalysisResults3D>,
 ): Bundle3D | string | null {
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
@@ -2207,7 +2209,7 @@ export function solveCombinations3D(
   model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
   const solving = casesToSolve(loadCases, combinations);
   try {
-    return finishBundle(withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), solving, combinations, includeSelfWeight, leftHand), model), loadCases, combinations);
+    return finishBundle(withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), solving, combinations, includeSelfWeight, leftHand), model), loadCases, combinations, spectral);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -2671,6 +2673,7 @@ export async function solveCombinations3DParallel(
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
+  spectral?: Map<number, AnalysisResults3D>,
 ): Promise<Bundle3D | string | null> {
   model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
   const allCases = loadCases;
@@ -2691,7 +2694,7 @@ export async function solveCombinations3DParallel(
     if (!solved || typeof solved === 'string') return solved;
     return withSettlementCase(solved, model, combinations, leftHand);
   };
-  return finishBundle(withDeclaredInactiveBundle(await done(), original), allCases, combinations);
+  return finishBundle(withDeclaredInactiveBundle(await done(), original), allCases, combinations, spectral);
 }
 
 async function solveCombinations3DParallelCore(

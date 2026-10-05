@@ -57,7 +57,7 @@
   function save(snapshot: string) {
     cancelSave();
     observed = snapshot;
-    if (snapshot !== storedSpec()) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) });
+    if (snapshot !== storedSpec()) modelStore.setDynamics({ ...modelStore.model.dynamics, timeHistory: JSON.parse(snapshot) });
   }
   // Undo, redo and project loading replace the stored spec without editing this component; a new
   // project (a new loadEpoch) re-reads the draft even when its run reads the same.

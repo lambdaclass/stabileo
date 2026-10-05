@@ -66,7 +66,7 @@ export interface ModelSnapshot {
     data?: Record<string, unknown>;
   }]>;
   /** Dynamic analysis settings (the time history). Absent: none stated. */
-  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] };
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   analysis?: import('../engine/analysis-settings').AnalysisSettings;
   projectInfo?: import('../model/project-info').ProjectInfo;

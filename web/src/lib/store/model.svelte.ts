@@ -840,6 +840,8 @@ export interface LoadCase {
    * (`codes/families` `ImposedLoadCode.reduce`).
    */
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number };
+  /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
+  spectral?: import('../engine/spectral-case').SpectralCaseDef;
 }
 
 export interface LoadCombination {
@@ -978,7 +980,7 @@ export interface StructureModel {
   /** The structural grid and the named levels (`model/grid.ts`). Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
-  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] };
   /** Deflection limits by member, group or kind (`engine/deflection-limits.ts`). Absent: beams at L/360. */
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   /**
@@ -1990,7 +1992,7 @@ function createModelStore() {
         ...(snap.grid && (snap.grid.axes.length > 0 || snap.grid.levels.length > 0)
           ? { grid: JSON.parse(JSON.stringify(snap.grid)) as ModelSnapshot['grid'] }
           : {}),
-        ...(snap.dynamics?.timeHistory
+        ...(snap.dynamics?.timeHistory || snap.dynamics?.spectra?.length
           ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
           : {}),
         ...(snap.projectInfo
@@ -3940,9 +3942,9 @@ function createModelStore() {
       model.deflectionLimits = d && d.rules.length > 0 ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
-    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
+    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] } | null): void {
       if (!_undoBatching) _pushUndoView?.();
-      model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;
+      model.dynamics = d && (d.timeHistory || d.spectra?.length) ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
     /** State the project's combination rules; an empty list withdraws them. */
@@ -4036,7 +4038,7 @@ function createModelStore() {
      * whether it is a reference or solved on its own, its notional loads, its reduction, its
      * alternatives group and pattern. A field given as undefined is removed.
      */
-    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern'>>): void {
+    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral'>>): void {
       const lc = model.loadCases.find((c) => c.id === id);
       if (!lc) return;
       if (!_undoBatching) _pushUndo?.();
@@ -4108,7 +4110,7 @@ function createModelStore() {
 
     /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
      *  Shell elements are only included when isPro=true. */
-    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
+    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
@@ -4117,14 +4119,14 @@ function createModelStore() {
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
           connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
       );
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
-    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
@@ -4133,7 +4135,7 @@ function createModelStore() {
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
           connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
       );
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;

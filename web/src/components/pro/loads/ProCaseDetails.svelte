@@ -13,6 +13,9 @@
   import { loadCodeFor } from '../../../lib/codes/families';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import type { LoadCase } from '../../../lib/store/model.svelte';
+  import type { SpectralCaseDef } from '../../../lib/engine/spectral-case';
+  import { RISK_FACTOR } from '../../../lib/codes/cirsoc103/spectrum';
+  import { findBehaviour, R_ELASTIC } from '../../../lib/codes/cirsoc103/behaviour';
 
   interface Props { lc: LoadCase }
   let { lc }: Props = $props();
@@ -52,6 +55,22 @@
   });
   const KINDS = ['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever', 'edgeBeamNoCantilever', 'interiorBeam', 'other'];
   const isImposed = $derived(['L', 'LR', 'CR', 'TR'].includes((lc.type ?? '').toUpperCase()));
+
+  // ── Spectral ──
+  const spectra = $derived(modelStore.model.dynamics?.spectra ?? []);
+  /** γr/R from the project's seismic regulation: the code spectrum's own scale. */
+  function codeScale(): number {
+    const s = regulationsStore.binding('seismic')?.settings as { destinationGroup?: string; systemKey?: string; elastic?: boolean } | undefined;
+    const gr = RISK_FACTOR[(s?.destinationGroup ?? 'B') as keyof typeof RISK_FACTOR] ?? 1;
+    const r = s?.elastic ? R_ELASTIC : s?.systemKey ? findBehaviour(s.systemKey)?.r ?? 1 : 1;
+    return +(gr / r).toFixed(4);
+  }
+  function setSpectral(patch: Partial<SpectralCaseDef> | null) {
+    if (patch === null) { update({ spectral: undefined }); return; }
+    const base: SpectralCaseDef = lc.spectral ?? { source: { kind: 'code' }, factors: { x: 1, y: 0, z: 0 }, rule: 'cqc', xi: 0.05, scale: codeScale() };
+    update({ spectral: { ...base, ...patch } });
+  }
+  const num = (s: string) => parseDecimal(s);
 </script>
 
 <div class="cd" data-testid="case-details-{lc.id}">
@@ -96,6 +115,31 @@
       </select>
     </div>
     <p class="cd-hint">{t('caseDetails.notionalHint')}</p>
+  {/if}
+
+  {#if (lc.type ?? '').toUpperCase() === 'E'}
+    <div class="cd-title">{t('spectralCase.title')}</div>
+    <label><input type="checkbox" checked={!!lc.spectral} onchange={(e) => setSpectral(e.currentTarget.checked ? {} : null)} data-testid="cd-spec-on" /> {t('spectralCase.on')}</label>
+    {#if lc.spectral}
+      {@const sp = lc.spectral}
+      <div class="cd-row">
+        <select value={sp.source.kind === 'code' ? 'code' : String(sp.source.spectrumId)} onchange={(e) => setSpectral({ source: e.currentTarget.value === 'code' ? { kind: 'code' } : { kind: 'user', spectrumId: Number(e.currentTarget.value) }, ...(e.currentTarget.value === 'code' ? { scale: codeScale() } : {}) })} data-testid="cd-spec-source">
+          <option value="code">INPRES-CIRSOC 103</option>
+          {#each spectra as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
+        </select>
+        <select value={sp.rule} onchange={(e) => setSpectral({ rule: e.currentTarget.value as 'cqc' })} data-testid="cd-spec-rule">
+          <option value="cqc">CQC</option><option value="srss">SRSS</option><option value="abs">ABS</option>
+        </select>
+        <label>ξ <input type="text" class="cd-num" value={String(sp.xi)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ xi: v }); }} /></label>
+        <label>{t('spectralCase.scale')} <input type="text" class="cd-num" value={String(sp.scale)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ scale: v }); }} data-testid="cd-spec-scale" /></label>
+      </div>
+      <div class="cd-row">
+        {#each ['x', 'y', 'z'] as a (a)}
+          <label>{a.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{a}" /></label>
+        {/each}
+      </div>
+      <p class="cd-hint">{t('spectralCase.hint')}</p>
+    {/if}
   {/if}
 
   {#if isImposed}

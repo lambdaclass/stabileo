@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
+  import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
+  import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
+  import ProUserSpectra from './dynamics/ProUserSpectra.svelte';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
@@ -132,28 +134,8 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  function buildInput() {
-    // These analyses build with expandMemberOffsets:false, which ALSO skips
-    // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
-    // jointed model would silently solve as rigid (too stiff). Refuse with a
-    // clear message instead — mirrors the ToolbarAdvanced guard, which this PRO
-    // panel previously lacked.
-    if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
-    if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
-    // The store's builder, so these analyses read the project's rules (self-weight as stated, the
-    // shear-deformation switch, groups) exactly as Solve does; a copy of it here left them out.
-    const input = modelStore.buildSolverInput3D(
-      uiStore.includeSelfWeight,
-      uiStore.axisConvention3D === 'leftHand',
-      // Advanced analyses run on the centerline: their wire payloads (modal/
-      // spectral) don't carry constraints, so expanded offset-helper nodes
-      // would float free — singular K instead of eccentricity effects. The
-      // linear + combination solves DO expand offsets.
-      { expandMemberOffsets: false },
-    );
-    if (!input) throw new Error(t('advanced.emptyModel'));
-    return input;
-  }
+  /** The static input on the centerline (`store/dynamic-input.ts`). */
+  const buildInput = () => centerlineInput();
 
 
 
@@ -169,18 +151,9 @@
    * about how heavy the structure is.
    */
   function buildDynamicInput(): { input: any; densities: Map<number, number> } {
-    const md = {
-      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
-      quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
-      connectors: modelStore.connectors,
-    };
-    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
-    massReport = ms.report;
-    // Rigid diaphragms are the model's own constraints (Constraints › Auto-detect); this panel used
-    // to add a second, transient set of its own behind a checkbox.
-    const input = ms.input;
-    return { input, densities: densitiesFor(input, ms.densities) };
+    const d = dynamicInput();
+    massReport = d.report;
+    return { input: d.input, densities: d.densities };
   }
 
   /**
@@ -288,6 +261,8 @@
 
   let spectralResult = $state<any | null>(null);
   let spectralCombination = $state<'CQC' | 'SRSS'>('CQC');
+  /** 'code', or a user spectrum's id. */
+  let spectralSource = $state<string>('code');
   /*
    * The spectrum is INPRES-CIRSOC 103 2018's (`codes/cirsoc103/spectrum.ts`), the same one the
    * seismic load generator uses. It was a table of its own — as, Ca and Cv by zone and a three-way
@@ -331,15 +306,15 @@
         return;
       }
       const { input, densities } = buildDynamicInput();
+      // The code's spectrum, or one of the project's own (`ProUserSpectra.svelte`), taken as written.
+      const user = spectralSource === 'code' ? null : modelStore.model.dynamics?.spectra?.find((s) => s.id === Number(spectralSource)) ?? null;
       const cs = codeSpectrum;
-      if (isBlocked(cs)) { solveError = `${t('pro.spectralTitle')}: ${te(cs.blocked)}`; solving = false; return; }
-      const spectrum: DesignSpectrum = {
-        name: `INPRES-CIRSOC 103 2018 — ${t('autoLoad.zone')} ${cs.zone}, ${siteClass}`,
-        points: spectrumPoints(cs),
-        inG: true,
-      };
-      const importanceFactor = RISK_FACTOR[destinationGroup];
-      const reductionFactor = spectralR > 0 ? spectralR : 1;
+      if (!user && isBlocked(cs)) { solveError = `${t('pro.spectralTitle')}: ${te(cs.blocked)}`; solving = false; return; }
+      const spectrum: DesignSpectrum = user
+        ? { name: user.name, points: userSpectrumPointsInG(user), inG: true }
+        : { name: `INPRES-CIRSOC 103 2018 — ${t('autoLoad.zone')} ${(cs as { zone: number }).zone}, ${siteClass}`, points: spectrumPoints(cs as never), inG: true };
+      const importanceFactor = user ? 1 : RISK_FACTOR[destinationGroup];
+      const reductionFactor = user ? 1 : spectralR > 0 ? spectralR : 1;
       const modes = spectralModesFrom(modalResult);
       // One run per horizontal direction: the engine combines a single direction at a time.
       const byDir: Record<string, any> = {};
@@ -1033,12 +1008,20 @@
 
     <!-- ── 3. Spectral ── -->
     <div class="adv-group">
+      <ProUserSpectra />
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult}>{t('pro.spectralTitle')}</button>
         <label class="adv-label">
           <select class="adv-sel" bind:value={spectralCombination}>
             <option value="CQC">CQC</option>
             <option value="SRSS">SRSS</option>
+          </select>
+        </label>
+        <label class="adv-label">
+          {t('userSpectrum.source')}:
+          <select class="adv-sel" bind:value={spectralSource} data-testid="spectral-source">
+            <option value="code">INPRES-CIRSOC 103</option>
+            {#each modelStore.model.dynamics?.spectra ?? [] as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
           </select>
         </label>
         <label class="adv-label">
