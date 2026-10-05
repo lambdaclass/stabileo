@@ -652,6 +652,8 @@ function loadsSignature(project2D: boolean): string {
       parts.push(shell ? shell.nodes.map((nid: number) => np(nid)).join('') : '_');
     }
   }
+  // Load zones: their name and their outline where it is.
+  for (const g of modelStore.model.groups.values()) if (g.kind === 'loadZone') parts.push('zone', g.name, (g.members.nodes ?? []).map(np).join(';'));
   return parts.join('|');
 }
 
@@ -997,6 +999,19 @@ export function syncLoads(ctx: SceneSyncContext): void {
         ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k} ${d[k]} rad`),
       ].join(' · ');
       batch.addTag({ x: p.x, y: p.y, z: p.z - 0.3 }, text, cc);
+    }
+  }
+
+  // Load zones: their outline, closed, and their name (`floor-definitions.ts`).
+  if (!project2D) {
+    for (const g of modelStore.model.groups.values()) {
+      if (g.kind !== 'loadZone') continue;
+      const pts = (g.members.nodes ?? []).map((id) => modelStore.nodes.get(id)).filter((n): n is NonNullable<typeof n> => !!n)
+        .map((n) => projectNodeToScene(n as never, project2D));
+      if (pts.length < 3) continue;
+      batch.addPolyline([...pts, pts[0]!], COLORS.load);
+      const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length, z: a.z + p.z / pts.length }), { x: 0, y: 0, z: 0 });
+      batch.addTag(c, g.name, COLORS.load);
     }
   }
 

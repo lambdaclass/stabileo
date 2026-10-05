@@ -150,11 +150,17 @@ describe('what is not loaded', () => {
     expect(r.totalKN).toBeCloseTo(80);
   });
 
-  it('an L-shaped panel is reported, not loaded', () => {
+  it('an L-shaped panel is loaded by its skeleton: all of its area, the corner bisector between the arms', () => {
     const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]]), q: 5, distribution: 'twoWay' });
-    expect(r.panels[0]!.loaded).toBe(false);
-    expect(r.skipped.nonConvex).toBe(1);
-    expect(r.loads).toHaveLength(0);
+    expect(r.panels[0]!.loaded).toBe(true);
+    expect(r.loadedArea).toBeCloseTo(27, 6);
+    expect(r.totalKN).toBeCloseTo(5 * 27, 6);
+    // Symmetric about y = x: the two long outer sides alike, and the two sides at the re-entrant corner.
+    const t = totals(r);
+    expect(t[1]).toBeCloseTo(t[6]!, 6);
+    expect(t[3]! + (r.nodal.filter((n) => n.elementId === 3).reduce((s, n) => s - n.fz, 0))).toBeCloseTo(t[4]! + r.nodal.filter((n) => n.elementId === 4).reduce((s, n) => s - n.fz, 0), 6);
+    // The share past the sides' ends at the re-entrant corner goes to its node.
+    expect(r.nodal.every((n) => n.nodeId === 4)).toBe(true);
   });
 
   it('a cantilever beam bounds nothing', () => {
@@ -200,7 +206,7 @@ describe('local axes', () => {
 });
 
 describe('a ring of beams inside a panel, not connected to it', () => {
-  it('leaves the panel with the hole unloaded and reported, and loads the ring once', () => {
+  it('is an opening of the panel: the ring takes its share of the panel around it, and its own panel once', () => {
     const nodes = new Map<number, { x: number; y: number; z: number }>();
     const beams: FloorBeam[] = [];
     const ring = (first: number, pts: Array<[number, number]>) => {
@@ -210,9 +216,70 @@ describe('a ring of beams inside a panel, not connected to it', () => {
     ring(1, [[0, 0], [10, 0], [10, 10], [0, 10]]);
     ring(11, [[4, 4], [6, 4], [6, 6], [4, 6]]);
     const r = floorLoad({ nodes, beams, q: 2, distribution: 'twoWay' });
-    // The 100 m² face with the island is not loaded as if it had none: 200 kN plus the ring's 8.
-    expect(r.skipped.islands).toBe(1);
-    expect(r.totalKN).toBeCloseTo(2 * 4, 6);
-    expect(r.panels.find((p) => p.reason === 'island')?.area).toBeCloseTo(100, 6);
+    // 96 m² of the panel around the ring, 4 m² of the ring's own: 200 kN, the ring's area once.
+    expect(r.totalKN).toBeCloseTo(200, 6);
+    expect(r.panels.every((p) => p.loaded)).toBe(true);
+    for (const id of [11, 12, 13, 14]) expect(r.perBeam.get(id)!).toBeGreaterThan(2 * 4 / 4 + 1e-6);
+  });
+
+  it('one way, a strip crossing the opening rests on the ring', () => {
+    const nodes = new Map<number, { x: number; y: number; z: number }>();
+    const beams: FloorBeam[] = [];
+    const ring = (first: number, pts: Array<[number, number]>) => {
+      pts.forEach(([x, y], k) => nodes.set(first + k, { x, y, z: 3 }));
+      pts.forEach((_p, k) => beams.push({ id: first + k, nodeI: first + k, nodeJ: first + ((k + 1) % pts.length), type: 'frame', sectionId: 1 }));
+    };
+    ring(1, [[0, 0], [10, 0], [10, 6], [0, 6]]);
+    ring(11, [[4, 2], [6, 2], [6, 4], [4, 4]]);
+    const r = floorLoad({ nodes, beams, q: 1, distribution: 'oneWay', spanAxis: 'x' });
+    expect(r.totalKN).toBeCloseTo(60, 6);
+    // The ring's sides across the span (x = 4 and x = 6) take half of each 4 m strip beside them,
+    // and half of the ring's own 2 m strips: 4 + 2 kN each. 56 m² around the ring and its own 4.
+    expect(r.perBeam.get(14)).toBeCloseTo(2 * 4 / 2 + 2 * 2 / 2, 6);
+    expect(r.perBeam.get(12)).toBeCloseTo(2 * 4 / 2 + 2 * 2 / 2, 6);
+  });
+});
+
+describe('zones, suction and inclined floors', () => {
+  it('a zone: only its outline less its opening is loaded', () => {
+    const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
+    const zone = { outer: [[0, 0, 3], [4, 0, 3], [4, 6, 3], [0, 6, 3]] as Array<[number, number, number]>, holes: [[[1, 2, 3], [3, 2, 3], [3, 4, 3], [1, 4, 3]] as Array<[number, number, number]>] };
+    const r = floorLoad({ ...m, q: 3, distribution: 'twoWay', zone });
+    expect(r.loadedArea).toBeCloseTo(24 - 4, 6);
+    expect(r.totalKN).toBeCloseTo(3 * 20, 6);
+    // The right side (x = 8) is outside the zone: nothing reaches it.
+    expect(r.perBeam.get(2) ?? 0).toBeCloseTo(0, 9);
+  });
+
+  it('one way, a zone edge along the span is exact; across it the panel is reported', () => {
+    const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
+    const along = { outer: [[0, 0, 3], [8, 0, 3], [8, 2, 3], [0, 2, 3]] as Array<[number, number, number]> };
+    const r = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: along });
+    expect(r.totalKN).toBeCloseTo(16, 6);
+    const across = { outer: [[0, 0, 3], [3, 0, 3], [3, 6, 3], [0, 6, 3]] as Array<[number, number, number]> };
+    const r2 = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: across });
+    expect(r2.skipped.zoneAcrossSpan).toBe(1);
+    expect(r2.totalKN).toBe(0);
+  });
+
+  it('a suction lifts: the same pattern upward', () => {
+    const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 4], [0, 4]]), q: -2, distribution: 'twoWay' });
+    expect(r.totalKN).toBeCloseTo(-48, 6);
+    expect(r.loads.every((l) => l.qZI >= 0 && l.qZJ >= 0)).toBe(true);
+  });
+
+  it('an inclined floor: per true area, or per plan area', () => {
+    // A 6 × 4 m plan rising 3 m along y: the slope's true length is 5 m.
+    const nodes = new Map<number, { x: number; y: number; z: number }>([[1, { x: 0, y: 0, z: 0 }], [2, { x: 6, y: 0, z: 0 }], [3, { x: 6, y: 4, z: 3 }], [4, { x: 0, y: 4, z: 3 }]]);
+    const beams: FloorBeam[] = [1, 2, 3, 4].map((i) => ({ id: i, nodeI: i, nodeJ: (i % 4) + 1, type: 'frame', sectionId: 1 }));
+    const t = floorLoad({ nodes, beams, q: 1, distribution: 'twoWay' });
+    expect(t.loadedArea).toBeCloseTo(30, 6);
+    expect(t.totalKN).toBeCloseTo(30, 6);
+    expect(t.normal[2]).toBeCloseTo(0.8, 9);
+    const p = floorLoad({ nodes, beams, q: 1, distribution: 'twoWay', perPlanArea: true });
+    expect(p.totalKN).toBeCloseTo(24, 6);
+    // The load is vertical whatever the member: its global Z resultant is the total.
+    const l = t.loads.find((x) => x.elementId === 2)!;
+    expect(Math.hypot(l.qYI, l.qZI)).toBeCloseTo(Math.abs(l.qI), 9);
   });
 });

@@ -141,6 +141,18 @@ export interface SnowCasesInput {
   layout?: GravityLayout;
 }
 
+/** A roof panel's share past a side's end (a re-entrant corner), at its node, with the member's mean p. */
+function pointLoads(layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity): SnowCaseLoads['nodal'] {
+  const out: SnowCaseLoads['nodal'] = [];
+  for (const pt of layout.points) {
+    if (!pt.roof) continue;
+    const [pI, pJ] = ends(pOf(pt.elementId, { panel: pt.panel }));
+    const p = (pI + pJ) / 2;
+    if (p > 0) out.push({ nodeId: pt.nodeId, fx: 0, fy: 0, fz: -p * pt.w });
+  }
+  return out;
+}
+
 /** Loads of `p` (kN/m² on the horizontal projection) on the roof panels and roof width members. */
 function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity, tributaryWidth: number): SnowCaseLoads['distributed'] {
   const out: SnowCaseLoads['distributed'] = [];
@@ -178,7 +190,7 @@ export function snowLoadCases(input: SnowCasesInput): {
   const all = new Set(roof.map((r) => r.id));
   const layout = input.layout;
   const on = (pOf: (id: number, unit?: Unit) => Intensity): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
-    ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth), nodal: [] }
+    ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth), nodal: pointLoads(layout, pOf) }
     : projectionLoads(input.model, all, (id) => pOf(id), input.tributaryWidth));
   let derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
 

@@ -1,19 +1,24 @@
 <script lang="ts">
   import PickKind from './PickKind.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import ProLoadZones from './loads/ProLoadZones.svelte';
   /**
-   * A floor load: an area load on a level, a floor group or the selected beams, carried to the
-   * beams by tributary area (`engine/loads/floor-loads.ts`). The plan shows the panels found and
-   * which ones are loaded before anything is applied; applying adds ordinary member loads to the
-   * chosen case, as one undo step.
+   * A floor load, kept as its definition: an area load on a level, a group, the members picked, a
+   * box of coordinates or a zone, carried to the beams by tributary area (`floor-loads.ts`) or onto
+   * the slab's shells. The plan shows the panels before it is added; once added, its loads are
+   * rewritten whenever the model under it changes (`store/defined-loads.ts`), and it is listed
+   * below to change or remove.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { floorLoad, type FloorBeam } from '../../lib/engine/loads/floor-loads';
   import { sortedLevels } from '../../lib/model/grid';
-
-  type Target = { kind: 'level'; z: number } | { kind: 'group'; id: number } | { kind: 'selection' };
+  import { parseDecimal } from '../../lib/utils/numeric-input';
+  import { expandDefinition, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
+  import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
+  const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -29,14 +34,19 @@
   let targetKey = $state('');
   let q = $state(2);
   let caseId = $state<number | null>(null);
-  let distribution = $state<'twoWay' | 'oneWay'>('twoWay');
+  let distribution = $state<FloorLoadDef['distribution']>('twoWay');
   let spanAxis = $state<'x' | 'y'>('x');
+  let perPlanArea = $state(false);
+  let name = $state('');
+  let range = $state({ x0: '', x1: '', y0: '', y1: '', z0: '', z1: '' });
   let applied = $state<string | null>(null);
 
-  const targets = $derived<Array<{ key: string; label: string; target: Target }>>([
-    ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name, target: { kind: 'level' as const, z: l.z } })),
-    ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name, target: { kind: 'group' as const, id: g.id } })),
-    { key: 'sel', label: t('floorLoad.selection'), target: { kind: 'selection' as const } },
+  const targets = $derived<Array<{ key: string; label: string }>>([
+    ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name })),
+    ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name })),
+    ...zones.map((g) => ({ key: `zone:${g.id}`, label: `${t('loadZone.zone')} · ${g.name}` })),
+    { key: 'sel', label: t('floorLoad.selection') },
+    { key: 'range', label: t('floorLoad.range') },
   ]);
   $effect(() => {
     if (!targets.some((x) => x.key === targetKey)) targetKey = targets[0]?.key ?? 'sel';
@@ -44,35 +54,52 @@
     if (caseId === null || !cases.some((c) => c.id === caseId)) caseId = (cases.find((c) => c.type === 'L') ?? cases[0])?.id ?? null;
   });
 
-  const beams = $derived.by((): FloorBeam[] => {
-    const target = targets.find((x) => x.key === targetKey)?.target;
-    if (!target) return [];
-    let ids: number[];
-    if (target.kind === 'group') ids = modelStore.model.groups.get(target.id)?.members.elements ?? [];
-    else if (target.kind === 'selection') ids = [...uiStore.selectedElements];
-    else ids = [...modelStore.elements.values()].filter((e) => {
-      const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
-      return a && b && Math.abs((a.z ?? 0) - target.z) < 1e-3 && Math.abs((b.z ?? 0) - target.z) < 1e-3;
-    }).map((e) => e.id);
-    return ids.map((id) => modelStore.elements.get(id)).filter((e) => !!e).map((e) => ({
-      id: e!.id, nodeI: e!.nodeI, nodeJ: e!.nodeJ, type: e!.type, sectionId: e!.sectionId,
-      localYx: e!.localYx, localYy: e!.localYy, localYz: e!.localYz, rollAngle: e!.rollAngle,
-    }));
+  const pair = (a: string, b: string): [number, number] | undefined => {
+    const x = parseDecimal(a), y = parseDecimal(b);
+    return x !== null && y !== null ? [x, y] : undefined;
+  };
+  const target = $derived.by((): FloorTarget => {
+    if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
+    if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
+    if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
+    if (targetKey === 'range') {
+      const x = pair(range.x0, range.x1), y = pair(range.y0, range.y1), z = pair(range.z0, range.z1);
+      return { by: 'range', ...(x ? { x } : {}), ...(y ? { y } : {}), ...(z ? { z } : {}) };
+    }
+    return { by: 'own' };
   });
+  const own = $derived(targetKey === 'sel' ? {
+    elements: [...uiStore.selectedElements],
+    quads: [...uiStore.selectedShells].filter((k) => k[0] === 'q').map((k) => Number(k.slice(1))),
+    plates: [...uiStore.selectedShells].filter((k) => k[0] === 'p').map((k) => Number(k.slice(1))),
+  } : {});
+  const def = $derived<FloorLoadDef | null>(caseId === null ? null : {
+    caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
+  });
+  const preview = $derived(def && q !== 0
+    ? expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+    : null);
+  const result = $derived(preview?.result ?? null);
 
-  const result = $derived(beams.length > 0 && q > 0 ? floorLoad({
-    nodes: modelStore.nodes, beams, q, distribution, spanAxis,
-    sectionRotation: (id) => modelStore.sections.get(id)?.rotation ?? 0,
-    leftHand: uiStore.axisConvention3D === 'leftHand',
-  }) : null);
+  function add() {
+    if (!def || !preview || preview.loads.length === 0) return;
+    const label = name.trim() || tp('floorLoad.defaultName', { n: [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length + 1 });
+    addFloorLoadDef(label, def, own);
+    applied = tp('floorLoad.added', { name: label, n: preview.loads.length });
+    name = '';
+  }
 
-  function apply() {
-    if (!result || caseId === null || result.loads.length === 0) return;
-    const cid = caseId;
-    modelStore.batch(() => {
-      for (const l of result.loads) modelStore.addDistributedLoad3D(l.elementId, l.qYI, l.qYJ, l.qZI, l.qZJ, l.a, l.b, cid);
-    });
-    applied = tp('floorLoad.applied', { n: result.loads.length, total: result.totalKN.toFixed(1), case: modelStore.model.loadCases.find((c) => c.id === cid)?.name ?? '' });
+  // ── The definitions ──
+  const defs = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad'));
+  const expanded = $derived.by(() => { void modelStore.modelVersion; return new Map(expandDefinitions().map((e) => [e.defId, e])); });
+  const caseName = (id: number) => modelStore.model.loadCases.find((c) => c.id === id)?.name ?? '—';
+  function targetText(d: FloorLoadDef): string {
+    const tg = d.target;
+    if (tg.by === 'level') return `z = ${tg.z} m`;
+    if (tg.by === 'group') return modelStore.model.groups.get(tg.groupId)?.name ?? '—';
+    if (tg.by === 'zone') return `${t('loadZone.zone')} · ${modelStore.model.groups.get(tg.zoneId)?.name ?? '—'}`;
+    if (tg.by === 'range') return t('floorLoad.range');
+    return t('floorLoad.selection');
   }
 
   // ── Plan ──
@@ -98,8 +125,16 @@
       </select>
       {#if targetKey === 'sel'}<PickKind kind="elements" />{/if}
     </span>
+    {#if targetKey === 'range'}
+      <span class="fl-range-label">{t('floorLoad.rangeBox')}</span>
+      <span class="fl-range" data-testid="fl-range">
+        {#each ['x', 'y', 'z'] as a (a)}
+          <span>{a.toUpperCase()} <input type="text" class="fl-num" bind:value={range[`${a}0` as 'x0']} data-testid="fl-range-{a}0" /> … <input type="text" class="fl-num" bind:value={range[`${a}1` as 'x1']} data-testid="fl-range-{a}1" /> m</span>
+        {/each}
+      </span>
+    {/if}
     <label for="fl-q">{t('floorLoad.q')}</label>
-    <span><input id="fl-q" type="number" min="0" step="0.5" bind:value={q} data-testid="fl-q" /> kN/m²</span>
+    <QuantityInput bind:value={q} quantity="areaLoad" testid="fl-q" wrap="fl-unit" />
     <label for="fl-case">{t('floorLoad.case')}</label>
     <select id="fl-case" bind:value={caseId} data-testid="fl-case">
       {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
@@ -108,6 +143,7 @@
     <select id="fl-dist" bind:value={distribution} data-testid="fl-distribution">
       <option value="twoWay">{t('floorLoad.twoWay')}</option>
       <option value="oneWay">{t('floorLoad.oneWay')}</option>
+      <option value="slab">{t('floorLoad.slab')}</option>
     </select>
     {#if distribution === 'oneWay'}
       <label for="fl-span">{t('floorLoad.span')}</label>
@@ -116,7 +152,11 @@
         <option value="y">Y</option>
       </select>
     {/if}
+    <label for="fl-name">{t('floorLoad.name')}</label>
+    <input id="fl-name" type="text" bind:value={name} data-testid="fl-name" />
   </div>
+  <label class="fl-check"><input type="checkbox" bind:checked={perPlanArea} data-testid="fl-plan-area" /> {t('floorLoad.perPlanArea')}</label>
+  {#if q < 0}<p class="fl-hint">{t('floorLoad.suction')}</p>{/if}
 
   {#if result}
     {#if view}
@@ -134,18 +174,44 @@
     <p class="fl-summary" data-testid="fl-summary">
       {tp('floorLoad.summary', { panels: result.panels.filter((p) => p.loaded).length, area: result.loadedArea.toFixed(2), total: result.totalKN.toFixed(1), beams: result.perBeam.size })}
     </p>
-    {#if result.skipped.nonConvex}<p class="fl-warn">{tp('floorLoad.skip.nonConvex', { n: result.skipped.nonConvex })}</p>{/if}
-    {#if result.skipped.islands}<p class="fl-warn">{tp('floorLoad.skip.islands', { n: result.skipped.islands })}</p>{/if}
+    {#if result.normal[2] < 0.999999}<p class="fl-hint" data-testid="fl-inclined">{tp('floorLoad.inclined', { deg: (Math.acos(result.normal[2]) * 180 / Math.PI).toFixed(1) })}</p>{/if}
+    {#if result.skipped.zoneAcrossSpan}<p class="fl-warn">{tp('floorLoad.skip.zoneAcrossSpan', { n: result.skipped.zoneAcrossSpan })}</p>{/if}
+    {#if result.skipped.unresolved}<p class="fl-warn">{tp('floorLoad.skip.unresolved', { n: result.skipped.unresolved })}</p>{/if}
     {#if result.skipped.crossings}<p class="fl-warn">{tp('floorLoad.skip.crossings', { n: result.skipped.crossings })}</p>{/if}
     {#if result.skipped.open}<p class="fl-hint">{tp('floorLoad.skip.open', { n: result.skipped.open })}</p>{/if}
     {#if result.skipped.trusses}<p class="fl-hint">{tp('floorLoad.skip.trusses', { n: result.skipped.trusses })}</p>{/if}
     {#if result.skipped.otherLevel}<p class="fl-hint">{tp('floorLoad.skip.otherLevel', { n: result.skipped.otherLevel })}</p>{/if}
-  {:else}
-    <p class="fl-hint">{t('floorLoad.none')}</p>
+    {#if result.nodal.length}<p class="fl-hint">{tp('floorLoad.cornerLoads', { n: result.nodal.length })}</p>{/if}
+  {:else if preview && preview.loads.length}
+    <p class="fl-summary" data-testid="fl-summary">{tp('floorLoad.slabSummary', { n: preview.loads.length })}</p>
+  {:else if preview}
+    <p class="fl-hint">{t(preview.problem === 'noZone' ? 'floorLoad.noZone' : 'floorLoad.none')}</p>
   {/if}
 
-  <button class="pk-btn pk-btn-primary" disabled={!result || result.loads.length === 0 || caseId === null} onclick={apply} data-testid="fl-apply">{t('floorLoad.apply')}</button>
+  <button class="pk-btn pk-btn-primary" disabled={!preview || preview.loads.length === 0} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
   {#if applied}<p class="fl-hint" data-testid="fl-applied">{applied}</p>{/if}
+
+  {#if defs.length}
+    <div class="fl-title">{t('floorLoad.defined')}</div>
+    <table class="fl-table" data-testid="fl-defs">
+      <thead><tr><th>{t('floorLoad.name')}</th><th>{t('floorLoad.case')}</th><th>q ({unitQ('areaLoad')})</th><th>{t('floorLoad.target')}</th><th>{t('floorLoad.distribution')}</th><th>kN</th><th></th></tr></thead>
+      <tbody>
+        {#each defs as g (g.id)}
+          {@const d = g.data as unknown as FloorLoadDef}
+          {@const e = expanded.get(g.id)}
+          <tr data-testid="fl-def-row">
+            <td>{g.name}</td><td>{caseName(d.caseId)}</td><td class="fl-n">{fmtQ(d.q, 'areaLoad')}</td><td>{targetText(d)}</td>
+            <td>{t(d.distribution === 'slab' ? 'floorLoad.slab' : d.distribution === 'oneWay' ? 'floorLoad.oneWay' : 'floorLoad.twoWay')}</td>
+            <td class="fl-n">{e && Number.isFinite(e.totalKN) ? e.totalKN.toFixed(1) : '—'}{#if e?.problem} <span class="fl-warn-inline" title={t(`floorLoad.problem.${e.problem}`)}>!</span>{/if}</td>
+            <td><button class="pro-delete-btn" onclick={() => removeFloorLoadDef(g.id)} aria-label={t('loadTables.delete')} data-testid="fl-def-delete">×</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+    <p class="fl-hint">{t('floorLoad.definedHint')}</p>
+  {/if}
+
+  <ProLoadZones />
 </div>
 
 <style>
@@ -153,11 +219,20 @@
   .fl { display: flex; flex-direction: column; gap: 6px; font-size: 0.68rem; color: var(--st-text-2); }
   .fl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   .fl-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }
+  .fl-warn-inline { color: var(--st-warn); font-weight: 600; }
   .fl-summary { margin: 0; }
+  .fl-title { font-size: 0.66rem; font-weight: 600; color: var(--st-text); margin-top: 4px; }
   .fl-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; }
-  .fl-grid input[type='number'] { width: 70px; }
+  .fl-range { display: flex; flex-direction: column; gap: 2px; }
+  .fl-range-label { color: var(--st-text-3); }
+  .fl-num { width: 52px; }
+  .fl-check { display: inline-flex; align-items: center; gap: 5px; }
   .fl-plan { width: 100%; max-width: 320px; display: block; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .fl-panel { fill: color-mix(in srgb, var(--st-accent) 22%, transparent); stroke: var(--st-accent); stroke-width: 1.5; }
   .fl-panel-off { fill: url(#fl-hatch); stroke: var(--st-warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
   .fl-hatch-line { stroke: var(--st-warn); stroke-width: 1; opacity: 0.6; }
+  .fl-table { width: 100%; border-collapse: collapse; font-size: 0.64rem; }
+  .fl-table th { text-align: left; color: var(--st-text-3); font-weight: 600; padding: 2px 4px; border-bottom: 1px solid var(--st-hair); }
+  .fl-table td { padding: 2px 4px; border-bottom: 1px solid var(--st-surface-2); }
+  .fl-n { font-family: var(--st-mono); text-align: right; }
 </style>

@@ -801,7 +801,8 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
 
   // ── Wind (load-plan-wind.ts) ──
-  const nodal: PlannedNodal[] = [];
+  const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
+    ({ ...n, fx: 0, fy: 0, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) }));
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
   const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, levels, sink) : { windQh: undefined, windGust: undefined };
 

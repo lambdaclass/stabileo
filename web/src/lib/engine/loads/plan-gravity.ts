@@ -65,8 +65,12 @@ export interface GravityOptions {
  */
 export interface GravityPiece { elementId: number; a?: number; b?: number; wI: number; wJ: number; roof: boolean; panel: number }
 
+/** Area a panel brings to a node past the end of one of its sides (a re-entrant corner), m². */
+export interface GravityPoint { nodeId: number; w: number; elementId: number; roof: boolean; panel: number }
+
 export interface GravityLayout {
   pieces: GravityPiece[];
+  points: GravityPoint[];
   /** Area each member collects from floors, m². */
   areaOf: Map<number, number>;
   /** Area each member collects from roofs, m². A beam at a step has both. */
@@ -122,7 +126,7 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
-    pieces: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
+    pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
     roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], notes: [],
   };
   const width = (id: number, length: number, horizontalLength: number) => {
@@ -222,17 +226,17 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
-  let byWidth = 0, nonConvex = 0;
+  let byWidth = 0, unresolved = 0;
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const [z, { beams, res }] of levels) {
-    nonConvex += res.skipped.nonConvex;
+    unresolved += res.skipped.unresolved;
     /** Beams a loaded panel or a shell accounts for: never loaded by width as well. */
     const loaded = new Set<number>();
     for (const panel of res.panels) {
       if (!panel.loaded) continue;
-      const own = beams.filter((b) => onBoundary(model, b, panel.polygon));
+      const own = beams.filter((b) => panel.members?.includes(b.id) ?? onBoundary(model, b, panel.polygon));
       for (const b of own) loaded.add(b.id);
       if (underShells(panel.polygon, z)) continue;
       const one = floorLoad({ nodes: model.nodes, beams: own, q: 1, ...slab });
@@ -244,6 +248,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       out.panels.push({ polygon: panel.polygon, z, roof });
       for (const l of one.loads) {
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
+      }
+      for (const n of one.nodal) {
+        out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });
+        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
       }
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.loadedArea);
@@ -279,7 +287,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const sloped = out.widthMembers.length - byWidth;
     if (out.pieces.length > 0) out.notes.push(msg('loadPlan.gravity.panels', { members: new Set(out.pieces.map((p) => p.elementId)).size }));
     if (out.widthMembers.length > 0) out.notes.push(msg('loadPlan.gravity.width', { n: out.widthMembers.length, sloped, width: round(opts.tributaryWidth, 2) }));
-    if (nonConvex > 0) out.notes.push(msg('loadPlan.gravity.nonConvex', { n: nonConvex }));
+    if (unresolved > 0) out.notes.push(msg('loadPlan.gravity.nonConvex', { n: unresolved }));
   }
   return out;
 }

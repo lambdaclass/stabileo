@@ -679,6 +679,8 @@ export interface NodalLoad3D {
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
+  /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
+  fromDef?: number;
 }
 
 export interface DistributedLoad3D {
@@ -696,6 +698,8 @@ export interface DistributedLoad3D {
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
+  /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
+  fromDef?: number;
 }
 
 export interface PointLoadOnElement3D {
@@ -859,7 +863,14 @@ export type KnownGroupKind =
   /** Collinear, contiguous bars that are one member to the engineer. Rules pending. */
   | 'physicalMember'
   /** A level, for floor loads and for reporting. */
-  | 'floor';
+  | 'floor'
+  /**
+   * A region a load acts in: its outline the group's nodes, in order; members it leaves out its
+   * elements; its openings other zones (`data.openings`). `model/loads/floor-definitions.ts`.
+   */
+  | 'loadZone'
+  /** A floor load kept as its definition and expanded when solved (`data`: `FloorLoadDef`). */
+  | 'floorLoad';
 
 /** Entities by family. A group may hold more than one, as a floor must. */
 export interface GroupMembers {

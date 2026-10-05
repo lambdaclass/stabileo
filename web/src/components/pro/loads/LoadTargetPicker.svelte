@@ -41,7 +41,7 @@
   let sectionId = $state<number | null>(null);
   let kind = $state<'column' | 'beam' | 'inclined' | 'truss'>('beam');
 
-  const groups = $derived([...modelStore.model.groups.values()].filter((g) =>
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad' &&
     entity === 'nodes' ? (g.members.nodes?.length ?? 0) > 0 : entity === 'members' ? (g.members.elements?.length ?? 0) > 0 : (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
   const sections = $derived([...modelStore.sections.values()]);
 

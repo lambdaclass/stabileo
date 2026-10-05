@@ -26,7 +26,9 @@ export function addLoads(loads: readonly Load[]): number[] {
 export function copyLoadsToCase(ids: Iterable<number>, caseId: number, factor = 1): number[] {
   return addLoads(picked(ids).map((l) => {
     const c = scaledLoad(l, factor);
-    return { ...c, data: { ...c.data, caseId } } as Load;
+    // A copy is the user's own load: it no longer belongs to a definition or the generator.
+    const { fromDef: _d, generatedBy: _g, ...data } = c.data as typeof c.data & { fromDef?: number; generatedBy?: string };
+    return { ...c, data: { ...data, caseId } } as Load;
   }));
 }
 
