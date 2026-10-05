@@ -12,9 +12,13 @@
  * ── γ on a monoslope free roof ────────────────────────────────────
  *
  * Figura 2.4-4 gives γ = 0° and γ = 180° without saying, in the text, which way each blows. The
- * coefficients say it: at γ = 0° the net pressures are suctions (the wind enters under the roof
- * by its low edge and lifts it), at γ = 180° pressures (the wind meets the top surface tilted
- * toward it). So γ = 0° is the wind blowing from the low edge toward the high one.
+ * coefficients say it, read with note 4 (positive toward the top surface): at γ = 180° the net
+ * pressures push on the top surface, which is what a plate does when its top faces the wind —
+ * the wind blowing from the low edge toward the high one, up the slope. At γ = 0° they are
+ * suctions on the top: the wind comes over the high edge, the top surface faces away from it and
+ * the flow separates over it. So γ = 180° is the wind from the low edge, γ = 0° from the high one.
+ * (This used to be the other way round, which loaded a roof hit on its top face with the suction
+ * of the sheltered case and sent its net horizontal force upwind.)
  *
  * Pure: no store.
  */
@@ -71,15 +75,15 @@ function interpRows<T>(rows: ReadonlyArray<{ theta: number } & T>, theta: number
 /**
  * Figuras 2.4-4 to 2.4-6, wind across the ridge: CNW and CNL on the windward and leeward halves,
  * positive toward the top surface (note 4). `upslope`: on a monoslope, the wind blowing from the
- * low edge (γ = 0°, see the header). Below 7,5° the pitched and troughed roofs take the
- * monoslope's coefficients, which below 7,5° are those of 0° (notes 3).
+ * low edge up the slope (γ = 180°, see the header). Below 7,5° the pitched and troughed roofs take
+ * the monoslope's coefficients, which below 7,5° are those of 0° (notes 3).
  */
 export function freeRoofCn(kind: FreeRoofKind, thetaDeg: number, c: LoadCaseAB, blocked: boolean, upslope = true): { cnw: number; cnl: number } {
   const k = c === 'A' ? 0 : 1;
   let row: Row;
   if (kind === 'monoslope' || thetaDeg < 7.5) {
     const th = thetaDeg < 7.5 ? 0 : thetaDeg;
-    row = interpRows(MONO, th, (r) => (upslope ? r.g0 : r.g180)[k]!);
+    row = interpRows(MONO, th, (r) => (upslope ? r.g180 : r.g0)[k]!);
   } else {
     row = interpRows(kind === 'pitched' ? PITCHED : TROUGHED, thetaDeg, (r) => r.ab[k]!);
   }

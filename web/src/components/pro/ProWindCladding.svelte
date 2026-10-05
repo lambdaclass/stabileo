@@ -2,7 +2,7 @@
   /**
    * The components and cladding pressures of CIRSOC 102 Cap. 5 for a building
    * (`codes/cirsoc102/cladding.ts`), as a table for the elements' own design: Parte 1 up to 20 m,
-   * Parte 2 above, by the roof's kind, with the parapet and the element's height Parte 2 reads.
+   * Parte 2 above, by the roof's kind, with the parapet both read and the element's height Parte 2 reads.
    */
   import { t, tp } from '../../lib/i18n';
   import { claddingPressures, type CladdingRoof } from '../../lib/codes/cirsoc102/cladding';
@@ -61,11 +61,10 @@
         </label>
       {/if}
     </div>
-    {#if height > 20}
-      <label class="al-check"><input type="checkbox" bind:checked={parapet} data-testid="al-cladding-parapet" /> {t('wind.cladding.parapet')}</label>
-      {#if cladding.r.lowRiseAllowed}
-        <label class="al-check"><input type="checkbox" bind:checked={lowRise} data-testid="al-cladding-lowrise" /> {t('wind.cladding.lowRise')}</label>
-      {/if}
+    <!-- Parte 1 reads the parapet too (Fig. 5.3-2A, note 5), with or without the low-rise option. -->
+    <label class="al-check"><input type="checkbox" bind:checked={parapet} data-testid="al-cladding-parapet" /> {t(cladding.r.part === 1 ? 'wind.cladding.parapetLow' : 'wind.cladding.parapet')}</label>
+    {#if height > 20 && cladding.r.lowRiseAllowed}
+      <label class="al-check"><input type="checkbox" bind:checked={lowRise} data-testid="al-cladding-lowrise" /> {t('wind.cladding.lowRise')}</label>
     {/if}
     {#if cladding.r.refused}
       <p class="al-warn" data-testid="al-cladding-refused">{t(`wind.cladding.refused.${cladding.r.refused}`)}</p>

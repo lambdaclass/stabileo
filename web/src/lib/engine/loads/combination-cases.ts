@@ -29,6 +29,13 @@
  * multiplying their arrangements: 1,2 D + 1,6 L + 0,5 Lr arranges L, 1,2 D + 1,6 Lr + L
  * arranges Lr. `patternsInCompanions` arranges every term instead.
  *
+ * A rule can tie: the service D + L + Lr, or 1,2 D + 1,0 W + f1 L + 0,5 Lr with f1 = 1,0. Its
+ * principal is then any of the tied actions, and the rule is expanded once for each tied action
+ * that has arrangements, that one varying and the others whole, as if each were the principal in
+ * turn; the combinations two choices share (every action whole) are kept once. Varying every tied
+ * action together multiplied their arrangements, which no reading of the rule asks for, and
+ * picking one of them would leave out the arrangements of the other.
+ *
  * ── Both senses ──────────────────────────────────────────────────
  *
  * Wind and earthquake act either way along a direction, and a case holds one of the two. With
@@ -111,39 +118,53 @@ export function expandCombinations(
      * and adding them was snow three times over. A second directional symbol in the same rule
      * is taken one case at a time too; it used to sum every direction of it.
      */
-    const slots: Array<{ factor: number; picks: Pick[] }> = [];
     const principal = Math.max(0, ...terms.filter((t) => VARIABLE.has(t.symbol)).map((t) => Math.abs(t.factor)));
-    for (const t of terms) {
-      const all = bySymbol.get(t.symbol)!;
-      if (ALTERNATIVE.has(t.symbol)) {
-        const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
-        const sensesOf = (c: Case): Array<1 | -1> =>
-          reverse && (t.symbol !== 'W' || !opts.reversible || opts.reversible(c.id)) ? [1, -1] : [1];
-        const named = all.length > 1 || all.some((c) => sensesOf(c).length > 1);
-        slots.push({ factor: t.factor, picks: all.flatMap((c) => sensesOf(c).map((sense) => ({
-          cases: [c], sense, label: named ? `${sensesOf(c).length > 1 ? (sense > 0 ? '+' : '−') : ''}${c.name}` : '',
-        }))) });
-        continue;
+    const arranged = (t: (typeof terms)[number]) => !ALTERNATIVE.has(t.symbol) && bySymbol.get(t.symbol)!.some((c) => c.pattern);
+    // The terms that may be the principal one and have arrangements to vary (see the header).
+    const tied = terms.flatMap((t, i) => (VARIABLE.has(t.symbol) && Math.abs(t.factor) >= principal - 1e-9 && arranged(t) ? [i] : []));
+    /** The slots of the rule with the patterned term `varying` the principal (null: none varies). */
+    const slotsFor = (varying: number | null) => {
+      const slots: Array<{ factor: number; picks: Pick[] }> = [];
+      terms.forEach((t, i) => {
+        const all = bySymbol.get(t.symbol)!;
+        if (ALTERNATIVE.has(t.symbol)) {
+          const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
+          const sensesOf = (c: Case): Array<1 | -1> =>
+            reverse && (t.symbol !== 'W' || !opts.reversible || opts.reversible(c.id)) ? [1, -1] : [1];
+          const named = all.length > 1 || all.some((c) => sensesOf(c).length > 1);
+          slots.push({ factor: t.factor, picks: all.flatMap((c) => sensesOf(c).map((sense) => ({
+            cases: [c], sense, label: named ? `${sensesOf(c).length > 1 ? (sense > 0 ? '+' : '−') : ''}${c.name}` : '',
+          }))) });
+          return;
+        }
+        const plain = all.filter((c) => !c.alternatives);
+        if (plain.length > 0) slots.push({ factor: t.factor, picks: [{ cases: plain, sense: 1, label: '' }] });
+        const groups = new Map<string, Case[]>();
+        for (const c of all) if (c.alternatives) groups.set(c.alternatives, [...(groups.get(c.alternatives) ?? []), c]);
+        const companion = !opts.patternsInCompanions && i !== varying;
+        for (const g0 of groups.values()) {
+          // A companion takes its action whole: the group's cases that are no pattern.
+          const whole = g0.filter((c) => !c.pattern);
+          const g = companion && whole.length > 0 ? whole : g0;
+          slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 ? c.name : '' })) });
+        }
+      });
+      return slots;
+    };
+    const seen = new Set<string>();
+    for (const varying of opts.patternsInCompanions || tied.length === 0 ? [null] : tied) {
+      const slots = slotsFor(varying);
+      let combos: Pick[][] = [[]];
+      for (const slot of slots) combos = combos.flatMap((chosen) => slot.picks.map((p) => [...chosen, p]));
+      for (const chosen of combos) {
+        const factors: CaseCombination['factors'] = [];
+        chosen.forEach((p, i) => { for (const c of p.cases) factors.push({ caseId: c.id, factor: p.sense * slots[i]!.factor }); });
+        const key = factors.map((f) => `${f.caseId}:${f.factor}`).sort().join(' ');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
+        out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
       }
-      const plain = all.filter((c) => !c.alternatives);
-      if (plain.length > 0) slots.push({ factor: t.factor, picks: [{ cases: plain, sense: 1, label: '' }] });
-      const groups = new Map<string, Case[]>();
-      for (const c of all) if (c.alternatives) groups.set(c.alternatives, [...(groups.get(c.alternatives) ?? []), c]);
-      const companion = !opts.patternsInCompanions && Math.abs(t.factor) < principal - 1e-9;
-      for (const g0 of groups.values()) {
-        // A companion takes its action whole: the group's cases that are no pattern.
-        const whole = g0.filter((c) => !c.pattern);
-        const g = companion && whole.length > 0 ? whole : g0;
-        slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 ? c.name : '' })) });
-      }
-    }
-    let combos: Pick[][] = [[]];
-    for (const slot of slots) combos = combos.flatMap((chosen) => slot.picks.map((p) => [...chosen, p]));
-    for (const chosen of combos) {
-      const factors: CaseCombination['factors'] = [];
-      chosen.forEach((p, i) => { for (const c of p.cases) factors.push({ caseId: c.id, factor: p.sense * slots[i]!.factor }); });
-      const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
-      out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
     }
   }
   return out;

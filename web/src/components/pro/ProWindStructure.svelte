@@ -10,10 +10,13 @@
     members: 'flat' | 'roundSmall' | 'roundLarge';
     clearance: number;
     chimney: 'squareNormal' | 'squareDiagonal' | 'hexOct' | 'roundSmooth' | 'roundRough' | 'roundVeryRough';
+    /** A lattice's face width and a chimney's D, m, for a stick model whose levels span none; 0: from the nodes. */
+    width: number;
+    diameter: number;
   }
   export const defaultWindStructure = (): WindStructureConfig => ({
     kind: 'building', roof: 'pitched', blocked: false, towerSection: 'square', round: false, solidity: 0.2,
-    diagonal: true, members: 'flat', clearance: 2, chimney: 'roundRough',
+    diagonal: true, members: 'flat', clearance: 2, chimney: 'roundRough', width: 0, diameter: 0,
   });
 </script>
 
@@ -65,17 +68,25 @@
           </select>
         </label>
       {/if}
+      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.width')}</span>
+        <span class="al-unit-field"><input type="number" min="0" step="0.1" bind:value={config.width} placeholder={t('wind.other.fromModel')} data-testid="al-wind-width" /><span>m</span></span>
+      </label>
     </div>
   {:else if config.kind === 'solidSign'}
     <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.clearance')}</span>
       <span class="al-unit-field"><input type="number" min="0" step="0.5" bind:value={config.clearance} data-testid="al-wind-clearance" /><span>m</span></span>
     </label>
   {:else if config.kind === 'chimney'}
-    <label class="al-field"><span class="al-label">{t('wind.other.section')}</span>
-      <select bind:value={config.chimney}>
-        {#each ['squareNormal', 'squareDiagonal', 'hexOct', 'roundSmooth', 'roundRough', 'roundVeryRough'] as k (k)}<option value={k}>{t(`wind.other.chimney.${k}`)}</option>{/each}
-      </select>
-    </label>
+    <div class="al-row">
+      <label class="al-field"><span class="al-label">{t('wind.other.section')}</span>
+        <select bind:value={config.chimney}>
+          {#each ['squareNormal', 'squareDiagonal', 'hexOct', 'roundSmooth', 'roundRough', 'roundVeryRough'] as k (k)}<option value={k}>{t(`wind.other.chimney.${k}`)}</option>{/each}
+        </select>
+      </label>
+      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.diameter')}</span>
+        <span class="al-unit-field"><input type="number" min="0" step="0.1" bind:value={config.diameter} placeholder={t('wind.other.fromModel')} data-testid="al-wind-diameter" /><span>m</span></span>
+      </label>
+    </div>
   {/if}
   {#if config.kind !== 'building'}<p class="al-hint">{t(`wind.other.hint.${config.kind}`)}</p>{/if}
 

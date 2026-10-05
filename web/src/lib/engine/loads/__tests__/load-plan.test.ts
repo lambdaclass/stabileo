@@ -775,3 +775,60 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
     for (const n of own) expect(n.fx).toBeCloseTo(n.fy, 9);
   });
 });
+
+// ─── T in both senses, and Kd of a chimney ───────────────────────
+
+describe('T in both senses (CIRSOC 101 §2.3.4)', () => {
+  it('ΔT and its reverse are two cases of one action, each combination with T made with each', () => {
+    const p = buildLoadPlan(input({ thermal: { dtUniform: 20, dtGradient: 5 } }));
+    const t = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'T');
+    expect(t.map(({ c }) => c.nameKey)).toEqual(['autoLoad.thermalCase', 'autoLoad.thermalCaseReversed']);
+    expect(t.every(({ c }) => c.alternatives === 'thermal-senses')).toBe(true);
+    const [heat, cool] = t.map(({ i }) => i);
+    const on = (k: number) => p.thermal.filter((x) => x.caseIndex === k);
+    expect(on(heat!).every((x) => x.dtUniform === 20)).toBe(true);
+    expect(on(cool!).every((x) => x.dtUniform === -20 && (x.dtGradient === -5 || x.dtGradient === 0))).toBe(true);
+    expect(on(heat!).length).toBe(on(cool!).length);
+    // Every T rule appears once per sense, never with both senses together.
+    const cases = p.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), alternatives: c.alternatives, pattern: c.pattern }));
+    const withT = expandCombinations(p.combinations.filter((s) => s.terms.some((x) => x.symbol === 'T')), cases);
+    const rules = new Set(withT.map((c) => c.specId));
+    for (const r of rules) {
+      const of = withT.filter((c) => c.specId === r);
+      expect(of.some((c) => c.factors.some((f) => f.caseId === heat! + 1))).toBe(true);
+      expect(of.some((c) => c.factors.some((f) => f.caseId === cool! + 1))).toBe(true);
+      for (const c of of) expect(c.factors.filter((f) => f.caseId === heat! + 1 || f.caseId === cool! + 1)).toHaveLength(1);
+    }
+  });
+
+  it("the user's own T case stays out of the group, so its loads are in the reversed-sense combinations too", () => {
+    const m = frame();
+    m.loadCases.push({ id: 7, type: 'T', name: 'Mine' });
+    const p = buildLoadPlan(input({ model: m, thermal: { dtUniform: 20, dtGradient: 0 } }));
+    const t = p.cases.filter((c) => c.type === 'T');
+    expect(t.map((c) => c.existingId)).toEqual([null, null]);
+    // Expanded over the model's cases, as applied: the user's case, plain, enters every T combination.
+    const planned = p.cases.map((c, i) => ({ id: 100 + i, type: c.type, name: String(i), alternatives: c.alternatives, pattern: c.pattern }));
+    const reversed = 100 + p.cases.findIndex((c) => c.nameKey === 'autoLoad.thermalCaseReversed');
+    const combos = expandCombinations(p.combinations, [...planned, { id: 7, type: 'T', name: 'Mine' }]);
+    const rev = combos.filter((c) => c.factors.some((f) => f.caseId === reversed));
+    expect(rev.length).toBeGreaterThan(0);
+    for (const c of rev) expect(c.factors.some((f) => f.caseId === 7 && f.factor > 0)).toBe(true);
+    // A second apply reuses the generated cases, now of the group, and still not the user's.
+    m.loadCases.push({ id: 8, type: 'T', name: 'T+', alternatives: 'thermal-senses' }, { id: 9, type: 'T', name: 'T−', alternatives: 'thermal-senses' });
+    expect(buildLoadPlan(input({ model: m, thermal: { dtUniform: 20, dtGradient: 0 } })).cases.filter((c) => c.type === 'T').map((c) => c.existingId)).toEqual([8, 9]);
+  });
+});
+
+describe('Kd of a chimney (CIRSOC 102 Tabla 1.6-1)', () => {
+  it('Figura 4.5-1 has one row for hexagonal and octagonal: Kd 1,00, the octagon\'s, never 0,95', () => {
+    const qh = (section: 'hexOct' | 'roundRough' | 'squareNormal') => buildLoadPlan(input({
+      wind: {
+        enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true,
+        roofSlopeDeg: 0, rigid: true, directions: { x: true, y: false }, structure: { kind: 'chimney', section },
+      },
+    })).factors.windQh!.value;
+    expect(qh('hexOct')).toBeCloseTo(qh('roundRough'), 9);   // round: 1,00
+    expect(qh('squareNormal') / qh('hexOct')).toBeCloseTo(0.9, 9);
+  });
+});

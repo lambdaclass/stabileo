@@ -17,6 +17,11 @@
  *   hip roofs: 7° < θ ≤ 20° (5.3-2E), 20° < θ ≤ 27° (5.3-2F), and 45° (5.3-2G, which its commentary
  *   gives for that slope only); flatter ones as Fig. 5.3-2A.
  *
+ * A parapet of 1 m or more around a roof of Fig. 5.3-2A (note 5): zone 3 takes zone 2's negative
+ * (GCp), and zones 2 and 3 the positive (GCp) of wall zones 4 and 5 (Fig. 5.3-1, as printed: the
+ * 10 % reduction of its note 5 is for the walls). Monoslope and sawtooth roofs below their first
+ * slope take Fig. 5.3-2A, and its note with it.
+ *
  * Monoslope roofs (Figs. 5.3-5A, 3° < θ ≤ 10°, zones 1, 2, 2', 3, 3', and 5.3-5B, 10° < θ ≤ 30°,
  * zones 1, 2, 3) and sawtooth roofs (Fig. 5.3-6, 10° < θ ≤ 45°, zones 1, 2 and 3, the last
  * different on the first span, A, and the others, B to D) have no equations in the commentary:
@@ -147,7 +152,7 @@ export interface CladdingInputs {
   roofSlopeDeg: number;
   /** Absent: a gable roof. */
   roof?: CladdingRoof;
-  /** A parapet of 1 m or more around the roof (Fig. 5.4-1, note 7). */
+  /** A parapet of 1 m or more around the roof (Fig. 5.3-2A, note 5; Fig. 5.4-1, note 7). */
   parapet?: boolean;
   /** Above 20 m, take Parte 1 where §5.4 allows it (h < 30 m and h no more than the least dimension). */
   lowRise?: boolean;
@@ -194,6 +199,9 @@ export function claddingPressures(i: CladdingInputs): CladdingResult {
     if (i.roofSlopeDeg <= 7 && d > 90) a = Math.min(a, 0.8 * h);
     walls = WALLS;
     wallFactor = i.roofSlopeDeg <= 10 ? 0.9 : 1;
+    if (roof === FLAT && i.parapet) {
+      roof = { ...FLAT, pos: { ...FLAT.pos, '2': WALLS.pos['4'], '3': WALLS.pos['5'] }, neg: { ...FLAT.neg, '3': FLAT.neg['2'] } };
+    }
   } else {
     if (kind === 'sawtooth' && i.roofSlopeDeg > 10) return { ...base, refused: 'kind' };
     roof = i.roofSlopeDeg <= 7 ? ROOF_HIGH : kind === 'sawtooth' ? null : roofSet(kind, i.roofSlopeDeg);
@@ -220,5 +228,6 @@ export function claddingPressures(i: CladdingInputs): CladdingResult {
     ...roof.zones.map((z) => row('roof', roof!, z, 1)),
   ];
   // Figura 5.3-2A draws its zones without stating a.
-  return { ...base, aWalls: a, aRoof: part === 1 && roof === FLAT ? null : a, rows };
+  const flat = part === 1 && (roof === FLAT || roofSet(kind, i.roofSlopeDeg) === FLAT);
+  return { ...base, aWalls: a, aRoof: flat ? null : a, rows };
 }

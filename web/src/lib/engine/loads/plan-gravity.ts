@@ -11,15 +11,27 @@
  *
  * ── Slabs drawn as shells ─────────────────────────────────────────
  *
- * A level whose floor is drawn with horizontal quads already carries its load in the slab: the
- * quads take the area load as a surface load and the beams of that level take nothing from the
- * panels, or the floor would be loaded twice.
+ * A floor or roof drawn with quads already carries its load in the shells: the quads take the
+ * area load as a surface load, and what lies under them takes nothing, or the area would be
+ * loaded twice. Under them means a panel whose centre the shells springing from its level cover
+ * in plan (a slab at the level, or a sloped roof starting from it: the ring of beams at the eaves
+ * closes the roof's own plan), the beams around such a panel, and a member lying in a shell's
+ * surface (a rafter, a ridge). The rest of the level is loaded through its beams as any other:
+ * a slab over one bay does not unload the bay beside it.
+ *
+ * A sloped quad is loaded like a sloped member: the dead load per square metre of its surface,
+ * the live loads per square metre of its plan projection (`cos` below), both along global −Z, as
+ * `SurfaceLoad3D` applies them. A quad steeper than a member may be (`beamLike`) is a wall and
+ * takes no area load; one between that and vertical is named in the derivation, in case it is a
+ * steep roof.
  *
  * ── The tributary width, as a fallback ────────────────────────────
  *
  * What bounds no panel (a cantilever, a beam that stops in the air, a sloped roof member, a plane
  * frame) is loaded with the tributary width given, as the plan always did, and counted, so the
- * derivation says how many members were loaded that way.
+ * derivation says how many members were loaded that way. A beam on the boundary of a loaded panel
+ * never is, even when the panel gives it nothing: on a one-way slab the beams parallel to the
+ * span carry no slab, and the width would load the panel twice.
  *
  * ── Roofs ─────────────────────────────────────────────────────────
  *
@@ -61,8 +73,12 @@ export interface GravityLayout {
   roofAreaOf: Map<number, number>;
   /** Members loaded with the tributary width, and whether each is sloped (its load is per projection). */
   widthMembers: Array<{ elementId: number; length: number; horizontalLength: number }>;
-  /** Horizontal quads that take the area load themselves, with their plan area, m². */
-  shellQuads: Array<{ quadId: number; area: number; z: number }>;
+  /**
+   * Quads that take the area load themselves: their plan area, m², their mean height, and `cos`,
+   * plan area over surface area (1 when horizontal), which turns a load per plan m² into one per
+   * m² of shell.
+   */
+  shellQuads: Array<{ quadId: number; area: number; z: number; cos: number }>;
   /** Loaded plan area per level elevation (rounded to the millimetre), m². */
   areaByLevel: Map<number, number>;
   /** Members that carry roof: a roof panel, or (loaded by width) nothing higher over them. */
@@ -120,18 +136,46 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (a && b && beamLike(model, e).ok) out.zOf.set(e.id, ((a.z ?? 0) + (b.z ?? 0)) / 2);
   }
 
-  // Horizontal quads, by level.
+  // The quads that carry an area load: horizontal ones by level, and sloped ones no steeper than
+  // a member that carries one (`beamLike`). Each with what it covers in plan, from the level it
+  // springs from.
   const quadsAt = new Map<number, Array<{ quadId: number; area: number }>>();
+  const slopedQuads: Array<{ quadId: number; area: number; z: number; cos: number }> = [];
+  const carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]> }> = [];
+  const steep: number[] = [];
   for (const q of model.quads?.values() ?? []) {
     const pts = q.nodes.map((id) => model.nodes.get(id));
     if (pts.some((p) => !p)) continue;
-    const zs = pts.map((p) => p!.z ?? 0);
-    if (Math.max(...zs) - Math.min(...zs) > TOL) continue;
-    const key = levelKey(zs[0]!);
-    const list = quadsAt.get(key) ?? [];
-    list.push({ quadId: q.id, area: planArea(pts as Array<{ x: number; y: number }>) });
-    quadsAt.set(key, list);
+    const xyz = pts.map((p) => [p!.x, p!.y, p!.z ?? 0] as [number, number, number]);
+    const zs = xyz.map((p) => p[2]);
+    const plan = planArea(pts as Array<{ x: number; y: number }>);
+    const poly = xyz.map((p) => [p[0], p[1]] as [number, number]);
+    if (Math.max(...zs) - Math.min(...zs) <= TOL) {
+      const key = levelKey(zs[0]!);
+      const list = quadsAt.get(key) ?? [];
+      list.push({ quadId: q.id, area: plan });
+      quadsAt.set(key, list);
+      carriers.push({ z0: key, poly, pts: xyz });
+      continue;
+    }
+    const surface = surfaceArea(xyz);
+    const cos = surface > 0 ? plan / surface : 0;
+    // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
+    if (cos >= Math.sqrt(0.75) - 1e-9) {
+      slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
+      carriers.push({ z0: levelKey(Math.min(...zs)), poly, pts: xyz });
+    } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
+  /** A point lies in a carrying shell's surface: inside its plan and at its height there. */
+  const inShell = (p: [number, number, number]) => opts.mode === 'panels'
+    && carriers.some((c) => inside([p[0], p[1]], c.poly) && Math.abs(heightIn(c.pts, p) - p[2]) <= 0.05);
+  /** A panel of level `z` the shells springing from that level cover. */
+  const underShells = (poly: Array<[number, number]>, z: number) => opts.mode === 'panels'
+    && carriers.some((c) => Math.abs(c.z0 - z) <= TOL && inside(centroid(poly), c.poly));
+  const midpoint = (e: { nodeI: number; nodeJ: number }): [number, number, number] => {
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    return [(a.x + b.x) / 2, (a.y + b.y) / 2, ((a.z ?? 0) + (b.z ?? 0)) / 2];
+  };
 
   // Horizontal members, by level; the rest that can carry a load go by width.
   const beamsAt = new Map<number, FloorBeam[]>();
@@ -141,8 +185,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const b = beamLike(model, e);
     if (!b.ok) continue;
     const horizontal = Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) <= TOL;
-    // By width every member takes the width; its floor's panels still say what it covers.
-    if (opts.mode === 'width' || !horizontal) width(e.id, b.length, b.horizontalLength);
+    // By width every member takes the width; its floor's panels still say what it covers. A
+    // sloped member in a shell's surface is a rafter under the roof the shell carries.
+    if (opts.mode === 'width' || (!horizontal && !inShell(midpoint(e)))) width(e.id, b.length, b.horizontalLength);
     if (!horizontal) continue;
     const key = levelKey(nI.z ?? 0);
     const list = beamsAt.get(key) ?? [];
@@ -155,7 +200,6 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
   for (const [z, beams] of beamsAt) {
-    if (quadsAt.has(z)) continue;
     const res = floorLoad({ nodes: model.nodes, beams, q: 1, ...slab });
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
@@ -165,11 +209,16 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
-      out.shellQuads.push(...quads.map((q) => ({ ...q, z })));
+      out.shellQuads.push(...quads.map((q) => ({ ...q, z, cos: 1 })));
       const area = quads.reduce((s, q) => s + q.area, 0);
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + area);
       out.notes.push(msg('loadPlan.gravity.shellLevel', { z: round(z, 2), n: quads.length, area: round(area, 1) }));
     }
+    if (slopedQuads.length > 0) {
+      out.shellQuads.push(...slopedQuads);
+      out.notes.push(msg('loadPlan.gravity.slopedShells', { n: slopedQuads.length, area: round(slopedQuads.reduce((s, q) => s + q.area, 0), 1) }));
+    }
+    if (steep.length > 0) out.notes.push(msg('loadPlan.gravity.steepShells', { n: steep.length, ids: steep.slice(0, 10).join(', ') + (steep.length > 10 ? '…' : '') }));
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
@@ -179,10 +228,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const [z, { beams, res }] of levels) {
     nonConvex += res.skipped.nonConvex;
+    /** Beams a loaded panel or a shell accounts for: never loaded by width as well. */
     const loaded = new Set<number>();
     for (const panel of res.panels) {
       if (!panel.loaded) continue;
       const own = beams.filter((b) => onBoundary(model, b, panel.polygon));
+      for (const b of own) loaded.add(b.id);
+      if (underShells(panel.polygon, z)) continue;
       const one = floorLoad({ nodes: model.nodes, beams: own, q: 1, ...slab });
       const c = centroid(panel.polygon);
       const roof = !covered(c, z);
@@ -192,13 +244,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       out.panels.push({ polygon: panel.polygon, z, roof });
       for (const l of one.loads) {
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
-        loaded.add(l.elementId);
       }
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.loadedArea);
     }
     for (const b of beams) {
-      if (loaded.has(b.id)) continue;
+      if (loaded.has(b.id) || inShell(midpoint(b))) continue;
       const g = beamLike(model, b);
       width(b.id, g.length, g.horizontalLength);
       byWidth++;
@@ -231,6 +282,33 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (nonConvex > 0) out.notes.push(msg('loadPlan.gravity.nonConvex', { n: nonConvex }));
   }
   return out;
+}
+
+/** A quad's surface area, m²: its two triangles, as `quadCornerShares` integrates a flat one. */
+function surfaceArea(p: Array<[number, number, number]>): number {
+  const tri = (a: number[], b: number[], c: number[]) => {
+    const u = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!], v = [c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
+    return Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  };
+  let s = 0;
+  for (let i = 1; i + 1 < p.length; i++) s += tri(p[0]!, p[i]!, p[i + 1]!);
+  return s;
+}
+
+/** The height of a quad over a plan point, from the triangle of its fan the point falls in. */
+function heightIn(p: Array<[number, number, number]>, pt: [number, number, number]): number {
+  let best = Infinity, z = NaN;
+  for (let i = 1; i + 1 < p.length; i++) {
+    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
+    const det = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+    if (Math.abs(det) < 1e-12) continue;
+    const u = ((pt[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (pt[1] - a[1])) / det;
+    const v = ((b[0] - a[0]) * (pt[1] - a[1]) - (pt[0] - a[0]) * (b[1] - a[1])) / det;
+    // How far outside the triangle the point is; the nearest triangle wins on a shared edge.
+    const out = Math.max(0, -u, -v, u + v - 1);
+    if (out < best) { best = out; z = a[2] + u * (b[2] - a[2]) + v * (c[2] - a[2]); }
+  }
+  return z;
 }
 
 function centroid(poly: Array<[number, number]>): [number, number] {

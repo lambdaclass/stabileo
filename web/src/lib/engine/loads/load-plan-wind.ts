@@ -122,9 +122,11 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     const other = input.wind.structure && input.wind.structure.kind !== 'building' ? input.wind.structure : null;
     if (other) {
       // Not a closed building: the coefficients of §2.4.3, §4.4 or §4.5 (`wind-other.ts`).
+      // Tabla 1.6-1: hexagonal 0,95, octagonal 1,00. Figura 4.5-1 has one row for both, so the
+      // section does not say which: the larger Kd, the octagon's, is the one never short.
       const kd: WindProject['structureKind'] = other.kind === 'latticeTower' ? 'latticeTowerTriangularOrRect'
         : other.kind === 'openSign' ? 'openSign' : other.kind === 'solidSign' ? 'solidSign'
-        : other.kind === 'chimney' ? (other.section.startsWith('round') ? 'chimneyRound' : other.section === 'hexOct' ? 'chimneyHexagonal' : 'chimneySquare') : 'building';
+        : other.kind === 'chimney' ? (other.section.startsWith('round') ? 'chimneyRound' : other.section === 'hexOct' ? 'chimneyOctagonal' : 'chimneySquare') : 'building';
       const project: WindProject = {
         basicSpeed: input.wind.basicSpeed, exposure: input.wind.exposure, siteAltitudeM: input.wind.siteAltitudeM,
         kzt: input.wind.kzt, kztSurveyed: input.wind.kztSurveyed, structureKind: kd, enclosure: 'open',

@@ -59,11 +59,36 @@ describe('CIRSOC 102 Cap. 5, components and cladding', () => {
   });
 });
 
+describe('CIRSOC 102 Fig. 5.3-2A note 5: a parapet of 1 m or more, h ≤ 20 m', () => {
+  const at = (r: ReturnType<typeof claddingPressures>, surface: 'wall' | 'roof', zone: string) => r.rows.find((x) => x.surface === surface && x.zone === zone)!;
+  for (const [what, extra] of [['h ≤ 20 m', { meanRoofHeight: 8 }], ['the low-rise option above 20 m', { meanRoofHeight: 25, lowRise: true }]] as const) {
+    it(`${what}: zone 3 negative as zone 2, zones 2 and 3 positive as wall zones 4 and 5`, () => {
+      const i = { qhNm2: 1000, leastDimension: 30, roofSlopeDeg: 3, gcpi: 0.18, areaM2: 2, ...extra };
+      const none = claddingPressures(i), p = claddingPressures({ ...i, parapet: true });
+      expect(p.part).toBe(1);
+      expect(at(none, 'roof', '3').gcpNeg).toBeLessThan(at(none, 'roof', '2').gcpNeg);
+      expect(at(p, 'roof', '3').gcpNeg).toBeCloseTo(at(none, 'roof', '2').gcpNeg, 9);
+      // Fig. 5.3-1 as printed (1,0 to 0,7), not its walls' 10 % reduction: A = 2 m².
+      const wallPos = 1.0 - 0.3 * Math.log10(2) / Math.log10(50);
+      expect(at(p, 'roof', '2').gcpPos).toBeCloseTo(wallPos, 9);
+      expect(at(p, 'roof', '3').gcpPos).toBeCloseTo(wallPos, 9);
+      expect(at(p, 'roof', '1').gcpPos).toBeCloseTo(at(none, 'roof', '1').gcpPos!, 9);
+      expect(at(p, 'roof', '1').gcpNeg).toBeCloseTo(at(none, 'roof', '1').gcpNeg, 9);
+      expect(p.aRoof).toBeNull();
+    });
+  }
+  it('a steeper roof than Fig. 5.3-2A takes no note 5', () => {
+    const i = { qhNm2: 1000, meanRoofHeight: 8, leastDimension: 30, roofSlopeDeg: 15, gcpi: 0.18, areaM2: 2 };
+    expect(claddingPressures({ ...i, parapet: true }).rows).toEqual(claddingPressures(i).rows);
+  });
+});
+
 describe('CIRSOC 102 other structures', () => {
   it('free roofs: Figuras 2.4-4 to 2.4-7 at their rows and between', () => {
     const close = (a: { cnw: number; cnl: number }, w: number, l: number) => { expect(a.cnw).toBeCloseTo(w, 9); expect(a.cnl).toBeCloseTo(l, 9); };
-    close(freeRoofCn('monoslope', 15, 'A', false, true), -0.9, -1.3);
-    close(freeRoofCn('monoslope', 15, 'A', false, false), 1.3, 1.6);
+    // Up the slope (from the low edge) is γ = 180°, the top surface facing the wind; down it, 0°.
+    close(freeRoofCn('monoslope', 15, 'A', false, true), 1.3, 1.6);
+    close(freeRoofCn('monoslope', 15, 'A', false, false), -0.9, -1.3);
     close(freeRoofCn('pitched', 30, 'B', true), -0.2, -1.1);
     const mid = freeRoofCn('troughed', 18.75, 'A', false);
     expect(mid.cnw).toBeCloseTo(-1.1, 9);

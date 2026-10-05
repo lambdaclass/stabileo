@@ -95,7 +95,7 @@ test.describe('@smoke wind on other structures and the cladding table', () => {
 });
 
 test.describe('@smoke T, H and F from the dialog', () => {
-  test('a temperature change makes a T case with its two combinations', async ({ pro: page }) => {
+  test('a temperature change makes its T cases, one for each sense (§2.3.4)', async ({ pro: page }) => {
     await openDialog(page);
     await alSection(page, 'special');
     await page.getByTestId('al-thermal').check();
@@ -104,6 +104,7 @@ test.describe('@smoke T, H and F from the dialog', () => {
     await page.getByTestId('al-apply').click();
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names).toContain('Temperature');
+    expect(names).toContain('Temperature (−ΔT)');
   });
 });
 

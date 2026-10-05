@@ -1,13 +1,15 @@
 <script lang="ts" module>
   export interface SpecialLoadsConfig {
     thermal: { on: boolean; dt: number; grad: number };
-    soil: { on: boolean; gradeZ: number; gamma: number; k: number; surcharge: number; permanent: boolean };
-    fluid: { on: boolean; levelZ: number; gamma: number };
+    /** `side`: a plan point in the retained soil; off, the side is read off the plan (`special-loads.ts`). */
+    soil: { on: boolean; gradeZ: number; gamma: number; k: number; surcharge: number; permanent: boolean; sideOn: boolean; sideX: number; sideY: number };
+    /** `inside`: a plan point inside the fluid; off, the walls that close a region in. */
+    fluid: { on: boolean; levelZ: number; gamma: number; insideOn: boolean; insideX: number; insideY: number };
   }
   export const defaultSpecialLoads = (): SpecialLoadsConfig => ({
     thermal: { on: false, dt: 20, grad: 0 },
-    soil: { on: false, gradeZ: 0, gamma: 17.3, k: 0.5, surcharge: 0, permanent: true },
-    fluid: { on: false, levelZ: 3, gamma: 10 },
+    soil: { on: false, gradeZ: 0, gamma: 17.3, k: 0.5, surcharge: 0, permanent: true, sideOn: false, sideX: 0, sideY: 0 },
+    fluid: { on: false, levelZ: 3, gamma: 10, insideOn: false, insideX: 0, insideY: 0 },
   });
   /** CIRSOC 101-2025 Tabla 3.2, soil unit weights, kN/m³. */
   export const SOIL_WEIGHTS: ReadonlyArray<{ key: string; gamma: number }> = [
@@ -22,8 +24,10 @@
 <script lang="ts">
   /**
    * T, H and F in the regulation load generator (`engine/loads/special-loads.ts`): a temperature
-   * change on every member and shell, the soil's lateral pressure on the vertical shells below the
-   * grade, and a fluid's pressure below its level.
+   * change on every member and shell, in both senses, the soil's lateral pressure on the vertical
+   * shells below the grade that retain it, and a fluid's pressure below its level on the shells that
+   * hold it; a point in plan on the soil's side, or inside the fluid, says which when the plan
+   * cannot (a lone retaining wall).
    */
   import { t } from '../../lib/i18n';
 
@@ -62,6 +66,15 @@
           <span class="al-unit-field"><input type="number" step="1" min="0" bind:value={config.soil.surcharge} /><span>kN/m²</span></span></label>
       </div>
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.permanent} /> {t('autoLoad.special.permanent')}</label>
+      <label class="al-check"><input type="checkbox" bind:checked={config.soil.sideOn} data-testid="al-soil-side" /> {t('autoLoad.special.soilSide')}</label>
+      {#if config.soil.sideOn}
+        <div class="al-row">
+          <label class="al-field al-field-narrow"><span class="al-label">X</span>
+            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.soil.sideX} data-testid="al-soil-side-x" /><span>m</span></span></label>
+          <label class="al-field al-field-narrow"><span class="al-label">Y</span>
+            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.soil.sideY} data-testid="al-soil-side-y" /><span>m</span></span></label>
+        </div>
+      {/if}
       <p class="al-hint">{t('autoLoad.special.soilHint')}</p>
     {/if}
   </div>
@@ -74,6 +87,15 @@
         <label class="al-field al-field-narrow"><span class="al-label">γ</span>
           <span class="al-unit-field"><input type="number" step="0.1" bind:value={config.fluid.gamma} /><span>kN/m³</span></span></label>
       </div>
+      <label class="al-check"><input type="checkbox" bind:checked={config.fluid.insideOn} data-testid="al-fluid-inside" /> {t('autoLoad.special.fluidInside')}</label>
+      {#if config.fluid.insideOn}
+        <div class="al-row">
+          <label class="al-field al-field-narrow"><span class="al-label">X</span>
+            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.fluid.insideX} data-testid="al-fluid-inside-x" /><span>m</span></span></label>
+          <label class="al-field al-field-narrow"><span class="al-label">Y</span>
+            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.fluid.insideY} data-testid="al-fluid-inside-y" /><span>m</span></span></label>
+        </div>
+      {/if}
       <p class="al-hint">{t('autoLoad.special.fluidHint')}</p>
     {/if}
   </div>

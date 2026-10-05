@@ -128,6 +128,8 @@ export interface SnowCasesInput {
   snow: Omit<SnowInputs, 'roof'> & {
     /** `curved`, `multiple` (sawtooth, folded plates, a row of vaults) and `dome`: `snow-shapes.ts`. */
     roofKind: 'mono' | 'gable' | 'curved' | 'multiple' | 'dome'; slippery: boolean; roofSlopeDeg?: number;
+    /** A curved roof abutting the ground or another roof at its eaves (§6.2, `snow-shapes.ts`). */
+    abutting?: boolean;
     /** The partial loads of Cap. 5 on continuous systems, by panels (default on). */
     partial?: boolean;
     /** Parapets and separate higher structures within 6 m, for their drifts (`snow-drift-loads.ts`). */
@@ -184,6 +186,7 @@ export function snowLoadCases(input: SnowCasesInput): {
     .map((id) => input.model.nodes.get(id)!).filter(Boolean);
   const shaped = shapedKind ? shapedSnow(roofNodes, {
     kind, pf: result.pf, ce: result.ce, ct: result.ct, slippery: input.snow.slippery, gamma: result.gamma, axis: geometry.axis,
+    abutting: input.snow.abutting,
   }) : null;
   if (shaped) { derivation.push(...shaped.derivation); refs.push(...shaped.refs); }
   /** A plan-point intensity read at each end of a member. */

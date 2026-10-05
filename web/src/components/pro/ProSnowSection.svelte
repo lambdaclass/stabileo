@@ -94,6 +94,9 @@
     </div>
     <p class="al-hint">{t(`autoLoad.snowRoofKind.${config.roofKind}.hint`)}</p>
     <label class="al-check"><input type="checkbox" bind:checked={config.slippery} /> {t('autoLoad.snowSlippery')}</label>
+    {#if config.roofKind === 'curved'}
+      <label class="al-check"><input type="checkbox" bind:checked={config.abutting} data-testid="al-snow-abutting" /> {t('autoLoad.snowAbutting')}</label>
+    {/if}
     {#if preview.refused}
       <p class="al-warn" data-testid="al-snow-refused">{t(preview.refused)}</p>
     {:else}

@@ -18,6 +18,11 @@
  * than 0,8 kN/m² times Af (§4.8). A solid sign takes F = qh G Cf As at its face, over the nodes of
  * the face: case A at the centre, case B at 0,2 B toward an edge, as a moment either way.
  *
+ * A tower, a lattice or a chimney modelled as a stick has levels of one node, which span nothing:
+ * there the width is the one the reader gives (the face's width, the chimney's D). Without it the
+ * structure is refused with a note. It used to take D = 1 m for a chimney, whatever its size,
+ * and no width at all, so no wind, for a lattice.
+ *
  * Pure: no store.
  */
 import { G_RIGID, velocityPressure, type WindProject } from '../../codes/cirsoc102/wind';
@@ -31,10 +36,12 @@ import { msg, round, type EngineMessage } from '../../codes/message';
 
 export type OtherStructure =
   | { kind: 'freeRoof'; roof: FreeRoofKind; blocked: boolean }
-  | { kind: 'latticeTower'; section: 'square' | 'triangle'; round: boolean; solidity: number; diagonal: boolean }
-  | { kind: 'openSign'; members: LatticeMembers; solidity: number }
+  /** `width`: the face's width, m, where a level's nodes span none (a stick model). */
+  | { kind: 'latticeTower'; section: 'square' | 'triangle'; round: boolean; solidity: number; diagonal: boolean; width?: number }
+  | { kind: 'openSign'; members: LatticeMembers; solidity: number; width?: number }
   | { kind: 'solidSign'; clearance: number }
-  | { kind: 'chimney'; section: ChimneySection };
+  /** `diameter`: D, m, where a level's nodes span none (a stick model). */
+  | { kind: 'chimney'; section: ChimneySection; diameter?: number };
 
 export interface OtherWindCase {
   nameKey: string;
@@ -156,20 +163,31 @@ export function otherStructureWind(i: {
     label: dirLabel(d), fx: d.endsWith('x') ? (d.startsWith('-') ? -1 : 1) : 0, fy: d.endsWith('y') ? (d.startsWith('-') ? -1 : 1) : 0, diagonal: false,
   }));
   if (s.kind === 'latticeTower' && s.diagonal && s.section === 'square') dirsHere.push({ label: '45°', fx: Math.SQRT1_2, fy: Math.SQRT1_2, diagonal: true });
+  // The width the reader gives, for the levels whose nodes span none.
+  const given = s.kind === 'chimney' ? s.diameter : s.width;
+  const widthAt = (k: number, d: { fx: number; diagonal: boolean }): number | null => {
+    const across = d.fx !== 0 && !d.diagonal ? 'y' : 'x';
+    const fromNodes = d.diagonal ? Math.max(span(levelNodes[k]!, 'x'), span(levelNodes[k]!, 'y')) : span(levelNodes[k]!, across);
+    if (fromNodes > 0.05) return fromNodes;
+    return given !== undefined && given > 0 ? given : null;
+  };
+  if (zs.some((_z, k) => dirsHere.some((d) => widthAt(k, d) === null))) {
+    notes.push(msg(s.kind === 'chimney' ? 'wind.other.noDiameter' : 'wind.other.noWidth', { kind: msg(`wind.other.kind.${s.kind}`) }));
+    return { cases, derivation, notes };
+  }
   for (const d of dirsHere) {
     const nodal: OtherWindCase['nodal'] = [];
     let total = 0;
     zs.forEach((_z, k) => {
       const [z0, z1] = band(k);
       const dz = z1 - z0;
-      const across = d.fx !== 0 && !d.diagonal ? 'y' : d.diagonal ? 'x' : 'x';
-      const width = d.diagonal ? Math.max(span(levelNodes[k]!, 'x'), span(levelNodes[k]!, 'y')) : span(levelNodes[k]!, across);
+      const width = widthAt(k, d)!;
       const q = qz((z0 + z1) / 2);
       let cf: number, af: number;
       if (s.kind === 'latticeTower') { cf = towerCf(s.solidity, s.section, s.round, d.diagonal); af = s.solidity * width * dz; }
       else if (s.kind === 'openSign') { cf = openSignCf(s.solidity, s.members); af = s.solidity * width * dz; }
       else {
-        const D = width || 1;
+        const D = width;
         cf = chimneyCf(s.section, H / D, D * Math.sqrt(q * 1000));
         af = D * dz;
       }

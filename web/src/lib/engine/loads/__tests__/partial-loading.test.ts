@@ -71,8 +71,11 @@ describe('patterns in the combinations', () => {
     const b = expandCombinations([spec(1.0, 1.6)], cases);
     expect(b).toHaveLength(2);
     for (const c of b) expect(c.factors.some((f) => f.caseId === 2)).toBe(true);
-    // Equal factors: both principal.
-    expect(expandCombinations([spec(1.0, 1.0)], cases)).toHaveLength(6);
+    // Equal factors: each is the principal in turn, varying alone with the other whole, and the
+    // full load of both is kept once: 3 of L + 2 of Lr − 1, never a pattern of each together.
+    const tie = expandCombinations([spec(1.0, 1.0)], cases);
+    expect(tie).toHaveLength(4);
+    for (const c of tie) expect(c.factors.filter((f) => [3, 4, 6].includes(f.caseId)).length).toBeLessThanOrEqual(1);
     expect(expandCombinations([spec(1.6, 0.5)], cases, { patternsInCompanions: true })).toHaveLength(6);
   });
 });
@@ -157,6 +160,23 @@ describe('shaped roofs (§4.3, §6.2 to §6.4)', () => {
     // The 30° point is read between segment middles: within half a segment of the exact one.
     expect(lee.at({ x: x30, y: 0 })).toBeGreaterThan(1.6);
     expect(lee.at({ x: 9.5, y: 0 })).toBeLessThan(0.3);
+  });
+
+  it('§6.2, abutting the ground or another roof: cases 2 and 3 keep the 30° point\'s value out to the eave', () => {
+    const x30 = 10 * Math.sin(Math.PI / 6);
+    // Case 2 (eaves at 60°): without it, down to 2 p_f C_s(60°)/C_e at the eave; with it, flat past 30°.
+    const free = shapedSnow(vault(60), { ...base, kind: 'curved' })!.unbalanced[0]!;
+    const abut = shapedSnow(vault(60), { ...base, kind: 'curved', abutting: true })!.unbalanced[0]!;
+    expect(free.at({ x: 8.6, y: 0 })).toBeLessThan(free.at({ x: x30 + 0.5, y: 0 }) - 0.5);
+    const p30 = abut.at({ x: x30 + 0.5, y: 0 });
+    expect(p30).toBeCloseTo((2 * slopeFactor(30, 1, false)) / 1, 9);
+    expect(abut.at({ x: 8.6, y: 0 })).toBeCloseTo(p30, 9);
+    // Below the 30° point, the same as without it.
+    expect(abut.at({ x: 2, y: 0 })).toBeCloseTo(free.at({ x: 2, y: 0 }), 9);
+    // Case 3 (eaves at 80°): the load no longer drops to 0 at 70°.
+    const abut3 = shapedSnow(vault(80), { ...base, kind: 'curved', abutting: true })!;
+    expect(abut3.unbalanced[0]!.at({ x: 9.5, y: 0 })).toBeCloseTo(p30, 9);
+    expect(abut3.derivation[0]!.params!.plus).toMatchObject({ key: 'snow.curved.caseAbutting' });
   });
 
   it('a flat arch has no unbalanced load: the line from the eave to the crown is under 10°', () => {

@@ -4,7 +4,7 @@
     use: 'maintenance' | 'occupancy';
     /** Superimposed dead load of the roof, kN/m²; null: the floors'. */
     dead: number | null;
-    /** null: from the dead load (heavy above 0,5 kN/m²). */
+    /** null: from the roof's structure and dead load (heavy above 0,5 kN/m², `roofWeightOf`). */
     weight: 'heavy' | 'light' | null;
     occupancyKey: string;
     /** Roof slope, degrees; null: the model's roof. */
@@ -15,9 +15,13 @@
   });
 
   import { roofLiveLoad as lrOf, roofWeightClass as weightOf } from '../../lib/codes/cirsoc101/roof-live';
-  /** Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts. */
-  export function roofLrRange(c: RoofConfig, floorDead: number, modelSlopeDeg: number): { lo: number; hi: number } {
-    const weight = c.weight ?? weightOf(c.dead ?? floorDead);
+  /**
+   * Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts.
+   * `autoWeight`: the class the plan found for the roof's structure and cladding; before a plan,
+   * the dead load's alone.
+   */
+  export function roofLrRange(c: RoofConfig, floorDead: number, modelSlopeDeg: number, autoWeight?: 'heavy' | 'light'): { lo: number; hi: number } {
+    const weight = c.weight ?? autoWeight ?? weightOf(c.dead ?? floorDead);
     const pct = Math.tan(((c.slopeDeg ?? modelSlopeDeg) * Math.PI) / 180) * 100;
     return { lo: lrOf({ weight, atM2: 80, slopePercent: pct }).lr, hi: lrOf({ weight, atM2: 10, slopePercent: pct }).lr };
   }
@@ -40,8 +44,10 @@
     floorDead: number;
     /** The model's roof slope, degrees, when it has one. */
     modelSlopeDeg: number;
+    /** The weight class the plan found for the roof (§4.8.1, structure and cladding). */
+    autoWeight?: 'heavy' | 'light';
   }
-  let { config = $bindable(), floorDead, modelSlopeDeg }: Props = $props();
+  let { config = $bindable(), floorDead, modelSlopeDeg, autoWeight }: Props = $props();
 
   const roofRows = OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras');
   const dead = $derived(config.dead ?? floorDead);
@@ -66,7 +72,7 @@
         <div class="al-row">
           <label class="al-field"><span class="al-label">{t('autoLoad.roof.weight')}</span>
             <select value={config.weight ?? 'auto'} onchange={(e) => { const v = e.currentTarget.value; config.weight = v === 'auto' ? null : (v as 'heavy' | 'light'); }} data-testid="al-roof-weight">
-              <option value="auto">{tp('autoLoad.roof.weightAuto', { w: t(`loads.cirsoc101.roofWeight.${roofWeightClass(dead)}`) })}</option>
+              <option value="auto">{tp('autoLoad.roof.weightAuto', { w: t(`loads.cirsoc101.roofWeight.${autoWeight ?? roofWeightClass(dead)}`) })}</option>
               <option value="heavy">{t('autoLoad.roof.heavy')}</option>
               <option value="light">{t('autoLoad.roof.light')}</option>
             </select>

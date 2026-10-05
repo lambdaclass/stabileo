@@ -20,6 +20,8 @@ export interface SnowConfig {
   category: SnowCategory;
   roofKind: 'mono' | 'gable' | 'curved' | 'multiple' | 'dome';
   slippery: boolean;
+  /** A curved roof abutting the ground or another roof at its eaves (§6.2). */
+  abutting: boolean;
   /** The partial loads of Cap. 5. */
   partial: boolean;
   /** Height of a parapet around the roofs, m; 0: none (Cap. 8). */
@@ -31,7 +33,7 @@ export function defaultSnowConfig(): SnowConfig {
   const first = GROUND_SNOW_TABLES[0]!;
   return {
     enabled: false, fromTable: true, table: first.table, locality: first.rows[0]!.n, sitePg: 0,
-    terrain: 'B', exposure: 'partial', thermal: 'normal', category: 'II', roofKind: 'gable', slippery: false,
+    terrain: 'B', exposure: 'partial', thermal: 'normal', category: 'II', roofKind: 'gable', slippery: false, abutting: false,
     partial: true, parapet: 0, adjacent: [],
   };
 }

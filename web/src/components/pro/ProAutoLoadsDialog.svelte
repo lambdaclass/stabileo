@@ -27,7 +27,6 @@
   import ProWindStructure, { defaultWindStructure } from './ProWindStructure.svelte';
   import ProSpecialLoadsSection, { defaultSpecialLoads } from './ProSpecialLoadsSection.svelte';
   import { modesForPlan } from '../../lib/store/seismic-modes';
-  import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { defaultSnowConfig, snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
@@ -217,6 +216,8 @@
 
   /** The plan is built first and applied only after the user confirms. */
   let plan = $state<LoadPlan | null>(null);
+  /** The roof's weight class the plan settled on; read here, outside any `{#if}` that narrows `plan`. */
+  const planRoofWeight = $derived(plan?.roofWeight);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
 
@@ -236,10 +237,10 @@
     const w = windStructure;
     switch (w.kind) {
       case 'freeRoof': return { kind: 'freeRoof', roof: w.roof, blocked: w.blocked };
-      case 'latticeTower': return { kind: 'latticeTower', section: w.towerSection, round: w.round, solidity: w.solidity, diagonal: w.diagonal };
-      case 'openSign': return { kind: 'openSign', members: w.members, solidity: w.solidity };
+      case 'latticeTower': return { kind: 'latticeTower', section: w.towerSection, round: w.round, solidity: w.solidity, diagonal: w.diagonal, ...(w.width > 0 ? { width: w.width } : {}) };
+      case 'openSign': return { kind: 'openSign', members: w.members, solidity: w.solidity, ...(w.width > 0 ? { width: w.width } : {}) };
       case 'solidSign': return { kind: 'solidSign', clearance: w.clearance };
-      case 'chimney': return { kind: 'chimney', section: w.chimney };
+      case 'chimney': return { kind: 'chimney', section: w.chimney, ...(w.diameter > 0 ? { diameter: w.diameter } : {}) };
       default: return { kind: 'building' };
     }
   }
@@ -261,11 +262,15 @@
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
       patterns: livePatterns,
       thermal: special.thermal.on ? { dtUniform: special.thermal.dt, dtGradient: special.thermal.grad } : undefined,
-      soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent } : undefined,
-      fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma } : undefined,
+      soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent,
+        ...(special.soil.sideOn ? { side: { x: special.soil.sideX, y: special.soil.sideY } } : {}) } : undefined,
+      fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma,
+        ...(special.fluid.insideOn ? { inside: { x: special.fluid.insideX, y: special.fluid.insideY } } : {}) } : undefined,
       roof: roofCfg.enabled ? {
         use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
-        weight: roofCfg.weight ?? roofWeightClass(roofCfg.dead ?? totalDead),
+        // Absent unless chosen: the plan weighs the roof's structure with its cladding (§4.8.1,
+        // `roofWeightOf`); the dead load alone took a concrete roof with light finishes for light.
+        ...(roofCfg.weight ? { weight: roofCfg.weight } : {}),
         occupancyKey: roofCfg.occupancyKey, slopeDeg: roofCfg.slopeDeg ?? (snowRoof?.slopeDeg ?? windRoofSlope),
       } : undefined,
       reductionElementKind,
@@ -285,6 +290,7 @@
         enabled: true, ...snowPg(snowCfg),
         terrain: snowCfg.terrain, exposure: snowCfg.exposure, thermal: snowCfg.thermal,
         category: snowCfg.category, roofKind: snowCfg.roofKind, slippery: snowCfg.slippery,
+        ...(snowCfg.roofKind === 'curved' && snowCfg.abutting ? { abutting: true } : {}),
         partial: snowCfg.partial,
         ...(snowCfg.parapet > 0 ? { parapet: { height: snowCfg.parapet } } : {}),
         ...(snowCfg.adjacent.length ? { adjacent: $state.snapshot(snowCfg.adjacent) } : {}),
@@ -442,7 +448,7 @@
 
   // ─── The navigation: each section, and what it comes to ─────────
   const snowNow = $derived(snowCfg.enabled ? snowPreview(snowCfg, snowRoof) : null);
-  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope) : null);
+  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, plan?.roofWeight) : null);
   const specialOn = $derived([special.thermal.on && 'T', special.soil.on && 'H', special.fluid.on && 'F'].filter(Boolean) as string[]);
   const f2 = (v: number) => v.toFixed(2);
   interface NavItem { id: Section; symbol?: string; labelKey: string; status: string | null; on: boolean }
@@ -702,7 +708,7 @@
             </div>
             <div class="al-pane-scroll">
               {#if roofCfg.enabled}
-                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} />
+                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} autoWeight={planRoofWeight} />
               {:else}
                 <div class="al-pane-body"><p class="al-hint">{t('autoLoad.roof.off')}</p></div>
               {/if}

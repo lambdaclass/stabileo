@@ -35,8 +35,6 @@ export interface RoofLoads {
 export interface AreaLoadsInput {
   layout: GravityLayout;
   tributaryWidth: number;
-  /** The width loads in their original form, along local z (the plan's `width` mode). */
-  legacyWidth: boolean;
   floor: { dead: number; lo: number; liveOf: (elementId: number) => number };
   roof?: RoofLoads;
   /**
@@ -127,15 +125,17 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
       const q = -qOf(m.elementId, isRoof(m.elementId)) * i.tributaryWidth;
       if (Math.abs(q) <= 1e-3) continue;
-      out.distributed.push(i.legacyWidth
-        ? { elementId: m.elementId, caseType, q, ...arr }
-        : { elementId: m.elementId, caseType, q, frame: perProjection ? 'projected' : 'global', ...arr });
+      // Along global Z in both gravity modes. The width mode used to load along local z, per
+      // metre of member: on a sloped member that is the load turned off the vertical, with a
+      // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
+      out.distributed.push({ elementId: m.elementId, caseType, q, frame: perProjection ? 'projected' : 'global', ...arr });
       if (arrangement === undefined) out.planned.add(caseType);
     }
     // A slab of shells is a mesh, not panels: its arrangements are not drawn here.
     if (arrangement !== undefined) return;
     for (const sq of layout.shellQuads) {
-      const q = qOfQuad(sq.quadId);
+      // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos.
+      const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
       if (q > 1e-6) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
     }
   };

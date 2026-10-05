@@ -23,7 +23,9 @@ describe('T, H and F', () => {
     const fy = out.soil.filter((n) => m.nodes.get(n.nodeId)!.y === 0 && Math.abs(n.fy) > 1e-9 && Math.abs(n.fx) < 1e-9).reduce((s, n) => s + n.fy, 0);
     expect(wall.length).toBeGreaterThan(0);
     expect(fy).toBeCloseTo(0.5 * 18 * 9 / 2 * 6, 6);
-    expect(out.soil.every((n) => m.nodes.get(n.nodeId)!.z! < 3)).toBe(true);
+    // Consistent nodal forces: the triangle's resultant at H/3 above the base.
+    const wall1 = out.soil.filter((n) => m.nodes.get(n.nodeId)!.y === 0 && Math.abs(n.fx) < 1e-9);
+    expect(wall1.reduce((t, n) => t + n.fy * m.nodes.get(n.nodeId)!.z!, 0) / fy).toBeCloseTo(1, 9);
   });
 
   it('fluid: outward on the walls, γ·depth on the bottom', () => {
@@ -47,5 +49,72 @@ describe('T, H and F', () => {
     const t = specs.filter((s) => s.terms.some((x) => x.symbol === 'T'));
     expect(t.map((s) => s.label)).toEqual(['1.2 D + 1.2 T + 0.5 L', '1.2 D + 1.6 L + 1.0 T']);
     expect(t.every((s) => s.terms.find((x) => x.symbol === 'T')!.factor >= 1)).toBe(true);
+  });
+});
+
+/** One vertical wall quad in the plane y = 0, x 0..6, z 0..H, its nodes in either order. */
+function wall(H: number, reversed: boolean): SpecialModel {
+  const pts: Array<[number, number, number]> = [[0, 0, 0], [6, 0, 0], [6, 0, H], [0, 0, H]];
+  const nodes = new Map(pts.map(([x, y, z], i) => [i + 1, { id: i + 1, x, y, z }]));
+  return { nodes, elements: new Map(), quads: new Map([[1, { id: 1, nodes: reversed ? [1, 4, 3, 2] : [1, 2, 3, 4] }]]) };
+}
+const sumFy = (l: Array<{ fy: number }>) => l.reduce((t, n) => t + n.fy, 0);
+
+describe('soil and fluid: which walls, from which side, and the consistent nodal forces', () => {
+  it('a lone retaining wall says no side: none without a point, and the point decides it, not the node order', () => {
+    const soil = { gradeZ: 3, gamma: 18, k: 0.5, surcharge: 0 };
+    const none = specialLoads(wall(3, false), { soil });
+    expect(none.soil).toHaveLength(0);
+    expect(none.notes.map((n) => n.key)).toContain('loadPlan.note.soilSideUnknown');
+    // The soil at +Y pushes the wall toward −Y, whichever way its nodes go round.
+    for (const reversed of [false, true]) {
+      const out = specialLoads(wall(3, reversed), { soil: { ...soil, side: { x: 3, y: 2 } } });
+      expect(sumFy(out.soil)).toBeCloseTo(-0.5 * 18 * 9 / 2 * 6, 6);
+    }
+  });
+
+  it('one quad high, hydrostatic: ½γH² and its moment γH³/6 about the base, per metre', () => {
+    const H = 3, gamma = 10, m = wall(H, false);
+    const out = specialLoads(m, { fluid: { levelZ: H, gamma, inside: { x: 3, y: -1 } } });
+    expect(sumFy(out.fluid)).toBeCloseTo(0.5 * gamma * H * H * 6, 6);   // toward +Y, away from the fluid
+    const moment = out.fluid.reduce((t, n) => t + n.fy * m.nodes.get(n.nodeId)!.z!, 0);
+    expect(moment).toBeCloseTo((gamma * H ** 3) / 6 * 6, 6);
+  });
+
+  it('a quad cut by the level takes the submerged part only: ½γd², at d/3 above the base', () => {
+    const m = wall(3, false);
+    const out = specialLoads(m, { fluid: { levelZ: 2, gamma: 10, inside: { x: 3, y: -1 } } });
+    const total = sumFy(out.fluid);
+    expect(total).toBeCloseTo(0.5 * 10 * 2 * 2 * 6, 6);   // 120 kN, not p(bottom)·A/2 = 180
+    expect(out.fluid.reduce((t, n) => t + n.fy * m.nodes.get(n.nodeId)!.z!, 0) / total).toBeCloseTo(2 / 3, 6);
+  });
+
+  it('a surcharge acts from the grade down: K q H plus K γ H²/2, and nothing on a quad above the grade', () => {
+    const above = specialLoads(wall(3, false), { soil: { gradeZ: 0, gamma: 18, k: 0.5, surcharge: 10, side: { x: 3, y: 2 } } });
+    expect(above.soil).toHaveLength(0);
+    const out = specialLoads(wall(3, false), { soil: { gradeZ: 3, gamma: 18, k: 0.5, surcharge: 10, side: { x: 3, y: 2 } } });
+    expect(sumFy(out.soil)).toBeCloseTo(-(0.5 * 10 * 3 + 0.5 * 18 * 9 / 2) * 6, 6);
+  });
+
+  it('a basement: the soil on the outer walls only, never on an interior one', () => {
+    const m = box();
+    // A partition across the box at x = 3.
+    for (const [id, x, y, z] of [[9, 3, 0, 0], [10, 3, 4, 0], [11, 3, 4, 3], [12, 3, 0, 3]] as const) m.nodes.set(id, { id, x, y, z });
+    m.quads!.set(6, { id: 6, nodes: [9, 10, 11, 12] });
+    const out = specialLoads(m, { soil: { gradeZ: 3, gamma: 18, k: 0.5, surcharge: 0 } });
+    expect(out.soil.some((n) => n.nodeId >= 9)).toBe(false);
+    // Each outer wall pushed inward: the four resultants cancel.
+    expect(out.soil.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(0, 6);
+    expect(sumFy(out.soil)).toBeCloseTo(0, 6);
+    expect(out.soil.filter((n) => m.nodes.get(n.nodeId)!.x === 0 && Math.abs(n.fy) < 1e-9).reduce((t, n) => t + n.fx, 0)).toBeGreaterThan(0);
+  });
+
+  it('a tank: the bottom inside takes the fluid, a slab outside it does not', () => {
+    const m = box();
+    for (const [id, x, y] of [[9, 6, 0], [10, 10, 0], [11, 10, 4], [12, 6, 4]] as const) m.nodes.set(id, { id, x, y, z: 0 });
+    m.quads!.set(6, { id: 6, nodes: [9, 10, 11, 12] });   // a slab beside the tank, at its bottom
+    expect(specialLoads(m, { fluid: { levelZ: 2, gamma: 10 } }).fluidBottom).toEqual([{ quadId: 5, q: 20 }]);
+    // From a point inside, the same.
+    expect(specialLoads(m, { fluid: { levelZ: 2, gamma: 10, inside: { x: 3, y: 2 } } }).fluidBottom).toEqual([{ quadId: 5, q: 20 }]);
   });
 });

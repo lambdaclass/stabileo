@@ -7,7 +7,10 @@
  *     crown to 2 p_f C_s/C_e at the eave (eave below 30°, case 1); to 2 p_f C_s(30°)/C_e at the
  *     30° point and then to 2 p_f C_s(eave)/C_e at the eave (eave from 30° to 70°, case 2); to the
  *     30° point as in case 2 and down to 0 at the 70° point (eave past 70°, case 3). Not when the
- *     line from the eave (or the 70° point) to the crown is under 10° or over 60°.
+ *     line from the eave (or the 70° point) to the crown is under 10° or over 60°. A curved roof
+ *     abutting the ground or another roof at its eave (cases 2 and 3, the dotted line of Figura 3)
+ *     keeps the 30° point's value out to the eave: the load is not to decrease past it, in case 3
+ *     the part past 70° included, since the snow lies against what abuts it there.
  *   §6.3 and Figura 6, several ridges: C_s = 1, the balanced load is p_f; unbalanced from 0,5 p_f
  *     at the ridges to 2 p_f/C_e in the valleys, when the slopes pass 1,8°. The snow over a valley
  *     stays below the snow over the ridge: p_valley ≤ 0,5 p_f + γ (z_ridge − z_valley).
@@ -46,6 +49,8 @@ export interface ShapedSnowInputs {
   gamma: number;
   /** For a curved roof and several ridges: the horizontal axis the roof slopes along. */
   axis: 'x' | 'y';
+  /** A curved roof abutting the ground or another roof at its eaves (§6.2, cases 2 and 3). */
+  abutting?: boolean;
 }
 
 export interface ShapedSnow {
@@ -115,6 +120,9 @@ function curvedSide(side: Array<{ s: number; z: number }>, i: ShapedSnowInputs):
   }
   const x30 = cross(30) ?? eave.s;
   const p30 = (2 * i.pf * cs(30)) / i.ce;
+  if (i.abutting) {
+    return { at: (x) => (x <= x30 ? lerp(x, crown.s, top, x30, p30) : p30), info: { case: thetaE <= 70 ? 2 : 3, eave: round(thetaE, 1), line: round(line, 1), abutting: 1 } };
+  }
   if (thetaE <= 70) {
     const pe = (2 * i.pf * cs(thetaE)) / i.ce;
     return { at: (x) => (x <= x30 ? lerp(x, crown.s, top, x30, p30) : lerp(x, x30, p30, eave.s, pe)), info: { case: 2, eave: round(thetaE, 1), line: round(line, 1) } };
@@ -221,5 +229,5 @@ export function shapedSnow(nodes: P[], i: ShapedSnowInputs): ShapedSnow | null {
 }
 
 function tpCase(info: Record<string, string | number>): EngineMessage {
-  return msg('snow.curved.case', info);
+  return msg(info.abutting ? 'snow.curved.caseAbutting' : 'snow.curved.case', info);
 }

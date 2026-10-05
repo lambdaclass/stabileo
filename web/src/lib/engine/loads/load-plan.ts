@@ -45,13 +45,13 @@ import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc1
 import type { WindCaseSet, WindDirection } from './wind-cases';
 import { planWind } from './load-plan-wind';
 import { planSnow } from './load-plan-snow';
-import { gravityLayout } from './plan-gravity';
+import { gravityLayout, type GravityLayout } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import { modalStoryForces, type ModeShape } from './seismic-modal';
 import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
-import type { RoofWeight } from '../../codes/cirsoc101/roof-live';
+import { roofWeightClass, type RoofWeight } from '../../codes/cirsoc101/roof-live';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
@@ -79,10 +79,14 @@ export interface LoadModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
-  /** Quads, for a floor drawn as a slab of shells (`plan-gravity.ts`). */
-  quads?: Map<number, { id: number; nodes: number[] }>;
+  /**
+   * Quads, for a floor or roof drawn with shells (`plan-gravity.ts`); their thickness and material
+   * weigh a roof for §4.8.1.
+   */
+  quads?: Map<number, { id: number; nodes: number[]; thickness?: number; materialId?: number }>;
   materials: Map<number, { id: number; rho: number }>;
-  loadCases: Array<{ id: number; type: string; name: string }>;
+  /** `alternatives`: the group a case belongs to, a generated full load among its patterns. */
+  loadCases: Array<{ id: number; type: string; name: string; alternatives?: string }>;
 }
 
 // ─── Inputs ──────────────────────────────────────────────────────
@@ -138,9 +142,10 @@ export interface LoadPlanInput {
   /**
    * The roof's own loads (`plan-area-loads.ts`): its superimposed dead load and either the roof
    * live load Lr of §4.8.1 (`maintenance`) or the live load of an occupancy (`occupancy`, §4.8.2).
-   * Absent: roofs are loaded as floors.
+   * Absent: roofs are loaded as floors. `weight` absent: from the roof's own structure and its
+   * dead load (`roofWeightOf`).
    */
-  roof?: { use: 'maintenance' | 'occupancy'; weight: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
+  roof?: { use: 'maintenance' | 'occupancy'; weight?: RoofWeight; dead: number; occupancyKey?: string; slopeDeg: number };
   /**
    * Partial live loading of §4.3.3 (`plan-area-loads.ts`): L and Lr also as two checkerboards and,
    * with `all`, on the spans each side of every interior grid line. `true` is the checkerboard.
@@ -194,6 +199,8 @@ export interface LoadPlanInput {
     category: SnowCategory;
     roofKind: 'mono' | 'gable' | 'curved' | 'multiple' | 'dome';
     slippery: boolean;
+    /** A curved roof abutting the ground or another roof at its eaves (CIRSOC 104 §6.2). */
+    abutting?: boolean;
     /** The roof slope, degrees; absent: read from the roof members. */
     roofSlopeDeg?: number;
     /** The partial loads of Cap. 5 (default on), parapets (Cap. 8) and separate structures (§7.2). */
@@ -368,8 +375,8 @@ export interface LoadPlan {
   distributed: PlannedDistributed[];
   nodal: PlannedNodal[];
   surface: PlannedSurface[];
-  /** Temperature on members and shells, case T. */
-  thermal: Array<{ elementId?: number; quadId?: number; dtUniform: number; dtGradient: number }>;
+  /** Temperature on members and shells, on the T case `caseIndex` (one per sense, §2.3.4). */
+  thermal: Array<{ elementId?: number; quadId?: number; dtUniform: number; dtGradient: number; caseIndex?: number }>;
   combinations: LoadCombinationSpec[];
   /** Provenanced scalars for the report's basis-of-calculation block. */
   factors: {
@@ -381,6 +388,8 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
+  /** The weight class of the roof §4.8.1 used: the one given, or the one `roofWeightOf` found. */
+  roofWeight?: RoofWeight;
   /** The 103 derivation, when the code path produced the coefficient. */
   seismic?: SeismicPlanDetail;
   assumptions: EngineMessage[];
@@ -398,6 +407,8 @@ const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
 /** The alternatives groups of the live load and roof live load with their checkerboards (§4.3.3). */
 export const LIVE_PATTERNS = 'live-patterns';
 export const ROOF_LIVE_PATTERNS = 'roof-live-patterns';
+/** The alternatives group of the two senses of the temperature change (§2.3.4). */
+export const THERMAL_SENSES = 'thermal-senses';
 
 function elevationOf(n: { z?: number }): number { return n.z ?? 0; }
 
@@ -448,6 +459,43 @@ function selfWeightByLevel(
     }
   }
   return { weights, skipped };
+}
+
+/**
+ * The weight class of a roof for CIRSOC 101 §4.8.1, which counts "the supporting structure and
+ * the cladding": the roof members' self-weight (each by the share of its tributary area that is
+ * roof) and the roof shells' (thickness × density × surface), over the roof's plan area, plus its
+ * superimposed dead load. Classifying by the dead load alone took a concrete roof slab with
+ * 0,4 kN/m² of finishes for a light roof, and its Lr at most 0,765 kN/m² instead of 0,96. When a
+ * part of the structure cannot be weighed (a shell with no thickness, a material with no density)
+ * the roof is taken as heavy, the larger Lr.
+ */
+export function roofWeightOf(model: LoadModelData, layout: GravityLayout, dead: number): { weight: RoofWeight; structure: number | null } {
+  let kN = 0, area = 0, known = true;
+  const sectionWeight = createSectionWeight(model.materials);
+  try {
+    for (const id of layout.roof) {
+      const roofArea = layout.roofAreaOf.get(id) ?? 0;
+      const share = roofArea / (roofArea + (layout.areaOf.get(id) ?? 0) || 1);
+      area += roofArea;
+      const el = model.elements.get(id), sec = el && model.sections.get(el.sectionId);
+      const nI = el && model.nodes.get(el.nodeI), nJ = el && model.nodes.get(el.nodeJ);
+      if (!el || !sec || !nI || !nJ || !(sec.a > 0)) { known = false; continue; }
+      const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
+      kN += sectionWeight(sec, el.materialId) * L * share;
+    }
+    for (const sq of layout.shellQuads) {
+      if (!layout.roofQuads.has(sq.quadId)) continue;
+      area += sq.area;
+      const q = model.quads?.get(sq.quadId);
+      const rho = q?.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
+      if (!q || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { known = false; continue; }
+      kN += q.thickness! * rho * (sq.area / sq.cos);
+    }
+  } catch { known = false; }
+  if (!known) return { weight: 'heavy', structure: null };
+  const structure = area > 0 ? kN / area : 0;
+  return { weight: roofWeightClass(structure + dead), structure };
 }
 
 function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
@@ -588,8 +636,20 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
   let roofLoads: RoofLoads | undefined;
+  let roofWeight: RoofWeight | undefined;
   if (input.roof) {
     const r = input.roof;
+    if (r.weight) roofWeight = r.weight;
+    else {
+      const w = roofWeightOf(input.model, layout, r.dead);
+      roofWeight = w.weight;
+      derivation.push(w.structure === null
+        ? msg('loadPlan.derivation.roofWeightUnknown')
+        : msg('loadPlan.derivation.roofWeight', {
+            structure: round(w.structure, 3), dead: round(r.dead, 3), total: round(w.structure + r.dead, 3),
+            weight: msg(`loads.cirsoc101.roofWeight.${w.weight}`),
+          }));
+    }
     const slopePercent = Math.tan((r.slopeDeg * Math.PI) / 180) * 100;
     if (r.use === 'occupancy') {
       const roofOcc = findOccupancy(r.occupancyKey ?? '');
@@ -604,15 +664,15 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
             passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
             noReduction: roofOcc.noReduction === true }).lKNm2
         : rlo;
-      roofLoads = { dead: r.dead, use: 'occupancy', weight: r.weight, slopePercent, lo: rlo, liveOf: reducedFor(roofOcc, rlo, uniform, layout.roofAreaOf) };
+      roofLoads = { dead: r.dead, use: 'occupancy', weight: roofWeight, slopePercent, lo: rlo, liveOf: reducedFor(roofOcc, rlo, uniform, layout.roofAreaOf) };
       derivation.push(msg('loadPlan.derivation.roofOccupancy', { occupancy: msg(roofOcc.labelKey), lo: rlo, dead: round(r.dead, 3), n: layout.roof.size }));
     } else {
-      roofLoads = { dead: r.dead, use: 'maintenance', weight: r.weight, slopePercent };
+      roofLoads = { dead: r.dead, use: 'maintenance', weight: roofWeight, slopePercent };
       derivation.push(msg('loadPlan.derivation.roofDead', { dead: round(r.dead, 3), n: layout.roof.size + layout.roofQuads.size }));
     }
   }
   const area = planAreaLoads({
-    layout, tributaryWidth: input.tributaryWidth, legacyWidth: !panelMode,
+    layout, tributaryWidth: input.tributaryWidth,
     floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
@@ -624,9 +684,17 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // The checkerboards, one case each: alternatives to the full load, never added to it.
   // The full load and its two checkerboards are one action three ways: an alternatives group
   // (`LoadCase.alternatives`), so a combination takes one of the three.
+  //
+  // The full case of a group holds the generated load and nothing else. The user's own case of
+  // the type, found by type alone, would join the group with its loads, and a combination that
+  // takes a pattern in place of the full case would drop them: the full load goes to a case of
+  // its own, or to the one an earlier apply made (already of the group). The user's case stays
+  // outside the group and is summed into every combination, patterns included.
   for (const sym of area.arranged) {
     const full = cases.find((c) => c.type === sym && c.alternatives === undefined);
-    if (full) full.alternatives = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
+    if (!full) continue;
+    full.alternatives = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
+    full.existingId = input.model.loadCases.find((c) => c.type === sym && c.alternatives === full.alternatives)?.id ?? null;
   }
   // One case per arrangement, a pattern of its group: it varies where its action is principal.
   const arrangementCase = area.arrangements.map((a) => {
@@ -689,9 +757,10 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
         byArea[k]!.area += a; byArea[k]!.dead += a * m.dead; byArea[k]!.live += a * m.live; byArea[k]!.any = true;
       }
     }
+    // A sloped shell's dead load is per m² of its surface, its live load per m² of plan.
     for (const sq of layout.shellQuads) {
       const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
-      byArea[k]!.area += sq.area; byArea[k]!.dead += sq.area * m.dead; byArea[k]!.live += sq.area * m.live; byArea[k]!.any = true;
+      byArea[k]!.area += sq.area; byArea[k]!.dead += (sq.area / sq.cos) * m.dead; byArea[k]!.live += sq.area * m.live; byArea[k]!.any = true;
     }
   }
   const roofLevel = (k: number) => {
@@ -886,8 +955,26 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   const special = specialLoads(input.model, { thermal: input.thermal, soil: input.soil, fluid: input.fluid });
   derivation.push(...special.derivation);
   unsupportedKeys.push(...special.notes);
+  /*
+   * §2.3.4: a temperature change goes either way about the temperature the structure was built
+   * at, and its combinations take T with a positive factor. So T is two cases, ΔT and its
+   * reverse (the gradient reversed with it), alternatives of one action: each combination with
+   * T is made once with each. It used to be the one ΔT typed, so the opposite change, which
+   * reverses every restraint force, was never combined.
+   *
+   * The two cases hold the generated loads and nothing else, like the full live load of its
+   * patterns: the user's own T case, joining the group, would have its loads dropped from every
+   * combination that takes the reverse. They reuse only the cases an earlier apply made (already
+   * of the group, the +ΔT one first); the user's case stays outside and is summed into both.
+   */
+  const thermal: LoadPlan['thermal'] = [];
   if (special.thermal.length) {
-    cases.push({ existingId: findCase(input.model, 'T'), type: 'T', nameKey: 'autoLoad.thermalCase' });
+    const heat = cases.length;
+    const earlier = input.model.loadCases.filter((c) => c.type === 'T' && c.alternatives === THERMAL_SENSES).sort((a, b) => a.id - b.id);
+    cases.push({ existingId: earlier[0]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCase', alternatives: THERMAL_SENSES });
+    cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES });
+    for (const th of special.thermal) thermal.push({ ...th, caseIndex: heat }, { ...th, dtUniform: -th.dtUniform || 0, dtGradient: -th.dtGradient || 0, caseIndex: heat + 1 });
+    derivation.push(msg('loadPlan.derivation.thermalSenses'));
     refs.push(clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
   }
   if (special.soil.length) {
@@ -948,7 +1035,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   return {
     outcome: 'READY',
-    cases, distributed, nodal, surface, thermal: special.thermal, combinations,
+    cases, distributed, nodal, surface, thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),
@@ -956,6 +1043,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       windQh, seismicWeight, baseShear,
     },
     levels,
+    ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys: [],
