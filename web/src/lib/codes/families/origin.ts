@@ -9,7 +9,8 @@
 /** What an action is, whatever a code calls it: what a combination rule and a design module read. */
 export type ActionCategory =
   | 'permanent' | 'imposed' | 'roofImposed' | 'wind' | 'serviceWind' | 'snow' | 'rain'
-  | 'seismic' | 'thermal' | 'earthPressure' | 'fluid' | 'accidental' | 'other';
+  | 'seismic' | 'thermal' | 'earthPressure' | 'fluid' | 'accidental' | 'other'
+  | 'notional' | 'crane' | 'traffic' | 'mass' | 'ice';
 
 export type CodeFamilyId = 'cirsoc' | 'eurocode' | 'aci-aisc' | 'other' | (string & {});
 

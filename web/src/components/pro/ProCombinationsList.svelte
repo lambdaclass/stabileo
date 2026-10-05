@@ -79,6 +79,7 @@
         <button type="button" class="cb-toggle" aria-expanded={isOpen} onclick={() => toggle(combo.id)} title={combo.name} data-testid="combo-toggle">
           <span class="cb-chev" aria-hidden="true">▸</span>
           {#if tag}<span class="cb-tag">{tag}</span>{/if}
+          {#if combo.method === 'srss' || combo.method === 'abs'}<span class="cb-tag" data-testid="combo-method-tag">{combo.method.toUpperCase()}</span>{/if}
           <span class="cb-def" data-testid="combo-definition">{combinationDefinition(combo.factors, loadCases)}</span>
         </button>
         <button class="cb-x" onclick={() => modelStore.removeCombination(combo.id)} aria-label={t('combos.remove')} title={t('combos.remove')}>×</button>
@@ -88,6 +89,15 @@
           <label class="cb-name"><span class="pk-label">{t('pro.lcName')}</span>
             <input type="text" value={combo.name} onchange={(e) => modelStore.updateCombination(combo.id, { name: e.currentTarget.value })} data-testid="combo-name" />
           </label>
+          <!-- How the factored cases add: linear, or as magnitudes (`combination-methods.ts`). -->
+          <label class="cb-name"><span class="pk-label">{t('combos.method')}</span>
+            <select value={combo.method ?? 'linear'} onchange={(e) => modelStore.updateCombination(combo.id, { method: e.currentTarget.value as 'linear' | 'srss' | 'abs' })} data-testid="combo-method">
+              <option value="linear">{t('combos.method.linear')}</option>
+              <option value="srss">{t('combos.method.srss')}</option>
+              <option value="abs">{t('combos.method.abs')}</option>
+            </select>
+          </label>
+          {#if combo.method === 'srss' || combo.method === 'abs'}<p class="cb-hint">{t('combos.method.hint')}</p>{/if}
           <table class="cb-factors">
             <tbody>
               {#if legacySelfWeight}
@@ -159,4 +169,5 @@
   .cb-gen { margin-top: 8px; }
   .cb-link { align-self: flex-start; background: none; border: none; padding: 0; color: var(--st-text-2); text-decoration: underline; font: inherit; font-size: 0.68rem; cursor: pointer; }
   .cb-link:hover { color: var(--st-text); }
+  .cb-hint { margin: 2px 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
 </style>

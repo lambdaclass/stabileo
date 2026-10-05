@@ -51,10 +51,18 @@ const ALTERNATIVE: ReadonlySet<LoadSymbol> = new Set(['W', 'Wa', 'E']);
 
 const SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
 
+/**
+ * Types that combine as another symbol: a crane's and a vehicle's loads are imposed loads (L) in
+ * the combinations, with their own category for design. Notional (N), mass (M), accidental (A)
+ * and ice (I) cases have no symbol here: the automatic combinations leave them out (notional
+ * loads are added on request), and a project's rules name them.
+ */
+const COMBINES_AS: Readonly<Record<string, LoadSymbol>> = { CR: 'L', TR: 'L' };
+
 /** The symbol a load case type stands for, case-insensitively ('LR' is Lr). */
 export function symbolOfType(type: string | undefined): LoadSymbol | null {
   const u = (type ?? '').toUpperCase();
-  return SYMBOLS.find((s) => s.toUpperCase() === u) ?? null;
+  return SYMBOLS.find((s) => s.toUpperCase() === u) ?? COMBINES_AS[u] ?? null;
 }
 
 export interface CaseCombination {

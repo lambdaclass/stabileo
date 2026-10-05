@@ -10,6 +10,7 @@
 import { buildSolverLoads3D, type ModelData } from '../solver-service';
 import type { SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
+import { withCaseEffects } from '../case-effects';
 import type { SolverInput3D } from '../types-3d';
 import {
   applyMassSource, resolveMassFactors,
@@ -58,6 +59,8 @@ export function withMassSource(
   userLeftHand = false,
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport; factors: ResolvedFactor[] } {
   const factors = resolveMassFactors(loadCases, stated);
+  // A composite case weighs what it takes in (`case-effects.ts`).
+  model = withCaseEffects(model, loadCases as never, { includeSelfWeight: false, leftHand: userLeftHand });
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
   const physical = withSectionMass(input, model);

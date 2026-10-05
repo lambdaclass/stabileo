@@ -11,6 +11,7 @@
   import { decimalOrKeep, parseDecimal } from '../../../lib/utils/numeric-input';
   import { plainNumber, formatValue } from '../../../lib/utils/units';
   import { appliedResultant } from '../../../lib/engine/statics-check';
+  import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
@@ -59,7 +60,9 @@
   const totals = $derived.by(() => {
     const ids = scope === 'all' ? cases.map((c) => c.id) : [uiStore.activeLoadCaseId];
     const types = new Map(cases.map((c) => [c.id, c.type]));
-    return ids.map((id) => ({ id, ...appliedResultant(modelStore.model as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
+    // A composite case's totals are those of what it takes in (`case-effects.ts`).
+    const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
+    return ids.map((id) => ({ id, ...appliedResultant(m as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
   });
   const F = (v: number) => formatValue(v, 'force', uiStore.unitSystem);
   const M = (v: number) => formatValue(v, 'moment', uiStore.unitSystem);

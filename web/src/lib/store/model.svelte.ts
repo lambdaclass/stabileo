@@ -819,12 +819,38 @@ export interface LoadCase {
    * read (`codes/families/origin.ts`). The generator states it; absent, it follows the type.
    */
   category?: import('../codes/families/origin').ActionCategory;
+  /**
+   * Other cases this one takes in, each times a factor, besides its own loads: a composite case
+   * (`engine/case-effects.ts`). Solved as one case, so a second-order or a nonlinear solve sees
+   * the whole of it.
+   */
+  includes?: Array<{ caseId: number; factor: number }>;
+  /** A case of loads only to be taken in by others: not solved, nor listed in the results, on its own. */
+  reference?: boolean;
+  /** False: not solved on its own unless a combination needs it, nor listed in the results. */
+  solve?: boolean;
+  /**
+   * Notional loads (`direct-analysis.ts` `notionalLoads`): a fraction of the gravity load of
+   * another case at each node, horizontal along a direction. Written when solved.
+   */
+  notional?: { sourceCaseId: number; ratio: number; dir: '+X' | '-X' | '+Y' | '-Y' };
+  /**
+   * An imposed load's reduction for a case typed by hand: its loads times `ratio`, the one the
+   * bound loads code gives for the tributary area, member and storeys stated
+   * (`codes/families` `ImposedLoadCode.reduce`).
+   */
+  reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number };
 }
 
 export interface LoadCombination {
   id: number;
   name: string;
   factors: Array<{ caseId: number; factor: number }>;
+  /**
+   * How the factored cases add: `linear` (the default), `srss` (the square root of the sum of their
+   * squares) or `abs` (the sum of their absolute values), quantity by quantity.
+   */
+  method?: 'linear' | 'srss' | 'abs';
   /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
   origin?: import('../codes/families/origin').CombinationOrigin;
 }
@@ -3830,6 +3856,11 @@ function createModelStore() {
       if (model.analysis?.selfWeight?.some((s) => s.caseId === id)) {
         model.analysis = { ...model.analysis, selfWeight: model.analysis.selfWeight.filter((s) => s.caseId !== id) };
       }
+      // And the cases that take it in, or read their notional loads off it.
+      for (const lc of model.loadCases) {
+        if (lc.includes?.some((x) => x.caseId === id)) lc.includes = lc.includes.filter((x) => x.caseId !== id);
+        if (lc.notional?.sourceCaseId === id) delete lc.notional;
+      }
       // Likewise a named envelope that takes the case on its own.
       if (model.resultScopes) {
         model.resultScopes = pruneScopes(model.resultScopes, new Set(model.combinations.map((c) => c.id)), new Set(model.loadCases.map((c) => c.id)));
@@ -3991,12 +4022,30 @@ function createModelStore() {
       }
     },
 
-    updateCombination(id: number, data: Partial<{ name: string; factors: Array<{ caseId: number; factor: number }> }>): void {
+    updateCombination(id: number, data: Partial<{ name: string; factors: Array<{ caseId: number; factor: number }>; method: LoadCombination['method'] }>): void {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
       if (data.name !== undefined) combo.name = data.name;
       if (data.factors !== undefined) combo.factors = [...data.factors];
+      if ('method' in data) { if (!data.method || data.method === 'linear') delete combo.method; else combo.method = data.method; }
+    },
+
+    /**
+     * A case's composition and how it is solved (`engine/case-effects.ts`): the cases it takes in,
+     * whether it is a reference or solved on its own, its notional loads, its reduction, its
+     * alternatives group and pattern. A field given as undefined is removed.
+     */
+    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern'>>): void {
+      const lc = model.loadCases.find((c) => c.id === id);
+      if (!lc) return;
+      if (!_undoBatching) _pushUndo?.();
+      for (const [k, v] of Object.entries(patch) as Array<[keyof typeof patch, unknown]>) {
+        const empty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0) || (k === 'solve' && v === true) || ((k === 'reference' || k === 'pattern') && v === false);
+        if (empty) delete (lc as unknown as Record<string, unknown>)[k];
+        else (lc as unknown as Record<string, unknown>)[k] = JSON.parse(JSON.stringify(v));
+      }
+      model.loadCases = [...model.loadCases];
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {

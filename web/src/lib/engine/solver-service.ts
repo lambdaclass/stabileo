@@ -1,6 +1,8 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { withCaseEffects } from './case-effects';
+import { casesToSolve, finishBundle } from './combination-methods';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -2200,8 +2202,12 @@ export function solveCombinations3D(
 ): Bundle3D | string | null {
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
+  // Each case with its composition, notional loads and reduction written out (`case-effects.ts`);
+  // only the cases listed or taken by a combination solved (`combination-methods.ts`).
+  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
+  const solving = casesToSolve(loadCases, combinations);
   try {
-    return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+    return finishBundle(withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), solving, combinations, includeSelfWeight, leftHand), model), loadCases, combinations);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -2666,6 +2672,9 @@ export async function solveCombinations3DParallel(
   includeSelfWeight = false,
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
+  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
+  const allCases = loadCases;
+  loadCases = casesToSolve(loadCases, combinations);
   const original = model;
   model = solvableModel(model);
   /*
@@ -2682,7 +2691,7 @@ export async function solveCombinations3DParallel(
     if (!solved || typeof solved === 'string') return solved;
     return withSettlementCase(solved, model, combinations, leftHand);
   };
-  return withDeclaredInactiveBundle(await done(), original);
+  return finishBundle(withDeclaredInactiveBundle(await done(), original), allCases, combinations);
 }
 
 async function solveCombinations3DParallelCore(

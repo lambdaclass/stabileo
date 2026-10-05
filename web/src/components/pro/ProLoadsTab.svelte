@@ -9,7 +9,8 @@
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
+  import { addGeneratedCombinations, addCompositeCases } from '../../lib/store/generated-combinations';
+  import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
@@ -43,6 +44,11 @@
   }
 
   let showComboModal = $state(false);
+  /** Write the combinations as composite cases. */
+  let asComposite = $state(false);
+  /** Add the notional cases to the combinations without lateral load. */
+  let addNotionals = $state(false);
+  const hasNotionalCases = $derived(loadCases.some((c) => c.notional));
   let candidateCombos = $state<CandidateCombo[]>([]);
   let activeTemplate = $state<ComboTemplate>('lrfd');
   const hasWindCases = $derived(modelStore.model.loadCases.some((c) => (c.type || '').toUpperCase() === 'W'));
@@ -91,11 +97,13 @@
       : template === 'service'
       ? generateServiceCombinations({ present })
       : generateCombinations({ present });
-    const out = expandCombinations(specs, cases, {
+    const expanded = expandCombinations(specs, cases, {
       bothSenses: { W: windBySign, E: seismicBothSenses },
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
       reversible: (id) => windCaseReversible(modelStore.model, id),
-    }).map((c) => {
+    });
+    // The notional cases, each with its source's factor, in the combinations without lateral load.
+    const out = (addNotionals ? withNotionalVariants(expanded, cases) : expanded).map((c) => {
       const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
       return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
     });
@@ -126,7 +134,10 @@
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
     }, 0);
     modelStore.batch(() => {
-      addGeneratedCombinations(toAdd.map((c) => ({ ...c.generated, name: c.name })), () => `${prefix}${++n}: `);
+      const list = toAdd.map((c) => ({ ...c.generated, name: c.name }));
+      // As composite cases, each solved as one case (a second-order solve sees the whole of it).
+      if (asComposite) addCompositeCases(list, () => `${prefix}${++n}: `);
+      else addGeneratedCombinations(list, () => `${prefix}${++n}: `);
     });
     showComboModal = false;
     const label = activeTemplate === 'service' ? t('pro.serviceCombosGenerated') : t('pro.combosGenerated');
@@ -248,6 +259,16 @@
         </label>
         <p class="combo-senses-hint">{t('combos.windBySignHint')}</p>
       {/if}
+      {#if hasNotionalCases}
+        <label class="combo-wind-basis" data-testid="combo-add-notionals">
+          <input type="checkbox" bind:checked={addNotionals} onchange={() => { candidateCombos = buildCandidates(activeTemplate); }} />
+          <span>{t('combos.addNotionals')}</span>
+        </label>
+      {/if}
+      <label class="combo-wind-basis" data-testid="combo-as-composite">
+        <input type="checkbox" bind:checked={asComposite} />
+        <span>{t('combos.asComposite')}</span>
+      </label>
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
           {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {

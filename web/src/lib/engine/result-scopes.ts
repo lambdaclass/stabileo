@@ -122,10 +122,12 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
 export function scopeBundle3D<B extends Bundle3D>(
   bundle: B | string | null,
   scopes: ResultScopes | undefined,
-  combinations: ReadonlyArray<{ id: number }>,
+  combinations: ReadonlyArray<{ id: number; method?: string }>,
 ): B | string | null {
   if (!bundle || typeof bundle === 'string' || !scopes?.active) return bundle;
-  const ids = activeComboIds(scopes, combinations).filter((id) => bundle.perCombo.has(id));
+  // An SRSS or ABS combination is a magnitude: it is listed, not enveloped (`combination-methods.ts`).
+  const magnitude = new Set(combinations.filter((c) => c.method === 'srss' || c.method === 'abs').map((c) => c.id));
+  const ids = activeComboIds(scopes, combinations).filter((id) => bundle.perCombo.has(id) && !magnitude.has(id));
   if (ids.length === bundle.perCombo.size) return bundle;
   const envelope = envelopeOver(bundle.perCombo, ids);
   if (!envelope) return t('scopes.noneActive');

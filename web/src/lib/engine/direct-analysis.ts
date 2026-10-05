@@ -35,6 +35,7 @@ import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } fro
 import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject } from './wasm-solver';
 import { correctPDeltaForces, solvePDelta3DCorrected, amplification } from './pdelta-forces';
+import { withCaseEffects } from './case-effects';
 export { amplification } from './pdelta-forces';
 
 export type TauBMode = 'iterate' | 'unity';
@@ -218,6 +219,8 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
+  // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).
+  model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand: opts.leftHand ?? false });
   const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;

@@ -326,7 +326,23 @@ are set in **Specifications › Supports**.
 floor loads), the card to write a load, and the load tables:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
-  S snow) and a button to show or hide it in the viewer.
+  S snow, R rain, T temperature, F fluids, H soil; and, to add when needed, N notional and
+  imperfection, Cr crane, Tr traffic, M mass, A accidental, I ice) and a button to show or hide it
+  in the viewer. Crane and traffic cases combine as imposed loads in the automatic combinations;
+  notional cases enter them on request, and mass, accidental and ice cases through the project's
+  rules. The **⚙** of a row opens the case's composition:
+  - **takes in other cases**, each times a factor, besides its own loads: a composite case, solved
+    as one case, so a second-order solve sees the whole sum;
+  - **reference**: a case only to be taken in by others, not solved nor listed on its own; and
+    **solve**: a case unticked is solved only if a combination needs it, and is not listed;
+  - an **alternatives group** (the combinations take one case of the group at a time) and
+    **pattern** (it varies only where its action is the principal one), marked in the table;
+  - for an N case, its **notional loads**: a fraction (0.002 by default) of the vertical load a
+    source case puts at each node, horizontal along ±X or ±Y;
+  - for an imposed load typed by hand, its **reduction** by tributary area, member kind and storeys,
+    with the bound code's formula: the case's loads are multiplied by the factor shown.
+
+  **Notional cases** below the table creates one N case per source case and direction.
 - **Self-weight:** a load of a case. Each row says which case it goes into, along which global
   direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
   members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
@@ -340,7 +356,12 @@ floor loads), the card to write a load, and the load tables:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
   D + 0.75 L + 0.45 W + 0.75 (Lr or S or R)). When
   generating them, wind and earthquake can be taken in both senses: each case also enters with the
-  opposite sign. **Project rules** are your own combinations written in actions (for example
+  opposite sign. They can be created **as composite cases** (each solved as one case), and **with
+  notional loads**: each combination without wind or earthquake gets one variant per direction,
+  with each notional case at its source's factor. Each combination adds its cases **linearly**, by
+  **SRSS** or by **ABS**: the last two combine every quantity on its own, along the members too,
+  and are magnitudes without a sign, listed with their results and left out of the linear
+  envelope. **Project rules** are your own combinations written in actions (for example
   1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
   CIRSOC 101's, and can be saved as a template for another project.
   PRO examples load with CIRSOC 101-2025's strength combinations built from the cases that carry

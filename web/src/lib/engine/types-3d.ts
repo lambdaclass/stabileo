@@ -405,6 +405,11 @@ export interface ElementForces3D {
    * by piece; the fields above are the member's ends.
    */
   pieces?: import('./variable-members').ResultPiece[];
+  /**
+   * A combination by SRSS or ABS (`combination-methods.ts`): along the member each quantity is its
+   * factored cases' values combined point by point; the end fields above are those values at the ends.
+   */
+  combined?: { method: 'srss' | 'abs'; parts: ElementForces3D[] };
 }
 
 /** Plate stress output (triangular) */
