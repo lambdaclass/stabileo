@@ -348,12 +348,19 @@ floor loads), the card to write a load, and the load tables:
   keep their own: the offshore platform, whose waves are not a CIRSOC 103 earthquake, the hangar,
   whose three crane positions are alternatives, and the two drafts from CAD, which keep the
   combinations they were drafted with.
-- **Floor:** an area load on a level, a floor group or the selected beams is carried to the beams
-  by tributary area. Panels are the closed regions the beams bound in plan; two way, each point
-  loads the nearest beam (on a rectangular panel, the 45° triangles and trapezoids), and one way,
-  the strips load the two beams they reach. Each beam gets partial linear loads that add up to the
-  load times the area. A plan shows the panels before applying; non-convex panels are reported
-  and left unloaded.
+- **Floor:** an area load on a level, a floor group, the members or slabs picked, a box of
+  coordinates or a **zone** is carried to the beams by tributary area, or onto the slabs as a
+  surface load. Panels are the closed regions the beams bound in their plane; two way, each side
+  takes the region its front sweeps moving inward (on a convex panel the nearest-side 45° pattern;
+  beside a re-entrant corner the corner's bisector), and one way, the strips load the two beams they
+  reach. A ring of beams inside a panel is an opening of it: its beams take their share, and its own
+  panel is loaded once. Each beam gets partial linear loads that add up to the load times the area;
+  beside a re-entrant corner, the part of a region past its beam's end goes to that node. A floor on
+  an inclined plane takes the load vertically, per true area or per plan area; a negative load lifts.
+  A plan shows the panels before adding. The floor load is **kept as its definition**: its loads are
+  marked ⟲ in the tables and rewritten before solving when the model has changed under it; the list
+  below shows each one with its total, to remove it. **Zones** are drawn by picking an outline's
+  nodes in order; the members picked with them stay out, and other zones can be their openings.
 - **Write a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
   - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
@@ -372,7 +379,12 @@ floor loads), the card to write a load, and the load tables:
     the temperature that gives it. A **prestress**: the tendon's tension and its eccentricity at the
     ends and the middle (positive toward local −z), solved by its equivalent loads on the connected
     structure.
-  - On **slabs** (quadrilaterals): the surface load, vertical, and the slab temperature.
+  - On **slabs** (quadrilaterals and triangles): an area load downward, along the slab's local z, or
+    along a global axis per true or projected area; uniform, with a value per corner, or varying
+    along an axis between two values (nothing outside them); on the whole slab or only inside a
+    rectangle. A **fluid** to a level, pushing every slab under it away from the fluid. A
+    **concentrated** force at a point of a slab, split to its nodes by its shape functions. The
+    slab temperature.
 
   **Apply to** is the same choice for every kind: the selection, a list of numbers (`1, 4, 7-12`),
   a group, a range of coordinates in X, Y or Z, a section or a kind of member (beams, columns,
