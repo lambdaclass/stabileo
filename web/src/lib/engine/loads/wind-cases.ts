@@ -34,7 +34,7 @@
  * ── Roof members ─────────────────────────────────────────────────
  *
  * A roof member is a beam-like member (|Δz|/L ≤ 0,5, the same test the gravity loads use)
- * whose two nodes are above the ground and have no column rising from them. The pressure is
+ * whose two nodes are above the ground and that nothing higher covers in plan. The pressure is
  * normal to the member, so it goes on the member's local z, with the tributary width the
  * gravity loads use. Below 10°, or with wind parallel to the ridge, the coefficient is read by
  * distance from the windward edge (`flatRoofCp`); above, the windward and leeward slopes of
@@ -47,6 +47,7 @@ import {
   flatRoofCp, roofCp, G_RIGID, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { msg, type EngineMessage } from '../../codes/message';
+import { gravityLayout } from './plan-gravity';
 
 export type WindCaseSet = 'case1' | 'cases13' | 'all';
 
@@ -123,25 +124,19 @@ export function levelLoads(
 
 interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number }
 
-/** The members the roof pressures go on (see the header). */
+/**
+ * The members the roof pressures go on (see the header): beam-like members above the ground
+ * that nothing higher covers in plan (`plan-gravity.ts`). A lower roof beside a step is a roof;
+ * it used to be left out, because a column of the higher part rises from its nodes.
+ */
 export function roofMembers(model: WindModel): RoofMember[] {
-  const rising = new Set<number>();
-  const beamLike = (dz: number, L: number) => L > 0.01 && Math.abs(dz) / L <= 0.5;
-  for (const e of model.elements.values()) {
-    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
-    if (!a || !b) continue;
-    const dz = Z(b) - Z(a), L = Math.hypot(b.x - a.x, b.y - a.y, dz);
-    if (beamLike(dz, L)) continue;
-    rising.add(dz > 0 ? a.id : b.id);
-  }
+  const roof = gravityLayout(model, { mode: 'width', tributaryWidth: 1 }).roof;
   const out: RoofMember[] = [];
   for (const e of model.elements.values()) {
-    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
-    if (!a || !b) continue;
+    if (!roof.has(e.id)) continue;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    if (Z(a) <= 0.05 || Z(b) <= 0.05) continue;
     const dx = b.x - a.x, dy = b.y - a.y, dz = Z(b) - Z(a);
-    const L = Math.hypot(dx, dy, dz);
-    if (!beamLike(dz, L) || Z(a) <= 0.05 || Z(b) <= 0.05) continue;
-    if (rising.has(a.id) || rising.has(b.id)) continue;
     out.push({ id: e.id, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dx, dy, dz, lh: Math.hypot(dx, dy) });
   }
   return out;

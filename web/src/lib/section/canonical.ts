@@ -36,6 +36,7 @@ import {
   type CanonicalGeometryResponse,
 } from '../engine/wasm-solver';
 import { analyzeDrawn } from './drawn-properties';
+import { isSolidCircle } from './solid-circle';
 
 /**
  * Families whose canonical geometry is fully determined by data we hold.
@@ -125,6 +126,16 @@ function catalogueProfile(sec: Section): SteelProfile | undefined {
   // a CSV row named "IPE 300" with h = 400 mm solved as the IPE 300 while storing h = 0.4 m.
   // The name looks up dimensions only when the section has none, or the same ones.
   return p && ownDimensionsDiffer(sec, p) ? undefined : p;
+}
+
+/**
+ * The catalogue family a section's outline is looked up from (IPE, W, UPN...), or undefined when
+ * its outline is not a catalogue profile's: a drawing, an explicit polygon, declared properties,
+ * or a name the catalogue does not know.
+ */
+export function catalogueFamilyOf(sec: Section): string | undefined {
+  if (sec.drawn || (sec.polygon && sec.polygon.length >= 3) || sec.declared) return undefined;
+  return catalogueProfile(sec)?.family;
 }
 
 function ownDimensionsDiffer(sec: Section, p: SteelProfile): boolean {
@@ -402,12 +413,21 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
             }),
           );
     }
-    case 'T':
-    case 'invL': {
+    case 'T': {
       const missing = need('b', 'h', 'tw', 'tf');
       return missing.length
         ? propertiesOnly(sec, { kind: 'missingDimensions', missing })
         : backed(buildSectionGeometry({ kind: 'tee', h: sec.h!, b: sec.b!, tw: sec.tw!, tf: sec.tf! }));
+    }
+    case 'invL': {
+      // A spandrel beam: the web flush with one edge of the flange, which is what makes it an L.
+      // A tee would centre the web and hand the stresses and the drawing a symmetric section.
+      const missing = need('b', 'h', 'tw', 'tf');
+      if (missing.length) return propertiesOnly(sec, { kind: 'missingDimensions', missing });
+      const { b, h, tw, tf } = sec as Required<Pick<Section, 'b' | 'h' | 'tw' | 'tf'>>;
+      return backed(buildSectionGeometry({
+        kind: 'custom', outer: [[0, 0], [tw, 0], [tw, h - tf], [b, h - tf], [b, h], [0, h]],
+      }));
     }
     case 'L': {
       const missing = need('b', 'h', 't');
@@ -418,9 +438,26 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
     case 'U':
     case 'C': {
       const missing = need('b', 'h', 'tw', 'tf');
-      return missing.length
-        ? propertiesOnly(sec, { kind: 'missingDimensions', missing })
-        : backed(buildSectionGeometry({ kind: 'channel', h: sec.h!, b: sec.b!, tw: sec.tw!, tf: sec.tf! }));
+      if (missing.length) return propertiesOnly(sec, { kind: 'missingDimensions', missing });
+      /*
+       * A lipped channel keeps its lips. On a built 'C', `t` is the lip depth from the flange's
+       * outer face and `tl` its thickness (the convention `computeSectionProperties` and the
+       * drawing share); a lip no deeper than the flange is a plain channel, as both of them read it.
+       */
+      const { b, h, tw, tf } = sec as Required<Pick<Section, 'b' | 'h' | 'tw' | 'tf'>>;
+      const c = sec.shape === 'C' ? sec.t ?? 0 : 0;
+      if (c > tf && c <= h / 2) {
+        const tl = sec.tl && sec.tl > 0 ? sec.tl : tf;
+        const y = h / 2;
+        return backed(buildSectionGeometry({
+          kind: 'custom',
+          outer: [
+            [0, -y], [b, -y], [b, -y + c], [b - tl, -y + c], [b - tl, -y + tf], [tw, -y + tf],
+            [tw, y - tf], [b - tl, y - tf], [b - tl, y - c], [b, y - c], [b, y], [0, y],
+          ],
+        }));
+      }
+      return backed(buildSectionGeometry({ kind: 'channel', h, b, tw, tf }));
     }
     case 'RHS': {
       const missing = need('b', 'h', 't');
@@ -429,6 +466,8 @@ export function resolveCanonicalSection(sec: Section): ResolvedSection {
         : backed(buildSectionGeometry({ kind: 'rhs', b: sec.b!, h: sec.h!, t: sec.t! }));
     }
     case 'CHS': {
+      // The round templates store a disc as a CHS with no wall.
+      if (isSolidCircle(sec)) return backed(buildSectionGeometry({ kind: 'circle', d: sec.h! }));
       const missing = need('h', 't');
       return missing.length
         ? propertiesOnly(sec, { kind: 'missingDimensions', missing })

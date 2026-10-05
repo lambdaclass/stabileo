@@ -4,7 +4,7 @@
  * like the unit system itself: a reading preference, not project data.
  */
 import { uiStore } from './ui.svelte';
-import { formatValue, unitLabel, toDisplay, type Quantity } from '../utils/units';
+import { formatValue, formatCoordinate, unitLabel, toDisplay, setDisplayDecimals, type Quantity } from '../utils/units';
 
 const KEY = 'stabileo-decimals';
 
@@ -13,6 +13,7 @@ function load(): Partial<Record<Quantity, number>> {
 }
 
 let decimals = $state<Partial<Record<Quantity, number>>>(load());
+setDisplayDecimals(decimals);
 
 export const displayUnits = {
   get decimals() { return decimals; },
@@ -20,6 +21,7 @@ export const displayUnits = {
     const next = { ...decimals };
     if (n === null || !Number.isFinite(n) || n < 0) delete next[q]; else next[q] = Math.min(8, Math.floor(n));
     decimals = next;
+    setDisplayDecimals(next);
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* the preference lasts the session */ }
   },
 };
@@ -28,6 +30,12 @@ export const displayUnits = {
 export function fmtQ(v: number, q: Quantity): string {
   if (!Number.isFinite(v)) return '—';
   return formatValue(v, q, uiStore.unitSystem, decimals[q]);
+}
+
+/** A coordinate or a member length in the chosen units, to the millimetre (`formatCoordinate`). */
+export function fmtCoord(v: number): string {
+  if (!Number.isFinite(v)) return '—';
+  return formatCoordinate(v, uiStore.unitSystem, decimals.length);
 }
 
 /** The unit a quantity is shown in. */

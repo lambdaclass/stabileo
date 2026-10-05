@@ -14,6 +14,8 @@
  *     Removing it must lose nothing;
  *   · they are collinear and drawn head to tail, so the merged member's I→J is theirs;
  *   · same type, material and section, and the same local frame (same explicit reference and roll);
+ *   · neither of variable section: the merged member has one section at each end, and two
+ *     members of which one tapers are no one taper;
  *   · no release, joint or offset at the shared ends — an interior hinge is a structure, not a
  *     drawing artefact.
  *
@@ -46,7 +48,7 @@ export interface MergeReport {
   reinforcementDropped: number;
 }
 
-export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal';
+export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal' | 'variableSection';
 
 type N = { x: number; y: number; z?: number };
 const pv = (n: N): Vec3 => [n.x, n.y, n.z ?? 0];
@@ -91,6 +93,7 @@ function nodeIsBusy(nodeId: number): boolean {
 /** Why two collinear, head-to-tail members may not merge, or null. */
 function whyNot(a: Element, b: Element): RefuseReason | null {
   if (a.type !== b.type || a.materialId !== b.materialId || a.sectionId !== b.sectionId) return 'differentProperties';
+  if (a.variableSection || b.variableSection) return 'variableSection';
   if (a.localYx !== b.localYx || a.localYy !== b.localYy || a.localYz !== b.localYz || (a.rollAngle ?? 0) !== (b.rollAngle ?? 0)) return 'differentProperties';
   if (released(a.releaseJ) || released(b.releaseI) || a.jointJ || b.jointI || a.offset?.j || b.offset?.i) return 'endConditions';
   // A semi-rigid end where the two meet is an end condition the merged member would lose.

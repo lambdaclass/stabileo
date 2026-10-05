@@ -87,7 +87,7 @@
   /** What each member is told beyond geometry, section and material (`specification-list.ts`). */
   const specsOf = (id: number) => {
     const e = modelStore.elements.get(id);
-    return e ? memberSpecifications(e, t) : [];
+    return e ? memberSpecifications(e, t, modelStore.model) : [];
   };
   /** The axial behaviour reads as its value (Truss, Cable); the rest by what they are. */
   const specLabel = (x: { what: string; value: string }) => (x.what === t('spec.members.axial') ? x.value : x.what);
@@ -98,14 +98,19 @@
     if (!keep) uiStore.setSelection(new Set(), new Set([id]));
   }
 
-  // Sync rows from store on mount. Preserve unsaved rows (id === null).
+  /*
+   * Sync rows from the store on mount and whenever a member is added, removed or changed
+   * elsewhere. Preserve unsaved rows (id === null). The rows used to be rebuilt only when the ids
+   * changed, so a section set in the quick editor or Specifications was written back to the old
+   * one the next time a cell of its row lost the focus.
+   */
+  let synced = '';
   $effect(() => {
     const storeElems = [...modelStore.elements.values()];
-    const savedRows = rows.filter(r => r.id !== null);
     const unsavedRows = rows.filter(r => r.id === null);
-    const storeIds = storeElems.map(e => e.id).join(',');
-    const rowIds = savedRows.map(r => r.id).join(',');
-    if (storeIds !== rowIds || storeElems.length !== savedRows.length) {
+    const signature = storeElems.map(e => `${e.id}:${e.nodeI}:${e.nodeJ}:${e.materialId}:${e.sectionId}`).join('|');
+    if (signature !== synced) {
+      synced = signature;
       rows = [
         ...storeElems.map(e => ({
           id: e.id,
@@ -168,11 +173,13 @@
       modelStore.updateElementSection(eid, row.sectionId);
       rows[idx] = { ...rows[idx], id: eid };
     } else {
-      // Update existing element properties
-      const elem = modelStore.elements.get(row.id);
+      // Only what changed is written; node I and J re-connect the member, as one undo step.
+      const id = row.id;
+      const elem = modelStore.elements.get(id);
       if (!elem) return;
-      modelStore.updateElementMaterial(row.id, row.materialId);
-      modelStore.updateElementSection(row.id, row.sectionId);
+      if (elem.nodeI !== ni || elem.nodeJ !== nj) modelStore.batch(() => modelStore.updateElement(id, { nodeI: ni, nodeJ: nj }));
+      if (elem.materialId !== row.materialId) modelStore.updateElementMaterial(id, row.materialId);
+      if (elem.sectionId !== row.sectionId) modelStore.updateElementSection(id, row.sectionId);
     }
   }
 

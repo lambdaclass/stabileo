@@ -135,7 +135,15 @@ const MAGNITUDE_COLUMN: Record<RcForcesMagnitude, { head: string; digits: number
   torsion: { head: 'T (kN·m)',    digits: 3 },
 };
 
-const round = (v: number, digits: number) => Number.isFinite(v) ? +v.toFixed(digits) : 0;
+/**
+ * A value to `digits` decimals. Not a number, or infinite, is written as "—": it used to be
+ * written as 0, which reads as a valid result in a sheet of results from a solve that diverged.
+ */
+const round = (v: number, digits: number): Cell => {
+  if (!Number.isFinite(v)) return '—';
+  const r = +v.toFixed(digits);
+  return Object.is(r, -0) ? 0 : r;
+};
 
 /**
  * The result sets to tabulate.

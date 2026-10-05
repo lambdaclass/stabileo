@@ -13,6 +13,8 @@
    * form is kept for mobile, which has no right panel to dock into.
    */
   let { docked = false }: { docked?: boolean } = $props();
+  // A member of variable section is read with its section at the station (`section/variable.ts`).
+  import { memberSectionAt } from '../lib/section/variable';
   import { modelStore, resultsStore, uiStore, tourStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { propertyDeviation } from '../lib/section/state';
@@ -125,7 +127,7 @@
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    return modelStore.sections.get(elem.sectionId) ?? null;
+    return memberSectionAt(modelStore.sections, elem, query?.t ?? 0) ?? null;
   });
   /** 2D section with rotation → show biaxial decomposition (quasi-3D visualization) */
   const isRotated2D = $derived(!is3D && (querySec?.rotation ?? 0) !== 0);
@@ -142,7 +144,7 @@
     if (!query) return false;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return false;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     if (!sec) return false;
     return !supportsDetailedAnalysis(sec);
   });
@@ -171,7 +173,7 @@
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     return sec ? propertyDeviation(sec) : null;
   });
 
@@ -179,7 +181,7 @@
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     if (!sec || supportsDetailedAnalysis(sec)) return null;
     const st = sec.canonical;
     if (st?.kind === 'geometry-backed' && st.composite) return { kind: 'composite', name: sec.name || '—' };
@@ -201,7 +203,7 @@
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     if (!sec || !supportsDetailedAnalysis(sec)) return null;
 
     if (is3D) {
@@ -250,7 +252,7 @@
     if (is3D || isRotated2D || !query || !resultsStore.results || isAmorphous) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     const mat = modelStore.materials.get(elem.materialId);
     if (!sec || !mat) return null;
     const ef = resultsStore.getElementForces(query.elementId);
@@ -281,7 +283,7 @@
     // measurement, and `eccentric-diagrams.test.ts` pins them.
     if (eccentricActive && eccentric && stateInputs) {
       const elem = modelStore.elements.get(query.elementId);
-      const sec = elem ? modelStore.sections.get(elem.sectionId) : null;
+      const sec = elem ? memberSectionAt(modelStore.sections, elem, query?.t ?? 0) : null;
       const mat = elem ? modelStore.materials.get(elem.materialId) : null;
       if (!sec || !mat) return null;
       const f = eccentric.forces;
@@ -299,7 +301,7 @@
       if (!resultsStore.results3D) return null;
       const elem = modelStore.elements.get(query.elementId);
       if (!elem) return null;
-      const sec = modelStore.sections.get(elem.sectionId);
+      const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
       const mat = modelStore.materials.get(elem.materialId);
       if (!sec || !mat) return null;
       const ef = resultsStore.getElementForces3D(query.elementId);
@@ -316,7 +318,7 @@
     if (!isRotated2D || !resultsStore.results) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     const mat = modelStore.materials.get(elem.materialId);
     if (!sec || !mat) return null;
     const ef = resultsStore.getElementForces(query.elementId);
@@ -426,7 +428,7 @@
   const stateInputs = $derived.by(() => {
     if (!query || !canonical?.ok) return null;
     const elem = modelStore.elements.get(query.elementId);
-    const sec = elem ? modelStore.sections.get(elem.sectionId) : null;
+    const sec = elem ? memberSectionAt(modelStore.sections, elem, query?.t ?? 0) : null;
     const mat = elem ? modelStore.materials.get(elem.materialId) : null;
     if (!sec) return null;
 
@@ -820,7 +822,7 @@
     if (!useGlobalScale || !query || isAmorphous) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
-    const sec = modelStore.sections.get(elem.sectionId);
+    const sec = memberSectionAt(modelStore.sections, elem, query?.t ?? 0);
     const mat = modelStore.materials.get(elem.materialId);
     if (!sec || !mat) return null;
 

@@ -90,42 +90,90 @@ function verifiedLengths(verifications: readonly ElementVerification[]): Map<num
 }
 
 /**
- * The load list, as sentences.
- *
- * Only the four types the report tabulates produce a row; anything else falls through with empty
- * strings rather than being dropped, so the count in the table still matches `loadCount`.
+ * The load list, as sentences, in SI as the report states. Every load type has its row; the 3D
+ * ones, which are all a PRO model carries, used to fall through as empty rows, so the report
+ * listed as many blank lines as the model had loads.
  */
 export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
   const loads: NonNullable<ReportData['loads']> = [];
+  /** A component to four significant figures, never "-0". */
+  const n = (v: number) => { const r = +v.toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
+  /** The non-zero components, named; "0" when all are zero. */
+  const parts = (unit: string, comps: Array<[string, number | undefined]>) => {
+    const nz = comps.filter(([, v]) => v !== undefined && Math.abs(v) > 1e-12) as Array<[string, number]>;
+    return nz.length ? nz.map(([k, v]) => `${k}=${n(v)}`).join(', ') + ` ${unit}` : `0 ${unit}`;
+  };
+  /** Where a partial line load sits, from node I; a start with no end runs to the end (`b=L`). */
+  const range = (d: { a?: number; b?: number }) =>
+    d.a !== undefined || d.b !== undefined ? `, a=${n(d.a ?? 0)} m, b=${d.b !== undefined ? `${n(d.b)} m` : 'L'}` : '';
+  /** A 2D member load's angle from its base direction, and its axes when they are global. */
+  const turn = (d: { angle?: number; isGlobal?: boolean }) =>
+    (d.angle ? `, θ=${n(d.angle)}°` : '') + (d.isGlobal ? ` (${t('report.loadGlobal')})` : '');
+  const caseName = (id: number | undefined) => modelStore.model.loadCases.find((c) => c.id === (id ?? 1))?.name;
   for (const load of modelStore.model.loads) {
     let tipo = '', destino = '', valores = '';
     switch (load.type) {
       case 'nodal': {
         const d = load.data;
-        tipo = t('file.loadNodal'); destino = `Nodo ${d.nodeId}`;
-        valores = `Fx=${d.fx} kN, Fz=${get2DDisplayNodalLoadVertical(d)} kN, My=${get2DDisplayNodalLoadMoment(d)} kN·m`;
+        tipo = t('file.loadNodal'); destino = `${t('report.loadNode')} ${d.nodeId}`;
+        valores = `Fx=${n(d.fx)} kN, Fz=${n(get2DDisplayNodalLoadVertical(d))} kN, My=${n(get2DDisplayNodalLoadMoment(d))} kN·m`;
         break;
       }
       case 'distributed': {
         const d = load.data;
-        tipo = t('file.loadDistributed'); destino = `Elem ${d.elementId}`;
-        valores = d.qI === d.qJ ? `q=${d.qI} kN/m` : `qI=${d.qI}, qJ=${d.qJ} kN/m`;
+        tipo = t('file.loadDistributed'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = (d.qI === d.qJ ? `q=${n(d.qI)} kN/m` : `qI=${n(d.qI)}, qJ=${n(d.qJ)} kN/m`) + range(d) + turn(d);
         break;
       }
       case 'pointOnElement': {
         const d = load.data;
-        tipo = t('file.loadPointOnElement'); destino = `Elem ${d.elementId}`;
-        valores = `P=${d.p} kN, a=${d.a} m`;
+        tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, My=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
         break;
       }
       case 'thermal': {
         const d = load.data;
-        tipo = t('file.loadThermal'); destino = `Elem ${d.elementId}`;
-        valores = `ΔT=${d.dtUniform} °C, ΔTg=${d.dtGradient} °C`;
+        tipo = t('file.loadThermal'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = `ΔT=${n(d.dtUniform)} °C, ΔTg=${n(d.dtGradient)} °C`;
+        break;
+      }
+      case 'nodal3d': {
+        const d = load.data;
+        tipo = t('file.loadNodal'); destino = `${t('report.loadNode')} ${d.nodeId}`;
+        valores = [parts('kN', [['Fx', d.fx], ['Fy', d.fy], ['Fz', d.fz]]), parts('kN·m', [['Mx', d.mx], ['My', d.my], ['Mz', d.mz]])].join('; ');
+        break;
+      }
+      case 'distributed3d': {
+        const d = load.data;
+        tipo = t('file.loadDistributed'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        const axes = d.frame === 'global' || d.frame === 'projected' ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
+        valores = parts('kN/m', [
+          [`q${axes[0]}I`, d.qXI], [`q${axes[0]}J`, d.qXJ], [`q${axes[1]}I`, d.qYI], [`q${axes[1]}J`, d.qYJ],
+          [`q${axes[2]}I`, d.qZI], [`q${axes[2]}J`, d.qZJ],
+        ]) + range(d)
+          + (d.frame === 'projected' ? ` (${t('report.loadProjected')})` : d.frame === 'global' ? ` (${t('report.loadGlobal')})` : '');
+        break;
+      }
+      case 'pointOnElement3d': {
+        const d = load.data;
+        tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = `${parts('kN', [['Py', d.py], ['Pz', d.pz]])}, a=${n(d.a)} m`;
+        break;
+      }
+      case 'surface3d': {
+        const d = load.data;
+        tipo = t('report.loadSurface'); destino = `${t('report.loadShell')} ${d.quadId}`;
+        valores = `q=${n(d.q)} kN/m²`;
+        break;
+      }
+      case 'thermalQuad3d': {
+        const d = load.data;
+        tipo = t('file.loadThermal'); destino = `${t('report.loadShell')} ${d.quadId}`;
+        valores = `ΔT=${n(d.dtUniform)} °C, ΔTg=${n(d.dtGradient)} °C`;
         break;
       }
     }
-    loads.push({ type: tipo, target: destino, values: valores, caseLabel: (load as any).caseLabel });
+    loads.push({ type: tipo, target: destino, values: valores, caseLabel: caseName((load.data as { caseId?: number }).caseId) });
   }
   return loads;
 }

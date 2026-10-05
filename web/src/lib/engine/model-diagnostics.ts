@@ -10,6 +10,7 @@ import { weldTolerance } from '../model/weld-tolerance';
 import { concreteStrengthConflict } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
 import { semiRigidNotAligned } from './expand-semi-rigid-3d';
+import { variableRefusal } from '../section/variable';
 
 interface LoadEntry {
   type: string;
@@ -122,6 +123,12 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   // semi-rigid ends refused by the solve, so it is named here first.
   const refused = semiRigidNotAligned(m.elements.values(), m.nodes, m.sections);
   if (refused.length) out.push(diag('warning', 'MODEL_SEMIRIGID_NOT_ALIGNED', 'diag.model.semiRigidNotAligned', { elementIds: refused }));
+
+  // ─── A section at end J the solve does not use ───
+  // A truss or one-way member, or two sections that do not blend: solved prismatic, with end I's
+  // section, and designed so (`section/variable.ts`, `variableRefusal`). Said here, not silently.
+  const prismatic = [...m.elements.values()].filter((e) => variableRefusal(m.sections, e) !== null).map((e) => e.id);
+  if (prismatic.length) out.push(diag('warning', 'MODEL_VARIABLE_REFUSED', 'diag.model.variableRefused', { elementIds: prismatic }));
 
   // ─── Coincident nodes ──────────────────────────
   // Flag at the weld tolerance the clean-up merges at — `weldTolerance()`, the one every weld

@@ -13,7 +13,7 @@
  *   R5  a load-regulation change silently relabelling existing results
  */
 
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, alSection } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -273,6 +273,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
     await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+    await alSection(page, 'regulations');
     await expect(page.getByTestId('al-regulations')).toBeVisible();
   }
 
@@ -316,6 +317,7 @@ test.describe('@smoke regulation-backed load generation', () => {
 
   test('R10 — seismic is disabled until a seismic regulation is bound, and says why', async ({ pro: page }) => {
     await openDialog(page);
+    await alSection(page, 'seismic');
     await expect(page.getByTestId('al-enable-seismic')).toBeDisabled();
     const why = page.getByTestId('al-seismic-unavailable');
     await expect(why).toBeVisible();
@@ -330,6 +332,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await page.getByTestId('pending-review-in-loads').click();
 
     await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+    await alSection(page, 'seismic');
     await expect(page.getByTestId('al-enable-seismic')).toBeEnabled();
     await page.getByTestId('al-enable-seismic').check();
     await page.getByTestId('al-preview-btn').click();
@@ -349,6 +352,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     const withRed = await derivation();
 
     await page.getByTestId('al-back').click();
+    await alSection(page, 'live');
     await page.getByTestId('al-live-reduction').uncheck();
     await page.getByTestId('al-preview-btn').click();
     const without = await derivation();
@@ -364,6 +368,7 @@ test.describe('@smoke regulation-backed load generation', () => {
 
   test('R13 — an occupancy that Table 4.1 cross-references is refused, not invented', async ({ pro: page }) => {
     await openDialog(page);
+    await alSection(page, 'live');
     // "Balcones — otros casos" refers to article 4.11 instead of giving a value.
     const occ = page.locator('select').filter({ hasText: /Balcon/i }).first();
     if (await occ.count() === 0) test.skip();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * The project's quantities (`engine/quantities.ts`): concrete and structural steel from the
    * geometry, reinforcement from the bar schedule of the detailing, steel per cubic metre over the
@@ -31,7 +32,7 @@
   }
   const csv = () => { const [h, ...r] = rows(); downloadText(toCsv(h!.map(String), r), 'quantities.csv', 'text/csv;charset=utf-8'); };
   const xlsx = () => exportToExcel({ filename: 'quantities.xlsx', onlyExtras: true, extraSheets: [{ name: t('report.quantities').slice(0, 31), rows: rows() }] });
-  const f = (v: number, d = 2) => v.toLocaleString(undefined, { maximumFractionDigits: d });
+  const f = (v: number, d = 2) => plainNumber(v, d);
 </script>
 
 <section class="qty pk-card" data-testid="quantities">

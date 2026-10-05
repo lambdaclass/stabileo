@@ -24,6 +24,7 @@
  * reachable only from `exportToExcel`, which awaits the import first. That is
  * why this is a `let` rather than being threaded through ten signatures.
  */
+import { memberSectionLabel } from '../section/variable';
 // Type-only: erased at build time, so it costs the bundle nothing.
 import type * as Xlsx from 'xlsx';
 type XlsxModule = typeof import('xlsx');
@@ -185,18 +186,28 @@ function createSummarySheet(): Xlsx.WorkSheet {
   return ws;
 }
 
+/**
+ * The members sheet's section-property headers. A member of variable section names its section
+ * «I → J», but the A and I written beside it are the end-I section's, so when the model has one
+ * the headers say so, as «Ni» and «Mi» already do; for a prismatic member Ai is just A.
+ */
+export function sectionPropertyHeaders(is3D: boolean, anyVariable: boolean): string[] {
+  const end = anyVariable ? 'i' : '';
+  return [`A${end} (m²)`, `Iy${end} (m⁴)`, ...(is3D ? [`Iz${end} (m⁴)`, `J${end} (m⁴)`] : [])];
+}
+
 function createElementsSheet(): Xlsx.WorkSheet {
   const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
 
+  const anyVariable = [...modelStore.elements.values()].some((e) => e.variableSection);
   const headers = [
     'ID', t('excel.type'), t('excel.nodeI'), t('excel.nodeJ'), 'L (m)',
     t('excel.material'), 'E (MPa)',
-    t('excel.section'), 'A (m²)', 'Iy (m⁴)',
+    t('excel.section'), ...sectionPropertyHeaders(is3D, anyVariable),
   ];
-  if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
   headers.push(t('excel.releaseI'), t('excel.releaseJ'));
 
   if (hasResults && is3D) {
@@ -230,7 +241,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
       elem.nodeI, elem.nodeJ,
       Number(L.toFixed(4)),
       mat?.name ?? '-', mat?.e ?? 0,
-      sec?.name ?? '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
+      sec ? memberSectionLabel(modelStore.sections, elem) : '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
     ];
     if (is3D) row.push(sec?.iz ?? 0, sec?.j ?? 0);
     row.push(releaseLabel(elem.releaseI), releaseLabel(elem.releaseJ));

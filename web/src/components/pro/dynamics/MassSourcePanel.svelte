@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * The mass source: which load cases are mass for the dynamic analyses, and by how much.
    *
@@ -22,7 +23,7 @@
   /** `none`, `custom`, or a preset id — what the selector shows. */
   const mode = $derived(!source ? 'none' : source.kind === 'custom' ? 'custom' : source.presetId);
 
-  const fmt = (v: number, d = 1) => (Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
+  const fmt = (v: number, d = 1) => (Number.isFinite(v) ? plainNumber(v, d) : '—');
 
   let error = $state<string | null>(null);
 

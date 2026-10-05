@@ -22,6 +22,7 @@
   import ProShellFacesTable from './ProShellFacesTable.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { dofQuantity } from '../../lib/utils/units';
   let wasAnimating = false;
   import {
     componentUnit,
@@ -785,6 +786,8 @@
 
       {#if resSection === 'forces'}
         <ProResultTableModes kind="forces" bind:mode={tableModes.forces} />
+        <!-- The same end can read +M here and −M on a diagram label: say why, rather than leave it. -->
+        <p class="pro-res-hint" data-testid="forces-sign-hint">{t('pro.forcesSignHint')}</p>
         {#if tableModes.forces === 'current'}
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
@@ -944,12 +947,13 @@
             <table class="pro-res-table">
               <thead><tr>
                 <th>{t('pro.elemLabel')}</th>
-                <th>{t('pro.nodalVmNode')} 1</th>
+                <!-- σvM in kN/m², as the shell tables beside it; the header said no unit at all. -->
+                <th>{t('pro.nodalVmNode')} 1 (kN/m²)</th>
                 <th>{t('pro.nodalVmNode')} 2</th>
                 <th>{t('pro.nodalVmNode')} 3</th>
                 <th>{t('pro.nodalVmNode')} 4</th>
-                <th>Min</th>
-                <th>Max</th>
+                <th>Min (kN/m²)</th>
+                <th>Max (kN/m²)</th>
               </tr></thead>
               <tbody>
                 {#each nodalQuads as qs}
@@ -1001,7 +1005,8 @@
                   <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(cf.nodeId, false); }} style="cursor:pointer">
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
-                    <td class="col-num">{fmtNum(cf.force)}</td>
+                    <!-- A force on a translation, a moment on a rotation, a bimoment on warping, each in the chosen units. -->
+                    <td class="col-num">{fmtQ(cf.force, dofQuantity(cf.dof))} {unitQ(dofQuantity(cf.dof))}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -1466,4 +1471,5 @@
     margin-left: auto; padding: 1px 7px; font-size: 0.62rem; color: var(--st-text-2); background: var(--st-surface-2);
     border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer;
   }
+  .pro-res-hint { margin: 2px 8px 6px; font-size: 0.62rem; color: var(--st-text-3); }
 </style>

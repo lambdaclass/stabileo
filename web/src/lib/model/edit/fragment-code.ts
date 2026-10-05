@@ -73,6 +73,7 @@ export function fragmentFromJSONModel(json: JSONModel): Fragment {
       releaseI: { ...NO_RELEASE, mz: !!e.hingeStart }, releaseJ: { ...NO_RELEASE, mz: !!e.hingeEnd },
       ...(e.offset ? { offset: clone(e.offset) } : {}),
       ...(e.rollAngle !== undefined ? { rollAngle: e.rollAngle } : {}),
+      ...(e.variableSection ? { variableSection: { ...e.variableSection } } : {}),
     }) as unknown as Element),
     quads: json.quads.map((q) => clone(q) as unknown as Quad),
     plates: json.plates.map((p) => clone(p) as unknown as Plate),

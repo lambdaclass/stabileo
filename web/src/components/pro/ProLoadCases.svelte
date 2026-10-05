@@ -24,7 +24,7 @@
   const loadCases = $derived(modelStore.model.loadCases);
 
   /** The types a case can take, in the order the regulation lists them. */
-  const TYPES = ['D', 'L', 'Lr', 'S', 'W', 'Wa', 'E', 'T', ''] as const;
+  const TYPES = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T', 'F', 'H', ''] as const;
   const typeName = (ty: string) => t(`pro.caseType${ty || 'Other'}`);
 
   // ── Visibility per case ──
@@ -129,7 +129,10 @@
             {#each TYPES as ty (ty)}<option value={ty} title={typeName(ty)}>{ty || '—'}</option>{/each}
           </select>
         </td>
-        <td><input class="cell lc-name" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} aria-label={t('pro.lcName')} /></td>
+        <td class="lc-name-cell"><input class="cell lc-name" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} aria-label={t('pro.lcName')} />
+          <!-- One of an alternatives group (a checkerboard, an unbalanced snow): the combinations
+               take one case of the group at a time. -->
+          {#if lc.alternatives}<span class="lc-alt" title={t('pro.lcAlternativeHint')} data-testid="lc-alt-{lc.id}">{t('pro.lcAlternative')}</span>{/if}</td>
         <td class="lc-count">{count}</td>
         <!-- The regulation for THIS case, from the row that names it: a row that says W wants
              the wind parameters, not a dialog where they are the fourth section down. -->
@@ -197,4 +200,6 @@
   .lc-new-field { display: flex; flex-direction: column; gap: 2px; }
   .lc-new-grow { flex: 1; min-width: 7rem; }
   .lc-new-grow input { width: 100%; }
+  .lc-name-cell { display: flex; align-items: center; gap: 4px; }
+  .lc-alt { flex: none; padding: 0 5px; line-height: 16px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-3); font-size: 0.6rem; }
 </style>
