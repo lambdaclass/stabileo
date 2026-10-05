@@ -322,8 +322,8 @@ members and its pointer picks something else, a button switches the pointer to w
 Springs, lift-off and an inclined frame
 are set in **Specifications › Supports**.
 
-**Loads.** The panel has four tabs (load cases, with the self-weight rule inside; combinations;
-adding loads; floor loads):
+**Loads.** The panel has three tabs (load cases, with the self-weight rule inside; combinations;
+floor loads), the card to write a load, and the load tables:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
   S snow) and a button to show or hide it in the viewer.
@@ -354,13 +354,42 @@ adding loads; floor loads):
   the strips load the two beams they reach. Each beam gets partial linear loads that add up to the
   load times the area. A plan shows the panels before applying; non-convex panels are reported
   and left unloaded.
-- **Add load:** nodal (in global axes), point loads on members (in the member's local axes),
-  distributed loads on members, and **surface** loads on quadrilateral plates: in kN/m², vertical
-  (a positive value acts downward) and shared among the plate's four nodes. A distributed load is
-  given in **local** axes (qx along the member, which is the axial component, and qy, qz along its
-  axes), **global** axes (per metre of member) or **projected** (per metre of the member's
-  projection: snow on a rafter is given per metre of plan). The axes can also be changed from the
-  loads table.
+- **Write a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
+  point; an empty J field takes the I value, and a zero typed in J is a zero.
+  - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
+    point (kept as its components); and an **imposed displacement** of the case, in mm or rad, on
+    nodes whose support restrains that direction. Unlike a support's settlement, which enters once,
+    it is multiplied by the case's factor in every combination.
+  - On **members**: a **distributed** load in local, global or projected axes, over the whole member
+    or over a stretch a–b measured from node I; also a **triangle with a peak** (two trapezoids
+    meeting at the peak) and a **hydrostatic** load (w₁ at the lowest coordinate of the members
+    picked and w₂ at the highest, along a global axis). A **concentrated** load with axial and
+    transverse forces and moments, in local or global axes: a moment or an axial force inside the
+    member is solved exactly, because the solve cuts the member at that point and reports it as
+    one. A **temperature** with a uniform change and two gradients (ΔTgz through the depth, the −z
+    face minus the +z face; ΔTgy side to side, the −y face minus the +y face), which bend the
+    member by its real depth and width. An **initial strain** in ‰ or in mm of elongation, solved as
+    the temperature that gives it. A **prestress**: the tendon's tension and its eccentricity at the
+    ends and the middle (positive toward local −z), solved by its equivalent loads on the connected
+    structure.
+  - On **slabs** (quadrilaterals): the surface load, vertical, and the slab temperature.
+
+  **Apply to** is the same choice for every kind: the selection, a list of numbers (`1, 4, 7-12`),
+  a group, a range of coordinates in X, Y or Z, a section or a kind of member (beams, columns,
+  inclined, truss members). Member loads also take a **physical member**: the members picked taken
+  as one straight member, with distances measured along the whole of it. The panel says how many
+  elements the load goes on before adding, and all of it is one undo step.
+- **Load tables:** one table per kind, for the active case or every case, with the stretches a–b,
+  temperatures and strains, tendons and imposed displacements; every cell is edited in place. Below
+  them, **each case's totals** about the origin (ΣF and ΣM, with the self-weight where it applies),
+  before solving. Loads picked in the table or the view are **copied** or **moved** to another case,
+  with a factor, **scaled** or deleted. A case can be **duplicated** with its loads, and deleting one
+  says how many loads it takes and how many combinations it leaves.
+- **In the view:** a partial load is drawn on its stretch; with one distributed load picked, two
+  handles at the ends of its stretch are dragged along the member. Concentrated loads show their
+  axial part and moments; temperatures, strains, tendons and imposed displacements are drawn with
+  their values. Labels use the project's units and decimals, and **Arrows** changes the length of
+  every load arrow.
 
 **Auto-generate from code.** Builds the building's load plan from Argentine codes:
 
@@ -386,8 +415,8 @@ adding loads; floor loads):
 Area loads become line loads on the horizontal members, multiplied by the tributary width entered
 in the dialog, the same for all of them; wind is applied as forces per level, and torsion as forces spread over the level's nodes that add
 up to that moment. It first shows the
-load plan for review, and applies it when you confirm. Load cases of type D, L, W and E also have a
-**§** button that opens the dialog for that case directly.
+load plan for review, and applies it when you confirm. Load cases of type D, L, Lr, W, Wa, S, E, T, H and F also
+have a **§** button that opens the dialog on that case's section.
 
 ### Generators
 
