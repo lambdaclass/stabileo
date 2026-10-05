@@ -6,7 +6,7 @@
 // can never be computed on a structure the solve does not see.
 
 import { computeInfluenceLineWasm, solve, isWasmReady } from './wasm-solver';
-import { advancedRefusal2D, buildSolverInput2D, type ModelData } from './solver-service';
+import { advancedRefusal2D, buildSolverInput2D, variableRefusal2D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
 import { modelHasSlidingJoints } from './sliding-joints';
 import { computeDiagramValueAt } from './diagrams';
@@ -74,6 +74,9 @@ export function computeInfluenceLine(
   if (!isWasmReady()) return t('toast.solverNotReady');
   // The static solve relaxes a sliding joint by constraints the sweep does not carry.
   if (modelHasSlidingJoints(model.elements.values())) return t('advanced.slidingUnsupported');
+  // A member of variable section is not modelled by the plane solve (`variableRefusal2D`).
+  const variable = variableRefusal2D(model);
+  if (variable) return variable;
 
   const unit = unitLoadModel(model);
   const solver = buildSolverInput2D(unit, false);

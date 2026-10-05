@@ -22,6 +22,7 @@
 
 import { computeEnvelope3D } from './wasm-solver';
 import { envelopeShellStresses } from './shell-combos';
+import { reexpandVariableResults, collapseVariableEnvelope } from './variable-members';
 import { t } from '../i18n';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
 
@@ -80,8 +81,13 @@ export function envelopeOver(
     ...(perCase ? caseIds.map((id) => perCase.get(id)) : []),
   ].filter((r): r is AnalysisResults3D => !!r);
   if (results.length === 0) return null;
-  const envelope = computeEnvelope3D(results);
-  if (!envelope) return null;
+  // Members of variable section piece by piece, as the solve took its own envelope
+  // (`variable-members.ts`): the engine's envelope of the members alone drops their pieces.
+  const expanded = results.map(reexpandVariableResults);
+  const exp = expanded.find((x) => x.exp)?.exp;
+  const raw = computeEnvelope3D(expanded.map((x) => x.results));
+  if (!raw) return null;
+  const envelope = collapseVariableEnvelope(raw, exp);
   // The engine's envelope drops shell stresses; they are recombined from the combinations'.
   if (envelope.maxAbsResults3D && results.some((r) => (r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0)) {
     const env = envelopeShellStresses(results);

@@ -36,7 +36,7 @@ import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-so
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
-import { variableCutSection } from '../section/variable';
+import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
@@ -1352,8 +1352,10 @@ function createModelStore() {
     });
     const cuts = cutAt.map((k) => k.t);
     if (cuts.length === 0) return null;
-    // Before anything changes: the section at each cut of a member of variable section.
-    const variable = elem.variableSection;
+    // Before anything changes: the section at each cut of a member of variable section. One the
+    // solve takes prismatic, with end I's section (`variableRefusal`: a truss, a pair that does
+    // not blend), is cut as it is solved: segments of that section, no section at J.
+    const variable = elem.variableSection && variableRefusal(model.sections, elem) === null ? elem.variableSection : undefined;
     const cutSections = variable
       ? cuts.map((t) => variableCutSection(model.sections.get(elem.sectionId), model.sections.get(variable.sectionJ), t))
       : [];
@@ -3834,11 +3836,25 @@ function createModelStore() {
      * The case of this type and name, created when missing — what a load generator applies
      * into. Its alternatives group is set either way: a case reused from an earlier generation
      * (or an older project) carried none, and its snow patterns kept adding up.
+     *
+     * `own`: the case holds the generated load and nothing else (the full live load of its
+     * patterns, the two senses of ΔT). It is then found by name only among its group's cases and
+     * never adopted from the user's: the generated names are ordinary words ("Sobrecarga",
+     * "Temperatura"), and a user's case of that name, pulled into the group, had its loads dropped
+     * from every combination that took another alternative. When the name is taken, the new case
+     * gets a numbered one.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean } = {}): number {
+      const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
       const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
-        ?? model.loadCases.find((c) => c.type === type && c.name === name);
-      if (!found) return this.addLoadCase(name, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+        ?? (opts.own
+          ? model.loadCases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
+          : model.loadCases.find((c) => c.type === type && c.name === name));
+      if (!found) {
+        let fresh = name;
+        for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+      }
       const pattern = opts.pattern ? true : undefined;
       if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
         if (!_undoBatching) _pushUndo?.();

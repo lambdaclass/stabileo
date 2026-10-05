@@ -230,6 +230,33 @@ export function collapseVariableResults(r: AnalysisResults3D, exp: VariableExpan
   };
 }
 
+/**
+ * A result already back to one member each, as its pieces again, with the expansion that puts it
+ * back together: read off the pieces it keeps (`ResultPiece`), each with its own forces and end
+ * displacements. For what is computed again from collapsed results, an envelope over some of the
+ * combinations: taken over the members, it lost the pieces and so their EI and interior nodes.
+ * Undefined expansion when no member has pieces.
+ */
+export function reexpandVariableResults(r: AnalysisResults3D): { results: AnalysisResults3D; exp: VariableExpansion | undefined } {
+  const exp: VariableExpansion = { members: new Map(), innerNodes: new Set() };
+  const forces: ElementForces3D[] = [];
+  const extra = new Map<number, Displacement3D>();
+  for (const f of r.elementForces) {
+    const ps = f.pieces;
+    if (!ps?.length || ps.some((p) => !p.dI || !p.dJ)) { forces.push(f); continue; }
+    const pieces: VariablePiece[] = ps.map((p) => ({
+      id: p.forces.elementId, sectionId: p.sectionId, x0: p.x0, x1: p.x1, nodeI: p.dI!.nodeId, nodeJ: p.dJ!.nodeId, ...(p.ei ? { ei: p.ei } : {}),
+    }));
+    const innerNodes = pieces.slice(1).map((p) => p.nodeI);
+    exp.members.set(f.elementId, { parentId: f.elementId, length: f.length, pieces, innerNodes });
+    for (const n of innerNodes) exp.innerNodes.add(n);
+    for (const p of ps) { forces.push(p.forces); extra.set(p.dJ!.nodeId, p.dJ!); }
+  }
+  if (exp.members.size === 0) return { results: r, exp: undefined };
+  const displacements = [...r.displacements, ...[...exp.innerNodes].map((n) => extra.get(n)!)];
+  return { results: { ...r, elementForces: forces, displacements }, exp };
+}
+
 function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): EnvelopeDiagramData3D {
   const byId = new Map(d.elements.map((e) => [e.elementId, e]));
   const pieceIds = new Set<number>();
