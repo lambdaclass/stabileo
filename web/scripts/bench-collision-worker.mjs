@@ -13,7 +13,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = await mkdtemp(join(tmpdir(), 'stabileo-collision-worker-'));
 const entry = join(root, `.${basename(outDir)}.html`);
-let server, browser;
+let server, browser, watchdog;
 try {
   await writeFile(entry, '<!doctype html><title>Collision worker benchmark</title><script type="module">import { benchmark } from "/scripts/collision-worker/benchmark.ts"; window.runBenchmark = benchmark;</script>');
   await build({
@@ -28,12 +28,15 @@ try {
   const address = server.httpServer.address();
   if (!address || typeof address === 'string') throw new Error('No benchmark server address');
   browser = await chromium.launch({ headless: true });
+  watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 180_000);
   const page = await browser.newPage();
+  page.on('crash', () => { console.error('Benchmark page crashed'); void browser.close(); });
   page.on('pageerror', error => console.error(error));
   await page.goto(`http://127.0.0.1:${address.port}/${basename(entry)}`);
   await page.waitForFunction(() => typeof window.runBenchmark === 'function');
   console.log(JSON.stringify(await page.evaluate(() => window.runBenchmark()), null, 2));
 } finally {
+  clearTimeout(watchdog);
   await browser?.close();
   if (server) await new Promise(resolve => server.httpServer.close(resolve));
   await rm(entry, { force: true });
