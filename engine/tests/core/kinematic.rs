@@ -347,3 +347,5 @@ fn sparse_proof_agrees_with_the_dense_path_on_a_heated_frame() {
     assert!(result.is_solvable);
     assert_eq!(result.mechanism_modes, 0);
 }
+
+// ─── The sparse constrained solve, above its threshold ─────────────
