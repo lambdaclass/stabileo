@@ -127,8 +127,29 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       }
       case 'thermal': {
         const d = load.data;
-        tipo = t('file.loadThermal'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = `ΔT=${n(d.dtUniform)} °C, ΔTg=${n(d.dtGradient)} °C`;
+        tipo = d.strain && !d.dtUniform && !d.dtGradient && !d.dtGradientY ? t('loads.strain') : t('file.loadThermal');
+        destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = [
+          d.dtUniform || !d.strain ? `ΔT=${n(d.dtUniform)} °C` : '',
+          d.dtGradient ? `ΔTgz=${n(d.dtGradient)} °C` : '',
+          d.dtGradientY ? `ΔTgy=${n(d.dtGradientY)} °C` : '',
+          d.strain ? `ε₀=${n(d.strain * 1000)} ‰` : '',
+        ].filter(Boolean).join(', ');
+        break;
+      }
+      case 'prestress3d': {
+        const d = load.data;
+        tipo = t('loads.prestress'); destino = `${t('report.loadMember')} ${d.elementId}`;
+        valores = `P=${n(d.force)} kN, e=${n(d.eI)} / ${n(d.eM)} / ${n(d.eJ)} m`;
+        break;
+      }
+      case 'displacement3d': {
+        const d = load.data;
+        tipo = t('loads.imposedDisplacement'); destino = `${t('report.loadNode')} ${d.nodeId}`;
+        valores = [
+          ...(['dx', 'dy', 'dz'] as const).filter((k) => d[k]).map((k) => `${k}=${n(d[k]! * 1000)} mm`),
+          ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k}=${n(d[k]!)} rad`),
+        ].join(', ');
         break;
       }
       case 'nodal3d': {
@@ -151,7 +172,10 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       case 'pointOnElement3d': {
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = `${parts('kN', [['Py', d.py], ['Pz', d.pz]])}, a=${n(d.a)} m`;
+        const g = d.frame === 'global';
+        const forces = parts('kN', [[g ? 'PX' : 'Px', d.px], [g ? 'PY' : 'Py', d.py], [g ? 'PZ' : 'Pz', d.pz]]);
+        const moments = [d.mx, d.my, d.mz].some((v) => v) ? `, ${parts('kN·m', [[g ? 'MX' : 'Mx', d.mx], [g ? 'MY' : 'My', d.my], [g ? 'MZ' : 'Mz', d.mz]])}` : '';
+        valores = `${forces}${moments}, a=${n(d.a)} m${g ? ` (${t('report.loadGlobal')})` : ''}`;
         break;
       }
       case 'surface3d': {

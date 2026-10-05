@@ -87,6 +87,8 @@ const THREE_D_LOAD_TYPES = new Set([
   'pointOnElement3d',
   'surface3d',
   'thermalQuad3d',
+  'prestress3d',
+  'displacement3d',
 ]);
 
 export function setCameraUp(camera: THREE.Camera): void {

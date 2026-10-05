@@ -2,6 +2,7 @@
  * Pre-solve model diagnostics — analyzes model data for quality issues
  * without running the solver. Returns SolverDiagnostic[] with source 'model'.
  */
+import { imposedUnsupported } from './case-displacements';
 import type { SolverDiagnostic } from './types';
 import type { Node, Element, Section, Material, Support, Plate, Quad } from '../store/model.svelte';
 import type { Constraint3D, ConnectorElement } from './types-3d';
@@ -70,7 +71,9 @@ export function memberLoadPerpComponent(
     return Math.max(Math.abs(num(d.qXI)), Math.abs(num(d.qXJ)), Math.abs(num(d.qYI)), Math.abs(num(d.qYJ)), Math.abs(num(d.qZI)), Math.abs(num(d.qZJ)));
   }
   if (load.type === 'pointOnElement3d') {
-    return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)));
+    // A global load, or a moment, is bending a member that takes none just the same.
+    return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)), Math.abs(num(d.mx)), Math.abs(num(d.my)), Math.abs(num(d.mz)),
+      d.frame === 'global' ? Math.abs(num(d.px)) : 0);
   }
   if (load.type !== 'distributed' && load.type !== 'pointOnElement') return 0;
 
@@ -129,6 +132,10 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   // section, and designed so (`section/variable.ts`, `variableRefusal`). Said here, not silently.
   const prismatic = [...m.elements.values()].filter((e) => variableRefusal(m.sections, e) !== null).map((e) => e.id);
   if (prismatic.length) out.push(diag('warning', 'MODEL_VARIABLE_REFUSED', 'diag.model.variableRefused', { elementIds: prismatic }));
+
+  // ─── Imposed displacements with nothing to impose them ───
+  const unheld = imposedUnsupported(m.supports, m.loads);
+  if (unheld.length) out.push(diag('error', 'MODEL_IMPOSED_UNSUPPORTED', 'diag.model.imposedUnsupported', { nodeIds: [...new Set(unheld.map((u) => u.nodeId))] }));
 
   // ─── Coincident nodes ──────────────────────────
   // Flag at the weld tolerance the clean-up merges at — `weldTolerance()`, the one every weld

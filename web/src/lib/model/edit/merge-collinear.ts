@@ -48,7 +48,7 @@ export interface MergeReport {
   reinforcementDropped: number;
 }
 
-export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal' | 'variableSection';
+export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal' | 'variableSection' | 'prestress';
 
 type N = { x: number; y: number; z?: number };
 const pv = (n: N): Vec3 => [n.x, n.y, n.z ?? 0];
@@ -109,9 +109,13 @@ function whyNot(a: Element, b: Element): RefuseReason | null {
 
 function thermalKey(elementId: number): string {
   return modelStore.loads.filter((l) => l.type === 'thermal' && (l.data as { elementId: number }).elementId === elementId)
-    .map((l) => { const d = l.data as { dtUniform: number; dtGradient: number; caseId?: number }; return `${d.caseId ?? 1}:${d.dtUniform}:${d.dtGradient}`; })
+    .map((l) => { const d = l.data as { dtUniform: number; dtGradient: number; dtGradientY?: number; strain?: number; caseId?: number }; return `${d.caseId ?? 1}:${d.dtUniform}:${d.dtGradient}:${d.dtGradientY ?? 0}:${d.strain ?? 0}`; })
     .sort().join('|');
 }
+
+/** A tendon is one parabola per member; two members' tendons are not one parabola in general. */
+const hasTendon = (elementId: number) =>
+  modelStore.loads.some((l) => l.type === 'prestress3d' && l.data.elementId === elementId);
 
 export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
   const report: MergeReport = { merged: [], removedNodes: 0, refused: {}, reinforcementDropped: 0 };
@@ -135,7 +139,8 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
     const f = modelStore.elements.get(cand)!;
     // Not collinear: a corner, not a refusal.
     if (1 - dot(direction(e), direction(f)) > ANGLE_TOL) return null;
-    const why = whyNot(e, f) ?? (nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null);
+    const why = whyNot(e, f) ?? (nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null)
+      ?? (hasTendon(e.id) || hasTendon(f.id) ? 'prestress' : null);
     if (why) { refuse(why); return null; }
     return cand;
   };

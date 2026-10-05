@@ -9309,5 +9309,12 @@ const en: Record<string, string> = {
   'cad.floorRegionLabel': 'Plan {id}',
   'float.loadGlobalXDir': 'Load along the global X axis (horizontal on inclined members too)',
   'float.loadAxialDir': 'Load along the member (local i axis)',
+  'edit.refused.prestress': '{n} joints were kept: a member there carries a tendon, and two members\' tendons are not one parabola.',
+  'svc.pointMomentOnTruss': 'Member {n} takes no bending (a truss or one-way member) and carries a concentrated moment. Move the moment to a node or change the member\'s type.',
+  'svc.imposedUnsupported': 'An imposed displacement needs a support that restrains that direction in global axes. Nodes without one: {list}.',
+  'diag.model.imposedUnsupported': 'Some imposed displacements are on nodes or directions no support restrains: the solve refuses them.',
+  'loads.strain': 'Initial strain',
+  'loads.prestress': 'Prestress',
+  'loads.imposedDisplacement': 'Imposed displacement',
 };
 export default en;

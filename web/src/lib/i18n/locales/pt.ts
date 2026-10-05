@@ -8942,5 +8942,12 @@ const pt: Translations = {
   'cad.floorRegionLabel': 'Planta {id}',
   'float.loadGlobalXDir': 'Carga na direção do eixo global X (horizontal também em barras inclinadas)',
   'float.loadAxialDir': 'Carga ao longo da barra (eixo local i)',
+  'edit.refused.prestress': '{n} uniões foram mantidas: uma barra ali leva um cabo de protensão, e o cabo de duas barras não é uma só parábola.',
+  'svc.pointMomentOnTruss': 'A barra {n} não resiste à flexão (é treliçada ou de um só sentido) e leva um momento concentrado. Passe o momento para um nó ou mude o tipo de barra.',
+  'svc.imposedUnsupported': 'Um deslocamento imposto precisa de um apoio que restrinja essa direção em eixos globais. Nós sem esse apoio: {list}.',
+  'diag.model.imposedUnsupported': 'Há deslocamentos impostos em nós ou direções sem apoio que os restrinja: o cálculo os recusa.',
+  'loads.strain': 'Deformação inicial',
+  'loads.prestress': 'Protensão',
+  'loads.imposedDisplacement': 'Deslocamento imposto',
 };
 export default pt;

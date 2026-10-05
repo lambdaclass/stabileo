@@ -39,6 +39,7 @@ import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlemen
 import { memberThermalScale, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut } from './member-point-loads';
 import { prestressToSolver } from './prestress';
+import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
@@ -1567,6 +1568,8 @@ export function buildSolverInput3D(
   model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
+  // The displacements its loads impose, on the supports that restrain them (`case-displacements.ts`).
+  if (hasCaseDisplacements(model.loads)) model = { ...model, supports: supportsWithImposed(model.supports, imposedOf(model.loads)) };
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, userLeftHand);
 
@@ -1804,9 +1807,23 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
   try {
     return buildSolverInput3D(...args);
   } catch (err) {
+    const said = loadRefusal(err);
+    if (said) return said;
     if (!(err instanceof SemiRigidError)) throw err;
     return t(err.code === 'invalid' ? 'svc.semiRigidInvalid' : 'svc.semiRigidNotAligned').replace('{n}', String(err.elementId));
   }
+}
+
+/** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
+function loadRefusal(err: unknown): string | null {
+  return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
+}
+
+/** Displacements imposed where nothing restrains them, said by node and direction. */
+function imposedRefusal(model: ModelData): string | null {
+  const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
+  if (bad.length === 0) return null;
+  return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
 }
 
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
@@ -1825,6 +1842,8 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) {
     return t('svc.needNodesAndElements');
   }
+  const imposed = imposedRefusal(model);
+  if (imposed) return imposed;
   if (model.supports.size < 1) {
     return t('svc.needSupport');
   }
@@ -2181,7 +2200,15 @@ export function solveCombinations3D(
   includeSelfWeight = false,
   leftHand = false,
 ): Bundle3D | string | null {
-  return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+  const imposed = imposedRefusal(model);
+  if (imposed) return imposed;
+  try {
+    return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+  } catch (err) {
+    const said = loadRefusal(err);
+    if (said) return said;
+    throw err;
+  }
 }
 
 function solveCombinations3DActive(
@@ -2193,10 +2220,56 @@ function solveCombinations3DActive(
 ): Bundle3D | string | null {
   if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
   if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
-  if (!hasSettlement(model.supports.values())) return solveCombinations3DCore(model, loadCases, combinations, includeSelfWeight, leftHand);
-  const solved = solveCombinations3DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
-  if (!solved || typeof solved === 'string') return solved;
-  return withSettlementCase(solved, model, combinations, leftHand);
+  // A case's imposed displacements are solved apart and added to it (`case-displacements.ts`).
+  const imposed = casesWithDisplacements(model.loads);
+  const forces = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
+  let solved: Bundle3D | string | null;
+  if (!hasSettlement(model.supports.values())) solved = solveCombinations3DCore(forces, loadCases, combinations, includeSelfWeight, leftHand);
+  else {
+    solved = solveCombinations3DCore({ ...forces, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
+    if (solved && typeof solved !== 'string') solved = withSettlementCase(solved, forces, combinations, leftHand);
+  }
+  if (!solved || typeof solved === 'string' || imposed.size === 0) return solved;
+  return withCaseDisplacements(solved, model, combinations, leftHand);
+}
+
+/**
+ * Each case's imposed displacements, solved once on the structure with no forces and added to the
+ * case; the combinations are summed again from the cases, the settlement once with them.
+ */
+function withCaseDisplacements(solved: Bundle3D, model: ModelData, combinations: LoadCombination[], leftHand: boolean): Bundle3D | string {
+  const TMP = SETTLEMENT_CASE_ID - 1;
+  const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
+  const shells = (r: AnalysisResults3D) => {
+    if (hasShells) postProcessShellStresses(r, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
+    return r;
+  };
+  const free = { ...model, supports: withoutSettlement(model.supports) };
+  const perCase = new Map(solved.perCase);
+  for (const c of casesWithDisplacements(model.loads)) {
+    const own = model.loads.filter((l) => l.type === 'displacement3d' && (l.data.caseId ?? 1) === c);
+    const input = buildSolveInput3D({ ...free, loads: own }, [], leftHand);
+    if (!input) return t('svc.emptyModel');
+    if (typeof input === 'string') return input;
+    let r: AnalysisResults3D | string;
+    try { r = solve3DEngine(input); } catch (err: any) { return t('svc.solver3dError').replace('{n}', localizeEngineText(err.message)); }
+    if (typeof r === 'string') return r;
+    const pruned = pruneComboBundle3D({ perCase: new Map([[0, r]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
+    const base = perCase.get(c);
+    const sum = base ? combineResults3D([{ caseId: c, factor: 1 }, { caseId: TMP, factor: 1 }], new Map([[c, base], [TMP, pruned]])) : pruned;
+    if (sum) perCase.set(c, shells(sum));
+  }
+  const settled = perCase.has(SETTLEMENT_CASE_ID);
+  const withIt = combinations.map((cb) => ({ ...cb, factors: settled ? [...cb.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : cb.factors }));
+  const perCombo = new Map<number, AnalysisResults3D>();
+  for (const cb of withIt) {
+    const r = combineResults3D(cb.factors, perCase);
+    if (r) perCombo.set(cb.id, shells(r));
+  }
+  const envelope = computeEnvelope3D([...perCombo.values()]);
+  if (!envelope) return t('svc.envelopeError3d');
+  if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, withIt as never, model.plates ?? new Map());
+  return { ...solved, perCase, perCombo, envelope };
 }
 
 function solveCombinations3DCore(
@@ -2396,6 +2469,14 @@ function solveCombinations3DNonlinear(
   if (unheld) return unheld;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
+  // A case's imposed displacements go on the supports of the structure it is solved on, times its
+  // factor in a combination solved whole (`case-displacements.ts`).
+  const imposedCases = casesWithDisplacements(model.loads);
+  const withImposed = (on: SolverInput3D, from: ModelData, factorOf: (caseId: number) => number): SolverInput3D | string => {
+    if (imposedCases.size === 0) return on;
+    const b = buildSolveInput3D({ ...from, loads: imposedOf(model.loads, factorOf) }, [], leftHand);
+    return b ?? t('svc.emptyModel');
+  };
   const run = (on: SolverInput3D, loads: SolverLoad3D[]): AnalysisResults3D => {
     const r = solveNonlinear3D(model, { ...on, loads });
     const results: AnalysisResults3D = { ...r.results, nonlinear: r.report };
@@ -2404,13 +2485,22 @@ function solveCombinations3DNonlinear(
   };
   try {
     const perCase = new Map<number, AnalysisResults3D>();
-    for (const [id, loads] of caseLoads) if (loads.length > 0) perCase.set(id, run(base, loads));
+    for (const [id, loads] of caseLoads) {
+      if (loads.length === 0 && !imposedCases.has(id)) continue;
+      const on = withImposed(base, free, (c) => (c === id ? 1 : 0));
+      if (typeof on === 'string') return on;
+      perCase.set(id, run(on, loads));
+    }
     if (settled) perCase.set(SETTLEMENT_CASE_ID, run(baseSettled, []));
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
       if (method === 'solveEach') {
         const loads = comboSolverLoads3D(combo, caseLoads);
-        if (loads.length > 0 || settled) perCombo.set(combo.id, run(baseSettled, loads));
+        const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+        const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
+        const on = withImposed(baseSettled, model, factorOf);
+        if (typeof on === 'string') return on;
+        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, run(on, loads));
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
@@ -2449,8 +2539,17 @@ function solveCombinations3DPDelta(
   const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
   if (typeof base === 'string') return base;
   if (!base) return t('svc.emptyModel');
-  const linear = solveCombinations3DCore(free, loadCases, combinations, includeSelfWeight, leftHand);
+  const imposedCases = casesWithDisplacements(model.loads);
+  const forces = imposedCases.size ? { ...free, loads: free.loads.filter((l) => l.type !== 'displacement3d') } : free;
+  let linear = solveCombinations3DCore(forces, loadCases, combinations, includeSelfWeight, leftHand);
   if (!linear || typeof linear === 'string') return linear;
+  // The cases' imposed displacements, as the linear solve adds them; and on each combination's
+  // structure, times their factors (`case-displacements.ts`).
+  if (imposedCases.size) {
+    const withThem = withCaseDisplacements(linear, model, combinations, leftHand);
+    if (typeof withThem === 'string') return withThem;
+    linear = withThem;
+  }
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const perCombo = new Map<number, AnalysisResults3D>();
@@ -2461,8 +2560,13 @@ function solveCombinations3DPDelta(
   try {
     for (const combo of combinations) {
       const loads = comboSolverLoads3D(combo, caseLoads);
-      if (loads.length === 0 && !settled) continue;
-      const full = { ...base, loads };
+      const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+      const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
+      if (loads.length === 0 && !settled && !imposedHere) continue;
+      const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand) : base;
+      if (!on) return t('svc.emptyModel');
+      if (typeof on === 'string') return on;
+      const full = { ...on, loads };
       const r = solvePDelta3DCorrected(full, 30, 1e-6, false);
       const amp = amplification(r);
       if (!amp.stable) { unstable.push(combo.id); continue; }

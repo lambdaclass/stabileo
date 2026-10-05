@@ -14,7 +14,8 @@
  * overlap's ends and the positions re-measured from the segment's own start; an end that
  * coincides with the segment's is left unstated, which is how the model stores a full-length
  * load. A point load goes to the segment that contains it — the later one when it sits exactly
- * on a cut. A thermal load is a state of the whole member and goes to every segment.
+ * on a cut. A thermal load is a state of the whole member and goes to every segment. A tendon goes
+ * to every segment as the stretch of its parabola there.
  *
  * The sum of the pieces is the original load, force and moment: that is what the tests assert.
  *
@@ -41,8 +42,9 @@ import { offsetVecToSolver } from '../../engine/member-offsets';
 
 import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
-  DistributedLoad3D, PointLoadOnElement3D,
+  DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D,
 } from '../../store/model.svelte';
+import { tendonStretch } from '../../engine/prestress';
 
 const EPS = 1e-9;
 
@@ -100,7 +102,7 @@ export function splitElementLoads(
   const L = bounds[bounds.length - 1]!;
   const onThis = (l: Load) => (l.data as { elementId?: number }).elementId === elementId
     && (l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
-      || l.type === 'distributed3d' || l.type === 'pointOnElement3d');
+      || l.type === 'distributed3d' || l.type === 'pointOnElement3d' || l.type === 'prestress3d');
 
   for (const l of loads) {
     if (!onThis(l)) { kept.push(l); continue; }
@@ -151,6 +153,15 @@ export function splitElementLoads(
       case 'thermal': {
         const d = l.data as ThermalLoad;
         for (const sid of segmentIds) added.push({ type: 'thermal', data: { ...d, id: newId(), elementId: sid } });
+        break;
+      }
+      case 'prestress3d': {
+        // A parabola restricted to a segment is a parabola: each takes the tendon at its own ends
+        // and middle, and the anchor loads of neighbours cancel at the node they share (exact).
+        const d = l.data as PrestressLoad3D;
+        for (let k = 0; k < segmentIds.length; k++) {
+          added.push({ type: 'prestress3d', data: { ...tendonStretch(d, bounds[k]!, bounds[k + 1]!, L), id: newId(), elementId: segmentIds[k]! } });
+        }
         break;
       }
     }

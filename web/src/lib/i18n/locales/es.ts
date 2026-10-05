@@ -9298,5 +9298,12 @@ const es: Record<string, string> = {
   'cad.floorRegionLabel': 'Planta {id}',
   'float.loadGlobalXDir': 'Carga en dirección del eje global X (horizontal también en barras inclinadas)',
   'float.loadAxialDir': 'Carga a lo largo de la barra (eje local i)',
+  'edit.refused.prestress': '{n} uniones se mantuvieron: una barra ahí lleva un cable de pretensado, y el cable de dos barras no es una sola parábola.',
+  'svc.pointMomentOnTruss': 'La barra {n} no toma flexión (es reticulada o de un solo sentido) y lleva un momento concentrado. Pasá el momento a un nudo o cambiá el tipo de barra.',
+  'svc.imposedUnsupported': 'Un desplazamiento impuesto necesita un apoyo que restrinja esa dirección en ejes globales. Nudos sin ese apoyo: {list}.',
+  'diag.model.imposedUnsupported': 'Hay desplazamientos impuestos en nudos o direcciones sin apoyo que los restrinja: el cálculo los rechaza.',
+  'loads.strain': 'Deformación inicial',
+  'loads.prestress': 'Pretensado',
+  'loads.imposedDisplacement': 'Desplazamiento impuesto',
 };
 export default es;
