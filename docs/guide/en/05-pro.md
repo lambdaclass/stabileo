@@ -405,6 +405,13 @@ floor loads), the card to write a load, and the load tables:
   until its text is supplied, and is not replaced by 2025's. For the service combinations you can
   add B.4.2's **service wind Wa**: the 50-year speed from the map of Figure C AB.4.2-1 and a
   recurrence (5 to 500 years), converted by that figure's factor.
+  The **gust effect factor** follows §1.9. Each direction's fundamental frequency comes from the
+  model's own modal analysis (with the plan's masses), from numbers you type, from the
+  approximate formulas of §1.9.3, or from declaring the structure rigid. Above 1 Hz the building
+  is rigid and takes G = 0.85 or Eq. (1.9-6); below, it is flexible and takes G_f with the damping
+  you give, and its torsional cases use Eq. (2.4-5). After the preview the dialog shows, per
+  direction, n₁, the classification, the factor and its steps. A low-rise building is rigid
+  without a frequency.
 - **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
   minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
   unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are
@@ -417,6 +424,18 @@ in the dialog, the same for all of them; wind is applied as forces per level, an
 up to that moment. It first shows the
 load plan for review, and applies it when you confirm. Load cases of type D, L, Lr, W, Wa, S, E, T, H and F also
 have a **§** button that opens the dialog on that case's section.
+
+Each load role of the project (combinations, imposed loads, wind, snow, earthquake and thermal
+action) is bound to a code in **Project regulations**, and the generator works with the code bound
+to each role. The selector offers the codes that can generate loads; an action code of another
+family than the combinations is reported as an error. The dialog opens on the parameters the
+project saved for each code, or on that code's starting values when it has none. Area loads and
+speeds are typed in the project's display units.
+
+**Replace generated loads** acts per action: it removes the loads the generator wrote for the
+actions it regenerates and the combinations a code wrote. Loads and combinations typed by hand stay,
+and so do the cases of actions the plan does not touch. Every generated combination records the
+code, edition and rule it comes from; the design uses the strength ones.
 
 ### Generators
 
