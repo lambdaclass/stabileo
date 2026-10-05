@@ -76,8 +76,8 @@ the application layer; the engine is untouched.
   writes `analysis.selfWeight` (the rule the solve already reads): `all` is the whole model, a group
   is `groupId`, any other target an `elements` list. A rule with the same case, direction and reach
   is replaced. `ProSelfWeight.svelte` is gone; the rules are a table at the top of
-  `ProLoadTables` (case, direction and factor edited in place; removed there), with the older
-  no switch: PRO does not offer the older D-case rule.
+  `ProLoadTables` (case, direction and factor edited in place; removed there). PRO does not offer
+  the older D-case switch.
 - A PRO project with no rule and no members is given `selfWeight: []` (`selfWeightRuleEffect`), so a
   new project has no self-weight until it is added; one with members and no rule (an older file, a
   Basic model) is migrated as before, and its rule shows in the table.
