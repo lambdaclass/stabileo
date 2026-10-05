@@ -9,6 +9,7 @@ import { modelStore } from './index';
 import { expandCombinations } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
+import type { Load } from './model.svelte';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -20,12 +21,30 @@ export interface ApplyLoadPlanOptions {
   patternsInCompanions?: boolean;
 }
 
+/**
+ * "Replace" acts per action: the loads the generator wrote before in the cases of the actions this
+ * plan generates, and the combinations a code wrote. A load or a combination typed by hand stays,
+ * and so do the cases of actions the plan does not touch. (It used to delete every load and every
+ * combination of the model.)
+ */
+export function replacedByPlan(p: LoadPlan, loads: readonly Load[], cases: ReadonlyArray<{ id: number; type: string }>, combinations: ReadonlyArray<{ id: number; origin?: unknown }>): { loads: number[]; combinations: number[] } {
+  const types = new Set(p.cases.map((c) => String(c.type)));
+  const caseType = new Map(cases.map((c) => [c.id, c.type]));
+  return {
+    loads: loads.filter((l) => (l.data as { generatedBy?: string }).generatedBy && types.has(caseType.get(l.data.caseId ?? 1) ?? '')).map((l) => l.data.id),
+    combinations: combinations.filter((c) => c.origin).map((c) => c.id),
+  };
+}
+
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
   modelStore.batch(() => {
     if (opts.clearExisting) {
-      for (const id of modelStore.loads.map((l) => l.data.id)) modelStore.removeLoad(id);
-      for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
+      const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations);
+      const ids = new Set(gone.loads);
+      modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
+      for (const id of gone.combinations) modelStore.removeCombination(id);
     }
+    const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
 
     // Every planned case to a real id, creating only what is missing. A case the plan has no
     // match for is still reused when one of the same type already carries its name, so applying
@@ -34,7 +53,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -77,5 +96,9 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
     }));
     addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
+
+    // What the generator wrote says so, for the next "replace".
+    const by = p.generatedBy ?? 'generator';
+    modelStore.replaceLoads(modelStore.loads.map((l) => (l.data.id >= firstNewLoad ? ({ ...l, data: { ...l.data, generatedBy: by } } as Load) : l)));
   });
 }

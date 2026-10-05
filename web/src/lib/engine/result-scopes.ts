@@ -43,11 +43,15 @@ export interface ResultScopes {
   envelopes?: NamedEnvelope[];
 }
 
-/** The active combination ids: the stated list, pruned to combinations that exist, or all. */
-export function activeComboIds(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number }>): number[] {
-  const all = combinations.map((c) => c.id);
+/**
+ * The active combination ids: the stated list, pruned to combinations that exist, or all. "All" is
+ * every combination but the ones a code wrote for service, which are a service envelope's and
+ * never a design's (their origin says so, `codes/families/origin.ts`).
+ */
+export function activeComboIds(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
+  const all = combinations.filter((c) => c.origin?.purpose !== 'service').map((c) => c.id);
   if (!scopes?.active) return all;
-  const exist = new Set(all);
+  const exist = new Set(combinations.map((c) => c.id));
   return scopes.active.filter((id) => exist.has(id));
 }
 

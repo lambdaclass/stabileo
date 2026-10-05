@@ -28,6 +28,9 @@
   import ProSpecialLoadsSection, { defaultSpecialLoads } from './ProSpecialLoadsSection.svelte';
   import { modesForPlan, windFrequenciesForPlan } from '../../lib/store/seismic-modes';
   import ProWindDynamics from './ProWindDynamics.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { loadCodeFor } from '../../lib/codes/families';
   import { DEFAULT_WIND_DYNAMICS, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
@@ -233,8 +236,24 @@
 
   /** The plan is built first and applied only after the user confirms. */
   let plan = $state<LoadPlan | null>(null);
+  /** A load per area in the display units, with its unit. */
+  const aq = (v: number, d = 2) => `${toQ(v, 'areaLoad').toFixed(d)} ${unitQ('areaLoad')}`;
+  /** A section's heading: the bound code's name and the clause it stands on, both from its module. */
+  function codeHead(role: 'basis' | 'loads' | 'snow' | 'wind' | 'seismic', section?: string): string {
+    const m = loadCodeFor(regulationsStore.binding(role)?.adapterId);
+    return m ? [m.title, section ? m.sections?.[section] : ''].filter(Boolean).join(' ') : '';
+  }
   /** The previewed plan's gust effect factor per axis, for the dynamics block's reading. */
-  const planGust = $derived((plan as LoadPlan | null)?.factors.windGust);
+  /**
+   * The last preview's gust effect factor per axis. Kept apart from the plan, which "Back" clears:
+   * the reading sits with the wind's inputs, behind the before-and-after. Changing an input it
+   * depends on drops it until the next preview.
+   */
+  let planGust = $state<LoadPlan['factors']['windGust']>(undefined);
+  $effect(() => {
+    void [JSON.stringify(windDyn), windV, windExposure, windEnclosure, enableWind];
+    planGust = undefined;
+  });
   /** The roof's weight class the plan settled on; read here, outside any `{#if}` that narrows `plan`. */
   const planRoofWeight = $derived(plan?.roofWeight);
   let delta = $state<PlanDelta | null>(null);
@@ -349,12 +368,15 @@
       occupancyKey: selectedOccupancy,
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
+      // The dialog's own state, to start from next time (`restoreFromRoles`).
+      dialog: $state.snapshot({ deadRows, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
     }, true);
     if (enableWind) {
       regulationsStore.configureRole('wind', {
         basicSpeed: windV, exposure: windExposure, enclosure: windEnclosure,
         siteAltitudeM: windAltitude, kzt: windKzt, kztSurveyed: windKztSurveyed,
         roofSlopeDeg: windRoofSlope, dynamics: { ...$state.snapshot(windDyn) },
+        dialog: $state.snapshot({ windDirs, windCaseSet, windService, windStructure }),
       }, true);
     }
     if (snowCfg.enabled) {
@@ -364,9 +386,97 @@
       regulationsStore.configureRole('seismic', {
         zone: seismicZone, site: siteClass, destinationGroup, systemKey,
         periodSystem, regularity, occupancy: seismicOccupancy, elastic: elasticDesign,
+        dialog: $state.snapshot({ seismicMethod, seismicDirectionX, seismicDirectionZ }),
       }, true);
     }
   }
+
+  /**
+   * Start from what the project stated last time, per role, rather than from the defaults: the
+   * dialog writes its parameters to each role it generates (`recordRoleConfiguration`) and used to
+   * open on V = 45 m/s and zone 4 whatever the project said. A role never configured keeps the
+   * defaults. Each value is taken only when it is there, so an older project restores what it has.
+   */
+  function restoreFromRoles() {
+    type Rec = Record<string, any>;
+    const set = (role: Parameters<typeof regulationsStore.binding>[0]): Rec | null => {
+      const b = regulationsStore.binding(role);
+      return b?.adapterId && b.settings && Object.keys(b.settings).length ? (b.settings as Rec) : null;
+    };
+    const basis = set('basis');
+    if (basis && typeof basis.generateCombinations === 'boolean') genCombos = basis.generateCombinations;
+    const loads = set('loads');
+    if (loads) {
+      if (typeof loads.occupancyKey === 'string') selectedOccupancy = loads.occupancyKey;
+      if (typeof loads.tributaryWidth === 'number') tributaryWidth = loads.tributaryWidth;
+      if (typeof loads.applyLiveReduction === 'boolean') applyLiveReduction = loads.applyLiveReduction;
+      if (typeof loads.reductionElementKind === 'string') reductionElementKind = loads.reductionElementKind as ElementKind;
+      if (typeof loads.floorsSupported === 'number') floorsSupported = loads.floorsSupported;
+      const d = loads.dialog as Rec | undefined;
+      if (d?.deadRows) deadRows = d.deadRows;
+      if (d?.gravityMode) gravityMode = d.gravityMode;
+      if (d?.gravitySlab) gravitySlab = d.gravitySlab;
+      if (d?.gravitySpan) gravitySpan = d.gravitySpan;
+      if (d?.roofCfg) roofCfg = d.roofCfg;
+      if (d?.livePatterns) livePatterns = d.livePatterns;
+      if (d?.special) special = d.special;
+    }
+    // A code's own starting values first, then what the project saved over them.
+    const windCode = loadCodeFor(regulationsStore.binding('wind')?.adapterId);
+    if (windCode?.role === 'wind') {
+      windV = windCode.defaults.basicSpeed;
+      windExposure = windCode.defaults.exposure as Exposure;
+      windEnclosure = windCode.defaults.enclosure as Enclosure;
+    }
+    const seismicCode = loadCodeFor(regulationsStore.binding('seismic')?.adapterId);
+    if (seismicCode?.role === 'seismic') {
+      seismicZone = seismicCode.defaults.zone as SeismicZone;
+      siteClass = seismicCode.defaults.site as SiteClass;
+      destinationGroup = seismicCode.defaults.group as DestinationGroup;
+    }
+    const wind = set('wind');
+    if (wind && typeof wind.basicSpeed === 'number') {
+      windV = wind.basicSpeed;
+      if (wind.exposure) windExposure = wind.exposure;
+      if (wind.enclosure) windEnclosure = wind.enclosure;
+      if (typeof wind.siteAltitudeM === 'number') windAltitude = wind.siteAltitudeM;
+      if (typeof wind.kzt === 'number') windKzt = wind.kzt;
+      if (typeof wind.kztSurveyed === 'boolean') windKztSurveyed = wind.kztSurveyed;
+      if (typeof wind.roofSlopeDeg === 'number') windRoofSlope = wind.roofSlopeDeg;
+      // An older project said "rigid" with a checkbox: that is a declared-rigid frequency source.
+      if (wind.dynamics) windDyn = { ...DEFAULT_WIND_DYNAMICS, ...wind.dynamics };
+      else if (typeof wind.rigid === 'boolean') windDyn = { ...DEFAULT_WIND_DYNAMICS, n1Source: wind.rigid ? 'declaredRigid' : 'typed' };
+      const d = wind.dialog as Rec | undefined;
+      if (d?.windDirs) windDirs = d.windDirs;
+      if (d?.windCaseSet) windCaseSet = d.windCaseSet;
+      if (d?.windService) windService = d.windService;
+      if (d?.windStructure) windStructure = d.windStructure;
+      enableWind = windAvailable;
+    }
+    const snow = set('snow');
+    if (snow && typeof snow.enabled === 'boolean') snowCfg = { ...defaultSnowConfig(), ...snow } as SnowConfig;
+    const seismic = set('seismic');
+    if (seismic && seismic.zone !== undefined) {
+      seismicZone = seismic.zone;
+      if (seismic.site) siteClass = seismic.site;
+      if (seismic.destinationGroup) destinationGroup = seismic.destinationGroup;
+      if (seismic.systemKey) systemKey = seismic.systemKey;
+      if (seismic.periodSystem) periodSystem = seismic.periodSystem;
+      if (seismic.regularity) regularity = seismic.regularity;
+      if (seismic.occupancy) seismicOccupancy = seismic.occupancy;
+      if (typeof seismic.elastic === 'boolean') elasticDesign = seismic.elastic;
+      const d = seismic.dialog as Rec | undefined;
+      if (d?.seismicMethod) seismicMethod = d.seismicMethod;
+      if (typeof d?.seismicDirectionX === 'boolean') seismicDirectionX = d.seismicDirectionX;
+      if (typeof d?.seismicDirectionZ === 'boolean') seismicDirectionZ = d.seismicDirectionZ;
+      enableSeismic = seismicAvailable;
+    }
+  }
+  let wasOpen = false;
+  $effect(() => {
+    const now = open;
+    untrack(() => { if (now && !wasOpen) restoreFromRoles(); wasOpen = now; });
+  });
 
   /** Step 1 — build the preview. Pure; the model is untouched. */
   function handlePreview() {
@@ -388,6 +498,7 @@
       p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
     }
     plan = p;
+    planGust = p.factors.windGust;
     // The flag has to go in: the same plan produces a different model depending on it, and
     // reporting the plan's own counts as "after" was the defect the audit caught.
     delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions });
@@ -408,11 +519,22 @@
   function currentLoadState() {
     const count = (types: readonly string[]) =>
       modelStore.loads.filter(l => types.includes(l.type)).length;
+    // What the generator wrote, per case type: what a per-action "replace" removes.
+    const typeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
+    const byType: Record<string, { distributed: number; nodal: number }> = {};
+    for (const l of modelStore.loads) {
+      if (!(l.data as { generatedBy?: string }).generatedBy) continue;
+      const ty = typeOf.get(l.data.caseId ?? 1) ?? '';
+      const row = (byType[ty] ??= { distributed: 0, nodal: 0 });
+      if ((DISTRIBUTED_TYPES as readonly string[]).includes(l.type)) row.distributed++;
+      else if ((NODAL_TYPES as readonly string[]).includes(l.type)) row.nodal++;
+    }
     return {
       distributed: count(DISTRIBUTED_TYPES),
       nodal: count(NODAL_TYPES),
       combinations: modelStore.model.combinations.length,
       caseTypes: modelStore.model.loadCases.map(c => c.type),
+      generated: { byType, combinations: modelStore.model.combinations.filter((c) => c.origin).length },
     };
   }
 
@@ -484,13 +606,13 @@
         status: regulationsStore.pendingNeedsLoadRegeneration ? t('autoLoad.nav.pending') : null },
     ] },
     { titleKey: 'autoLoad.nav.actions', items: [
-      { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: `${f2(totalDead)} kN/m²` },
-      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: `${f2(occupancyQ)} kN/m²` },
+      { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: aq(totalDead) },
+      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ) },
       { id: 'roof', symbol: 'Lr', labelKey: 'autoLoad.roof.title', on: roofCfg.enabled,
-        status: !roofCfg.enabled ? null : lrNow ? `${f2(lrNow.lo)}–${f2(lrNow.hi)}` : t('autoLoad.roof.occupancyShort') },
-      { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${windV} m/s` : null },
+        status: !roofCfg.enabled ? null : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
+      { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}` : null },
       { id: 'snow', symbol: 'S', labelKey: 'autoLoad.snow', on: snowCfg.enabled,
-        status: snowNow && !snowNow.refused ? `${f2(snowNow.ps)} kN/m²` : null },
+        status: snowNow && !snowNow.refused ? aq(snowNow.ps) : null },
       { id: 'seismic', symbol: 'E', labelKey: 'autoLoad.seismic', on: enableSeismic, status: enableSeismic ? tp('autoLoad.nav.zone', { z: seismicZone }) : null },
       { id: 'special', symbol: 'T·H·F', labelKey: 'autoLoad.nav.special', on: specialOn.length > 0, status: specialOn.length ? specialOn.join(', ') : null },
     ] },
@@ -593,7 +715,7 @@
                   </ul>
                 </details>
               {/if}
-              <p><strong>{t('autoLoad.designLive')}:</strong> {plan.factors.liveReduced.value.toFixed(2)} kN/m²
+              <p><strong>{t('autoLoad.designLive')}:</strong> {aq(plan.factors.liveReduced.value)}
                 ({tp('autoLoad.fromTableLo', { lo: plan.factors.occupancy.value.toFixed(2) })})</p>
               {#if plan.factors.baseShear}
                 <p data-testid="al-base-shear">{tp('autoLoad.baseShear', {
@@ -668,8 +790,8 @@
           {:else if section === 'dead'}
             <div class="al-pane-head">
               <h3><span class="al-head-sym">D</span>{t('autoLoad.deadLoads')}</h3>
-              <span class="al-sec-code">CIRSOC 101-2025 Tabla 3.1</span>
-              <span class="al-sec-value" data-testid="dead-total">{totalDead.toFixed(2)} kN/m²</span>
+              <span class="al-sec-code">{codeHead('loads', 'dead')}</span>
+              <span class="al-sec-value" data-testid="dead-total">{aq(totalDead)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-dead-section">
               <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} /></div>
@@ -678,15 +800,15 @@
           {:else if section === 'live'}
             <div class="al-pane-head">
               <h3><span class="al-head-sym">L</span>{t('autoLoad.liveLoads')}</h3>
-              <span class="al-sec-code">CIRSOC 101-2025 Tabla 4.1</span>
-              <span class="al-sec-value">{occupancyQ} kN/m²</span>
+              <span class="al-sec-code">{codeHead('loads', 'live')}</span>
+              <span class="al-sec-value">{aq(occupancyQ)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
                 <label class="al-field"><span class="al-label">{t('loads.cirsoc101.occupancy')}</span>
                   <select bind:value={selectedOccupancy} data-testid="al-occupancy">
                     {#each OCCUPANCY_TABLE_2025 as occ}
-                      <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` · ${occ.uniformKNm2} kN/m²` : ''}</option>
+                      <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` · ${aq(occ.uniformKNm2)}` : ''}</option>
                     {/each}
                   </select>
                 </label>
@@ -729,8 +851,8 @@
             <div class="al-pane-head">
               <label class="al-check al-head-toggle"><input type="checkbox" bind:checked={roofCfg.enabled} data-testid="al-roof" />
                 <span class="al-pane-title"><span class="al-head-sym">Lr</span>{t('autoLoad.roof.title')}</span></label>
-              <span class="al-sec-code">CIRSOC 101-2025 §4.8</span>
-              {#if lrNow}<span class="al-sec-value" data-testid="al-roof-lr">Lr {lrNow.lo.toFixed(2)}–{lrNow.hi.toFixed(2)} kN/m²</span>{/if}
+              <span class="al-sec-code">{codeHead('loads', 'roof')}</span>
+              {#if lrNow}<span class="al-sec-value" data-testid="al-roof-lr">Lr {toQ(lrNow.lo, 'areaLoad').toFixed(2)}–{aq(lrNow.hi)}</span>{/if}
             </div>
             <div class="al-pane-scroll">
               {#if roofCfg.enabled}
@@ -774,7 +896,7 @@
                     {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
                     <div class="al-grid">
                       <label class="al-field"><span class="al-label">{t('autoLoad.windSpeed')}</span>
-                        <span class="al-unit-field"><input type="number" bind:value={windV} min={10} max={120} step={1} data-testid="al-wind-speed" /><span>m/s</span></span>
+                        <QuantityInput bind:value={windV} quantity="speed" min={10} max={120} testid="al-wind-speed" wrap="al-unit-field" />
                       </label>
                       <label class="al-field"><span class="al-label">{t('autoLoad.windExposure')}</span>
                         <select bind:value={windExposure}>
@@ -827,8 +949,8 @@
             <div class="al-pane-head">
               <label class="al-check al-head-toggle"><input type="checkbox" bind:checked={snowCfg.enabled} disabled={!snowAvailable} data-testid="al-enable-snow" />
                 <span class="al-pane-title"><span class="al-head-sym">S</span>{t('autoLoad.snow')}</span></label>
-              <span class="al-sec-code">CIRSOC 104-2005</span>
-              {#if snowNow && !snowNow.refused}<span class="al-sec-value">{snowCfg.roofKind === 'curved' || snowCfg.roofKind === 'multiple' || snowCfg.roofKind === 'dome' ? `pf = ${snowNow.pf.toFixed(3)}` : `ps = ${snowNow.ps.toFixed(3)}`} kN/m²</span>{/if}
+              <span class="al-sec-code">{codeHead('snow')}</span>
+              {#if snowNow && !snowNow.refused}<span class="al-sec-value">{snowCfg.roofKind === 'curved' || snowCfg.roofKind === 'multiple' || snowCfg.roofKind === 'dome' ? `pf = ${aq(snowNow.pf, 3)}` : `ps = ${aq(snowNow.ps, 3)}`}</span>{/if}
             </div>
             <div class="al-pane-scroll">
               {#if !snowAvailable}
@@ -955,7 +1077,7 @@
           {:else if section === 'special'}
             <div class="al-pane-head">
               <h3><span class="al-head-sym">T·H·F</span>{t('autoLoad.special.title')}</h3>
-              <span class="al-sec-code">CIRSOC 101-2025 §2.2, §2.3.2, §2.3.4</span>
+              <span class="al-sec-code">{codeHead('basis', 'special')}</span>
             </div>
             <div class="al-pane-scroll"><ProSpecialLoadsSection bind:config={special} /></div>
 
@@ -970,7 +1092,7 @@
             <div class="al-pane-head">
               <label class="al-check al-head-toggle"><input type="checkbox" bind:checked={genCombos} data-testid="al-gen-combos" />
                 <span class="al-pane-title">{t('autoLoad.genCombos')}</span></label>
-              <span class="al-sec-code">CIRSOC 101-2025 §2.3</span>
+              <span class="al-sec-code">{codeHead('basis', 'combinations')}</span>
             </div>
             <div class="al-pane-scroll">
               <ProAutoLoadsCombos generate={genCombos} bind:source={comboSource} bind:set={comboSet} bind:bothSenses bind:patternsInCompanions />

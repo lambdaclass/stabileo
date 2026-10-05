@@ -32,43 +32,27 @@
  */
 
 import { memberMeanArea } from '../../section/variable';
-import {
-  generateCombinations, liveLoadFactorInCompanion,
-  type CombinationInputs, type LoadCombinationSpec, type LoadSymbol,
-} from '../../codes/cirsoc101/combinations';
-import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
-import {
-  findOccupancy, reduceLiveLoad,
-  type ElementKind, type OccupancyEntry,
-} from '../../codes/cirsoc101/live-loads';
+import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
+import type { ElementKind, OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { planWind } from './load-plan-wind';
-import { planSnow } from './load-plan-snow';
 import { gravityLayout, type GravityLayout } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
-import { modalStoryForces, type ModeShape } from './seismic-modal';
-import { seismicCases, ACCIDENTAL_ECCENTRICITY, type TorsionalIrregularity } from './seismic-cases';
+import type { ModeShape } from './seismic-modal';
+import type { TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
 import { roofWeightClass, type RoofWeight } from '../../codes/cirsoc101/roof-live';
 import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../codes/cirsoc104/snow';
 import {
   assumed, clause, fromProject, type ClauseRef, type ProvenancedValue, fromCode,
 } from '../../codes/regulation';
-import {
-  designSpectrum, isBlocked, spectralOrdinate, SIMULTANEITY_F1,
-  type DestinationGroup, type OccupancyProbability,
-  type SeismicZone, type SiteClass,
-} from '../../codes/cirsoc103/spectrum';
-import {
-  designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable,
-  type PeriodSystem, type PlanRegularity,
-} from '../../codes/cirsoc103/static-method';
-import { findBehaviour, R_ELASTIC } from '../../codes/cirsoc103/behaviour';
+import type { DestinationGroup, OccupancyProbability, SeismicZone, SiteClass } from '../../codes/cirsoc103/spectrum';
+import type { PeriodSystem, PlanRegularity } from '../../codes/cirsoc103/static-method';
 import { dedupeMessages, msg, round, type EngineMessage } from '../../codes/message';
 import type { ProjectRegulations } from '../../codes/roles';
 import { findOption, optionLabel, roleUsable } from '../../codes/roles';
+import { resolveLoadCodes, withOrigin } from '../../codes/families';
 
 import { createSectionWeight } from '../../section/weight';
 import type { DrawnSection } from '../../section/drawn';
@@ -279,6 +263,8 @@ export interface PlannedCase {
   alternatives?: string;
   /** An arrangement over part of the structure (see LoadCase.pattern). */
   pattern?: boolean;
+  /** What the action is, code-neutral (`codes/families/load-codes.ts`): set by the plan. */
+  category?: import('../../codes/families/origin').ActionCategory;
 }
 
 export interface PlannedDistributed {
@@ -403,6 +389,8 @@ export interface LoadPlan {
   refs: ClauseRef[];
   /** The derivation, one message per decision, in the order the decisions were made. */
   derivation: EngineMessage[];
+  /** The basis code that wrote the plan, marked on the loads it applies. */
+  generatedBy?: string;
   /** Reasons the plan is BLOCKED. */
   blockedKeys: EngineMessage[];
 }
@@ -503,7 +491,7 @@ export function roofWeightOf(model: LoadModelData, layout: GravityLayout, dead: 
   return { weight: roofWeightClass(structure + dead), structure };
 }
 
-function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
+export function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
   const c = model.loadCases.find((x) =>
     x.type === type && (nameMatch === undefined || x.name.includes(nameMatch)));
   return c?.id ?? null;
@@ -552,6 +540,19 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   };
   if (blockedKeys.length > 0) return empty;
 
+  // ── The code modules of the bound roles (`codes/families`): a role with none blocks by name ──
+  const resolved = resolveLoadCodes(input.regulations);
+  if ('missing' in resolved) {
+    for (const role of resolved.missing) {
+      blockedKeys.push(msg('loadPlan.blocked.noCodeModule', { role: `regulations.role.${role}`, name: input.regulations[role].adapterId ?? '' }));
+    }
+    return { ...empty, blockedKeys };
+  }
+  const codes = resolved.codes;
+  if (input.wind?.enabled && !codes.wind) { blockedKeys.push(msg('loadPlan.blocked.windRoleUnusable')); return { ...empty, blockedKeys }; }
+  if (input.snow?.enabled && !codes.snow) { blockedKeys.push(msg('loadPlan.blocked.snowRoleUnusable')); return { ...empty, blockedKeys }; }
+  if (input.seismic?.enabled && !codes.seismic) { blockedKeys.push(msg('loadPlan.blocked.seismicRoleUnusable')); return { ...empty, blockedKeys }; }
+
   const loadsOpt = findOption(input.regulations.loads.adapterId!)!;
   derivation.push(msg('loadPlan.derivation.basis', { regulation: optionLabel(loadsOpt) }));
 
@@ -560,7 +561,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   refs.push(R101('3.1.1', 'definición de cargas permanentes'));
 
   // ── Live: Table 4.1 then §4.7.2 ──
-  const occ: OccupancyEntry | undefined = findOccupancy(input.occupancyKey);
+  const occ: OccupancyEntry | undefined = codes.loads.occupancy(input.occupancyKey);
   if (!occ) {
     blockedKeys.push(msg('loadPlan.blocked.unknownOccupancy', { key: input.occupancyKey }));
     return { ...empty, blockedKeys };
@@ -591,7 +592,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   let liveDesign = lo;
   if (input.applyLiveReduction) {
-    const red = reduceLiveLoad({
+    const red = codes.loads.reduce({
       loKNm2: lo, tributaryAreaM2, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       // Structured, not sniffed from the label: `garaje_camiones` is a garage but not a
@@ -625,7 +626,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     if (!panelMode) return uniform;
-    return reduceLiveLoad({
+    return codes.loads.reduce({
       loKNm2, tributaryAreaM2: areas.get(elementId) ?? 0, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',
@@ -657,7 +658,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     }
     const slopePercent = Math.tan((r.slopeDeg * Math.PI) / 180) * 100;
     if (r.use === 'occupancy') {
-      const roofOcc = findOccupancy(r.occupancyKey ?? '');
+      const roofOcc = codes.loads.occupancy(r.occupancyKey ?? '');
       if (!roofOcc || roofOcc.uniformKNm2 === null) {
         blockedKeys.push(msg('loadPlan.blocked.unknownOccupancy', { key: r.occupancyKey ?? '' }));
         return { ...empty, blockedKeys };
@@ -665,7 +666,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       const rlo = roofOcc.uniformKNm2;
       refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
       const uniform = input.applyLiveReduction
-        ? reduceLiveLoad({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
+        ? codes.loads.reduce({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
             passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
             noReduction: roofOcc.noReduction === true }).lKNm2
         : rlo;
@@ -730,7 +731,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
    * fallback is what it always was: an assumption, and reported as one.
    */
   const codeF1 = input.seismic?.code
-    ? SIMULTANEITY_F1[input.seismic.code.occupancy]
+    ? codes.seismic?.liveInMass(input.seismic.code.occupancy)
     : undefined;
   const participation: ProvenancedValue<number> = input.seismic?.liveParticipation !== null
     && input.seismic?.liveParticipation !== undefined
@@ -798,10 +799,10 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // ── Wind (load-plan-wind.ts) ──
   const nodal: PlannedNodal[] = [];
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
-  const { windQh, windGust } = planWind(input, levels, sink);
+  const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, levels, sink) : { windQh: undefined, windGust: undefined };
 
   // ── Snow (load-plan-snow.ts) ──
-  const snowPlanned = planSnow(input, sink, panelMode ? layout : undefined);
+  const snowPlanned = codes.snow ? codes.snow.plan(input, sink, panelMode ? layout : undefined) : false;
 
   /*
    * ── Seismic ────────────────────────────────────────────────────
@@ -818,132 +819,9 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
    * shear onto the topmost mass. Nothing in a typed coefficient says what T is, so that
    * branch is unreachable without the spectrum.
    */
-  let seismicWeight: ProvenancedValue<number> | undefined;
-  let baseShear: ProvenancedValue<number> | undefined;
-  let seismicDetail: SeismicPlanDetail | undefined;
-  if (input.seismic?.enabled) {
-    const elevated = levels.filter((l) => l.elevation > 0 && l.weightKN > 0);
-    const W = elevated.reduce((s, l) => s + l.weightKN, 0);
-    if (W <= 0) {
-      unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
-    } else {
-      const code = input.seismic.code;
-      let C = input.seismic.coefficient;
-      let uncappedT = 0;
-      let t2 = Infinity;
-      seismicDetail = { source: 'manual', c: C };
-
-      if (code) {
-        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
-        if (isBlocked(spectrum)) {
-          blockedKeys.push(spectrum.blocked);
-          refs.push(...spectrum.refs);
-        } else {
-          const H = Math.max(...elevated.map((l) => l.elevation), 0);
-          const period = designPeriod(
-            { heightM: H, system: code.periodSystem, computedT: code.computedT },
-            spectrum.as,
-          );
-          /* [6.12]/[6.13] test the period WITHOUT the [6.7] cap — the clause says so,
-             and using the capped one would shorten it and skip the extra force. */
-          uncappedT = code.computedT !== undefined && code.computedT > 0 ? code.computedT : period.ta;
-          t2 = spectrum.t2;
-
-          const applicability = staticMethodApplicable({
-            zone: code.zone, group: code.group, heightM: H, levels: elevated.length,
-            regularity: code.regularity, t: uncappedT, t2,
-          });
-          refs.push(...applicability.refs);
-          // With the modal method the static one need not apply (§2.7.3 asks for the modal one
-          // where it does not); it still gives Voe for §7.2.5.
-          const modal = input.seismic.modal && input.seismic.modal.modes.length > 0;
-          for (const r of applicability.reasons) {
-            if (r.key.startsWith('seismic.blocked.')) (modal ? derivation : blockedKeys).push(r);
-            else assumptions.push(r);
-          }
-
-          const entry = findBehaviour(code.systemKey);
-          const R = code.elastic ? R_ELASTIC : entry?.r ?? null;
-          if (R === null) {
-            /* Tabla 5.1 row 1 prints a formula on the wall layout, not a value; an
-               unknown key is the same hole. Either way there is no R to divide by. */
-            blockedKeys.push(msg('loadPlan.blocked.seismicNoR', { system: code.systemKey }));
-          } else if (applicability.allowed || modal) {
-            const coeff = designSeismicCoefficient({
-              spectrum, group: code.group, r: R, t: period.t,
-            });
-            C = coeff.c;
-            refs.push(...period.refs, ...coeff.refs);
-            derivation.push(period.derivation, ...coeff.derivation);
-            assumptions.push(...spectrum.assumptions);
-            seismicDetail = {
-              source: 'cirsoc103', zone: spectrum.zone, spectralType: spectrum.type,
-              ca: spectrum.ca, cv: spectrum.cv, t1: spectrum.t1, t2: spectrum.t2,
-              t3: spectrum.t3, t: period.t, ta: period.ta, periodCapped: period.capped,
-              r: R, gammaR: coeff.gammaR, c: C, floorApplied: coeff.floorApplied,
-              f1: SIMULTANEITY_F1[code.occupancy],
-            };
-          }
-        }
-      }
-
-      const V0 = C * W;
-      seismicWeight = fromProject(W, 'kN');
-      baseShear = fromProject(V0, 'kN');
-
-      const dist = distributeInHeight(
-        elevated.map((l) => ({ h: l.elevation, w: l.weightKN })), V0, uncappedT, t2,
-      );
-      refs.push(...dist.refs);
-      derivation.push(dist.derivation);
-      if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
-      let forcesX = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
-      let forcesY = forcesX;
-
-      // ── The modal response spectrum method, Cap. 7 ──
-      const modes = input.seismic.modal?.modes ?? [];
-      if (modes.length > 0 && seismicDetail?.source === 'cirsoc103' && code) {
-        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
-        if (!isBlocked(spectrum)) {
-          const r = seismicDetail.r!, gr = seismicDetail.gammaR!;
-          refs.push(clause('inpres-cirsoc-103-i', '2018', '7.2', 'método modal espectral'));
-          const byDir = (dir: 'x' | 'y') => {
-            const m = modalStoryForces(elevated, modes, dir, (t) => (spectralOrdinate(t, spectrum) * gr) / r);
-            // §7.2.5: no less than 85 % of the static base shear.
-            const scale = m.baseShear > 0 && m.baseShear < 0.85 * V0 ? (0.85 * V0) / m.baseShear : 1;
-            derivation.push(msg('loadPlan.derivation.modal', {
-              dir: dir.toUpperCase(), modes: m.perMode.length, ratio: round(m.massRatio * 100, 1),
-              vod: round(m.baseShear, 1), voe: round(V0, 1), scale: round(scale, 3),
-            }));
-            if (m.massRatio < 0.9) unsupportedKeys.push(msg('loadPlan.note.modalMassShort', { dir: dir.toUpperCase(), ratio: round(m.massRatio * 100, 1) }));
-            return m.forces.map((f) => f * scale);
-          };
-          if (input.seismic.directions.x) forcesX = byDir('x');
-          if (input.seismic.directions.y) forcesY = byDir('y');
-        }
-      }
-
-      const torsion = input.seismic.torsion ?? 'low';
-      if (torsion !== 'low') {
-        refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
-        derivation.push(msg('loadPlan.derivation.accidentalTorsion', { e: ACCIDENTAL_ECCENTRICITY[torsion] * 100 }));
-      }
-      if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
-      for (const c of seismicCases({
-        nodes: input.model.nodes, levels: elevated, forcesX, forcesY,
-        directions: input.seismic.directions, torsion, diagonal: input.seismic.diagonal,
-      })) {
-        const index = cases.length;
-        const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';
-        cases.push({ existingId: plain ? findCase(input.model, 'E', c.axis) : null, type: 'E', nameKey: c.nameKey, nameParams: c.nameParams });
-        for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'E', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
-      }
-
-      derivation.push(msg('loadPlan.derivation.seismic', {
-        weight: round(W, 1), coefficient: round(C, 4), baseShear: round(V0, 1),
-      }));
-    }
-  }
+  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && input.seismic?.enabled
+    ? codes.seismic.plan(input, levels, sink)
+    : { seismicWeight: undefined, baseShear: undefined, seismicDetail: undefined };
 
   /*
    * Blocked conditions found while generating, not only while gating.
@@ -980,7 +858,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES });
     for (const th of special.thermal) thermal.push({ ...th, caseIndex: heat }, { ...th, dtUniform: -th.dtUniform || 0, dtGradient: -th.dtGradient || 0, caseIndex: heat + 1 });
     derivation.push(msg('loadPlan.derivation.thermalSenses'));
-    refs.push(clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
+    refs.push(codes.thermal?.combinationRef ?? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
   }
   if (special.soil.length) {
     const index = cases.length;
@@ -1013,31 +891,21 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     if (input.projectCombinations) {
       combinations = [...input.projectCombinations];
     } else if (set !== 'service') {
-      combinations = generateCombinations(ci);
-      const exc = liveLoadFactorInCompanion(ci);
-      if (exc.note) derivation.push(exc.note);
-      refs.push(R101('2.3.2', 'combinaciones básicas'));
+      const strength = codes.basis.strength(ci);
+      combinations = strength.combinations;
+      derivation.push(...strength.notes);
+      refs.push(...strength.refs);
     }
-    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...generateServiceCombinations(ci)];
-    // E = EH ± EV, EV = (Ca/2)·γr·D (§3.5.2): a seismic combination twice, D's factor ± (Ca/2)·γr.
-    if (input.seismic?.enabled && input.seismic.vertical && seismicDetail?.source === 'cirsoc103' && seismicDetail.ca && seismicDetail.gammaR) {
-      const kv = (seismicDetail.ca / 2) * seismicDetail.gammaR;
-      combinations = combinations.flatMap((c) => {
-        const hasE = c.terms.some((t) => t.symbol === 'E' && t.factor !== 0);
-        const d = c.terms.find((t) => t.symbol === 'D');
-        if (!hasE || !d) return [c];
-        return [1, -1].map((sg) => ({
-          ...c, id: `${c.id}${sg > 0 ? '+' : '-'}Ev`,
-          label: `${c.label} ${sg > 0 ? '+' : '−'} Ev`,
-          terms: c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + sg * kv).toFixed(4) } : t)),
-        }));
-      });
-      refs.push(clause('inpres-cirsoc-103-i', '2018', '3.5.2', 'acción sísmica vertical'));
-      derivation.push(msg('loadPlan.derivation.verticalSeismic', { ca: round(seismicDetail.ca, 3), gr: seismicDetail.gammaR, kv: round(kv, 4) }));
-    }
+    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci)];
+    // The seismic code's vertical component, when it asks for one (INPRES-CIRSOC 103 §3.5.2).
+    if (input.seismic?.enabled && input.seismic.vertical && codes.seismic?.vertical) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
+    // Each combination says which code, edition and rule wrote it, and what for.
+    combinations = combinations.map((c) => withOrigin(c, codes.basis, !!input.projectCombinations));
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
+  // Each case with the action category of its type, as the basis code reads it.
+  for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
   return {
     outcome: 'READY',
     cases, distributed, nodal, surface, thermal, combinations,
@@ -1050,6 +918,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
     levels,
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
+    generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys: [],
   };

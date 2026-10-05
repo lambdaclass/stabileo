@@ -66,6 +66,8 @@ export interface LoadCombinationSpec {
   notes: EngineMessage[];
   /** Strength (§2.3.2) or service (`service-combinations.ts`). Absent means strength. */
   purpose?: 'strength' | 'service';
+  /** The code that wrote it, set by the load plan (`codes/families/origin.ts`). */
+  origin?: import('../families/origin').CombinationOrigin;
 }
 
 export interface CombinationInputs {

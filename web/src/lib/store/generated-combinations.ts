@@ -26,7 +26,7 @@ export function addGeneratedCombinations(list: readonly CaseCombination[], prefi
   const ids: number[] = [];
   const service: number[] = [];
   for (const c of list) {
-    const id = modelStore.addCombination(`${prefix(c)}${c.name}`, c.factors);
+    const id = modelStore.addCombination(`${prefix(c)}${c.name}`, c.factors, c.origin);
     ids.push(id);
     if (c.purpose === 'service') service.push(id);
   }

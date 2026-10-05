@@ -9078,5 +9078,10 @@ const pt: Translations = {
   'autoLoad.windDyn.steps': 'Passos',
   'autoLoad.windDyn.alongOnly': 'A carga calculada cobre a resposta na direção do vento. A resposta transversal, o desprendimento de vórtices, o galope, o drapejamento e a torção dinâmica requerem bibliografia reconhecida ou túnel de vento (arts. 2.1.3 e 6.1).',
   'autoLoad.windDyn.modalFailed': 'A análise modal para a frequência do vento não pôde ser resolvida: {error}. Escolha outra fonte de n₁.',
+  'regulations.role.thermal': 'Ação térmica',
+  'regulations.rolePurpose.thermal': 'A variação de temperatura de referência que o gerador usa para os casos térmicos. Alterá-lo invalida a análise.',
+  'regulations.name.cirsoc101Thermal': 'CIRSOC 101 ({edition}), ação térmica',
+  'regulations.problem.loadFamilyMismatch': '{action} pertence a outra família normativa que {basis}: suas cargas seriam combinadas com fatores que não foram calibrados para elas.',
+  'loadPlan.blocked.noCodeModule': 'O papel «{role}» tem atribuído {name}, que ainda não tem um módulo para gerar cargas.',
 };
 export default pt;

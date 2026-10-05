@@ -664,6 +664,8 @@ export interface ThermalLoad {
    * temperature change that gives it, ε/α, which is exact (`member-thermal.ts`). Shown as a strain.
    */
   strain?: number;
+  /** The code that generated it (`apply-load-plan.ts`). */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -674,6 +676,8 @@ export interface NodalLoad3D {
   nodeId: number;
   fx: number; fy: number; fz: number;  // kN (global)
   mx: number; my: number; mz: number;  // kN·m (global)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -689,6 +693,8 @@ export interface DistributedLoad3D {
   qYI: number; qYJ: number;  // kN/m in local Y (or global Y) at node I/J
   qZI: number; qZJ: number;  // kN/m in local Z (or global Z) at node I/J
   a?: number; b?: number;     // partial load positions (m from node I)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -739,6 +745,8 @@ export interface SurfaceLoad3D {
   id: number;
   quadId: number;
   q: number;    // kN/m² (positive = downward, applied as -Z global)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -747,6 +755,8 @@ export interface ThermalLoadQuad3D {
   quadId: number;
   dtUniform: number;  // °C uniform temperature change
   dtGradient: number; // °C gradient through thickness
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -781,12 +791,19 @@ export interface LoadCase {
    * of a combination (`combination-cases.ts`).
    */
   pattern?: boolean;
+  /**
+   * What the action is, code-neutral: what a combination rule of any family and a design module
+   * read (`codes/families/origin.ts`). The generator states it; absent, it follows the type.
+   */
+  category?: import('../codes/families/origin').ActionCategory;
 }
 
 export interface LoadCombination {
   id: number;
   name: string;
   factors: Array<{ caseId: number; factor: number }>;
+  /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
+  origin?: import('../codes/families/origin').CombinationOrigin;
 }
 
 /**
@@ -3749,10 +3766,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category'] } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}) });
       return id;
     },
 
@@ -3888,10 +3905,15 @@ function createModelStore() {
      * into. Its alternatives group is set either way: a case reused from an earlier generation
      * (or an older project) carried none, and its snow patterns kept adding up.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; category?: LoadCase['category'] } = {}): number {
       const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
         ?? model.loadCases.find((c) => c.type === type && c.name === name);
-      if (!found) return this.addLoadCase(name, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+      if (!found) return this.addLoadCase(name, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category });
+      if (opts.category && found.category !== opts.category) {
+        if (!_undoBatching) _pushUndo?.();
+        found.category = opts.category;
+        model.loadCases = [...model.loadCases];
+      }
       const pattern = opts.pattern ? true : undefined;
       if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
         if (!_undoBatching) _pushUndo?.();
@@ -3914,10 +3936,10 @@ function createModelStore() {
       if (lc) lc.type = type;
     },
 
-    addCombination(name: string, factors: Array<{ caseId: number; factor: number }>): number {
+    addCombination(name: string, factors: Array<{ caseId: number; factor: number }>, origin?: LoadCombination['origin']): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.combination++;
-      model.combinations.push({ id, name, factors: [...factors] });
+      model.combinations.push({ id, name, factors: [...factors], ...(origin ? { origin: { ...origin } } : {}) });
       return id;
     },
 

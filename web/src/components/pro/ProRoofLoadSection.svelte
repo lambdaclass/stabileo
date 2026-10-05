@@ -35,6 +35,10 @@
    * the slope; a roof used as a terrace or a garden takes that occupancy's live load (§4.8.2).
    */
   import { t, tp } from '../../lib/i18n';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { uiStore } from '../../lib/store/ui.svelte';
+  import { fromDisplay } from '../../lib/utils/units';
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
 
@@ -64,8 +68,8 @@
           </select>
         </label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.roof.dead')}</span>
-          <span class="al-unit-field"><input type="number" step="0.1" min="0" value={config.dead ?? ''} placeholder={floorDead.toFixed(2)}
-            onchange={(e) => { const v = parseFloat(e.currentTarget.value); config.dead = Number.isFinite(v) && v >= 0 ? v : null; }} data-testid="al-roof-dead" /><span>kN/m²</span></span>
+          <span class="al-unit-field"><input type="text" inputmode="decimal" value={config.dead === null ? '' : +toQ(config.dead, 'areaLoad').toPrecision(6)} placeholder={toQ(floorDead, 'areaLoad').toFixed(2)}
+            onchange={(e) => { const v = parseDecimal(e.currentTarget.value); config.dead = v !== null && v >= 0 ? fromDisplay(v, 'areaLoad', uiStore.unitSystem) : null; }} data-testid="al-roof-dead" /><span>{unitQ('areaLoad')}</span></span>
         </label>
       </div>
       {#if config.use === 'maintenance'}

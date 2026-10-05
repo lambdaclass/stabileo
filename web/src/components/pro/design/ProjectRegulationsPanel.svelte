@@ -19,6 +19,7 @@
     allOptionsForRole, availabilityOf, optionIsAvailable,
     type RegulationRole, type RoleBinding,
   } from '../../../lib/codes/roles';
+  import { hasLoadModule } from '../../../lib/codes/families';
   import { consequenceOf } from '../../../lib/codes/revisions';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
 
@@ -127,7 +128,8 @@
   <ul class="roles">
     {#each REGULATION_ROLES as role (role)}
       {@const b = roles[role]}
-      {@const opts = optionsForRole(role)}
+      <!-- A load role offers only codes with a module to generate with (`codes/families`). -->
+      {@const opts = optionsForRole(role).filter((o) => !isLoadAffecting(role) || hasLoadModule(o.adapterId))}
       <li data-testid={`role-${role}`}>
         <div class="row">
           <label class="role-name" for={`sel-${role}`}>{t(`regulations.role.${role}`)}</label>

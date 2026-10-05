@@ -80,6 +80,11 @@ export interface CurrentLoadState {
   caseTypes: string[];
   /** Existing load counts per case type. Enables an honest `after` when replace is off. */
   perCaseType?: Record<string, { distributed: number; nodal: number }>;
+  /**
+   * What the generator wrote, per case type, and the combinations a code wrote: what "replace"
+   * removes (`apply-load-plan.ts`). Absent: every existing load and combination counts as such.
+   */
+  generated?: { byType: Record<string, { distributed: number; nodal: number }>; combinations: number };
 }
 
 /**
@@ -99,6 +104,9 @@ export function describePlanDelta(
   const added = afterTypes.filter((t) => !beforeTypes.includes(t));
   const removed = beforeTypes.filter((t) => !afterTypes.includes(t));
 
+  // A per-action replace (the model says what the generator wrote) leaves the other actions' cases as they are.
+  const g = current.generated;
+  const clears = replace && !g;
   const dispositions: CaseDisposition[] = [];
   for (const t of afterTypes) {
     const existed = beforeTypes.includes(t);
@@ -115,8 +123,8 @@ export function describePlanDelta(
   for (const t of removed) {
     dispositions.push({
       caseType: t,
-      action: replace ? 'cleared' : 'retained',
-      reason: msg(replace
+      action: clears ? 'cleared' : 'retained',
+      reason: msg(clears
         ? 'loadPlan.disposition.cleared'
         : 'loadPlan.disposition.retained', { caseType: t }),
       lossy: true,
@@ -126,7 +134,17 @@ export function describePlanDelta(
 
   // Counts. With replace ON the plan is the whole model; with it OFF the plan is added to
   // what is there, except combinations, which are always regenerated wholesale.
-  const after = replace
+  // Per action, when the model says what the generator wrote: what it wrote for the plan's actions
+  // goes, the rest stays (cases of other actions and everything typed by hand).
+  const gone = g ? afterTypes.reduce((acc, t) => ({ distributed: acc.distributed + (g.byType[t]?.distributed ?? 0), nodal: acc.nodal + (g.byType[t]?.nodal ?? 0) }), { distributed: 0, nodal: 0 }) : null;
+  const after = replace && g && gone
+    ? {
+        distributed: current.distributed - gone.distributed + plan.distributed.length,
+        nodal: current.nodal - gone.nodal + plan.nodal.length,
+        combinations: current.combinations - g.combinations + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
+      }
+    : replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
         combinations: plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions), cases: afterTypes,
@@ -142,7 +160,7 @@ export function describePlanDelta(
   for (const t of removed) {
     // The load case is one thing; its participation in the combinations is another, and
     // that participation ends either way. That is the part users were not being told.
-    warnings.push(msg(replace
+    warnings.push(msg(clears
       ? 'loadPlan.warning.caseCleared'
       : 'loadPlan.warning.caseRetainedNotCombined', { caseType: t }));
   }

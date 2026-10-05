@@ -30,6 +30,7 @@
    * cannot (a lone retaining wall).
    */
   import { t } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   interface Props { config: SpecialLoadsConfig }
   let { config = $bindable() }: Props = $props();
@@ -63,7 +64,7 @@
         <label class="al-field al-field-narrow"><span class="al-label">K</span>
           <input type="number" step="0.05" min="0" max="1.5" bind:value={config.soil.k} data-testid="al-soil-k" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.surcharge')}</span>
-          <span class="al-unit-field"><input type="number" step="1" min="0" bind:value={config.soil.surcharge} /><span>kN/m²</span></span></label>
+          <QuantityInput bind:value={config.soil.surcharge} quantity="areaLoad" min={0} wrap="al-unit-field" /></label>
       </div>
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.permanent} /> {t('autoLoad.special.permanent')}</label>
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.sideOn} data-testid="al-soil-side" /> {t('autoLoad.special.soilSide')}</label>

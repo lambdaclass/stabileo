@@ -21,7 +21,9 @@ export type Quantity =
   | 'rotation'         // rad ↔ rad (same)
   | 'springK'          // kN/m ↔ kip/ft
   | 'springKr'         // kN·m/rad ↔ kip·ft/rad
-  | 'temperature';     // °C ↔ °F
+  | 'temperature'      // °C ↔ °F
+  | 'areaLoad'         // kN/m² ↔ psf
+  | 'speed';           // m/s ↔ mph
 
 // Conversion factors: multiply SI value by factor to get imperial value
 const FACTORS: Record<Quantity, number> = {
@@ -38,6 +40,8 @@ const FACTORS: Record<Quantity, number> = {
   springK: 0.0685218,          // kN/m → kip/ft
   springKr: 0.737562,          // kN·m/rad → kip·ft/rad
   temperature: 1,              // special handling (affine)
+  areaLoad: 20.8854,           // kN/m² → psf
+  speed: 2.23694,              // m/s → mph
 };
 
 /** kN → tf (a tonne-force is 9.80665 kN). */
@@ -58,6 +62,8 @@ const MKS_FACTORS: Record<Quantity, number> = {
   springK: TF,
   springKr: TF,
   temperature: 1,
+  areaLoad: 1000 * TF,  // kN/m² → kgf/m²
+  speed: 1,
 };
 
 // Technical metric labels
@@ -75,6 +81,8 @@ const MKS_LABELS: Record<Quantity, string> = {
   springK: 'tf/m',
   springKr: 'tf·m/rad',
   temperature: '°C',
+  areaLoad: 'kgf/m²',
+  speed: 'm/s',
 };
 
 // SI unit labels
@@ -92,6 +100,8 @@ const SI_LABELS: Record<Quantity, string> = {
   springK: 'kN/m',
   springKr: 'kN·m/rad',
   temperature: '°C',
+  areaLoad: 'kN/m²',
+  speed: 'm/s',
 };
 
 // Imperial unit labels
@@ -109,6 +119,8 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   springK: 'kip/ft',
   springKr: 'kip·ft/rad',
   temperature: '°F',
+  areaLoad: 'psf',
+  speed: 'mph',
 };
 
 /**

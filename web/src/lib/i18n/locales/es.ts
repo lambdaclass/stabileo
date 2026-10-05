@@ -9434,5 +9434,10 @@ const es: Record<string, string> = {
   'autoLoad.windDyn.steps': 'Pasos',
   'autoLoad.windDyn.alongOnly': 'La carga calculada cubre la respuesta en la dirección del viento. La respuesta transversal, el desprendimiento de vórtices, el galope, el flameo y la torsión dinámica requieren bibliografía reconocida o túnel de viento (arts. 2.1.3 y 6.1).',
   'autoLoad.windDyn.modalFailed': 'El análisis modal para la frecuencia del viento no se pudo resolver: {error}. Elegí otra fuente de n₁.',
+  'regulations.role.thermal': 'Acción térmica',
+  'regulations.rolePurpose.thermal': 'La variación de temperatura de referencia que usa el generador para los casos térmicos. Cambiarlo invalida el análisis.',
+  'regulations.name.cirsoc101Thermal': 'CIRSOC 101 ({edition}), acción térmica',
+  'regulations.problem.loadFamilyMismatch': '{action} pertenece a otra familia reglamentaria que {basis}: sus cargas se combinarían con factores que no fueron calibrados para ellas.',
+  'loadPlan.blocked.noCodeModule': 'El rol «{role}» tiene asignado {name}, que todavía no tiene un módulo para generar cargas.',
 };
 export default es;
