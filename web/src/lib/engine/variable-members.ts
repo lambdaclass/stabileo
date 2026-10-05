@@ -23,6 +23,14 @@
  * the second-order moments at the interior nodes). The interior nodes leave the displacements and
  * stay on the pieces, for the deflected shape. Envelopes are collapsed the same way.
  *
+ * ── Cut at a load ─────────────────────────────────────────────────
+ *
+ * A concentrated moment, or a force along the member, inside its span has no place among the
+ * engine's member loads (`member-point-loads.ts`). Such a member is cut at the load, the same way,
+ * and the load goes to the node of the cut: its jump in the moment or the axial force is then
+ * exact. A member that is also of variable section is cut at both, each piece with the section at
+ * its mid-length; one that is not keeps its section on every piece.
+ *
  * Ids: interior nodes, pieces, their sections and loads take ids after the model's highest, in
  * member order, so the same model always expands the same way.
  *
@@ -35,6 +43,8 @@ import type { Element, Section } from '../store/model.svelte';
 import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
+import { memberFrame3D } from './member-loads';
+import { pointNeedsCut, POINT_END_TOL } from './member-point-loads';
 
 /** Pieces a variable member is cut into when it states none. */
 export const DEFAULT_VARIABLE_SEGMENTS = 12;
@@ -92,10 +102,38 @@ interface Planned {
   bounds: Map<number, number[]>;
 }
 
+/**
+ * Where each member is cut for a load, as fractions of its length: the interior points of its
+ * concentrated moments and axial forces, on a member that bends and takes part in the analysis.
+ */
+const AXIAL_OR_OUT = new Set(['inactive', 'tensionOnly', 'compressionOnly', 'cable']);
+
+function loadCuts(model: ModelData): Map<number, number[]> {
+  const out = new Map<number, number[]>();
+  for (const l of model.loads) {
+    if (l.type !== 'pointOnElement3d') continue;
+    const d = l.data;
+    const e = model.elements.get(d.elementId) as (El & { behaviour?: string }) | undefined;
+    // A member that takes no bending carries its loads to its nodes (`member-loads.ts`); one out
+    // of the analysis carries none.
+    if (!e || e.type === 'truss' || (e.behaviour !== undefined && AXIAL_OR_OUT.has(e.behaviour))) continue;
+    const f = memberFrame3D(model, e);
+    if (!f || !(f.ax.L > 1e-10)) continue;
+    if (!pointNeedsCut(d, { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L })) continue;
+    const list = out.get(e.id) ?? [];
+    const t = d.a / f.ax.L;
+    if (!list.some((x) => Math.abs(x - t) * f.ax.L < POINT_END_TOL)) list.push(t);
+    out.set(e.id, list);
+  }
+  for (const list of out.values()) list.sort((a, b) => a - b);
+  return out;
+}
+
 /** Which members, and every id: from `base`'s highest ids, so the same model always plans alike. */
 function planExpansion(model: ModelData, base: ModelData): Planned {
   const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map() };
-  const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El)) as El[];
+  const cuts = loadCuts(model);
+  const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id)) as El[];
   if (vars.length === 0) return out;
   const maxOf = (keys: Iterable<number>) => Math.max(0, ...keys);
   let nextNode = Math.max(maxOf(base.nodes.keys()), maxOf(model.nodes.keys())) + 1;
@@ -104,10 +142,17 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
   for (const e of vars) {
     const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
     if (!ni || !nj) continue;
-    const plan = variableSectionPlan(model.sections.get(e.sectionId), model.sections.get(e.variableSection!.sectionJ));
-    if (!plan.ok) continue;
-    const n = Math.max(2, Math.min(50, Math.round(e.variableSection!.segments ?? DEFAULT_VARIABLE_SEGMENTS)));
-    const ts = Array.from({ length: n - 1 }, (_, k) => (k + 1) / n);
+    const variable = isVariableMember(model, e);
+    const plan = variable ? variableSectionPlan(model.sections.get(e.sectionId), model.sections.get(e.variableSection!.sectionJ)) : null;
+    if (plan && !plan.ok) continue;
+    const segments = variable ? Math.max(2, Math.min(50, Math.round(e.variableSection!.segments ?? DEFAULT_VARIABLE_SEGMENTS))) : 1;
+    const uniform = Array.from({ length: segments - 1 }, (_, k) => (k + 1) / segments);
+    // The variable section's even cuts and the loads' own, one cut where two fall within a micron.
+    const ts = [...uniform];
+    const Lc = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0)) || 1;
+    for (const t of cuts.get(e.id) ?? []) if (!ts.some((x) => Math.abs(x - t) * Lc < POINT_END_TOL)) ts.push(t);
+    ts.sort((a, b) => a - b);
+    const n = ts.length + 1;
     const fractions = [0, ...ts, 1];
     const hasZ = ni.z !== undefined || nj.z !== undefined;
     const inner = ts.map((t) => {
@@ -123,8 +168,10 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
     const bounds = segmentBounds(L, ts);
     const pieces: VariablePiece[] = [];
     for (let k = 0; k < n; k++) {
-      const sid = nextSec++;
-      const section = { ...plan.at((fractions[k]! + fractions[k + 1]!) / 2), id: sid } as Section;
+      // A piece of a variable member takes the section at its mid-length; one cut for a load only
+      // keeps the member's own.
+      const sid = plan?.ok ? nextSec++ : e.sectionId;
+      const section = plan?.ok ? { ...plan.at((fractions[k]! + fractions[k + 1]!) / 2), id: sid } as Section : model.sections.get(e.sectionId)!;
       const ei = eiOf(model.materials.get(e.materialId), section);
       const piece: VariablePiece = { id: nextElem++, sectionId: sid, x0: bounds[k]!, x1: bounds[k + 1]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...(ei ? { ei } : {}) };
       pieces.push(piece);
@@ -152,7 +199,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   for (const nd of planned.nodes) nodes.set(nd.id, nd as never);
   for (const m of exp.members.values()) elements.delete(m.parentId);
   for (const { parent, k, n, t0, t1, piece, section } of planned.pieces) {
-    sections.set(piece.sectionId, section);
+    if (section) sections.set(piece.sectionId, section);
     const fields = segmentFields(parent, k, n, t0, t1);
     elements.set(piece.id, { ...fields, id: piece.id, nodeI: piece.nodeI, nodeJ: piece.nodeJ, sectionId: piece.sectionId } as Element);
   }

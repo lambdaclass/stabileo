@@ -6,7 +6,7 @@ import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
-import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
+import { solvableModel, applyStiffnessModifiers, solveStiffnessFactors, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
@@ -36,7 +36,9 @@ import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos'
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { withDiaphragmRotation } from './diaphragm-rotation';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
-import { memberThermalScale, thermalAlphaOf } from './thermal-alpha';
+import { memberThermalScale, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
+import { pointToSolver, pointToEnds, PointLoadNeedsCut } from './member-point-loads';
+import { prestressToSolver } from './prestress';
 import { constraintsTo2D } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
@@ -54,7 +56,7 @@ import type {
   Node, Element, Support, Load, Material, Section,
   LoadCase, LoadCombination,
   DistributedLoad, PointLoadOnElement, ThermalLoad,
-  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, ThermalLoadQuad3D,
+  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, ThermalLoadQuad3D, PrestressLoad3D,
 } from '../store/model.svelte';
 
 /**
@@ -64,6 +66,27 @@ import type {
 function thermalScaleOfElement(model: { elements: Map<number, { materialId: number }>; materials: Map<number, Material> }, elementId: number): number {
   const e = model.elements.get(elementId);
   return memberThermalScale(e ? model.materials.get(e.materialId) : undefined);
+}
+
+/**
+ * The engine bends a member under a temperature gradient across the depth of its section's
+ * equivalent rectangle, √(12·I/A). A temperature varying linearly through any section curves it by
+ * α·ΔT/h over the section's real depth h, which for an I section is a quarter less than that
+ * rectangle's. The load is linear in ΔT, so the gradient is scaled by the ratio of the two depths,
+ * for each axis (`y` across local y, the width; `z` across local z, the depth): exact, as α's is.
+ * The same section and factors the engine gets (`solverProperties`, `solveStiffnessFactors`).
+ */
+function thermalDepthScale(model: ModelData, elementId: number): { y: number; z: number } {
+  const e = model.elements.get(elementId);
+  const s = e ? model.sections.get(e.sectionId) : undefined;
+  if (!e || !s) return { y: 1, z: 1 };
+  const p = solverProperties(s);
+  const f = solveStiffnessFactors(model, elementId);
+  const a = p.a * f.a;
+  if (!(a > 0)) return { y: 1, z: 1 };
+  const ratio = (inertia: number | undefined, depth: number | undefined) =>
+    inertia && inertia > 0 && depth && depth > 0 ? Math.sqrt((12 * inertia) / a) / depth : 1;
+  return { y: ratio((p.iz ?? 0) * f.iz, s.b), z: ratio((p.iy ?? 0) * f.iy, s.h) };
 }
 
 // ─── ModelData interface ──────────────────────────────────────────
@@ -246,7 +269,8 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const d = l.data as ThermalLoad;
       // The material's own α (thermal-alpha.ts), and the gradient in the drawn axes.
       const k = thermalScaleOfElement(model, d.elementId);
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k, dtGradient: sOf(d.elementId) * d.dtGradient * k } });
+      // An initial strain is the temperature change that gives it, ε/α, in the engine's own α.
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k + (d.strain ?? 0) / ENGINE_ALPHA, dtGradient: sOf(d.elementId) * d.dtGradient * k } });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
       const angle = d.angle ?? 0;
@@ -1261,7 +1285,11 @@ export function memberRef3D(model: ModelData, elementId: number, project2DToXZ =
  * single solve of every load: the project's stated self-weight loads, or the older rule when it
  * states none. A per-case caller passes the case's own list, so a case never takes another's.
  */
-export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: boolean | SelfWeightLoad[], userLeftHand: boolean): SolverLoad3D[] {
+export function buildSolverLoads3D(
+  model: ModelData, loads: Load[], selfWeight: boolean | SelfWeightLoad[], userLeftHand: boolean,
+  /** A reader of where forces are (a mass source): an interior moment or axial force with no cut is lumped, not refused. */
+  opts: { forcesOnly?: boolean } = {},
+): SolverLoad3D[] {
   const leftHand = false;
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
@@ -1423,11 +1451,24 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
         );
       }
     } else if (l.type === 'pointOnElement3d') {
+      // Its force and moment, local or global; inside the span an axial part or a moment sits on
+      // the node the solve cut there (`member-point-loads.ts`).
       const d = l.data as PointLoadOnElement3D;
-      solverLoads.push({
-        type: 'pointOnElement',
-        data: { elementId: d.elementId, a: d.a, py: (userLeftHand ? -1 : 1) * d.py, pz: d.pz },
-      });
+      const m = refOf(d.elementId);
+      if (!m) continue;
+      if (takesNoBending(d.elementId)) {
+        if ([d.mx, d.my, d.mz].some((v) => v)) throw new PointLoadNeedsCut(d.elementId);
+        solverLoads.push(...pointToEnds(m, d, userLeftHand));
+      } else {
+        solverLoads.push(...pointToSolver(m, d, userLeftHand, opts.forcesOnly));
+      }
+    } else if (l.type === 'prestress3d') {
+      // A tendon, as its equivalent loads (`prestress.ts`). A member that takes no bending takes
+      // its anchor forces only.
+      const d = l.data as PrestressLoad3D;
+      const m = refOf(d.elementId);
+      if (!m) continue;
+      solverLoads.push(...(takesNoBending(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
     } else if (l.type === 'surface3d') {
       if (model.quads) {
         solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes));
@@ -1435,6 +1476,9 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       const k = thermalScaleOfElement(model, d.elementId);
+      // The member's real depth, not its equivalent rectangle's; on a plane model embedded in XZ
+      // the engine's in-plane inertia is another one, and the depth is left as the engine has it.
+      const depth = project2DToXZ ? { y: 1, z: 1 } : thermalDepthScale(model, d.elementId);
       solverLoads.push({
         type: 'thermal' as const,
         data: {
@@ -1451,10 +1495,20 @@ export function buildSolverLoads3D(model: ModelData, loads: Load[], selfWeight: 
            * space model sent it across z with the plane's sign reversed, so
            * the same load sagged in 2D and hogged in 3D.
            */
-          dtGradientY: 0,
-          dtGradientZ: -d.dtGradient * k,
+          /*
+           * ΔTgy, ΔT(−y face) − ΔT(+y face), side to side: the engine's gradient across local y,
+           * which takes the −y face as the hotter one, the opposite of its z (measured: a
+           * cantilever with its −y face hotter bends to +y). Local y is the displayed axis, which
+           * the left-handed convention flips.
+           */
+          dtGradientY: (d.dtGradientY ?? 0) * k * depth.y * (userLeftHand ? -1 : 1),
+          dtGradientZ: -d.dtGradient * k * depth.z,
         },
       });
+      if (d.strain) {
+        // An initial strain, ε/α in the engine's own α: exact, and independent of the material's.
+        solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.strain / ENGINE_ALPHA, dtGradientY: 0, dtGradientZ: 0 } });
+      }
     } else if (l.type === 'thermalQuad3d') {
       const tq = l.data as ThermalLoadQuad3D;
       const quad = model.quads?.get(tq.quadId);

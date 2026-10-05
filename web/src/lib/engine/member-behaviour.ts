@@ -442,13 +442,18 @@ export function compositeReferenceFactor(model: ModelData, memberId: number): { 
   return { e: mr.e / mm.e, g: g(mr) / g(mm) };
 }
 
+/** The factors on a member's A, Iy, Iz and J in the solve: its stiffness modifiers and a composite member's reference material. */
+export function solveStiffnessFactors(model: ModelData, id: number): { a: number; iy: number; iz: number; j: number } {
+  const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
+  const c = compositeReferenceFactor(model, id);
+  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+}
+
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {
   let next = Math.max(0, ...input.sections.keys()) + 1;
   const made = new Map<string, number>();
   for (const [id, el] of input.elements) {
-    const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
-    const c = compositeReferenceFactor(model, id);
-    const f = { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+    const f = solveStiffnessFactors(model, id);
     if (f.a === 1 && f.iy === 1 && f.iz === 1 && f.j === 1) continue;
     const key = `${el.sectionId}|${f.a}|${f.iy}|${f.iz}|${f.j}`;
     let sid = made.get(key);

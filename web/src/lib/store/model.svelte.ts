@@ -657,6 +657,13 @@ export interface ThermalLoad {
   elementId: number;
   dtUniform: number;  // °C (uniform temperature change)
   dtGradient: number; // °C, ΔT(bottom face) − ΔT(top face), top = drawn local z (the course's ∇T·h)
+  /** °C, ΔT(−y face) − ΔT(+y face): the gradient across local y, side to side (space models). */
+  dtGradientY?: number;
+  /**
+   * An initial axial strain, elongation positive (a lack of fit, shrinkage): solved as the
+   * temperature change that gives it, ε/α, which is exact (`member-thermal.ts`). Shown as a strain.
+   */
+  strain?: number;
   caseId?: number;
 }
 
@@ -689,8 +696,42 @@ export interface PointLoadOnElement3D {
   id: number;
   elementId: number;
   a: number;    // distance from node I (m)
-  py: number;   // kN in local Y
-  pz: number;   // kN in local Z
+  py: number;   // kN in local Y (global Y when `frame` is global)
+  pz: number;   // kN in local Z (global Z when `frame` is global)
+  /** kN along the member, I → J (global X when `frame` is global). */
+  px?: number;
+  /** kN·m about the local axes (the global ones when `frame` is global). */
+  mx?: number; my?: number; mz?: number;
+  /** The axes the components are along: the member's (default) or the global ones (`member-point-loads.ts`). */
+  frame?: import('../engine/member-point-loads').PointFrame;
+  caseId?: number;
+}
+
+/**
+ * A tendon in a member, stated by its force and its eccentricity at the ends and the middle, a
+ * parabola through the three: solved as its equivalent loads on the member (`prestress.ts`), the
+ * anchor forces and moments at the ends and the transverse load of the curvature along it.
+ * Eccentricities in m along local −z (below the axis of a member whose z is up).
+ */
+export interface PrestressLoad3D {
+  id: number;
+  elementId: number;
+  /** kN, the tendon's tension after losses. */
+  force: number;
+  eI: number; eM: number; eJ: number;
+  caseId?: number;
+}
+
+/**
+ * A displacement imposed on a supported node by a load case: scaled with the case's factor in a
+ * combination, unlike a support's own settlement, which happens once (`settlement-case.ts`).
+ * Global m and rad, on directions the support restrains.
+ */
+export interface NodeDisplacement3D {
+  id: number;
+  nodeId: number;
+  dx?: number; dy?: number; dz?: number;
+  drx?: number; dry?: number; drz?: number;
   caseId?: number;
 }
 
@@ -718,7 +759,9 @@ export type Load =
   | { type: 'distributed3d'; data: DistributedLoad3D }
   | { type: 'pointOnElement3d'; data: PointLoadOnElement3D }
   | { type: 'surface3d'; data: SurfaceLoad3D }
-  | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D };
+  | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D }
+  | { type: 'prestress3d'; data: PrestressLoad3D }
+  | { type: 'displacement3d'; data: NodeDisplacement3D };
 
 export type LoadCaseType = string;
 
@@ -3304,6 +3347,8 @@ function createModelStore() {
         const d = load.data as ThermalLoad;
         if (data.dtUniform !== undefined) d.dtUniform = data.dtUniform as number;
         if (data.dtGradient !== undefined) d.dtGradient = data.dtGradient as number;
+        if (data.dtGradientY !== undefined) d.dtGradientY = (data.dtGradientY as number) || undefined;
+        if (data.strain !== undefined) d.strain = (data.strain as number) || undefined;
       } else if (load.type === 'nodal3d') {
         const d = load.data as NodalLoad3D;
         if (data.fx !== undefined) d.fx = data.fx as number;
@@ -3339,6 +3384,14 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.py !== undefined) d.py = data.py as number;
         if (data.pz !== undefined) d.pz = data.pz as number;
+        for (const k of ['px', 'mx', 'my', 'mz'] as const) if (data[k] !== undefined) d[k] = (data[k] as number) || undefined;
+        if ('frame' in data) { if (data.frame === 'global') d.frame = 'global'; else delete d.frame; }
+      } else if (load.type === 'prestress3d') {
+        const d = load.data as PrestressLoad3D;
+        for (const k of ['force', 'eI', 'eM', 'eJ'] as const) if (data[k] !== undefined) d[k] = data[k] as number;
+      } else if (load.type === 'displacement3d') {
+        const d = load.data as NodeDisplacement3D;
+        for (const k of ['dx', 'dy', 'dz', 'drx', 'dry', 'drz'] as const) if (data[k] !== undefined) d[k] = (data[k] as number) || undefined;
       } else if (load.type === 'surface3d') {
         const d = load.data as SurfaceLoad3D;
         if (data.q !== undefined) d.q = data.q as number;
