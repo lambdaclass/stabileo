@@ -101,13 +101,20 @@ test.describe('@smoke PRO — one lit button, and drawing from the panel', () =>
     for (const [cmd, tid, tool] of [
       ['nodes', 'draw-node', 'node'],
       ['elements', 'draw-element', 'element'],
-      ['supports', 'draw-support', 'support'],
-      ['loads', 'draw-load', 'load'],
     ] as const) {
       await page.getByTestId(`pr-cmd-${cmd}`).click();
       await page.getByTestId(tid).click();
       expect(await page.evaluate(() => window.__stabileo.currentTool()), cmd).toBe(tool);
       await page.getByTestId(tid).click();
+    }
+  });
+
+  test('supports and loads have one way in, the Add card', async ({ pro: page }) => {
+    await page.getByTestId('pr-stage-model').click();
+    for (const [cmd, what] of [['supports', 'support'], ['loads', 'load']] as const) {
+      await page.getByTestId(`pr-cmd-${cmd}`).click();
+      await expect(page.getByTestId(`draw-${what}`)).toHaveCount(0);
+      await expect(page.getByTestId(`write-${what}`)).toHaveText(`Add ${what}`);
     }
   });
 });

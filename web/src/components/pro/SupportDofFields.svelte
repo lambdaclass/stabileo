@@ -2,8 +2,8 @@
   /**
    * What the next support restrains, as Basic's 3D tool asks it: a ticked degree of freedom is
    * held. "Springs" turns the held ones elastic: each takes a stiffness, and one left empty stays
-   * rigid. The same fields in the "Write support" card and in the drawing bar, on the one draft
-   * both place (`drawState.support`, `model/support-3d.ts`).
+   * rigid. The fields of the "Add support" card, on the draft it places (`drawState.support`,
+   * `model/support-3d.ts`).
    */
   import { t } from '../../lib/i18n';
   import { drawState } from '../../lib/store/draw-state.svelte';

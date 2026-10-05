@@ -4445,9 +4445,6 @@ const es: Record<string, string> = {
   'drawBar.stepMemberI': 'Clickeá el nodo donde empieza la barra.',
   'drawBar.stepMemberJ': 'Nodo I: {id}. Clickeá el nodo donde termina.',
   'drawBar.stepPlate': 'Clickeá el nodo {k} de {n}.',
-  'drawBar.stepSupport': 'Clickeá un nodo para ponerle el apoyo.',
-  'drawBar.stepLoadNode': 'Clickeá un nodo para cargarlo.',
-  'drawBar.stepLoadMember': 'Clickeá una barra para cargarla.',
   'drawBar.plane': 'Plano',
   'drawBar.chain': 'Encadenar',
   'drawBar.chainHint': 'Cada barra empieza donde terminó la anterior, hasta Esc o un click en el vacío.',
@@ -4455,9 +4452,6 @@ const es: Record<string, string> = {
   'drawBar.triangle': '3 nodos',
   'drawBar.quad': '4 nodos',
   'drawBar.undoCorner': 'Quitar el último',
-  'drawBar.loadKind': 'Tipo de carga',
-  'drawBar.thermal': 'Térmica',
-  'drawBar.loadIsZero': 'La carga es cero en todas sus componentes: escribí un valor en la barra de dibujo.',
   'drawBar.plateCreated': 'Placa {id} creada con {n} nodos.',
   'pro.drawStartHint': 'Clickeá en el modelo para colocarlo. El cuadrito sobre el modelo avisa que estás dibujando, y vuelve a Seleccionar.',
   'pro.drawStopHint': 'Volver a Seleccionar.',
@@ -9606,5 +9600,7 @@ const es: Record<string, string> = {
   'windProfile.use': 'Usar un perfil de presión propio (en lugar de la norma)',
   'windProfile.bad': 'Cada fila: altura (m) y presión neta (kPa), al menos dos.',
   'windProfile.hint': 'Presión neta lateral (barlovento más sotavento) contra altura, lineal entre puntos; cubre el viento de cualquier norma leída de sus tablas. Sólo el caso 1, sin presiones de cubierta.',
+  'pro.supportsAdded': '{n} apoyo(s) agregado(s); {replaced} reemplazaron al que tenía el nudo.',
+  'pro.supportNoTarget': 'No hay dónde ponerlo: elegí los nudos.',
 };
 export default es;

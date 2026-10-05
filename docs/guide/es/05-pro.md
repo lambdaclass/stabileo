@@ -80,7 +80,8 @@ semirrígido o liberado en parte) y abren sus condiciones de extremo en
   ejemplo para que una viga cuelgue de la losa. Se define en **Especificaciones › Barras**.
 - Con clic derecho sobre una barra: **editar** su material y su sección, abrir sus
   **Especificaciones…** o **dividirla** en N partes (de 2 a 20). Con clic derecho sobre un nodo con
-  apoyo se abren las especificaciones del apoyo. Con nodos seleccionados, clic derecho en un
+  apoyo se abren las especificaciones del apoyo; **Agregar apoyo** y **Agregar carga** abren la
+  tarjeta de su panel sobre ese nodo. Con nodos seleccionados, clic derecho en un
   espacio vacío los refleja en X o en Y o los gira 90°.
 
 Las barras que se dibujan son de pórtico; en **Especificaciones › Barras** se hacen de reticulado,
@@ -334,6 +335,12 @@ actúa sobre nodos o barras seleccionados y su puntero elige otra cosa, un botó
 lo que hace falta. Los resortes, el
 levantamiento y la terna inclinada se definen en **Especificaciones › Apoyos**.
 
+Un apoyo se agrega con **Agregar apoyo**: se marcan los grados de libertad que restringe (o se
+elige uno de los tipos de arriba) y, abajo, **Aplicar a**, la misma elección que en las cargas: la
+selección, una lista de números (`1, 4, 7-12`), un grupo o un rango de coordenadas, con la cuenta de
+nudos a los que va. Todo entra en un solo paso de deshacer, y un nudo que ya tenía apoyo toma el
+nuevo en su lugar.
+
 **Cargas.** El panel tiene tres pestañas (casos de carga, con la regla de peso propio adentro;
 combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas de cargas:
 
@@ -396,7 +403,7 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
   modelo cambió; la lista de abajo muestra cada una con su total, para quitarla. Las **zonas** se
   dibujan eligiendo en orden los nudos del contorno; las barras elegidas con ellos quedan afuera, y
   otras zonas pueden ser sus aberturas.
-- **Escribir carga:** se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
+- **Agregar carga:** se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
   punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
   - En **nudos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
     otro nudo o un punto (se guarda por componentes); y un **desplazamiento impuesto** del caso,

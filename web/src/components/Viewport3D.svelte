@@ -1973,8 +1973,8 @@
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
 
     if (is3D) {
-      // PRO places the support its drawing bar describes; 3D Basic keeps its own strip.
-      const supId = uiStore.appMode === 'pro' ? drawState.addSupportAt(nodeId) : addSupportFromTool3D(nodeId);
+      // Basic's support tool; PRO adds supports from its panel's Add card.
+      const supId = addSupportFromTool3D(nodeId);
       uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
@@ -2004,12 +2004,7 @@
       if (nodeId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (uiStore.appMode === 'pro') {
-        // PRO: all six components, as the drawing bar and the Loads table hold them.
-        const v = drawState.nodalLoad;
-        if ([v.fx, v.fy, v.fz, v.mx, v.my, v.mz].every((x) => x === 0)) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
-        modelStore.addNodalLoad3D(nodeId, v.fx, v.fy, v.fz, v.mx, v.my, v.mz, uiStore.activeLoadCaseId);
-      } else if (is3D) {
+      if (is3D) {
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
@@ -2035,12 +2030,7 @@
       if (elemId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      if (uiStore.appMode === 'pro') {
-        // PRO: uniform, along the axes the drawing bar names.
-        const q = drawState.memberLoad;
-        if (q.qx === 0 && q.qy === 0 && q.qz === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
-        modelStore.addDistributedLoad3D(elemId, q.qy, q.qy, q.qz, q.qz, undefined, undefined, uiStore.activeLoadCaseId, { frame: q.frame, qXI: q.qx, qXJ: q.qx });
-      } else if (is3D) {
+      if (is3D) {
         modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);

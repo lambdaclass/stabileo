@@ -16,14 +16,13 @@
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import DrawInModelButton from './DrawInModelButton.svelte';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
 
   let showAutoLoadsDialog = $state(false);
 
   /*
-   * The case new loads go to is the one "Draw load" uses too (`uiStore.activeLoadCaseId`).
+   * The case new loads go to is the active one (`uiStore.activeLoadCaseId`).
    * Writing a load is `ProWriteLoadCard`; the tables and the operations on loads, `ProLoadTables`.
    */
   const loadCases = $derived(modelStore.model.loadCases);
@@ -154,19 +153,18 @@
 </script>
 
 <div class="pro-loads">
-  <!-- Drawing works the MODEL, so it sits beside the other things you do to a
-       load rather than as a band across the panel. -->
+  <!-- One way to add a load: its card, which says what it goes on (the selection, numbers, a
+       group, a range...). Drawing a load in the model did less than the card and is gone. -->
   <div class="pro-autogen-bar">
-    <DrawInModelButton tool="load" label={t('pro.oneLoad')} icon="load" testid="draw-load" />
-    <WriteInPanelButton kind="load" label={t('pro.oneLoad')} testid="write-load" />
+    <WriteInPanelButton kind="load" verb="add" label={t('pro.oneLoad')} testid="write-load" />
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
 
-  <!-- Write a load: the card the "Write load" button opens, beside "Draw load". -->
+  <!-- Add a load: the card the "Add load" button opens. -->
   {#if drawState.writing === 'load'}
   <div class="pro-addload-section">
-  <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneLoad')}`} testid="write-load-card">
+  <WriteCard title={`${t('pro.add')} ${t('pro.oneLoad')}`} testid="write-load-card">
     <label>{t('pro.writeLoadCase')}
       <select bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
         {#each loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}

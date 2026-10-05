@@ -12,7 +12,6 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { defaultShellMaterial } from '../pro/design-home';
-import type { MemberFrame } from '../engine/member-loads';
 import { DOF_SPRING, support3DFrom, type Dof3D } from '../model/support-3d';
 import { t, tp } from '../i18n';
 
@@ -43,13 +42,8 @@ function createDrawState() {
   let plateMaterialId = $state<number | null>(null);
   let plateThickness = $state(0.2);
 
-  /** The nodal load a click applies in PRO: all six components at once, as the Loads table holds them. */
-  let nodalLoad = $state({ fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 });
-  /** The member load a click applies in PRO: uniform, along the chosen axes. */
-  let memberLoad = $state<{ frame: MemberFrame; qx: number; qy: number; qz: number }>({ frame: 'global', qx: 0, qy: 0, qz: -10 });
-
   /**
-   * The support a click places and the panel's "Write support" adds: the same one. As in Basic's
+   * The support the Supports panel's "Add support" card puts on what it names. As in Basic's
    * 3D tool, a ticked degree of freedom is restrained; with `elastic` on, a restrained one with a
    * stiffness becomes a spring of that stiffness instead (`model/support-3d.ts`).
    */
@@ -64,12 +58,20 @@ function createDrawState() {
    * Drawing and writing are two ways to add the same thing, so one excludes the other.
    */
   let writing = $state<string | null>(null);
+  /** Counts the times a card was opened on the selection, so an open card turns to it (`writeOnSelection`). */
+  let writeSeq = $state(0);
 
   return {
     get writing() { return writing; },
     set writing(v: string | null) {
       writing = v;
       if (v !== null && this.active) this.stop();
+    },
+    get writeSeq() { return writeSeq; },
+    /** Open a panel's card on what is selected now: the model's context menu on a node. */
+    writeOnSelection(kind: 'support' | 'load') {
+      this.writing = kind;
+      writeSeq++;
     },
     get support() { return support; },
     /** Put the support being drawn on a node; returns its id. */
@@ -103,11 +105,6 @@ function createDrawState() {
     set plateMaterialId(v: number) { plateMaterialId = v; },
     get plateThickness() { return plateThickness; },
     set plateThickness(v: number) { plateThickness = v; },
-
-    get nodalLoad() { return nodalLoad; },
-    set nodalLoad(v) { nodalLoad = v; },
-    get memberLoad() { return memberLoad; },
-    set memberLoad(v) { memberLoad = v; },
 
     /**
      * Make the plate once its last corner is picked, with the material and thickness the drawing

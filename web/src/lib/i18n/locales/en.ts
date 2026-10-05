@@ -4452,9 +4452,6 @@ const en: Record<string, string> = {
   'drawBar.stepMemberI': 'Click the node where the member starts.',
   'drawBar.stepMemberJ': 'Node I: {id}. Click the node where it ends.',
   'drawBar.stepPlate': 'Click node {k} of {n}.',
-  'drawBar.stepSupport': 'Click a node to put the support on it.',
-  'drawBar.stepLoadNode': 'Click a node to load it.',
-  'drawBar.stepLoadMember': 'Click a member to load it.',
   'drawBar.plane': 'Plane',
   'drawBar.chain': 'Chain',
   'drawBar.chainHint': 'Each member starts where the previous one ended, until Esc or a click on empty space.',
@@ -4462,9 +4459,6 @@ const en: Record<string, string> = {
   'drawBar.triangle': '3 nodes',
   'drawBar.quad': '4 nodes',
   'drawBar.undoCorner': 'Remove the last one',
-  'drawBar.loadKind': 'Load type',
-  'drawBar.thermal': 'Thermal',
-  'drawBar.loadIsZero': 'Every component of the load is zero: type a value in the drawing bar.',
   'drawBar.plateCreated': 'Shell {id} created with {n} nodes.',
   'pro.drawStartHint': 'Click in the model to place it. The small badge over the model shows you are drawing; click it to go back to Select.',
   'pro.drawStopHint': 'Back to Select.',
@@ -9617,5 +9611,7 @@ const en: Record<string, string> = {
   'windProfile.use': 'Use a pressure profile of my own (instead of the code\'s)',
   'windProfile.bad': 'Each row: height (m) and net pressure (kPa), at least two.',
   'windProfile.hint': 'Net lateral pressure (windward plus leeward) against height, linear between points; it covers any code\'s wind read off its tables. Case 1 only, without roof pressures.',
+  'pro.supportsAdded': '{n} support(s) added; {replaced} replaced the one the node had.',
+  'pro.supportNoTarget': 'Nothing to put it on: pick the nodes.',
 };
 export default en;

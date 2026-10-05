@@ -466,6 +466,8 @@ export interface StabileoTestActions {
   selectNodes(ids: number[]): void;
   /** Open the viewport's context menu on a member, as a right click on it would. */
   openContextMenu(elementId: number): void;
+  /** Open the viewport's context menu on a node, as a right click on it would. */
+  openNodeContextMenu(nodeId: number): void;
   /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
   selectShells(keys: string[]): void;
   toggleBarLock(barId: string): void;
@@ -793,6 +795,9 @@ export function installE2EHooks(): void {
     },
     openContextMenu: (elementId: number) => {
       uiStore.contextMenu = { x: 200, y: 200, elementId };
+    },
+    openNodeContextMenu: (nodeId: number) => {
+      uiStore.contextMenu = { x: 200, y: 200, nodeId };
     },
     selectShells: (keys: string[]) => {
       const all = keys.length ? keys : [...[...modelStore.quads.keys()].map((id) => `q${id}`), ...[...modelStore.plates.keys()].map((id) => `p${id}`)];

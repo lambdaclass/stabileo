@@ -4157,9 +4157,6 @@ const pt: Translations = {
   'drawBar.stepMemberI': 'Clique no nó onde a barra começa.',
   'drawBar.stepMemberJ': 'Nó I: {id}. Clique no nó onde ela termina.',
   'drawBar.stepPlate': 'Clique no nó {k} de {n}.',
-  'drawBar.stepSupport': 'Clique em um nó para colocar o apoio.',
-  'drawBar.stepLoadNode': 'Clique em um nó para carregá-lo.',
-  'drawBar.stepLoadMember': 'Clique em uma barra para carregá-la.',
   'drawBar.plane': 'Plano',
   'drawBar.chain': 'Encadear',
   'drawBar.chainHint': 'Cada barra começa onde a anterior terminou, até Esc ou um clique no vazio.',
@@ -4167,9 +4164,6 @@ const pt: Translations = {
   'drawBar.triangle': '3 nós',
   'drawBar.quad': '4 nós',
   'drawBar.undoCorner': 'Remover o último',
-  'drawBar.loadKind': 'Tipo de carga',
-  'drawBar.thermal': 'Térmica',
-  'drawBar.loadIsZero': 'Todas as componentes da carga são zero: digite um valor na barra de desenho.',
   'drawBar.plateCreated': 'Placa {id} criada com {n} nós.',
   'pro.drawStartHint': 'Clique no modelo para colocá-lo. A caixinha sobre o modelo avisa que você está desenhando, e volta para Selecionar.',
   'pro.drawStopHint': 'Voltar para Selecionar.',
@@ -9250,5 +9244,7 @@ const pt: Translations = {
   'windProfile.use': 'Usar um perfil de pressão próprio (em vez da norma)',
   'windProfile.bad': 'Cada linha: altura (m) e pressão líquida (kPa), pelo menos duas.',
   'windProfile.hint': 'Pressão lateral líquida (barlavento mais sotavento) contra altura, linear entre pontos; cobre o vento de qualquer norma lido de suas tabelas. Só o caso 1, sem pressões de cobertura.',
+  'pro.supportsAdded': '{n} apoio(s) adicionado(s); {replaced} substituíram o que o nó tinha.',
+  'pro.supportNoTarget': 'Não há onde colocá-lo: escolha os nós.',
 };
 export default pt;

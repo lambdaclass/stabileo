@@ -1,12 +1,12 @@
 <script lang="ts">
-  import PickKind from './PickKind.svelte';
+  import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
-  import DrawInModelButton from './DrawInModelButton.svelte';
+  import { t, tp } from '../../lib/i18n';
   import { supportTypeOptions } from '../../lib/pro/support-types';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { parseIdList } from '../../lib/model/select-ops';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
+  import LoadTargetPicker, { type PickedSpec } from './loads/LoadTargetPicker.svelte';
+  import { resolveTargets } from '../../lib/model/loads/load-targets';
   import WriteCard from './WriteCard.svelte';
   import SupportDofFields from './SupportDofFields.svelte';
   import { DOF_SPRING } from '../../lib/model/support-3d';
@@ -15,34 +15,34 @@
 
   const supportTypes = $derived(supportTypeOptions(is3D, t));
 
-  /* The support written here and the one drawn in the model are the same draft (`drawState`). */
-  let newNodeIds = $state('');
+  /*
+   * One way to add a support, as one way to add a load: the card's support (`drawState`'s draft)
+   * on what "Apply to" names (the selection, numbers, a group, a range), all in one undo step. A
+   * node that already has a support takes the new one in its place (one support per node).
+   */
+  let target = $state<PickedSpec>({ by: 'selection' });
   let wError = $state<string | null>(null);
+  let done = $state<string | null>(null);
 
   const supports = $derived([...modelStore.supports.values()]);
 
-  /** Put the draft on every node listed ("3, 7-10"). */
+  // Opened on the selection from the model's context menu: an open card turns to it.
+  $effect.pre(() => {
+    if (drawState.writeSeq > 0) untrack(() => { target = { by: 'selection' }; done = null; wError = null; });
+  });
+
   function addSupport() {
-    const { ids, bad } = parseIdList(newNodeIds);
-    const missing = ids.filter((id) => !modelStore.nodes.has(id));
-    if (ids.length === 0 || bad.length > 0 || missing.length > 0) { wError = t('pro.errNodesExist'); return; }
-    wError = null;
+    const ids = resolveTargets('nodes', target as never, modelStore.model as never, { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements });
+    if (ids.length === 0) { wError = t('pro.supportNoTarget'); done = null; return; }
+    const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+    const replaced = ids.filter((id) => held.has(id)).length;
     modelStore.batch(() => { for (const id of ids) drawState.addSupportAt(id); });
-    newNodeIds = '';
+    wError = null;
+    done = tp('pro.supportsAdded', { n: ids.length, replaced });
   }
 
   function removeSupport(id: number) {
     modelStore.removeSupport(id);
-  }
-
-  function addFromSelection() {
-    modelStore.batch(() => {
-      for (const nodeId of uiStore.selectedNodes) {
-        if (!modelStore.nodes.has(nodeId)) continue;
-        if ([...modelStore.supports.values()].some((s) => s.nodeId === nodeId)) continue;
-        drawState.addSupportAt(nodeId);
-      }
-    });
   }
 
   const DOF_NAME: Record<string, string> = { tx: 'Fx', ty: 'Fy', tz: 'Fz', rx: 'Mx', ry: 'My', rz: 'Mz' };
@@ -79,26 +79,16 @@
 </script>
 
 <div class="pro-sup">
-  <!-- The one place a drawing mode is entered; see `DrawInModelButton`. -->
-
   <div class="pro-sup-header">
-    <DrawInModelButton tool="support" label={t('pro.oneSupport')} icon="support" testid="draw-support" />
-    <WriteInPanelButton kind="support" label={t('pro.oneSupport')} testid="write-support" />
+    <WriteInPanelButton kind="support" verb="add" label={t('pro.oneSupport')} testid="write-support" />
     <span class="pro-sup-count">{t('pro.nSupports').replace('{n}', String(supports.length))}</span>
   </div>
 
   {#if drawState.writing === 'support'}
-    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
-      <label>{t('pro.thNode')} <input class="wc-ids" bind:value={newNodeIds} placeholder={t('pro.idsPlaceholder')} data-testid="write-support-nodes" /></label>
+    <WriteCard title={`${t('pro.add')} ${t('pro.oneSupport')}`} submitLabel={`${t('pro.add')} ${t('pro.oneSupport')}`} onsubmit={addSupport} error={wError} testid="write-support-card">
       <SupportDofFields />
-
-      {#if uiStore.selectedNodes.size > 0}
-        <button type="button" class="pro-btn pro-btn-selection" onclick={addFromSelection}>
-          {t('pro.addToSelection').replace('{n}', String(uiStore.selectedNodes.size))}
-        </button>
-      {:else}
-        <PickKind kind="nodes" />
-      {/if}
+      {#key drawState.writeSeq}<LoadTargetPicker entity="nodes" bind:spec={target} />{/key}
+      {#if done}<p class="pro-sup-done" role="status" data-testid="write-support-done">{done}</p>{/if}
     </WriteCard>
   {/if}
 
@@ -132,6 +122,7 @@
 
 <style>
   .sup-kind { white-space: nowrap; }
+  .pro-sup-done { margin: 0; font-size: 0.66rem; color: var(--st-ok); }
   .sup-tag { margin-left: 4px; padding: 0 4px; border: 1px solid var(--st-hair); border-radius: 3px; font-size: 0.58rem; color: var(--st-text-3); }
   .pro-edit-btn { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.72rem; }
   .pro-edit-btn:hover { color: var(--st-accent); }
@@ -145,31 +136,6 @@
   }
 
   .pro-sup-count { font-size: 0.82rem; color: var(--st-value); font-weight: 600; }
-
-
-
-
-
-
-
-  .pro-btn {
-    padding: 5px 12px;
-    font-size: 0.75rem;
-    color: var(--st-text-2);
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .pro-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
-
-  .pro-btn-selection {
-    font-size: 0.72rem;
-    color: var(--st-text-2);
-    border-color: var(--st-hair-strong);
-  }
-
   .pro-sup-table-wrap { flex: 1; overflow: auto; }
 
   .pro-sup-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
@@ -184,12 +150,6 @@
   .pro-sup-table tbody tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
   .col-id { width: 34px; color: var(--st-text-3); font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; }
-  .pro-select-inline {
-    padding: 2px 4px; background: var(--st-surface-3); border: 1px solid transparent; border-radius: 3px;
-    color: var(--st-text-2); font-size: 0.72rem; cursor: pointer; width: 100%;
-  }
-  .pro-select-inline:hover { border-color: var(--st-surface-3); }
-  .pro-select-inline:focus { border-color: var(--st-text-2); outline: none; }
   .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
   .pro-delete-btn:hover { color: var(--st-danger); }
 </style>

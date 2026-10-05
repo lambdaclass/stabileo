@@ -58,6 +58,18 @@ the application layer; the engine is untouched.
   IO/LS/CP acceptance, geometric nonlinearity in the pushover, and a performance point against a
   demand spectrum.
 
+## Adding supports and loads
+
+- One way to add each: the panel's "Add support" / "Add load" card (`WriteInPanelButton verb="add"`).
+  The Draw buttons for supports and loads are gone, and so are their options in `ProDrawBar` and
+  the PRO click branches in `Viewport3D` (with `drawState.nodalLoad` / `memberLoad`). A support or
+  load tool armed in Basic is put down when PRO's draw bar mounts.
+- The support card ends in the loads' `LoadTargetPicker` (`entity="nodes"`): selection, numbers,
+  group or range, resolved by `resolveTargets`, in one batch; a node with a support takes the new one.
+- The model's context menu on a node, in PRO, selects it and opens the card on the selection
+  (`drawState.writeOnSelection`, `writeSeq`); the load card turns to a node kind.
+- `LoadTargetPicker`: the group filter's precedence fixed (a floor-load definition was offered).
+
 ## Tests
 
 - `engine/__tests__/spectral-case.test.ts`: the engine's spectral displacements for the same modes,
@@ -68,6 +80,8 @@ the application layer; the engine is untouched.
 - `engine/loads/__tests__/pro25-actions.test.ts`: wind profile and region, mass weights, pushover
   pattern and target.
 - `e2e/pro-dynamics-loads.spec.ts` (`@smoke`).
+- `e2e/pro-add-supports-loads.spec.ts` (`@smoke`): every option of both cards, on the selection and
+  on numbers, and the context menu.
 
 ## Not done here
 

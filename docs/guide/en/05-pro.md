@@ -76,8 +76,8 @@ edited. Also:
   beam hangs below the slab. It is set in **Specifications › Members**.
 - Right-clicking a member: **edit** its material and section, open its **Specifications…**, or
   **subdivide** it into N parts (2 to 20). Right-clicking a supported node opens the support's
-  specifications. With nodes selected, right-clicking empty space mirrors them in X or Y or rotates
-  them by 90°.
+  specifications; **Add support** and **Add load** open their panel's card on that node. With
+  nodes selected, right-clicking empty space mirrors them in X or Y or rotates them by 90°.
 
 Members you draw are frame members; **Specifications › Members** makes them trusses, one-way
 members or cables, and sets the roll of their local axes.
@@ -322,6 +322,12 @@ members and its pointer picks something else, a button switches the pointer to w
 Springs, lift-off and an inclined frame
 are set in **Specifications › Supports**.
 
+A support is added with **Add support**: tick the degrees of freedom it restrains (or pick one of
+the kinds above) and, at the bottom, **Apply to**, the same choice as for loads: the selection, a
+list of numbers (`1, 4, 7-12`), a group or a range of coordinates, with the count of nodes it goes
+to. It all goes in one undo step, and a node that already had a support takes the new one in its
+place.
+
 **Loads.** The panel has three tabs (load cases, with the self-weight rule inside; combinations;
 floor loads), the card to write a load, and the load tables:
 
@@ -382,7 +388,7 @@ floor loads), the card to write a load, and the load tables:
   marked ⟲ in the tables and rewritten before solving when the model has changed under it; the list
   below shows each one with its total, to remove it. **Zones** are drawn by picking an outline's
   nodes in order; the members picked with them stay out, and other zones can be their openings.
-- **Write a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
+- **Add a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
   - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
     point (kept as its components); and an **imposed displacement** of the case, in mm or rad, on

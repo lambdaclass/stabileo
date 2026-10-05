@@ -72,9 +72,11 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
 
     // ── 3. Supports, on the two feet ────────────────────────────────
     await page.getByTestId('pr-cmd-supports').click();
-    await page.getByTestId('draw-support').click();
-    expect(await page.evaluate(() => window.__stabileo.currentTool())).toBe('support');
-    for (const id of [1, 2]) await click(id);
+    await page.getByTestId('write-support').click();
+    await page.getByTestId('load-target-by').selectOption('ids');
+    await page.getByTestId('load-target-ids').fill('1, 2');
+    await expect(page.getByTestId('load-target-count')).toContainText('2');
+    await page.getByTestId('write-support-card-submit').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.supportCount())).toBe(2);
 
     // ── 4. It solves ────────────────────────────────────────────────

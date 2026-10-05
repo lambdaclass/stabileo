@@ -36,7 +36,7 @@ test.beforeEach(async ({ pro: page }) => {
 });
 
 test('the bar sits under the ribbon, names the tool, and Escape leaves it', async ({ pro: page }) => {
-  for (const [cmd, btn] of [['nodes', 'draw-node'], ['elements', 'draw-element'], ['supports', 'draw-support'], ['loads', 'draw-load']] as const) {
+  for (const [cmd, btn] of [['nodes', 'draw-node'], ['elements', 'draw-element']] as const) {
     await open(page, cmd);
     await page.getByTestId(btn).click();
     const bar = page.getByTestId('pro-draw-bar');
@@ -96,32 +96,6 @@ test('a plate of three nodes: corners ringed as they go, made on the last one', 
   await expect(page.getByTestId('pro-draw-bar')).toBeVisible();
 });
 
-test('a drawn support and a drawn load take what the bar says', async ({ pro: page }) => {
-  await open(page, 'supports');
-  await page.getByTestId('draw-support').click();
-  await page.getByTestId('pro-draw-bar').getByTestId('sup-preset-pinned').click();
-  await click(page, 5);
-  await expect.poll(() => page.evaluate(() =>
-    (window.__stabileo.entityData('setting', 'supports') as Array<[number, { nodeId: number; type: string }]>)
-      .find(([, s]) => s.nodeId === 5)?.[1].type)).toBe('pinned3d');
-
-  await open(page, 'loads');
-  await page.getByTestId('draw-load').click();
-  await page.getByTestId('draw-load-nodal').click();
-  await page.getByTestId('draw-load-fz').fill('0');
-  await page.getByTestId('draw-load-fz').dispatchEvent('change');
-  await page.getByTestId('draw-load-fx').fill('7');
-  await page.getByTestId('draw-load-fx').dispatchEvent('change');
-  const loads = (await census(page)).loads;
-  await click(page, 6);
-  await expect.poll(async () => (await census(page)).loads).toBe(loads + 1);
-  const last = await page.evaluate(() => {
-    const l = (window.__stabileo.entityData('setting', 'loads') as Array<{ type: string; data: Record<string, number> }>).at(-1)!;
-    return { type: l.type, fx: l.data.fx, fz: l.data.fz, nodeId: l.data.nodeId };
-  });
-  expect(last).toEqual({ type: 'nodal3d', fx: 7, fz: 0, nodeId: 6 });
-});
-
 test('Write node, member and support add from the panel, Enter by Enter', async ({ pro: page }) => {
   await open(page, 'nodes');
   await page.getByTestId('write-node').click();
@@ -152,7 +126,8 @@ test('Write node, member and support add from the panel, Enter by Enter', async 
   await open(page, 'supports');
   await page.getByTestId('write-support').click();
   await page.getByTestId('write-support-card').getByTestId('sup-preset-pinned').click();
-  await page.getByTestId('write-support-nodes').fill('5, 7-8');
+  await page.getByTestId('load-target-by').selectOption('ids');
+  await page.getByTestId('load-target-ids').fill('5, 7-8');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await census(page)).supports).toBe(7);
 });
@@ -205,7 +180,8 @@ test('a support restrains what is ticked, and a restraint with a stiffness is a 
   await expect(card.getByTestId('sup-k-krx')).toHaveCount(0);
   await card.getByTestId('sup-k-kz').fill('5000');
   await card.getByTestId('sup-k-kz').dispatchEvent('change');
-  await page.getByTestId('write-support-nodes').fill('5');
+  await page.getByTestId('load-target-by').selectOption('ids');
+  await page.getByTestId('load-target-ids').fill('5');
   await page.keyboard.press('Enter');
   const s = await page.evaluate(() =>
     (window.__stabileo.entityData('setting', 'supports') as Array<[number, { nodeId: number; type: string; kz?: number; dofRestraints?: Record<string, boolean> }]>)
@@ -214,9 +190,10 @@ test('a support restrains what is ticked, and a restraint with a stiffness is a 
   expect(s?.kz).toBe(5000);
   expect(s?.dofRestraints).toMatchObject({ tx: true, ty: true, tz: false, rx: false, ry: false, rz: false });
 
-  // The bar draws the same draft.
-  await page.getByTestId('draw-support').click();
-  await expect(page.getByTestId('pro-draw-bar').getByTestId('sup-k-kz')).toHaveValue('5000');
+  // The card keeps its draft when it is closed and opened again.
+  await page.getByTestId('write-support').click();
+  await page.getByTestId('write-support').click();
+  await expect(page.getByTestId('write-support-card').getByTestId('sup-k-kz')).toHaveValue('5000');
 });
 
 test('the tables add rows by writing, not by a footer button', async ({ pro: page }) => {
