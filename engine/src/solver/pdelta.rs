@@ -146,61 +146,6 @@ fn solve_spd_or_lu(
     lu_solve(&mut k_work, &mut f_work, ns).map(|u| (u, true))
 }
 
-/// The P-Δ iteration, shared by 2D and 3D: (K + K_G(u))·u = F with the
-/// restrained DOFs held at their values in `u0`. `k_total` forms K + K_G in
-/// the assembly's frame from the current displacements. `Err` carries the
-/// iteration count when K + K_G could not be solved at all.
-#[allow(clippy::too_many_arguments)]
-fn iterate(
-    u0: Vec<f64>,
-    n: usize,
-    nf: usize,
-    f_f: &[f64],
-    cs: &Option<FreeConstraintSystem>,
-    max_iter: usize,
-    tolerance: f64,
-    k_total: impl Fn(&[f64]) -> Vec<f64>,
-) -> Result<Iteration, usize> {
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let mut symbolic: Option<SparseSymbolicCache> = None;
-    let mut state = Iteration { u: u0, iterations: 0, converged: false, indefinite: false };
-
-    for iter in 0..max_iter {
-        state.iterations = iter + 1;
-        let k = k_total(&state.u);
-
-        let k_ff = extract_submatrix(&k, n, &free_idx, &free_idx);
-        let f_eff = rhs_with_prescribed(&k, n, nf, f_f, &state.u);
-        let (k_solve, f_solve) = match cs {
-            Some(cs) => (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_eff)),
-            None => (k_ff, f_eff),
-        };
-        let (u_indep, indefinite) = solve_spd_or_lu(k_solve, &f_solve, ns, &mut symbolic)
-            .ok_or(state.iterations)?;
-        state.indefinite = indefinite;
-        let u_f = match cs {
-            Some(cs) => cs.expand_solution(&u_indep),
-            None => u_indep,
-        };
-
-        // The restrained DOFs keep their prescribed values.
-        let (mut diff_norm, mut u_norm) = (0.0f64, 0.0f64);
-        for (new, old) in u_f[..nf].iter().zip(&state.u[..nf]) {
-            diff_norm += (new - old).powi(2);
-            u_norm += new.powi(2);
-        }
-        state.u[..nf].copy_from_slice(&u_f[..nf]);
-
-        let (diff_norm, u_norm) = (diff_norm.sqrt(), u_norm.sqrt());
-        if u_norm > 1e-20 && diff_norm / u_norm < tolerance {
-            state.converged = true;
-            break;
-        }
-    }
-    Ok(state)
-}
-
 /// Restrained rows of (K + K_G)·u − F: the reactions of the system that was
 /// solved, in the assembly's frame.
 ///
@@ -274,27 +219,89 @@ pub struct PDeltaResult {
 
 /// Solve 2D P-Delta (second-order) analysis.
 /// Iteratively solves (K + K_G) * u = F where K_G depends on axial forces.
-pub fn solve_pdelta_2d(
-    input: &SolverInput,
-    max_iter: usize,
-    tolerance: f64,
-) -> Result<PDeltaResult, String> {
+pub fn solve_pdelta_2d(input: &SolverInput, max_iter: usize, tolerance: f64) -> Result<PDeltaResult, String> {
     let dof_num = DofNumbering::build_2d(input);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
+    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    solve_pdelta_2d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
+}
 
+/// The 2D P-Delta system: dense for small models, sparse from the triplet
+/// assembly above SPARSE_THRESHOLD — the 3D system's blueprint
+/// (`PDeltaSystem3D`). On the sparse path the full K is kept once and each
+/// iteration's K + K_G(u) is collected as triplets, never a dense n×n.
+enum PDeltaSystem2D {
+    Dense(AssemblyResult),
+    Sparse(SparsePDelta2D),
+}
+
+struct SparsePDelta2D {
+    k_full: CscMatrix,
+    f: Vec<f64>,
+    its: Vec<InclinedTransformData2D>,
+}
+
+impl PDeltaSystem2D {
+    fn data(&self) -> (&[f64], &[InclinedTransformData2D]) {
+        match self {
+            Self::Dense(a) => (&a.f, &a.inclined_transforms_2d),
+            Self::Sparse(a) => (&a.f, &a.its),
+        }
+    }
+
+    fn tangent(&self, input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> Tangent3D {
+        match self {
+            Self::Dense(a) => Tangent3D::Dense(k_with_geometric_2d(input, dofs, a, u)),
+            Self::Sparse(a) => {
+                let mut rows = Vec::new();
+                let mut cols = Vec::new();
+                let mut vals = Vec::new();
+                let global = to_global_2d(u, &a.its);
+                super::geometric_stiffness::emit_geometric_stiffness_2d(input, dofs, &global, &mut |i, j, v| {
+                    if i >= j && v != 0.0 { rows.push(i); cols.push(j); vals.push(v); }
+                });
+                for it in &a.its {
+                    apply_inclined_transform_triplets_2d(&mut rows, &mut cols, &mut vals, &it.dofs, &it.r);
+                }
+                let k = &a.k_full;
+                for j in 0..k.n {
+                    for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                        rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
+                    }
+                }
+                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
+                k.drop_below_threshold(1e-30);
+                Tangent3D::Sparse(k)
+            }
+        }
+    }
+}
+
+/// The 2D P-Delta with the dense/sparse decision made explicit. Hidden: tests
+/// force both systems on one model for parity.
+#[doc(hidden)]
+pub fn solve_pdelta_2d_on(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    cs: Option<FreeConstraintSystem>,
+    sparse: bool,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<PDeltaResult, String> {
     // First: linear analysis
     let linear_results = super::linear::solve_2d(input)?;
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
 
-    let asm = assemble_2d(input, &dof_num);
-    let n = dof_num.n_total;
-    let nf = dof_num.n_free;
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let f_f = extract_subvec(&asm.f, &free_idx);
-
-    // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let system = if sparse {
+        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dof_num);
+        let f = assemble_load_vector_2d(input, &input.loads, dof_num, &stiff.inclined_transforms_2d);
+        PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
+    } else {
+        PDeltaSystem2D::Dense(assemble_2d(input, dof_num))
+    };
+    let (f, its) = system.data();
 
     let mut u_prev = vec![0.0; n];
     // Initialize with linear displacements, reported in global axes and
@@ -307,60 +314,53 @@ pub fn solve_pdelta_2d(
             if let Some(&idx) = dof_num.map.get(&(d.node_id, 2)) { u_prev[idx] = d.ry; }
         }
     }
-    for it in &asm.inclined_transforms_2d { rotate_inclined_f_2d(&mut u_prev, &it.dofs, &it.r); }
+    for it in its { rotate_inclined_f_2d(&mut u_prev, &it.dofs, &it.r); }
 
-    let Iteration { u: u_current, iterations, converged, indefinite } = match iterate(
-        u_prev.clone(), n, nf, &f_f, &cs, max_iter, tolerance,
-        |u| k_with_geometric_2d(input, &dof_num, &asm, u),
-    ) {
-        Ok(state) => state,
-        Err(iterations) => {
+    let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
+    let mut symbolic = None;
+    for iter in 0..max_iter {
+        state.iterations = iter + 1;
+        let tangent = system.tangent(input, dof_num, &state.u);
+        let rhs = tangent.rhs(n, nf, f, &state.u);
+        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
             return Ok(PDeltaResult {
-                results: linear_results.clone(),
-                iterations,
-                converged: false,
-                is_stable: false,
-                b2_factor: f64::INFINITY,
-                linear_results,
+                results: linear_results.clone(), linear_results,
+                iterations: state.iterations, converged: false, is_stable: false, b2_factor: f64::INFINITY,
             });
+        };
+        state.indefinite = indefinite;
+        let diff = u[..nf].iter().zip(&state.u[..nf]).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
+        let norm = u[..nf].iter().map(|x| x * x).sum::<f64>().sqrt();
+        state.u[..nf].copy_from_slice(&u[..nf]);
+        if (norm == 0.0 && diff == 0.0) || (norm > 1e-20 && diff / norm < tolerance) {
+            state.converged = true;
+            break;
         }
-    };
+    }
 
-    let its = &asm.inclined_transforms_2d;
-    let u_global = to_global_2d(&u_current, its);
-    let max_ratio = stability_b2(indefinite, b2_factor(&dof_num, 2, &to_global_2d(&u_prev, its), &u_global));
-
-    // Build final results from converged displacements
-    let displacements = build_displacements_2d(&dof_num, &u_global);
-    let element_forces = compute_internal_forces_2d(input, &dof_num, &u_global);
+    let u_global = to_global_2d(&state.u, its);
+    let max_ratio = stability_b2(state.indefinite, b2_factor(dof_num, 2, &to_global_2d(&u_prev, its), &u_global));
 
     // Reactions and constraint forces of the system that was solved.
-    let k_final = k_with_geometric_2d(input, &dof_num, &asm, &u_current);
-    let reactions_vec = restrained_residual(&k_final, &asm.f, &u_current, n, nf);
-    let mut reactions = build_reactions_2d_inclined(input, &dof_num, &reactions_vec, &asm.f[nf..], nf, &u_global, its);
+    let tangent = system.tangent(input, dof_num, &state.u);
+    let residual = tangent.residual(n, nf, f, &state.u);
+    let mut reactions = build_reactions_2d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
     reactions.sort_by_key(|r| r.node_id);
 
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&k_final, n, &free_idx, &free_idx);
-        let f_eff = rhs_with_prescribed(&k_final, n, nf, &f_f, &u_current);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_current[..nf], &f_eff);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
+        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    });
 
     Ok(PDeltaResult {
         results: AnalysisResults {
-            displacements,
+            displacements: build_displacements_2d(dof_num, &u_global),
             reactions,
-            element_forces,
+            element_forces: compute_internal_forces_2d(input, dof_num, &u_global),
             constraint_forces,
             // The model's diagnostics belong to the model, not to the path that
             // analysed it: the linear pass above already ran the pre-solve gates
-            // and the conditioning checks on this same structure. Left empty,
-            // a P-Delta run was silent about problems the same model reports
-            // when solved linearly — the store hands `results` straight to the
-            // diagnostics panel, so the warnings simply vanished. Only the
+            // and the conditioning checks on this same structure. Only the
             // model's, though: see `model_structured_diagnostics`.
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
@@ -370,9 +370,9 @@ pub fn solve_pdelta_2d(
             equilibrium: None,
             result_summary: None, solver_run_meta: None,
         },
-        iterations,
-        converged,
-        is_stable: converged && max_ratio < 100.0,
+        iterations: state.iterations,
+        converged: state.converged,
+        is_stable: state.converged && max_ratio < 100.0,
         b2_factor: max_ratio,
         linear_results,
     })

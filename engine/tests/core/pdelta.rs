@@ -426,3 +426,86 @@ fn pdelta_b2_is_one_under_symmetric_gravity() {
     assert!(pd.converged && pd.is_stable);
     assert!((pd.b2_factor - 1.0).abs() < 1e-2, "B2 = {:.5} with no lateral load", pd.b2_factor);
 }
+
+// ─── The sparse 2D system, above its threshold ─────────────────────
+//
+// Past 64 total DOFs the 2D P-Delta collects K + K_G(u) as triplets per
+// iteration instead of cloning a dense n×n. The sparse answer must be the
+// dense answer, and the closed forms it already passed.
+
+const SEG_BIG: usize = 30; // 31 nodes, 93 DOFs — past SPARSE_THRESHOLD
+
+fn heated_strut_big(with_load: bool) -> dedaliano_engine::types::SolverInput {
+    use dedaliano_engine::types::*;
+    let mut input = make_column(SEG_BIG, L_STRUT, E, A, IZ, "fixed", "fixed", 0.0);
+    for id in 1..=SEG_BIG {
+        input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: id, dt_uniform: DT, dt_gradient: 0.0 }));
+    }
+    if with_load {
+        input.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: SEG_BIG / 2 + 1, fx: 0.0, fz: -1.0, my: 0.0 }));
+    }
+    input
+}
+
+#[test]
+fn pdelta_2d_sparse_heated_strut_matches_the_closed_form() {
+    use dedaliano_engine::solver::pdelta;
+    let input = heated_strut_big(true);
+    // The physics check only exercises the sparse path if the fixture stays
+    // past the dispatch threshold (64 free DOFs) — nothing else would notice
+    // a silent fallback to dense.
+    let n_free = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input).n_free;
+    assert!(n_free >= 64, "the fixture must stay past the sparse threshold (n_free = {n_free})");
+    let lin = dedaliano_engine::solver::linear::solve_2d(&input).unwrap();
+    let pd = pdelta::solve_pdelta_2d(&input, 50, 1e-8).unwrap();
+    assert!(pd.converged && pd.is_stable, "the sparse iteration must converge on a stable strut");
+    let mid = |ds: &[dedaliano_engine::types::Displacement]| ds.iter().find(|d| d.node_id == SEG_BIG / 2 + 1).unwrap().uz;
+    let amp = mid(&pd.results.displacements) / mid(&lin.displacements);
+    let want = amplification_expected();
+    assert!((amp - want).abs() / want < 0.03, "sparse amplification {amp:.4}, expected ≈ {want:.4}");
+}
+
+#[test]
+fn pdelta_2d_sparse_and_dense_agree_dof_by_dof() {
+    use dedaliano_engine::solver::{dof::DofNumbering, pdelta};
+    let input = heated_strut_big(true);
+    let dof_num = DofNumbering::build_2d(&input);
+    let dense = pdelta::solve_pdelta_2d_on(&input, &dof_num, None, false, 50, 1e-8).unwrap();
+    let sparse = pdelta::solve_pdelta_2d_on(&input, &dof_num, None, true, 50, 1e-8).unwrap();
+    assert!(dense.converged && sparse.converged);
+    assert_eq!(dense.iterations, sparse.iterations, "same path to convergence");
+    let diff = dense.results.displacements.iter().map(|d| {
+        let s = sparse.results.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        (d.ux - s.ux).abs().max((d.uz - s.uz).abs()).max((d.ry - s.ry).abs())
+    }).fold(0.0, f64::max);
+    let scale = dense.results.displacements.iter().map(|d| d.uz.abs()).fold(0.0, f64::max);
+    assert!(diff < 1e-9 * scale.max(1.0), "dense vs sparse max Δ = {diff} (scale {scale})");
+    // Reactions balance the thermal compression at both ends, and agree between systems.
+    let rx = |r: &dedaliano_engine::types::AnalysisResults| r.reactions.iter().map(|x| x.rx).sum::<f64>();
+    assert!((rx(&dense.results) - rx(&sparse.results)).abs() < 1e-9);
+    assert!((dense.b2_factor - sparse.b2_factor).abs() < 1e-9 * dense.b2_factor.max(1.0));
+}
+
+#[test]
+fn pdelta_2d_sparse_with_a_constraint_agrees_too() {
+    use dedaliano_engine::solver::{dof::DofNumbering, pdelta};
+    // The same strut, plus a tie between the two mid nodes' uz: the constraint
+    // reduction runs sparsely on this path too.
+    let mut input = heated_strut_big(true);
+    use dedaliano_engine::types::*;
+    input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: SEG_BIG / 2 + 1, slave_node: SEG_BIG / 2 + 2, dofs: vec![1],
+    }));
+    let dof_num = DofNumbering::build_2d(&input);
+    let cs = || dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let dense = pdelta::solve_pdelta_2d_on(&input, &dof_num, cs(), false, 50, 1e-8).unwrap();
+    let sparse = pdelta::solve_pdelta_2d_on(&input, &dof_num, cs(), true, 50, 1e-8).unwrap();
+    assert!(dense.converged && sparse.converged);
+    let diff = dense.results.displacements.iter().map(|d| {
+        let s = sparse.results.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        (d.ux - s.ux).abs().max((d.uz - s.uz).abs()).max((d.ry - s.ry).abs())
+    }).fold(0.0, f64::max);
+    let scale = dense.results.displacements.iter().map(|d| d.uz.abs()).fold(0.0, f64::max);
+    assert!(diff < 1e-9 * scale.max(1.0), "constrained, dense vs sparse max Δ = {diff}");
+    assert!(!sparse.results.constraint_forces.is_empty(), "constraint forces travel the sparse path");
+}
