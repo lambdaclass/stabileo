@@ -9,8 +9,8 @@
  * whose answer is already known, the second can only ever offer EXTRA candidates, never fewer.
  * "Supposed to be" is the part that needs a gate.
  *
- * So `detectCollisions` keeps an escape hatch, `{ prune: false }`, which measures every
- * segment pair exhaustively — the behaviour before the rejection existed. Every case below
+ * So `detectCollisions` keeps `{ prune: false, broadPhase: false }`, which measures every
+ * bar and segment pair exhaustively — the behaviour before the rejection existed. Every case below
  * runs both and requires identical output: same conflicts, same bar ids, same classification,
  * same ordering, same clearances to the last representable digit.
  *
@@ -60,7 +60,7 @@ function shapeOf(
   // Bucket deduplication must preserve exact pair traversal and every reported field.
   expect({ ...fast, bucketScans: 0 }).toEqual({ ...repeated, bucketScans: 0 });
   expect(fast.bucketScans).toBeLessThanOrEqual(repeated.bucketScans);
-  const slow = detectCollisions(bars, { ...opts, prune: false });
+  const slow = detectCollisions(bars, { ...opts, prune: false, broadPhase: false });
   const norm = (r: typeof fast) => r.conflicts.map((c) => ({
     barA: c.barA, barB: c.barB, severity: c.severity, pairClass: c.pairClass,
     classLabelKey: c.classLabelKey, clearance: c.clearance, required: c.required,
@@ -143,10 +143,10 @@ describe('spatial buckets are scanned once per queried bar', () => {
   });
 
   it('keeps shared hash buckets complete, even for distant cells with identical keys', () => {
-    // With cell=1, translation by 2^32 is an exact collision in the integer hash.
+    // With cell=4, translation by 4 * 2^32 is an exact collision in the integer hash.
     const bars = [straight('a', 0, 0, 20), straight('b', 0.03, 0, 20)];
     bars.push(...bars.map(b => ({ ...b, id: `far:${b.id}`, segments: b.segments.map(s => ({
-      ...s, start: { ...s.start, x: s.start.x + 2 ** 32 }, end: { ...s.end, x: s.end.x + 2 ** 32 },
+      ...s, start: { ...s.start, x: s.start.x + 4 * 2 ** 32 }, end: { ...s.end, x: s.end.x + 4 * 2 ** 32 },
     })) })));
     const tolerances = { ...DEFAULT_TOLERANCES, requiredClear: 0.96, placement: 0 };
     const fast = detectCollisions(bars, { tolerances });

@@ -231,11 +231,11 @@ class SpatialHash {
    * Add the candidates in the 27 cells around `p` to `out`, keeping only indices above
    * `above` so each pair is produced once.
    *
-   * Fills a caller-owned set rather than returning a new one. It is called once per sampled
-   * hash point — on the flagship that is over a million times — and allocating a Set per call
-   * only to merge it into another Set was the single largest cost in the collision sweep.
+   * Appends each candidate once, using a sweep-local stamp array. This avoids repeated
+   * Set insertions when a bar occupies many neighbouring buckets and preserves the
+   * first-encounter order used by the narrow phase.
    */
-  collectNear(p: Point3, above: number, out: Set<number>): void {
+  collectNear(p: Point3, above: number, out: number[], seen: Uint32Array): void {
     const cx = Math.floor(p.x / this.cell);
     const cy = Math.floor(p.y / this.cell);
     const cz = Math.floor(p.z / this.cell);
@@ -260,7 +260,11 @@ class SpatialHash {
           if (this.deduplicateBuckets && bucket.lastQuery === above) continue;
           bucket.lastQuery = above;
           this.bucketScans++;
-          for (const i of bucket.indices) if (i > above) out.add(i);
+          for (const i of bucket.indices) {
+            if (i <= above || seen[i] === above + 1) continue;
+            seen[i] = above + 1;
+            out.push(i);
+          }
         }
       }
     }
@@ -490,6 +494,8 @@ export interface DetectCollisionsOptions {
   prune?: boolean;
   /** Equivalence-test escape hatch: restore repeated bucket scans without changing geometry. */
   deduplicateBuckets?: boolean;
+  /** Test/reference path: enumerate every bar pair without the spatial hash. */
+  broadPhase?: boolean;
 }
 
 export function detectCollisions(
@@ -501,25 +507,24 @@ export function detectCollisions(
   const raw = bars.map((path) => samplePath(path, COLLISION_CHORD_TOLERANCE));
   const maxRadius = bars.reduce((m, b) => Math.max(m, b.diameterMm / 2000), 0);
 
-  // Cell size: comfortably larger than the biggest interaction distance, so the 27-cell
-  // neighbourhood is guaranteed to contain every candidate.
-  const cell = Math.max(0.05, 2 * maxRadius + tolerances.requiredClear + tolerances.placement + 0.02);
+  // Larger cells reduce hash lookups and allocations along long bars. Exact distances
+  // still use the original chord-accurate samples, never these broad-phase samples.
+  const cell = 4 * Math.max(0.05, 2 * maxRadius + tolerances.requiredClear + tolerances.placement + 0.02);
 
   const sampled: SampledBar[] = bars.map((path, i) => {
     const pts = raw[i];
     const segBoxes: Box[] = [];
     for (let k = 0; k + 1 < pts.length; k++) segBoxes.push(boxOf(pts[k], pts[k + 1]));
     return {
-    path,
-    points: pts,
-    // Densified so no two consecutive points are further apart than one cell. Without
-    // this the hash indexes only the endpoints of a segment, and a 2 m straight bar is
-    // invisible to the broad phase everywhere between them — another bar could pass
-    // clean through its middle and never be tested.
-    hashPoints: densify(pts, cell),
-    radius: path.diameterMm / 2000,
-    segBoxes,
-    box: segBoxes.length > 0 ? boxUnion(segBoxes) : boxOf(pts[0] ?? ZERO, pts[0] ?? ZERO),
+      path,
+      points: pts,
+      // Half-cell spacing leaves room for the interaction distance: each closest point
+      // is at most cell/4 from a hash sample. Their combined sampling displacement is
+      // at most cell/2, leaving the other half for radii, clearance and placement.
+      hashPoints: opts.broadPhase === false ? [] : densify(pts, cell / 2),
+      radius: path.diameterMm / 2000,
+      segBoxes,
+      box: segBoxes.length > 0 ? boxUnion(segBoxes) : boxOf(pts[0] ?? ZERO, pts[0] ?? ZERO),
     };
   });
 
@@ -536,11 +541,17 @@ export function detectCollisions(
   let narrowPhaseTests = 0;
   let barPairsTested = 0;
 
+  const seen = new Uint32Array(sampled.length);
+  const candidates: number[] = [];
   for (let i = 0; i < sampled.length; i++) {
     const a = sampled[i];
-    const candidates = new Set<number>();
-    for (const p of a.hashPoints) hash.collectNear(p, i, candidates);
-    barPairsTested += candidates.size;
+    candidates.length = 0;
+    if (opts.broadPhase === false) {
+      for (let j = i + 1; j < sampled.length; j++) candidates.push(j);
+    } else {
+      for (const p of a.hashPoints) hash.collectNear(p, i, candidates, seen);
+    }
+    barPairsTested += candidates.length;
 
     for (const j of candidates) {
       const b = sampled[j];
