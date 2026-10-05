@@ -1,6 +1,6 @@
-//! Numeric collision narrow phase. Sampling and code-specific pair policies stay in TS.
-//! Geometry is copied once per sweep, never once per segment or candidate pair.
-use std::collections::HashMap;
+//! Collision spatial index and narrow phase. Curve sampling and pair policies stay in TS.
+//! Repair sessions update only changed bars; full sweeps copy geometry once.
+use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 
 type Point = [f64; 3];
@@ -96,7 +96,7 @@ fn distance(p: Point, q: Point, r: Point, t: Point) -> (f64, Point) {
 // Same wrapping 32-bit keys, sample order and bucket stamps as the TS reference.
 struct Bucket {
     indices: Vec<u32>,
-    last_query: Option<u32>,
+    last_query: Option<u64>,
 }
 struct SpatialHash {
     points: Vec<Vec<Point>>,
@@ -104,8 +104,9 @@ struct SpatialHash {
     cell: f64,
     deduplicate: bool,
     scans: f64,
-    seen: Vec<Option<u32>>,
+    seen: Vec<Option<u64>>,
     next_query: u32,
+    query_stamp: u64,
 }
 fn cell_key(c: Point) -> u32 {
     let ints: [u32; 3] = std::array::from_fn(|k| {
@@ -132,24 +133,10 @@ impl SpatialHash {
             scans: 0.0,
             seen: vec![None; bars.len()],
             next_query: 0,
+            query_stamp: 0,
         };
         for (i, bar) in bars.iter().enumerate() {
-            let mut samples = Vec::new();
-            if let Some(&p) = bar.points.first() {
-                samples.push(p);
-            }
-            for pair in bar.points.windows(2) {
-                let delta = sub(pair[1], pair[0]);
-                let count = (norm(delta) / (cell / 2.0)).ceil().max(1.0);
-                // Bound work for invalid/extreme geometry instead of allocating forever.
-                if !count.is_finite() || count > 10_000_000.0 {
-                    return Err("Collision segment exceeds hash sampling limit");
-                }
-                for k in 1..=count as usize {
-                    let t = k as f64 / count;
-                    samples.push(std::array::from_fn(|axis| pair[0][axis] + delta[axis] * t));
-                }
-            }
+            let samples = Self::samples(&bar.points, cell)?;
             for p in &samples {
                 let c = std::array::from_fn(|k| (p[k] / cell).floor());
                 let bucket = hash.cells.entry(cell_key(c)).or_insert_with(|| Bucket {
@@ -164,7 +151,67 @@ impl SpatialHash {
         }
         Ok(hash)
     }
+    fn samples(points: &[Point], cell: f64) -> Result<Vec<Point>, &'static str> {
+        let mut samples = Vec::new();
+        if let Some(&p) = points.first() {
+            samples.push(p);
+        }
+        for pair in points.windows(2) {
+            let delta = sub(pair[1], pair[0]);
+            let count = (norm(delta) / (cell / 2.0)).ceil().max(1.0);
+            // Bound work for invalid/extreme geometry instead of allocating forever.
+            if !count.is_finite() || count > 10_000_000.0 {
+                return Err("Collision segment exceeds hash sampling limit");
+            }
+            for k in 1..=count as usize {
+                let t = k as f64 / count;
+                samples.push(std::array::from_fn(|axis| pair[0][axis] + delta[axis] * t));
+            }
+        }
+        Ok(samples)
+    }
+    fn replace(&mut self, index: u32, samples: Vec<Point>) {
+        // A bar may occupy the same bucket many times, including hash collisions.
+        let keys = |points: &[Point]| -> HashSet<u32> {
+            points
+                .iter()
+                .map(|p| cell_key(std::array::from_fn(|k| (p[k] / self.cell).floor())))
+                .collect()
+        };
+        let old = keys(&self.points[index as usize]);
+        let new = keys(&samples);
+        for key in old.difference(&new) {
+            if let Some(bucket) = self.cells.get_mut(key) {
+                bucket.indices.retain(|&i| i != index);
+                if bucket.indices.is_empty() {
+                    self.cells.remove(key);
+                }
+            }
+        }
+        for key in new.difference(&old) {
+            let bucket = self.cells.entry(*key).or_insert_with(|| Bucket {
+                indices: Vec::new(),
+                last_query: None,
+            });
+            // Keep the initial sweep's ordering even when a lower-index bar moves in.
+            let position = bucket.indices.binary_search(&index).unwrap_err();
+            bucket.indices.insert(position, index);
+        }
+        self.points[index as usize] = samples;
+    }
     fn candidates(&mut self, index: u32) -> Vec<u32> {
+        self.neighbors(index, false)
+    }
+    fn neighbors(&mut self, index: u32, both_sides: bool) -> Vec<u32> {
+        if self.query_stamp == u64::MAX {
+            self.seen.fill(None);
+            for bucket in self.cells.values_mut() {
+                bucket.last_query = None;
+            }
+            self.query_stamp = 0;
+        }
+        self.query_stamp += 1;
+        let stamp = self.query_stamp;
         let mut previous: Option<Point> = None;
         let mut out = Vec::new();
         for p in &self.points[index as usize] {
@@ -186,16 +233,19 @@ impl SpatialHash {
                             continue;
                         }
                         if let Some(bucket) = self.cells.get_mut(&cell_key(n)) {
-                            if self.deduplicate && bucket.last_query == Some(index) {
+                            if self.deduplicate && bucket.last_query == Some(stamp) {
                                 continue;
                             }
-                            bucket.last_query = Some(index);
+                            bucket.last_query = Some(stamp);
                             self.scans += 1.0;
                             for &j in &bucket.indices {
-                                if j <= index || self.seen[j as usize] == Some(index) {
+                                if j == index
+                                    || (!both_sides && j < index)
+                                    || self.seen[j as usize] == Some(stamp)
+                                {
                                     continue;
                                 }
-                                self.seen[j as usize] = Some(index);
+                                self.seen[j as usize] = Some(stamp);
                                 out.push(j);
                             }
                         }
@@ -290,6 +340,49 @@ impl CollisionGeometry {
         hash.next_query += 1;
         Ok(hash.candidates(index))
     }
+    /// Replace one bar without rebuilding the other bars or their spatial buckets.
+    /// Radius and index remain fixed throughout a repair session.
+    pub fn update_bar(&mut self, index: u32, points: &[f64]) -> Result<(), JsValue> {
+        if index as usize >= self.bars.len() {
+            return Err(JsValue::from_str("Invalid collision bar index"));
+        }
+        let mut replacement = Self::checked(
+            points,
+            &[0, (points.len() / 3) as u32],
+            &[self.radii[index as usize]],
+        )
+        .map_err(JsValue::from_str)?;
+        let bar = replacement.bars.remove(0);
+        if let Some(hash) = self.hash.as_mut() {
+            // Validate before mutating the index, so rejected updates leave it intact.
+            let samples =
+                SpatialHash::samples(&bar.points, hash.cell).map_err(JsValue::from_str)?;
+            hash.replace(index, samples);
+        }
+        self.bars[index as usize] = bar;
+        Ok(())
+    }
+    /// Canonical index pairs touching changed bars, including newly encountered neighbors.
+    /// Only changed bars query the index. Unchanged pair results belong to the caller.
+    pub fn changed_pairs(&mut self, changed: &[u32]) -> Result<Vec<u32>, JsValue> {
+        if changed.iter().any(|&i| i as usize >= self.bars.len()) {
+            return Err(JsValue::from_str("Invalid collision bar index"));
+        }
+        let hash = self
+            .hash
+            .as_mut()
+            .ok_or_else(|| JsValue::from_str("Collision hash is not initialized"))?;
+        hash.scans = 0.0;
+        let mut pairs = Vec::new();
+        for &i in changed {
+            for j in hash.neighbors(i, true) {
+                pairs.push((i.min(j), i.max(j)));
+            }
+        }
+        pairs.sort_unstable();
+        pairs.dedup();
+        Ok(pairs.into_iter().flat_map(|(i, j)| [i, j]).collect())
+    }
     pub fn bucket_scans(&self) -> f64 {
         self.hash.as_ref().map_or(0.0, |hash| hash.scans)
     }
@@ -366,6 +459,53 @@ mod tests {
         assert_eq!(repeated.candidates(0), vec![1]);
         assert!(fast.candidates(1).is_empty());
         assert!(fast.scans < repeated.scans);
+    }
+    #[test]
+    fn updated_hash_matches_rebuild_with_wrap_collisions_and_repeated_queries() {
+        let mut geometry = CollisionGeometry::checked(
+            &[
+                -1., 0., 0., 1., 0., 0., -1., 0.02, 0., 1., 0.02, 0., -1., 1., 0., 1., 1., 0., -1.,
+                -1., 0., 1., -1., 0.,
+            ],
+            &[0, 2, 4, 6, 8],
+            &[0.01; 4],
+        )
+        .unwrap();
+        geometry.build_hash(0.25, true).unwrap();
+        for (i, y) in [(3, 0.0), (0, 1.02), (3, -1.0), (1, 1073741824.0), (0, 0.0)] {
+            geometry.update_bar(i, &[-1., y, 0., 1., y, 0.]).unwrap();
+            let mut rebuilt = SpatialHash::new(&geometry.bars, 0.25, true).unwrap();
+            let updated = geometry.hash.as_mut().unwrap();
+            for j in 0..4 {
+                assert_eq!(updated.neighbors(j, true), rebuilt.neighbors(j, true));
+                // Query stamps must be independent of both bar index and repair pass.
+                assert_eq!(updated.neighbors(j, true), rebuilt.neighbors(j, true));
+            }
+            assert!(updated.cells.values().all(|b| !b.indices.is_empty()));
+        }
+        let hash = geometry.hash.as_mut().unwrap();
+        hash.query_stamp = u64::MAX;
+        let mut rebuilt = SpatialHash::new(&geometry.bars, 0.25, true).unwrap();
+        assert_eq!(hash.neighbors(0, true), rebuilt.neighbors(0, true));
+    }
+    #[test]
+    fn changed_pairs_are_unique_canonical_and_reset_diagnostics() {
+        let mut geometry = CollisionGeometry::checked(
+            &[
+                0., 0., 0., 1., 0., 0., 0., 0.02, 0., 1., 0.02, 0., 0., 0.03, 0., 1., 0.03, 0.,
+            ],
+            &[0, 2, 4, 6],
+            &[0.01; 3],
+        )
+        .unwrap();
+        geometry.build_hash(0.25, true).unwrap();
+        assert_eq!(
+            geometry.changed_pairs(&[2, 1, 2]).unwrap(),
+            vec![0, 1, 0, 2, 1, 2]
+        );
+        assert!(geometry.bucket_scans() > 0.0);
+        assert!(geometry.changed_pairs(&[]).unwrap().is_empty());
+        assert_eq!(geometry.bucket_scans(), 0.0);
     }
     #[test]
     fn rejects_bad_buffers() {
