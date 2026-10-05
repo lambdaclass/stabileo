@@ -147,8 +147,9 @@ interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy
  * that nothing higher covers in plan (`plan-gravity.ts`). A lower roof beside a step is a roof;
  * it used to be left out, because a column of the higher part rises from its nodes.
  */
-export function roofMembers(model: WindModel): RoofMember[] {
-  const roof = gravityLayout(model, { mode: 'width', tributaryWidth: 1 }).roof;
+export function roofMembers(model: WindModel, only?: ReadonlySet<number>): RoofMember[] {
+  // The members chosen as the roof, when there is a choice; else the ones nothing covers.
+  const roof = only ?? gravityLayout(model, { mode: 'width', tributaryWidth: 1 }).roof;
   const out: RoofMember[] = [];
   for (const e of model.elements.values()) {
     if (!roof.has(e.id)) continue;

@@ -438,6 +438,10 @@ floor loads), the card to write a load, and the load tables:
   until its text is supplied, and is not replaced by 2025's. For the service combinations you can
   add B.4.2's **service wind Wa**: the 50-year speed from the map of Figure C AB.4.2-1 and a
   recurrence (5 to 500 years), converted by that figure's factor.
+  The wind can act on a **zone, a group or a box of coordinates** instead of the whole model (its
+  nodes make the levels and the front), and can take a **pressure profile** of your own in place of
+  the code's: a net lateral pressure against height, drawn beside it, which covers any code's wind
+  read off its tables (case 1 only, without roof pressures or the code's minimum).
   The **gust effect factor** follows §1.9. Each direction's fundamental frequency comes from the
   model's own modal analysis (with the plan's masses), from numbers you type, from the
   approximate formulas of §1.9.3, or from declaring the structure rigid. Above 1 Hz the building
@@ -448,7 +452,8 @@ floor loads), the card to write a load, and the load tables:
 - **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
   minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
   unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are
-  not generated.
+  not generated. The roof can be chosen (a zone, a group or a box) instead of the one the geometry
+  shows.
 - **Earthquake** to INPRES-CIRSOC 103 (static method). This part is enabled when the project has a
   seismic regulation assigned; if it has none, the dialog says so.
 
@@ -616,7 +621,15 @@ PRO's advanced analyses:
   offered. Spectral builds the INPRES-CIRSOC 103 spectrum from the zone, the site class and its
   parameters (ca, cv, T1 to T3, γr, R and ξ), combines the modes by CQC (complete quadratic
   combination, with the ξ you set) or SRSS (square root of the sum of squares), and needs a modal
-  run first.
+  run first. It can also run on one of the **project's spectra**: tables of Sa (in g or m/s²) or Sd
+  against period, pasted or typed, read linearly or on log axes, kept with the project. The mass
+  source can carry **weights of its own**, apart from the load cases: kN/m on members, kN/m² on
+  slabs, or kN/m² on a floor carried to its beams, on a zone, a group or a box of coordinates.
+- **Spectral load case:** an E case can take a spectrum (the code's or the project's) as its result,
+  with the excitation's X/Y/Z factors, the rule (SRSS, CQC or ABS), ξ and a scale (γr/R for the
+  code's). Each mode is solved with its shape imposed and the modes are combined quantity by
+  quantity, each value with the dominant mode's sign; it is worked out when the combinations are
+  solved and enters them as any case, with ± when both senses of the earthquake are asked for.
 - **Time history**, with Newmark or HHT-α. The settings are saved with the project and travel in
   the model code. Each direction (X, Y and Z, at once) has its own ground acceleration, with a
   scale factor: sinusoidal, a record read from a file (PEER .AT2, a time–acceleration table or a
@@ -635,7 +648,11 @@ PRO's advanced analyses:
   steps; each one lists its new hinges with their moments, and the model shows the deformed shape
   and every hinge formed up to that step. When the run stops because every member end at a joint
   yielded at once, the panel says so: the structure may carry more, and the collapse factor is
-  read as a lower bound.
+  read as a lower bound. It pushes with the model's loads, a load case's, or a lateral pattern along
+  X or Y spread by each node's dead-load weight (uniform, triangular by height, or the dominant
+  mode's shape); a pattern adds up to 1 kN, so the load factor reads as the base shear, and it is
+  pushed without gravity. It runs to the mechanism or to a target base shear or control-node
+  displacement.
 - **Geometric imperfections:** notional loads equal to the chosen out-of-plumbness times each
   node's total vertical load (nodal loads, member loads and self-weight). As **experimental**
   analyses whose data stays in the panel, **foundation on Winkler springs**, with ky and kz along
@@ -652,10 +669,15 @@ PRO's advanced analyses:
   from the panel.
 - **3D influence lines** and the **section analyzer**; its J comes from the Saint-Venant solution on
   the section's mesh.
-- **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
-  in order, and each member keeps its largest and smallest forces with the train's position. The
-  lane load is created as an ordinary load case on the same members. The envelope does not enter
-  the combinations or the design.
+- **Moving loads:** a train of axles (predefined, your own, or from the AASHTO catalog: HS20-44,
+  HS15-44, H20-44, H15-44, and the HL-93 truck and tandem) travels along the selected members, in
+  order, and each member keeps its largest and smallest forces with the train's position. A vehicle
+  can have a variable gap between two axles (every spacing in the range is run), a gauge with a
+  second line of members for the other wheel line (half of each axle on each), and a dynamic factor;
+  it is saved and opened as a file. The lane load is created as an ordinary load case on the same
+  members. The envelope does not enter the combinations or the design; for them the vehicle is
+  written as **static cases by position**, traffic cases that are alternatives of one group, so each
+  combination takes one position at a time.
 
 Unless the analysis says otherwise, these analyses load the unfactored sum of every case. They use
 the members' axis, without their offsets, and the hinges of the **Hinge i** and

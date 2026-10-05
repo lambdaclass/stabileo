@@ -172,6 +172,13 @@ export interface LoadPlanInput {
     service?: { enabled: boolean; v50: number; mri: ServiceRecurrence };
     /** What the structure is, when not a closed building (`wind-other.ts`). Absent: a building. */
     structure?: { kind: 'building' } | OtherStructure;
+    /**
+     * A net lateral pressure against height, [z m, kPa] (windward plus leeward), in place of the
+     * code's: any code's wind, read off its own tables. Case 1 only, no roof pressures, no minimum.
+     */
+    profile?: Array<[number, number]>;
+    /** The nodes the wind acts on (a zone, a box of coordinates): the front and the levels are theirs. */
+    region?: number[];
   };
   /** CIRSOC 104-2005 roof snow (`snow-loads.ts`). */
   snow?: {
@@ -190,6 +197,8 @@ export interface LoadPlanInput {
     abutting?: boolean;
     /** The roof slope, degrees; absent: read from the roof members. */
     roofSlopeDeg?: number;
+    /** The roof's members, when chosen; absent: those nothing higher covers. */
+    roof?: number[];
     /** The partial loads of Cap. 5 (default on), parapets (Cap. 8) and separate structures (§7.2). */
     partial?: boolean;
     parapet?: { height: number };

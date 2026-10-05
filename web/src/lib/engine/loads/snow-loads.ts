@@ -62,8 +62,8 @@ export interface RoofGeometry {
 const Z = (n: { z?: number }) => n.z ?? 0;
 
 /** Slope axis, ridge and W of the roof members (see the header). */
-export function roofGeometry(model: WindModel): RoofGeometry | null {
-  const roof = roofMembers(model);
+export function roofGeometry(model: WindModel, only?: ReadonlySet<number>): RoofGeometry | null {
+  const roof = roofMembers(model, only);
   if (roof.length === 0) return null;
   let ax = 0, ay = 0, slopeSum = 0, sloped = 0;
   for (const m of roof) {
@@ -132,6 +132,8 @@ export interface SnowCasesInput {
     abutting?: boolean;
     /** The partial loads of Cap. 5 on continuous systems, by panels (default on). */
     partial?: boolean;
+    /** The roof's members, when chosen (`load-plan.ts`); absent: those nothing higher covers. */
+    roof?: number[];
     /** Parapets and separate higher structures within 6 m, for their drifts (`snow-drift-loads.ts`). */
     parapet?: import('./snow-drift-loads').DriftInputs['parapet'];
     adjacent?: import('./snow-drift-loads').DriftInputs['adjacent'];
@@ -142,10 +144,10 @@ export interface SnowCasesInput {
 }
 
 /** A roof panel's share past a side's end (a re-entrant corner), at its node, with the member's mean p. */
-function pointLoads(layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity): SnowCaseLoads['nodal'] {
+function pointLoads(layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity, only?: ReadonlySet<number>): SnowCaseLoads['nodal'] {
   const out: SnowCaseLoads['nodal'] = [];
   for (const pt of layout.points) {
-    if (!pt.roof) continue;
+    if (only ? !only.has(pt.elementId) : !pt.roof) continue;
     const [pI, pJ] = ends(pOf(pt.elementId, { panel: pt.panel }));
     const p = (pI + pJ) / 2;
     if (p > 0) out.push({ nodeId: pt.nodeId, fx: 0, fy: 0, fz: -p * pt.w });
@@ -154,10 +156,10 @@ function pointLoads(layout: GravityLayout, pOf: (elementId: number, unit: Unit) 
 }
 
 /** Loads of `p` (kN/m² on the horizontal projection) on the roof panels and roof width members. */
-function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity, tributaryWidth: number): SnowCaseLoads['distributed'] {
+function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: number, unit: Unit) => Intensity, tributaryWidth: number, only?: ReadonlySet<number>): SnowCaseLoads['distributed'] {
   const out: SnowCaseLoads['distributed'] = [];
   for (const pc of layout.pieces) {
-    if (!pc.roof) continue;
+    if (only ? !only.has(pc.elementId) : !pc.roof) continue;
     // A panel's piece is a stretch of a level: its intensity is the member's mean.
     const [pI, pJ] = ends(pOf(pc.elementId, { panel: pc.panel }));
     const p = (pI + pJ) / 2;
@@ -165,7 +167,7 @@ function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: nu
     out.push({ elementId: pc.elementId, q: -p * pc.wI, qJ: -p * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
   }
   for (const w of layout.widthMembers) {
-    if (!layout.roof.has(w.elementId) || !model.elements.has(w.elementId)) continue;
+    if ((only ? !only.has(w.elementId) : !layout.roof.has(w.elementId)) || !model.elements.has(w.elementId)) continue;
     const [pI, pJ] = ends(pOf(w.elementId, { member: w.elementId }));
     if (pI > 0 || pJ > 0) out.push({ elementId: w.elementId, q: -pI * tributaryWidth, ...(Math.abs(pJ - pI) > 1e-9 ? { qJ: -pJ * tributaryWidth } : {}), frame: 'projected' });
   }
@@ -175,7 +177,9 @@ function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: nu
 export function snowLoadCases(input: SnowCasesInput): {
   result: SnowResult; geometry: RoofGeometry; cases: SnowCaseLoads[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } | null {
-  const geometry = roofGeometry(input.model);
+  // The roof the user chose (members), or the one the model's geometry shows.
+  const only = input.snow.roof?.length ? new Set(input.snow.roof) : undefined;
+  const geometry = roofGeometry(input.model, only);
   if (!geometry) return null;
   const slopeDeg = input.snow.roofSlopeDeg ?? geometry.slopeDeg;
   const kind = input.snow.roofKind;
@@ -186,11 +190,11 @@ export function snowLoadCases(input: SnowCasesInput): {
     roof: { kind: shapedKind ? 'mono' : kind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
   if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [] };
-  const roof = roofMembers(input.model);
+  const roof = roofMembers(input.model, only);
   const all = new Set(roof.map((r) => r.id));
   const layout = input.layout;
   const on = (pOf: (id: number, unit?: Unit) => Intensity): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
-    ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth), nodal: pointLoads(layout, pOf) }
+    ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth, only), nodal: pointLoads(layout, pOf, only) }
     : projectionLoads(input.model, all, (id) => pOf(id), input.tributaryWidth));
   let derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
 

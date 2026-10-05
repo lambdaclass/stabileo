@@ -457,6 +457,11 @@ argentina:
   Para las combinaciones de servicio se puede agregar el **viento de servicio Wa** de B.4.2: la
   velocidad de 50 años del mapa de la Figura C AB.4.2-1 y una recurrencia (5 a 500 años), que la
   convierte con el factor de esa figura.
+  El viento puede actuar sobre una **zona, un grupo o una caja de coordenadas** en lugar de todo el
+  modelo (sus nudos arman los niveles y el frente), y puede tomar un **perfil de presión** propio en
+  lugar del de la norma: una presión lateral neta según la altura, dibujada al lado, que cubre el
+  viento de cualquier norma leído de sus tablas (sólo el caso 1, sin presiones de cubierta ni el
+  mínimo de la norma).
   El **factor de efecto de ráfaga** sigue el §1.9. La frecuencia fundamental de cada dirección
   sale del análisis modal del modelo (con las masas del plan), de valores que escribís, de las
   fórmulas aproximadas del §1.9.3, o de declarar la estructura rígida. Por encima de 1 Hz el
@@ -467,7 +472,8 @@ argentina:
 - **Nieve** según CIRSOC 104-2005: pg de la localidad (Tablas 1.1 a 1.15) o del lugar, pf con
   sus mínimos para cubiertas de baja pendiente, Cs según la pendiente y la condición térmica,
   lluvia sobre nieve, y la carga no balanceada en cubiertas a dos aguas, un caso por cada sentido
-  del viento. Las acumulaciones por arrastre, las cargas parciales y el hielo no se generan.
+  del viento. Las acumulaciones por arrastre, las cargas parciales y el hielo no se generan. La
+  cubierta se puede elegir (una zona, un grupo o una caja) en lugar de la que muestra la geometría.
 - **Sismo** según INPRES-CIRSOC 103 (método estático). Esta parte se habilita cuando el proyecto
   tiene asignado un reglamento sísmico; si no lo tiene, el diálogo lo indica.
 
@@ -639,7 +645,16 @@ Los análisis avanzados de PRO:
   ofrece. El espectral arma el espectro de INPRES-CIRSOC 103 con la zona, la clase de sitio y sus
   parámetros (ca, cv, T1 a T3, γr, R y ξ), combina los modos por CQC (combinación cuadrática
   completa, con el ξ que se indica) o SRSS (raíz cuadrada de la suma de los cuadrados) y requiere
-  haber corrido antes el modal.
+  haber corrido antes el modal. También puede usar uno de los **espectros del proyecto**: tablas de
+  Sa (en g o m/s²) o Sd según el período, pegadas o escritas, leídas en forma lineal o en ejes
+  logarítmicos, que se guardan con el proyecto. La fuente de masas puede llevar **pesos propios**,
+  aparte de los casos de carga: kN/m en barras, kN/m² en losas, o kN/m² en un piso repartido a sus
+  vigas, sobre una zona, un grupo o una caja de coordenadas.
+- **Caso de carga espectral:** un caso E puede tomar como resultado un espectro (el de la norma o
+  uno del proyecto), con los factores X/Y/Z de la excitación, la regla (SRSS, CQC o ABS), ξ y una
+  escala (γr/R para el de la norma). Cada modo se resuelve con su forma impuesta y los modos se
+  combinan valor por valor, cada uno con el signo del modo dominante; se calcula al resolver las
+  combinaciones y entra en ellas como cualquier caso, con ± si se piden los dos sentidos del sismo.
 - **Historia en el tiempo**, con los métodos de Newmark o HHT-α. La configuración se guarda con el
   proyecto y viaja en el código de modelo. Cada dirección (X, Y y Z, a la vez) tiene su propia
   aceleración de base, con un factor de escala: senoidal, un registro leído de un archivo (PEER
@@ -660,7 +675,11 @@ Los análisis avanzados de PRO:
   rótulas nuevas, con sus momentos, y en el modelo la deformada y todas las rótulas formadas hasta
   ese paso. Cuando el análisis se detiene porque plastificaron a la vez todos los extremos que
   llegan a un nudo, el panel lo avisa: la estructura puede resistir más y el factor de colapso se
-  toma como un mínimo.
+  toma como un mínimo. Empuja con las cargas del modelo, las de un caso, o un patrón lateral según X
+  o Y repartido por el peso permanente de cada nudo (uniforme, triangular por altura o con la forma
+  del modo dominante); un patrón suma 1 kN, así el factor de carga es el corte basal, y se empuja sin
+  la gravedad. Llega hasta el mecanismo o hasta un corte basal o un desplazamiento del nudo de
+  control indicados.
 - **Imperfecciones geométricas:** cargas nocionales iguales al desplome elegido por la carga vertical
   total de cada nodo (cargas nodales, cargas de barra y peso propio). Como análisis
   **experimentales** cuyos datos quedan en el panel, **fundación sobre resortes de Winkler**, con ky
@@ -677,10 +696,15 @@ Los análisis avanzados de PRO:
   y el cemento son del panel.
 - **Líneas de influencia 3D** y el **analizador de sección**; la J del analizador sale de la
   solución de Saint-Venant sobre la malla de la sección.
-- **Cargas móviles:** un tren de ejes (predefinido o propio) recorre las barras seleccionadas, en
-  orden, y cada barra guarda sus esfuerzos máximos y mínimos con la posición del tren. La carga de
-  carril se crea como un caso de carga común sobre las mismas barras. La envolvente no entra en las
-  combinaciones ni en el diseño.
+- **Cargas móviles:** un tren de ejes (predefinido, propio o del catálogo AASHTO: HS20-44, HS15-44,
+  H20-44, H15-44, y el camión y el tándem HL-93) recorre las barras seleccionadas, en orden, y cada barra
+  guarda sus esfuerzos máximos y mínimos con la posición del tren. Un vehículo puede tener una
+  separación variable entre dos ejes (se corre cada separación del rango), una trocha con una
+  segunda línea de barras para la otra línea de ruedas (mitad de cada eje en cada una) y un factor
+  dinámico; se guarda y se abre como archivo. La carga de carril se crea como un caso de carga común
+  sobre las mismas barras. La envolvente no entra en las combinaciones ni en el diseño; para eso el
+  vehículo se escribe como **casos estáticos por posición**, casos de tránsito que son alternativas
+  de un grupo, así cada combinación toma una posición por vez.
 
 Salvo que el análisis diga otra cosa, estos análisis cargan la suma de todos los casos, sin
 mayorar. Usan el eje de las barras, sin su excentricidad, y las articulaciones de las

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProMassWeights from './ProMassWeights.svelte';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * The mass source: which load cases are mass for the dynamic analyses, and by how much.
@@ -136,6 +137,7 @@
       <div class="ms-warn">{tp('pro.massSource.excludedUpward', { kn: fmt(report.excludedUpwardKN) })}</div>
     {/if}
   {/if}
+  <ProMassWeights />
 </div>
 
 <style>

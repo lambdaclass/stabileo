@@ -12,6 +12,7 @@ import { massDensities, spectralModesFrom } from '../dynamics/requests';
 import { combineModes, modeCoefficients, modeShapeField, modalCombine, userSa, G, type SpectralCaseDef } from '../spectral-case';
 import { imposed } from '../../store/spectral-cases';
 import type { ModalResult3D } from '../result-types';
+import { designSpectrum, spectrumPoints, spectralOrdinate } from '../../codes/cirsoc103/spectrum';
 import type { AnalysisResults3D } from '../types-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -80,5 +81,12 @@ describe('a spectral case', () => {
     expect(userSa({ ...base, interpolation: 'linear' }, 3)).toBeCloseTo(0.1 * G, 12);
     const sd = { ...base, ordinate: 'Sd' as const, unit: 'm' as const, points: [[0.5, 0.02], [2, 0.02]] as Array<[number, number]>, interpolation: 'linear' as const };
     expect(userSa(sd, 1)).toBeCloseTo(0.02 * (2 * Math.PI) ** 2, 12);
+  });
+
+  it('a user spectrum written with the code’s values reads as the code’s', () => {
+    const code = designSpectrum({ zone: 4, site: 'SD' }) as never;
+    const pts = spectrumPoints(code);
+    const user = { id: 1, name: 'CIRSOC', ordinate: 'Sa' as const, unit: 'g' as const, interpolation: 'linear' as const, points: pts.map((p): [number, number] => [p.period, p.sa]) };
+    for (const p of pts.filter((_, i) => i % 17 === 0)) expect(userSa(user, p.period)).toBeCloseTo(spectralOrdinate(p.period, code) * G, 9);
   });
 });

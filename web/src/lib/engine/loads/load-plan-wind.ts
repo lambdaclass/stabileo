@@ -24,10 +24,17 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   let windQh: ProvenancedValue<number> | undefined;
   const windGust: Partial<Record<'x' | 'y', GustResult>> = {};
   if (input.wind?.enabled) {
+    // A part of the model only: its nodes make the levels and the front.
+    const region = input.wind.region?.length ? new Set(input.wind.region) : null;
+    if (region) levels = levels.map((l) => ({ ...l, nodeIds: l.nodeIds.filter((id) => region.has(id)) })).filter((l) => l.nodeIds.length > 0);
+    const inRegion = [...input.model.nodes.entries()].filter(([id]) => !region || region.has(id)).map(([, n]) => n);
+    if (!inRegion.length) return { windQh };
     const elevations = levels.map((l) => l.elevation);
     const h = Math.max(...elevations, 0);
-    const xs = [...input.model.nodes.values()].map((n) => n.x);
-    const ys = [...input.model.nodes.values()].map((n) => n.y);
+    const xs = inRegion.map((n) => n.x);
+    const ys = inRegion.map((n) => n.y);
+    const profile = input.wind.profile?.length ? [...input.wind.profile].sort((a, b) => a[0] - b[0]) : null;
+    const inMembers = (id: number) => { const e = input.model.elements.get(id); return !!e && region!.has(e.nodeI) && region!.has(e.nodeJ); };
     const bx = Math.max(...xs) - Math.min(...xs);
     const by = Math.max(...ys) - Math.min(...ys);
 
@@ -105,7 +112,8 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         const cpLw = res.pressures.find((p) => p.surface === 'leewardWall')?.cp ?? 0;
         const qz = (z: number) => velocityPressure(Math.max(z, 0), project);
         /** Net lateral pressure on the band [z0, z1], averaged over it, kPa. */
-        const bandNet = (z0: number, z1: number) => {
+        const bandNet = (z0: number, z1: number) => profile ? profileMean(profile, z0, z1) : codeBandNet(z0, z1);
+        const codeBandNet = (z0: number, z1: number) => {
           if (z1 <= z0) return (qz(z0) * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
           // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
           const n = 8, hh = (z1 - z0) / n;
@@ -132,7 +140,8 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
             dir: dir.toUpperCase(), level: round(lv.elevation, 2),
             z0: round(z0, 2), z1: round(z1, 2), net: round(levelNet, 3), force: round(force, 1),
           }));
-          const min = applyMinimumWindLoad(force * 1000, across * tribH, 0);
+          // A profile of the user's is the design pressure itself: the code's minimum is the code's.
+          const min = profile ? { totalN: force * 1000, governedByMinimum: false, refs: [] } : applyMinimumWindLoad(force * 1000, across * tribH, 0);
           const applied = min.totalN / 1000;
           if (!service && min.governedByMinimum) {
             unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
@@ -197,19 +206,26 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
       }
     } else windAxes.push(...axesFor(input.wind.basicSpeed, false));
     if (windAxes.length > 0) {
-      const set = input.wind.caseSet ?? 'all';
+      // A profile is a net lateral pressure: case 1, without the code's roof pressures.
+      const set = profile ? 'case1' : input.wind.caseSet ?? 'all';
+      if (profile) derivation.push(msg('loadPlan.derivation.windProfile', { n: profile.length, h: round(Math.max(...profile.map(([z]) => z)), 2) }));
       const generated = windLoadCases({
         model: input.model, axes: windAxes, set, directions: windDirs,
         tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
       });
       unsupportedKeys.push(...generated.notes);
       refs.push(R102('2.4.6', 'casos de carga de viento de diseño'));
-      derivation.push(msg('loadPlan.derivation.windCases', { set, count: generated.cases.length }));
-      for (const c of generated.cases) {
+      // With a profile there is no roof: the two internal pressures give the same case, kept once.
+      const generatedCases = profile ? generated.cases.filter((c) => (c.nameParams as { gcpi?: string }).gcpi !== '−') : generated.cases;
+      derivation.push(msg('loadPlan.derivation.windCases', { set, count: generatedCases.length }));
+      for (const c of generatedCases) {
         const index = cases.length;
         cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+        for (const d of c.distributed) {
+          if (profile || (region && !inMembers(d.elementId))) continue;
+          distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+        }
       }
     }
 
@@ -251,4 +267,21 @@ function gustLine(dir: 'x' | 'y', g: GustResult) {
     zBar: round(g.steps.zBar, 1), iz: round(g.steps.iz, 3), q: round(g.steps.q, 3),
     r: g.steps.resonant ? round(g.steps.resonant.r, 3) : '—', gR: g.steps.resonant ? round(g.steps.resonant.gR, 3) : '—',
   });
+}
+
+/** The mean of a piecewise-linear profile [z, p] over [z0, z1] (held flat beyond its ends), exactly. */
+export function profileMean(profile: ReadonlyArray<readonly [number, number]>, z0: number, z1: number): number {
+  const at = (z: number) => {
+    if (z <= profile[0]![0]) return profile[0]![1];
+    if (z >= profile[profile.length - 1]![0]) return profile[profile.length - 1]![1];
+    let i = 0;
+    while (profile[i + 1]![0] < z) i++;
+    const [za, pa] = profile[i]!, [zb, pb] = profile[i + 1]!;
+    return pa + (pb - pa) * (z - za) / (zb - za);
+  };
+  if (z1 <= z0) return at(z0);
+  const cuts = [z0, ...profile.map(([z]) => z).filter((z) => z > z0 && z < z1), z1];
+  let area = 0;
+  for (let i = 0; i + 1 < cuts.length; i++) area += (at(cuts[i]!) + at(cuts[i + 1]!)) / 2 * (cuts[i + 1]! - cuts[i]!);
+  return area / (z1 - z0);
 }

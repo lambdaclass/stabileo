@@ -1,6 +1,7 @@
 <script lang="ts">
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
+  import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
   import ProUserSpectra from './dynamics/ProUserSpectra.svelte';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
@@ -404,6 +405,34 @@
 
   let nlType = $state<'pushover' | 'corotational'>('pushover');
   let nlMaxHinges = $state(20);
+  // ── What the pushover pushes with, and its target (`engine/pushover-pattern.ts`) ──
+  let pushPattern = $state<'loads' | 'case' | 'uniform' | 'triangular' | 'modal'>('loads');
+  let pushCase = $state<number | null>(null);
+  let pushDir = $state<'X' | 'Y'>('X');
+  let pushTargetKind = $state<'none' | 'shear' | 'displacement'>('none');
+  let pushTarget = $state(0);
+  /** The loads the push scales, by the pattern chosen; a message when it cannot be had. */
+  function pushLoads(input: any): any[] | string {
+    const lh = uiStore.axisConvention3D === 'leftHand';
+    const md = modelStore.model as never;
+    if (pushPattern === 'loads') return input.loads;
+    if (pushPattern === 'case') {
+      const lc = modelStore.model.loadCases.find((c) => c.id === pushCase) ?? modelStore.model.loadCases[0];
+      return lc ? caseSolverLoads3D(md, [lc], uiStore.includeSelfWeight, lh).get(lc.id) ?? [] : t('pushover.noCase');
+    }
+    // The gravity that weighs each node: the dead-load cases and their self-weight.
+    const dead = modelStore.model.loadCases.filter((c) => c.type === 'D');
+    const per = caseSolverLoads3D(md, dead, uiStore.includeSelfWeight, lh);
+    const gravity = dead.flatMap((c) => per.get(c.id) ?? []);
+    let shape: Map<number, { ux: number; uy: number }> | undefined;
+    if (pushPattern === 'modal') {
+      if (!modalResult || modalModelVersion !== modelStore.modelVersion) return t('pushover.needModal');
+      const k = pushDir === 'X' ? 'massRatioX' : 'massRatioY';
+      const mode = [...modalResult.modes].sort((a: any, b: any) => (b[k] ?? 0) - (a[k] ?? 0))[0];
+      shape = new Map((mode?.displacements ?? []).map((d: any) => [d.nodeId, { ux: d.ux, uy: d.uy }]));
+    }
+    return lateralPatternLoads(input, gravity, pushPattern, pushDir, shape, lh) ?? t('pushover.noWeight');
+  }
   let nlMaxIter = $state(50);
   let nlTol = $state(1e-6);
   let nlIncrements = $state(10);
@@ -456,6 +485,9 @@
           input, (id) => modelStore.elements.get(id)?.sectionId,
         );
         nlAssumed = assumed;
+        const loads = pushLoads(input);
+        if (typeof loads === 'string') { solveError = loads; solving = false; return; }
+        input = { ...input, loads };
         nlResult = solvePlastic3D({
           solver: input,
           sections,
@@ -1203,6 +1235,29 @@
           <label class="adv-label">{t('adv.type')}: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">{t('adv.nl.corotational')}</option></select></label>
           {#if nlType === 'pushover'}
             <label class="adv-label">{t('pro.maxHinges')}: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
+            <label class="adv-label">{t('pushover.pattern')}:
+              <select class="adv-sel" bind:value={pushPattern} data-testid="push-pattern">
+                <option value="loads">{t('pushover.pattern.loads')}</option>
+                <option value="case">{t('pushover.pattern.case')}</option>
+                <option value="uniform">{t('pushover.pattern.uniform')}</option>
+                <option value="triangular">{t('pushover.pattern.triangular')}</option>
+                <option value="modal">{t('pushover.pattern.modal')}</option>
+              </select>
+            </label>
+            {#if pushPattern === 'case'}
+              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+            {:else if pushPattern !== 'loads'}
+              <select class="adv-sel" bind:value={pushDir} data-testid="push-dir"><option value="X">X</option><option value="Y">Y</option></select>
+            {/if}
+            <label class="adv-label">{t('pushover.target')}:
+              <select class="adv-sel" bind:value={pushTargetKind} data-testid="push-target-kind">
+                <option value="none">{t('pushover.target.none')}</option>
+                <option value="shear">{t('pushover.target.shear')}</option>
+                <option value="displacement">{t('pushover.target.displacement')}</option>
+              </select>
+            </label>
+            {#if pushTargetKind !== 'none'}<input type="number" class="adv-num adv-num-wide" bind:value={pushTarget} step="any" data-testid="push-target" /> {pushTargetKind === 'shear' ? 'kN' : 'm'}{/if}
+            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -1233,7 +1288,7 @@
           {/if}
         </div>
         {#if nlType === 'pushover' && nlResult.steps?.length}
-          <PushoverView result={nlResult} modelVersion={nlVersion} />
+          <PushoverView result={nlResult} modelVersion={nlVersion} target={pushTargetKind === 'none' ? null : { kind: pushTargetKind, value: pushTarget }} />
         {/if}
       {/if}
       {/if}
