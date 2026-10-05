@@ -133,6 +133,7 @@ let wasmGuyanReduce2d: ((json: string) => string) | null = null;
 let wasmCraigBampton2d: ((json: string) => string) | null = null;
 
 // Beam Station Extraction
+let wasmExtractBeamStationBuffer3d: ((json: string) => Float64Array) | null = null;
 let wasmExtractBeamStations: ((json: string) => string) | null = null;
 let wasmExtractBeamStations3d: ((json: string) => string) | null = null;
 let wasmExtractBeamStationsGrouped: ((json: string) => string) | null = null;
@@ -318,6 +319,7 @@ export async function initSolver(): Promise<void> {
     wasmCheckSpreadFootings = wasm.check_spread_footings ?? null;
 
     // Beam Station Extraction
+    wasmExtractBeamStationBuffer3d = wasm.extract_beam_station_buffer_3d ?? null;
     wasmExtractBeamStations = wasm.extract_beam_stations ?? null;
     wasmExtractBeamStations3d = wasm.extract_beam_stations_3d ?? null;
     wasmExtractBeamStationsGrouped = wasm.extract_beam_stations_grouped ?? null;
@@ -1717,6 +1719,16 @@ export function craigBampton2D(config: any): any {
 
 import type { BeamStationInput, BeamStationResult, GroupedBeamStationResult } from './types';
 import type { BeamStationInput3D, BeamStationResult3D, GroupedBeamStationResult3D } from './types-3d';
+
+/** Compact verification-only path. A missing export permits older WASM bundles. */
+export function extractBeamStationBuffer3D(input: {
+  members: Array<{ elementId: number; length: number }>;
+  combinations: Array<{ comboId: number; elementForces: AnalysisResults3D['elementForces'] }>;
+  numStations: number;
+}): Float64Array | null {
+  if (!wasmReady || !wasmExtractBeamStationBuffer3d) return null;
+  return wasmExtractBeamStationBuffer3d(JSON.stringify(input));
+}
 
 /** Extract 2D beam design stations with per-combo forces and governing values. */
 export function extractBeamStations(input: BeamStationInput): BeamStationResult {

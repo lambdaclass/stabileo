@@ -1136,6 +1136,14 @@ pub fn check_spread_footings(json: &str) -> Result<String, JsValue> {
 
 // ==================== Beam Station Extraction ====================
 
+/// Compact 3D station force buffer for verification; no unused governing metadata.
+#[wasm_bindgen]
+pub fn extract_beam_station_buffer_3d(json: &str) -> Result<Vec<f64>, JsValue> {
+    let input: postprocess::station_buffer::StationBufferInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Invalid station buffer input: {}", e)))?;
+    Ok(postprocess::station_buffer::extract(&input))
+}
+
 /// Extract 2D beam design stations with per-combo forces and governing values. JSON: BeamStationInput
 #[wasm_bindgen]
 pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {

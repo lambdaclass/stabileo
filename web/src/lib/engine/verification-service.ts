@@ -14,12 +14,13 @@
  *     runUnifiedVerification → calls WASM verify_members instead of JS autoVerifyFromResults
  *
  * Temporary app-side bridges in this module:
- *   - Station extraction is JS-side (should be solver-side beam_stations → design_demands)
+ *   - Station interpolation is solver-side; governing demand selection remains JS-side
  *   - CIRSOC verification is JS-side cirsoc201.ts (~600 LOC that Phase 3 would delete)
  *   - autoVerifyFromResults is the JS orchestrator (Phase 3 replaces with WASM call)
  */
 
 import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D } from './types-3d';
+import { decodeStationBuffer } from './station-buffer';
 import { steelSectionConstants } from './steel/section-constants';
 import type { LoadCombination } from '../store/model.svelte';
 import {
@@ -29,7 +30,7 @@ import {
   type ElementStationResult,
   type StationForces,
 } from './station-design-forces';
-import { extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
+import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
@@ -45,16 +46,20 @@ export interface StationDemandData {
   stations: Map<number, ElementStationResult>;
 }
 
+let compactStationTransfer = true;
+/** Reference-path switch for differential tests and browser benchmarks. */
+export function setCompactStationTransfer(enabled: boolean): void { compactStationTransfer = enabled; }
+
 /**
  * Compute station-based demands for all elements from per-combination 3D results.
  *
- * Primary path: WASM `extractBeamStationsGrouped3D` (solver-side station interpolation).
+ * Primary path: compact WASM station force buffer (solver-side station interpolation).
  * Fallback: JS `extractElementStations` (app-side reimplementation, used when WASM unavailable).
  *
  * The WASM path evaluates beam diagrams at interior stations natively in Rust,
  * eliminating ~300 LOC of JS station interpolation logic.
  *
- * Thin adapter: converts WASM GroupedBeamStationResult3D → app-side StationDemandData
+ * Thin adapter: converts a numeric WASM buffer → app-side StationDemandData
  * because `design_demands` is not exported as WASM (the demand extraction step
  * still runs in JS via `extractGoverningDemands`).
  */
@@ -92,8 +97,8 @@ export function computeStationDemands(
 }
 
 /**
- * WASM-backed station extraction via `extractBeamStationsGrouped3D`.
- * Builds the BeamStationInput3D payload from app data and adapts the result.
+ * Transfer only element forces and decode directly into combo-major station diagrams.
+ * Older WASM bundles retain the grouped JSON path below.
  */
 function computeStationDemandsWasm(
   perCombo3D: Map<number, AnalysisResults3D>,
@@ -115,6 +120,23 @@ function computeStationDemandsWasm(
   // Build labeled combinations from per-combo results
   const comboNameMap = new Map<number, string>();
   for (const c of combinations) comboNameMap.set(c.id, c.name);
+  if (compactStationTransfer) {
+    const buffer = extractBeamStationBuffer3D({
+      members: members.map(({ elementId, length }) => ({ elementId, length })),
+      combinations: [...perCombo3D].map(([comboId, results]) => ({ comboId, elementForces: results.elementForces })),
+      numStations: 11,
+    });
+    if (buffer) {
+      const stations = new Map<number, ElementStationResult>();
+      const demands = new Map<number, ElementDesignDemands>();
+      for (const esr of decodeStationBuffer(buffer, comboNameMap)) {
+        stations.set(esr.elementId, esr);
+        demands.set(esr.elementId, extractGoverningDemands(esr));
+      }
+      return { demands, stations };
+    }
+  }
+
   const labeledCombos: Array<{ comboId: number; comboName?: string; results: AnalysisResults3D }> = [];
   for (const [comboId, results] of perCombo3D) {
     labeledCombos.push({ comboId, comboName: comboNameMap.get(comboId), results });
