@@ -3,6 +3,7 @@
 import type { BarPath } from '../../src/lib/codes/cirsoc201/bar-geometry';
 import { classifyPair, type ClassificationContext } from '../../src/lib/engine/detailing/classify';
 import { detectCollisions, type CollisionTolerances } from '../../src/lib/engine/detailing/collision';
+import type { PackedCollisionBatch } from './packed';
 
 export interface CollisionJob {
   bars: BarPath[];
@@ -29,13 +30,12 @@ export function runCollisionBatch(jobs: readonly CollisionJob[]) {
   });
 }
 
-export interface CollisionRequest {
+export type CollisionRequest = {
   id: number;
   operation: 'collide' | 'receiveOnly';
-  jobs: CollisionJob[];
-}
+} & ({ jobs: CollisionJob[] } | { packed: PackedCollisionBatch });
 
 export type CollisionResponse =
   | { type: 'ready' }
-  | { type: 'result'; id: number; results: ReturnType<typeof runCollisionBatch>; computeMs: number }
+  | { type: 'result'; id: number; results: ReturnType<typeof runCollisionBatch>; computeMs: number; decodeMs: number }
   | { type: 'error'; id: number; error: string };

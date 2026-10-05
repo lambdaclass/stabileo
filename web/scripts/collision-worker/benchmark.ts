@@ -6,6 +6,7 @@ import { initSolver } from '../../src/lib/engine/wasm-solver';
 import '../../src/lib/engine/design/adapters/cirsoc201-adapter';
 import '../../src/lib/engine/design/adapters/unsupported-adapter';
 import { runCollisionBatch, type CollisionJob, type CollisionRequest, type CollisionResponse } from './protocol';
+import { packCollisionBatch, collisionTransferList } from './packed';
 
 const pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -61,11 +62,11 @@ export async function benchmark() {
     });
     const startupMs = performance.now() - workerStart;
     let id = 0;
-    const request = (operation: CollisionRequest['operation']) => new Promise<{
-      results: ReturnType<typeof runCollisionBatch>; computeMs: number; postMessageMs: number;
+    const request = (operation: CollisionRequest['operation'], transport: 'objects' | 'packed' = 'objects') => new Promise<{
+      results: ReturnType<typeof runCollisionBatch>; computeMs: number; postMessageMs: number; packMs: number; decodeMs: number;
     }>((resolve, reject) => {
       const requestId = ++id;
-      let postMessageMs = 0;
+      let postMessageMs = 0, packMs = 0;
       const cleanup = () => {
         clearTimeout(timer); worker.removeEventListener('message', message); worker.removeEventListener('error', error);
       };
@@ -76,12 +77,21 @@ export async function benchmark() {
         if (response.type === 'ready' || response.id !== requestId) return;
         cleanup();
         if (response.type === 'error') reject(new Error(response.error));
-        else resolve({ results: response.results, computeMs: response.computeMs, postMessageMs });
+        else resolve({ results: response.results, computeMs: response.computeMs, postMessageMs, packMs, decodeMs: response.decodeMs });
       };
       worker.addEventListener('message', message); worker.addEventListener('error', error);
-      const start = performance.now();
       try {
-        worker.postMessage({ id: requestId, operation, jobs } satisfies CollisionRequest);
+        let payload: CollisionRequest;
+        let transfer: ArrayBuffer[] = [];
+        if (transport === 'packed') {
+          const start = performance.now();
+          const packed = packCollisionBatch(jobs);
+          transfer = collisionTransferList(packed);
+          payload = { id: requestId, operation, packed };
+          packMs = performance.now() - start;
+        } else payload = { id: requestId, operation, jobs };
+        const start = performance.now();
+        worker.postMessage(payload, transfer);
         postMessageMs = performance.now() - start;
       } catch (error) { cleanup(); reject(error); }
     });
@@ -90,27 +100,42 @@ export async function benchmark() {
     const expected = JSON.stringify(runCollisionBatch(jobs));
     const first = await request('collide');
     if (JSON.stringify(first.results) !== expected) throw new Error('Worker output differs from main thread');
+    const firstPacked = await request('collide', 'packed');
+    if (JSON.stringify(firstPacked.results) !== expected) throw new Error('Packed worker output differs from main thread');
     const receive = await measure(() => request('receiveOnly'));
+    const receivePacked = await measure(() => request('receiveOnly', 'packed'));
     const runs = [];
     for (let run = 0; run < 3; run++) {
       const main = () => measure(() => runCollisionBatch(jobs));
       const remote = () => measure(() => request('collide'));
+      // Packing is inside measure: detached buffers are freshly allocated every run.
+      const remotePacked = () => measure(() => request('collide', 'packed'));
       let local: Awaited<ReturnType<typeof main>>;
       let offThread: Awaited<ReturnType<typeof remote>>;
-      if (run % 2 === 0) { local = await main(); offThread = await remote(); }
-      else { offThread = await remote(); local = await main(); }
-      if (JSON.stringify(local.value) !== expected || JSON.stringify(offThread.value.results) !== expected) {
+      let packed: Awaited<ReturnType<typeof remotePacked>>;
+      // Rotate all three modes through first, second and third position.
+      if (run === 0) { local = await main(); offThread = await remote(); packed = await remotePacked(); }
+      else if (run === 1) { offThread = await remote(); packed = await remotePacked(); local = await main(); }
+      else { packed = await remotePacked(); local = await main(); offThread = await remote(); }
+      if (JSON.stringify(local.value) !== expected || JSON.stringify(offThread.value.results) !== expected
+        || JSON.stringify(packed.value.results) !== expected) {
         throw new Error(`Output mismatch on run ${run + 1}`);
       }
       runs.push({
         run: run + 1, mainMs: local.elapsedMs, mainMaxTimerGapMs: local.maxTimerGapMs,
         workerRoundTripMs: offThread.elapsedMs, workerComputeMs: offThread.value.computeMs,
         postMessageMs: offThread.value.postMessageMs, workerMaxTimerGapMs: offThread.maxTimerGapMs,
+        packedRoundTripMs: packed.elapsedMs, packedComputeMs: packed.value.computeMs,
+        packedPackMs: packed.value.packMs, packedDecodeMs: packed.value.decodeMs,
+        packedPostMessageMs: packed.value.postMessageMs, packedMaxTimerGapMs: packed.maxTimerGapMs,
       });
     }
     return {
       jobs: jobs.length, bars: jobs.reduce((n, job) => n + job.bars.length, 0),
       startupMs, receiveOnlyMs: receive.elapsedMs, receiveOnlyPostMs: receive.value.postMessageMs,
+      packedReceiveOnlyMs: receivePacked.elapsedMs, packedReceiveOnlyPackMs: receivePacked.value.packMs,
+      packedReceiveOnlyPostMs: receivePacked.value.postMessageMs,
+      packedBufferBytes: collisionTransferList(packCollisionBatch(jobs)).reduce((n, buffer) => n + buffer.byteLength, 0),
       equivalent: true, runs,
     };
   } finally { worker.terminate(); }
