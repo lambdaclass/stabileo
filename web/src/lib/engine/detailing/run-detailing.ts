@@ -85,7 +85,7 @@ import { prescribedTolerances } from '../../codes/cirsoc201/placement';
 import { deriveDevelopment } from '../../codes/cirsoc201/anchorage';
 import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
 import {
-  buildColumnTieSet, seatedLongitudinalHalfExtents, stirrupStationCount, stirrupStations,
+  buildColumnTieSet, seatedLongitudinalHalfExtents, stirrupStationCount, stirrupStations, StirrupClosureCache,
   unbracedBarReport,
 } from '../../codes/cirsoc201/transverse-cage';
 import { coordinateFloor, type FloorCoordinationResult, type JointInput, type MemberBars } from './coordinate-floor';
@@ -623,6 +623,7 @@ export interface FinalGeometryRecord {
  * joint it passes through.
  */
 export function runDetailing(input: RunDetailingInput): RunDetailingResult {
+  const closureCache = new StirrupClosureCache();
   const readiness = detailingReadiness(input);
   const skipped: Array<{ elementId: number; key: string }> = [];
   if (!readiness.ready) {
@@ -1160,6 +1161,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         });
         for (let si = 0; si < stations.length; si++) {
           const set = buildColumnTieSet({
+            closureCache,
             elementId: lift.elementId,
             cageId: `col-${lift.elementId}:cage`,
             zoneId: `col-${lift.elementId}:ties`,
@@ -1752,6 +1754,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     } as never);
 
     const gen = generateBeamBars({
+      closureCache,
       elementId: id,
       L: ctx.L, b: ctx.section.b, h: ctx.section.h,
       // Raising the steel costs lever arm. The generator must size stirrup zones and
@@ -2145,6 +2148,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     let built = 0;
     for (let si = 0; si < stations.length; si++) {
       const set = buildColumnTieSet({
+        closureCache,
         elementId: cid,
         cageId: `joint-${top.id}:cage`,
         zoneId,
