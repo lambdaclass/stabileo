@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { SECTION_SHAPES, computeSectionProperties } from '../../data/section-shapes';
 import { toSectionFields } from '../section-choice';
 import { resolveCanonicalSection, isGeometryBacked } from '../canonical';
+import { resolveSectionState } from '../state';
 import { geometricShearAreas } from '../shear-areas';
 import { hasCanonicalGeometryExport } from '../../engine/wasm-solver';
 import type { Section } from '../../store/model.svelte';
@@ -47,6 +48,26 @@ describeCanonical('section templates against their canonical outline', () => {
     const rl = resolveCanonicalSection(l);
     // The centroid sits toward the web, (0.2·0.4·0.1 + 0.6·0.12·0.3) / 0.152 from its outer face.
     expect(isGeometryBacked(rl) && rl.properties.yc).toBeCloseTo(0.0296 / 0.152, 9);
+  });
+
+  /*
+   * The engine draws the circles as polygons, 0.07 % short of the disc's area and 0.14 % of its
+   * inertia; a J labelled exact sat that far under πd⁴/32. The state takes the shapes' own
+   * formulas, with the radii read off the polygon.
+   */
+  it('a round bar and a tube carry the closed-form A, I and J their J is labelled with', () => {
+    const d = 0.3, t = 0.01, di = d - 2 * t;
+    const bar = resolveSectionState(built('circular', { d }), { torsion: true });
+    const tube = resolveSectionState(built('hollow-circular', { d, t }), { torsion: true });
+    if (bar.kind !== 'geometry-backed' || tube.kind !== 'geometry-backed') throw new Error('not geometry-backed');
+    expect(bar.jProvenance).toBe('exactAnalytical');
+    expect(rel(bar.a, (Math.PI * d ** 2) / 4)).toBeLessThan(1e-12);
+    expect(rel(bar.iy, (Math.PI * d ** 4) / 64)).toBeLessThan(1e-12);
+    expect(rel(bar.j!, (Math.PI * d ** 4) / 32)).toBeLessThan(1e-12);
+    expect(tube.jProvenance).toBe('exactAnalytical');
+    expect(rel(tube.a, (Math.PI * (d ** 2 - di ** 2)) / 4)).toBeLessThan(1e-12);
+    expect(rel(tube.iz, (Math.PI * (d ** 4 - di ** 4)) / 64)).toBeLessThan(1e-12);
+    expect(rel(tube.j!, (Math.PI * (d ** 4 - di ** 4)) / 32)).toBeLessThan(1e-12);
   });
 
   it('a round bar shears with 0.9 A, a tube with A/2', () => {

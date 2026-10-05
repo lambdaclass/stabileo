@@ -160,14 +160,17 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
     const single = built.count === 1;
     return {
       name: built.name,
-      drawn: undefined,
+      // A template's record and its lip would otherwise stay, and the section reopen as the
+      // template it no longer is.
+      drawn: undefined, built: undefined, tl: undefined,
       rotation: resolveRotationDeg(spec, autoDeg),
       composition: specToComposition(spec, resolved.name),
       profileFamily: resolved.family,
       a: built.a,
       iy: built.iy,
       iz: built.iz,
-      ...(built.j !== null ? { j: built.j } : {}),
+      // Written even when the assembly has none, for the reason the drawn branch gives.
+      j: built.j ?? undefined,
       b: built.b,
       h: built.h,
       // The profile's own thicknesses, or none: a previous make-up's (a drawn welded I, say) would
@@ -184,26 +187,33 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
        * Iz with a single profile's — the solver would then analyse a double-channel member as
        * one channel. The emitter takes the same care for the same reason.
        */
-      ...(single ? { shape: familyToShape(resolved.family as never) } : {}),
+      // And written as `undefined` for an assembly, so a previous single profile's shape does not.
+      shape: single ? familyToShape(resolved.family as never) : undefined,
     };
   }
   const { name, shapeType, params, props, rotationDeg } = choice;
+  /*
+   * Every field a template can define is written, `undefined` when this one does not define it.
+   * The store merges a patch into the section, so a field left out keeps the previous template's
+   * value: a tube edited into a solid round bar kept its wall `t` and stayed a tube, 85 % short of
+   * the bar's area.
+   */
   return {
     name,
-    drawn: undefined,
+    drawn: undefined, composition: undefined, profileFamily: undefined,
     rotation: rotationDeg === 'auto' ? autoDeg : rotationDeg,
     built: { shapeType, params },
     a: props.a,
     iy: props.iy,
     iz: props.iz,
-    ...(props.j !== undefined ? { j: props.j } : {}),
-    ...(props.b !== undefined ? { b: props.b } : {}),
-    ...(props.h !== undefined ? { h: props.h } : {}),
+    j: props.j,
+    b: props.b,
+    h: props.h,
     // The four the resolver needs for a section with no catalogue entry. See `SectionFields`.
-    ...(props.tw !== undefined ? { tw: props.tw } : {}),
-    ...(props.tf !== undefined ? { tf: props.tf } : {}),
-    ...(props.t !== undefined ? { t: props.t } : {}),
-    ...(props.tl !== undefined ? { tl: props.tl } : {}),
+    tw: props.tw,
+    tf: props.tf,
+    t: props.t,
+    tl: props.tl,
     shape: props.shape,
   };
 }

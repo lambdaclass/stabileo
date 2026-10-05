@@ -11,6 +11,23 @@ const box = (x0: number, y0: number, x1: number, y1: number) =>
   [line(x0, y0, x1, y0), line(x1, y0, x1, y1), line(x1, y1, x0, y1), line(x0, y1, x0, y0)].join('\n');
 const dxf = (...entities: string[]) =>
   ['0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF'].join('\n');
+/** A closed LWPOLYLINE; a third number on a vertex is the bulge of the segment it starts. */
+const lwpoly = (pts: Array<[number, number, number?]>) =>
+  ['0', 'LWPOLYLINE', '8', '0', '90', `${pts.length}`, '70', '1',
+    ...pts.flatMap(([x, y, b]) => ['10', `${x}`, '20', `${y}`, ...(b ? ['42', `${b}`] : [])])].join('\n');
+/** What MIRROR leaves on an entity: extrusion direction (0, 0, −1). */
+const mirroredZ = ['210', '0', '220', '0', '230', '-1'];
+/** A drawing with one block definition. */
+const withBlock = (name: string, block: string[], ...entities: string[]) =>
+  ['0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '8', '0', '2', name, '70', '0', '10', '0', '20', '0', '30', '0',
+    ...block, '0', 'ENDBLK', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF'].join('\n');
+const insert = (name: string, x: number, y: number, extra: string[] = []) =>
+  ['0', 'INSERT', '8', '0', '2', name, '10', `${x}`, '20', `${y}`, '30', '0', ...extra].join('\n');
+const extent = (r: { parts: Parameters<typeof assembleDrawn>[0]['parts'] }) => {
+  const pts = assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces.flat(2);
+  const ys = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+  return [Math.max(...ys) - Math.min(...ys), Math.max(...zs) - Math.min(...zs)];
+};
 
 describe('DXF section outline', () => {
   it('a box with a box inside it and a circular hole: one solid, two holes, centred', () => {
@@ -77,6 +94,92 @@ describe('DXF section outline', () => {
     const r = dxfSectionParts(dxf(lw([[0, 0], [100, 0], [100, 50], [0, 50]]), lw([[0, 50], [100, 50], [100, 100], [0, 100]])), 'mm');
     expect(r.loops).toBe(2);
     expect(r.parts.filter((p) => p.void)).toHaveLength(0);
+  });
+
+  /*
+   * Polyline arcs. The parser used to keep a polyline's vertices and drop its bulges, so a circle
+   * drawn as a polyline (two vertices, bulge 1 each) was two points and no part at all, and a
+   * plate with rounded corners was imported with square ones, short of its fillets' area.
+   */
+  it('a circle drawn as a closed two-vertex polyline with bulges is a disc', () => {
+    const r = dxfSectionParts(dxf(lwpoly([[-50, 0, 1], [50, 0, 1]])), 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.open).toBe(0);
+    const want = Math.PI * 0.05 ** 2;
+    expect(Math.abs(areaOf(assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces) - want) / want).toBeLessThan(2e-3);
+  });
+
+  it('a plate with rounded corners drawn as one polyline keeps its fillets', () => {
+    const R = 20, s = 50, k = Math.tan(Math.PI / 8); // the bulge of a quarter turn
+    const r = dxfSectionParts(dxf(lwpoly([
+      [-s + R, -s], [s - R, -s, k], [s, -s + R], [s, s - R, k], [s - R, s], [-s + R, s, k], [-s, s - R], [-s, -s + R, k],
+    ])), 'mm');
+    const want = 0.1 * 0.1 - (4 - Math.PI) * 0.02 ** 2;
+    const got = areaOf(assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces);
+    expect(Math.abs(got - want) / want).toBeLessThan(1e-3);
+  });
+
+  /*
+   * Mirrored entities. MIRROR leaves an arc in a frame whose x runs the other way (extrusion
+   * 0, 0, −1); read as if it were not, the arc of a quarter disc swung to the other quadrant and
+   * closed nothing.
+   */
+  it('a quarter disc whose arc was mirrored closes', () => {
+    // In that frame centre 0, 0..90° runs from the drawing's (-100, 0) to (0, 100).
+    const arc = ['0', 'ARC', '8', '0', '10', '0', '20', '0', '30', '0', '40', '100', ...mirroredZ, '50', '0', '51', '90'].join('\n');
+    const r = dxfSectionParts(dxf(line(0, 0, -100, 0), line(0, 0, 0, 100), arc), 'mm');
+    expect(r.loops).toBe(1);
+    expect(r.open).toBe(0);
+    const want = (Math.PI * 0.1 ** 2) / 4;
+    expect(Math.abs(areaOf(assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces) - want) / want).toBeLessThan(3e-3);
+  });
+
+  it('a mirrored circle is a hole on the side it was drawn', () => {
+    // Centre (50, 0) in the mirrored frame is (-50, 0) in the drawing: inside the plate.
+    const hole = ['0', 'CIRCLE', '8', '0', '10', '50', '20', '0', '30', '0', '40', '10', ...mirroredZ].join('\n');
+    const r = dxfSectionParts(dxf(box(-100, -20, 0, 20), hole), 'mm');
+    expect(r.parts.filter((p) => p.void)).toHaveLength(1);
+  });
+
+  it('a mirrored polyline is drawn where it lands, its arcs turning the other way', () => {
+    // A half disc in its own frame at x from -60 to -10: the closing arc from (-10, 50) to
+    // (-10, -50) turns counter-clockwise (bulge 1), out to -x. In the drawing it spans x from 10
+    // to 60, inside the plate; read unmirrored it would sit outside it.
+    const d = ['0', 'LWPOLYLINE', '8', '0', '90', '2', '70', '1', '10', '-10', '20', '-50', '10', '-10', '20', '50', '42', '1', ...mirroredZ].join('\n');
+    const r = dxfSectionParts(dxf(box(0, -60, 120, 60), d), 'mm');
+    expect(r.parts.filter((p) => p.void)).toHaveLength(1);
+    const want = 0.12 * 0.12 - (Math.PI * 0.05 ** 2) / 2;
+    expect(Math.abs(areaOf(assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces) - want) / want).toBeLessThan(2e-3);
+  });
+
+  /*
+   * Block references. A section from a profile library arrives as an INSERT of a block, and the
+   * import drew nothing and said nothing: no part, nothing skipped, no problem.
+   */
+  it('a block reference is drawn: placed, scaled and turned as the insert says', () => {
+    const plate = lwpoly([[0, 0], [100, 0], [100, 50], [0, 50]]).split('\n');
+    const r = dxfSectionParts(withBlock('SEC', plate, insert('SEC', 500, 500, ['41', '2', '42', '2', '50', '90'])), 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.skipped).toEqual([]);
+    // 200 x 100 once scaled, standing 200 tall once turned.
+    const [w, h] = extent(r);
+    expect(w).toBeCloseTo(0.1, 9);
+    expect(h).toBeCloseTo(0.2, 9);
+  });
+
+  it('a block reference with a hole in the block keeps the hole', () => {
+    const block = [...box(0, 0, 100, 100).split('\n'), ...circle(50, 50, 20).split('\n')];
+    const r = dxfSectionParts(withBlock('PL', block, insert('PL', 0, 0, mirroredZ)), 'mm');
+    expect(r.parts.filter((p) => p.void)).toHaveLength(1);
+    const want = 0.01 - Math.PI * 0.02 ** 2;
+    expect(Math.abs(areaOf(assembleDrawn({ version: 1, parts: r.parts }, () => null).pieces) - want) / want).toBeLessThan(2e-3);
+  });
+
+  it('what cannot be drawn is reported: a reference to a missing block, a hatch', () => {
+    const hatch = ['0', 'HATCH', '8', '0', '10', '0', '20', '0', '30', '0', '2', 'SOLID', '70', '1'].join('\n');
+    const r = dxfSectionParts(dxf(box(0, 0, 100, 100), insert('NOWHERE', 0, 0), hatch), 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.skipped).toEqual(expect.arrayContaining(['INSERT', 'HATCH']));
   });
 
   it('a file that is not a DXF says so, rather than reporting no outlines', () => {

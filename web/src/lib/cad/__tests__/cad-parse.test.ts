@@ -93,6 +93,38 @@ describe('parseCadDxf — CadDocument IR', () => {
     expect(doc.layers.find((l) => l.name === 'DECLARADA')?.total).toBe(0);
   });
 
+  /*
+   * dxf-parser drops a type it has no handler for without a trace, so a HATCH was neither drawn
+   * nor counted, though this parser promises to report every type it cannot represent.
+   */
+  it('counts a type the DXF library cannot read at all, such as HATCH', () => {
+    const hatch = ['0', 'HATCH', '8', 'LOSAS', '10', '0', '20', '0', '30', '0', '2', 'SOLID', '70', '1'].join('\n');
+    const doc = parseCadDxf(buildDxf({ entities: [dxfLine('VIGAS', 0, 0, 4, 0), hatch].join('\n') }), 'x.dxf');
+    expect(doc.entities).toHaveLength(1);
+    expect(doc.unsupported['HATCH']).toBe(1);
+    expect(doc.warnings).toContain('unsupportedEntity:HATCH:1');
+  });
+
+  /*
+   * MIRROR leaves an entity in a frame whose x runs the other way (extrusion 0, 0, −1). The IR is
+   * in the drawing's frame, so no reader has to know: a mirrored arc's centre and sweep, and a
+   * mirrored insert's position, come back where they are drawn.
+   */
+  it('brings mirrored arcs and inserts into the drawing\'s frame', () => {
+    const arc = ['0', 'ARC', '8', '0', '10', '5', '20', '1', '30', '0', '40', '2', '210', '0', '220', '0', '230', '-1', '50', '0', '51', '90'].join('\n');
+    const ins = ['0', 'INSERT', '8', '0', '2', 'COL', '10', '3', '20', '4', '30', '0', '50', '30', '210', '0', '220', '0', '230', '-1'].join('\n');
+    const doc = parseCadDxf(buildDxf({ entities: [arc, ins].join('\n') }), 'x.dxf');
+    const a = doc.entities.find((e) => e.kind === 'arc');
+    const i = doc.entities.find((e) => e.kind === 'insert');
+    if (a?.kind !== 'arc' || i?.kind !== 'insert') throw new Error('expected an arc and an insert');
+    expect(a.center).toEqual({ x: -5, y: 1 });
+    // 0..90° in the mirrored frame is 90..180° in the drawing.
+    expect(a.startAngle).toBeCloseTo(Math.PI / 2, 12);
+    expect(a.endAngle).toBeCloseTo(Math.PI, 12);
+    expect(i.at).toEqual({ x: -3, y: 4 });
+    expect([i.xScale, i.yScale, i.rotationDeg]).toEqual([-1, 1, -30]);
+  });
+
   it('returns a parse error document for garbage input', () => {
     const doc = parseCadDxf('this is not a dxf', 'garbage.dxf');
     expect(doc.entities.length).toBe(0);

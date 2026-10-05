@@ -49,14 +49,16 @@ describe('a catalogue choice', () => {
   });
 
   /*
-   * A closed arrangement reports no torsional constant, and the field is simply absent rather
+   * A closed arrangement reports no torsional constant, and the field is `undefined` rather
    * than zero. Zero is not a small J; it is no answer, and a solver reading it as a number
-   * would treat a box column as having no torsional stiffness at all.
+   * would treat a box column as having no torsional stiffness at all. The key is written all the
+   * same: the store merges a patch, and a key left out keeps the J of the section this replaces.
    */
-  it('omits J entirely when the arrangement encloses a cell', () => {
+  it('writes J as undefined when the arrangement encloses a cell', () => {
     const spec = { ...defaultProfileSpec('UPN 100'), arrangement: 'quadBox' as const, gapMm: 8 };
     const f = toSectionFields({ kind: 'standard', spec }, 0)!;
-    expect('j' in f).toBe(false);
+    expect('j' in f).toBe(true);
+    expect(f.j).toBeUndefined();
   });
 
   it('returns null for a name the catalogue does not know', () => {
@@ -129,14 +131,16 @@ describe('a built choice', () => {
   });
 
   /*
-   * And absent stays absent. A rectangle has no wall, and writing `tw: undefined` onto the
-   * section would be a key that reads as a dimension nobody set rather than one that does not
-   * apply — `need()` treats both as missing, but the record should not claim the question was
-   * asked.
+   * And absent is written as absent. A rectangle has no wall, and the store merges a patch into
+   * the section, so a thickness left out of the record kept the previous template's: a tube
+   * edited into a round bar kept its wall and stayed a tube.
    */
-  it('writes no thickness for a shape that has none', () => {
+  it('writes every thickness as undefined for a shape that has none', () => {
     const f = toSectionFields(built, 0)!;
-    for (const k of ['tw', 'tf', 't', 'tl'] as const) expect(k in f).toBe(false);
+    for (const k of ['tw', 'tf', 't', 'tl'] as const) {
+      expect(k in f).toBe(true);
+      expect(f[k]).toBeUndefined();
+    }
   });
 });
 

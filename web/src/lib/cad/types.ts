@@ -36,11 +36,29 @@ export const CAD_UNIT_SCALE: Record<CadUnit, number> = { m: 1, cm: 0.01, mm: 0.0
 
 export type CadEntity =
   | { kind: 'line'; layer: string; a: CadPt; b: CadPt }
-  | { kind: 'polyline'; layer: string; pts: CadPt[]; closed: boolean }
+  /**
+   * `bulges[i]` curves the segment from vertex i to the next (the closing one for the last vertex
+   * of a closed polyline): tan of a quarter of the arc's included angle, positive counter-
+   * clockwise. Absent when every segment is straight.
+   */
+  | { kind: 'polyline'; layer: string; pts: CadPt[]; closed: boolean; bulges?: number[] }
   | { kind: 'arc'; layer: string; center: CadPt; r: number; startAngle: number; endAngle: number }
   | { kind: 'circle'; layer: string; center: CadPt; r: number }
-  | { kind: 'insert'; layer: string; at: CadPt; blockName: string; bbox?: CadBBox }
+  /**
+   * The block's contents land at `at + R(rotationDeg)·diag(xScale, yScale)·(p − base)`, `base`
+   * being the block's own base point (`CadDocument.blocks`). A mirrored insert has a negative
+   * `xScale`. Absent scale and rotation are 1 and 0.
+   */
+  | { kind: 'insert'; layer: string; at: CadPt; blockName: string; bbox?: CadBBox; xScale?: number; yScale?: number; rotationDeg?: number }
   | { kind: 'text'; layer: string; at: CadPt; value: string };
+
+/** A block definition, in its own coordinates. */
+export interface CadBlock {
+  base: CadPt;
+  entities: CadEntity[];
+  /** Entity types in the block that the IR cannot represent, as `CadDocument.unsupported`. */
+  unsupported: Record<string, number>;
+}
 
 export type CadEntityKind = CadEntity['kind'];
 
@@ -77,6 +95,8 @@ export interface CadDocument {
    *  numbers. Their inserts are kept at their insertion point without a size:
    *  which piece set the symbol's size cannot be known from what is left. */
   incompleteBlocks: Record<string, { inserts: number; refused: Record<string, number> }>;
+  /** The definitions of the blocks the drawing INSERTs, for a reader that draws their contents. */
+  blocks?: Record<string, CadBlock>;
   warnings: string[];
 }
 

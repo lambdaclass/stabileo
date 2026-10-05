@@ -13,6 +13,7 @@
 import DxfParser from 'dxf-parser';
 import type {
   CadBBox,
+  CadBlock,
   CadDocument,
   CadEntity,
   CadLayer,
@@ -30,6 +31,83 @@ const SUPPORTED_TYPES = new Set([
 ]);
 
 const CLOSE_EPS = 1e-9;
+
+/**
+ * dxf-parser's CIRCLE, keeping the extrusion direction its own handler drops.
+ *
+ * A circle mirrored in the drawing carries (0, 0, −1), and its centre is then in a frame whose x
+ * runs the other way; read without it, a mirrored hole lands on the wrong side of the section.
+ * The groups the IR uses are the same: layer, centre, radius.
+ */
+class CircleWithExtrusion {
+  ForEntityName = 'CIRCLE' as const;
+  parseEntity(scanner: { next(): { code: number; value: unknown }; isEOF(): boolean }, curr: { code: number; value: unknown }) {
+    const entity: Record<string, unknown> & { center: Partial<CadPt> } = { type: curr.value, center: {} };
+    curr = scanner.next();
+    while (!scanner.isEOF()) {
+      if (curr.code === 0) break;
+      switch (curr.code) {
+        case 8: entity.layer = curr.value; break;
+        case 10: entity.center.x = curr.value as number; break;
+        case 20: entity.center.y = curr.value as number; break;
+        case 40: entity.radius = curr.value; break;
+        case 230: entity.extrusionDirectionZ = curr.value; break;
+      }
+      curr = scanner.next();
+    }
+    if (entity.center.x === undefined && entity.center.y === undefined) delete (entity as { center?: unknown }).center;
+    return entity;
+  }
+}
+
+/**
+ * True when an entity is drawn in a frame mirrored about the y axis: extrusion direction
+ * (0, 0, −1), which is what MIRROR leaves on arcs, circles, polylines and inserts. By DXF's
+ * arbitrary-axis rule that frame's x is the drawing's −x and its y the drawing's y.
+ */
+const mirrored = (z: unknown) => typeof z === 'number' && z < 0;
+
+/**
+ * Entity types by where they sit in the text: the ENTITIES section, and each block definition.
+ *
+ * dxf-parser drops a type it has no handler for (HATCH, REGION, WIPEOUT, ...) without a trace, so
+ * what it returns cannot say what it left out. The text can.
+ */
+function rawEntityTypes(text: string): { entities: Record<string, number>; blocks: Record<string, Record<string, number>> } {
+  const lines = text.split(/\r\n|\r|\n/g);
+  const entities: Record<string, number> = {};
+  const blocks: Record<string, Record<string, number>> = {};
+  let section = '', awaitingSection = false;
+  let block: Record<string, number> | null = null, inBlockHeader = false;
+  const count = (into: Record<string, number>, type: string) => { into[type] = (into[type] ?? 0) + 1; };
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    const code = parseInt(lines[i]!, 10), value = lines[i + 1]!.trim();
+    if (code === 2 && awaitingSection) { section = value; awaitingSection = false; continue; }
+    if (code === 2 && inBlockHeader && block === null) { block = blocks[value] ??= {}; continue; }
+    if (code !== 0) continue;
+    if (value === 'SECTION') { awaitingSection = true; continue; }
+    if (value === 'ENDSEC') { section = ''; continue; }
+    if (section === 'ENTITIES') count(entities, value);
+    else if (section === 'BLOCKS') {
+      if (value === 'BLOCK') { inBlockHeader = true; block = null; }
+      else if (value === 'ENDBLK') { inBlockHeader = false; block = null; }
+      else { inBlockHeader = false; if (block) count(block, value); }
+    }
+  }
+  return { entities, blocks };
+}
+
+/** Records a type that another entity owns, not a drawing entity of its own. */
+const OWNED_RECORDS = new Set(['VERTEX', 'SEQEND', 'ATTRIB']);
+
+/**
+ * The types in `raw` that dxf-parser returned none of: the ones it has no handler for.
+ * A handled type always comes back, refused or not, so this is exactly what it dropped.
+ */
+function droppedTypes(raw: Record<string, number>, parsed: Array<{ type?: unknown }>): Record<string, number> {
+  const seen = new Set(parsed.map((e) => String(e.type)));
+  return Object.fromEntries(Object.entries(raw).filter(([t]) => !seen.has(t) && !OWNED_RECORDS.has(t)));
+}
 
 /**
  * The box around the finite points, or null when there are none. A NaN point
@@ -158,6 +236,124 @@ function allFinite(...vs: unknown[]): boolean {
 }
 
 /**
+ * One dxf-parser entity of a supported type as IR, or null when it is refused (numbers that are
+ * not usable) or skipped (no size). Entities drawn mirrored (`mirrored`) are brought into the
+ * drawing's frame here, so no reader has to know about extrusion directions.
+ *
+ * An INSERT comes back without its bbox: sizing it needs the block, which the caller has.
+ */
+function readEntity(
+  e: Record<string, any>,
+  refuse: (kind: string) => void,
+  skipDegenerate: (kind: string) => void,
+): CadEntity | null {
+  const layer = String(e.layer ?? '0');
+  const type = e.type as string;
+  switch (type) {
+    case 'LINE': {
+      const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
+      // A missing end point is as unusable as an unreadable one: a file cut
+      // off mid-entity leaves one vertex, and the beam used to vanish unseen.
+      if (!vs || vs.length < 2 || !allFinite(vs[0].x, vs[0].y, vs[1].x, vs[1].y)) { refuse('LINE'); return null; }
+      return {
+        kind: 'line', layer,
+        a: { x: vs[0].x, y: vs[0].y },
+        b: { x: vs[1].x, y: vs[1].y },
+      };
+    }
+    case 'LWPOLYLINE':
+    case 'POLYLINE': {
+      const vs = e.vertices as Array<{ x: number; y: number; bulge?: number }> | undefined;
+      if (!vs) { refuse(type); return null; }
+      // One bad vertex condemns the outline: a polyline is a shape, and a
+      // shape with a hole where a corner should be is not a smaller shape.
+      if (!vs.every((v) => allFinite(v.x, v.y, v.bulge ?? 0))) { refuse(type); return null; }
+      // Readable, but a single point: a leftover of the export, not damage.
+      if (vs.length < 2) { skipDegenerate(type); return null; }
+      const flip = mirrored(type === 'LWPOLYLINE' ? e.extrusionDirectionZ : e.extrusionDirection?.z);
+      // Mirrored, the vertices keep their order and every arc turns the other way.
+      let pts: CadPt[] = vs.map((v) => ({ x: flip ? -v.x : v.x, y: v.y }));
+      let bulges: number[] | undefined = vs.some((v) => v.bulge) ? vs.map((v) => (flip ? -(v.bulge ?? 0) : v.bulge ?? 0)) : undefined;
+      // Closed when the shape flag is set, or first == last point.
+      let closed = e.shape === true;
+      const first = pts[0], last = pts[pts.length - 1];
+      if (!closed && pts.length >= 4 &&
+          Math.abs(first.x - last.x) < CLOSE_EPS && Math.abs(first.y - last.y) < CLOSE_EPS) {
+        closed = true;
+      }
+      // Normalize: a closed outline never repeats its first point.
+      if (closed && pts.length >= 2 &&
+          Math.abs(pts[0].x - pts[pts.length - 1].x) < CLOSE_EPS &&
+          Math.abs(pts[0].y - pts[pts.length - 1].y) < CLOSE_EPS) {
+        pts = pts.slice(0, -1);
+        bulges = bulges?.slice(0, -1);
+      }
+      if (pts.length < 2) { skipDegenerate(type); return null; }
+      return { kind: 'polyline', layer, pts, closed, ...(bulges ? { bulges } : {}) };
+    }
+    case 'ARC': {
+      if (!e.center) { refuse('ARC'); return null; }
+      const r = e.radius;
+      const startAngle = e.startAngle ?? 0; // radians (dxf-parser converts)
+      const endAngle = e.endAngle ?? 0;
+      // A non-finite radius is the worst of these: entityBBox computes
+      // `center.x - r`, so one bad arc poisons the whole drawing extent
+      // through Math.min/Math.max, which do NOT skip NaN the way the
+      // comparisons in bboxOfPoints do. A missing or negative radius is not
+      // a size — a negative one drew an inverted box. Zero is a readable
+      // radius of nothing: skipped as a leftover, not refused as damage.
+      if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle) || r < 0) { refuse('ARC'); return null; }
+      if (r === 0) { skipDegenerate('ARC'); return null; }
+      // Mirrored, the angle θ is the drawing's π − θ and the arc runs the other way round, so
+      // the counter-clockwise arc from start to end is the one from π − end to π − start.
+      return mirrored(e.extrusionDirectionZ)
+        ? { kind: 'arc', layer, center: { x: -e.center.x, y: e.center.y }, r, startAngle: Math.PI - endAngle, endAngle: Math.PI - startAngle }
+        : { kind: 'arc', layer, center: { x: e.center.x, y: e.center.y }, r, startAngle, endAngle };
+    }
+    case 'CIRCLE': {
+      if (!e.center) { refuse('CIRCLE'); return null; }
+      const r = e.radius;
+      if (!allFinite(e.center.x, e.center.y, r) || r < 0) { refuse('CIRCLE'); return null; }
+      if (r === 0) { skipDegenerate('CIRCLE'); return null; }
+      return {
+        kind: 'circle', layer,
+        center: { x: mirrored(e.extrusionDirectionZ) ? -e.center.x : e.center.x, y: e.center.y },
+        r,
+      };
+    }
+    case 'INSERT': {
+      if (!e.position) { refuse('INSERT'); return null; }
+      const xScale = e.xScale ?? 1, yScale = e.yScale ?? 1, rotation = e.rotation ?? 0;
+      // The scale and rotation matter as much as the position: they go into
+      // transformBlockBBox, so a NaN there produces a NaN bbox for a column
+      // symbol that looks perfectly well-formed in the entity list.
+      if (!allFinite(e.position.x, e.position.y, xScale, yScale, rotation)) { refuse('INSERT'); return null; }
+      // Mirrored: M·R(θ)·S = R(−θ)·M·S, so the drawing's insert is at the mirrored point, turned
+      // the other way, with its x scale negated.
+      const flip = mirrored(e.extrusionDirection?.z);
+      return {
+        kind: 'insert', layer,
+        at: { x: flip ? -e.position.x : e.position.x, y: e.position.y },
+        blockName: String(e.name ?? ''),
+        xScale: flip ? -xScale : xScale, yScale, rotationDeg: flip ? -rotation : rotation,
+      };
+    }
+    case 'TEXT':
+    case 'MTEXT': {
+      const pos = e.startPoint ?? e.position;
+      if (!pos) { refuse(type); return null; }
+      if (!allFinite(pos.x, pos.y)) { refuse(type); return null; }
+      return {
+        kind: 'text', layer,
+        at: { x: pos.x, y: pos.y },
+        value: String(e.text ?? ''),
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Why a parsed file cannot be imported, or null when it can.
  *
  * A file whose every usable entity was refused is not an empty file: calling
@@ -185,6 +381,7 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
   };
 
   const parser = new DxfParser();
+  parser.registerEntityHandler(CircleWithExtrusion as unknown as Parameters<DxfParser['registerEntityHandler']>[0]);
   let dxf;
   try {
     dxf = parser.parseSync(text);
@@ -211,7 +408,8 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
 
   // Block bounding boxes for INSERT expansion, computed for the blocks an
   // INSERT actually uses, once each.
-  const blocks = (dxf.blocks ?? {}) as unknown as Record<string, { entities?: Array<Record<string, unknown>> }>;
+  const blocks = (dxf.blocks ?? {}) as unknown as Record<string, { position?: CadPt; entities?: Array<Record<string, unknown>> }>;
+  const raw = rawEntityTypes(text);
   const blockInfo = new Map<string, BlockInfo>();
   const infoOf = (name: string): BlockInfo | undefined => {
     if (!blockInfo.has(name) && blocks[name]) blockInfo.set(name, blockLocalBBox(blocks[name].entities ?? []));
@@ -219,129 +417,65 @@ export function parseCadDxf(text: string, sourceName: string): CadDocument {
   };
 
   for (const entity of dxf.entities ?? []) {
-    const layer = String(entity.layer ?? '0');
     const type = entity.type;
-
     if (!SUPPORTED_TYPES.has(type)) {
       doc.unsupported[type] = (doc.unsupported[type] ?? 0) + 1;
       continue;
     }
+    if (type === 'POINT') {
+      // Bare points carry no architectural meaning in v1; count but keep quiet.
+      doc.unsupported['POINT'] = (doc.unsupported['POINT'] ?? 0) + 1;
+      continue;
+    }
+    const read = readEntity(entity as unknown as Record<string, any>, refuse, skipDegenerate);
+    if (!read || read.kind !== 'insert') {
+      if (read) doc.entities.push(read);
+      continue;
+    }
+    const info = infoOf(read.blockName);
+    // A block that lost pieces places its inserts but does not size them:
+    // whether the lost piece was the outline or a detail cannot be told
+    // from what is left, and sizing from the remainder made a column the
+    // size of its inner circle.
+    if (info && Object.keys(info.refused).length > 0) {
+      const inc = doc.incompleteBlocks[read.blockName] ??= { inserts: 0, refused: info.refused };
+      inc.inserts++;
+      doc.entities.push(read);
+      continue;
+    }
+    const bbox = info?.bbox
+      ? transformBlockBBox(info.bbox, read.at, read.xScale ?? 1, read.yScale ?? 1, read.rotationDeg ?? 0) ?? undefined
+      : undefined;
+    doc.entities.push({ ...read, bbox });
+  }
+  for (const [type, n] of Object.entries(droppedTypes(raw.entities, dxf.entities ?? []))) {
+    doc.unsupported[type] = (doc.unsupported[type] ?? 0) + n;
+  }
 
-    const e = entity as unknown as Record<string, any>;
-    switch (type) {
-      case 'LINE': {
-        const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
-        // A missing end point is as unusable as an unreadable one: a file cut
-        // off mid-entity leaves one vertex, and the beam used to vanish unseen.
-        if (!vs || vs.length < 2 || !allFinite(vs[0].x, vs[0].y, vs[1].x, vs[1].y)) { refuse('LINE'); break; }
-        doc.entities.push({
-          kind: 'line', layer,
-          a: { x: vs[0].x, y: vs[0].y },
-          b: { x: vs[1].x, y: vs[1].y },
-        });
-        break;
-      }
-      case 'LWPOLYLINE':
-      case 'POLYLINE': {
-        const vs = e.vertices as Array<{ x: number; y: number }> | undefined;
-        if (!vs) { refuse(type); break; }
-        // One bad vertex condemns the outline: a polyline is a shape, and a
-        // shape with a hole where a corner should be is not a smaller shape.
-        if (!vs.every((v) => allFinite(v.x, v.y))) { refuse(type); break; }
-        // Readable, but a single point: a leftover of the export, not damage.
-        if (vs.length < 2) { skipDegenerate(type); break; }
-        let pts: CadPt[] = vs.map((v) => ({ x: v.x, y: v.y }));
-        // Closed when the shape flag is set, or first == last point.
-        let closed = e.shape === true;
-        const first = pts[0], last = pts[pts.length - 1];
-        if (!closed && pts.length >= 4 &&
-            Math.abs(first.x - last.x) < CLOSE_EPS && Math.abs(first.y - last.y) < CLOSE_EPS) {
-          closed = true;
-        }
-        // Normalize: a closed outline never repeats its first point.
-        if (closed && pts.length >= 2 &&
-            Math.abs(pts[0].x - pts[pts.length - 1].x) < CLOSE_EPS &&
-            Math.abs(pts[0].y - pts[pts.length - 1].y) < CLOSE_EPS) {
-          pts = pts.slice(0, -1);
-        }
-        if (pts.length >= 2) doc.entities.push({ kind: 'polyline', layer, pts, closed });
-        else skipDegenerate(type);
-        break;
-      }
-      case 'ARC': {
-        if (!e.center) { refuse('ARC'); break; }
-        const r = e.radius;
-        const startAngle = e.startAngle ?? 0; // radians (dxf-parser converts)
-        const endAngle = e.endAngle ?? 0;
-        // A non-finite radius is the worst of these: entityBBox computes
-        // `center.x - r`, so one bad arc poisons the whole drawing extent
-        // through Math.min/Math.max, which do NOT skip NaN the way the
-        // comparisons in bboxOfPoints do. A missing or negative radius is not
-        // a size — a negative one drew an inverted box. Zero is a readable
-        // radius of nothing: skipped as a leftover, not refused as damage.
-        if (!allFinite(e.center.x, e.center.y, r, startAngle, endAngle) || r < 0) { refuse('ARC'); break; }
-        if (r === 0) { skipDegenerate('ARC'); break; }
-        doc.entities.push({
-          kind: 'arc', layer,
-          center: { x: e.center.x, y: e.center.y },
-          r, startAngle, endAngle,
-        });
-        break;
-      }
-      case 'CIRCLE': {
-        if (!e.center) { refuse('CIRCLE'); break; }
-        const r = e.radius;
-        if (!allFinite(e.center.x, e.center.y, r) || r < 0) { refuse('CIRCLE'); break; }
-        if (r === 0) { skipDegenerate('CIRCLE'); break; }
-        doc.entities.push({
-          kind: 'circle', layer,
-          center: { x: e.center.x, y: e.center.y },
-          r,
-        });
-        break;
-      }
-      case 'INSERT': {
-        if (!e.position) { refuse('INSERT'); break; }
-        const xScale = e.xScale ?? 1, yScale = e.yScale ?? 1, rotation = e.rotation ?? 0;
-        // The scale and rotation matter as much as the position: they go into
-        // transformBlockBBox, so a NaN there produces a NaN bbox for a column
-        // symbol that looks perfectly well-formed in the entity list.
-        if (!allFinite(e.position.x, e.position.y, xScale, yScale, rotation)) { refuse('INSERT'); break; }
-        const at: CadPt = { x: e.position.x, y: e.position.y };
-        const blockName = String(e.name ?? '');
-        const info = infoOf(blockName);
-        // A block that lost pieces places its inserts but does not size them:
-        // whether the lost piece was the outline or a detail cannot be told
-        // from what is left, and sizing from the remainder made a column the
-        // size of its inner circle.
-        if (info && Object.keys(info.refused).length > 0) {
-          const inc = doc.incompleteBlocks[blockName] ??= { inserts: 0, refused: info.refused };
-          inc.inserts++;
-          doc.entities.push({ kind: 'insert', layer, at, blockName, bbox: undefined });
-          break;
-        }
-        const bbox = info?.bbox ? transformBlockBBox(info.bbox, at, xScale, yScale, rotation) ?? undefined : undefined;
-        doc.entities.push({ kind: 'insert', layer, at, blockName, bbox });
-        break;
-      }
-      case 'TEXT':
-      case 'MTEXT': {
-        const pos = e.startPoint ?? e.position;
-        if (!pos) { refuse(type); break; }
-        if (!allFinite(pos.x, pos.y)) { refuse(type); break; }
-        doc.entities.push({
-          kind: 'text', layer,
-          at: { x: pos.x, y: pos.y },
-          value: String(e.text ?? ''),
-        });
-        break;
-      }
-      case 'POINT':
-        // Bare points carry no architectural meaning in v1; count but keep quiet.
-        doc.unsupported['POINT'] = (doc.unsupported['POINT'] ?? 0) + 1;
-        break;
+  // The definitions of the blocks inserted, nested inserts included, for a reader that draws
+  // their contents. A piece refused inside one is already reported through `incompleteBlocks`.
+  const used: Record<string, CadBlock> = {};
+  const pending = doc.entities.flatMap((e) => (e.kind === 'insert' ? [e.blockName] : []));
+  while (pending.length > 0) {
+    const name = pending.pop()!;
+    const def = blocks[name];
+    if (used[name] || !def) continue;
+    const block: CadBlock = { base: { x: def.position?.x ?? 0, y: def.position?.y ?? 0 }, entities: [], unsupported: {} };
+    used[name] = block;
+    if (!allFinite(block.base.x, block.base.y)) block.base = { x: 0, y: 0 };
+    for (const ent of def.entities ?? []) {
+      const type = String(ent.type);
+      if (!SUPPORTED_TYPES.has(type)) { block.unsupported[type] = (block.unsupported[type] ?? 0) + 1; continue; }
+      const read = type === 'POINT' ? null : readEntity(ent as Record<string, any>, () => {}, () => {});
+      if (!read) continue;
+      block.entities.push(read);
+      if (read.kind === 'insert') pending.push(read.blockName);
+    }
+    for (const [type, n] of Object.entries(droppedTypes(raw.blocks[name] ?? {}, (def.entities ?? []) as Array<{ type?: unknown }>))) {
+      block.unsupported[type] = (block.unsupported[type] ?? 0) + n;
     }
   }
+  if (Object.keys(used).length > 0) doc.blocks = used;
 
   // Layer summary: every layer named in the table plus any layer that actually
   // carries entities (files in the wild reference layers missing from the table).
