@@ -4,6 +4,9 @@
  * the older rule computed for a project with one dead-load case; with two, the older rule counted
  * the weight in both, and the notice says so.
  *
+ * A project with nothing in it yet starts with none: in PRO the self-weight is there when it was
+ * added (Add load › General › Self-weight), in the case it was added to, and nowhere else.
+ *
  * Not an edit: nothing the user did changes, so it takes no undo step. It is done once the model
  * is loaded, from wherever it came (a file, an example, a link, a tab), in the PRO panel.
  */
@@ -47,7 +50,9 @@ export function migrateSelfWeightIfNeeded(opts: { quiet?: boolean } = {}): boole
  */
 export function selfWeightRuleEffect(): void {
   void modelStore.modelVersion;
-  if (untrack(() => modelStore.analysis?.selfWeight === undefined && modelStore.elements.size > 0)) {
-    untrack(() => migrateSelfWeightIfNeeded());
-  }
+  untrack(() => {
+    if (modelStore.analysis?.selfWeight !== undefined) return;
+    if (modelStore.elements.size > 0) migrateSelfWeightIfNeeded();
+    else modelStore.withoutUndo(() => modelStore.adoptAnalysis({ selfWeight: [] }));
+  });
 }

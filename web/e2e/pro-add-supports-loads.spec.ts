@@ -395,4 +395,35 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await page.getByTestId('wl-kind-nodal').click();
     await expect(page.getByTestId('load-target-by')).toHaveValue('selection');
   });
+
+  test('a new project has no self-weight until it is added, and drawing does not add it', async ({ pro: page }) => {
+    type Rule = { caseId: number; direction: string; factor: number };
+    const rules = () => page.evaluate(() => (window.__stabileo.analysisSettings() as { selfWeight?: Rule[] } | null)?.selfWeight);
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-nodes').click();
+    await page.getByTestId('write-node').click();
+    for (const x of [0, 5]) {
+      await page.getByTestId('write-node-x').fill(String(x));
+      await page.getByTestId('write-node-y').fill('0');
+      await page.getByTestId('write-node-z').fill('0');
+      await page.getByTestId('write-node-card-submit').click();
+    }
+    await page.getByTestId('pr-cmd-elements').click();
+    await page.getByTestId('write-element').click();
+    await page.getByTestId('write-element-i').fill('1');
+    await page.getByTestId('write-element-j').fill('2');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(1);
+    await expect.poll(rules).toEqual([]);
+
+    await openCard(page, 'load');
+    await expect(page.getByTestId('load-tables')).not.toContainText('Add the self-weight to the D cases');
+    await expect(page.getByTestId('sw-row')).toHaveCount(0);
+    await expect(page.getByTestId('load-tables')).not.toContainText('with self-weight');
+
+    await page.getByTestId('wl-kind-selfWeight').click();
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('sw-row')).toHaveCount(1);
+    await expect(page.getByTestId('load-tables')).toContainText('with self-weight');
+  });
 });

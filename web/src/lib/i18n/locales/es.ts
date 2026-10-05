@@ -8462,7 +8462,6 @@ const es: Record<string, string> = {
   'combos.genService': 'Servicio',
   'combos.genRules': 'Reglas del proyecto ({n})',
   'combos.editRules': 'Editar las reglas del proyecto',
-  'selfWeight.legacy': 'Sumar el peso propio a los casos de tipo D',
   'pro.caseTypeLr': 'Sobrecarga de cubierta (Lr)',
   'pro.caseTypeWa': 'Viento de servicio (Wa)',
   'pro.showAllCases': 'Mostrar las cargas de todos los casos',

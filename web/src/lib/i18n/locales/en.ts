@@ -8473,7 +8473,6 @@ const en: Record<string, string> = {
   'combos.genService': 'Service',
   'combos.genRules': 'Project rules ({n})',
   'combos.editRules': 'Edit the project rules',
-  'selfWeight.legacy': 'Add the self-weight to the D cases',
   'pro.caseTypeLr': 'Roof live (Lr)',
   'pro.caseTypeWa': 'Service wind (Wa)',
   'pro.showAllCases': 'Show the loads of every case',

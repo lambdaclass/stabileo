@@ -7821,7 +7821,6 @@ const pt: Translations = {
   'combos.genService': 'Serviço',
   'combos.genRules': 'Regras do projeto ({n})',
   'combos.editRules': 'Editar as regras do projeto',
-  'selfWeight.legacy': 'Somar o peso próprio aos casos do tipo D',
   'pro.caseTypeLr': 'Sobrecarga de cobertura (Lr)',
   'pro.caseTypeWa': 'Vento de serviço (Wa)',
   'pro.showAllCases': 'Mostrar as cargas de todos os casos',

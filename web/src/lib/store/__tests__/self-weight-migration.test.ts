@@ -9,7 +9,7 @@ import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { migrateSelfWeightIfNeeded, planSelfWeight } from '../self-weight-migration';
+import { migrateSelfWeightIfNeeded, planSelfWeight, selfWeightRuleEffect } from '../self-weight-migration';
 import { initSolver } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 
@@ -74,6 +74,25 @@ describe('the migration', () => {
     expect(migrateSelfWeightIfNeeded()).toBe(true);
     expect(modelStore.analysis!.selfWeight).toEqual([]);
     expect(migrateSelfWeightIfNeeded()).toBe(false);
+  });
+});
+
+describe('a new PRO project', () => {
+  it('starts without self-weight, and drawing does not add it; a project with members is migrated', () => {
+    modelStore.withoutUndo(() => modelStore.setAnalysis({ selfWeight: undefined }));
+    historyStore.clear();
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([]);
+    expect(historyStore.canUndo).toBe(false);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([]);
+
+    // An older project, with members and no rule: the weight it computed before, as a rule.
+    const { ids } = project(['D']);
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([{ caseId: ids[0], direction: 'Z', factor: -1 }]);
   });
 });
 

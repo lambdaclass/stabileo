@@ -371,8 +371,8 @@ tarjeta para agregar una carga y las tablas de cargas:
   Sobre todo el modelo o un grupo incluye sus placas; sobre barras elegidas, sólo esas barras. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
   en una columna o una barra inclinada la parte a lo largo de la barra queda en ella, así que su
   axil crece hacia el extremo de abajo. En las placas es ρ·t por el área. Entra una vez, en ese caso, y cada combinación lo toma con el
-  factor de ese caso. Un proyecto guardado antes de esta regla se abre con el peso propio en su
-  primer caso D, y un aviso lo dice; si tenía varios casos D, el aviso recuerda que antes el peso
+  factor de ese caso. Un proyecto nuevo no tiene peso propio hasta que se agrega. Un proyecto
+  guardado antes de esta regla se abre con el peso propio en su primer caso D, y un aviso lo dice; si tenía varios casos D, el aviso recuerda que antes el peso
   se contaba en cada uno.
 - **Combinaciones:** manuales, o generadas automáticamente. Las de resistencia (últimas) son las de CIRSOC
   101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se

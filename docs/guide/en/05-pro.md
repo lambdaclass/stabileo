@@ -357,7 +357,8 @@ load, and the load tables:
   On the whole model or a group it includes their plates; on chosen members, only those members. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
   a column or an inclined member the part along the member stays in it, so its axial force grows
   towards the lower end. On plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
-  that case's factor. A project saved before this rule opens with self-weight in its first D case,
+  that case's factor. A new project has no self-weight until it is added. A project saved before
+  this rule opens with self-weight in its first D case,
   and a notice says so; if it had several D cases, the notice recalls that the weight used to be
   counted in each of them.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
