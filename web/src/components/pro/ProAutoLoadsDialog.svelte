@@ -26,7 +26,9 @@
   import ProSeismicMethod, { defaultSeismicMethod } from './ProSeismicMethod.svelte';
   import ProWindStructure, { defaultWindStructure } from './ProWindStructure.svelte';
   import ProSpecialLoadsSection, { defaultSpecialLoads } from './ProSpecialLoadsSection.svelte';
-  import { modesForPlan } from '../../lib/store/seismic-modes';
+  import { modesForPlan, windFrequenciesForPlan } from '../../lib/store/seismic-modes';
+  import ProWindDynamics from './ProWindDynamics.svelte';
+  import { DEFAULT_WIND_DYNAMICS, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { defaultSnowConfig, snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
@@ -172,7 +174,22 @@
   let windKzt = $state(1);
   let windKztSurveyed = $state(false);
   let windRoofSlope = $state(0);
-  let windRigid = $state(true);
+  /** The wind's dynamics (§1.9): the frequency's source, damping, the rigid G, e_R. */
+  let windDyn = $state<WindDynamics>({ ...DEFAULT_WIND_DYNAMICS });
+  /** The frequencies the modal analysis gave the last preview, per axis. */
+  let windModal = $state<ReturnType<typeof fundamentalFrequencies> | null>(null);
+  /** A low-rise building is rigid without a frequency (art. 1.2, §1.9.2). */
+  const windLowRise = $derived.by(() => {
+    const ns = [...modelStore.nodes.values()];
+    if (ns.length === 0) return false;
+    const ext = (k: 'x' | 'y') => Math.max(...ns.map((n) => n[k])) - Math.min(...ns.map((n) => n[k]));
+    return isLowRise(Math.max(...ns.map((n) => n.z ?? 0)), ext('x'), ext('y'), windEnclosure);
+  });
+  /** The dynamics the plan gets: the modal frequencies in place of typed ones when they are the source. */
+  const planDynamics = (): WindDynamics => ({
+    ...$state.snapshot(windDyn),
+    ...(windDyn.n1Source === 'modal' && windModal ? { n1: { x: windModal.x?.n1, y: windModal.y?.n1 } } : {}),
+  });
   /** The wind directions to generate: all four unless the reader narrows them (`wind-cases.ts`). */
   let windDirs = $state<WindDirection[]>([...WIND_DIRECTIONS]);
   let windCaseSet = $state<WindCaseSet>('all');
@@ -216,6 +233,8 @@
 
   /** The plan is built first and applied only after the user confirms. */
   let plan = $state<LoadPlan | null>(null);
+  /** The previewed plan's gust effect factor per axis, for the dynamics block's reading. */
+  const planGust = $derived((plan as LoadPlan | null)?.factors.windGust);
   /** The roof's weight class the plan settled on; read here, outside any `{#if}` that narrows `plan`. */
   const planRoofWeight = $derived(plan?.roofWeight);
   let delta = $state<PlanDelta | null>(null);
@@ -280,7 +299,7 @@
         enabled: true, basicSpeed: windV, exposure: windExposure,
         enclosure: windEnclosure, siteAltitudeM: windAltitude,
         kzt: windKzt, kztSurveyed: windKztSurveyed,
-        roofSlopeDeg: windRoofSlope, rigid: windRigid,
+        roofSlopeDeg: windRoofSlope, rigid: windDyn.n1Source === 'declaredRigid', dynamics: planDynamics(),
         directions: { x: windDirs.some((d) => d.endsWith('x')), y: windDirs.some((d) => d.endsWith('y')) },
         caseSet: windCaseSet, senses: [...windDirs],
         service: windService.enabled ? { ...windService } : undefined,
@@ -335,7 +354,7 @@
       regulationsStore.configureRole('wind', {
         basicSpeed: windV, exposure: windExposure, enclosure: windEnclosure,
         siteAltitudeM: windAltitude, kzt: windKzt, kztSurveyed: windKztSurveyed,
-        roofSlopeDeg: windRoofSlope, rigid: windRigid,
+        roofSlopeDeg: windRoofSlope, dynamics: { ...$state.snapshot(windDyn) },
       }, true);
     }
     if (snowCfg.enabled) {
@@ -354,6 +373,13 @@
     applyError = null;
     recordRoleConfiguration();
     let p = buildLoadPlan(planInput());
+    // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
+    if (enableWind && windDyn.n1Source === 'modal' && !windLowRise && p.outcome === 'READY') {
+      const f = windFrequenciesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
+      if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
+      windModal = f;
+      p = buildLoadPlan(planInput());
+    }
     // The modal method needs the model's modes under the plan's own masses (`seismic-modes.ts`).
     if (enableSeismic && seismicMethod.method === 'modal' && p.outcome === 'READY') {
       const m = modesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
@@ -777,7 +803,7 @@
                         {/if}
                       </div>
                     </div>
-                    <label class="al-check"><input type="checkbox" bind:checked={windRigid} data-testid="al-wind-rigid" /> {t('autoLoad.windRigid')}</label>
+                    <ProWindDynamics bind:dynamics={windDyn} gust={planGust} modal={windModal} lowRise={windLowRise} />
                   </div>
                   <ProWindCasesPanel
                     bind:caseSet={windCaseSet} bind:directions={windDirs} bind:enclosure={windEnclosure}

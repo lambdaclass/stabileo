@@ -170,7 +170,10 @@ export interface LoadPlanInput {
     kzt: number;
     kztSurveyed: boolean;
     roofSlopeDeg: number;
+    /** Declared rigid, read only without `dynamics` (the older plans). */
     rigid: boolean;
+    /** Where each direction's frequency comes from, damping and the rigid G (§1.9, `wind-dynamics.ts`). */
+    dynamics?: import('./wind-dynamics').WindDynamics;
     directions: { x: boolean; y: boolean };
     /** Which cases of Fig. 2.4-8 to generate. Absent: all four (§2.4.6). */
     caseSet?: WindCaseSet;
@@ -384,6 +387,8 @@ export interface LoadPlan {
     liveReduced: ProvenancedValue<number>;
     deadTotal: ProvenancedValue<number>;
     windQh?: ProvenancedValue<number>;
+    /** Each wind axis's gust effect factor and its derivation, when computed (§1.9). */
+    windGust?: Partial<Record<'x' | 'y', import('../../codes/cirsoc102/gust').GustResult>>;
     seismicWeight?: ProvenancedValue<number>;
     baseShear?: ProvenancedValue<number>;
   };
@@ -793,7 +798,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // ── Wind (load-plan-wind.ts) ──
   const nodal: PlannedNodal[] = [];
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
-  const { windQh } = planWind(input, levels, sink);
+  const { windQh, windGust } = planWind(input, levels, sink);
 
   // ── Snow (load-plan-snow.ts) ──
   const snowPlanned = planSnow(input, sink, panelMode ? layout : undefined);
@@ -1040,7 +1045,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),
       deadTotal: fromProject(deadTotal, 'kN/m²'),
-      windQh, seismicWeight, baseShear,
+      windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
     levels,
     ...(roofWeight ? { roofWeight } : {}),

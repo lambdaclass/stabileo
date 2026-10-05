@@ -7,6 +7,8 @@ import {
   applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
   SERVICE_WIND_FACTOR, type WindProject,
 } from '../../codes/cirsoc102/wind';
+import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, type GustResult } from '../../codes/cirsoc102/gust';
+import { gustInputsFor, isLowRise } from './wind-dynamics';
 import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
 import { otherStructureWind } from './wind-other';
 import { REF_FREE_ROOF, REF_SIGN, REF_OTHER, REF_MIN_OTHER } from '../../codes/cirsoc102/other-structures';
@@ -16,10 +18,11 @@ import { windDirectionsOf, type LevelMass, type LoadPlanInput, type PlanSink } f
 
 const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
-export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined } {
+export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined; windGust?: Partial<Record<'x' | 'y', GustResult>> } {
   const { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys } = sink;
   const windAxes: WindAxis[] = [];
   let windQh: ProvenancedValue<number> | undefined;
+  const windGust: Partial<Record<'x' | 'y', GustResult>> = {};
   if (input.wind?.enabled) {
     const elevations = levels.map((l) => l.elevation);
     const h = Math.max(...elevations, 0);
@@ -27,6 +30,26 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     const ys = [...input.model.nodes.values()].map((n) => n.y);
     const bx = Math.max(...xs) - Math.min(...xs);
     const by = Math.max(...ys) - Math.min(...ys);
+
+    /*
+     * Each axis's gust effect factor inputs (§1.9): its frequency, by the source the dialog chose,
+     * damping and the rigid G. A level's extent along the wind gives L_ef (Eq. 1.9-1).
+     */
+    const dyn = input.wind.dynamics;
+    const lowRise = isLowRise(h, bx, by, input.wind.enclosure);
+    const extent = (ids: readonly number[], k: 'x' | 'y') => {
+      const v = ids.map((id) => input.model.nodes.get(id)?.[k] ?? 0);
+      return v.length ? Math.max(...v) - Math.min(...v) : 0;
+    };
+    const gustOf = (axis: 'x' | 'y') => gustInputsFor(dyn, axis, h, levels.map((l) => ({ elevation: l.elevation, along: extent(l.nodeIds, axis) })), lowRise);
+    const gustReported = new Set<string>();
+    if (dyn && !lowRise) {
+      // What the generated load does not cover, by the commentary's triggers (C 1.1.2).
+      const bMin = Math.min(bx, by);
+      const n1s = (['x', 'y'] as const).map((a) => { const g = gustOf(a); return g && !('refused' in g) ? g.n1 : undefined; }).filter((v): v is number => v !== undefined);
+      const n1 = n1s.length ? Math.min(...n1s) : undefined;
+      unsupportedKeys.push(...dynamicSensitivity({ h, bMin, n1, vBar: meanHourlySpeed(equivalentHeight(h, input.wind.exposure), input.wind.basicSpeed, input.wind.exposure) }));
+    }
 
     /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
     // The directions asked for, any of ±X and ±Y (`windDirectionsOf`); an axis is solved when either sense is.
@@ -46,7 +69,19 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
           L: Math.max(along, 1), B: Math.max(across, 1),
           roofSlopeDeg: input.wind!.roofSlopeDeg, rigid: input.wind!.rigid,
         };
+        const g = gustOf(dir);
+        if (g && 'refused' in g) {
+          if (!service) unsupportedKeys.push(g.refused);
+          continue;
+        }
+        if (g) project.gust = g;
         const res = computeWindPressures(project);
+        const G = res.factors.G.value;
+        if (!service && res.gust && !gustReported.has(dir)) {
+          gustReported.add(dir);
+          windGust[dir] = res.gust;
+          derivation.push(gustLine(dir, res.gust));
+        }
         if (!service) {
           refs.push(...res.factors.kd.refs, ...res.factors.kh.refs);
           assumptions.push(...res.assumptions);
@@ -71,13 +106,13 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         const qz = (z: number) => velocityPressure(Math.max(z, 0), project);
         /** Net lateral pressure on the band [z0, z1], averaged over it, kPa. */
         const bandNet = (z0: number, z1: number) => {
-          if (z1 <= z0) return (qz(z0) * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+          if (z1 <= z0) return (qz(z0) * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
           // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
           const n = 8, hh = (z1 - z0) / n;
           let sum = qz(z0) + qz(z1);
           for (let k = 1; k < n; k++) sum += (k % 2 ? 4 : 2) * qz(z0 + k * hh);
           const meanQz = (sum * hh / 3) / (z1 - z0);
-          return (meanQz * G_RIGID * cpWw - res.qhNm2 * G_RIGID * cpLw) / 1000;
+          return (meanQz * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
         };
         const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
 
@@ -111,6 +146,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         out.push({
           axis: dir, across, along, levels: windLevels, project, qhNm2: res.qhNm2,
           gcpi: internalPressureCoefficient(input.wind!.enclosure),
+          G, ...(res.gust ? { gust: res.gust, eR: dyn?.eR?.[dir] ?? 0 } : {}),
         });
         if (!service) derivation.push(msg('loadPlan.derivation.wind', {
           dir: dir.toUpperCase(), qh: round(res.qhNm2, 0),
@@ -132,7 +168,23 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         kzt: input.wind.kzt, kztSurveyed: input.wind.kztSurveyed, structureKind: kd, enclosure: 'open',
         meanRoofHeight: Math.max(h, 1), L: Math.max(bx, 1), B: Math.max(by, 1), roofSlopeDeg: input.wind.roofSlopeDeg, rigid: input.wind.rigid,
       };
-      const res = otherStructureWind({ model: input.model, structure: other, project, directions: windDirs, tributaryWidth: input.tributaryWidth });
+      // A structure declared flexible with no frequency to compute G_f with is refused, as a
+      // building is: it used to take a rigid one's 0,85 without a word.
+      if (!dyn && !input.wind.rigid) { unsupportedKeys.push(msg('loads.cirsoc102.unsupported.flexibleBuilding')); return { windQh }; }
+      // Its gust effect factor per direction, with the structure's own h, B and L (§1.9, art. 1.3).
+      const gOther = new Map<'x' | 'y', number>();
+      for (const axis of ['x', 'y'] as const) {
+        const g = gustOf(axis);
+        if (g && 'refused' in g) { unsupportedKeys.push(g.refused); continue; }
+        if (!g) { gOther.set(axis, G_RIGID); continue; }
+        const r = gustEffectFactor({ exposure: input.wind.exposure, V: input.wind.basicSpeed, h: Math.max(h, 1), B: Math.max(axis === 'x' ? by : bx, 0.1), L: Math.max(axis === 'x' ? bx : by, 0.1), ...g });
+        if (r.kind === 'unsupported') { unsupportedKeys.push(...r.notes); continue; }
+        gOther.set(axis, r.value.value);
+        windGust[axis] = r;
+        derivation.push(gustLine(axis, r));
+      }
+      if (dyn && gOther.size === 0) return { windQh, windGust };
+      const res = otherStructureWind({ model: input.model, structure: other, project, directions: windDirs, tributaryWidth: input.tributaryWidth, G: (axis) => gOther.get(axis) ?? G_RIGID });
       derivation.push(...res.derivation);
       unsupportedKeys.push(...res.notes);
       refs.push(other.kind === 'freeRoof' ? REF_FREE_ROOF : other.kind === 'solidSign' ? REF_SIGN : REF_OTHER, REF_MIN_OTHER);
@@ -189,5 +241,14 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     }
   }
 
-  return { windQh };
+  return { windQh, ...(Object.keys(windGust).length ? { windGust } : {}) };
+}
+
+/** One derivation line: the direction's frequency, whether rigid or flexible, and its factor. */
+function gustLine(dir: 'x' | 'y', g: GustResult) {
+  return msg(`loadPlan.derivation.windGust.${g.kind}`, {
+    dir: dir.toUpperCase(), n1: g.n1 !== undefined ? round(g.n1, 3) : '—', g: round(g.value.value, 3),
+    zBar: round(g.steps.zBar, 1), iz: round(g.steps.iz, 3), q: round(g.steps.q, 3),
+    r: g.steps.resonant ? round(g.steps.resonant.r, 3) : '—', gR: g.steps.resonant ? round(g.steps.resonant.gR, 3) : '—',
+  });
 }
