@@ -188,3 +188,80 @@ describe('DXF section outline', () => {
     expect(r.problem).toBe('parseError');
   });
 });
+
+/*
+ * PR 250 review, round 2. Pieces the file holds but the import must not draw (paper space, hidden
+ * layers), pieces it lost (unreadable numbers, in the drawing or in a block), and blocks that
+ * repeat (arrays) or never end (a block inside itself).
+ */
+describe('DXF section outline — what is drawn, what is not, and what is said', () => {
+  const lwpolyOn = (layer: string, pts: Array<[number, number]>, extra: string[] = []) =>
+    ['0', 'LWPOLYLINE', ...extra, '8', layer, '90', `${pts.length}`, '70', '1', ...pts.flatMap(([x, y]) => ['10', `${x}`, '20', `${y}`])].join('\n');
+  const withBlocks = (blocks: Array<[string, string[]]>, ...entities: string[]) =>
+    ['0', 'SECTION', '2', 'BLOCKS',
+      ...blocks.flatMap(([name, body]) => ['0', 'BLOCK', '8', '0', '2', name, '70', '0', '10', '0', '20', '0', '30', '0', ...body, '0', 'ENDBLK']),
+      '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF'].join('\n');
+
+  it('a plate whose hole has an unreadable radius is refused, not imported solid', () => {
+    const bad = ['0', 'CIRCLE', '8', '0', '10', '100', '20', '100', '30', '0', '40', 'NaN'].join('\n');
+    const r = dxfSectionParts(dxf(box(0, 0, 200, 200), bad), 'mm');
+    expect(r.malformed).toEqual({ CIRCLE: 1 });
+    expect(r.problem).toBe('malformedPieces');
+    expect(r.parts).toEqual([]);
+  });
+
+  it('a piece lost inside an inserted block is counted and refuses the import too', () => {
+    const block = [...box(0, 0, 200, 200).split('\n'), '0', 'CIRCLE', '8', '0', '10', '100', '20', '100', '30', '0', '40', 'x'];
+    const r = dxfSectionParts(withBlock('PL', block, insert('PL', 0, 0)), 'mm');
+    expect(r.malformed).toEqual({ CIRCLE: 1 });
+    expect(r.incompleteBlocks).toEqual(['PL']);
+    expect(r.problem).toBe('malformedPieces');
+    expect(r.parts).toEqual([]);
+  });
+
+  it('a frame drawn in paper space is not a part', () => {
+    const frame = lwpolyOn('0', [[-50, -50], [500, -50], [500, 500], [-50, 500]], ['67', '1']);
+    const r = dxfSectionParts(dxf(box(0, 0, 100, 200), frame), 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.paperSpace).toBe(1);
+  });
+
+  it('entities on a layer turned off or frozen are not parts, and are counted', () => {
+    const layers = ['0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', '2',
+      '0', 'LAYER', '2', 'COTAS', '70', '1', '62', '7', '0', 'LAYER', '2', 'AUX', '70', '0', '62', '-3', '0', 'ENDTAB', '0', 'ENDSEC'];
+    const text = [...layers, ...dxf(box(0, 0, 100, 200), lwpolyOn('COTAS', [[-50, -50], [500, -50], [500, 500], [-50, 500]]),
+      lwpolyOn('AUX', [[10, 10], [20, 10], [20, 20], [10, 20]])).split('\n')].join('\n');
+    const r = dxfSectionParts(text, 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.parts[0]!.void).toBeUndefined();
+    expect(r.hidden).toBe(2);
+  });
+
+  it('a block that inserts itself is drawn once and reported, not copied to the depth limit', () => {
+    const block = [...box(0, 0, 10, 10).split('\n'), ...insert('LOOP', 100, 0).split('\n')];
+    const r = dxfSectionParts(withBlock('LOOP', block, insert('LOOP', 0, 0)), 'mm');
+    expect(r.parts).toHaveLength(1);
+    expect(r.cyclicBlocks).toEqual(['LOOP']);
+  });
+
+  it('an INSERT array draws every copy, stepping in the insert’s turned frame', () => {
+    // Three 10 mm squares, 20 mm apart along the insert's x, which is turned to the drawing's y.
+    const sq = box(-5, -5, 5, 5).split('\n');
+    const r = dxfSectionParts(withBlock('SQ', sq, insert('SQ', 0, 0, ['50', '90', '70', '3', '44', '20'])), 'mm');
+    expect(r.parts).toHaveLength(3);
+    const [w, h] = extent(r);
+    expect(w).toBeCloseTo(0.01, 9);
+    expect(h).toBeCloseTo(0.05, 9);
+  });
+
+  it('an array inside a block is drawn too', () => {
+    const r = dxfSectionParts(withBlocks([
+      ['SQ', box(-5, -5, 5, 5).split('\n')],
+      ['ROW', insert('SQ', 0, 0, ['70', '2', '71', '2', '44', '20', '45', '30']).split('\n')],
+    ], insert('ROW', 0, 0)), 'mm');
+    expect(r.parts).toHaveLength(4);
+    const [w, h] = extent(r);
+    expect(w).toBeCloseTo(0.03, 9);
+    expect(h).toBeCloseTo(0.04, 9);
+  });
+});

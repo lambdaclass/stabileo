@@ -185,14 +185,32 @@
   // ── Import ──
   let dxfUnit = $state<DxfUnit>('mm');
   let importNote = $state<string | null>(null);
+  /** The note says the import was refused: shown as a warning, not as a by-the-way. */
+  let importRefused = $state(false);
   async function importDxf(e: Event & { currentTarget: HTMLInputElement }) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = '';
     if (!file) return;
     const r = dxfSectionParts(await file.text(), dxfUnit, 1);
+    importRefused = r.problem === 'parseError' || r.problem === 'allMalformed' || r.problem === 'malformedPieces';
     if (r.problem === 'parseError' || r.problem === 'allMalformed') { importNote = t('drawn.dxfUnreadable'); return; }
+    /*
+     * A piece that could not be read refuses the whole import, the drawing left as it was: it may
+     * have been the outline or a hole, and a plate imported solid because its hole read NaN has
+     * the wrong properties with nothing on screen to say so.
+     */
+    if (r.problem === 'malformedPieces') {
+      importNote = [
+        t('drawn.dxfMalformed').replace('{list}', Object.entries(r.malformed).map(([type, n]) => `${n} × ${type}`).join(', ')),
+        r.incompleteBlocks.length > 0 ? t('drawn.dxfMalformedBlocks').replace('{names}', r.incompleteBlocks.join(', ')) : '',
+      ].filter(Boolean).join(' ');
+      return;
+    }
     const extra = [
       r.skipped.length > 0 ? t('drawn.dxfSkipped').replace('{types}', r.skipped.join(', ')) : '',
+      r.paperSpace > 0 ? t('drawn.dxfPaperSpace').replace('{n}', String(r.paperSpace)) : '',
+      r.hidden > 0 ? t('drawn.dxfHidden').replace('{n}', String(r.hidden)) : '',
+      r.cyclicBlocks.length > 0 ? t('drawn.dxfCyclic').replace('{names}', r.cyclicBlocks.join(', ')) : '',
       r.declaredUnit && r.declaredUnit !== dxfUnit ? t('drawn.dxfUnitDeclared').replace('{unit}', r.declaredUnit) : '',
     ].filter(Boolean).join(' ');
     if (r.parts.length === 0) { importNote = [t('drawn.dxfNothing').replace('{open}', String(r.open)), extra].filter(Boolean).join(' '); return; }
@@ -275,7 +293,7 @@
       </label>
     {/if}
   </div>
-  {#if importNote}<p class="note" data-testid="drawn-import-note">{importNote}</p>{/if}
+  {#if importNote}<p class="note" class:refused={importRefused} role={importRefused ? 'alert' : undefined} data-testid="drawn-import-note">{importNote}</p>{/if}
 
   <div class="main">
     <div class="left">
@@ -345,4 +363,5 @@
   .issues .error { color: var(--st-danger); }
   .issues .warning { color: var(--st-text-3); }
   .note { margin: 0; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
+  .note.refused { color: var(--st-danger); }
 </style>
