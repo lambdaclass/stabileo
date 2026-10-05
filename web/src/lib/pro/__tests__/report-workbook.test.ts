@@ -25,3 +25,19 @@ describe('report workbook', () => {
     expect(src).not.toMatch(/verificationStore\.setConcrete/);
   });
 });
+
+describe('the workbook names its sheets in words', () => {
+  /*
+   * `t()` returns the key when a translation is missing, so `t('report.verificationTitle') ||
+   * 'Verification'` never reached its fallback: the sheet was named «report.verificationTitle».
+   */
+  it('every key the export asks for exists in en, es and pt', async () => {
+    const src = readFileSync(new URL('../report-export.ts', import.meta.url), 'utf8');
+    const keys = [...new Set([...src.matchAll(/input\.t\('([^']+)'\)/g)].map((m) => m[1]!))];
+    expect(keys).toContain('report.verificationTitle');
+    for (const lang of ['en', 'es', 'pt'] as const) {
+      const dict = (await import(`../../i18n/locales/${lang}.ts`)).default as Record<string, string>;
+      expect(keys.filter((k) => !(k in dict)), lang).toEqual([]);
+    }
+  });
+});

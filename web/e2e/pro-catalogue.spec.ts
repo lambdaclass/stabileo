@@ -28,7 +28,7 @@ test.describe('@smoke PRO catalogue', () => {
     await page.getByTestId('profile-table-row').first().click();
     await expect(page.getByTestId('section-current')).toHaveText('HEM 1000');
     await page.getByTestId('section-dims-toggle').locator('summary').click();
-    await expect(page.getByTestId('dim-h')).toHaveText('1,008');
+    await expect(page.getByTestId('dim-h')).toHaveText('1008');
     await expect(page.getByTestId('dim-tw')).toContainText('21');
   });
 

@@ -63,21 +63,23 @@ export function starterParts(id: StarterId, profile: ProfileOutline, profileName
       return [right, left];
     }
     case 'doubleAngle': {
-      // Two 75 × 8 angles back to back with a 10 mm gusset gap, drawn on their centrelines.
+      // Two 75 × 8 angles back to back with a 10 mm gusset gap, drawn on their centrelines. A
+      // polyline ends square at its last point, so each leg runs to the full 75 on the outside.
       const t = 0.008, leg = 0.075, gap = 0.01;
       const L = (pid: number, mirror: boolean): DrawnPart => ({
         id: pid, rotationDeg: 0, mirror,
-        shape: { kind: 'polyline', points: [[t / 2, leg - t / 2], [t / 2, t / 2], [leg - t / 2, t / 2]], t },
+        shape: { kind: 'polyline', points: [[t / 2, leg], [t / 2, t / 2], [leg, t / 2]], t },
         at: [mirror ? -gap / 2 : gap / 2, 0],
       });
       return [L(1, false), L(2, true)];
     }
     case 'lippedC': {
+      // 200 × 75 × 20 × 2 to the outer faces: the web's centreline sits t/2 inside the back.
       const h = 0.2, b = 0.075, c = 0.02, t = 0.002;
-      const y = b - t / 2, z = h / 2 - t / 2;
+      const w = t / 2, y = b - t / 2, z = h / 2 - t / 2;
       return [{
         id: 1, rotationDeg: 0, at: [0, 0],
-        shape: { kind: 'polyline', points: [[y, z - c + t / 2], [y, z], [0, z], [0, -z], [y, -z], [y, -z + c - t / 2]], t },
+        shape: { kind: 'polyline', points: [[y, z - c + t / 2], [y, z], [w, z], [w, -z], [y, -z], [y, -z + c - t / 2]], t },
       }];
     }
     case 'filledTube': {

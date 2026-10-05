@@ -22,6 +22,26 @@ export function resolveOnUpdate(sec: Section): Section {
 }
 
 /**
+ * Re-resolve a section and mirror the resolved values back into its declared scalars.
+ *
+ * Declared values are the designed fallback — engine down, feature-flag rollback, readers that
+ * cannot see canonical state — and on a geometry-backed section nothing else keeps them current.
+ * `j` is mirrored even when the resolution found none: the previous constant describes another
+ * section, and keeping it would hand it back, as that section's own, to the next resolve.
+ */
+export function resolveAndMirror(sec: Section): Section {
+  const next = resolveOnUpdate(sec);
+  const st = next.canonical;
+  if (st?.kind === 'geometry-backed') {
+    next.a = st.a;
+    next.iy = st.iy;
+    next.iz = st.iz;
+    next.j = st.j ?? undefined;
+  }
+  return next;
+}
+
+/**
  * Re-resolve canonical state for every section in the map.
  *
  * The engine initialises asynchronously, so at app start — and for a model

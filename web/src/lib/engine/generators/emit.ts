@@ -37,6 +37,7 @@ import {
 import { canCompose, resolveProfile, type ResolvedProfile } from './profile-resolve';
 import { familyToShape } from '../../data/steel-profiles';
 import type { ProfileSpec } from '../../section/profile-spec';
+import { builtSectionFields, variablePairProblem } from './variable-pair';
 
 /** What a role is made of. */
 /*
@@ -87,6 +88,12 @@ export interface EmitOptions {
   name: string;
   /** One spec per role the topology actually uses. A missing role is an error. */
   profiles: Partial<Record<MemberRole, ProfileSpec>>;
+  /**
+   * The second section of a role whose members are of variable section (`GenMember.variableEnd`):
+   * at mid-span for a rafter, at the head for a column. Required for such a role, ignored for
+   * any other.
+   */
+  variable?: Partial<Record<MemberRole, ProfileSpec>>;
   material?: GeneratorMaterial;
 }
 
@@ -128,24 +135,43 @@ export function requiredRoles(t: Topology): MemberRole[] {
  * Checked before emission so a dialog can disable Generate with the reasons visible,
  * rather than letting the user press it and receive a throw.
  */
-export function validateProfiles(t: Topology, profiles: EmitOptions['profiles']): EmitProblem[] {
+/** The roles some of whose members are of variable section. */
+export function variableRoles(t: Topology): MemberRole[] {
+  return requiredRoles(t).filter((r) => t.members.some((m) => m.role === r && m.variableEnd));
+}
+
+export function validateProfiles(t: Topology, profiles: EmitOptions['profiles'], variable: EmitOptions['variable'] = {}): EmitProblem[] {
   const out: EmitProblem[] = [];
+  const varying = new Set(variableRoles(t));
   for (const role of requiredRoles(t)) {
     const spec = profiles[role];
     if (!spec) {
       out.push({ role, key: 'generator.problem.profileMissing', params: { role } });
       continue;
     }
-    const resolved = resolveProfile(spec.profileName);
-    if (!resolved) {
-      out.push({ role, key: 'generator.problem.profileUnknown', params: { name: spec.profileName } });
-      continue;
-    }
-    const refusal = canCompose(resolved, spec.arrangement);
-    if (refusal) out.push({ role, key: refusal.key, params: refusal.params });
-    if (spec.gapMm < 0) {
-      out.push({ role, key: 'generator.problem.negative', params: { role } });
-    }
+    out.push(...specProblems(role, spec));
+    if (!varying.has(role)) continue;
+    const end = variable[role];
+    if (!end) { out.push({ role, key: 'generator.problem.variableMissing', params: { role } }); continue; }
+    out.push(...specProblems(role, end));
+    const pair = variablePairProblem(spec, end);
+    if (pair) out.push({ role, key: pair, params: { role } });
+  }
+  return out;
+}
+
+/** What is wrong with one spec. */
+function specProblems(role: MemberRole, spec: ProfileSpec): EmitProblem[] {
+  if (spec.built) {
+    return builtSectionFields(spec) ? [] : [{ role, key: 'generator.problem.builtInvalid', params: { name: spec.profileName } }];
+  }
+  const resolved = resolveProfile(spec.profileName);
+  if (!resolved) return [{ role, key: 'generator.problem.profileUnknown', params: { name: spec.profileName } }];
+  const out: EmitProblem[] = [];
+  const refusal = canCompose(resolved, spec.arrangement);
+  if (refusal) out.push({ role, key: refusal.key, params: refusal.params });
+  if (spec.gapMm < 0) {
+    out.push({ role, key: 'generator.problem.negative', params: { role } });
   }
   return out;
 }
@@ -158,7 +184,7 @@ export function validateProfiles(t: Topology, profiles: EmitOptions['profiles'])
  * would be a model with a section of zero area.
  */
 export function emitModel(t: Topology, opts: EmitOptions): GeneratedModel {
-  const problems = validateProfiles(t, opts.profiles);
+  const problems = validateProfiles(t, opts.profiles, opts.variable);
   if (problems.length > 0) {
     throw new Error(`emitModel: invalid profile selection — ${problems.map((p) => `${p.role ?? '?'}:${p.key}`).join(', ')}`);
   }
@@ -173,14 +199,17 @@ export function emitModel(t: Topology, opts: EmitOptions): GeneratedModel {
   const composed: Partial<Record<MemberRole, BuiltUpSection>> = {};
   const sections: JSONModel['sections'] = [];
 
-  roles.forEach((role, index) => {
-    const spec = opts.profiles[role]!;
+  /** One section row for a spec, its id the next free one. */
+  const addSection = (spec: ProfileSpec, role: MemberRole, primary: boolean): number => {
+    const id = sections.length + 1;
+    const fields = spec.built ? builtSectionFields(spec) : null;
+    if (fields) {
+      sections.push({ id, ...fields });
+      return id;
+    }
     const resolved = resolveProfile(spec.profileName)!;
     const built = composeBuiltUp(resolved.profile, spec.arrangement, spec.gapMm / 1000);
-    composed[role] = built;
-
-    const id = index + 1;
-    sectionIdOf.set(role, id);
+    if (primary) composed[role] = built;
     sections.push(sectionJson(id, built, resolved, spec));
 
     assumptions.add(torsionBasisKey(built.jBasis));
@@ -188,7 +217,12 @@ export function emitModel(t: Topology, opts: EmitOptions): GeneratedModel {
     if (resolved.areaDeviation !== null && Math.abs(resolved.areaDeviation) > 0.005) {
       assumptions.add('generator.assume.nominalDimensionFamily');
     }
-  });
+    return id;
+  };
+  // The role's own sections first, in role order; then the second section of each varying role.
+  for (const role of roles) sectionIdOf.set(role, addSection(opts.profiles[role]!, role, true));
+  const endIdOf = new Map<MemberRole, number>();
+  for (const role of variableRoles(t)) endIdOf.set(role, addSection(opts.variable![role]!, role, false));
 
   // ── Nodes, elements, supports ──
   const nodes: JSONModel['nodes'] = t.nodes.map((n, i) => ({ id: i + 1, x: n.x, y: n.y, z: n.z }));
@@ -209,13 +243,17 @@ export function emitModel(t: Topology, opts: EmitOptions): GeneratedModel {
     // A number applies to every member of the role; `'auto'` keeps whatever roll the
     // generator worked out for this particular member, and 0 where it worked out none.
     const roll = spec.rotationDeg === 'auto' ? (m.rollAngleDeg ?? 0) : spec.rotationDeg;
+    // Of variable section: end I's section is the one at whichever end the member starts from.
+    const own = sectionIdOf.get(m.role)!, end = m.variableEnd ? endIdOf.get(m.role) : undefined;
+    const [sI, sJ] = end === undefined ? [own, undefined] : m.variableEnd === 'b' ? [own, end] : [end, own];
     return {
       id: i + 1,
       type: m.type,
       nodeI: m.a + 1,
       nodeJ: m.b + 1,
       materialId: 1,
-      sectionId: sectionIdOf.get(m.role)!,
+      sectionId: sI,
+      ...(sJ !== undefined ? { variableSection: { sectionJ: sJ } } : {}),
       ...(roll !== 0 ? { rollAngle: roll } : {}),
     };
   });

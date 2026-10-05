@@ -37,7 +37,7 @@
   {#if draft.elastic}
     <span class="sd-group" data-testid="sup-springs">
       {#each DOF_SPRING.filter(([d]) => draft.dofs[d]) as [d, k] (k)}
-        <label class="sd-k">{k}
+        <label class="sd-k">{k} <span class="sd-unit">{unit(d)}</span>
           <input type="number" min="0" step="any" value={draft.springs[k] ?? ''} placeholder={t('support.rigid')}
             title={unit(d)} onchange={(e) => { const v = Number(e.currentTarget.value); draft.springs[k] = v > 0 ? v : undefined; }}
             data-testid="sup-k-{k}" />
@@ -60,4 +60,5 @@
     background: none; color: var(--st-text-2); font: inherit; cursor: pointer;
   }
   .sd-btn:hover { color: var(--st-text); border-color: var(--st-accent); }
+  .sd-unit { color: var(--st-text-3); font-size: 0.6rem; }
 </style>

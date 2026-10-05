@@ -26,13 +26,19 @@
   const mm = (m: number) => +(m * 1000).toFixed(3);
   const setShape = (patch: Partial<DrawnShape>) => onChange({ ...part, shape: { ...part.shape, ...patch } as DrawnShape });
   function len(e: Event & { currentTarget: HTMLInputElement }, apply: (m: number) => void, current: number, allowZero = false) {
-    const v = Number(e.currentTarget.value.replace(',', '.'));
-    if (Number.isFinite(v) && (v > 0 || (allowZero && v === 0))) apply(v / 1000);
+    const v = typed(e.currentTarget.value);
+    if (v != null && (v > 0 || (allowZero && v === 0))) apply(v / 1000);
     else e.currentTarget.value = String(mm(current));
   }
+  /** A typed number, or null for an empty or unreadable field: an emptied field is not a zero. */
+  const typed = (raw: string) => {
+    const r = raw.trim().replace(',', '.');
+    const v = r === '' ? NaN : Number(r);
+    return Number.isFinite(v) ? v : null;
+  };
   function coord(e: Event & { currentTarget: HTMLInputElement }, i: 0 | 1) {
-    const v = Number(e.currentTarget.value.replace(',', '.'));
-    if (!Number.isFinite(v)) { e.currentTarget.value = String(mm(part.at[i])); return; }
+    const v = typed(e.currentTarget.value);
+    if (v == null) { e.currentTarget.value = String(mm(part.at[i])); return; }
     const at: Pt = [...part.at];
     at[i] = v / 1000;
     onChange({ ...part, at });
@@ -41,9 +47,18 @@
   /** Points as "y z; y z; …" in millimetres, the way a coordinate list is usually pasted. */
   const pointsText = (pts: Pt[]) => pts.map(([y, z]) => `${mm(y)} ${mm(z)}`).join('; ');
   let pointsProblem = $state(false);
+  /*
+   * One point. A comma followed by a space separates, as does any space; a comma inside a
+   * number is its decimal mark, as a reader with a decimal comma types "12,5 40". With no space
+   * at all, "12,40", the comma can only be the separator.
+   */
+  const pointOf = (raw: string) => {
+    const s = raw.replace(/,\s+/g, ' ').trim();
+    const bits = /\s/.test(s) ? s.split(/\s+/).map((b) => b.replace(',', '.')) : s.split(',');
+    return bits.map((b) => (b.trim() === '' ? NaN : Number(b)));
+  };
   function points(e: Event & { currentTarget: HTMLTextAreaElement }, min: number) {
-    const pts = e.currentTarget.value.split(/[;\n]/).map((s) => s.trim()).filter(Boolean)
-      .map((s) => s.split(/[\s,]+/).map(Number));
+    const pts = e.currentTarget.value.split(/[;\n]/).map((s) => s.trim()).filter(Boolean).map(pointOf);
     const ok = pts.length >= min && pts.every((p) => p.length === 2 && p.every(Number.isFinite));
     pointsProblem = !ok;
     if (ok) setShape({ points: pts.map(([y, z]) => [y! / 1000, z! / 1000] as Pt) } as Partial<DrawnShape>);
@@ -105,7 +120,7 @@
     <label>z<input type="number" value={mm(part.at[1])} data-testid="drawn-z" onchange={(e) => coord(e, 1)} /></label>
     <label>{t('drawn.rotation')}
       <input type="number" step="15" value={part.rotationDeg} data-testid="drawn-rot"
-        onchange={(e) => { const v = Number(e.currentTarget.value); if (Number.isFinite(v)) onChange({ ...part, rotationDeg: v }); }} />
+        onchange={(e) => { const v = typed(e.currentTarget.value); if (v != null) onChange({ ...part, rotationDeg: v }); else e.currentTarget.value = String(part.rotationDeg); }} />
     </label>
     <label class="check"><input type="checkbox" checked={!!part.mirror} onchange={(e) => onChange({ ...part, mirror: e.currentTarget.checked || undefined })} />{t('drawn.mirror')}</label>
     <label class="check"><input type="checkbox" checked={!!part.void} data-testid="drawn-void" onchange={(e) => onChange({ ...part, void: e.currentTarget.checked || undefined })} />{t('drawn.hole')}</label>

@@ -93,5 +93,47 @@ test.describe('@smoke a share link carries the whole model', () => {
     expect(await census(recipient), 'every kind has to arrive, not just the geometry')
       .toEqual(before);
     expect(pageErrors, 'opening a long link must not throw').toEqual([]);
+
+    /*
+     * And the way the published site actually opens it. `/app/basic` is no file on the host, so
+     * 404.html bounces it to `/?route=…`; that bounce used to fold the fragment into the query,
+     * where the host answered 414 to any link past about 8 000 characters, this one included.
+     * The preview server here serves `/app/basic` directly, which is why nothing caught it.
+     */
+    const bounced = await context.newPage();
+    const hash = url.slice(url.indexOf('#'));
+    await bounced.goto(`/?route=${encodeURIComponent('/app/basic?e2e=1')}${hash}`, { waitUntil: 'networkidle', timeout: 90_000 });
+    // Back on the app's own address (the app then reads the fragment and clears it).
+    await expect(bounced).toHaveURL(/\/app\/basic\?e2e=1/, { timeout: 30_000 });
+    await bounced.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await expect.poll(() => bounced.evaluate(() => window.__stabileo.modelCensus().nodes), { timeout: 30_000 })
+      .toBe(before.nodes);
+  });
+
+  test('a model too large for a link has the button blocked, and says to send the file', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    // A 3D lattice of 1 600 nodes at irregular coordinates: far past the ceiling once compressed.
+    const N = 1600;
+    const nodes = Array.from({ length: N }, (_, k) => [k + 1, { id: k + 1, x: (k % 40) * 1.37 + (k % 7) * 0.013, y: Math.floor(k / 40) * 1.91 + (k % 11) * 0.017, z: (k % 13) * 0.29 }]);
+    const elements = Array.from({ length: N - 1 }, (_, k) => [k + 1, {
+      id: k + 1, type: 'frame', nodeI: k + 1, nodeJ: k + 2, materialId: 1, sectionId: 1,
+      releaseI: { my: false, mz: false, t: false }, releaseJ: { my: false, mz: false, t: false },
+    }]);
+    const ok = await page.evaluate((f) => window.__stabileoActions.loadProject(f), {
+      version: '2.0', name: 'big', timestamp: '2026-01-01T00:00:00.000Z', analysisMode: '3d',
+      snapshot: {
+        name: 'big', localAxisConvention: 'zUpStrongAxis', nodes, elements,
+        materials: [[1, { id: 1, name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250 }]],
+        sections: [[1, { id: 1, name: 'IPN 300', a: 0.0069, iy: 9.8e-05, iz: 4.51e-06, j: 4.666e-07, b: 0.125, h: 0.3, shape: 'I', tw: 0.0108, tf: 0.0162 }]],
+        supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]], loads: [], loadCases: [{ id: 1, type: 'D', name: 'Dead Load' }], combinations: [],
+        nextId: { node: N + 1, material: 2, section: 2, element: N, support: 2, load: 1, loadCase: 2, combination: 1, plate: 1, quad: 1, group: 1, connector: 1, footing: 1, soilProfile: 1 },
+      },
+    });
+    expect(ok).toBe(true);
+    await page.getByTestId('hdr-project').click();
+    await expect(page.getByTestId('project-share-link')).toBeDisabled({ timeout: 10_000 });
+    await expect(page.getByTestId('project-share-link-wrap')).toHaveAttribute('title', /\.ded/);
   });
 });

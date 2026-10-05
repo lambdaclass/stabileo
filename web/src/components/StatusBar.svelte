@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { displayUnits } from '../lib/store/display-units.svelte';
   import { uiStore, modelStore } from '../lib/store';
   import { toDisplay, unitLabel } from '../lib/utils/units';
   import { t } from '../lib/i18n';
@@ -54,6 +55,12 @@
     if (s > 0) parts.push(`${s} ${s > 1 ? t('status.supportsPlural') : t('status.supports')}`);
     return parts.length > 0 ? parts.join(', ') : t('status.empty');
   }
+  /** A length in the chosen units, with the reader's decimals for lengths (2 when unset). */
+  function len(v: number): string {
+    const d = displayUnits.decimals.length ?? 2;
+    const s = toDisplay(v, 'length', uiStore.unitSystem).toFixed(d);
+    return Number(s) === 0 ? (0).toFixed(d) : s;
+  }
 </script>
 
 <!--
@@ -79,7 +86,7 @@
   <div class="status-item">
     <span class="status-label">{t('status.pos')}:</span>
     <span class="status-value">
-      ({toDisplay(uiStore.worldX, 'length', uiStore.unitSystem).toFixed(2)}, {toDisplay(uiStore.worldY, 'length', uiStore.unitSystem).toFixed(2)}) {unitLabel('length', uiStore.unitSystem)}
+      ({len(uiStore.worldX)}, {len(uiStore.worldY)}) {unitLabel('length', uiStore.unitSystem)}
     </span>
   </div>
   {#if !uiStore.is3DWorkspace}
@@ -99,7 +106,7 @@
   {#if uiStore.snapToGrid}
     <div class="status-item">
       <span class="status-label">{t('status.grid')}:</span>
-      <span class="status-value">{toDisplay(uiStore.gridSize, 'length', uiStore.unitSystem).toFixed(2)} {unitLabel('length', uiStore.unitSystem)}</span>
+      <span class="status-value">{len(uiStore.gridSize)} {unitLabel('length', uiStore.unitSystem)}</span>
     </div>
   {/if}
 </div>

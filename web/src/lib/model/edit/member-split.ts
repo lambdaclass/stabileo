@@ -26,6 +26,10 @@
  * interpolated at each cut so every flexible segment stays on the original line. An
  * interior cut is a rigid continuous connection, which is what cutting a continuous member means.
  *
+ * A member of variable section's two sections are neither: each segment takes the section at its
+ * own ends, which the caller makes (`section/variable.ts`, `variableCutSection`), so
+ * `variableSection` is left out here.
+ *
  * Reinforcement does not follow. Bars are laid out against a member's length and supports, and
  * a segment is neither; the segments are left undesigned and the caller reports it.
  *
@@ -159,11 +163,11 @@ const NO_RELEASE: Release = { my: false, mz: false, t: false };
 /**
  * The fields segment `k` of `count` takes from the original member, node ids aside.
  *
- * `reinforcement` is left out on purpose; see the module note.
+ * `reinforcement` and `variableSection` are left out on purpose; see the module note.
  */
 export function segmentFields(elem: Element, k: number, count: number, t0 = k / count, t1 = (k + 1) / count): Omit<Element, 'id' | 'nodeI' | 'nodeJ'> {
   const first = k === 0, last = k === count - 1;
-  const { id: _id, nodeI: _i, nodeJ: _j, reinforcement: _r, releaseI, releaseJ, jointI, jointJ, offset, ...whole } = elem;
+  const { id: _id, nodeI: _i, nodeJ: _j, reinforcement: _r, variableSection: _v, releaseI, releaseJ, jointI, jointJ, offset, ...whole } = elem;
   const out: Omit<Element, 'id' | 'nodeI' | 'nodeJ'> = {
     ...whole,
     releaseI: first ? { ...(releaseI ?? NO_RELEASE) } : { ...NO_RELEASE },

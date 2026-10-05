@@ -100,6 +100,27 @@ function isCircularFamily(source: Record<string, unknown> | undefined): boolean 
 }
 
 /**
+ * A circle's or circular tube's area and second moments in closed form, from its radii.
+ *
+ * The engine polygonises the boundary, and a chord-sided disc is short of the disc: measured 0.07 %
+ * on A and 0.14 % on I and J at the engine's density. Small, but it put a J labelled exact 0.14 %
+ * under πd⁴/32. The polygon's vertices lie on the true circles, so the radii are read off them and
+ * the shape's own formulas used. Null when the outline is not one ring of a solid and at most one
+ * void, which leaves the polygon's numbers.
+ */
+function exactCircular(geometry: CanonicalGeometry, yc: number, zc: number): { a: number; iy: number; iz: number; iyz: number; i1: number; i2: number } | null {
+  const solids = geometry.polygons.filter((q) => !q.isVoid);
+  const voids = geometry.polygons.filter((q) => q.isVoid);
+  if (solids.length !== 1 || voids.length > 1) return null;
+  const radius = (vs: Array<[number, number]>) => vs.reduce((m, v) => Math.max(m, Math.hypot(v[0] - yc, v[1] - zc)), 0);
+  const ro = radius(solids[0]!.vertices);
+  const ri = voids[0] ? radius(voids[0].vertices) : 0;
+  if (!(ro > ri) || !Number.isFinite(ro)) return null;
+  const i = (Math.PI * (ro ** 4 - ri ** 4)) / 4;
+  return { a: Math.PI * (ro ** 2 - ri ** 2), iy: i, iz: i, iyz: 0, i1: i, i2: i };
+}
+
+/**
  * Torsional constant plus provenance, honouring the Routh prohibition.
  *
  * The ONLY geometry-derived case is the circular family, where the torsional
@@ -227,7 +248,10 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
     };
   }
 
-  const p = resolved.properties;
+  const circle = isCircularFamily(resolved.geometry.source)
+    ? exactCircular(resolved.geometry, resolved.properties.yc, resolved.properties.zc)
+    : null;
+  const p = circle ? { ...resolved.properties, ...circle } : resolved.properties;
   const torsion = sec.drawn
     ? drawnTorsion(sec, opts.torsion === true, resolved.digest)
     : resolveTorsion(
@@ -260,16 +284,19 @@ export function resolveSectionState(sec: Section, opts: ResolveOptions = {}): Se
 /**
  * A drawn section's torsion constant: Saint-Venant on each connected piece, summed.
  *
- * Never the stored `j`, which describes whatever the parts were when it was written. Without the
- * torsion pass (a browsing caller) the stored value stands in, marked as computed, because the
- * only writer of `j` on a drawn section is this same analysis at the time it was applied.
+ * Never the stored `j` when this drawing has been solved: that answer, a failure included, is
+ * the drawing's. Without the torsion pass (a browsing caller) and no solve on record, the stored
+ * value stands in, marked as computed, because the only writers of `j` on a drawn section are this
+ * analysis and the store mirroring it — which writes none when the analysis found none.
  */
 function drawnTorsion(sec: Section, solve: boolean, digest: string): { j: number | null; jProvenance: TorsionProvenance } {
-  if (!solve) {
+  // The ratios of the parts' materials belong in the key: the geometry digest has none, so a
+  // material's E or ν edited after the section was drawn kept the J of the old ratios.
+  const key = `drawn:${digest}:${sec.drawn!.parts.map((p) => (p.ratio ? `${p.ratio.e},${p.ratio.g}` : '1')).join(';')}`;
+  let j = torsionJCache.get(key);
+  if (!solve && j === undefined) {
     return sec.j != null && sec.j > 0 ? { j: sec.j, jProvenance: 'saintVenant' } : { j: null, jProvenance: 'unavailable' };
   }
-  const key = `drawn:${digest}`;
-  let j = torsionJCache.get(key);
   if (j === undefined) {
     try {
       j = analyzeDrawn(sec.drawn!, catalogueOutline).properties?.j ?? null;

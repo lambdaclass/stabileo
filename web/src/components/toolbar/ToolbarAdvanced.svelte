@@ -65,6 +65,7 @@
   import { t } from '../../lib/i18n';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { variableRefusal2D } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
@@ -351,6 +352,12 @@
     }
     if (modelStore.hasJoint3D()) {
       uiStore.toast(t('advanced.jointsUnsupported'), 'error');
+      return true;
+    }
+    // The plane analyses do not model a member of variable section; 3D cuts it into pieces.
+    const variable = threeD() ? null : variableRefusal2D(modelStore.model);
+    if (variable) {
+      uiStore.toast(variable, 'error');
       return true;
     }
     return false;

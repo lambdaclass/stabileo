@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   import { t } from '../../../lib/i18n';
   /**
    * The drawing of a drawn section: every part in its material's colour, holes dashed, the
@@ -29,19 +30,41 @@
   const { drawn, sp, selected, profile, materialOrder, materialNames, onSelect, onMove, onDrag }: Props = $props();
 
   const W = 420, H = 300;
-  const outlines = $derived(drawn.parts.map((p) => ({ part: p, polys: partOutline(p, profile) })));
+  /** Holes are drawn over the solids, so a hole is picked from inside it, not only by its edge. */
+  const outlines = $derived([...drawn.parts.filter((p) => !p.void), ...drawn.parts.filter((p) => p.void)].map((p) => ({ part: p, polys: partOutline(p, profile) })));
   const box = $derived.by(() => {
     const all = outlines.flatMap((o) => o.polys ?? []);
     if (all.length === 0) return [-0.1, -0.1, 0.1, 0.1] as [number, number, number, number];
     return bboxOf(all);
   });
-  /** Metres to pixels, the drawing fitted with room for the dimension lines. */
-  const view = $derived.by(() => {
+  /** Metres to drawing units, the drawing fitted with room for the dimension lines. */
+  type View = { k: number; cy: number; cz: number };
+  const fitted = $derived.by((): View => {
     const [y0, z0, y1, z1] = box;
     const w = Math.max(y1 - y0, 1e-3), h = Math.max(z1 - z0, 1e-3);
-    const k = Math.min((W - 90) / w, (H - 80) / h);
-    const cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
-    return { k, px: (y: number) => W / 2 + 15 + (y - cy) * k, pz: (z: number) => H / 2 - 10 - (z - cz) * k };
+    return { k: Math.min((W - 90) / w, (H - 80) / h), cy: (y0 + y1) / 2, cz: (z0 + z1) / 2 };
+  });
+  /*
+   * While a part is dragged the view holds still. It used to be refitted on every move from the
+   * box of all the parts, which the drag itself was changing, so the scale shrank and the centre
+   * slid under the pointer: the part followed at a fraction of the pointer's travel, less and
+   * less, like something pulled on a rope.
+   */
+  let frozen = $state<View | null>(null);
+  /*
+   * And after the drop it stays where it was while the drawing still fits in it, so the part
+   * does not jump away from where it was let go. A new set of parts, a drawing grown out of the
+   * frame or shrunk well inside it, fits it again.
+   */
+  let held = $state<{ v: View; ids: string } | null>(null);
+  const ids = $derived(drawn.parts.map((p) => p.id).join(','));
+  const fits = (v: View) => {
+    const x = (y: number) => W / 2 + 15 + (y - v.cy) * v.k, z = (zz: number) => H / 2 - 10 - (zz - v.cz) * v.k;
+    return x(box[0]) >= 45 && x(box[2]) <= W - 10 && z(box[3]) >= 15 && z(box[1]) <= H - 30 && fitted.k < 1.6 * v.k;
+  };
+  const view = $derived.by(() => {
+    const v = frozen ?? (held && held.ids === ids && fits(held.v) ? held.v : fitted);
+    return { ...v, px: (y: number) => W / 2 + 15 + (y - v.cy) * v.k, pz: (z: number) => H / 2 - 10 - (z - v.cz) * v.k };
   });
 
   const path = (polys: Array<Array<Array<[number, number]>>>) =>
@@ -52,7 +75,7 @@
   /** The materials the drawing uses, in colour order, for the legend and the hatches. */
   const used = $derived(materialOrder.filter((m) => drawn.parts.some((p) => !p.void && (p.materialId ?? null) === m)));
   const hatchId = (m: number | null) => `drawn-hatch-${m ?? 'ref'}`;
-  const mm = (m: number) => (m * 1000).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const mm = (m: number) => plainNumber(m * 1000, 1);
 
   const selBox = $derived.by(() => {
     const o = outlines.find((x) => x.part.id === selected);
@@ -61,24 +84,36 @@
 
   // ── Dragging ──
   let svgEl: SVGSVGElement | undefined = $state();
-  let drag: { id: number; start: Pt; at0: Pt } | null = null;
+  let drag: { id: number; start: Pt; at0: Pt; client: [number, number]; moving: boolean } | null = null;
+  /*
+   * Pointer to model coordinates through the SVG's own screen matrix: the drawing is letterboxed
+   * inside a wider box (`height: auto`, `max-height`), and scaling x by the box's width and z by
+   * its height moved the part at about half the pointer's speed sideways.
+   */
   const toModel = (e: PointerEvent): Pt | null => {
-    if (!svgEl) return null;
-    const r = svgEl.getBoundingClientRect();
-    const sx = ((e.clientX - r.left) / r.width) * W, sz = ((e.clientY - r.top) / r.height) * H;
-    return [sx / view.k, -sz / view.k];
+    const m = svgEl?.getScreenCTM();
+    if (!svgEl || !m) return null;
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return [view.cy + (pt.x - W / 2 - 15) / view.k, view.cz - (pt.y - H / 2 + 10) / view.k];
   };
   function down(e: PointerEvent, part: DrawnPart) {
     e.stopPropagation();
     onSelect(part.id);
+    if (e.button !== 0) return;   // a right click selects, it does not drag
+    frozen = { k: view.k, cy: view.cy, cz: view.cz };
     const p = toModel(e);
-    if (!p) return;
-    drag = { id: part.id, start: p, at0: part.at };
+    if (!p) { frozen = null; return; }
+    drag = { id: part.id, start: p, at0: part.at, client: [e.clientX, e.clientY], moving: false };
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    onDrag(true);
   }
   function move(e: PointerEvent) {
     if (!drag) return;
+    // A click's jitter is not a move: three pixels before the part leaves its place.
+    if (!drag.moving) {
+      if (Math.hypot(e.clientX - drag.client[0], e.clientY - drag.client[1]) < 3) return;
+      drag.moving = true;
+      onDrag(true);
+    }
     const p = toModel(e);
     const part = drawn.parts.find((x) => x.id === drag!.id);
     if (!p || !part) return;
@@ -87,10 +122,14 @@
     const snapped = snapOffset(part, at, drawn.parts.filter((x) => x.id !== part.id && !x.void), 6 / view.k, profile);
     onMove(part.id, snapped);
   }
+  /** The drag ends on release, on a cancelled pointer, or when the capture is lost. */
   function up() {
     if (!drag) return;
+    const wasMoving = drag.moving;
     drag = null;
-    onDrag(false);
+    if (wasMoving && frozen) held = { v: frozen, ids };
+    frozen = null;
+    if (wasMoving) onDrag(false);
   }
 
   const axes = $derived.by(() => {
@@ -108,7 +147,7 @@
 <svg
   bind:this={svgEl}
   viewBox="0 0 {W} {H}" class="canvas" data-testid="drawn-canvas"
-  onpointermove={move} onpointerup={up} onpointerleave={up}
+  onpointermove={move} onpointerup={up} onpointercancel={up} onlostpointercapture={up}
   onpointerdown={() => onSelect(null)}
   role="img" aria-label={t('section.drawingAria')}
 >
@@ -129,6 +168,7 @@
         stroke={o.part.id === selected ? 'var(--st-selected)' : o.part.void ? 'var(--st-text-2)' : colourOf(o.part)}
         stroke-width={o.part.id === selected ? 2 : 1.2}
         stroke-dasharray={o.part.void ? '4 3' : undefined}
+        pointer-events={o.part.void ? 'all' : undefined}
         class="part"
         data-testid="drawn-part-shape"
         onpointerdown={(e) => down(e, o.part)}
@@ -201,6 +241,8 @@
     touch-action: none; user-select: none;
   }
   .part { cursor: grab; }
+  /* Drawn over the parts, and never in the way of grabbing one. */
+  .axis, .mark, .lbl, .dim, .legend { pointer-events: none; }
   .axis { stroke: var(--st-value); stroke-width: 0.8; stroke-dasharray: 6 3; opacity: 0.8; }
   .mark { stroke: var(--st-value); stroke-width: 1.4; }
   .lbl { fill: var(--st-value); font-size: 10px; font-family: var(--st-mono, monospace); }

@@ -409,14 +409,15 @@
           <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
         </label>
         <label class="ft-input-group" title={t('float.prescribedDy')}>
-          <span>dy:</span>
-          <input type="number" step="0.001" value={selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dy', e.currentTarget.value)} />
+          <!-- The plane is XZ: named as SupportDetails names them, and written to the store's own fields. -->
+          <span>dz:</span>
+          <input type="number" step="0.001" value={selectedSup.dz ?? selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dz', e.currentTarget.value)} />
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
         <label class="ft-input-group" title={t('float.prescribedDrz')}>
-          <span>dθz:</span>
-          <input type="number" step="0.001" value={selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'drz', e.currentTarget.value)} />
+          <span>dθy:</span>
+          <input type="number" step="0.001" value={selectedSup.dry ?? selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dry', e.currentTarget.value)} />
         </label>
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>

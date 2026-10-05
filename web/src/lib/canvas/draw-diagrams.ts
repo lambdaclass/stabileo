@@ -8,7 +8,7 @@ import {
   computeDiagramValueAt,
   type ElementDiagram,
 } from '../engine/diagrams';
-import { toDisplay, unitLabel, type UnitSystem } from '../utils/units';
+import { type UnitSystem, formatDiagramValue } from '../utils/units';
 
 export type DiagramKind = 'moment' | 'shear' | 'axial';
 
@@ -320,15 +320,7 @@ export function setDiagramUnitSystem(us: UnitSystem): void {
 }
 
 function formatValue(value: number, kind: DiagramKind): string {
-  const qty = kind === 'moment' ? 'moment' as const : 'force' as const;
-  // Negate moment values for display: internal convention is hogging=positive,
-  // but standard engineering convention is sagging=positive
-  const displayed = toDisplay(kind === 'moment' ? -value : value, qty, _unitSystem);
-  const abs = Math.abs(displayed);
-  const sign = displayed < 0 ? '-' : '';
-  const formatted = abs >= 100 ? abs.toFixed(0) : abs >= 10 ? abs.toFixed(1) : abs.toFixed(2);
-  const unit = ' ' + unitLabel(qty, _unitSystem);
-  return sign + formatted + unit;
+  return formatDiagramValue(value, kind === 'moment' ? 'moment' : 'force', _unitSystem);
 }
 
 // ─── Envelope Diagram Rendering ──────────────────────────────────

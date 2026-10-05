@@ -20,6 +20,7 @@ import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
+import { dofQuantity } from '../utils/units';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
@@ -1027,10 +1028,10 @@ export function syncConstraintForces(ctx: ResultsSyncContext): void {
   ctx.constraintForcesGroup = new THREE.Group();
   ctx.constraintForcesGroup.name = 'constraintForces';
 
-  // Max force for scaling (translational only)
+  // Max force for scaling (translational only: a bimoment on `warping` is neither, and is not drawn)
   let maxF = 0;
   for (const cf of forces) {
-    if (!cf.dof.startsWith('r')) {
+    if (dofQuantity(cf.dof) === 'force') {
       maxF = Math.max(maxF, Math.abs(cf.force));
     }
   }
