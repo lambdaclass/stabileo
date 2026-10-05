@@ -54,7 +54,9 @@
     const taken = new Set(combinations.map((c) => c.name));
     let n = combinations.length + 1;
     while (taken.has(`C${n}`)) n++;
-    const id = modelStore.addCombination(`C${n}`, loadCases.map((lc) => ({ caseId: lc.id, factor: 1 })));
+    // Every case at zero: a new combination names what it takes, and a case left at 1 by default
+    // went into it unnoticed.
+    const id = modelStore.addCombination(`C${n}`, loadCases.map((lc) => ({ caseId: lc.id, factor: 0 })));
     open = new Set([...open, id]);
   }
 

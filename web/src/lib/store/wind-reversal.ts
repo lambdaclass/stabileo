@@ -73,7 +73,7 @@ function actsHorizontally(model: ModelData, l: ModelData['loads'][number], embed
       return ends.every((v) => v !== null && horizontal(v));
     }
     case 'pointOnElement3d': {
-      if (d.frame === 'global') return horizontal([n('px'), n('py'), n('pz')]);
+      if ((l.data as { frame?: string }).frame === 'global') return horizontal([n('px'), n('py'), n('pz')]);
       const ax = axesOf(model, n('elementId'), embed);
       const v = local3D(model, n('elementId'), embed, n('py'), n('pz'));
       return v !== null && !!ax && horizontal([0, 1, 2].map((k) => v[k]! + ax.ex[k]! * n('px')) as V3);

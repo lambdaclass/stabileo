@@ -25,6 +25,7 @@
   import { memberNearPointer, nodeNearPointer } from '../lib/viewport3d/screen-pick';
   import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
   import { pickLoadAt } from '../lib/viewport/load-pick';
+  import { activeStretchHandles, handleUnder, stationOnRay, moveStretchEnd, handleMeshes, type StretchHandles } from '../lib/viewport3d/load-handles';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -147,6 +148,21 @@
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
+
+  // ─── A member load's stretch, dragged by its handles ───────
+  let stretchDrag: { h: StretchHandles; end: 'a' | 'b'; moved: boolean } | null = null;
+  let stretchHandleGroup: THREE.Group | null = null;
+  $effect(() => {
+    // The handles of the one distributed load selected, rebuilt as it changes.
+    void modelStore.loads; void uiStore.selectedLoads; void uiStore.analysisMode;
+    if (!loadsParent) return;
+    untrack(() => {
+      if (stretchHandleGroup) { loadsParent.remove(stretchHandleGroup); disposeObject(stretchHandleGroup); stretchHandleGroup = null; }
+      const h = activeStretchHandles();
+      if (h) { stretchHandleGroup = handleMeshes(h); loadsParent.add(stretchHandleGroup); }
+      invalidate?.();
+    });
+  });
 
   // ─── Node dragging state ───────────────────────────────────
   let draggedNodeId3D = $state<number | null>(null);
@@ -1707,6 +1723,14 @@
          * history was lost. The drag now starts on the first real movement (below, in the move
          * handler); a release before that is a plain click.
          */
+        // A handle of the selected load's stretch takes the press first.
+        const stretch = tool === 'select' ? activeStretchHandles() : null;
+        const end = stretch && camera ? handleUnder(stretch, camera, container.getBoundingClientRect(), e.clientX, e.clientY) : null;
+        if (stretch && end) {
+          stretchDrag = { h: stretch, end, moved: false };
+          controls.enabled = false;
+          return;
+        }
         const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
         if (nodeId !== null) {
@@ -2199,6 +2223,13 @@
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
       // At the click itself, not a frame late.
       if (moved < 5 && placementStore.follow) { pendingPlacementHover = null; placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
+      return;
+    }
+
+    // ── A stretch end let go ──
+    if (stretchDrag) {
+      stretchDrag = null;
+      controls.enabled = true;
       return;
     }
 
@@ -2797,6 +2828,21 @@
     // During orbit we clear any stale hover and skip entirely — recursive raycasts
     // over a large scene are the main cost of orbit on pro fixtures.
     scheduleHoverRaycast(e);
+
+    // ─── A stretch end dragged along its member: one undo step for the whole drag ──
+    if (stretchDrag && camera) {
+      updateMouseNDC(e);
+      raycaster.setFromCamera(mouse, camera);
+      if (!stretchDrag.moved) { historyStore.pushState(); stretchDrag.moved = true; }
+      const s = stationOnRay(stretchDrag.h, raycaster.ray);
+      const drag = stretchDrag;
+      modelStore.withoutUndo(() => moveStretchEnd(drag.h, drag.end, s));
+      // The other end, as it now stands.
+      const now = activeStretchHandles();
+      if (now) stretchDrag = { ...drag, h: now };
+      resultsStore.clear3D();
+      return;
+    }
 
     // ─── Node dragging ────────────────────────────────────────
     if (draggedNodeId3D !== null && dragStartWorld3D) {

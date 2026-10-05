@@ -13,6 +13,8 @@
   import VisibilityToggle from './VisibilityToggle.svelte';
   import Icon from '../ribbon/Icon.svelte';
   import type { AutoLoadFocus } from './ProAutoLoadsDialog.svelte';
+  import { duplicateCase, caseDeletionScope } from '../../lib/store/load-ops';
+  import { tp } from '../../lib/i18n';
 
   interface Props {
     /** Open the regulation dialog on the section a case row asks for. */
@@ -59,23 +61,40 @@
   }
 
   /**
-   * Which of the dialog's sections a case row asks for. `Lr` and `Wa` map to nothing: the
-   * generator has no roof-live section, and Wa comes with the wind block. Null hides the button.
+   * Which of the dialog's sections a case row asks for: Lr its roof section, Wa the wind block it
+   * comes with, T, H and F the special actions. Null hides the button (a rain case: the generator
+   * makes none).
    */
   function codeFocusFor(type: string | undefined): AutoLoadFocus | null {
     switch ((type ?? '').toUpperCase()) {
       case 'D': return 'dead';
       case 'L': return 'live';
-      case 'W': return 'wind';
+      case 'LR': return 'roof';
+      case 'W': case 'WA': return 'wind';
       case 'S': return 'snow';
       case 'E': return 'seismic';
+      case 'T': case 'H': case 'F': return 'special';
       default: return null;
     }
   }
 
+  /** The case a row asks to delete, waiting for the user to say yes: it takes its loads with it. */
+  let confirming = $state<number | null>(null);
+  const scope = $derived(confirming === null ? null : caseDeletionScope(confirming));
   function removeLoadCase(id: number) {
     modelStore.removeLoadCase(id);
     if (uiStore.activeLoadCaseId === id) uiStore.activeLoadCaseId = loadCases[0]?.id ?? 1;
+    confirming = null;
+  }
+  /** A copy of the case and its loads, named after it, made active. */
+  function duplicate(id: number) {
+    const lc = loadCases.find((c) => c.id === id);
+    if (!lc) return;
+    const taken = new Set(loadCases.map((c) => c.name));
+    let name = tp('pro.caseCopyName', { name: lc.name });
+    for (let n = 2; taken.has(name); n++) name = `${tp('pro.caseCopyName', { name: lc.name })} ${n}`;
+    const nid = duplicateCase(id, name);
+    if (nid !== null) uiStore.activeLoadCaseId = nid;
   }
 
   // ── New case ──
@@ -108,6 +127,12 @@
       {t('pro.loadsHiddenByDiagram')}
     </button>
   {/if}
+  <!-- The reader's factor on every arrow: a small load beside a large one stays readable. -->
+  <label class="lc-scale" title={t('pro.loadScaleHint')}>{t('pro.loadScale')}
+    <select value={String(uiStore.loadArrowScale)} onchange={(e) => (uiStore.loadArrowScale = Number(e.currentTarget.value))} data-testid="lc-arrow-scale">
+      {#each [0.25, 0.5, 1, 2, 4, 8] as k (k)}<option value={String(k)}>×{k}</option>{/each}
+    </select>
+  </label>
   <span class="lc-vis-all">
     <button class="pk-btn" onclick={showAllCases} title={t('pro.showAllCases')} data-testid="lc-show-all"><Icon name="eye" size={14} /> {t('pro.showAll')}</button>
     <button class="pk-btn" onclick={hideAllCases} title={t('pro.hideAllCases')} data-testid="lc-hide-all"><Icon name="eye-off" size={14} /> {t('pro.hideAll')}</button>
@@ -117,7 +142,7 @@
 <ProSelfWeight />
 
 <table class="lc-table">
-  <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th></tr></thead>
+  <thead><tr><th></th><th>{t('pro.lcType')}</th><th>{t('pro.lcName')}</th><th>{t('pro.lcLoads')}</th><th title={t('autoLoad.defineFromCode')}>§</th><th></th><th></th><th></th></tr></thead>
   <tbody>
     {#each loadCases as lc (lc.id)}
       {@const count = loads.filter((l) => (l.data.caseId ?? 1) === lc.id).length}
@@ -140,8 +165,20 @@
           title={t('autoLoad.defineFromCode')} aria-label={t('autoLoad.defineFromCode')} data-testid="lc-code-{lc.type}">§</button>{/if}</td>
         <td class="lc-narrow"><VisibilityToggle visible={isCaseVisible(lc.id)} ontoggle={() => toggleCaseVisibility(lc.id)}
           showLabel={t('pro.showCase')} hideLabel={t('pro.hideCase')} testid="lc-vis-{lc.id}" /></td>
-        <td class="lc-narrow">{#if loadCases.length > 1}<button class="lc-x" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} aria-label={t('pro.removeCase')} title={t('pro.removeCase')}>×</button>{/if}</td>
+        <td class="lc-narrow"><button class="lc-code" onclick={(e) => { e.stopPropagation(); duplicate(lc.id); }}
+          aria-label={t('pro.duplicateCase')} title={t('pro.duplicateCase')} data-testid="lc-dup-{lc.id}">⧉</button></td>
+        <td class="lc-narrow">{#if loadCases.length > 1}<button class="lc-x" onclick={(e) => { e.stopPropagation(); confirming = lc.id; }} aria-label={t('pro.removeCase')} title={t('pro.removeCase')} data-testid="lc-del-{lc.id}">×</button>{/if}</td>
       </tr>
+      {#if confirming === lc.id && scope}
+        <!-- Deleting a case takes its loads and its place in the combinations: said, then done. -->
+        <tr class="lc-confirm" data-testid="lc-confirm-{lc.id}">
+          <td colspan="8">
+            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}</span>
+            <button class="pk-btn lc-danger" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} data-testid="lc-confirm-yes">{t('pro.removeCase')}</button>
+            <button class="pk-btn" onclick={(e) => { e.stopPropagation(); confirming = null; }}>{t('calcReport.cancel')}</button>
+          </td>
+        </tr>
+      {/if}
     {/each}
   </tbody>
 </table>
@@ -163,6 +200,8 @@
   .lc-vis-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0 6px; font-size: 0.72rem; color: var(--st-text-2); }
   .lc-vis-all { display: inline-flex; gap: 4px; margin-left: auto; }
   .lc-warn { color: var(--st-warn); }
+  .lc-scale { display: inline-flex; align-items: center; gap: 4px; }
+  .lc-scale select { background: var(--st-surface-3); border: 1px solid var(--st-hair); border-radius: 3px; color: var(--st-text-2); font-size: 0.68rem; }
 
   .lc-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   .lc-table th { padding: 4px 6px; font-size: 0.62rem; font-weight: 600; color: var(--st-text-3); text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--st-hair); }
@@ -201,5 +240,8 @@
   .lc-new-grow { flex: 1; min-width: 7rem; }
   .lc-new-grow input { width: 100%; }
   .lc-name-cell { display: flex; align-items: center; gap: 4px; }
+  .lc-confirm td { background: var(--st-surface-2); font-size: 0.68rem; color: var(--st-text-2); }
+  .lc-confirm td span { margin-right: 6px; }
+  .lc-danger { color: var(--st-danger); border-color: var(--st-danger); }
   .lc-alt { flex: none; padding: 0 5px; line-height: 16px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-3); font-size: 0.6rem; }
 </style>

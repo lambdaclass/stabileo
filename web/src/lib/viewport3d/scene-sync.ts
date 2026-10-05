@@ -5,6 +5,9 @@
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
 import { distributedGlobalEnds } from '../engine/member-loads';
+import { pointGlobal } from '../engine/member-point-loads';
+import { tendonEccentricity } from '../engine/prestress';
+import { formatValue, unitLabel, toDisplay } from '../utils/units';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
@@ -622,6 +625,8 @@ function loadsSignature(project2D: boolean): string {
     viewVisibility.version,
     // A selected load is drawn in the selection colour and the rest dimmed beside it.
     [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
+    // The labels' units and decimals, and the reader's arrow scale.
+    uiStore.unitSystem, uiStore.loadArrowScale,
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -692,6 +697,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
       maxQ = Math.max(maxQ, Math.abs(d.qYI), Math.abs(d.qYJ), Math.abs(d.qZI), Math.abs(d.qZJ), Math.abs(d.qXI ?? 0), Math.abs(d.qXJ ?? 0));
     } else if (load.type === 'surface3d') {
       maxQ = Math.max(maxQ, Math.abs(load.data.q));
+    } else if (load.type === 'pointOnElement3d') {
+      const d = load.data;
+      maxForce = Math.max(maxForce, Math.abs(d.px ?? 0), Math.abs(d.py), Math.abs(d.pz));
     }
   }
   if (maxForce < 1e-10) maxForce = 10;
@@ -702,6 +710,16 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
   // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
   const batch = createLoadArrowsBatched();
+  // The project's units and decimals on every label, and the reader's scale on every arrow.
+  const sys = uiStore.unitSystem;
+  const withUnit = (v: number, q: 'force' | 'moment' | 'distributedLoad') => `${formatValue(v, q, sys)} ${unitLabel(q, sys)}`;
+  batch.format = {
+    force: (v) => withUnit(v, 'force'),
+    moment: (v) => withUnit(v, 'moment'),
+    distributed: (v) => withUnit(v, 'distributedLoad'),
+    pressure: (v) => `${formatValue(toDisplay(v, 'force', sys) / toDisplay(1, 'length', sys) ** 2, 'force', 'SI')} ${unitLabel('force', sys)}/${unitLabel('length', sys)}²`,
+  };
+  batch.scale = uiStore.loadArrowScale;
   const selected = uiStore.selectedLoads;
 
   // Color helper
@@ -769,8 +787,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       // Compute local axes to get the actual ey/ez directions in global coordinates
       const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
       const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
-      const sceneI = projectNodeToScene(nI, project2D);
-      const sceneJ = projectNodeToScene(nJ, project2D);
+      const nodeI = projectNodeToScene(nI, project2D);
+      const nodeJ = projectNodeToScene(nJ, project2D);
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       // The axes the user sees and types the load along: the analysis roll
@@ -780,6 +798,15 @@ export function syncLoads(ctx: SceneSyncContext): void {
         uiStore.axisConvention3D === 'leftHand');
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
+      // Drawn on its stretch a–b, not node to node: a floor's or a generator's partial loads sat
+      // over the whole member, one on top of the other.
+      const Lm = localAxes.L;
+      const at = (s: number) => {
+        const t = Lm > 0 ? Math.min(1, Math.max(0, s / Lm)) : 0;
+        return { x: nodeI.x + (nodeJ.x - nodeI.x) * t, y: nodeI.y + (nodeJ.y - nodeI.y) * t, z: nodeI.z + (nodeJ.z - nodeI.z) * t };
+      };
+      const sceneI = at(load.data.a ?? 0);
+      const sceneJ = at(load.data.b ?? Lm);
       const frame = load.data.frame ?? 'local';
       if (frame !== 'local') {
         // Along the global axes, at the intensity per metre of member the solve applies.
@@ -890,20 +917,77 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY,
         (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0),
         uiStore.axisConvention3D === 'leftHand');
-      const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
-      const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
-
-      const fx = load.data.py * ey.x + load.data.pz * ez.x;
-      const fy = load.data.py * ey.y + load.data.pz * ez.y;
-      const fz = load.data.py * ey.z + load.data.pz * ez.z;
-
+      // Its force and moment, local or global, as the solve reads them; the axes already carry the
+      // displayed convention.
+      const g = pointGlobal(load.data, localAxes as never, false);
       batch.addNodalLoadArrow(
         { x: px, y: py, z: pz },
-        fx, fy, fz,
-        0, 0, 0,
+        g.F[0], g.F[1], g.F[2],
+        g.M[0], g.M[1], g.M[2],
         maxForce,
-        'double-arrow', cc,
+        uiStore.momentStyle3D, cc,
       );
+    }
+    // A temperature or an initial strain: said at the member's middle.
+    else if (load.type === 'thermal') {
+      const elem = modelStore.elements.get(load.data.elementId);
+      const nI = elem && modelStore.nodes.get(elem.nodeI), nJ = elem && modelStore.nodes.get(elem.nodeJ);
+      if (!elem || !nI || !nJ) continue;
+      const a = projectNodeToScene(nI, project2D), b = projectNodeToScene(nJ, project2D);
+      const d = load.data;
+      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const parts = [
+        d.dtUniform ? `ΔT ${temp(d.dtUniform)}` : '',
+        d.dtGradient ? `ΔTgz ${temp(d.dtGradient)}` : '',
+        d.dtGradientY ? `ΔTgy ${temp(d.dtGradientY)}` : '',
+        d.strain ? `ε₀ ${(d.strain * 1000).toFixed(3)} ‰` : '',
+      ].filter(Boolean);
+      if (parts.length) batch.addTag({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 + 0.15 }, parts.join(' · '), cc);
+    }
+    // A tendon: its profile along the member, and its force.
+    else if (load.type === 'prestress3d') {
+      const elem = modelStore.elements.get(load.data.elementId);
+      const nI = elem && modelStore.nodes.get(elem.nodeI), nJ = elem && modelStore.nodes.get(elem.nodeJ);
+      if (!elem || !nI || !nJ) continue;
+      const a = projectNodeToScene(nI, project2D), b = projectNodeToScene(nJ, project2D);
+      let ax;
+      try {
+        ax = computeLocalAxes3D({ id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 }, { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+          elem.localYx !== undefined ? { x: elem.localYx, y: elem.localYy ?? 0, z: elem.localYz ?? 0 } : undefined,
+          (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0));
+      } catch { continue; }
+      const pts = Array.from({ length: 13 }, (_, k) => {
+        const t = k / 12, e = tendonEccentricity(load.data, t);
+        return { x: a.x + (b.x - a.x) * t - ax.ez[0] * e, y: a.y + (b.y - a.y) * t - ax.ez[1] * e, z: a.z + (b.z - a.z) * t - ax.ez[2] * e };
+      });
+      batch.addPolyline(pts, cc);
+      batch.addTag(pts[6]!, `P ${withUnit(load.data.force, 'force')}`, cc);
+    }
+    // A slab's temperature: said at its middle.
+    else if (load.type === 'thermalQuad3d') {
+      const quad = modelStore.quads.get(load.data.quadId);
+      const ns = quad?.nodes.map((nid: number) => modelStore.nodes.get(nid));
+      if (!quad || !ns || ns.some((n) => !n)) continue;
+      const ps = (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D));
+      const c = ps.reduce((acc, p) => ({ x: acc.x + p.x / ps.length, y: acc.y + p.y / ps.length, z: acc.z + p.z / ps.length }), { x: 0, y: 0, z: 0 });
+      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const text = [load.data.dtUniform ? `ΔT ${temp(load.data.dtUniform)}` : '', load.data.dtGradient ? `ΔTg ${temp(load.data.dtGradient)}` : ''].filter(Boolean).join(' · ');
+      if (text) batch.addTag({ x: c.x, y: c.y, z: c.z + 0.15 }, text, cc);
+    }
+    // An imposed displacement: an arrow along it at the node, and its values.
+    else if (load.type === 'displacement3d') {
+      const node = modelStore.nodes.get(load.data.nodeId);
+      if (!node) continue;
+      const p = projectNodeToScene(node, project2D);
+      const d = load.data;
+      const u = { x: d.dx ?? 0, y: d.dy ?? 0, z: d.dz ?? 0 };
+      if (Math.hypot(u.x, u.y, u.z) > 0) batch.addPointer(p, u, 0.6 * uiStore.loadArrowScale, cc);
+      const mm = (v: number) => `${formatValue(v, 'displacement', sys)} ${unitLabel('displacement', sys)}`;
+      const text = [
+        ...(['dx', 'dy', 'dz'] as const).filter((k) => d[k]).map((k) => `${k} ${mm(d[k]!)}`),
+        ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k} ${d[k]} rad`),
+      ].join(' · ');
+      batch.addTag({ x: p.x, y: p.y, z: p.z - 0.3 }, text, cc);
     }
   }
 

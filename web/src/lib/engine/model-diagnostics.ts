@@ -73,7 +73,7 @@ export function memberLoadPerpComponent(
   if (load.type === 'pointOnElement3d') {
     // A global load, or a moment, is bending a member that takes none just the same.
     return Math.max(Math.abs(num(d.py)), Math.abs(num(d.pz)), Math.abs(num(d.mx)), Math.abs(num(d.my)), Math.abs(num(d.mz)),
-      d.frame === 'global' ? Math.abs(num(d.px)) : 0);
+      (load.data as { frame?: string }).frame === 'global' ? Math.abs(num(d.px)) : 0);
   }
   if (load.type !== 'distributed' && load.type !== 'pointOnElement') return 0;
 
@@ -134,7 +134,7 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   if (prismatic.length) out.push(diag('warning', 'MODEL_VARIABLE_REFUSED', 'diag.model.variableRefused', { elementIds: prismatic }));
 
   // ─── Imposed displacements with nothing to impose them ───
-  const unheld = imposedUnsupported(m.supports, m.loads);
+  const unheld = imposedUnsupported(m.supports as never, m.loads as never);
   if (unheld.length) out.push(diag('error', 'MODEL_IMPOSED_UNSUPPORTED', 'diag.model.imposedUnsupported', { nodeIds: [...new Set(unheld.map((u) => u.nodeId))] }));
 
   // ─── Coincident nodes ──────────────────────────
