@@ -9,7 +9,7 @@
  * whose answer is already known, the second can only ever offer EXTRA candidates, never fewer.
  * "Supposed to be" is the part that needs a gate.
  *
- * So `detectCollisions` keeps `{ prune: false, broadPhase: false }`, which measures every
+ * So `detectCollisions` keeps `{ prune: false, broadPhase: false, kernel: false }`, which measures every
  * bar and segment pair exhaustively — the behaviour before the rejection existed. Every case below
  * runs both and requires identical output: same conflicts, same bar ids, same classification,
  * same ordering, same clearances to the last representable digit.
@@ -60,7 +60,7 @@ function shapeOf(
   // Bucket deduplication must preserve exact pair traversal and every reported field.
   expect({ ...fast, bucketScans: 0 }).toEqual({ ...repeated, bucketScans: 0 });
   expect(fast.bucketScans).toBeLessThanOrEqual(repeated.bucketScans);
-  const slow = detectCollisions(bars, { ...opts, prune: false, broadPhase: false });
+  const slow = detectCollisions(bars, { ...opts, prune: false, broadPhase: false, kernel: false });
   const norm = (r: typeof fast) => r.conflicts.map((c) => ({
     barA: c.barA, barB: c.barB, severity: c.severity, pairClass: c.pairClass,
     classLabelKey: c.classLabelKey, clearance: c.clearance, required: c.required,

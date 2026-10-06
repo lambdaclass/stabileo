@@ -1,3 +1,5 @@
+import { registerRcSectionKernel } from './codes/argentina/rc-section-kernel';
+import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
  * WASM solver wrapper — replaces the pure-TS solver pipeline.
  * Serializes SolverInput (with Maps) → JSON → Rust/WASM → JSON → AnalysisResults.
@@ -186,6 +188,8 @@ export async function initSolver(): Promise<void> {
     } else {
       await wasm.default(await getWasmBytes());
     }
+    registerCollisionKernel(wasm.CollisionGeometry ?? null);
+    registerRcSectionKernel(wasm.RcSectionGeometry ?? null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;

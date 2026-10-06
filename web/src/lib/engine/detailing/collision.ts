@@ -1,3 +1,4 @@
+import { prepareCollisionKernel } from './collision-kernel';
 /**
  * Bar-to-bar collision detection with a broad-phase spatial index.
  *
@@ -425,6 +426,11 @@ export interface CollisionResult {
   bucketScans: number;
   /** True when nothing worse than `marginal` was found. */
   constructible: boolean;
+  /**
+   * Bars left out because a coordinate, a radius or the diameter is not a finite number, by id.
+   * Absent when every bar was measured.
+   */
+  unmeasurable?: string[];
 }
 
 /**
@@ -496,12 +502,32 @@ export interface DetectCollisionsOptions {
   deduplicateBuckets?: boolean;
   /** Test/reference path: enumerate every bar pair without the spatial hash. */
   broadPhase?: boolean;
+  /** Reference/test path: keep numeric distances in TypeScript even when WASM is ready. */
+  kernel?: boolean;
+}
+
+/** Every coordinate, radius and the diameter of a bar is a finite number. */
+function measurableBar(bar: BarPath): boolean {
+  const point = (p?: Point3) => !p || (Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
+  const size = (v?: number) => v === undefined || Number.isFinite(v);
+  return Number.isFinite(bar.diameterMm) && bar.diameterMm >= 0
+    && bar.segments.every((sg) => point(sg.start) && point(sg.end) && point(sg.centre)
+      && size(sg.radius) && size(sg.sweepDeg));
 }
 
 export function detectCollisions(
   bars: readonly BarPath[],
   opts: DetectCollisionsOptions = {},
 ): CollisionResult {
+  // A bar that is not numbers is left out and named, on both paths. The kernel refuses any
+  // non-finite value in its buffers, and nothing above it fell back, so one malformed bar from
+  // upstream aborted a whole detailing run; the TypeScript path measured NaN as no conflict and
+  // never finished sampling a segment that reaches infinity.
+  const unmeasurable = bars.filter((b) => !measurableBar(b)).map((b) => b.id);
+  if (unmeasurable.length > 0) {
+    const measured = detectCollisions(bars.filter(measurableBar), opts);
+    return { ...measured, barCount: bars.length, unmeasurable };
+  }
   const tolerances = opts.tolerances ?? DEFAULT_TOLERANCES;
   const { requiredClearFor, classifyFor, placementFor } = opts;
   const raw = bars.map((path) => samplePath(path, COLLISION_CHORD_TOLERANCE));
@@ -511,161 +537,188 @@ export function detectCollisions(
   // still use the original chord-accurate samples, never these broad-phase samples.
   const cell = 4 * Math.max(0.05, 2 * maxRadius + tolerances.requiredClear + tolerances.placement + 0.02);
 
-  const sampled: SampledBar[] = bars.map((path, i) => {
-    const pts = raw[i];
-    const segBoxes: Box[] = [];
-    for (let k = 0; k + 1 < pts.length; k++) segBoxes.push(boxOf(pts[k], pts[k + 1]));
-    return {
-      path,
-      points: pts,
-      // Half-cell spacing leaves room for the interaction distance: each closest point
-      // is at most cell/4 from a hash sample. Their combined sampling displacement is
-      // at most cell/2, leaving the other half for radii, clearance and placement.
-      hashPoints: opts.broadPhase === false ? [] : densify(pts, cell / 2),
-      radius: path.diameterMm / 2000,
-      segBoxes,
-      box: segBoxes.length > 0 ? boxUnion(segBoxes) : boxOf(pts[0] ?? ZERO, pts[0] ?? ZERO),
-    };
-  });
+  const kernel = opts.kernel === false ? null
+    : prepareCollisionKernel(raw, Float64Array.from(bars, b => b.diameterMm / 2000));
+  try {
+    if (kernel && opts.broadPhase !== false) kernel.build_hash(cell, opts.deduplicateBuckets !== false);
+    const sampled: SampledBar[] = bars.map((path, i) => {
+      const pts = raw[i];
+      const segBoxes: Box[] = [];
+      if (!kernel) for (let k = 0; k + 1 < pts.length; k++) segBoxes.push(boxOf(pts[k], pts[k + 1]));
+      return {
+        path,
+        points: pts,
+        // Half-cell spacing leaves room for the interaction distance: each closest point
+        // is at most cell/4 from a hash sample. Their combined sampling displacement is
+        // at most cell/2, leaving the other half for radii, clearance and placement.
+        hashPoints: kernel || opts.broadPhase === false ? [] : densify(pts, cell / 2),
+        radius: path.diameterMm / 2000,
+        segBoxes,
+        box: segBoxes.length > 0 ? boxUnion(segBoxes) : boxOf(pts[0] ?? ZERO, pts[0] ?? ZERO),
+      };
+    });
 
-  const hash = new SpatialHash(cell, opts.deduplicateBuckets !== false);
-  for (let i = 0; i < sampled.length; i++) {
-    for (const p of sampled[i].hashPoints) hash.insert(i, p);
-  }
-
-  const prune = opts.prune !== false;
-  /** Everything except the two radii, which vary per pair. */
-  const maxClear = maxReportableClear(bars, tolerances);
-
-  const conflicts = new Map<string, BarConflict>();
-  let narrowPhaseTests = 0;
-  let barPairsTested = 0;
-
-  const seen = new Uint32Array(sampled.length);
-  const candidates: number[] = [];
-  for (let i = 0; i < sampled.length; i++) {
-    const a = sampled[i];
-    candidates.length = 0;
-    if (opts.broadPhase === false) {
-      for (let j = i + 1; j < sampled.length; j++) candidates.push(j);
-    } else {
-      for (const p of a.hashPoints) hash.collectNear(p, i, candidates, seen);
+    const hash = new SpatialHash(cell, opts.deduplicateBuckets !== false);
+    for (let i = 0; i < sampled.length; i++) {
+      for (const p of sampled[i].hashPoints) hash.insert(i, p);
     }
-    barPairsTested += candidates.length;
 
-    for (const j of candidates) {
-      const b = sampled[j];
-      // Placement is needed before the sweep; `required` is resolved after the pair has
-      // been classified, because the class chooses the rule.
-      const placement = placementFor
-        ? placementFor(a.path, b.path)
-        : tolerances.placement;
+    const prune = opts.prune !== false;
+    /** Everything except the two radii, which vary per pair. */
+    const maxClear = maxReportableClear(bars, tolerances);
 
-      // ── Reject what cannot be reported, before measuring it ──
-      //
-      // A conflict is only ever raised when `clearance < required`, i.e. when the centreline
-      // distance is under `required + placement + rA + rB`. `maxClear` is an upper bound on
-      // `required` for every pair in the run, so two boxes further apart than this cannot
-      // produce one — whatever the exact distance turns out to be.
-      //
-      // The bound is built from THIS pair's placement rather than the global one. A caller
-      // may hand back a larger allowance for some pairs than `tolerances.placement`, and a
-      // cutoff derived from the global value would then reject a pair that was reportable.
-      // Per-pair costs one addition and is sound for any `placementFor`.
-      //
-      // That matters because the narrow phase was O(nA × nB) over every sampled segment of
-      // both bars with no early exit. Two six-metre bars that touch at one point still had
-      // every one of their segment pairs measured: 7,6 million segment tests for 151 000 bar
-      // pairs on the flagship, about fifty per pair. Skipping provably-irrelevant pairs
-      // changes no result — it removes work whose answer was already known.
-      const cutoff = maxClear + placement + a.radius + b.radius;
-      const cutoffSq = cutoff * cutoff;
-      if (prune && boxGapSq(a.box, b.box) > cutoffSq) continue;
+    const conflicts = new Map<string, BarConflict>();
+    let narrowPhaseTests = 0;
+    let barPairsTested = 0;
 
-      let worst: {
-        clearance: number; at: Point3; surface: number; m: number; n: number;
-      } | null = null;
-
-      for (let m = 0; m + 1 < a.points.length; m++) {
-        const ab = a.segBoxes[m];
-        // One segment of `a` against the whole of `b` first. A stirrup has tens of segments
-        // and most of them are nowhere near the other bar, so this removes the inner loop
-        // entirely rather than paying for it once per segment of `b`.
-        if (prune && boxGapSq(ab, b.box) > cutoffSq) continue;
-        for (let n = 0; n + 1 < b.points.length; n++) {
-          if (prune && boxGapSq(ab, b.segBoxes[n]) > cutoffSq) continue;
-          narrowPhaseTests++;
-          const { distance, at } = segmentDistance(
-            a.points[m], a.points[m + 1], b.points[n], b.points[n + 1]);
-          // `surface` is the true geometry; `clearance` also carries this pair's
-          // placement tolerance. The classifier must see only the former — a tolerance
-          // allowance is not interpenetration, and treating it as one turns every tie
-          // point into a clash.
-          const surface = distance - a.radius - b.radius;
-          const clearance = surface - placement;
-          if (worst === null || clearance < worst.clearance) {
-            worst = { clearance, at, surface, m, n };
-          }
+    const seen = new Uint32Array(sampled.length);
+    const tsCandidates: number[] = [];
+    for (let i = 0; i < sampled.length; i++) {
+      const a = sampled[i];
+      tsCandidates.length = 0;
+      const candidates = kernel && opts.broadPhase !== false ? kernel.candidates(i) : tsCandidates;
+      if (candidates === tsCandidates) {
+        if (opts.broadPhase === false) {
+          for (let j = i + 1; j < sampled.length; j++) tsCandidates.push(j);
+        } else {
+          for (const p of a.hashPoints) hash.collectNear(p, i, tsCandidates, seen);
         }
       }
-      if (worst === null) continue;
+      barPairsTested += candidates.length;
 
-      // Classify BEFORE judging. The class decides the rule and whether a shortfall is a
-      // defect at all; a tie around its own longitudinals is not a clash.
-      const cls = classifyFor?.(a.path, b.path, worst.surface,
-        tangent(a.points, worst.m), tangent(b.points, worst.n));
-      if (cls && !cls.reportable) continue;
-      const required = cls
-        ? cls.requiredClear
-        : requiredClearFor
-          ? requiredClearFor(a.path, b.path)
-          : tolerances.requiredClear;
+      // Batch constant-placement queries. Custom placement callbacks retain their exact
+      // interleaving with classification callbacks, including observable side effects.
+      const measured = kernel && !placementFor && candidates.length > 0
+        ? kernel.measure(i, candidates instanceof Uint32Array ? candidates : Uint32Array.from(candidates), tolerances.placement, maxClear, prune) : null;
+      for (let candidate = 0; candidate < candidates.length; candidate++) {
+        const j = candidates[candidate];
+        const b = sampled[j];
+        // Placement is needed before the sweep; `required` is resolved after the pair has
+        // been classified, because the class chooses the rule.
+        const placement = placementFor
+          ? placementFor(a.path, b.path)
+          : tolerances.placement;
+        // A placement that is not a number places nothing: the pair is not measured, on either
+        // path (the kernel refuses the query; the reference compared NaN and reported nothing).
+        if (!Number.isFinite(placement)) continue;
 
-      const shortfall = required - worst.clearance;
-      // A micron of floating-point dust is not a clearance violation. A pair drawn to
-      // exactly the code minimum computes to 0.024999999999999998 against 0.025 and would
-      // otherwise be reported against the very requirement it satisfies — which, now that
-      // the default additional margin is zero, is the commonest case in the model rather
-      // than an edge case.
-      if (shortfall <= 1e-9) continue;
+        // ── Reject what cannot be reported, before measuring it ──
+        //
+        // A conflict is only ever raised when `clearance < required`, i.e. when the centreline
+        // distance is under `required + placement + rA + rB`. `maxClear` is an upper bound on
+        // `required` for every pair in the run, so two boxes further apart than this cannot
+        // produce one — whatever the exact distance turns out to be.
+        //
+        // The bound is built from THIS pair's placement rather than the global one. A caller
+        // may hand back a larger allowance for some pairs than `tolerances.placement`, and a
+        // cutoff derived from the global value would then reject a pair that was reportable.
+        // Per-pair costs one addition and is sound for any `placementFor`.
+        //
+        // That matters because the narrow phase was O(nA × nB) over every sampled segment of
+        // both bars with no early exit. Two six-metre bars that touch at one point still had
+        // every one of their segment pairs measured: 7,6 million segment tests for 151 000 bar
+        // pairs on the flagship, about fifty per pair. Skipping provably-irrelevant pairs
+        // changes no result — it removes work whose answer was already known.
+        const cutoff = maxClear + placement + a.radius + b.radius;
+        const cutoffSq = cutoff * cutoff;
+        if (!kernel && prune && boxGapSq(a.box, b.box) > cutoffSq) continue;
 
-      const severity: ConflictSeverity =
-        worst.clearance < 0 ? 'overlap'
-          : shortfall <= tolerances.marginalBand ? 'marginal'
-            : 'clearance';
+        let worst: {
+          clearance: number; at: Point3; surface: number; m: number; n: number;
+        } | null = null;
 
-      // Canonicalise the pair by id, not by iteration index: keying on (i, j) made the
-      // reported barA/barB depend on the order the caller happened to supply the bars,
-      // which would make every golden drawing and schedule input-order sensitive.
-      const [idA, idB] = [a.path.id, b.path.id].sort();
-      const key = `${idA}|${idB}`;
-      conflicts.set(key, {
-        severity,
-        barA: idA,
-        barB: idB,
-        at: worst.at,
-        clearance: +worst.clearance.toFixed(5),
-        required: +required.toFixed(5),
-        pairClass: cls?.pairClass,
-        classLabelKey: cls?.labelKey,
-        shortfall: +shortfall.toFixed(5),
-        elementIds: [...new Set([...a.path.ownerElementIds, ...b.path.ownerElementIds])].sort((x, y) => x - y),
-      });
+        if (kernel) {
+          const values = measured ?? kernel.measure(i, Uint32Array.of(j), placement, maxClear, prune);
+          const offset = measured ? candidate * 8 : 0;
+          narrowPhaseTests += values[offset + 7];
+          if (values[offset + 5] >= 0) {
+            worst = { surface: values[offset], clearance: values[offset + 1],
+              at: { x: values[offset + 2], y: values[offset + 3], z: values[offset + 4] },
+              m: values[offset + 5], n: values[offset + 6] };
+          }
+        } else {
+          for (let m = 0; m + 1 < a.points.length; m++) {
+            const ab = a.segBoxes[m];
+            // One segment of `a` against the whole of `b` first. A stirrup has tens of segments
+            // and most of them are nowhere near the other bar, so this removes the inner loop
+            // entirely rather than paying for it once per segment of `b`.
+            if (prune && boxGapSq(ab, b.box) > cutoffSq) continue;
+            for (let n = 0; n + 1 < b.points.length; n++) {
+              if (prune && boxGapSq(ab, b.segBoxes[n]) > cutoffSq) continue;
+              narrowPhaseTests++;
+              const { distance, at } = segmentDistance(
+                a.points[m], a.points[m + 1], b.points[n], b.points[n + 1]);
+              // `surface` is the true geometry; `clearance` also carries this pair's
+              // placement tolerance. The classifier must see only the former — a tolerance
+              // allowance is not interpenetration, and treating it as one turns every tie
+              // point into a clash.
+              const surface = distance - a.radius - b.radius;
+              const clearance = surface - placement;
+              if (worst === null || clearance < worst.clearance) {
+                worst = { clearance, at, surface, m, n };
+              }
+            }
+          }
+        }
+        if (worst === null) continue;
+
+        // Classify BEFORE judging. The class decides the rule and whether a shortfall is a
+        // defect at all; a tie around its own longitudinals is not a clash.
+        const cls = classifyFor?.(a.path, b.path, worst.surface,
+          tangent(a.points, worst.m), tangent(b.points, worst.n));
+        if (cls && !cls.reportable) continue;
+        const required = cls
+          ? cls.requiredClear
+          : requiredClearFor
+            ? requiredClearFor(a.path, b.path)
+            : tolerances.requiredClear;
+
+        const shortfall = required - worst.clearance;
+        // A micron of floating-point dust is not a clearance violation. A pair drawn to
+        // exactly the code minimum computes to 0.024999999999999998 against 0.025 and would
+        // otherwise be reported against the very requirement it satisfies — which, now that
+        // the default additional margin is zero, is the commonest case in the model rather
+        // than an edge case.
+        if (shortfall <= 1e-9) continue;
+
+        const severity: ConflictSeverity =
+          worst.clearance < 0 ? 'overlap'
+            : shortfall <= tolerances.marginalBand ? 'marginal'
+              : 'clearance';
+
+        // Canonicalise the pair by id, not by iteration index: keying on (i, j) made the
+        // reported barA/barB depend on the order the caller happened to supply the bars,
+        // which would make every golden drawing and schedule input-order sensitive.
+        const [idA, idB] = [a.path.id, b.path.id].sort();
+        const key = `${idA}|${idB}`;
+        conflicts.set(key, {
+          severity,
+          barA: idA,
+          barB: idB,
+          at: worst.at,
+          clearance: +worst.clearance.toFixed(5),
+          required: +required.toFixed(5),
+          pairClass: cls?.pairClass,
+          classLabelKey: cls?.labelKey,
+          shortfall: +shortfall.toFixed(5),
+          elementIds: [...new Set([...a.path.ownerElementIds, ...b.path.ownerElementIds])].sort((x, y) => x - y),
+        });
+      }
     }
-  }
 
-  const list = [...conflicts.values()].sort((x, y) =>
-    // Deterministic: worst first, then by bar id, so golden outputs are stable.
-    y.shortfall - x.shortfall || x.barA.localeCompare(y.barA) || x.barB.localeCompare(y.barB));
+    const list = [...conflicts.values()].sort((x, y) =>
+      // Deterministic: worst first, then by bar id, so golden outputs are stable.
+      y.shortfall - x.shortfall || x.barA.localeCompare(y.barA) || x.barB.localeCompare(y.barB));
 
-  return {
-    conflicts: list,
-    barCount: bars.length,
-    narrowPhaseTests,
-    barPairsTested,
-    bucketScans: hash.bucketScans,
-    constructible: list.every((c) => c.severity === 'marginal'),
-  };
+    return {
+      conflicts: list,
+      barCount: bars.length,
+      narrowPhaseTests,
+      barPairsTested,
+      bucketScans: kernel && opts.broadPhase !== false ? kernel.bucket_scans() : hash.bucketScans,
+      constructible: list.every((c) => c.severity === 'marginal'),
+    };
+  } finally { kernel?.free(); }
 }
 
 /**
