@@ -60,6 +60,7 @@ import {
   coordinate, type CoordinationResult, type JointConstraint, type MemberVariable,
 } from './coordination-search';
 import { DEFAULT_TOLERANCES } from './collision';
+import { ColumnBarIndex } from './column-bar-index';
 import { planSplice, transitionExists } from './splice';
 import { classifyPair } from './classify';
 import {
@@ -84,7 +85,7 @@ import { prescribedTolerances } from '../../codes/cirsoc201/placement';
 import { deriveDevelopment } from '../../codes/cirsoc201/anchorage';
 import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
 import {
-  buildColumnTieSet, seatedLongitudinalHalfExtents, stirrupStationCount, stirrupStations,
+  buildColumnTieSet, seatedLongitudinalHalfExtents, stirrupStationCount, stirrupStations, StirrupClosureCache,
   unbracedBarReport,
 } from '../../codes/cirsoc201/transverse-cage';
 import { coordinateFloor, type FloorCoordinationResult, type JointInput, type MemberBars } from './coordinate-floor';
@@ -622,6 +623,7 @@ export interface FinalGeometryRecord {
  * joint it passes through.
  */
 export function runDetailing(input: RunDetailingInput): RunDetailingResult {
+  const closureCache = new StirrupClosureCache();
   const readiness = detailingReadiness(input);
   const skipped: Array<{ elementId: number; key: string }> = [];
   if (!readiness.ready) {
@@ -823,20 +825,13 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
    * must dodge the real cage, and a second derivation of "where the column bars are" is a
    * second thing that can disagree with the drawing.
    */
+  let columnIndex: ColumnBarIndex | null = null;
+  const columnBarsIndex = () => columnIndex ??= new ColumnBarIndex(
+    [...memberBarsById.values()].filter((mb) => input.contexts.get(mb.elementId)?.elementType === 'column'),
+  );
+
   function columnBarsNear(n: DetailingModelNode) {
-    const found: Array<{ id: string; diameterMm: number; x: number; y: number }> = [];
-    for (const mb of memberBarsById.values()) {
-      if (input.contexts.get(mb.elementId)?.elementType !== 'column') continue;
-      for (const bar of mb.bars) {
-        const p = bar.segments[0]?.start;
-        if (!p) continue;
-        if (Math.hypot(p.x - n.x, p.y - n.y) > 1.0) continue;
-        // The bar must physically span this elevation to obstruct anything here.
-        const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
-        if (Math.min(...zs) > Z(n) + 0.02 || Math.max(...zs) < Z(n) - 0.02) continue;
-        found.push({ id: bar.id, diameterMm: bar.diameterMm, x: p.x, y: p.y });
-      }
-    }
+    const found = columnBarsIndex().query(n, Z(n), 1.0);
 
     // ── Deduplicate by PHYSICAL POSITION, not by owning member ──
     //
@@ -1166,6 +1161,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         });
         for (let si = 0; si < stations.length; si++) {
           const set = buildColumnTieSet({
+            closureCache,
             elementId: lift.elementId,
             cageId: `col-${lift.elementId}:cage`,
             zoneId: `col-${lift.elementId}:ties`,
@@ -1758,6 +1754,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     } as never);
 
     const gen = generateBeamBars({
+      closureCache,
       elementId: id,
       L: ctx.L, b: ctx.section.b, h: ctx.section.h,
       // Raising the steel costs lever arm. The generator must size stirrup zones and
@@ -1862,6 +1859,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     const mb = memberBarsById.get(id);
     if (mb) mb.bars = bars;
   }
+  columnIndex = null; // Laps replaced geometry: subsequent queries need its new bounds.
   const laps = lapIndex(materialised.laps);
   lapLookup = (aId: string, bId: string) => {
     const lap = lapBetween(laps, aId, bId);
@@ -1968,22 +1966,9 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
    * actually produced rather than recomputed. Threading has to dodge the real cage.
    */
   const columnBarsAtLevel = (level: number, centre: { x: number; y: number }) => {
-    const out: Array<{ id: string; diameterMm: number; dx: number; dy: number }> = [];
-    for (const mb of memberBarsById.values()) {
-      const ctx = input.contexts.get(mb.elementId);
-      if (ctx?.elementType !== 'column') continue;
-      for (const bar of mb.bars) {
-        const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
-        // The bar must actually pass through this level to obstruct it.
-        if (Math.min(...zs) > level + 0.02 || Math.max(...zs) < level - 0.02) continue;
-        const p = bar.segments[0]?.start;
-        if (!p) continue;
-        const dx = p.x - centre.x;
-        const dy = p.y - centre.y;
-        if (Math.hypot(dx, dy) > 1.5) continue;   // a different column line
-        out.push({ id: bar.id, diameterMm: bar.diameterMm, dx, dy });
-      }
-    }
+    const out = columnBarsIndex().query(centre, level, 1.5).map((bar) => ({
+      id: bar.id, diameterMm: bar.diameterMm, dx: bar.x - centre.x, dy: bar.y - centre.y,
+    }));
     return out.sort((a, b) => a.id.localeCompare(b.id));
   };
 
@@ -2163,6 +2148,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     let built = 0;
     for (let si = 0; si < stations.length; si++) {
       const set = buildColumnTieSet({
+        closureCache,
         elementId: cid,
         cageId: `joint-${top.id}:cage`,
         zoneId,
@@ -2196,7 +2182,9 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
           ...(piece.path.enclosesBarIds ?? []), ...throughBars.map((b) => b.id),
         ];
       }
-      cMb.bars.push(...set.pieces.map((p) => p.path));
+      const jointBars = set.pieces.map((p) => p.path);
+      columnBarsIndex().append(cid, jointBars);
+      cMb.bars.push(...jointBars);
       built += set.pieces.length;
 
       // §25.7.2.3(b): no unbraced bar further than the lesser of 15·d_be and 150 mm clear
