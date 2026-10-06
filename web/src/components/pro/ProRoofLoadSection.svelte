@@ -17,8 +17,8 @@
   import { roofLiveLoad as lrOf, roofWeightClass as weightOf } from '../../lib/codes/cirsoc101/roof-live';
   /**
    * Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts.
-   * `autoWeight`: the class the plan found for the roof's structure and cladding; before a plan,
-   * the dead load's alone.
+   * `autoWeight`: the class the plan finds for the roof's structure and cladding (`roofWeightFor`);
+   * absent, the dead load's alone.
    */
   export function roofLrRange(c: RoofConfig, floorDead: number, modelSlopeDeg: number, autoWeight?: 'heavy' | 'light'): { lo: number; hi: number } {
     const weight = c.weight ?? autoWeight ?? weightOf(c.dead ?? floorDead);
@@ -44,7 +44,7 @@
     floorDead: number;
     /** The model's roof slope, degrees, when it has one. */
     modelSlopeDeg: number;
-    /** The weight class the plan found for the roof (§4.8.1, structure and cladding). */
+    /** The weight class the plan finds for the roof (§4.8.1, structure and cladding, `roofWeightFor`). */
     autoWeight?: 'heavy' | 'light';
   }
   let { config = $bindable(), floorDead, modelSlopeDeg, autoWeight }: Props = $props();

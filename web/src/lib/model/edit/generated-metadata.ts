@@ -19,7 +19,10 @@ export function copyGeneratedMetadata(
     elements: data.elements.map((e) => {
       if (!e) return null;
       const id = elements.get(e.id);
-      return id !== undefined ? { ...e, id, sectionId: sections.get(e.sectionId) ?? e.sectionId } : null;
+      if (id === undefined) return null;
+      // Both of a variable member's sections, or a regeneration takes its end J for the user's.
+      const sectionJ = e.sectionJ !== undefined ? { sectionJ: sections.get(e.sectionJ) ?? e.sectionJ } : {};
+      return { ...e, id, sectionId: sections.get(e.sectionId) ?? e.sectionId, ...sectionJ };
     }),
   };
 }

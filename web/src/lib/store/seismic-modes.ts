@@ -3,6 +3,11 @@
  * (`engine/loads/seismic-modal.ts`), with the mass the plan itself assumes: the members' own
  * weight, the planned dead load and the planned live load at the seismic participation.
  *
+ * Those loads are the level weights the forces are spread over (`LoadPlan.levels`) when the plan
+ * loads by panels and is built without the §4.7.2 reduction, which the dialog does for the mass:
+ * the weights carry Lo, not a member's reduced live load. By width the weights still come from
+ * the extent of each level's nodes, and the two can differ.
+ *
  * The plan's loads are not in the model yet when it is previewed, so they are handed to the
  * mass source as two temporary cases; nothing is written to the model. Modes are added until 90 %
  * of the mass in X and in Y (§7.2.3), as the Advanced panel's modal analysis does.

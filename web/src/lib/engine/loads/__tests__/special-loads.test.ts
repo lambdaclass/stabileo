@@ -118,3 +118,53 @@ describe('soil and fluid: which walls, from which side, and the consistent nodal
     expect(specialLoads(m, { fluid: { levelZ: 2, gamma: 10, inside: { x: 3, y: 2 } } }).fluidBottom).toEqual([{ quadId: 5, q: 20 }]);
   });
 });
+
+describe('T, H and F: an emptied field is not a zero', () => {
+  // An emptied number input reaches the plan as null (Svelte 5's bind:value), or NaN.
+  const blank = null as unknown as number;
+
+  it('temperature: an emptied ΔT and gradient generate nothing, not {dtUniform: null} on every member', () => {
+    const out = specialLoads(box(), { thermal: { dtUniform: blank, dtGradient: blank } });
+    expect(out.thermal).toEqual([]);
+    // One of the two emptied: the other alone, the empty one as 0.
+    const one = specialLoads(box(), { thermal: { dtUniform: 20, dtGradient: blank } });
+    expect(one.thermal.find((x) => x.elementId === 1)).toEqual({ elementId: 1, dtUniform: 20, dtGradient: 0 });
+    expect(one.thermal.every((x) => Number.isFinite(x.dtUniform) && Number.isFinite(x.dtGradient))).toBe(true);
+  });
+
+  it('soil: an emptied grade level, γ or K is refused with a note, not read as 0', () => {
+    for (const bad of [{ gradeZ: blank }, { gamma: Number.NaN }, { k: blank }]) {
+      const out = specialLoads(box(), { soil: { gradeZ: 3, gamma: 18, k: 0.5, surcharge: 0, ...bad } });
+      expect(out.soil).toEqual([]);
+      expect(out.notes.map((n) => n.key)).toContain('loadPlan.note.specialEmpty');
+    }
+    // An emptied surcharge is no surcharge.
+    const s = specialLoads(box(), { soil: { gradeZ: 3, gamma: 18, k: 0.5, surcharge: blank } });
+    const ref = specialLoads(box(), { soil: { gradeZ: 3, gamma: 18, k: 0.5, surcharge: 0 } });
+    expect(s.soil).toEqual(ref.soil);
+  });
+
+  it('fluid: an emptied level or γ is refused with a note; an emptied point is no point, and says so', () => {
+    for (const bad of [{ levelZ: blank }, { gamma: blank }]) {
+      const out = specialLoads(box(), { fluid: { levelZ: 2, gamma: 10, ...bad } });
+      expect(out.fluid).toEqual([]);
+      expect(out.fluidBottom).toEqual([]);
+      expect(out.notes.map((n) => n.key)).toContain('loadPlan.note.specialEmpty');
+    }
+    const out = specialLoads(box(), { fluid: { levelZ: 2, gamma: 10, inside: { x: blank, y: 2 } } });
+    const ref = specialLoads(box(), { fluid: { levelZ: 2, gamma: 10 } });
+    expect(out.fluid).toEqual(ref.fluid);
+    expect(out.notes.map((n) => n.key)).toContain('loadPlan.note.specialPointEmpty');
+  });
+});
+
+describe('fluid without a point inside', () => {
+  it('says every closed region below the level was taken as holding the fluid', () => {
+    const out = specialLoads(box(), { fluid: { levelZ: 2, gamma: 10 } });
+    expect(out.fluid.length).toBeGreaterThan(0);
+    expect(out.notes.map((n) => n.key)).toContain('loadPlan.note.fluidRegionsAssumed');
+    // With the point, nothing was assumed.
+    const given = specialLoads(box(), { fluid: { levelZ: 2, gamma: 10, inside: { x: 3, y: 2 } } });
+    expect(given.notes.map((n) => n.key)).not.toContain('loadPlan.note.fluidRegionsAssumed');
+  });
+});

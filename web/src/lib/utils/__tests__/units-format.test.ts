@@ -3,7 +3,7 @@
  * value that is not a number, and the decimals the reader set.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { formatValue, formatDiagramValue, plainNumber, setDisplayDecimals } from '../units';
+import { formatValue, formatDiagramValue, formatCoordinate, plainNumber, setDisplayDecimals, dofQuantity, unitLabel } from '../units';
 
 afterEach(() => setDisplayDecimals({}));
 
@@ -16,6 +16,37 @@ describe('formatValue', () => {
     expect(formatValue(NaN, 'force', 'SI')).toBe('—');
     expect(formatValue(99.996, 'force', 'SI')).toBe('100.0');
     expect(formatValue(999.6, 'force', 'SI')).toBe('1000');
+  });
+});
+
+describe('formatCoordinate', () => {
+  it('a coordinate keeps its millimetre, however large it is', () => {
+    expect(formatCoordinate(150.25, 'SI')).toBe('150.250');
+    expect(formatCoordinate(1234.567, 'SI')).toBe('1234.567');
+    expect(formatCoordinate(0.0015, 'MKS')).toBe('0.002');
+  });
+  it('in feet, three decimals too: a thousandth of a foot is a third of a millimetre', () => {
+    expect(formatCoordinate(10, 'Imperial')).toBe('32.808');
+  });
+  it('the decimals the reader set for lengths win, and zero is 0', () => {
+    expect(formatCoordinate(150.25, 'SI', 1)).toBe('150.3');
+    expect(formatCoordinate(-1e-6, 'SI')).toBe('0');
+  });
+});
+
+describe('dofQuantity: what a reaction on a degree of freedom is', () => {
+  it('a force on a translation, a moment on a rotation', () => {
+    expect(dofQuantity('ux')).toBe('force');
+    expect(dofQuantity('uz')).toBe('force');
+    expect(dofQuantity('ry')).toBe('moment');
+  });
+  it('a bimoment on the warping DOF, in force × length², not kN', () => {
+    expect(dofQuantity('warping')).toBe('bimoment');
+    expect(unitLabel('bimoment', 'SI')).toBe('kN·m²');
+    expect(unitLabel('bimoment', 'MKS')).toBe('tf·m²');
+    expect(unitLabel('bimoment', 'Imperial')).toBe('kip·ft²');
+    // 1 kN·m² = 0.224809 kip × 3.28084² ft²
+    expect(formatValue(1, 'bimoment', 'Imperial')).toBe('2.42');
   });
 });
 

@@ -8,7 +8,7 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { viewState } from '../../lib/store/view-state.svelte';
-  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { fmtQ, fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
 
   const node = $derived(viewState.quickInfo && uiStore.selectedNodes.size === 1 && uiStore.selectedElements.size === 0 ? modelStore.nodes.get([...uiStore.selectedNodes][0]!) : undefined);
   const elem = $derived(viewState.quickInfo && uiStore.selectedElements.size === 1 && uiStore.selectMode !== 'shells' ? modelStore.elements.get([...uiStore.selectedElements][0]!) : undefined);
@@ -29,13 +29,13 @@
   <div class="qi" data-testid="quick-info">
     {#if node}
       <div class="qi-title">{t('quick.node')} {node.id}</div>
-      <div>x, y, z = {fmtQ(node.x, 'length')}; {fmtQ(node.y, 'length')}; {fmtQ(node.z ?? 0, 'length')} {unitQ('length')}</div>
+      <div>x, y, z = {fmtCoord(node.x)}; {fmtCoord(node.y)}; {fmtCoord(node.z ?? 0)} {unitQ('length')}</div>
       {#if support}<div>{t('quick.support')}: {support.type}</div>{/if}
       {#if disp}<div>u = {fmtQ(disp.ux, 'displacement')}; {fmtQ(disp.uy, 'displacement')}; {fmtQ(disp.uz, 'displacement')} {unitQ('displacement')}</div>{/if}
       {#if reac}<div>R = {fmtQ(reac.fx, 'force')}; {fmtQ(reac.fy, 'force')}; {fmtQ(reac.fz, 'force')} {unitQ('force')}</div>{/if}
     {:else if elem}
       <div class="qi-title">{t('quick.member')} {elem.id} · {elem.type}</div>
-      <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtQ(length, 'length')} {unitQ('length')}</div>
+      <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtCoord(length)} {unitQ('length')}</div>
       <div>{modelStore.sections.get(elem.sectionId)?.name ?? elem.sectionId} · {modelStore.materials.get(elem.materialId)?.name ?? elem.materialId}</div>
       {#if ef}
         <div>N = {fmtQ(peak(ef.nStart, ef.nEnd), 'force')} · Vy = {fmtQ(peak(ef.vyStart, ef.vyEnd), 'force')} · Vz = {fmtQ(peak(ef.vzStart, ef.vzEnd), 'force')} {unitQ('force')}</div>

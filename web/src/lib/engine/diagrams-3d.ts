@@ -229,9 +229,11 @@ export function evaluateDiagramAt(
 }
 
 /** Format a 3D diagram value for display.
- *  Moment values are negated: internal convention is hogging=positive,
- *  but standard engineering convention is sagging=positive. */
+ *  Bending moments are negated: internal convention is hogging=positive,
+ *  but standard engineering convention is sagging=positive. A torque has no
+ *  sagging side: it reads as every table reads Mx, so the moment's flip in
+ *  `formatDiagramValue` is undone for it — the label said −5 where the tables said 5. */
 export function formatDiagramValue3D(value: number, kind: Diagram3DKind, system: UnitSystem = 'SI'): string {
   const isMoment = kind === 'momentY' || kind === 'momentZ' || kind === 'torsion';
-  return formatDiagramValue(value, isMoment ? 'moment' : 'force', system);
+  return formatDiagramValue(kind === 'torsion' ? -value : value, isMoment ? 'moment' : 'force', system);
 }

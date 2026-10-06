@@ -8,7 +8,7 @@
 import { modelStore, uiStore } from '../store';
 import { plasticMoments, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
 import { plasticCollapse2D, type PlasticCollapseResult } from '../engine/plastic-collapse';
-import { advancedRefusal2D } from '../engine/solver-service';
+import { advancedRefusal2D, variableRefusal2D } from '../engine/solver-service';
 import { t } from '../i18n';
 
 export interface PlasticRun {
@@ -25,7 +25,7 @@ export interface PlasticRun {
 export function runPlasticCollapse(): PlasticRun | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
   if (!input) return null;
-  const refusal = advancedRefusal2D(input);
+  const refusal = variableRefusal2D(modelStore.model) ?? advancedRefusal2D(input);
   if (refusal) throw new Error(refusal);
   const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
   const mpOfSection = new Map(mps.map((m) => [m.sectionId, m.mp]));

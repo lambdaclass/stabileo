@@ -30,6 +30,48 @@ function line(axis: string, i: number | undefined, j: number | undefined): strin
 }
 
 /**
+ * Where a partial line load sits, measured from node I: «, a=1 m, b=2 m». Without it a load on
+ * one metre of a six-metre member reads as covering all six. A start with no end runs to the
+ * end of the member (`b=L`); a load with neither is full-length and says nothing.
+ */
+function range(d: { a?: number; b?: number }): string {
+  if (d.a === undefined && d.b === undefined) return '';
+  return `, a=${reportNumber(d.a ?? 0)} m, b=${d.b !== undefined ? `${reportNumber(d.b)} m` : 'L'}`;
+}
+
+/** The words a 2D member load needs from the caller's language: the engine holds no prose. */
+export interface MemberLoadWords { global: string }
+
+/** «, θ=30°» when the load is turned from its base direction, and the axes when they are global. */
+function direction(d: { angle?: number; isGlobal?: boolean }, words: MemberLoadWords): string {
+  return (nonZero(d.angle) ? `, θ=${reportNumber(d.angle)}°` : '') + (d.isGlobal ? `, ${words.global}` : '');
+}
+
+/**
+ * A 2D line load: both ends, its range when partial, its angle and its axes. The angle and the
+ * axes change what the numbers mean, so a report that drops them reports a different load.
+ */
+export function distributedText(
+  d: { qI: number; qJ?: number; a?: number; b?: number; angle?: number; isGlobal?: boolean },
+  words: MemberLoadWords,
+): string {
+  return `q=${reportNumber(d.qI)} → ${reportNumber(d.qJ ?? d.qI)} kN/m${range(d)}${direction(d, words)}`;
+}
+
+/**
+ * A 2D point load on a member: P, and the axial force and moment it may carry with it (the
+ * moment under its legacy alias for old data), then where it sits. '' when every component is
+ * zero, which the caller says in words.
+ */
+export function pointOnElementText(
+  d: { a: number; p: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean },
+  words: MemberLoadWords,
+): string {
+  const comps = named([['P', d.p, 'kN'], ['Px', d.px, 'kN'], ['My', d.my ?? d.mz, 'kN·m']]);
+  return comps.length ? `${comps.join(', ')}, a=${reportNumber(d.a)} m${direction(d, words)}` : '';
+}
+
+/**
  * The named components of a nodal, nodal3d or distributed3d load, comma-separated; '' when every
  * component is zero (the caller says so in words), and also for any other load type.
  */
@@ -46,7 +88,8 @@ export function loadComponentsText(type: string, d: Record<string, any>): string
   }
   if (type === 'distributed3d') {
     const ax = d.frame === 'global' || d.frame === 'projected' ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
-    return [...line(ax[0]!, d.qXI, d.qXJ), ...line(ax[1]!, d.qYI, d.qYJ), ...line(ax[2]!, d.qZI, d.qZJ)].join(', ');
+    const comps = [...line(ax[0]!, d.qXI, d.qXJ), ...line(ax[1]!, d.qYI, d.qYJ), ...line(ax[2]!, d.qZI, d.qZJ)];
+    return comps.length ? comps.join(', ') + range(d) : '';
   }
   return '';
 }

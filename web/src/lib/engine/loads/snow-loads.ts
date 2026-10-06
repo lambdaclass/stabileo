@@ -4,7 +4,18 @@
  *   · one balanced case, p_s on every roof member;
  *   · on a gable roof that §6.1 asks it of, two unbalanced cases, one per wind direction across
  *     the ridge: the leeward slope at the unbalanced load, the windward slope at 0,3·p_s (or
- *     unloaded where W ≤ 6 m).
+ *     unloaded where W ≤ 6 m). A member on the ridge itself collects from both slopes, so it
+ *     takes their mean either way; it used to take the windward value in both directions.
+ *
+ * ── Each surface its own C_s ──────────────────────────────────────
+ *
+ * p_s = C_s p_f is read for the slope of the surface each member carries (`surfaceSlopes`): a
+ * sloped member its own slope, a level one on a sloped roof (a purlin, a ridge, an eave between
+ * rafters) the slope of the rafters it joins, and any other level member, or a panel the beams
+ * close, a flat roof. It used to be one p_s, from the mean slope of the sloped members, on every
+ * roof member: a flat lower roof beside a 25° smooth roof took the 25° roof's C_s of 0,69. The
+ * drifts read h_b from the lower roof's own p_s, and the partial loads arrange the per-surface
+ * values. A slope the reader gives (`roofSlopeDeg`) is still the one slope of the whole roof.
  *
  * The roof members are the ones wind loads (`wind-cases.ts`), with the tributary width the
  * gravity loads use. Snow acts on the horizontal projection (Cap. 4), so on a member of slope θ
@@ -89,6 +100,35 @@ export function roofGeometry(model: WindModel): RoofGeometry | null {
   return { axis, ridge, W, slopeDeg: sloped > 0 ? slopeSum / sloped : 0 };
 }
 
+const SLOPED = Math.tan((1 * Math.PI) / 180);
+
+/**
+ * The slope of the roof surface each roof member carries snow from, degrees (see the header). A
+ * level member lies on a sloped surface when sloped roof members leave both its ends across it
+ * in plan, and then takes their mean slope.
+ */
+export function surfaceSlopes(model: WindModel): Map<number, number> {
+  const roof = roofMembers(model);
+  const isSloped = (m: { dz: number; lh: number }) => Math.abs(m.dz) / Math.max(m.lh, 1e-9) > SLOPED;
+  const deg = (m: { dz: number; lh: number }) => (Math.atan(Math.abs(m.dz) / Math.max(m.lh, 1e-9)) * 180) / Math.PI;
+  const sloped = roof.filter(isSloped);
+  const out = new Map<number, number>();
+  for (const m of roof) {
+    if (isSloped(m)) { out.set(m.id, deg(m)); continue; }
+    const e = model.elements.get(m.id)!;
+    const acrossAt = (node: number) => sloped.filter((r) => {
+      const re = model.elements.get(r.id)!;
+      if (re.nodeI !== node && re.nodeJ !== node) return false;
+      // Across: their plans more than 30° apart.
+      return Math.abs(m.dx * r.dy - m.dy * r.dx) > 0.5 * Math.max(m.lh, 1e-9) * Math.max(r.lh, 1e-9);
+    });
+    const atI = acrossAt(e.nodeI), atJ = acrossAt(e.nodeJ);
+    const on = atI.length > 0 && atJ.length > 0 ? [...atI, ...atJ] : [];
+    out.set(m.id, on.length ? on.reduce((s, r) => s + deg(r), 0) / on.length : 0);
+  }
+  return out;
+}
+
 /** An intensity on a member, kN/m² of horizontal projection: one value, or one at each end. */
 type Intensity = number | [number, number];
 const ends = (p: Intensity): [number, number] => (typeof p === 'number' ? [p, p] : p);
@@ -162,6 +202,8 @@ function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: nu
 
 export function snowLoadCases(input: SnowCasesInput): {
   result: SnowResult; geometry: RoofGeometry; cases: SnowCaseLoads[]; derivation: EngineMessage[]; refs: ClauseRef[];
+  /** The roof surfaces whose slope gives another p_s than `result`'s (see the header). */
+  surfaces: Array<{ slopeDeg: number; cs: number; ps: number }>;
 } | null {
   const geometry = roofGeometry(input.model);
   if (!geometry) return null;
@@ -173,14 +215,14 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...input.snow,
     roof: { kind: shapedKind ? 'mono' : kind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
-  if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [] };
+  if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [], surfaces: [] };
   const roof = roofMembers(input.model);
   const all = new Set(roof.map((r) => r.id));
   const layout = input.layout;
   const on = (pOf: (id: number, unit?: Unit) => Intensity): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
     ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth), nodal: [] }
     : projectionLoads(input.model, all, (id) => pOf(id), input.tributaryWidth));
-  let derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
+  const derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
 
   const roofNodes = [...new Set(roof.flatMap((r) => { const e = input.model.elements.get(r.id)!; return [e.nodeI, e.nodeJ]; }))]
     .map((id) => input.model.nodes.get(id)!).filter(Boolean);
@@ -195,21 +237,43 @@ export function snowLoadCases(input: SnowCasesInput): {
     const a = e && input.model.nodes.get(e.nodeI), b = e && input.model.nodes.get(e.nodeJ);
     return a && b ? [f(a), f(b)] : 0;
   };
-  const balancedOf: (id: number) => Intensity = shaped
+  // Each surface its own C_s (see the header), unless the reader gave the roof one slope.
+  const slopes = input.snow.roofSlopeDeg === undefined ? surfaceSlopes(input.model) : null;
+  const bySlope = new Map<number, SnowResult>();
+  const used = new Set<number>();
+  const surfaceAt = (deg: number): SnowResult => {
+    const key = round(deg, 2);
+    if (Math.abs(key - round(slopeDeg, 2)) < 1e-9) return result;
+    let r = bySlope.get(key);
+    if (!r) {
+      r = roofSnow({ ...input.snow, roof: { kind: shapedKind ? 'mono' : kind, slopeDeg: key, W: geometry.W, slippery: input.snow.slippery } });
+      bySlope.set(key, r);
+    }
+    return r;
+  };
+  // A panel the beams close is level: a flat roof.
+  const psOf = (id: number, unit?: Unit): number => {
+    if (!slopes) return result.ps;
+    const deg = unit && 'panel' in unit ? 0 : slopes.get(id) ?? slopeDeg;
+    used.add(round(deg, 2));
+    return surfaceAt(deg).ps;
+  };
+  const balancedOf: (id: number, unit?: Unit) => Intensity = shaped
     ? atEnds((pt) => shaped.balanced(pt) + result.rainOnSnow)
-    : () => result.ps;
+    : psOf;
   const cases: SnowCaseLoads[] = [{
     nameKey: shaped ? 'snow.case.balancedShaped' : 'snow.case.balanced', nameParams: { ps: +(shaped ? result.pf : result.ps).toFixed(3) },
-    ...on((id) => balancedOf(id)),
+    ...on((id, u) => balancedOf(id, u)),
   }];
   if (layout) {
+    // The drifts and the sliding snow land on panels, which are level: h_b reads the flat roof's p_s.
     const extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
-      pg: input.snow.pg, balanced: result.ps, pf: result.pf, slippery: input.snow.slippery, tributaryWidth: input.tributaryWidth,
-      parapet: input.snow.parapet, adjacent: input.snow.adjacent,
+      pg: input.snow.pg, balanced: shaped || !slopes ? result.ps : surfaceAt(0).ps, pf: result.pf, slippery: input.snow.slippery,
+      tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
     });
     cases[0]!.distributed.push(...extra.distributed);
-    derivation = extra.derivation;
-    refs = extra.refs;
+    derivation.push(...extra.derivation);
+    refs.push(...extra.refs);
     if (input.snow.partial !== false) {
       /*
        * Cap. 5. The spans perpendicular to the ridge of a gable roof steeper than 21/W + 0,5
@@ -222,7 +286,7 @@ export function snowLoadCases(input: SnowCasesInput): {
         cases.push({
           nameKey: pt.snowCase === 3 ? 'snow.case.partialPair' : 'snow.case.partial', pattern: true,
           nameParams: { axis: pt.axis.toUpperCase(), c: pt.snowCase!, at: +(pt.at ?? 0).toFixed(2) },
-          ...on((id, u) => { const f = u ? pt.factor(u) : 1; const [a, b] = ends(balancedOf(id)); return [a * f, b * f]; }),
+          ...on((id, u) => { const f = u ? pt.factor(u) : 1; const [a, b] = ends(balancedOf(id, u)); return [a * f, b * f]; }),
         });
       }
       derivation.push(msg(patterns.length > 0 ? 'snow.derivation.partial' : 'snow.derivation.noPartial', { n: patterns.length }));
@@ -241,15 +305,22 @@ export function snowLoadCases(input: SnowCasesInput): {
       return a && b ? (geometry.axis === 'x' ? (a.x + b.x) / 2 : (a.y + b.y) / 2) : geometry.ridge;
     };
     const side = new Map([...input.model.elements.keys()].map((id) => [id, mid(id) - geometry.ridge]));
+    const { leeward: lee, windward: wind } = result.unbalanced;
     for (const sense of [1, -1] as const) {
-      // Wind blowing toward +axis leaves the snow on the side beyond the ridge.
-      const leeward = (id: number) => (side.get(id) ?? 0) * sense > 0;
+      // Wind blowing toward +axis leaves the snow on the side beyond the ridge; a member on the
+      // ridge collects from both slopes, the same either way.
+      const at = (id: number) => {
+        const s = side.get(id) ?? 0;
+        return Math.abs(s) <= 0.01 ? (lee + wind) / 2 : s * sense > 0 ? lee : wind;
+      };
       cases.push({
         nameKey: 'snow.case.unbalanced',
         nameParams: { dir: `${sense > 0 ? '+' : '−'}${geometry.axis.toUpperCase()}` },
-        ...on((id) => (leeward(id) ? result.unbalanced!.leeward : result.unbalanced!.windward)),
+        ...on(at),
       });
     }
   }
-  return { result, geometry, cases, derivation, refs };
+  const surfaces = [...bySlope.entries()].filter(([slope, r]) => used.has(slope) && Math.abs(r.ps - result.ps) > 1e-9)
+    .sort((a, b) => a[0] - b[0]).map(([slope, r]) => ({ slopeDeg: slope, cs: r.cs, ps: r.ps }));
+  return { result, geometry, cases, derivation, refs, surfaces: shaped ? [] : surfaces };
 }
