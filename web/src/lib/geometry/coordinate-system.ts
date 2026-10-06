@@ -8,7 +8,7 @@ export type ViewportPresentation3D = 'native3d' | 'upright2dIn3d';
 export type CoordinateNode = { x: number; y: number; z?: number };
 export type ScenePoint = { x: number; y: number; z: number };
 export type TypedSupportLike = { type: string };
-export type TypedLoadLike = { type: string };
+export type TypedLoadLike = { type: string; data?: unknown };
 
 export const VERTICAL_AXIS: VerticalAxis = 'z';
 export const DEFAULT_WORKING_PLANE: WorkingPlane3D = 'XY';
@@ -224,6 +224,15 @@ export function getCachedProjectModelToXZ(
   return value;
 }
 
+/**
+ * A load of a plane type that acts out of the plane by what it states: a member temperature that
+ * varies across local y, side to side. A plane model holds every node out of its plane, which
+ * would cancel it without a word; like a load of a space type, it makes the model a space one.
+ */
+function actsOutOfPlane(load: TypedLoadLike): boolean {
+  return load.type === 'thermal' && !!(load.data as { dtGradientY?: number } | undefined)?.dtGradientY;
+}
+
 export function shouldProjectModelToXZ(params: {
   nodes: Iterable<CoordinateNode>;
   supports?: Iterable<TypedSupportLike>;
@@ -254,7 +263,7 @@ export function shouldProjectModelToXZ(params: {
 
   if (params.loads) {
     for (const load of params.loads) {
-      if (THREE_D_LOAD_TYPES.has(load.type)) return false;
+      if (THREE_D_LOAD_TYPES.has(load.type) || actsOutOfPlane(load)) return false;
     }
   }
 
