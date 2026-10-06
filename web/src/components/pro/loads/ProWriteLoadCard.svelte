@@ -73,9 +73,29 @@
   let f = $state<Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', N>>({ fx: null, fy: null, fz: null, mx: null, my: null, mz: null });
   let inclined = $state(false);
   let incF = $state<N>(null);
+  /*
+   * The direction of an inclined force: from an origin to a target, each a node or a point; the
+   * origin is the loaded node itself unless another is named. The force acts at each node Apply
+   * to names, parallel to that direction.
+   */
+  type End = 'node' | 'point';
+  let incFromKind = $state<'loaded' | End>('loaded');
+  let incFromNode = $state('');
+  let incFrom = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
+  let incToKind = $state<End>('node');
   let incToNode = $state('');
   let incTo = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
-  let incByNode = $state(true);
+  /** A named end of the direction, or null while it does not name one. */
+  function incEnd(kind: End, node: string, pt: Record<'x' | 'y' | 'z', N>): { x: number; y: number; z?: number } | null {
+    if (kind === 'node') return modelStore.nodes.get(Number(node)) ?? null;
+    return pt.x === null && pt.y === null && pt.z === null ? null : { x: num(pt.x), y: num(pt.y), z: num(pt.z) };
+  }
+  /** The force at the node `at`, from the origin toward the target; null when they make no direction. */
+  function inclinedAt(at: { x: number; y: number; z?: number }, F: number) {
+    const from = incFromKind === 'loaded' ? at : incEnd(incFromKind, incFromNode, incFrom);
+    const to = incEnd(incToKind, incToNode, incTo);
+    return from && to ? inclinedForce(from, to, F) : null;
+  }
   // ── Displacement ──
   let u = $state<Record<'dx' | 'dy' | 'dz' | 'drx' | 'dry' | 'drz', N>>({ dx: null, dy: null, dz: null, drx: null, dry: null, drz: null });
   // ── Distributed ──
@@ -126,7 +146,7 @@
   let shellSketch = $state<SketchInput['shell']>(undefined);
   /** What the fields say, drawn beside them (`LoadSketch`). */
   const sketch = $derived<SketchInput>({
-    kind, frame, shape, f, inclined, incF, incByNode, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
+    kind, frame, shape, f, inclined, incF, incFromKind, incToKind, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
     pFrame, p, pa, th, strainBy, strain: strainBy === 'unit' ? (strainPerMil.trim() === '' ? null : parseDecimal(strainPerMil)) : strainDL,
     ps, tq, swDir, swFactor: swFactor.trim() === '' ? null : parseDecimal(swFactor), shell: shellSketch,
   });
@@ -152,12 +172,11 @@
         if (inclined) {
           const F = opt(incF);
           if (F === null || F === 0) return t('writeLoad.zero');
-          return nodeLoads((id) => {
-            const at = modelStore.nodes.get(id)!;
-            const to = incByNode ? modelStore.nodes.get(Number(incToNode)) : { x: num(incTo.x), y: num(incTo.y), z: num(incTo.z) };
-            const v = to ? inclinedForce(at, to, F) : null;
+          const out = nodeLoads((id) => {
+            const v = inclinedAt(modelStore.nodes.get(id)!, F);
             return v ? { type: 'nodal3d', data: { id: 0, nodeId: id, fx: v[0], fy: v[1], fz: v[2], mx: 0, my: 0, mz: 0, ...c } } : null;
           });
+          return out.length ? out : t('writeLoad.inclinedNoDirection');
         }
         const v = { fx: num(f.fx), fy: num(f.fy), fz: num(f.fz), mx: num(f.mx), my: num(f.my), mz: num(f.mz) };
         if (Object.values(v).every((x) => x === 0)) return t('writeLoad.zero');
@@ -289,9 +308,8 @@
     if (!inclined || kind !== 'nodal') return null;
     const first = [...uiStore.selectedNodes][0];
     const at = first !== undefined ? modelStore.nodes.get(first) : undefined;
-    const to = incByNode ? modelStore.nodes.get(Number(incToNode)) : { x: num(incTo.x), y: num(incTo.y), z: num(incTo.z) };
     const F = opt(incF);
-    return at && to && F ? inclinedForce(at, to, F) : null;
+    return F ? inclinedAt(at ?? { x: 0, y: 0, z: 0 }, F) : null;
   });
 </script>
 
@@ -312,135 +330,121 @@
   <div class="wl-body">
   <div class="wl-fields">
   {#if kind === 'nodal'}
-    <label class="wl-check"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
+    <label class="wl-check fg-full"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
     {#if inclined}
-      <div class="wl-row">
-        <label>F <QuantityInput nullable cls="wl-num" bind:value={incF} quantity="force" testid="wl-inc-f" /></label>
-        <label class="wl-check"><input type="radio" bind:group={incByNode} value={true} /> {t('writeLoad.towardNode')}</label>
-        <label class="wl-check"><input type="radio" bind:group={incByNode} value={false} /> {t('writeLoad.towardPoint')}</label>
-      </div>
-      <div class="wl-row">
-        {#if incByNode}<label>{t('writeLoad.node')} <input type="text" bind:value={incToNode} class="wl-num" placeholder="ID" data-testid="wl-inc-node" /></label>
-        {:else}
-          <label>X <QuantityInput nullable cls="wl-num" bind:value={incTo.x} quantity="length" /></label>
-          <label>Y <QuantityInput nullable cls="wl-num" bind:value={incTo.y} quantity="length" /></label>
-          <label>Z <QuantityInput nullable cls="wl-num" bind:value={incTo.z} quantity="length" /></label>
+      <div class="fg-r"><span class="fg-l">F</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={incF} quantity="force" testid="wl-inc-f" /><span class="fg-u">{unitQ('force')}</span></div>
+      {#snippet end(label: string, kind: string, setKind: (k: string) => void, kinds: string[], node: string, setNode: (v: string) => void, pt: Record<'x' | 'y' | 'z', N>, tid: string)}
+        <div class="fg-r"><span class="fg-l">{label}</span>
+          <select class="fg-wide" value={kind} onchange={(e) => setKind(e.currentTarget.value)} data-testid="wl-inc-{tid}-kind">
+            {#each kinds as k (k)}<option value={k}>{t(`writeLoad.inc.${k}`)}</option>{/each}
+          </select></div>
+        {#if kind === 'node'}
+          <div class="fg-r"><span class="fg-l"></span><input type="text" inputmode="numeric" value={node} oninput={(e) => setNode(e.currentTarget.value)} class="fg-in" placeholder="ID" data-testid={tid === 'to' ? 'wl-inc-node' : 'wl-inc-from-node'} /></div>
+        {:else if kind === 'point'}
+          <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+          <div class="fg-r"><span class="fg-l"></span>
+            {#each ['x', 'y', 'z'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pt[k]} quantity="length" testid="wl-inc-{tid}-{k}" />{/each}<span class="fg-u">{unitQ('length')}</span></div>
         {/if}
-      </div>
-      {#if incPreview}<p class="wl-hint" data-testid="wl-inc-preview">{tp('writeLoad.inclinedPreview', { fx: fmtQ(incPreview[0], 'force'), fy: fmtQ(incPreview[1], 'force'), fz: fmtQ(incPreview[2], 'force'), u: unitQ('force') })}</p>{/if}
+      {/snippet}
+      {@render end(t('writeLoad.from'), incFromKind, (k) => (incFromKind = k as never), ['loaded', 'node', 'point'], incFromNode, (v) => (incFromNode = v), incFrom, 'from')}
+      {@render end(t('writeLoad.toward'), incToKind, (k) => (incToKind = k as never), ['node', 'point'], incToNode, (v) => (incToNode = v), incTo, 'to')}
+      {#if incPreview}<p class="wl-hint fg-full" data-testid="wl-inc-preview">{tp('writeLoad.inclinedPreview', { fx: fmtQ(incPreview[0], 'force'), fy: fmtQ(incPreview[1], 'force'), fz: fmtQ(incPreview[2], 'force'), u: unitQ('force') })}</p>{/if}
     {:else}
-      <div class="wl-row">
-        {#each ['fx', 'fy', 'fz'] as k (k)}<label>{k.toUpperCase()} <QuantityInput nullable cls="wl-num" bind:value={f[k as keyof typeof f]} quantity="force" testid="wl-{k}" /></label>{/each}
-      </div>
-      <div class="wl-row">
-        {#each ['mx', 'my', 'mz'] as k (k)}<label>{k.toUpperCase()} <QuantityInput nullable cls="wl-num" bind:value={f[k as keyof typeof f]} quantity="moment" testid="wl-{k}" /></label>{/each}
-      </div>
+      <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+      <div class="fg-r"><span class="fg-l">F</span>
+        {#each ['fx', 'fy', 'fz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={f[k]} quantity="force" testid="wl-{k}" ariaLabel={k.toUpperCase()} />{/each}<span class="fg-u">{unitQ('force')}</span></div>
+      <div class="fg-r"><span class="fg-l">M</span>
+        {#each ['mx', 'my', 'mz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={f[k]} quantity="moment" testid="wl-{k}" ariaLabel={k.toUpperCase()} />{/each}<span class="fg-u">{unitQ('moment')}</span></div>
     {/if}
   {:else if kind === 'displacement'}
-    <p class="wl-hint">{t('writeLoad.displacementHint')}</p>
-    <div class="wl-row">
-      {#each ['dx', 'dy', 'dz'] as k (k)}<label>{k} <QuantityInput nullable cls="wl-num" bind:value={u[k as keyof typeof u]} quantity="displacement" testid="wl-{k}" /></label>{/each}
-    </div>
-    <div class="wl-row">
-      {#each ['drx', 'dry', 'drz'] as k (k)}<label>{k} <QuantityInput nullable cls="wl-num" bind:value={u[k as keyof typeof u]} quantity="rotation" testid="wl-{k}" /></label>{/each}
-    </div>
+    <p class="wl-hint fg-full">{t('writeLoad.displacementHint')}</p>
+    <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+    <div class="fg-r"><span class="fg-l">d</span>
+      {#each ['dx', 'dy', 'dz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={u[k]} quantity="displacement" testid="wl-{k}" ariaLabel={k} />{/each}<span class="fg-u">{unitQ('displacement')}</span></div>
+    <div class="fg-r"><span class="fg-l">θ</span>
+      {#each ['drx', 'dry', 'drz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={u[k]} quantity="rotation" testid="wl-{k}" ariaLabel={k} />{/each}<span class="fg-u">rad</span></div>
   {:else if kind === 'distributed'}
-    <div class="wl-row">
-      <label>{t('loads.frame')}
-        <select bind:value={frame} data-testid="wl-frame" title={t('loads.frameHelp')}>
-          <option value="local">{t('loads.frame.local')}</option>
-          <option value="global">{t('loads.frame.global')}</option>
-          <option value="projected">{t('loads.frame.projected')}</option>
-        </select></label>
-      <label>{t('writeLoad.shape')}
-        <select bind:value={shape} data-testid="wl-shape">
-          <option value="trapezoid">{t('writeLoad.shape.trapezoid')}</option>
-          <option value="triangle">{t('writeLoad.shape.triangle')}</option>
-          <option value="hydrostatic">{t('writeLoad.shape.hydrostatic')}</option>
-        </select></label>
-    </div>
+    <div class="fg-r"><span class="fg-l">{t('loads.frame')}</span>
+      <select class="fg-wide" bind:value={frame} data-testid="wl-frame" title={t('loads.frameHelp')}>
+        <option value="local">{t('loads.frame.local')}</option>
+        <option value="global">{t('loads.frame.global')}</option>
+        <option value="projected">{t('loads.frame.projected')}</option>
+      </select></div>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.shape')}</span>
+      <select class="fg-wide" bind:value={shape} data-testid="wl-shape">
+        <option value="trapezoid">{t('writeLoad.shape.trapezoid')}</option>
+        <option value="triangle">{t('writeLoad.shape.triangle')}</option>
+        <option value="hydrostatic">{t('writeLoad.shape.hydrostatic')}</option>
+      </select></div>
     {#if shape === 'trapezoid'}
-      {#each [['x', 'xI', 'xJ'], ['y', 'yI', 'yJ'], ['z', 'zI', 'zJ']] as [c, i, j] (c)}
-        <div class="wl-row">
-          <label>{frame === 'local' ? `q${c}` : `q${c.toUpperCase()}`} I <QuantityInput nullable cls="wl-num" bind:value={q[i as keyof typeof q]} quantity="distributedLoad" testid="wl-q{c}i" /></label>
-          <label>J <QuantityInput nullable cls="wl-num" bind:value={q[j as keyof typeof q]} quantity="distributedLoad" placeholder={t('writeLoad.sameAsI')} testid="wl-q{c}j" /></label>
-        </div>
+      <div class="fg-r fg-head"><span></span><span>I</span><span>J</span></div>
+      {#each [['x', 'xI', 'xJ'], ['y', 'yI', 'yJ'], ['z', 'zI', 'zJ']] as const as [c, i, j] (c)}
+        <div class="fg-r"><span class="fg-l">{frame === 'local' ? `q${c}` : `q${c.toUpperCase()}`}</span>
+          <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={q[i]} quantity="distributedLoad" testid="wl-q{c}i" />
+          <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={q[j]} quantity="distributedLoad" placeholder={t('writeLoad.sameAsI')} testid="wl-q{c}j" />
+          <span class="fg-u fg-u2">{unitQ('distributedLoad')}</span></div>
       {/each}
-      <div class="wl-row">
-        <label>a <QuantityInput nullable cls="wl-num" bind:value={qa} quantity="length" placeholder="0" testid="wl-a" /></label>
-        <label>b <QuantityInput nullable cls="wl-num" bind:value={qb} quantity="length" placeholder="L" testid="wl-b" /></label>
-        <span class="wl-hint">{t('writeLoad.abHint')}</span>
-      </div>
+      <div class="fg-r"><span class="fg-l">a</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={qa} quantity="length" placeholder="0" testid="wl-a" /><span class="fg-u">{unitQ('length')}</span></div>
+      <div class="fg-r"><span class="fg-l">b</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={qb} quantity="length" placeholder="L" testid="wl-b" /><span class="fg-u">{unitQ('length')}</span></div>
+      <p class="wl-hint fg-full">{t('writeLoad.abHint')}</p>
     {:else if shape === 'triangle'}
-      <div class="wl-row">
-        <label>{t('writeLoad.peak')} <QuantityInput nullable cls="wl-num" bind:value={peak} quantity="distributedLoad" testid="wl-peak" /></label>
-        <label>{t('writeLoad.along')} <select bind:value={peakComp} data-testid="wl-peak-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></label>
-        <label>{t('writeLoad.peakAt')} <QuantityInput nullable cls="wl-num" bind:value={peakAt} quantity="length" placeholder="L/2" testid="wl-peak-at" /></label>
-      </div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.peak')}</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={peak} quantity="distributedLoad" testid="wl-peak" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.along')}</span><select class="fg-in" bind:value={peakComp} data-testid="wl-peak-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.peakAt')}</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={peakAt} quantity="length" placeholder="L/2" testid="wl-peak-at" /><span class="fg-u">{unitQ('length')}</span></div>
     {:else}
-      <p class="wl-hint">{t('writeLoad.hydrostaticHint')}</p>
-      <div class="wl-row">
-        <label>w₁ <QuantityInput nullable cls="wl-num" bind:value={w1} quantity="distributedLoad" testid="wl-w1" /></label>
-        <label>w₂ <QuantityInput nullable cls="wl-num" bind:value={w2} quantity="distributedLoad" testid="wl-w2" /></label>
-        <label>{t('writeLoad.alongAxis')} <select bind:value={hydroAxis} data-testid="wl-hydro-axis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
-        <label>{t('writeLoad.acting')} <select bind:value={hydroComp} data-testid="wl-hydro-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></label>
-      </div>
+      <div class="fg-r"><span class="fg-l">w₁</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w1} quantity="distributedLoad" testid="wl-w1" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
+      <div class="fg-r"><span class="fg-l">w₂</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w2} quantity="distributedLoad" testid="wl-w2" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.alongAxis')}</span><select class="fg-in" bind:value={hydroAxis} data-testid="wl-hydro-axis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.acting')}</span><select class="fg-in" bind:value={hydroComp} data-testid="wl-hydro-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></div>
+      <p class="wl-hint fg-full">{t('writeLoad.hydrostaticHint')}</p>
     {/if}
   {:else if kind === 'point'}
-    <div class="wl-row">
-      <label>{t('loads.frame')}
-        <select bind:value={pFrame} data-testid="wl-pframe">
-          <option value="local">{t('loads.frame.local')}</option>
-          <option value="global">{t('loads.frame.global')}</option>
-        </select></label>
-      <label>a <QuantityInput nullable cls="wl-num" bind:value={pa} quantity="length" placeholder="L/2" testid="wl-pa" /></label>
-    </div>
-    <div class="wl-row">
-      {#each ['px', 'py', 'pz'] as k (k)}<label>{pFrame === 'local' ? `P${k[1]}` : `P${k[1]!.toUpperCase()}`} <QuantityInput nullable cls="wl-num" bind:value={p[k as keyof typeof p]} quantity="force" testid="wl-{k}" /></label>{/each}
-    </div>
-    <div class="wl-row">
-      {#each ['mx', 'my', 'mz'] as k (k)}<label>{pFrame === 'local' ? `M${k[1]}` : `M${k[1]!.toUpperCase()}`} <QuantityInput nullable cls="wl-num" bind:value={p[k as keyof typeof p]} quantity="moment" testid="wl-p{k}" /></label>{/each}
-    </div>
-    <p class="wl-hint">{t('writeLoad.pointHint')}</p>
+    <div class="fg-r"><span class="fg-l">{t('loads.frame')}</span>
+      <select class="fg-wide" bind:value={pFrame} data-testid="wl-pframe">
+        <option value="local">{t('loads.frame.local')}</option>
+        <option value="global">{t('loads.frame.global')}</option>
+      </select></div>
+    <div class="fg-r"><span class="fg-l">a</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pa} quantity="length" placeholder="L/2" testid="wl-pa" /><span class="fg-u">{unitQ('length')}</span></div>
+    <div class="fg-r fg-head"><span></span>{#each ['x', 'y', 'z'] as c (c)}<span>{pFrame === 'local' ? c : c.toUpperCase()}</span>{/each}</div>
+    <div class="fg-r"><span class="fg-l">P</span>
+      {#each ['px', 'py', 'pz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={p[k]} quantity="force" testid="wl-{k}" ariaLabel={k} />{/each}<span class="fg-u">{unitQ('force')}</span></div>
+    <div class="fg-r"><span class="fg-l">M</span>
+      {#each ['mx', 'my', 'mz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={p[k]} quantity="moment" testid="wl-p{k}" ariaLabel={k} />{/each}<span class="fg-u">{unitQ('moment')}</span></div>
+    <p class="wl-hint fg-full">{t('writeLoad.pointHint')}</p>
   {:else if kind === 'thermal'}
-    <div class="wl-row">
-      <label>ΔT <QuantityInput nullable cls="wl-num" bind:value={th.dt} quantity="temperatureDiff" testid="wl-dt" /></label>
-      <label>ΔTgz <QuantityInput nullable cls="wl-num" bind:value={th.gz} quantity="temperatureDiff" testid="wl-gz" /></label>
-      <label>ΔTgy <QuantityInput nullable cls="wl-num" bind:value={th.gy} quantity="temperatureDiff" testid="wl-gy" /></label>
-    </div>
-    <p class="wl-hint">{t('writeLoad.thermalHint')}</p>
+    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.dt} quantity="temperatureDiff" testid="wl-dt" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTgz</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gz} quantity="temperatureDiff" testid="wl-gz" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTgy</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gy} quantity="temperatureDiff" testid="wl-gy" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <p class="wl-hint fg-full">{t('writeLoad.thermalHint')}</p>
   {:else if kind === 'strain'}
-    <div class="wl-row">
-      <label class="wl-check"><input type="radio" bind:group={strainBy} value="unit" /> ε₀ (‰)</label>
-      <label class="wl-check"><input type="radio" bind:group={strainBy} value="length" /> ΔL</label>
-      {#if strainBy === 'unit'}<input type="text" bind:value={strainPerMil} class="wl-num" placeholder="‰" data-testid="wl-strain" />
-      {:else}<QuantityInput nullable cls="wl-num" bind:value={strainDL} quantity="displacement" testid="wl-strain-dl" />{/if}
-    </div>
-    <p class="wl-hint">{t('writeLoad.strainHint')}</p>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.as')}</span>
+      <span class="fg-wide">
+        <label class="wl-check"><input type="radio" bind:group={strainBy} value="unit" /> ε₀</label>
+        <label class="wl-check"><input type="radio" bind:group={strainBy} value="length" /> ΔL</label>
+      </span></div>
+    <div class="fg-r"><span class="fg-l">{strainBy === 'unit' ? 'ε₀' : 'ΔL'}</span>
+      {#if strainBy === 'unit'}<input type="text" inputmode="decimal" bind:value={strainPerMil} class="fg-in" data-testid="wl-strain" /><span class="fg-u">‰</span>
+      {:else}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={strainDL} quantity="displacement" testid="wl-strain-dl" /><span class="fg-u">{unitQ('displacement')}</span>{/if}</div>
+    <p class="wl-hint fg-full">{t('writeLoad.strainHint')}</p>
   {:else if kind === 'prestress'}
-    <div class="wl-row">
-      <label>P <QuantityInput nullable cls="wl-num" bind:value={ps.force} quantity="force" testid="wl-ps-force" /></label>
-    </div>
-    <div class="wl-row">
-      <label>e I <QuantityInput nullable cls="wl-num" bind:value={ps.eI} quantity="length" placeholder="0" testid="wl-ps-ei" /></label>
-      <label>e {t('writeLoad.middle')} <QuantityInput nullable cls="wl-num" bind:value={ps.eM} quantity="length" placeholder={t('writeLoad.eMidDefault')} testid="wl-ps-em" /></label>
-      <label>e J <QuantityInput nullable cls="wl-num" bind:value={ps.eJ} quantity="length" placeholder="0" testid="wl-ps-ej" /></label>
-    </div>
-    <p class="wl-hint">{t('writeLoad.prestressHint')}</p>
+    <div class="fg-r"><span class="fg-l">P</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={ps.force} quantity="force" testid="wl-ps-force" /><span class="fg-u">{unitQ('force')}</span></div>
+    <div class="fg-r fg-head"><span></span><span>I</span><span>{t('writeLoad.middle')}</span><span>J</span></div>
+    <div class="fg-r"><span class="fg-l">e</span>
+      <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={ps.eI} quantity="length" placeholder="0" testid="wl-ps-ei" ariaLabel="e I" />
+      <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={ps.eM} quantity="length" placeholder={t('writeLoad.eMidDefault')} testid="wl-ps-em" ariaLabel={`e ${t('writeLoad.middle')}`} />
+      <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={ps.eJ} quantity="length" placeholder="0" testid="wl-ps-ej" ariaLabel="e J" />
+      <span class="fg-u">{unitQ('length')}</span></div>
+    <p class="wl-hint fg-full">{t('writeLoad.prestressHint')}</p>
   {:else if kind === 'selfWeight'}
-    <div class="wl-row">
-      <label>{t('selfWeight.direction')}
-        <select bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
-      <label>{t('selfWeight.factor')} <input type="text" bind:value={swFactor} class="wl-num" data-testid="wl-sw-factor" /></label>
-    </div>
-    <p class="wl-hint">{t('writeLoad.swHint')}</p>
+    <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
+    <div class="fg-r"><span class="fg-l">{t('selfWeight.factor')}</span><input type="text" inputmode="decimal" bind:value={swFactor} class="fg-in" data-testid="wl-sw-factor" /></div>
+    <p class="wl-hint fg-full">{t('writeLoad.swHint')}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} bind:sketch={shellSketch} />{/key}
   {:else}
-    <div class="wl-row">
-      <label>ΔT <QuantityInput nullable cls="wl-num" bind:value={tq.dt} quantity="temperatureDiff" testid="wl-tq-dt" /></label>
-      <label>ΔTg <QuantityInput nullable cls="wl-num" bind:value={tq.g} quantity="temperatureDiff" testid="wl-tq-g" /></label>
-    </div>
+    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.dt} quantity="temperatureDiff" testid="wl-tq-dt" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTg</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.g} quantity="temperatureDiff" testid="wl-tq-g" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <p class="wl-hint fg-full">{t('writeLoad.thermalQuadHint')}</p>
   {/if}
   </div>
   <LoadSketch v={sketch} />
@@ -465,11 +469,8 @@
   .wl-kind { padding: 2px 7px; font-size: 0.68rem; color: var(--st-text-3); background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 4px; cursor: pointer; }
   .wl-kind:hover { color: var(--st-text-2); }
   .wl-kind.active { color: var(--st-text); border-color: var(--st-text-2); }
-  .wl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .wl-row label, .wl-check { font-size: 0.72rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
-  .wl-num, .wl-row select { width: 64px; padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.74rem; font-family: var(--st-mono); }
-  .wl-row select { width: auto; font-family: var(--st-sans); }
-  .wl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
+  .wl :global(.wl-check) { font-size: 0.72rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
+  .wl :global(.wl-hint) { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
   .wl-error { margin: 0; font-size: 0.66rem; color: var(--st-danger); }
   .wl-done { margin: 0; font-size: 0.66rem; color: var(--st-ok); }
   /* The same button and count as the Add support card. */
@@ -477,6 +478,29 @@
   .wl-add { flex: none; padding: 0.3rem 0.8rem; border: 1px solid var(--st-accent); border-radius: var(--st-radius); background: var(--st-accent); color: #fff; font: inherit; font-size: 0.72rem; cursor: pointer; }
   .wl-count { font-size: 0.66rem; color: var(--st-text-2); }
   .wl-count.warn { color: var(--st-warn); }
+  /* The sketch stays beside the fields and gives way first (down to 150 px) when the panel is narrow. */
   .wl-body { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-  .wl-fields { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .wl-fields { flex: 1 1 0; min-width: 255px; display: flex; flex-direction: column; gap: 5px; }
+  .wl-body > :global(svg) { flex: 0 0 190px; }
+  /*
+   * One grid for every kind's fields, the slab form's too: a column of names, cells of one width,
+   * the unit after the row. A vector is a row with X, Y, Z (or I, J) headed above it, so a value
+   * always sits beside its own name and under its own component.
+   */
+  .wl { --fg-l: 3.9rem; --fg-c: 52px; }
+  .wl :global(.fg-r) { display: grid; grid-template-columns: var(--fg-l) var(--fg-c) var(--fg-c) var(--fg-c) auto; gap: 6px; align-items: center; }
+  .wl :global(.fg-head) { font-size: 0.62rem; color: var(--st-text-3); text-align: center; margin-bottom: -3px; }
+  .wl :global(.fg-l) { font-size: 0.7rem; color: var(--st-text-3); line-height: 1.15; overflow-wrap: anywhere; }
+  .wl :global(.fg-u) { font-size: 0.64rem; color: var(--st-text-3); white-space: nowrap; }
+  .wl :global(.fg-wide) { grid-column: 2 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .wl :global(.fg-full) { grid-column: 1 / -1; }
+  .wl :global(.qi) { width: 100%; min-width: 0; }
+  .wl :global(input.fg-in), .wl :global(select.fg-in), .wl :global(select.fg-wide) {
+    width: 100%; min-width: 0; box-sizing: border-box; padding: 3px 5px;
+    background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px;
+    color: var(--st-text); font-size: 0.72rem; font-family: var(--st-mono);
+  }
+  .wl :global(select.fg-in), .wl :global(select.fg-wide) { font-family: var(--st-sans); }
+  .wl :global(select.fg-wide) { width: auto; max-width: 100%; }
+  .wl :global(input.fg-in:focus), .wl :global(select:focus) { outline: none; border-color: var(--st-accent); }
 </style>

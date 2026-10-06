@@ -188,4 +188,28 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     const s = (await sketch.boundingBox())!, f = (await page.getByTestId('wl-qzi').boundingBox())!;
     expect(s.x).toBeGreaterThan(f.x + f.width);
   });
+
+  test('an inclined force takes its direction from an origin to a target, each a node or a point', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await openLoadCard(page);
+    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-inclined').check();
+    await page.getByTestId('wl-inc-f').fill('10');
+    // From the point (0; 0; 4) toward (0; 0; 0): straight down, whatever node it acts at.
+    await page.getByTestId('wl-inc-from-kind').selectOption('point');
+    await page.getByTestId('wl-inc-from-z').fill('4');
+    await page.getByTestId('wl-inc-to-kind').selectOption('point');
+    await page.getByTestId('wl-inc-to-x').fill('0');
+    await page.getByTestId('load-target-by').selectOption('ids');
+    await page.getByTestId('load-target-ids').fill('6');
+    const added = await addLoad(page);
+    expect(added[0]!.data).toMatchObject({ nodeId: 6 });
+    expect(added[0]!.data.fz as number).toBeCloseTo(-10, 6);
+    expect(Math.abs(added[0]!.data.fx as number)).toBeLessThan(1e-9);
+    // Origin and target in one place: no direction, nothing added.
+    await page.getByTestId('wl-inc-from-z').fill('0');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-error')).toBeVisible();
+    await expect(page.getByTestId('load-sketch')).toHaveAttribute('data-kind', 'nodal');
+  });
 });

@@ -8,7 +8,8 @@
     f?: Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', N>;
     inclined?: boolean;
     incF?: N;
-    incByNode?: boolean;
+    incFromKind?: 'loaded' | 'node' | 'point';
+    incToKind?: 'node' | 'point';
     u?: Record<'dx' | 'dy' | 'dz' | 'drx' | 'dry' | 'drz', N>;
     q?: Record<'xI' | 'xJ' | 'yI' | 'yJ' | 'zI' | 'zJ', N>;
     qa?: N; qb?: N;
@@ -93,14 +94,28 @@
     return { d: `M${X0},${y(eI)} Q${(X0 + X1) / 2},${yc} ${X1},${y(eJ)}`, yI: y(eI), yM: y(eM), yJ: y(eJ) };
   });
 
-  // ── Thermal: the temperature across the depth, +z face on top ──
+  // ── Thermal: each face's temperature, from the uniform part and the differences ──
+  /*
+   * A member: ΔTgz is the −z face minus the +z face, ΔTgy the −y face minus the +y face. A slab
+   * (the engine's convention for shells): ΔTg is the +z face minus the −z face. Each face is ΔT
+   * plus or minus half its difference; the hotter side lengthens, so a free piece bends toward it.
+   */
   const thermal = $derived.by(() => {
-    const th = v.kind === 'thermalQuad' ? { dt: v.tq?.dt ?? null, gz: v.tq?.g ?? null } : { dt: v.th?.dt ?? null, gz: v.th?.gz ?? null };
-    const dt = th.dt ?? 0, g = th.gz ?? 0;
-    const top = dt - g / 2, bot = dt + g / 2;
-    const m = Math.max(Math.abs(top), Math.abs(bot)) || 1;
-    return { top, bot, xt: 156 + 30 * top / m, xb: 156 + 30 * bot / m, th };
+    const quad = v.kind === 'thermalQuad';
+    const dt = (quad ? v.tq?.dt : v.th?.dt) ?? null, gz = (quad ? v.tq?.g : v.th?.gz) ?? null, gy = quad ? null : (v.th?.gy ?? null);
+    const T = dt ?? 0, z = gz ?? 0, y = gy ?? 0;
+    const top = quad ? T + z / 2 : T - z / 2, bot = quad ? T - z / 2 : T + z / 2;
+    const right = T - y / 2, left = T + y / 2;
+    const all = [top, bot, ...(gy ? [left, right] : [])];
+    const lo = Math.min(...all), hi = Math.max(...all);
+    /** A face's colour: warm at the hottest, cool at the coldest; one temperature, by its sign. */
+    const tone = (x: number) => (hi - lo > 1e-9 ? (x - lo) / (hi - lo) : T > 0 ? 1 : T < 0 ? 0 : 0.5);
+    const col = (x: number) => `color-mix(in srgb, var(--ls-hot) ${Math.round(100 * tone(x))}%, var(--ls-cold))`;
+    /** Which way a free piece bows: toward the hotter of its two faces (+1 up, −1 down, 0 none). */
+    const bow = Math.sign(top - bot);
+    return { dt, gz, gy, top, bot, left, right, col, bow, grows: Math.sign(T), any: dt !== null || gz !== null || gy !== null };
   });
+  const tval = (x: number) => `${fmtQ(x, 'temperatureDiff')} ${unitQ('temperatureDiff')}`;
 
   // ── Slabs ──
   const SLAB = '40,92 140,92 172,62 72,62';
@@ -172,13 +187,24 @@
   {/snippet}
 
   {#if v.kind === 'nodal' && v.inclined}
-    <circle cx="56" cy="88" r="3" class="ls-node" />
-    <line x1="56" y1="88" x2="160" y2="30" class="ls-guide" />
-    <circle cx="160" cy="30" r="3" class={v.incByNode ? 'ls-node' : 'ls-point'} />
-    <text x="160" y="22" class="ls-t" text-anchor="middle">{v.incByNode ? t('writeLoad.sketch.toNode') : t('writeLoad.sketch.toPoint')}</text>
-    <line x1="56" y1="88" x2={sgn(v.incF) < 0 ? 40 : 102} y2={sgn(v.incF) < 0 ? 97 : 62} class="ls-load" marker-end="url(#{id}-a)" />
-    <text x="96" y="80" class="ls-v">{lbl('F', v.incF, 'force')}</text>
-    {@render axes(14, 118)}
+    {@const loaded = (v.incFromKind ?? 'loaded') === 'loaded'}
+    {@const A = loaded ? { x: 48, y: 98 } : { x: 26, y: 96 }}
+    {@const B = { x: loaded ? 128 : 96, y: 34 }}
+    {@const len = Math.hypot(B.x - A.x, B.y - A.y)}
+    {@const ux = (B.x - A.x) / len}
+    {@const uy = (B.y - A.y) / len}
+    {@const N = loaded ? A : { x: 150, y: 100 }}
+    {@const s = sgn(v.incF) || 1}
+    <!-- The direction, from its origin to its target; the force acts at the loaded node, along it. -->
+    <line x1={A.x} y1={A.y} x2={B.x - ux * 5} y2={B.y - uy * 5} class="ls-guide" marker-end="url(#{id}-a)" />
+    <circle cx={A.x} cy={A.y} r="3" class={loaded || v.incFromKind === 'node' ? 'ls-node' : 'ls-point'} />
+    <circle cx={B.x} cy={B.y} r="3" class={v.incToKind === 'point' ? 'ls-point' : 'ls-node'} />
+    <text x={B.x} y={B.y - 7} class="ls-t" text-anchor="middle">{t('writeLoad.toward')}: {t(`writeLoad.inc.${v.incToKind ?? 'node'}`)}</text>
+    {#if !loaded}<text x={A.x} y={A.y + 13} class="ls-t">{t('writeLoad.from')}: {t(`writeLoad.inc.${v.incFromKind}`)}</text>{/if}
+    <circle cx={N.x} cy={N.y} r="3.4" class="ls-node" />
+    <line x1={N.x} y1={N.y} x2={N.x + s * ux * 40} y2={N.y + s * uy * 40} class="ls-load" marker-end="url(#{id}-a)" />
+    <text x={N.x + s * ux * 40 + (loaded ? 6 : -4)} y={N.y + s * uy * 40 - 4} class="ls-v" text-anchor={loaded ? 'start' : 'end'}>{lbl('F', v.incF, 'force')}</text>
+    <text x={N.x} y={N.y + 14} class="ls-t" text-anchor={loaded ? 'start' : 'middle'}>{loaded ? `${t('writeLoad.sketch.loaded')} = ${t('writeLoad.from').toLowerCase()}` : t('writeLoad.sketch.loaded')}</text>
   {:else if v.kind === 'nodal'}
     <circle cx={NODE.x} cy={NODE.y} r="3.4" class="ls-node" />
     {#each nodalArrows as a (a.c)}
@@ -265,22 +291,42 @@
     <line x1={X0} y1={YM + 22} x2={pa.at.x} y2={YM + 22} class="ls-dim" marker-start="url(#{id}-a)" marker-end="url(#{id}-a)" />
     <text x={(X0 + pa.at.x) / 2} y={YM + 32} class="ls-t" text-anchor="middle">{v.pa != null ? lbl('a', v.pa, 'length') : 'a = L/2'}</text>
     <text x="4" y="12" class="ls-t">{frameText(v.pFrame)}</text>
-  {:else if v.kind === 'thermal' || v.kind === 'thermalQuad'}
+  {:else if v.kind === 'thermal'}
     {@const th = thermal}
-    <rect x={X0 - 14} y="62" width="104" height="32" class={v.kind === 'thermalQuad' ? 'ls-slab' : 'ls-beam'} />
-    <text x={X0 - 10} y="58" class="ls-t">+z</text><text x={X0 - 10} y="106" class="ls-t">−z</text>
-    <text x={X0 + 38} y="82" class="ls-v" text-anchor="middle">{lbl('ΔT', th.th.dt, 'temperatureDiff')}</text>
-    <!-- The temperature across the depth: ΔTg is the −z face minus the +z face. -->
-    <line x1="156" y1="56" x2="156" y2="100" class="ls-axis" />
-    <polygon points="156,62 {th.xt},62 {th.xb},94 156,94" class="ls-diag" />
-    <circle cx={th.xt} cy="62" r="1.8" class="ls-pt" /><circle cx={th.xb} cy="94" r="1.8" class="ls-pt" />
-    {#if th.th.dt !== null || th.th.gz !== null}
-      <text x="196" y="58" class="ls-t" text-anchor="end">{fmtQ(th.top, 'temperatureDiff')}</text>
-      <text x="196" y="106" class="ls-t" text-anchor="end">{fmtQ(th.bot, 'temperatureDiff')}</text>
-    {/if}
-    <text x="196" y="20" class="ls-v" text-anchor="end">{lbl(v.kind === 'thermalQuad' ? 'ΔTg' : 'ΔTgz', th.th.gz, 'temperatureDiff')}</text>
-    <text x="196" y="32" class="ls-t" text-anchor="end">{t('writeLoad.sketch.gradient')}</text>
-    {#if v.kind === 'thermal' && sgn(v.th?.gy)}<text x="196" y="124" class="ls-v" text-anchor="end">{lbl('ΔTgy', v.th?.gy, 'temperatureDiff')}</text>{/if}
+    <!-- The member, side on, its +z face above: each face in its temperature's colour, and dashed,
+         how it moves if free (longer when warmer, bowed toward the warmer face). -->
+    <defs><linearGradient id="{id}-tz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style:stop-color={th.col(th.top)} /><stop offset="1" style:stop-color={th.col(th.bot)} /></linearGradient></defs>
+    <rect x="14" y="62" width="94" height="22" fill="url(#{id}-tz)" class="ls-hotbody" />
+    <line x1="14" y1="62" x2="108" y2="62" class="ls-face" style:stroke={th.col(th.top)} />
+    <line x1="14" y1="84" x2="108" y2="84" class="ls-face" style:stroke={th.col(th.bot)} />
+    {#if th.any}<path d="M{14 - 4 * th.grows},73 Q61,{73 - 16 * th.bow} {108 + 4 * th.grows},73" class="ls-free" />{/if}
+    <text x="14" y="96" class="ls-t">I</text><text x="108" y="96" class="ls-t" text-anchor="end">J</text>
+    <!-- The cross-section: y to the right, z up; each face says its temperature. -->
+    <defs><linearGradient id="{id}-ty" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style:stop-color={th.col(th.left)} /><stop offset="1" style:stop-color={th.col(th.right)} /></linearGradient></defs>
+    <rect x="146" y="58" width="30" height="30" fill={th.gy ? `url(#${id}-ty)` : `url(#${id}-tz)`} class="ls-hotbody" />
+    <line x1="146" y1="58" x2="176" y2="58" class="ls-face" style:stroke={th.col(th.top)} />
+    <line x1="146" y1="88" x2="176" y2="88" class="ls-face" style:stroke={th.col(th.bot)} />
+    {#if th.gy}<line x1="146" y1="58" x2="146" y2="88" class="ls-face" style:stroke={th.col(th.left)} /><line x1="176" y1="58" x2="176" y2="88" class="ls-face" style:stroke={th.col(th.right)} />{/if}
+    <line x1="161" y1="73" x2="161" y2="63" class="ls-axis" marker-end="url(#{id}-a)" /><text x="164" y="66" class="ls-ax">z</text>
+    <line x1="161" y1="73" x2="171" y2="73" class="ls-axis" marker-end="url(#{id}-a)" /><text x="168" y="81" class="ls-ax">y</text>
+    <text x="161" y="50" class="ls-v" text-anchor="middle">+z {th.any ? tval(th.top) : ''}</text>
+    <text x="161" y="100" class="ls-v" text-anchor="middle">−z {th.any ? tval(th.bot) : ''}</text>
+    {#if th.gy}<text x="161" y="112" class="ls-t" text-anchor="middle">−y {fmtQ(th.left, 'temperatureDiff')} · +y {fmtQ(th.right, 'temperatureDiff')}</text>{/if}
+    <text x="4" y="12" class="ls-t">ΔTgz = T(−z) − T(+z){th.gy ? ' · ΔTgy = T(−y) − T(+y)' : ''}</text>
+    <text x="4" y="122" class="ls-t">{th.any ? `- - ${t('writeLoad.sketch.free')}` : t('writeLoad.sketch.thermalEmpty')}</text>
+  {:else if v.kind === 'thermalQuad'}
+    {@const th = thermal}
+    <!-- A slab: its upper face (+z local) and its lower face, each in its temperature's colour. -->
+    <defs><linearGradient id="{id}-tq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style:stop-color={th.col(th.top)} /><stop offset="1" style:stop-color={th.col(th.bot)} /></linearGradient></defs>
+    <polygon points="34,70 134,70 170,44 70,44" class="ls-hotbody" style:fill={th.col(th.top)} />
+    <polygon points="34,70 134,70 134,84 34,84" fill="url(#{id}-tq)" class="ls-hotbody" />
+    <polygon points="134,70 170,44 170,58 134,84" fill="url(#{id}-tq)" class="ls-hotbody" />
+    <line x1="34" y1="84" x2="134" y2="84" class="ls-face" style:stroke={th.col(th.bot)} />
+    {#if th.any}<path d="M{34 - 4 * th.grows},96 Q84,{96 - 14 * th.bow} {134 + 4 * th.grows},96" class="ls-free" />{/if}
+    <text x="100" y="36" class="ls-v" text-anchor="middle">+z {th.any ? tval(th.top) : ''}</text>
+    <text x="196" y="96" class="ls-v" text-anchor="end">−z {th.any ? tval(th.bot) : ''}</text>
+    <text x="4" y="12" class="ls-t">ΔTg = T(+z) − T(−z)</text>
+    <text x="4" y="122" class="ls-t">{th.any ? `- - ${t('writeLoad.sketch.free')}` : t('writeLoad.sketch.thermalEmpty')}</text>
   {:else if v.kind === 'strain'}
     {@const s = sgn(v.strain) || 1}
     <rect x="50" y="68" width="100" height="20" class="ls-beam" />
@@ -351,7 +397,7 @@
 </svg>
 
 <style>
-  .ls { width: 200px; max-width: 100%; height: auto; flex: none; background: var(--st-surface-3); border-radius: var(--st-radius); }
+  .ls { --ls-hot: var(--st-accent); --ls-cold: #4d8fd6; width: 200px; max-width: 100%; height: auto; flex: none; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .ls-member { stroke: var(--st-text-2); stroke-width: 2.2; }
   .ls-beam { fill: var(--st-surface-2); stroke: var(--st-text-2); stroke-width: 1.2; }
   .ls-slab { fill: color-mix(in srgb, var(--st-text-3) 22%, transparent); stroke: var(--st-text-2); stroke-width: 1.1; }
@@ -371,6 +417,9 @@
   .ls-level { stroke: var(--st-interactive, var(--st-accent)); stroke-width: 1; stroke-dasharray: 5 2; }
   .ls-tendon { stroke: var(--st-accent); stroke-width: 1.8; fill: none; }
   .ls-axis { stroke: var(--st-text-3); stroke-width: 1; }
+  .ls-hotbody { stroke: var(--st-text-2); stroke-width: 0.8; fill-opacity: 0.55; }
+  .ls-face { stroke-width: 3; }
+  .ls-free { fill: none; stroke: var(--st-text-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
   .ls-ax { fill: var(--st-text-3); font-size: 7px; }
   .ls-t { fill: var(--st-text-3); font-size: 8px; }
   .ls-v { fill: var(--st-text); font-size: 8.5px; font-family: var(--st-mono); }
