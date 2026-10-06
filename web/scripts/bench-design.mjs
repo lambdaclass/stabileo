@@ -2,7 +2,6 @@
 // npm run bench:design -- [example ids]
 // COLLISION_KERNEL=ts selects the reference implementation for full-design comparisons.
 // npm run bench:design -- --compare [example ids] checks complete design output parity.
-// npm run bench:design -- --compare-repair compares full Rust sweeps with incremental repair.
 // npm run bench:kernels alternates both numeric backends on identical inputs.
 // BENCH_OUTPUT=/path/results.json also saves full outputs for before/after comparisons.
 // Requires built WASM and Playwright Chromium. Builds a temporary, benchmark-only
@@ -16,8 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 const kernels = process.argv.includes('--kernels');
-const compareRepair = process.argv.includes('--compare-repair');
-const compare = process.argv.includes('--compare') || compareRepair;
+const compare = process.argv.includes('--compare');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
@@ -38,8 +36,8 @@ try {
   if (!address || typeof address === 'string') throw new Error('No benchmark server address');
   browser = await chromium.launch({ headless: true });
   watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-  const examples = process.argv.slice(2).filter(arg => arg !== '--kernels' && arg !== '--compare' && arg !== '--compare-repair');
-  const run = async (kernel, incremental = true) => {
+  const examples = process.argv.slice(2).filter(arg => arg !== '--kernels' && arg !== '--compare');
+  const run = async kernel => {
     // Fresh pages give both backends the same store revision counters and JIT warmup.
     const page = await browser.newPage();
     page.on('crash', () => { console.error('Benchmark page crashed'); void browser.close(); });
@@ -47,22 +45,21 @@ try {
     try {
       await page.goto(`http://127.0.0.1:${address.port}/${basename(entry)}`);
       await page.waitForFunction(() => typeof window.runBenchmark === 'function');
-      return await page.evaluate(({ examples, capture, kernel, incremental }) => window.runBenchmark(examples, capture, kernel, incremental), {
+      return await page.evaluate(({ examples, capture, kernel }) => window.runBenchmark(examples, capture, kernel), {
         examples: examples.length ? examples : ['pro-edificio-7p', 'rc-design-qa-8', 'rc-design-qa-row2'],
-        capture: compare || !!process.env.BENCH_OUTPUT, kernel, incremental,
+        capture: compare || !!process.env.BENCH_OUTPUT, kernel,
       });
     } finally { await page.close(); }
   };
   let result;
   if (compare && !kernels) {
-    const ts = await run(compareRepair, !compareRepair), rust = await run(true);
+    const ts = await run(false), rust = await run(true);
     result = rust.map((row, i) => {
       if (row.outputs !== ts[i].outputs) throw new Error(`${row.example}: full design differs between collision backends`);
       return { example: row.example, bars: row.bars,
-        [compareRepair ? 'fullSweepMedianDesignMs' : 'tsMedianDesignMs']: ts[i].medianDesignMs,
-        [compareRepair ? 'incrementalMedianDesignMs' : 'rustMedianDesignMs']: row.medianDesignMs,
+        tsMedianDesignMs: ts[i].medianDesignMs, rustMedianDesignMs: row.medianDesignMs,
         speedup: ts[i].medianDesignMs / row.medianDesignMs,
-        rows: { reference: ts[i].rows, optimized: row.rows }, equivalent: true,
+        rows: { ts: ts[i].rows, rust: row.rows }, equivalent: true,
         outputs: process.env.BENCH_OUTPUT ? row.outputs : undefined };
     });
   } else result = await run(process.env.COLLISION_KERNEL !== 'ts');

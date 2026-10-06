@@ -34,7 +34,7 @@ import {
   type UnsupportedCondition,
 } from './assembly';
 import {
-  DEFAULT_TOLERANCES, detectCollisions, prepareCollisionRepair, type BarConflict, type CollisionTolerances,
+  DEFAULT_TOLERANCES, detectCollisions, type BarConflict, type CollisionTolerances,
 } from './collision';
 import { classifyPair, type ClassificationContext, type PairClassification } from './classify';
 import type { JointVolume } from './joint-packing';
@@ -220,156 +220,142 @@ export function repairConflicts(
   tolerances: CollisionTolerances = DEFAULT_TOLERANCES,
   classifyFor?: (a: BarPath, b: BarPath, surfaceClearance: number,
     tangentA?: Point3, tangentB?: Point3) => PairClassification,
-  /** Opt in only for pure pair policies with fixed context throughout the repair. */
-  options: { incremental?: boolean } = {},
 ): RepairResult {
   const attempts: RepairAttempt[] = [];
   const trace: string[] = [];
   let working = bars.map((b) => ({ ...b, segments: b.segments.map((s) => ({ ...s })) }));
 
-  const collisionOptions = { tolerances, requiredClearFor, classifyFor };
-  // Generic callers retain callback invocation semantics; production opts in with pure policies.
-  const session = options.incremental ? prepareCollisionRepair(working, collisionOptions) : null;
-  try {
-    let result = session?.initial ?? detectCollisions(working, collisionOptions);
-    const initial = result.conflicts.length;
-    if (initial === 0) {
-      return { bars: working, conflicts: [], attempts, trace: ['Sin conflictos.'] };
-    }
-    trace.push(`${initial} conflicto(s) detectado(s); se intenta la escalera de reparación.`);
+  let result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
+  const initial = result.conflicts.length;
+  if (initial === 0) {
+    return { bars: working, conflicts: [], attempts, trace: ['Sin conflictos.'] };
+  }
+  trace.push(`${initial} conflicto(s) detectado(s); se intenta la escalera de reparación.`);
 
-    // Mutations live separately from the snapshots kept for rollback, including the initial one.
-    const byId = new Map(working.map(b => [b.id, { ...b, segments: b.segments.map(s => ({ ...s })) }]));
-    const layers = new Map<string, BarPath[]>();
-    for (const bar of byId.values()) {
-      if (!bar.layerId || bar.locked) continue;
-      const group = layers.get(bar.layerId);
-      if (group) group.push(bar); else layers.set(bar.layerId, [bar]);
-    }
+  const byId = new Map(working.map((b) => [b.id, b]));
 
-    // Four rungs, not two. Moving a bar out of one clash can create another, so a single
-    // pass leaves a long tail; the flagship frame converged from ~4,800 conflicts to a few
-    // hundred over four passes and stopped improving after that. The loop exits early when
-    // a rung stops helping, so a model that coordinates in one pass pays for one pass.
-    const RUNGS = [
-      ['separación mínima', 0.002], ['separación ampliada', 0.006],
-      ['separación amplia', 0.012], ['última pasada', 0.020],
-    ] as const;
-    // Keep the BEST state seen, not the last one. A rung can make things worse — pushing a
-    // bar out of one clash into two — and committing that would hand the user a cage that
-    // the repair made worse than the raw generation.
-    let best = { bars: working, conflicts: result.conflicts };
+  // Four rungs, not two. Moving a bar out of one clash can create another, so a single
+  // pass leaves a long tail; the flagship frame converged from ~4,800 conflicts to a few
+  // hundred over four passes and stopped improving after that. The loop exits early when
+  // a rung stops helping, so a model that coordinates in one pass pays for one pass.
+  const RUNGS = [
+    ['separación mínima', 0.002], ['separación ampliada', 0.006],
+    ['separación amplia', 0.012], ['última pasada', 0.020],
+  ] as const;
+  // Keep the BEST state seen, not the last one. A rung can make things worse — pushing a
+  // bar out of one clash into two — and committing that would hand the user a cage that
+  // the repair made worse than the raw generation.
+  let best = { bars: working, conflicts: result.conflicts };
 
-    for (const [rung, margin] of RUNGS) {
-      const before = result.conflicts.length;
-      const changed = new Set<string>();
-      for (const c of result.conflicts) {
-        const a = byId.get(c.barA);
-        const b = byId.get(c.barB);
-        if (!a || !b) continue;
-        if (a.locked && b.locked) continue;
-        // ── A CAGE PIECE IS NOT NUDGEABLE ──
-        //
-        // The ladder translates a bar to separate it from another. That is a sound move for two
-        // parallel longitudinal bars and a meaningless one for a closed stirrup or tie: the
-        // piece is a loop drawn AROUND a set of bars, so sliding it 3 mm off one of them slides
-        // it 3 mm INTO the one opposite. Measured on `rc-design-qa-8` — the ladder moved each
-        // joint tie off the corner bar it was clashing with, and the tie's far side and its
-        // hook tail then interpenetrated the diagonally opposite bar instead. Eight conflicts
-        // that were not there before the repair ran.
-        //
-        // A cage that does not fit is a GENERATOR defect: the bar seating, the bend radius or
-        // the closing corner is wrong, and each of those has a clause behind it. Nudging the
-        // symptom hides which. So transverse pieces hold still and the conflict is reported.
-        // Either side being a cage piece disqualifies the pair, not just both. Moving the
-        // LONGITUDINAL bar instead is no better: the cage was built around that bar's position,
-        // so shifting the bar off the tie pushes it into the bend on the other side. Measured —
-        // holding only the tie still simply moved the same eight conflicts onto the column bars.
-        if (a.role === 'transverse' || b.role === 'transverse') continue;
-        // Move whichever is not locked; if neither is, move the second for determinism.
-        const movable = a.locked ? b : b.locked ? a : b;
-        const other = movable === b ? a : b;
-        const shift = c.shortfall + margin;
-        // Push directly AWAY from the other bar, in the plane perpendicular to this bar's
-        // own axis.
-        //
-        // This used to push along global y unconditionally. For a beam running north-south
-        // that is a shift along the bar's OWN axis, which cannot separate anything: the
-        // ladder burned both rungs sliding bars lengthwise and reported the clash
-        // unresolved. Pushing along the true separation direction is both the physically
-        // correct nudge and the one a detailer would make.
-        const dir = separationDirection(movable, other, c.at);
+  for (const [rung, margin] of RUNGS) {
+    const before = result.conflicts.length;
+    let moved = false;
+    for (const c of result.conflicts) {
+      const a = byId.get(c.barA);
+      const b = byId.get(c.barB);
+      if (!a || !b) continue;
+      if (a.locked && b.locked) continue;
+      // ── A CAGE PIECE IS NOT NUDGEABLE ──
+      //
+      // The ladder translates a bar to separate it from another. That is a sound move for two
+      // parallel longitudinal bars and a meaningless one for a closed stirrup or tie: the
+      // piece is a loop drawn AROUND a set of bars, so sliding it 3 mm off one of them slides
+      // it 3 mm INTO the one opposite. Measured on `rc-design-qa-8` — the ladder moved each
+      // joint tie off the corner bar it was clashing with, and the tie's far side and its
+      // hook tail then interpenetrated the diagonally opposite bar instead. Eight conflicts
+      // that were not there before the repair ran.
+      //
+      // A cage that does not fit is a GENERATOR defect: the bar seating, the bend radius or
+      // the closing corner is wrong, and each of those has a clause behind it. Nudging the
+      // symptom hides which. So transverse pieces hold still and the conflict is reported.
+      // Either side being a cage piece disqualifies the pair, not just both. Moving the
+      // LONGITUDINAL bar instead is no better: the cage was built around that bar's position,
+      // so shifting the bar off the tie pushes it into the bend on the other side. Measured —
+      // holding only the tie still simply moved the same eight conflicts onto the column bars.
+      if (a.role === 'transverse' || b.role === 'transverse') continue;
+      // Move whichever is not locked; if neither is, move the second for determinism.
+      const movable = a.locked ? b : b.locked ? a : b;
+      const other = movable === b ? a : b;
+      const shift = c.shortfall + margin;
+      // Push directly AWAY from the other bar, in the plane perpendicular to this bar's
+      // own axis.
+      //
+      // This used to push along global y unconditionally. For a beam running north-south
+      // that is a shift along the bar's OWN axis, which cannot separate anything: the
+      // ladder burned both rungs sliding bars lengthwise and reported the clash
+      // unresolved. Pushing along the true separation direction is both the physically
+      // correct nudge and the one a detailer would make.
+      const dir = separationDirection(movable, other, c.at);
 
-        // ── The rigid-mat invariant ──────────────────────────────────
-        //
-        // A bar is not a free particle. Bars sharing a `layerId` are one physical layer,
-        // placed at a legal §25.2.1 pitch by the candidate and separated from the layer above
-        // by the §25.2.2 clear distance. Nudging ONE of them out of its layer breaks both
-        // rules to fix a third, and the geometry it leaves behind is not a detail anyone can
-        // build.
-        //
-        // That is what happened on the QA fixture: `applyJointLayers` delivered the mat
-        // correctly with 35 mm between layers, and the ladder then lifted three layer-1 bars
-        // 11 mm on their own, leaving 24 mm where §25.2.2 wants 25.
-        //
-        // So the unit of movement is the LAYER, not the bar. Every bar sharing the movable
-        // bar's layer receives the identical translation, and their relative vectors survive
-        // by construction. A bar with no layer identity still moves alone — there is nothing
-        // to keep rigid.
-        const group = movable.layerId
-          ? (layers.get(movable.layerId) ?? [])
-          : [movable];
-        for (const member of group) {
-          const target = byId.get(member.id) ?? member;
-          for (const seg of target.segments) {
-            changed.add(target.id);
-            seg.start = {
-              x: seg.start.x + dir.x * shift,
-              y: seg.start.y + dir.y * shift,
-              z: seg.start.z + dir.z * shift,
-            };
-            seg.end = {
-              x: seg.end.x + dir.x * shift,
-              y: seg.end.y + dir.y * shift,
-              z: seg.end.z + dir.z * shift,
-            };
-          }
+      // ── The rigid-mat invariant ──────────────────────────────────
+      //
+      // A bar is not a free particle. Bars sharing a `layerId` are one physical layer,
+      // placed at a legal §25.2.1 pitch by the candidate and separated from the layer above
+      // by the §25.2.2 clear distance. Nudging ONE of them out of its layer breaks both
+      // rules to fix a third, and the geometry it leaves behind is not a detail anyone can
+      // build.
+      //
+      // That is what happened on the QA fixture: `applyJointLayers` delivered the mat
+      // correctly with 35 mm between layers, and the ladder then lifted three layer-1 bars
+      // 11 mm on their own, leaving 24 mm where §25.2.2 wants 25.
+      //
+      // So the unit of movement is the LAYER, not the bar. Every bar sharing the movable
+      // bar's layer receives the identical translation, and their relative vectors survive
+      // by construction. A bar with no layer identity still moves alone — there is nothing
+      // to keep rigid.
+      const group = movable.layerId
+        ? working.filter((x) => x.layerId === movable.layerId && !x.locked)
+        : [movable];
+      for (const member of group) {
+        const target = byId.get(member.id) ?? member;
+        for (const seg of target.segments) {
+          moved = true;
+          seg.start = {
+            x: seg.start.x + dir.x * shift,
+            y: seg.start.y + dir.y * shift,
+            z: seg.start.z + dir.z * shift,
+          };
+          seg.end = {
+            x: seg.end.x + dir.x * shift,
+            y: seg.end.y + dir.y * shift,
+            z: seg.end.z + dir.z * shift,
+          };
         }
       }
-      // Locked bars and cage pieces can leave a rung with no geometry changes. Reuse
-      // its collision result while retaining the same attempt, trace and stop decision.
-      if (changed.size > 0) {
-        working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
-        result = session ? session.update(working, changed) : detectCollisions(working, collisionOptions);
-      }
-      const cleared = before - result.conflicts.length;
-      attempts.push({ rung, cleared, remaining: result.conflicts.length });
-      trace.push(
-        `Rung "${rung}": ${cleared} resuelto(s), ${result.conflicts.length} pendiente(s).`);
-
-      if (result.conflicts.length < best.conflicts.length) {
-        best = { bars: working, conflicts: result.conflicts };
-      }
-      if (result.conflicts.length === 0) break;
-      // A rung that resolved nothing, or made things worse, will not do better with a
-      // larger margin on the same geometry.
-      if (cleared <= 0) {
-        trace.push(`Rung "${rung}" no mejoró el resultado; se conserva el mejor estado previo.`);
-        break;
-      }
     }
-
-    working = best.bars;
-    result = { ...result, conflicts: best.conflicts };
-
-    if (result.conflicts.length > 0) {
-      trace.push(
-        `${result.conflicts.length} conflicto(s) no resueltos tras la escalera acotada. Se ` +
-        'informan como tales; el resto de la planta sigue produciendo documentación.');
+    // Locked bars and cage pieces can leave a rung with no geometry changes. Reuse
+    // its collision result while retaining the same attempt, trace and stop decision.
+    if (moved) {
+      working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
+      result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
     }
+    const cleared = before - result.conflicts.length;
+    attempts.push({ rung, cleared, remaining: result.conflicts.length });
+    trace.push(
+      `Rung "${rung}": ${cleared} resuelto(s), ${result.conflicts.length} pendiente(s).`);
 
-    return { bars: working, conflicts: result.conflicts, attempts, trace };
-  } finally { session?.free(); }
+    if (result.conflicts.length < best.conflicts.length) {
+      best = { bars: working, conflicts: result.conflicts };
+    }
+    if (result.conflicts.length === 0) break;
+    // A rung that resolved nothing, or made things worse, will not do better with a
+    // larger margin on the same geometry.
+    if (cleared <= 0) {
+      trace.push(`Rung "${rung}" no mejoró el resultado; se conserva el mejor estado previo.`);
+      break;
+    }
+  }
+
+  working = best.bars;
+  result = { ...result, conflicts: best.conflicts };
+
+  if (result.conflicts.length > 0) {
+    trace.push(
+      `${result.conflicts.length} conflicto(s) no resueltos tras la escalera acotada. Se ` +
+      'informan como tales; el resto de la planta sigue produciendo documentación.');
+  }
+
+  return { bars: working, conflicts: result.conflicts, attempts, trace };
 }
 
 
@@ -578,7 +564,7 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
     classifyPair(a, b, classificationContext, surfaceClearance, tangentA, tangentB);
 
   const repair = repairConflicts(
-    layered.bars, requiredClearFor, input.tolerances, classifyFor, { incremental: true });
+    layered.bars, requiredClearFor, input.tolerances, classifyFor);
   trace.push(...repair.trace);
 
   // Route unresolved conflicts to their joint where one matches, so the UI can navigate.
