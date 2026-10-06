@@ -1,3 +1,4 @@
+import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { registerRcSectionKernel } from './codes/argentina/rc-section-kernel';
 import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
@@ -190,6 +191,7 @@ export async function initSolver(): Promise<void> {
     }
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
     registerRcSectionKernel(wasm.RcSectionGeometry ?? null);
+    registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;

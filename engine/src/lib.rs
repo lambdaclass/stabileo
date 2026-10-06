@@ -1,3 +1,4 @@
+pub mod column_capacity_kernel;
 pub mod rc_section_kernel;
 pub mod collision_kernel;
 pub mod types;

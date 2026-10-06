@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setColumnCapacityKernelEnabled } from '../column-capacity-kernel';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeColumnCapacity, computeBiaxialCapacity, prepareColumnCapacity, setColumnCapacityReuse, verifyProvidedReinforcement,
   type BarInstance, type ColumnCapacitySection, type ElementStationResult } from '../station-design-forces';
 
@@ -15,7 +16,8 @@ function reference(s: ColumnCapacitySection, Nu: number, Mu: number, axis: 'z' |
 function biaxial(s: ColumnCapacitySection, Nu: number, Muy: number, Muz: number) {
   return computeBiaxialCapacity(s.AsProv_cm2, s.b, s.h, s.fc, s.fy, s.cover, s.stirrupDia, Nu, Muy, Muz, s.bars);
 }
-afterEach(() => { vi.restoreAllMocks(); setColumnCapacityReuse(true); });
+beforeEach(() => setColumnCapacityKernelEnabled(false));
+afterEach(() => { vi.restoreAllMocks(); setColumnCapacityReuse(true); setColumnCapacityKernelEnabled(true); });
 
 describe('prepared station-column capacity', () => {
   it('matches every reference field for both axes and signed axial demands', () => {

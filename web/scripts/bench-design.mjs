@@ -4,7 +4,8 @@
 // npm run bench:design -- --compare [example ids] checks complete design output parity.
 // npm run bench:design -- --compare-repair compares full Rust sweeps with incremental repair.
 // npm run bench:design -- --compare-column compares column capacity reuse with the TS reference.
-// npm run bench:design -- --columns isolates column verification with reference and cached TS.
+// npm run bench:design -- --compare-rust-column compares cached TS with batched Rust capacity.
+// npm run bench:design -- --columns isolates column verification with reference TS, cached TS, and batched Rust.
 // npm run bench:kernels alternates both numeric backends on identical inputs.
 // BENCH_OUTPUT=/path/results.json also saves full outputs for before/after comparisons.
 // Requires built WASM and Playwright Chromium. Builds a temporary, benchmark-only
@@ -17,11 +18,12 @@ import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
+const compareRustColumn = process.argv.includes('--compare-rust-column');
 const columns = process.argv.includes('--columns');
 const kernels = process.argv.includes('--kernels');
 const compareColumn = process.argv.includes('--compare-column');
 const compareRepair = process.argv.includes('--compare-repair');
-const compare = process.argv.includes('--compare') || compareRepair || compareColumn;
+const compare = process.argv.includes('--compare') || compareRepair || compareColumn || compareRustColumn;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
@@ -42,8 +44,8 @@ try {
   if (!address || typeof address === 'string') throw new Error('No benchmark server address');
   browser = await chromium.launch({ headless: true });
   watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-  const examples = process.argv.slice(2).filter(arg => !['--kernels', '--columns', '--compare', '--compare-repair', '--compare-column'].includes(arg));
-  const run = async (kernel, incremental = true, columnCapacity = true) => {
+  const examples = process.argv.slice(2).filter(arg => !['--compare-rust-column', '--reverse', '--kernels', '--columns', '--compare', '--compare-repair', '--compare-column'].includes(arg));
+  const run = async (kernel, incremental = true, columnCapacity = true, rustColumns = true) => {
     // Fresh pages give both backends the same store revision counters and JIT warmup.
     const page = await browser.newPage();
     page.on('crash', () => { console.error('Benchmark page crashed'); void browser.close(); });
@@ -51,20 +53,23 @@ try {
     try {
       await page.goto(`http://127.0.0.1:${address.port}/${basename(entry)}`);
       await page.waitForFunction(() => typeof window.runBenchmark === 'function');
-      return await page.evaluate(({ examples, capture, kernel, incremental, columnCapacity }) => window.runBenchmark(examples, capture, kernel, incremental, columnCapacity), {
+      return await page.evaluate(({ examples, capture, kernel, incremental, columnCapacity, rustColumns }) => window.runBenchmark(examples, capture, kernel, incremental, columnCapacity, rustColumns), {
         examples: examples.length ? examples : ['pro-edificio-7p', 'rc-design-qa-8', 'rc-design-qa-row2'],
-        capture: compare || !!process.env.BENCH_OUTPUT, kernel, incremental, columnCapacity,
+        capture: compare || !!process.env.BENCH_OUTPUT, kernel, incremental, columnCapacity, rustColumns,
       });
     } finally { await page.close(); }
   };
   let result;
   if (compare && !kernels && !columns) {
-    const ts = await run(compareRepair || compareColumn, !compareRepair, !compareColumn), rust = await run(true);
+    const reference = () => run(compareRepair || compareColumn || compareRustColumn, !compareRepair, !compareColumn, !compareRustColumn);
+    let ts, rust;
+    if (process.argv.includes('--reverse')) { rust = await run(true); ts = await reference(); }
+    else { ts = await reference(); rust = await run(true); }
     result = rust.map((row, i) => {
       if (row.outputs !== ts[i].outputs) throw new Error(`${row.example}: full design differs between reference and optimized paths`);
       return { example: row.example, bars: row.bars,
-        [compareColumn ? 'referenceMedianDesignMs' : compareRepair ? 'fullSweepMedianDesignMs' : 'tsMedianDesignMs']: ts[i].medianDesignMs,
-        [compareColumn ? 'preparedColumnMedianDesignMs' : compareRepair ? 'incrementalMedianDesignMs' : 'rustMedianDesignMs']: row.medianDesignMs,
+        [compareRustColumn ? 'cachedTsMedianDesignMs' : compareColumn ? 'referenceMedianDesignMs' : compareRepair ? 'fullSweepMedianDesignMs' : 'tsMedianDesignMs']: ts[i].medianDesignMs,
+        [compareRustColumn ? 'rustColumnMedianDesignMs' : compareColumn ? 'preparedColumnMedianDesignMs' : compareRepair ? 'incrementalMedianDesignMs' : 'rustMedianDesignMs']: row.medianDesignMs,
         speedup: ts[i].medianDesignMs / row.medianDesignMs,
         rows: { reference: ts[i].rows, optimized: row.rows }, equivalent: true,
         outputs: process.env.BENCH_OUTPUT ? row.outputs : undefined };
