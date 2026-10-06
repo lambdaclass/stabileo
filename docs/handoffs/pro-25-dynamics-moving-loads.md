@@ -156,6 +156,10 @@ From issues #251, #181, #96, #205 and #206.
 
 - `loads/LoadSketch.svelte`: an SVG beside the Add load card's fields, one drawing per kind (node forces and moments with the global axes, inclined force, imposed displacement, distributed trapezoid/triangle/hydrostatic with a and b, point load at a, thermal profile across the depth, strain, prestress tendon through eI/eM/eJ, self-weight, slab area loads by field, fluid against a wall, point on a slab, slab temperature).
 - Drawn from the card's state (`SketchInput`; the slab form hands its own through `bind:sketch`): signs set the arrows, magnitudes scale against each other, empty fields show their symbol. Schematic, not to the model's scale.
+- Members are drawn sloping so local, global and projected axes differ; stations along the member (a, b, peak, a of a point load) are dimensioned from I; the prestress eccentricities are dimensioned from the axis. Thermal loads are the temperature diagram across the section (member: ΔTgz = T(−z) − T(+z), ΔTgy across the width; plate: ΔTg = T(+z) − T(−z), the engine's sign for shells). Plate area loads: side on (direction, true or projected area, the projection drawn) and in plan (uniform, corners, along an axis, the partial rectangle).
+- The corner button shows the sketch large over the viewport's canvas, or the whole screen on a phone; the overlay is moved to `document.body` (`utils/portal.ts`) so the panel's stacking context does not keep it under the header. Escape closes it.
+- The card: case and kind on top (the kind a `<select>` with an optgroup per Node / Member / Plate / General, testid `wl-kind`); the fields on one grid (`.fg-r`: a right-aligned name column, cells of one width, the unit after the row; vectors under X, Y, Z or I, J headers), set in under a rule; Apply to and Add at the end. The sketch stays to the right, shrinks to 120 px, then wraps under the fields; on a phone it goes under them.
+- An inclined force: origin (the loaded node, a node or a point) and target (a node or a point); the force acts at each loaded node parallel to target − origin; coinciding ends are refused.
 
 ### Tools
 

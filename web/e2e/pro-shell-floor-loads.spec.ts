@@ -19,7 +19,7 @@ test.describe('@smoke PRO loads on shells and floors', () => {
     await loadModel(page, 'mat-foundation');
     await openWrite(page);
     await page.evaluate(() => window.__stabileoActions.selectShells([]));
-    await page.getByTestId('wl-kind-surface').click();
+    await page.getByTestId('wl-kind').selectOption('surface');
     await page.getByTestId('wl-sl-dir').selectOption('local');
     await page.getByTestId('wl-sq').fill('10');
     const before = (await loads(page)).length;
@@ -42,7 +42,7 @@ test.describe('@smoke PRO loads on shells and floors', () => {
     await expect(page.getByTestId('load-tables')).toContainText(/inside a region/);
 
     // A fluid 2 m deep over the slab: a load varying with depth on every shell under the level.
-    await page.getByTestId('wl-kind-hydro').click();
+    await page.getByTestId('wl-kind').selectOption('hydro');
     await page.getByTestId('wl-hy-level').fill('2');
     const n0 = (await loads(page)).length;
     await page.getByTestId('wl-add').click();

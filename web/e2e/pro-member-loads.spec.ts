@@ -18,7 +18,7 @@ test.describe('@smoke PRO member loads', () => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
     const before = (await loads(page)).length;
-    await page.getByTestId('wl-kind-distributed').click();
+    await page.getByTestId('wl-kind').selectOption('distributed');
     await page.getByTestId('wl-qzi').fill('-1,5');
     await page.getByTestId('load-target-by').selectOption('ids');
     await page.getByTestId('load-target-ids').fill(String(ids[0]));
@@ -40,7 +40,7 @@ test.describe('@smoke PRO member loads', () => {
   test('a concentrated moment inside a member, and the case totals before solving', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
-    await page.getByTestId('wl-kind-point').click();
+    await page.getByTestId('wl-kind').selectOption('point');
     await page.getByTestId('wl-pmy').fill('12');
     await page.getByTestId('wl-pz').fill('-10');
     await page.getByTestId('wl-pa').fill('1');
@@ -68,7 +68,7 @@ test.describe('@smoke PRO member loads', () => {
   test('loads picked in the table are copied to another case times a factor', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await page.getByTestId('wl-fz').fill('-20');
     await page.getByTestId('load-target-by').selectOption('ids');
     void ids;

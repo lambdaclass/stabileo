@@ -146,7 +146,7 @@
   let shellSketch = $state<SketchInput['shell']>(undefined);
   /** What the fields say, drawn beside them (`LoadSketch`). */
   const sketch = $derived<SketchInput>({
-    kind, frame, shape, f, inclined, incF, incFromKind, incToKind, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
+    kind, frame, shape, f, inclined, incF, incFromKind, incToKind, incFromNode, incToNode, incFrom, incTo, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
     pFrame, p, pa, th, strainBy, strain: strainBy === 'unit' ? (strainPerMil.trim() === '' ? null : parseDecimal(strainPerMil)) : strainDL,
     ps, tq, swDir, swFactor: swFactor.trim() === '' ? null : parseDecimal(swFactor), shell: shellSketch,
   });
@@ -314,20 +314,24 @@
 </script>
 
 <div class="wl" data-testid="write-load-form">
-  <div class="wl-kinds" role="radiogroup" aria-label={t('writeLoad.kind')}>
-    {#each ['node', 'member', 'slab', 'general'] as g (g)}
-      <div class="wl-kgroup">
-        <span class="wl-kgroup-name">{t(`writeLoad.group.${g}`)}</span>
-        {#each KINDS.filter((k) => k.group === g) as k (k.id)}
-          <button type="button" role="radio" aria-checked={kind === k.id} class="wl-kind" class:active={kind === k.id}
-            onclick={() => pick(k.id)} data-testid="wl-kind-{k.id}">{t(`writeLoad.kind.${k.id}`)}</button>
+  <!-- What the load is: its case and its kind, a list grouped by what it goes on. -->
+  <div class="wl-head">
+    <div class="fg-r"><span class="fg-l">{t('pro.writeLoadCase')}</span>
+      <select class="fg-wide" bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
+        {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      </select></div>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.kindShort')}</span>
+      <select class="fg-wide" value={kind} onchange={(e) => pick(e.currentTarget.value as Kind)} aria-label={t('writeLoad.kind')} data-testid="wl-kind">
+        {#each ['node', 'member', 'slab', 'general'] as g (g)}
+          <optgroup label={t(`writeLoad.group.${g}`)}>
+            {#each KINDS.filter((k) => k.group === g) as k (k.id)}<option value={k.id}>{t(`writeLoad.kind.${k.id}`)}</option>{/each}
+          </optgroup>
         {/each}
-      </div>
-    {/each}
+      </select></div>
   </div>
 
   <!-- The fields, and beside them a sketch of what they stand for, drawn from what is typed. -->
-  <div class="wl-body">
+  <div class="wl-body" class:wl-body-mobile={uiStore.isMobile}>
   <div class="wl-fields">
   {#if kind === 'nodal'}
     <label class="wl-check fg-full"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
@@ -463,12 +467,6 @@
 
 <style>
   .wl { display: flex; flex-direction: column; gap: 6px; }
-  .wl-kinds { display: flex; flex-direction: column; gap: 3px; }
-  .wl-kgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
-  .wl-kgroup-name { min-width: 3.6rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }
-  .wl-kind { padding: 2px 7px; font-size: 0.68rem; color: var(--st-text-3); background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 4px; cursor: pointer; }
-  .wl-kind:hover { color: var(--st-text-2); }
-  .wl-kind.active { color: var(--st-text); border-color: var(--st-text-2); }
   .wl :global(.wl-check) { font-size: 0.72rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
   .wl :global(.wl-hint) { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
   .wl-error { margin: 0; font-size: 0.66rem; color: var(--st-danger); }
@@ -479,18 +477,27 @@
   .wl-count { font-size: 0.66rem; color: var(--st-text-2); }
   .wl-count.warn { color: var(--st-warn); }
   /* The sketch stays beside the fields and gives way first (down to 150 px) when the panel is narrow. */
+  /*
+   * The fields under the case and the kind, set in from them; the sketch always to their right,
+   * giving way first as the panel narrows. On a phone the sketch goes under the fields.
+   */
+  .wl-head { display: flex; flex-direction: column; gap: 5px; }
   .wl-body { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-  .wl-fields { flex: 1 1 0; min-width: 255px; display: flex; flex-direction: column; gap: 5px; }
-  .wl-body > :global(svg) { flex: 0 0 190px; }
+  .wl-body-mobile { flex-direction: column; align-items: stretch; }
+  .wl-body-mobile > :global(.lsw) { width: 100%; max-width: 420px; }
+  .wl-fields { flex: 1 1 0; min-width: 236px; display: flex; flex-direction: column; gap: 5px;
+    margin-left: 6px; padding-left: 10px; border-left: 2px solid var(--st-hair); }
   /*
    * One grid for every kind's fields, the slab form's too: a column of names, cells of one width,
    * the unit after the row. A vector is a row with X, Y, Z (or I, J) headed above it, so a value
    * always sits beside its own name and under its own component.
    */
-  .wl { --fg-l: 3.9rem; --fg-c: 52px; }
-  .wl :global(.fg-r) { display: grid; grid-template-columns: var(--fg-l) var(--fg-c) var(--fg-c) var(--fg-c) auto; gap: 6px; align-items: center; }
+  .wl { --fg-l: 4.3rem; --fg-c: 50px; }
+  .wl :global(.fg-r) { display: grid; grid-template-columns: var(--fg-l) repeat(3, minmax(38px, var(--fg-c))) auto; gap: 6px; align-items: center; }
+  /* In the fields, each name sits against its own cell. */
+  .wl-fields :global(.fg-l) { text-align: right; padding-right: 2px; }
   .wl :global(.fg-head) { font-size: 0.62rem; color: var(--st-text-3); text-align: center; margin-bottom: -3px; }
-  .wl :global(.fg-l) { font-size: 0.7rem; color: var(--st-text-3); line-height: 1.15; overflow-wrap: anywhere; }
+  .wl :global(.fg-l) { font-size: 0.7rem; color: var(--st-text-3); line-height: 1.15; overflow-wrap: break-word; hyphens: auto; }
   .wl :global(.fg-u) { font-size: 0.64rem; color: var(--st-text-3); white-space: nowrap; }
   .wl :global(.fg-wide) { grid-column: 2 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .wl :global(.fg-full) { grid-column: 1 / -1; }
@@ -501,6 +508,6 @@
     color: var(--st-text); font-size: 0.72rem; font-family: var(--st-mono);
   }
   .wl :global(select.fg-in), .wl :global(select.fg-wide) { font-family: var(--st-sans); }
-  .wl :global(select.fg-wide) { width: auto; max-width: 100%; }
+  .wl :global(select.fg-wide) { width: auto; max-width: 100%; min-width: 0; }
   .wl :global(input.fg-in:focus), .wl :global(select:focus) { outline: none; border-color: var(--st-accent); }
 </style>

@@ -38,7 +38,7 @@ test.describe('@smoke PRO analysis rules', () => {
 
     // Added from the card: the same case, axis and reach takes the new factor in place.
     await page.getByTestId('write-load').click();
-    await page.getByTestId('wl-kind-selfWeight').click();
+    await page.getByTestId('wl-kind').selectOption('selfWeight');
     await expect(page.getByTestId('load-target-by')).toHaveValue('all');
     await page.getByTestId('wl-add').click();
     await expect(page.getByTestId('wl-done')).toBeVisible();

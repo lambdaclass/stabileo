@@ -48,7 +48,7 @@
 
   $effect(() => {
     const corners = qc.split(';').map((x) => parseDecimal(x.trim())).filter((x): x is number => x !== null);
-    sketch = { dirMode, dirAxis, field, q, corners, va: { ...va }, partial, gamma, level, at: { ...at }, pf: { ...pf } };
+    sketch = { dirMode, dirAxis, field, q, corners, va: { ...va }, partial, rect: { ...rect }, gamma, level, inside: { ...inside }, at: { ...at }, pf: { ...pf } };
   });
 
   /** The rectangle as a region: its plane's two axes, projected along the third. */

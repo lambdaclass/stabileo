@@ -165,11 +165,6 @@
   {#if drawState.writing === 'load'}
   <div class="pro-addload-section">
   <WriteCard title={`${t('pro.add')} ${t('pro.oneLoad')}`} testid="write-load-card">
-    <label>{t('pro.writeLoadCase')}
-      <select bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
-        {#each loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-      </select>
-    </label>
   <ProWriteLoadCard />
   </WriteCard>
   </div>

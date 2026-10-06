@@ -108,11 +108,11 @@ test.describe('@smoke PRO — adding supports and loads', () => {
 
     // Loads: a node's kind, on the selection.
     await openCard(page, 'load');
-    await page.getByTestId('wl-kind-distributed').click();
+    await page.getByTestId('wl-kind').selectOption('distributed');
     await page.evaluate(() => window.__stabileoActions.openNodeContextMenu(7));
     await page.locator('.ctx-menu').getByRole('button', { name: 'Add load' }).click();
     await expect(page.getByTestId('write-load-card')).toBeVisible();
-    await expect(page.getByTestId('wl-kind-nodal')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('wl-kind')).toHaveValue('nodal');
     await expect(page.getByTestId('load-target-count')).toContainText('1');
     await page.getByTestId('wl-fz').fill('-3');
     const added = await addLoad(page);
@@ -124,7 +124,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await openCard(page, 'load');
     await expect(page.getByTestId('write-load-card')).toContainText('Add load');
 
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await page.getByTestId('wl-fx').fill('7');
     await page.getByTestId('wl-mz').fill('1,5');
     await page.evaluate(() => window.__stabileoActions.selectNodes([5, 6]));
@@ -148,7 +148,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(Math.hypot(d.fx, d.fy, d.fz)).toBeCloseTo(10, 6);
     await page.getByTestId('wl-inclined').uncheck();
 
-    await page.getByTestId('wl-kind-displacement').click();
+    await page.getByTestId('wl-kind').selectOption('displacement');
     await page.getByTestId('wl-dz').fill('-0,01');
     await page.evaluate(() => window.__stabileoActions.selectNodes([1]));
     await target(page, 'selection');
@@ -165,7 +165,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await openCard(page, 'load');
 
     // Distributed, trapezoid.
-    await page.getByTestId('wl-kind-distributed').click();
+    await page.getByTestId('wl-kind').selectOption('distributed');
     await page.getByTestId('wl-qzi').fill('-5');
     await target(page, 'ids', `${m1}, ${m2}`);
     let added = await addLoad(page);
@@ -198,7 +198,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await page.getByTestId('wl-shape').selectOption('trapezoid');
 
     // Concentrated, by numbers and by the selection.
-    await page.getByTestId('wl-kind-point').click();
+    await page.getByTestId('wl-kind').selectOption('point');
     await page.getByTestId('wl-pz').fill('-12');
     await page.getByTestId('wl-pa').fill('1');
     await target(page, 'ids', String(m2));
@@ -210,7 +210,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(members(added)).toEqual([m1, m3].sort());
 
     // Thermal.
-    await page.getByTestId('wl-kind-thermal').click();
+    await page.getByTestId('wl-kind').selectOption('thermal');
     await page.getByTestId('wl-dt').fill('20');
     added = await addLoad(page);
     expect(added).toHaveLength(2);
@@ -220,7 +220,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(members(added)).toEqual([m2]);
 
     // Initial strain.
-    await page.getByTestId('wl-kind-strain').click();
+    await page.getByTestId('wl-kind').selectOption('strain');
     await page.getByTestId('wl-strain').fill('0,5');
     added = await addLoad(page);
     expect(added).toMatchObject([{ type: 'thermal', data: { elementId: m2, strain: 0.0005 } }]);
@@ -230,7 +230,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(members(added)).toEqual([m1]);
 
     // Prestress.
-    await page.getByTestId('wl-kind-prestress').click();
+    await page.getByTestId('wl-kind').selectOption('prestress');
     await page.getByTestId('wl-ps-force').fill('500');
     await page.getByTestId('wl-ps-em').fill('-0,1');
     added = await addLoad(page);
@@ -246,7 +246,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     const [q1, q2] = quads;
     await openCard(page, 'load');
 
-    await page.getByTestId('wl-kind-surface').click();
+    await page.getByTestId('wl-kind').selectOption('surface');
     await page.getByTestId('wl-sq').fill('-4');
     await target(page, 'ids', `${q1}, ${q2}`);
     await expect(page.getByTestId('load-target-count')).toContainText('2');
@@ -259,7 +259,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(added.map((l) => l.data.quadId)).toEqual([q1]);
 
     // A fluid up to a level above the slab: every shell picked.
-    await page.getByTestId('wl-kind-hydro').click();
+    await page.getByTestId('wl-kind').selectOption('hydro');
     await page.getByTestId('wl-hy-level').fill('2');
     added = await addLoad(page);
     expect(added.length).toBeGreaterThan(0);
@@ -274,7 +274,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
       const ps = quad.nodes.map((n) => window.__stabileo.nodePos(n)!);
       return { x: ps.reduce((s, p) => s + p.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.y, 0) / ps.length, z: ps.reduce((s, p) => s + p.z, 0) / ps.length };
     }, q1!);
-    await page.getByTestId('wl-kind-shellPoint').click();
+    await page.getByTestId('wl-kind').selectOption('shellPoint');
     for (const k of ['x', 'y', 'z'] as const) await page.getByTestId(`wl-sp-${k}`).fill(String(mid[k]));
     await page.getByTestId('wl-sp-fz').fill('-10');
     await target(page, 'ids', String(q1));
@@ -288,7 +288,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     expect(added.reduce((s, l) => s + (l.data.fz as number), 0)).toBeCloseTo(-10, 6);
 
     // Thermal on the slab.
-    await page.getByTestId('wl-kind-thermalQuad').click();
+    await page.getByTestId('wl-kind').selectOption('thermalQuad');
     await page.getByTestId('wl-tq-dt').fill('15');
     added = await addLoad(page);
     expect(added).toMatchObject([{ type: 'thermalQuad3d', data: { quadId: q1, dtUniform: 15 } }]);
@@ -342,7 +342,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     type Rule = { caseId: number; direction: string; factor: number; elements?: number[]; groupId?: number };
     const rules = () => page.evaluate(() => (window.__stabileo.analysisSettings() as { selfWeight?: Rule[] } | null)?.selfWeight ?? []);
     await openCard(page, 'load');
-    await page.getByTestId('wl-kind-selfWeight').click();
+    await page.getByTestId('wl-kind').selectOption('selfWeight');
     await expect(page.getByTestId('load-target-by')).toHaveValue('all');
     await expect(page.getByTestId('load-target-count')).toContainText(`${ids.length} members`);
     const caseId = await page.evaluate(() => Number(window.__stabileo.loadCases()[0]!.id));
@@ -387,12 +387,12 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await expect.poll(async () => (await rules()).length).toBe(n - 1);
 
     // Back to a node kind: the whole model is not offered, and member numbers are not kept as node numbers.
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await expect(page.getByTestId('load-target-by').locator('option[value="all"]')).toHaveCount(0);
     await expect(page.getByTestId('load-target-ids')).toHaveValue('');
-    await page.getByTestId('wl-kind-selfWeight').click();
+    await page.getByTestId('wl-kind').selectOption('selfWeight');
     await target(page, 'selection');
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await expect(page.getByTestId('load-target-by')).toHaveValue('selection');
   });
 
@@ -421,7 +421,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await expect(page.getByTestId('sw-row')).toHaveCount(0);
     await expect(page.getByTestId('load-tables')).not.toContainText('with self-weight');
 
-    await page.getByTestId('wl-kind-selfWeight').click();
+    await page.getByTestId('wl-kind').selectOption('selfWeight');
     await page.getByTestId('wl-add').click();
     await expect(page.getByTestId('sw-row')).toHaveCount(1);
     await expect(page.getByTestId('load-tables')).toContainText('with self-weight');

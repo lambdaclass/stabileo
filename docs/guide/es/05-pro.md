@@ -417,12 +417,20 @@ tarjeta para agregar una carga y las tablas de cargas:
   modelo cambió; la lista de abajo muestra cada una con su total, para quitarla. Las **zonas** se
   dibujan eligiendo en orden los nodos del contorno; las barras elegidas con ellos quedan afuera, y
   otras zonas pueden ser sus aberturas.
-- **Agregar carga:** a la derecha de los campos, un esquema muestra qué representa cada valor
-  (la barra de I a J, el nodo, la losa o la sección, con sus ejes) y se redibuja con lo que se
-  escribe: el signo da vuelta la flecha y un campo vacío muestra su símbolo. Se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
+- **Agregar carga:** arriba, el caso y el tipo (una lista agrupada en Nodo, Barra, Placa y
+  General); debajo, con sangría, los valores del tipo, cada uno junto a su nombre y las componentes
+  en columnas X, Y, Z (o I, J); al final, a qué se aplica. A la derecha de los valores, un esquema
+  muestra qué representa cada uno, con sus ejes y sus cotas (a, b, la posición del pico, las
+  excentricidades), y se redibuja con lo que se escribe: el signo da vuelta la flecha y un campo
+  vacío muestra su símbolo. Las barras se dibujan inclinadas, así se distinguen los ejes locales,
+  los globales y la proyección horizontal; las placas, de costado (dirección, área real o
+  proyectada) y en planta (cómo se reparte el valor); la temperatura, como su diagrama en la sección.
+  El botón de su esquina lo muestra en grande sobre el modelo (en el celular, en toda la pantalla).
+  En el celular el esquema va debajo de los valores. Los números aceptan coma o
   punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
   - En **nodos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
-    otro nodo o un punto (se guarda por componentes); y un **desplazamiento impuesto** del caso,
+    un destino (un nodo o un punto) desde un origen (el nodo cargado, otro nodo o un punto), que
+    actúa en cada nodo cargado paralela a esa dirección (se guarda por componentes); y un **desplazamiento impuesto** del caso,
     en mm o rad, sobre nodos con un apoyo que restrinja esa dirección. A diferencia del
     asentamiento de un apoyo, que entra una sola vez, éste se multiplica por el factor del caso en
     cada combinación.

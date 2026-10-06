@@ -402,12 +402,19 @@ load, and the load tables:
   marked ⟲ in the tables and rewritten before solving when the model has changed under it; the list
   below shows each one with its total, to remove it. **Zones** are drawn by picking an outline's
   nodes in order; the members picked with them stay out, and other zones can be their openings.
-- **Add a load:** beside the fields, a sketch shows what each value stands for (the member from I
-  to J, the node, the slab or the section, with its axes), redrawn as you type: a sign turns the
-  arrow and an empty field shows its symbol. Pick its kind, its values and what it goes on. Numbers take a decimal comma or
+- **Add a load:** at the top, the case and the kind (a list grouped into Node, Member, Plate and
+  General); under them, set in, the kind's values, each beside its name and components in X, Y, Z
+  (or I, J) columns; at the end, what it goes on. Beside the values, a sketch shows what each one
+  stands for, with its axes and dimensions (a, b, the peak's position, the eccentricities), redrawn
+  as you type: a sign turns the arrow and an empty field shows its symbol. Members are drawn
+  sloping, so local axes, global axes and the horizontal projection read apart; plates side on
+  (direction, true or projected area) and in plan (how the value spreads); temperatures as their
+  diagram across the section. The button on its corner shows it large over the model (on a phone,
+  full screen). On a phone the sketch goes under the values. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
-  - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
-    point (kept as its components); and an **imposed displacement** of the case, in mm or rad, on
+  - On **nodes**: a six-component force in global axes, or a force from an origin (the loaded node,
+    another node or a point) toward a target (a node or a point), acting at each loaded node parallel
+    to that direction (kept as its components); and an **imposed displacement** of the case, in mm or rad, on
     nodes whose support restrains that direction. Unlike a support's settlement, which enters once,
     it is multiplied by the case's factor in every combination.
   - On **members**: a **distributed** load in local, global or projected axes, over the whole member

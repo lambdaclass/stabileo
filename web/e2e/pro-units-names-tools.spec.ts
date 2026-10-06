@@ -32,7 +32,7 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     // Technical metric: a tonne-force.
     await units(page, 'MKS');
     await openLoadCard(page);
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await expect(page.getByTestId('write-load-card')).toContainText('tf');
     await page.getByTestId('wl-fz').fill('-1');
     await page.getByTestId('load-target-by').selectOption('ids');
@@ -43,7 +43,7 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     // SI with millimetres: a distributed load from 500 mm.
     await units(page, 'SImm');
     await openLoadCard(page);
-    await page.getByTestId('wl-kind-distributed').click();
+    await page.getByTestId('wl-kind').selectOption('distributed');
     await page.getByTestId('wl-qzi').fill('-2');
     await page.getByTestId('wl-a').fill('500');
     await page.getByTestId('load-target-by').selectOption('ids');
@@ -54,7 +54,7 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     // Imperial: a temperature difference takes no offset.
     await units(page, 'Imperial');
     await openLoadCard(page);
-    await page.getByTestId('wl-kind-thermal').click();
+    await page.getByTestId('wl-kind').selectOption('thermal');
     await page.getByTestId('wl-dt').fill('18');
     await page.getByTestId('load-target-by').selectOption('ids');
     await page.getByTestId('load-target-ids').fill(String(ids[0]));
@@ -136,7 +136,7 @@ test.describe('@smoke PRO — units, names and table tools', () => {
   test('a P-Δ run with no second-order equilibrium is not published, and says why', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await openLoadCard(page);
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await page.getByTestId('wl-fz').fill('-1000000');
     await page.getByTestId('load-target-by').selectOption('ids');
     await page.getByTestId('load-target-ids').fill('5-8');
@@ -175,24 +175,33 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     await openLoadCard(page);
     const sketch = page.getByTestId('load-sketch');
     for (const k of ['nodal', 'displacement', 'distributed', 'point', 'thermal', 'strain', 'prestress', 'selfWeight', 'surface', 'hydro', 'shellPoint', 'thermalQuad']) {
-      await page.getByTestId(`wl-kind-${k}`).click();
+      await page.getByTestId('wl-kind').selectOption(k);
       await expect(sketch, k).toHaveAttribute('data-kind', k);
     }
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await page.getByTestId('wl-fz').fill('-10');
-    await expect(sketch).toContainText('Fz -10.00 kN');
-    await page.getByTestId('wl-kind-distributed').click();
+    await expect(sketch).toContainText('Fz = -10.00 kN');
+    await page.getByTestId('wl-kind').selectOption('distributed');
     await page.getByTestId('wl-qzi').fill('-5');
-    await expect(sketch).toContainText('qz I -5.00 kN/m');
+    await expect(sketch).toContainText('qz I = -5.00 kN/m');
     // Beside the fields, not over them.
     const s = (await sketch.boundingBox())!, f = (await page.getByTestId('wl-qzi').boundingBox())!;
     expect(s.x).toBeGreaterThan(f.x + f.width);
+    // Large, over the model and not over the panel; Escape closes it.
+    await page.getByTestId('load-sketch-max').click();
+    const big = page.getByTestId('load-sketch-big');
+    await expect(big).toBeVisible();
+    const b = (await big.boundingBox())!, card = (await page.getByTestId('write-load-card').boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(card.x + 1);
+    await expect(page.getByTestId('load-sketch-big-svg')).toContainText('qz I = -5.00 kN/m');
+    await page.keyboard.press('Escape');
+    await expect(big).toHaveCount(0);
   });
 
   test('an inclined force takes its direction from an origin to a target, each a node or a point', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
     await openLoadCard(page);
-    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-kind').selectOption('nodal');
     await page.getByTestId('wl-inclined').check();
     await page.getByTestId('wl-inc-f').fill('10');
     // From the point (0; 0; 4) toward (0; 0; 0): straight down, whatever node it acts at.

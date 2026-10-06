@@ -42,7 +42,7 @@ test.describe('@smoke PRO loads panel', () => {
     await expect(page.getByTestId('sw-row')).toHaveCount(1);
     await expect(page.getByTestId('sw-row')).toContainText('The whole model');
     await page.getByTestId('write-load').click();
-    await expect(page.locator('.wl-kgroup').filter({ hasText: 'General' }).getByTestId('wl-kind-selfWeight')).toBeVisible();
+    await expect(page.getByTestId('wl-kind').locator('optgroup[label="General"] option[value="selfWeight"]')).toHaveCount(1);
   });
 
   test('combinations are closed rows that read as their definition', async ({ pro: page }) => {
