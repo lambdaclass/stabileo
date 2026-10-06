@@ -9,7 +9,7 @@ interface DrawContext {
   ctx: CanvasRenderingContext2D;
   worldToScreen: (wx: number, wy: number) => { x: number; y: number };
   getNode: (id: number) => { x: number; y: number } | undefined;
-  getElement: (id: number) => { nodeI: number; nodeJ: number; materialId: number; sectionId: number } | undefined;
+  getElement: (id: number) => { nodeI: number; nodeJ: number; materialId: number; sectionId: number; type?: string } | undefined;
   getMaterial: (id: number) => { e: number } | undefined;
   getSection: (id: number) => { iz: number } | undefined;
 }
@@ -63,16 +63,22 @@ export function drawDeformed(
      * solution is the solver's, so it gets them back in the solver's.
      */
     const zs = transverseSign(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y);
+    /*
+     * A truss member carries axial force only: no shear, no moment, so no curvature. It stays
+     * straight between its displaced nodes, whatever the joints it meets turn by: drawn hinged at
+     * both ends and without the bending of member loads (which go to its nodes).
+     */
+    const truss = elem.type === 'truss';
     const points = computeDeformedShape(
       nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
       dI.ux, dI.uz, dI.ry,
       dJ.ux, dJ.uz, dJ.ry,
       scale, ef.length,
-      ef.hingeStart, ef.hingeEnd,
-      EI,
-      zs * ef.qI, zs * ef.qJ,
-      zs > 0 ? ef.pointLoads : ef.pointLoads.map((p) => ({ ...p, p: -p.p, ...(p.my !== undefined ? { my: -p.my } : {}) })),
-      zs > 0 ? ef.distributedLoads : ef.distributedLoads.map((d) => ({ ...d, qI: -d.qI, qJ: -d.qJ })),
+      truss || ef.hingeStart, truss || ef.hingeEnd,
+      truss ? undefined : EI,
+      truss ? 0 : zs * ef.qI, truss ? 0 : zs * ef.qJ,
+      truss ? [] : zs > 0 ? ef.pointLoads : ef.pointLoads.map((p) => ({ ...p, p: -p.p, ...(p.my !== undefined ? { my: -p.my } : {}) })),
+      truss ? [] : zs > 0 ? ef.distributedLoads : ef.distributedLoads.map((d) => ({ ...d, qI: -d.qI, qJ: -d.qJ })),
     );
 
     if (points.length < 2) continue;

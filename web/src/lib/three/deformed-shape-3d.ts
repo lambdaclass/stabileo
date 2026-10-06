@@ -150,7 +150,9 @@ export function createDeformedLines(
     // available — this shows mid-span bending for single-span beams where
     // both ends have zero displacement (e.g. simply supported beam).
     // Fall back to linear interpolation when forces are missing.
-    if (ef && eiEntry) {
+    // A truss member carries axial force only, so it stays straight between its displaced nodes:
+    // the linear interpolation below, not the bending shape of its joints' rotations.
+    if (ef && eiEntry && elem.type !== 'truss') {
       const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       // Effective roll = element rollAngle + section rotation, matching the

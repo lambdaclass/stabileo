@@ -285,7 +285,7 @@
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
         const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
-        return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId } : undefined;
+        return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
         const mat = modelStore.materials.get(id);
@@ -2364,14 +2364,17 @@
                   const sec = modelStore.sections.get(elem.sectionId);
                   if (mat && sec) EI = mat.e * 1000 * effectiveBendingInertia(sec); // kN·m²
                 }
+                // A truss member stays straight between its nodes (see draw-deformed.ts).
+                const truss = elem?.type === 'truss';
                 const disp = computeDisplacementAt(
                   t,
                   ni.x, ni.y, nj.x, nj.y,
                   di.ux, di.uz ?? di.uy, di.ry ?? di.rz,
                   dj.ux, dj.uz ?? dj.uy, dj.ry ?? dj.rz,
                   ef.length,
-                  ef.hingeStart, ef.hingeEnd,
-                  EI, ef.qI, ef.qJ, ef.pointLoads, ef.distributedLoads,
+                  truss || ef.hingeStart, truss || ef.hingeEnd,
+                  truss ? undefined : EI, truss ? 0 : ef.qI, truss ? 0 : ef.qJ,
+                  truss ? [] : ef.pointLoads, truss ? [] : ef.distributedLoads,
                 );
                 const ux = disp.ux * 1000; // mm
                 const uz = get2DDisplayDisplacementVertical(disp) * 1000; // mm
