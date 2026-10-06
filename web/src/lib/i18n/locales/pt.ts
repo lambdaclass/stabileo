@@ -9290,5 +9290,17 @@ const pt: Translations = {
   'geotechnical.ui.field.groundwater': 'Profundidade do lençol freático',
   'design.batch.spacingShort': 's',
   'detailing.sheet.stationRangeIn': 'entre {min} e {max} {unit}',
+  'writeLoad.sketch': 'Esquema da carga',
+  'writeLoad.sketch.toNode': 'nó',
+  'writeLoad.sketch.toPoint': 'ponto',
+  'writeLoad.sketch.imposed': 'deslocamento imposto',
+  'writeLoad.sketch.alongAxis': 'ao longo de {a}',
+  'writeLoad.sketch.gradient': 'face −z menos face +z',
+  'writeLoad.sketch.lengthens': 'alonga a barra',
+  'writeLoad.sketch.shortens': 'encurta a barra',
+  'writeLoad.sketch.eMean': 'eM: média de I e J',
+  'writeLoad.sketch.eBelow': 'e positiva para −z local',
+  'writeLoad.sketch.normal': 'normal local',
+  'writeLoad.sketch.depth': 'profundidade',
 };
 export default pt;

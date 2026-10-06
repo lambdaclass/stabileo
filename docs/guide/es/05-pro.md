@@ -417,7 +417,9 @@ tarjeta para agregar una carga y las tablas de cargas:
   modelo cambió; la lista de abajo muestra cada una con su total, para quitarla. Las **zonas** se
   dibujan eligiendo en orden los nodos del contorno; las barras elegidas con ellos quedan afuera, y
   otras zonas pueden ser sus aberturas.
-- **Agregar carga:** se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
+- **Agregar carga:** a la derecha de los campos, un esquema muestra qué representa cada valor
+  (la barra de I a J, el nodo, la losa o la sección, con sus ejes) y se redibuja con lo que se
+  escribe: el signo da vuelta la flecha y un campo vacío muestra su símbolo. Se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
   punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
   - En **nodos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
     otro nodo o un punto (se guarda por componentes); y un **desplazamiento impuesto** del caso,

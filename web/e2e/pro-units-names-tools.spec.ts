@@ -169,4 +169,23 @@ test.describe('@smoke PRO — units, names and table tools', () => {
     await expect(page.getByTestId('view-label-nodes')).not.toBeChecked();
     await expect(page.getByTestId('view-label-members')).not.toBeChecked();
   });
+
+  test('beside the fields, a sketch of what they stand for, drawn from what is typed', async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await openLoadCard(page);
+    const sketch = page.getByTestId('load-sketch');
+    for (const k of ['nodal', 'displacement', 'distributed', 'point', 'thermal', 'strain', 'prestress', 'selfWeight', 'surface', 'hydro', 'shellPoint', 'thermalQuad']) {
+      await page.getByTestId(`wl-kind-${k}`).click();
+      await expect(sketch, k).toHaveAttribute('data-kind', k);
+    }
+    await page.getByTestId('wl-kind-nodal').click();
+    await page.getByTestId('wl-fz').fill('-10');
+    await expect(sketch).toContainText('Fz -10.00 kN');
+    await page.getByTestId('wl-kind-distributed').click();
+    await page.getByTestId('wl-qzi').fill('-5');
+    await expect(sketch).toContainText('qz I -5.00 kN/m');
+    // Beside the fields, not over them.
+    const s = (await sketch.boundingBox())!, f = (await page.getByTestId('wl-qzi').boundingBox())!;
+    expect(s.x).toBeGreaterThan(f.x + f.width);
+  });
 });

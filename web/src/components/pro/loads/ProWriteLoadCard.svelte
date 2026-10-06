@@ -24,6 +24,7 @@
   import type { MemberFrame, Vec3 } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
   import QuantityInput from './QuantityInput.svelte';
+  import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
@@ -122,6 +123,13 @@
     return [...of('quads').map((id) => ref(id)), ...of('plates').map((id) => ref(id, 'plate'))].filter((r): r is ShellRef => !!r);
   }
   let shellForm = $state<ProShellLoadForm | null>(null);
+  let shellSketch = $state<SketchInput['shell']>(undefined);
+  /** What the fields say, drawn beside them (`LoadSketch`). */
+  const sketch = $derived<SketchInput>({
+    kind, frame, shape, f, inclined, incF, incByNode, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
+    pFrame, p, pa, th, strainBy, strain: strainBy === 'unit' ? (strainPerMil.trim() === '' ? null : parseDecimal(strainPerMil)) : strainDL,
+    ps, tq, swDir, swFactor: swFactor.trim() === '' ? null : parseDecimal(swFactor), shell: shellSketch,
+  });
   const lengthOf = (id: number) => memberRef3D(modelStore.model as never, id)?.axes.L ?? modelStore.getElementLength(id);
   const bends = (id: number) => modelStore.elements.get(id)?.type !== 'truss';
 
@@ -300,6 +308,9 @@
     {/each}
   </div>
 
+  <!-- The fields, and beside them a sketch of what they stand for, drawn from what is typed. -->
+  <div class="wl-body">
+  <div class="wl-fields">
   {#if kind === 'nodal'}
     <label class="wl-check"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
     {#if inclined}
@@ -424,13 +435,16 @@
     </div>
     <p class="wl-hint">{t('writeLoad.swHint')}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
-    {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} />{/key}
+    {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} bind:sketch={shellSketch} />{/key}
   {:else}
     <div class="wl-row">
       <label>ΔT <QuantityInput nullable cls="wl-num" bind:value={tq.dt} quantity="temperatureDiff" testid="wl-tq-dt" /></label>
       <label>ΔTg <QuantityInput nullable cls="wl-num" bind:value={tq.g} quantity="temperatureDiff" testid="wl-tq-g" /></label>
     </div>
   {/if}
+  </div>
+  <LoadSketch v={sketch} />
+  </div>
 
   <!-- A new picker for another family of targets: node numbers are not member numbers. -->
   {#key `${drawState.writeSeq}:${group}`}<LoadTargetPicker {entity} allowAll={kind === 'selfWeight'} allowChain={kind === 'distributed' && shape === 'trapezoid' || kind === 'point'} bind:spec={target} bind:summary />{/key}
@@ -463,4 +477,6 @@
   .wl-add { flex: none; padding: 0.3rem 0.8rem; border: 1px solid var(--st-accent); border-radius: var(--st-radius); background: var(--st-accent); color: #fff; font: inherit; font-size: 0.72rem; cursor: pointer; }
   .wl-count { font-size: 0.66rem; color: var(--st-text-2); }
   .wl-count.warn { color: var(--st-warn); }
+  .wl-body { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .wl-fields { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 </style>

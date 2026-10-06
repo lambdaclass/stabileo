@@ -9646,5 +9646,17 @@ const es: Record<string, string> = {
   'geotechnical.ui.field.groundwater': 'Profundidad de la napa',
   'design.batch.spacingShort': 's',
   'detailing.sheet.stationRangeIn': 'entre {min} y {max} {unit}',
+  'writeLoad.sketch': 'Esquema de la carga',
+  'writeLoad.sketch.toNode': 'nodo',
+  'writeLoad.sketch.toPoint': 'punto',
+  'writeLoad.sketch.imposed': 'desplazamiento impuesto',
+  'writeLoad.sketch.alongAxis': 'a lo largo de {a}',
+  'writeLoad.sketch.gradient': 'cara −z menos cara +z',
+  'writeLoad.sketch.lengthens': 'alarga la barra',
+  'writeLoad.sketch.shortens': 'acorta la barra',
+  'writeLoad.sketch.eMean': 'eM: media de I y J',
+  'writeLoad.sketch.eBelow': 'e positiva hacia −z local',
+  'writeLoad.sketch.normal': 'normal local',
+  'writeLoad.sketch.depth': 'profundidad',
 };
 export default es;

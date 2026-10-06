@@ -152,6 +152,11 @@ From issues #251, #181, #96, #205 and #206.
 - Excel: `name` column in Nodes and Members, written and read (`schema.ts`, `parse.ts`, `load-fixture.ts`).
 - Report: the nodes and members tables add the Name column when some entity has one.
 
+### Load sketches
+
+- `loads/LoadSketch.svelte`: an SVG beside the Add load card's fields, one drawing per kind (node forces and moments with the global axes, inclined force, imposed displacement, distributed trapezoid/triangle/hydrostatic with a and b, point load at a, thermal profile across the depth, strain, prestress tendon through eI/eM/eJ, self-weight, slab area loads by field, fluid against a wall, point on a slab, slab temperature).
+- Drawn from the card's state (`SketchInput`; the slab form hands its own through `bind:sketch`): signs set the arrows, magnitudes scale against each other, empty fields show their symbol. Schematic, not to the model's scale.
+
 ### Tools
 
 - **Loose P-Δ** (`ProAdvancedTab.handlePDelta`): `amplification()` and `converged`, the same criterion as per combination. Unstable or not converged: not published, an earlier P-Δ result is cleared, and the panel says why (`pdelta-refused`).

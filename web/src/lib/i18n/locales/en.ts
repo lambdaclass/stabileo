@@ -9657,5 +9657,17 @@ const en: Record<string, string> = {
   'geotechnical.ui.field.groundwater': 'Groundwater depth',
   'design.batch.spacingShort': 's',
   'detailing.sheet.stationRangeIn': 'between {min} and {max} {unit}',
+  'writeLoad.sketch': 'Sketch of the load',
+  'writeLoad.sketch.toNode': 'node',
+  'writeLoad.sketch.toPoint': 'point',
+  'writeLoad.sketch.imposed': 'imposed displacement',
+  'writeLoad.sketch.alongAxis': 'along {a}',
+  'writeLoad.sketch.gradient': '−z face minus +z face',
+  'writeLoad.sketch.lengthens': 'lengthens the member',
+  'writeLoad.sketch.shortens': 'shortens the member',
+  'writeLoad.sketch.eMean': 'eM: mean of I and J',
+  'writeLoad.sketch.eBelow': 'e positive toward local −z',
+  'writeLoad.sketch.normal': 'local normal',
+  'writeLoad.sketch.depth': 'depth',
 };
 export default en;

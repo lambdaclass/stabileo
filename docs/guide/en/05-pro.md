@@ -402,7 +402,9 @@ load, and the load tables:
   marked ⟲ in the tables and rewritten before solving when the model has changed under it; the list
   below shows each one with its total, to remove it. **Zones** are drawn by picking an outline's
   nodes in order; the members picked with them stay out, and other zones can be their openings.
-- **Add a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
+- **Add a load:** beside the fields, a sketch shows what each value stands for (the member from I
+  to J, the node, the slab or the section, with its axes), redrawn as you type: a sign turns the
+  arrow and an empty field shows its symbol. Pick its kind, its values and what it goes on. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
   - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
     point (kept as its components); and an **imposed displacement** of the case, in mm or rad, on

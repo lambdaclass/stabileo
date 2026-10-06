@@ -12,12 +12,17 @@
   import { uiStore } from '../../../lib/store/ui.svelte';
   import { fromDisplay, unitLabel } from '../../../lib/utils/units';
   import QuantityInput from './QuantityInput.svelte';
+  import type { SketchInput } from './LoadSketch.svelte';
   import { hydrostaticSurfaceLoads, shellPointNodalLoads, type ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
   import type { Vec3 } from '../../../lib/engine/shell-load-integration';
 
-  interface Props { kind: 'surface' | 'hydro' | 'shellPoint' }
-  let { kind }: Props = $props();
+  interface Props {
+    kind: 'surface' | 'hydro' | 'shellPoint';
+    /** What the fields say, for the card's sketch (`LoadSketch`). */
+    sketch?: SketchInput['shell'];
+  }
+  let { kind, sketch = $bindable() }: Props = $props();
 
   type N = number | null;
   const num = (v: N, fallback = 0): number => v ?? fallback;
@@ -40,6 +45,11 @@
   // ── Point ──
   let at = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
   let pf = $state<Record<'fx' | 'fy' | 'fz', N>>({ fx: null, fy: null, fz: null });
+
+  $effect(() => {
+    const corners = qc.split(';').map((x) => parseDecimal(x.trim())).filter((x): x is number => x !== null);
+    sketch = { dirMode, dirAxis, field, q, corners, va: { ...va }, partial, gamma, level, at: { ...at }, pf: { ...pf } };
+  });
 
   /** The rectangle as a region: its plane's two axes, projected along the third. */
   function region(): SurfaceLoad3D['region'] | string {
