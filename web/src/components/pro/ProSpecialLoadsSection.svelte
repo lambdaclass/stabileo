@@ -31,6 +31,7 @@
    */
   import { t } from '../../lib/i18n';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
   interface Props { config: SpecialLoadsConfig }
   let { config = $bindable() }: Props = $props();
@@ -42,9 +43,9 @@
     {#if config.thermal.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">ΔT</span>
-          <span class="al-unit-field"><input type="number" step="5" bind:value={config.thermal.dt} data-testid="al-thermal-dt" /><span>°C</span></span></label>
+          <QuantityInput bind:value={config.thermal.dt} quantity="temperatureDiff" testid="al-thermal-dt" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.gradient')}</span>
-          <span class="al-unit-field"><input type="number" step="5" bind:value={config.thermal.grad} /><span>°C</span></span></label>
+          <QuantityInput bind:value={config.thermal.grad} quantity="temperatureDiff" wrap="al-unit-field" /></label>
       </div>
     {/if}
   </div>
@@ -53,14 +54,14 @@
     {#if config.soil.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.grade')}</span>
-          <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.soil.gradeZ} data-testid="al-soil-grade" /><span>m</span></span></label>
+          <QuantityInput bind:value={config.soil.gradeZ} quantity="length" testid="al-soil-grade" wrap="al-unit-field" /></label>
         <label class="al-field"><span class="al-label">{t('autoLoad.special.soilType')}</span>
           <select value={SOIL_WEIGHTS.find((s) => s.gamma === config.soil.gamma)?.key ?? ''} onchange={(e) => { const s = SOIL_WEIGHTS.find((x) => x.key === e.currentTarget.value); if (s) config.soil.gamma = s.gamma; }}>
             <option value="" disabled>{t('autoLoad.special.typed')}</option>
-            {#each SOIL_WEIGHTS as s (s.key)}<option value={s.key}>{t(`autoLoad.special.soil.${s.key}`)} · {s.gamma}</option>{/each}
+            {#each SOIL_WEIGHTS as s (s.key)}<option value={s.key}>{t(`autoLoad.special.soil.${s.key}`)} · {fmtQ(s.gamma, 'density')} {unitQ('density')}</option>{/each}
           </select></label>
         <label class="al-field al-field-narrow"><span class="al-label">γ</span>
-          <span class="al-unit-field"><input type="number" step="0.1" bind:value={config.soil.gamma} data-testid="al-soil-gamma" /><span>kN/m³</span></span></label>
+          <QuantityInput bind:value={config.soil.gamma} quantity="density" testid="al-soil-gamma" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">K</span>
           <input type="number" step="0.05" min="0" max="1.5" bind:value={config.soil.k} data-testid="al-soil-k" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.surcharge')}</span>
@@ -71,9 +72,9 @@
       {#if config.soil.sideOn}
         <div class="al-row">
           <label class="al-field al-field-narrow"><span class="al-label">X</span>
-            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.soil.sideX} data-testid="al-soil-side-x" /><span>m</span></span></label>
+            <QuantityInput bind:value={config.soil.sideX} quantity="length" testid="al-soil-side-x" wrap="al-unit-field" /></label>
           <label class="al-field al-field-narrow"><span class="al-label">Y</span>
-            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.soil.sideY} data-testid="al-soil-side-y" /><span>m</span></span></label>
+            <QuantityInput bind:value={config.soil.sideY} quantity="length" testid="al-soil-side-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
       <p class="al-hint">{t('autoLoad.special.soilHint')}</p>
@@ -84,17 +85,17 @@
     {#if config.fluid.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.level')}</span>
-          <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.fluid.levelZ} data-testid="al-fluid-level" /><span>m</span></span></label>
+          <QuantityInput bind:value={config.fluid.levelZ} quantity="length" testid="al-fluid-level" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">γ</span>
-          <span class="al-unit-field"><input type="number" step="0.1" bind:value={config.fluid.gamma} /><span>kN/m³</span></span></label>
+          <QuantityInput bind:value={config.fluid.gamma} quantity="density" wrap="al-unit-field" /></label>
       </div>
       <label class="al-check"><input type="checkbox" bind:checked={config.fluid.insideOn} data-testid="al-fluid-inside" /> {t('autoLoad.special.fluidInside')}</label>
       {#if config.fluid.insideOn}
         <div class="al-row">
           <label class="al-field al-field-narrow"><span class="al-label">X</span>
-            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.fluid.insideX} data-testid="al-fluid-inside-x" /><span>m</span></span></label>
+            <QuantityInput bind:value={config.fluid.insideX} quantity="length" testid="al-fluid-inside-x" wrap="al-unit-field" /></label>
           <label class="al-field al-field-narrow"><span class="al-label">Y</span>
-            <span class="al-unit-field"><input type="number" step="0.5" bind:value={config.fluid.insideY} data-testid="al-fluid-inside-y" /><span>m</span></span></label>
+            <QuantityInput bind:value={config.fluid.insideY} quantity="length" testid="al-fluid-inside-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
       <p class="al-hint">{t('autoLoad.special.fluidHint')}</p>

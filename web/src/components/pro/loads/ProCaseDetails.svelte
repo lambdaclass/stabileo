@@ -9,6 +9,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { te } from '../../../lib/i18n/engine-text';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import QuantityInput from './QuantityInput.svelte';
   import { caseOrder } from '../../../lib/engine/case-effects';
   import { loadCodeFor } from '../../../lib/codes/families';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
@@ -43,12 +44,13 @@
   }
 
   // ── Reduction ──
-  let area = $state(String(lc.reduction?.tributaryAreaM2 ?? ''));
+  /** m² (SI); empty is no area yet. */
+  let area = $state<number | null>(lc.reduction?.tributaryAreaM2 ?? null);
   let kind = $state(lc.reduction?.elementKind ?? 'interiorBeam');
   let floors = $state(String(lc.reduction?.floorsSupported ?? 1));
   const imposedCode = $derived(loadCodeFor(regulationsStore.binding('loads')?.adapterId));
   const reductionPreview = $derived.by(() => {
-    const a = parseDecimal(area), f = parseDecimal(floors);
+    const a = area, f = parseDecimal(floors);
     if (!imposedCode || imposedCode.role !== 'loads' || a === null || !(a > 0) || f === null) return null;
     const r = imposedCode.reduce({ loKNm2: 1, tributaryAreaM2: a, elementKind: kind as never, floorsSupported: Math.max(1, Math.round(f)), passengerGarage: false, publicAssembly: false, noReduction: false });
     return { ratio: r.lKNm2, reason: r.reason, area: a, floors: Math.max(1, Math.round(f)) };
@@ -148,7 +150,7 @@
       <select bind:value={kind} data-testid="cd-red-kind">
         {#each KINDS as k (k)}<option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>{/each}
       </select>
-      <label>A<sub>T</sub> <input type="text" class="cd-num" bind:value={area} data-testid="cd-red-area" /> m²</label>
+      <label>A<sub>T</sub> <QuantityInput bind:value={area} nullable quantity="area" cls="cd-num" testid="cd-red-area" /></label>
       <label>{t('autoLoad.floorsSupported')} <input type="text" class="cd-num" bind:value={floors} data-testid="cd-red-floors" /></label>
     </div>
     {#if reductionPreview}
@@ -167,7 +169,7 @@
   .cd-title { font-size: 0.64rem; font-weight: 600; color: var(--st-text); margin-top: 4px; }
   .cd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .cd-row label { display: inline-flex; align-items: center; gap: 4px; }
-  .cd-num { width: 56px; font-family: var(--st-mono); }
+  .cd :global(.cd-num) { width: 56px; font-family: var(--st-mono); }
   .cd-wide { width: 110px; }
   .cd-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
   .cd-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }

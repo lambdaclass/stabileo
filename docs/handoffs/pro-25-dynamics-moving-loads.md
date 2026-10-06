@@ -1,4 +1,4 @@
-# PRO — 25: spectral cases, user spectra, vehicles, wind and snow regions, mass weights, pushover
+# PRO — 25: dynamic and moving loads, units across PRO, names and table tools
 
 Branch `feat/pro-25-dynamics-moving-loads`, on `feat/pro-24-cases-combinations`. Everything is in
 the application layer; the engine is untouched.
@@ -86,6 +86,87 @@ the application layer; the engine is untouched.
   Add button (`WriteCard`'s `aside` snippet for supports). On the selection, when the pointer is not
   selecting what it needs, a button beside the choice switches it (`load-target-activate`).
 
+## Units, names and table tools
+
+From issues #251, #181, #96, #205 and #206.
+
+### Units
+
+- `utils/units.ts`:
+  - A fourth display system, `SImm`: SI with lengths in mm (coordinates, displacements, section properties). Forces, loads per metre and per square metre and stresses stay as in SI; files stay in SI.
+  - `temperatureDiff`: a ΔT or a gradient, no offset. The thermal labels in the 3D view used `temperature`, which added 32 °F to a difference.
+  - `sectionArea`, `sectionInertia`, `sectionModulus`, `sectionDim`: shown in cm in SI, as section tables give them.
+  - `isUnitSystem` guards the stored preference.
+- `QuantityInput`:
+  - nullable (an empty field is the default its placeholder names);
+  - placeholder, `describedBy`, `showUnit` and `onchange` (once, on leaving: one undo step for a table cell);
+  - the bound value follows the typing, and the field is not rewritten while it has the focus.
+- The Add load card (`ProWriteLoadCard`, `ProShellLoadForm`): every magnitude is a `QuantityInput`.
+  - Imposed displacements and tendon eccentricities used to be typed in mm. They are now `displacement` and `length` in the display system (mm in SImm).
+  - ε₀ stays in ‰.
+- Inputs moved to the unit layer (the sweep found 177 tags in 50 files reading SI without it):
+  - **Modelling:**
+    - `ProNodesTab`: table cells convert at the edge; the write card uses `QuantityInput`.
+    - `ProQuickEdit`, `PlacementHud`, `ProDrawBar`.
+    - `ProGridPanel`: bays and storey lists in display units.
+    - `ProTransformPanel`, `ProEditPanel` (fill thickness and element size), `ProMesher`.
+    - `ProSurfaces` (length keys only), `ProShellTab`, `spec/SpecSurfaces`.
+    - `ProConstraintsTab` (offsets, springK, springKr), `ProMemberBehaviour`, `SupportDofFields`.
+    - `ProSupportEditor` (springs), `ProSteelLbEditor`, `ProStairSection`.
+    - `ProViewPanel` (note position), `property/MemberOffsetEditor`.
+  - **Loads:**
+    - `ProLoadTables`: every cell, with units in the headers.
+    - `LoadTargetPicker` range, `ProActionRegion`, `ProCaseDetails`, `ProFloorLoadSection` box, `ProDeadLoadBuilder`.
+    - `ProSnowSection`, `ProSpecialLoadsSection`, `ProWindCasesPanel`, `ProWindCladding`, `ProWindDynamics`, `ProWindStructure`.
+    - `ProAutoLoadsApplying`, `ProAutoLoadsDialog` (altitude), `ProMovingLoadsPanel`.
+    - `dynamics/ProMassWeights`, `dynamics/TimeHistoryPanel`.
+    - `ProResultsTab` (query threshold and its readouts), `ProFoundationSprings`.
+  - **Analysis, design, materials:**
+    - `ProAdvancedTab`: pushover target, Winkler, SSI.
+    - The section builder in `sectionDim`, and the section readout (A, I, J, W) in `sectionArea`/`sectionInertia`/`sectionModulus`.
+    - `ProMaterialsTab`: E, γ, fy in display units with the unit in the header.
+    - `material/CustomMaterialPanel`.
+    - `design/FoundationsPanel`, `design/BatchEditDialog`, `design/DetailingWorkflow`, `design/RebarEditorBeam`, `design/RebarEditorColumn`.
+    - `generators/*`: the "(m)" in the steel dictionaries' generator labels and hints is gone.
+    - `ProConnectionsTab` (its SI fields only).
+- Left as they are, with a fixed unit on purpose:
+  - mm: connections, rebar, drawn sections, cold-formed, weld tolerance, taper.
+  - cm²: shear areas.
+  - Also %, ‰, degrees, s, Hz, ratios and counts.
+  - The support force–displacement curve, typed as "mm kN".
+  - Shell contour limits (kN·m/m has no Quantity).
+- Read-only texts still with a fixed SI unit:
+  - `loadTarget.chainOk` (m), the floor-load level names.
+  - The wind qz profile table, the cladding pressure header.
+  - The time-history summary, the δmax line of the advanced tab.
+  - The loose P-Δ of Basic (`ToolbarAdvanced`) publishes without the stability check; Basic takes it in its own PR.
+
+### Names
+
+- `Node.name`, `Element.name`, optional:
+  - kept in the `.ded`; a file without them opens as before;
+  - `renameNode` / `renameElement` record on the views undo channel (`restoreViewsOnly` restores the names), so renaming keeps the results;
+  - `updateNode` keeps the name on a move.
+- Edited in the nodes and members tables (a Name column after the id).
+- Labels: `MEMBER_LABELS` has `name`. Members show their name; nodes too when labels read names (`nodeLabelText`, one line in `results-sync.ts`, nothing else of the labels touched).
+- Excel: `name` column in Nodes and Members, written and read (`schema.ts`, `parse.ts`, `load-fixture.ts`).
+- Report: the nodes and members tables add the Name column when some entity has one.
+
+### Tools
+
+- **Loose P-Δ** (`ProAdvancedTab.handlePDelta`): `amplification()` and `converged`, the same criterion as per combination. Unstable or not converged: not published, an earlier P-Δ result is cleared, and the panel says why (`pdelta-refused`).
+- **Report:**
+  - `exportReportAs` is async;
+  - `screenshotWithNumbers` turns on node and member numbers (ids, not on the selection only), waits three frames, captures, and puts back what the reader had;
+  - the picture is Figure 1, and the figures section continues from 2.
+- **Tables:** a double click on a node or member row selects it and dispatches `stabileo-zoom-to-selection`, not on a cell being edited. The members table keeps the place of the "Open specifications" button, which used to appear on the first click and move the row under the pointer.
+- **Clean-up** (`ProEditPanel`):
+  - exact duplicates are counted from `checkModel` (`MODEL_DUPLICATE_ELEMENT`) and removed as before;
+  - overlapping collinear members come from `overlappingCollinearWarnings`, are listed by pair with their shared length and are selected to decide.
+- **CAD tests:**
+  - `cad-real-dxf` and `cad-rooms-uploaded` warn when the client plans are absent and say so in the suite title.
+  - `cad-real-like.test.ts` builds a plan with author layer names, block columns and a wrong `$INSUNITS`, and runs the shipped path.
+
 ## Tests
 
 - `engine/__tests__/spectral-case.test.ts`: the engine's spectral displacements for the same modes,
@@ -96,6 +177,8 @@ the application layer; the engine is untouched.
 - `engine/loads/__tests__/pro25-actions.test.ts`: wind profile and region, mass weights, pushover
   pattern and target.
 - `e2e/pro-dynamics-loads.spec.ts` (`@smoke`).
+- `e2e/pro-units-names-tools.spec.ts` (`@smoke`): the card in MKS, SImm and Imperial; names in the tables and the label mode; double click; duplicates and overlaps; P-Δ refused; the report figure.
+- `lib/utils/__tests__/units-mks.test.ts` (SImm, section quantities, temperatureDiff), `lib/store/__tests__/entity-names.test.ts`, `lib/cad/__tests__/cad-real-like.test.ts`.
 - `e2e/pro-add-supports-loads.spec.ts` (`@smoke`): every option of both cards, on the selection and
   on numbers, and the context menu.
 

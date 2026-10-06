@@ -3358,6 +3358,7 @@ const fr: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'brins',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'par face',
   'design.batch.leaveUnchanged': 'laisser inchangé',
 

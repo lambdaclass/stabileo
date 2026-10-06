@@ -15,7 +15,7 @@ describe('technical metric', () => {
     expect(fromDisplay(toDisplay(123.4, 'stress', 'MKS'), 'stress', 'MKS')).toBeCloseTo(123.4, 9);
     expect(unitLabel('stress', 'MKS')).toBe('kgf/cm²');
     expect(unitLabel('force', 'MKS')).toBe('tf');
-    expect(UNIT_SYSTEMS).toEqual(['SI', 'MKS', 'Imperial']);
+    expect(UNIT_SYSTEMS).toEqual(['SI', 'SImm', 'MKS', 'Imperial']);
   });
 
   it('prints the decimals asked for, and automatic ones otherwise', () => {
@@ -53,5 +53,29 @@ describe('area loads and speeds', () => {
     expect(unitLabel('areaLoad', 'MKS')).toBe('kgf/m²');
     expect(toDisplay(45, 'speed', 'Imperial')).toBeCloseTo(100.66, 2);
     expect(unitLabel('speed', 'SI')).toBe('m/s');
+  });
+});
+
+describe('SI with millimetres', () => {
+  it('lengths, displacements and section properties in mm; everything else as in SI; files stay SI', () => {
+    expect(toDisplay(2.5, 'length', 'SImm')).toBeCloseTo(2500, 9);
+    expect(toDisplay(0.012, 'displacement', 'SImm')).toBeCloseTo(12, 9);
+    expect(toDisplay(3e-3, 'sectionArea', 'SImm')).toBeCloseTo(3000, 6);
+    expect(toDisplay(1e-4, 'sectionInertia', 'SImm')).toBeCloseTo(1e8, 1);
+    expect(toDisplay(10, 'force', 'SImm')).toBe(10);
+    expect(toDisplay(5, 'distributedLoad', 'SImm')).toBe(5);
+    expect(fromDisplay(2500, 'length', 'SImm')).toBeCloseTo(2.5, 12);
+    expect(unitLabel('length', 'SImm')).toBe('mm');
+    expect(unitLabel('force', 'SImm')).toBe('kN');
+  });
+
+  it('section properties read in cm in SI, and a temperature difference takes no offset', () => {
+    expect(toDisplay(3e-3, 'sectionArea', 'SI')).toBeCloseTo(30, 9);
+    expect(toDisplay(1e-4, 'sectionInertia', 'SI')).toBeCloseTo(10000, 6);
+    expect(toDisplay(1e-4, 'sectionModulus', 'SI')).toBeCloseTo(100, 9);
+    expect(unitLabel('sectionModulus', 'SI')).toBe('cm³');
+    expect(toDisplay(10, 'temperatureDiff', 'Imperial')).toBeCloseTo(18, 12);
+    expect(toDisplay(10, 'temperature', 'Imperial')).toBeCloseTo(50, 12);
+    expect(fromDisplay(18, 'temperatureDiff', 'Imperial')).toBeCloseTo(10, 12);
   });
 });

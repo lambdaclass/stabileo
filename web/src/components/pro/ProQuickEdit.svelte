@@ -20,6 +20,7 @@
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
   import { meshQuad } from '../../lib/model/edit/mesh-region';
   import { parseIdList } from '../../lib/model/select-ops';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   const target = $derived(quickEdit.target);
   const node = $derived(target?.kind === 'node' ? modelStore.nodes.get(target.id) : undefined);
@@ -54,10 +55,8 @@
   };
 
   // ── Node ──
-  function setCoord(k: 'x' | 'y' | 'z', v: string) {
+  function setCoord(k: 'x' | 'y' | 'z', n: number) {
     if (!node) return;
-    const n = num(v);
-    if (n === null) return;
     const p = { x: node.x, y: node.y, z: node.z ?? 0, [k]: n };
     modelStore.updateNode(node.id, p.x, p.y, p.z);
   }
@@ -145,9 +144,9 @@
       {#if node}
         <div class="qe-grid3">
           {#each ['x', 'y', 'z'] as const as k (k)}
-            <label class="qe-field"><span>{k.toUpperCase()} (m)</span>
-              <input type="number" step="any" value={k === 'z' ? (node.z ?? 0) : node[k]}
-                onchange={(e) => setCoord(k, e.currentTarget.value)} data-testid="qe-node-{k}" />
+            <label class="qe-field"><span>{k.toUpperCase()}</span>
+              <QuantityInput value={k === 'z' ? (node.z ?? 0) : node[k]} quantity="length" cls="qe-num"
+                onchange={(v) => setCoord(k, v)} testid="qe-node-{k}" />
             </label>
           {/each}
         </div>
@@ -193,16 +192,16 @@
               {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
             </select>
           </label>
-          <label class="qe-field"><span>{t('pro.thickness')}</span>
-            <input type="number" step="0.01" min="0.001" value={shell.thickness}
-              onchange={(e) => { const v = num(e.currentTarget.value); if (v && v > 0) setShell({ thickness: v }); }} data-testid="qe-shell-thickness" />
+          <label class="qe-field"><span>{t('pro.thicknessLabel')}</span>
+            <QuantityInput min={0.001} value={shell.thickness} quantity="length" cls="qe-num"
+              onchange={(v) => { if (v > 0) setShell({ thickness: v }); }} testid="qe-shell-thickness" />
           </label>
         </div>
         <button class="qe-btn" onclick={flip} title={t('quickEdit.flipHint')} data-testid="qe-flip">{t('quickEdit.flip')}</button>
         {#if target.kind === 'quad'}
           <div class="qe-row">
             <label class="qe-field qe-narrow"><span>{t('quickEdit.meshSize')}</span>
-              <input type="number" step="0.1" min="0.05" bind:value={meshSize} data-testid="qe-mesh-size" />
+              <QuantityInput min={0.05} bind:value={meshSize} quantity="length" cls="qe-num" testid="qe-mesh-size" />
             </label>
             <button class="qe-btn" onclick={mesh} disabled={!(meshSize > 0)} data-testid="qe-mesh">{t('quickEdit.mesh')}</button>
           </div>
@@ -221,12 +220,14 @@
   .qe-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .qe-field > span { font-size: 0.64rem; color: var(--st-text-3); }
   .qe-narrow { max-width: 7rem; }
-  .qe select, .qe input {
+  .qe select, .qe input, .qe :global(input.qe-num) {
     box-sizing: border-box; width: 100%; height: 26px; padding: 0 6px;
     background: var(--st-surface-3); color: var(--st-text);
     border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit;
   }
-  .qe input[type='number'] { font-family: var(--st-mono); text-align: right; }
+  .qe input[type='number'], .qe :global(input.qe-num) { font-family: var(--st-mono); text-align: right; }
+  .qe-field > :global(.qi) { min-width: 0; }
+  .qe-field > :global(.qi input) { flex: 1; min-width: 0; }
   .qe-btn {
     height: 26px; padding: 0 10px; background: none; color: var(--st-text-2);
     border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; cursor: pointer; white-space: nowrap;

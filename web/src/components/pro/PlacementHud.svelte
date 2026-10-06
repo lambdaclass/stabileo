@@ -9,9 +9,10 @@
   import { t, tp } from '../../lib/i18n';
   import { untrack } from 'svelte';
   import { keyPlace, placementKeyAction } from '../../lib/store/placement-keys';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
-  const fmt = (v: number) => String(Math.round(v * 1000) / 1000);
-  let tx = $state(''), ty = $state(''), tz = $state('');
+  const mm = (v: number) => Math.round(v * 1000) / 1000;
+  let tx = $state(0), ty = $state(0), tz = $state(0);
   let typing = $state(false);
 
   const preview = $derived.by(() => { void placementStore.revision; return placementStore.mergePreview(); });
@@ -23,12 +24,11 @@
     if (!placementStore.active) { untrack(() => { typing = false; }); return; }
     if (untrack(() => typing)) return;
     const p = placementStore.target;
-    tx = fmt(p[0]); ty = fmt(p[1]); tz = fmt(p[2]);
+    tx = mm(p[0]); ty = mm(p[1]); tz = mm(p[2]);
   });
 
-  const num = (s: string) => Number(s.replace(',', '.'));
   const typed = $derived.by((): [number, number, number] | null => {
-    const v = [num(tx), num(ty), num(tz)];
+    const v = [tx, ty, tz];
     return v.every(Number.isFinite) ? (v as [number, number, number]) : null;
   });
 
@@ -63,9 +63,9 @@
       {#if preview.supportKept > 0}<span class="ph-welds">{tp('placement.supportKept', { n: preview.supportKept })}</span>{/if}
     </div>
     <div class="ph-row">
-      <label>X <input value={tx} oninput={(e) => { tx = e.currentTarget.value; typing = true; }} data-testid="placement-x" /></label>
-      <label>Y <input value={ty} oninput={(e) => { ty = e.currentTarget.value; typing = true; }} data-testid="placement-y" /></label>
-      <label>Z <input value={tz} oninput={(e) => { tz = e.currentTarget.value; typing = true; }} data-testid="placement-z" /></label>
+      <label>X <QuantityInput bind:value={() => tx, (v) => { tx = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-x" /></label>
+      <label>Y <QuantityInput bind:value={() => ty, (v) => { ty = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-y" /></label>
+      <label>Z <QuantityInput bind:value={() => tz, (v) => { tz = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-z" /></label>
       {#if placementStore.mode === 'insert'}
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withLoads} /> {t('placement.withLoads')}</label>
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withSupports} /> {t('placement.withSupports')}</label>
@@ -89,7 +89,7 @@
   .ph-target { color: var(--st-interactive); font-family: var(--st-mono); }
   .ph-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .ph-row label { display: flex; gap: 4px; align-items: center; }
-  .ph-row input:not([type='checkbox']) { width: 64px; font-family: var(--st-mono); }
+  .ph-row :global(input.ph-num) { width: 64px; font-family: var(--st-mono); }
   .ph-check { font-size: 0.64rem; }
   .ph-welds { color: var(--st-warn); }
   .ph-keys { font-size: 0.6rem; color: var(--st-text-3); }

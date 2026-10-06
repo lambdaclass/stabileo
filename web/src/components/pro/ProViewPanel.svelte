@@ -15,7 +15,7 @@
   import type { SavedViewDisplay } from '../../lib/store/model.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
   import { addNote } from '../../lib/model/annotations';
-  import { UNIT_SYSTEMS } from '../../lib/utils/units';
+  import { UNIT_SYSTEMS, toDisplay, fromDisplay } from '../../lib/utils/units';
   import { displayUnits, unitQ, DECIMAL_QUANTITIES } from '../../lib/store/display-units.svelte';
 
   const PRESETS: CubeFace[] = ['top', 'front', 'right', 'iso', 'bottom', 'back', 'left'];
@@ -38,12 +38,14 @@
   let name = $state('');
   let noteText = $state('');
   let noteAt = $state('');
+  // The note's point, typed as "x; y; z" in the display units, read back to SI.
   const parseAt = (v: string) => {
-    const p = v.split(/[;\s]+/).filter(Boolean).map((x) => Number(x.replace(',', '.')));
+    const p = v.split(/[;\s]+/).filter(Boolean).map((x) => fromDisplay(Number(x.replace(',', '.')), 'length', uiStore.unitSystem));
     return p.length === 3 && p.every(Number.isFinite) ? { x: p[0]!, y: p[1]!, z: p[2]! } : null;
   };
+  const shownAt = (v: number) => +toDisplay(v, 'length', uiStore.unitSystem).toFixed(3);
   function pickNotePoint() {
-    placementStore.pickPoints(1, () => t('view.notePick'), (pts) => { const p = pts[0]; if (p) noteAt = `${+p[0].toFixed(3)}; ${+p[1].toFixed(3)}; ${+p[2].toFixed(3)}`; });
+    placementStore.pickPoints(1, () => t('view.notePick'), (pts) => { const p = pts[0]; if (p) noteAt = `${shownAt(p[0])}; ${shownAt(p[1])}; ${shownAt(p[2])}`; });
   }
   function addNoteNow() {
     const at = parseAt(noteAt);
@@ -184,8 +186,8 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.labels')}</h4>
-    <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showNodeLabels3D} /> {t('view.labelNodes')} <kbd>Alt+N</kbd></label>
-    <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showElementLabels3D} /> {t('view.labelMembers')} <kbd>Alt+B</kbd></label>
+    <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showNodeLabels3D} data-testid="view-label-nodes" /> {t('view.labelNodes')} <kbd>Alt+N</kbd></label>
+    <label class="pk-check"><input type="checkbox" bind:checked={uiStore.showElementLabels3D} data-testid="view-label-members" /> {t('view.labelMembers')} <kbd>Alt+B</kbd></label>
     <div class="pk-row vp-indent">
       <span class="pk-label">{t('view.memberLabelShows')}</span>
       <select value={viewState.memberLabel} onchange={(e) => (viewState.memberLabel = (e.target as HTMLSelectElement).value as MemberLabel)} data-testid="view-member-label">
@@ -211,7 +213,7 @@
       <input class="pk-grow" placeholder={t('view.noteText')} bind:value={noteText} data-testid="view-note-text" />
     </div>
     <div class="pk-row">
-      <input class="pk-grow" placeholder="x; y; z" bind:value={noteAt} data-testid="view-note-at" />
+      <input class="pk-grow" placeholder="x; y; z" bind:value={noteAt} data-testid="view-note-at" /> <span class="vp-unit">{unitQ('length')}</span>
       <button class="pk-btn" onclick={pickNotePoint}>{t('view.notePick')}</button>
       <button class="pk-btn" disabled={!noteText.trim() || !parseAt(noteAt)} onclick={addNoteNow} data-testid="view-note-add">{t('view.noteAdd')}</button>
     </div>

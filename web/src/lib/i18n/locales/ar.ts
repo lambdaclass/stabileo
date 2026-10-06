@@ -3345,6 +3345,7 @@ const ar: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'الأفرع',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'لكل جانب',
   'design.batch.leaveUnchanged': 'الإبقاء دون تغيير',
 

@@ -3313,6 +3313,7 @@ const ja: Translations = {
   'design.batch.diameter': '径',
   'design.batch.legs': '脚数',
   'design.batch.spacing': '間隔 (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': '側面あたり',
   'design.batch.leaveUnchanged': '変更しない',
 

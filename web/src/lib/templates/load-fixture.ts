@@ -10,9 +10,11 @@ export interface JSONModel {
   name: string;
   materials: Array<{ id: number; [k: string]: unknown }>;
   sections: Array<{ id: number; [k: string]: unknown }>;
-  nodes: Array<{ id: number; x: number; y: number; z: number }>;
+  nodes: Array<{ id: number; x: number; y: number; z: number; name?: string }>;
   elements: Array<{
     id: number;
+    /** The user's name for the member, beside its number. */
+    name?: string;
     type: 'frame' | 'truss';
     nodeI: number;
     nodeJ: number;
@@ -147,6 +149,11 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
   for (const n of json.nodes) {
     const newId = api.addNode(n.x, n.y, n.z);
     nodeMap.set(n.id, newId);
+    // A node's name, set on the created node: the `FixtureLoader` surface has no setter for it.
+    if (n.name) {
+      const created = (api.model as unknown as { nodes?: Map<number, { name?: string }> }).nodes?.get?.(newId);
+      if (created) created.name = n.name;
+    }
   }
 
   // Elements
@@ -164,14 +171,15 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
 
     // Analytical member offset (PR [7]) and profile roll — both set directly on the
     // created element, because `FixtureLoader` exposes no setter for either.
-    if (e.offset || e.rollAngle !== undefined || e.variableSection) {
-      type Carried = { offset?: unknown; rollAngle?: number; variableSection?: { sectionJ: number; segments?: number } };
+    if (e.offset || e.rollAngle !== undefined || e.variableSection || e.name) {
+      type Carried = { offset?: unknown; rollAngle?: number; variableSection?: { sectionJ: number; segments?: number }; name?: string };
       const created = (api.model as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId)
         ?? (api as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId);
       if (created) {
         if (e.offset) created.offset = JSON.parse(JSON.stringify(e.offset));
         if (e.rollAngle !== undefined) created.rollAngle = e.rollAngle;
         if (e.variableSection) created.variableSection = { ...e.variableSection, sectionJ: secMap.get(e.variableSection.sectionJ) ?? e.variableSection.sectionJ };
+        if (e.name) created.name = e.name;
       }
     }
 

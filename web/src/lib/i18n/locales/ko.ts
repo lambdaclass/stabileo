@@ -3344,6 +3344,7 @@ const ko: Translations = {
   'design.batch.diameter': '직경',
   'design.batch.legs': '지지대 수',
   'design.batch.spacing': '간격 (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': '면당',
   'design.batch.leaveUnchanged': '변경 안 함',
 

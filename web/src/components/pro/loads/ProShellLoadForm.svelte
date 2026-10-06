@@ -4,10 +4,14 @@
    * and its extent; a fluid to a level; a force at a point. `build` turns them into the model's
    * loads on the shells picked (`shell-load-tools.ts` for the two tools).
    *
-   * Pressures in kN/m², coordinates in m, a force in kN, in SI as the rest of the card.
+   * Every magnitude is typed in the display units (`QuantityInput`) and kept here in SI, `null`
+   * while empty; the list of corner values is read the same way, value by value.
    */
   import { t } from '../../../lib/i18n';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import { uiStore } from '../../../lib/store/ui.svelte';
+  import { fromDisplay, unitLabel } from '../../../lib/utils/units';
+  import QuantityInput from './QuantityInput.svelte';
   import { hydrostaticSurfaceLoads, shellPointNodalLoads, type ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
   import type { Vec3 } from '../../../lib/engine/shell-load-integration';
@@ -15,26 +19,27 @@
   interface Props { kind: 'surface' | 'hydro' | 'shellPoint' }
   let { kind }: Props = $props();
 
-  const num = (s: string, fallback = 0): number => parseDecimal(s) ?? fallback;
-  const opt = (s: string): number | null => (s.trim() === '' ? null : parseDecimal(s));
+  type N = number | null;
+  const num = (v: N, fallback = 0): number => v ?? fallback;
+  const opt = (v: N): N => v;
   const AXIS: Record<'X' | 'Y' | 'Z', Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
   // ── Area load ──
   let dirMode = $state<'down' | 'local' | 'global' | 'projected'>('down');
   let dirAxis = $state<'X' | 'Y' | 'Z'>('Z');
   let field = $state<'uniform' | 'corners' | 'axis'>('uniform');
-  let q = $state('');
+  let q = $state<N>(null);
   let qc = $state('');
-  let va = $state({ axis: 'Z' as 'X' | 'Y' | 'Z', c1: '', q1: '', c2: '', q2: '' });
+  let va = $state<{ axis: 'X' | 'Y' | 'Z'; c1: N; q1: N; c2: N; q2: N }>({ axis: 'Z', c1: null, q1: null, c2: null, q2: null });
   let partial = $state(false);
-  let rect = $state({ plane: 'XY' as 'XY' | 'XZ' | 'YZ', u1: '', v1: '', u2: '', v2: '' });
+  let rect = $state<{ plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N }>({ plane: 'XY', u1: null, v1: null, u2: null, v2: null });
   // ── Fluid ──
-  let gamma = $state('10');
-  let level = $state('');
-  let inside = $state({ x: '', y: '', z: '' });
+  let gamma = $state<N>(10);
+  let level = $state<N>(null);
+  let inside = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
   // ── Point ──
-  let at = $state({ x: '', y: '', z: '' });
-  let pf = $state({ fx: '', fy: '', fz: '' });
+  let at = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
+  let pf = $state<Record<'fx' | 'fy' | 'fz', N>>({ fx: null, fy: null, fz: null });
 
   /** The rectangle as a region: its plane's two axes, projected along the third. */
   function region(): SurfaceLoad3D['region'] | string {
@@ -74,7 +79,7 @@
       if (v === null || v === 0) return t('writeLoad.zero');
       qv = v;
     } else if (field === 'corners') {
-      const vals = qc.split(';').map((s) => parseDecimal(s.trim())).filter((v): v is number => v !== null);
+      const vals = qc.split(';').map((s) => parseDecimal(s.trim())).filter((v): v is number => v !== null).map((v) => fromDisplay(v, 'areaLoad', uiStore.unitSystem));
       if (vals.length < 3) return t('writeLoad.shell.cornersIncomplete');
       if (vals.every((v) => v === 0)) return t('writeLoad.zero');
       // Three values for a triangle, four for a quad; a triangle picked with four takes the first three.
@@ -122,16 +127,16 @@
     </label>
   </div>
   {#if field === 'uniform'}
-    <div class="sl-row"><label>q <input type="text" bind:value={q} class="sl-num" placeholder="kN/m²" data-testid="wl-sq" /></label></div>
+    <div class="sl-row"><label>q <QuantityInput nullable cls="sl-num" bind:value={q} quantity="areaLoad" testid="wl-sq" /></label></div>
   {:else if field === 'corners'}
-    <div class="sl-row"><label>q₁; q₂; q₃; q₄ <input type="text" bind:value={qc} class="sl-wide" placeholder="kN/m²" data-testid="wl-sl-corners" /></label></div>
+    <div class="sl-row"><label>q₁; q₂; q₃; q₄ <input type="text" bind:value={qc} class="sl-wide" data-testid="wl-sl-corners" /> <span class="sl-unit">{unitLabel('areaLoad', uiStore.unitSystem)}</span></label></div>
   {:else}
     <div class="sl-row">
       <select bind:value={va.axis} data-testid="wl-sl-vary-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>{a}</option>{/each}</select>
-      <label>c₁ <input type="text" bind:value={va.c1} class="sl-num" placeholder="m" data-testid="wl-sl-c1" /></label>
-      <label>q₁ <input type="text" bind:value={va.q1} class="sl-num" placeholder="kN/m²" data-testid="wl-sl-q1" /></label>
-      <label>c₂ <input type="text" bind:value={va.c2} class="sl-num" placeholder="m" data-testid="wl-sl-c2" /></label>
-      <label>q₂ <input type="text" bind:value={va.q2} class="sl-num" placeholder="kN/m²" data-testid="wl-sl-q2" /></label>
+      <label>c₁ <QuantityInput nullable cls="sl-num" bind:value={va.c1} quantity="length" testid="wl-sl-c1" /></label>
+      <label>q₁ <QuantityInput nullable cls="sl-num" bind:value={va.q1} quantity="areaLoad" testid="wl-sl-q1" /></label>
+      <label>c₂ <QuantityInput nullable cls="sl-num" bind:value={va.c2} quantity="length" testid="wl-sl-c2" /></label>
+      <label>q₂ <QuantityInput nullable cls="sl-num" bind:value={va.q2} quantity="areaLoad" testid="wl-sl-q2" /></label>
     </div>
     <p class="sl-hint">{t('writeLoad.shell.varyHint')}</p>
   {/if}
@@ -139,36 +144,36 @@
   {#if partial}
     <div class="sl-row">
       <select bind:value={rect.plane} data-testid="wl-sl-plane">{#each ['XY', 'XZ', 'YZ'] as p (p)}<option value={p}>{p}</option>{/each}</select>
-      <label>{rect.plane[0]}₁ <input type="text" bind:value={rect.u1} class="sl-num" data-testid="wl-sl-u1" /></label>
-      <label>{rect.plane[1]}₁ <input type="text" bind:value={rect.v1} class="sl-num" data-testid="wl-sl-v1" /></label>
-      <label>{rect.plane[0]}₂ <input type="text" bind:value={rect.u2} class="sl-num" data-testid="wl-sl-u2" /></label>
-      <label>{rect.plane[1]}₂ <input type="text" bind:value={rect.v2} class="sl-num" data-testid="wl-sl-v2" /></label>
+      <label>{rect.plane[0]}₁ <QuantityInput nullable cls="sl-num" bind:value={rect.u1} quantity="length" testid="wl-sl-u1" /></label>
+      <label>{rect.plane[1]}₁ <QuantityInput nullable cls="sl-num" bind:value={rect.v1} quantity="length" testid="wl-sl-v1" /></label>
+      <label>{rect.plane[0]}₂ <QuantityInput nullable cls="sl-num" bind:value={rect.u2} quantity="length" testid="wl-sl-u2" /></label>
+      <label>{rect.plane[1]}₂ <QuantityInput nullable cls="sl-num" bind:value={rect.v2} quantity="length" testid="wl-sl-v2" /></label>
     </div>
     <p class="sl-hint">{t('writeLoad.shell.partialHint')}</p>
   {/if}
 {:else if kind === 'hydro'}
   <div class="sl-row">
-    <label>γ <input type="text" bind:value={gamma} class="sl-num" placeholder="kN/m³" data-testid="wl-hy-gamma" /></label>
-    <label>{t('writeLoad.shell.level')} <input type="text" bind:value={level} class="sl-num" placeholder="m" data-testid="wl-hy-level" /></label>
+    <label>γ <QuantityInput nullable cls="sl-num" bind:value={gamma} quantity="density" testid="wl-hy-gamma" /></label>
+    <label>{t('writeLoad.shell.level')} <QuantityInput nullable cls="sl-num" bind:value={level} quantity="length" testid="wl-hy-level" /></label>
   </div>
   <div class="sl-row">
     <span>{t('writeLoad.shell.inside')}</span>
-    <label>X <input type="text" bind:value={inside.x} class="sl-num" data-testid="wl-hy-x" /></label>
-    <label>Y <input type="text" bind:value={inside.y} class="sl-num" data-testid="wl-hy-y" /></label>
-    <label>Z <input type="text" bind:value={inside.z} class="sl-num" data-testid="wl-hy-z" /></label>
+    <label>X <QuantityInput nullable cls="sl-num" bind:value={inside.x} quantity="length" testid="wl-hy-x" /></label>
+    <label>Y <QuantityInput nullable cls="sl-num" bind:value={inside.y} quantity="length" testid="wl-hy-y" /></label>
+    <label>Z <QuantityInput nullable cls="sl-num" bind:value={inside.z} quantity="length" testid="wl-hy-z" /></label>
   </div>
   <p class="sl-hint">{t('writeLoad.shell.hydroHint')}</p>
 {:else}
   <div class="sl-row">
     <span>{t('writeLoad.shell.at')}</span>
-    <label>X <input type="text" bind:value={at.x} class="sl-num" placeholder="m" data-testid="wl-sp-x" /></label>
-    <label>Y <input type="text" bind:value={at.y} class="sl-num" placeholder="m" data-testid="wl-sp-y" /></label>
-    <label>Z <input type="text" bind:value={at.z} class="sl-num" placeholder="m" data-testid="wl-sp-z" /></label>
+    <label>X <QuantityInput nullable cls="sl-num" bind:value={at.x} quantity="length" testid="wl-sp-x" /></label>
+    <label>Y <QuantityInput nullable cls="sl-num" bind:value={at.y} quantity="length" testid="wl-sp-y" /></label>
+    <label>Z <QuantityInput nullable cls="sl-num" bind:value={at.z} quantity="length" testid="wl-sp-z" /></label>
   </div>
   <div class="sl-row">
-    <label>Fx <input type="text" bind:value={pf.fx} class="sl-num" placeholder="kN" data-testid="wl-sp-fx" /></label>
-    <label>Fy <input type="text" bind:value={pf.fy} class="sl-num" placeholder="kN" data-testid="wl-sp-fy" /></label>
-    <label>Fz <input type="text" bind:value={pf.fz} class="sl-num" placeholder="kN" data-testid="wl-sp-fz" /></label>
+    <label>Fx <QuantityInput nullable cls="sl-num" bind:value={pf.fx} quantity="force" testid="wl-sp-fx" /></label>
+    <label>Fy <QuantityInput nullable cls="sl-num" bind:value={pf.fy} quantity="force" testid="wl-sp-fy" /></label>
+    <label>Fz <QuantityInput nullable cls="sl-num" bind:value={pf.fz} quantity="force" testid="wl-sp-fz" /></label>
   </div>
   <p class="sl-hint">{t('writeLoad.shell.pointHint')}</p>
 {/if}
@@ -178,6 +183,7 @@
   .sl-row label { display: inline-flex; align-items: center; gap: 4px; }
   .sl-row select, .sl-num, .sl-wide { padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.74rem; font-family: var(--st-mono); }
   .sl-num { width: 58px; }
+  .sl-unit { font-size: 0.66rem; color: var(--st-text-3); }
   .sl-wide { width: 160px; }
   .sl-check { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--st-text-2); }
   .sl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }

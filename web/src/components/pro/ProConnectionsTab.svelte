@@ -8,6 +8,8 @@
   import { steelStore } from '../../lib/store/steel.svelte';
   import { t, tp } from '../../lib/i18n';
   import { parseNumericInput, type NumericInputRules } from '../../lib/utils/numeric-input';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   /*
    * The concrete workflow's section shell, reused rather than reinvented.
    *
@@ -178,6 +180,19 @@
     if (parsed.kind === 'invalid') fieldProblem = { field, reasonKey: parsed.reasonKey };
     else if (fieldProblem?.field === field) fieldProblem = null;
     return parsed;
+  }
+
+  /**
+   * A stress typed in the display units (`QuantityInput`), held to the same refusals as
+   * `readField`, on the SI value it hands over. A refused value remounts the fields, which puts
+   * the stored value back in the box: the same job `reflect` does for a plain input.
+   */
+  let siFieldMount = $state(0);
+  function readSIField(field: string, si: number | null, write: (v: number | undefined) => void): void {
+    const r = readField(field, si === null ? '' : String(si), { zero: 'invalid' });
+    if (r.kind === 'value') write(r.value);
+    else if (r.kind === 'empty') write(undefined);
+    else siFieldMount++;
   }
 
   function setBolts(next: Partial<NonNullable<typeof chosen.bolts>>): void {
@@ -750,16 +765,13 @@
             </label>
             <label>
               <span>{t('conn.design.plateFu')}</span>
-              <input
-                type="number" min="0" step="10" data-testid="jd-plate-fu"
-                value={chosen.plate?.fuMPa ?? ''}
-                onchange={(e) => {
-                  const r = readField('plate-fu', e.currentTarget.value, { zero: 'invalid' });
-                  if (r.kind === 'value') setPlate({ fuMPa: r.value });
-                  else if (r.kind === 'empty') setPlate({ fuMPa: undefined });
-                  else reflect(e.currentTarget, chosen.plate?.fuMPa);
-                }}
-              />
+              {#key siFieldMount}
+                <QuantityInput
+                  quantity="stress" nullable cls="jd-qi" testid="jd-plate-fu"
+                  value={chosen.plate?.fuMPa ?? null}
+                  onchange={(v) => readSIField('plate-fu', v, (fuMPa) => setPlate({ fuMPa }))}
+                />
+              {/key}
             </label>
           </div>
           
@@ -869,16 +881,13 @@
                 </label>
                 <label>
                   <span>{t('conn.weld.fexx')}</span>
-                  <input
-                    type="number" min="0" step="10" data-testid="jw-fexx"
-                    value={chosen.weld?.fexxMPa ?? ''}
-                    onchange={(e) => {
-                      const r = readField('w-fexx', e.currentTarget.value, { zero: 'invalid' });
-                      if (r.kind === 'value') setWeld({ fexxMPa: r.value });
-                      else if (r.kind === 'empty') setWeld({ fexxMPa: undefined });
-                      else reflect(e.currentTarget, chosen.weld?.fexxMPa);
-                    }}
-                  />
+                  {#key siFieldMount}
+                    <QuantityInput
+                      quantity="stress" nullable cls="jd-qi" testid="jw-fexx"
+                      value={chosen.weld?.fexxMPa ?? null}
+                      onchange={(v) => readSIField('w-fexx', v, (fexxMPa) => setWeld({ fexxMPa }))}
+                    />
+                  {/key}
                 </label>
                 <label>
                   <span>{t('conn.weld.thicker')}</span>
@@ -1295,13 +1304,13 @@
           <label>n <input type="number" class="conn-inp" bind:value={boltCount} min={1} max={50} /></label>
           <label>{t('conn.shearPlanes')} <input type="number" class="conn-inp" bind:value={boltShearPlanes} min={1} max={2} /></label>
           <label>t (mm) <input type="number" class="conn-inp" bind:value={boltPlateThickness} min={3} max={50} /></label>
-          <label>Fu (MPa) <input type="number" class="conn-inp" bind:value={boltPlateFu} min={300} max={700} step={10} /></label>
+          <label>Fu <QuantityInput quantity="stress" cls="conn-inp" bind:value={boltPlateFu} min={300} max={700} /></label>
           <label>Le (mm) <input type="number" class="conn-inp" bind:value={boltEdgeDist} min={15} max={100} /></label>
           <label class="conn-check-label"><input type="checkbox" bind:checked={boltThreadsInShear} /> {t('conn.threadsInShear')}</label>
         </div>
         <div class="conn-force-inputs">
-          <label>Vu (kN) <input type="number" class="conn-inp" bind:value={boltVu} step={1} /></label>
-          <label>Tu (kN) <input type="number" class="conn-inp" bind:value={boltTu} min={0} step={1} /></label>
+          <label>Vu <QuantityInput quantity="force" cls="conn-inp" bind:value={boltVu} /></label>
+          <label>Tu <QuantityInput quantity="force" cls="conn-inp" bind:value={boltTu} min={0} /></label>
           {#if jointForces}
             <button class="conn-btn-auto" onclick={autoFillBoltForces}>{t('conn.autoFill')}</button>
           {/if}
@@ -1310,9 +1319,9 @@
         {#if boltResult}
           <div class="conn-result-card {auxTone(boltResult.status)}" data-testid="conn-bolt-result">
             <p class="conn-aux-label" data-testid="conn-bolt-aux-label">{t('conn.aux.label')}</p>
-            <div class="conn-result-row"><span>{t('conn.shear')}</span><span>φRn={fmtN(boltResult.phiRnShear)} kN — {(boltResult.ratioShear * 100).toFixed(0)}%</span></div>
-            <div class="conn-result-row"><span>{t('conn.tension')}</span><span>φRn={fmtN(boltResult.phiRnTension)} kN — {(boltResult.ratioTension * 100).toFixed(0)}%</span></div>
-            <div class="conn-result-row"><span>{t('conn.bearing')}</span><span>φRn={fmtN(boltResult.phiRnBearing)} kN — {(boltResult.ratioBearing * 100).toFixed(0)}%</span></div>
+            <div class="conn-result-row"><span>{t('conn.shear')}</span><span>φRn={fmtQ(boltResult.phiRnShear, 'force')} {unitQ('force')} — {(boltResult.ratioShear * 100).toFixed(0)}%</span></div>
+            <div class="conn-result-row"><span>{t('conn.tension')}</span><span>φRn={fmtQ(boltResult.phiRnTension, 'force')} {unitQ('force')} — {(boltResult.ratioTension * 100).toFixed(0)}%</span></div>
+            <div class="conn-result-row"><span>{t('conn.bearing')}</span><span>φRn={fmtQ(boltResult.phiRnBearing, 'force')} {unitQ('force')} — {(boltResult.ratioBearing * 100).toFixed(0)}%</span></div>
             <div class="conn-result-row"><span>{t('conn.interaction')}</span><span>{(boltResult.ratioInteraction * 100).toFixed(0)}%</span></div>
             <div class="conn-result-governing">
               {t('conn.governing')}: {(boltResult.governingRatio * 100).toFixed(0)}%
@@ -1378,11 +1387,11 @@
         <div class="conn-form-grid">
           <label>a (mm) <input type="number" class="conn-inp" bind:value={weldLeg} min={3} max={25} /></label>
           <label>L (mm) <input type="number" class="conn-inp" bind:value={weldLength} min={20} max={3000} /></label>
-          <label>Fexx (MPa) <input type="number" class="conn-inp" bind:value={weldFexx} min={350} max={700} step={10} /></label>
+          <label>Fexx <QuantityInput quantity="stress" cls="conn-inp" bind:value={weldFexx} min={350} max={700} /></label>
           <label>t (mm) <input type="number" class="conn-inp" bind:value={weldPlateThickness} min={3} max={50} /></label>
         </div>
         <div class="conn-force-inputs">
-          <label>Vu (kN) <input type="number" class="conn-inp" bind:value={weldVu} step={1} /></label>
+          <label>Vu <QuantityInput quantity="force" cls="conn-inp" bind:value={weldVu} /></label>
           {#if jointForces}
             <button class="conn-btn-auto" onclick={autoFillWeldForces}>{t('conn.autoFill')}</button>
           {/if}
@@ -1392,7 +1401,7 @@
           <div class="conn-result-card {auxTone(weldResult.status)}" data-testid="conn-weld-result">
             <p class="conn-aux-label" data-testid="conn-weld-aux-label">{t('conn.aux.label')}</p>
             <div class="conn-result-row"><span>{t('conn.throat')}</span><span>te={weldResult.throatEff.toFixed(1)} mm</span></div>
-            <div class="conn-result-row"><span>{t('conn.capacity')}</span><span>φRn={fmtN(weldResult.phiRn)} kN</span></div>
+            <div class="conn-result-row"><span>{t('conn.capacity')}</span><span>φRn={fmtQ(weldResult.phiRn, 'force')} {unitQ('force')}</span></div>
             <!--
               The two geometric conditions used to read `✓` / `✗`. A tick on a size range is the
               same glyph the governing row was giving up, and a reader who sees three of them in
@@ -1608,7 +1617,7 @@
   .jd-form { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
   .jd-form label { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); }
   .jd-form label > span { min-width: 5.5rem; }
-  .jd-form input, .jd-form select {
+  .jd-form input, .jd-form select, .jd-form :global(input.jd-qi) {
     background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
     border-radius: 3px; padding: 2px 4px; font-size: 0.68rem; width: 5rem;
   }
@@ -1656,11 +1665,11 @@
 
   .conn-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }
   .conn-form-grid label { font-size: 0.68rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
-  .conn-inp {
+  .conn-inp, .conn-form-grid :global(input.conn-inp), .conn-force-inputs :global(input.conn-inp) {
     width: 60px; padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3);
     border-radius: 3px; color: var(--st-text); font-size: 0.72rem; font-family: monospace; text-align: right;
   }
-  .conn-inp:focus { border-color: var(--st-value); outline: none; }
+  .conn-inp:focus, .conn-form-grid :global(input.conn-inp:focus), .conn-force-inputs :global(input.conn-inp:focus) { border-color: var(--st-value); outline: none; }
   .conn-sel {
     padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3);
     border-radius: 3px; color: var(--st-text); font-size: 0.72rem;

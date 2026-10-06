@@ -11,6 +11,8 @@
   import { flipMembers } from '../../lib/model/edit/flip-members';
   import { taperMembers, validateTaper, DEFAULT_TAPER_SEGMENTS, type TaperSpec } from '../../lib/model/edit/taper';
   import { unifyProperties } from '../../lib/model/edit/cleanup';
+  import { checkModel, overlappingCollinearWarnings } from '../../lib/engine/model-diagnostics';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { weldTolerance, setWeldTolerance } from '../../lib/model/weld-tolerance';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -28,6 +30,7 @@
   import { editPreview } from '../../lib/store/edit-preview.svelte';
   import { onDestroy } from 'svelte';
   import type { Vec3 } from '../../lib/model/edit/affine';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   let parts = $state(2);
   let message = $state<string | null>(null);
@@ -168,16 +171,20 @@
     void weldMm;
     void modelStore.modelVersion;
     const coincident = coincidentNodeGroups().reduce((s, g) => s + g.length - 1, 0);
-    const pairs = new Map<string, number>();
-    let duplicates = 0;
-    for (const e of modelStore.elements.values()) {
-      const k = e.nodeI < e.nodeJ ? `${e.nodeI}-${e.nodeJ}` : `${e.nodeJ}-${e.nodeI}`;
-      if (pairs.has(k)) duplicates++; else pairs.set(k, e.id);
-    }
+    // Exact duplicates (the same two nodes) as the model check finds them; the clean-up removes them.
+    const duplicates = checkModel(modelStore.model as never).filter((d) => d.code === 'MODEL_DUPLICATE_ELEMENT').length;
+    // Collinear members that overlap along a stretch with different end nodes: listed, not removed,
+    // since which one stays is the modeller's call.
+    const overlaps = overlappingCollinearWarnings(modelStore.elements as never, modelStore.nodes as never)
+      .map((d) => ({ a: d.elementIds![0]!, b: d.elementIds![1]!, length: Number(d.details?.overlapLength ?? 0) }));
     // The same test the clean-up applies, at the same tolerance.
     const zero = zeroLengthMembers().length;
-    return { coincident, duplicates, zero };
+    return { coincident, duplicates, overlaps, zero };
   });
+  function selectOverlaps(list: ReadonlyArray<{ a: number; b: number }>) {
+    uiStore.selectMode = 'elements';
+    uiStore.setSelection(new Set(), new Set(list.flatMap((o) => [o.a, o.b])), true);
+  }
 
   function cutMessage(r: CutReport): string {
     return [
@@ -251,8 +258,8 @@
     <h4 class="pk-heading">{t('edit.fillTitle')}</h4>
     <div class="pk-row ep-row">
       <select bind:value={fillMaterial} aria-label={t('edit.fillMaterial')}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
-      <label>{t('edit.thickness')} <input type="number" min="0.01" step="0.01" bind:value={fillThickness} /></label>
-      <label>{t('edit.fillSize')} <input type="number" min="0" step="0.25" bind:value={fillSize} /></label>
+      <label>{t('edit.thickness')} <QuantityInput min={0.01} bind:value={fillThickness} quantity="length" cls="ep-num" /></label>
+      <label>{t('edit.fillSize')} <QuantityInput min={0} bind:value={fillSize} quantity="length" cls="ep-num" /></label>
       <button class="pk-btn" onclick={doFill} disabled={scope.length < 3} data-testid="ep-fill">{t('edit.fill')}</button>
     </div>
     <p class="pk-hint">{t('edit.fillNote')}</p>
@@ -284,7 +291,18 @@
     </label>
     <ul class="ep-findings">
       <li>{tp('edit.found.coincident', { n: findings.coincident })} <button class="pk-btn" disabled={findings.coincident === 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
-      <li>{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))}>{t('edit.fix')}</button></li>
+      <li data-testid="ep-duplicates">{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))} data-testid="ep-remove-duplicates">{t('edit.fix')}</button></li>
+      <li data-testid="ep-overlaps">{tp('edit.found.overlaps', { n: findings.overlaps.length })} <button class="pk-btn" disabled={findings.overlaps.length === 0} onclick={() => selectOverlaps(findings.overlaps)} data-testid="ep-select-overlaps">{t('edit.select')}</button>
+        {#if findings.overlaps.length}
+          <ul class="ep-overlaps">
+            {#each findings.overlaps.slice(0, 12) as o (`${o.a}-${o.b}`)}
+              <li><button class="ep-pair" onclick={() => selectOverlaps([o])} data-testid="ep-overlap-{o.a}-{o.b}">{tp('edit.overlapPair', { a: o.a, b: o.b, l: fmtQ(o.length, 'length'), u: unitQ('length') })}</button></li>
+            {/each}
+            {#if findings.overlaps.length > 12}<li class="pk-hint">{tp('edit.overlapMore', { n: findings.overlaps.length - 12 })}</li>{/if}
+          </ul>
+          <p class="pk-hint">{t('edit.overlapHint')}</p>
+        {/if}
+      </li>
       <li>{tp('edit.found.zero', { n: findings.zero })} <button class="pk-btn" disabled={findings.zero === 0} onclick={() => (message = cleanupMessage(removeZeroLengthMembers()))}>{t('edit.fix')}</button></li>
       <li>{t('edit.found.orphans')} <button class="pk-btn" onclick={() => (message = cleanupMessage(removeOrphanNodes()))}>{t('edit.fix')}</button></li>
       <li data-testid="ep-hyg-loose">{tp('edit.found.loose', { n: hygiene.loose.length })} <button class="pk-btn" disabled={hygiene.loose.length === 0} onclick={selectLoose}>{t('edit.select')}</button></li>
@@ -320,10 +338,13 @@
 <style>
   .ep-row label { display: flex; align-items: center; gap: 4px; color: var(--st-text-3); }
   .ep-row input[type='number'] { width: 56px; text-align: right; }
+  .ep-row :global(input.ep-num) { width: 56px; text-align: right; }
   .ep-note { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.35; }
   .ep-note.warn { color: var(--st-warn); }
   .ep-unit { color: var(--st-text-3); font-size: 0.64rem; }
   .ep-findings { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 4px; color: var(--st-text-2); }
   .ep-findings li { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .ep-findings :global(.pk-btn) { min-height: 20px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
+  .ep-overlaps { list-style: none; margin: 3px 0 0; padding: 0 0 0 10px; display: flex; flex-wrap: wrap; gap: 3px 8px; }
+  .ep-pair { background: none; border: none; padding: 0; color: var(--st-interactive, var(--st-accent)); font: inherit; font-size: 0.66rem; cursor: pointer; text-decoration: underline dotted; }
 </style>

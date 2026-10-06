@@ -26,7 +26,7 @@ test.describe('@smoke moving loads in PRO', () => {
       + Math.abs(Number(await first.locator('td:nth-child(4)').innerText()))).toBeGreaterThan(1);
 
     const before = await page.evaluate(() => window.__stabileo.modelCensus().loadCases);
-    await page.locator('[data-testid="moving-panel"] input[type="number"]').last().fill('5');
+    await page.getByTestId('moving-lane-q').fill('5');
     await page.getByTestId('moving-lane').click();
     expect(await page.evaluate(() => window.__stabileo.modelCensus().loadCases)).toBe(before + 1);
   });

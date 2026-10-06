@@ -3347,6 +3347,7 @@ const id: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'kaki',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'per sisi',
   'design.batch.leaveUnchanged': 'biarkan tidak berubah',
 

@@ -22,9 +22,9 @@
   import ProShellFacesTable from './ProShellFacesTable.svelte';
   import ProRecordVideo from './ProRecordVideo.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
   let wasAnimating = false;
   import {
-    componentUnit,
     diagramTypeToComponent,
     buildQueryRows,
     extremeRow,
@@ -243,7 +243,8 @@
   });
   const activeSourceLabel = $derived(activeSource.name);
 
-  const queryUnit = $derived(queryComponent ? componentUnit(queryComponent) : '');
+  /** What the queried component is, for the threshold, the card and the rows in the display units. */
+  const queryQty = $derived<'force' | 'moment'>(queryComponent === 'N' || queryComponent === 'Vy' || queryComponent === 'Vz' ? 'force' : 'moment');
   const exportCount = $derived(filteredRows.length);
 
   // Element ids the current query resolves to (for viewport highlight).
@@ -688,15 +689,14 @@
             </div>
             <div class="pro-viz-row">
               <label class="pro-viz-label">{t('pro.queryThreshold')}</label>
-              <input class="pro-viz-sel" type="number" min="0" step="any" bind:value={queryThreshold} />
-              <span class="pro-viz-val">{queryUnit}</span>
+              <QuantityInput bind:value={queryThreshold} quantity={queryQty} min={0} cls="pro-viz-sel pq-threshold" wrap="pq-threshold-wrap" />
             </div>
 
             <!-- Extreme value card (follows active component + view) -->
             {#if activeExtreme}
               <div class="pro-query-card" onclick={() => selectQueryElement(activeExtreme.elementId)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && selectQueryElement(activeExtreme.elementId)}>
                 <span class="pqc-label">{t('pro.queryGoverningValue')}</span>
-                <span class="pqc-val">{queryComponent} = {fmtNum(activeExtreme.value)} {queryUnit}</span>
+                <span class="pqc-val">{queryComponent} = {fmtQ(activeExtreme.value, queryQty)} {unitQ(queryQty)}</span>
                 <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
               </div>
             {:else}
@@ -709,14 +709,14 @@
               <div class="pro-res-table-wrap pro-query-tablewrap">
                 <table class="pro-res-table">
                   <thead><tr>
-                    <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({queryUnit})</th>
+                    <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({unitQ(queryQty)})</th>
                   </tr></thead>
                   <tbody>
                     {#each renderRows as r (r.elementId + '-' + r.end)}
                       <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
                         <td class="col-id">{r.elementId}</td>
                         <td class="col-end">{r.end}</td>
-                        <td class="col-num">{fmtNum(r.value)}</td>
+                        <td class="col-num">{fmtQ(r.value, queryQty)}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -1401,6 +1401,12 @@
   .pro-query .pro-viz-sel[type="text"],
   .pro-query .pro-viz-sel[type="number"] {
     font-family: monospace;
+  }
+  /* The threshold's input is drawn by `QuantityInput`: the field's look, reached from here. */
+  .pro-query :global(.pq-threshold-wrap) { flex: 1; min-width: 0; }
+  .pro-query :global(input.pq-threshold) {
+    flex: 1; min-width: 0; padding: 2px 4px; font-size: 0.64rem; font-family: monospace;
+    background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text-2);
   }
 
   .pro-query-card {

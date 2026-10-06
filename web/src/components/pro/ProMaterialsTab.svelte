@@ -36,6 +36,7 @@
   import { toMaterialFields, type MaterialChoice } from '../../lib/material/material-choice';
   import { concreteStrengthConflict, materialFamilyOf } from '../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../lib/engine/steel/grade-family';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
   /**
    * Whether a material is one these two columns have anything to say about.
@@ -80,15 +81,15 @@
   }): Array<{ label: string; value: string; note?: string }> {
     const verdict = materialFamilyOf(m as never);
     const rows: Array<{ label: string; value: string; note?: string }> = [
-      { label: 'E', value: `${fmt(m.e)} MPa` },
+      { label: 'E', value: `${fmtQ(m.e, 'stress')} ${unitQ('stress')}` },
       { label: 'ν', value: fmt(m.nu, 3) },
       {
         label: 'G',
-        value: `${fmt(m.e / (2 * (1 + m.nu)))} MPa`,
+        value: `${fmtQ(m.e / (2 * (1 + m.nu)), 'stress')} ${unitQ('stress')}`,
         note: t('materials.shearModulusNote'),
       },
-      { label: 'ρ', value: `${fmt(m.rho)} kN/m³` },
-      { label: 'fy', value: m.fy == null ? '—' : `${fmt(m.fy)} MPa` },
+      { label: 'ρ', value: `${fmtQ(m.rho, 'density')} ${unitQ('density')}` },
+      { label: 'fy', value: m.fy == null ? '—' : `${fmtQ(m.fy, 'stress')} ${unitQ('stress')}` },
       {
         label: t('materials.family'),
         value: t(`steel.family.${verdict.family}`) ?? verdict.family,
@@ -238,10 +239,10 @@
             -->
             <th>ID</th>
             <th>{t('pro.thName')}</th>
-            <th class="sym">E (MPa)</th>
+            <th class="sym">E ({unitQ('stress')})</th>
             <th class="sym">{t('field.poisson')}</th>
-            <th class="sym">{t('field.density')}</th>
-            <th class="sym">f<sub>y</sub></th>
+            <th class="sym">{t('field.density')} ({unitQ('density')})</th>
+            <th class="sym">f<sub>y</sub> ({unitQ('stress')})</th>
             <th class="sym" title={t('materials.alphaHelp')}>α (10⁻⁶/°C)</th>
             <th class="sym" title={t('materials.aggregateHelp')}>{t('materials.aggregateShort')}</th>
             <th title={t('material.spacingMarginHelp')}>{t('material.spacingMarginShort')}</th>
@@ -253,10 +254,10 @@
             <tr>
               <td class="col-id">{m.id}</td>
               <td class="col-name">{m.name}</td>
-              <td class="col-num">{plainNumber(m.e, 0)}</td>
+              <td class="col-num">{fmtQ(m.e, 'stress')}</td>
               <td class="col-num">{m.nu}</td>
-              <td class="col-num">{m.rho}</td>
-              <td class="col-num">{m.fy ?? '—'}</td>
+              <td class="col-num">{fmtQ(m.rho, 'density')}</td>
+              <td class="col-num">{m.fy == null ? '—' : fmtQ(m.fy, 'stress')}</td>
               <td class="col-num">
                 <!-- Blank: the family's value, shown as the placeholder so the number used is
                      always on screen (`engine/thermal-alpha.ts`). -->

@@ -31,8 +31,8 @@ const b = (v: boolean | undefined) => (v ? 1 : 0);
 const opt = (v: number | undefined | null) => (typeof v === 'number' && Number.isFinite(v) ? v : '');
 
 function nodesSheet(m: WorkbookModel): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [['id', 'x [m]', 'y [m]', 'z [m]']];
-  for (const n of [...m.nodes.values()].sort((a, c) => a.id - c.id)) rows.push([n.id, n.x, n.y, n.z ?? 0]);
+  const rows: WorkbookSheet['rows'] = [['id', 'x [m]', 'y [m]', 'z [m]', 'name']];
+  for (const n of [...m.nodes.values()].sort((a, c) => a.id - c.id)) rows.push([n.id, n.x, n.y, n.z ?? 0, safeText((n as { name?: string }).name ?? '')]);
   return { name: 'Nodes', rows };
 }
 
@@ -42,7 +42,7 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
     'length [m]', 'releaseStartMy', 'releaseStartMz', 'releaseStartT', 'releaseEndMy', 'releaseEndMz', 'releaseEndT',
     'localYx', 'localYy', 'localYz', 'offsetFrame', 'offsetIx [m]', 'offsetIy [m]', 'offsetIz [m]', 'offsetJx [m]', 'offsetJy [m]', 'offsetJz [m]', 'behaviour',
     // A member of variable section: end J's section and the pieces the solve cuts it into.
-    'sectionJ', 'segments',
+    'sectionJ', 'segments', 'name',
   ]];
   for (const e of [...m.elements.values()].sort((a, c) => a.id - c.id)) {
     const ni = m.nodes.get(e.nodeI), nj = m.nodes.get(e.nodeJ);
@@ -58,6 +58,7 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
       typeof e.behaviour === 'string' ? e.behaviour : e.behaviour ? safeText(JSON.stringify(e.behaviour)) : '',
       opt((e as { variableSection?: { sectionJ: number } }).variableSection?.sectionJ),
       (e as { variableSection?: { segments?: number } }).variableSection ? ((e as { variableSection?: { segments?: number } }).variableSection!.segments ?? 12) : '',
+      safeText((e as { name?: string }).name ?? ''),
     ]);
   }
   return { name: 'Members', rows };

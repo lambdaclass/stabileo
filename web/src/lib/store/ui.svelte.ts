@@ -1,7 +1,7 @@
 // UI state store
 
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
-import type { UnitSystem } from '../utils/units';
+import { isUnitSystem, type UnitSystem } from '../utils/units';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 
 /**
@@ -385,7 +385,7 @@ function createUIStore() {
 
   // Unit system — persisted in localStorage
   const savedUnitSystem = hasLocalStorage() ? localStorage.getItem('stabileo-unitSystem') : null;
-  let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' || savedUnitSystem === 'MKS' ? savedUnitSystem : 'SI') as UnitSystem);
+  let unitSystem = $state<UnitSystem>(isUnitSystem(savedUnitSystem) ? savedUnitSystem : 'SI');
 
   /*
    * How big the controls INSIDE a panel are on a phone. Persisted.

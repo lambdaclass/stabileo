@@ -23,6 +23,8 @@
   import type { GlobalAxis as SwAxis, SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import type { MemberFrame, Vec3 } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
+  import QuantityInput from './QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
@@ -56,38 +58,46 @@
     });
   });
 
-  /** A field's number; empty or unreadable is `fallback`. */
-  const num = (s: string, fallback = 0): number => parseDecimal(s) ?? fallback;
-  /** A field's number, or null when it is empty or unreadable. */
-  const opt = (s: string): number | null => (s.trim() === '' ? null : parseDecimal(s));
+  /*
+   * Every field with a magnitude is a `QuantityInput`: typed in the display units, kept here in SI,
+   * `null` while empty (the default its placeholder names).
+   */
+  type N = number | null;
+  /** A field's value; empty is `fallback`. */
+  const num = (v: N, fallback = 0): number => v ?? fallback;
+  /** A field's value, or null when it is empty. */
+  const opt = (v: N): N => v;
 
   // ── Nodal ──
-  let f = $state({ fx: '', fy: '', fz: '', mx: '', my: '', mz: '' });
+  let f = $state<Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', N>>({ fx: null, fy: null, fz: null, mx: null, my: null, mz: null });
   let inclined = $state(false);
-  let incF = $state('');
+  let incF = $state<N>(null);
   let incToNode = $state('');
-  let incTo = $state({ x: '', y: '', z: '' });
+  let incTo = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
   let incByNode = $state(true);
   // ── Displacement ──
-  let u = $state({ dx: '', dy: '', dz: '', drx: '', dry: '', drz: '' });
+  let u = $state<Record<'dx' | 'dy' | 'dz' | 'drx' | 'dry' | 'drz', N>>({ dx: null, dy: null, dz: null, drx: null, dry: null, drz: null });
   // ── Distributed ──
   let frame = $state<MemberFrame>('local');
   let shape = $state<'trapezoid' | 'triangle' | 'hydrostatic'>('trapezoid');
-  let q = $state({ xI: '', xJ: '', yI: '', yJ: '', zI: '', zJ: '' });
-  let qa = $state(''), qb = $state('');
-  let peak = $state(''), peakAt = $state(''), peakComp = $state<'x' | 'y' | 'z'>('z');
-  let w1 = $state(''), w2 = $state(''), hydroAxis = $state<GlobalAxis>('Z'), hydroComp = $state<'x' | 'y' | 'z'>('x');
+  let q = $state<Record<'xI' | 'xJ' | 'yI' | 'yJ' | 'zI' | 'zJ', N>>({ xI: null, xJ: null, yI: null, yJ: null, zI: null, zJ: null });
+  let qa = $state<N>(null), qb = $state<N>(null);
+  let peak = $state<N>(null), peakAt = $state<N>(null), peakComp = $state<'x' | 'y' | 'z'>('z');
+  let w1 = $state<N>(null), w2 = $state<N>(null), hydroAxis = $state<GlobalAxis>('Z'), hydroComp = $state<'x' | 'y' | 'z'>('x');
   // ── Point ──
   let pFrame = $state<'local' | 'global'>('local');
-  let p = $state({ px: '', py: '', pz: '', mx: '', my: '', mz: '' });
-  let pa = $state('');
+  let p = $state<Record<'px' | 'py' | 'pz' | 'mx' | 'my' | 'mz', N>>({ px: null, py: null, pz: null, mx: null, my: null, mz: null });
+  let pa = $state<N>(null);
   // ── Thermal, strain, tendon ──
-  let th = $state({ dt: '', gz: '', gy: '' });
+  let th = $state<Record<'dt' | 'gz' | 'gy', N>>({ dt: null, gz: null, gy: null });
   let strainBy = $state<'unit' | 'length'>('unit');
-  let strainVal = $state('');
-  let ps = $state({ force: '', eI: '', eM: '', eJ: '' });
+  /** ε₀ in ‰: a ratio, typed as it is. */
+  let strainPerMil = $state('');
+  /** ΔL, a length. */
+  let strainDL = $state<N>(null);
+  let ps = $state<Record<'force' | 'eI' | 'eM' | 'eJ', N>>({ force: null, eI: null, eM: null, eJ: null });
   // ── Slabs ──
-  let tq = $state({ dt: '', g: '' });
+  let tq = $state<Record<'dt' | 'g', N>>({ dt: null, g: null });
   // ── Self-weight ──
   let swDir = $state<SwAxis>('Z');
   let swFactor = $state('-1');
@@ -146,9 +156,8 @@
         return nodeLoads((id) => ({ type: 'nodal3d', data: { id: 0, nodeId: id, ...v, ...c } }));
       }
       case 'displacement': {
-        const mm = (s: string) => { const x = opt(s); return x === null || x === 0 ? undefined : x / 1000; };
-        const r = (s: string) => { const x = opt(s); return x === null || x === 0 ? undefined : x; };
-        const d = { dx: mm(u.dx), dy: mm(u.dy), dz: mm(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
+        const r = (x: N) => (x === null || x === 0 ? undefined : x);
+        const d = { dx: r(u.dx), dy: r(u.dy), dz: r(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
         if (Object.values(d).every((x) => x === undefined)) return t('writeLoad.zero');
         const clean = Object.fromEntries(Object.entries(d).filter(([, x]) => x !== undefined));
         return nodeLoads((id) => ({ type: 'displacement3d', data: { id: 0, nodeId: id, ...clean, ...c } }));
@@ -226,17 +235,16 @@
         return ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: dt, dtGradient: gz, ...(gy ? { dtGradientY: gy } : {}), ...c } }) as Load);
       }
       case 'strain': {
-        const v = opt(strainVal);
+        const v = strainBy === 'unit' ? (strainPerMil.trim() === '' ? null : parseDecimal(strainPerMil)) : strainDL;
         if (v === null || v === 0) return t('writeLoad.zero');
-        // ‰ of the member's length, or mm of it.
-        return ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: 0, dtGradient: 0, strain: strainBy === 'unit' ? v / 1000 : v / 1000 / lengthOf(id), ...c } }) as Load);
+        // ‰ of the member's length, or a change of length.
+        return ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: 0, dtGradient: 0, strain: strainBy === 'unit' ? v / 1000 : v / lengthOf(id), ...c } }) as Load);
       }
       case 'prestress': {
         const P = opt(ps.force);
         if (P === null || P === 0) return t('writeLoad.zero');
         if (ids.some((id) => !bends(id))) return t('writeLoad.prestressOnTruss');
-        const mm = (s: string) => num(s) / 1000;
-        return ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: mm(ps.eI), eM: opt(ps.eM) === null ? (mm(ps.eI) + mm(ps.eJ)) / 2 : mm(ps.eM), eJ: mm(ps.eJ), ...c } }) as Load);
+        return ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: num(ps.eI), eM: ps.eM === null ? (num(ps.eI) + num(ps.eJ)) / 2 : ps.eM, eJ: num(ps.eJ), ...c } }) as Load);
       }
       default: return t('writeLoad.noTarget');
     }
@@ -244,7 +252,7 @@
 
   /** The self-weight on what Apply to names, in the active case; one with the same case, axis and reach takes the new factor. */
   function addSelfWeight() {
-    const f = opt(swFactor);
+    const f = swFactor.trim() === '' ? null : parseDecimal(swFactor);
     if (f === null || f === 0) { error = t('writeLoad.zero'); done = null; return; }
     const reach: Pick<SelfWeightLoad, 'elements' | 'groupId'> = target.by === 'all' ? {}
       : target.by === 'group' ? { groupId: target.groupId }
@@ -296,34 +304,34 @@
     <label class="wl-check"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
     {#if inclined}
       <div class="wl-row">
-        <label>F <input type="text" bind:value={incF} class="wl-num" placeholder="kN" data-testid="wl-inc-f" /></label>
+        <label>F <QuantityInput nullable cls="wl-num" bind:value={incF} quantity="force" testid="wl-inc-f" /></label>
         <label class="wl-check"><input type="radio" bind:group={incByNode} value={true} /> {t('writeLoad.towardNode')}</label>
         <label class="wl-check"><input type="radio" bind:group={incByNode} value={false} /> {t('writeLoad.towardPoint')}</label>
       </div>
       <div class="wl-row">
         {#if incByNode}<label>{t('writeLoad.node')} <input type="text" bind:value={incToNode} class="wl-num" placeholder="ID" data-testid="wl-inc-node" /></label>
         {:else}
-          <label>X <input type="text" bind:value={incTo.x} class="wl-num" placeholder="m" /></label>
-          <label>Y <input type="text" bind:value={incTo.y} class="wl-num" placeholder="m" /></label>
-          <label>Z <input type="text" bind:value={incTo.z} class="wl-num" placeholder="m" /></label>
+          <label>X <QuantityInput nullable cls="wl-num" bind:value={incTo.x} quantity="length" /></label>
+          <label>Y <QuantityInput nullable cls="wl-num" bind:value={incTo.y} quantity="length" /></label>
+          <label>Z <QuantityInput nullable cls="wl-num" bind:value={incTo.z} quantity="length" /></label>
         {/if}
       </div>
-      {#if incPreview}<p class="wl-hint" data-testid="wl-inc-preview">{tp('writeLoad.inclinedPreview', { fx: incPreview[0].toFixed(3), fy: incPreview[1].toFixed(3), fz: incPreview[2].toFixed(3) })}</p>{/if}
+      {#if incPreview}<p class="wl-hint" data-testid="wl-inc-preview">{tp('writeLoad.inclinedPreview', { fx: fmtQ(incPreview[0], 'force'), fy: fmtQ(incPreview[1], 'force'), fz: fmtQ(incPreview[2], 'force'), u: unitQ('force') })}</p>{/if}
     {:else}
       <div class="wl-row">
-        {#each ['fx', 'fy', 'fz'] as k (k)}<label>{k.toUpperCase()} <input type="text" bind:value={f[k as keyof typeof f]} class="wl-num" placeholder="kN" data-testid="wl-{k}" /></label>{/each}
+        {#each ['fx', 'fy', 'fz'] as k (k)}<label>{k.toUpperCase()} <QuantityInput nullable cls="wl-num" bind:value={f[k as keyof typeof f]} quantity="force" testid="wl-{k}" /></label>{/each}
       </div>
       <div class="wl-row">
-        {#each ['mx', 'my', 'mz'] as k (k)}<label>{k.toUpperCase()} <input type="text" bind:value={f[k as keyof typeof f]} class="wl-num" placeholder="kN·m" data-testid="wl-{k}" /></label>{/each}
+        {#each ['mx', 'my', 'mz'] as k (k)}<label>{k.toUpperCase()} <QuantityInput nullable cls="wl-num" bind:value={f[k as keyof typeof f]} quantity="moment" testid="wl-{k}" /></label>{/each}
       </div>
     {/if}
   {:else if kind === 'displacement'}
     <p class="wl-hint">{t('writeLoad.displacementHint')}</p>
     <div class="wl-row">
-      {#each ['dx', 'dy', 'dz'] as k (k)}<label>{k} <input type="text" bind:value={u[k as keyof typeof u]} class="wl-num" placeholder="mm" data-testid="wl-{k}" /></label>{/each}
+      {#each ['dx', 'dy', 'dz'] as k (k)}<label>{k} <QuantityInput nullable cls="wl-num" bind:value={u[k as keyof typeof u]} quantity="displacement" testid="wl-{k}" /></label>{/each}
     </div>
     <div class="wl-row">
-      {#each ['drx', 'dry', 'drz'] as k (k)}<label>{k} <input type="text" bind:value={u[k as keyof typeof u]} class="wl-num" placeholder="rad" data-testid="wl-{k}" /></label>{/each}
+      {#each ['drx', 'dry', 'drz'] as k (k)}<label>{k} <QuantityInput nullable cls="wl-num" bind:value={u[k as keyof typeof u]} quantity="rotation" testid="wl-{k}" /></label>{/each}
     </div>
   {:else if kind === 'distributed'}
     <div class="wl-row">
@@ -343,26 +351,26 @@
     {#if shape === 'trapezoid'}
       {#each [['x', 'xI', 'xJ'], ['y', 'yI', 'yJ'], ['z', 'zI', 'zJ']] as [c, i, j] (c)}
         <div class="wl-row">
-          <label>{frame === 'local' ? `q${c}` : `q${c.toUpperCase()}`} I <input type="text" bind:value={q[i as keyof typeof q]} class="wl-num" placeholder="kN/m" data-testid="wl-q{c}i" /></label>
-          <label>J <input type="text" bind:value={q[j as keyof typeof q]} class="wl-num" placeholder={t('writeLoad.sameAsI')} data-testid="wl-q{c}j" /></label>
+          <label>{frame === 'local' ? `q${c}` : `q${c.toUpperCase()}`} I <QuantityInput nullable cls="wl-num" bind:value={q[i as keyof typeof q]} quantity="distributedLoad" testid="wl-q{c}i" /></label>
+          <label>J <QuantityInput nullable cls="wl-num" bind:value={q[j as keyof typeof q]} quantity="distributedLoad" placeholder={t('writeLoad.sameAsI')} testid="wl-q{c}j" /></label>
         </div>
       {/each}
       <div class="wl-row">
-        <label>a <input type="text" bind:value={qa} class="wl-num" placeholder="0" data-testid="wl-a" /></label>
-        <label>b <input type="text" bind:value={qb} class="wl-num" placeholder="L" data-testid="wl-b" /></label>
+        <label>a <QuantityInput nullable cls="wl-num" bind:value={qa} quantity="length" placeholder="0" testid="wl-a" /></label>
+        <label>b <QuantityInput nullable cls="wl-num" bind:value={qb} quantity="length" placeholder="L" testid="wl-b" /></label>
         <span class="wl-hint">{t('writeLoad.abHint')}</span>
       </div>
     {:else if shape === 'triangle'}
       <div class="wl-row">
-        <label>{t('writeLoad.peak')} <input type="text" bind:value={peak} class="wl-num" placeholder="kN/m" data-testid="wl-peak" /></label>
+        <label>{t('writeLoad.peak')} <QuantityInput nullable cls="wl-num" bind:value={peak} quantity="distributedLoad" testid="wl-peak" /></label>
         <label>{t('writeLoad.along')} <select bind:value={peakComp} data-testid="wl-peak-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></label>
-        <label>{t('writeLoad.peakAt')} <input type="text" bind:value={peakAt} class="wl-num" placeholder="L/2" data-testid="wl-peak-at" /></label>
+        <label>{t('writeLoad.peakAt')} <QuantityInput nullable cls="wl-num" bind:value={peakAt} quantity="length" placeholder="L/2" testid="wl-peak-at" /></label>
       </div>
     {:else}
       <p class="wl-hint">{t('writeLoad.hydrostaticHint')}</p>
       <div class="wl-row">
-        <label>w₁ <input type="text" bind:value={w1} class="wl-num" placeholder="kN/m" data-testid="wl-w1" /></label>
-        <label>w₂ <input type="text" bind:value={w2} class="wl-num" placeholder="kN/m" data-testid="wl-w2" /></label>
+        <label>w₁ <QuantityInput nullable cls="wl-num" bind:value={w1} quantity="distributedLoad" testid="wl-w1" /></label>
+        <label>w₂ <QuantityInput nullable cls="wl-num" bind:value={w2} quantity="distributedLoad" testid="wl-w2" /></label>
         <label>{t('writeLoad.alongAxis')} <select bind:value={hydroAxis} data-testid="wl-hydro-axis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
         <label>{t('writeLoad.acting')} <select bind:value={hydroComp} data-testid="wl-hydro-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></label>
       </div>
@@ -374,37 +382,38 @@
           <option value="local">{t('loads.frame.local')}</option>
           <option value="global">{t('loads.frame.global')}</option>
         </select></label>
-      <label>a <input type="text" bind:value={pa} class="wl-num" placeholder="L/2" data-testid="wl-pa" /></label>
+      <label>a <QuantityInput nullable cls="wl-num" bind:value={pa} quantity="length" placeholder="L/2" testid="wl-pa" /></label>
     </div>
     <div class="wl-row">
-      {#each ['px', 'py', 'pz'] as k (k)}<label>{pFrame === 'local' ? `P${k[1]}` : `P${k[1]!.toUpperCase()}`} <input type="text" bind:value={p[k as keyof typeof p]} class="wl-num" placeholder="kN" data-testid="wl-{k}" /></label>{/each}
+      {#each ['px', 'py', 'pz'] as k (k)}<label>{pFrame === 'local' ? `P${k[1]}` : `P${k[1]!.toUpperCase()}`} <QuantityInput nullable cls="wl-num" bind:value={p[k as keyof typeof p]} quantity="force" testid="wl-{k}" /></label>{/each}
     </div>
     <div class="wl-row">
-      {#each ['mx', 'my', 'mz'] as k (k)}<label>{pFrame === 'local' ? `M${k[1]}` : `M${k[1]!.toUpperCase()}`} <input type="text" bind:value={p[k as keyof typeof p]} class="wl-num" placeholder="kN·m" data-testid="wl-p{k}" /></label>{/each}
+      {#each ['mx', 'my', 'mz'] as k (k)}<label>{pFrame === 'local' ? `M${k[1]}` : `M${k[1]!.toUpperCase()}`} <QuantityInput nullable cls="wl-num" bind:value={p[k as keyof typeof p]} quantity="moment" testid="wl-p{k}" /></label>{/each}
     </div>
     <p class="wl-hint">{t('writeLoad.pointHint')}</p>
   {:else if kind === 'thermal'}
     <div class="wl-row">
-      <label>ΔT <input type="text" bind:value={th.dt} class="wl-num" placeholder="°C" data-testid="wl-dt" /></label>
-      <label>ΔTgz <input type="text" bind:value={th.gz} class="wl-num" placeholder="°C" data-testid="wl-gz" /></label>
-      <label>ΔTgy <input type="text" bind:value={th.gy} class="wl-num" placeholder="°C" data-testid="wl-gy" /></label>
+      <label>ΔT <QuantityInput nullable cls="wl-num" bind:value={th.dt} quantity="temperatureDiff" testid="wl-dt" /></label>
+      <label>ΔTgz <QuantityInput nullable cls="wl-num" bind:value={th.gz} quantity="temperatureDiff" testid="wl-gz" /></label>
+      <label>ΔTgy <QuantityInput nullable cls="wl-num" bind:value={th.gy} quantity="temperatureDiff" testid="wl-gy" /></label>
     </div>
     <p class="wl-hint">{t('writeLoad.thermalHint')}</p>
   {:else if kind === 'strain'}
     <div class="wl-row">
       <label class="wl-check"><input type="radio" bind:group={strainBy} value="unit" /> ε₀ (‰)</label>
-      <label class="wl-check"><input type="radio" bind:group={strainBy} value="length" /> ΔL (mm)</label>
-      <input type="text" bind:value={strainVal} class="wl-num" placeholder={strainBy === 'unit' ? '‰' : 'mm'} data-testid="wl-strain" />
+      <label class="wl-check"><input type="radio" bind:group={strainBy} value="length" /> ΔL</label>
+      {#if strainBy === 'unit'}<input type="text" bind:value={strainPerMil} class="wl-num" placeholder="‰" data-testid="wl-strain" />
+      {:else}<QuantityInput nullable cls="wl-num" bind:value={strainDL} quantity="displacement" testid="wl-strain-dl" />{/if}
     </div>
     <p class="wl-hint">{t('writeLoad.strainHint')}</p>
   {:else if kind === 'prestress'}
     <div class="wl-row">
-      <label>P <input type="text" bind:value={ps.force} class="wl-num" placeholder="kN" data-testid="wl-ps-force" /></label>
+      <label>P <QuantityInput nullable cls="wl-num" bind:value={ps.force} quantity="force" testid="wl-ps-force" /></label>
     </div>
     <div class="wl-row">
-      <label>e I <input type="text" bind:value={ps.eI} class="wl-num" placeholder="mm" data-testid="wl-ps-ei" /></label>
-      <label>e {t('writeLoad.middle')} <input type="text" bind:value={ps.eM} class="wl-num" placeholder="mm" data-testid="wl-ps-em" /></label>
-      <label>e J <input type="text" bind:value={ps.eJ} class="wl-num" placeholder="mm" data-testid="wl-ps-ej" /></label>
+      <label>e I <QuantityInput nullable cls="wl-num" bind:value={ps.eI} quantity="length" placeholder="0" testid="wl-ps-ei" /></label>
+      <label>e {t('writeLoad.middle')} <QuantityInput nullable cls="wl-num" bind:value={ps.eM} quantity="length" placeholder={t('writeLoad.eMidDefault')} testid="wl-ps-em" /></label>
+      <label>e J <QuantityInput nullable cls="wl-num" bind:value={ps.eJ} quantity="length" placeholder="0" testid="wl-ps-ej" /></label>
     </div>
     <p class="wl-hint">{t('writeLoad.prestressHint')}</p>
   {:else if kind === 'selfWeight'}
@@ -418,8 +427,8 @@
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} />{/key}
   {:else}
     <div class="wl-row">
-      <label>ΔT <input type="text" bind:value={tq.dt} class="wl-num" placeholder="°C" data-testid="wl-tq-dt" /></label>
-      <label>ΔTg <input type="text" bind:value={tq.g} class="wl-num" placeholder="°C" data-testid="wl-tq-g" /></label>
+      <label>ΔT <QuantityInput nullable cls="wl-num" bind:value={tq.dt} quantity="temperatureDiff" testid="wl-tq-dt" /></label>
+      <label>ΔTg <QuantityInput nullable cls="wl-num" bind:value={tq.g} quantity="temperatureDiff" testid="wl-tq-g" /></label>
     </div>
   {/if}
 

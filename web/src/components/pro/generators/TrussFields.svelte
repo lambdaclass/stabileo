@@ -6,6 +6,7 @@
    * The span is the beam generator's own field; a shed owns its span and leaves it out.
    */
   import { t } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import {
     TRUSS_KINDS, ARCH_CURVES, WEB_PATTERNS, subdivisionApplies, type TrussParams,
   } from '../../../lib/engine/generators/truss-topology';
@@ -31,17 +32,17 @@
     {#each TRUSS_KINDS as k (k)}<option value={k}>{t(`generator.truss.${k}`)}</option>{/each}
   </select></label>
 {#if withSpan}
-  <label>{@render fieldHead('span')}<input type="number" min="0.5" step="0.5" bind:value={full.spanM} aria-describedby="gen-hint-span" /></label>
+  <label>{@render fieldHead('span')}<QuantityInput quantity="length" bind:value={full.spanM} describedBy="gen-hint-span" testid="gen-span" /></label>
 {/if}
-<label>{@render fieldHead('rise')}<input type="number" min="0" step="0.1" bind:value={p.riseM} aria-describedby="gen-hint-rise" /></label>
+<label>{@render fieldHead('rise')}<QuantityInput quantity="length" bind:value={p.riseM} describedBy="gen-hint-rise" /></label>
 {#if p.kind === 'trapezoidal' || p.kind === 'arch'}
-  <label>{@render fieldHead('endDepth')}<input type="number" min="0" step="0.1" bind:value={p.endDepthM} aria-describedby="gen-hint-endDepth" /></label>
+  <label>{@render fieldHead('endDepth')}<QuantityInput quantity="length" bind:value={p.endDepthM} describedBy="gen-hint-endDepth" /></label>
 {/if}
 {#if p.kind === 'parallelChord' || p.kind === 'pratt'}
-  <label>{@render fieldHead('depth')}<input type="number" min="0.1" step="0.1" bind:value={p.depthM} aria-describedby="gen-hint-depth" /></label>
+  <label>{@render fieldHead('depth')}<QuantityInput quantity="length" bind:value={p.depthM} describedBy="gen-hint-depth" /></label>
 {/if}
 {#if p.kind === 'trapezoidal'}
-  <label>{@render fieldHead('plateau')}<input type="number" min="0" step="0.1" bind:value={p.plateauM} aria-describedby="gen-hint-plateau" /></label>
+  <label>{@render fieldHead('plateau')}<QuantityInput quantity="length" bind:value={p.plateauM} describedBy="gen-hint-plateau" /></label>
 {/if}
 {#if p.kind === 'arch'}
   <label><span>{t('generator.ui.archCurve')}</span>

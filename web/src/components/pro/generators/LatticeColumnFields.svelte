@@ -5,6 +5,7 @@
    * them from its clear height and its own base switch.
    */
   import { t } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import { LACING_PATTERNS, type LatticeColumnParams } from '../../../lib/engine/generators/lattice-column';
 
   interface Props {
@@ -22,9 +23,9 @@
 {/snippet}
 
 {#if standalone}
-  <label>{@render fieldHead('height')}<input type="number" min="0.5" step="0.5" bind:value={full.heightM} aria-describedby="gen-hint-height" /></label>
+  <label>{@render fieldHead('height')}<QuantityInput quantity="length" bind:value={full.heightM} describedBy="gen-hint-height" /></label>
 {/if}
-<label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={p.widthM} aria-describedby="gen-hint-width" /></label>
+<label>{@render fieldHead('width')}<QuantityInput quantity="length" bind:value={p.widthM} describedBy="gen-hint-width" /></label>
 <label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={p.divisions} aria-describedby="gen-hint-divisions" /></label>
 <label><span>{t('generator.ui.lacing')}</span>
   <select bind:value={p.lacing} data-testid="gen-lacing">

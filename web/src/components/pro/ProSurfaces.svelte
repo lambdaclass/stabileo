@@ -10,6 +10,10 @@
   import { SURFACE_DEFAULTS, SURFACE_KINDS, surfaceFragment, surfaceMesh, type SurfaceKind, type SurfaceParams } from '../../lib/model/edit/surfaces';
   import { insertFragment } from '../../lib/model/edit/transformed-copy';
   import { compose, cross, dot, norm, rotation, translation, unit, type Vec3 } from '../../lib/model/edit/affine';
+  import QuantityInput from './loads/QuantityInput.svelte';
+
+  /** The parameters that are lengths, typed in the display units; angles and divisions stay as they are. */
+  const LENGTH_KEYS = new Set(['radius', 'topRadius', 'baseRadius', 'bottomRadius', 'height', 'rise', 'size', 'waist', 'waistAt', 'lx', 'ly']);
 
   let kind = $state<SurfaceKind>('cylinder');
   let params = $state<Record<SurfaceKind, SurfaceParams>>(Object.fromEntries(SURFACE_KINDS.map((k) => [k, { ...SURFACE_DEFAULTS[k] }])) as Record<SurfaceKind, SurfaceParams>);
@@ -51,12 +55,15 @@
   </label>
   <div class="sf-grid">
     {#each Object.keys(params[kind]) as key (kind + key)}
-      <label>{t(`surface.field.${key}`)} <input type="number" step="0.5" bind:value={params[kind][key]} data-testid="sf-{key}" /></label>
+      <label>{t(`surface.field.${key}`)}
+        {#if LENGTH_KEYS.has(key)}<QuantityInput bind:value={() => params[kind][key] ?? 0, (v) => (params[kind][key] = v)} quantity="length" cls="sf-num" testid="sf-{key}" />
+        {:else}<input type="number" step="0.5" bind:value={params[kind][key]} data-testid="sf-{key}" />{/if}
+      </label>
     {/each}
   </div>
   <div class="sf-row">
     <label>{t('pro.thMaterial')} <select bind:value={materialId}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select></label>
-    <label>{t('pro.thickness')} <input type="number" min="0.001" step="0.01" bind:value={thickness} /> m</label>
+    <label>{t('pro.thicknessLabel')} <QuantityInput min={0.001} bind:value={thickness} quantity="length" cls="sf-num" /></label>
   </div>
   {#if mesh}<p class="sf-hint" data-testid="sf-summary">{#if mesh.cells.some((c) => c.length === 3)}{tp('surface.summaryTri', { quads: mesh.cells.filter((c) => c.length === 4).length, plates: mesh.cells.filter((c) => c.length === 3).length, nodes: mesh.points.length })}{:else}{tp('surface.summary', { quads: mesh.cells.length, nodes: mesh.points.length })}{/if}</p>
   {:else}<p class="sf-warn">{t('surface.invalid')}</p>{/if}
@@ -72,7 +79,7 @@
   .sf-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .sf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 8px; }
   .sf-grid label { display: flex; justify-content: space-between; gap: 4px; align-items: center; }
-  .sf-grid input { width: 64px; }
+  .sf-grid input, .sf-grid :global(input.sf-num), .sf-row :global(input.sf-num) { width: 64px; }
   .sf-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   .sf-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }
 </style>

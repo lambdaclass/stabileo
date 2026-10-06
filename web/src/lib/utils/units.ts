@@ -1,12 +1,17 @@
 // Unit system conversion utilities
-// Internal model always uses SI (m, kN, kN/m, kN·m, MPa, m², m⁴)
+// Internal model always uses SI (m, kN, kN/m, kN·m, MPa, m², m⁴); files keep SI whatever is shown.
+// SI (mm) display is SI with lengths in mm: coordinates, displacements and section properties
+//   (mm, mm², mm⁴, mm³); forces, loads per metre and per square metre, stresses stay as in SI.
 // Technical metric (MKS) display uses: m, tf, tf/m, tf·m, kgf/cm², cm², cm⁴, cm of displacement
 // Imperial display uses: ft, kip, kip/ft, kip·ft, ksi, in², in⁴
 
-export type UnitSystem = 'SI' | 'MKS' | 'Imperial';
+export type UnitSystem = 'SI' | 'SImm' | 'MKS' | 'Imperial';
 
 /** Every display system, in the order a selector offers them. */
-export const UNIT_SYSTEMS: readonly UnitSystem[] = ['SI', 'MKS', 'Imperial'];
+export const UNIT_SYSTEMS: readonly UnitSystem[] = ['SI', 'SImm', 'MKS', 'Imperial'];
+
+/** Whether a stored value names a display system (a preference read back from the browser). */
+export const isUnitSystem = (v: unknown): v is UnitSystem => (UNIT_SYSTEMS as readonly unknown[]).includes(v);
 
 export type Quantity =
   | 'length'           // m ↔ ft
@@ -21,9 +26,15 @@ export type Quantity =
   | 'rotation'         // rad ↔ rad (same)
   | 'springK'          // kN/m ↔ kip/ft
   | 'springKr'         // kN·m/rad ↔ kip·ft/rad
-  | 'temperature'      // °C ↔ °F
+  | 'temperature'      // °C ↔ °F (a temperature)
+  | 'temperatureDiff'  // °C ↔ °F (a difference or a gradient: no offset)
   | 'areaLoad'         // kN/m² ↔ psf
-  | 'speed';           // m/s ↔ mph
+  | 'speed'            // m/s ↔ mph
+  // A cross-section's properties: shown in cm in SI, as section tables give them.
+  | 'sectionArea'      // m² → cm² ↔ in²
+  | 'sectionInertia'   // m⁴ → cm⁴ ↔ in⁴
+  | 'sectionModulus'   // m³ → cm³ ↔ in³
+  | 'sectionDim';      // m → cm ↔ in (a dimension of a cross-section)
 
 // Conversion factors: multiply SI value by factor to get imperial value
 const FACTORS: Record<Quantity, number> = {
@@ -40,8 +51,21 @@ const FACTORS: Record<Quantity, number> = {
   springK: 0.0685218,          // kN/m → kip/ft
   springKr: 0.737562,          // kN·m/rad → kip·ft/rad
   temperature: 1,              // special handling (affine)
+  temperatureDiff: 1.8,        // Δ°C → Δ°F
   areaLoad: 20.8854,           // kN/m² → psf
   speed: 2.23694,              // m/s → mph
+  sectionArea: 1550.003,       // m² → in²
+  sectionInertia: 2402509.61,  // m⁴ → in⁴
+  sectionModulus: 61023.74,    // m³ → in³
+  sectionDim: 39.3701,         // m → in
+};
+
+/** SI shows section properties in cm; everything else as stored. */
+const SI_FACTORS: Partial<Record<Quantity, number>> = { sectionArea: 1e4, sectionInertia: 1e8, sectionModulus: 1e6, sectionDim: 100 };
+/** SI (mm): lengths in mm. */
+const SIMM_FACTORS: Partial<Record<Quantity, number>> = {
+  length: 1000, displacement: 1000, area: 1e6, inertia: 1e12,
+  sectionArea: 1e6, sectionInertia: 1e12, sectionModulus: 1e9, sectionDim: 1000,
 };
 
 /** kN → tf (a tonne-force is 9.80665 kN). */
@@ -62,8 +86,13 @@ const MKS_FACTORS: Record<Quantity, number> = {
   springK: TF,
   springKr: TF,
   temperature: 1,
+  temperatureDiff: 1,
   areaLoad: 1000 * TF,  // kN/m² → kgf/m²
   speed: 1,
+  sectionArea: 1e4,
+  sectionInertia: 1e8,
+  sectionModulus: 1e6,
+  sectionDim: 100,
 };
 
 // Technical metric labels
@@ -81,8 +110,13 @@ const MKS_LABELS: Record<Quantity, string> = {
   springK: 'tf/m',
   springKr: 'tf·m/rad',
   temperature: '°C',
+  temperatureDiff: '°C',
   areaLoad: 'kgf/m²',
   speed: 'm/s',
+  sectionArea: 'cm²',
+  sectionInertia: 'cm⁴',
+  sectionModulus: 'cm³',
+  sectionDim: 'cm',
 };
 
 // SI unit labels
@@ -100,8 +134,26 @@ const SI_LABELS: Record<Quantity, string> = {
   springK: 'kN/m',
   springKr: 'kN·m/rad',
   temperature: '°C',
+  temperatureDiff: '°C',
   areaLoad: 'kN/m²',
   speed: 'm/s',
+  sectionArea: 'cm²',
+  sectionInertia: 'cm⁴',
+  sectionModulus: 'cm³',
+  sectionDim: 'cm',
+};
+
+// SI (mm) labels: SI's, with lengths in mm
+const SIMM_LABELS: Record<Quantity, string> = {
+  ...SI_LABELS,
+  length: 'mm',
+  displacement: 'mm',
+  area: 'mm²',
+  inertia: 'mm⁴',
+  sectionArea: 'mm²',
+  sectionInertia: 'mm⁴',
+  sectionModulus: 'mm³',
+  sectionDim: 'mm',
 };
 
 // Imperial unit labels
@@ -119,15 +171,21 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   springK: 'kip/ft',
   springKr: 'kip·ft/rad',
   temperature: '°F',
+  temperatureDiff: '°F',
   areaLoad: 'psf',
   speed: 'mph',
+  sectionArea: 'in²',
+  sectionInertia: 'in⁴',
+  sectionModulus: 'in³',
+  sectionDim: 'in',
 };
 
 /**
  * Convert an SI value to display value in the given unit system.
  */
 export function toDisplay(value: number, qty: Quantity, system: UnitSystem): number {
-  if (system === 'SI') return value;
+  if (system === 'SI') return value * (SI_FACTORS[qty] ?? 1);
+  if (system === 'SImm') return value * (SIMM_FACTORS[qty] ?? SI_FACTORS[qty] ?? 1);
   if (system === 'MKS') return value * MKS_FACTORS[qty];
   if (qty === 'temperature') return value * 9 / 5 + 32; // °C → °F
   return value * FACTORS[qty];
@@ -137,7 +195,8 @@ export function toDisplay(value: number, qty: Quantity, system: UnitSystem): num
  * Convert a display value (in the given unit system) back to SI.
  */
 export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): number {
-  if (system === 'SI') return value;
+  if (system === 'SI') return value / (SI_FACTORS[qty] ?? 1);
+  if (system === 'SImm') return value / (SIMM_FACTORS[qty] ?? SI_FACTORS[qty] ?? 1);
   if (system === 'MKS') return value / MKS_FACTORS[qty];
   if (qty === 'temperature') return (value - 32) * 5 / 9; // °F → °C
   return value / FACTORS[qty];
@@ -147,7 +206,7 @@ export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): n
  * Get the unit label string for a quantity in a given system.
  */
 export function unitLabel(qty: Quantity, system: UnitSystem): string {
-  return system === 'SI' ? SI_LABELS[qty] : system === 'MKS' ? MKS_LABELS[qty] : IMPERIAL_LABELS[qty];
+  return system === 'SI' ? SI_LABELS[qty] : system === 'SImm' ? SIMM_LABELS[qty] : system === 'MKS' ? MKS_LABELS[qty] : IMPERIAL_LABELS[qty];
 }
 
 /**

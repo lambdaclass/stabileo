@@ -940,7 +940,7 @@
                         </select>
                       </label>
                       <label class="al-field"><span class="al-label">{t('autoLoad.windAltitude')}</span>
-                        <span class="al-unit-field"><input type="number" bind:value={windAltitude} min={0} step={10} data-testid="al-wind-altitude" /><span>m</span></span>
+                        <QuantityInput bind:value={windAltitude} quantity="length" min={0} testid="al-wind-altitude" wrap="al-unit-field" />
                       </label>
                       <label class="al-field"><span class="al-label">{t('autoLoad.windRoofSlope')}</span>
                         <span class="al-unit-field"><input type="number" bind:value={windRoofSlope} min={0} max={90} step={1} data-testid="al-wind-slope" /><span>°</span></span>

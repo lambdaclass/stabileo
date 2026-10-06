@@ -45,7 +45,7 @@
     analyzeSectionTorsion,
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
-  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
   // The SSI and Winkler wrappers return the engine's answer as is; whoever shows it finishes it.
   import { finishSolve3D } from '../../lib/engine/solve-finish';
   // Every solver below is a WASM export that throws a bare string, which has no
@@ -61,6 +61,8 @@
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { isVariableMember } from '../../lib/section/variable';
   import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -166,7 +168,15 @@
 
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
-  let pdeltaResult = $state<any | null>(null);
+  /** What the run gave: convergence, iterations, and the amplification and stability as `amplification` reads them. */
+  let pdeltaResult = $state<{ converged: boolean; iterations: number; b2: number; stable: boolean } | null>(null);
+  /**
+   * Why the run is not published as a P-Δ result, or null when it is. The criterion is the one the
+   * combinations use (`solver-service.ts`, `amplification`): with no second-order equilibrium at
+   * this load, or without convergence, the engine hands back first-order displacements, and those
+   * are not shown as if they were second-order ones.
+   */
+  let pdeltaRefused = $state<string | null>(null);
 
   function handlePDelta() {
     solveError = null;
@@ -180,11 +190,14 @@
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: String(res) }); solving = false; return; }
       pdeltaElapsed = elapsed;
-      pdeltaResult = res;
-      if (res.results) {
-        resultsStore.setPDeltaResult3D(res);
-      }
-      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor, isStable: res.isStable } };
+      const amp = res.results ? amplification(res) : { b2: Infinity, stable: false };
+      const converged = !!res.converged;
+      pdeltaResult = { converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
+      pdeltaRefused = !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
+      if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
+      // A result of an earlier run is not left on screen as if it were this one's.
+      else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
+      advancedResults = { ...advancedResults, pdelta: { converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
     }
@@ -974,16 +987,17 @@
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving}>P-Delta</button>
+        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving} data-testid="adv-run-pdelta">P-Delta</button>
         <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
       {#if pdeltaResult}
-        <div class="adv-inline">
+        <div class="adv-inline" data-testid="pdelta-summary">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
-          — {pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
-          — B2 = {formatPDeltaFactor(pdeltaResult.b2Factor)}
+          — {pdeltaResult.stable ? t('advanced.stable') : t('advanced.unstable')}
+          — B2 = {formatPDeltaFactor(pdeltaResult.b2)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
+        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{/if}
       {/if}
     </div>
 
@@ -1256,7 +1270,7 @@
                 <option value="displacement">{t('pushover.target.displacement')}</option>
               </select>
             </label>
-            {#if pushTargetKind !== 'none'}<input type="number" class="adv-num adv-num-wide" bind:value={pushTarget} step="any" data-testid="push-target" /> {pushTargetKind === 'shear' ? 'kN' : 'm'}{/if}
+            {#if pushTargetKind !== 'none'}<QuantityInput cls="adv-num adv-num-wide" bind:value={pushTarget} quantity={pushTargetKind === 'shear' ? 'force' : 'displacement'} testid="push-target" />{/if}
             {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
@@ -1328,20 +1342,20 @@
               {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
             </select>
           </label>
-          <label class="adv-label" title={t('adv.winklerAxes')}>ky (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKy} min={0} step={100} /></label>
-          <label class="adv-label" title={t('adv.winklerAxes')}>kz (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKz} min={0} step={100} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>ky: <QuantityInput cls="adv-num" bind:value={winklerKy} quantity="areaLoad" min={0} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>kz: <QuantityInput cls="adv-num" bind:value={winklerKz} quantity="areaLoad" min={0} /></label>
           <span class="adv-hint">{t('adv.winklerAxes')}</span>
           <button class="adv-btn-sm" onclick={addWinklerSpring} disabled={winklerElementId == null}>+</button>
         </div>
         {#if winklerSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>{t('adv.member')}</th><th>ky</th><th>kz</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.member')}</th><th>ky ({unitQ('areaLoad')})</th><th>kz ({unitQ('areaLoad')})</th><th></th></tr></thead>
             <tbody>
               {#each winklerSprings as s, i}
                 <tr>
                   <td class="col-id">{s.elementId}</td>
-                  <td class="col-num">{fmtNum(s.ky)}</td>
-                  <td class="col-num">{fmtNum(s.kz)}</td>
+                  <td class="col-num">{fmtQ(s.ky, 'areaLoad')}</td>
+                  <td class="col-num">{fmtQ(s.kz, 'areaLoad')}</td>
                   <td><button class="adv-rm" onclick={() => removeWinklerSpring(i)}>x</button></td>
                 </tr>
               {/each}
@@ -1386,10 +1400,10 @@
         </div>
         {#if ssiCurveType === 'softClay' || ssiCurveType === 'stiffClay'}
           <div class="adv-form">
-            <label class="adv-label">su (kPa): <input type="number" class="adv-num" bind:value={ssiSu} min={0} step={5} /></label>
-            <label class="adv-label">&#947; (kN/m3): <input type="number" class="adv-num" bind:value={ssiGamma} min={0} step={1} /></label>
-            <label class="adv-label">d (m): <input type="number" class="adv-num" bind:value={ssiDiameter} min={0.1} step={0.1} /></label>
-            <label class="adv-label">{t('pro.depth')}: <input type="number" class="adv-num" bind:value={ssiDepth} min={0} step={0.5} /></label>
+            <label class="adv-label">su: <QuantityInput cls="adv-num" bind:value={ssiSu} quantity="areaLoad" min={0} /></label>
+            <label class="adv-label">&#947;: <QuantityInput cls="adv-num" bind:value={ssiGamma} quantity="density" min={0} /></label>
+            <label class="adv-label">d: <QuantityInput cls="adv-num" bind:value={ssiDiameter} quantity="length" min={0.1} /></label>
+            <label class="adv-label">{t('adv.ssiDepth')}: <QuantityInput cls="adv-num" bind:value={ssiDepth} quantity="length" min={0} /></label>
             <!-- Matlock/Reese both key the curve on ε50; it has no default in
                  the engine, so the run needs it. -->
             <label class="adv-label">&#949;50: <input type="number" class="adv-num" bind:value={ssiEps50} min={0.001} max={0.05} step={0.001} /></label>
@@ -1397,25 +1411,25 @@
         {:else if ssiCurveType === 'sand'}
           <div class="adv-form">
             <label class="adv-label">&#966; (deg): <input type="number" class="adv-num" bind:value={ssiPhi} min={0} max={50} step={1} /></label>
-            <label class="adv-label">&#947; (kN/m3): <input type="number" class="adv-num" bind:value={ssiGamma} min={0} step={1} /></label>
-            <label class="adv-label">d (m): <input type="number" class="adv-num" bind:value={ssiDiameter} min={0.1} step={0.1} /></label>
-            <label class="adv-label">{t('pro.depth')}: <input type="number" class="adv-num" bind:value={ssiDepth} min={0} step={0.5} /></label>
+            <label class="adv-label">&#947;: <QuantityInput cls="adv-num" bind:value={ssiGamma} quantity="density" min={0} /></label>
+            <label class="adv-label">d: <QuantityInput cls="adv-num" bind:value={ssiDiameter} quantity="length" min={0.1} /></label>
+            <label class="adv-label">{t('adv.ssiDepth')}: <QuantityInput cls="adv-num" bind:value={ssiDepth} quantity="length" min={0} /></label>
           </div>
         {/if}
         <div class="adv-form">
-          <label class="adv-label">{t('pro.tribLength')}: <input type="number" class="adv-num" bind:value={ssiTribLength} min={0.1} step={0.5} /></label>
+          <label class="adv-label">{t('adv.ssiTribLength')}: <QuantityInput cls="adv-num" bind:value={ssiTribLength} quantity="length" min={0.1} /></label>
           <button class="adv-btn-sm" onclick={addSsiSpring} disabled={ssiNodeId == null}>{t('pro.addSpring')}</button>
         </div>
         {#if ssiSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>{t('adv.node')}</th><th>{t('adv.direction')}</th><th>{t('adv.curve')}</th><th>L</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.node')}</th><th>{t('adv.direction')}</th><th>{t('adv.curve')}</th><th>L ({unitQ('length')})</th><th></th></tr></thead>
             <tbody>
               {#each ssiSprings as s, i}
                 <tr>
                   <td class="col-id">{s.nodeId}</td>
                   <td class="col-num">{s.direction}</td>
                   <td class="col-num">{s.curve.type}</td>
-                  <td class="col-num">{fmtNum(s.tributaryLength)}</td>
+                  <td class="col-num">{fmtQ(s.tributaryLength, 'length')}</td>
                   <td><button class="adv-rm" onclick={() => removeSsiSpring(i)}>x</button></td>
                 </tr>
               {/each}
@@ -1628,26 +1642,26 @@
         </div>
         {#if secShape === 'rect'}
           <div class="adv-form">
-            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
+            <label class="adv-label">b: <QuantityInput cls="adv-num" bind:value={secB} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
           </div>
         {:else if secShape === 'circle'}
           <div class="adv-form">
-            <label class="adv-label">r (m): <input type="number" class="adv-num" bind:value={secR} min={0.01} step={0.01} /></label>
+            <label class="adv-label">r: <QuantityInput cls="adv-num" bind:value={secR} quantity="sectionDim" min={0.01} /></label>
           </div>
         {:else if secShape === 'I' || secShape === 'T'}
           <div class="adv-form">
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
-            <label class="adv-label">bf (m): <input type="number" class="adv-num" bind:value={secBf} min={0.01} step={0.01} /></label>
-            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
-            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">bf: <QuantityInput cls="adv-num" bind:value={secBf} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">tw: <QuantityInput cls="adv-num" bind:value={secTw} quantity="sectionDim" min={0.001} /></label>
+            <label class="adv-label">tf: <QuantityInput cls="adv-num" bind:value={secTf} quantity="sectionDim" min={0.001} /></label>
           </div>
         {:else if secShape === 'L'}
           <div class="adv-form">
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
-            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
-            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
-            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">b: <QuantityInput cls="adv-num" bind:value={secB} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">tw: <QuantityInput cls="adv-num" bind:value={secTw} quantity="sectionDim" min={0.001} /></label>
+            <label class="adv-label">tf: <QuantityInput cls="adv-num" bind:value={secTf} quantity="sectionDim" min={0.001} /></label>
           </div>
         {:else if secShape === 'polygon'}
           <div class="adv-form">
@@ -1661,15 +1675,15 @@
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->
         <div class="adv-inline">
-          {#if secResult.a != null}A={secResult.a.toExponential(3)} m²{/if}
-          {#if secResult.iy != null} — Iy={secResult.iy.toExponential(3)} m⁴{/if}
-          {#if secResult.iz != null} — Iz={secResult.iz.toExponential(3)} m⁴{/if}
+          {#if secResult.a != null}A={fmtQ(secResult.a, 'sectionArea')} {unitQ('sectionArea')}{/if}
+          {#if secResult.iy != null} — Iy={fmtQ(secResult.iy, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
+          {#if secResult.iz != null} — Iz={fmtQ(secResult.iz, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
         </div>
         <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
-          CG: y={fmtNum(secResult.yc ?? 0)} m, z={fmtNum(secResult.zc ?? 0)} m
-          {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
-          {#if secResult.syTop != null} — Wy={secResult.syTop.toExponential(3)} m³{/if}
-          {#if secResult.szRight != null} — Wz={secResult.szRight.toExponential(3)} m³{/if}
+          CG: y={fmtQ(secResult.yc ?? 0, 'sectionDim')} {unitQ('sectionDim')}, z={fmtQ(secResult.zc ?? 0, 'sectionDim')} {unitQ('sectionDim')}
+          {#if secResult.j != null} — J={fmtQ(secResult.j, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
+          {#if secResult.syTop != null} — Wy={fmtQ(secResult.syTop, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
+          {#if secResult.szRight != null} — Wz={fmtQ(secResult.szRight, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
         </div>
       {/if}
       {/if}
@@ -2054,4 +2068,5 @@
   .adv-mode-row { cursor: pointer; }
   .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
   .adv-mode-on td { color: var(--st-accent); }
+  .adv-refused { margin: 4px 0 0; font-size: 0.7rem; color: var(--st-warn); line-height: 1.4; }
 </style>

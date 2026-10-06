@@ -19,6 +19,7 @@
   import type { Topology } from '../../../lib/engine/generators/truss-topology';
   import type { Vec3 } from '../../../lib/model/edit/affine';
   import { untrack } from 'svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import type { OutputState } from '../../../lib/store/generated-structures';
 
   interface Props {
@@ -245,9 +246,9 @@
       <p class="go-hint" id="gen-out-rot-hint">{t('generator.out.rotHint')}</p>
       {#if st.mode === 'atPoint'}
         <div class="go-row">
-          <label class="go-field">X<input type="number" step="0.5" bind:value={st.px} aria-describedby="gen-out-at-hint" data-testid="gen-x" /></label>
-          <label class="go-field">Y<input type="number" step="0.5" bind:value={st.py} aria-describedby="gen-out-at-hint" data-testid="gen-y" /></label>
-          <label class="go-field">Z<input type="number" step="0.5" bind:value={st.pz} aria-describedby="gen-out-at-hint" data-testid="gen-z" /></label>
+          <label class="go-field">X<QuantityInput quantity="length" bind:value={st.px} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-x" /></label>
+          <label class="go-field">Y<QuantityInput quantity="length" bind:value={st.py} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-y" /></label>
+          <label class="go-field">Z<QuantityInput quantity="length" bind:value={st.pz} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-z" /></label>
         </div>
         <p class="go-hint" id="gen-out-at-hint">{t('generator.out.atHint')}</p>
       {:else}
@@ -288,7 +289,7 @@
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .go-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
   .go-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.64rem; color: var(--st-text-3); }
-  .go-field input { width: 64px; }
+  .go-field :global(input) { width: 64px; }
   .go-modes { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; }
   .go-mode { display: flex; gap: 4px; align-items: center; }
   .go-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }

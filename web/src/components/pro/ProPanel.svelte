@@ -175,7 +175,7 @@
      layout shell, and the 600-line ceiling on it is what said so. */
   function exportReport(config: ReportConfig) {
     showReportDialog = false;
-    exportReportAs({
+    void exportReportAs({
       config,
       // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
       verifications: [],

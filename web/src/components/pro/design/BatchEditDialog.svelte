@@ -19,6 +19,7 @@
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { getReinforcement, commitManualBatch } from '../../../lib/store/rebar-edit';
   import OutcomeBadge from './OutcomeBadge.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
 
   interface Props {
     selection: number[];
@@ -44,30 +45,30 @@
   let teDia = $state<number | undefined>(undefined);
   let supDia = $state<number | undefined>(undefined);
   let supLegs = $state<number | undefined>(undefined);
-  let supSp = $state<number | undefined>(undefined);
+  let supSp = $state<number | null>(null);
   let spanDia = $state<number | undefined>(undefined);
   let spanLegs = $state<number | undefined>(undefined);
-  let spanSp = $state<number | undefined>(undefined);
+  let spanSp = $state<number | null>(null);
   let colCorner = $state<number | undefined>(undefined);
   let colFace = $state<number | undefined>(undefined);
   let colPerFace = $state<number | undefined>(undefined);
   let tieDia = $state<number | undefined>(undefined);
   let tieLegs = $state<number | undefined>(undefined);
-  let tieSp = $state<number | undefined>(undefined);
+  let tieSp = $state<number | null>(null);
 
   const patch = $derived.by((): BatchPatch => {
     const p: BatchPatch = {};
     if (bsCount !== undefined || bsDia !== undefined) p.bottomSpan = { count: bsCount, diameter: bsDia };
     if (tsCount !== undefined || tsDia !== undefined) p.topStart = { count: tsCount, diameter: tsDia };
     if (teCount !== undefined || teDia !== undefined) p.topEnd = { count: teCount, diameter: teDia };
-    if (supDia !== undefined || supLegs !== undefined || supSp !== undefined)
-      p.stirrupsSupport = { diameter: supDia, legs: supLegs, spacing: supSp };
-    if (spanDia !== undefined || spanLegs !== undefined || spanSp !== undefined)
-      p.stirrupsSpan = { diameter: spanDia, legs: spanLegs, spacing: spanSp };
+    if (supDia !== undefined || supLegs !== undefined || supSp !== null)
+      p.stirrupsSupport = { diameter: supDia, legs: supLegs, spacing: supSp ?? undefined };
+    if (spanDia !== undefined || spanLegs !== undefined || spanSp !== null)
+      p.stirrupsSpan = { diameter: spanDia, legs: spanLegs, spacing: spanSp ?? undefined };
     if (colCorner !== undefined || colFace !== undefined || colPerFace !== undefined)
       p.column = { cornerDia: colCorner, faceDia: colFace, perFace: colPerFace };
-    if (tieDia !== undefined || tieLegs !== undefined || tieSp !== undefined)
-      p.ties = { diameter: tieDia, legs: tieLegs, spacing: tieSp };
+    if (tieDia !== undefined || tieLegs !== undefined || tieSp !== null)
+      p.ties = { diameter: tieDia, legs: tieLegs, spacing: tieSp ?? undefined };
     return p;
   });
 
@@ -199,9 +200,8 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-sup-legs"
                value={supLegs ?? ''} oninput={(e) => supLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
-        <label>{t('design.batch.spacing')}<input type="number" min="0.05" max="0.5" step="0.025"
-               data-testid="batch-sup-spacing" value={supSp ?? ''}
-               oninput={(e) => supSp = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.spacingShort')}<QuantityInput quantity="length" nullable min={0.05} max={0.5}
+               wrap="qi-fill" testid="batch-sup-spacing" bind:value={supSp} /></label>
       </fieldset>
       <fieldset>
         <legend>{t('design.batch.fieldStirrupsSpan')}</legend>
@@ -211,9 +211,8 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-span-legs"
                value={spanLegs ?? ''} oninput={(e) => spanLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
-        <label>{t('design.batch.spacing')}<input type="number" min="0.05" max="0.5" step="0.025"
-               data-testid="batch-span-spacing" value={spanSp ?? ''}
-               oninput={(e) => spanSp = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.spacingShort')}<QuantityInput quantity="length" nullable min={0.05} max={0.5}
+               wrap="qi-fill" testid="batch-span-spacing" bind:value={spanSp} /></label>
       </fieldset>
     {/if}
 
@@ -239,9 +238,8 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-tie-legs"
                value={tieLegs ?? ''} oninput={(e) => tieLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
-        <label>{t('design.batch.spacing')}<input type="number" min="0.05" max="0.5" step="0.025"
-               data-testid="batch-tie-spacing" value={tieSp ?? ''}
-               oninput={(e) => tieSp = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.spacingShort')}<QuantityInput quantity="length" nullable min={0.05} max={0.5}
+               wrap="qi-fill" testid="batch-tie-spacing" bind:value={tieSp} /></label>
       </fieldset>
     {/if}
   </div>
@@ -325,10 +323,12 @@
   fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 4px 7px 6px; margin: 0; }
   legend { font-size: 0.66rem; color: var(--st-info); padding: 0 4px; }
   label { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--st-text-2); margin: 2px 0; }
-  input[type="number"], input[type="text"], select {
+  /* The spacing fields are QuantityInput's: its input and wrapper take the same look. */
+  label :global(.qi-fill) { flex: 1; min-width: 0; }
+  input[type="number"], input[type="text"], select, label :global(.qi-fill input) {
     flex: 1; min-width: 0; padding: 1px 4px; background: var(--st-surface);
     border: 1px solid var(--st-hair-strong); border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
-  input:focus-visible, select:focus-visible, button:focus-visible {
+  input:focus-visible, select:focus-visible, button:focus-visible, label :global(.qi-fill input:focus-visible) {
     outline: 2px solid var(--st-value); outline-offset: 1px; }
   .protect { display: flex; gap: 6px; align-items: center; font-size: 0.7rem;
     padding: 4px 7px; background: rgba(255,204,102,0.08); border: 1px solid var(--st-hair-strong); border-radius: 4px; }

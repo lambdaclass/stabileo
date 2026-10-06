@@ -9,13 +9,26 @@
   import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
   import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import { mergeNodesInto } from '../../lib/model/edit/cleanup';
+  import { toDisplay, fromDisplay } from '../../lib/utils/units';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
+  /*
+   * The cells hold text in the display units (`uiStore.unitSystem`): what is typed, pasted or
+   * shown is converted at the edge, and the model keeps metres. A row keeps its text until it is
+   * committed, so an unsaved row can be typed field by field.
+   */
   interface NodeRow {
     id: number | null;  // null = unsaved new row
     x: string;
     y: string;
     z: string;
+    name: string;
   }
+  /** A coordinate as the cell shows it. */
+  const shown = (m: number) => String(+toDisplay(m, 'length', uiStore.unitSystem).toPrecision(12));
+  /** A typed coordinate, in metres; null when it does not read. */
+  const metres = (s: string): number | null => { const v = parseDecimal(s); return v === null ? null : fromDisplay(v, 'length', uiStore.unitSystem); };
 
   let rows = $state<NodeRow[]>([]);
   let pasteError = $state<string | null>(null);
@@ -31,25 +44,26 @@
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
     const unsavedRows = rows.filter(r => r.id === null);
-    const signature = storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}`).join('|');
+    const signature = uiStore.unitSystem + '#' + storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}:${n.name ?? ''}`).join('|');
     if (signature !== synced) {
       synced = signature;
       rows = [
         ...storeNodes.map(n => ({
           id: n.id,
-          x: String(n.x),
-          y: String(n.y),
-          z: String(n.z ?? 0),
+          x: shown(n.x),
+          y: shown(n.y),
+          z: shown(n.z ?? 0),
+          name: n.name ?? '',
         })),
         ...unsavedRows,
       ];
     }
   });
 
-  const parseNumber = (s: string): number | null => parseDecimal(s);
+  const parseNumber = metres;
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, x: '', y: '', z: '' }];
+    rows = [...rows, { id: null, x: '', y: '', z: '', name: '' }];
   }
 
   function commitRow(idx: number) {
@@ -65,10 +79,13 @@
       // place looks joined and analyses as a cut.
       const realId = modelStore.addNodeWelded(x, y, z);
       rows[idx] = { ...rows[idx], id: realId };
+      if (row.name.trim()) modelStore.renameNode(realId, row.name);
     } else {
-      // Only a real change is written: leaving a cell untouched is not an edit.
+      // Only a real change is written: leaving a cell untouched is not an edit. Compared as the
+      // cells show it, so a value that only went through the unit conversion is not a move.
       const id = row.id;
       const n = modelStore.nodes.get(id);
+      if (n && row.x === shown(n.x) && row.y === shown(n.y) && row.z === shown(n.z ?? 0)) return;
       if (n && n.x === x && n.y === y && (n.z ?? 0) === z) return;
       // `updateNode` pushes no undo of its own — its callers are expected to — so without the
       // batch this edit could not be undone. Moved onto another node, it becomes that node: left
@@ -160,6 +177,13 @@
     }
   }
 
+  /** A double click on a row frames that node in the model (the Alt+Z of the selection); not on a cell being edited. */
+  function handleRowDblClick(idx: number, e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('input, select, button, textarea')) return;
+    handleRowClick(idx);
+    if (rows[idx]?.id !== null) window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
+  }
+
   // Listen for node selection from viewport → highlight row
   $effect(() => {
     if (uiStore.selectedNodes.size === 1) {
@@ -184,19 +208,17 @@
 
   const nodeCount = $derived(rows.filter(r => r.id !== null).length);
 
-  // ── Write a node: its three coordinates, Enter, the next one ──
-  let wX = $state(''), wY = $state(''), wZ = $state('');
+  // ── Write a node: its three coordinates (empty is 0), Enter, the next one ──
+  let wX = $state<number | null>(null), wY = $state<number | null>(null), wZ = $state<number | null>(null);
   let wError = $state<string | null>(null);
   function writeNode() {
-    const v = [wX, wY, wZ].map((s) => (s.trim() === '' ? 0 : parseDecimal(s) ?? NaN));
-    if (v.some((n) => !Number.isFinite(n))) { wError = t('pro.writeNumbers'); return; }
     wError = null;
     // Welded, as the table's rows and the paste are: the coordinates of an existing node
     // select it rather than stacking a twin that looks joined and analyses as a cut.
-    const id = modelStore.addNodeWelded(v[0]!, v[1]!, v[2]!);
+    const id = modelStore.addNodeWelded(wX ?? 0, wY ?? 0, wZ ?? 0);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
-    wX = ''; wY = ''; wZ = '';
+    wX = null; wY = null; wZ = null;
   }
 </script>
 
@@ -219,9 +241,9 @@
 
   {#if drawState.writing === 'node'}
     <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneNode')}`} submitLabel={`${t('pro.add')} ${t('pro.oneNode')}`} onsubmit={writeNode} error={wError} testid="write-node-card">
-      <label>X <input class="wc-num" inputmode="decimal" bind:value={wX} placeholder="0" data-testid="write-node-x" /> m</label>
-      <label>Y <input class="wc-num" inputmode="decimal" bind:value={wY} placeholder="0" data-testid="write-node-y" /> m</label>
-      <label>Z <input class="wc-num" inputmode="decimal" bind:value={wZ} placeholder="0" data-testid="write-node-z" /> m</label>
+      <label>X <QuantityInput nullable cls="wc-num" bind:value={wX} quantity="length" placeholder="0" testid="write-node-x" /></label>
+      <label>Y <QuantityInput nullable cls="wc-num" bind:value={wY} quantity="length" placeholder="0" testid="write-node-y" /></label>
+      <label>Z <QuantityInput nullable cls="wc-num" bind:value={wZ} quantity="length" placeholder="0" testid="write-node-z" /></label>
     </WriteCard>
   {/if}
 
@@ -240,9 +262,10 @@
       <thead>
         <tr>
           <th class="col-id">ID</th>
-          <th class="col-coord">X (m)</th>
-          <th class="col-coord">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
-          <th class="col-coord">Z (m)</th>
+          <th class="col-name">{t('pro.thName')}</th>
+          <th class="col-coord">X ({unitQ('length')})</th>
+          <th class="col-coord">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</th>
+          <th class="col-coord">Z ({unitQ('length')})</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -253,8 +276,20 @@
             class:selected={selectedRowIdx === idx}
             class:unsaved={row.id === null}
             onclick={() => handleRowClick(idx)}
+            ondblclick={(e) => handleRowDblClick(idx, e)}
           >
             <td class="col-id">{row.id ?? '—'}</td>
+            <td class="col-name">
+              <input
+                type="text"
+                data-col="name"
+                bind:value={row.name}
+                placeholder={t('pro.namePlaceholder')}
+                onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+                onblur={() => { if (row.id !== null) modelStore.renameNode(row.id, row.name); }}
+                data-testid="node-name-{row.id ?? 'new'}"
+              />
+            </td>
             <td class="col-coord">
               <input
                 type="text"
@@ -292,7 +327,7 @@
         {/each}
         {#if rows.length === 0}
           <tr>
-            <td colspan="5" class="pro-empty">{t('pro.emptyNodes')}</td>
+            <td colspan="6" class="pro-empty">{t('pro.emptyNodes')}</td>
           </tr>
         {/if}
       </tbody>
@@ -442,7 +477,7 @@
     width: auto;
   }
 
-  .col-coord input {
+  .col-coord input, .col-name input {
     width: 100%;
     padding: 4px 6px;
     background: transparent;
@@ -453,7 +488,9 @@
     font-family: monospace;
   }
 
-  .col-coord input:focus {
+  .col-name { width: 22%; }
+  .col-name input { font-family: inherit; }
+  .col-coord input:focus, .col-name input:focus {
     background: var(--st-surface-3);
     border-color: var(--st-surface-3);
     outline: none;

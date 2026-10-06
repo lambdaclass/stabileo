@@ -251,6 +251,16 @@
     uiStore.setSelection(new Set(), next, true); // manual row click
   }
 
+  /** A double click on a row frames that member in the model (the Alt+Z of the selection); not on a cell being edited. */
+  function handleRowDblClick(idx: number, e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('input, select, button, textarea')) return;
+    const id = rows[idx]?.id;
+    if (id === null || id === undefined) return;
+    // The member double-clicked is selected, also when the clicks before it took it out of a set.
+    if (!uiStore.selectedElements.has(id)) { uiStore.selectMode = 'elements'; uiStore.setSelection(new Set(), new Set([id]), true); }
+    window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
+  }
+
   // Available materials and sections
   const materials = $derived([...modelStore.materials.values()]);
   const sections = $derived([...modelStore.sections.values()]);
@@ -274,12 +284,16 @@
 </script>
 
 <div class="pro-elems">
+  <!-- What the selected members are told beyond geometry, section and material is edited in
+       one place, Specifications › Members; this opens it on them. Its place is kept while it is
+       hidden: appearing on the first click of a double click, it moved the table under the
+       pointer and the second click landed on the row above. -->
   {#if selectedIds.length === 1}
-    <!-- What the selected members are told beyond geometry, section and material is edited in
-         one place, Specifications › Members; this opens it on them. -->
     <button class="pro-elems-spec" onclick={() => { uiStore.specSection = 'members'; uiStore.proActiveTab = 'specifications'; }} data-testid="elems-open-spec">
       {t('spec.openForSelection').replace('{n}', String(uiStore.selectedElements.size))}
     </button>
+  {:else}
+    <button class="pro-elems-spec pro-elems-spec-slot" tabindex="-1" aria-hidden="true" disabled>&nbsp;</button>
   {/if}
   <div class="pro-elems-header">
     <span class="pro-elems-count">{t('pro.nElements').replace('{n}', String(elemCount))}</span>
@@ -394,6 +408,7 @@
       <thead>
         <tr>
           <th class="col-id">ID</th>
+          <th class="col-name">{t('pro.thName')}</th>
           <th class="col-node">{t('pro.thNodeI')}</th>
           <th class="col-node">{t('pro.thNodeJ')}</th>
           <th class="col-mat">{t('pro.thMaterial')}</th>
@@ -411,8 +426,18 @@
             data-elem={row.id ?? ''}
             onmousedown={(e) => { if ((e.shiftKey || e.metaKey || e.ctrlKey) && !(e.target instanceof HTMLInputElement)) e.preventDefault(); }}
             onclick={(e) => handleRowClick(idx, e)}
+            ondblclick={(e) => handleRowDblClick(idx, e)}
           >
             <td class="col-id">{row.id ?? '—'}</td>
+            <td class="col-name">
+              {#if row.id !== null}
+                {@const id = row.id}
+                <!-- Kept on the model, edited here; one undo step that leaves the results standing. -->
+                <input type="text" data-col="name" value={modelStore.elements.get(id)?.name ?? ''} placeholder={t('pro.namePlaceholder')}
+                  onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+                  onchange={(e) => modelStore.renameElement(id, e.currentTarget.value)} data-testid="elem-name-{id}" />
+              {/if}
+            </td>
             <td class="col-node">
               <input type="text" data-col="ni" bind:value={row.nodeI}
                 onkeydown={(e) => handleKeydown(e, idx)}
@@ -460,7 +485,7 @@
         {/each}
         {#if rows.length === 0}
           <tr>
-            <td colspan="7" class="pro-empty">{t('pro.emptyElements')}</td>
+            <td colspan="8" class="pro-empty">{t('pro.emptyElements')}</td>
           </tr>
         {/if}
       </tbody>
@@ -609,7 +634,8 @@
   }
 
   .col-node { width: 50px; }
-  .col-node input {
+  .col-name { width: 18%; }
+  .col-node input, .col-name input {
     width: 100%;
     padding: 4px 5px;
     background: transparent;
@@ -619,7 +645,8 @@
     font-size: 0.78rem;
     font-family: monospace;
   }
-  .col-node input:focus {
+  .col-name input { font-family: inherit; }
+  .col-node input:focus, .col-name input:focus {
     background: var(--st-surface-3);
     border-color: var(--st-surface-3);
     outline: none;
@@ -669,4 +696,5 @@
     font-style: italic;
     padding: 20px 10px !important;
   }
+  .pro-elems-spec-slot { visibility: hidden; pointer-events: none; }
 </style>

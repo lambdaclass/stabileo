@@ -11,6 +11,8 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
   import { toCsv } from '../../lib/engine/result-tables';
@@ -167,15 +169,15 @@
         {#each presets as p, i (i)}<option value={i}>{p.name}</option>{/each}
       </select>
     </label>
-    <label>{t('moving.step')} (m) <input type="number" min="0.05" step="0.05" bind:value={step} class="ml-num" /></label>
+    <label>{t('moving.step')} <QuantityInput bind:value={step} quantity="length" min={0.05} cls="ml-num" /></label>
   </div>
   <table class="ml-axles">
-    <thead><tr><th>{t('moving.offset')} (m)</th><th>{t('moving.weight')} (kN)</th><th></th></tr></thead>
+    <thead><tr><th>{t('moving.offset')} ({unitQ('length')})</th><th>{t('moving.weight')} ({unitQ('force')})</th><th></th></tr></thead>
     <tbody>
       {#each axles as a, i (i)}
         <tr>
-          <td><input type="number" step="0.1" bind:value={a.offset} class="ml-num" /></td>
-          <td><input type="number" step="1" bind:value={a.weight} class="ml-num" /></td>
+          <td><QuantityInput bind:value={a.offset} quantity="length" showUnit={false} cls="ml-num" /></td>
+          <td><QuantityInput bind:value={a.weight} quantity="force" showUnit={false} cls="ml-num" /></td>
           <td><button class="ml-x" onclick={() => (axles = axles.filter((_, j) => j !== i))} aria-label={t('moving.removeAxle')}>×</button></td>
         </tr>
       {/each}
@@ -185,15 +187,15 @@
   <div class="ml-row">
     <label>{t('moving.vehicleName')} <input type="text" bind:value={name} class="ml-name" data-testid="moving-name" /></label>
     <label>{t('moving.dynamicFactor')} <input type="number" min="0.5" step="0.01" bind:value={dynamicFactor} class="ml-num" data-testid="moving-dyn" /></label>
-    <label>{t('moving.gauge')} (m) <input type="number" min="0" step="0.05" value={gauge ?? ''} onchange={(e) => { const v = Number(e.currentTarget.value); gauge = v > 0 ? v : null; }} class="ml-num" data-testid="moving-gauge" /></label>
+    <label>{t('moving.gauge')} <QuantityInput value={gauge} nullable quantity="length" min={0} onchange={(v) => (gauge = v !== null && v > 0 ? v : null)} cls="ml-num" testid="moving-gauge" /></label>
   </div>
   <div class="ml-row">
     <label><input type="checkbox" checked={!!variable} onchange={(e) => (variable = e.currentTarget.checked ? { axle: Math.min(axles.length - 1, 2) || 1, min: 4.3, max: 9 } : null)} data-testid="moving-var" /> {t('moving.variable')}</label>
     {#if variable}
       <label>{t('moving.beforeAxle')} <input type="number" min="1" max={axles.length - 1} step="1" bind:value={variable.axle} class="ml-num" /></label>
-      <label>min <input type="number" min="0" step="0.1" bind:value={variable.min} class="ml-num" /></label>
-      <label>max <input type="number" min="0" step="0.1" bind:value={variable.max} class="ml-num" /></label>
-      <label>{t('moving.spacingStep')} <input type="number" min="0.05" step="0.05" bind:value={spacingStep} class="ml-num" /></label>
+      <label>min <QuantityInput bind:value={variable.min} quantity="length" min={0} cls="ml-num" /></label>
+      <label>max <QuantityInput bind:value={variable.max} quantity="length" min={0} cls="ml-num" /></label>
+      <label>{t('moving.spacingStep')} <QuantityInput bind:value={spacingStep} quantity="length" min={0.05} cls="ml-num" /></label>
     {/if}
   </div>
   <div class="ml-row">
@@ -215,12 +217,12 @@
     {#if running}<button class="pk-btn" onclick={() => controller?.abort()}>{t('moving.cancel')}</button>{/if}
   </div>
   <div class="ml-row">
-    <label>{t('moving.caseStep')} (m) <input type="number" min="0.1" step="0.1" bind:value={caseStep} class="ml-num" data-testid="moving-case-step" /></label>
+    <label>{t('moving.caseStep')} <QuantityInput bind:value={caseStep} quantity="length" min={0.1} cls="ml-num" testid="moving-case-step" /></label>
     <button class="pk-btn" disabled={pathIds.length === 0} onclick={positionCases} data-testid="moving-cases">{t('moving.createCases')}</button>
   </div>
   <p class="ml-hint">{tp('moving.casesHint', { max: MAX_POSITION_CASES })}</p>
   <div class="ml-row">
-    <label>{t('moving.lane')} (kN/m) <input type="number" min="0" step="0.1" bind:value={laneQ} class="ml-num" /></label>
+    <label>{t('moving.lane')} <QuantityInput bind:value={laneQ} quantity="distributedLoad" min={0} cls="ml-num" testid="moving-lane-q" /></label>
     <button class="pk-btn" disabled={pathIds.length === 0 || !(laneQ > 0)} onclick={createLane} data-testid="moving-lane">{t('moving.laneCreate')}</button>
   </div>
 
@@ -261,7 +263,7 @@
   .ml { display: flex; flex-direction: column; gap: 6px; font-size: 0.66rem; color: var(--st-text-2); }
   .ml-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .ml-hint, .ml-path { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
-  .ml-num { width: 64px; }
+  .ml :global(.ml-num) { width: 64px; }
   .ml-name { width: 140px; }
   .ml-axles { border-collapse: collapse; align-self: flex-start; }
   .ml-axles th { font-weight: 500; color: var(--st-text-3); padding: 2px 6px; text-align: left; }

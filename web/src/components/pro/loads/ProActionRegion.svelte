@@ -5,7 +5,8 @@
    */
   import { modelStore } from '../../../lib/store';
   import { t } from '../../../lib/i18n';
-  import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import { unitQ } from '../../../lib/store/display-units.svelte';
+  import QuantityInput from './QuantityInput.svelte';
   import type { ActionRegion } from '../../../lib/model/loads/region-nodes';
 
   interface Props { region: ActionRegion; testid: string; onchange?: (r: ActionRegion) => void }
@@ -13,11 +14,9 @@
 
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
   const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'loadZone' && g.kind !== 'floorLoad'));
-  let box = $state({ x0: '', x1: '', y0: '', y1: '', z0: '', z1: '' });
-  const pair = (a: string, b: string): [number, number] | undefined => {
-    const x = parseDecimal(a), y = parseDecimal(b);
-    return x !== null && y !== null ? [x, y] : undefined;
-  };
+  /** SI; an empty field leaves its axis unbounded. */
+  let box = $state<Record<'x0' | 'x1' | 'y0' | 'y1' | 'z0' | 'z1', number | null>>({ x0: null, x1: null, y0: null, y1: null, z0: null, z1: null });
+  const pair = (x: number | null, y: number | null): [number, number] | undefined => (x !== null && y !== null ? [x, y] : undefined);
   function setBox() {
     const x = pair(box.x0, box.x1), y = pair(box.y0, box.y1), z = pair(box.z0, box.z1);
     region = { kind: 'box', ...(x ? { x } : {}), ...(y ? { y } : {}), ...(z ? { z } : {}) };
@@ -45,8 +44,9 @@
   {#if region.kind === 'box'}
     <span class="ar-box">
       {#each ['x', 'y', 'z'] as a (a)}
-        <span>{a.toUpperCase()} <input type="text" class="ar-num" bind:value={box[`${a}0` as 'x0']} onchange={setBox} /> … <input type="text" class="ar-num" bind:value={box[`${a}1` as 'x1']} onchange={setBox} /></span>
+        <span>{a.toUpperCase()} <QuantityInput bind:value={box[`${a}0` as 'x0']} nullable quantity="length" showUnit={false} cls="ar-num" onchange={setBox} /> … <QuantityInput bind:value={box[`${a}1` as 'x1']} nullable quantity="length" showUnit={false} cls="ar-num" onchange={setBox} /></span>
       {/each}
+      <span class="ar-unit">{unitQ('length')}</span>
     </span>
   {/if}
 </div>
@@ -55,5 +55,6 @@
   .ar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.7rem; color: var(--st-text-2); }
   .ar label { display: inline-flex; align-items: center; gap: 4px; }
   .ar-box { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; }
-  .ar-num { width: 48px; }
+  .ar-box :global(.ar-num) { width: 48px; }
+  .ar-unit { font-size: 0.66rem; color: var(--st-text-3); }
 </style>

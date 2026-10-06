@@ -7,6 +7,7 @@
   import { t, tp } from '../../../lib/i18n';
   import ProFoundationSprings from '../ProFoundationSprings.svelte';
   import SpecEmpty from './SpecEmpty.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
 
   /* ── Curvature, on a shell that already exists ─────────────────────
    *
@@ -134,10 +135,10 @@
       </select>
     </label>
     <div class="pk-row">
-      <span class="pk-label">{offFrame === 'local' ? 'x, y, n (m)' : 'X, Y, Z (m)'}</span>
-      <input class="sf-num" type="number" bind:value={offX} step="0.01" aria-label={offFrame === 'local' ? 'x' : 'X'} />
-      <input class="sf-num" type="number" bind:value={offY} step="0.01" aria-label={offFrame === 'local' ? 'y' : 'Y'} />
-      <input class="sf-num" type="number" bind:value={offZ} step="0.01" data-testid="shell-offset-z" aria-label={offFrame === 'local' ? 'n' : 'Z'} />
+      <span class="pk-label">{offFrame === 'local' ? 'x, y, n' : 'X, Y, Z'}</span>
+      <QuantityInput cls="sf-num" bind:value={offX} quantity="length" showUnit={false} ariaLabel={offFrame === 'local' ? 'x' : 'X'} />
+      <QuantityInput cls="sf-num" bind:value={offY} quantity="length" showUnit={false} ariaLabel={offFrame === 'local' ? 'y' : 'Y'} />
+      <QuantityInput cls="sf-num" bind:value={offZ} quantity="length" testid="shell-offset-z" ariaLabel={offFrame === 'local' ? 'n' : 'Z'} />
     </div>
     {#if offFrame === 'local'}
       <div class="pk-row">
@@ -162,5 +163,5 @@
 
 <style>
   .sf-title { margin: 0; font-weight: 600; color: var(--st-text); font-size: 0.74rem; }
-  .sf-num { width: 64px; }
+  .pk-row :global(input.sf-num) { width: 64px; }
 </style>

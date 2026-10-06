@@ -149,7 +149,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     await page.getByTestId('wl-inclined').uncheck();
 
     await page.getByTestId('wl-kind-displacement').click();
-    await page.getByTestId('wl-dz').fill('-10');
+    await page.getByTestId('wl-dz').fill('-0,01');
     await page.evaluate(() => window.__stabileoActions.selectNodes([1]));
     await target(page, 'selection');
     added = await addLoad(page);
@@ -232,7 +232,7 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     // Prestress.
     await page.getByTestId('wl-kind-prestress').click();
     await page.getByTestId('wl-ps-force').fill('500');
-    await page.getByTestId('wl-ps-em').fill('-100');
+    await page.getByTestId('wl-ps-em').fill('-0,1');
     added = await addLoad(page);
     expect(added).toMatchObject([{ type: 'prestress3d', data: { elementId: m1, force: 500, eM: -0.1 } }]);
     await target(page, 'ids', `${m2}-${m3}`);

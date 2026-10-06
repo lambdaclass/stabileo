@@ -3357,6 +3357,7 @@ const hi: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'भुजाएँ',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'प्रति सतह',
   'design.batch.leaveUnchanged': 'अपरिवर्तित छोड़ें',
 

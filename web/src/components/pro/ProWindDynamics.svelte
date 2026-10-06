@@ -7,6 +7,7 @@
    * then G or G_f with its clause. The steps open in the order of the commentary's worked example.
    */
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
   import type { WindDynamics } from '../../lib/engine/loads/wind-dynamics';
   import type { GustResult } from '../../lib/codes/cirsoc102/gust';
 
@@ -31,9 +32,9 @@
     const v = Number(s.replace(',', '.'));
     dynamics = { ...dynamics, n1: { ...(dynamics.n1 ?? {}), [axis]: Number.isFinite(v) && v > 0 ? v : undefined } };
   }
-  function setER(axis: 'x' | 'y', s: string) {
-    const v = Number(s.replace(',', '.'));
-    dynamics = { ...dynamics, eR: { ...(dynamics.eR ?? {}), [axis]: Number.isFinite(v) ? v : 0 } };
+  /** SI; an empty field is no eccentricity. */
+  function setER(axis: 'x' | 'y', v: number | null) {
+    dynamics = { ...dynamics, eR: { ...(dynamics.eR ?? {}), [axis]: v ?? 0 } };
   }
   const anyFlexible = $derived(Object.values(gust ?? {}).some((g) => g?.kind === 'flexible'));
   const r3 = (v: number | undefined) => (v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(3));
@@ -79,7 +80,7 @@
   {#if anyFlexible}
     <div class="wd-row">
       <span>{t('autoLoad.windDyn.eR')}</span>
-      {#each ['x', 'y'] as a (a)}<label>{a.toUpperCase()} <input type="text" class="wd-num" value={dynamics.eR?.[a as 'x'] ?? 0} onchange={(e) => setER(a as 'x', e.currentTarget.value)} data-testid="wind-er-{a}" /> m</label>{/each}
+      {#each ['x', 'y'] as a (a)}<label>{a.toUpperCase()} <QuantityInput value={dynamics.eR?.[a as 'x'] ?? 0} nullable quantity="length" cls="wd-num" onchange={(v) => setER(a as 'x', v)} testid="wind-er-{a}" /></label>{/each}
     </div>
   {/if}
 
@@ -133,7 +134,7 @@
   .wd-opt { display: inline-flex; align-items: center; gap: 4px; }
   .wd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 0.7rem; color: var(--st-text-2); }
   .wd-row label { display: inline-flex; align-items: center; gap: 4px; }
-  .wd-num { width: 58px; font-family: var(--st-mono); }
+  .wd :global(.wd-num) { width: 58px; font-family: var(--st-mono); }
   .wd-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
   .wd-read { margin: 2px 0; padding-left: 16px; font-size: 0.68rem; color: var(--st-text); }
   .wd-read li { margin-bottom: 3px; }

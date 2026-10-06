@@ -14,7 +14,7 @@ import { colourScaleSource } from '../store/result-view';
 import { createDeformedLines, createDeformedShells, type ElementEI } from '../three/deformed-shape-3d';
 import { eiOf } from '../engine/member-deflection';
 import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
-import { viewState, memberLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
+import { viewState, memberLabelText, nodeLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
@@ -1115,7 +1115,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     for (const [id, node] of visibleNodes()) {
       if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
-      const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
+      const sprite = createTextSpriteCached(nodeLabelText(viewState.memberLabel, node), '#ffffff', 28, true);
       sprite.position.set(
         pos.x + spriteScale * 0.3,
         pos.y + spriteScale * 0.5,

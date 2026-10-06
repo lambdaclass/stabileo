@@ -629,15 +629,18 @@ export function generateReportHtml(data: ReportData): string {
 
   if (screenshot) {
     html.push(`<h2>${escHtml(tr('report.view3d'))}</h2>`);
-    html.push(`<img class="screenshot" src="${screenshot}" alt="${escHtml(tr('report.viewAlt'))}" />`);
+    // The model with its node and member numbers (`report-export.ts` turns them on for the picture), as Figure 1.
+    html.push(`<figure style="margin:12px 0;page-break-inside:avoid"><img class="screenshot" src="${screenshot}" alt="${escHtml(tr('report.viewAlt'))}" /><figcaption style="font-size:11px;color:#444">${escHtml(tr('report.figure'))} 1. ${escHtml(tr('report.modelFigureCaption'))}</figcaption></figure>`);
   }
 
   // Nodes table
   html.push(`<h2>${subNo(1)} ${escHtml(tr('report.nodes'))} (${nodes.length})</h2>`);
   {
-    html.push(`<table><thead><tr><th>ID</th><th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
+    // The name column only when some node has one.
+    const named = nodes.some((n) => n.name);
+    html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
     for (const n of nodes) {
-      html.push(`<tr><td>${n.id}</td><td class="num">${fmtNum(n.x, 3)}</td><td class="num">${fmtNum(n.y, 3)}</td><td class="num">${fmtNum(n.z ?? 0, 3)}</td></tr>`);
+      html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(n.x, 3)}</td><td class="num">${fmtNum(n.y, 3)}</td><td class="num">${fmtNum(n.z ?? 0, 3)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }
@@ -663,11 +666,12 @@ export function generateReportHtml(data: ReportData): string {
   // Elements table
   html.push(`<h2>${subNo(1)} ${escHtml(tr('report.elements'))} (${elements.length})</h2>`);
   {
-    html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
+    const named = elements.some((e) => e.name);
+    html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
     for (const e of elements) {
       const matName = materials.find(m => m.id === e.materialId)?.name ?? String(e.materialId);
       const secName = memberSectionLabel(sections, e as never);
-      html.push(`<tr><td>${e.id}</td><td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${escHtml(matName)}</td><td>${escHtml(secName)}</td></tr>`);
+      html.push(`<tr><td>${e.id}</td>${named ? `<td>${escHtml(e.name ?? '')}</td>` : ''}<td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${escHtml(matName)}</td><td>${escHtml(secName)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }
@@ -1340,7 +1344,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // ─── Figures ────────────────────────────────────────────
-  if (showSection('figures') && cfg?.figures?.length) html.push(...figuresSectionHtml(cfg.figures, tr, tr('report.figures')));
+  if (showSection('figures') && cfg?.figures?.length) html.push(...figuresSectionHtml(cfg.figures, tr, tr('report.figures'), screenshot && showSection('modelData') ? 2 : 1));
 
   // ─── Quantities ─────────────────────────────────────────
   if (showSection('quantities') && quantities) {

@@ -9,8 +9,11 @@ import { suggestLayerMappings, extractArchPlan } from '../classify';
 import type { LayerRole } from '../types';
 
 const V2 = 'src/lib/cad/__tests__/fixtures/V2-Architecture.dxf';
+const HAS_V2 = existsSync(V2);
+// Said out loud: a skipped suite is otherwise a line in a summary nobody reads.
+if (!HAS_V2) console.warn(`[cad-rooms-uploaded] Skipping the room-label cases: ${V2} not present (a client plan, kept out of the repo).`);
 
-describe('room-label detection on uploaded plans', () => {
+describe(`room-label detection on uploaded plans${HAS_V2 ? '' : ' (SKIPPED: client plan not in fixtures/)'}`, () => {
   it.runIf(existsSync(V2))('V2 architecture: detects residential room categories where labelled', () => {
     const doc = parseCadDxf(readFileSync(V2, 'utf8'), 'V2-Architecture.dxf');
     // Map the architectural room-text layer to 'text' so room labels are read

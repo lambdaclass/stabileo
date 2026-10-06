@@ -3349,6 +3349,7 @@ const ru: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'ветви',
   'design.batch.spacing': 's (м)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'на грань',
   'design.batch.leaveUnchanged': 'оставить без изменений',
 

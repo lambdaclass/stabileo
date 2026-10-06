@@ -7,8 +7,8 @@
  */
 
 /** What a member label shows. */
-export type MemberLabel = 'id' | 'section' | 'material';
-export const MEMBER_LABELS: readonly MemberLabel[] = ['id', 'section', 'material'];
+export type MemberLabel = 'id' | 'name' | 'section' | 'material';
+export const MEMBER_LABELS: readonly MemberLabel[] = ['id', 'name', 'section', 'material'];
 
 import { modelStore } from './model.svelte';
 
@@ -52,13 +52,19 @@ export const viewState = {
 /** The text of a member's label. */
 export function memberLabelText(
   mode: MemberLabel,
-  elem: { id: number; sectionId: number; materialId: number },
+  elem: { id: number; sectionId: number; materialId: number; name?: string },
   sections: ReadonlyMap<number, { name: string }>,
   materials: ReadonlyMap<number, { name: string }>,
 ): string {
+  if (mode === 'name') return elem.name || String(elem.id);
   if (mode === 'section') return sections.get(elem.sectionId)?.name ?? String(elem.id);
   if (mode === 'material') return materials.get(elem.materialId)?.name ?? String(elem.id);
   return String(elem.id);
+}
+
+/** What a node label shows: its name when labels read names and it has one, otherwise its number. */
+export function nodeLabelText(mode: MemberLabel, node: { id: number; name?: string }): string {
+  return mode === 'name' && node.name ? node.name : String(node.id);
 }
 
 /**

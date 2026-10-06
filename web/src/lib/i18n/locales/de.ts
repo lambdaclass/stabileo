@@ -3365,6 +3365,7 @@ const de: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'Schenkel',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'pro Seite',
   'design.batch.leaveUnchanged': 'unverändert lassen',
 

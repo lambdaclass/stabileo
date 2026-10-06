@@ -3357,6 +3357,7 @@ const tr: Translations = {
   'design.batch.diameter': 'Ø',
   'design.batch.legs': 'kol',
   'design.batch.spacing': 's (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': 'yüz başına',
   'design.batch.leaveUnchanged': 'değiştirme',
 

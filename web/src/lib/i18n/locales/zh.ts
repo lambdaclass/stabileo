@@ -3346,6 +3346,7 @@ const zh: Translations = {
   'design.batch.diameter': '直径',
   'design.batch.legs': '肢数',
   'design.batch.spacing': '间距 (m)',
+  'design.batch.spacingShort': 's',
   'design.batch.perFace': '每侧',
   'design.batch.leaveUnchanged': '保持不变',
 

@@ -65,6 +65,8 @@ export interface Node {
   x: number;
   y: number;
   z?: number;  // 3D coordinate (default 0 for 2D models)
+  /** A name of the user's ("A1", "cumbrera"), beside the number; absent when there is none. */
+  name?: string;
 }
 
 export interface Material {
@@ -497,6 +499,8 @@ export interface ProvidedReinforcement {
 
 export interface Element extends Element3DMetadata {
   id: number;
+  /** A name of the user's ("V101", "C3 PB"), beside the number; absent when there is none. */
+  name?: string;
   type: 'frame' | 'truss';
   nodeI: number;
   nodeJ: number;
@@ -1809,6 +1813,45 @@ function createModelStore() {
         if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
         m[k] = next;
       }
+      // Names of nodes and members travel on this channel too: the analysis reads neither.
+      const named = <T extends { name?: string }>(map: Map<number, T>, entries: ReadonlyArray<[number, { name?: string }]> | undefined): Map<number, T> | null => {
+        let out: Map<number, T> | null = null;
+        for (const [id, v] of entries ?? []) {
+          const cur = map.get(id);
+          if (!cur || (cur.name ?? '') === (v.name ?? '')) continue;
+          out ??= new Map(map);
+          const { name: _old, ...rest } = cur;
+          out.set(id, (v.name ? { ...rest, name: v.name } : rest) as T);
+        }
+        return out;
+      };
+      const nodes = named(model.nodes, s.nodes as never);
+      if (nodes) model.nodes = nodes;
+      const elements = named(model.elements, s.elements as never);
+      if (elements) model.elements = elements;
+    },
+
+    /**
+     * Name a node or a member, or take its name away (an empty one). One undo step on the views
+     * channel: a name changes nothing the analysis reads, so the results on hand stay.
+     */
+    renameNode(id: number, name: string): void {
+      const n = model.nodes.get(id);
+      const next = name.trim();
+      if (!n || (n.name ?? '') === next) return;
+      _pushUndoView?.();
+      const { name: _old, ...rest } = n;
+      model.nodes.set(id, next ? { ...rest, name: next } : rest);
+      model.nodes = new Map(model.nodes);
+    },
+    renameElement(id: number, name: string): void {
+      const e = model.elements.get(id);
+      const next = name.trim();
+      if (!e || (e.name ?? '') === next) return;
+      _pushUndoView?.();
+      const { name: _old, ...rest } = e;
+      model.elements.set(id, (next ? { ...rest, name: next } : rest) as Element);
+      model.elements = new Map(model.elements);
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
@@ -3592,7 +3635,7 @@ function createModelStore() {
       if (node) {
         modelVersion++;
         _onMutation?.();
-        model.nodes.set(id, { id: node.id, x, y, z: z !== undefined ? z : node.z });
+        model.nodes.set(id, { ...node, id: node.id, x, y, z: z !== undefined ? z : node.z });
         model.nodes = new Map(model.nodes);
         // Clamp distributed load a/b when element length changes
         for (const elem of model.elements.values()) {

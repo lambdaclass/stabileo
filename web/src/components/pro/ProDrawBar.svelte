@@ -16,6 +16,7 @@
   import { t, tp } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   const pick = $derived(uiStore.shellNodePick);
   const drawingPlate = $derived(pick.target === 'quad' && (pick.active || pick.picked.length > 0));
@@ -40,7 +41,6 @@
 
   const levelAxis = $derived(({ XY: 'Z', XZ: 'Y', YZ: 'X' } as const)[uiStore.workingPlane]);
   const materials = $derived([...modelStore.materials.values()]);
-  const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0;
 
   $effect(() => {
     if (uiStore.currentTool === 'support' || uiStore.currentTool === 'load') uiStore.currentTool = 'select';
@@ -67,7 +67,7 @@
           </select>
         </label>
         <label>{levelAxis} =
-          <input type="number" step="0.5" value={uiStore.nodeCreateZ} onchange={(e) => (uiStore.nodeCreateZ = num(e))} data-testid="draw-level" /> m
+          <QuantityInput value={uiStore.nodeCreateZ} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = v)} testid="draw-level" />
         </label>
       {:else if tool === 'element'}
         <NextMemberFields />
@@ -88,8 +88,8 @@
         <select value={drawState.plateMaterialId} onchange={(e) => (drawState.plateMaterialId = Number(e.currentTarget.value))} aria-label={t('pro.thMaterial')}>
           {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
         </select>
-        <label>{t('pro.thickness')}
-          <input type="number" step="any" min="0.001" value={drawState.plateThickness} onchange={(e) => { const v = num(e); if (v > 0) drawState.plateThickness = v; else e.currentTarget.value = String(drawState.plateThickness); }} />
+        <label>{t('pro.thicknessLabel')}
+          <QuantityInput min={0.001} value={drawState.plateThickness} quantity="length" cls="db-num" onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} />
         </label>
       {/if}
     </div>
@@ -118,15 +118,15 @@
   .db-sep { width: 1px; align-self: stretch; background: var(--st-hair); }
   .db-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
   .db-opts label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  .db-opts input[type='number'], .db-opts select {
+  .db-opts :global(input.db-num), .db-opts select {
     padding: 1px 5px;
     background: var(--st-ink); color: var(--st-text);
     border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
     font: inherit; font-family: var(--st-font-mono, monospace);
   }
-  .db-opts input[type='number'] { width: 58px; }
+  .db-opts :global(input.db-num) { width: 58px; }
   .db-opts select { max-width: 150px; font-family: inherit; }
-  .db-opts input:focus, .db-opts select:focus { outline: none; border-color: var(--st-accent); }
+  .db-opts :global(input.db-num:focus), .db-opts select:focus { outline: none; border-color: var(--st-accent); }
   .db-unit { color: var(--st-text-3); }
   .db-check { cursor: pointer; }
   .db-seg { display: inline-flex; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }

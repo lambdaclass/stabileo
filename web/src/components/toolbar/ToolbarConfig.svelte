@@ -294,6 +294,7 @@
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">{t('config.unitSI')}</option>
+            <option value="SImm">{t('config.unitSImm')}</option>
             <option value="MKS">{t('config.unitMKS')}</option>
             <option value="Imperial">{t('config.unitImperial')}</option>
           </select>

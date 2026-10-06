@@ -69,7 +69,7 @@ test.describe('the three generators', () => {
 
       // Move the first numeric parameter and the preview has to follow. Which parameter it is
       // differs per kind, so the control is taken positionally rather than by name.
-      const first = page.locator('[data-testid="pro-generators-panel"] input[type="number"]').first();
+      const first = page.locator('[data-testid="pro-generators-panel"] :is(input[type="number"], input[inputmode="decimal"])').first();
       const value = Number(await first.inputValue());
       await first.fill(String(value + 1));
       await expect
@@ -87,7 +87,7 @@ test.describe('the three generators', () => {
     await expect(generate).toBeEnabled();
 
     // Span zero is the refusal every generator shares.
-    const span = page.locator('[data-testid="pro-generators-panel"] input[type="number"]').first();
+    const span = page.locator('[data-testid="pro-generators-panel"] :is(input[type="number"], input[inputmode="decimal"])').first();
     const original = await span.inputValue();
     await span.fill('0');
 

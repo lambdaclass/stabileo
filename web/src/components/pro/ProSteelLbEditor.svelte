@@ -13,6 +13,8 @@
   import { t, tp } from '../../lib/i18n';
   import { memberLengths } from '../../lib/engine/steel/unbraced-length';
   import type { Element } from '../../lib/store/model.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   /** `bare`: inside a card that already names it (Specifications › Members). */
   let { steelIds, bare = false }: { steelIds: ReadonlySet<number>; bare?: boolean } = $props();
@@ -22,15 +24,15 @@
   const selected = $derived([...uiStore.selectedElements].filter((id) => steelIds.has(id)));
   const lengths = $derived(memberLengths(modelStore.model));
   /** What the selection has now, one value or "mixed". */
-  function now(read: (id: number) => number | undefined, unit: string, digits: number): string {
-    const values = [...new Set(selected.map((id) => read(id)?.toFixed(digits) ?? '—'))];
+  function now(read: (id: number) => number | undefined, show: (v: number) => string): string {
+    const values = [...new Set(selected.map((id) => { const v = read(id); return v === undefined ? '—' : show(v); }))];
     if (values.length === 0) return '';
-    return values.length === 1 ? (values[0] === '—' ? '—' : `${values[0]}${unit}`) : t('steel.lb.mixed');
+    return values.length === 1 ? values[0]! : t('steel.lb.mixed');
   }
-  const lbNow = $derived(now((id) => lengths.get(id)?.Lb, ' m', 3));
-  const kNow = $derived(`${now((id) => modelStore.elements.get(id)?.kStrong ?? 1, '', 2)} / ${now((id) => modelStore.elements.get(id)?.kWeak ?? 1, '', 2)}`);
+  const lbNow = $derived(now((id) => lengths.get(id)?.Lb, (v) => `${fmtQ(v, 'length')} ${unitQ('length')}`));
+  const kNow = $derived(`${now((id) => modelStore.elements.get(id)?.kStrong ?? 1, (v) => v.toFixed(2))} / ${now((id) => modelStore.elements.get(id)?.kWeak ?? 1, (v) => v.toFixed(2))}`);
 
-  // Number inputs: bind:value gives a number, or null when empty.
+  // Number inputs: bind:value gives a number, or null when empty. Lb in SI, typed in the display units.
   let lb = $state<number | null>(null);
   let kStrong = $state<number | null>(null);
   let kWeak = $state<number | null>(null);
@@ -68,8 +70,11 @@
   {:else}
     <p class="lb-now" data-testid="steel-lb-now">{tp('steel.lb.selected', { n: selected.length, lb: lbNow })}</p>
     <div class="pk-row">
-      <input class="pk-grow" type="number" min="0" step="0.1" placeholder="Lb (m)" bind:value={lb}
-        onkeydown={(e) => { if (e.key === 'Enter') declareLb(); }} data-testid="steel-lb-input" />
+      <!-- Enter declares. The field is left first, so its own commit does not bring the value back. -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <span class="lb-field" onkeydown={(e) => { if (e.key === 'Enter') { (e.target as HTMLElement).blur(); declareLb(); } }}>
+        <QuantityInput nullable min={0} bind:value={lb} quantity="length" placeholder="Lb" cls="lb-in" wrap="lb-qi" testid="steel-lb-input" />
+      </span>
       <button class="pk-btn pk-btn-primary" onclick={declareLb} disabled={positive(lb) === undefined} data-testid="steel-lb-declare">{t('steel.lb.declare')}</button>
       <button class="pk-btn" onclick={() => write({ unbracedLength: undefined })}
         disabled={!anyDeclared('unbracedLength')} data-testid="steel-lb-clear">{t('steel.lb.clear')}</button>
@@ -90,5 +95,8 @@
 <style>
   .lb { margin-top: 6px; }
   .lb-bare { display: flex; flex-direction: column; gap: 0.45rem; }
+  .lb-field { display: flex; flex: 1; min-width: 0; }
+  .lb-field :global(.lb-qi) { flex: 1; min-width: 0; }
+  .lb-field :global(input.lb-in) { flex: 1; min-width: 0; width: 100%; }
   .lb-now { margin: 0 0 4px; font-size: 0.64rem; color: var(--st-text-2); }
 </style>

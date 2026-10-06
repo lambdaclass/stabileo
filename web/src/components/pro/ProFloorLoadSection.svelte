@@ -12,7 +12,6 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { sortedLevels } from '../../lib/model/grid';
-  import { parseDecimal } from '../../lib/utils/numeric-input';
   import { expandDefinition, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
@@ -38,7 +37,8 @@
   let spanAxis = $state<'x' | 'y'>('x');
   let perPlanArea = $state(false);
   let name = $state('');
-  let range = $state({ x0: '', x1: '', y0: '', y1: '', z0: '', z1: '' });
+  /** SI; an empty field leaves its axis unbounded. */
+  let range = $state<Record<'x0' | 'x1' | 'y0' | 'y1' | 'z0' | 'z1', number | null>>({ x0: null, x1: null, y0: null, y1: null, z0: null, z1: null });
   let applied = $state<string | null>(null);
 
   const targets = $derived<Array<{ key: string; label: string }>>([
@@ -54,10 +54,7 @@
     if (caseId === null || !cases.some((c) => c.id === caseId)) caseId = (cases.find((c) => c.type === 'L') ?? cases[0])?.id ?? null;
   });
 
-  const pair = (a: string, b: string): [number, number] | undefined => {
-    const x = parseDecimal(a), y = parseDecimal(b);
-    return x !== null && y !== null ? [x, y] : undefined;
-  };
+  const pair = (x: number | null, y: number | null): [number, number] | undefined => (x !== null && y !== null ? [x, y] : undefined);
   const target = $derived.by((): FloorTarget => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
@@ -129,7 +126,7 @@
       <span class="fl-range-label">{t('floorLoad.rangeBox')}</span>
       <span class="fl-range" data-testid="fl-range">
         {#each ['x', 'y', 'z'] as a (a)}
-          <span>{a.toUpperCase()} <input type="text" class="fl-num" bind:value={range[`${a}0` as 'x0']} data-testid="fl-range-{a}0" /> … <input type="text" class="fl-num" bind:value={range[`${a}1` as 'x1']} data-testid="fl-range-{a}1" /> m</span>
+          <span>{a.toUpperCase()} <QuantityInput bind:value={range[`${a}0` as 'x0']} nullable quantity="length" showUnit={false} cls="fl-num" testid="fl-range-{a}0" /> … <QuantityInput bind:value={range[`${a}1` as 'x1']} nullable quantity="length" cls="fl-num" testid="fl-range-{a}1" /></span>
         {/each}
       </span>
     {/if}
@@ -225,7 +222,7 @@
   .fl-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; }
   .fl-range { display: flex; flex-direction: column; gap: 2px; }
   .fl-range-label { color: var(--st-text-3); }
-  .fl-num { width: 52px; }
+  .fl-range :global(.fl-num) { width: 52px; }
   .fl-check { display: inline-flex; align-items: center; gap: 5px; }
   .fl-plan { width: 100%; max-width: 320px; display: block; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .fl-panel { fill: color-mix(in srgb, var(--st-accent) 22%, transparent); stroke: var(--st-accent); stroke-width: 1.5; }

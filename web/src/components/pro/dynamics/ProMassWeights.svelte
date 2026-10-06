@@ -6,8 +6,8 @@
    */
   import { modelStore } from '../../../lib/store';
   import { t } from '../../../lib/i18n';
-  import { parseDecimal } from '../../../lib/utils/numeric-input';
   import ProActionRegion from '../loads/ProActionRegion.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import type { MassWeight } from '../../../lib/engine/dynamics/mass-source';
 
   const weights = $derived(modelStore.model.massSource?.weights ?? []);
@@ -16,7 +16,7 @@
     modelStore.setMassSource(ms ? { ...ms, weights: list } : { kind: 'custom', factors: [], weights: list });
   }
   const set = (i: number, patch: Partial<MassWeight>) => save(weights.map((w, k) => (k === i ? { ...w, ...patch } : w)));
-  const UNIT: Record<MassWeight['on'], string> = { members: 'kN/m', slabs: 'kN/m²', floor: 'kN/m²' };
+  const QTY = { members: 'distributedLoad', slabs: 'areaLoad', floor: 'areaLoad' } as const satisfies Record<MassWeight['on'], string>;
 </script>
 
 <div class="mw" data-testid="mass-weights">
@@ -28,7 +28,7 @@
         <option value="slabs">{t('massWeights.slabs')}</option>
         <option value="floor">{t('massWeights.floor')}</option>
       </select>
-      <input type="text" class="mw-num" value={String(w.w)} onchange={(e) => { const v = parseDecimal(e.currentTarget.value); if (v !== null) set(i, { w: v }); }} data-testid="mw-w-{i}" /> {UNIT[w.on]}
+      <QuantityInput value={w.w} quantity={QTY[w.on]} cls="mw-num" onchange={(v) => set(i, { w: v })} testid="mw-w-{i}" />
       <button class="mw-x" onclick={() => save(weights.filter((_, k) => k !== i))} aria-label={t('loadTables.delete')}>×</button>
     </div>
     <div class="mw-row"><ProActionRegion region={w.region} testid="mw-region-{i}" onchange={(r) => set(i, { region: r })} /></div>
@@ -41,7 +41,7 @@
   .mw { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 0.68rem; color: var(--st-text-2); }
   .mw-title { font-weight: 600; color: var(--st-text); }
   .mw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-  .mw-num { width: 56px; font-family: var(--st-mono); }
+  .mw :global(.mw-num) { width: 56px; font-family: var(--st-mono); }
   .mw-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
   .mw-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
 </style>

@@ -25,6 +25,10 @@
    * (`GeneratorGallery`); a card opens its parameters, and Back returns to the list.
    */
   import { t, tp } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import { uiStore } from '../../../lib/store/ui.svelte';
+  import { toDisplay, fromDisplay, unitLabel } from '../../../lib/utils/units';
+  import { parseSpacings } from '../../../lib/model/edit/affine';
   import { modelStore } from '../../../lib/store/model.svelte';
   import {
     DEFAULT_TRUSS_PARAMS, generateTruss, validateTrussParams, type Topology, type TrussParams,
@@ -69,6 +73,28 @@
   } from '../../../lib/engine/generators/structures';
   import { defaultOutputState, generatedData, generatedGroups, withSupportMode, type SupportMode } from '../../../lib/store/generated-structures';
   const outputState = $state(defaultOutputState());
+
+  /** The structure fields that are a length; the others (an angle, a count) keep their own unit. */
+  const LENGTH_FIELDS = new Set(['depth', 'span', 'rise', 'toothSpan', 'height', 'radius', 'baseRadius']);
+
+  /*
+   * A list of lengths ("6; 7,5; 6", "3x4") stays text, and the generator reads it in meters. It is
+   * typed in the display units: in meters the text goes through as typed; in other units each
+   * value is converted, and a text that does not read as a list is kept for the validator to name.
+   */
+  const lengthIsSI = $derived(toDisplay(1, 'length', uiStore.unitSystem) === 1);
+  function listShown(si: string): string {
+    if (lengthIsSI) return si;
+    const v = parseSpacings(si);
+    return v ? v.map((x) => String(+toDisplay(x, 'length', uiStore.unitSystem).toPrecision(6))).join('; ') : si;
+  }
+  function listRead(shown: string): string {
+    if (lengthIsSI) return shown;
+    const v = parseSpacings(shown);
+    return v ? v.map((x) => String(+fromDisplay(x, 'length', uiStore.unitSystem).toPrecision(9))).join('; ') : shown;
+  }
+  /** The list being typed: shown as typed, not rewritten from the converted value under the cursor. */
+  let listEditing = $state<{ id: string; text: string } | null>(null);
 
   type Kind = 'truss' | 'column' | 'shed' | 'structure';
   let structureKind = $state<StructureKind>('spaceFrame');
@@ -484,8 +510,19 @@
               {#each f.options ?? [] as o (o)}<option value={o}>{t(`generator.option.${f.key}.${o}`)}</option>{/each}
             </select></label>
         {:else if f.type === 'bays'}
+          {@const id = structureKind + f.key}
           <label><span>{t(`generator.field.${f.key}`)}</span>
-            <input type="text" class="bays" bind:value={structureParams[structureKind][f.key]} placeholder="6; 7,5; 6" data-testid="gen-f-{f.key}" /></label>
+            <input type="text" class="bays" placeholder="6; 7,5; 6" data-testid="gen-f-{f.key}"
+              value={listEditing?.id === id ? listEditing.text : listShown(String(structureParams[structureKind][f.key] ?? ''))}
+              onfocus={(e) => (listEditing = { id, text: e.currentTarget.value })}
+              oninput={(e) => { listEditing = { id, text: e.currentTarget.value }; structureParams[structureKind][f.key] = listRead(e.currentTarget.value); }}
+              onblur={() => (listEditing = null)} />
+            <span class="unit">{unitLabel('length', uiStore.unitSystem)}</span></label>
+        {:else if LENGTH_FIELDS.has(f.key)}
+          <!-- No min/max on the field: a value out of range is named by the validator, not dropped. -->
+          <label><span>{t(`generator.field.${f.key}`)}</span>
+            <QuantityInput quantity="length" testid="gen-f-{f.key}"
+              bind:value={() => Number(structureParams[structureKind][f.key]), (v) => (structureParams[structureKind][f.key] = v)} /></label>
         {:else}
           <label><span>{t(`generator.field.${f.key}`)}</span>
             <input type="number" min={f.min} max={f.max} step={f.step ?? 1} bind:value={structureParams[structureKind][f.key]} data-testid="gen-f-{f.key}" /></label>
@@ -493,10 +530,10 @@
       {/each}
 
     {:else}
-      <label><span>{t('generator.ui.spanVT')}</span><input type="number" min="1" step="0.5" bind:value={shed.spanM} /></label>
-      <label>{@render fieldHead('bayVP')}<input type="number" min="1" step="0.5" bind:value={shed.bayM} aria-describedby="gen-hint-bayVP" /></label>
+      <label><span>{t('generator.ui.spanVT')}</span><QuantityInput quantity="length" bind:value={shed.spanM} /></label>
+      <label>{@render fieldHead('bayVP')}<QuantityInput quantity="length" bind:value={shed.bayM} describedBy="gen-hint-bayVP" /></label>
       <label>{@render fieldHead('frames')}<input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></label>
-      <label>{@render fieldHead('clearHeight')}<input type="number" min="1" step="0.5" bind:value={shed.clearHeightM} aria-describedby="gen-hint-clearHeight" /></label>
+      <label>{@render fieldHead('clearHeight')}<QuantityInput quantity="length" bind:value={shed.clearHeightM} describedBy="gen-hint-clearHeight" /></label>
       <label><span>{t('generator.ui.columnKind')}</span>
         <select bind:value={shed.columnKind} data-testid="gen-column-kind">
           <option value="lattice">{t('generator.ui.columnLattice')}</option>
@@ -770,12 +807,13 @@
   .fields { display: flex; flex-direction: column; gap: 3px; }
   .fields :global(label) { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text-2); }
   .fields :global(label > span:first-child) { min-width: 9rem; }
-  .fields :global(input[type='number']), .fields :global(select) {
+  .fields :global(input[type='number']), .fields :global(input[inputmode='decimal']), .fields :global(select) {
     background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
     border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 6rem; text-align: right;
   }
   .fields :global(select) { text-align: left; width: auto; min-width: 8rem; }
   .fields :global(label.check > span) { min-width: 0; }
+  .fields .unit { font-size: 0.66rem; color: var(--st-text-3); }
   .fields input.bays {
     background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
     border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 9rem;

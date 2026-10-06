@@ -27,6 +27,8 @@
   import { validateSoilProfile } from '../../../lib/model/geotechnical';
   import FootingCadHandoffPanel from './FootingCadHandoffPanel.svelte';
   import FootingMatPanel from './FootingMatPanel.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
 
   const footings = $derived([...modelStore.model.footings.values()].sort((a, b) => a.id - b.id));
   const profiles = $derived(modelStore.model.geotechnical?.profiles ?? []);
@@ -116,7 +118,7 @@
                     data-testid={`footing-${f.id}`}
                     onclick={() => (selectedId = f.id)}>
               <span class="label">{f.name || tp('footing.ui.unnamed', { id: f.id })}</span>
-              <span class="dims">{f.B.toFixed(2)} × {f.L.toFixed(2)} × {f.thickness.toFixed(2)} m</span>
+              <span class="dims">{fmtQ(f.B, 'length')} × {fmtQ(f.L, 'length')} × {fmtQ(f.thickness, 'length')} {unitQ('length')}</span>
               {#if issues.length > 0}
                 <!-- Incomplete is never green. -->
                 <span class="badge incomplete" data-testid={`footing-${f.id}-incomplete`}>
@@ -137,37 +139,37 @@
             <input type="text" value={f.name} data-testid="footing-name"
                    oninput={(e) => modelStore.updateFooting(f.id, { name: e.currentTarget.value })} />
           </label>
-          <label>{t('footing.ui.B')}
-            <input type="number" step="0.05" min="0" value={f.B} data-testid="footing-B"
-                   oninput={(e) => modelStore.updateFooting(f.id, { B: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.B')}
+            <QuantityInput quantity="length" min={0} value={f.B} testid="footing-B"
+                   onchange={(v) => modelStore.updateFooting(f.id, { B: v })} />
           </label>
-          <label>{t('footing.ui.L')}
-            <input type="number" step="0.05" min="0" value={f.L} data-testid="footing-L"
-                   oninput={(e) => modelStore.updateFooting(f.id, { L: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.L')}
+            <QuantityInput quantity="length" min={0} value={f.L} testid="footing-L"
+                   onchange={(v) => modelStore.updateFooting(f.id, { L: v })} />
           </label>
-          <label>{t('footing.ui.thickness')}
-            <input type="number" step="0.05" min="0" value={f.thickness} data-testid="footing-thickness"
-                   oninput={(e) => modelStore.updateFooting(f.id, { thickness: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.thickness')}
+            <QuantityInput quantity="length" min={0} value={f.thickness} testid="footing-thickness"
+                   onchange={(v) => modelStore.updateFooting(f.id, { thickness: v })} />
           </label>
-          <label>{t('footing.ui.cover')}
-            <input type="number" step="0.005" min="0" value={f.cover} data-testid="footing-cover"
-                   oninput={(e) => modelStore.updateFooting(f.id, { cover: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.cover')}
+            <QuantityInput quantity="length" min={0} value={f.cover} testid="footing-cover"
+                   onchange={(v) => modelStore.updateFooting(f.id, { cover: v })} />
           </label>
-          <label>{t('footing.ui.foundingElevation')}
-            <input type="number" step="0.05" value={f.foundingElevation} data-testid="footing-elevation"
-                   oninput={(e) => modelStore.updateFooting(f.id, { foundingElevation: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.foundingElevation')}
+            <QuantityInput quantity="length" value={f.foundingElevation} testid="footing-elevation"
+                   onchange={(v) => modelStore.updateFooting(f.id, { foundingElevation: v })} />
           </label>
           <label>{t('footing.ui.rotation')}
             <input type="number" step="5" value={f.rotationDeg} data-testid="footing-rotation"
                    oninput={(e) => modelStore.updateFooting(f.id, { rotationDeg: num(e.currentTarget.value) })} />
           </label>
-          <label>{t('footing.ui.eccentricityB')}
-            <input type="number" step="0.05" value={f.eccentricityB} data-testid="footing-ecc-b"
-                   oninput={(e) => modelStore.updateFooting(f.id, { eccentricityB: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.eccentricityB')}
+            <QuantityInput quantity="length" value={f.eccentricityB} testid="footing-ecc-b"
+                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityB: v })} />
           </label>
-          <label>{t('footing.ui.eccentricityL')}
-            <input type="number" step="0.05" value={f.eccentricityL} data-testid="footing-ecc-l"
-                   oninput={(e) => modelStore.updateFooting(f.id, { eccentricityL: num(e.currentTarget.value) })} />
+          <label>{t('footing.ui.field.eccentricityL')}
+            <QuantityInput quantity="length" value={f.eccentricityL} testid="footing-ecc-l"
+                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityL: v })} />
           </label>
           <label>{t('footing.ui.column')}
             <select data-testid="footing-column"
@@ -221,17 +223,17 @@
         {#if f.pedestal}
           {@const p = f.pedestal}
           <div class="grid">
-            <label>{t('footing.ui.pedestalB')}
-              <input type="number" step="0.05" min="0" value={p.B} data-testid="footing-pedestal-b"
-                     oninput={(e) => modelStore.updateFooting(f.id, { pedestal: { ...p, B: num(e.currentTarget.value) } })} />
+            <label>{t('footing.ui.field.pedestalB')}
+              <QuantityInput quantity="length" min={0} value={p.B} testid="footing-pedestal-b"
+                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, B: v } })} />
             </label>
-            <label>{t('footing.ui.pedestalL')}
-              <input type="number" step="0.05" min="0" value={p.L} data-testid="footing-pedestal-l"
-                     oninput={(e) => modelStore.updateFooting(f.id, { pedestal: { ...p, L: num(e.currentTarget.value) } })} />
+            <label>{t('footing.ui.field.pedestalL')}
+              <QuantityInput quantity="length" min={0} value={p.L} testid="footing-pedestal-l"
+                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, L: v } })} />
             </label>
-            <label>{t('footing.ui.pedestalHeight')}
-              <input type="number" step="0.05" min="0" value={p.height} data-testid="footing-pedestal-h"
-                     oninput={(e) => modelStore.updateFooting(f.id, { pedestal: { ...p, height: num(e.currentTarget.value) } })} />
+            <label>{t('footing.ui.field.pedestalHeight')}
+              <QuantityInput quantity="length" min={0} value={p.height} testid="footing-pedestal-h"
+                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, height: v } })} />
             </label>
           </div>
         {/if}
@@ -373,17 +375,17 @@
                 <input type="text" value={p.name} data-testid={`soil-${p.id}-name`}
                        oninput={(e) => modelStore.updateSoilProfile(p.id, { name: e.currentTarget.value })} />
               </label>
-              <label>{t('geotechnical.ui.allowableBearing')}
-                <input type="number" step="10" min="0"
-                       data-testid={`soil-${p.id}-bearing`}
-                       value={p.bearing.kind === 'allowablePressure' ? p.bearing.allowableBearingKPa : ''}
+              <!-- kPa is kN/m²: the stored value is already the SI one. -->
+              <label>{t('geotechnical.ui.field.allowableBearing')}
+                <QuantityInput quantity="areaLoad" min={0} nullable
+                       testid={`soil-${p.id}-bearing`}
+                       value={p.bearing.kind === 'allowablePressure' ? p.bearing.allowableBearingKPa : null}
                        placeholder={t('geotechnical.ui.notStated')}
-                       oninput={(e) => {
-                         const raw = e.currentTarget.value.trim();
+                       onchange={(v) => {
                          modelStore.updateSoilProfile(p.id, {
-                           bearing: raw === ''
+                           bearing: v === null
                              ? { kind: 'unstated' }
-                             : { kind: 'allowablePressure', allowableBearingKPa: num(raw) },
+                             : { kind: 'allowablePressure', allowableBearingKPa: v },
                          });
                        }} />
               </label>
@@ -407,29 +409,24 @@
                          provenance: { ...p.provenance, reference: e.currentTarget.value },
                        })} />
               </label>
-              <label>{t('geotechnical.ui.unitWeight')}
-                <input type="number" step="0.5" min="0" value={p.unitWeightKNm3 ?? ''}
+              <label>{t('geotechnical.ui.field.unitWeight')}
+                <QuantityInput quantity="density" min={0} nullable value={p.unitWeightKNm3 ?? null}
                        placeholder={t('geotechnical.ui.notStated')}
-                       data-testid={`soil-${p.id}-unit-weight`}
-                       oninput={(e) => modelStore.updateSoilProfile(p.id, {
-                         unitWeightKNm3: e.currentTarget.value.trim() === '' ? null : num(e.currentTarget.value),
-                       })} />
+                       testid={`soil-${p.id}-unit-weight`}
+                       onchange={(v) => modelStore.updateSoilProfile(p.id, { unitWeightKNm3: v })} />
               </label>
-              <label>{t('geotechnical.ui.subgradeModulus')}
-                <input type="number" step="1000" min="0" value={p.subgradeModulusKNm3 ?? ''}
+              <!-- kN/m³: the dimension of a unit weight, so it converts as one. -->
+              <label>{t('geotechnical.ui.field.subgradeModulus')}
+                <QuantityInput quantity="density" min={0} nullable value={p.subgradeModulusKNm3 ?? null}
                        placeholder={t('geotechnical.ui.onlyWinkler')}
-                       data-testid={`soil-${p.id}-subgrade`}
-                       oninput={(e) => modelStore.updateSoilProfile(p.id, {
-                         subgradeModulusKNm3: e.currentTarget.value.trim() === '' ? null : num(e.currentTarget.value),
-                       })} />
+                       testid={`soil-${p.id}-subgrade`}
+                       onchange={(v) => modelStore.updateSoilProfile(p.id, { subgradeModulusKNm3: v })} />
               </label>
-              <label>{t('geotechnical.ui.groundwater')}
-                <input type="number" step="0.5" value={p.groundwaterDepthM ?? ''}
+              <label>{t('geotechnical.ui.field.groundwater')}
+                <QuantityInput quantity="length" nullable value={p.groundwaterDepthM ?? null}
                        placeholder={t('geotechnical.ui.notStated')}
-                       data-testid={`soil-${p.id}-groundwater`}
-                       oninput={(e) => modelStore.updateSoilProfile(p.id, {
-                         groundwaterDepthM: e.currentTarget.value.trim() === '' ? null : num(e.currentTarget.value),
-                       })} />
+                       testid={`soil-${p.id}-groundwater`}
+                       onchange={(v) => modelStore.updateSoilProfile(p.id, { groundwaterDepthM: v })} />
               </label>
             </div>
             {#each [validateSoilProfile(p)] as issues (p.id)}

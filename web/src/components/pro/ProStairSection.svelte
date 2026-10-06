@@ -21,6 +21,8 @@
   } from '../../lib/model/stair';
   import { buildFlightInto, convertQuadToFlight, type FlightOptions } from '../../lib/model/stair-convert';
   import { defaultShellMaterial } from '../../lib/pro/design-home';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   let open = $state(false);
 
@@ -172,16 +174,16 @@
 
       <!-- The flight, once, for both ways of making one -->
       <div class="input-row">
-        <label for="stair-riser">{t('stair.riser')}:</label>
-        <input id="stair-riser" type="number" bind:value={riser} step="0.005" min="0.05" class="num" data-testid="stair-riser" />
-        <label for="stair-tread">{t('stair.tread')}:</label>
-        <input id="stair-tread" type="number" bind:value={tread} step="0.01" min="0.1" class="num" data-testid="stair-tread" />
+        <span class="lbl">{t('stair.riser')}:</span>
+        <QuantityInput bind:value={riser} min={0.05} quantity="length" cls="num" ariaLabel={t('stair.riser')} testid="stair-riser" />
+        <span class="lbl">{t('stair.tread')}:</span>
+        <QuantityInput bind:value={tread} min={0.1} quantity="length" cls="num" ariaLabel={t('stair.tread')} testid="stair-tread" />
       </div>
       <div class="input-row">
         <label for="stair-steps">{t('stair.steps')}:</label>
         <input id="stair-steps" type="number" bind:value={steps} step="1" min="2" max="60" class="num" data-testid="stair-steps" />
-        <label for="stair-waist">{t('stair.waist')}:</label>
-        <input id="stair-waist" type="number" bind:value={waist} step="0.01" min="0.05" class="num" data-testid="stair-waist" />
+        <span class="lbl">{t('stair.waist')}:</span>
+        <QuantityInput bind:value={waist} min={0.05} quantity="length" cls="num" ariaLabel={t('stair.waist')} testid="stair-waist" />
       </div>
       <div class="input-row">
         <label for="stair-mat">{t('pro.thMaterial')}:</label>
@@ -192,10 +194,10 @@
 
       <!-- What that geometry actually is -->
       <dl class="readout" data-testid="stair-readout">
-        <div><dt>{t('stair.rise')}</dt><dd>{geom.rise.toFixed(2)} m</dd></div>
-        <div><dt>{t('stair.run')}</dt><dd>{geom.run.toFixed(2)} m</dd></div>
+        <div><dt>{t('stair.rise')}</dt><dd>{fmtQ(geom.rise, 'length')} {unitQ('length')}</dd></div>
+        <div><dt>{t('stair.run')}</dt><dd>{fmtQ(geom.run, 'length')} {unitQ('length')}</dd></div>
         <div><dt>{t('stair.angle')}</dt><dd>{geom.angleDeg.toFixed(1)}°</dd></div>
-        <div><dt>{t('stair.blondel')}</dt><dd>{stride.toFixed(3)} m</dd></div>
+        <div><dt>{t('stair.blondel')}</dt><dd>{fmtQ(stride, 'length')} {unitQ('length')}</dd></div>
         <div><dt>{t('stair.stepLoad')}</dt><dd>{stepLoad.toFixed(2)} kN/m²</dd></div>
       </dl>
       <div class="hint small">{tp('stair.planFactor', { f: Math.cos(geom.angleRad).toFixed(3) })}</div>
@@ -254,7 +256,7 @@
           </select>
         </div>
         <div class="hint small" data-testid="stair-derived-tread">
-          {tp('stair.derivedTread', { run: targetRun.toFixed(2), tread: derivedTread.toFixed(3) })}
+          {tp('stair.derivedTread', { run: `${fmtQ(targetRun, 'length')} ${unitQ('length')}`, steps, tread: `${fmtQ(derivedTread, 'length')} ${unitQ('length')}` })}
         </div>
       {/if}
       <button
@@ -285,10 +287,10 @@
     display: flex; flex-direction: column; gap: 8px;
   }
   .input-row { display: flex; align-items: center; gap: 8px; }
-  .input-row label { font-size: 0.75rem; color: var(--st-text-3); flex-shrink: 0; }
+  .input-row label, .input-row .lbl { font-size: 0.75rem; color: var(--st-text-3); flex-shrink: 0; }
   /* Wide enough for 0,175 — at 62 px the last digit was being clipped, which on a
      riser is the difference between two stairs. */
-  .num, .node-input {
+  .num, .node-input, .input-row :global(input.num) {
     width: 74px; padding: 4px 6px; background: var(--st-surface);
     border: 1px solid var(--st-surface-3); border-radius: 3px;
     color: var(--st-text); font-size: 0.78rem; font-family: monospace; text-align: center;

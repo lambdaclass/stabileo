@@ -20,7 +20,7 @@
   import { drawState } from '../../../lib/store/draw-state.svelte';
   import { resolveTargets, type TargetEntity } from '../../../lib/model/loads/load-targets';
   import { orderedChain } from '../../../lib/model/loads/member-load-tools';
-  import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import QuantityInput from './QuantityInput.svelte';
 
   interface Props {
     entity: TargetEntity;
@@ -44,8 +44,8 @@
   let idsText = $state('');
   let groupId = $state<number | null>(null);
   let axis = $state<'X' | 'Y' | 'Z'>('Z');
-  let minText = $state('0');
-  let maxText = $state('0');
+  let min = $state(0);
+  let max = $state(0);
   let sectionId = $state<number | null>(null);
   let kind = $state<'column' | 'beam' | 'inclined' | 'truss'>('beam');
 
@@ -60,7 +60,7 @@
       case 'all': case 'selection': case 'chain': spec = { by: mode }; break;
       case 'ids': spec = { by: 'ids', text: idsText }; break;
       case 'group': spec = { by: 'group', groupId: groupId ?? groups[0]?.id ?? -1 }; break;
-      case 'range': spec = { by: 'range', axis, min: parseDecimal(minText) ?? 0, max: parseDecimal(maxText) ?? 0 }; break;
+      case 'range': spec = { by: 'range', axis, min, max }; break;
       case 'section': spec = { by: 'section', sectionId: sectionId ?? sections[0]?.id ?? -1 }; break;
       case 'kind': spec = { by: 'kind', kind }; break;
     }
@@ -124,9 +124,8 @@
       <select bind:value={axis} data-testid="load-target-axis" aria-label={t('loadTarget.axis')}>
         <option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>
       </select>
-      <label>{t('loadTarget.from')} <input type="text" bind:value={minText} class="lt-num" data-testid="load-target-min" /></label>
-      <label>{t('loadTarget.to')} <input type="text" bind:value={maxText} class="lt-num" data-testid="load-target-max" /></label>
-      <span class="lt-hint">m</span>
+      <label>{t('loadTarget.from')} <QuantityInput bind:value={min} quantity="length" cls="lt-num" testid="load-target-min" /></label>
+      <label>{t('loadTarget.to')} <QuantityInput bind:value={max} quantity="length" cls="lt-num" testid="load-target-max" /></label>
     </div>
   {:else if spec.by === 'section'}
     <label class="lt-row"><span class="lt-label">{t('loadTarget.section')}</span>
@@ -148,9 +147,9 @@
   .lt { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--st-surface-3); margin-top: 4px; }
   .lt-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.72rem; color: var(--st-text-3); }
   .lt-label { min-width: 4.5rem; }
-  .lt-num { width: 60px; }
+  .lt-row :global(.lt-num) { width: 60px; }
   .lt-wide { flex: 1; min-width: 8rem; }
-  .lt-row input, .lt-row select { padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.74rem; font-family: var(--st-mono); }
+  .lt-row :global(input), .lt-row select { padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.74rem; font-family: var(--st-mono); }
   .lt-hint { font-size: 0.64rem; color: var(--st-text-3); }
   .pk { padding: 1px 8px; font-size: 0.64rem; background: none; border: 1px dashed var(--st-hair); border-radius: 4px; color: var(--st-text-2); cursor: pointer; }
   .pk:hover { border-color: var(--st-interactive); color: var(--st-text); }

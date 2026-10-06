@@ -61,8 +61,14 @@ its own **Draw** button (node, member, plate…); pressing it again goes back to
 
 ### Draw
 
-**Nodes.** An editable table of X, Y, Z coordinates in metres. You can **paste from Excel**
-(X, Y and optionally Z columns).
+**Nodes.** An editable table of X, Y, Z coordinates in the chosen units, and an optional **name**
+(for example A1) beside the number. You can **paste from Excel** (X, Y and optionally Z columns).
+A double click on a row frames that node in the model.
+
+Members also take an optional **name** in their table, and a double click on the row frames them.
+Names are kept in the file, go in and out of the model's Excel, show in the report's tables and in
+the labels when **View › Labels show** says **name**. Renaming is undone in one step and keeps the
+results.
 
 **Members.** A table with start and end node, material and section, and the **Hinge i** and
 **Hinge j** columns. For a member being added they toggle **Pin** (both bending moments released)
@@ -148,7 +154,9 @@ they are split.
   from a number. If that number belongs to something not selected, nothing is renumbered and the
   panel says which.
 - **Clean-up:** coincident nodes (within the **weld tolerance**, which can be changed and which
-  every weld in the model reads), repeated or zero-length members, orphan nodes, and also **loose
+  every weld in the model reads), repeated members (the same two nodes, which are removed) or
+  zero-length ones, orphan nodes, **overlapping collinear members** with different end nodes
+  (listed by pair with the stretch they share and selected, to choose which one stays), and also **loose
   parts** reached by no support, **free shell edges** on no member, **members crossing without a
   node**, and **repeated properties** (materials or sections equal under another number), which
   are unified.
@@ -174,8 +182,10 @@ the colours. Also:
 - **Member colour** by section, material or group, with its legend.
 - **Draw** constraints and diaphragms as lines between their nodes, and the I and J ends.
 - **Notes** of text at a point of the model, saved with the project.
-- **Units:** SI (kN, m), technical metric (tf, tf·m, kgf/cm², cm) or imperial, and the **decimals**
-  of each quantity. The model is always stored in kN and m.
+- **Units:** SI (kN, m), **SI with millimetres** (kN, mm: coordinates, displacements and section
+  properties in mm), technical metric (tf, tf·m, kgf/cm², cm) or imperial, and the **decimals** of
+  each quantity. Every field with a magnitude is typed in the chosen units and shows the unit beside
+  it; the model is always stored in kN and m. A section's properties read in cm², cm⁴ and cm³ in SI.
 
 ### Properties
 
@@ -625,7 +635,9 @@ PRO's advanced analyses:
 - **P-Delta**, **modal**, **spectral** and **buckling**, on the project's rules as **Solve** reads
   them (self-weight as stated, the shear-deformation switch). This P-Delta takes every load of the
   model together, unfactored; each combination with its factors is asked for in
-  **Specifications › Analysis**. Modal can ask for modes **up to 90 % of the mass**: it adds modes
+  **Specifications › Analysis**. With no second-order equilibrium under those loads, or without
+  convergence, the result is not published as P-Delta and the panel says why, on the same criterion
+  as the combinations. Modal can ask for modes **up to 90 % of the mass**: it adds modes
   until the cumulative participating mass reaches 90 % in X and in Y, or says so when the model has
   no more. The masses come from the **mass source** (self-weight only, or chosen cases with their
   factors). With node links the engine's mass ratios are not reliable: modal then gives
@@ -701,7 +713,9 @@ frequencies and shapes but not reliable mass ratios.
 
 ### Report
 
-**Report** builds a printable **calculation report**: model data with every property, load
+**Report** builds a printable **calculation report**: model data with every property and the
+model's view as **Figure 1**, with node and member numbers (turned on for the picture and put back
+afterwards), load
 details, results, the summary of extremes (along the members) and the envelope over the
 combinations, the statics, the deflections, the **design check** as the Design panel ran it (each
 member with its own reinforcement, the governing check, demand, capacity and utilization; the

@@ -946,7 +946,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!elem || !nI || !nJ) continue;
       const a = projectNodeToScene(nI, project2D), b = projectNodeToScene(nJ, project2D);
       const d = load.data;
-      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const temp = (v: number) => `${formatValue(v, 'temperatureDiff', sys)} ${unitLabel('temperatureDiff', sys)}`;
       const parts = [
         d.dtUniform ? `ΔT ${temp(d.dtUniform)}` : '',
         d.dtGradient ? `ΔTgz ${temp(d.dtGradient)}` : '',
@@ -981,7 +981,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!quad || !ns || ns.some((n) => !n)) continue;
       const ps = (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D));
       const c = ps.reduce((acc, p) => ({ x: acc.x + p.x / ps.length, y: acc.y + p.y / ps.length, z: acc.z + p.z / ps.length }), { x: 0, y: 0, z: 0 });
-      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const temp = (v: number) => `${formatValue(v, 'temperatureDiff', sys)} ${unitLabel('temperatureDiff', sys)}`;
       const text = [load.data.dtUniform ? `ΔT ${temp(load.data.dtUniform)}` : '', load.data.dtGradient ? `ΔTg ${temp(load.data.dtGradient)}` : ''].filter(Boolean).join(' · ');
       if (text) batch.addTag({ x: c.x, y: c.y, z: c.z + 0.15 }, text, cc);
     }

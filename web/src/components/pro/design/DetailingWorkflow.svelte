@@ -20,6 +20,8 @@
   import RcTitleBlockFields from './RcTitleBlockFields.svelte';
   import RcBendingSchedule from './RcBendingSchedule.svelte';
   import RcEditNotice from './RcEditNotice.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
@@ -310,21 +312,15 @@
             {@const r = detailingSheet.sectionRange}
             <label class="station">
               <span>{t('detailing.sheet.station')}</span>
-              <input
-                type="number"
-                data-testid="sheet-station"
-                step="0.05"
-                min={r.min.toFixed(2)}
-                max={r.max.toFixed(2)}
-                value={detailingSheet.sectionAt.toFixed(2)}
-                onchange={(e) => {
-                  const v = Number((e.currentTarget as HTMLInputElement).value);
-                  if (Number.isFinite(v)) detailingSheet.setSectionAt(v);
-                }}
+              <QuantityInput
+                quantity="length"
+                testid="sheet-station"
+                value={detailingSheet.sectionAt}
+                onchange={(v) => detailingSheet.setSectionAt(v)}
               />
               <span class="range" data-testid="sheet-station-range">
-                {tp('detailing.sheet.stationRange', {
-                  min: r.min.toFixed(2), max: r.max.toFixed(2),
+                {tp('detailing.sheet.stationRangeIn', {
+                  min: fmtQ(r.min, 'length'), max: fmtQ(r.max, 'length'), unit: unitQ('length'),
                 })}
               </span>
             </label>
@@ -516,7 +512,7 @@
     margin-top: 0.25rem;
     font-size: 0.72rem;
   }
-  .station input {
+  .station :global(input) {
     width: 5.5rem;
     padding: 0.1rem 0.3rem;
     border: 1px solid var(--st-hair-strong);
@@ -526,7 +522,7 @@
     font: inherit;
     font-variant-numeric: tabular-nums;
   }
-  .station input:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  .station :global(input:focus-visible) { outline: 2px solid var(--st-value); outline-offset: 1px; }
   /* What the control accepts, stated rather than discovered by being refused. */
   .station .range { color: var(--st-text-3); font-size: 0.66rem; }
 
