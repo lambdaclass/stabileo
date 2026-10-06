@@ -286,6 +286,7 @@ function createUIStore() {
    * reading values at the base may want them out of the way. Basic and PRO
    * keep their own, as they do for loads.
    */
+  let selfWeightCaseId = $state<number | null>(null);
   let showSupports_basic = $state<boolean>(true);
   let showSupports_pro = $state<boolean>(true);
   /** Size of the text on the drawing (ids, values, labels), 2D and 3D; persisted. */
@@ -935,6 +936,13 @@ function createUIStore() {
       else if (analysisMode === 'edu') selfWeightEducativo = v;
       else selfWeightBasico = v;
     },
+
+    /**
+     * The load case Basic's self-weight goes in (Loads › Combinations). Null:
+     * the first dead-load case, as before. Saved with the project.
+     */
+    get selfWeightCaseId() { return selfWeightCaseId; },
+    set selfWeightCaseId(v: number | null) { selfWeightCaseId = v; },
 
     get elementCreateType() { return elementCreateType; },
     set elementCreateType(v: 'frame' | 'truss') { elementCreateType = v; },

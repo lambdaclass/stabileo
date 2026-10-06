@@ -1,15 +1,12 @@
 <script lang="ts">
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
-  import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
   import { defaultDofs } from '../../lib/store/support-dofs';
 
-  const nodesArr = $derived([...modelStore.nodes.values()]);
   const supportsArr = $derived([...modelStore.supports.values()]);
 
-  let newSupportNodeId = $state(0);
-  let newSupportType = $state<string>('pinned');
 
   function deleteSupport(id: number) {
     modelStore.removeSupport(id);
@@ -42,41 +39,6 @@
     const updated = { ...current, [dof]: !current[dof] };
     const type = deriveType(updated);
     modelStore.updateSupport(supId, { dofRestraints: updated, type } as any);
-    resultsStore.clear();
-    resultsStore.clear3D();
-  }
-
-  function addSupport() {
-    if (!modelStore.getNode(newSupportNodeId)) return;
-    historyStore.pushState();
-    if (uiStore.is3DWorkspace) {
-      // Create with per-DOF restraints from UI state
-      const dofRestraints = {
-        tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz,
-        rx: uiStore.sup3dRx, ry: uiStore.sup3dRy, rz: uiStore.sup3dRz,
-      };
-      const type = deriveType(dofRestraints);
-      // Collect springs for unchecked DOFs
-      let springs: any = undefined;
-      const hasSpring = (!dofRestraints.tx && uiStore.sup3dKx > 0) ||
-                        (!dofRestraints.ty && uiStore.sup3dKy > 0) ||
-                        (!dofRestraints.tz && uiStore.sup3dKz > 0) ||
-                        (!dofRestraints.rx && uiStore.sup3dKrx > 0) ||
-                        (!dofRestraints.ry && uiStore.sup3dKry > 0) ||
-                        (!dofRestraints.rz && uiStore.sup3dKrz > 0);
-      if (hasSpring) {
-        springs = {};
-        if (!dofRestraints.tx && uiStore.sup3dKx > 0) springs.kx = uiStore.sup3dKx;
-        if (!dofRestraints.ty && uiStore.sup3dKy > 0) springs.ky = uiStore.sup3dKy;
-        if (!dofRestraints.tz && uiStore.sup3dKz > 0) springs.kz = uiStore.sup3dKz;
-        if (!dofRestraints.rx && uiStore.sup3dKrx > 0) springs.krx = uiStore.sup3dKrx;
-        if (!dofRestraints.ry && uiStore.sup3dKry > 0) springs.kry = uiStore.sup3dKry;
-        if (!dofRestraints.rz && uiStore.sup3dKrz > 0) springs.krz = uiStore.sup3dKrz;
-      }
-      modelStore.addSupport(newSupportNodeId, type, springs, { dofRestraints, dofFrame: 'global' });
-    } else {
-      modelStore.addSupport(newSupportNodeId, newSupportType as any);
-    }
     resultsStore.clear();
     resultsStore.clear3D();
   }
@@ -155,36 +117,13 @@
     {/each}
   </tbody>
 </table>
-<div class="table-footer">
-  <div class="add-row" style={uiStore.is3DWorkspace ? 'flex-wrap:nowrap;gap:0.15rem;' : ''}>
-    <span class="add-label">{t('table.nodeLabel')}:</span>
-    <select bind:value={newSupportNodeId} class="add-input" style={uiStore.is3DWorkspace ? 'width:40px;' : ''}>
-      {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
-    </select>
-    {#if uiStore.is3DWorkspace}
-      <!-- 3D: per-DOF checkboxes for new support -->
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTx} />Fx</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTy} />Fy</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTz} />Fz</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRx} />Mx</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRy} />My</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRz} />Mz</label>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('table.fixed6dof')}>&#9635;</button>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('table.pinned3trans')}>&#9651;</button>
-    {:else}
-      <select bind:value={newSupportType} class="add-input add-input-wide">
-        <option value="fixed">{t('table.fixed')}</option>
-        <option value="pinned">{t('table.pinned')}</option>
-        <option value="rollerX">{t('table.rollerX')}</option>
-        <option value="rollerZ">{t('table.rollerY')}</option>
-        <option value="spring">{t('table.spring')}</option>
-      </select>
-    {/if}
-    <button class="add-btn" onclick={addSupport}>{t('table.addSupport')}</button>
-  </div>
-</div>
+<!-- Created with the tool above the drawing; the table lists and edits them. -->
+{#if supportsArr.length === 0}
+  <p class="empty-hint">{t('table.supportsEmpty')}</p>
+{/if}
 
 <style>
+  .empty-hint { margin: 0.5rem; font-size: 0.74rem; color: var(--st-text-3); }
   tr.row-sel td { background: var(--st-selected-bg); }
   table {
     width: max-content;
@@ -297,58 +236,11 @@
     background: rgba(127, 212, 204, 0.05);
   }
 
-  .table-footer {
-    padding: 0.5rem;
-    border-top: 1px solid var(--st-bg);
-  }
 
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
 
-  .add-row .add-btn {
-    width: auto;
-    flex-shrink: 0;
-  }
 
-  .add-label {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    flex-shrink: 0;
-  }
 
-  .add-input {
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    padding: 0.2rem 0.3rem;
-    font-size: 0.75rem;
-    width: 60px;
-  }
 
-  .add-input-wide {
-    width: auto;
-    min-width: 80px;
-  }
 
-  .add-btn {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    color: var(--st-value);
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-  }
 
-  .add-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
 </style>

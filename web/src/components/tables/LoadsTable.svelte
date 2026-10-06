@@ -6,12 +6,15 @@
   import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  const nodesArr = $derived([...modelStore.nodes.values()]);
-  const elementsArr = $derived([...modelStore.elements.values()]);
+  /** The case self-weight goes in: the one chosen, else the first dead-load case, else the first. */
+  const selfWeightCase = $derived.by(() => {
+    const cases = modelStore.loadCases;
+    const chosen = uiStore.selfWeightCaseId;
+    if (chosen !== null && cases.some((c) => c.id === chosen)) return chosen;
+    return (cases.find((c) => c.type === 'D') ?? cases[0])?.id ?? null;
+  });
 
-  let newLoadType = $state<'nodal' | 'distributed' | 'pointOnElement' | 'thermal' | 'nodal3d' | 'distributed3d' | 'pointOnElement3d'>('nodal');
-  let newLoadTargetId = $state(0);
-  let newLoadCaseId = $state(1);
+
 
   function deleteLoad(index: number) {
     historyStore.pushState();
@@ -23,39 +26,7 @@
     if (isNaN(num)) return;
     modelStore.updateLoad(loadId, { [field]: num });
   }
-
-  function addLoad() {
-    historyStore.pushState();
-    if (newLoadType === 'nodal') {
-      if (!modelStore.getNode(newLoadTargetId)) return;
-      modelStore.addNodalLoad(newLoadTargetId, 0, -10, 0, newLoadCaseId);
-    } else if (newLoadType === 'nodal3d') {
-      if (!modelStore.getNode(newLoadTargetId)) return;
-      modelStore.addNodalLoad3D(newLoadTargetId, 0, 0, -10, 0, 0, 0, newLoadCaseId); // Z is vertical
-    } else if (newLoadType === 'distributed') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addDistributedLoad(newLoadTargetId, -10, -10, undefined, undefined, newLoadCaseId);
-    } else if (newLoadType === 'distributed3d') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addDistributedLoad3D(newLoadTargetId, 0, 0, -10, -10, undefined, undefined, newLoadCaseId); // qZ: gravity
-    } else if (newLoadType === 'pointOnElement3d') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addPointLoadOnElement3D(newLoadTargetId, modelStore.getElementLength(newLoadTargetId) / 2, 0, -10, newLoadCaseId);
-    } else if (newLoadType === 'pointOnElement') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addPointLoadOnElement(newLoadTargetId, 0, -10, { caseId: newLoadCaseId });
-    } else if (newLoadType === 'thermal') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addThermalLoad(newLoadTargetId, 10, 0, newLoadCaseId);
-    }
-    resultsStore.clear();
-  }
 </script>
-
-<label class="selfweight-row" title={t('table.selfWeightTooltip')}>
-  <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>{t('table.selfWeight')}</span>
-</label>
 
 <!--
   Combinations live here, folded, above the loads they combine.
@@ -68,6 +39,21 @@
 <details class="combos-fold">
   <summary>{t('data.combinations')}</summary>
   <div class="combos-body">
+    <!-- Self-weight first: whether it counts, and in which load case. -->
+    <div class="selfweight-row" title={t('table.selfWeightTooltip')}>
+      <label class="sw-check">
+        <input type="checkbox" bind:checked={uiStore.includeSelfWeight} data-testid="selfweight-toggle" />
+        <span>{t('table.selfWeight')}</span>
+      </label>
+      <span class="sw-in">{t('table.selfWeightIn')}</span>
+      <select class="sw-case" value={String(selfWeightCase ?? '')} disabled={!uiStore.includeSelfWeight}
+        onchange={(e) => { uiStore.selfWeightCaseId = parseInt(e.currentTarget.value); resultsStore.clear(); }}
+        data-testid="selfweight-case">
+        {#each modelStore.loadCases as lc}
+          <option value={String(lc.id)}>{lc.type ? `${lc.type} · ` : ''}{lc.name}</option>
+        {/each}
+      </select>
+    </div>
     <CombosTable />
   </div>
 </details>
@@ -153,38 +139,13 @@
     {/each}
   </tbody>
 </table>
-<div class="table-footer">
-  <div class="add-row">
-    <select bind:value={newLoadType} class="add-input add-input-wide">
-      {#if uiStore.is3DWorkspace}
-        <option value="nodal3d">{t('table.pointLoad3d')}</option>
-        <option value="distributed3d">{t('table.distLoad3d')}</option>
-        <option value="pointOnElement3d">{t('table.pointBarLoad')}</option>
-        <option value="thermal">{t('table.thermalLoad')}</option>
-      {:else}
-        <option value="nodal">{t('table.pointLoad')}</option>
-        <option value="distributed">{t('table.distLoad')}</option>
-        <option value="pointOnElement">{t('table.pointBarLoad')}</option>
-        <option value="thermal">{t('table.thermalLoad')}</option>
-      {/if}
-    </select>
-    <span class="add-label">{t('table.loadCase')}:</span>
-    <select bind:value={newLoadCaseId} class="add-input">
-      {#each modelStore.loadCases as lc}<option value={lc.id}>{lc.type || lc.name}</option>{/each}
-    </select>
-    <span class="add-label">{newLoadType === 'nodal' || newLoadType === 'nodal3d' ? t('table.nodeLabel') : t('table.elemLabel')}:</span>
-    <select bind:value={newLoadTargetId} class="add-input">
-      {#if newLoadType === 'nodal' || newLoadType === 'nodal3d'}
-        {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
-      {:else}
-        {#each elementsArr as e}<option value={e.id}>{e.id}</option>{/each}
-      {/if}
-    </select>
-    <button class="add-btn" onclick={addLoad}>{t('table.addLoad')}</button>
-  </div>
-</div>
+<!-- Created with the tool above the drawing; the table lists and edits them. -->
+{#if modelStore.loads.length === 0}
+  <p class="empty-hint">{t('table.loadsEmpty')}</p>
+{/if}
 
 <style>
+  .empty-hint { margin: 0.5rem; font-size: 0.74rem; color: var(--st-text-3); }
   tr.row-sel td { background: var(--st-selected-bg); }
   .combos-fold {
     margin: 0 0 6px;
@@ -302,6 +263,20 @@
     accent-color: var(--st-accent);
     margin: 0;
   }
+  .sw-check { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+  .sw-in { margin-left: auto; color: var(--st-text-3); }
+  /* The table's own select, not the browser's white one. */
+  .sw-case {
+    padding: 0.1rem 0.25rem;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
+    border-radius: 3px;
+    color: var(--st-text);
+    font-size: 0.72rem;
+    cursor: pointer;
+    max-width: 55%;
+  }
+  .sw-case:disabled { opacity: 0.5; }
   .selfweight-row span {
     font-weight: 500;
   }
@@ -322,58 +297,11 @@
     background: rgba(127, 212, 204, 0.05);
   }
 
-  .table-footer {
-    padding: 0.5rem;
-    border-top: 1px solid var(--st-bg);
-  }
 
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
 
-  .add-row .add-btn {
-    width: auto;
-    flex-shrink: 0;
-  }
 
-  .add-label {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    flex-shrink: 0;
-  }
 
-  .add-input {
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    padding: 0.2rem 0.3rem;
-    font-size: 0.75rem;
-    width: 60px;
-  }
 
-  .add-input-wide {
-    width: auto;
-    min-width: 80px;
-  }
 
-  .add-btn {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    color: var(--st-value);
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-  }
 
-  .add-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
 </style>

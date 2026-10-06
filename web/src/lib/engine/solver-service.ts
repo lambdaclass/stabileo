@@ -1114,7 +1114,7 @@ function solveCombinations2DCore(
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads2D(model, caseLoads, includeSelfWeight && lc.type === 'D');
+    const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight).length > 0);
     mcLoadCases.push({ name: lc.name, loads });
     caseNameToId.set(lc.name, lc.id);
   }
@@ -1195,7 +1195,7 @@ function solveCombinations2DFallback(
   for (const lc of loadCases) {
     // Filter loads for this case instead of mutating model.loads
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const result = validateAndSolve2D(caseModel, includeSelfWeight && lc.type === 'D');
+    const result = validateAndSolve2D(caseModel, selfWeightFor(model, lc, includeSelfWeight).length > 0);
     if (typeof result === 'string') {
       return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }

@@ -2527,7 +2527,7 @@ const es: Record<string, string> = {
   'selEntity.editingLoad': 'Editando carga:',
   'selEntity.loadCase': 'Caso de carga',
   'selEntity.deleteLoad': 'Eliminar carga',
-  'selEntity.deselectBack': 'Deseleccionar y volver a modo carga',
+  'selEntity.deselectBack': 'Listo: volver a crear cargas',
   'selEntity.loadsSelected': '{n} cargas seleccionadas',
   'selEntity.deleteSelectedLoads': 'Eliminar cargas seleccionadas',
   'selEntity.deleteBtn': 'Eliminar',
@@ -9321,5 +9321,13 @@ const es: Record<string, string> = {
   'overlap.keepBoth': 'Dejar las dos',
   'calcReport.modelFigure': 'Figura 1. Modelo con la numeración de nodos y barras que usan las tablas.',
   'toast.pdeltaNotDrawn': 'No se dibuja como resultado: con estas cargas no hay un equilibrio de segundo orden. Calculá Pcr (Euler) para ver la carga crítica.',
+  'table.selfWeightIn': 'en el caso',
+  'table.loadsEmpty': 'Todavía no hay cargas. Se agregan con la herramienta Carga, sobre el dibujo.',
+  'table.supportsEmpty': 'Todavía no hay apoyos. Se agregan con la herramienta Apoyo, sobre el dibujo.',
+  'float.createLoad': 'Crear carga',
+  'float.createSupport': 'Crear apoyo',
+  'float.editLoad': 'Editar carga',
+  'float.editSupport': 'Editar apoyo',
+  'selEntity.deselectBackSupport': 'Listo: volver a crear apoyos',
 };
 export default es;

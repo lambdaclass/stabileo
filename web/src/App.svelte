@@ -140,6 +140,23 @@
     });
   });
 
+  /*
+   * On a phone a support or a load is edited in the modelling sheet, in the
+   * row where it is created (DataTable › ToolOptions). Selecting one, on the
+   * model or in its table, opens that sheet on its tab, so the edit and its
+   * delete are where the reader looks; there is no other place for them there.
+   */
+  $effect(() => {
+    const phone = uiStore.isMobile && uiStore.appMode === 'basico';
+    const loads = uiStore.selectedLoads.size, supports = uiStore.selectedSupports.size;
+    const others = uiStore.selectedNodes.size + uiStore.selectedElements.size + uiStore.selectedShells.size;
+    if (!phone || others > 0 || (loads === 0 && supports === 0)) return;
+    const tab = loads > 0 ? 'loads' : 'supports';
+    untrack(() => {
+      if (basicPanel !== 'data' || basicDataTab !== tab) openBasicPanel('data', { toggle: false, dataTab: tab });
+    });
+  });
+
   /**
    * Close the right panel without stranding the pointer.
    *

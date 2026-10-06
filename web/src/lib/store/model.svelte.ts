@@ -44,7 +44,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
+import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
 import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -1127,11 +1127,14 @@ function createModelStore() {
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints } | string {
+  function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints; analysis?: { selfWeight: SelfWeightLoad[] } } | string {
+    // Only Basic's self-weight rule rides along: which case carries it.
+    const sw = basicSelfWeight(includeSelfWeight);
+    const analysis = sw ? { selfWeight: sw } : undefined;
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
         loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors, constraints: model.constraints };
+        connectors: model.connectors, constraints: model.constraints, analysis };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1201,7 +1204,7 @@ function createModelStore() {
     // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
       loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors, constraints: model.constraints };
+      connectors: model.connectors, constraints: model.constraints, analysis };
   }
 
   let nextId = $state({
@@ -1471,10 +1474,28 @@ function createModelStore() {
    * a model that visited PRO carries a stated rule (`selfWeight: []` when it had none), and it
    * silenced Basic's toggle. Basic reads the rest of the settings and its toggle for self-weight.
    */
-  function analysisFor(isPro: boolean): StructureModel['analysis'] {
-    if (isPro || !model.analysis?.selfWeight) return model.analysis;
-    const { selfWeight: _stated, ...rest } = model.analysis;
+  function analysisFor(isPro: boolean, includeSelfWeight: boolean): StructureModel['analysis'] {
+    if (isPro) return model.analysis;
+    const { selfWeight: _stated, ...rest } = model.analysis ?? {};
+    const basic = basicSelfWeight(includeSelfWeight);
+    if (basic) return { ...rest, selfWeight: basic };
     return Object.keys(rest).length ? rest : undefined;
+  }
+
+  /**
+   * Basic's self-weight as the rule a solve reads: on or off as the solve was asked, in the case chosen under
+   * Loads › Combinations, or the first dead-load case when none is chosen (or the chosen one
+   * was deleted), else the first case. With no case at all there is nothing to state, and the
+   * older rule applies.
+   */
+  function basicSelfWeight(includeSelfWeight: boolean): SelfWeightLoad[] | undefined {
+    const cases = model.loadCases;
+    const chosen = uiStore.selfWeightCaseId;
+    const target = (chosen !== null && cases.some((c) => c.id === chosen))
+      ? chosen
+      : (cases.find((c) => c.type === 'D') ?? cases[0])?.id;
+    if (target === undefined) return undefined;
+    return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -3654,7 +3675,7 @@ function createModelStore() {
     /** Mirror selected nodes about an axis through their centroid */
 
     solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
     },
@@ -3662,14 +3683,14 @@ function createModelStore() {
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
     async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return validateAndSolve2DAsync(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
     buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return null;
       return buildSolverInput2D(mapped, includeSelfWeight);
     },
@@ -3910,7 +3931,7 @@ function createModelStore() {
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
     solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return solveCombinations2D(mapped, model.loadCases, model.combinations, includeSelfWeight);
     },
@@ -3921,7 +3942,7 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean } = {}): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic, includeSelfWeight), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -3936,7 +3957,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3951,7 +3972,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3966,7 +3987,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -3982,7 +4003,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,

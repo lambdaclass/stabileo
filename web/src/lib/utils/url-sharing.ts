@@ -183,6 +183,7 @@ export interface ShareMeta {
   axisConvention3D?: string;
   // Self-weight
   includeSelfWeight?: boolean;
+  selfWeightCaseId?: number;
   // Live calc
   liveCalc?: boolean;
   // Viewport state (2D)
@@ -714,6 +715,7 @@ function buildShareMeta(includeViewport: boolean): ShareMeta {
     localAxesMode3D: uiStore.localAxesMode3D,
     axisConvention3D: uiStore.axisConvention3D,
     includeSelfWeight: uiStore.includeSelfWeight,
+    ...(uiStore.selfWeightCaseId !== null ? { selfWeightCaseId: uiStore.selfWeightCaseId } : {}),
     liveCalc: uiStore.liveCalc,
   };
   if (includeViewport) {
@@ -849,6 +851,7 @@ function restoreMeta(snapshot: ModelSnapshot): void {
   if (meta.axisConvention3D !== undefined) uiStore.axisConvention3D = meta.axisConvention3D as any;
   // Other settings
   if (meta.includeSelfWeight !== undefined) uiStore.includeSelfWeight = meta.includeSelfWeight;
+  uiStore.selfWeightCaseId = meta.selfWeightCaseId ?? null;
   if (meta.liveCalc !== undefined) uiStore.liveCalc = meta.liveCalc;
   // Viewport state
   if (meta.zoom !== undefined) uiStore.zoom = meta.zoom;

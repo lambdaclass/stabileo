@@ -57,6 +57,8 @@ export interface DedalFile {
    * alone in the first case rather than asserting a value the file never stated.
    */
   includeSelfWeight?: boolean;
+  /** The load case Basic's self-weight goes in; absent: the first dead-load case. */
+  selfWeightCaseId?: number;
 }
 
 /** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
@@ -215,6 +217,7 @@ export function buildProjectFile(): DedalFile {
      * is the format people actually keep, and it was the one dropping it.
      */
     includeSelfWeight: uiStore.includeSelfWeight,
+    ...(uiStore.selfWeightCaseId !== null ? { selfWeightCaseId: uiStore.selfWeightCaseId } : {}),
   });
 }
 
@@ -291,6 +294,7 @@ export function deserializeProject(text: string): boolean {
   // `!== undefined`, not truthiness: `false` is the value that most needs restoring, and a
   // plain `if (data.includeSelfWeight)` would drop exactly the case this fixes.
   if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
+  uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   resultsStore.forgetView();

@@ -78,6 +78,7 @@ export interface TabState {
   axisConvention3D: 'rightHand' | 'leftHand';
   // Other per-tab settings
   includeSelfWeight: boolean;
+  selfWeightCaseId?: number | null;
   liveCalc: boolean;
   // Viewport state (2D)
   zoom: number;
@@ -165,6 +166,7 @@ function createTabManager() {
       showConstraintForces: resultsStore.showConstraintForces,
       // Other per-tab settings
       includeSelfWeight: uiStore.includeSelfWeight,
+      selfWeightCaseId: uiStore.selfWeightCaseId,
       liveCalc: uiStore.liveCalc,
       // Viewport state
       zoom: uiStore.zoom,
@@ -251,6 +253,7 @@ function createTabManager() {
 
       // Restore other per-tab settings
       uiStore.includeSelfWeight = state.includeSelfWeight;
+      uiStore.selfWeightCaseId = state.selfWeightCaseId ?? null;
       uiStore.liveCalc = state.liveCalc;
 
       // Restore viewport state
@@ -360,6 +363,7 @@ function createTabManager() {
           showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
           axisConvention3D: uiStore.axisConvention3D,
           includeSelfWeight: uiStore.includeSelfWeight,
+          selfWeightCaseId: uiStore.selfWeightCaseId,
           liveCalc: uiStore.liveCalc,
           zoom: uiStore.zoom,
           panX: uiStore.panX,
@@ -422,6 +426,7 @@ function createTabManager() {
         cameraMode3D: uiStore.cameraMode3D,
         showGrid3D: uiStore.showGrid3D,
         gridSize3D: uiStore.gridSize3D,
+        gridExtent3D: uiStore.gridExtent3D,
         snapToGrid3D: uiStore.snapToGrid3D,
         showNodeLabels3D: uiStore.showNodeLabels3D,
         showElementLabels3D: uiStore.showElementLabels3D,
@@ -430,6 +435,7 @@ function createTabManager() {
         showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
         axisConvention3D: uiStore.axisConvention3D,
         includeSelfWeight: uiStore.includeSelfWeight,
+        selfWeightCaseId: uiStore.selfWeightCaseId,
         liveCalc: uiStore.liveCalc,
         // New tabs inherit current viewport (user can zoom-to-fit after)
         zoom: uiStore.zoom,

@@ -2534,7 +2534,7 @@ const en: Record<string, string> = {
   'selEntity.editingLoad': 'Editing load:',
   'selEntity.loadCase': 'Load case',
   'selEntity.deleteLoad': 'Delete load',
-  'selEntity.deselectBack': 'Deselect and return to load mode',
+  'selEntity.deselectBack': 'Done: back to creating loads',
   'selEntity.loadsSelected': '{n} loads selected',
   'selEntity.deleteSelectedLoads': 'Delete selected loads',
   'selEntity.deleteBtn': 'Delete',
@@ -9332,5 +9332,13 @@ const en: Record<string, string> = {
   'overlap.keepBoth': 'Keep both',
   'calcReport.modelFigure': 'Figure 1. The model with the node and member numbers the tables use.',
   'toast.pdeltaNotDrawn': 'It is not drawn as a result: under these loads there is no second-order equilibrium. Run Pcr (Euler) to see the critical load.',
+  'table.selfWeightIn': 'in case',
+  'table.loadsEmpty': 'No loads yet. Add them with the Load tool, over the drawing.',
+  'table.supportsEmpty': 'No supports yet. Add them with the Support tool, over the drawing.',
+  'float.createLoad': 'Create load',
+  'float.createSupport': 'Create support',
+  'float.editLoad': 'Edit load',
+  'float.editSupport': 'Edit support',
+  'selEntity.deselectBackSupport': 'Done: back to creating supports',
 };
 export default en;

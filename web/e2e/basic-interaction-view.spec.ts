@@ -90,4 +90,48 @@ test.describe('@smoke Basic interaction and view', () => {
     await page.getByTestId('cfg-label-size').fill('1.5');
     await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-label-scale'))).toBe('1.5');
   });
+
+  test('loads: the row creates; selecting one turns it into the editor, with its own bin', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-load').click();
+    await expect(page.getByTestId('tool-mode-create')).toBeVisible();
+    // No create row under the table any more.
+    await expect(page.locator('.add-row')).toHaveCount(0);
+    await page.locator('td.id-cell:visible').first().click();
+    await expect(page.getByTestId('tool-mode-edit')).toBeVisible();
+    await expect(page.getByTestId('tool-mode-create')).toHaveCount(0);
+    // One bin: the editor's, not the large one as well.
+    await expect(page.getByTestId('edit-delete')).toBeVisible();
+    await expect(page.getByTestId('selection-delete')).toHaveCount(0);
+    await page.getByTestId('edit-done').click();
+    await expect(page.getByTestId('tool-mode-create')).toBeVisible();
+  });
+
+  test('self-weight sits first in the combinations fold, with the case it goes in', async ({ page }) => {
+    await boot(page);
+    await page.getByTestId('rb-cmd-load').click();
+    await page.locator('.combos-fold > summary').click();
+    await page.getByTestId('selfweight-toggle').check();
+    await expect(page.getByTestId('selfweight-case')).toBeEnabled();
+  });
+});
+
+test.describe('@smoke Basic on a phone: create and edit in the sheet', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('selecting a support edits it in the row under the tool buttons', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-model').tap();
+    await page.getByTestId('dt-tab-supports').tap();
+    const row = page.getByTestId('dt-tool-options');
+    await expect(row.getByTestId('tool-mode-edit')).toHaveCount(0);
+    await page.locator('td.id-cell:visible').first().tap();
+    await expect(row.getByTestId('tool-mode-edit')).toBeVisible();
+    await expect(row.getByTestId('edit-delete')).toBeVisible();
+    await expect(page.getByTestId('selection-delete')).toHaveCount(0);
+    await row.getByTestId('edit-done').tap();
+    await expect(row.getByTestId('tool-mode-edit')).toHaveCount(0);
+  });
 });

@@ -1967,7 +1967,8 @@
     if (is3D) {
       // PRO places the support its drawing bar describes; 3D Basic keeps its own strip.
       const supId = uiStore.appMode === 'pro' ? drawState.addSupportAt(nodeId) : addSupportFromTool3D(nodeId);
-      uiStore.selectSupport(supId, false);
+      // Basic stays in create mode: selecting it would turn the options row into its editor.
+      if (uiStore.appMode === 'pro') uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
       // 2D support creation (unchanged)
@@ -1983,7 +1984,7 @@
       if (uiStore.supportDy !== 0) opts.dy = uiStore.supportDy;
       if (uiStore.supportDrz !== 0) opts.drz = uiStore.supportDrz;
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
-      uiStore.selectSupport(supId, false);
+      if (uiStore.appMode === 'pro') uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     }
   }

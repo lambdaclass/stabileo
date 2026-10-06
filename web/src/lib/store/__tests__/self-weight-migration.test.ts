@@ -89,3 +89,45 @@ describe('Basic reads its own toggle', () => {
     expect(r.reactions.reduce((s, x) => s + x.fz, 0)).toBeGreaterThan(10 + 1e-6);
   });
 });
+
+describe('Basic puts self-weight in the case chosen for it', () => {
+  const sumFz = (r: { reactions: Array<{ fz?: number; rz?: number }> }) => r.reactions.reduce((s, x) => s + (x.fz ?? x.rz ?? 0), 0);
+
+  it('3D: in the chosen case only, and the first dead-load case when none is chosen', () => {
+    uiStore.analysisMode = '3d';
+    const { ids } = project(['D', 'L']);
+    modelStore.addCombination('C', [{ caseId: ids[0]!, factor: 1 }, { caseId: ids[1]!, factor: 1 }]);
+    uiStore.selfWeightCaseId = ids[1]!;
+    let r = modelStore.solveCombinations3D(true, false, false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    // The load is in D; the weight now in L.
+    expect(sumFz(r.perCase.get(ids[0]!)!)).toBeCloseTo(10, 6);
+    expect(sumFz(r.perCase.get(ids[1]!)!)).toBeGreaterThan(1e-6);
+    uiStore.selfWeightCaseId = null;
+    r = modelStore.solveCombinations3D(true, false, false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(sumFz(r.perCase.get(ids[0]!)!)).toBeGreaterThan(10 + 1e-6);
+    expect(Math.abs(sumFz(r.perCase.get(ids[1]!)!))).toBeLessThan(1e-6);
+  });
+
+  it('2D: the same rule per case', () => {
+    uiStore.analysisMode = '2d';
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    for (const c of [...modelStore.model.loadCases]) modelStore.removeLoadCase(c.id);
+    const d = modelStore.addLoadCase('D0', 'D'), l = modelStore.addLoadCase('L1', 'L');
+    modelStore.addNodalLoad(b, 0, -10, 0, d);
+    modelStore.addNodalLoad(b, 0, -5, 0, l);
+    modelStore.addCombination('C', [{ caseId: d, factor: 1 }, { caseId: l, factor: 1 }]);
+    const vertical = (res: { reactions: Array<{ rz?: number; ry?: number }> }) => res.reactions.reduce((s, x) => s + (x.rz ?? x.ry ?? 0), 0);
+    uiStore.selfWeightCaseId = l;
+    const r = modelStore.solveCombinations(true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(vertical(r.perCase.get(d)!)).toBeCloseTo(10, 6);
+    expect(vertical(r.perCase.get(l)!)).toBeGreaterThan(5 + 1e-6);
+    uiStore.selfWeightCaseId = null;
+  });
+});

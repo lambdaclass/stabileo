@@ -6413,7 +6413,7 @@ const pt: Translations = {
   'selEntity.deleteSelectedSupports': 'Excluir apoios selecionados',
   'selEntity.deleteSupport': 'Excluir apoio',
   'selEntity.deselect': 'Desmarcar',
-  'selEntity.deselectBack': 'Desmarcar e voltar ao modo de carga',
+  'selEntity.deselectBack': 'Pronto: voltar a criar cargas',
   'selEntity.editingLoad': 'Editando carga:',
   'selEntity.loadCase': 'Caso de carga',
   'selEntity.loadsSelected': '{n} cargas selecionadas',
@@ -8965,5 +8965,13 @@ const pt: Translations = {
   'overlap.keepBoth': 'Manter as duas',
   'calcReport.modelFigure': 'Figura 1. O modelo com a numeração de nós e barras usada nas tabelas.',
   'toast.pdeltaNotDrawn': 'Não é desenhado como resultado: com estas cargas não há equilíbrio de segunda ordem. Calcule Pcr (Euler) para ver a carga crítica.',
+  'table.selfWeightIn': 'no caso',
+  'table.loadsEmpty': 'Ainda não há cargas. Adicione-as com a ferramenta Carga, sobre o desenho.',
+  'table.supportsEmpty': 'Ainda não há apoios. Adicione-os com a ferramenta Apoio, sobre o desenho.',
+  'float.createLoad': 'Criar carga',
+  'float.createSupport': 'Criar apoio',
+  'float.editLoad': 'Editar carga',
+  'float.editSupport': 'Editar apoio',
+  'selEntity.deselectBackSupport': 'Pronto: voltar a criar apoios',
 };
 export default pt;

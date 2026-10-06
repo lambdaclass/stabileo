@@ -4,6 +4,13 @@
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
+  import Icon from '../ribbon/Icon.svelte';
+
+  /**
+   * `inBar`: shown in the options bar's edit mode (ToolOptions), whose own
+   * label already says "Edit load", so the panel's tag would repeat it.
+   */
+  let { inBar = false }: { inBar?: boolean } = $props();
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
     if (typeof val === 'boolean') {
@@ -122,8 +129,8 @@
 </script>
 
 {#if selectedLoad}
-  <div class="ft-load-edit">
-    <span class="ft-load-tag">{t('selEntity.editingLoad')}</span>
+  <div class="ft-load-edit" class:in-bar={inBar}>
+    {#if !inBar}<span class="ft-load-tag">{t('selEntity.editingLoad')}</span>{/if}
     <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor((selectedLoad.data as any).caseId ?? 1)}"></span>
     <select class="ft-case-select"
       value={String((selectedLoad.data as any).caseId ?? 1)}
@@ -240,19 +247,19 @@
       <label class="ft-input-group"><span>qZI:</span><input type="number" step="1" value={dl3.qZI} onchange={(e) => updateLoadField(dl3.id, 'qZI', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
       <label class="ft-input-group"><span>qZJ:</span><input type="number" step="1" value={dl3.qZJ} onchange={(e) => updateLoadField(dl3.id, 'qZJ', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')}>🗑</button>
-    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
   </div>
 {:else if uiStore.selectedLoads.size > 1}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.loadsSelected').replace('{n}', String(uiStore.selectedLoads.size))}</span>
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteSelectedLoads')}>🗑 {t('selEntity.deleteBtn')}</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedLoads()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteSelectedLoads')} data-testid="edit-delete"><Icon name="trash" size={14} /> {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
   </div>
 {/if}
 
 {#if selectedSup}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
@@ -426,14 +433,14 @@
         <span class="ft-unit">°</span>
       </label>
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSupport')}>🗑</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSupport')} aria-label={t('selEntity.deleteSupport')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedSupports(); uiStore.currentTool = 'support'; }} title={t('selEntity.deselectBackSupport')} data-testid="edit-done">✓</button>
   </div>
 {:else if uiStore.selectedSupports.size > 1}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.supportsSelected').replace('{n}', String(uiStore.selectedSupports.size))}</span>
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSelectedSupports')}>🗑 {t('selEntity.deleteBtn')}</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSelectedSupports')} data-testid="edit-delete"><Icon name="trash" size={14} /> {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedSupports(); uiStore.currentTool = 'support'; }} title={t('selEntity.deselectBackSupport')} data-testid="edit-done">✓</button>
   </div>
 {/if}
 
@@ -576,6 +583,9 @@
     background: var(--st-surface-2);
   }
 
+  /* In the options bar it is part of the row, not a strip of its own. */
+  .ft-load-edit.in-bar { border-top: none; background: transparent; padding: 0; justify-content: flex-start; }
+
   .ft-load-tag {
     font-size: 0.65rem;
     color: var(--st-value);
@@ -584,6 +594,9 @@
   }
 
   .ft-load-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 2px 6px;
     background: var(--st-accent);
     border: 1px solid var(--st-danger);
