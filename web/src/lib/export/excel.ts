@@ -186,18 +186,28 @@ function createSummarySheet(): Xlsx.WorkSheet {
   return ws;
 }
 
+/**
+ * The members sheet's section-property headers. A member of variable section names its section
+ * «I → J», but the A and I written beside it are the end-I section's, so when the model has one
+ * the headers say so, as «Ni» and «Mi» already do; for a prismatic member Ai is just A.
+ */
+export function sectionPropertyHeaders(is3D: boolean, anyVariable: boolean): string[] {
+  const end = anyVariable ? 'i' : '';
+  return [`A${end} (m²)`, `Iy${end} (m⁴)`, ...(is3D ? [`Iz${end} (m⁴)`, `J${end} (m⁴)`] : [])];
+}
+
 function createElementsSheet(): Xlsx.WorkSheet {
   const is3D = uiStore.is3DWorkspace;
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
 
+  const anyVariable = [...modelStore.elements.values()].some((e) => e.variableSection);
   const headers = [
     'ID', t('excel.type'), t('excel.nodeI'), t('excel.nodeJ'), 'L (m)',
     t('excel.material'), 'E (MPa)',
-    t('excel.section'), 'A (m²)', 'Iy (m⁴)',
+    t('excel.section'), ...sectionPropertyHeaders(is3D, anyVariable),
   ];
-  if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
   headers.push(t('excel.releaseI'), t('excel.releaseJ'));
 
   if (hasResults && is3D) {

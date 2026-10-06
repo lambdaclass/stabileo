@@ -29,6 +29,11 @@
  * each end of a cut the surcharge is averaged along the strip, from the beam to its tributary
  * depth, times that depth. A member loaded by width reads it on its own line.
  *
+ * The surcharge stays on the lower roof: the panels of its level joined to the one the band
+ * starts from, side by side. A roof of the same level that is not joined to it (across a gap, or
+ * a separate building) takes none of it, though it lies within w or 4,5 m of the step; it used
+ * to. The lengths l_u are read on the joined panels too.
+ *
  * Pure: no store.
  */
 import type { GravityLayout, GravityModel } from './plan-gravity';
@@ -42,8 +47,11 @@ export interface SnowSurchargeLoad {
   elementId: number; q: number; qJ?: number; a?: number; b?: number; frame: 'projected';
 }
 
-/** A surcharge band along a line, into the lower roof: `p(d)` at distance d from the line. */
-interface Band { p0: P2; u: P2; len: number; n: P2; z: number; p: (d: number) => number }
+/**
+ * A surcharge band along a line, into the lower roof: `p(d)` at distance d from the line, only
+ * on the lower roof's panels `on`.
+ */
+interface Band { p0: P2; u: P2; len: number; n: P2; z: number; on: P2[][]; p: (d: number) => number }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
@@ -64,6 +72,34 @@ function lineInto(a: P2, b: P2, poly: P2[]): { p0: P2; u: P2; len: number; n: P2
   return { p0: a, u, len, n };
 }
 
+/** Point in polygon, its sides included (within 5 cm). */
+function within(pt: P2, poly: P2[]): boolean {
+  let c = false;
+  for (let k = 0, j = poly.length - 1; k < poly.length; j = k++) {
+    if (nearSeg(pt, poly[j]!, poly[k]!, 0.05)) return true;
+    const [xi, yi] = poly[k]!, [xj, yj] = poly[j]!;
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+
+/** Whether two panels share a stretch of side (more than 10 cm of it). */
+function joined(A: P2[], B: P2[]): boolean {
+  for (let e = 0; e < A.length; e++) {
+    const a = A[e]!, b = A[(e + 1) % A.length]!;
+    const d = sub(b, a), len = Math.hypot(d[0], d[1]);
+    if (len < 1e-9) continue;
+    const u: P2 = [d[0] / len, d[1] / len], n: P2 = [-u[1], u[0]];
+    for (let f = 0; f < B.length; f++) {
+      const c = B[f]!, g = B[(f + 1) % B.length]!;
+      if (Math.abs(dot(sub(c, a), n)) > 0.01 || Math.abs(dot(sub(g, a), n)) > 0.01) continue;
+      const tc = dot(sub(c, a), u), tg = dot(sub(g, a), u);
+      if (Math.min(len, Math.max(tc, tg)) - Math.max(0, Math.min(tc, tg)) > 0.1) return true;
+    }
+  }
+  return false;
+}
+
 /** The value of the bands at a plan point of level z. */
 function surcharge(bands: Band[], pt: P2, z: number): number {
   let s = 0;
@@ -71,6 +107,7 @@ function surcharge(bands: Band[], pt: P2, z: number): number {
     if (Math.abs(b.z - z) > 0.05) continue;
     const r = sub(pt, b.p0), t = dot(r, b.u), d = dot(r, b.n);
     if (t < -1e-6 || t > b.len + 1e-6 || d < -1e-6) continue;
+    if (!b.on.some((poly) => within(pt, poly))) continue;
     s += b.p(d);
   }
   return s;
@@ -99,6 +136,19 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   const derivation: EngineMessage[] = [];
   const refs: ClauseRef[] = [];
   const roofs = layout.panels.map((p, k) => ({ ...p, k })).filter((p) => p.roof);
+  /** The roof a panel belongs to: the panels of its level joined to it, side by side, in turn. */
+  const roofOf = (k: number): typeof roofs => {
+    const start = roofs.find((p) => p.k === k);
+    if (!start) return [];
+    const group = [start];
+    for (let i = 0; i < group.length; i++) {
+      for (const p of roofs) {
+        if (group.includes(p) || Math.abs(p.z - start.z) > 0.05) continue;
+        if (joined(group[i]!.polygon, p.polygon)) group.push(p);
+      }
+    }
+    return group;
+  };
 
   // ── Steps (Cap. 7.1) ──
   for (const L of roofs) for (const U of roofs) {
@@ -116,10 +166,10 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         if (hi - lo > 0.1) { t0 = Math.min(t0, lo); t1 = Math.max(t1, hi); }
       }
       if (!(t1 > t0)) continue;
-      const reach = (z: number, sign: number) => Math.max(0, ...roofs.filter((p) => Math.abs(p.z - z) <= 0.05)
-        .flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
+      const lower = roofOf(L.k);
+      const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
       const dr: StepDrift = stepDrift({
-        pg: i.pg, balanced: i.balanced, stepHeight: U.z - L.z, luUpper: reach(U.z, -1), luLower: reach(L.z, 1),
+        pg: i.pg, balanced: i.balanced, stepHeight: U.z - L.z, luUpper: reach(roofOf(U.k), -1), luLower: reach(lower, 1),
       });
       derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
         z: round(L.z, 2), up: round(U.z, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
@@ -128,7 +178,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       if (!dr.applies) continue;
       if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
       bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n, z: L.z,
-        p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
+        on: lower.map((p) => p.polygon), p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
     }
   }
 
@@ -151,8 +201,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
         if (roofs.some((p) => p.k !== L.k && p.z >= L.z - 0.05 && inside(mid, p.polygon))) continue;
         // The roof's length from this edge into it, for l_u.
-        const lu = Math.max(0, ...roofs.filter((p) => Math.abs(p.z - L.z) <= 0.05).flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
-        const band = (dr: StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, z: L.z, p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
+        const lower = roofOf(L.k);
+        const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
+        const band = (dr: StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, z: L.z, on: lower.map((p) => p.polygon), p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
         if (i.parapet && i.parapet.height > 0) {
           const dr = parapetDrift({ pg: i.pg, balanced: i.balanced, parapetHeight: i.parapet.height, lu });
           derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
@@ -217,7 +268,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       if (!sl.applies) continue;
       if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
       bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: Math.max(t1 - t0, 0.01), n: line.n, z: L.z,
-        p: (d) => (d <= 4.5 ? sl.intensity : 0) });
+        on: roofOf(L.k).map((p) => p.polygon), p: (d) => (d <= 4.5 ? sl.intensity : 0) });
     }
   }
   if (bands.length === 0) return { distributed: [], derivation, refs };

@@ -53,7 +53,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -87,6 +87,20 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
       modelStore.addSurfaceLoad3D(s.quadId, s.q, id);
+    }
+
+    // The user's own cases of a type the plan generates into a group of its own (the live load
+    // with its patterns, the two senses of ΔT) are not the plan's: they stay outside the group,
+    // and without this every combination of the type left them out. They go in as plain cases,
+    // summed at the type's factor beside whichever alternative of the group a combination takes.
+    // Cases an earlier apply made for the group and this plan no longer uses stay out.
+    const planIds = new Set(caseIds);
+    const ownGroups = new Set(p.cases.filter((c) => c.own && c.alternatives).map((c) => c.alternatives!));
+    for (const type of new Set(p.cases.filter((c) => c.own).map((c) => c.type))) {
+      const list = caseIdByType.get(type)!;
+      for (const lc of modelStore.model.loadCases) {
+        if (lc.type === type && !planIds.has(lc.id) && !(lc.alternatives && ownGroups.has(lc.alternatives))) list.push(lc.id);
+      }
     }
 
     // One combination per wind or seismic case, never two directions in one. Wind from −X and

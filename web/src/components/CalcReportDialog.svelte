@@ -1,7 +1,7 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
-  import { loadComponentsText, reportNumber } from '../lib/engine/calc-report-loads';
+  import { loadComponentsText, distributedText, pointOnElementText } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
@@ -50,6 +50,7 @@
     };
 
     // Extract load descriptions from model
+    const loadWords = { global: t('report.loadGlobal') };
     const loads = modelStore.loads.map((l) => {
       const d = l.data as any;
       let description = '';
@@ -59,11 +60,11 @@
       if (l.type === 'nodal' || l.type === 'nodal3d') {
         description = `${t('table.nodeLabel')} ${d.nodeId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
       } else if (l.type === 'distributed') {
-        description = `${t('table.elemLabel')} ${d.elementId}: q=${reportNumber(d.qI)}→${reportNumber(d.qJ)} kN/m`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${distributedText(d, loadWords)}`;
       } else if (l.type === 'distributed3d') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${tp('calcReport.pointAt', { p: d.p, a: d.a })}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords) || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
         description = `${t('table.elemLabel')} ${d.elementId}: ΔT=${d.dtUniform}°C, ΔTg=${d.dtGradient}°C`;
       } else {
