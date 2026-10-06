@@ -9,10 +9,10 @@ import '../src/lib/engine/design/adapters/cirsoc201-adapter';
 import '../src/lib/engine/design/adapters/unsupported-adapter';
 import { detailingStore } from '../src/lib/store/detailing.svelte';
 
-export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true) {
+export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true, incrementalRepair = true) {
   const results = [];
   await initSolver();
-  registerCollisionKernel(collisionKernel ? CollisionGeometry : null);
+  registerCollisionKernel(collisionKernel ? CollisionGeometry : null, incrementalRepair);
   for (const example of exampleIds) {
     const rows = [];
     // Run 0 warms the solver/design code; report the median of the next three runs.
