@@ -236,13 +236,13 @@
       </label>
     {:else if selectedLoad.type === 'thermal'}
       {@const tl = selectedLoad.data as { id: number; elementId: number; dtUniform: number; dtGradient: number }}
-      <label class="ft-input-group">
-        <span>ΔT:</span>
+      <label class="ft-input-group" title={t('float.thermalUniformTip')}>
+        <span>ΔTg:</span>
         <UnitInput value={tl.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(tl.id, 'dtUniform', String(v))} unit={false} />
         <span class="ft-unit">{unitQ('temperatureDelta')}</span>
       </label>
-      <label class="ft-input-group">
-        <span>ΔTg:</span>
+      <label class="ft-input-group" title={t('float.thermalGradientTip')}>
+        <span>∇T:</span>
         <UnitInput value={tl.dtGradient} qty="temperatureDelta" onchange={(v) => updateLoadField(tl.id, 'dtGradient', String(v))} unit={false} />
         <span class="ft-unit">{unitQ('temperatureDelta')}</span>
       </label>

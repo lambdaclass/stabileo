@@ -9495,5 +9495,7 @@ const es: Record<string, string> = {
   'loadPlan.blocked.noCodeModule': 'El rol «{role}» tiene asignado {name}, que todavía no tiene un módulo para generar cargas.',
   'float.loadFrameGlobalTip': 'Los valores van según los ejes globales (Z es la vertical).',
   'float.loadFrameLocalTip': 'Los valores van según los ejes locales de la barra.',
+  'float.thermalUniformTip': 'ΔTg: cambio de temperatura de toda la barra, igual en toda la sección. La alarga (+) o la acorta (−); si los apoyos no la dejan, aparece esfuerzo axil.',
+  'float.thermalGradientTip': '∇T: diferencia de temperatura entre las caras, la inferior menos la superior (superior = eje local z). Positivo: la cara inferior está más caliente y la barra se curva hacia arriba; si los vínculos lo impiden, aparece flexión.',
 };
 export default es;

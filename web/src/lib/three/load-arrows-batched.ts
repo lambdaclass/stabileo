@@ -399,6 +399,16 @@ export class LoadArrowsBatched {
     this.label(text, '#' + new THREE.Color(caseColor).getHexString(), 22, p);
   }
 
+  /**
+   * A "+" or "−" beside a member: a temperature, warmer or colder. Red for warmer, blue for
+   * colder, as the 2D drawing paints them; part of the load's footprint so it can be clicked.
+   */
+  addSign(pos: { x: number; y: number; z: number }, warmer: boolean): void {
+    const p = new THREE.Vector3(pos.x, pos.y, pos.z);
+    this.mark(p, p);
+    this.label(warmer ? '+' : '−', warmer ? '#e5482a' : '#4a8fd4', 60, p);
+  }
+
   /** A line through points: a tendon's profile. */
   addPolyline(points: ReadonlyArray<{ x: number; y: number; z: number }>, caseColor: number): void {
     for (let k = 0; k + 1 < points.length; k++) {

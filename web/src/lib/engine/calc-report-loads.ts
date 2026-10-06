@@ -114,5 +114,5 @@ export function loadComponentsText(type: string, d: Record<string, any>, us: Uni
  */
 export function thermalText(d: { dtUniform?: number; dtGradient?: number }, us: UnitSystem = 'SI'): string {
   const dt = (v: number | undefined) => `${val(v ?? 0, 'temperatureDelta', us)}${unitLabel('temperatureDelta', us)}`;
-  return `ΔT=${dt(d.dtUniform)}, ΔTg=${dt(d.dtGradient)}`;
+  return `ΔTg=${dt(d.dtUniform)}, ∇T=${dt(d.dtGradient)}`;
 }

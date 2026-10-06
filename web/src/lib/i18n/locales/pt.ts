@@ -9139,5 +9139,7 @@ const pt: Translations = {
   'loadPlan.blocked.noCodeModule': 'O papel «{role}» tem atribuído {name}, que ainda não tem um módulo para gerar cargas.',
   'float.loadFrameGlobalTip': 'Os valores seguem os eixos globais (Z é a vertical).',
   'float.loadFrameLocalTip': 'Os valores seguem os eixos locais da barra.',
+  'float.thermalUniformTip': 'ΔTg: variação de temperatura de toda a barra, igual em toda a seção. Ela alonga (+) ou encurta (−) a barra; se os apoios impedem, aparece esforço normal.',
+  'float.thermalGradientTip': '∇T: diferença de temperatura entre as faces, a inferior menos a superior (superior = eixo local z). Positivo: a face inferior está mais quente e a barra se curva para cima; se os vínculos impedem, aparece flexão.',
 };
 export default pt;

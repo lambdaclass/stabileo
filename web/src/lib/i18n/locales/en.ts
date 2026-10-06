@@ -9506,5 +9506,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.noCodeModule': 'The "{role}" role is bound to {name}, which has no module to generate loads with yet.',
   'float.loadFrameGlobalTip': 'The values are along the global axes (Z is the vertical).',
   'float.loadFrameLocalTip': 'The values are along the member\'s local axes.',
+  'float.thermalUniformTip': 'ΔTg: temperature change of the whole member, the same across the section. It lengthens (+) or shortens (−) the member; if the supports prevent it, an axial force appears.',
+  'float.thermalGradientTip': '∇T: temperature difference between the faces, the bottom one minus the top one (top = local z axis). Positive: the bottom face is warmer and the member curves upward; if the supports prevent it, bending appears.',
 };
 export default en;

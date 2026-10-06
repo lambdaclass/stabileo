@@ -612,16 +612,16 @@ export function drawPointLoadsOnElements(
 
 interface ThermalLoadInfo {
   elementId: number;
-  dtUniform: number; // °C uniform ΔT
-  dtGradient: number; // °C gradient ΔTg
+  dtUniform: number; // °C uniform change (Basic calls it ΔTg)
+  dtGradient: number; // °C bottom-face minus top-face change (Basic calls it ∇T)
   caseName?: string;     // name prefix for labels
 }
 
 /**
  * Draw thermal loads as +/- symbols along elements.
  *
- * ΔT uniform: + on both sides (positive = expansion) or - on both sides (negative = contraction)
- * ΔTg gradient: + on one side, - on other side (top/bottom temperature difference → bending)
+ * ΔTg, the uniform change: + on both sides (lengthens) or − on both sides (shortens).
+ * ∇T, the gradient: + on the warmer face, − on the other (the faces' difference bends the member).
  */
 export function drawThermalLoads(
   loads: ThermalLoadInfo[],
@@ -665,7 +665,7 @@ export function drawThermalLoads(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Draw uniform ΔT: same sign on both sides
+    // The uniform change (ΔTg): the same sign on both sides
     if (Math.abs(load.dtUniform) > 0.01) {
       const sign = load.dtUniform > 0 ? '+' : '−';
       ctx.fillStyle = load.dtUniform > 0 ? '#e5482a' : '#4a8fd4';
@@ -704,7 +704,7 @@ export function drawThermalLoads(
        */
       const thermPrefix = load.caseName ? `${load.caseName}: ` : '';
       labels.add({
-        text: `${thermPrefix}ΔT=${temperatureDeltaText(load.dtUniform)}`,
+        text: `${thermPrefix}ΔTg=${temperatureDeltaText(load.dtUniform)}`,
         colour: load.dtUniform > 0 ? '#e5482a' : '#4a8fd4',
         font: '11px sans-serif',
         box: {
@@ -717,10 +717,10 @@ export function drawThermalLoads(
       });
     }
 
-    // Draw gradient ΔTg: + on one side, - on other
+    // The gradient (∇T): + on the warmer face, − on the other
     if (Math.abs(load.dtGradient) > 0.01) {
       /*
-       * ΔTg = ΔT(bottom) − ΔT(top), top the drawn local z: the hot side of a
+       * ∇T = ΔT(bottom) − ΔT(top), top the drawn local z: the hot side of a
        * positive gradient is −z. `n` is that side for a member whose drawn z
        * is the solver's; the others turn it over (transverse-sign-2d.ts).
        */
@@ -765,7 +765,7 @@ export function drawThermalLoads(
       const labelOffset = Math.abs(load.dtUniform) > 0.01 ? gradOffset + 14 : OFFSET_PX + 14;
       const gradPrefix = load.caseName ? `${load.caseName}: ` : '';
       labels.add({
-        text: `${gradPrefix}ΔTg=${temperatureDeltaText(load.dtGradient)}`,
+        text: `${gradPrefix}∇T=${temperatureDeltaText(load.dtGradient)}`,
         colour: '#a88fd4',
         font: '11px sans-serif',
         box: {

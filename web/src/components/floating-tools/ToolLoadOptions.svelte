@@ -108,13 +108,13 @@
   {/if}
   {/if}
 {:else if uiStore.loadType === 'thermal'}
-  <label class="ft-input-group">
-    <span>ΔT:</span>
+  <label class="ft-input-group" title={t('float.thermalUniformTip')}>
+    <span>ΔTg:</span>
     <UnitInput value={uiStore.thermalDT} qty={'temperatureDelta'} onchange={(v) => (uiStore.thermalDT = v)} unit={false} live />
     <span class="ft-unit">{unitQ('temperatureDelta')}</span>
   </label>
-  <label class="ft-input-group">
-    <span>ΔTg:</span>
+  <label class="ft-input-group" title={t('float.thermalGradientTip')}>
+    <span>∇T:</span>
     <UnitInput value={uiStore.thermalDTg} qty={'temperatureDelta'} onchange={(v) => (uiStore.thermalDTg = v)} unit={false} live />
     <span class="ft-unit">{unitQ('temperatureDelta')}</span>
   </label>

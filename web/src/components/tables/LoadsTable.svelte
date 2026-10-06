@@ -123,8 +123,8 @@
             <span class="load-field">qZJ<UnitInput value={d.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qZJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
           {:else if load.type === 'thermal'}
             {@const d = load.data as ThermalLoad}
-            <span class="load-field">&Delta;T<UnitInput value={d.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtUniform', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
-            <span class="load-field">&Delta;Tg<UnitInput value={d.dtGradient} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtGradient', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
+            <span class="load-field" title={t('float.thermalUniformTip')}>ΔTg<UnitInput value={d.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtUniform', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
+            <span class="load-field" title={t('float.thermalGradientTip')}>∇T<UnitInput value={d.dtGradient} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtGradient', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
           {:else if load.type === 'pointOnElement3d'}
             <!-- It fell into the plane branch below and showed an empty P. -->
             {@const d = load.data as PointLoadOnElement3D}

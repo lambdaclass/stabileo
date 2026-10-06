@@ -15,6 +15,7 @@ import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQu
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { memberLoadAxes } from '../model/member-load-axes';
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { NodesInstanced } from '../three/nodes-instanced';
 import { ElementsBatched } from '../three/elements-batched';
 import { ElementsPicking } from '../three/elements-picking';
@@ -949,14 +950,18 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!elem || !nI || !nJ) continue;
       const a = projectNodeToScene(nI, project2D), b = projectNodeToScene(nJ, project2D);
       const d = load.data;
-      const temp = (v: number) => withUnit(v, 'temperature');
+      // Temperature changes, not temperatures: converted without the 32 °F offset.
+      const temp = (v: number) => withUnit(v, 'temperatureDelta');
+      // Basic names the uniform change ΔTg and the gradient ∇T (its load bar and tables do too).
+      const basic = uiStore.appMode !== 'pro';
       const parts = [
-        d.dtUniform ? `ΔT ${temp(d.dtUniform)}` : '',
-        d.dtGradient ? `ΔTgz ${temp(d.dtGradient)}` : '',
+        d.dtUniform ? `${basic ? 'ΔTg' : 'ΔT'} ${temp(d.dtUniform)}` : '',
+        d.dtGradient ? `${basic ? '∇T' : 'ΔTgz'} ${temp(d.dtGradient)}` : '',
         d.dtGradientY ? `ΔTgy ${temp(d.dtGradientY)}` : '',
         d.strain ? `ε₀ ${(d.strain * 1000).toFixed(3)} ‰` : '',
       ].filter(Boolean);
       if (parts.length) batch.addTag({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 + 0.15 }, parts.join(' · '), cc);
+      drawThermalSigns(batch, elem, nI, nJ, a, b, d.dtUniform ?? 0, d.dtGradient ?? 0, project2D);
     }
     // A tendon: its profile along the member, and its force.
     else if (load.type === 'prestress3d') {
@@ -1376,4 +1381,53 @@ function variableKey(elem: { variableSection?: { sectionJ: number; segments?: nu
   if (!v) return '';
   const j = modelStore.sections.get(v.sectionJ);
   return `${v.sectionJ}:${v.segments ?? ''}:${j?.canonical?.kind === 'geometry-backed' ? j.canonical.digest : j?.name ?? ''}`;
+}
+
+/**
+ * The signs of a member temperature, as the 2D drawing shows them. A uniform change (ΔTg) puts
+ * the same sign on both sides: the member lengthens (+) or shortens (−). A gradient (∇T, the
+ * bottom face's change minus the top's, top = the member's drawn local z) puts "+" on the warmer
+ * face and "−" on the other: the member bends toward the colder one.
+ */
+function drawThermalSigns(
+  batch: { addSign(pos: { x: number; y: number; z: number }, warmer: boolean): void },
+  elem: Parameters<typeof memberLoadAxes>[0],
+  nI: { x: number; y: number; z?: number }, nJ: { x: number; y: number; z?: number },
+  a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number },
+  dtUniform: number, dtGradient: number, project2D: boolean,
+): void {
+  if (Math.abs(dtUniform) < 0.01 && Math.abs(dtGradient) < 0.01) return;
+  // The member's drawn local z, in the scene. A plane model drawn in 3D uses the 2D rule
+  // (transverseSign: turned over for members drawn right to left or upward).
+  let ez: [number, number, number] | null = null;
+  if (project2D) {
+    const dx = nJ.x - nI.x, dy = nJ.y - nI.y, L = Math.hypot(dx, dy);
+    if (L < 1e-9) return;
+    const zs = transverseSign(dx, dy);
+    ez = [zs * (-dy / L), 0, zs * (dx / L)];
+  } else {
+    const ax = memberLoadAxes(elem, modelStore.nodes, modelStore.sections, uiStore.axisConvention3D === 'leftHand');
+    if (ax) ez = [ax.ez[0], ax.ez[1], ax.ez[2]];
+  }
+  if (!ez) return;
+  const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const off = Math.max(0.1, Math.min(0.4, 0.08 * L));
+  const at = (t: number, side: number, k: number) => ({
+    x: a.x + (b.x - a.x) * t + ez![0] * off * side * k,
+    y: a.y + (b.y - a.y) * t + ez![1] * off * side * k,
+    z: a.z + (b.z - a.z) * t + ez![2] * off * side * k,
+  });
+  const ts = [0.15, 0.32, 0.5, 0.68, 0.85];
+  if (Math.abs(dtUniform) >= 0.01) {
+    for (const t of ts) for (const side of [1, -1]) batch.addSign(at(t, side, 1), dtUniform > 0);
+  }
+  if (Math.abs(dtGradient) >= 0.01) {
+    // Outside the uniform signs when both are there.
+    const k = Math.abs(dtUniform) >= 0.01 ? 2 : 1;
+    // Positive: the bottom (−z) face is the warmer one.
+    for (const t of ts) {
+      batch.addSign(at(t, -1, k), dtGradient > 0);
+      batch.addSign(at(t, 1, k), dtGradient < 0);
+    }
+  }
 }

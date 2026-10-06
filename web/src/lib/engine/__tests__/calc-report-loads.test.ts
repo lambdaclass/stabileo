@@ -165,7 +165,7 @@ describe('the load list follows the report units', () => {
   });
 
   it('a temperature change is a difference: 20 °C reads 36 °F, not 68 °F', () => {
-    expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'Imperial')).toBe('ΔT=36°F, ΔTg=-18°F');
-    expect(thermalText({ dtUniform: 20, dtGradient: 0 })).toBe('ΔT=20°C, ΔTg=0°C');
+    expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'Imperial')).toBe('ΔTg=36°F, ∇T=-18°F');
+    expect(thermalText({ dtUniform: 20, dtGradient: 0 })).toBe('ΔTg=20°C, ∇T=0°C');
   });
 });
