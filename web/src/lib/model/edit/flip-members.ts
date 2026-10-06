@@ -15,6 +15,7 @@
  * them is the design's to redo. One undo step.
  */
 import { modelStore } from '../../store/model.svelte';
+import { reversePointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import { shouldEmbedFlat2DModelIn3D } from '../../engine/solver-service';
 
@@ -60,8 +61,10 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
           }
           return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
         }
-        if (l.type === 'pointOnElement3d') return { ...l, data: { ...d, a: L - (d.a ?? 0), pz: -(d.pz ?? 0) } };
-        if (l.type === 'thermal') return { ...l, data: { ...d, dtGradient: -(d.dtGradient ?? 0) } };
+        // Local y kept, x and z reversed.
+        if (l.type === 'pointOnElement3d') return { ...l, data: reversePointLoad(l.data, L, { sy: 1, sz: -1 }) };
+        if (l.type === 'thermal') return { ...l, data: carryThermal(l.data, { sy: 1, sz: -1 }) };
+        if (l.type === 'prestress3d') return { ...l, data: carryPrestress(l.data, -1, true) };
         const local = !(l.data as { isGlobal?: boolean }).isGlobal;
         // A local plane load: axial part reversed; transverse part too, outside a flat model.
         // In a flat model that is the angle's sign; elsewhere the whole load's.

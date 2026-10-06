@@ -298,6 +298,8 @@ export interface StabileoTestHooks {
   analysisSettings(): unknown;
   /** The 3D distributed loads, as plain copies of their data. */
   distributedLoads3D(): Array<Record<string, unknown>>;
+  /** Every load of the model, its type and its data. */
+  allLoads(): Array<{ type: string; data: Record<string, unknown> }>;
   /**
    * The joint designs the project carries, as persisted — I-06.
    *
@@ -710,6 +712,7 @@ export function installE2EHooks(): void {
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
     analysisSettings: () => JSON.parse(JSON.stringify(modelStore.analysis ?? null)),
+    allLoads: () => JSON.parse(JSON.stringify(modelStore.loads)),
     distributedLoads3D: () => modelStore.loads
       .filter((l) => l.type === 'distributed3d')
       .map((l) => JSON.parse(JSON.stringify(l.data)) as Record<string, unknown>),

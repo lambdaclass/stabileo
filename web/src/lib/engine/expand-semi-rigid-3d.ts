@@ -33,13 +33,13 @@ export function modelHasSemiRigid(elements: Iterable<Element>): boolean {
 }
 
 /** The global axis a unit vector lies along, or null. */
-const globalAxis = (v: readonly number[]) => {
+export const globalAxis = (v: readonly number[]) => {
   for (let k = 0; k < 3; k++) if (Math.abs(Math.abs(v[k]!) - 1) < 1e-6) return k;
   return null;
 };
 
 /** Stiffness about global X, Y, Z on a zero-length connector's own fields. */
-const CONNECTOR_ROT = ['kMoment', 'kBendZ', 'kBendY'] as const;
+export const CONNECTOR_ROT = ['kMoment', 'kBendZ', 'kBendY'] as const;
 
 type P3 = { x: number; y: number; z?: number };
 type Axes = { localYx?: number; localYy?: number; localYz?: number; rollAngle?: number };
