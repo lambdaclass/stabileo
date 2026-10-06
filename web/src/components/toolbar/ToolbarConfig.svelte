@@ -319,7 +319,7 @@
         {/if}
         <div class="input-group">
         <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
-          <select bind:value={uiStore.unitSystem}>
+          <select bind:value={uiStore.unitSystem} data-testid="cfg-units">
             <option value="SI">{t('config.unitSI')}</option>
             <option value="MKS">{t('config.unitMKS')}</option>
             <option value="Imperial">{t('config.unitImperial')}</option>

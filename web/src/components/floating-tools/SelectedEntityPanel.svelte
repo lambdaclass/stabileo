@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
+  import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
   import Icon from '../ribbon/Icon.svelte';
@@ -52,6 +52,11 @@
       const b = Math.max(currentA, Math.min(elemLen, num));
       modelStore.updateLoad(loadId, { b });
     }
+    resultsStore.clear();
+  }
+
+  function setLoadFrame(loadId: number, frame: 'global' | 'local') {
+    modelStore.updateLoad(loadId, { frame: frame === 'global' ? 'global' : undefined });
     resultsStore.clear();
   }
 
@@ -131,6 +136,12 @@
   });
 </script>
 
+{#snippet frameToggle(id: number, global: boolean)}
+  <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
+  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={t('float.loadFrameGlobalTip')}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+{/snippet}
+
 {#if selectedLoad}
   <div class="ft-load-edit" class:in-bar={inBar}>
     {#if !inBar}<span class="ft-load-tag">{t('selEntity.editingLoad')}</span>{/if}
@@ -197,7 +208,7 @@
       {@const elemLen = modelStore.getElementLength(pl.elementId)}
       <label class="ft-input-group">
         <span>a:</span>
-        <UnitInput value={pl.a} qty="length" onchange={(v) => updateLoadField(pl.id, 'a', String(v))} unit={false} />
+        <UnitInput value={pl.a} qty="length" onchange={(v) => updateLoadField(pl.id, 'a', String(Math.max(0, Math.min(elemLen, v))))} unit={false} />
         <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <label class="ft-input-group">
@@ -249,6 +260,25 @@
       <label class="ft-input-group"><span>qYJ:</span><UnitInput value={dl3.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       <label class="ft-input-group"><span>qZI:</span><UnitInput value={dl3.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       <label class="ft-input-group"><span>qZJ:</span><UnitInput value={dl3.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {#if dl3.frame === 'global'}
+        <label class="ft-input-group"><span>qXI:</span><UnitInput value={dl3.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+        <label class="ft-input-group"><span>qXJ:</span><UnitInput value={dl3.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {/if}
+      {@render frameToggle(dl3.id, dl3.frame === 'global')}
+      {@const len3 = modelStore.getElementLength(dl3.elementId)}
+      <label class="ft-input-group"><span>a:</span><UnitInput value={dl3.a ?? 0} qty="length" onchange={(v) => updateLoadField(dl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+      <label class="ft-input-group"><span>b:</span><UnitInput value={dl3.b ?? len3} qty="length" onchange={(v) => updateLoadField(dl3.id, 'b', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+    {:else if selectedLoad.type === 'pointOnElement3d'}
+      <!-- A point on a member: where, and its force and moment along the member's axes or the global ones. -->
+      {@const pl3 = selectedLoad.data as PointLoadOnElement3D}
+      <label class="ft-input-group"><span>a:</span><UnitInput value={pl3.a} qty="length" onchange={(v) => updateLoadField(pl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+      {#each [['px', pl3.px ?? 0], ['py', pl3.py], ['pz', pl3.pz]] as [k, v] (k)}
+        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="force" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      {/each}
+      {#each [['mx', pl3.mx ?? 0], ['my', pl3.my ?? 0], ['mz', pl3.mz ?? 0]] as [k, v] (k)}
+        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      {/each}
+      {@render frameToggle(pl3.id, pl3.frame === 'global')}
     {/if}
     <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
     <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>

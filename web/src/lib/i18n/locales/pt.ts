@@ -9137,5 +9137,7 @@ const pt: Translations = {
   'regulations.name.cirsoc101Thermal': 'CIRSOC 101 ({edition}), ação térmica',
   'regulations.problem.loadFamilyMismatch': '{action} pertence a outra família normativa que {basis}: suas cargas seriam combinadas com fatores que não foram calibrados para elas.',
   'loadPlan.blocked.noCodeModule': 'O papel «{role}» tem atribuído {name}, que ainda não tem um módulo para gerar cargas.',
+  'float.loadFrameGlobalTip': 'Os valores seguem os eixos globais (Z é a vertical).',
+  'float.loadFrameLocalTip': 'Os valores seguem os eixos locais da barra.',
 };
 export default pt;

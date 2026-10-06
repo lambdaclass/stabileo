@@ -117,6 +117,66 @@ test.describe('@smoke Basic interaction and view', () => {
   });
 });
 
+test.describe('@smoke Basic 3D loads and members, and units', () => {
+  const memberMid = (page: Page, id: number) => page.evaluate((e) => {
+    const ends = window.__stabileo.elementEnds(e)!;
+    const a = window.__stabileo.nodeScreenPos(ends.i)!, b = window.__stabileo.nodeScreenPos(ends.j)!;
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }, id);
+  const loadsOn = (page: Page, id: number) => page.evaluate((e) =>
+    window.__stabileo.allLoads().filter((l) => (l.data as { elementId?: number }).elementId === e), id);
+
+  test('the load tool catches a member beside the pointer: distributed (global) and point loads', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    await page.getByTestId('rb-cmd-load').click();
+    await page.getByRole('button', { name: /Distributed/ }).first().click();
+    const m = await memberMid(page, 5);
+    const before = (await loadsOn(page, 5)).length;
+    await page.mouse.click(m.x + 4, m.y + 4);
+    await expect.poll(async () => (await loadsOn(page, 5)).length).toBe(before + 1);
+    const dist = (await loadsOn(page, 5)).at(-1)!;
+    expect(dist.type).toBe('distributed3d');
+    expect(dist.data.frame).toBe('global');
+    // A point load where the click lands on the member, not only on a node.
+    await page.getByRole('button', { name: /^Point/ }).first().click();
+    await page.mouse.click(m.x + 3, m.y - 3);
+    await expect.poll(async () => (await loadsOn(page, 5)).filter((l) => l.type === 'pointOnElement3d').length).toBe(1);
+  });
+
+  test('the member tool joins nodes clicked a few pixels beside them', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    await page.getByTestId('rb-cmd-element').click();
+    const [n1, n2] = await page.evaluate(() => [window.__stabileo.nodeScreenPos(1)!, window.__stabileo.nodeScreenPos(2)!]);
+    const before = await census(page);
+    await page.mouse.click(n1.x + 10, n1.y + 6);
+    await page.mouse.click(n2.x - 8, n2.y + 9);
+    await expect.poll(async () => (await census(page)).members).toBe(before.members + 1);
+  });
+
+  test('units: the load bar is typed in the chosen system and stored in SI', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-settings').click();
+    await page.getByTestId('cfg-units').selectOption('MKS');
+    await page.getByTestId('rb-cmd-load').click();
+    await page.getByRole('button', { name: /Distributed/ }).first().click();
+    const bar = page.getByTestId('tool-options');
+    await expect(bar.locator('.ft-unit').first()).toHaveText('tf/m');
+    const qI = bar.locator('input[type=number]').first();
+    await qI.fill('-1');
+    await bar.locator('input[type=number]').nth(1).fill('-1');
+    const m = await memberMid(page, 2);
+    const before = (await loadsOn(page, 2)).length;
+    await page.mouse.click(m.x, m.y);
+    await expect.poll(async () => (await loadsOn(page, 2)).length).toBe(before + 1);
+    const q = (await loadsOn(page, 2)).at(-1)!.data as { qI: number };
+    // One tonne-force per metre is 9.80665 kN/m.
+    expect(Math.abs(q.qI)).toBeCloseTo(9.80665, 3);
+  });
+});
+
 test.describe('@smoke Basic on a phone: create and edit in the sheet', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

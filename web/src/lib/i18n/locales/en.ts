@@ -9504,5 +9504,7 @@ const en: Record<string, string> = {
   'regulations.name.cirsoc101Thermal': 'CIRSOC 101 ({edition}), thermal action',
   'regulations.problem.loadFamilyMismatch': '{action} belongs to another family of codes than {basis}: its loads would be combined with factors not calibrated for them.',
   'loadPlan.blocked.noCodeModule': 'The "{role}" role is bound to {name}, which has no module to generate loads with yet.',
+  'float.loadFrameGlobalTip': 'The values are along the global axes (Z is the vertical).',
+  'float.loadFrameLocalTip': 'The values are along the member\'s local axes.',
 };
 export default en;

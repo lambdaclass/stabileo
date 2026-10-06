@@ -9493,5 +9493,7 @@ const es: Record<string, string> = {
   'regulations.name.cirsoc101Thermal': 'CIRSOC 101 ({edition}), acción térmica',
   'regulations.problem.loadFamilyMismatch': '{action} pertenece a otra familia reglamentaria que {basis}: sus cargas se combinarían con factores que no fueron calibrados para ellas.',
   'loadPlan.blocked.noCodeModule': 'El rol «{role}» tiene asignado {name}, que todavía no tiene un módulo para generar cargas.',
+  'float.loadFrameGlobalTip': 'Los valores van según los ejes globales (Z es la vertical).',
+  'float.loadFrameLocalTip': 'Los valores van según los ejes locales de la barra.',
 };
 export default es;
