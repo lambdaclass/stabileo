@@ -334,8 +334,8 @@ actúa sobre nodos o barras seleccionados y su puntero elige otra cosa, un botó
 lo que hace falta. Los resortes, el
 levantamiento y la terna inclinada se definen en **Especificaciones › Apoyos**.
 
-**Cargas.** El panel tiene cuatro pestañas (casos de carga, con la regla de peso propio adentro;
-combinaciones; agregar cargas; cargas de piso):
+**Cargas.** El panel tiene tres pestañas (casos de carga, con la regla de peso propio adentro;
+combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas de cargas:
 
 - **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Wa viento de servicio, Lr sobrecarga de
   cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor.
@@ -366,13 +366,45 @@ combinaciones; agregar cargas; cargas de piso):
   dos vigas a las que llegan. Cada viga recibe cargas lineales parciales cuya suma es la carga
   por el área. Una planta muestra los paños antes de aplicar; los paños no convexos se informan
   y no se cargan.
-- **Agregar carga:** nodal (en ejes globales), puntual sobre barras (en ejes locales de la
-  barra), distribuida sobre barras y **de superficie** sobre placas cuadriláteras: en kN/m²,
-  vertical (un valor positivo actúa hacia abajo) y repartida entre los cuatro nodos de la placa.
-  La distribuida se da en ejes **locales** (qx a lo largo de la barra, que es la componente axil,
-  y qy, qz en sus ejes), **globales** (por metro de barra) o **proyectados** (por metro de la
-  proyección de la barra: la nieve sobre un cabio se da por metro de planta). Los ejes se cambian
-  también desde la tabla de cargas.
+- **Escribir carga:** se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
+  punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
+  - En **nudos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
+    otro nudo o un punto (se guarda por componentes); y un **desplazamiento impuesto** del caso,
+    en mm o rad, sobre nudos con un apoyo que restrinja esa dirección. A diferencia del
+    asentamiento de un apoyo, que entra una sola vez, éste se multiplica por el factor del caso en
+    cada combinación.
+  - En **barras**: una **distribuida** en ejes locales, globales o proyectados, sobre toda la barra
+    o sobre un tramo a–b medido desde el nudo I; también **triangular con pico** (dos trapecios que
+    se encuentran en el pico) e **hidrostática** (w₁ en la cota más baja de las barras elegidas y w₂
+    en la más alta, según un eje global). Una **concentrada** con fuerza axial, transversal y
+    momentos, en ejes locales o globales: un momento o una fuerza axial dentro de la barra se
+    resuelven exactos, porque el cálculo corta la barra en ese punto y la informa como una sola.
+    Una **temperatura** con variación uniforme y dos gradientes (ΔTgz a través de la altura, cara
+    −z menos cara +z; ΔTgy de lado a lado, cara −y menos cara +y), que curvan la barra según su
+    altura y su ancho reales. Una **deformación inicial** en ‰ o en mm de alargamiento, que se
+    resuelve como la temperatura que la produce. Un **pretensado**: la tracción del cable y su
+    excentricidad en los extremos y en el centro (positiva hacia −z local), resuelto por sus cargas
+    equivalentes sobre la estructura conectada.
+  - En **losas** (cuadriláteros): la carga de superficie, vertical, y la temperatura de losa.
+
+  **Aplicar a** es la misma elección para todos los tipos: la selección, una lista de números
+  (`1, 4, 7-12`), un grupo, un rango de coordenadas en X, Y o Z, una sección o un tipo de barra
+  (vigas, columnas, inclinadas, reticuladas). Para las cargas de barra está además la **barra
+  física**: las barras elegidas tomadas como una sola barra recta, con las distancias medidas sobre
+  el total. El panel dice a cuántos elementos va antes de agregar, y todo entra en un solo paso de
+  deshacer.
+- **Tablas de cargas:** una tabla por tipo, del caso activo o de todos los casos, con los tramos
+  a–b, las temperaturas y deformaciones, los cables y los desplazamientos impuestos; cada celda se
+  edita en el lugar. Al pie, los **totales de cada caso** respecto del origen (ΣF y ΣM, con el peso
+  propio si corresponde), antes de calcular. Las cargas elegidas en la tabla o en el visor se
+  **copian** o **mueven** a otro caso, con un factor, se **escalan** o se borran. Un caso se puede
+  **duplicar** con sus cargas, y al borrarlo el panel dice cuántas cargas se lleva y de cuántas
+  combinaciones sale.
+- **En el visor:** una carga parcial se dibuja en su tramo; con una sola carga distribuida
+  elegida, dos manijas en los extremos del tramo se arrastran a lo largo de la barra. Las
+  concentradas muestran su parte axial y sus momentos; las temperaturas, deformaciones, cables y
+  desplazamientos impuestos se dibujan con su valor. Los rótulos usan las unidades y decimales del
+  proyecto, y **Flechas** cambia el largo de todas las flechas de carga.
 
 **Auto-generar desde norma.** Arma el plan de cargas del edificio a partir de la normativa
 argentina:
@@ -401,8 +433,8 @@ Las cargas de superficie se transforman en cargas lineales sobre las barras hori
 multiplicándolas por el ancho tributario que se indica en el diálogo, el mismo para todas; el
 viento se aplica como fuerzas por nivel, y la torsión como fuerzas repartidas entre los nodos del
 nivel que suman ese momento. Primero muestra el plan de cargas para revisarlo, y lo
-aplica cuando lo confirmás. Los casos de tipo D, L, W y E tienen además un botón **§** que abre el
-diálogo directamente para ese caso.
+aplica cuando lo confirmás. Los casos de tipo D, L, Lr, W, Wa, S, E, T, H y F tienen además un botón **§**
+que abre el diálogo directamente en la sección de ese caso.
 
 ### Generadores
 

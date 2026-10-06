@@ -29,6 +29,7 @@
  * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
  * corner of a triangle), so the moment side agrees with the solve.
  */
+import { pointGlobal } from './member-point-loads';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
@@ -137,118 +138,131 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
   const rows: StaticsCheckRow[] = [];
 
   for (const [caseId, reactions] of reactionsByCase) {
-    const applied: Resultant6 = { ...ZERO };
-    const uncovered = new Set<string>();
-
-    const inCase = (l: Load): boolean => {
-      const c = (l.data as { caseId?: number }).caseId;
-      // Match per-case solving: legacy loads belong to case 1; a single solve takes all.
-      return caseId === null || (c ?? 1) === caseId;
-    };
-
-    for (const l of model.loads ?? []) {
-      if (!inCase(l)) continue;
-
-      if (l.type === 'nodal3d') {
-        const d = l.data as NodalLoad3D;
-        const n = model.nodes.get(d.nodeId);
-        if (!n) continue;
-        addForceAt(applied, [d.fx, d.fy, d.fz], [n.x, n.y, n.z ?? 0]);
-        addMoment(applied, [d.mx, d.my, d.mz]);
-      } else if (l.type === 'distributed3d' || l.type === 'pointOnElement3d') {
-        const d = l.data as DistributedLoad3D | PointLoadOnElement3D;
-        const el = model.elements.get(d.elementId);
-        if (!el) continue;
-        const ends = memberLine(model, el);
-        if (!ends) continue;
-        const { ni, ax } = ends;
-        const at = (s: number): [number, number, number] => [
-          ni[0] + ax.ex[0] * s, ni[1] + ax.ex[1] * s, ni[2] + ax.ex[2] * s,
-        ];
-        const push = (py: number, pz: number, s: number): void => {
-          if (leftHand) py = -py;
-          addForceAt(applied, [
-            ax.ey[0] * py + ax.ez[0] * pz,
-            ax.ey[1] * py + ax.ez[1] * pz,
-            ax.ey[2] * py + ax.ez[2] * pz,
-          ], at(s));
-        };
-        if (l.type === 'pointOnElement3d') {
-          const p = d as PointLoadOnElement3D;
-          push(p.py, p.pz, p.a);
-        } else {
-          // The solve's own reading of the load, whatever its frame (`member-loads.ts`).
-          const q = d as DistributedLoad3D;
-          const g = distributedGlobalEnds(q, ax as never, leftHand);
-          for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
-        }
-      } else if (l.type === 'surface3d') {
-        // q downward on the quad, each corner its consistent share — the solve's own split.
-        const d = l.data as SurfaceLoad3D;
-        const q = model.quads?.get(d.quadId);
-        const ps = q?.nodes.map((id) => model.nodes.get(id));
-        if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
-        const shares = quadCornerShares(ps as never);
-        (ps as P3[]).forEach((n, i) => addForceAt(applied, [0, 0, -d.q * shares[i]!], [n.x, n.y, n.z ?? 0]));
-      } else if (l.type === 'thermal' || l.type === 'thermalQuad3d') {
-        // No net external force by definition. Not a gap.
-      } else {
-        uncovered.add(l.type);
-      }
-    }
-
-    // The case's self-weight loads, read by the same rule the solve reads (`self-weight.ts`).
-    // Without case types every row is taken as a dead-load one, which is right for a single solve.
-    const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
-    const weights = selfWeightFor(model, caseRef, includeSelfWeight);
-    const selfWeightHere = weights.length > 0;
-    const sectionWeight = createSectionWeight(model.materials);
-    for (const sw of weights) {
-      const dir: [number, number, number] = sw.direction === 'X' ? [1, 0, 0] : sw.direction === 'Y' ? [0, 1, 0] : [0, 0, 1];
-      const scope = selfWeightScope(model, sw);
-      for (const el of model.elements.values()) {
-        if (scope.members && !scope.members.has(el.id)) continue;
-        const mat = model.materials.get(el.materialId);
-        const sec = model.sections.get(el.sectionId);
-        const line = memberLine(model, el);
-        if (!mat || !sec || !line) continue;
-        // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
-        const W = sectionWeight(sec, el.materialId) * line.ax.L * sw.factor;
-        const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
-        addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
-      }
-      for (const q of model.quads?.values() ?? []) {
-        if (scope.quads && !scope.quads.has(q.id)) continue;
-        const mat = model.materials.get(q.materialId);
-        const ps = q.nodes.map((id) => model.nodes.get(id));
-        if (!mat || ps.some((n) => !n)) continue;
-        const shares = quadCornerShares(ps as never);
-        (ps as P3[]).forEach((n, i) => {
-          const w = mat.rho * q.thickness * shares[i]! * sw.factor;
-          addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
-        });
-      }
-      for (const pl of model.plates?.values() ?? []) {
-        if (scope.plates && !scope.plates.has(pl.id)) continue;
-        const mat = model.materials.get(pl.materialId);
-        const ps = pl.nodes.map((id) => model.nodes.get(id));
-        if (!mat || ps.some((n) => !n)) continue;
-        const [a, b, c] = ps as P3[];
-        const w = mat.rho * pl.thickness * triArea(a!, b!, c!) / 3 * sw.factor;
-        for (const n of ps as P3[]) addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
-      }
-    }
-
+    const { applied, uncovered, selfWeightIncluded } = appliedResultant(model, caseId, { includeSelfWeight, caseTypes, leftHand });
     rows.push({
       ...closeRow(applied, reactionResultant(model.nodes, reactions)),
       caseId,
       caseName: caseId === null ? '' : (caseNames?.get(caseId) ?? `Case ${caseId}`),
-      uncovered: [...uncovered].sort(),
-      selfWeightIncluded: selfWeightHere,
+      uncovered,
+      selfWeightIncluded,
     });
   }
 
   return rows;
+}
+
+/**
+ * What a case applies to the structure, about the origin: its loads and its self-weight, read the
+ * way the solve reads them. `caseId` null: every load, as a single solve. The loads no reading
+ * covers are named, not guessed. Also the per-case totals of the loads panel, before a solve.
+ * Inactive members are out, with their loads and weight (`activeModel`).
+ */
+export function appliedResultant(
+  model: StaticsCheckInput['model'], caseId: number | null,
+  opts: { includeSelfWeight: StaticsCheckInput['includeSelfWeight']; caseTypes?: Map<number, string>; leftHand?: boolean },
+): { applied: Resultant6; uncovered: string[]; selfWeightIncluded: boolean } {
+  const { includeSelfWeight, caseTypes, leftHand = false } = opts;
+  // The structure the solve has, whoever asks: the loads panel's totals read the model as it is, and
+  // counted the loads and weight of inactive members the statics check leaves out.
+  model = activeModel(model);
+  const applied: Resultant6 = { ...ZERO };
+  const uncovered = new Set<string>();
+
+  const inCase = (l: Load): boolean => {
+    const c = (l.data as { caseId?: number }).caseId;
+    // Match per-case solving: legacy loads belong to case 1; a single solve takes all.
+    return caseId === null || (c ?? 1) === caseId;
+  };
+
+  for (const l of model.loads ?? []) {
+    if (!inCase(l)) continue;
+
+    if (l.type === 'nodal3d') {
+      const d = l.data as NodalLoad3D;
+      const n = model.nodes.get(d.nodeId);
+      if (!n) continue;
+      addForceAt(applied, [d.fx, d.fy, d.fz], [n.x, n.y, n.z ?? 0]);
+      addMoment(applied, [d.mx, d.my, d.mz]);
+    } else if (l.type === 'distributed3d' || l.type === 'pointOnElement3d') {
+      const d = l.data as DistributedLoad3D | PointLoadOnElement3D;
+      const el = model.elements.get(d.elementId);
+      if (!el) continue;
+      const ends = memberLine(model, el);
+      if (!ends) continue;
+      const { ni, ax } = ends;
+      const at = (s: number): [number, number, number] => [
+        ni[0] + ax.ex[0] * s, ni[1] + ax.ex[1] * s, ni[2] + ax.ex[2] * s,
+      ];
+      if (l.type === 'pointOnElement3d') {
+        // Its force and moment, local or global, as the solve reads them (`member-point-loads.ts`).
+        const p = d as PointLoadOnElement3D;
+        const g = pointGlobal(p, ax as never, leftHand);
+        addForceAt(applied, g.F, at(p.a));
+        addMoment(applied, g.M);
+      } else {
+        // The solve's own reading of the load, whatever its frame (`member-loads.ts`).
+        const q = d as DistributedLoad3D;
+        const g = distributedGlobalEnds(q, ax as never, leftHand);
+        for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
+      }
+    } else if (l.type === 'surface3d') {
+      // q downward on the quad, each corner its consistent share — the solve's own split.
+      const d = l.data as SurfaceLoad3D;
+      const q = model.quads?.get(d.quadId);
+      const ps = q?.nodes.map((id) => model.nodes.get(id));
+      if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
+      const shares = quadCornerShares(ps as never);
+      (ps as P3[]).forEach((n, i) => addForceAt(applied, [0, 0, -d.q * shares[i]!], [n.x, n.y, n.z ?? 0]));
+    } else if (l.type === 'thermal' || l.type === 'thermalQuad3d' || l.type === 'prestress3d' || l.type === 'displacement3d') {
+      // No net external force by definition: a temperature, a strain, a tendon (its equivalent
+      // loads are in equilibrium on their own) and an imposed displacement. Not a gap.
+    } else {
+      uncovered.add(l.type);
+    }
+  }
+
+  // The case's self-weight loads, read by the same rule the solve reads (`self-weight.ts`).
+  // Without case types every row is taken as a dead-load one, which is right for a single solve.
+  const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
+  const weights = selfWeightFor(model, caseRef, includeSelfWeight);
+  const selfWeightHere = weights.length > 0;
+  const sectionWeight = createSectionWeight(model.materials);
+  for (const sw of weights) {
+    const dir: [number, number, number] = sw.direction === 'X' ? [1, 0, 0] : sw.direction === 'Y' ? [0, 1, 0] : [0, 0, 1];
+    const scope = selfWeightScope(model, sw);
+    for (const el of model.elements.values()) {
+      if (scope.members && !scope.members.has(el.id)) continue;
+      const mat = model.materials.get(el.materialId);
+      const sec = model.sections.get(el.sectionId);
+      const line = memberLine(model, el);
+      if (!mat || !sec || !line) continue;
+      // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
+      const W = sectionWeight(sec, el.materialId) * line.ax.L * sw.factor;
+      const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
+      addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
+    }
+    for (const q of model.quads?.values() ?? []) {
+      if (scope.quads && !scope.quads.has(q.id)) continue;
+      const mat = model.materials.get(q.materialId);
+      const ps = q.nodes.map((id) => model.nodes.get(id));
+      if (!mat || ps.some((n) => !n)) continue;
+      const shares = quadCornerShares(ps as never);
+      (ps as P3[]).forEach((n, i) => {
+        const w = mat.rho * q.thickness * shares[i]! * sw.factor;
+        addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+      });
+    }
+    for (const pl of model.plates?.values() ?? []) {
+      if (scope.plates && !scope.plates.has(pl.id)) continue;
+      const mat = model.materials.get(pl.materialId);
+      const ps = pl.nodes.map((id) => model.nodes.get(id));
+      if (!mat || ps.some((n) => !n)) continue;
+      const [a, b, c] = ps as P3[];
+      const w = mat.rho * pl.thickness * triArea(a!, b!, c!) / 3 * sw.factor;
+      for (const n of ps as P3[]) addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+    }
+  }
+  return { applied, uncovered: [...uncovered].sort(), selfWeightIncluded: selfWeightHere };
 }
 
 /** The resultant of a set of support reactions about the origin. */

@@ -455,7 +455,10 @@ export function createDespiece3DGroup(opts: {
           }
         } else if (ld.type === 'pointOnElement3d' && ld.data.elementId === elem.id) {
           const d = ld.data;
-          const dir = eyUser.clone().multiplyScalar(d.py).add(ezV.clone().multiplyScalar(d.pz));
+          // Its force, local (with the axial part) or global.
+          const dir = (d.frame ?? 'local') === 'global'
+            ? new THREE.Vector3(d.px ?? 0, d.py, d.pz)
+            : exV.clone().multiplyScalar(d.px ?? 0).add(eyUser.clone().multiplyScalar(d.py)).add(ezV.clone().multiplyScalar(d.pz));
           if (dir.length() > FORCE_EPS) addLoad(dir, ARROW_LEN, d.a ?? 0, dir);
         }
       }

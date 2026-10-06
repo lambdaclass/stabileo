@@ -8,6 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
+import { evaluateDiagramAt } from '../diagrams-3d';
 import { runDirectAnalysis, tauBOf, nodeGravity, notionalLoads, mainThreadPDelta } from '../direct-analysis';
 import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from '../solver-service';
 
@@ -189,5 +190,86 @@ describe('τb and the material', () => {
     if (typeof r === 'string') throw new Error(r);
     expect(r.info.get(combo)!.stable).toBe(true);
     expect(r.perCombo.get(combo)!.elementForces.find((f) => f.elementId === e)).toBeDefined();
+  });
+});
+
+/*
+ * The loads of the PRO — 21 kinds: a moment inside a span cuts the member, and a load case's
+ * imposed displacement goes with the case's factor. The direct analysis solves the structure the
+ * linear solve does, and reads back one member.
+ */
+describe('the direct analysis takes the loads the linear solve takes', () => {
+  const dam = async () => {
+    const r = await runDirectAnalysis({ ...data(), analysis: modelStore.model.analysis } as never, modelStore.model.loadCases, modelStore.model.combinations, { includeSelfWeight: false });
+    if (typeof r === 'string') throw new Error(r);
+    return r;
+  };
+
+  it('a moment at a third of a simply supported span: the member cut there, one member read back, the jump M', async () => {
+    const L = 6, M = 12, x0 = L / 3;
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'pinned3d'); modelStore.addSupport(b, 'pinned3d');
+    modelStore.updateSupport([...modelStore.supports.values()][1]!.id, { dofRestraints: { tx: false, ty: true, tz: true, rx: true, ry: false, rz: false } });
+    modelStore.addLoadEntry({ type: 'pointOnElement3d', data: { id: 0, elementId: e, a: x0, py: 0, pz: 0, my: M } });
+    const combo = modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const r = await dam();
+    const res = r.perCombo.get(combo)!;
+    // No piece and no node of the cut in what the design reads.
+    expect(res.elementForces.map((f) => f.elementId)).toEqual([e]);
+    expect(res.displacements.map((d) => d.nodeId).sort()).toEqual([a, b]);
+    const f = res.elementForces[0]!;
+    expect(f.length).toBeCloseTo(L, 9);
+    // Statically determinate and with no axial force: the second-order moment is the first-order one.
+    const jump = evaluateDiagramAt(f, 'momentY', (x0 + 1e-6) / L) - evaluateDiagramAt(f, 'momentY', (x0 - 1e-6) / L);
+    expect(Math.abs(jump)).toBeCloseTo(M, 4);
+    const fz = (id: number) => res.reactions.find((x) => x.nodeId === id)!.fz;
+    expect(Math.abs(fz(a))).toBeCloseTo(M / L, 6);
+  });
+
+  it("a case's imposed displacement goes in times the case's factor, on 0.8·EI", async () => {
+    const L = 5, DZ = -0.01;
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
+    const [c1, c2] = modelStore.model.loadCases;
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: b, dz: DZ, caseId: c1!.id } });
+    modelStore.addDistributedLoad3D(e, 0, 0, -10, -10, undefined, undefined, c2!.id);
+    const combo = modelStore.addCombination('1.5 A + B', [{ caseId: c1!.id, factor: 1.5 }, { caseId: c2!.id, factor: 1 }]);
+    const lin = modelStore.solveCombinations3D(false, false, true);
+    if (!lin || typeof lin === 'string') throw new Error(String(lin));
+    const r = await dam();
+    const res = r.perCombo.get(combo)!;
+    expect(res.displacements.find((d) => d.nodeId === b)!.uz).toBeCloseTo(1.5 * DZ, 9);
+    // No axial force: the settlement's moment, a stiffness one, at 0.8 of the linear; the load's, a
+    // statics one, unchanged.
+    const m0 = (x: typeof res) => evaluateDiagramAt(x.elementForces.find((f) => f.elementId === e)!, 'momentY', 0);
+    expect(m0(res)).toBeCloseTo(0.8 * 1.5 * m0(lin.perCase.get(c1!.id)!) + m0(lin.perCase.get(c2!.id)!), 3);
+  });
+
+  it('refuses, as the linear solve does, an imposed displacement nothing restrains and a moment on a truss member', async () => {
+    const L = 5;
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 0, -1, 0, 0, 0);
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: b, dz: -0.01 } });
+    modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const lin = modelStore.solveCombinations3D(false, false, true);
+    const r = await runDirectAnalysis(data() as never, modelStore.model.loadCases, modelStore.model.combinations, { includeSelfWeight: false });
+    expect(typeof lin).toBe('string');
+    expect(r).toBe(lin);
+
+    modelStore.clear();
+    const p = modelStore.addNode(0, 0, 0), q = modelStore.addNode(L, 0, 0), s = modelStore.addNode(L / 2, 0, 2);
+    const t = modelStore.addElement(p, q, 'truss');
+    modelStore.addElement(p, s, 'truss'); modelStore.addElement(s, q, 'truss');
+    modelStore.addSupport(p, 'pinned3d'); modelStore.addSupport(q, 'pinned3d'); modelStore.addSupport(s, 'pinned3d');
+    modelStore.addLoadEntry({ type: 'pointOnElement3d', data: { id: 0, elementId: t, a: 1, py: 0, pz: 0, my: 5 } });
+    modelStore.addCombination('1.0 D', [{ caseId: 1, factor: 1 }]);
+    const lin2 = modelStore.solveCombinations3D(false, false, true);
+    const r2 = await runDirectAnalysis(data() as never, modelStore.model.loadCases, modelStore.model.combinations, { includeSelfWeight: false });
+    expect(typeof lin2).toBe('string');
+    expect(r2).toBe(lin2);
   });
 });

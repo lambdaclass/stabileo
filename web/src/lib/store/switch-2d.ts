@@ -59,7 +59,7 @@ export type { DrawPlane, PlaneOffset };
 
 /** Supports and loads that only a 3D model can carry. */
 const SUPPORTS_3D = new Set(['fixed3d', 'pinned3d', 'spring3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'custom3d']);
-const LOADS_3D = new Set(['nodal3d', 'distributed3d', 'pointOnElement3d', 'surface3d']);
+const LOADS_3D = new Set(['nodal3d', 'distributed3d', 'pointOnElement3d', 'surface3d', 'prestress3d', 'displacement3d']);
 
 /**
  * Whether the model is already flat enough to switch without deciding anything.
@@ -77,6 +77,8 @@ export function isModelNative2D(): boolean {
   }
   for (const l of modelStore.loads) {
     if (LOADS_3D.has(l.type)) return false;
+    // A temperature difference across local y is out of the plane.
+    if (l.type === 'thermal' && l.data.dtGradientY) return false;
   }
   return true;
 }

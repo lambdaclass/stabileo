@@ -27,7 +27,8 @@
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
-import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
+import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
 import { applyAxial, applyVector, axisPermutation, dot, isReflection, type Affine, type Vec3 } from './affine';
 
@@ -245,16 +246,29 @@ export function carriedLoad(
       const q = l.data as PointLoadOnElement3D;
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
-      const { sy, sz } = signsOf(q.elementId);
-      return { load: { type: 'pointOnElement3d', data: { ...q, elementId: to, py: sy * q.py, pz: sz * q.pz } } };
+      return { load: { type: 'pointOnElement3d', data: { ...carryPointLoad(q, T, signsOf(q.elementId)), elementId: to } } };
     }
     case 'thermal': {
       const q = l.data as ThermalLoad;
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
-      // The gradient is across local z, so it follows z's sign.
-      const { sz } = signsOf(q.elementId);
-      return { load: { type: 'thermal', data: { ...q, elementId: to, dtGradient: sz * q.dtGradient } } };
+      // Each gradient follows the sign of the axis it is across.
+      return { load: { type: 'thermal', data: { ...carryThermal(q, signsOf(q.elementId)), elementId: to } } };
+    }
+    case 'prestress3d': {
+      const q = l.data as PrestressLoad3D;
+      const to = elementMap.get(q.elementId);
+      if (to === undefined) return null;
+      return { load: { type: 'prestress3d', data: { ...carryPrestress(q, signsOf(q.elementId).sz), elementId: to } } };
+    }
+    case 'displacement3d': {
+      const q = l.data as NodeDisplacement3D;
+      const to = nodeMap.get(q.nodeId);
+      if (to === undefined) return null;
+      // An imposed displacement turns with the structure, its rotation as an axial vector.
+      const u = applyVector(T, [q.dx ?? 0, q.dy ?? 0, q.dz ?? 0]), r = applyAxial(T, [q.drx ?? 0, q.dry ?? 0, q.drz ?? 0]);
+      const keep = (v: number) => (Math.abs(v) > 1e-15 ? v : undefined);
+      return { load: { type: 'displacement3d', data: { ...q, nodeId: to, dx: keep(u[0]), dy: keep(u[1]), dz: keep(u[2]), drx: keep(r[0]), dry: keep(r[1]), drz: keep(r[2]) } } };
     }
     case 'surface3d':
     case 'thermalQuad3d': {

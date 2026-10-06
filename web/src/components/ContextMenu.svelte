@@ -4,6 +4,8 @@
   import { variableCutRefused } from '../lib/section/variable';
   import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../lib/model/edit/transform-in-place';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
+  import { drawState } from '../lib/store/draw-state.svelte';
+  import { addNodalLoadIfAny } from '../lib/store/load-ops';
 
   let subdivCount = $state(2);
   const is3D = () => uiStore.is3DWorkspace;
@@ -34,7 +36,14 @@
       else modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
       resultsStore.clear();
     } else if (action === 'add-load' && ctx.nodeId != null) {
-      if (is3D()) {
+      if (uiStore.analysisMode === 'pro') {
+        /* PRO's own draw bar: its six components, as a click with the load tool places them; six
+           zeros are no load, refused as the tool refuses them. */
+        if (addNodalLoadIfAny(ctx.nodeId, drawState.nodalLoad, uiStore.activeLoadCaseId) === null) {
+          uiStore.toast(t('drawBar.loadIsZero'), 'info');
+          return;
+        }
+      } else if (is3D()) {
         /* As the load tool would place it; a 2D nodal load became a horizontal fy in 3D. */
         const d = uiStore.nodalLoadDir3D, v = uiStore.loadValue;
         modelStore.addNodalLoad3D(ctx.nodeId, d === 'fx' ? v : 0, d === 'fy' ? v : 0, d === 'fz' ? v : 0,
