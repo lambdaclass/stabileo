@@ -67,10 +67,13 @@
     uiStore.toast(t(ok ? 'combos.library.saved' : 'combos.library.notKept'), ok ? 'success' : 'error');
     libraryName = '';
   }
-  /** Add a template's rules after the project's own. */
+  /**
+   * Add a template's rules after the project's own, with ids none of them has: numbering on from
+   * the list's length gave a second r3 beside r2 and r3 once r1 was deleted.
+   */
   function useTemplate(tpl: RuleTemplate) {
-    let n = rules.length;
-    write([...rules, ...tpl.rules.map((r) => ({ ...r, id: `r${++n}` }))]);
+    const ids = freshRuleIds(rules, tpl.rules.length);
+    write([...rules, ...tpl.rules.map((r, i) => ({ ...r, id: ids[i]! }))]);
     uiStore.toast(tp('combos.rules.imported', { n: tpl.rules.length }), 'success');
   }
 

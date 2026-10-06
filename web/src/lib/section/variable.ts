@@ -212,9 +212,14 @@ export function variableCutSection(secI: Section | undefined, secJ: Section | un
   return fields ? ({ ...fields, ...(secI.shearAreas ? { shearAreas: secI.shearAreas } : {}) } as Omit<Section, 'id'>) : null;
 }
 
-/** Whether a member states a section at J that a cut cannot carry (`variableCutSection`), so it is not cut. */
-export function variableCutRefused(sections: ReadonlyMap<number, Section>, e: { sectionId: number; variableSection?: { sectionJ: number } }): boolean {
-  return !!e.variableSection && variableCutSection(sections.get(e.sectionId), sections.get(e.variableSection.sectionJ), 0.5) === null;
+/**
+ * Whether a member states a section at J that a cut cannot carry (`variableCutSection`), so it is
+ * not cut. A member the solve takes prismatic (`variableRefusal`: a truss, a pair that does not
+ * blend) is cut as it is solved, into segments of end I's section, and is never refused.
+ */
+export function variableCutRefused(sections: ReadonlyMap<number, Section>, e: VariableMemberLike): boolean {
+  return !!e.variableSection && variableRefusal(sections, e) === null
+    && variableCutSection(sections.get(e.sectionId), sections.get(e.variableSection.sectionJ), 0.5) === null;
 }
 
 type VariableMemberLike = { type?: string; behaviour?: string; sectionId: number; variableSection?: { sectionJ: number; segments?: number } };

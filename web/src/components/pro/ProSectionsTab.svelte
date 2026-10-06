@@ -171,6 +171,9 @@
     const editing = editingId != null ? modelStore.sections.get(editingId) : undefined;
     // A drawing and a template have no rotation control, so editing one keeps the roll it had.
     if (editing && choice.kind !== 'standard') fields.rotation = editing.rotation ?? 0;
+    // Shear areas read from the geometry read the new geometry; declared ones described the old
+    // section and go with it (`toSectionFields`).
+    if (editing?.shearAreas?.basis === 'geometry') fields.shearAreas = editing.shearAreas;
     if (editing && editingId != null) modelStore.updateSection(editingId, fields as never);
     else modelStore.addSection(fields as never);
     editingId = null;

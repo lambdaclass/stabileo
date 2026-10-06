@@ -199,3 +199,32 @@ describe('decimalOrKeep: unreadable text changes nothing', () => {
     expect(decimalOrKeep('  ', 12, 12)).toBe(12);
   });
 });
+
+describe('an add-load form: a blank J end is uniform, a typed zero is a zero', () => {
+  /*
+   * The PRO add-load form read `parseFloat(j) || i`: a triangular 10 → 0 was added as a uniform
+   * 10, «1,5» as 1 and «1.234,5» as 1.234.
+   */
+  it('a typed 0 at J is a triangle, not a uniform load', async () => {
+    const { lineLoadEnds } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '0')).toEqual([10, 0]);
+  });
+  it('a blank J end, and only a blank one, is the same as I', async () => {
+    const { lineLoadEnds } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '')).toEqual([10, 10]);
+    expect(lineLoadEnds('10', '  ')).toEqual([10, 10]);
+    expect(lineLoadEnds('', '')).toEqual([0, 0]);
+    expect(lineLoadEnds('', '5')).toEqual([0, 5]);
+  });
+  it('decimals with a comma, and grouped thousands', async () => {
+    const { lineLoadEnds, loadComponents } = await import('../numeric-input');
+    expect(lineLoadEnds('1,5', '1.234,5')).toEqual([1.5, 1234.5]);
+    expect(loadComponents(['1,5', '', '-2'])).toEqual([1.5, 0, -2]);
+  });
+  it('text that does not read refuses the load, instead of adding a zero or a uniform one', async () => {
+    const { lineLoadEnds, loadComponents } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '5 kN')).toBeNull();
+    expect(lineLoadEnds('abc', '')).toBeNull();
+    expect(loadComponents(['10', '1.2.3'])).toBeNull();
+  });
+});

@@ -93,4 +93,24 @@ describe('drifts on the model', () => {
     expect(-total(out.distributed)).toBeGreaterThan(1.68 * 6 * 0.8);
     expect(-total(out.distributed)).toBeLessThan(1.68 * 6 * 1.2);
   });
+
+  it('the drift stays on the lower roof: a separate roof of the same level within w takes none of it', () => {
+    // Upper roof at +6 m over x −24–6 (l_u = 30 m, w ≈ 3,7 m); lower roof at +3 m over x 6–7; a
+    // separate roof at +3 m over x 8–12, a metre away, not joined to it.
+    const nodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
+    const elements = new Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number }>();
+    let n = 1, e = 1;
+    const node = (x: number, y: number, z: number) => { nodes.set(n, { id: n, x, y, z }); return n++; };
+    const ring = (c: number[]) => { const ids: number[] = []; for (let i = 0; i < c.length; i++) { ids.push(e); elements.set(e, { id: e++, nodeI: c[i]!, nodeJ: c[(i + 1) % c.length]!, sectionId: 1 }); } return ids; };
+    ring([node(-24, 0, 6), node(6, 0, 6), node(6, 6, 6), node(-24, 6, 6)]);
+    ring([node(6, 0, 3), node(7, 0, 3), node(7, 6, 3), node(6, 6, 3)]);
+    const separate = new Set(ring([node(8, 0, 3), node(12, 0, 3), node(12, 6, 3), node(8, 6, 3)]));
+    const m: GravityModel = { nodes, elements };
+    const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
+    const d = out.derivation.find((x) => x.key === 'snow.derivation.drift')!;
+    expect(d.params?.w as number).toBeGreaterThan(2);
+    expect(out.distributed.length).toBeGreaterThan(0);
+    expect(out.distributed.filter((x) => separate.has(x.elementId))).toEqual([]);
+  });
 });

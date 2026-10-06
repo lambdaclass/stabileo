@@ -8,6 +8,7 @@
  */
 
 import { buildSolverLoads3D, type ModelData } from '../solver-service';
+import { solvableModel } from '../member-behaviour';
 import type { SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
@@ -24,6 +25,8 @@ export function caseMassLoads(
   factors: ReadonlyArray<ResolvedFactor>,
   leftHand: boolean,
 ): CaseMassLoads[] {
+  // On the members the analysis input has: a variable member's loads are its pieces' (idempotent).
+  model = solvableModel(model);
   const out: CaseMassLoads[] = [];
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
@@ -70,6 +73,9 @@ export function withMassSource(
       factors = [...factors, { caseId: WEIGHT_CASE, name: 'weights', type: '', factor: 1, basis: 'stated' }];
     }
   }
+  // Then the model as the input was built from it: a variable member is its pieces, each with its
+  // own section, so a load and a section are looked up by the ids the input has (`variable-members.ts`).
+  model = solvableModel(model);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
   const physical = withSectionMass(input, model);

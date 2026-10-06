@@ -23,6 +23,7 @@
   import ProRecordVideo from './ProRecordVideo.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { dofQuantity } from '../../lib/utils/units';
   let wasAnimating = false;
   import {
     diagramTypeToComponent,
@@ -1004,8 +1005,8 @@
                   <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(cf.nodeId, false); }} style="cursor:pointer">
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
-                    <!-- A force on a translation, a moment on a rotation, each in the chosen units. -->
-                    <td class="col-num">{fmtQ(cf.force, cf.dof.startsWith('r') ? 'moment' : 'force')} {unitQ(cf.dof.startsWith('r') ? 'moment' : 'force')}</td>
+                    <!-- A force on a translation, a moment on a rotation, a bimoment on warping, each in the chosen units. -->
+                    <td class="col-num">{fmtQ(cf.force, dofQuantity(cf.dof))} {unitQ(dofQuantity(cf.dof))}</td>
                   </tr>
                 {/each}
               </tbody>

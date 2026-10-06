@@ -35,6 +35,19 @@
 
   interface Props { config: SpecialLoadsConfig }
   let { config = $bindable() }: Props = $props();
+
+  /*
+   * An emptied number field reaches bind:value as null, and the plan used to take it: a null ΔT
+   * put {dtUniform: null} on every member, an empty level or point read as 0. Only a number is
+   * written; an emptied field keeps the value before it, and shows it again on leaving.
+   */
+  const setNum = <K extends string>(o: Record<K, number>, k: K) => (v: number | null) => {
+    if (typeof v === 'number' && Number.isFinite(v)) o[k] = v;
+  };
+  const reshow = (v: number) => (e: FocusEvent) => {
+    const el = e.currentTarget as HTMLInputElement;
+    if (!Number.isFinite(el.valueAsNumber)) el.value = String(v);
+  };
 </script>
 
 <div class="al-pane-body" data-testid="al-special-section">
@@ -63,7 +76,7 @@
         <label class="al-field al-field-narrow"><span class="al-label">γ</span>
           <QuantityInput bind:value={config.soil.gamma} quantity="density" testid="al-soil-gamma" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">K</span>
-          <input type="number" step="0.05" min="0" max="1.5" bind:value={config.soil.k} data-testid="al-soil-k" /></label>
+          <input type="number" step="0.05" min="0" max="1.5" bind:value={() => config.soil.k, setNum(config.soil, 'k')} onblur={reshow(config.soil.k)} data-testid="al-soil-k" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.surcharge')}</span>
           <QuantityInput bind:value={config.soil.surcharge} quantity="areaLoad" min={0} wrap="al-unit-field" /></label>
       </div>

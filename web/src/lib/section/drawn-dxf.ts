@@ -11,12 +11,18 @@
  * meaningful absolute position.
  *
  * A block reference is drawn: its block's contents, placed, scaled, turned and mirrored as the
- * INSERT says — a section from a profile library usually arrives as one. The import says how
- * many loops and circles it read, and which entity types it could not draw, so the user can
- * compare.
+ * INSERT says, every copy of an array — a section from a profile library usually arrives as one.
+ * A block that inserts itself is drawn once and named. The import says how many loops and circles
+ * it read, and which entity types it could not draw, so the user can compare.
+ *
+ * Only what the drawing shows is drawn: not the paper-space sheet (frames, title blocks), not a
+ * layer turned off or frozen. Both are counted. And a piece whose numbers cannot be read — in the
+ * drawing or in a block it inserts — refuses the import: it may have been the outline or a hole,
+ * and a plate imported solid because its hole's radius read NaN has the wrong properties with
+ * nothing on screen to say so.
  */
 
-import { parseCadDxf, cadImportProblem } from '../cad/parse';
+import { parseCadDxf, cadImportProblem, insertCopies } from '../cad/parse';
 import { unitScale, type DxfUnit } from '../dxf/types';
 import { chainSegmentsIntoLoops, pointInPolygon, signedArea } from '../cad/geometry';
 import type { CadBlock, CadEntity } from '../cad/types';
@@ -79,7 +85,7 @@ function similarityScale(t: Affine): number | null {
   return orthogonal && Math.abs(sx - sy) <= 1e-12 * sx ? sx : null;
 }
 
-/** Nested inserts deeper than this are a cycle or a file nobody draws sections in. */
+/** Nested inserts deeper than this are a file nobody draws sections in (a cycle is caught apart). */
 const MAX_BLOCK_DEPTH = 8;
 
 export interface DxfSectionImport {
@@ -88,8 +94,21 @@ export interface DxfSectionImport {
   circles: number;
   /** Segments that closed no loop; the outline may be incomplete. */
   open: number;
-  /** Why nothing could be read at all, or null: a damaged file is not an empty one. */
-  problem: 'parseError' | 'allMalformed' | 'emptyFile' | null;
+  /**
+   * Why nothing was imported, or null: a damaged file is not an empty one. `malformedPieces`: the
+   * file reads, but a piece of it does not, and that piece may be an outline or a hole.
+   */
+  problem: 'parseError' | 'allMalformed' | 'emptyFile' | 'malformedPieces' | null;
+  /** Pieces refused for unusable numbers, by entity type: the drawing's, and its blocks' once per copy drawn. */
+  malformed: Record<string, number>;
+  /** Blocks drawn that lost pieces of their own or of blocks nested in them. */
+  incompleteBlocks: string[];
+  /** Entities left out because they are on the paper-space sheet. */
+  paperSpace: number;
+  /** Entities left out because their layer is turned off or frozen. */
+  hidden: number;
+  /** Blocks that insert themselves; the insert closing the loop is not drawn. */
+  cyclicBlocks: string[];
   /** Entity types in the file that the import cannot draw (SPLINE, ELLIPSE, HATCH, ...). */
   skipped: string[];
   /** The unit the file declares in `$INSUNITS`, when it declares one this import knows. */
@@ -103,18 +122,31 @@ export function dxfSectionParts(text: string, unit: DxfUnit, firstId = 1): DxfSe
   const doc = parseCadDxf(text, 'section.dxf');
   const k = unitScale(unit);
   const meta = {
-    problem: cadImportProblem(doc),
+    problem: cadImportProblem(doc) as DxfSectionImport['problem'],
     skipped: Object.keys(doc.unsupported).filter(drawable),
     declaredUnit: doc.suggestedUnit,
+    malformed: {} as Record<string, number>,
+    incompleteBlocks: [] as string[],
+    paperSpace: doc.paperSpace,
+    hidden: 0,
+    cyclicBlocks: [] as string[],
   };
+  const lose = (from: Record<string, number>, times = 1) => {
+    for (const [type, n] of Object.entries(from)) if (drawable(type)) meta.malformed[type] = (meta.malformed[type] ?? 0) + n * times;
+  };
+  lose(doc.malformed);
+  const hiddenLayers = new Set(doc.layers.filter((l) => l.hidden).map((l) => l.name));
+  const incomplete = new Set<string>(), cyclic = new Set<string>();
   const segs: Array<{ a: P; b: P }> = [];
   const closed: P[][] = [];
   const circles: Array<{ c: P; r: number }> = [];
   const skipped = new Set(meta.skipped);
   const chain = (pts: P[]) => pts.slice(1).forEach((q, i) => segs.push({ a: pts[i]!, b: q }));
-  /** Every entity, in the drawing's frame under `t` (the unit scale, then any inserts). */
-  const draw = (entities: CadEntity[], t: Affine, depth: number) => {
+  /** Every entity, in the drawing's frame under `t` (the unit scale, then the inserts in `stack`). */
+  const draw = (entities: CadEntity[], t: Affine, stack: string[]) => {
     for (const e of entities) {
+      // Inside a block, layer 0 is the insert's layer, already checked when the insert was.
+      if (hiddenLayers.has(e.layer) && !(stack.length > 0 && e.layer === '0')) { meta.hidden++; continue; }
       if (e.kind === 'line') segs.push({ a: apply(t, e.a), b: apply(t, e.b) });
       else if (e.kind === 'polyline') {
         const pts = polylinePoints(e.pts, e.bulges, e.closed).map((p) => apply(t, p));
@@ -131,21 +163,32 @@ export function dxfSectionParts(text: string, unit: DxfUnit, firstId = 1): DxfSe
         chain(arcPoints(e.center, e.r, e.startAngle, sweep).map((p) => apply(t, p)));
       } else if (e.kind === 'insert') {
         const block: CadBlock | undefined = doc.blocks?.[e.blockName];
-        if (!block || depth >= MAX_BLOCK_DEPTH) { skipped.add('INSERT'); continue; }
+        // A block already being drawn, inserted again inside itself: drawn, it was a copy of a
+        // copy down to the depth limit, kᵈ phantoms at offsets nobody drew.
+        if (stack.includes(e.blockName)) { cyclic.add(e.blockName); continue; }
+        if (!block || stack.length >= MAX_BLOCK_DEPTH) { skipped.add('INSERT'); continue; }
         Object.keys(block.unsupported).filter(drawable).forEach((u) => skipped.add(u));
+        const copies = insertCopies(e);
+        if (Object.keys(block.malformed).some(drawable)) { incomplete.add(e.blockName); lose(block.malformed, copies.length); }
         const th = ((e.rotationDeg ?? 0) * Math.PI) / 180, sx = e.xScale ?? 1, sy = e.yScale ?? 1;
         const cos = Math.cos(th), sin = Math.sin(th);
-        const place: Affine = {
-          a: cos * sx, b: -sin * sy, c: sin * sx, d: cos * sy,
-          e: e.at.x - (cos * sx * block.base.x - sin * sy * block.base.y),
-          f: e.at.y - (sin * sx * block.base.x + cos * sy * block.base.y),
-        };
-        draw(block.entities, compose(t, place), depth + 1);
+        for (const at of copies) {
+          const place: Affine = {
+            a: cos * sx, b: -sin * sy, c: sin * sx, d: cos * sy,
+            e: at.x - (cos * sx * block.base.x - sin * sy * block.base.y),
+            f: at.y - (sin * sx * block.base.x + cos * sy * block.base.y),
+          };
+          draw(block.entities, compose(t, place), [...stack, e.blockName]);
+        }
       }
     }
   };
-  draw(doc.entities, { a: k, b: 0, c: 0, d: k, e: 0, f: 0 }, 0);
+  draw(doc.entities, { a: k, b: 0, c: 0, d: k, e: 0, f: 0 }, []);
   meta.skipped = [...skipped];
+  meta.incompleteBlocks = [...incomplete];
+  meta.cyclicBlocks = [...cyclic];
+  if (meta.problem === null && Object.keys(meta.malformed).length > 0) meta.problem = 'malformedPieces';
+  if (meta.problem === 'malformedPieces') return { parts: [], loops: 0, circles: 0, open: 0, ...meta };
   // A tenth of a millimetre welds endpoints; drawings are rarely cleaner than that.
   const { loops: chained, unchained } = chainSegmentsIntoLoops(segs, 1e-4);
   const loops = [...closed, ...chained];

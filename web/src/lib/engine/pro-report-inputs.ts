@@ -104,6 +104,12 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
     const nz = comps.filter(([, v]) => v !== undefined && Math.abs(v) > 1e-12) as Array<[string, number]>;
     return nz.length ? nz.map(([k, v]) => `${k}=${n(v)}`).join(', ') + ` ${unit}` : `0 ${unit}`;
   };
+  /** Where a partial line load sits, from node I; a start with no end runs to the end (`b=L`). */
+  const range = (d: { a?: number; b?: number }) =>
+    d.a !== undefined || d.b !== undefined ? `, a=${n(d.a ?? 0)} m, b=${d.b !== undefined ? `${n(d.b)} m` : 'L'}` : '';
+  /** A 2D member load's angle from its base direction, and its axes when they are global. */
+  const turn = (d: { angle?: number; isGlobal?: boolean }) =>
+    (d.angle ? `, θ=${n(d.angle)}°` : '') + (d.isGlobal ? ` (${t('report.loadGlobal')})` : '');
   const caseName = (id: number | undefined) => modelStore.model.loadCases.find((c) => c.id === (id ?? 1))?.name;
   for (const load of modelStore.model.loads) {
     let tipo = '', destino = '', valores = '';
@@ -117,13 +123,13 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       case 'distributed': {
         const d = load.data;
         tipo = t('file.loadDistributed'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = d.qI === d.qJ ? `q=${n(d.qI)} kN/m` : `qI=${n(d.qI)}, qJ=${n(d.qJ)} kN/m`;
+        valores = (d.qI === d.qJ ? `q=${n(d.qI)} kN/m` : `qI=${n(d.qI)}, qJ=${n(d.qJ)} kN/m`) + range(d) + turn(d);
         break;
       }
       case 'pointOnElement': {
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = `P=${n(d.p)} kN, a=${n(d.a)} m`;
+        valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, My=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
         break;
       }
       case 'thermal': {
@@ -166,7 +172,7 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
         valores = parts('kN/m', [
           [`q${axes[0]}I`, d.qXI], [`q${axes[0]}J`, d.qXJ], [`q${axes[1]}I`, d.qYI], [`q${axes[1]}J`, d.qYJ],
           [`q${axes[2]}I`, d.qZI], [`q${axes[2]}J`, d.qZJ],
-        ]) + (d.a !== undefined || d.b !== undefined ? `, a=${n(d.a ?? 0)} m, b=${d.b !== undefined ? n(d.b) : 'L'}` : '')
+        ]) + range(d)
           + (d.frame === 'projected' ? ` (${t('report.loadProjected')})` : d.frame === 'global' ? ` (${t('report.loadGlobal')})` : '');
         break;
       }
