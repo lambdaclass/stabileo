@@ -1549,6 +1549,27 @@ fn solve_constrained_2d_sparse(
 
     super::linear::assert_finite_3d(&u_f)?;
 
+    // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
+    let rel_residual = {
+        let ku = k_ff.sym_mat_vec(&u_f);
+        let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
+        if let Some(k_ff_up) = &k_ff_up_opt {
+            for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
+        }
+        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+    };
+
+    // A factorization that "succeeds" on a mechanism is not a solve: the zero
+    // pivot survives sparse Cholesky as positive rounding (the kinematic proof
+    // guards the same failure with its pivot check), and the displacements it
+    // returns are garbage with a huge residual. Past the dense path's own
+    // ResidualHigh threshold, defer: `Ok(None)` hands the model to the dense
+    // path, which either solves it properly or reports the mechanism with its
+    // LU — exactly the legacy contract.
+    if rel_residual >= 1e-6 {
+        return Ok(None);
+    }
+
     let mut u_full = vec![0.0; n];
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
@@ -1596,16 +1617,6 @@ fn solve_constrained_2d_sparse(
     let mut element_forces = linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
-    let rel_residual = {
-        let ku = k_ff.sym_mat_vec(&u_f);
-        let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
-        if let Some(k_ff_up) = &k_ff_up_opt {
-            for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
-        }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
-    };
-
     let equilibrium = linear::compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &stiff.inclined_transforms_2d);
 
     constraint_diags.push(StructuredDiagnostic::global(
@@ -1613,6 +1624,23 @@ fn solve_constrained_2d_sparse(
         Severity::Info,
         format!("Constrained 2D sparse Cholesky ({} free DOFs, {} independent)", nf, n_free_indep),
     ).with_phase("solve"));
+
+    // Residual diagnostic, the dense path's exact code and threshold. Only the
+    // success path reaches here: a residual past the threshold returned
+    // `Ok(None)` above, so the dense path's verdict stands instead.
+    constraint_diags.push(if rel_residual < 1e-6 {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Constrained 2D residual {:.2e}", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    } else {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualHigh,
+            Severity::Warning,
+            format!("Constrained 2D residual {:.2e} exceeds tolerance", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    });
 
     Ok(Some(AnalysisResults {
         displacements,

@@ -132,6 +132,35 @@ fn sparse_and_dense_constrained_agree_with_a_settlement() {
 }
 
 #[test]
+fn the_sparse_solve_reports_its_residual_and_matches_constraint_forces() {
+    // The sparse path pushes the same residual diagnostic the dense path does,
+    // and the forces the diaphragms carry match DOF by DOF, not just the
+    // displacements and reactions.
+    let (input, constraints) = diaphragm_frame(4, 8);
+    let dof_num = DofNumbering::build_2d(&input);
+    let ci = ConstrainedInput { solver: input, constraints };
+    let dense = solve_constrained_2d_dense(&ci, &dof_num).unwrap();
+    let sparse = solve_constrained_2d(&ci).unwrap();
+    assert!(sparse.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseCholesky),
+        "expected the sparse Cholesky diagnostic, got {:?}", sparse.structured_diagnostics.iter().map(|d| d.code).collect::<Vec<_>>());
+    assert!(sparse.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResidualOk),
+        "expected the residual diagnostic, got {:?}", sparse.structured_diagnostics.iter().map(|d| d.code).collect::<Vec<_>>());
+    let key = |c: &ConstraintForce| (c.node_id, c.dof.clone());
+    let mut dcf = dense.constraint_forces.clone();
+    dcf.sort_by_key(key);
+    let mut scf = sparse.constraint_forces.clone();
+    scf.sort_by_key(key);
+    assert_eq!(dcf.len(), scf.len(), "constraint force count");
+    assert!(!dcf.is_empty(), "the diaphragm fixture carries constraint forces");
+    let scale = dcf.iter().map(|c| c.force.abs()).fold(1.0, f64::max);
+    for (d, s) in dcf.iter().zip(&scf) {
+        assert_eq!(key(d), key(s));
+        assert!((d.force - s.force).abs() < 1e-9 * scale,
+            "node {} {}: dense {} vs sparse {}", d.node_id, d.dof, d.force, s.force);
+    }
+}
+
+#[test]
 fn a_mechanism_at_size_is_reported_not_solved() {
     // Pinned bases and every beam end hinged: the sparse factorization must
     // fail and the dense fallback report the mechanism, never a garbage solve.
