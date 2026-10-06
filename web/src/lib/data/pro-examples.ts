@@ -29,6 +29,8 @@ import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
 import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
+import { withOrigin } from '../codes/families';
+import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
 import { loadCodeExample, type CodeExampleId } from '../templates/examples';
@@ -116,7 +118,8 @@ function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined):
 function regulationCombinations(bothSenses: boolean): void {
   const cases = modelStore.model.loadCases;
   if (!cases.some((c) => (c.type || '').toUpperCase() === 'D')) return;
-  const specs = generateCombinations({ present: presentSymbols(cases) });
+  // Written by the CIRSOC 101 module, and saying so (`withOrigin`), as the generator's are.
+  const specs = generateCombinations({ present: presentSymbols(cases) }).map((c) => withOrigin(c, CIRSOC101_BASIS));
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
   let n = 0;
   // Wind reversed only where that is exact: an example's roof-suction case is not.

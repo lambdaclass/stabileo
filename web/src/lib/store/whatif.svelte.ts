@@ -20,11 +20,12 @@
  * which skipped all of that and landed every slider move on the deformed
  * shape.
  */
+import { MAGNITUDE_FIELDS } from '../model/loads/load-magnitudes';
 import { tick } from 'svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
-import type { Load, Release, Section, SupportType } from './model.svelte';
+import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
 import { defaultDofs } from './support-dofs';
 
@@ -75,18 +76,7 @@ function restoreBaseline(snap: ModelSnapshot): void {
  * × k gives displacements, reactions and member forces × k. Self-weight,
  * likewise, is not an entry of `model.loads` and has no slider.
  */
-type MagnitudeFields = { [T in Load['type']]: ReadonlyArray<keyof Extract<Load, { type: T }>['data']> };
-const MAGNITUDE_FIELDS: MagnitudeFields = {
-  nodal: ['fx', 'fz', 'my', 'fy', 'mz'],
-  distributed: ['qI', 'qJ'],
-  pointOnElement: ['p', 'px', 'my', 'mz'],
-  thermal: ['dtUniform', 'dtGradient'],
-  nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
-  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
-  pointOnElement3d: ['py', 'pz'],
-  surface3d: ['q'],
-  thermalQuad3d: ['dtUniform', 'dtGradient'],
-};
+// The registry is shared with the load operations (`model/loads/load-magnitudes.ts`).
 
 /**
  * Each load of the model times its slider's factor. `apply` has just rebuilt

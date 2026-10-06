@@ -10,7 +10,8 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
+import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
 import { generatedMetadata } from './generated-metadata';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
@@ -125,11 +126,22 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
         }
         case 'pointOnElement3d': {
           const q = l.data as PointLoadOnElement3D; const g = signs.get(q.elementId); if (!g) return null;
-          return { type: 'pointOnElement3d', data: { ...q, py: g.sy * q.py, pz: g.sz * q.pz } };
+          return { type: 'pointOnElement3d', data: carryPointLoad(q, T, g) };
         }
         case 'thermal': {
           const q = l.data as ThermalLoad; const g = signs.get(q.elementId); if (!g) return null;
-          return { type: 'thermal', data: { ...q, dtGradient: g.sz * q.dtGradient } };
+          return { type: 'thermal', data: carryThermal(q, g) };
+        }
+        case 'prestress3d': {
+          const q = l.data as PrestressLoad3D; const g = signs.get(q.elementId); if (!g) return null;
+          return { type: 'prestress3d', data: carryPrestress(q, g.sz) };
+        }
+        case 'displacement3d': {
+          const q = l.data as NodeDisplacement3D;
+          if (!src.nodes.has(q.nodeId)) return null;
+          const u = applyVector(T, [q.dx ?? 0, q.dy ?? 0, q.dz ?? 0]), r = applyAxial(T, [q.drx ?? 0, q.dry ?? 0, q.drz ?? 0]);
+          const keep = (v: number) => (Math.abs(v) > 1e-15 ? v : undefined);
+          return { type: 'displacement3d', data: { ...q, dx: keep(u[0]), dy: keep(u[1]), dz: keep(u[2]), drx: keep(r[0]), dry: keep(r[1]), drz: keep(r[2]) } };
         }
         default: return null;
       }

@@ -2,8 +2,7 @@
  * The axes a member's local loads are stated in, as the user sees and types them: the member's
  * own local-Y reference if it has one, its roll plus the section's rotation, and the chosen
  * axis convention. A point load on a member (`pointOnElement3d`) is drawn along these
- * (viewport3d/scene-sync.ts) and made along them from a global direction (Viewport3D's load
- * tool), so both read them here.
+ * (viewport3d/scene-sync.ts).
  */
 import { computeLocalAxes3D, type LocalAxes3D } from '../engine/local-axes-3d';
 
@@ -36,15 +35,3 @@ export function memberLoadAxes(
   }
 }
 
-/**
- * A global force on a member point as the member's local transverse components (py, pz), or
- * null when part of it runs along the member: a point load on a member carries no axial part
- * here, so that part would be lost.
- */
-export function globalToMemberTransverse(force: [number, number, number], axes: LocalAxes3D): { py: number; pz: number } | null {
-  const dot = (v: [number, number, number]) => force[0] * v[0] + force[1] * v[1] + force[2] * v[2];
-  const mag = Math.hypot(force[0], force[1], force[2]);
-  if (!(mag > 0)) return null;
-  if (Math.abs(dot(axes.ex)) > 1e-6 * mag) return null;
-  return { py: dot(axes.ey), pz: dot(axes.ez) };
-}

@@ -155,16 +155,17 @@
       return `q (B${d.elementId})`;
     }
     if (l.type === 'pointOnElement3d') {
-      const d = l.data as { elementId: number; py: number; pz: number };
+      const d = l.data as { elementId: number; px?: number; py: number; pz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      if (d.py) parts.push(`Py=${F(d.py)}`);
-      if (d.pz) parts.push(`Pz=${F(d.pz)}`);
+      for (const k of ['px', 'py', 'pz', 'mx', 'my', 'mz'] as const) if (d[k]) parts.push(`${k[0]!.toUpperCase()}${k[1]}=${k[0] === 'm' ? M(d[k]!) : F(d[k]!)}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
+    if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${l.data.force} (B${l.data.elementId})`;
+    if (l.type === 'displacement3d') return `${t('loads.imposedDisplacement')} (N${l.data.nodeId})`;
     const quad = (id: number) => t('results.quadLabel').replace('{id}', String(id));
     if (l.type === 'surface3d') {
       const d = l.data as { quadId: number; q: number };
-      return `q=${q(d.q, 'pressure')} (${quad(d.quadId)})`;
+      return `q=${q(d.q, 'areaLoad')} (${quad(d.quadId)})`;
     }
     if (l.type === 'thermalQuad3d') {
       const d = l.data as { quadId: number };

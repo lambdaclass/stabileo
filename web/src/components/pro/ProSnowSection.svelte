@@ -7,6 +7,7 @@
    * generated at all is the dialog's switch, in the panel's header.
    */
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
   import { GROUND_SNOW_TABLES } from '../../lib/codes/cirsoc104/ground-snow';
   import type { RoofExposure, SnowCategory, SnowTerrain, ThermalCondition } from '../../lib/codes/cirsoc104/snow';
   import { snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
@@ -58,7 +59,7 @@
       {#if row.estimated}<p class="al-hint">* {t('autoLoad.snowEstimated')}</p>{/if}
     {:else}
       <label class="al-field al-field-narrow"><span class="al-label">pg</span>
-        <span class="al-unit-field"><input type="number" min="0" step="0.05" bind:value={config.sitePg} data-testid="al-snow-pg" /><span>kN/m²</span></span>
+        <QuantityInput bind:value={config.sitePg} quantity="areaLoad" min={0} testid="al-snow-pg" wrap="al-unit-field" />
       </label>
     {/if}
   </div>

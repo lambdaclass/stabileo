@@ -176,7 +176,7 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
   // Dropping a loaded free node would turn a mechanism into a false equilibrium.
   const orphanLoads = new Map<number, number[]>();
   for (const load of input.loads) {
-    if (load.type !== 'nodal' || used.has(load.data.nodeId)) continue;
+    if (load.type !== 'nodal' || used.has(load.data.nodeId) || (load.data.tendonOf !== undefined && off.has(load.data.tendonOf))) continue;
     const d = load.data;
     const sum = orphanLoads.get(d.nodeId) ?? [0, 0, 0, 0, 0, 0];
     [d.fx, d.fy, d.fz, d.mx, d.my, d.mz].forEach((v, i) => { sum[i] += v; });
@@ -186,8 +186,10 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
     if (force.some(v => Math.abs(v) > 1e-12)) throw new Error(`Unstable active set: loaded node ${id} is held only by slack members`);
   }
   const loads = input.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
+    const d = l.data as { elementId?: number; nodeId?: number; tendonOf?: number };
     if (d.elementId !== undefined && off.has(d.elementId)) return false;
+    // A tendon is in its member: its anchors leave with it.
+    if (d.tendonOf !== undefined && off.has(d.tendonOf)) return false;
     return d.nodeId === undefined || used.has(d.nodeId);
   });
   return {
@@ -442,13 +444,18 @@ export function compositeReferenceFactor(model: ModelData, memberId: number): { 
   return { e: mr.e / mm.e, g: g(mr) / g(mm) };
 }
 
+/** The factors on a member's A, Iy, Iz and J in the solve: its stiffness modifiers and a composite member's reference material. */
+export function solveStiffnessFactors(model: ModelData, id: number): { a: number; iy: number; iz: number; j: number } {
+  const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
+  const c = compositeReferenceFactor(model, id);
+  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+}
+
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {
   let next = Math.max(0, ...input.sections.keys()) + 1;
   const made = new Map<string, number>();
   for (const [id, el] of input.elements) {
-    const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
-    const c = compositeReferenceFactor(model, id);
-    const f = { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+    const f = solveStiffnessFactors(model, id);
     if (f.a === 1 && f.iy === 1 && f.iz === 1 && f.j === 1) continue;
     const key = `${el.sectionId}|${f.a}|${f.iy}|${f.iz}|${f.j}`;
     let sid = made.get(key);

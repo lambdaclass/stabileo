@@ -13,7 +13,7 @@ import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { activePerCombo3D, activeCombinations, publishCombinations3D } from '../active-results';
-import { envelopeOver, pruneScopes, activeComboIds } from '../../engine/result-scopes';
+import { envelopeOver, pruneScopes, activeComboIds, scopeEdits } from '../../engine/result-scopes';
 import { modelToCode, codeToModel } from '../../model/code/format';
 
 let combos: { light: number; heavy: number; lateral: number };
@@ -145,5 +145,40 @@ describe('as a project definition', () => {
     expect(activeComboIds({ active: [9, 2] }, [{ id: 1 }, { id: 2 }])).toEqual([2]);
     expect(activeComboIds(undefined, [{ id: 1 }, { id: 2 }])).toEqual([1, 2]);
     expect(pruneScopes({ envelopes: [] }, new Set([1]))).toEqual({ envelopes: [] });
+  });
+});
+
+/**
+ * "All combinations" for design is every one but the service combinations a code wrote. Only the
+ * active ids followed that rule: with no list, the solved combinations design reads (joints,
+ * footings, floors, the report, the tables) and the envelope still took the service ones, and the
+ * panel's edits started from every combination, so unticking one handed them back to design.
+ */
+describe('"all" leaves out the service combinations a code wrote, everywhere', () => {
+  const service = { code: 'cirsoc101-2025-basis', family: 'cirsoc', edition: '2025', rule: 'S1', purpose: 'service' as const };
+  let sls: number;
+  beforeEach(() => {
+    // 2,0 D for service: the largest vertical demand of all, so an envelope that took it would show.
+    sls = modelStore.addCombination('2.0D (service)', [{ caseId: modelStore.combinations[0]!.factors[0]!.caseId, factor: 2 }], service);
+  });
+
+  it('design reads and the envelope leave it out with no list stated', () => {
+    const r = solve();
+    expect([...activePerCombo3D().keys()]).toEqual([combos.light, combos.heavy, combos.lateral]);
+    expect(activeCombinations().map((c) => c.id)).not.toContain(sls);
+    // Still solved, and still shown on its own.
+    expect(r.perCombo.has(sls)).toBe(true);
+    const strength = envelopeOver(r.perCombo, [combos.light, combos.heavy, combos.lateral])!;
+    expect(Math.abs(tip(r.envelope.maxAbsResults3D).uz)).toBeCloseTo(Math.abs(tip(strength.maxAbsResults3D).uz), 12);
+    expect(Math.abs(tip(r.envelope.maxAbsResults3D).uz)).toBeLessThan(Math.abs(tip(r.perCombo.get(sls)!).uz));
+  });
+
+  it("the panel's edits start from what design reads, and a service combination goes in only when ticked", () => {
+    const cs = modelStore.combinations;
+    expect(scopeEdits.current(undefined, cs)).toEqual([combos.light, combos.heavy, combos.lateral]);
+    expect(scopeEdits.toggle(undefined, cs, combos.light)).toEqual([combos.heavy, combos.lateral]);
+    expect(scopeEdits.mark(cs, true)).toEqual([combos.light, combos.heavy, combos.lateral]);
+    expect(scopeEdits.mark(cs, false)).toEqual([]);
+    expect(scopeEdits.toggle({ active: [combos.heavy] }, cs, sls)).toEqual([combos.heavy, sls]);
   });
 });

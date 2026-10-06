@@ -24,12 +24,12 @@
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
   import { membersNearPointer, membersNearPointerWithDistance, nodesNearPointer } from '../lib/viewport3d/screen-pick';
   import { createPickCycle, mergeTargets, type PickTarget } from '../lib/viewport/pick-cycle';
-  import { memberLoadAxes, globalToMemberTransverse } from '../lib/model/member-load-axes';
   import { setCanvasUnitSystem } from '../lib/canvas/canvas-units';
   import { fixedQuantity } from '../lib/utils/unit-format';
   import { fromDisplay } from '../lib/utils/units';
   import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
   import { pickLoadsWithDistance } from '../lib/viewport/load-pick';
+  import { activeStretchHandles, handleUnder, stationOnRay, moveStretchEnd, handleMeshes, type StretchHandles } from '../lib/viewport3d/load-handles';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -153,6 +153,21 @@
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
+
+  // ─── A member load's stretch, dragged by its handles ───────
+  let stretchDrag: { h: StretchHandles; end: 'a' | 'b'; moved: boolean } | null = null;
+  let stretchHandleGroup: THREE.Group | null = null;
+  $effect(() => {
+    // The handles of the one distributed load selected, rebuilt as it changes.
+    void modelStore.loads; void uiStore.selectedLoads; void uiStore.analysisMode;
+    if (!loadsParent) return;
+    untrack(() => {
+      if (stretchHandleGroup) { loadsParent.remove(stretchHandleGroup); disposeObject(stretchHandleGroup); stretchHandleGroup = null; }
+      const h = activeStretchHandles();
+      if (h) { stretchHandleGroup = handleMeshes(h); loadsParent.add(stretchHandleGroup); }
+      invalidate?.();
+    });
+  });
 
   // ─── Node dragging state ───────────────────────────────────
   let draggedNodeId3D = $state<number | null>(null);
@@ -1746,6 +1761,14 @@
          * history was lost. The drag now starts on the first real movement (below, in the move
          * handler); a release before that is a plain click.
          */
+        // A handle of the selected load's stretch takes the press first.
+        const stretch = tool === 'select' ? activeStretchHandles() : null;
+        const end = stretch && camera ? handleUnder(stretch, camera, container.getBoundingClientRect(), e.clientX, e.clientY) : null;
+        if (stretch && end) {
+          stretchDrag = { h: stretch, end, moved: false };
+          controls.enabled = false;
+          return;
+        }
         const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
         if (nodeId !== null) {
@@ -2042,22 +2065,23 @@
 
   /**
    * Basic 3D: a point load where the click lands on a member, along the global direction the
-   * load bar names. It is stored as the member's local transverse components (`py`, `pz`), so a
-   * force along the member, or a moment, is refused with a word rather than lost.
+   * load bar names (a force or a moment), as the 2D tool makes one.
    */
   function addPointLoadOnMember3D(e: MouseEvent, elemId: number): boolean {
     const dir = uiStore.nodalLoadDir3D;
     const val = uiStore.loadValue;
-    if (dir === 'mx' || dir === 'my' || dir === 'mz') { uiStore.toast(t('viewport3d.momentNeedsNode'), 'info'); return false; }
     const el = modelStore.elements.get(elemId);
-    const axes = el ? memberLoadAxes(el, modelStore.nodes, modelStore.sections, uiStore.axisConvention3D === 'leftHand') : null;
-    if (!el || !axes) return false;
-    const force: [number, number, number] = [dir === 'fx' ? val : 0, dir === 'fy' ? val : 0, dir === 'fz' ? val : 0];
-    const local = globalToMemberTransverse(force, axes);
-    if (!local) { uiStore.toast(t('viewport3d.pointLoadAlongMember'), 'info'); return false; }
-    // Where along the member: the pointer projected onto the member as drawn on screen.
-    const a = memberPointerPosition(e, el) * axes.L;
-    modelStore.addPointLoadOnElement3D(elemId, a, local.py, local.pz, uiStore.activeLoadCaseId);
+    const a0 = el ? nodeScenePoint(el.nodeI) : null, b0 = el ? nodeScenePoint(el.nodeJ) : null;
+    if (!el || !a0 || !b0) return false;
+    const a = memberPointerPosition(e, el) * a0.distanceTo(b0);
+    modelStore.batch(() => {
+      const id = modelStore.addPointLoadOnElement3D(elemId, a, 0, 0, uiStore.activeLoadCaseId);
+      modelStore.updateLoad(id, {
+        frame: 'global',
+        px: dir === 'fx' ? val : 0, py: dir === 'fy' ? val : 0, pz: dir === 'fz' ? val : 0,
+        mx: dir === 'mx' ? val : 0, my: dir === 'my' ? val : 0, mz: dir === 'mz' ? val : 0,
+      });
+    });
     uiStore.toast(t('viewport3d.pointLoadOnMemberApplied').replace('{id}', String(elemId)), 'success');
     return true;
   }
@@ -2318,6 +2342,13 @@
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
       // At the click itself, not a frame late.
       if (moved < 5 && placementStore.follow) { pendingPlacementHover = null; placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
+      return;
+    }
+
+    // ── A stretch end let go ──
+    if (stretchDrag) {
+      stretchDrag = null;
+      controls.enabled = true;
       return;
     }
 
@@ -2945,6 +2976,21 @@
     // During orbit we clear any stale hover and skip entirely — recursive raycasts
     // over a large scene are the main cost of orbit on pro fixtures.
     scheduleHoverRaycast(e);
+
+    // ─── A stretch end dragged along its member: one undo step for the whole drag ──
+    if (stretchDrag && camera) {
+      updateMouseNDC(e);
+      raycaster.setFromCamera(mouse, camera);
+      if (!stretchDrag.moved) { historyStore.pushState(); stretchDrag.moved = true; }
+      const s = stationOnRay(stretchDrag.h, raycaster.ray);
+      const drag = stretchDrag;
+      modelStore.withoutUndo(() => moveStretchEnd(drag.h, drag.end, s));
+      // The other end, as it now stands.
+      const now = activeStretchHandles();
+      if (now) stretchDrag = { ...drag, h: now };
+      resultsStore.clear3D();
+      return;
+    }
 
     // ─── Node dragging ────────────────────────────────────────
     if (draggedNodeId3D !== null && dragStartWorld3D) {

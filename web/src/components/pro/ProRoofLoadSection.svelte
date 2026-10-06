@@ -1,19 +1,7 @@
 <script lang="ts" module>
-  export interface RoofConfig {
-    enabled: boolean;
-    use: 'maintenance' | 'occupancy';
-    /** Superimposed dead load of the roof, kN/m²; null: the floors'. */
-    dead: number | null;
-    /** null: from the roof's structure and dead load (heavy above 0,5 kN/m², `roofWeightOf`). */
-    weight: 'heavy' | 'light' | null;
-    occupancyKey: string;
-    /** Roof slope, degrees; null: the model's roof. */
-    slopeDeg: number | null;
-  }
-  export const defaultRoofConfig = (): RoofConfig => ({
-    enabled: true, use: 'maintenance', dead: null, weight: null, occupancyKey: 'azotea_privada', slopeDeg: null,
-  });
-
+  // The config, its default and its dead load's reader live with the dialog's other sections
+  // (`auto-loads-sections.ts`).
+  import { readRoofDead, type RoofConfig } from './auto-loads-sections';
   import { roofLiveLoad as lrOf, roofWeightClass as weightOf } from '../../lib/codes/cirsoc101/roof-live';
   /**
    * Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts.
@@ -35,6 +23,9 @@
    * the slope; a roof used as a terrace or a garden takes that occupancy's live load (§4.8.2).
    */
   import { t, tp } from '../../lib/i18n';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { uiStore } from '../../lib/store/ui.svelte';
+  import { fromDisplay } from '../../lib/utils/units';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { roofWeightClass } from '../../lib/codes/cirsoc101/roof-live';
 
@@ -51,6 +42,12 @@
 
   const roofRows = OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras');
   const dead = $derived(config.dead ?? floorDead);
+  const deadText = (d: number | null) => (d === null ? '' : String(+toQ(d, 'areaLoad').toPrecision(6)));
+  /** A value that does not read keeps the one there was, and the field shows it again. */
+  function setDead(el: HTMLInputElement) {
+    config.dead = readRoofDead(el.value, config.dead, (v) => fromDisplay(v, 'areaLoad', uiStore.unitSystem));
+    el.value = deadText(config.dead);
+  }
 
 </script>
 
@@ -64,8 +61,8 @@
           </select>
         </label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.roof.dead')}</span>
-          <span class="al-unit-field"><input type="number" step="0.1" min="0" value={config.dead ?? ''} placeholder={floorDead.toFixed(2)}
-            onchange={(e) => { const v = parseFloat(e.currentTarget.value); config.dead = Number.isFinite(v) && v >= 0 ? v : null; }} data-testid="al-roof-dead" /><span>kN/m²</span></span>
+          <span class="al-unit-field"><input type="text" inputmode="decimal" value={deadText(config.dead)} placeholder={toQ(floorDead, 'areaLoad').toFixed(2)}
+            onchange={(e) => setDead(e.currentTarget)} data-testid="al-roof-dead" /><span>{unitQ('areaLoad')}</span></span>
         </label>
       </div>
       {#if config.use === 'maintenance'}

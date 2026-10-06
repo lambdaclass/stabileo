@@ -364,7 +364,7 @@ export function createSurfaceLoadGroup(
   // Label at center
   const center = lerpQuad(0.5, 0.5);
   const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
-  const label = createTextSprite(fixedQuantity(q, 'pressure', 1, canvasUnitSystem()), labelHex, 26);
+  const label = createTextSprite(fixedQuantity(q, 'areaLoad', 1, canvasUnitSystem()), labelHex, 26);
   label.position.copy(center).sub(loadDir.clone().multiplyScalar(offset + 0.2));
   group.add(label);
 

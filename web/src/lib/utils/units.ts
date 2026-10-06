@@ -28,7 +28,8 @@ export type Quantity =
   | 'sectionInertia'   // cm⁴ (from m⁴) ↔ in⁴
   | 'sectionModulus'   // cm³ (from m³) ↔ in³
   | 'sectionDim'       // cm (from m) ↔ in: a section's own dimensions
-  | 'pressure';        // kN/m² ↔ ksf
+  | 'areaLoad'         // kN/m² ↔ psf
+  | 'speed';           // m/s ↔ mph
 
 // Conversion factors: multiply SI value by factor to get imperial value
 const FACTORS: Record<Quantity, number> = {
@@ -51,7 +52,8 @@ const FACTORS: Record<Quantity, number> = {
   sectionInertia: 2402509.61,  // m⁴ → in⁴
   sectionModulus: 61023.744,   // m³ → in³
   sectionDim: 39.3701,         // m → in
-  pressure: 0.0208854,         // kN/m² → ksf
+  areaLoad: 20.8854,           // kN/m² → psf
+  speed: 2.23694,              // m/s → mph
 };
 
 /*
@@ -90,7 +92,8 @@ const MKS_FACTORS: Record<Quantity, number> = {
   sectionInertia: 1e8,
   sectionModulus: 1e6,
   sectionDim: 100,
-  pressure: TF,
+  areaLoad: 1000 * TF,  // kN/m² → kgf/m²
+  speed: 1,
 };
 
 // Technical metric labels
@@ -114,7 +117,8 @@ const MKS_LABELS: Record<Quantity, string> = {
   sectionInertia: 'cm⁴',
   sectionModulus: 'cm³',
   sectionDim: 'cm',
-  pressure: 'tf/m²',
+  areaLoad: 'kgf/m²',
+  speed: 'm/s',
 };
 
 // SI unit labels
@@ -138,7 +142,8 @@ const SI_LABELS: Record<Quantity, string> = {
   sectionInertia: 'cm⁴',
   sectionModulus: 'cm³',
   sectionDim: 'cm',
-  pressure: 'kN/m²',
+  areaLoad: 'kN/m²',
+  speed: 'm/s',
 };
 
 // Imperial unit labels
@@ -162,7 +167,8 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   sectionInertia: 'in⁴',
   sectionModulus: 'in³',
   sectionDim: 'in',
-  pressure: 'ksf',
+  areaLoad: 'psf',
+  speed: 'mph',
 };
 
 /**

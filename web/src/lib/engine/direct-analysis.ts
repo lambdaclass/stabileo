@@ -29,7 +29,10 @@
 import type { ModelData } from './solver-service';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
-import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from './solver-service';
+import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal } from './solver-service';
+import { solvableModel } from './member-behaviour';
+import { casesWithDisplacements, imposedOf } from './case-displacements';
+import { collapseVariableResults, variableExpansionFor } from './variable-members';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
@@ -222,9 +225,31 @@ export async function runDirectAnalysis(
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
   const maxIter = settings.maxIter ?? 30, tol = settings.tol ?? 1e-5;
-  const base = buildSolverInput3D({ ...model, loads: [] }, false, leftHand);
+  /*
+   * The structure the linear solve solves: its members cut where a moment or an axial force sits
+   * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
+   * loads, and the results read back as one member each. Its refusals are the linear solve's.
+   */
+  const refused = imposedRefusal(model);
+  if (refused) return refused;
+  const solvable = solvableModel(model);
+  const expansion = variableExpansionFor(model);
+  let base: SolverInput3D | null;
+  let caseLoads: Map<number, SolverLoad3D[]>;
+  try {
+    base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
+    caseLoads = caseSolverLoads3D(solvable, loadCases, opts.includeSelfWeight, leftHand);
+  } catch (err) {
+    const said = loadRefusal(err);
+    if (said) return said;
+    throw err;
+  }
   if (!base) return 'empty';
-  const caseLoads = caseSolverLoads3D(model, loadCases, opts.includeSelfWeight, leftHand);
+  // A case's imposed displacements go on the supports, times the case's factor in each combination
+  // (`case-displacements.ts`), as P-Delta per combination puts them.
+  const imposedCases = casesWithDisplacements(model.loads);
+  const parentOf = new Map<number, number>();
+  for (const m of expansion?.members.values() ?? []) for (const p of m.pieces) parentOf.set(p.id, m.parentId);
 
   // Pns = Fy·Ag for every STEEL member (MPa → kPa). A concrete material carries f'c in `fy`, and
   // τb on it would cut a column's stiffness, to zero past f'c·Ag; the family decides, as the
@@ -243,14 +268,18 @@ export async function runDirectAnalysis(
 
   await Promise.all(combinations.map(async (combo) => {
     const loads = comboSolverLoads3D(combo, caseLoads);
-    if (loads.length === 0) return;
+    const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+    const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
+    if (loads.length === 0 && !imposedHere) return;
+    const on = imposedHere ? buildSolverInput3D({ ...solvable, loads: imposedOf(solvable.loads, factorOf) }, false, leftHand) : base;
+    if (!on) return;
     const { gravity, lateral } = nodeGravity(base, loads, leftHand);
     const hMag = Math.hypot(lateral.x, lateral.y);
     const totalGravity = [...gravity.values()].reduce((s, g) => s + Math.max(g, 0), 0);
     const hasLateral = hMag > 1e-6 * Math.max(totalGravity, 1);
 
     const solveWith = async (tau: Map<number, number>, ratio: number, ux: number, uy: number) => {
-      const input = reducedStiffness(base, tau);
+      const input = reducedStiffness(on, tau);
       const nl = ratio > 0 ? notionalLoads(gravity, ratio, ux, uy) : [];
       const full = { ...input, loads: [...loads, ...nl] };
       return run(full, maxIter, tol);
@@ -299,10 +328,16 @@ export async function runDirectAnalysis(
     }
     const amp = amplification(chosen.r);
     // Both the P-Delta solve and the stiffness iteration must have converged.
-    if (amp.stable && chosen.converged) perCombo.set(combo.id, chosen.r.results);
+    if (amp.stable && chosen.converged) perCombo.set(combo.id, collapseVariableResults(chosen.r.results, expansion));
+    // τb of a member solved as pieces: its lowest piece's, under the member's id.
+    const tauB = new Map<number, number>();
+    for (const [id, t] of chosen.tau) {
+      const own = parentOf.get(id) ?? id;
+      tauB.set(own, Math.min(t, tauB.get(own) ?? 1));
+    }
     info.set(combo.id, {
       comboId: combo.id, notional: chosen.dir, b2: amp.b2, stable: amp.stable,
-      converged: chosen.converged, iterations: chosen.r.iterations, tauB: chosen.tau,
+      converged: chosen.converged, iterations: chosen.r.iterations, tauB,
     });
   }));
 

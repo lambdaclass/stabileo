@@ -22,7 +22,7 @@
 import { modelStore } from './model.svelte';
 import { msg, type EngineMessage } from '../codes/message';
 import type { DesignCodeId } from '../engine/design/code-adapter';
-import {
+import { withAllRoles,
   REGULATIONS_SCHEMA_VERSION, bindRole, defaultRegulations, findOption, isLoadAffecting,
   pendingRequiresLoadRegeneration, pendingRoles, regulationStamps, roleUsable,
   validateStack, type ProjectRegulations, type RegulationRole, type RoleBinding,
@@ -66,11 +66,12 @@ function createRegulationsStore() {
    */
   const stored = (): StoredRegulations => modelStore.model.regulations
     ?? { version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations() };
-  const currentRoles = (): ProjectRegulations => stored().roles;
+  // A project saved before a role existed states none for it: filled in as a new project has it.
+  const currentRoles = (): ProjectRegulations => withAllRoles(stored().roles);
   const currentRevisions = (): RevisionVector => modelStore.model.revisions ?? emptyRevisions();
 
-  function writeRoles(next: ProjectRegulations): void {
-    modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: next };
+  function writeRoles(next: ProjectRegulations, settingsByCode = stored().settingsByCode): void {
+    modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: next, ...(settingsByCode ? { settingsByCode } : {}) };
   }
   function writeRevisions(next: RevisionVector): void {
     modelStore.model.revisions = next;
@@ -173,13 +174,18 @@ function createRegulationsStore() {
       }
 
       const previous = currentRoles()[role];
+      // Settings belong to a code: the previous one's are kept under it, and the new one takes
+      // what was stated for it before, never another code's.
+      const archive = { ...(stored().settingsByCode ?? {}) };
+      if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
+      const carried = previous.adapterId === adapterId ? previous.settings : (archive[adapterId] ?? {});
       const next: ProjectRegulations = {
         ...currentRoles(),
         [role]: {
           ...bindRole(role, adapterId, {
             jurisdiction: previous.jurisdiction,
             adoption: previous.adoption,
-            settings: previous.settings,
+            settings: carried,
           }),
           state: 'pending',
         },
@@ -194,7 +200,7 @@ function createRegulationsStore() {
 
       // Remember what we displaced BEFORE writing, so Cancel is lossless.
       if (displaced[role] === undefined) displaced = { ...displaced, [role]: previous };
-      writeRoles(next);
+      writeRoles(next, archive);
 
       if (isLoadAffecting(role)) {
         reviewRequested = role;

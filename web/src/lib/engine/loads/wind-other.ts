@@ -28,8 +28,8 @@
  * toward +x +y. A square chimney on its diagonal is loaded on the width it shows the wind, D√2
  * for a stick of side D (Figura 4.5-1, note 1), with h/D still on the side; it took D.
  *
- * G is 0,85, a rigid structure's: G_f of a flexible one (§1.9.5) is not implemented, so a
- * structure the project calls flexible is loaded with it all the same, and a note says so.
+ * The planner supplies each axis's validated G or G_f. Legacy callers without a factor use
+ * the rigid 0,85, with a warning when they have declared the structure flexible.
  *
  * Pure: no store.
  */
@@ -65,15 +65,18 @@ const dirLabel = (d: WindDirection) => d.toUpperCase();
 export function otherStructureWind(i: {
   model: WindModel; structure: OtherStructure; project: WindProject; directions: readonly WindDirection[];
   tributaryWidth: number;
+  /** The gust effect factor per wind axis (§1.9, `gust.ts`). Absent: the rigid 0,85. */
+  G?: (axis: 'x' | 'y') => number;
 }): { cases: OtherWindCase[]; derivation: EngineMessage[]; notes: EngineMessage[] } {
   const { model, structure: s, project } = i;
+  const gOf = (axis: 'x' | 'y') => i.G?.(axis) ?? G_RIGID;
   const qz = (z: number) => velocityPressure(Math.max(z, 0), project) / 1000;   // kN/m²
   const cases: OtherWindCase[] = [];
   const derivation: EngineMessage[] = [];
   const notes: EngineMessage[] = [];
   const nodes = [...model.nodes.values()];
   const H = Math.max(...nodes.map(Z), 0);
-  if (!project.rigid) notes.push(msg('wind.other.flexibleAssumedRigid'));
+  if (!project.rigid && !i.G) notes.push(msg('wind.other.flexibleAssumedRigid'));
 
   if (s.kind === 'freeRoof') {
     const roof = roofMembers(model);
@@ -99,9 +102,10 @@ export function otherStructureWind(i: {
       const up = s.roof === 'monoslope' ? rise : s.roof === 'pitched' ? -side : side;   // where the surface climbs
       return [-up * sinT, cosT];
     };
-    const q = qz(hMean) * G_RIGID;
+    const qBase = qz(hMean);
     derivation.push(msg('wind.other.freeRoof', { kind: msg(`wind.other.roof.${s.roof}`), theta: round(theta, 1), qh: round(qz(hMean), 3), blocked: s.blocked ? 1 : 0 }));
     for (const d of i.directions) {
+      const q = qBase * gOf(d.endsWith('x') ? 'x' : 'y');
       const across = d.endsWith(geo.axis);
       const sense = d.startsWith('-') ? -1 : 1;
       for (const c of ['A', 'B'] as LoadCaseAB[]) {
@@ -151,7 +155,7 @@ export function otherStructureWind(i: {
       const across = d.endsWith('x') ? 'y' : 'x';
       const B = Math.max(...face.map(({ k }) => span(levelNodes[k]!, across)), 0);
       const cf = solidSignCf(B / sH, sH / H);
-      const F = Math.max(qz(H) * G_RIGID * cf, MIN_OTHER_KNM2) * B * sH * (d.startsWith('-') ? -1 : 1);
+      const F = Math.max(qz(H) * gOf(d.endsWith('x') ? 'x' : 'y') * cf, MIN_OTHER_KNM2) * B * sH * (d.startsWith('-') ? -1 : 1);
       derivation.push(msg('wind.other.solidSign', { dir: dirLabel(d), b: round(B, 2), s: round(sH, 2), h: round(H, 2), cf: round(cf, 3), f: round(Math.abs(F), 1) }));
       // The face's force over its levels, by the height of face each one takes.
       const share = face.map(({ k }) => { const [z0, z1] = band(k); return Math.max(0, z1 - Math.max(z0, s.clearance)); });
@@ -212,7 +216,9 @@ export function otherStructureWind(i: {
         const stick = span(levelNodes[k]!, d.fx !== 0 ? 'y' : 'x') <= 0.05;
         af = (s.section === 'squareDiagonal' && stick ? D * Math.SQRT2 : D) * dz;
       }
-      const F = Math.max(q * G_RIGID * cf, MIN_OTHER_KNM2) * af;
+      // A diagonal wind takes the larger of the two axes' factors.
+      const G = d.diagonal ? Math.max(gOf('x'), gOf('y')) : gOf(d.fx !== 0 ? 'x' : 'y');
+      const F = Math.max(q * G * cf, MIN_OTHER_KNM2) * af;
       total += F;
       nodal.push(...levelLoads(model.nodes, levelNodes[k]!, F * d.fx, F * d.fy, 0));
     });
