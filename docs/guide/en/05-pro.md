@@ -412,9 +412,9 @@ load, and the load tables:
   diagram across the section. The button on its corner shows it large over the model (on a phone,
   full screen). On a phone the sketch goes under the values. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
-  - On **nodes**: a six-component force in global axes, or a force from an origin (the loaded node,
-    another node or a point) toward a target (a node or a point), acting at each loaded node parallel
-    to that direction (kept as its components); and an **imposed displacement** of the case, in mm or rad, on
+  - On **nodes**: a six-component force in global axes, or a force from an origin, a node or a point,
+    toward the loaded node: the target is each node Apply to names and is not typed (kept as its
+    components); and an **imposed displacement** of the case, in mm or rad, on
     nodes whose support restrains that direction. Unlike a support's settlement, which enters once,
     it is multiplied by the case's factor in every combination.
   - On **members**: a **distributed** load in local, global or projected axes, over the whole member

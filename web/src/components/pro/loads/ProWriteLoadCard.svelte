@@ -74,27 +74,22 @@
   let inclined = $state(false);
   let incF = $state<N>(null);
   /*
-   * The direction of an inclined force: from an origin to a target, each a node or a point; the
-   * origin is the loaded node itself unless another is named. The force acts at each node Apply
-   * to names, parallel to that direction.
+   * An inclined force's direction: from an origin (a node or a point) toward the node it acts at,
+   * each node Apply to names. Only the origin is typed; where it goes is where it is applied.
    */
-  type End = 'node' | 'point';
-  let incFromKind = $state<'loaded' | End>('loaded');
+  let incFromKind = $state<'node' | 'point'>('node');
   let incFromNode = $state('');
   let incFrom = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
-  let incToKind = $state<End>('node');
-  let incToNode = $state('');
-  let incTo = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
-  /** A named end of the direction, or null while it does not name one. */
-  function incEnd(kind: End, node: string, pt: Record<'x' | 'y' | 'z', N>): { x: number; y: number; z?: number } | null {
-    if (kind === 'node') return modelStore.nodes.get(Number(node)) ?? null;
-    return pt.x === null && pt.y === null && pt.z === null ? null : { x: num(pt.x), y: num(pt.y), z: num(pt.z) };
+  /** The origin, or null while it names none. */
+  function incOrigin(): { x: number; y: number; z?: number } | null {
+    if (incFromKind === 'node') return modelStore.nodes.get(Number(incFromNode)) ?? null;
+    const p = incFrom;
+    return p.x === null && p.y === null && p.z === null ? null : { x: num(p.x), y: num(p.y), z: num(p.z) };
   }
-  /** The force at the node `at`, from the origin toward the target; null when they make no direction. */
+  /** The force at the loaded node `at`, from the origin toward it; null when they make no direction. */
   function inclinedAt(at: { x: number; y: number; z?: number }, F: number) {
-    const from = incFromKind === 'loaded' ? at : incEnd(incFromKind, incFromNode, incFrom);
-    const to = incEnd(incToKind, incToNode, incTo);
-    return from && to ? inclinedForce(from, to, F) : null;
+    const from = incOrigin();
+    return from ? inclinedForce(from, at, F) : null;
   }
   // ── Displacement ──
   let u = $state<Record<'dx' | 'dy' | 'dz' | 'drx' | 'dry' | 'drz', N>>({ dx: null, dy: null, dz: null, drx: null, dry: null, drz: null });
@@ -146,7 +141,7 @@
   let shellSketch = $state<SketchInput['shell']>(undefined);
   /** What the fields say, drawn beside them (`LoadSketch`). */
   const sketch = $derived<SketchInput>({
-    kind, frame, shape, f, inclined, incF, incFromKind, incToKind, incFromNode, incToNode, incFrom, incTo, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
+    kind, frame, shape, f, inclined, incF, incFromKind, incFromNode, incFrom, u, q, qa, qb, peak, peakAt, peakComp, w1, w2, hydroAxis, hydroComp,
     pFrame, p, pa, th, strainBy, strain: strainBy === 'unit' ? (strainPerMil.trim() === '' ? null : parseDecimal(strainPerMil)) : strainDL,
     ps, tq, swDir, swFactor: swFactor.trim() === '' ? null : parseDecimal(swFactor), shell: shellSketch,
   });
@@ -309,7 +304,7 @@
     const first = [...uiStore.selectedNodes][0];
     const at = first !== undefined ? modelStore.nodes.get(first) : undefined;
     const F = opt(incF);
-    return F ? inclinedAt(at ?? { x: 0, y: 0, z: 0 }, F) : null;
+    return F && at ? inclinedAt(at, F) : null;
   });
 </script>
 
@@ -337,21 +332,19 @@
     <label class="wl-check fg-full"><input type="checkbox" bind:checked={inclined} data-testid="wl-inclined" /> {t('writeLoad.inclined')}</label>
     {#if inclined}
       <div class="fg-r"><span class="fg-l">F</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={incF} quantity="force" testid="wl-inc-f" /><span class="fg-u">{unitQ('force')}</span></div>
-      {#snippet end(label: string, kind: string, setKind: (k: string) => void, kinds: string[], node: string, setNode: (v: string) => void, pt: Record<'x' | 'y' | 'z', N>, tid: string)}
-        <div class="fg-r"><span class="fg-l">{label}</span>
-          <select class="fg-wide" value={kind} onchange={(e) => setKind(e.currentTarget.value)} data-testid="wl-inc-{tid}-kind">
-            {#each kinds as k (k)}<option value={k}>{t(`writeLoad.inc.${k}`)}</option>{/each}
-          </select></div>
-        {#if kind === 'node'}
-          <div class="fg-r"><span class="fg-l"></span><input type="text" inputmode="numeric" value={node} oninput={(e) => setNode(e.currentTarget.value)} class="fg-in" placeholder="ID" data-testid={tid === 'to' ? 'wl-inc-node' : 'wl-inc-from-node'} /></div>
-        {:else if kind === 'point'}
-          <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
-          <div class="fg-r"><span class="fg-l"></span>
-            {#each ['x', 'y', 'z'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pt[k]} quantity="length" testid="wl-inc-{tid}-{k}" />{/each}<span class="fg-u">{unitQ('length')}</span></div>
-        {/if}
-      {/snippet}
-      {@render end(t('writeLoad.from'), incFromKind, (k) => (incFromKind = k as never), ['loaded', 'node', 'point'], incFromNode, (v) => (incFromNode = v), incFrom, 'from')}
-      {@render end(t('writeLoad.toward'), incToKind, (k) => (incToKind = k as never), ['node', 'point'], incToNode, (v) => (incToNode = v), incTo, 'to')}
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.from')}</span>
+        <select class="fg-wide" bind:value={incFromKind} data-testid="wl-inc-from-kind">
+          <option value="node">{t('writeLoad.inc.node')}</option>
+          <option value="point">{t('writeLoad.inc.point')}</option>
+        </select></div>
+      {#if incFromKind === 'node'}
+        <div class="fg-r"><span class="fg-l">{t('writeLoad.node')}</span><input type="text" inputmode="numeric" bind:value={incFromNode} class="fg-in" placeholder="ID" data-testid="wl-inc-from-node" /></div>
+      {:else}
+        <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+        <div class="fg-r"><span class="fg-l">{t('writeLoad.point')}</span>
+          {#each ['x', 'y', 'z'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={incFrom[k]} quantity="length" testid="wl-inc-from-{k}" />{/each}<span class="fg-u">{unitQ('length')}</span></div>
+      {/if}
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.toward')}</span><span class="fg-wide wl-toward" data-testid="wl-inc-toward">{t('writeLoad.towardLoaded')}</span></div>
       {#if incPreview}<p class="wl-hint fg-full" data-testid="wl-inc-preview">{tp('writeLoad.inclinedPreview', { fx: fmtQ(incPreview[0], 'force'), fy: fmtQ(incPreview[1], 'force'), fz: fmtQ(incPreview[2], 'force'), u: unitQ('force') })}</p>{/if}
     {:else}
       <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
@@ -510,4 +503,5 @@
   .wl :global(select.fg-in), .wl :global(select.fg-wide) { font-family: var(--st-sans); }
   .wl :global(select.fg-wide) { width: auto; max-width: 100%; min-width: 0; }
   .wl :global(input.fg-in:focus), .wl :global(select:focus) { outline: none; border-color: var(--st-accent); }
+  .wl-toward { font-size: 0.7rem; color: var(--st-text-2); }
 </style>

@@ -429,8 +429,8 @@ tarjeta para agregar una carga y las tablas de cargas:
   En el celular el esquema va debajo de los valores. Los números aceptan coma o
   punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
   - En **nodos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
-    un destino (un nodo o un punto) desde un origen (el nodo cargado, otro nodo o un punto), que
-    actúa en cada nodo cargado paralela a esa dirección (se guarda por componentes); y un **desplazamiento impuesto** del caso,
+    el nodo cargado desde un origen, un nodo o un punto: el destino es cada nodo de «Aplicar a» y no
+    se escribe (se guarda por componentes); y un **desplazamiento impuesto** del caso,
     en mm o rad, sobre nodos con un apoyo que restrinja esa dirección. A diferencia del
     asentamiento de un apoyo, que entra una sola vez, éste se multiplica por el factor del caso en
     cada combinación.

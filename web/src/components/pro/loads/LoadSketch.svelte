@@ -9,9 +9,8 @@
     f?: Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', N>;
     inclined?: boolean;
     incF?: N;
-    incFromKind?: 'loaded' | 'node' | 'point';
-    incToKind?: 'node' | 'point';
-    incFromNode?: string; incToNode?: string; incFrom?: P3; incTo?: P3;
+    incFromKind?: 'node' | 'point';
+    incFromNode?: string; incFrom?: P3;
     u?: Record<'dx' | 'dy' | 'dz' | 'drx' | 'dry' | 'drz', N>;
     q?: Record<'xI' | 'xJ' | 'yI' | 'yJ' | 'zI' | 'zJ', N>;
     qa?: N; qb?: N;
@@ -248,25 +247,21 @@
     {/snippet}
 
     {#if v.kind === 'nodal' && v.inclined}
-      {@const loaded = (v.incFromKind ?? 'loaded') === 'loaded'}
-      {@const Pa = (loaded ? [48, 100] : [24, 98]) as V}
-      {@const Pb = [loaded ? 132 : 104, 30] as V}
-      {@const d = unit(sub(Pb, Pa))}
-      {@const Nn = (loaded ? Pa : [168, 104]) as V}
+      {@const Pa = [34, 104] as V}
+      {@const Nn = [150, 44] as V}
+      {@const d = unit(sub(Nn, Pa))}
       {@const s = sgn(v.incF) || 1}
-      {@const fromText = loaded ? t('writeLoad.inc.loaded') : v.incFromKind === 'node' ? `${t('writeLoad.node')} ${v.incFromNode || '?'}` : pt3(v.incFrom)}
-      {@const toText = v.incToKind === 'point' ? pt3(v.incTo) : `${t('writeLoad.node')} ${v.incToNode || '?'}`}
-      <!-- The direction, from its origin to its target; the force acts at the loaded node, along it. -->
-      <line x1={Pa[0]} y1={Pa[1]} x2={Pb[0] - d[0] * 5} y2={Pb[1] - d[1] * 5} class="ls-guide" marker-end="url(#{A}-a)" />
-      <circle cx={Pa[0]} cy={Pa[1]} r="3" class={loaded || v.incFromKind === 'node' ? 'ls-node' : 'ls-point'} />
-      <circle cx={Pb[0]} cy={Pb[1]} r="3" class={v.incToKind === 'point' ? 'ls-point' : 'ls-node'} />
-      <text x={Pb[0]} y={Pb[1] - 7} class="ls-t" text-anchor="middle">{t('writeLoad.toward')}: {toText}</text>
-      {#if !loaded}<text x={Pa[0] - 2} y={Pa[1] + 13} class="ls-t">{t('writeLoad.from')}: {fromText}</text>{/if}
+      {@const fromText = v.incFromKind === 'point' ? pt3(v.incFrom) : `${t('writeLoad.node')} ${v.incFromNode || '?'}`}
+      <!-- The direction: from the origin toward the loaded node; the force acts at the loaded node, along it. -->
+      <line x1={Pa[0]} y1={Pa[1]} x2={Nn[0] - d[0] * 6} y2={Nn[1] - d[1] * 6} class="ls-guide" />
+      <circle cx={Pa[0]} cy={Pa[1]} r="3" class={v.incFromKind === 'point' ? 'ls-point' : 'ls-node'} />
+      <text x={Pa[0] - 4} y={Pa[1] + 14} class="ls-t">{t('writeLoad.from')}: {fromText}</text>
       <circle cx={Nn[0]} cy={Nn[1]} r="3.4" class="ls-node" />
-      {@render arrow(Nn, add(Nn, d, s * 40))}
-      {@const tip = add(Nn, d, s * 40)}
-      <text x={tip[0] > 160 ? tip[0] - 6 : tip[0] + 6} y={tip[1] + (tip[0] > 160 ? -6 : 2)} class="ls-v" text-anchor={tip[0] > 160 ? 'end' : 'start'}>{lbl('F', v.incF, 'force')}</text>
-      <text x={Nn[0] + (loaded ? 6 : 0)} y={Nn[1] + 14} class="ls-t" text-anchor={loaded ? 'start' : 'middle'}>{loaded ? `${t('writeLoad.sketch.loaded')} (${t('writeLoad.from').toLowerCase()})` : t('writeLoad.sketch.loaded')}</text>
+      {#if s > 0}{@render arrow(add(Nn, d, -40), add(Nn, d, -4))}{:else}{@render arrow(add(Nn, d, 4), add(Nn, d, 40))}{/if}
+      <text x={Nn[0] - d[0] * 22 - 6} y={Nn[1] - d[1] * 22 - 6} class="ls-v" text-anchor="end">{lbl('F', v.incF, 'force')}</text>
+      <text x={Nn[0] + 6} y={Nn[1] - 8} class="ls-t">{t('writeLoad.sketch.loaded')}</text>
+      <text x={Nn[0] + 6} y={Nn[1] + 2} class="ls-t">({t('loadTarget.applyTo')})</text>
+      <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.inclined')}</text>
     {:else if v.kind === 'nodal'}
       {#each ['X', 'Y', 'Z'] as const as a (a)}
         <line x1={NODE[0] - AX[a][0] * 52} y1={NODE[1] - AX[a][1] * 52} x2={NODE[0] + AX[a][0] * 52} y2={NODE[1] + AX[a][1] * 52} class="ls-guide" />

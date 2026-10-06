@@ -8984,7 +8984,7 @@ const pt: Translations = {
   'writeLoad.kind.prestress': 'Protensão',
   'writeLoad.kind.surface': 'Superficial',
   'writeLoad.kind.thermalQuad': 'Temperatura de placa',
-  'writeLoad.inclined': 'Inclinada para um nó ou um ponto',
+  'writeLoad.inclined': 'Inclinada: a partir de um nó ou de um ponto',
   'writeLoad.node': 'Nó',
   'writeLoad.inclinedPreview': 'No primeiro nó escolhido: Fx {fx}, Fy {fy}, Fz {fz} {u}. Fica assim, por componentes.',
   'writeLoad.displacementHint': 'Do caso: numa combinação se multiplica pelo fator do caso. Vai em nós com apoio que restrinja essa direção, em eixos globais.',
@@ -9298,10 +9298,9 @@ const pt: Translations = {
   'writeLoad.toward': 'Para',
   'writeLoad.point': 'Ponto',
   'writeLoad.as': 'Como',
-  'writeLoad.inc.loaded': 'o nó carregado',
   'writeLoad.inc.node': 'um nó',
   'writeLoad.inc.point': 'um ponto',
-  'writeLoad.inclinedNoDirection': 'A origem e o destino coincidem, ou falta um: não há direção.',
+  'writeLoad.inclinedNoDirection': 'Falta a origem, ou ela coincide com o nó carregado: não há direção.',
   'writeLoad.thermalQuadHint': 'ΔTg: a face +z local menos a face −z (positiva: a face superior mais quente).',
   'writeLoad.sketch.loaded': 'nó carregado',
   'writeLoad.shell.plane': 'Plano',
@@ -9324,5 +9323,7 @@ const pt: Translations = {
   'writeLoad.sketch.fluid': 'Fluido contra a placa: empurra para fora do fluido',
   'writeLoad.sketch.shared': 'Em planta: a força se reparte aos nós da placa',
   'writeLoad.sketch.peak': 'pico',
+  'writeLoad.towardLoaded': 'o nó carregado (o que diz «Aplicar a»)',
+  'writeLoad.sketch.inclined': 'F > 0: da origem para o nó carregado',
 };
 export default pt;

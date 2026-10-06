@@ -137,10 +137,10 @@ test.describe('@smoke PRO — adding supports and loads', () => {
     added = await addLoad(page);
     expect(nodes(added)).toEqual([7, 8]);
 
-    // Inclined: toward node 1 from node 5 is straight down.
+    // Inclined: from node 1 toward the loaded node 5, straight up the column.
     await page.getByTestId('wl-inclined').check();
     await page.getByTestId('wl-inc-f').fill('10');
-    await page.getByTestId('wl-inc-node').fill('1');
+    await page.getByTestId('wl-inc-from-node').fill('1');
     await target(page, 'ids', '5');
     added = await addLoad(page);
     expect(added).toHaveLength(1);

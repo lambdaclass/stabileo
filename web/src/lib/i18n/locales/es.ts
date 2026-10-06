@@ -9340,7 +9340,7 @@ const es: Record<string, string> = {
   'writeLoad.kind.prestress': 'Pretensado',
   'writeLoad.kind.surface': 'Superficial',
   'writeLoad.kind.thermalQuad': 'Temperatura de placa',
-  'writeLoad.inclined': 'Inclinada hacia un nodo o un punto',
+  'writeLoad.inclined': 'Inclinada: desde un nodo o un punto',
   'writeLoad.node': 'Nodo',
   'writeLoad.inclinedPreview': 'Sobre el primer nodo elegido: Fx {fx}, Fy {fy}, Fz {fz} {u}. Se guarda así, por componentes.',
   'writeLoad.displacementHint': 'Del caso: en una combinación se multiplica por el factor del caso. Va en nodos con apoyo que restrinja esa dirección, en ejes globales.',
@@ -9654,10 +9654,9 @@ const es: Record<string, string> = {
   'writeLoad.toward': 'Hacia',
   'writeLoad.point': 'Punto',
   'writeLoad.as': 'Como',
-  'writeLoad.inc.loaded': 'el nodo cargado',
   'writeLoad.inc.node': 'un nodo',
   'writeLoad.inc.point': 'un punto',
-  'writeLoad.inclinedNoDirection': 'El origen y el destino coinciden o falta uno: no hay dirección.',
+  'writeLoad.inclinedNoDirection': 'Falta el origen, o coincide con el nodo cargado: no hay dirección.',
   'writeLoad.thermalQuadHint': 'ΔTg: la cara +z local menos la cara −z (positiva: la cara superior más caliente).',
   'writeLoad.sketch.loaded': 'nodo cargado',
   'writeLoad.shell.plane': 'Plano',
@@ -9680,5 +9679,7 @@ const es: Record<string, string> = {
   'writeLoad.sketch.fluid': 'Fluido contra la placa: empuja hacia afuera del fluido',
   'writeLoad.sketch.shared': 'En planta: la fuerza se reparte a los nodos de la placa',
   'writeLoad.sketch.peak': 'pico',
+  'writeLoad.towardLoaded': 'el nodo cargado (lo que dice «Aplicar a»)',
+  'writeLoad.sketch.inclined': 'F > 0: desde el origen hacia el nodo cargado',
 };
 export default es;

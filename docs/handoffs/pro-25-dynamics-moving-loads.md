@@ -159,7 +159,7 @@ From issues #251, #181, #96, #205 and #206.
 - Members are drawn sloping so local, global and projected axes differ; stations along the member (a, b, peak, a of a point load) are dimensioned from I; the prestress eccentricities are dimensioned from the axis. Thermal loads are the temperature diagram across the section (member: ΔTgz = T(−z) − T(+z), ΔTgy across the width; plate: ΔTg = T(+z) − T(−z), the engine's sign for shells). Plate area loads: side on (direction, true or projected area, the projection drawn) and in plan (uniform, corners, along an axis, the partial rectangle).
 - The corner button shows the sketch large over the viewport's canvas, or the whole screen on a phone; the overlay is moved to `document.body` (`utils/portal.ts`) so the panel's stacking context does not keep it under the header. Escape closes it.
 - The card: case and kind on top (the kind a `<select>` with an optgroup per Node / Member / Plate / General, testid `wl-kind`); the fields on one grid (`.fg-r`: a right-aligned name column, cells of one width, the unit after the row; vectors under X, Y, Z or I, J headers), set in under a rule; Apply to and Add at the end. The sketch stays to the right, shrinks to 120 px, then wraps under the fields; on a phone it goes under them.
-- An inclined force: origin (the loaded node, a node or a point) and target (a node or a point); the force acts at each loaded node parallel to target − origin; coinciding ends are refused.
+- An inclined force: an origin (a node or a point) toward the loaded node, each node Apply to names; the target is not typed. An origin on the loaded node is refused (no direction).
 
 ### Tools
 

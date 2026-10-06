@@ -9351,7 +9351,7 @@ const en: Record<string, string> = {
   'writeLoad.kind.prestress': 'Prestress',
   'writeLoad.kind.surface': 'Surface',
   'writeLoad.kind.thermalQuad': 'Plate temperature',
-  'writeLoad.inclined': 'Pointing at a node or a point',
+  'writeLoad.inclined': 'Inclined: from a node or a point',
   'writeLoad.node': 'Node',
   'writeLoad.inclinedPreview': 'On the first node picked: Fx {fx}, Fy {fy}, Fz {fz} {u}. Kept as these components.',
   'writeLoad.displacementHint': 'Of the case: a combination multiplies it by the case\'s factor. On supported nodes that restrain that direction, in global axes.',
@@ -9665,10 +9665,9 @@ const en: Record<string, string> = {
   'writeLoad.toward': 'Toward',
   'writeLoad.point': 'Point',
   'writeLoad.as': 'As',
-  'writeLoad.inc.loaded': 'the loaded node',
   'writeLoad.inc.node': 'a node',
   'writeLoad.inc.point': 'a point',
-  'writeLoad.inclinedNoDirection': 'The origin and the target coincide, or one is missing: there is no direction.',
+  'writeLoad.inclinedNoDirection': 'The origin is missing, or it is the loaded node: there is no direction.',
   'writeLoad.thermalQuadHint': 'ΔTg: the local +z face minus the −z face (positive: the upper face warmer).',
   'writeLoad.sketch.loaded': 'loaded node',
   'writeLoad.shell.plane': 'Plane',
@@ -9691,5 +9690,7 @@ const en: Record<string, string> = {
   'writeLoad.sketch.fluid': 'Fluid against the plate: pushes it out of the fluid',
   'writeLoad.sketch.shared': 'In plan: the force is shared among the plate\'s nodes',
   'writeLoad.sketch.peak': 'peak',
+  'writeLoad.towardLoaded': 'the loaded node (what Apply to says)',
+  'writeLoad.sketch.inclined': 'F > 0: from the origin toward the loaded node',
 };
 export default en;
