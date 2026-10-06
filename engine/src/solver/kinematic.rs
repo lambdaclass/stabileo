@@ -382,7 +382,7 @@ fn expected_zero_rotations_2d(
 /// to take the full dense path. A sparse Cholesky of K_ff proves full rank
 /// when every artificial DOF the assembly added is an expected zero rotation:
 /// the artificial spring is exactly what a mechanism hides behind, so any
-/// other artificial DOF — a floating translation, or a rotation with an
+/// other artificial DOF — a floating translation, or a rotation with a nonzero
 /// off-diagonal entry — is left to the dense analysis, which names the DOFs.
 fn fast_solvable_2d(
     input: &SolverInput,
@@ -390,7 +390,29 @@ fn fast_solvable_2d(
     nf: usize,
     degree: i32,
 ) -> Option<KinematicResult> {
+    // `assemble_sparse_2d` neither rotates K for an inclined roller nor rotates
+    // a spring's diagonal block the way the dense assembler does
+    // (`assemble_stiffness_2d`), so on either support kind the sparse K_ff is a
+    // different matrix: a slide-along-the-incline mechanism would come out
+    // "solvable". Defer to the dense path, which assembles them properly.
+    for sup in input.supports.values() {
+        if sup.support_type == "inclinedRoller" && sup.angle.is_some() {
+            return None;
+        }
+        if sup.support_type == "spring" && sup.angle.is_some_and(|a| a.abs() > 1e-15) {
+            return None;
+        }
+    }
+
     let sasm = assemble_sparse_2d(input, dof_num);
+    // Largest diagonal entry, for both tolerances below.
+    let k = &sasm.k_ff;
+    let mut max_diag = 0.0f64;
+    for col in 0..k.n {
+        for p in k.col_ptr[col]..k.col_ptr[col + 1] {
+            if k.row_idx[p] == col { max_diag = max_diag.max(k.values[p].abs()); }
+        }
+    }
     if !sasm.artificial_dofs.is_empty() {
         let expected = expected_zero_rotations_2d(input, dof_num, nf);
         let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
@@ -401,12 +423,17 @@ fn fast_solvable_2d(
         }
         // The CSC stores the lower triangle: an off-diagonal touching d shows
         // either in d's column below the diagonal or as row d of an earlier column.
-        let k = &sasm.k_ff;
+        //
+        // Explicit zeros are kept in the CSC — the assembler pushes every
+        // element pair, and a hinge-condensed rotation row is exactly zero — so
+        // "an entry exists" is not "stiffness couples these DOFs". Compare
+        // values, at the orphan-rotation guard's own tolerance.
+        let touch_tol = if max_diag > 0.0 { max_diag * 1e-12 } else { 1e-14 };
         let mut touched_offdiag = std::collections::HashSet::new();
         for col in 0..k.n {
             for p in k.col_ptr[col]..k.col_ptr[col + 1] {
                 let row = k.row_idx[p];
-                if row != col {
+                if row != col && k.values[p].abs() > touch_tol {
                     touched_offdiag.insert(row);
                     touched_offdiag.insert(col);
                 }
@@ -430,13 +457,6 @@ fn fast_solvable_2d(
     // internal hinge, factored "fine" and was called solvable. Every pivot must clear the
     // dense rank's own tolerance, relative to the largest diagonal; the artificial springs
     // on the expected pin rotations, checked above, are the only pivots excused.
-    let k = &sasm.k_ff;
-    let mut max_diag = 0.0f64;
-    for col in 0..k.n {
-        for p in k.col_ptr[col]..k.col_ptr[col + 1] {
-            if k.row_idx[p] == col { max_diag = max_diag.max(k.values[p].abs()); }
-        }
-    }
     let tol = (1e-10f64).max(max_diag * 1e-10);
     let artificial: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
     let sym = &factor.symbolic;
