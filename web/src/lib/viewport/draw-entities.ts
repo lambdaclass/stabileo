@@ -15,6 +15,8 @@ import {
   get2DDisplayReactionVertical,
 } from '../geometry/coordinate-system';
 import { canvasTheme } from '../canvas/theme';
+import { canvasUnitSystem } from '../canvas/canvas-units';
+import { displacementText, fixedQuantity, plainQuantity } from '../utils/unit-format';
 
 // ── Shared types for draw-entity parameters ──────────────────────────
 
@@ -307,7 +309,7 @@ export function drawElement(
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     const offset = opts.showElementLabels ? 12 : 0;
-    ctx.fillText(`${opts.worldLength.toFixed(2)} m`, midX + nx, midY + ny + offset);
+    ctx.fillText(fixedQuantity(opts.worldLength, 'length', 2, canvasUnitSystem()), midX + nx, midY + ny + offset);
     ctx.textAlign = 'left';
   }
 }
@@ -565,7 +567,7 @@ export function drawPrescribedDisp(
     ctx.fill();
     // Label
     ctx.textAlign = dir > 0 ? 'left' : 'right';
-    ctx.fillText(`\u03B4x=${(sup.dx! * 1000).toFixed(1)}mm`, endX + dir * 3, ay);
+    ctx.fillText(`\u03B4x=${displacementText(sup.dx!, 1, canvasUnitSystem())}`, endX + dir * 3, ay);
   }
 
   // dy: displayed vertical arrow in the 2D XZ presentation
@@ -589,7 +591,7 @@ export function drawPrescribedDisp(
     // Label
     ctx.textAlign = 'left';
     ctx.textBaseline = dir > 0 ? 'top' : 'bottom';
-    ctx.fillText(`\u03B4z=${(sup.dy! * 1000).toFixed(1)}mm`, ax + 5, endY);
+    ctx.fillText(`\u03B4z=${displacementText(sup.dy!, 1, canvasUnitSystem())}`, ax + 5, endY);
     ctx.textBaseline = 'middle';
   }
 
@@ -668,7 +670,7 @@ export function drawNodalLoad(
 
     labels.block({ x1: screen.x, y1: screen.y, x2: screen.x, y2: screen.y - arrowLen * dir });
     labels.add({
-      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.vertical}=${Math.abs(vertical)} kN`,
+      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.vertical}=${plainQuantity(Math.abs(vertical), 'force', 2, canvasUnitSystem())}`,
       colour: color,
       font: '12px sans-serif',
       box: {
@@ -697,7 +699,7 @@ export function drawNodalLoad(
 
     labels.block({ x1: screen.x, y1: screen.y, x2: screen.x - arrowLen * dir, y2: screen.y });
     labels.add({
-      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.horizontal}=${Math.abs(loadData.fx)} kN`,
+      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.horizontal}=${plainQuantity(Math.abs(loadData.fx), 'force', 2, canvasUnitSystem())}`,
       colour: color,
       /*
        * A horizontal force is drawn as a horizontal arrow, so its value has
@@ -728,7 +730,7 @@ export function drawNodalLoad(
     drawMomentSymbol(ctx, screen.x, screen.y, moment, color, r);
 
     labels.add({
-      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.moment}=${Math.abs(moment)} kN\u00B7m`,
+      text: `${prefix}${TWO_D_NODAL_LOAD_LABELS.moment}=${plainQuantity(Math.abs(moment), 'moment', 2, canvasUnitSystem())}`,
       colour: color,
       font: '12px sans-serif',
       box: {
@@ -794,7 +796,7 @@ export function drawReactions(
       ctx.font = 'bold 10px sans-serif';
       ctx.fillStyle = '#00e676';
       ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.vertical}=${Math.abs(vertical).toFixed(2)} kN`, x, y1 + dir * 12);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.vertical}=${fixedQuantity(Math.abs(vertical), 'force', 2, canvasUnitSystem())}`, x, y1 + dir * 12);
     }
 
     // Draw Rx (horizontal reaction) — arrow shows force FROM support ON structure
@@ -822,7 +824,7 @@ export function drawReactions(
       ctx.font = 'bold 10px sans-serif';
       ctx.fillStyle = '#00e676';
       ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.horizontal}=${Math.abs(r.rx).toFixed(2)} kN`, x1 - dir * 5, y - 8);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.horizontal}=${fixedQuantity(Math.abs(r.rx), 'force', 2, canvasUnitSystem())}`, x1 - dir * 5, y - 8);
     }
 
     // Draw displayed moment reaction as arc arrow — shows moment FROM support ON structure
@@ -850,7 +852,7 @@ export function drawReactions(
       ctx.font = 'bold 10px sans-serif';
       ctx.fillStyle = '#00e676';
       ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.moment}=${Math.abs(moment).toFixed(2)} kN\u00B7m`, s.x, s.y - radius - 5);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.moment}=${fixedQuantity(Math.abs(moment), 'moment', 2, canvasUnitSystem())}`, s.x, s.y - radius - 5);
     }
   }
   ctx.textAlign = 'left'; // reset
@@ -888,7 +890,7 @@ export function drawConstraintForces(
       ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - headSize * 0.5, s.y + dir * headSize); ctx.lineTo(s.x + headSize * 0.5, s.y + dir * headSize);
       ctx.closePath(); ctx.fill();
       ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.vertical}=${Math.abs(cf.force).toFixed(2)} kN`, s.x, y1 + dir * 12);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.vertical}=${fixedQuantity(Math.abs(cf.force), 'force', 2, canvasUnitSystem())}`, s.x, y1 + dir * 12);
     } else if (cf.dof === 'ux') {
       const dir = cf.force > 0 ? 1 : -1;
       const x1 = s.x - dir * arrowLen;
@@ -898,7 +900,7 @@ export function drawConstraintForces(
       ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - dir * headSize, s.y - headSize * 0.5); ctx.lineTo(s.x - dir * headSize, s.y + headSize * 0.5);
       ctx.closePath(); ctx.fill();
       ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.horizontal}=${Math.abs(cf.force).toFixed(2)} kN`, x1 - dir * 5, s.y - 8);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.horizontal}=${fixedQuantity(Math.abs(cf.force), 'force', 2, canvasUnitSystem())}`, x1 - dir * 5, s.y - 8);
     } else if (isRotational) {
       const radius = 18;
       ctx.strokeStyle = C; ctx.lineWidth = 2;
@@ -906,7 +908,7 @@ export function drawConstraintForces(
       const tipAngle = cf.force < 0 ? -Math.PI * 0.7 : Math.PI * 0.2;
       ctx.fillStyle = C; ctx.beginPath(); ctx.arc(s.x + radius * Math.cos(tipAngle), s.y + radius * Math.sin(tipAngle), 3, 0, Math.PI * 2); ctx.fill();
       ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${TWO_D_REACTION_LABELS.moment}=${Math.abs(cf.force).toFixed(2)} kN\u00B7m`, s.x, s.y - radius - 5);
+      ctx.fillText(`${TWO_D_REACTION_LABELS.moment}=${fixedQuantity(Math.abs(cf.force), 'moment', 2, canvasUnitSystem())}`, s.x, s.y - radius - 5);
     }
   }
   ctx.textAlign = 'left';

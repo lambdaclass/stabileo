@@ -20,8 +20,36 @@ export function pickLoadAt(
    */
   pointLoads: ReadonlySet<number> = new Set(),
 ): number | null {
-  let best: number | null = null;
-  let bestD = Infinity;
+  return pickLoadsAt(px, py, footprints, toScreen, tolerance, pointLoads)[0] ?? null;
+}
+
+/**
+ * Every load within `tolerance` pixels, the one a click means first: nearest, with a point load
+ * ahead of a distributed one within `TIE` pixels (see `pickLoadAt`). Two loads drawn on top of
+ * each other (the same load added twice on a member) are both here, so a click again on the
+ * same spot can reach the second (viewport/pick-cycle.ts).
+ */
+export function pickLoadsAt(
+  px: number,
+  py: number,
+  footprints: ReadonlyMap<number, readonly number[]>,
+  toScreen: (x: number, y: number, z: number) => { x: number; y: number },
+  tolerance = 10,
+  pointLoads: ReadonlySet<number> = new Set(),
+): number[] {
+  return pickLoadsWithDistance(px, py, footprints, toScreen, tolerance, pointLoads).map((h) => h.id);
+}
+
+/** `pickLoadsAt` with each load's distance on screen, in pixels, for comparing with members. */
+export function pickLoadsWithDistance(
+  px: number,
+  py: number,
+  footprints: ReadonlyMap<number, readonly number[]>,
+  toScreen: (x: number, y: number, z: number) => { x: number; y: number },
+  tolerance = 10,
+  pointLoads: ReadonlySet<number> = new Set(),
+): { id: number; d: number }[] {
+  const hits: { id: number; key: number; point: boolean; d: number }[] = [];
   for (const [id, f] of footprints) {
     let d = Infinity;
     for (let i = 0; i + 5 < f.length; i += 6) {
@@ -30,13 +58,12 @@ export function pickLoadAt(
       d = Math.min(d, distanceToSegment(px, py, a.x, a.y, b.x, b.y));
     }
     if (d > tolerance) continue;
-    const beats = best === null
-      || (pointLoads.has(id) && !pointLoads.has(best) ? d <= bestD + TIE
-        : !pointLoads.has(id) && pointLoads.has(best) ? d < bestD - TIE
-        : d < bestD);
-    if (beats) { best = id; bestD = d; }
+    const point = pointLoads.has(id);
+    hits.push({ id, key: d - (point ? TIE : 0), point, d });
   }
-  return best;
+  return hits
+    .sort((x, y) => x.key - y.key || Number(y.point) - Number(x.point) || x.id - y.id)
+    .map((h) => ({ id: h.id, d: h.d }));
 }
 
 const TIE = 2;

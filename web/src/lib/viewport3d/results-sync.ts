@@ -7,6 +7,8 @@
 //   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
 import * as THREE from 'three';
+import { canvasUnitSystem } from '../canvas/canvas-units';
+import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
@@ -259,7 +261,8 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   const sigForces = staticDeformed && exact && r3d ? r3d.elementForces : null;
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
-  const sigLabels = staticDeformed && resultsStore.showDiagramValues;
+  // The labels' text depends on the unit system too: a change rebuilds them.
+  const sigLabels = staticDeformed && resultsStore.showDiagramValues ? uiStore.unitSystem : false;
   const prev = ctx.deformedGroup?.userData;
   if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
       && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand
@@ -330,7 +333,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     for (const { nodeId, magnitude } of nodesToLabel(displacements)) {
       const n = nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
-      const sprite = createTextSpriteCached(`${(magnitude * 1000).toFixed(2)} mm`, '#7fd4cc', 22, true);
+      const sprite = createTextSpriteCached(displacementText(magnitude, 2, canvasUnitSystem()), '#7fd4cc', 22, true);
       // Screen-sized: without a scale the sprite keeps the default 0.6 — 60 % of the viewport.
       sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       labels.add(sprite);
@@ -1175,7 +1178,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
-      const sprite = createTextSpriteCached(`${len.toFixed(2)} m`, '#88cc88', 22, true);
+      const sprite = createTextSpriteCached(fixedQuantity(len, 'length', 2, canvasUnitSystem()), '#88cc88', 22, true);
       sprite.position.set(mx, my, mz);
       sprite.scale.set(LABEL_SCREEN * 0.75, LABEL_SCREEN * 0.75, 1);
       ctx.lengthLabelsGroup.add(sprite);

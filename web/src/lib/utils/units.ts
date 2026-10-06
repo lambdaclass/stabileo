@@ -22,7 +22,13 @@ export type Quantity =
   | 'rotation'         // rad ↔ rad (same)
   | 'springK'          // kN/m ↔ kip/ft
   | 'springKr'         // kN·m/rad ↔ kip·ft/rad
-  | 'temperature';     // °C ↔ °F
+  | 'temperature'      // °C ↔ °F, a temperature (affine)
+  | 'temperatureDelta' // °C ↔ °F, a difference: ΔT and gradients (no 32° offset)
+  | 'sectionArea'      // cm² (from m²) ↔ in²
+  | 'sectionInertia'   // cm⁴ (from m⁴) ↔ in⁴
+  | 'sectionModulus'   // cm³ (from m³) ↔ in³
+  | 'sectionDim'       // cm (from m) ↔ in: a section's own dimensions
+  | 'pressure';        // kN/m² ↔ ksf
 
 // Conversion factors: multiply SI value by factor to get imperial value
 const FACTORS: Record<Quantity, number> = {
@@ -40,6 +46,24 @@ const FACTORS: Record<Quantity, number> = {
   springK: 0.0685218,          // kN/m → kip/ft
   springKr: 0.737562,          // kN·m/rad → kip·ft/rad
   temperature: 1,              // special handling (affine)
+  temperatureDelta: 9 / 5,     // a difference of 1 °C is 1.8 °F
+  sectionArea: 1550.003,       // m² → in²
+  sectionInertia: 2402509.61,  // m⁴ → in⁴
+  sectionModulus: 61023.744,   // m³ → in³
+  sectionDim: 39.3701,         // m → in
+  pressure: 0.0208854,         // kN/m² → ksf
+};
+
+/*
+ * The section quantities are shown at the section's own scale in the metric
+ * systems too: cm², cm⁴, cm³ and cm rather than m², m⁴ and m, which would be
+ * 0.0001-sized numbers. Every other quantity is shown in SI as it is stored.
+ */
+const SI_FACTORS: Partial<Record<Quantity, number>> = {
+  sectionArea: 1e4,
+  sectionInertia: 1e8,
+  sectionModulus: 1e6,
+  sectionDim: 100,
 };
 
 /** kN → tf (a tonne-force is 9.80665 kN). */
@@ -61,6 +85,12 @@ const MKS_FACTORS: Record<Quantity, number> = {
   springK: TF,
   springKr: TF,
   temperature: 1,
+  temperatureDelta: 1,
+  sectionArea: 1e4,
+  sectionInertia: 1e8,
+  sectionModulus: 1e6,
+  sectionDim: 100,
+  pressure: TF,
 };
 
 // Technical metric labels
@@ -79,6 +109,12 @@ const MKS_LABELS: Record<Quantity, string> = {
   springK: 'tf/m',
   springKr: 'tf·m/rad',
   temperature: '°C',
+  temperatureDelta: '°C',
+  sectionArea: 'cm²',
+  sectionInertia: 'cm⁴',
+  sectionModulus: 'cm³',
+  sectionDim: 'cm',
+  pressure: 'tf/m²',
 };
 
 // SI unit labels
@@ -97,6 +133,12 @@ const SI_LABELS: Record<Quantity, string> = {
   springK: 'kN/m',
   springKr: 'kN·m/rad',
   temperature: '°C',
+  temperatureDelta: '°C',
+  sectionArea: 'cm²',
+  sectionInertia: 'cm⁴',
+  sectionModulus: 'cm³',
+  sectionDim: 'cm',
+  pressure: 'kN/m²',
 };
 
 // Imperial unit labels
@@ -115,13 +157,19 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   springK: 'kip/ft',
   springKr: 'kip·ft/rad',
   temperature: '°F',
+  temperatureDelta: '°F',
+  sectionArea: 'in²',
+  sectionInertia: 'in⁴',
+  sectionModulus: 'in³',
+  sectionDim: 'in',
+  pressure: 'ksf',
 };
 
 /**
  * Convert an SI value to display value in the given unit system.
  */
 export function toDisplay(value: number, qty: Quantity, system: UnitSystem): number {
-  if (system === 'SI') return value;
+  if (system === 'SI') return value * (SI_FACTORS[qty] ?? 1);
   if (system === 'MKS') return value * MKS_FACTORS[qty];
   if (qty === 'temperature') return value * 9 / 5 + 32; // °C → °F
   return value * FACTORS[qty];
@@ -131,7 +179,7 @@ export function toDisplay(value: number, qty: Quantity, system: UnitSystem): num
  * Convert a display value (in the given unit system) back to SI.
  */
 export function fromDisplay(value: number, qty: Quantity, system: UnitSystem): number {
-  if (system === 'SI') return value;
+  if (system === 'SI') return value / (SI_FACTORS[qty] ?? 1);
   if (system === 'MKS') return value / MKS_FACTORS[qty];
   if (qty === 'temperature') return (value - 32) * 5 / 9; // °F → °C
   return value / FACTORS[qty];

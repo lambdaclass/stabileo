@@ -14,6 +14,9 @@
     DESIGN_CODES, familiesForCode, groupBySeries, classifyFamily,
   } from '../lib/data/section-catalog';
   import { t } from '../lib/i18n';
+  import { uiStore } from '../lib/store/ui.svelte';
+  import { toQ, unitQ } from '../lib/store/display-units.svelte';
+  import UnitInput from './UnitInput.svelte';
 
   interface Props {
     open: boolean;
@@ -164,11 +167,25 @@
 
   // ─── Amorphous Section state ────────────────
   let amorphName = $state(t('section.amorphousDefault'));
-  // Typed in cm² and cm⁴, as the sections table shows them; the model keeps m² and m⁴.
-  let amorphA = $state(50);
-  let amorphIy = $state(8000);
-  let amorphIz = $state(2000);
-  let amorphJ = $state(10);
+  // Kept in m² and m⁴ like the model; typed and shown in the section units of
+  // the chosen system, as the sections table shows them.
+  let amorphA = $state(50e-4);
+  let amorphIy = $state(8000e-8);
+  let amorphIz = $state(2000e-8);
+  let amorphJ = $state(10e-8);
+
+  /** A section value in the chosen units, four significant figures, with its unit. */
+  const secA = (m2: number) => `${toQ(m2, 'sectionArea').toPrecision(4)} ${unitQ('sectionArea')}`;
+  const secI = (m4: number) => `${toQ(m4, 'sectionInertia').toPrecision(4)} ${unitQ('sectionInertia')}`;
+
+  /*
+   * The catalogue lists h and b in mm, A in cm² and I in cm⁴. The metric
+   * systems keep the millimetres, which is how profiles are designated (an
+   * IPE 300 is 300 mm deep); Imperial shows inches. Areas and inertias follow
+   * the chosen section units.
+   */
+  const catDimLabel = $derived(uiStore.unitSystem === 'Imperial' ? unitQ('sectionDim') : 'mm');
+  const catDim = (mm: number) => uiStore.unitSystem === 'Imperial' ? (+toQ(mm / 1000, 'sectionDim').toFixed(2)).toString() : String(mm);
 
   const amorphValid = $derived(amorphA > 0 && amorphIy > 0 && amorphIz > 0 && (!is3D || amorphJ > 0));
 
@@ -176,10 +193,10 @@
     if (!amorphValid || !onamorphousselect) return;
     onamorphousselect({
       name: amorphName || t('section.amorphousDefault'),
-      a: amorphA * 1e-4,
-      iy: amorphIy * 1e-8,
-      iz: amorphIz * 1e-8,
-      j: is3D ? amorphJ * 1e-8 : undefined,
+      a: amorphA,
+      iy: amorphIy,
+      iz: amorphIz,
+      j: is3D ? amorphJ : undefined,
     });
   }
 
@@ -318,11 +335,11 @@
               <thead>
                 <tr>
                   <th>{t('table.profile')}</th>
-                  <th>h (mm)</th>
-                  <th>b (mm)</th>
-                  <th>A (cm&#178;)</th>
-                  <th>Iy (cm&#8308;)</th>
-                  <th>Iz (cm&#8308;)</th>
+                  <th>h ({catDimLabel})</th>
+                  <th>b ({catDimLabel})</th>
+                  <th>A ({unitQ('sectionArea')})</th>
+                  <th>Iy ({unitQ('sectionInertia')})</th>
+                  <th>Iz ({unitQ('sectionInertia')})</th>
                   <th>kg/m</th>
                 </tr>
               </thead>
@@ -336,11 +353,11 @@
                       </svg>
                       {p.name}
                     </td>
-                    <td>{p.h}</td>
-                    <td>{p.b}</td>
-                    <td>{p.a.toFixed(1)}</td>
-                    <td>{p.iy.toFixed(0)}</td>
-                    <td>{p.iz.toFixed(0)}</td>
+                    <td>{catDim(p.h)}</td>
+                    <td>{catDim(p.b)}</td>
+                    <td>{toQ(p.a * 1e-4, 'sectionArea').toFixed(1)}</td>
+                    <td>{toQ(p.iy * 1e-8, 'sectionInertia').toFixed(0)}</td>
+                    <td>{toQ(p.iz * 1e-8, 'sectionInertia').toFixed(0)}</td>
                     <td>{p.weight.toFixed(1)}</td>
                   </tr>
                 {/each}
@@ -367,30 +384,30 @@
             <label class="param-field">
               <span>{t('field.area')}</span>
               <div class="param-input">
-                <input type="number" step="any" bind:value={amorphA} />
-                <span class="param-unit">cm²</span>
+                <UnitInput value={amorphA} qty="sectionArea" unit={false} live onchange={(v) => (amorphA = v)} />
+                <span class="param-unit">{unitQ('sectionArea')}</span>
               </div>
             </label>
             <label class="param-field">
               <span>{t('field.iyHoriz')}</span>
               <div class="param-input">
-                <input type="number" step="any" bind:value={amorphIy} />
-                <span class="param-unit">cm⁴</span>
+                <UnitInput value={amorphIy} qty="sectionInertia" unit={false} live onchange={(v) => (amorphIy = v)} />
+                <span class="param-unit">{unitQ('sectionInertia')}</span>
               </div>
             </label>
             <label class="param-field">
               <span>{t('field.izVert')}</span>
               <div class="param-input">
-                <input type="number" step="any" bind:value={amorphIz} />
-                <span class="param-unit">cm⁴</span>
+                <UnitInput value={amorphIz} qty="sectionInertia" unit={false} live onchange={(v) => (amorphIz = v)} />
+                <span class="param-unit">{unitQ('sectionInertia')}</span>
               </div>
             </label>
             {#if is3D}
               <label class="param-field">
                 <span>{t('field.jTorsion')}</span>
                 <div class="param-input">
-                  <input type="number" step="any" bind:value={amorphJ} />
-                  <span class="param-unit">cm⁴</span>
+                  <UnitInput value={amorphJ} qty="sectionInertia" unit={false} live onchange={(v) => (amorphJ = v)} />
+                  <span class="param-unit">{unitQ('sectionInertia')}</span>
                 </div>
               </label>
             {/if}
@@ -401,11 +418,11 @@
           {#if amorphValid}
             <div class="results-box">
               <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{amorphName}</span></div>
-              <div class="result-row"><span>A =</span><span class="result-val">{amorphA.toPrecision(4)} cm²</span></div>
-              <div class="result-row"><span>Iy =</span><span class="result-val">{amorphIy.toPrecision(4)} cm⁴</span></div>
-              <div class="result-row"><span>Iz =</span><span class="result-val">{amorphIz.toPrecision(4)} cm⁴</span></div>
+              <div class="result-row"><span>A =</span><span class="result-val">{secA(amorphA)}</span></div>
+              <div class="result-row"><span>Iy =</span><span class="result-val">{secI(amorphIy)}</span></div>
+              <div class="result-row"><span>Iz =</span><span class="result-val">{secI(amorphIz)}</span></div>
               {#if is3D}
-                <div class="result-row"><span>J =</span><span class="result-val">{amorphJ.toPrecision(4)} cm⁴</span></div>
+                <div class="result-row"><span>J =</span><span class="result-val">{secI(amorphJ)}</span></div>
               {/if}
             </div>
             <button class="confirm-btn" onclick={handleAmorphousConfirm}>{t('action.applyAmorphousSection')}</button>
@@ -448,16 +465,29 @@
               <label class="param-field">
                 <span>{t(p.label)}</span>
                 <div class="param-input">
-                  <input
-                    type="number"
-                    step={p.step}
-                    value={paramValues[p.id] ?? p.defaultValue}
-                    oninput={(e) => {
-                      const v = parseFloat(e.currentTarget.value);
-                      if (!isNaN(v)) paramValues = { ...paramValues, [p.id]: v };
-                    }}
-                  />
-                  <span class="param-unit">{p.unit}</span>
+                  {#if p.unit === 'm'}
+                    <!-- A section dimension, defined in metres: typed in the chosen section unit. -->
+                    <UnitInput
+                      value={paramValues[p.id] ?? p.defaultValue}
+                      qty="sectionDim"
+                      unit={false}
+                      live
+                      step={String(+toQ(p.step, 'sectionDim').toPrecision(3))}
+                      onchange={(v) => { paramValues = { ...paramValues, [p.id]: v }; }}
+                    />
+                    <span class="param-unit">{unitQ('sectionDim')}</span>
+                  {:else}
+                    <input
+                      type="number"
+                      step={p.step}
+                      value={paramValues[p.id] ?? p.defaultValue}
+                      oninput={(e) => {
+                        const v = parseFloat(e.currentTarget.value);
+                        if (!isNaN(v)) paramValues = { ...paramValues, [p.id]: v };
+                      }}
+                    />
+                    <span class="param-unit">{p.unit}</span>
+                  {/if}
                 </div>
               </label>
             {/each}
@@ -466,8 +496,8 @@
           {#if computed}
             <div class="results-box">
               <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{autoName}</span></div>
-              <div class="result-row"><span>A =</span><span class="result-val">{(computed.a * 1e4).toPrecision(4)} cm²</span></div>
-              <div class="result-row"><span>Iz =</span><span class="result-val">{(computed.iz * 1e8).toPrecision(4)} cm⁴</span></div>
+              <div class="result-row"><span>A =</span><span class="result-val">{secA(computed.a)}</span></div>
+              <div class="result-row"><span>Iz =</span><span class="result-val">{secI(computed.iz)}</span></div>
             </div>
             <button class="confirm-btn" onclick={handleShapeConfirm}>{t('action.applySection')}</button>
           {:else}
@@ -889,7 +919,8 @@
     color: var(--st-text);
   }
   .param-input { display: flex; align-items: center; gap: 0.3rem; }
-  .param-input input {
+  /* :global because most of these fields are inputs inside UnitInput. */
+  .param-input :global(input) {
     width: 80px;
     padding: 0.3rem 0.4rem;
     background: var(--st-surface-2);

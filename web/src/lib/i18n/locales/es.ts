@@ -1000,7 +1000,7 @@ const es: Record<string, string> = {
   'config.snapGrid': 'Snap nodos a grilla',
   'config.memberDims': 'Cotas al dibujar barras',
   'config.gridSize': 'Grilla',
-  'config.gridSizeXZ': 'Grilla xz (m)',
+  'config.gridSizeXZ': 'Grilla xz',
   'config.gridExtent': 'Extensión de grilla',
   'config.nodeIds': 'IDs de nodos',
   'config.shellIds': 'IDs de placas',
@@ -1838,7 +1838,7 @@ const es: Record<string, string> = {
   'advanced.mpSource.geometry': 'Zp de la geometría de la sección',
   'advanced.mpSource.rectangle': 'Zp = b·h²/4 (rectángulo)',
   'advanced.mpSource.estimated': 'Zp estimado: sólo se conocen A e I (factor de forma 1,15)',
-  'advanced.mpFyAssumed': 'el material no tiene fy: se usó {fy} MPa',
+  'advanced.mpFyAssumed': 'el material no tiene fy: se usó {fy}',
   'advanced.spectralLabel': 'Espectral',
 
   // ─── KinematicPanel.svelte ───
@@ -2140,7 +2140,7 @@ const es: Record<string, string> = {
   'viewport3d.pointLoadApplied': 'Carga puntual aplicada en nodo {id}',
   'viewport3d.distLoadApplied': 'Carga distribuida aplicada en elem {id}',
   'viewport3d.thermalLoadApplied': 'Carga térmica aplicada a la barra {id}',
-  'viewport3d.distance': 'Distancia: {dist} m',
+  'viewport3d.distance': 'Distancia: {dist}',
   'viewport3d.createNodeCoords': 'Crear nodo en coordenadas',
   'viewport3d.create': 'Crear',
   'viewport3d.cancel': 'Cancelar',
@@ -9329,5 +9329,12 @@ const es: Record<string, string> = {
   'float.editLoad': 'Editar carga',
   'float.editSupport': 'Editar apoyo',
   'selEntity.deselectBackSupport': 'Listo: volver a crear apoyos',
+  'float.frameGlobal': 'Global',
+  'float.frameLocal': 'Local',
+  'float.distFrameGlobal3D': 'qY y qZ según los ejes globales: qZ es la vertical, en vigas, columnas e inclinadas por igual.',
+  'float.distFrameLocal3D': 'qY y qZ según los ejes locales de cada barra.',
+  'viewport3d.momentNeedsNode': 'Un momento puntual se aplica en un nodo. Clickeá un nodo, o elegí una fuerza para cargar la barra.',
+  'viewport3d.pointLoadAlongMember': 'Esa fuerza va a lo largo de la barra: una carga puntual sobre la barra solo puede ser transversal. Aplicala en un nodo.',
+  'viewport3d.pointLoadOnMemberApplied': 'Carga puntual aplicada sobre la barra {id}',
 };
 export default es;

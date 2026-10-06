@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
-import { loadComponentsText, reportNumber, distributedText, pointOnElementText } from '../calc-report-loads';
+import { loadComponentsText, reportNumber, distributedText, pointOnElementText, thermalText } from '../calc-report-loads';
 import { serializeLoads } from '../pro-report-inputs';
 
 beforeEach(() => { historyStore.clear(); modelStore.clear(); });
@@ -151,5 +151,21 @@ describe('numbers in the load list', () => {
   it('four significant figures, and never «-0»', () => {
     expect(reportNumber(1.23456)).toBe('1.235');
     expect(reportNumber(-0)).toBe('0');
+  });
+});
+
+describe('the load list follows the report units', () => {
+  it('a 2D nodal load in tonnes-force', () => {
+    expect(loadComponentsText('nodal', { fz: -9.80665, my: 9.80665 }, 'MKS')).toBe('Fz=-1 tf, My=1 tf·m');
+  });
+
+  it('a partial line load in kip/ft and feet', () => {
+    expect(distributedText({ qI: -10, a: 1, b: 2 }, { global: 'global' }, 'Imperial'))
+      .toBe('q=-0.6852 → -0.6852 kip/ft, a=3.281 ft, b=6.562 ft');
+  });
+
+  it('a temperature change is a difference: 20 °C reads 36 °F, not 68 °F', () => {
+    expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'Imperial')).toBe('ΔT=36°F, ΔTg=-18°F');
+    expect(thermalText({ dtUniform: 20, dtGradient: 0 })).toBe('ΔT=20°C, ΔTg=0°C');
   });
 });

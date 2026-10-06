@@ -42,6 +42,8 @@
   } from '../lib/engine/section-stress-3d';
   import { computeDiagramValueAt } from '../lib/engine/diagrams';
   import { fmtForce, isPointInConvexPolygon } from './stress/fmt';
+  import { toQ, unitQ } from '../lib/store/display-units.svelte';
+  import UnitInput from './UnitInput.svelte';
   import CrossSectionDrawing from './stress/CrossSectionDrawing.svelte';
   import StressStateDetails from './stress/StressStateDetails.svelte';
   import MohrCircleDisplay from './stress/MohrCircleDisplay.svelte';
@@ -118,8 +120,20 @@
    * the panel asks which rather than guessing.
    */
   let eccSource = $state<'model' | 'custom' | 'isolated'>('model');
-  /** User-defined load components, kN. Only used when `eccSource` is 'custom'. */
+  /**
+   * User-defined load components, kN (typed in the chosen unit system). Only
+   * used when `eccSource` is 'custom'.
+   */
   let eccCustom = $state({ n: 0, vy: 0, vz: 0 });
+
+  /*
+   * Internal forces and the eccentric load in the chosen unit system, in the
+   * panel's compact number style; the analysis keeps kN and kN·m. The section
+   * itself (coordinates in mm, stresses in MPa) stays in its own units, like
+   * the stress details below it.
+   */
+  const fF = (kN: number) => `${fmtForce(toQ(kN, 'force'))} ${unitQ('force')}`;
+  const fM = (kNm: number) => `${fmtForce(toQ(kNm, 'moment'))} ${unitQ('moment')}`;
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const query = $derived(resultsStore.stressQuery);
@@ -1015,30 +1029,30 @@
         <div class="ssp-forces">
           <div class="ssp-force">
             <span class="ssp-force-label">N</span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.N)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.N)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">V<sub>y</sub></span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.Vy)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.Vy)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">V<sub>z</sub></span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.Vz)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.Vz)}</span>
           </div>
           <span class="ssp-help" title={t('stress.forces3dHelp')}>?</span>
         </div>
         <div class="ssp-forces ssp-forces-moments">
           <div class="ssp-force">
             <span class="ssp-force-label">M<sub>x</sub></span>
-            <span class="ssp-force-value">{fmtForce(-analysis3D.Mx)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis3D.Mx)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">M<sub>y</sub></span>
-            <span class="ssp-force-value">{fmtForce(-analysis3D.My)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis3D.My)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">M<sub>z</sub></span>
-            <span class="ssp-force-value">{fmtForce(-analysis3D.Mz)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis3D.Mz)}</span>
           </div>
           <span class="ssp-help" title={t('stress.moments3dHelp')}>?</span>
         </div>
@@ -1047,26 +1061,26 @@
         <div class="ssp-forces">
           <div class="ssp-force">
             <span class="ssp-force-label">N</span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.N)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.N)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">V<sub>y</sub></span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.Vy)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.Vy)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">V<sub>z</sub></span>
-            <span class="ssp-force-value">{fmtForce(analysis3D.Vz)} kN</span>
+            <span class="ssp-force-value">{fF(analysis3D.Vz)}</span>
           </div>
           <span class="ssp-help" title={t('stress.rotDecompHelp').replace('{angle}', String(querySec?.rotation ?? 0))}>?</span>
         </div>
         <div class="ssp-forces ssp-forces-moments">
           <div class="ssp-force">
             <span class="ssp-force-label">M<sub>y</sub></span>
-            <span class="ssp-force-value">{fmtForce(-analysis3D.My)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis3D.My)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">M<sub>z</sub></span>
-            <span class="ssp-force-value">{fmtForce(-analysis3D.Mz)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis3D.Mz)}</span>
           </div>
           <span class="ssp-help" title={t('stress.rotMomentHelp').replace('{angle}', String(querySec?.rotation ?? 0))}>?</span>
         </div>
@@ -1074,15 +1088,15 @@
         <div class="ssp-forces">
           <div class="ssp-force">
             <span class="ssp-force-label">N</span>
-            <span class="ssp-force-value">{fmtForce(analysis2D.N)} kN</span>
+            <span class="ssp-force-value">{fF(analysis2D.N)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">V</span>
-            <span class="ssp-force-value">{fmtForce(analysis2D.V)} kN</span>
+            <span class="ssp-force-value">{fF(analysis2D.V)}</span>
           </div>
           <div class="ssp-force">
             <span class="ssp-force-label">M</span>
-            <span class="ssp-force-value">{fmtForce(-analysis2D.M)} kN·m</span>
+            <span class="ssp-force-value">{fM(-analysis2D.M)}</span>
           </div>
           <span class="ssp-help" title={t('stress.forces2dHelp')}>?</span>
         </div>
@@ -1188,29 +1202,29 @@
             <div class="ssp-ecc-field">
               <span class="ssp-ecc-flabel">N <em>{t('stress.eccentricPerp')}</em></span>
               {#if eccSource === 'custom'}
-                <input type="number" step="1" bind:value={eccCustom.n} />
+                <UnitInput value={eccCustom.n} qty="force" unit={false} step="1" live onchange={(v) => (eccCustom.n = v)} />
               {:else}
-                <span class="ssp-ecc-fixed">{fmtForce(eccentricComponents.n)}</span>
+                <span class="ssp-ecc-fixed">{fmtForce(toQ(eccentricComponents.n, 'force'))}</span>
               {/if}
-              <span class="ssp-ecc-unit">kN</span>
+              <span class="ssp-ecc-unit">{unitQ('force')}</span>
             </div>
             <div class="ssp-ecc-field">
               <span class="ssp-ecc-flabel">V<sub>y</sub> <em>{t('stress.eccentricParH')}</em></span>
               {#if eccSource === 'custom'}
-                <input type="number" step="1" bind:value={eccCustom.vy} />
+                <UnitInput value={eccCustom.vy} qty="force" unit={false} step="1" live onchange={(v) => (eccCustom.vy = v)} />
               {:else}
-                <span class="ssp-ecc-fixed">{fmtForce(eccentricComponents.vy)}</span>
+                <span class="ssp-ecc-fixed">{fmtForce(toQ(eccentricComponents.vy, 'force'))}</span>
               {/if}
-              <span class="ssp-ecc-unit">kN</span>
+              <span class="ssp-ecc-unit">{unitQ('force')}</span>
             </div>
             <div class="ssp-ecc-field">
               <span class="ssp-ecc-flabel">V<sub>z</sub> <em>{t('stress.eccentricParV')}</em></span>
               {#if eccSource === 'custom'}
-                <input type="number" step="1" bind:value={eccCustom.vz} />
+                <UnitInput value={eccCustom.vz} qty="force" unit={false} step="1" live onchange={(v) => (eccCustom.vz = v)} />
               {:else}
-                <span class="ssp-ecc-fixed">{fmtForce(eccentricComponents.vz)}</span>
+                <span class="ssp-ecc-fixed">{fmtForce(toQ(eccentricComponents.vz, 'force'))}</span>
               {/if}
-              <span class="ssp-ecc-unit">kN</span>
+              <span class="ssp-ecc-unit">{unitQ('force')}</span>
             </div>
           </div>
 
@@ -1241,12 +1255,12 @@
           <div class="ssp-ecc-row">
             <span class="ssp-ecc-label">&Delta;M<sub>y</sub> / &Delta;M<sub>z</sub></span>
             <span class="ssp-ecc-val">
-              {fmtForce(eccentric.effect.myFromN)} / {fmtForce(eccentric.effect.mzFromN)} kN·m
+              {fmtForce(toQ(eccentric.effect.myFromN, 'moment'))} / {fM(eccentric.effect.mzFromN)}
             </span>
           </div>
           <div class="ssp-ecc-row" class:ssp-ecc-warn={Math.abs(eccentric.effect.tFromShear) > 1e-6}>
             <span class="ssp-ecc-label">&Delta;T</span>
-            <span class="ssp-ecc-val">{fmtForce(eccentric.effect.tFromShear)} kN·m</span>
+            <span class="ssp-ecc-val">{fM(eccentric.effect.tFromShear)}</span>
           </div>
 
           <!-- Weak-axis bending on a plane frame is worth calling out: it is a
@@ -1757,7 +1771,8 @@
     opacity: 0.7;
     font-size: 0.9em;
   }
-  .ssp-ecc-field input {
+  /* :global because the custom components are inputs inside UnitInput. */
+  .ssp-ecc-field :global(input) {
     width: 62px;
     padding: 1px 4px;
     border-radius: 3px;

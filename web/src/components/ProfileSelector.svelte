@@ -5,6 +5,8 @@
   } from '../lib/data/steel-profiles';
   import { profileOutline } from '../lib/section/outline';
   import { t } from '../lib/i18n';
+  import { uiStore } from '../lib/store/ui.svelte';
+  import { toQ, unitQ } from '../lib/store/display-units.svelte';
 
   interface Props {
     open: boolean;
@@ -18,6 +20,14 @@
   let searchQuery = $state('');
 
   let filtered = $derived(searchProfiles(searchQuery, activeFamily));
+
+  /*
+   * The catalogue lists h and b in mm, A in cm² and I in cm⁴. The metric
+   * systems keep the millimetres, which is how profiles are designated;
+   * Imperial shows inches. Areas and inertias follow the chosen section units.
+   */
+  const dimLabel = $derived(uiStore.unitSystem === 'Imperial' ? unitQ('sectionDim') : 'mm');
+  const dim = (mm: number) => uiStore.unitSystem === 'Imperial' ? (+toQ(mm / 1000, 'sectionDim').toFixed(2)).toString() : String(mm);
 
   // Representative profile for preview: use the middle-sized one from the active family
   const previewPath = $derived.by(() => {
@@ -89,11 +99,11 @@
           <thead>
             <tr>
               <th>{t('table.profile')}</th>
-              <th>h (mm)</th>
-              <th>b (mm)</th>
-              <th>A (cm&#178;)</th>
-              <th>Iz (cm&#8308;)</th>
-              <th>Iy (cm&#8308;)</th>
+              <th>h ({dimLabel})</th>
+              <th>b ({dimLabel})</th>
+              <th>A ({unitQ('sectionArea')})</th>
+              <th>Iz ({unitQ('sectionInertia')})</th>
+              <th>Iy ({unitQ('sectionInertia')})</th>
               <th>kg/m</th>
             </tr>
           </thead>
@@ -101,11 +111,11 @@
             {#each filtered as p}
               <tr onclick={() => handleSelect(p)} class="profile-row">
                 <td class="name-cell">{p.name}</td>
-                <td>{p.h}</td>
-                <td>{p.b}</td>
-                <td>{p.a.toFixed(1)}</td>
-                <td>{p.iz.toFixed(0)}</td>
-                <td>{p.iy.toFixed(0)}</td>
+                <td>{dim(p.h)}</td>
+                <td>{dim(p.b)}</td>
+                <td>{toQ(p.a * 1e-4, 'sectionArea').toFixed(1)}</td>
+                <td>{toQ(p.iz * 1e-8, 'sectionInertia').toFixed(0)}</td>
+                <td>{toQ(p.iy * 1e-8, 'sectionInertia').toFixed(0)}</td>
                 <td>{p.weight.toFixed(1)}</td>
               </tr>
             {/each}

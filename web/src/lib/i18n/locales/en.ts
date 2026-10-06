@@ -1007,7 +1007,7 @@ const en: Record<string, string> = {
   'config.snapGrid': 'Snap nodes to grid',
   'config.memberDims': 'Dimensions while drawing members',
   'config.gridSize': 'Grid',
-  'config.gridSizeXZ': 'Grid xz (m)',
+  'config.gridSizeXZ': 'Grid xz',
   'config.gridExtent': 'Grid extent',
   'config.nodeIds': 'Node IDs',
   'config.shellIds': 'Shell IDs',
@@ -1845,7 +1845,7 @@ const en: Record<string, string> = {
   'advanced.mpSource.geometry': 'Zp from the section geometry',
   'advanced.mpSource.rectangle': 'Zp = b·h²/4 (rectangle)',
   'advanced.mpSource.estimated': 'Zp estimated: only A and I are known (shape factor 1.15)',
-  'advanced.mpFyAssumed': 'the material has no fy: {fy} MPa was used',
+  'advanced.mpFyAssumed': 'the material has no fy: {fy} was used',
   'advanced.spectralLabel': 'Spectral',
 
   // ─── KinematicPanel.svelte ───
@@ -2147,7 +2147,7 @@ const en: Record<string, string> = {
   'viewport3d.pointLoadApplied': 'Point load applied at node {id}',
   'viewport3d.distLoadApplied': 'Distributed load applied on elem {id}',
   'viewport3d.thermalLoadApplied': 'Thermal load applied to member {id}',
-  'viewport3d.distance': 'Distance: {dist} m',
+  'viewport3d.distance': 'Distance: {dist}',
   'viewport3d.createNodeCoords': 'Create node at coordinates',
   'viewport3d.create': 'Create',
   'viewport3d.cancel': 'Cancel',
@@ -9340,5 +9340,12 @@ const en: Record<string, string> = {
   'float.editLoad': 'Edit load',
   'float.editSupport': 'Edit support',
   'selEntity.deselectBackSupport': 'Done: back to creating supports',
+  'float.frameGlobal': 'Global',
+  'float.frameLocal': 'Local',
+  'float.distFrameGlobal3D': 'qY and qZ along the global axes: qZ is the vertical, on beams, columns and sloped members alike.',
+  'float.distFrameLocal3D': 'qY and qZ along each member\'s local axes.',
+  'viewport3d.momentNeedsNode': 'A point moment goes on a node. Click a node, or choose a force to load the member.',
+  'viewport3d.pointLoadAlongMember': 'That force runs along the member: a point load on a member can only be transverse. Apply it at a node.',
+  'viewport3d.pointLoadOnMemberApplied': 'Point load applied on member {id}',
 };
 export default en;

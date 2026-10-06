@@ -22,10 +22,14 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
-  import { membersNearPointer, nodesNearPointer } from '../lib/viewport3d/screen-pick';
+  import { membersNearPointer, membersNearPointerWithDistance, nodesNearPointer } from '../lib/viewport3d/screen-pick';
   import { createPickCycle, mergeTargets, type PickTarget } from '../lib/viewport/pick-cycle';
+  import { memberLoadAxes, globalToMemberTransverse } from '../lib/model/member-load-axes';
+  import { setCanvasUnitSystem } from '../lib/canvas/canvas-units';
+  import { fixedQuantity } from '../lib/utils/unit-format';
+  import { fromDisplay } from '../lib/utils/units';
   import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
-  import { pickLoadAt } from '../lib/viewport/load-pick';
+  import { pickLoadsWithDistance } from '../lib/viewport/load-pick';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -226,16 +230,18 @@
   }
 
   function submitCoordDialog() {
-    const x = parseFloat(coordX);
-    const y = parseFloat(coordY);
-    const z = parseFloat(coordZ);
+    // Typed in the chosen unit system; the model is in metres.
+    const sys = uiStore.unitSystem;
+    const x = fromDisplay(parseFloat(coordX), 'length', sys);
+    const y = fromDisplay(parseFloat(coordY), 'length', sys);
+    const z = fromDisplay(parseFloat(coordZ), 'length', sys);
     if (isNaN(x) || isNaN(y) || isNaN(z)) return;
     // Welded: typing the coordinates of an existing node selects it rather than
     // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
     const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
-    uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
+    uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(coordX)).replace('{y}', String(coordY)).replace('{z}', String(coordZ)), 'success');
     showCoordDialog = false;
   }
 
@@ -1303,6 +1309,18 @@
     invalidate();
   });
 
+  /*
+   * The labels drawn in the scene (loads, reactions, displacements, lengths) are written in
+   * the unit system chosen under Settings: they read it from canvas-units, set here, and are
+   * rebuilt when it changes (the effects that build them track it).
+   */
+  $effect(() => { setCanvasUnitSystem(uiStore.unitSystem); });
+
+  // The member tool's target ring belongs to that tool only.
+  $effect(() => {
+    if (uiStore.currentTool !== 'element') { drawFeedback.setTarget(null); invalidate(); }
+  });
+
   // The reader's label size: one shader uniform every label sprite reads.
   $effect(() => {
     setLabelScale3D(uiStore.labelScale);
@@ -1311,6 +1329,7 @@
 
   $effect(() => {
     modelStore.loads;
+    uiStore.unitSystem;
     uiStore.showLoads3D;
     uiStore.hideLoadsWithDiagram;
     uiStore.momentStyle3D;
@@ -1323,6 +1342,7 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.deformedScale;
+    uiStore.unitSystem;
     resultsStore.modalResult3D;
     resultsStore.activeModeIndex;
     // Quick/exact, and the displacement labels "show values" adds.
@@ -1441,6 +1461,7 @@
 
   $effect(() => {
     resultsStore.results3D;
+    uiStore.unitSystem;
     resultsStore.showReactions;
     syncReactions();
     invalidate();
@@ -1448,6 +1469,7 @@
 
   $effect(() => {
     resultsStore.constraintForces3D;
+    uiStore.unitSystem;
     resultsStore.showConstraintForces;
     syncConstraintForces();
     invalidate();
@@ -1509,6 +1531,7 @@
     uiStore.showNodeLabels3D;
     uiStore.showElementLabels3D;
     uiStore.showLengths3D;
+    uiStore.unitSystem;
     // What a member label says, and the names it may read.
     viewState.memberLabel;
     modelStore.sections;
@@ -1911,8 +1934,24 @@
     }
   }
 
+  /*
+   * The node a member end goes to: the one under the pointer, or the nearest
+   * within MEMBER_SNAP_PX on the screen. Landing on a node's sphere, a few
+   * pixels across once a model is framed, was the only way to join two.
+   */
+  const MEMBER_SNAP_PX = 18;
+  function memberSnapNode(e: MouseEvent): number | null {
+    return findNodeHit(e) ?? screenPickAll(e, 'node', MEMBER_SNAP_PX)[0] ?? null;
+  }
+  function nodeScenePoint(id: number): THREE.Vector3 | null {
+    const n = modelStore.nodes.get(id);
+    if (!n) return null;
+    const p = projectNodeToScene(n, shouldProject2DModel());
+    return new THREE.Vector3(p.x, p.y, p.z);
+  }
+
   function handleElementTool(e: MouseEvent) {
-    const nodeId = findNodeHit(e);
+    const nodeId = memberSnapNode(e);
     if (nodeId === null) {
       // Clicked empty → cancel pending
       cancelPendingElement();
@@ -1989,12 +2028,68 @@
     }
   }
 
+  /*
+   * The load tool catches a node or a member within a few pixels, as the pointer does, instead
+   * of only on a ray through a member's thin picking cylinder: on a framed building most clicks
+   * aimed at a member passed beside it and nothing happened.
+   */
+  function loadToolNode(e: MouseEvent): number | null {
+    return findNodeHit(e) ?? screenPick(e, 'node');
+  }
+  function loadToolMember(e: MouseEvent): number | null {
+    return findElementHit(e) ?? screenPick(e, 'member');
+  }
+
+  /**
+   * Basic 3D: a point load where the click lands on a member, along the global direction the
+   * load bar names. It is stored as the member's local transverse components (`py`, `pz`), so a
+   * force along the member, or a moment, is refused with a word rather than lost.
+   */
+  function addPointLoadOnMember3D(e: MouseEvent, elemId: number): boolean {
+    const dir = uiStore.nodalLoadDir3D;
+    const val = uiStore.loadValue;
+    if (dir === 'mx' || dir === 'my' || dir === 'mz') { uiStore.toast(t('viewport3d.momentNeedsNode'), 'info'); return false; }
+    const el = modelStore.elements.get(elemId);
+    const axes = el ? memberLoadAxes(el, modelStore.nodes, modelStore.sections, uiStore.axisConvention3D === 'leftHand') : null;
+    if (!el || !axes) return false;
+    const force: [number, number, number] = [dir === 'fx' ? val : 0, dir === 'fy' ? val : 0, dir === 'fz' ? val : 0];
+    const local = globalToMemberTransverse(force, axes);
+    if (!local) { uiStore.toast(t('viewport3d.pointLoadAlongMember'), 'info'); return false; }
+    // Where along the member: the pointer projected onto the member as drawn on screen.
+    const a = memberPointerPosition(e, el) * axes.L;
+    modelStore.addPointLoadOnElement3D(elemId, a, local.py, local.pz, uiStore.activeLoadCaseId);
+    uiStore.toast(t('viewport3d.pointLoadOnMemberApplied').replace('{id}', String(elemId)), 'success');
+    return true;
+  }
+
+  /** The fraction of a member's length under the pointer, from its screen projection. */
+  function memberPointerPosition(e: MouseEvent, el: { nodeI: number; nodeJ: number }): number {
+    const a = nodeScenePoint(el.nodeI), b = nodeScenePoint(el.nodeJ);
+    if (!a || !b || !camera) return 0.5;
+    const rect = container.getBoundingClientRect();
+    const sa = projectToScreen(a.x, a.y, a.z), sb = projectToScreen(b.x, b.y, b.z);
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const dx = sb.x - sa.x, dy = sb.y - sa.y;
+    const l2 = dx * dx + dy * dy;
+    return l2 < 1e-9 ? 0.5 : Math.max(0, Math.min(1, ((px - sa.x) * dx + (py - sa.y) * dy) / l2));
+  }
+
   function handleLoadTool(e: MouseEvent) {
     const is3D = uiStore.is3DWorkspace;
 
     if (uiStore.loadType === 'nodal') {
-      const nodeId = findNodeHit(e);
-      if (nodeId === null) return;
+      const nodeId = loadToolNode(e);
+      if (nodeId === null) {
+        // Basic 3D: a point load on a member, as the 2D tool makes one.
+        if (uiStore.appMode !== 'pro' && is3D) {
+          const elemId = loadToolMember(e);
+          if (elemId !== null) {
+            if (uiStore.loadValue === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
+            addPointLoadOnMember3D(e, elemId);
+          }
+        }
+        return;
+      }
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       if (uiStore.appMode === 'pro') {
@@ -2006,6 +2101,7 @@
         // Build 3D nodal load from direction + value
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
+        if (val === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
         const fx = dir === 'fx' ? val : 0;
         const fy = dir === 'fy' ? val : 0;
         const fz = dir === 'fz' ? val : 0;
@@ -2024,7 +2120,7 @@
       }
       uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
     } else if (uiStore.loadType === 'distributed') {
-      const elemId = findElementHit(e);
+      const elemId = loadToolMember(e);
       if (elemId === null) return;
 
       // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
@@ -2034,16 +2130,22 @@
         if (q.qx === 0 && q.qy === 0 && q.qz === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
         modelStore.addDistributedLoad3D(elemId, q.qy, q.qy, q.qz, q.qz, undefined, undefined, uiStore.activeLoadCaseId, { frame: q.frame, qXI: q.qx, qXJ: q.qx });
       } else if (is3D) {
-        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId);
+        if ([uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ].every((x) => x === 0)) {
+          uiStore.toast(t('drawBar.loadIsZero'), 'info'); return;
+        }
+        // Global by default: "qZ" on the bar reads as the vertical, gravity on a beam, a column
+        // or a rafter alike. Local follows the member's own axes.
+        const frame = uiStore.distLoadFrame3D === 'global' ? { frame: 'global' as const } : {};
+        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, undefined, undefined, uiStore.activeLoadCaseId, frame);
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
     } else if (uiStore.loadType === 'thermal') {
       // The button was offered in 3D with no branch here: a click did nothing.
-      const elemId = findElementHit(e);
+      const elemId = loadToolMember(e);
       if (elemId === null) return;
-      historyStore.pushState();
+      // No pushState: addThermalLoad pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
       modelStore.addThermalLoad(elemId, uiStore.thermalDT, uiStore.thermalDTg, uiStore.activeLoadCaseId);
       uiStore.toast(t('viewport3d.thermalLoadApplied').replace('{id}', String(elemId)), 'success');
     }
@@ -2183,14 +2285,14 @@
       const modelSize = Math.max(size.x, size.y, size.z, 1);
       const spriteScale = modelSize * 0.04;
 
-      const label = createTextSprite(`${dist.toFixed(3)} m`, '#ff4444', 32);
+      const label = createTextSprite(fixedQuantity(dist, 'length', 3, uiStore.unitSystem), '#ff4444', 32);
       label.position.set(mx, my, mz + spriteScale * 0.5);
       label.scale.set(spriteScale, spriteScale, 1);
       label.renderOrder = 1000;
       measureGroup.add(label);
 
       // Toast with distance
-      uiStore.toast(t('viewport3d.distance').replace('{dist}', dist.toFixed(3)), 'info');
+      uiStore.toast(t('viewport3d.distance').replace('{dist}', fixedQuantity(dist, 'length', 3, uiStore.unitSystem)), 'info');
     }
     invalidate();
   }
@@ -2487,13 +2589,24 @@
   }
 
   /** The load whose drawn arrows are nearest the pointer, within a few pixels. */
-  function loadUnderPointer(e: MouseEvent): number | null {
+  /** Every load whose drawing is within a few pixels of the pointer, with its distance, nearest first. */
+  function loadsNearPointer(e: MouseEvent): { id: number; d: number }[] {
     const fp = sceneCtx?.loadFootprints;
-    if (!fp || fp.size === 0) return null;
+    if (!fp || fp.size === 0) return [];
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
-    return pickLoadAt(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
+    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
+  }
+  /**
+   * The load a click selects. Loads drawn on top of each other (the same load twice on a member,
+   * two cases on one beam) are all candidates, and a click again on the same spot steps to the next.
+   */
+  function loadUnderPointer(e: MouseEvent): number | null {
+    const rect = container.getBoundingClientRect();
+    const pick = pickCycle.pick(loadsNearPointer(e).map((h): PickTarget => ({ kind: 'load', id: h.id })),
+      e.clientX - rect.left, e.clientY - rect.top, cycledToast, e.detail);
+    return pick?.id ?? null;
   }
 
   /** How far a press may wander and still be a click. PRO allows a hand's tremor; Basic keeps its 3 px. */
@@ -2505,7 +2618,7 @@
    * building is framed whole. Basic and PRO alike; a plane model drawn in 3D is measured where
    * it is drawn.
    */
-  function screenPickAll(e: MouseEvent, kind: 'node' | 'member'): number[] {
+  function screenPickAll(e: MouseEvent, kind: 'node' | 'member', tolPx?: number): number[] {
     if (!camera) return [];
     const rect = container.getBoundingClientRect();
     const px = e.clientX - rect.left, py = e.clientY - rect.top;
@@ -2517,11 +2630,27 @@
       if (v.z < -1 || v.z > 1) return null;
       return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
     };
-    if (kind === 'node') return nodesNearPointer(px, py, [...visibleNodes().values()], project, 9);
-    return membersNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, 7);
+    if (kind === 'node') return nodesNearPointer(px, py, [...visibleNodes().values()], project, tolPx ?? 9);
+    return membersNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, tolPx ?? 7);
   }
   function screenPick(e: MouseEvent, kind: 'node' | 'member'): number | null {
     return screenPickAll(e, kind)[0] ?? null;
+  }
+  /** How far a member is drawn from the pointer, in pixels. */
+  function memberDistance(e: MouseEvent, id: number): number {
+    if (!camera) return Infinity;
+    const el = modelStore.elements.get(id);
+    if (!el) return Infinity;
+    const rect = container.getBoundingClientRect();
+    const project2D = shouldProject2DModel();
+    const v = new THREE.Vector3();
+    const project = (x: number, y: number, z: number) => {
+      const p = projectNodeToScene({ x, y, z }, project2D);
+      v.set(p.x, p.y, p.z).project(camera);
+      if (v.z < -1 || v.z > 1) return null;
+      return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
+    };
+    return membersNearPointerWithDistance(e.clientX - rect.left, e.clientY - rect.top, [el], (nid) => modelStore.nodes.get(nid), project, Infinity)[0]?.d ?? Infinity;
   }
 
   /*
@@ -2530,7 +2659,9 @@
    * what lies within a few pixels on the screen.
    */
   const pickCycle = createPickCycle();
-  function pickUnderPointer(e: MouseEvent, kinds: { nodes: boolean; elements: boolean }): PickTarget | null {
+  const cycledToast = (at: number, of: number) =>
+    uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
+  function pickUnderPointer(e: MouseEvent, kinds: { nodes: boolean; elements: boolean; loads?: boolean }): PickTarget | null {
     const rayHits = (parent: THREE.Object3D, type: 'node' | 'element'): PickTarget[] => {
       const out: PickTarget[] = [];
       for (const h of raycaster.intersectObjects(parent.children, true)) {
@@ -2539,17 +2670,22 @@
       }
       return out;
     };
-    const asTargets = (ids: number[], kind: 'node' | 'element') => ids.map((id): PickTarget => ({ kind, id }));
-    const targets = mergeTargets(
-      kinds.nodes ? rayHits(nodesParent, 'node') : [],
-      kinds.nodes ? asTargets(screenPickAll(e, 'node'), 'node') : [],
-      kinds.elements ? rayHits(elementsParent, 'element') : [],
-      kinds.elements ? asTargets(screenPickAll(e, 'member'), 'element') : [],
-    );
+    const asTargets = (ids: number[], kind: 'node' | 'element' | 'load') => ids.map((id): PickTarget => ({ kind, id }));
+    const nodeT = kinds.nodes ? mergeTargets(rayHits(nodesParent, 'node'), asTargets(screenPickAll(e, 'node'), 'node')) : [];
+    const memberRay = kinds.elements ? rayHits(elementsParent, 'element') : [];
+    const memberT = kinds.elements ? mergeTargets(memberRay, asTargets(screenPickAll(e, 'member'), 'element')) : [];
+    const loadHits = kinds.loads ? loadsNearPointer(e) : [];
+    const loadT = asTargets(loadHits.map((h) => h.id), 'load');
+    /*
+     * Load arrows are drawn over everything, so a click on one means the load, even where the
+     * arrow crosses a member or ends on it: the load goes first when its drawing is nearer the
+     * pointer than any member's (a ray through a member's cylinder counts as on it).
+     */
+    const nearestMember = memberRay.length ? 0 : (memberT.length ? memberDistance(e, memberT[0]!.id) : Infinity);
+    const loadsFirst = loadHits.length > 0 && loadHits[0]!.d + 1 < nearestMember && nodeT.length === 0;
+    const targets = loadsFirst ? mergeTargets(loadT, nodeT, memberT) : mergeTargets(nodeT, memberT, loadT);
     const rect = container.getBoundingClientRect();
-    return pickCycle.pick(targets, e.clientX - rect.left, e.clientY - rect.top, (at, of) => {
-      uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
-    }, e.detail);
+    return pickCycle.pick(targets, e.clientX - rect.left, e.clientY - rect.top, cycledToast, e.detail);
   }
 
   /**
@@ -2713,13 +2849,13 @@
        */
       if (!addToSel) uiStore.clearSelection();
       let hit = false;
-      const pick = pickUnderPointer(e, { nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements') });
+      const pick = pickUnderPointer(e, { nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'), loads: uiStore.selectsKind('loads') });
       if (pick?.kind === 'node') { uiStore.selectNode(pick.id, addToSel); hit = true; }
       else if (pick?.kind === 'element') {
         uiStore.selectElement(pick.id, addToSel);
         if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
         hit = true;
-      }
+      } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
       if (!hit && uiStore.selectsKind('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
           const ud = findUserData(h.object);
@@ -2729,10 +2865,6 @@
             break;
           }
         }
-      }
-      if (!hit && uiStore.selectsKind('loads')) {
-        const id = loadUnderPointer(e);
-        if (id !== null) uiStore.selectLoad(id, addToSel);
       }
       return;
     }
@@ -2873,11 +3005,16 @@
       const pick = uiStore.shellNodePick;
       const picked = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
         : pick.active && pick.target === 'quad' ? pick.picked : [];
+      // Drawing a member: the node the next click takes, caught within a few pixels, is ringed,
+      // and the preview line ends on it rather than on the floor under the pointer.
+      const drawingMember = uiStore.currentTool === 'element' && uiStore.elementMode !== 'hinge';
+      const snapId = drawingMember ? memberSnapNode(e) : null;
+      const snapAt = snapId !== null && snapId !== drawState.memberStart ? nodeScenePoint(snapId) : null;
+      if (drawingMember) { drawFeedback.setTarget(snapAt); invalidate(); }
       if (picked.length > 0) {
-        const at = (id: number) => { const n = modelStore.nodes.get(id); return n ? new THREE.Vector3(n.x, n.y, n.z ?? 0) : null; };
-        const pts = picked.map(at).filter((v): v is THREE.Vector3 => v !== null);
-        const hovered = hoveredData?.type === 'node' ? at(hoveredData.id) : null;
-        drawFeedback.setPreview(pts, hovered ?? getGroundIntersection(e));
+        const pts = picked.map(nodeScenePoint).filter((v): v is THREE.Vector3 => v !== null);
+        const hovered = hoveredData?.type === 'node' ? nodeScenePoint(hoveredData.id) : null;
+        drawFeedback.setPreview(pts, snapAt ?? hovered ?? getGroundIntersection(e));
         invalidate();
       }
     }
@@ -3025,6 +3162,7 @@
   }
 
   function handleMouseLeave() {
+    drawFeedback.setTarget(null);
     if (hoverRafId !== null) {
       cancelAnimationFrame(hoverRafId);
       hoverRafId = null;
@@ -3594,20 +3732,20 @@
       <div class="coord-dialog">
         <div class="coord-title">{t('viewport3d.createNodeCoords')}</div>
         <div class="coord-row">
-          <label>X (m)</label>
+          <label>X ({unitQ('length')})</label>
           <!-- svelte-ignore a11y_autofocus -->
           <input type="number" step="any" bind:value={coordX} autofocus
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Y (m)</label>
+          <label>Y ({unitQ('length')})</label>
           <input type="number" step="any" bind:value={coordY}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Z (m)</label>
+          <label>Z ({unitQ('length')})</label>
           <input type="number" step="any" bind:value={coordZ}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />

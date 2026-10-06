@@ -14,6 +14,18 @@
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
   import HelpTip from '../HelpTip.svelte';
+  import UnitInput from '../UnitInput.svelte';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+
+  /*
+   * The grid is kept in metres and shown in the chosen length unit. The xz
+   * label's translations carry "(m)" in their text, so that suffix is taken
+   * off and the unit in use is written instead.
+   */
+  const gridSizeLabel = (is3D: boolean) =>
+    `${is3D ? t('config.gridSizeXZ') : t('config.gridSize')} (${unitQ('length')})`;
+  /** A floor extent in whole units: they are round numbers of metres, 20 to 10 000. */
+  const extentLabel = (m: number) => String(Math.round(toQ(m, 'length')));
 
   /** When true, skip outer toggle and show content directly (used in PRO dropdown). */
 
@@ -185,18 +197,19 @@
             </HelpTip>
           </label>
           <div class="input-group">
-            <HelpTip text={t('config.tip.gridSize')}><label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (m)`}:</label></HelpTip>
-            <input
-              type="number"
+            <HelpTip text={t('config.tip.gridSize')}><label>{gridSizeLabel(is3D)}:</label></HelpTip>
+            <UnitInput
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
-              oninput={(e) => { const v = parseFloat(e.currentTarget.value); if (!isNaN(v) && v > 0) { if (is3D) uiStore.gridSize3D = v; else uiStore.gridSize = v; } }}
-              min="0.001"
-              step="any"
+              qty="length"
+              unit={false}
+              live
+              min={0.001}
+              onchange={(v) => { if (v > 0) { if (is3D) uiStore.gridSize3D = v; else uiStore.gridSize = v; } }}
             />
           </div>
           {#if is3D}
             <div class="input-group" style="flex-direction: column; align-items: stretch;">
-              <HelpTip text={t('config.tip.gridExtent')}><label>{t('config.gridExtent')}: {uiStore.gridExtent3D}×{uiStore.gridExtent3D} m</label></HelpTip>
+              <HelpTip text={t('config.tip.gridExtent')}><label>{t('config.gridExtent')}: {extentLabel(uiStore.gridExtent3D)}×{extentLabel(uiStore.gridExtent3D)} {unitQ('length')}</label></HelpTip>
               <!--
                 Stops, not a linear slider. The range runs from 20 m to 10 km
                 and a linear track would spend nine tenths of its length on
@@ -592,7 +605,8 @@
     font-size: 0.875rem;
   }
 
-  .input-group input {
+  /* :global because the grid size is an input inside UnitInput. */
+  .input-group :global(input) {
     width: 70px;
     padding: 0.25rem;
     background: var(--st-surface-2);

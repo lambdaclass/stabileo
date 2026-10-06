@@ -48,6 +48,15 @@ export function membersNearPointer(
   members: Iterable<{ id: number; nodeI: number; nodeJ: number }>,
   nodeAt: (id: number) => P | undefined, project: Project, tol: number,
 ): number[] {
+  return membersNearPointerWithDistance(px, py, members, nodeAt, project, tol).map((h) => h.id);
+}
+
+/** `membersNearPointer` with each member's distance on screen, in pixels. */
+export function membersNearPointerWithDistance(
+  px: number, py: number,
+  members: Iterable<{ id: number; nodeI: number; nodeJ: number }>,
+  nodeAt: (id: number) => P | undefined, project: Project, tol: number,
+): { id: number; d: number }[] {
   const hits: { id: number; d: number }[] = [];
   for (const m of members) {
     const a = nodeAt(m.nodeI), b = nodeAt(m.nodeJ);
@@ -57,7 +66,7 @@ export function membersNearPointer(
     const d = toSegment(px, py, sa, sb);
     if (d <= tol) hits.push({ id: m.id, d });
   }
-  return hits.sort((a, b) => a.d - b.d || a.id - b.id).map((h) => h.id);
+  return hits.sort((a, b) => a.d - b.d || a.id - b.id);
 }
 
 /** The member drawn nearest (px, py), if within `tol` pixels. */

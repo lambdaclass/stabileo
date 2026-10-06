@@ -2,6 +2,8 @@
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import { planeLevelAxis } from '../../lib/geometry/coordinate-system';
 </script>
 
@@ -61,8 +63,8 @@
   <span class="ft-sep">|</span>
   <label class="ft-input-group" title={t('float.nodeLevelTooltip')}>
     <span>{t('float.nodeLevel').replace('{axis}', planeLevelAxis(uiStore.workingPlane).toUpperCase())}</span>
-    <input type="number" bind:value={uiStore.nodeCreateZ} step="0.5" />
-    <span class="ft-unit">m</span>
+    <UnitInput value={uiStore.nodeCreateZ} qty="length" onchange={(v) => (uiStore.nodeCreateZ = v)} unit={false} live />
+    <span class="ft-unit">{unitQ('length')}</span>
   </label>
 {/if}
 <span class="ft-sep">|</span>
@@ -130,7 +132,7 @@
     color: var(--st-text-2);
   }
 
-  .ft-input-group input {
+  .ft-input-group :global(input) {
     width: 55px;
     padding: 2px 4px;
     background: var(--st-surface-2);
@@ -160,7 +162,7 @@
       padding: 4px 6px;
     }
 
-    .ft-input-group input {
+    .ft-input-group :global(input) {
       width: 45px;
     }
 

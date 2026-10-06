@@ -28,6 +28,8 @@
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
 import * as THREE from 'three';
+import { canvasUnitSystem } from '../canvas/canvas-units';
+import { fixedQuantity } from '../utils/unit-format';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
 import {
   GLOBAL_X, GLOBAL_Y, GLOBAL_Z,
@@ -134,6 +136,8 @@ export class LoadArrowsBatched {
   }
 
   private label(text: string, colorHex: string, fontSize: number, at: THREE.Vector3): void {
+    // A click on the value means its load too: the label's anchor is part of the footprint.
+    this.mark(at, at);
     if (this.tint !== null) colorHex = '#' + new THREE.Color(this.tint).getHexString();
     this.labels.push({ text, colorHex, fontSize, x: at.x, y: at.y, z: at.z });
   }
@@ -224,7 +228,7 @@ export class LoadArrowsBatched {
       const len = arrowLength(f.val, maxForce);
       const farEnd = origin.clone().addScaledVector(dir, -len);
       this.arrow(dir, farEnd, len, forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-      this.label(`${f.val.toFixed(1)} kN`, labelHex, 28,
+      this.label(fixedQuantity(f.val, 'force', 1, canvasUnitSystem()), labelHex, 28,
         farEnd.clone().addScaledVector(dir, -0.15));
     }
 
@@ -240,7 +244,7 @@ export class LoadArrowsBatched {
       } else {
         this.curvedMomentArrow(origin, m.axis, m.val, COLORS.moment);
       }
-      this.label(`${m.val.toFixed(1)} kN·m`, '#ffaa44', 24,
+      this.label(fixedQuantity(m.val, 'moment', 1, canvasUnitSystem()), '#ffaa44', 24,
         origin.clone().addScaledVector(m.axis, 0.35));
     }
   }
@@ -287,11 +291,11 @@ export class LoadArrowsBatched {
     }
 
     if (Math.abs(qI) > 1e-10) {
-      this.label(`${qI.toFixed(1)} kN/m`, labelColor, 24,
+      this.label(fixedQuantity(qI, 'distributedLoad', 1, canvasUnitSystem()), labelColor, 24,
         pI.clone().addScaledVector(loadDir, -(arrowLength(qI, maxQ) * 0.6 + 0.2)));
     }
     if (Math.abs(qJ) > 1e-10 && Math.abs(qJ - qI) > 0.01) {
-      this.label(`${qJ.toFixed(1)} kN/m`, labelColor, 24,
+      this.label(fixedQuantity(qJ, 'distributedLoad', 1, canvasUnitSystem()), labelColor, 24,
         pJ.clone().addScaledVector(loadDir, -(arrowLength(qJ, maxQ) * 0.6 + 0.2)));
     }
 
@@ -363,7 +367,7 @@ export class LoadArrowsBatched {
 
     const center = lerpQuad(0.5, 0.5);
     const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
-    this.label(`${q.toFixed(1)} kN/m²`, labelHex, 26,
+    this.label(fixedQuantity(q, 'pressure', 1, canvasUnitSystem()), labelHex, 26,
       center.addScaledVector(loadDir, -(offset + 0.2)));
   }
 

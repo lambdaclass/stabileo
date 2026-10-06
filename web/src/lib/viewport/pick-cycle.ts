@@ -11,7 +11,7 @@
  */
 
 export interface PickTarget {
-  kind: 'node' | 'element';
+  kind: 'node' | 'element' | 'load';
   id: number;
 }
 

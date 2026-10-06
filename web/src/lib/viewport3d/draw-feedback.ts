@@ -34,6 +34,8 @@ export interface DrawFeedback {
   setPicked(points: THREE.Vector3[]): void;
   /** The dashed preview: through `points`, then to `cursor` when there is one. */
   setPreview(points: THREE.Vector3[], cursor: THREE.Vector3 | null): void;
+  /** A larger ring on the node the next click will take, or none. */
+  setTarget(point: THREE.Vector3 | null): void;
   clear(): void;
 }
 
@@ -58,7 +60,23 @@ export function createDrawFeedback(): DrawFeedback {
   );
   preview.renderOrder = 999;
   preview.frustumCulled = false;
-  group.add(rings, preview);
+
+  /*
+   * The node a click would take while drawing a member: caught within a few
+   * pixels (Viewport3D `memberSnapNode`), so the reader sees it before
+   * clicking instead of having to land on a sphere a few pixels wide.
+   */
+  const target = new THREE.Points(
+    new THREE.BufferGeometry(),
+    new THREE.PointsMaterial({
+      size: RING_PX * 1.5, sizeAttenuation: false, map: ring(), transparent: true,
+      color: COLORS.nodeHovered, depthTest: false, depthWrite: false,
+    }),
+  );
+  target.renderOrder = 1001;
+  target.frustumCulled = false;
+  target.visible = false;
+  group.add(rings, preview, target);
 
   return {
     group,
@@ -74,9 +92,15 @@ export function createDrawFeedback(): DrawFeedback {
       preview.computeLineDistances();
       preview.visible = all.length >= 2;
     },
+    setTarget(point) {
+      target.geometry.dispose();
+      target.geometry = new THREE.BufferGeometry().setFromPoints(point ? [point] : []);
+      target.visible = point !== null;
+    },
     clear() {
       this.setPicked([]);
       this.setPreview([], null);
+      this.setTarget(null);
     },
   };
 }

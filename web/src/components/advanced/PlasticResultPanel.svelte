@@ -7,10 +7,20 @@
   import { resultsStore } from '../../lib/store';
   import { DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
+  import { fmtQ, fmtCoord, unitQ, toQ } from '../../lib/store/display-units.svelte';
+  import { plainNumber } from '../../lib/utils/units';
 
   let { mps }: { mps: SectionMp[] } = $props();
   const r = $derived(resultsStore.plasticResult as PlasticCollapseResult | null);
   const step = $derived(resultsStore.plasticStep);
+
+  /*
+   * Shown in the chosen unit system; the analysis works in m, kN, kN·m, m³
+   * and MPa. A yield stress reads as written (250, not 250.0).
+   */
+  const fy = (mpa: number) => `${plainNumber(toQ(mpa, 'stress'), 1)} ${unitQ('stress')}`;
+  /** The assumed-fy note, with the value in the chosen unit. */
+  const fyAssumedNote = () => t('advanced.mpFyAssumed').replace('{fy}', fy(DEFAULT_FY));
 </script>
 
 {#if r}
@@ -31,15 +41,15 @@
   </div>
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>
-      <tr><th>#</th><th>{t('plastic.member')}</th><th>x [m]</th><th>{t('plastic.value')}</th><th>λ</th></tr>
+      <tr><th>#</th><th>{t('plastic.member')}</th><th>x [{unitQ('length')}]</th><th>{t('plastic.value')}</th><th>λ</th></tr>
     </thead>
     <tbody>
       {#each r.hinges as h, i (i)}
         <tr class:now={h.step === step} class:later={h.step > step}>
           <td>{i + 1}</td>
           <td>{h.elementId}{h.kind === 'axial' ? ` (${t('plastic.axial')})` : ''}</td>
-          <td>{h.x.toFixed(2)}</td>
-          <td>{h.kind === 'axial' ? `N = ${h.moment.toFixed(1)} kN` : `M = ${h.moment.toFixed(1)} kN·m`}</td>
+          <td>{fmtCoord(h.x)}</td>
+          <td>{h.kind === 'axial' ? `N = ${fmtQ(h.moment, 'force')} ${unitQ('force')}` : `M = ${fmtQ(h.moment, 'moment')} ${unitQ('moment')}`}</td>
           <td>{h.loadFactor.toFixed(3)}</td>
         </tr>
       {/each}
@@ -48,7 +58,7 @@
   <p class="pl-note">{t('plastic.note')}</p>
   {#each mps as m (m.sectionId)}
     <div class="adv-result-info" data-testid="plastic-mp">
-      {m.name}: Mp = {m.mp.toFixed(1)} kN·m (Zp = {(m.zp * 1e6).toFixed(0)} cm³, fy = {m.fy} MPa) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {t('advanced.mpFyAssumed').replace('{fy}', String(DEFAULT_FY))}{/if}
+      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {toQ(m.zp, 'sectionModulus').toFixed(0)} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
     </div>
   {/each}
 {/if}

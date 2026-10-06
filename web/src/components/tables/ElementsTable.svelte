@@ -7,6 +7,7 @@
   import { t } from '../../lib/i18n';
   import EndConditionSelect from '../EndConditionSelect.svelte';
   import type { Release } from '../../lib/store/model.svelte';
+  import { fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
 
   const is3DMode = $derived(uiStore.is3DWorkspace);
 
@@ -100,7 +101,7 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L (m)</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L ({unitQ('length')})</th><th></th></tr>
   </thead>
   <tbody>
     {#each elementsArr as elem}
@@ -145,7 +146,7 @@
         <td class="end-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
           <EndConditionSelect compact release={elem.releaseJ} is3D={is3DMode} onchange={(r) => setEnd(elem.id, 'j', r)} testid="elem-end-j-{elem.id}" />
         </td>
-        <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
+        <td>{fmtCoord(modelStore.getElementLength(elem.id))}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>
     {/each}

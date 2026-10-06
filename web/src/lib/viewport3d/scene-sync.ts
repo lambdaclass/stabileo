@@ -9,6 +9,7 @@ import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/elemen
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
+import { memberLoadAxes } from '../model/member-load-axes';
 import { NodesInstanced } from '../three/nodes-instanced';
 import { ElementsBatched } from '../three/elements-batched';
 import { ElementsPicking } from '../three/elements-picking';
@@ -884,15 +885,9 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
       const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
 
-      const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
-      const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
-      const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
-        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      // The axes the user sees and types the load along: the analysis roll
-      // (element roll + section rotation) and the chosen convention.
-      const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY,
-        (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0),
-        uiStore.axisConvention3D === 'leftHand');
+      // The axes the user sees and types the load along (model/member-load-axes.ts).
+      const localAxes = memberLoadAxes(elem, modelStore.nodes, modelStore.sections, uiStore.axisConvention3D === 'leftHand');
+      if (!localAxes) continue;
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
 

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { displayUnits, fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import { displayUnits, fmtQ, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
+  import { setCanvasUnitSystem } from '../lib/canvas/canvas-units';
+  import { displacementText, fixedQuantity } from '../lib/utils/unit-format';
   import type { Quantity } from '../lib/utils/units';
   import { nodesToLabel } from '../lib/store/deformed-view.svelte';
   import { firstGroupIndex } from '../lib/viewport/element-colour';
@@ -461,6 +463,9 @@
      * of the frame, which is the only level at which the guarantee can hold.
      */
     currentFrameLabels = createLabelCollector();
+    // The load, support and reaction labels are drawn by pure functions that
+    // cannot read the store; they take the unit system from here, once a frame.
+    setCanvasUnitSystem(uiStore.unitSystem);
 
     // Advance IL animation
     const now = performance.now();
@@ -637,7 +642,7 @@
         if (Math.abs(avgN) < 0.001) continue;
         const sign = avgN > 0 ? '+' : '';
         // High-contrast text: bright red for tension, bright cyan for compression
-        drawMemberValueLabel(ef.elementId, `${sign}${avgN.toFixed(1)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
+        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
       }
     }
 
@@ -1056,7 +1061,7 @@
           },
           reactions,
           sep,
-          fmt: (v) => v.toFixed(1),
+          fmt: (v, q = 'force') => fixedQuantity(v, q, 1, uiStore.unitSystem),
           vectorMode: uiStore.despieceVectorMode,
           basis: uiStore.despieceBasis,
           showReactions: resultsStore.showReactions,
@@ -1106,7 +1111,7 @@
               // resultant: one combined force arrow (fx, fz-up) + one moment glyph
               const s = uiStore.worldToScreen(node.x, node.y);
               const fx = d.fx ?? 0, fz = d.fz ?? d.fy ?? 0, fmag = Math.hypot(fx, fz);
-              if (fmag > 1e-9) { const dir = screenDir(node.x, node.y, fx, fz); loadArrow(s.x, s.y, dir.ux, dir.uy, `${fmag.toFixed(1)} kN`); }
+              if (fmag > 1e-9) { const dir = screenDir(node.x, node.y, fx, fz); loadArrow(s.x, s.y, dir.ux, dir.uy, fixedQuantity(fmag, 'force', 1, uiStore.unitSystem)); }
               const m = d.my ?? d.mz ?? 0;
               if (Math.abs(m) > 1e-9) drawMomentSymbol(ctx!, s.x, s.y, m, LOAD, 16 * vSize);
             } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
@@ -1126,7 +1131,7 @@
                   const cx = span.aI.x + f * (span.aJ.x - span.aI.x), cy = span.aI.y + f * (span.aJ.y - span.aI.y);
                   const dir = screenDir(cx, cy, r.wx, r.wy);
                   const s = uiStore.worldToScreen(cx, cy);
-                  loadArrow(s.x, s.y, dir.ux, dir.uy, `${Math.abs(r.magnitude).toFixed(1)} kN`);
+                  loadArrow(s.x, s.y, dir.ux, dir.uy, fixedQuantity(Math.abs(r.magnitude), 'force', 1, uiStore.unitSystem));
                 }
               } else if (load.type === 'distributed') {
                 const rem = remapLoadSpanToShrunk(d.a ?? 0, d.b ?? span.lenOrig, span.lenOrig, span.lenShrunk);
@@ -1373,12 +1378,12 @@
       const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
-        lines.push(`(${hoverNode.x.toFixed(2)}, ${get2DDisplayedVertical(hoverNode).toFixed(2)}) m [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
+        lines.push(`(${fmtCoord(hoverNode.x)}, ${fmtCoord(get2DDisplayedVertical(hoverNode))}) ${unitQ('length')} [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
         // Show displacement if results exist
         if (resultsStore.results) {
           const d = resultsStore.getDisplacement(hoverNode.id);
           if (d) {
-            lines.push(`δ: ${(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2) * 1000).toFixed(3)} mm`);
+            lines.push(`δ: ${displacementText(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2), 3, uiStore.unitSystem)}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -1387,13 +1392,13 @@
         if (hoverElem) {
           const lines: string[] = [t('viewport.elemTooltip').replace('{id}', String(hoverElem.id)).replace('{type}', hoverElem.type)];
           const L = modelStore.getElementLength(hoverElem.id);
-          lines.push(`L: ${L.toFixed(3)} m`);
+          lines.push(`L: ${fmtCoord(L)} ${unitQ('length')}`);
           if (resultsStore.results) {
             const f = resultsStore.getElementForces(hoverElem.id);
             if (f) {
-              lines.push(`M: ${f.mStart.toFixed(2)}/${f.mEnd.toFixed(2)} kN·m`);
-              lines.push(`V: ${f.vStart.toFixed(2)}/${f.vEnd.toFixed(2)} kN`);
-              lines.push(`N: ${f.nStart.toFixed(2)}/${f.nEnd.toFixed(2)} kN`);
+              lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
+              lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
+              lines.push(`N: ${fmtQ(f.nStart, 'force')}/${fmtQ(f.nEnd, 'force')} ${unitQ('force')}`);
             }
           }
           drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -1487,10 +1492,8 @@
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
-      // In millimetres, as the results table and the 3D labels give them; inches in imperial.
-      const label = uiStore.unitSystem === 'Imperial'
-        ? `${fmtQ(magnitude, 'displacement')} ${unitQ('displacement')}`
-        : `${(magnitude * 1000).toFixed(2)} mm`;
+      // Millimetres in SI, as the results table gives them; centimetres in MKS, inches in imperial.
+      const label = displacementText(magnitude, 2, uiStore.unitSystem);
       const tw = ctx.measureText(label).width;
       const th = 14 * uiStore.labelScale;
       ctx.fillStyle = 'rgba(10, 10, 30, 0.85)';
@@ -2378,8 +2381,8 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `ux: ${ux.toFixed(3)} mm`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${uz.toFixed(3)} mm`,
+                    `ux: ${displacementText(ux / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(uz / 1000, 3, uiStore.unitSystem)}`,
                     `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${ry.toFixed(4)} rad`,
                   ],
                 };

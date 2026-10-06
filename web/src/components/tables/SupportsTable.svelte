@@ -2,6 +2,9 @@
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  // Values are typed in the unit system chosen under Settings and kept in SI.
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
   import { defaultDofs } from '../../lib/store/support-dofs';
 
@@ -71,22 +74,22 @@
           </td>
           <td class="load-values">
             {#if !dofs.tx}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.ty}
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.tz}
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.rx}
-              <span class="load-field">krx<input type="number" step="100" value={sup.krx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krx', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
+              <span class="load-field">krx<UnitInput value={sup.krx ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
             {#if !dofs.ry}
-              <span class="load-field">kry<input type="number" step="100" value={sup.kry ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kry', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
+              <span class="load-field">kry<UnitInput value={sup.kry ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kry', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
             {#if !dofs.rz}
-              <span class="load-field">krz<input type="number" step="100" value={sup.krz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krz', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
+              <span class="load-field">krz<UnitInput value={sup.krz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
           </td>
         {:else}
@@ -102,13 +105,13 @@
           </td>
           <td class="load-values">
             {#if sup.type === 'spring'}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
+              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {:else}
-              <span class="load-field">dx<input type="number" step="0.001" value={sup.dx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dx', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
-              <span class="load-field">dz<input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
-              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /><span class="lf-unit">rad</span></span>
+              <span class="load-field">dx<UnitInput value={sup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">dz<UnitInput value={sup.dz ?? sup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dy', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">d&theta;y<UnitInput value={sup.dry ?? sup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'drz', String(v))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
             {/if}
           </td>
         {/if}
@@ -158,7 +161,7 @@
     font-weight: 600;
   }
 
-  td input[type="number"] {
+  td :global(input[type="number"]) {
     width: 55px;
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
@@ -200,7 +203,7 @@
     color: var(--st-text-2);
     white-space: nowrap;
   }
-  .load-field input {
+  .load-field :global(input) {
     width: 50px;
   }
 
