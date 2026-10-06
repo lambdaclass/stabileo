@@ -136,6 +136,8 @@ function askAboutDrawnOverlaps(id: number): boolean {
 
 /** After a model is opened or imported: one question per pair, in the same queue. */
 export function askAboutOverlapsInModel(): void {
+  // PRO has no connection card (Viewport3D keeps it off there), so nothing is asked.
+  if (uiStore.appMode === 'pro') return;
   for (const p of overlapPairs()) askAboutPair(p);
 }
 

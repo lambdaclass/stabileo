@@ -131,3 +131,20 @@ describe('Basic puts self-weight in the case chosen for it', () => {
     uiStore.selfWeightCaseId = null;
   });
 });
+
+describe('a new project starts over', () => {
+  it('forgets the self-weight case and what was hidden, but undo keeps them', async () => {
+    const { viewVisibility } = await import('../view-state.svelte');
+    uiStore.analysisMode = '3d';
+    const { ids } = project(['D', 'L']);
+    uiStore.selfWeightCaseId = ids[1]!;
+    viewVisibility.hide({ nodes: [], elements: [...modelStore.elements.keys()], shells: [] });
+    modelStore.addNode(5, 5, 5);
+    historyStore.undo();
+    expect(uiStore.selfWeightCaseId).toBe(ids[1]!);
+    expect(viewVisibility.active).toBe(true);
+    modelStore.clear();
+    expect(uiStore.selfWeightCaseId).toBeNull();
+    expect(viewVisibility.active).toBe(false);
+  });
+});

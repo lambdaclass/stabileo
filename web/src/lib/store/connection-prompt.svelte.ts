@@ -89,7 +89,14 @@ export const connectionPrompt = {
     remove(q);
     if (!applies(q)) return;
     const untouched = modelStore.modelVersion === q.version;
-    if (untouched && q.undoesEdit) historyStore.undo();
+    if (untouched && q.undoesEdit) {
+      // An undo puts a snapshot back, and a put-back model forgets every question
+      // (store/index.ts); the others in the queue were not about this edit.
+      const others = queue;
+      historyStore.undo();
+      queue = others;
+      prune();
+    }
     else if (untouched) modelStore.amendLastStep(q.run);
     else modelStore.batch(q.run);
   },

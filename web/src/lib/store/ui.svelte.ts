@@ -939,7 +939,9 @@ function createUIStore() {
 
     /**
      * The load case Basic's self-weight goes in (Loads › Combinations). Null:
-     * the first dead-load case, as before. Saved with the project.
+     * the first dead-load case, or the first case when there is none. Once, in
+     * one case: with two dead-load cases it is no longer counted in both.
+     * Saved with the project, and reset for a new one.
      */
     get selfWeightCaseId() { return selfWeightCaseId; },
     set selfWeightCaseId(v: number | null) { selfWeightCaseId = v; },

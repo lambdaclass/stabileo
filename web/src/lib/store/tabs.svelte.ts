@@ -4,6 +4,7 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
+import { viewVisibility } from './view-state.svelte';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
@@ -254,6 +255,7 @@ function createTabManager() {
       // Restore other per-tab settings
       uiStore.includeSelfWeight = state.includeSelfWeight;
       uiStore.selfWeightCaseId = state.selfWeightCaseId ?? null;
+      viewVisibility.showAll();
       uiStore.liveCalc = state.liveCalc;
 
       // Restore viewport state
@@ -435,7 +437,7 @@ function createTabManager() {
         showAxes3D: uiStore.showAxes3D, localAxesMode3D: uiStore.localAxesMode3D,
         axisConvention3D: uiStore.axisConvention3D,
         includeSelfWeight: uiStore.includeSelfWeight,
-        selfWeightCaseId: uiStore.selfWeightCaseId,
+        selfWeightCaseId: null,
         liveCalc: uiStore.liveCalc,
         // New tabs inherit current viewport (user can zoom-to-fit after)
         zoom: uiStore.zoom,

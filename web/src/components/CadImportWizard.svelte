@@ -1,5 +1,6 @@
 <script lang="ts">
   import { askAboutOverlapsInModel } from '../lib/model/edit/connection-questions';
+  import { viewVisibility } from '../lib/store/view-state.svelte';
   // CAD → RC draft wizard (PR [9]).
   //
   // 4 steps: (1) upload/units → (2) layer roles → (3) assumptions →
@@ -565,6 +566,7 @@
     historyStore.pushState();
     modelStore.restore(draft.snapshot);
     resultsStore.clear();
+    viewVisibility.showAll();
     if (uiStore.appMode !== 'pro') askAboutOverlapsInModel();
     uiStore.toast(
       t('cad.applied')

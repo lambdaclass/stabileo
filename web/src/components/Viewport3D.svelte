@@ -2549,7 +2549,7 @@
     const rect = container.getBoundingClientRect();
     return pickCycle.pick(targets, e.clientX - rect.left, e.clientY - rect.top, (at, of) => {
       uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
-    });
+    }, e.detail);
   }
 
   /**

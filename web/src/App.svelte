@@ -729,6 +729,7 @@
       // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with
       // the self-weight it was computed with rather than the session's.
       if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
+      uiStore.selfWeightCaseId = autosaveData.selfWeightCaseId ?? null;
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;
@@ -1123,6 +1124,7 @@
   // Reactive auto-clear results + debounced live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
+  let prevSelfWeight = '';
   let liveCalcTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Cancel any pending debounced live calc (e.g. when manual solve supersedes it). */
@@ -1137,13 +1139,16 @@
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
     const _mode = uiStore.analysisMode;
+    // Self-weight on or off, and its case, change the answer as a model edit does.
+    const _sw = `${uiStore.includeSelfWeight}:${uiStore.selfWeightCaseId}`;
 
     untrack(() => {
       if (tabManager.isTabSwitching) return;
 
-      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode;
+      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode || _sw !== prevSelfWeight;
       prevModelVersion = _v;
       prevAnalysisMode = _mode;
+      prevSelfWeight = _sw;
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;

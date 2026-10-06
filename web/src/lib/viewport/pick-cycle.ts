@@ -23,7 +23,7 @@ export interface PickCycle {
    * The target this click selects. `onStep` is told when a repeated click moved
    * past the first candidate, with the position (1-based) and the count.
    */
-  pick(targets: readonly PickTarget[], px: number, py: number, onStep?: (at: number, of: number) => void): PickTarget | null;
+  pick(targets: readonly PickTarget[], px: number, py: number, onStep?: (at: number, of: number) => void, clickCount?: number): PickTarget | null;
   /** Forget the last click (the model changed, the view moved). */
   reset(): void;
 }
@@ -31,10 +31,12 @@ export interface PickCycle {
 export function createPickCycle(): PickCycle {
   let last: { px: number; py: number; key: string; at: number } | null = null;
   return {
-    pick(targets, px, py, onStep) {
+    pick(targets, px, py, onStep, clickCount = 1) {
       if (!targets.length) { last = null; return null; }
       const key = targets.map((p) => `${p.kind}${p.id}`).join(',');
       const again = last !== null && last.key === key && Math.hypot(px - last.px, py - last.py) <= REPICK_PX;
+      // The second click of a double click opens what the first selected; it does not step.
+      if (again && clickCount > 1) return targets[last!.at]!;
       const at = again ? (last!.at + 1) % targets.length : 0;
       last = { px, py, key, at };
       if (again && targets.length > 1) onStep?.(at + 1, targets.length);

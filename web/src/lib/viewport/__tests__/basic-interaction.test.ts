@@ -54,6 +54,12 @@ describe('clicking again on the same spot', () => {
     expect(cycle.pick(a, 101, 100, step)).toEqual(a[2]);
     expect(cycle.pick(a, 100, 100, step)).toEqual(a[0]);
   });
+  it('the second click of a double click does not step', () => {
+    const cycle = createPickCycle();
+    expect(cycle.pick(a, 100, 100, undefined, 1)).toEqual(a[0]);
+    expect(cycle.pick(a, 100, 100, undefined, 2)).toEqual(a[0]);
+    expect(cycle.pick(a, 100, 100, undefined, 1)).toEqual(a[1]);
+  });
   it('starts over somewhere else, or when what is there changed', () => {
     const cycle = createPickCycle();
     cycle.pick(a, 100, 100);
@@ -104,8 +110,9 @@ describe('everything near the pointer (3D, on screen)', () => {
 });
 
 describe('3D near plane', () => {
-  it('follows the distance in, between 0.1 mm and the old 0.1 m', () => {
-    expect(nearPlaneFor(100)).toBe(0.1);
+  it('follows the distance in and out, never under 0.1 mm', () => {
+    expect(nearPlaneFor(20)).toBeCloseTo(0.1);
+    expect(nearPlaneFor(2000)).toBeCloseTo(10);
     expect(nearPlaneFor(2)).toBeCloseTo(0.01);
     expect(nearPlaneFor(0.001)).toBe(1e-4);
   });

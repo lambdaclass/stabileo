@@ -11,6 +11,7 @@ import { deflateSync, inflateSync } from 'fflate';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { DiagramType } from '../store/results.svelte';
 import { modelStore } from '../store/model.svelte';
+import { viewVisibility } from '../store/view-state.svelte';
 import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
@@ -852,6 +853,7 @@ function restoreMeta(snapshot: ModelSnapshot): void {
   // Other settings
   if (meta.includeSelfWeight !== undefined) uiStore.includeSelfWeight = meta.includeSelfWeight;
   uiStore.selfWeightCaseId = meta.selfWeightCaseId ?? null;
+  viewVisibility.showAll();
   if (meta.liveCalc !== undefined) uiStore.liveCalc = meta.liveCalc;
   // Viewport state
   if (meta.zoom !== undefined) uiStore.zoom = meta.zoom;

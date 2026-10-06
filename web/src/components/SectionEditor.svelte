@@ -30,14 +30,32 @@
    */
   const CM2 = 1e4, CM4 = 1e8, CM = 100;
   const cm = (v: number, k: number) => String(+(v * k).toPrecision(6));
+  /*
+   * What each field showed and the exact model value behind it: a field left
+   * as shown keeps that value, so renaming a section does not round its A or
+   * Iz to the six figures the field displays.
+   */
+  type Field = 'a' | 'iz' | 'b' | 'h';
+  let exact: Partial<Record<Field, { shown: string; value: number }>> = {};
+  function show(f: Field, value: number | undefined, k: number): string {
+    if (value == null) { delete exact[f]; return ''; }
+    const shown = cm(value, k);
+    exact[f] = { shown, value };
+    return shown;
+  }
+  /** The model value of a field: the exact one if untouched, else what was typed. */
+  function valueOf(f: Field, text: string, k: number): number {
+    const e = exact[f];
+    return e && e.shown === text ? e.value : parseFloat(text) / k;
+  }
 
   $effect(() => {
     if (sec) {
       localName = sec.name;
-      localA = cm(sec.a, CM2);
-      localIz = cm(sec.iz, CM4);
-      localB = sec.b != null ? cm(sec.b, CM) : '';
-      localH = sec.h != null ? cm(sec.h, CM) : '';
+      localA = show('a', sec.a, CM2);
+      localIz = show('iz', sec.iz, CM4);
+      localB = show('b', sec.b ?? undefined, CM);
+      localH = show('h', sec.h ?? undefined, CM);
       localRotation = String(sec.rotation ?? 0);
       pendingShape = sec.shape;
       pendingTw = sec.tw;
@@ -69,11 +87,11 @@
     const a = parseFloat(localA);
     const iz = parseFloat(localIz);
     if (isNaN(a) || isNaN(iz)) return;
-    const updates: Record<string, any> = { name: localName, a: a / CM2, iz: iz / CM4 };
+    const updates: Record<string, any> = { name: localName, a: valueOf('a', localA, CM2), iz: valueOf('iz', localIz, CM4) };
     const b = parseFloat(localB);
     const h = parseFloat(localH);
-    if (!isNaN(b)) updates.b = b / CM;
-    if (!isNaN(h)) updates.h = h / CM;
+    if (!isNaN(b)) updates.b = valueOf('b', localB, CM);
+    if (!isNaN(h)) updates.h = valueOf('h', localH, CM);
     if (pendingShape) updates.shape = pendingShape;
     if (pendingTw != null) updates.tw = pendingTw;
     if (pendingTf != null) updates.tf = pendingTf;
@@ -93,10 +111,10 @@
   function handleProfileSelect(profile: SteelProfile, _section: { a: number; iz: number; b: number; h: number }) {
     const full = profileToSectionFull(profile);
     localName = profile.name;
-    localA = cm(full.a, CM2);
-    localIz = cm(full.iz, CM4);
-    localB = cm(full.b, CM);
-    localH = cm(full.h, CM);
+    localA = show('a', full.a, CM2);
+    localIz = show('iz', full.iz, CM4);
+    localB = show('b', full.b, CM);
+    localH = show('h', full.h, CM);
     // Store extended section properties when confirming
     pendingShape = full.shape;
     pendingTw = full.tw;

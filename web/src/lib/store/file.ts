@@ -295,6 +295,7 @@ export function deserializeProject(text: string): boolean {
   // plain `if (data.includeSelfWeight)` would drop exactly the case this fixes.
   if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
   uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
+  viewVisibility.showAll();
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   resultsStore.forgetView();
@@ -560,6 +561,7 @@ export function downloadCanvasPNG(canvas: HTMLCanvasElement): void {
 import { exportDxfWithResults } from '../dxf/writer';
 import { hydrateProjectProvenance } from './project-provenance';
 import { askAboutOverlapsInModel } from '../model/edit/connection-questions';
+import { viewVisibility } from './view-state.svelte';
 
 export function exportDXF(): string {
   return exportDxfWithResults({

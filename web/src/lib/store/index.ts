@@ -27,9 +27,16 @@ import { viewVisibility } from './view-state.svelte';
 // as current.
 // Questions about connections in the old model mean nothing in a replaced one,
 // and neither do the ids it had hidden: they would hide unrelated members.
-modelStore._setOnReplaced(() => {
-  connectionPrompt.clear();
-  if (!historyStore.replaying) viewVisibility.showAll();
+modelStore._setOnReplaced(() => connectionPrompt.clear());
+/*
+ * A different project: what the last one had hidden (by id) and the load case
+ * its self-weight went in mean nothing in it. Opening a file, a tab or a link
+ * resets them too (file.ts, tabs, url-sharing), and then sets the project's own.
+ * Not on every restore: undo, a what-if slider and an applied edit keep them.
+ */
+modelStore._setOnNewProject(() => {
+  viewVisibility.showAll();
+  uiStore.selfWeightCaseId = null;
 });
 
 modelStore._setOnMutation(() => {

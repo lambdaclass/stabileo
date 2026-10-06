@@ -2126,7 +2126,7 @@
         // spot steps to the next one under it.
         const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, {
           nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'),
-        }), mx, my);
+        }), mx, my, e.detail);
         if (pick?.kind === 'node') { uiStore.selectNode(pick.id, true); hit = true; }
         else if (pick?.kind === 'element') { uiStore.selectElement(pick.id, true); hit = true; }
         if (!hit && uiStore.selectsKind('supports')) {
@@ -2179,7 +2179,7 @@
          * The snapped point stays as a second chance, for a node that sits
          * on a grid intersection just outside the tolerance.
          */
-        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: true, elements: false }), mx, my);
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: true, elements: false }), mx, my, e.detail);
         if (pick) {
           uiStore.selectNode(pick.id, e.shiftKey);
         } else {
@@ -2233,7 +2233,7 @@
          * Move panel's "mover nodos".
          */
         const wantsOnlyElements = sm === 'elements';
-        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: !wantsOnlyElements, elements: true }), mx, my);
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: !wantsOnlyElements, elements: true }), mx, my, e.detail);
         if (pick?.kind === 'node') {
           uiStore.selectNode(pick.id, e.shiftKey);
         } else {
@@ -2820,10 +2820,10 @@
 
   // A click again on the same spot steps to the next thing under the pointer.
   const pickCycle = createPickCycle();
-  function cyclePick(targets: PickTarget[], mx: number, my: number): PickTarget | null {
+  function cyclePick(targets: PickTarget[], mx: number, my: number, clickCount = 1): PickTarget | null {
     return pickCycle.pick(targets, mx, my, (at, of) => {
       uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
-    });
+    }, clickCount);
   }
   /** What a click at this point could mean, the most specific first. */
   function pickTargets(wx: number, wy: number, sx: number, sy: number, kinds: { nodes: boolean; elements: boolean }): PickTarget[] {
@@ -2862,7 +2862,10 @@
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
-    return _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
+    // Supports turned off or hidden are not drawn, so they are not clicked either.
+    if (!uiStore.showSupports) return null;
+    const near = _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
+    return near && !viewVisibility.isNodeHidden(near.nodeId) ? near : null;
   }
 
   /**

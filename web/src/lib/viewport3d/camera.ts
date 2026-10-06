@@ -235,8 +235,10 @@ export function handleResize(
 
 /**
  * The perspective near plane for a camera this far from what it looks at: a
- * small fraction of the distance, between 0.1 mm and the 0.1 m it always was.
+ * small fraction of the distance, never under 0.1 mm. It grows with the
+ * distance too, so a bridge seen whole keeps its depth precision (the depth
+ * buffer is linear) instead of spending it on the first metres.
  */
 export function nearPlaneFor(distance: number): number {
-  return Math.min(0.1, Math.max(1e-4, distance * 0.005));
+  return Math.max(1e-4, distance * 0.005);
 }
