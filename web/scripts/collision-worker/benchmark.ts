@@ -7,6 +7,7 @@ import '../../src/lib/engine/design/adapters/cirsoc201-adapter';
 import '../../src/lib/engine/design/adapters/unsupported-adapter';
 import { runCollisionBatch, type CollisionJob, type CollisionRequest, type CollisionResponse } from './protocol';
 import { packCollisionBatch, collisionTransferList } from './packed';
+import { CollisionWorkerPool, type PoolResult } from './pool';
 
 const pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -48,6 +49,7 @@ export async function benchmark() {
   ));
   const workerStart = performance.now();
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  let pool: CollisionWorkerPool | undefined;
   try {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => { cleanup(); reject(new Error('Worker startup timed out')); }, 30_000);
@@ -104,23 +106,35 @@ export async function benchmark() {
     if (JSON.stringify(firstPacked.results) !== expected) throw new Error('Packed worker output differs from main thread');
     const receive = await measure(() => request('receiveOnly'));
     const receivePacked = await measure(() => request('receiveOnly', 'packed'));
+    const poolStart = performance.now();
+    pool = await CollisionWorkerPool.create(4);
+    const poolStartupMs = performance.now() - poolStart;
+    const firstPool = await pool.run(jobs, { cache: true });
+    if (JSON.stringify(firstPool.results) !== expected || firstPool.cacheHits !== 0) {
+      throw new Error('Pool warmup differs from main thread');
+    }
     const runs = [];
-    for (let run = 0; run < 3; run++) {
-      const main = () => measure(() => runCollisionBatch(jobs));
-      const remote = () => measure(() => request('collide'));
-      // Packing is inside measure: detached buffers are freshly allocated every run.
-      const remotePacked = () => measure(() => request('collide', 'packed'));
-      let local: Awaited<ReturnType<typeof main>>;
-      let offThread: Awaited<ReturnType<typeof remote>>;
-      let packed: Awaited<ReturnType<typeof remotePacked>>;
-      // Rotate all three modes through first, second and third position.
-      if (run === 0) { local = await main(); offThread = await remote(); packed = await remotePacked(); }
-      else if (run === 1) { offThread = await remote(); packed = await remotePacked(); local = await main(); }
-      else { packed = await remotePacked(); local = await main(); offThread = await remote(); }
-      if (JSON.stringify(local.value) !== expected || JSON.stringify(offThread.value.results) !== expected
-        || JSON.stringify(packed.value.results) !== expected) {
-        throw new Error(`Output mismatch on run ${run + 1}`);
+    for (let run = 0; run < 5; run++) {
+      type Measured = Awaited<ReturnType<typeof measure<PoolResult>>>;
+      const measured: Record<string, Measured> = {};
+      const modes = [
+        { name: 'main', operation: () => ({ results: runCollisionBatch(jobs), computeMs: 0,
+          decodeMs: 0, packMs: 0, postMessageMs: 0, cacheHits: 0 }) },
+        { name: 'objects', operation: async () => ({ ...await request('collide'), cacheHits: 0 }) },
+        { name: 'packed', operation: async () => ({ ...await request('collide', 'packed'), cacheHits: 0 }) },
+        { name: 'pool', operation: () => pool!.run(jobs) },
+        { name: 'cached', operation: () => pool!.run(jobs, { cache: true }) },
+      ];
+      // Each mode occupies every ordering position once; packing stays inside measure.
+      for (let i = 0; i < modes.length; i++) {
+        const mode = modes[(i + run) % modes.length];
+        measured[mode.name] = await measure(mode.operation);
+        if (JSON.stringify(measured[mode.name].value.results) !== expected) {
+          throw new Error(`${mode.name} output mismatch on run ${run + 1}`);
+        }
       }
+      const { main: local, objects: offThread, packed, pool: parallel, cached } = measured;
+      if (cached.value.cacheHits !== jobs.length) throw new Error('Expected unchanged assemblies to hit cache');
       runs.push({
         run: run + 1, mainMs: local.elapsedMs, mainMaxTimerGapMs: local.maxTimerGapMs,
         workerRoundTripMs: offThread.elapsedMs, workerComputeMs: offThread.value.computeMs,
@@ -128,15 +142,31 @@ export async function benchmark() {
         packedRoundTripMs: packed.elapsedMs, packedComputeMs: packed.value.computeMs,
         packedPackMs: packed.value.packMs, packedDecodeMs: packed.value.decodeMs,
         packedPostMessageMs: packed.value.postMessageMs, packedMaxTimerGapMs: packed.maxTimerGapMs,
+        poolRoundTripMs: parallel.elapsedMs, poolComputeSumMs: parallel.value.computeMs,
+        poolPackMs: parallel.value.packMs, poolPostMessageMs: parallel.value.postMessageMs,
+        poolMaxTimerGapMs: parallel.maxTimerGapMs,
+        cachedRoundTripMs: cached.elapsedMs, cacheHits: cached.value.cacheHits,
+        cachedMaxTimerGapMs: cached.maxTimerGapMs,
       });
     }
+    // A geometry edit must recompute that assembly while reusing the others.
+    const changed = structuredClone(jobs);
+    changed[0].bars[0].segments[0].start.z += 0.01;
+    const expectedChanged = JSON.stringify(runCollisionBatch(changed));
+    const changedRun = await measure(() => pool!.run(changed, { cache: true }));
+    if (JSON.stringify(changedRun.value.results) !== expectedChanged
+      || changedRun.value.cacheHits !== jobs.length - 1) throw new Error('Edited assembly cache mismatch');
+
     return {
       jobs: jobs.length, bars: jobs.reduce((n, job) => n + job.bars.length, 0),
+      poolSize: 4, poolStartupMs,
+      editedRoundTripMs: changedRun.elapsedMs, editedCacheHits: changedRun.value.cacheHits,
+      editedMaxTimerGapMs: changedRun.maxTimerGapMs,
       startupMs, receiveOnlyMs: receive.elapsedMs, receiveOnlyPostMs: receive.value.postMessageMs,
       packedReceiveOnlyMs: receivePacked.elapsedMs, packedReceiveOnlyPackMs: receivePacked.value.packMs,
       packedReceiveOnlyPostMs: receivePacked.value.postMessageMs,
       packedBufferBytes: collisionTransferList(packCollisionBatch(jobs)).reduce((n, buffer) => n + buffer.byteLength, 0),
       equivalent: true, runs,
     };
-  } finally { worker.terminate(); }
+  } finally { pool?.close(); worker.terminate(); }
 }

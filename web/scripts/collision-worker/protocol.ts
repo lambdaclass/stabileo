@@ -33,9 +33,11 @@ export function runCollisionBatch(jobs: readonly CollisionJob[]) {
 export type CollisionRequest = {
   id: number;
   operation: 'collide' | 'receiveOnly';
+  /** Opt-in exact-input reuse; keys identify jobs within this worker session. */
+  cacheKeys?: string[];
 } & ({ jobs: CollisionJob[] } | { packed: PackedCollisionBatch });
 
 export type CollisionResponse =
   | { type: 'ready' }
-  | { type: 'result'; id: number; results: ReturnType<typeof runCollisionBatch>; computeMs: number; decodeMs: number }
+  | { type: 'result'; id: number; results: ReturnType<typeof runCollisionBatch>; computeMs: number; decodeMs: number; cacheHits: number }
   | { type: 'error'; id: number; error: string };

@@ -48,6 +48,16 @@ it('the worker acknowledges startup, returns results, and reports errors with th
   expect(messages[3]).toMatchObject({ type: 'error', id: 3, error: expect.any(String) });
   dispatch({ id: 4, operation: 'collide', packed: packCollisionBatch(jobs) });
   expect(messages[4]).toMatchObject({ type: 'result', id: 4, results: runCollisionBatch(jobs), decodeMs: expect.any(Number) });
+  const pair = [jobs[0], structuredClone(jobs[0])];
+  dispatch({ id: 5, operation: 'collide', packed: packCollisionBatch(pair), cacheKeys: ['a', 'b'] });
+  expect(messages.at(-1)).toMatchObject({ type: 'result', id: 5, cacheHits: 0 });
+  dispatch({ id: 6, operation: 'collide', packed: packCollisionBatch(pair), cacheKeys: ['a', 'b'] });
+  expect(messages.at(-1)).toMatchObject({ type: 'result', id: 6, cacheHits: 2, results: runCollisionBatch(pair) });
+  pair[0].bars[0].segments[0].end.z += 0.1;
+  dispatch({ id: 7, operation: 'collide', packed: packCollisionBatch(pair), cacheKeys: ['a', 'b'] });
+  expect(messages.at(-1)).toMatchObject({ type: 'result', id: 7, cacheHits: 1, results: runCollisionBatch(pair) });
+  dispatch({ id: 8, operation: 'collide', packed: packCollisionBatch(pair), cacheKeys: ['a', 'a'] });
+  expect(messages.at(-1)).toMatchObject({ type: 'error', id: 8 });
 });
 
 it('transfers geometry ownership without detaching or mutating model data', () => {
