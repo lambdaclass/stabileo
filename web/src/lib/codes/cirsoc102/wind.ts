@@ -34,7 +34,8 @@
  *
  * ── What is deliberately NOT implemented ───────────────────────
  *
- * Flexible or dynamically sensitive buildings (§1.9.5), the large-volume reduction on
+ * Across-wind and aeroelastic response of flexible buildings (§2.1.3; their along-wind G_f is
+ * `gust.ts`), the large-volume reduction on
  * (GC_pi) (§1.11.1), domes and vaulted roofs (Fig. 2.4-2/2.4-3), parapets and roof
  * overhangs (§2.4.4/§2.4.5), components and cladding (Ch. 5), the wind-tunnel procedure
  * (Ch. 6). Each returns an explicit unsupported outcome; none is silently approximated. The
@@ -48,17 +49,32 @@ import {
   type ClauseRef, type ProvenancedValue,
 } from '../regulation';
 import { msg, type EngineMessage } from '../message';
+import { gustEffectFactor, type GustResult } from './gust';
 
 // ─── Exposure ────────────────────────────────────────────────────
 
 export type Exposure = 'B' | 'C' | 'D';
 
-/** Table 1.9-1 — terrain exposure constants. */
-export const EXPOSURE_CONSTANTS: Readonly<Record<Exposure, { alpha: number; zg: number }>> =
+/**
+ * Table 1.9-1 — terrain exposure constants: α and z_g for K_z, the rest for the gust effect factor
+ * (§1.9.4, §1.9.5; `gust.ts`). One copy of the table.
+ */
+export interface ExposureConstants {
+  alpha: number; zg: number;
+  alphaHat: number; bHat: number;
+  alphaBar: number; bBar: number;
+  c: number;
+  /** ℓ, m: the integral length scale of turbulence at 10 m. */
+  ell: number;
+  epsBar: number;
+  /** z_min, m. */
+  zmin: number;
+}
+export const EXPOSURE_CONSTANTS: Readonly<Record<Exposure, ExposureConstants>> =
   Object.freeze({
-    B: { alpha: 7.5, zg: 1000 },
-    C: { alpha: 9.8, zg: 750 },
-    D: { alpha: 11.5, zg: 590 },
+    B: { alpha: 7.5, zg: 1000, alphaHat: 1 / 7.5, bHat: 0.84, alphaBar: 1 / 4.5, bBar: 0.47, c: 0.30, ell: 98, epsBar: 1 / 3.0, zmin: 9.2 },
+    C: { alpha: 9.8, zg: 750, alphaHat: 1 / 9.8, bHat: 1.00, alphaBar: 1 / 6.4, bBar: 0.66, c: 0.20, ell: 152, epsBar: 1 / 5.0, zmin: 4.6 },
+    D: { alpha: 11.5, zg: 590, alphaHat: 1 / 11.5, bHat: 1.09, alphaBar: 1 / 8.0, bBar: 0.78, c: 0.15, ell: 198, epsBar: 1 / 8.0, zmin: 2.1 },
   });
 
 const REF_TABLE_1_9_1 = clause('cirsoc-102', '2025', 'Tabla 1.9-1', 'constantes de exposición del terreno');
@@ -349,10 +365,15 @@ export interface WindProject {
   /** Roof slope θ, degrees. 0 for a flat roof. */
   roofSlopeDeg: number;
   /**
-   * True when the building is rigid per §1.9.4 (fundamental frequency ≥ 1 Hz).
-   * A flexible building needs §1.9.5, which is not implemented.
+   * True when the building is declared rigid (fundamental frequency ≥ 1 Hz on the user's word).
+   * Read only without `gust`: a flexible building without a frequency has no G_f to compute.
    */
   rigid: boolean;
+  /**
+   * The gust effect factor's inputs for this direction (§1.9, `gust.ts`): its frequency (absent:
+   * declared rigid), damping, which G a rigid building takes, and whether it is low rise.
+   */
+  gust?: { n1?: number; beta: number; rigidG: import('./gust').RigidG; lowRise?: boolean };
 }
 
 export interface SurfacePressure {
@@ -390,6 +411,8 @@ export interface WindResult {
   unsupported: EngineMessage[];
   /** Every assumption made, for the report's assumptions block. */
   assumptions: EngineMessage[];
+  /** The gust effect factor's derivation, when it was computed (§1.9.4, §1.9.5). */
+  gust?: GustResult;
 }
 
 /** §1.9.4 — gust-effect factor for a rigid building. */
@@ -415,9 +438,13 @@ export function computeWindPressures(p: WindProject): WindResult {
   const unsupported: EngineMessage[] = [];
   const assumptions: EngineMessage[] = [];
 
-  if (!p.rigid) {
-    unsupported.push(msg('loads.cirsoc102.unsupported.flexibleBuilding'));
-  }
+  // The gust effect factor: computed from the frequency when it is given (`gust.ts`); without it, a
+  // building declared rigid takes 0,85 and one declared flexible has no G_f to compute.
+  const gust = p.gust
+    ? gustEffectFactor({ exposure: p.exposure, V: p.basicSpeed, h: p.meanRoofHeight, B: p.B, L: p.L, ...p.gust })
+    : undefined;
+  if (gust?.kind === 'unsupported') unsupported.push(...gust.notes);
+  else if (!gust && !p.rigid) unsupported.push(msg('loads.cirsoc102.unsupported.flexibleBuilding'));
   if (p.meanRoofHeight > 1000) {
     unsupported.push(msg('loads.cirsoc102.unsupported.heightAboveTable', { limit: 1000 }));
   }
@@ -426,7 +453,7 @@ export function computeWindPressures(p: WindProject): WindResult {
   const ke = groundElevationFactor(p.siteAltitudeM);
   const kh = velocityPressureExposureCoefficient(p.meanRoofHeight, p.exposure);
   const gcpiMag = internalPressureCoefficient(p.enclosure);
-  const G = G_RIGID;
+  const G = gust && gust.kind !== 'unsupported' ? gust.value.value : G_RIGID;
 
   const kztValue: ProvenancedValue<number> = p.kztSurveyed
     ? fromProject(p.kzt)
@@ -439,7 +466,7 @@ export function computeWindPressures(p: WindProject): WindResult {
     ke: derived(ke, [REF_KE]),
     kzt: kztValue,
     kh: derived(kh, [REF_KZ, REF_TABLE_1_9_1]),
-    G: fromCode(G, [REF_G]),
+    G: gust && gust.kind !== 'unsupported' ? gust.value : fromCode(G, [REF_G]),
     gcpi: fromCode(gcpiMag, [REF_GCPI]),
   };
 
@@ -504,6 +531,7 @@ export function computeWindPressures(p: WindProject): WindResult {
     minimum: { wallNm2: 750, roofNm2: 400, refs: [REF_MIN] },
     unsupported,
     assumptions,
+    ...(gust ? { gust } : {}),
   };
 }
 

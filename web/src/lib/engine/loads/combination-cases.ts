@@ -64,6 +64,8 @@ export interface CaseCombination {
   purpose: 'strength' | 'service';
   /** The spec it came from. */
   specId: string;
+  /** The code that wrote the spec, when it was a code's (`codes/families/origin.ts`). */
+  origin?: import('../../codes/families/origin').CombinationOrigin;
 }
 
 /** Which load symbols the model has cases for. */
@@ -163,7 +165,7 @@ export function expandCombinations(
         if (seen.has(key)) continue;
         seen.add(key);
         const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
-        out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id });
+        out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id, ...(spec.origin ? { origin: spec.origin } : {}) });
       }
     }
   }

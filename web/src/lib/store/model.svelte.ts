@@ -665,6 +665,8 @@ export interface ThermalLoad {
    * temperature change that gives it, ε/α, which is exact (`member-thermal.ts`). Shown as a strain.
    */
   strain?: number;
+  /** The code that generated it (`apply-load-plan.ts`). */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -675,6 +677,8 @@ export interface NodalLoad3D {
   nodeId: number;
   fx: number; fy: number; fz: number;  // kN (global)
   mx: number; my: number; mz: number;  // kN·m (global)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -690,6 +694,8 @@ export interface DistributedLoad3D {
   qYI: number; qYJ: number;  // kN/m in local Y (or global Y) at node I/J
   qZI: number; qZJ: number;  // kN/m in local Z (or global Z) at node I/J
   a?: number; b?: number;     // partial load positions (m from node I)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -740,6 +746,8 @@ export interface SurfaceLoad3D {
   id: number;
   quadId: number;
   q: number;    // kN/m² (positive = downward, applied as -Z global)
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -748,6 +756,8 @@ export interface ThermalLoadQuad3D {
   quadId: number;
   dtUniform: number;  // °C uniform temperature change
   dtGradient: number; // °C gradient through thickness
+  /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
+  generatedBy?: string;
   caseId?: number;
 }
 
@@ -782,12 +792,19 @@ export interface LoadCase {
    * of a combination (`combination-cases.ts`).
    */
   pattern?: boolean;
+  /**
+   * What the action is, code-neutral: what a combination rule of any family and a design module
+   * read (`codes/families/origin.ts`). The generator states it; absent, it follows the type.
+   */
+  category?: import('../codes/families/origin').ActionCategory;
 }
 
 export interface LoadCombination {
   id: number;
   name: string;
   factors: Array<{ caseId: number; factor: number }>;
+  /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
+  origin?: import('../codes/families/origin').CombinationOrigin;
 }
 
 /**
@@ -3322,6 +3339,10 @@ function createModelStore() {
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
+      // A value edited by hand makes the load the user's: it loses the generator's mark, so
+      // "replace generated loads" no longer deletes the edit. A move to another case keeps it.
+      const ld = load.data as unknown as Record<string, unknown>;
+      if (ld.generatedBy && Object.keys(data).some((k) => k !== 'caseId' && data[k] !== undefined && ld[k] !== data[k])) delete ld.generatedBy;
       // Handle caseId for all load types
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
@@ -3760,10 +3781,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category'] } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}) });
       return id;
     },
 
@@ -3906,16 +3927,17 @@ function createModelStore() {
      * from every combination that took another alternative. When the name is taken, the new case
      * gets a numbered one.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean } = {}): number {
-      const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
-        ?? (opts.own
-          ? model.loadCases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
-          : model.loadCases.find((c) => c.type === type && c.name === name));
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; category?: LoadCase['category'] } = {}): number {
+      const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category });
+      }
+      if (opts.category && found.category !== opts.category) {
+        if (!_undoBatching) _pushUndo?.();
+        found.category = opts.category;
+        model.loadCases = [...model.loadCases];
       }
       const pattern = opts.pattern ? true : undefined;
       if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
@@ -3939,10 +3961,10 @@ function createModelStore() {
       if (lc) lc.type = type;
     },
 
-    addCombination(name: string, factors: Array<{ caseId: number; factor: number }>): number {
+    addCombination(name: string, factors: Array<{ caseId: number; factor: number }>, origin?: LoadCombination['origin']): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.combination++;
-      model.combinations.push({ id, name, factors: [...factors] });
+      model.combinations.push({ id, name, factors: [...factors], ...(origin ? { origin: { ...origin } } : {}) });
       return id;
     },
 
@@ -3961,7 +3983,15 @@ function createModelStore() {
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
       if (data.name !== undefined) combo.name = data.name;
-      if (data.factors !== undefined) combo.factors = [...data.factors];
+      if (data.factors !== undefined) {
+        // Factors edited by hand make the combination the user's: "replace generated loads" takes
+        // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
+        // service combination edited by hand still stays out of the design's "all". A rename is
+        // not an edit of what it is.
+        const sig = (fs: ReadonlyArray<{ caseId: number; factor: number }>) => fs.filter((f) => f.factor !== 0).map((f) => `${f.caseId}:${f.factor}`).sort().join('|');
+        if (combo.origin && !combo.origin.edited && sig(combo.factors) !== sig(data.factors)) combo.origin = { ...combo.origin, edited: true };
+        combo.factors = [...data.factors];
+      }
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {
@@ -4463,6 +4493,22 @@ function createModelStore() {
       return count > 0 ? sumAngle / count : 0;
     },
   };
+}
+
+/**
+ * The existing case `ensureLoadCase` writes a planned case into, or none (it will be created): the
+ * one named by id, else, for a case of a group of the plan's own, one of its type and group under
+ * its name or a numbered one, else one of its type and name. Apart so the load plan's preview
+ * finds the same cases apply will write into (`apply-load-plan.ts`).
+ */
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives'>>(
+  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean } = {},
+): C | undefined {
+  const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
+  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId) : undefined)
+    ?? (opts.own
+      ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
+      : cases.find((c) => c.type === type && c.name === name));
 }
 
 export const modelStore = createModelStore();

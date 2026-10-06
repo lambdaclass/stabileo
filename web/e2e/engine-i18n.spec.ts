@@ -143,11 +143,15 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       const addDist = Number(await page.getByTestId('al-after-dist').innerText());
       expect(addDist).toBeGreaterThan(beforeDist);
 
-      // Replace ON: the plan IS the model, so after equals the plan's own count.
+      // Replace ON: what the generator wrote before goes, so after is the plan's own count plus
+      // the loads the model had of its own (typed in it, which replace keeps).
+      const generated = await page.evaluate(() => window.__stabileo.allLoads()
+        .filter((l) => (l.type === 'distributed3d' || l.type === 'distributed') && l.data.generatedBy).length);
+      expect(generated).toBeGreaterThan(0);
       await page.getByTestId('al-clear').check();
       const replaceDist = Number(await page.getByTestId('al-after-dist').innerText());
       expect(replaceDist).toBeLessThan(addDist);
-      expect(replaceDist).toBe(addDist - beforeDist);
+      expect(replaceDist).toBe(addDist - generated);
     });
 
   test('I2 — regenerating into existing cases warns about double counting',
@@ -207,12 +211,16 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
 
   test('I2 — the preview cannot be applied under a flag it was not computed for',
     async ({ pro: page }) => {
+      // Something the generator wrote, for the flag to take back.
       await openDialog(page);
+      await page.getByTestId('al-preview-btn').click();
+      await page.getByTestId('al-apply').click();
+      await reopenDialog(page);
       await openPreview(page);
       // Flipping the flag re-derives the preview rather than leaving a stale one that
       // disagrees with what Apply would do.
-      const before = await page.getByTestId('al-after-combos').innerText();
+      const before = await page.getByTestId('al-after-dist').innerText();
       await page.getByTestId('al-clear').check();
-      await expect(page.getByTestId('al-after-combos')).not.toHaveText(before);
+      await expect(page.getByTestId('al-after-dist')).not.toHaveText(before);
     });
 });

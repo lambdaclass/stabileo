@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore, type Load } from '../model.svelte';
 import '../index';
 import { historyStore } from '../history.svelte';
-import { addLoads, copyLoadsToCase, moveLoadsToCase, caseDeletionScope, addNodalLoadIfAny } from '../load-ops';
+import { addLoads, copyLoadsToCase, moveLoadsToCase, scaleLoads, duplicateCase, caseDeletionScope, addNodalLoadIfAny } from '../load-ops';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); });
 beforeEach(() => { modelStore.clear(); historyStore.clear(); });
@@ -62,5 +62,33 @@ describe('adding nothing', () => {
     expect(historyStore.undoCount).toBe(0);
     expect(addNodalLoadIfAny(n, { fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 }, 1)).not.toBeNull();
     expect(modelStore.loads).toHaveLength(1);
+  });
+});
+
+/**
+ * What the generator wrote is marked (`generatedBy`), and "replace generated loads" takes it back.
+ * A copy is the user's act: copy and duplicate used to carry the mark, and the next replace
+ * deleted the user's copies along with the generator's loads. Moving and scaling in place keep it.
+ */
+describe("a copy is the user's, not the generator's", () => {
+  const marked = (id: number) => (modelStore.loads.find((l) => l.data.id === id)!.data as { generatedBy?: string }).generatedBy;
+
+  it('copy and duplicate drop the mark; move and scale keep it; the duplicate keeps the category', () => {
+    const n = modelStore.addNode(0, 0, 0);
+    const dead = modelStore.addLoadCase('D', 'D', { category: 'permanent' });
+    const mine = modelStore.addLoadCase('Mine', 'D');
+    const [g] = addLoads([{ ...nodal(n, dead), data: { ...nodal(n, dead).data, generatedBy: 'cirsoc101-2025-basis' } } as Load]);
+
+    const [copy] = copyLoadsToCase([g!], mine, 0.5);
+    expect(marked(copy!)).toBeUndefined();
+    const dup = duplicateCase(dead, 'Copia de D')!;
+    const dupLoad = modelStore.loads.find((l) => l.data.caseId === dup)!;
+    expect(marked(dupLoad.data.id)).toBeUndefined();
+    expect(modelStore.model.loadCases.find((c) => c.id === dup)?.category).toBe('permanent');
+
+    scaleLoads([g!], 2);
+    expect(marked(g!)).toBe('cirsoc101-2025-basis');
+    moveLoadsToCase([g!], mine);
+    expect(marked(g!)).toBe('cirsoc101-2025-basis');
   });
 });

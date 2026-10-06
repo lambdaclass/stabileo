@@ -18,10 +18,12 @@ import { modalUntilMass } from '../engine/dynamics/requests';
 import { solveModal3D } from '../engine/wasm-solver';
 import type { LoadPlan } from '../engine/loads/load-plan';
 import type { ModeShape } from '../engine/loads/seismic-modal';
+import { fundamentalFrequencies } from '../engine/loads/wind-dynamics';
 
 const DEAD = -1, LIVE = -2;
 
-export function modesForPlan(plan: LoadPlan, liveParticipation: number): { modes: ModeShape[]; reached: boolean } | { error: string } {
+/** The model's modal result under the plan's own masses, raw (`modesForPlan`, `windFrequenciesForPlan`). */
+export function planModalResult(plan: LoadPlan, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
   const loads: unknown[] = [];
   let id = 1;
   const full = (caseType: string, caseIndex?: number) => caseIndex === undefined && (caseType === 'D' || caseType === 'L');
@@ -51,7 +53,25 @@ export function modesForPlan(plan: LoadPlan, liveParticipation: number): { modes
   const densities = densitiesFor(ms.input, ms.densities);
   const r = modalUntilMass((n) => solveModal3D(ms.input, densities, n) as never, 12);
   if (typeof r.result === 'string') return { error: r.result };
+  return { result: r.result, reached: r.reached };
+}
+
+export function modesForPlan(plan: LoadPlan, liveParticipation: number): { modes: ModeShape[]; reached: boolean } | { error: string } {
+  const r = planModalResult(plan, liveParticipation);
+  if ('error' in r) return r;
   const modes = ((r.result as { modes?: Array<{ period: number; displacements: Array<{ nodeId: number; ux: number; uy: number }> }> }).modes ?? [])
     .map((m) => ({ period: m.period, shape: new Map(m.displacements.map((d) => [d.nodeId, { ux: d.ux, uy: d.uy }])) }));
   return { modes, reached: r.reached };
+}
+
+/**
+ * Each wind direction's fundamental frequency under the plan's masses (CIRSOC 102-2025 §1.9.2):
+ * the lowest mode with a tenth of the mass along it (`wind-dynamics.ts`). The live load at the seismic
+ * participation is in the mass: more mass lowers n₁ and raises G_f, the safe side.
+ */
+export function windFrequenciesForPlan(plan: LoadPlan, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {
+  const r = planModalResult(plan, liveParticipation);
+  if ('error' in r) return r;
+  const modes = ((r.result as { modes?: Array<{ frequency: number; massRatioX?: number; massRatioY?: number }> }).modes ?? []);
+  return fundamentalFrequencies(modes);
 }

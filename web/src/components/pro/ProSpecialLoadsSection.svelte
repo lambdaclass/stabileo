@@ -1,16 +1,6 @@
 <script lang="ts" module>
-  export interface SpecialLoadsConfig {
-    thermal: { on: boolean; dt: number; grad: number };
-    /** `side`: a plan point in the retained soil; off, the side is read off the plan (`special-loads.ts`). */
-    soil: { on: boolean; gradeZ: number; gamma: number; k: number; surcharge: number; permanent: boolean; sideOn: boolean; sideX: number; sideY: number };
-    /** `inside`: a plan point inside the fluid; off, the walls that close a region in. */
-    fluid: { on: boolean; levelZ: number; gamma: number; insideOn: boolean; insideX: number; insideY: number };
-  }
-  export const defaultSpecialLoads = (): SpecialLoadsConfig => ({
-    thermal: { on: false, dt: 20, grad: 0 },
-    soil: { on: false, gradeZ: 0, gamma: 17.3, k: 0.5, surcharge: 0, permanent: true, sideOn: false, sideX: 0, sideY: 0 },
-    fluid: { on: false, levelZ: 3, gamma: 10, insideOn: false, insideX: 0, insideY: 0 },
-  });
+  // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
+  import type { SpecialLoadsConfig } from './auto-loads-sections';
   /** CIRSOC 101-2025 Tabla 3.2, soil unit weights, kN/m³. */
   export const SOIL_WEIGHTS: ReadonlyArray<{ key: string; gamma: number }> = [
     { key: 'clayDry', gamma: 9.9 }, { key: 'clayWet', gamma: 17.3 }, { key: 'clayGravelDry', gamma: 15.7 },
@@ -30,6 +20,7 @@
    * cannot (a lone retaining wall).
    */
   import { t } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   interface Props { config: SpecialLoadsConfig }
   let { config = $bindable() }: Props = $props();
@@ -76,7 +67,7 @@
         <label class="al-field al-field-narrow"><span class="al-label">K</span>
           <input type="number" step="0.05" min="0" max="1.5" bind:value={() => config.soil.k, setNum(config.soil, 'k')} onblur={reshow(config.soil.k)} data-testid="al-soil-k" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.surcharge')}</span>
-          <span class="al-unit-field"><input type="number" step="1" min="0" bind:value={() => config.soil.surcharge, setNum(config.soil, 'surcharge')} onblur={reshow(config.soil.surcharge)} /><span>kN/m²</span></span></label>
+          <QuantityInput bind:value={config.soil.surcharge} quantity="areaLoad" min={0} wrap="al-unit-field" /></label>
       </div>
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.permanent} /> {t('autoLoad.special.permanent')}</label>
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.sideOn} data-testid="al-soil-side" /> {t('autoLoad.special.soilSide')}</label>

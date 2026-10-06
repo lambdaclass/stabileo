@@ -275,13 +275,15 @@ test.describe('@smoke the project states its own combination rules', () => {
     await page.getByTestId('combo-rule-r1-D').fill('1.4');
     await page.getByTestId('combo-rule-r1-D').press('Tab');
     await page.getByTestId('al-combo-source-project').check();
-    // Replacing what the model has, so the count is the rule's alone.
+    // "Replace" takes back what a code wrote; the example's own combinations are typed in it and
+    // stay, so the rule adds one to them.
+    const typed = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
     await alSection(page, 'applying');
     await page.getByTestId('al-clear').check();
     await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-after-combos')).toHaveText('1');
+    await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(1);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(typed + 1);
   });
 });
 

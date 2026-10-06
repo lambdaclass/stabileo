@@ -422,6 +422,13 @@ argentina:
   Para las combinaciones de servicio se puede agregar el **viento de servicio Wa** de B.4.2: la
   velocidad de 50 años del mapa de la Figura C AB.4.2-1 y una recurrencia (5 a 500 años), que la
   convierte con el factor de esa figura.
+  El **factor de efecto de ráfaga** sigue el §1.9. La frecuencia fundamental de cada dirección
+  sale del análisis modal del modelo (con las masas del plan), de valores que escribís, de las
+  fórmulas aproximadas del §1.9.3, o de declarar la estructura rígida. Por encima de 1 Hz el
+  edificio es rígido y toma G = 0,85 o la Ec. (1.9-6); por debajo es flexible y toma G_f con el
+  amortiguamiento que indiques, y sus casos con torsión usan la Ec. (2.4-5). Después de la vista
+  previa el diálogo muestra, por dirección, n₁, la clasificación, el factor y sus pasos. Un
+  edificio bajo es rígido sin necesidad de frecuencia.
 - **Nieve** según CIRSOC 104-2005: pg de la localidad (Tablas 1.1 a 1.15) o del lugar, pf con
   sus mínimos para cubiertas de baja pendiente, Cs según la pendiente y la condición térmica,
   lluvia sobre nieve, y la carga no balanceada en cubiertas a dos aguas, un caso por cada sentido
@@ -435,6 +442,23 @@ viento se aplica como fuerzas por nivel, y la torsión como fuerzas repartidas e
 nivel que suman ese momento. Primero muestra el plan de cargas para revisarlo, y lo
 aplica cuando lo confirmás. Los casos de tipo D, L, Lr, W, Wa, S, E, T, H y F tienen además un botón **§**
 que abre el diálogo directamente en la sección de ese caso.
+
+Cada rol de cargas del proyecto (combinaciones, sobrecargas, viento, nieve, sismo y acción
+térmica) tiene asignada una norma en **Reglamentos del proyecto**, y el generador trabaja con la
+norma de cada rol. El selector ofrece las normas que pueden generar cargas; una norma de acciones de
+otra familia que la de combinaciones se informa como error. El diálogo se abre con los parámetros
+que el proyecto guardó para cada norma, o con los valores iniciales de esa norma si no hay
+guardados. Las cargas por superficie y las velocidades se escriben en las unidades de pantalla
+del proyecto.
+
+**Reemplazar cargas generadas** actúa por acción: quita las cargas que el generador escribió para
+las acciones que regenera y las combinaciones que escribió una norma. Las cargas y combinaciones
+escritas a mano se mantienen, igual que los casos de las acciones que el plan no toca. Cada
+combinación generada registra la norma, la edición y la regla de la que sale; el diseño usa las de
+resistencia. Una carga o combinación que editás o copiás pasa a ser tuya, y reemplazar la deja. En
+un proyecto guardado antes de que las cargas se marcaran, la vista previa dice cuántas cargas y
+combinaciones sin marca hay en los casos donde escribe el plan, y ofrece quitarlas también; si no,
+quedan y el plan se agrega al lado.
 
 ### Generadores
 

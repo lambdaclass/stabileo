@@ -8,8 +8,7 @@
   import { t, tp } from '../../lib/i18n';
   import { modelStore } from '../../lib/store';
   import ProCombinationRules from './ProCombinationRules.svelte';
-
-  export type ComboSource = 'regulation' | 'project';
+  import type { ComboSource } from './auto-loads-sections';
   interface Props {
     generate: boolean;
     source: ComboSource;
