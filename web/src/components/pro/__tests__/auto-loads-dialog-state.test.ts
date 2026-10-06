@@ -67,3 +67,21 @@ describe('the modes of the modal method', () => {
     expect(dialog).toMatch(new RegExp(`const ${call![1]} = [^;]*applyLiveReduction: false`));
   });
 });
+
+describe('the wind dynamics block (CIRSOC 102-2025 §1.9)', () => {
+  it('passes the plan the modal reading: the lowest mode for trigger III and the notes (C 1.1.2, C 1.9)', () => {
+    expect(dialog).toMatch(/const planDynamics = [\s\S]*?modal: \{ lowest: windModal\.lowest, notes: windModal\.notes \}/);
+  });
+  it('drops the gust reading when the structure or the directions change', () => {
+    const effect = dialog.match(/void \[([^\]]*)\];\s*planGust = undefined;/);
+    expect(effect).not.toBeNull();
+    expect(effect![1]).toMatch(/windStructure/);
+    expect(effect![1]).toMatch(/windDirs/);
+  });
+  it('offers the approximate frequency to buildings alone, and β follows the kind (§1.9.2.1, C 1.9)', () => {
+    expect(dialog).toMatch(/<ProWindDynamics [^>]*building=\{isBuildingKind\(windStructure\.kind\)\}/);
+    expect(dialog).toMatch(/windDyn\.beta === defaultBeta\(betaKind\)/);
+    const block = readFileSync(join(process.cwd(), 'src/components/pro/ProWindDynamics.svelte'), 'utf8');
+    expect(block).toMatch(/\.\.\.\(building \? \['approximate'\] : \[\]\)/);
+  });
+});

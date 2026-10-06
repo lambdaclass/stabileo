@@ -7,13 +7,13 @@ import {
   applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
   SERVICE_WIND_FACTOR, type WindProject,
 } from '../../codes/cirsoc102/wind';
-import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, type GustResult } from '../../codes/cirsoc102/gust';
+import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, effectiveLength, type GustResult } from '../../codes/cirsoc102/gust';
 import { gustInputsFor, isLowRise } from './wind-dynamics';
 import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
 import { otherStructureWind } from './wind-other';
 import { REF_FREE_ROOF, REF_SIGN, REF_OTHER, REF_MIN_OTHER } from '../../codes/cirsoc102/other-structures';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
-import { msg, round } from '../../codes/message';
+import { messageIdentity, msg, round, type EngineMessage } from '../../codes/message';
 import { windDirectionsOf, type LevelMass, type LoadPlanInput, type PlanSink } from './load-plan';
 
 const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
@@ -36,20 +36,58 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
      * damping and the rigid G. A level's extent along the wind gives L_ef (Eq. 1.9-1).
      */
     const dyn = input.wind.dynamics;
-    const lowRise = isLowRise(h, bx, by, input.wind.enclosure, input.wind.structure?.kind);
+    const kind = input.wind.structure?.kind ?? 'building';
+    const lowRise = isLowRise(h, bx, by, input.wind.enclosure, kind);
     const extent = (ids: readonly number[], k: 'x' | 'y') => {
       const v = ids.map((id) => input.model.nodes.get(id)?.[k] ?? 0);
       return v.length ? Math.max(...v) - Math.min(...v) : 0;
     };
-    const gustOf = (axis: 'x' | 'y') => gustInputsFor(dyn, axis, h, levels.map((l) => ({ elevation: l.elevation, along: extent(l.nodeIds, axis) })), lowRise);
-    const gustReported = new Set<string>();
+    /*
+     * A chimney or a tower modelled as a stick spans nothing across the wind: its width is the one
+     * the reader declares, as `wind-other.ts` loads it (D, or the face's width). B, L and B_min take
+     * it too: B = L = 0,1 m read G_f 1,404 for a chimney 2 m across that is 1,299, and B_min = 0
+     * silenced triggers II and IV of C 1.1.2.
+     */
+    const st = input.wind.structure;
+    const declared = st?.kind === 'chimney' ? st.diameter : st?.kind === 'latticeTower' || st?.kind === 'openSign' ? st.width : undefined;
+    const STICK = 0.05;   // m: the span below which `wind-other.ts` reads a level as a stick's
+    const widthOr = (span: number) => (span > STICK || !(declared !== undefined && declared > 0) ? span : declared);
+    /** Across the wind along `axis`, at one level's nodes or over the model. */
+    const acrossAt = (ids: readonly number[] | null, axis: 'x' | 'y') => widthOr(ids ? extent(ids, axis === 'x' ? 'y' : 'x') : axis === 'x' ? by : bx);
+    /** Along it: a stick's depth is its D or a square tower's side, a triangle's height; a sign's stays its nodes'. */
+    const alongOf = (axis: 'x' | 'y') => {
+      const span = axis === 'x' ? bx : by;
+      if (span > STICK || !(declared !== undefined && declared > 0) || st?.kind === 'openSign') return span;
+      return st?.kind === 'latticeTower' && st.section === 'triangle' ? declared * Math.sqrt(3) / 2 : declared;
+    };
+    const rawGust = (axis: 'x' | 'y') => gustInputsFor(dyn, axis, h, levels.map((l) => ({ elevation: l.elevation, along: extent(l.nodeIds, axis) })), lowRise, kind);
+    /** A refusal once, however many axes or passes meet it. */
+    const refuse = (m: EngineMessage) => { if (!unsupportedKeys.some((u) => messageIdentity(u) === messageIdentity(m))) unsupportedKeys.push(m); };
+    let sensitive: EngineMessage[] = [];
     if (dyn && !lowRise) {
-      // What the generated load does not cover, by the commentary's triggers (C 1.1.2).
-      const bMin = Math.min(bx, by);
-      const n1s = (['x', 'y'] as const).map((a) => { const g = gustOf(a); return g && !('refused' in g) ? g.n1 : undefined; }).filter((v): v is number => v !== undefined);
+      /*
+       * What the generated load does not cover, by the commentary's triggers (C 1.1.2). B_min is
+       * the least, over the directions, of Σ h_i·B_i / Σ h_i with B_i each level's width across
+       * the wind: a setback tower's, not its podium's. Trigger III reads the lowest natural
+       * frequency of the structure, a torsional mode's included, which the modal reading carries.
+       */
+      const elevated = levels.filter((l) => l.elevation > 0);
+      const weighted = (['x', 'y'] as const).map((a) => effectiveLength(elevated.map((l) => ({ h: l.elevation, L: acrossAt(l.nodeIds, a) }))));
+      const bMin = elevated.length ? Math.min(...weighted) : Math.min(acrossAt(null, 'x'), acrossAt(null, 'y'));
+      const n1s = (['x', 'y'] as const).map((a) => { const g = rawGust(a); return g && !('refused' in g) ? g.n1 : undefined; }).filter((v): v is number => v !== undefined);
+      if (dyn.n1Source === 'modal' && dyn.modal?.lowest !== undefined && dyn.modal.lowest > 0) n1s.push(dyn.modal.lowest);
       const n1 = n1s.length ? Math.min(...n1s) : undefined;
-      unsupportedKeys.push(...dynamicSensitivity({ h, bMin, n1, vBar: meanHourlySpeed(equivalentHeight(h, input.wind.exposure), input.wind.basicSpeed, input.wind.exposure) }));
+      sensitive = dynamicSensitivity({ h, bMin, n1, vBar: meanHourlySpeed(equivalentHeight(h, input.wind.exposure), input.wind.basicSpeed, input.wind.exposure) });
+      unsupportedKeys.push(...sensitive);
+      if (dyn.n1Source === 'modal') unsupportedKeys.push(...(dyn.modal?.notes ?? []));
     }
+    /*
+     * Once a trigger fires, the dynamic response is to be studied with frequencies from an analysis
+     * of the structure, not with height-based equations (C 1.1.2): the approximate n_a is refused.
+     */
+    const approxSensitive = dyn?.n1Source === 'approximate' && sensitive.length > 0;
+    const gustOf = (axis: 'x' | 'y') => (approxSensitive ? { refused: msg('loads.cirsoc102.gust.approxSensitive') } : rawGust(axis));
+    const gustReported = new Set<string>();
 
     /** The wind on each axis at basic speed `speed`; `service` for Wa (no minimum, no derivation). */
     // The directions asked for, any of ±X and ±Y (`windDirectionsOf`); an axis is solved when either sense is.
@@ -71,7 +109,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         };
         const g = gustOf(dir);
         if (g && 'refused' in g) {
-          if (!service) unsupportedKeys.push(g.refused);
+          if (!service) refuse(g.refused);
           continue;
         }
         if (g) project.gust = g;
@@ -178,9 +216,9 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         // Diagonal cases need both axes, even when only one cardinal direction was selected.
         if (!diagonal && !windDirs.some((d) => d.endsWith(axis))) continue;
         const g = gustOf(axis);
-        if (g && 'refused' in g) { unsupportedKeys.push(g.refused); continue; }
+        if (g && 'refused' in g) { refuse(g.refused); continue; }
         if (!g) { gOther.set(axis, G_RIGID); continue; }
-        const r = gustEffectFactor({ exposure: input.wind.exposure, V: input.wind.basicSpeed, h: Math.max(h, 1), B: Math.max(axis === 'x' ? by : bx, 0.1), L: Math.max(axis === 'x' ? bx : by, 0.1), ...g });
+        const r = gustEffectFactor({ exposure: input.wind.exposure, V: input.wind.basicSpeed, h: Math.max(h, 1), B: Math.max(acrossAt(null, axis), 0.1), L: Math.max(alongOf(axis), 0.1), ...g });
         if (r.kind === 'unsupported') { unsupportedKeys.push(...r.notes); continue; }
         gOther.set(axis, r.value.value);
         windGust[axis] = r;
