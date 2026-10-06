@@ -15,27 +15,44 @@ function picked(ids: Iterable<number>): Load[] {
   return modelStore.loads.filter((l) => want.has(l.data.id));
 }
 
-/** New loads, whole, under new ids, in one undo step; the ids they took. */
+/** New loads, whole, under new ids, in one undo step; the ids they took. None is no edit at all. */
 export function addLoads(loads: readonly Load[]): number[] {
+  // An empty batch still pushed an undo step and bumped the model's version, clearing the results.
+  if (loads.length === 0) return [];
   const out: number[] = [];
   modelStore.batch(() => { for (const l of loads) out.push(modelStore.addLoadEntry(l)); });
   return out;
 }
 
-/** A copy of each load in `caseId`, times `factor`. The originals stay. */
+/**
+ * A nodal load of these six components at `nodeId`, or null and nothing added when every one is
+ * zero: the context menu's "add load" placed a load of nothing when the draw bar held zeros.
+ */
+export function addNodalLoadIfAny(nodeId: number, v: { fx: number; fy: number; fz: number; mx: number; my: number; mz: number }, caseId: number): number | null {
+  if ([v.fx, v.fy, v.fz, v.mx, v.my, v.mz].every((x) => x === 0)) return null;
+  return modelStore.addNodalLoad3D(nodeId, v.fx, v.fy, v.fz, v.mx, v.my, v.mz, caseId);
+}
+
+/** Whether the model has the case: loads written to one it does not have belong to no case. */
+const caseExists = (caseId: number) => modelStore.model.loadCases.some((c) => c.id === caseId);
+
+/** A copy of each load in `caseId`, times `factor`. The originals stay. Nothing for a case not there. */
 export function copyLoadsToCase(ids: Iterable<number>, caseId: number, factor = 1): number[] {
+  if (!caseExists(caseId)) return [];
   return addLoads(picked(ids).map((l) => {
     const c = scaledLoad(l, factor);
     return { ...c, data: { ...c.data, caseId } } as Load;
   }));
 }
 
-/** The loads moved to `caseId`, unchanged otherwise. */
-export function moveLoadsToCase(ids: Iterable<number>, caseId: number): void {
+/** The loads moved to `caseId`, unchanged otherwise; false, and nothing moved, for a case not there. */
+export function moveLoadsToCase(ids: Iterable<number>, caseId: number): boolean {
+  if (!caseExists(caseId)) return false;
   const want = new Set(ids);
   modelStore.batch(() => {
     modelStore.replaceLoads(modelStore.loads.map((l) => (want.has(l.data.id) ? ({ ...l, data: { ...l.data, caseId } } as Load) : l)));
   });
+  return true;
 }
 
 /** The loads times `k`, in place. */
@@ -77,10 +94,16 @@ export function duplicateCase(caseId: number, name: string, factor = 1): number 
   return id;
 }
 
-/** What deleting a case takes with it: its loads, and the combinations that use it. */
-export function caseDeletionScope(caseId: number): { loads: number; combinations: number } {
+/**
+ * What deleting a case takes with it, as `removeLoadCase` takes it: its loads, the combinations
+ * that use it, its self-weight rows, and its factor in a mass source written case by case.
+ */
+export function caseDeletionScope(caseId: number): { loads: number; combinations: number; selfWeight: number; mass: boolean } {
+  const ms = modelStore.model.massSource;
   return {
     loads: modelStore.loads.filter((l) => (l.data.caseId ?? 1) === caseId).length,
     combinations: modelStore.model.combinations.filter((c) => c.factors.some((f) => f.caseId === caseId && f.factor !== 0)).length,
+    selfWeight: modelStore.model.analysis?.selfWeight?.filter((r) => r.caseId === caseId).length ?? 0,
+    mass: ms?.kind === 'custom' && ms.factors.some((f) => f.caseId === caseId),
   };
 }
