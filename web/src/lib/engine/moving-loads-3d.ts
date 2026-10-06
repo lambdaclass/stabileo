@@ -25,6 +25,8 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import { buildCriticalStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
+import { buildSolverInput3D, type ModelData } from './solver-service';
+import { withoutSettlement } from './settlement-case';
 
 export interface PathSegment3D {
   elementId: number;
@@ -149,6 +151,17 @@ export interface MovingLoad3DOptions {
   step?: number;
   onProgress?: (done: number, total: number) => void;
   signal?: AbortSignal;
+}
+
+/**
+ * The structure a train runs on: the model's, with none of its loads. A load builds the input it
+ * is in: a moment or an axial force inside a span cuts the member there, and a load case's imposed
+ * displacement goes on the supports. Neither belongs to the train: the cut made the path's member
+ * pieces the path could not name, and every case's displacements were imposed on every position.
+ * A support's own settlement is not part of a moving-load envelope either.
+ */
+export function movingLoadBase3D(model: ModelData, leftHand = false): SolverInput3D | null {
+  return buildSolverInput3D({ ...model, supports: withoutSettlement(model.supports), loads: [] }, false, leftHand);
 }
 
 /** Sweep `train` along `path`, forward and (for an asymmetric train) back. */

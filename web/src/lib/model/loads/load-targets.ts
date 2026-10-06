@@ -32,10 +32,14 @@ export interface TargetModel {
 
 export interface TargetSelection { nodes: Iterable<number>; elements: Iterable<number>; quads?: Iterable<number> }
 
-/** Ids in `1, 4, 7-12` form; the ones the model does not have are left out. */
+/**
+ * Ids in `1, 4, 7-12` form; the ones the model does not have are left out. A range's dash (or en
+ * dash) is read with the spaces around it first: split on spaces before, `7 - 12` was 7 and 12 and
+ * `7 -12` was 7 alone. A dash with no id before it is not a negative id.
+ */
 export function parseIdList(text: string): number[] {
   const out: number[] = [];
-  for (const part of text.split(/[,;\s]+/).filter(Boolean)) {
+  for (const part of text.replace(/\s*[-–]\s*/g, '-').split(/[,;\s]+/).filter(Boolean)) {
     const m = part.match(/^(\d+)\s*[-–]\s*(\d+)$/);
     if (m) {
       const a = Number(m[1]), b = Number(m[2]);
@@ -45,6 +49,22 @@ export function parseIdList(text: string): number[] {
     } else if (/^\d+$/.test(part)) out.push(Number(part));
   }
   return [...new Set(out)];
+}
+
+/** What "apply to" offers for an entity; `chain` (the selection as one physical member) for member loads that take it. */
+export function targetModes(entity: TargetEntity, allowChain: boolean): Array<TargetSpec['by'] | 'chain'> {
+  return entity === 'members'
+    ? ['selection', 'ids', 'group', 'range', 'section', 'kind', ...(allowChain ? ['chain' as const] : [])]
+    : ['selection', 'ids', 'group', 'range'];
+}
+
+/**
+ * The choice kept when the kind of load changes: the same one when the new kind offers it, the
+ * selection otherwise. Left as it was, a 'section' kept for a nodal load showed a blank select
+ * while the loads went to the selection.
+ */
+export function keepTargetMode<B extends string>(by: B, modes: readonly string[]): B | 'selection' {
+  return modes.includes(by) ? by : 'selection';
 }
 
 /** Within 1 mm of the range's ends a coordinate is in it. */

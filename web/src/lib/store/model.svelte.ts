@@ -47,6 +47,7 @@ import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
 import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
+import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -3326,10 +3327,18 @@ function createModelStore() {
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
-    updateLoad(loadId: number, data: Record<string, number | boolean | string | undefined>): void {
-      if (!_undoBatching) _pushUndo?.();
+    /**
+     * Edit a load's fields in place. False, and nothing changed (no undo step), when the load is not
+     * there or the edit would put a 3D member load's stretch or point off its member
+     * (`model/loads/load-stretch.ts`): a = 4 typed past b = 3 was stored, drawn down over 3–4 m and
+     * solved as an upward load.
+     */
+    updateLoad(loadId: number, data: Record<string, number | boolean | string | undefined>): boolean {
       const load = model.loads.find(l => l.data.id === loadId);
-      if (!load) return;
+      if (!load) return false;
+      if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
+        && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
+      if (!_undoBatching) _pushUndo?.();
       // Handle caseId for all load types
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
@@ -3389,18 +3398,17 @@ function createModelStore() {
         if (data.qYJ !== undefined) d.qYJ = data.qYJ as number;
         if (data.qZI !== undefined) d.qZI = data.qZI as number;
         if (data.qZJ !== undefined) d.qZJ = data.qZJ as number;
-        if (data.a !== undefined) {
-          const aVal = Math.max(0, data.a as number);
-          d.a = aVal > 0 ? aVal : undefined;
-        }
-        if (data.b !== undefined) {
-          const bVal = data.b as number;
-          const L = this.getElementLength(d.elementId);
-          d.b = (bVal < L - 1e-10) ? Math.max(d.a ?? 0, bVal) : undefined;
+        if (data.a !== undefined || data.b !== undefined) {
+          // Checked above (`editKeepsPlace`); an end at the member's own end is stored as absent.
+          const st = checkStretch((data.a as number | undefined) ?? d.a, (data.b as number | undefined) ?? d.b, loadedLength(model as never, d.elementId));
+          if (st.ok) {
+            if (st.a === undefined) delete d.a; else d.a = st.a;
+            if (st.b === undefined) delete d.b; else d.b = st.b;
+          }
         }
       } else if (load.type === 'pointOnElement3d') {
         const d = load.data as PointLoadOnElement3D;
-        if (data.a !== undefined) d.a = data.a as number;
+        if (data.a !== undefined) d.a = checkPosition(data.a as number, loadedLength(model as never, d.elementId)) ?? d.a;
         if (data.py !== undefined) d.py = data.py as number;
         if (data.pz !== undefined) d.pz = data.pz as number;
         for (const k of ['px', 'mx', 'my', 'mz'] as const) if (data[k] !== undefined) d[k] = (data[k] as number) || undefined;
@@ -3421,6 +3429,7 @@ function createModelStore() {
       }
       // Reassign array to trigger Svelte 5 reactivity after in-place mutation
       model.loads = [...model.loads];
+      return true;
     },
 
     clear(): void {
@@ -3992,11 +4001,22 @@ function createModelStore() {
 
     // ─── 3D Analysis ──────────────────────────────────────────────
 
-    /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean } = {}): SolverInput3D | null {
+    /**
+     * Build a SolverInput3D from the current model state. Returns null if model is empty.
+     *
+     * The input of the advanced analyses, the kinematic report and the instability's mechanism; the
+     * solves build their own. A case's imposed displacements (`engine/case-displacements.ts`) are
+     * left out unless `caseDisplacements`: on the supports they are every case's at once, which is
+     * what an analysis of the model's loads solves (P-Delta of every load, as the linear "All
+     * loads" solve takes them), and a settlement no case asked for in an eigen-analysis, a dynamic
+     * one or one that ignores the loads. `uncut`: no member cut for a load inside its span either
+     * (`engine/variable-members.ts`), for what names the model's nodes and members.
+     */
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
+      const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
+          loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,

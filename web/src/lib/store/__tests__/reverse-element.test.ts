@@ -29,7 +29,9 @@ function peak(r: { displacements: Array<Record<string, number>> }) {
   return r.displacements.map((d) => [d.nodeId, +(d.ux ?? 0).toFixed(9), +(d.uz ?? d.uy ?? 0).toFixed(9)]);
 }
 function reactions(r: { reactions: Array<Record<string, number>> }) {
-  return r.reactions.map((x) => [x.nodeId, +(x.rx ?? x.fx ?? 0).toFixed(6), +(x.rz ?? x.fz ?? 0).toFixed(6), +(x.my ?? 0).toFixed(6)]);
+  // Rounded, and a round-off below the last digit is zero whatever its sign (−0 is not 0 to toEqual).
+  const r6 = (v: number) => +v.toFixed(6) + 0;
+  return r.reactions.map((x) => [x.nodeId, r6(x.rx ?? x.fx ?? 0), r6(x.rz ?? x.fz ?? 0), r6(x.my ?? 0)]);
 }
 
 beforeEach(() => { historyStore.clear(); modelStore.clear(); });

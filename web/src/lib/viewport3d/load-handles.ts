@@ -2,13 +2,19 @@
  * Handles on a member load's stretch: with one distributed load selected in PRO, a handle at each
  * end of its stretch (a and b), dragged along the member to move that end. The model takes one
  * undo step for the whole drag; the drawing follows as it goes.
+ *
+ * Measured on the segment the engine loads (`loadedSegment`): on a member with rigid end offsets,
+ * from the end of the offset at I to the one at J. Node to node, a handle sat off where the load
+ * acts, and a drag to the node went past the flexible length, which the stretch rule refuses.
  */
 import * as THREE from 'three';
 import { modelStore, uiStore } from '../store';
 import type { DistributedLoad3D } from '../store/model.svelte';
+import { loadedSegment } from '../model/loads/load-stretch';
 
 export interface StretchHandles {
   loadId: number;
+  /** The loaded segment's ends (a = 0 and b = L), and its length. */
   I: THREE.Vector3;
   J: THREE.Vector3;
   L: number;
@@ -23,13 +29,9 @@ export function activeStretchHandles(): StretchHandles | null {
   const l = modelStore.loads.find((x) => x.data.id === id);
   if (!l || l.type !== 'distributed3d') return null;
   const d = l.data as DistributedLoad3D;
-  const e = modelStore.elements.get(d.elementId);
-  const ni = e && modelStore.nodes.get(e.nodeI), nj = e && modelStore.nodes.get(e.nodeJ);
-  if (!e || !ni || !nj) return null;
-  const I = new THREE.Vector3(ni.x, ni.y, ni.z ?? 0), J = new THREE.Vector3(nj.x, nj.y, nj.z ?? 0);
-  const L = I.distanceTo(J);
-  if (!(L > 0)) return null;
-  return { loadId: id, I, J, L, a: d.a ?? 0, b: d.b ?? L };
+  const seg = loadedSegment(modelStore.model as never, d.elementId);
+  if (!seg) return null;
+  return { loadId: id, I: new THREE.Vector3(...seg.I), J: new THREE.Vector3(...seg.J), L: seg.L, a: d.a ?? 0, b: d.b ?? seg.L };
 }
 
 /** Where along the member a stretch end is, in the world. */
@@ -52,7 +54,7 @@ export function handleUnder(
   return best;
 }
 
-/** The point of the member closest to the pointer's ray, as a distance from end I, clamped to the member. */
+/** The point of the loaded segment closest to the pointer's ray, as a distance from its start, clamped to it. */
 export function stationOnRay(h: StretchHandles, ray: THREE.Ray): number {
   const u = h.J.clone().sub(h.I).normalize();
   const w0 = h.I.clone().sub(ray.origin);
@@ -63,13 +65,14 @@ export function stationOnRay(h: StretchHandles, ray: THREE.Ray): number {
 }
 
 /**
- * Move one end of the stretch to `s`, kept on its side of the other end, to a millimetre. A full
- * length end is stored as absent, as the model states one.
+ * Move one end of the stretch to `s`, kept on its side of the other end and on the loaded segment
+ * (0 to L), to a millimetre: a drag past the end stops at the end, never refused for a length the
+ * reader cannot see. A full length end is stored as absent, as the model states one.
  */
 export function moveStretchEnd(h: StretchHandles, end: 'a' | 'b', s: number): void {
-  const mm = Math.round(s * 1000) / 1000;
-  if (end === 'a') modelStore.updateLoad(h.loadId, { a: Math.min(mm, h.b - 0.001) });
-  else modelStore.updateLoad(h.loadId, { b: Math.max(mm, h.a + 0.001) });
+  const mm = Math.min(h.L, Math.max(0, Math.round(s * 1000) / 1000));
+  if (end === 'a') modelStore.updateLoad(h.loadId, { a: Math.max(0, Math.min(mm, h.b - 0.001)) });
+  else modelStore.updateLoad(h.loadId, { b: Math.min(h.L, Math.max(mm, h.a + 0.001)) });
 }
 
 /** The two handles as small spheres, for the scene. */

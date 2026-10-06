@@ -9,9 +9,11 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { decimalOrKeep, parseDecimal } from '../../../lib/utils/numeric-input';
-  import { plainNumber, formatValue } from '../../../lib/utils/units';
+  import { plainNumber } from '../../../lib/utils/units';
   import { appliedResultant } from '../../../lib/engine/statics-check';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
+  import { loadedLength } from '../../../lib/model/loads/load-stretch';
+  import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import type { Load } from '../../../lib/store/model.svelte';
 
   let scope = $state<'case' | 'all'>('case');
@@ -30,18 +32,31 @@
 
   /** The stored value, whole: two decimals showed 0,004 kN as 0,00 in a cell that edits it. */
   const fmt = (n: number | undefined, k = 1) => plainNumber((n ?? 0) * k, 6);
-  /** A cell typed: read by the app's one reader; unreadable text keeps the value, `k` the shown scale. */
+  /** An edit the store refused (a load put off its member, `load-stretch.ts`): said, with the member's length. */
+  function refused(id: number) {
+    const elementId = (modelStore.loads.find((l) => l.data.id === id)?.data as { elementId?: number } | undefined)?.elementId;
+    if (elementId !== undefined) uiStore.toast(tp('loadTables.placeRefused', { L: plainNumber(loadedLength(modelStore.model as never, elementId), 3) }), 'error');
+  }
+  /**
+   * A cell typed: read by the app's one reader; unreadable text keeps the value, `k` the shown scale.
+   * An edit the store refuses (a point load's a off its member) keeps the value shown, too.
+   */
   function setNum(el: HTMLInputElement, id: number, key: string, previous: number | undefined, k = 1) {
     const prev = (previous ?? 0) * k;
     const v = decimalOrKeep(el.value, prev);
     el.value = plainNumber(v, 6);
-    if (v !== prev) modelStore.updateLoad(id, { [key]: v / k });
+    if (v !== prev && !modelStore.updateLoad(id, { [key]: v / k })) { el.value = plainNumber(prev, 6); refused(id); }
   }
-  /** An a or b cell: empty is the member's end. */
-  function setEnd(el: HTMLInputElement, id: number, key: 'a' | 'b', elementId: number) {
-    const v = el.value.trim() === '' ? (key === 'a' ? 0 : modelStore.getElementLength(elementId)) : parseDecimal(el.value);
-    if (v === null) { el.value = ''; return; }
-    modelStore.updateLoad(id, { [key]: v });
+  /**
+   * An a or b cell: empty is the member's end. Unreadable text, or a stretch that would not go
+   * forward on the member (0 ≤ a < b ≤ L), changes nothing and the cell shows the stored value again:
+   * blanking it left the old stretch in place behind a cell that said the whole member.
+   */
+  function setEnd(el: HTMLInputElement, id: number, key: 'a' | 'b', elementId: number, previous: number | undefined) {
+    const shown = previous !== undefined ? fmt(previous) : '';
+    const v = el.value.trim() === '' ? (key === 'a' ? 0 : loadedLength(modelStore.model as never, elementId)) : parseDecimal(el.value);
+    if (v === null) { el.value = shown; return; }
+    if (!modelStore.updateLoad(id, { [key]: v })) { el.value = shown; refused(id); }
   }
 
   function select(id: number, e: MouseEvent) {
@@ -57,15 +72,19 @@
     const types = new Map(cases.map((c) => [c.id, c.type]));
     return ids.map((id) => ({ id, ...appliedResultant(modelStore.model as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
   });
-  const F = (v: number) => formatValue(v, 'force', uiStore.unitSystem);
-  const M = (v: number) => formatValue(v, 'moment', uiStore.unitSystem);
+  // In the project's units and the reader's decimals, with the unit said: the cells are typed in SI
+  // and their headers say so, and a total in tf with no unit beside them read as kN.
+  const F = (v: number) => `${fmtQ(v, 'force')} ${unitQ('force')}`;
+  const M = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;
 
   // ── Operations on the selected loads ──
   const selected = $derived([...uiStore.selectedLoads].filter((id) => modelStore.loads.some((l) => l.data.id === id)));
   let toCase = $state<number | null>(null);
   let factorText = $state('1');
   const factor = $derived(parseDecimal(factorText));
-  const destination = $derived(toCase ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
+  // A case chosen and then deleted is no destination: back to the default, never loads in no case.
+  const destination = $derived((toCase !== null && cases.some((c) => c.id === toCase) ? toCase : null)
+    ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
   function del(ids: number[]) { removeLoads(ids); for (const id of ids) uiStore.deleteSelectedLoad(id); }
 </script>
 
@@ -135,8 +154,8 @@
             <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option><option value="projected">{t('loads.frame.projected')}</option>
           </select></td>
           {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'])}{/each}
-          <td class="col-num"><input class="inp-cell" value={l.data.a !== undefined ? fmt(l.data.a) : ''} placeholder="0" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'a', l.data.elementId)} data-testid="lt-dist-a" /></td>
-          <td class="col-num"><input class="inp-cell" value={l.data.b !== undefined ? fmt(l.data.b) : ''} placeholder="L" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'b', l.data.elementId)} data-testid="lt-dist-b" /></td>
+          <td class="col-num"><input class="inp-cell" value={l.data.a !== undefined ? fmt(l.data.a) : ''} placeholder="0" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'a', l.data.elementId, l.data.a)} data-testid="lt-dist-a" /></td>
+          <td class="col-num"><input class="inp-cell" value={l.data.b !== undefined ? fmt(l.data.b) : ''} placeholder="L" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'b', l.data.elementId, l.data.b)} data-testid="lt-dist-b" /></td>
           {@render x(l.data.id)}
         </tr>
       {/each}
