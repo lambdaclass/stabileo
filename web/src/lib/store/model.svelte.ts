@@ -3339,6 +3339,10 @@ function createModelStore() {
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
+      // A value edited by hand makes the load the user's: it loses the generator's mark, so
+      // "replace generated loads" no longer deletes the edit. A move to another case keeps it.
+      const ld = load.data as unknown as Record<string, unknown>;
+      if (ld.generatedBy && Object.keys(data).some((k) => k !== 'caseId' && data[k] !== undefined && ld[k] !== data[k])) delete ld.generatedBy;
       // Handle caseId for all load types
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
@@ -3924,11 +3928,7 @@ function createModelStore() {
      * gets a numbered one.
      */
     ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; category?: LoadCase['category'] } = {}): number {
-      const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
-        ?? (opts.own
-          ? model.loadCases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
-          : model.loadCases.find((c) => c.type === type && c.name === name));
+      const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
@@ -3983,7 +3983,15 @@ function createModelStore() {
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
       if (data.name !== undefined) combo.name = data.name;
-      if (data.factors !== undefined) combo.factors = [...data.factors];
+      if (data.factors !== undefined) {
+        // Factors edited by hand make the combination the user's: "replace generated loads" takes
+        // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
+        // service combination edited by hand still stays out of the design's "all". A rename is
+        // not an edit of what it is.
+        const sig = (fs: ReadonlyArray<{ caseId: number; factor: number }>) => fs.filter((f) => f.factor !== 0).map((f) => `${f.caseId}:${f.factor}`).sort().join('|');
+        if (combo.origin && !combo.origin.edited && sig(combo.factors) !== sig(data.factors)) combo.origin = { ...combo.origin, edited: true };
+        combo.factors = [...data.factors];
+      }
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {
@@ -4485,6 +4493,22 @@ function createModelStore() {
       return count > 0 ? sumAngle / count : 0;
     },
   };
+}
+
+/**
+ * The existing case `ensureLoadCase` writes a planned case into, or none (it will be created): the
+ * one named by id, else, for a case of a group of the plan's own, one of its type and group under
+ * its name or a numbered one, else one of its type and name. Apart so the load plan's preview
+ * finds the same cases apply will write into (`apply-load-plan.ts`).
+ */
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives'>>(
+  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean } = {},
+): C | undefined {
+  const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
+  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId) : undefined)
+    ?? (opts.own
+      ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
+      : cases.find((c) => c.type === type && c.name === name));
 }
 
 export const modelStore = createModelStore();

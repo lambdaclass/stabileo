@@ -36,13 +36,22 @@ export function addNodalLoadIfAny(nodeId: number, v: { fx: number; fy: number; f
 /** Whether the model has the case: loads written to one it does not have belong to no case. */
 const caseExists = (caseId: number) => modelStore.model.loadCases.some((c) => c.id === caseId);
 
+/**
+ * A copy of `l` in `caseId`, times `factor`, as the user's: a copy is the user's act, so it does
+ * not carry the generator's mark, and "replace generated loads" (`apply-load-plan.ts`) leaves it.
+ * It used to copy the mark too, and the next replace deleted the user's copies with the originals.
+ */
+function userCopy(l: Load, factor: number, caseId: number): Load {
+  const c = scaledLoad(l, factor);
+  const data = { ...c.data, caseId } as Record<string, unknown>;
+  delete data.generatedBy;
+  return { ...c, data } as unknown as Load;
+}
+
 /** A copy of each load in `caseId`, times `factor`. The originals stay. Nothing for a case not there. */
 export function copyLoadsToCase(ids: Iterable<number>, caseId: number, factor = 1): number[] {
   if (!caseExists(caseId)) return [];
-  return addLoads(picked(ids).map((l) => {
-    const c = scaledLoad(l, factor);
-    return { ...c, data: { ...c.data, caseId } } as Load;
-  }));
+  return addLoads(picked(ids).map((l) => userCopy(l, factor, caseId)));
 }
 
 /** The loads moved to `caseId`, unchanged otherwise; false, and nothing moved, for a case not there. */
@@ -70,21 +79,20 @@ export function removeLoads(ids: Iterable<number>): void {
 }
 
 /**
- * A new case with the same type and flags as `caseId`, its loads copied times `factor`, and its
- * self-weight rows too. Combinations are left as they are: a duplicate is a new case, not a
- * replacement. Returns the new case's id, or null when there is no such case.
+ * A new case with the same type, flags and category as `caseId`, its loads copied times `factor`
+ * (the user's, `userCopy`), and its self-weight rows too. Combinations are left as they are: a
+ * duplicate is a new case, not a replacement. Returns the new case's id, or null when there is no
+ * such case. The category is what the action is (`codes/families/origin.ts`); a duplicate of the
+ * dead load is still a permanent action, and it used to come out with none.
  */
 export function duplicateCase(caseId: number, name: string, factor = 1): number | null {
   const lc = modelStore.model.loadCases.find((c) => c.id === caseId);
   if (!lc) return null;
   let id = 0;
   modelStore.batch(() => {
-    id = modelStore.addLoadCase(name, lc.type, { ...(lc.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc.pattern ? { pattern: true } : {}) });
+    id = modelStore.addLoadCase(name, lc.type, { ...(lc.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc.pattern ? { pattern: true } : {}), ...(lc.category ? { category: lc.category } : {}) });
     const own = modelStore.loads.filter((l) => (l.data.caseId ?? 1) === caseId);
-    for (const l of own) {
-      const c = scaledLoad(l, factor);
-      modelStore.addLoadEntry({ ...c, data: { ...c.data, caseId: id } } as Load);
-    }
+    for (const l of own) modelStore.addLoadEntry(userCopy(l, factor, id));
     const analysis = modelStore.model.analysis;
     const rows = analysis?.selfWeight?.filter((r) => r.caseId === caseId) ?? [];
     if (analysis && rows.length) {

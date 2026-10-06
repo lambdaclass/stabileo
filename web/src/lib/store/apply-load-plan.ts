@@ -9,7 +9,8 @@ import { modelStore } from './index';
 import { expandCombinations } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import type { Load } from './model.svelte';
+import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
+import { findPlannedCase, type Load } from './model.svelte';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -19,6 +20,11 @@ export interface ApplyLoadPlanOptions {
   nameOf: (key: string, params?: Record<string, string | number>) => string;
   /** Patterns of partial loading also where their action is a companion (`combination-cases.ts`). */
   patternsInCompanions?: boolean;
+  /**
+   * With `clearExisting`, also what carries no generator mark in the cases the plan writes into,
+   * and the combinations that use them (`replaceScope`): a project saved before the marks.
+   */
+  alsoUnmarked?: boolean;
 }
 
 /**
@@ -26,20 +32,107 @@ export interface ApplyLoadPlanOptions {
  * plan generates, and the combinations a code wrote. A load or a combination typed by hand stays,
  * and so do the cases of actions the plan does not touch. (It used to delete every load and every
  * combination of the model.)
+ *
+ * What carries no mark is the user's — or an older version's: a project saved before the marks
+ * holds the generator's loads and code combinations unmarked, and replacing kept them and added
+ * the plan on top, every load twice, with nothing said. So the scope names them apart
+ * (`unmarked`): the unmarked loads in the very cases the plan writes into, and the unmarked
+ * combinations that use those cases. The preview says they stay and the plan adds to them, and
+ * they go only when the user asks (`alsoUnmarked`).
  */
-export function replacedByPlan(p: LoadPlan, loads: readonly Load[], cases: ReadonlyArray<{ id: number; type: string }>, combinations: ReadonlyArray<{ id: number; origin?: unknown }>): { loads: number[]; combinations: number[] } {
+export interface ReplaceScope {
+  /** What "replace" takes: the generator's loads in the regenerated actions, and the combinations a code wrote. */
+  generated: { loads: number[]; combinations: number[] };
+  /** What carries no generator mark in the cases the plan writes into: kept unless asked. */
+  unmarked: { loads: number[]; combinations: number[] };
+  /** The cases the plan writes into that exist already, by id. */
+  targets: number[];
+}
+
+type ScopeCase = { id: number; type: string; name: string; alternatives?: string };
+type ScopeCombination = { id: number; origin?: { code?: string; edited?: boolean }; factors?: ReadonlyArray<{ caseId: number; factor: number }> };
+
+/** A combination a code wrote and nobody has edited since (`CombinationOrigin.edited`). */
+export const codeWritten = (c: { origin?: { code?: string; edited?: boolean } }): boolean => !!c.origin && !c.origin.edited;
+
+export function replaceScope(
+  p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
+  nameOf?: ApplyLoadPlanOptions['nameOf'],
+): ReplaceScope {
   const types = new Set(p.cases.map((c) => String(c.type)));
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
+  // The cases apply writes into, found as `ensureLoadCase` finds them. Without names, by id alone.
+  const targets = new Set<number>();
+  for (const pc of p.cases) {
+    const found = nameOf
+      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own })
+      : cases.find((c) => c.id === pc.existingId);
+    if (found) targets.add(found.id);
+  }
+  const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
+  const caseOf = (l: Load) => l.data.caseId ?? 1;
   return {
-    loads: loads.filter((l) => (l.data as { generatedBy?: string }).generatedBy && types.has(caseType.get(l.data.caseId ?? 1) ?? '')).map((l) => l.data.id),
-    combinations: combinations.filter((c) => c.origin).map((c) => c.id),
+    generated: {
+      loads: loads.filter((l) => marked(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id),
+      combinations: combinations.filter(codeWritten).map((c) => c.id),
+    },
+    unmarked: {
+      loads: loads.filter((l) => !marked(l) && targets.has(caseOf(l))).map((l) => l.data.id),
+      combinations: combinations.filter((c) => !codeWritten(c) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
+    },
+    targets: [...targets],
+  };
+}
+
+/** What "replace" removes: the generated, and the unmarked too when asked. */
+export function replacedByPlan(
+  p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
+  opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf'] } = {},
+): { loads: number[]; combinations: number[] } {
+  const s = replaceScope(p, loads, cases, combinations, opts.nameOf);
+  return opts.alsoUnmarked
+    ? { loads: [...s.generated.loads, ...s.unmarked.loads], combinations: [...s.generated.combinations, ...s.unmarked.combinations] }
+    : s.generated;
+}
+
+const DISTRIBUTED_TYPES: readonly string[] = ['distributed', 'distributed3d'];
+const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
+
+/**
+ * The model's load state as the preview reads it (`describePlanDelta`), counted from the same scope
+ * apply removes, so the preview and apply cannot disagree. Both the 2D and the 3D variants count:
+ * `addDistributedLoad3D` stores `distributed3d`, and counting `distributed` alone read 0 in PRO.
+ */
+export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nameOf']): CurrentLoadState {
+  const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
+  const s = replaceScope(p, loads, cases, combinations, nameOf);
+  const typeOf = new Map(cases.map((c) => [c.id, String(c.type)]));
+  const byType = (ids: readonly number[]) => {
+    const want = new Set(ids);
+    const out: Record<string, { distributed: number; nodal: number; other: number }> = {};
+    for (const l of loads) {
+      if (!want.has(l.data.id)) continue;
+      const row = (out[typeOf.get(l.data.caseId ?? 1) ?? ''] ??= { distributed: 0, nodal: 0, other: 0 });
+      if (DISTRIBUTED_TYPES.includes(l.type)) row.distributed++;
+      else if (NODAL_TYPES.includes(l.type)) row.nodal++;
+      else row.other++;
+    }
+    return out;
+  };
+  return {
+    distributed: loads.filter((l) => DISTRIBUTED_TYPES.includes(l.type)).length,
+    nodal: loads.filter((l) => NODAL_TYPES.includes(l.type)).length,
+    combinations: combinations.length,
+    caseTypes: cases.map((c) => String(c.type)),
+    generated: { byType: byType(s.generated.loads), combinations: s.generated.combinations.length },
+    unmarked: { byType: byType(s.unmarked.loads), combinations: s.unmarked.combinations.length },
   };
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
   modelStore.batch(() => {
     if (opts.clearExisting) {
-      const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations);
+      const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, { alsoUnmarked: opts.alsoUnmarked, nameOf: opts.nameOf });
       const ids = new Set(gone.loads);
       modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
       for (const id of gone.combinations) modelStore.removeCombination(id);

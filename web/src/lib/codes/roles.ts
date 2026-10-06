@@ -760,7 +760,10 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
         appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : 0,
       };
     }
-    return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles }, rescuedAggregateMm: null, notices };
+    // Each code's settings come along: every restore (open, undo, autosave) goes through here,
+    // and dropping them lost what was stated for a code the moment its role was bound elsewhere.
+    const settingsByCode = storedSettingsByCode(src.settingsByCode);
+    return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles, ...(settingsByCode ? { settingsByCode } : {}) }, rescuedAggregateMm: null, notices };
   }
 
   // v1 CIRSOC-specific shape.
@@ -813,6 +816,16 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
   }
 
   return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles }, rescuedAggregateMm: rescued, notices };
+}
+
+/** A stored `settingsByCode`, keeping only adapters whose settings are an object; none: undefined. */
+function storedSettingsByCode(v: unknown): StoredRegulations['settingsByCode'] {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [adapter, s] of Object.entries(v as Record<string, unknown>)) {
+    if (s && typeof s === 'object' && !Array.isArray(s)) out[adapter] = { ...(s as Record<string, unknown>) };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function isAdoption(v: unknown): v is RoleBinding['adoption'] {
