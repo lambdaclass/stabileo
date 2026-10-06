@@ -341,14 +341,19 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const prev = takeOld(k);
       const cur = prev ? modelStore.elements.get(prev.id) : undefined;
       if (prev && cur) {
-        // Unedited: both its sections still the generator's. An end J changed, or variable
-        // section turned on or off, is the user's, as a changed end I is.
-        const unedited = cur.sectionId === prev.sectionId && cur.variableSection?.sectionJ === prev.sectionJ;
         // A member the user flipped runs J → I against the generator. Its direction is the user's,
         // as its sections are: put back the generator's node order and the kept sections (swapped
         // by the flip), releases and orientation would all face the other way, and a member of
         // variable section would come back tapered end for end.
         const flipped = cur.nodeI === j2 && cur.nodeJ === i2;
+        // Unedited: both its sections still the generator's. An end J changed, or variable
+        // section turned on or off, is the user's, as a changed end I is. Read in the member's own
+        // direction: the record keeps the generator's (`sectionId` at its I, `sectionJ` at its J),
+        // and a flip swapped a variable member's two sections, which is not an edit of either.
+        const swapped = flipped && prev.sectionJ !== undefined;
+        const unedited = swapped
+          ? cur.sectionId === prev.sectionJ && cur.variableSection?.sectionJ === prev.sectionId
+          : cur.sectionId === prev.sectionId && cur.variableSection?.sectionJ === prev.sectionJ;
         const patch: Partial<Element> = flipped
           ? { type: e.type, materialId: matOf(e.materialId) }
           : {

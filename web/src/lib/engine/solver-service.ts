@@ -3,7 +3,7 @@
 
 import { withCaseEffects } from './case-effects';
 import { casesToSolve, finishBundle } from './combination-methods';
-import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor } from './variable-members';
+import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
@@ -481,9 +481,22 @@ function preflightModel2D(model: ModelData): { error: string | null; connectedNo
     if (hasZCoords) {
       return { error: t('svc.model3dZCoords'), connectedNodes };
     }
+    const variable = variableRefusal2D(model);
+    if (variable) return { error: variable, connectedNodes };
   }
 
   return { error: null, connectedNodes };
+}
+
+/**
+ * The plane solve's refusal of a member of variable section, or null. The plane solve does not
+ * cut a member into pieces as the 3D solve does (`variable-members.ts`); solving one prismatic
+ * with end I's section gave a tapered cantilever two thirds of its deflection, with nothing said.
+ * A truss or one-way member of two sections is solved prismatic in both, and is not refused.
+ */
+export function variableRefusal2D(model: Pick<ModelData, 'elements' | 'sections'>): string | null {
+  const e = [...model.elements.values()].find((x) => isVariableMember(model, x as never));
+  return e ? tp('svc.variableIn2D', { n: e.id }) : null;
 }
 
 interface Solve2DPreparation {
@@ -526,9 +539,10 @@ function reactionColumns2D(s: SolverSupport, rx: number, rz: number, hasFrames: 
 /**
  * The first node the elements, connectors and constraints leave out, or the nodes
  * a connected walk from the first one does not reach — the message the solve gives
- * for each, or null.
+ * for each, or null. `hidden`: nodes the model does not have (the interior nodes of
+ * a variable member's pieces, `variable-members.ts`), walked but never named.
  */
-function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, adj: Map<number, Set<number>>, hint: () => string = () => ''): string | null {
+function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, adj: Map<number, Set<number>>, hint: () => string = () => '', hidden?: ReadonlySet<number>): string | null {
   for (const nodeId of nodeIds) {
     if (!connected.has(nodeId)) return t('svc.disconnectedNode').replace('{n}', String(nodeId));
   }
@@ -544,7 +558,7 @@ function connectivityRefusal(nodeIds: Iterable<number>, connected: Set<number>, 
     }
   }
   if (visited.size < connected.size) {
-    const disconnected = [...connected].filter(n => !visited.has(n));
+    const disconnected = [...connected].filter(n => !visited.has(n) && !hidden?.has(n));
     // And, when members pass nodes they are not cut at, why and what joins them (`nodesOnMembersHint`).
     return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', ')) + hint();
   }
@@ -1838,6 +1852,14 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // reinforcement-only edit triggers none. Not part of the solver.
   noteStructuralSolve();
   // Checked on what the engine will see: inactive members and the nodes nothing holds are out.
+  // A variable member is its pieces there; a refusal names the member and the model's nodes.
+  const pieces = variableExpansionFor(model);
+  const parentOf = new Map<number, { id: number; nodeI: number; nodeJ: number }>();
+  for (const m of pieces?.members.values() ?? []) {
+    const e = model.elements.get(m.parentId);
+    if (e) for (const p of m.pieces) parentOf.set(p.id, e);
+  }
+  const named = <E extends { id: number; nodeI: number; nodeJ: number }>(e: E) => parentOf.get(e.id) ?? e;
   model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) {
     return t('svc.needNodesAndElements');
@@ -1876,12 +1898,13 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeI });
     if (!nj) return tp('svc.elemNodeMissing', { id: elem.id, node: elem.nodeJ });
-    if (!model.materials.has(elem.materialId)) return tp('svc.elemMaterialMissing', { id: elem.id, mat: elem.materialId });
+    if (!model.materials.has(elem.materialId)) return tp('svc.elemMaterialMissing', { id: named(elem).id, mat: elem.materialId });
     if (!model.sections.has(elem.sectionId)) return tp('svc.elemSectionMissing', { id: elem.id, sec: elem.sectionId });
     const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (L < 1e-6) {
-      return t('svc.zeroLengthElement').replace('{n}', String(elem.id)).replace('{ni}', String(elem.nodeI)).replace('{nj}', String(elem.nodeJ));
+      const own = named(elem);
+      return t('svc.zeroLengthElement').replace('{n}', String(own.id)).replace('{ni}', String(own.nodeI)).replace('{nj}', String(own.nodeJ));
     }
   }
 
@@ -1920,7 +1943,7 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
     }
   }
   addConstraintAdjacency(adj, model.constraints);
-  const disconnected = connectivityRefusal([], connectedNodes, adj, () => nodesOnMembersHint(model));
+  const disconnected = connectivityRefusal([], connectedNodes, adj, () => nodesOnMembersHint(model), pieces?.innerNodes);
   if (disconnected) return disconnected;
 
   const input = buildSolveInput3D(model, includeSelfWeight, leftHand);

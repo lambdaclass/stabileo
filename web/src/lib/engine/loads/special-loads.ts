@@ -38,6 +38,17 @@
  * read back as a pressure; before that each node took p(its own depth) times a quarter of the
  * area, which lost the moment of a one-quad-high wall about its base.
  *
+ * ── An emptied field ──────────────────────────────────────────────
+ *
+ * A number field the reader empties reaches here as null (Svelte 5's bind:value) or NaN. It is
+ * a value not given, never a zero: an empty ΔT or gradient is no change (both empty, no T at
+ * all), an empty surcharge no surcharge; an empty grade, level, γ or K leaves that load out
+ * with a note; a point with an empty coordinate is no point, with a note. Null used to pass the
+ * `!== 0` test and put {dtUniform: null} on every member, and a null level or point read as 0.
+ *
+ * Without the point inside, every region the walls close in below the level is a tank, rooms
+ * too; a note says so, as the reader may need the point to tell them apart.
+ *
  * Pure: no store.
  */
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -194,8 +205,34 @@ export function wallPressureForces(model: SpecialModel, ps: readonly WallPressur
   return out;
 }
 
-export function specialLoads(model: SpecialModel, i: { thermal?: ThermalInput; soil?: SoilInput; fluid?: FluidInput }): SpecialLoads {
+const given = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** A plan point with both coordinates given, or none (see the header). */
+function pointOf(p: { x: number; y: number } | undefined, load: string, notes: EngineMessage[]): { x: number; y: number } | undefined {
+  if (!p) return undefined;
+  if (given(p.x) && given(p.y)) return p;
+  notes.push(msg('loadPlan.note.specialPointEmpty', { load: msg(load) }));
+  return undefined;
+}
+
+/** The required fields that are empty: a note naming the first, and true. */
+function missing(fields: Array<[unknown, string | EngineMessage]>, load: string, notes: EngineMessage[]): boolean {
+  const empty = fields.find(([v]) => !given(v));
+  if (empty) notes.push(msg('loadPlan.note.specialEmpty', { load: msg(load), field: empty[1] }));
+  return !!empty;
+}
+
+export function specialLoads(model: SpecialModel, input: { thermal?: ThermalInput; soil?: SoilInput; fluid?: FluidInput }): SpecialLoads {
   const out: SpecialLoads = { thermal: [], soil: [], fluid: [], fluidBottom: [], derivation: [], notes: [] };
+  // Each load with its emptied fields read as not given (see the header), or left out.
+  const t = input.thermal && { dtUniform: given(input.thermal.dtUniform) ? input.thermal.dtUniform : 0, dtGradient: given(input.thermal.dtGradient) ? input.thermal.dtGradient : 0 };
+  const so = input.soil;
+  const soil = so && !missing([[so.gradeZ, msg('autoLoad.special.grade')], [so.gamma, 'γ'], [so.k, 'K']], 'autoLoad.special.soil', out.notes)
+    ? { ...so, surcharge: given(so.surcharge) ? so.surcharge : 0, side: pointOf(so.side, 'autoLoad.special.soil', out.notes) } : undefined;
+  const fl = input.fluid;
+  const fluid = fl && !missing([[fl.levelZ, msg('autoLoad.special.level')], [fl.gamma, 'γ']], 'autoLoad.special.fluid', out.notes)
+    ? { ...fl, inside: pointOf(fl.inside, 'autoLoad.special.fluid', out.notes) } : undefined;
+  const i = { thermal: t, soil, fluid };
   if (i.thermal && (i.thermal.dtUniform !== 0 || i.thermal.dtGradient !== 0)) {
     const { dtUniform, dtGradient } = i.thermal;
     for (const e of model.elements.values()) out.thermal.push({ elementId: e.id, dtUniform, dtGradient: e.type === 'truss' ? 0 : dtGradient });
@@ -233,7 +270,10 @@ export function specialLoads(model: SpecialModel, i: { thermal?: ThermalInput; s
       if (holds) out.fluidBottom.push({ quadId: q.id, q: f.gamma * depth });
     }
     if (out.fluid.length === 0 && out.fluidBottom.length === 0) out.notes.push(msg('loadPlan.note.noFluidShells', { z: round(f.levelZ, 2) }));
-    else out.derivation.push(msg('loadPlan.derivation.fluid', { gamma: f.gamma, z: round(f.levelZ, 2), walls: out.fluid.length, bottom: out.fluidBottom.length }));
+    else {
+      out.derivation.push(msg('loadPlan.derivation.fluid', { gamma: f.gamma, z: round(f.levelZ, 2), walls: out.fluid.length, bottom: out.fluidBottom.length }));
+      if (!f.inside) out.notes.push(msg('loadPlan.note.fluidRegionsAssumed', { z: round(f.levelZ, 2) }));
+    }
   }
   return out;
 }

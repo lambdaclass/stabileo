@@ -46,7 +46,7 @@
   import { steelProfileSource, type ProfileSource } from '../../../lib/profiles/catalogue';
   import { sectionDataSheet } from '../../../lib/section/data-sheet';
   import { battenPlan } from '../../../lib/section/battens';
-  import type { SectionChoice } from '../../../lib/section/section-choice';
+  import { drawnUnchanged, type SectionChoice } from '../../../lib/section/section-choice';
   import {
     BUILT_UP_ARRANGEMENTS, isCompound,
     type ProfileSpec, type BuiltUpArrangement,
@@ -186,6 +186,12 @@
       });
     } else if (!isOpen && wasOpen) {
       wasOpen = false;
+      // Closed by the parent as much as by the dialog's own buttons: a "discard?" left pending
+      // would greet the next opening, and the build division would reopen as it was left.
+      confirmClose = false;
+      buildMounted = false;
+      templateDraft = null;
+      drawDraft = null;
       const el = returnFocus;
       requestAnimationFrame(() => el?.focus?.());
     }
@@ -248,12 +254,21 @@
   let templateDraft = $state<SectionChoice | null>(null);
   let drawDraft = $state<SectionChoice | null>(null);
   const builtDraft = $derived(buildMode === 'template' ? templateDraft : drawDraft);
-  /** Closing with something built and not applied asks first; a template reopened and left as it was does not. */
+  /*
+   * The build editors are mounted the first time the division is shown and then stay, hidden
+   * while the catalogue is: they used to sit in the `{:else}` of the division switch, so a look
+   * at the catalogue unmounted them and a drawing in progress was gone on the way back, without
+   * a prompt. Not mounted before that, so a catalogue pick does not pay for a drawing's analysis.
+   */
+  let buildMounted = $state(false);
+  $effect.pre(() => { if (open && division === 'build') untrack(() => { buildMounted = true; }); });
+  /** Closing with something built and not applied asks first; a template or a drawing reopened and left as it was does not. */
   let confirmClose = $state(false);
   const sameParams = (a: Record<string, number>, b: Record<string, number>) =>
     Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v);
-  const untouched = $derived(buildMode === 'template' && !!built && builtDraft?.kind === 'built'
-    && builtDraft.shapeType === built.shapeType && sameParams(builtDraft.params, built.params));
+  const untouched = $derived(buildMode === 'template'
+    ? !!built && builtDraft?.kind === 'built' && builtDraft.shapeType === built.shapeType && sameParams(builtDraft.params, built.params)
+    : drawnUnchanged(drawDraft, drawn));
   function requestClose() {
     if (division === 'build' && builtDraft && !untouched && !confirmClose) { confirmClose = true; return; }
     confirmClose = false;
@@ -384,17 +399,20 @@
               onPick={pick}
               onClose={() => {}}
             />
-          {:else}
-            {#if !noDrawing}
-            <div class="build-modes" role="radiogroup" aria-label={t('drawn.buildMode')}>
-              <button type="button" role="radio" aria-checked={buildMode === 'template'} class:active={buildMode === 'template'}
-                data-testid="build-mode-template" onclick={() => { buildMode = 'template'; }}>{t('drawn.modeTemplate')}</button>
-              <button type="button" role="radio" aria-checked={buildMode === 'draw'} class:active={buildMode === 'draw'}
-                data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; }}>{t('drawn.modeDraw')}</button>
+          {/if}
+          {#if buildMounted && !catalogueOnly}
+            <div hidden={division !== 'build'}>
+              {#if !noDrawing}
+              <div class="build-modes" role="radiogroup" aria-label={t('drawn.buildMode')}>
+                <button type="button" role="radio" aria-checked={buildMode === 'template'} class:active={buildMode === 'template'}
+                  data-testid="build-mode-template" onclick={() => { buildMode = 'template'; }}>{t('drawn.modeTemplate')}</button>
+                <button type="button" role="radio" aria-checked={buildMode === 'draw'} class:active={buildMode === 'draw'}
+                  data-testid="build-mode-draw" onclick={() => { buildMode = 'draw'; }}>{t('drawn.modeDraw')}</button>
+              </div>
+              {/if}
+              <div hidden={buildMode !== 'template'}><BuiltSectionPanel initial={built} onDraft={(c) => (templateDraft = c)} /></div>
+              {#if !noDrawing}<div hidden={buildMode !== 'draw'}><DrawnSectionEditor initial={drawn} onDraft={(c) => (drawDraft = c)} /></div>{/if}
             </div>
-            {/if}
-            <div hidden={buildMode !== 'template'}><BuiltSectionPanel initial={built} onDraft={(c) => (templateDraft = c)} /></div>
-            {#if !noDrawing}<div hidden={buildMode !== 'draw'}><DrawnSectionEditor initial={drawn} onDraft={(c) => (drawDraft = c)} /></div>{/if}
           {/if}
         </div>
 

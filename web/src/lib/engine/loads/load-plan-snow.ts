@@ -34,6 +34,8 @@ export function planSnow(input: LoadPlanInput, sink: PlanSink, layout?: GravityL
         slope: round(sn.roofSlopeDeg ?? out.geometry.slopeDeg, 1), cs: round(r.cs, 3), ps: round(r.ps, 3),
         w: round(out.geometry.W, 2),
       }));
+      // The roof surfaces of another slope, each with its own C_s (`snow-loads.ts`).
+      for (const sf of out.surfaces) derivation.push(msg('snow.derivation.psSurface', { slope: round(sf.slopeDeg, 1), cs: round(sf.cs, 3), ps: round(sf.ps, 3) }));
       if (r.rainOnSnow > 0) derivation.push(msg('snow.derivation.rain', { add: round(r.rainOnSnow, 3) }));
       if (r.unbalanced) {
         derivation.push(msg('snow.derivation.unbalanced', {

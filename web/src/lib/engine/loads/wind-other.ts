@@ -23,6 +23,14 @@
  * structure is refused with a note. It used to take D = 1 m for a chimney, whatever its size,
  * and no width at all, so no wind, for a lattice.
  *
+ * A square tower with the wind on its diagonal takes each diagonal between the senses asked:
+ * ±x and ±y give four, as wind cases are never reversed in the combinations. It used to take one,
+ * toward +x +y. A square chimney on its diagonal is loaded on the width it shows the wind, D√2
+ * for a stick of side D (Figura 4.5-1, note 1), with h/D still on the side; it took D.
+ *
+ * G is 0,85, a rigid structure's: G_f of a flexible one (§1.9.5) is not implemented, so a
+ * structure the project calls flexible is loaded with it all the same, and a note says so.
+ *
  * Pure: no store.
  */
 import { G_RIGID, velocityPressure, type WindProject } from '../../codes/cirsoc102/wind';
@@ -68,6 +76,7 @@ export function otherStructureWind(i: {
   const notes: EngineMessage[] = [];
   const nodes = [...model.nodes.values()];
   const H = Math.max(...nodes.map(Z), 0);
+  if (!project.rigid) notes.push(msg('wind.other.flexibleAssumedRigid'));
 
   if (s.kind === 'freeRoof') {
     const roof = roofMembers(model);
@@ -166,7 +175,17 @@ export function otherStructureWind(i: {
   const dirsHere: Array<{ label: string; fx: number; fy: number; diagonal: boolean }> = i.directions.map((d) => ({
     label: dirLabel(d), fx: d.endsWith('x') ? (d.startsWith('-') ? -1 : 1) : 0, fy: d.endsWith('y') ? (d.startsWith('-') ? -1 : 1) : 0, diagonal: false,
   }));
-  if (s.kind === 'latticeTower' && s.diagonal && s.section === 'square') dirsHere.push({ label: '45°', fx: Math.SQRT1_2, fy: Math.SQRT1_2, diagonal: true });
+  if (s.kind === 'latticeTower' && s.diagonal && s.section === 'square') {
+    // The senses asked on each axis; an axis with none asked, toward +.
+    const senses = (axis: 'x' | 'y') => {
+      const v = i.directions.filter((d) => d.endsWith(axis)).map((d) => (d.startsWith('-') ? -1 : 1));
+      return v.length ? [...new Set(v)].sort((a, b) => b - a) : [1];
+    };
+    const sign = (v: number) => (v > 0 ? '+' : '-');
+    for (const sx of senses('x')) for (const sy of senses('y')) {
+      dirsHere.push({ label: `${sign(sx)}X${sign(sy)}Y`, fx: sx * Math.SQRT1_2, fy: sy * Math.SQRT1_2, diagonal: true });
+    }
+  }
   // The width the reader gives, for the levels whose nodes span none.
   const given = s.kind === 'chimney' ? s.diameter : s.width;
   const widthAt = (k: number, d: { fx: number; diagonal: boolean }): number | null => {
@@ -193,7 +212,9 @@ export function otherStructureWind(i: {
       else {
         const D = width;
         cf = chimneyCf(s.section, H / D, D * Math.sqrt(q * 1000));
-        af = D * dz;
+        // The D given for a stick is the side; on the diagonal the wind sees the square's diagonal.
+        const stick = span(levelNodes[k]!, d.fx !== 0 ? 'y' : 'x') <= 0.05;
+        af = (s.section === 'squareDiagonal' && stick ? D * Math.SQRT2 : D) * dz;
       }
       // A diagonal wind takes the larger of the two axes' factors.
       const G = d.diagonal ? Math.max(gOf('x'), gOf('y')) : gOf(d.fx !== 0 ? 'x' : 'y');

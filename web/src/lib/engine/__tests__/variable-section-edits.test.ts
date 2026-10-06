@@ -25,6 +25,9 @@ import { emitModel, defaultProfileSpec, type EmitOptions } from '../generators/e
 import { weldedIPair } from '../generators/variable-pair';
 import { insertGenerated, regenerate } from '../../store/generated-structures';
 import { translation } from '../../model/edit/affine';
+import { detach, fragmentOf } from '../../model/edit/fragment';
+import { insertFragment } from '../../model/edit/transformed-copy';
+import { generatedMetadata } from '../../model/edit/generated-metadata';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -113,6 +116,28 @@ describe('editing a member of variable section', () => {
     expect(JSON.stringify(modelStore.elements.get(e))).toBe(snapshot);
   });
 
+  it('a truss is solved prismatic with end I\'s section, and is cut so: whatever its pair, into segments of that section', () => {
+    const named = (n: string) => modelStore.addSection({ name: n, a: 0.001, iz: 1e-6 } as never);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+    const catalogue = modelStore.addElement(a, b, 'truss');
+    const s300 = named('IPE 300');
+    modelStore.updateElement(catalogue, { sectionId: s300, variableSection: { sectionJ: named('IPE 600') } } as never);
+    expect(variableCutRefused(modelStore.sections, modelStore.elements.get(catalogue)!)).toBe(false);
+    expect(modelStore.subdivideElement(catalogue, 2)).toBe(true);
+    for (const e of modelStore.elements.values()) expect([e.sectionId, e.variableSection]).toEqual([s300, undefined]);
+
+    modelStore.clear();
+    const c = modelStore.addNode(0, 0, 0), d = modelStore.addNode(L, 0, 0);
+    const sI = weldedI(0.6), sJ = weldedI(0.3);
+    const template = modelStore.addElement(c, d, 'truss');
+    modelStore.updateElement(template, { sectionId: sI, variableSection: { sectionJ: sJ } } as never);
+    const sections = modelStore.sections.size;
+    expect(modelStore.subdivideElement(template, 2)).toBe(true);
+    // No section at the cut: two segments of end I's, as the whole was solved, not two steps.
+    expect(modelStore.sections.size).toBe(sections);
+    for (const e of modelStore.elements.values()) expect([e.sectionId, e.variableSection]).toEqual([sI, undefined]);
+  });
+
   it('merged with a prismatic neighbour, it is refused: one member would lose the taper', () => {
     const a = modelStore.addNode(0, 0, 0), m = modelStore.addNode(3, 0, 0), b = modelStore.addNode(6, 0, 0);
     const s1 = weldedI(0.6), s2 = weldedI(0.3);
@@ -159,6 +184,29 @@ describe('regenerating a structure of variable members', () => {
     expect(modelStore.elements.get(left!)!.variableSection).toEqual({ sectionJ: generated, segments: 20 });
   });
 
+  it('pasted into another project, regenerates as the generator\'s, and keeps the end J the user chose', () => {
+    const pair = weldedIPair(defaultProfileSpec('IPE 300'));
+    const t = generateTruss({ ...DEFAULT_TRUSS_PARAMS, kind: 'rolledPortal', spanM: 12, riseM: 1, variableSection: true });
+    const opts = { name: 'V', profiles: { ...PROFILES, rafter: pair.start }, variable: { rafter: pair.end } };
+    const meta = { generator: 'truss', params: {}, profiles: {}, gradeId: null, name: 'V' };
+    const roles = t.members.map((m) => m.role);
+    const ins = insertGenerated(emitModel(t, opts), translation([0, 0, 0]), meta, roles);
+    const [left] = [...modelStore.elements.values()].filter((e) => e.variableSection).map((e) => e.id);
+    // The user's end J: the generator's is then on no member, and only the record names it.
+    modelStore.updateElement(left!, { variableSection: { sectionJ: weldedI(0.9) } } as never);
+    const g = modelStore.model.groups.get(ins.groupId)!;
+    const frag = detach(fragmentOf({ nodes: g.members.nodes ?? [], elements: g.members.elements ?? [] } as never));
+    modelStore.clear();
+    // Another project, whose sections take the ids the copied ones had.
+    for (const h of [0.41, 0.42, 0.43, 0.44, 0.45, 0.46]) weldedI(h);
+    const pasted = insertFragment(frag, [translation([0, 0, 0])]).groups[0]!;
+    const record = generatedMetadata(modelStore.model.groups.get(pasted)!)!;
+    for (const e of record.elements) if (e?.sectionJ !== undefined) expect(modelStore.sections.has(e.sectionJ)).toBe(true);
+    const report = regenerate(pasted, emitModel(t, opts), meta, roles)!;
+    // The member the user changed is kept, the other is the generator's still.
+    expect(report.keptSections).toBe(1);
+  });
+
   it('keeps a member the user flipped running the way the user left it, tapered the same way', () => {
     const pair = weldedIPair(defaultProfileSpec('IPE 300'));
     const t = generateTruss({ ...DEFAULT_TRUSS_PARAMS, kind: 'rolledPortal', spanM: 12, riseM: 1, variableSection: true });
@@ -179,5 +227,17 @@ describe('regenerating a structure of variable members', () => {
     const e = modelStore.elements.get(left)!;
     expect([e.nodeI, e.nodeJ]).toEqual([nodeI, nodeJ]);
     expect(ends(left)).toEqual(before);
+    // Regenerated with another pair, a flipped member is still the generator's: it takes the new
+    // pair, each section at the end it was at, and the member still runs the user's way. A flip is
+    // not an edit; the same profiles above could not tell the two apart.
+    const depth = (id: number) => Object.fromEntries(Object.entries(ends(id)).map(([n, s]) => [n, modelStore.sections.get(s)!.h!]));
+    const deep = depth(left);
+    const bigger = weldedIPair(defaultProfileSpec('IPE 400'));
+    const opts2 = { ...opts, profiles: { ...PROFILES, rafter: bigger.start }, variable: { rafter: bigger.end } };
+    const report = regenerate(ins.groupId, emitModel(t, opts2), meta, roles)!;
+    expect(report.keptSections).toBe(0);
+    const after = modelStore.elements.get(left)!;
+    expect([after.nodeI, after.nodeJ]).toEqual([nodeI, nodeJ]);
+    for (const [n, h] of Object.entries(depth(left))) expect(h / deep[n]!).toBeCloseTo(400 / 300, 2);
   });
 });
