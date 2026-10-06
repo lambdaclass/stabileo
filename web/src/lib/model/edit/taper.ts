@@ -65,7 +65,7 @@ export function taperPlan(s: TaperSpec): Array<{ from: number; to: number; h: nu
   });
 }
 
-export interface TaperReport { tapered: number[]; skipped: Array<{ id: number; reason: 'missing' | 'reinforced' | 'invalid' }>; sections: number }
+export interface TaperReport { tapered: number[]; skipped: Array<{ id: number; reason: 'missing' | 'reinforced' | 'invalid' | 'variable' }>; sections: number }
 
 /** Taper each member, from its end I to its end J. */
 export function taperMembers(ids: Iterable<number>, spec: TaperSpec, name = 'I'): TaperReport {
@@ -100,6 +100,9 @@ export function taperMembers(ids: Iterable<number>, spec: TaperSpec, name = 'I')
       const e = modelStore.elements.get(id);
       if (!e) { report.skipped.push({ id, reason: 'missing' }); continue; }
       if (e.reinforcement) { report.skipped.push({ id, reason: 'reinforced' }); continue; }
+      // A member of variable section already varies: stepping it would split it into pieces
+      // that each carry a pair of end sections, and then overwrite only their end I.
+      if (e.variableSection) { report.skipped.push({ id, reason: 'variable' }); continue; }
       const rotation = modelStore.sections.get(e.sectionId)?.rotation ?? 0;
       const cuts = plan.slice(1).map((p) => p.from);
       const r = modelStore.splitMember(id, cuts, { keepOriginalId: false });

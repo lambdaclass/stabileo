@@ -490,7 +490,7 @@ export function exportResultsCSV(): string {
 
     // 3D Element forces
     lines.push(`# ${t('file.internalForces')}`);
-    lines.push(`${t('file.element')},L (m),Ni,Nj,Vyi,Vyj,Vzi,Vzj,Mxi,Mxj,Myi,Myj,Mzi,Mzj`);
+    lines.push(`${t('file.element')},L (m),Ni (kN),Nj (kN),Vyi (kN),Vyj (kN),Vzi (kN),Vzj (kN),Mxi (kN·m),Mxj (kN·m),Myi (kN·m),Myj (kN·m),Mzi (kN·m),Mzj (kN·m)`);
     for (const f of r3d.elementForces) {
       lines.push(`${f.elementId},${f.length},${f.nStart},${f.nEnd},${f.vyStart},${f.vyEnd},${f.vzStart},${f.vzEnd},${f.mxStart},${f.mxEnd},${f.myStart},${f.myEnd},${f.mzStart},${f.mzEnd}`);
     }

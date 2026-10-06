@@ -79,6 +79,12 @@ export interface ProfileSpec {
    * overrides that for every member of the role.
    */
   rotationDeg: number | 'auto';
+  /**
+   * A section built from a template instead of a catalogue profile: a welded I of given plates,
+   * say. `profileName` is then the template's name for it, and the arrangement is `single`.
+   * Only a generator's member of variable section takes one today (`generators/variable-pair.ts`).
+   */
+  built?: { shapeType: string; params: Record<string, number> };
 }
 
 export function defaultProfileSpec(profileName: string): ProfileSpec {
@@ -167,5 +173,6 @@ export function sameProfileSpec(a: ProfileSpec, b: ProfileSpec): boolean {
   return a.profileName === b.profileName
     && a.arrangement === b.arrangement
     && a.gapMm === b.gapMm
-    && a.rotationDeg === b.rotationDeg;
+    && a.rotationDeg === b.rotationDeg
+    && JSON.stringify(a.built ?? null) === JSON.stringify(b.built ?? null);
 }

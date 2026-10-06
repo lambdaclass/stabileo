@@ -19,6 +19,7 @@
     RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
   import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
+  import { ruleLibrary, type RuleTemplate } from '../../lib/store/rule-library.svelte';
 
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
@@ -57,6 +58,23 @@
 
   function exportTemplate() {
     downloadText(rulesToTemplate(rules, modelStore.model.name ?? ''), 'combination-rules.json', 'application/json');
+  }
+
+  // ── The library of this browser (`rule-library.svelte.ts`) ──
+  let libraryName = $state('');
+  function saveToLibrary() {
+    const ok = ruleLibrary.save(libraryName || modelStore.model.name || t('combos.library.unnamed'), rules);
+    uiStore.toast(t(ok ? 'combos.library.saved' : 'combos.library.notKept'), ok ? 'success' : 'error');
+    libraryName = '';
+  }
+  /**
+   * Add a template's rules after the project's own, with ids none of them has: numbering on from
+   * the list's length gave a second r3 beside r2 and r3 once r1 was deleted.
+   */
+  function useTemplate(tpl: RuleTemplate) {
+    const ids = freshRuleIds(rules, tpl.rules.length);
+    write([...rules, ...tpl.rules.map((r, i) => ({ ...r, id: ids[i]! }))]);
+    uiStore.toast(tp('combos.rules.imported', { n: tpl.rules.length }), 'success');
   }
 
   async function importTemplate(e: Event) {
@@ -109,6 +127,27 @@
     <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />
   </div>
+  <div class="cr-lib" data-testid="combo-library">
+    <span class="al-label">{t('combos.library.title')}</span>
+    <div class="cr-row">
+      <input type="text" bind:value={libraryName} placeholder={t('combos.library.name')} aria-label={t('combos.library.name')} data-testid="combo-library-name" />
+      <button class="al-btn-sm" disabled={rules.length === 0} onclick={saveToLibrary} data-testid="combo-library-save">{t('combos.library.save')}</button>
+    </div>
+    {#if ruleLibrary.templates.length === 0}
+      <p class="al-hint">{t('combos.library.empty')}</p>
+    {:else}
+      <ul class="cr-list">
+        {#each ruleLibrary.templates as tpl (tpl.id)}
+          <li data-testid="combo-library-item">
+            <span class="cr-name">{tpl.name}</span><span class="al-hint">{tp('combos.library.count', { n: tpl.rules.length })}</span>
+            <button class="al-btn-sm" onclick={() => useTemplate(tpl)} data-testid="combo-library-use">{t('combos.library.use')}</button>
+            <button class="cr-x" onclick={() => ruleLibrary.remove(tpl.id)} aria-label={t('combos.library.remove')} title={t('combos.library.remove')}>×</button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <p class="al-hint">{t('combos.library.hint')}</p>
+  </div>
 </div>
 
 <style>
@@ -121,5 +160,9 @@
   .cr .cr-wrap .cr-table input.cr-f { width: 40px; height: 24px; padding: 0 4px; text-align: right; font-family: var(--st-mono); }
   .cr-label td { font-family: monospace; font-size: 0.6rem; color: var(--st-text-3); padding-bottom: 4px; border-bottom: 1px solid var(--st-hair); }
   .cr-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
-  .cr-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cr-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .cr-lib { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px dashed var(--st-hair); }
+  .cr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cr-list li { display: flex; align-items: center; gap: 6px; }
+  .cr-name { color: var(--st-text); }
 </style>

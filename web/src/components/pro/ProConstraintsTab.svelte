@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * Specifications › Node links: ties between the degrees of freedom of nodes (rigid links,
    * diaphragms, equal DOFs, eccentric connections, linear MPCs) and connectors, stiffness between
@@ -13,7 +14,7 @@
   /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
    *  '0,5' must read as 0.5, not silently truncate to 0 via parseFloat. */
   function parseNum(value: string): number {
-    return parseFloat(String(value).replace(',', '.'));
+    return parseDecimal(String(value)) ?? NaN;
   }
 
   // Discriminator strings must match the Rust Constraint variant rename

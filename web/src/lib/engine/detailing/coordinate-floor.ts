@@ -232,7 +232,10 @@ export function repairConflicts(
   }
   trace.push(`${initial} conflicto(s) detectado(s); se intenta la escalera de reparación.`);
 
-  const byId = new Map(working.map((b) => [b.id, b]));
+  // The rungs move bars in place, so they work on a copy of their own. Built on `working`
+  // itself, the first rung moved the initial state `best` still holds, and a rung that made
+  // things worse handed back bars that had moved with the conflicts of bars that had not.
+  const byId = new Map(working.map((b) => [b.id, { ...b, segments: b.segments.map((s) => ({ ...s })) }]));
 
   // Four rungs, not two. Moving a bar out of one clash can create another, so a single
   // pass leaves a long tail; the flagship frame converged from ~4,800 conflicts to a few

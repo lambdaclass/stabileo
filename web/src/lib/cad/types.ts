@@ -36,11 +36,40 @@ export const CAD_UNIT_SCALE: Record<CadUnit, number> = { m: 1, cm: 0.01, mm: 0.0
 
 export type CadEntity =
   | { kind: 'line'; layer: string; a: CadPt; b: CadPt }
-  | { kind: 'polyline'; layer: string; pts: CadPt[]; closed: boolean }
+  /**
+   * `bulges[i]` curves the segment from vertex i to the next (the closing one for the last vertex
+   * of a closed polyline): tan of a quarter of the arc's included angle, positive counter-
+   * clockwise. Absent when every segment is straight.
+   */
+  | { kind: 'polyline'; layer: string; pts: CadPt[]; closed: boolean; bulges?: number[] }
   | { kind: 'arc'; layer: string; center: CadPt; r: number; startAngle: number; endAngle: number }
   | { kind: 'circle'; layer: string; center: CadPt; r: number }
-  | { kind: 'insert'; layer: string; at: CadPt; blockName: string; bbox?: CadBBox }
+  /**
+   * The block's contents land at `at + R(rotationDeg)·diag(xScale, yScale)·(p − base)`, `base`
+   * being the block's own base point (`CadDocument.blocks`). A mirrored insert has a negative
+   * `xScale`. Absent scale and rotation are 1 and 0.
+   */
+  /**
+   * An array insert (MINSERT) also carries `columns` × `rows` copies, copy (i, j) placed at
+   * `at + R(rotationDeg)·(i·columnSpacing, j·rowSpacing)` (`insertCopies` in parse.ts). Absent for
+   * a single copy. The drawing's own inserts come one per copy; only an insert inside a block
+   * keeps its array.
+   */
+  | {
+      kind: 'insert'; layer: string; at: CadPt; blockName: string; bbox?: CadBBox; xScale?: number; yScale?: number; rotationDeg?: number;
+      columns?: number; rows?: number; columnSpacing?: number; rowSpacing?: number;
+    }
   | { kind: 'text'; layer: string; at: CadPt; value: string };
+
+/** A block definition, in its own coordinates. */
+export interface CadBlock {
+  base: CadPt;
+  entities: CadEntity[];
+  /** Entity types in the block that the IR cannot represent, as `CadDocument.unsupported`. */
+  unsupported: Record<string, number>;
+  /** The block's own pieces refused for unusable numbers, as `CadDocument.malformed`. */
+  malformed: Record<string, number>;
+}
 
 export type CadEntityKind = CadEntity['kind'];
 
@@ -49,6 +78,8 @@ export interface CadLayer {
   name: string;
   entityCounts: Partial<Record<CadEntityKind, number>>;
   total: number;
+  /** Set when the layer table turns the layer off or freezes it: its entities do not show. */
+  hidden?: 'off' | 'frozen';
 }
 
 export interface CadDocument {
@@ -77,6 +108,14 @@ export interface CadDocument {
    *  numbers. Their inserts are kept at their insertion point without a size:
    *  which piece set the symbol's size cannot be known from what is left. */
   incompleteBlocks: Record<string, { inserts: number; refused: Record<string, number> }>;
+  /** Entities drawn in paper space (group 67 = 1): the layout sheet's frames, title blocks and
+   *  viewports. Left out of `entities`; counted so the reader can tell. */
+  paperSpace: number;
+  /** Blocks that insert themselves, directly or through others. The insert closing the loop is
+   *  not followed. */
+  cyclicBlocks: string[];
+  /** The definitions of the blocks the drawing INSERTs, for a reader that draws their contents. */
+  blocks?: Record<string, CadBlock>;
   warnings: string[];
 }
 

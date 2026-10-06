@@ -12,9 +12,9 @@ import type { LoadPlan } from './load-plan';
  * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses']): number {
-  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}) }));
-  return expandCombinations(plan.combinations, cases, { bothSenses }).length;
+function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses'], patternsInCompanions?: boolean): number {
+  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) }));
+  return expandCombinations(plan.combinations, cases, { bothSenses, patternsInCompanions }).length;
 }
 
 
@@ -91,7 +91,7 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses'] },
+  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean },
 ): PlanDelta {
   const replace = options.replaceExisting;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
@@ -129,12 +129,12 @@ export function describePlanDelta(
   const after = replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinationCount(plan, options.bothSenses), cases: afterTypes,
+        combinations: plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions), cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses),
+        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 

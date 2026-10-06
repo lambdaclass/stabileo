@@ -41,6 +41,8 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
     'id', 'type', 'nodeI', 'nodeJ', 'material', 'section', 'hingeStart', 'hingeEnd', 'rollAngle [°]',
     'length [m]', 'releaseStartMy', 'releaseStartMz', 'releaseStartT', 'releaseEndMy', 'releaseEndMz', 'releaseEndT',
     'localYx', 'localYy', 'localYz', 'offsetFrame', 'offsetIx [m]', 'offsetIy [m]', 'offsetIz [m]', 'offsetJx [m]', 'offsetJy [m]', 'offsetJz [m]', 'behaviour',
+    // A member of variable section: end J's section and the pieces the solve cuts it into.
+    'sectionJ', 'segments',
   ]];
   for (const e of [...m.elements.values()].sort((a, c) => a.id - c.id)) {
     const ni = m.nodes.get(e.nodeI), nj = m.nodes.get(e.nodeJ);
@@ -54,6 +56,8 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
       opt(e.localYx), opt(e.localYy), opt(e.localYz),
       o ? o.frame : '', opt(o?.i?.x), opt(o?.i?.y), opt(o?.i?.z), opt(o?.j?.x), opt(o?.j?.y), opt(o?.j?.z),
       typeof e.behaviour === 'string' ? e.behaviour : e.behaviour ? safeText(JSON.stringify(e.behaviour)) : '',
+      opt((e as { variableSection?: { sectionJ: number } }).variableSection?.sectionJ),
+      (e as { variableSection?: { segments?: number } }).variableSection ? ((e as { variableSection?: { segments?: number } }).variableSection!.segments ?? 12) : '',
     ]);
   }
   return { name: 'Members', rows };

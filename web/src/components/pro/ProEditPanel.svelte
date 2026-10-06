@@ -15,6 +15,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { splitAtNodes, intersectMembers, type CutReport } from '../../lib/model/edit/cut-members';
+  import { variableCutRefused } from '../../lib/section/variable';
   import { perpendicularMember, midpointMember, fillHoles, constructionPreview } from '../../lib/model/edit/construct';
   import type { Fragment } from '../../lib/model/edit/fragment';
   import { renumber, designDocumentFields, type AxisOrder } from '../../lib/model/edit/renumber';
@@ -182,6 +183,7 @@
     return [
       tp('edit.cutDone', { n: r.cut.length, segments: r.cut.reduce((s, c) => s + c.segments.length, 0), nodes: r.nodes.length }),
       r.reinforcementDropped > 0 ? tp('edit.reinforcementDropped', { n: r.reinforcementDropped }) : '',
+      r.variableNotCut > 0 ? tp('edit.variableNotCut', { n: r.variableNotCut }) : '',
     ].filter(Boolean).join(' ');
   }
   function cleanupMessage(r: CleanupReport): string {
@@ -194,8 +196,14 @@
   function doSubdivide() {
     const n = Math.floor(parts);
     if (!(n >= 2 && n <= 20)) { message = t('edit.partsRange'); return; }
-    modelStore.batch(() => { for (const id of members) modelStore.subdivideElement(id, n); });
-    message = tp('edit.subdivided', { n: members.length, parts: n });
+    let cut = 0, variable = 0;
+    modelStore.batch(() => {
+      for (const id of members) {
+        if (modelStore.subdivideElement(id, n)) cut++;
+        else if (variableCutRefused(modelStore.sections, modelStore.elements.get(id) ?? { sectionId: 0 })) variable++;
+      }
+    });
+    message = [tp('edit.subdivided', { n: cut, parts: n }), variable > 0 ? tp('edit.variableNotCut', { n: variable }) : ''].filter(Boolean).join(' ');
   }
   function doMerge() {
     const r = mergeCollinear(scope);

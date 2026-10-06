@@ -1,6 +1,7 @@
 import {
   defaultCodeSettings, migrateCodeSettings, type ProjectCodeSettings,
 } from '../codes/project-code-settings';
+import { refreshRatios } from '../section/drawn';
 import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
@@ -25,7 +26,7 @@ import {
   restoreCanonicalSections,
   resolveDefaultSection,
   resolveOnCreate,
-  resolveOnUpdate,
+  resolveAndMirror,
 } from './canonical-sections';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
@@ -35,6 +36,7 @@ import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-so
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
 import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
@@ -498,6 +500,12 @@ export interface Element extends Element3DMetadata {
   type: 'frame' | 'truss';
   nodeI: number;
   nodeJ: number;
+  /**
+   * A section that changes along the member: `sectionId` is end I's, `sectionJ` end J's, and the
+   * section between them is their blend as geometry (`section/variable.ts`). Solved as `segments`
+   * prismatic pieces and reported as one member (`engine/variable-members.ts`). PRO, frames.
+   */
+  variableSection?: { sectionJ: number; segments?: number };
   materialId: number;
   sectionId: number;
   releaseI: Release;
@@ -724,6 +732,12 @@ export interface LoadCase {
    * (`engine/loads/combination-cases.ts`). Absent: the case always adds.
    */
   alternatives?: string;
+  /**
+   * An arrangement of the action over part of the structure (a checkerboard, the spans each side
+   * of a grid line, a partial snow load): it varies only where its action is the principal one
+   * of a combination (`combination-cases.ts`).
+   */
+  pattern?: boolean;
 }
 
 export interface LoadCombination {
@@ -1281,8 +1295,20 @@ function createModelStore() {
    * Loads and properties are distributed by `model/edit/member-split`. Here: the nodes (new, or
    * an existing one within `reuseNodeTol` per axis), the segments, and every reference to the
    * member that must now name a segment — a group lists them all; a support framed by the
-   * member, and a footing under it, take the segment at their node.
+   * member, and a footing under it, take the segment at their node. A member of variable section
+   * gives each segment the sections at its own ends (`variableCutSection`), made or found; one
+   * whose cuts no section can name is not cut (null), and `variableCutRefused` says why.
    */
+  /** A section of the model equal to `data` in what it is (geometry, rotation, shear areas), or a new one. */
+  function sectionLike(data: Omit<Section, 'id'>): number {
+    const what = (s: Omit<Section, 'id'>) => JSON.stringify([s.built ?? null, s.drawn ?? null, s.rotation ?? 0, s.shearAreas ?? null]);
+    const key = what(data);
+    for (const s of model.sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
+    const id = nextId.section++;
+    model.sections = new Map(model.sections).set(id, resolveOnCreate({ id, ...data }));
+    return id;
+  }
+
   function splitMember(
     elementId: number, ts: readonly number[], opts: { keepOriginalId: boolean; reuseNodeTol?: number },
   ): { nodeIds: number[]; segmentIds: number[]; droppedReinforcement: boolean } | null {
@@ -1326,6 +1352,14 @@ function createModelStore() {
     });
     const cuts = cutAt.map((k) => k.t);
     if (cuts.length === 0) return null;
+    // Before anything changes: the section at each cut of a member of variable section. One the
+    // solve takes prismatic, with end I's section (`variableRefusal`: a truss, a pair that does
+    // not blend), is cut as it is solved: segments of that section, no section at J.
+    const variable = elem.variableSection && variableRefusal(model.sections, elem) === null ? elem.variableSection : undefined;
+    const cutSections = variable
+      ? cuts.map((t) => variableCutSection(model.sections.get(elem.sectionId), model.sections.get(variable.sectionJ), t))
+      : [];
+    if (cutSections.some((c) => c === null)) return null;
 
     if (!_undoBatching) _pushUndo?.();
     const outerBatching = _undoBatching;
@@ -1352,9 +1386,12 @@ function createModelStore() {
         k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
       const original = JSON.parse(JSON.stringify(elem)) as Element;
       if (!opts.keepOriginalId) model.elements.delete(elementId);
+      // A member of variable section: end I's section, each cut's (an equal one the model has, or a new one), end J's.
+      const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!)), variable.sectionJ] : [];
       for (let k = 0; k < count; k++) {
         model.elements.set(segmentIds[k]!, {
           id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
+          ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
         });
       }
 
@@ -3448,12 +3485,13 @@ function createModelStore() {
       }
     },
 
-    subdivideElement(elementId: number, n: number): void {
-      if (n < 2 || n > 20) return;
+    /** Whether it was cut: not a member of variable section whose cuts no section can name (`variableCutRefused`). */
+    subdivideElement(elementId: number, n: number): boolean {
+      if (n < 2 || n > 20) return false;
       // The original id stays on the first segment. A cut landing on an existing
       // node — the midpoint a secondary frames into — reuses it: a fresh node in
       // the same place would look connected and analyse as a cut.
-      splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true, reuseNodeTol: weldTolerance() });
+      return splitMember(elementId, Array.from({ length: n - 1 }, (_, k) => (k + 1) / n), { keepOriginalId: true, reuseNodeTol: weldTolerance() }) !== null;
     },
 
     /** Toggle a single per-axis release on a single element-end. The canonical release API. */
@@ -3660,10 +3698,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}) });
       return id;
     },
 
@@ -3798,14 +3836,30 @@ function createModelStore() {
      * The case of this type and name, created when missing — what a load generator applies
      * into. Its alternatives group is set either way: a case reused from an earlier generation
      * (or an older project) carried none, and its snow patterns kept adding up.
+     *
+     * `own`: the case holds the generated load and nothing else (the full live load of its
+     * patterns, the two senses of ΔT). It is then found by name only among its group's cases and
+     * never adopted from the user's: the generated names are ordinary words ("Sobrecarga",
+     * "Temperatura"), and a user's case of that name, pulled into the group, had its loads dropped
+     * from every combination that took another alternative. When the name is taken, the new case
+     * gets a numbered one.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean } = {}): number {
+      const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
       const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
-        ?? model.loadCases.find((c) => c.type === type && c.name === name);
-      if (!found) return this.addLoadCase(name, type, opts.alternatives ? { alternatives: opts.alternatives } : {});
-      if (opts.alternatives && found.alternatives !== opts.alternatives) {
+        ?? (opts.own
+          ? model.loadCases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
+          : model.loadCases.find((c) => c.type === type && c.name === name));
+      if (!found) {
+        let fresh = name;
+        for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern });
+      }
+      const pattern = opts.pattern ? true : undefined;
+      if ((opts.alternatives && found.alternatives !== opts.alternatives) || found.pattern !== pattern) {
         if (!_undoBatching) _pushUndo?.();
-        found.alternatives = opts.alternatives;
+        if (opts.alternatives) found.alternatives = opts.alternatives;
+        if (pattern) found.pattern = true; else delete found.pattern;
         model.loadCases = [...model.loadCases];
       }
       return found.id;
@@ -4067,12 +4121,31 @@ function createModelStore() {
       const m = new Map(model.materials);
       m.set(id, { ...mat, ...data, id });
       model.materials = m;
+      // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
+      // keeps the stiffness of the material as it was when the section was drawn.
+      if (data.e !== undefined || data.nu !== undefined) {
+        const secs = new Map(model.sections);
+        let touched = false;
+        for (const [sid, sec] of model.sections) {
+          if (!sec.drawn) continue;
+          const next = refreshRatios(sec.drawn, m);
+          // Re-resolved in the same step, as `updateSection` does: the ratios alone left the
+          // canonical A, I and J (what the solver reads) at the old stiffness until a reload.
+          if (next) { secs.set(sid, resolveAndMirror({ ...sec, drawn: next })); touched = true; }
+        }
+        if (touched) model.sections = secs;
+      }
       this.bumpModelVersion();
     },
 
     removeMaterial(id: number): boolean {
       for (const elem of model.elements.values()) {
         if (elem.materialId === id) return false;
+      }
+      // A drawn section made of it, or expressed in it, needs it too: removed, every solve with
+      // self-weight failed on a density nobody could find.
+      for (const sec of model.sections.values()) {
+        if (sec.drawn && (sec.drawn.refMaterialId === id || sec.drawn.parts.some((p) => p.materialId === id))) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.materials);
@@ -4132,10 +4205,22 @@ function createModelStore() {
       // guard lives here rather than in one table component: no call site can
       // bypass it. Geometry and rotation stay editable, and changing either
       // regenerates the derived values atomically below.
+      //
+      // Only a patch of nothing BUT derived values is refused. One that also changes the section
+      // (a template, catalogue pick or drawing chosen in its place) brings the values of what it
+      // changes to, and they are what the resolver must start from: stripped, the old section's
+      // stayed — a tube edited into a round bar kept the tube's area, so it no longer read as a
+      // disc and stayed a tube, and a channel edited into an inverted L kept the channel's J,
+      // taken as published. They are re-derived below either way.
       let patch = data;
       if (sec.canonical?.kind === 'geometry-backed') {
         const { a: _a, iy: _iy, iz: _iz, j: _j, ...rest } = data;
-        patch = rest;
+        if (Object.keys(rest).length === 0) patch = rest;
+        // A J the engine computed and the store mirrored is not a declaration: one that brings no
+        // J of its own leaves it to be computed again rather than handed back as published.
+        else if (!('j' in data) && (sec.canonical.jProvenance === 'saintVenant' || sec.canonical.jProvenance === 'exactAnalytical')) {
+          patch = { ...data, j: undefined };
+        }
       }
       const updated: Section = { ...sec, ...patch, id };
       // Auto-calculate A, Iy, Iz, J from b×h ONLY for manual edits (no shape
@@ -4169,19 +4254,10 @@ function createModelStore() {
       // patch means the edit touched only derived scalars — and re-resolving
       // would run a Saint-Venant mesh-and-solve the table's inline edit could
       // never need.
+      //
+      // The resolved values are mirrored back into the declared scalars (`resolveAndMirror`).
       const withCanonical =
-        Object.keys(patch).length === 0 && sec.canonical ? updated : resolveOnUpdate(updated);
-      // Mirror the resolved values back into the declared scalars. Declared
-      // values are the designed fallback — engine down, feature-flag rollback,
-      // readers that cannot see canonical state — and with the auto-calc guard
-      // above nothing else keeps them current on a geometry-backed section.
-      const st = withCanonical.canonical;
-      if (st?.kind === 'geometry-backed') {
-        withCanonical.a = st.a;
-        withCanonical.iy = st.iy;
-        withCanonical.iz = st.iz;
-        if (st.j != null) withCanonical.j = st.j;
-      }
+        Object.keys(patch).length === 0 && sec.canonical ? updated : resolveAndMirror(updated);
 
       const m = new Map(model.sections);
       m.set(id, withCanonical);
@@ -4191,7 +4267,8 @@ function createModelStore() {
 
     removeSection(id: number): boolean {
       for (const elem of model.elements.values()) {
-        if (elem.sectionId === id) return false;
+        // A member of variable section uses its end J's section too.
+        if (elem.sectionId === id || elem.variableSection?.sectionJ === id) return false;
       }
       if (!_undoBatching) _pushUndo?.();
       const m = new Map(model.sections);

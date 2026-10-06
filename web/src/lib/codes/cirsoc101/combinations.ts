@@ -75,6 +75,8 @@ export interface CombinationInputs {
     W: boolean; E: boolean; F: boolean; H: boolean;
     /** A service-level wind case exists (B.4.2's D + Wa). Absent: false. */
     Wa?: boolean;
+    /** Restraint effects T (§2.3.4). Absent: false. */
+    T?: boolean;
   };
   /**
    * Governing Lo from Table 4.1, in kN/m². Drives Exception 1. When several occupancies
@@ -265,6 +267,21 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
 
   // ── 7. 0,9 D + 1,0 E ──
   if (p.E) push(7, '', [{ symbol: 'D', factor: 0.9 }, { symbol: 'E', factor: 1.0 }], [REF_BASIC], []);
+
+  // ── §2.3.4, T ──
+  // The clause asks for T with the other loads at a factor of no less than 1,0 and leaves the
+  // combinations to the designer; its commentary suggests 1,2 D + 1,2 T + 0,5 L and
+  // 1,2 D + 1,6 L + 1,0 T, saying they are not exhaustive. Those two, so named.
+  if (p.T) {
+    const ref = clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T');
+    const note = msg('loads.cirsoc101.note.tCommentary');
+    const t1: CombinationTerm[] = [{ symbol: 'D', factor: 1.2 }, { symbol: 'T', factor: 1.2 }, ...(p.L ? [{ symbol: 'L' as LoadSymbol, factor: 0.5 }] : [])];
+    out.push({ id: 'T1', terms: t1, label: combinationLabel(t1), refs: [ref], notes: [note] });
+    if (p.L) {
+      const t2: CombinationTerm[] = [{ symbol: 'D', factor: 1.2 }, { symbol: 'L', factor: 1.6 }, { symbol: 'T', factor: 1.0 }];
+      out.push({ id: 'T2', terms: t2, label: combinationLabel(t2), refs: [ref], notes: [note] });
+    }
+  }
 
   return out;
 }

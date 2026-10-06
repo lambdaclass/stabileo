@@ -12,12 +12,13 @@
 import { modelStore } from '../../store/model.svelte';
 import { cross, dot, norm, unit, type Vec3 } from './affine';
 import { CUT_TOL } from './cut-members';
+import { variableCutRefused } from '../../section/variable';
 import { meshQuadRegion, regionMesh, type MeshDensity } from './mesh-region';
 import { applyMesh, modelPoints } from './mesh-apply';
 import { generateMesh, type MeshInput } from './mesher';
 import { trianglesOverlap, type Triangle2 } from './triangle-overlap';
 
-export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions' | 'cannotMesh';
+export type ConstructRefusal = 'footAtEnd' | 'alreadyOnMember' | 'sameMember' | 'notCoplanar' | 'noHoles' | 'tooManyDivisions' | 'cannotMesh' | 'variableCut';
 
 export interface MemberSpec { type: 'frame' | 'truss'; materialId: number; sectionId: number }
 
@@ -72,6 +73,9 @@ export function perpendicularMember(nodeId: number, elementId: number, spec: Mem
   { elementId: number; footNode: number } | { refused: ConstructRefusal } {
   const f = perpendicularFoot(nodeId, elementId);
   if ('refused' in f) return f;
+  // A member of variable section whose cut no section can name is not cut (`variableCutRefused`).
+  const e = modelStore.elements.get(elementId);
+  if (e && variableCutRefused(modelStore.sections, e)) return { refused: 'variableCut' };
   let out: { elementId: number; footNode: number } = { elementId: -1, footNode: -1 };
   modelStore.batch(() => {
     const r = modelStore.splitMember(elementId, [f.t], { reuseNodeTol: CUT_TOL })!;
@@ -84,6 +88,7 @@ export function perpendicularMember(nodeId: number, elementId: number, spec: Mem
 export function midpointMember(a: number, b: number, spec: MemberSpec):
   { elementId: number; nodes: [number, number] } | { refused: ConstructRefusal } {
   if (a === b || !modelStore.elements.has(a) || !modelStore.elements.has(b)) return { refused: 'sameMember' };
+  if ([a, b].some((id) => variableCutRefused(modelStore.sections, modelStore.elements.get(id)!))) return { refused: 'variableCut' };
   let out: { elementId: number; nodes: [number, number] } = { elementId: -1, nodes: [-1, -1] };
   modelStore.batch(() => {
     const ra = modelStore.splitMember(a, [0.5], { reuseNodeTol: CUT_TOL })!;

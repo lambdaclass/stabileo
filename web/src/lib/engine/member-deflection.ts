@@ -150,6 +150,9 @@ export function memberLocalCurve(
   ef: ElementForces3D | undefined, ei: ElementEI | undefined,
   localY?: Pt, rollAngle?: number, leftHand?: boolean, segments: number | readonly number[] = 20,
 ): LocalCurve | null {
+  // A member of variable section: its pieces' own curves, each with its EI (`variable-members.ts`).
+  const pieces = ef?.pieces;
+  if (pieces?.length && pieces.every((p) => p.dI && p.dJ)) return piecewiseCurve(nodeI, nodeJ, ef!, ei, localY, rollAngle, leftHand, segments);
   let axes;
   try {
     axes = computeLocalAxes3D({ id: 0, ...nodeI }, { id: 1, ...nodeJ }, localY, rollAngle, leftHand);
@@ -208,6 +211,40 @@ export function memberLocalCurve(
     out.u.push(uI + xi * (uJ - uI));
     out.v.push(v);
     out.w.push(w);
+  }
+  return out;
+}
+
+/**
+ * The curve of a member solved as pieces: each sample read on the piece it falls in, from that
+ * piece's end displacements, forces and EI. The pieces share the member's axes, so their local
+ * components are the member's.
+ */
+function piecewiseCurve(
+  nodeI: Pt, nodeJ: Pt, ef: ElementForces3D, ei: ElementEI | undefined,
+  localY: Pt | undefined, rollAngle: number | undefined, leftHand: boolean | undefined, segments: number | readonly number[],
+): LocalCurve | null {
+  const pieces = ef.pieces!;
+  const L = ef.length;
+  const at = (x: number): Pt => {
+    const f = x / L;
+    return { x: nodeI.x + f * (nodeJ.x - nodeI.x), y: nodeI.y + f * (nodeJ.y - nodeI.y), z: nodeI.z + f * (nodeJ.z - nodeI.z) };
+  };
+  const xis = typeof segments === 'number'
+    ? [...new Set([...Array.from({ length: segments + 1 }, (_, i) => i / segments), ...pieces.map((p) => p.x1 / L)])].sort((a, b) => a - b)
+    : segments;
+  const curves = pieces.map((p) => ({ p, c: null as LocalCurve | null }));
+  let out: LocalCurve | null = null;
+  for (const xi of xis) {
+    const x = xi * L;
+    const k = Math.max(0, curves.findIndex(({ p }) => x <= p.x1 + 1e-9));
+    const entry = curves[k] ?? curves[curves.length - 1]!;
+    const { p } = entry;
+    const local = Math.min(1, Math.max(0, (x - p.x0) / Math.max(p.x1 - p.x0, 1e-12)));
+    const c = memberLocalCurve(at(p.x0), at(p.x1), p.dI!, p.dJ!, p.forces, p.ei ?? ei, localY, rollAngle, leftHand, [local]);
+    if (!c) return null;
+    out ??= { L, ex: c.ex, ey: c.ey, ez: c.ez, xi: [], u: [], v: [], w: [] };
+    out.xi.push(xi); out.u.push(c.u[0]!); out.v.push(c.v[0]!); out.w.push(c.w[0]!);
   }
   return out;
 }

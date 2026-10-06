@@ -137,9 +137,10 @@ test.describe('a profile row', () => {
     await openGenerators(page);
     await page.getByTestId('gen-profile-trigger-chord').click();
     await expect(page.getByTestId('pro-section-modal')).toBeVisible();
-    // The same two divisions the sections tab has.
+    // The sections tab's catalogue. A role places copies of a catalogue profile, so the build
+    // division is offered only to the two ends of a member of variable section.
     await expect(page.getByTestId('section-division-standard')).toBeVisible();
-    await expect(page.getByTestId('section-division-build')).toBeVisible();
+    await expect(page.getByTestId('section-division-build')).toHaveCount(0);
   });
 
   /*

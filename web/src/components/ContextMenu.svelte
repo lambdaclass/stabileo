@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { variableCutRefused } from '../lib/section/variable';
   import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../lib/model/edit/transform-in-place';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
 
@@ -76,7 +77,10 @@
     const ctx = uiStore.contextMenu;
     if (!ctx?.elementId) return;
     const count = Math.max(2, Math.min(20, Math.round(subdivCount)));
-    modelStore.subdivideElement(ctx.elementId, count);
+    // A member of variable section whose cuts no section can name is not cut, and says so.
+    if (!modelStore.subdivideElement(ctx.elementId, count) && variableCutRefused(modelStore.sections, modelStore.elements.get(ctx.elementId) ?? { sectionId: 0 })) {
+      uiStore.toast(t('edit.refused.variableCut'), 'error');
+    }
     resultsStore.clear();
     uiStore.contextMenu = null;
   }

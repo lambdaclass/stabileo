@@ -145,6 +145,11 @@ export interface TrussParams {
   chordContinuity: 'frame' | 'truss';
   /** Posts and diagonals continuous (`frame`) or pin-ended (`truss`). */
   webContinuity: 'frame' | 'truss';
+  /**
+   * `rolledPortal` only: the beam of variable section, one profile at the supports and another
+   * at mid-span, varying linearly between. A monopitch beam gets a node at mid-span for it.
+   */
+  variableSection?: boolean;
 }
 
 export const DEFAULT_TRUSS_PARAMS: TrussParams = Object.freeze({
@@ -204,6 +209,12 @@ export interface GenMember {
    * described by its own direction.
    */
   rollAngleDeg?: number;
+  /**
+   * The end that takes the role's second section, when the member is of variable section: the
+   * mid-span end of a rafter, the head of a column. The other end has the role's own profile.
+   * Absent: a member of one section.
+   */
+  variableEnd?: 'a' | 'b';
 }
 
 export interface GenSupport {
@@ -672,19 +683,23 @@ function archRise(p: TrussParams, x: number): number {
 
 /** Two rafters and an apex. No web, so no roles beyond `rafter`. */
 function rolledPortal(p: TrussParams, assumptions: string[]): Topology {
-  const nodes: GenNode[] = p.halfTruss
+  const variable = !!p.variableSection;
+  const nodes: GenNode[] = p.halfTruss && !variable
     ? [
         { i: 0, x: 0, y: 0, z: 0 },
         { i: 1, x: p.spanM, y: 0, z: p.riseM },
       ]
     : [
         { i: 0, x: 0, y: 0, z: 0 },
-        { i: 1, x: p.spanM / 2, y: 0, z: p.riseM },
-        { i: 2, x: p.spanM, y: 0, z: 0 },
+        { i: 1, x: p.spanM / 2, y: 0, z: p.halfTruss ? p.riseM / 2 : p.riseM },
+        { i: 2, x: p.spanM, y: 0, z: p.halfTruss ? p.riseM : 0 },
       ];
+  // Of variable section, each half grows from its support toward mid-span.
   const members: GenMember[] = nodes.slice(1).map((_, k) => ({
     a: k, b: k + 1, role: 'rafter' as MemberRole, type: 'frame' as const,
+    ...(variable ? { variableEnd: k === 0 ? 'b' as const : 'a' as const } : {}),
   }));
+  if (variable) assumptions.push('generator.assume.variableRafter');
   const supports: GenSupport[] = [
     { node: 0, type: 'pinned' },
     { node: nodes.length - 1, type: 'rollerX' },
