@@ -40,3 +40,8 @@ it('evicts old records from the bounded cache', () => {
   spectrumCompatible({ ...o, seed: 5 }); expect(sin).not.toHaveBeenCalled();
   spectrumCompatible({ ...o, seed: 1 }); expect(sin).toHaveBeenCalled();
 });
+it('preserves long-record results when the basis exceeds its memory limit', () => {
+  // 18,001 samples × 240 waves exceeds the 32 MiB basis budget.
+  const o = { target, duration: 90, dt: 0.005, seed: 17, iterations: 1 };
+  expect(spectrumCompatible(o)).toEqual(spectrumCompatible({ ...o, reference: true }));
+});

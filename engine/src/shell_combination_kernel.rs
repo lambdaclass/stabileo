@@ -46,7 +46,14 @@ struct Output {
 }
 
 fn vm(x: f64, y: f64, xy: f64) -> f64 {
-    (x * x - x * y + y * y + 3. * xy * xy).max(0.).sqrt()
+    let squared = x * x - x * y + y * y + 3. * xy * xy;
+    // f64::max ignores NaN; JavaScript's Math.max propagates it. Never turn
+    // arithmetic overflow into an apparently safe zero Von Mises stress.
+    if squared.is_nan() {
+        squared
+    } else {
+        squared.max(0.).sqrt()
+    }
 }
 fn principal(x: f64, y: f64, xy: f64) -> (f64, f64) {
     let avg = (x + y) / 2.;
@@ -469,7 +476,43 @@ fn encode(output: Output) -> Vec<f64> {
 #[wasm_bindgen]
 pub fn combine_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
     let input = decode(data).map_err(|e| JsValue::from_str(&e))?;
-    Ok(encode(combine(input)))
+    let output = combine(input);
+    for c in &output.combinations {
+        let invalid_plate = c.plate_stresses.iter().any(|p| {
+            [
+                p.sigma_xx,
+                p.sigma_yy,
+                p.tau_xy,
+                p.mx,
+                p.my,
+                p.mxy,
+                p.sigma_1,
+                p.sigma_2,
+                p.von_mises,
+            ]
+            .iter()
+            .any(|v| !v.is_finite())
+        });
+        let invalid_quad = c.quad_stresses.iter().any(|q| {
+            [
+                q.sigma_xx,
+                q.sigma_yy,
+                q.tau_xy,
+                q.mx,
+                q.my,
+                q.mxy,
+                q.von_mises,
+            ]
+            .iter()
+            .any(|v| !v.is_finite())
+                || q.qx.is_some_and(|v| !v.is_finite())
+                || q.qy.is_some_and(|v| !v.is_finite())
+        });
+        if invalid_plate || invalid_quad {
+            return Err(JsValue::from_str("Non-finite combined shell stress"));
+        }
+    }
+    Ok(encode(output))
 }
 
 #[cfg(test)]

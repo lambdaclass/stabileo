@@ -139,3 +139,10 @@ it('keeps first-wins ties, retained nodal fields, and rejects nonfinite shell in
     expect(() => kernel(invalid)).toThrow();
   }
 });
+
+it('does not turn overflowing Von Mises arithmetic into a zero stress', () => {
+  expect(() => getShellCombinationKernel()!({
+    cases: [{ id: 1, plateStresses: [], quadStresses: [{ ...q(7, 1e200), sigmaYy: 1e200 }] }],
+    combinations: [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }], thicknesses: [], envelopeOrder: [],
+  })).toThrow();
+});

@@ -53,7 +53,7 @@ try {
     } finally { await page.close(); }
   };
   let result;
-  if (compare && !kernels) {
+  if (compare && !kernels && !numerical) {
     const ts = await run(false), rust = await run(true);
     result = rust.map((row, i) => {
       if (row.outputs !== ts[i].outputs) throw new Error(`${row.example}: full design differs between collision backends`);

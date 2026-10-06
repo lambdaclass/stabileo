@@ -50,16 +50,19 @@ export async function benchmark() {
     const session=prepareLoadSession3D(base); try{return loads.map(l=>keep(session.solve(l)));}finally{session.free();}
   }));
   const empty=():AnalysisResults3D=>({displacements:[],reactions:[],elementForces:[]});
-  const cases=new Map(Array.from({length:4},(_,c)=>[c,{...empty(),quadStresses:Array.from({length:1000},(_,i)=>({elementId:i+1,sigmaXx:10+c+i/13,sigmaYy:-c-i/17,tauXy:i/11,mx:0.2*i,my:-0.1*i,mxy:0.01*i,vonMises:0,qx:c+i,qy:c-i}))}]));
-  const combos=Array.from({length:12},(_,i)=>({id:i,factors:Array.from({length:4},(_,c)=>({caseId:c,factor:(i+c)%3===0?-0.7:1.2}))}));
-  const kernel=getShellCombinationKernel();
-  const shells=(rust:boolean)=>{
-    registerShellCombinationKernel(rust?kernel:null);
-    const results=new Map(combos.map(c=>[c.id,empty()])),env=empty();
-    try { enrichComboShellStresses(cases,results,env,combos,new Map());return {results:[...results],env}; }
-    finally { registerShellCombinationKernel(kernel); }
-  };
-  rows.push(await compare('shells-1000-4-cases-12-combos',()=>shells(false),()=>shells(true)));
+  for (const count of [1000, 10000]) {
+    const cases=new Map(Array.from({length:4},(_,c)=>[c,{...empty(),quadStresses:Array.from({length:count},(_,i)=>({elementId:i+1,sigmaXx:10+c+i/13,sigmaYy:-c-i/17,tauXy:i/11,mx:0.2*i,my:-0.1*i,mxy:0.01*i,vonMises:0,qx:c+i,qy:c-i}))}]));
+    const combos=Array.from({length:12},(_,i)=>({id:i,factors:Array.from({length:4},(_,c)=>({caseId:c,factor:(i+c)%3===0?-0.7:1.2}))}));
+    const kernel=getShellCombinationKernel();
+    if (!kernel) throw new Error('Rust shell kernel was not registered');
+    const shells=(rust:boolean)=>{
+      registerShellCombinationKernel(rust?kernel:null);
+      const results=new Map(combos.map(c=>[c.id,empty()])),env=empty();
+      try { enrichComboShellStresses(cases,results,env,combos,new Map());return {results:[...results],env}; }
+      finally { registerShellCombinationKernel(kernel); }
+    };
+    rows.push(await compare(`shells-${count}-4-cases-12-combos`,()=>shells(false),()=>shells(true)));
+  }
   const disp=(id:number):Displacement3D=>({nodeId:id,ux:id*1e-5,uy:id*2e-5,uz:id*3e-5,rx:0,ry:id*1e-6,rz:id*2e-6});
   const forces=(id:number):ElementForces3D=>({elementId:id,length:0.5,nStart:0,nEnd:0,vyStart:0,vyEnd:0,vzStart:0,vzEnd:0,myStart:0,myEnd:0,mzStart:0,mzEnd:0,mxStart:0,mxEnd:0,qYi:0,qYj:0,qZi:0,qZj:0,distributedLoadsY:[],distributedLoadsZ:[],pointLoadsY:[],pointLoadsZ:[]} as ElementForces3D);
   const f={...forces(1),length:6,pieces:Array.from({length:12},(_,i)=>({x0:i*0.5,x1:(i+1)*0.5,forces:forces(i+1),dI:disp(i),dJ:disp(i+1),ei:{EIy:20000,EIz:40000}}))};
