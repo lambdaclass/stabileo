@@ -15,11 +15,11 @@
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { uiStore } from '../../../lib/store/ui.svelte';
   import {
-    REGULATION_ROLES, isLoadAffecting, optionLabel, optionsForRole,
+    REGULATION_ROLES, isLoadAffecting, optionLabel,
     allOptionsForRole, availabilityOf, optionIsAvailable,
     type RegulationRole, type RoleBinding,
   } from '../../../lib/codes/roles';
-  import { hasLoadModule } from '../../../lib/codes/families';
+  import { roleSelectOptions } from './role-select-options';
   import { consequenceOf } from '../../../lib/codes/revisions';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
 
@@ -128,8 +128,9 @@
   <ul class="roles">
     {#each REGULATION_ROLES as role (role)}
       {@const b = roles[role]}
-      <!-- A load role offers only codes with a module to generate with (`codes/families`). -->
-      {@const opts = optionsForRole(role).filter((o) => !isLoadAffecting(role) || hasLoadModule(o.adapterId))}
+      <!-- A load role offers only codes with a module to generate with (`codes/families`), and the
+           one bound whatever it is, marked, so the selector shows what is bound (`role-select-options.ts`). -->
+      {@const opts = roleSelectOptions(role, b.adapterId)}
       <li data-testid={`role-${role}`}>
         <div class="row">
           <label class="role-name" for={`sel-${role}`}>{t(`regulations.role.${role}`)}</label>
@@ -144,8 +145,8 @@
           >
             <option value="">{t('regulations.none')}</option>
             <!-- Unavailable editions are NOT offered here; they are listed below with a reason. -->
-            {#each opts as o (o.adapterId)}
-              <option value={o.adapterId}>{te(optionLabel(o))}</option>
+            {#each opts as { option: o, noModule } (o.adapterId)}
+              <option value={o.adapterId} disabled={noModule}>{te(optionLabel(o))}{noModule ? ` · ${t('regulations.noGeneratorModule')}` : ''}</option>
             {/each}
           </select>
 
@@ -167,7 +168,7 @@
         </div>
 
         {#if b.adapterId}
-          {@const o = opts.find((x) => x.adapterId === b.adapterId)}
+          {@const o = opts.find((x) => x.option.adapterId === b.adapterId)?.option}
           <details class="advanced">
             <summary>{t('regulations.advanced')}</summary>
             <dl>
