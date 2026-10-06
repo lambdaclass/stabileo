@@ -36,7 +36,7 @@ import type { RunProgress } from '../engine/design/candidate-search';
 import { designDemands, isDesignedMember } from '../engine/design/behaviour-demands';
 import {
   DESIGN_FAMILIES, DEFAULT_DESIGN_FAMILIES, FLOOR_FAMILIES, FRAME_FAMILIES, emptyFamilyResult,
-  isFrameFamily, needsFloorPass, needsFramePass,
+  needsFloorPass, needsFramePass,
   type DesignFamily, type DesignFamilySelection, type DesignRunReport, type FamilyRunResult,
 } from '../engine/design/design-families';
 
@@ -260,7 +260,10 @@ function createDesignRunStore() {
    *    (failing) candidates are retained on the outcome for review and are never
    *    assigned, never certified and never counted as passing.
    */
-  function autoDesign(elementIds: Iterable<number>, opts: { maxRunMs?: number } = {}): CommandResult {
+  function autoDesign(
+    elementIds: Iterable<number>,
+    opts: { maxRunMs?: number; deferDetailing?: boolean } = {},
+  ): CommandResult {
     lastError = null;
     const a = adapter();
     if (!a) return fail('design.error.noAdapter');
@@ -284,7 +287,7 @@ function createDesignRunStore() {
         maxRunMs: opts.maxRunMs ?? DEFAULT_RUN_MS,
         onProgress: (p) => { progress = p; },
       });
-      publishOutcomes(summary);
+      publishOutcomes(summary, opts.deferDetailing ?? false);
       return { ok: true };
     } finally {
       running = false;
@@ -293,7 +296,7 @@ function createDesignRunStore() {
   }
 
   /** Merge a run's outcomes into the store and assign the verified reinforcement. */
-  function publishOutcomes(summary: DesignRunSummary) {
+  function publishOutcomes(summary: DesignRunSummary, deferDetailing: boolean) {
     // Merge with any previous run so designing a selection does not erase the rest.
     const prev = verificationStore.runSummary;
     const merged: DesignRunSummary = prev
@@ -349,7 +352,7 @@ function createDesignRunStore() {
       // A user who has just verified a floor wants its bars. Detailing runs automatically
       // unless the project has opted out — the explicit Generate command stays either way,
       // so the automatic path is a convenience, never the only way in.
-      if (detailingStore.autoGenerate) detailingStore.generate();
+      if (!deferDetailing && detailingStore.autoGenerate) detailingStore.generate();
     }
 
     // A design run is the operation that made the old autosave fail — it is both the most
@@ -452,7 +455,12 @@ function createDesignRunStore() {
         const target = FRAME_FAMILIES
           .filter((f) => chosen.has(f))
           .flatMap((f) => byFamily.get(f) ?? []);
-        if (target.length > 0) autoDesign(target);
+        if (target.length > 0) {
+          // The global command owns detailing, including its verifier. Run its feedback
+          // once, before reading the repaired outcomes into the family summaries.
+          autoDesign(target, { deferDetailing: true });
+          detailingStore.generate({ verifierId: opts.verifierId });
+        }
 
         for (const f of FRAME_FAMILIES) {
           if (!chosen.has(f)) { families.push(emptyFamilyResult(f, 'skipped')); continue; }
@@ -475,11 +483,6 @@ function createDesignRunStore() {
       }
     } else {
       for (const f of FRAME_FAMILIES) families.push(emptyFamilyResult(f, 'skipped'));
-    }
-
-    // Frame detailing follows the frame design, and only when a frame family was designed.
-    if (frameWanted && families.some((f) => isFrameFamily(f.family) && f.state === 'designed')) {
-      detailingStore.generate({ verifierId: opts.verifierId });
     }
 
     // ── Floor families ─────────────────────────────────────────

@@ -37,6 +37,7 @@
  *   D9  P-Δ "converged and stable" (B2 ≈ 0) and buckling λ1 = 1.5e4 on a mechanism held by tension
  *   D10 P-Δ / buckling / modal skip the static solve's model checks (stray node → "mechanism")
  */
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { whatIf } from '../../store/whatif.svelte';
@@ -311,9 +312,13 @@ const LOGS = new Map<string, SweepLog>();
 
 describe.each(Object.keys(FAMILIES))('sweep: %s', (family) => {
   let log: SweepLog;
-  beforeAll(() => {
+  beforeAll(async () => {
     log = emptyLog();
-    for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) runModel(buildRandom(family, seed), log);
+    for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) {
+      // Keep progress RPC replies flowing during the synchronous solver sweep.
+      await yieldToEventLoop();
+      runModel(buildRandom(family, seed), log);
+    }
     LOGS.set(family, log);
   }, 120_000);
 

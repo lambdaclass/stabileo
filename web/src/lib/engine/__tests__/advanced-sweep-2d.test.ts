@@ -35,6 +35,7 @@
  * turns red the day it is fixed and the split can go), the rest must pass.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore, resultsStore, historyStore, uiStore } from '../../store';
 import type { Load } from '../../store/model.svelte';
 import { solve as wasmSolve, solvePDelta, solveBuckling, solveModal, isSolverReady } from '../wasm-solver';
@@ -872,9 +873,13 @@ afterAll(() => { quiet.forEach((s) => s.mockRestore()); });
 const familyCounts: Record<string, number> = {};
 
 describe('advanced 2D functions on generated models', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     for (const fam of FAMILIES) {
       for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) {
+        // The complete sweep exceeded Vitest's 60 s RPC budget in CI. Let the worker
+        // receive progress acknowledgements between models, including before the first.
+        // A resolved Promise only drains microtasks; setImmediate reaches the I/O phase.
+        await yieldToEventLoop();
         historyStore.clear();
         const meta = generate(fam as Family, seed);
         familyCounts[fam] = (familyCounts[fam] ?? 0) + 1;
