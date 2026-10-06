@@ -167,3 +167,30 @@ fn the_sparse_2d_assembly_carries_the_same_truss_member_loads() {
         assert!((a - b).abs() < 1e-12, "dense {dense:?} vs sparse {sparse:?}");
     }
 }
+
+#[cfg(feature = "parallel")]
+#[test]
+fn the_parallel_3d_load_vector_carries_the_same_truss_member_loads() {
+    // The parallel 3D assembler's truss branch used to keep only axial and
+    // thermal; the transverse lever rule and point loads come from the same
+    // helper the dense path uses.
+    use dedaliano_engine::solver::assembly::assemble_load_vector_3d_dense;
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::sparse_assembly::assemble_load_vector_3d_sparse_parallel;
+    let input = bar_3d(vec![
+        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            element_id: 1, q_xi: 1.0, q_xj: 3.0, q_yi: -12.0, q_yj: -4.0, q_zi: 2.0, q_zj: 2.0,
+            a: Some(0.5), b: Some(3.0),
+        }),
+        SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.0, py: -8.0, pz: 5.0 }),
+        SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 15.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0 }),
+    ]);
+    let dof = DofNumbering::build_3d(&input);
+    let dense = assemble_load_vector_3d_dense(&input, &input.loads, &dof, &[]);
+    let parallel = assemble_load_vector_3d_sparse_parallel(&input, &input.loads, &dof, &[]);
+    assert!(dense.iter().any(|v| v.abs() > 1.0), "the loads reach the nodes: {dense:?}");
+    assert_eq!(dense.len(), parallel.len());
+    for (a, b) in dense.iter().zip(&parallel) {
+        assert!((a - b).abs() < 1e-12, "dense {dense:?} vs parallel {parallel:?}");
+    }
+}
