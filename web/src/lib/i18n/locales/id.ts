@@ -825,7 +825,7 @@ const id: Translations = {
   'secEdit.title': 'Penampang {id}',
   'secEdit.chooseProfile': 'Pilih profil...',
   'secEdit.name': 'Nama:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'Persegi panjang (otomatis A, Iz)',
   'secEdit.profileRotation': 'Rotasi profil',
   'secEdit.rotation': 'Rot (°):',

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { askAboutOverlaps } from '../../lib/model/edit/connection-questions';
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, historyStore, resultsStore, uiStore } from '../../lib/store';
   import PairingNote from '../property/PairingNote.svelte';
   import { isUnusualPairing } from '../../lib/data/structural-grades';
@@ -38,6 +40,8 @@
     if (nodeId === other) { modelStore.reverseElement(id); return; }
     historyStore.pushState({ notifyMutation: false });
     modelStore.updateElement(id, end === 'i' ? { nodeI: nodeId } : { nodeJ: nodeId });
+    // Now on top of another member? The same question the drawing asks.
+    askAboutOverlaps([id]);
   }
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
@@ -69,8 +73,9 @@
     if (!modelStore.getNode(newElemNodeI) || !modelStore.getNode(newElemNodeJ)) return;
     if (newElemNodeI === newElemNodeJ) return;
     historyStore.pushState();
-    modelStore.addElement(newElemNodeI, newElemNodeJ, newElemType);
+    const id = modelStore.addElement(newElemNodeI, newElemNodeJ, newElemType);
     resultsStore.clear();
+    askAboutOverlaps([id]);
   }
 
   /**
@@ -99,7 +104,8 @@
   </thead>
   <tbody>
     {#each elementsArr as elem}
-      <tr>
+      <tr class:row-sel={rowSelected('element', elem.id)} onclick={(e) => selectRow(e, 'element', elem.id)}
+        ondblclick={(e) => frameRow(e, 'element', elem.id)} onfocusin={(e) => focusRow(e, 'element', elem.id)}>
         <td class="id-cell">{elem.id}</td>
         <td>
           <select value={elem.type} onchange={(e) => setType(elem.id, e.currentTarget.value as 'frame' | 'truss')} data-testid="elem-type-{elem.id}">
@@ -184,6 +190,7 @@
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   .pairing-note {
     display: flex;
     align-items: flex-start;

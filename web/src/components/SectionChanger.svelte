@@ -164,10 +164,11 @@
 
   // ─── Amorphous Section state ────────────────
   let amorphName = $state(t('section.amorphousDefault'));
-  let amorphA = $state(0.005);
-  let amorphIy = $state(0.00008);
-  let amorphIz = $state(0.00002);
-  let amorphJ = $state(0.0000001);
+  // Typed in cm² and cm⁴, as the sections table shows them; the model keeps m² and m⁴.
+  let amorphA = $state(50);
+  let amorphIy = $state(8000);
+  let amorphIz = $state(2000);
+  let amorphJ = $state(10);
 
   const amorphValid = $derived(amorphA > 0 && amorphIy > 0 && amorphIz > 0 && (!is3D || amorphJ > 0));
 
@@ -175,10 +176,10 @@
     if (!amorphValid || !onamorphousselect) return;
     onamorphousselect({
       name: amorphName || t('section.amorphousDefault'),
-      a: amorphA,
-      iy: amorphIy,
-      iz: amorphIz,
-      j: is3D ? amorphJ : undefined,
+      a: amorphA * 1e-4,
+      iy: amorphIy * 1e-8,
+      iz: amorphIz * 1e-8,
+      j: is3D ? amorphJ * 1e-8 : undefined,
     });
   }
 
@@ -366,30 +367,30 @@
             <label class="param-field">
               <span>{t('field.area')}</span>
               <div class="param-input">
-                <input type="number" step="0.0001" bind:value={amorphA} />
-                <span class="param-unit">m²</span>
+                <input type="number" step="any" bind:value={amorphA} />
+                <span class="param-unit">cm²</span>
               </div>
             </label>
             <label class="param-field">
               <span>{t('field.iyHoriz')}</span>
               <div class="param-input">
-                <input type="number" step="0.000001" bind:value={amorphIy} />
-                <span class="param-unit">m⁴</span>
+                <input type="number" step="any" bind:value={amorphIy} />
+                <span class="param-unit">cm⁴</span>
               </div>
             </label>
             <label class="param-field">
               <span>{t('field.izVert')}</span>
               <div class="param-input">
-                <input type="number" step="0.000001" bind:value={amorphIz} />
-                <span class="param-unit">m⁴</span>
+                <input type="number" step="any" bind:value={amorphIz} />
+                <span class="param-unit">cm⁴</span>
               </div>
             </label>
             {#if is3D}
               <label class="param-field">
                 <span>{t('field.jTorsion')}</span>
                 <div class="param-input">
-                  <input type="number" step="0.000001" bind:value={amorphJ} />
-                  <span class="param-unit">m⁴</span>
+                  <input type="number" step="any" bind:value={amorphJ} />
+                  <span class="param-unit">cm⁴</span>
                 </div>
               </label>
             {/if}
@@ -400,11 +401,11 @@
           {#if amorphValid}
             <div class="results-box">
               <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{amorphName}</span></div>
-              <div class="result-row"><span>A =</span><span class="result-val">{amorphA.toPrecision(4)} m²</span></div>
-              <div class="result-row"><span>Iy =</span><span class="result-val">{amorphIy.toPrecision(4)} m⁴</span></div>
-              <div class="result-row"><span>Iz =</span><span class="result-val">{amorphIz.toPrecision(4)} m⁴</span></div>
+              <div class="result-row"><span>A =</span><span class="result-val">{amorphA.toPrecision(4)} cm²</span></div>
+              <div class="result-row"><span>Iy =</span><span class="result-val">{amorphIy.toPrecision(4)} cm⁴</span></div>
+              <div class="result-row"><span>Iz =</span><span class="result-val">{amorphIz.toPrecision(4)} cm⁴</span></div>
               {#if is3D}
-                <div class="result-row"><span>J =</span><span class="result-val">{amorphJ.toPrecision(4)} m⁴</span></div>
+                <div class="result-row"><span>J =</span><span class="result-val">{amorphJ.toPrecision(4)} cm⁴</span></div>
               {/if}
             </div>
             <button class="confirm-btn" onclick={handleAmorphousConfirm}>{t('action.applyAmorphousSection')}</button>
@@ -465,8 +466,8 @@
           {#if computed}
             <div class="results-box">
               <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{autoName}</span></div>
-              <div class="result-row"><span>A =</span><span class="result-val">{computed.a.toPrecision(4)} m²</span></div>
-              <div class="result-row"><span>Iz =</span><span class="result-val">{computed.iz.toPrecision(4)} m⁴</span></div>
+              <div class="result-row"><span>A =</span><span class="result-val">{(computed.a * 1e4).toPrecision(4)} cm²</span></div>
+              <div class="result-row"><span>Iz =</span><span class="result-val">{(computed.iz * 1e8).toPrecision(4)} cm⁴</span></div>
             </div>
             <button class="confirm-btn" onclick={handleShapeConfirm}>{t('action.applySection')}</button>
           {:else}

@@ -114,6 +114,17 @@ if (hasLocalStorage()) {
   }
 }
 
+/**
+ * The 2D zoom's range, in pixels per metre: from a kilometre-long model on one
+ * screen to a millimetre a couple of centimetres wide, so a small part and a
+ * long bridge can both be drawn at true scale.
+ */
+export const ZOOM_2D_MIN = 0.5;
+export const ZOOM_2D_MAX = 50_000;
+export function clampZoom2D(v: number): number {
+  return Number.isFinite(v) ? Math.max(ZOOM_2D_MIN, Math.min(ZOOM_2D_MAX, v)) : 50;
+}
+
 function createUIStore() {
   const initialWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   let currentTool = $state<Tool>('pan');
@@ -270,6 +281,20 @@ function createUIStore() {
   let showLengths = $state<boolean>(false);
   let elementColorMode = $state<ElementColorMode>('uniform');
   let showLoads = $state<boolean>(true);
+  /*
+   * Supports drawn or not, like the loads: a reader checking a dense frame or
+   * reading values at the base may want them out of the way. Basic and PRO
+   * keep their own, as they do for loads.
+   */
+  let showSupports_basic = $state<boolean>(true);
+  let showSupports_pro = $state<boolean>(true);
+  /** Size of the text on the drawing (ids, values, labels), 2D and 3D; persisted. */
+  const LABEL_SCALE_RANGE = [0.6, 2.5] as const;
+  let labelScale = $state<number>((() => {
+    if (!hasLocalStorage()) return 1;
+    const v = parseFloat(localStorage.getItem('stabileo-label-scale') ?? '');
+    return Number.isFinite(v) ? Math.max(LABEL_SCALE_RANGE[0], Math.min(LABEL_SCALE_RANGE[1], v)) : 1;
+  })());
   let hideLoadsWithDiagram = $state<boolean>(true);
 
   // Result selector visibility
@@ -734,7 +759,7 @@ function createUIStore() {
     set autoSplitOnNodePlace(v: boolean) { autoSplitOnNodePlace = v; },
 
     get zoom() { return zoom; },
-    set zoom(v: number) { zoom = Math.max(10, Math.min(200, v)); },
+    set zoom(v: number) { zoom = clampZoom2D(v); },
 
     get panX() { return panX; },
     set panX(v: number) { panX = v; },
@@ -861,6 +886,14 @@ function createUIStore() {
     set showLengths(v: boolean) { showLengths = v; },
     get elementColorMode() { return elementColorMode; },
     set elementColorMode(v: ElementColorMode) { elementColorMode = v; },
+    get showSupports() { return analysisMode === 'pro' ? showSupports_pro : showSupports_basic; },
+    set showSupports(v: boolean) { if (analysisMode === 'pro') showSupports_pro = v; else showSupports_basic = v; },
+    get labelScale() { return labelScale; },
+    set labelScale(v: number) {
+      labelScale = Math.max(LABEL_SCALE_RANGE[0], Math.min(LABEL_SCALE_RANGE[1], Number.isFinite(v) ? v : 1));
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-label-scale', String(labelScale)); } catch { /* private mode */ } }
+    },
+    labelScaleRange: LABEL_SCALE_RANGE,
     get showLoads() { return showLoads; },
     set showLoads(v: boolean) { showLoads = v; },
     get hideLoadsWithDiagram() { return hideLoadsWithDiagram; },
@@ -1438,13 +1471,19 @@ function createUIStore() {
       if (count === 0) return;
 
       const padding = 120; // pixels — margin for distributed loads and labels
-      const worldW = maxX - minX || 1;
-      const worldH = maxY - minY || 1;
+      // A model with no width or no height (a beam, a column) frames on the other
+      // dimension. A lone node has no size to frame: it keeps the old framing,
+      // a metre across at most 200 px/m, so the next click lands a grid square away.
+      const span = Math.max(maxX - minX, maxY - minY);
       const availW = canvasWidth - padding * 2;
       const availH = canvasHeight - padding * 2;
-
-      const newZoom = Math.min(availW / worldW, availH / worldH, 200);
-      zoom = Math.max(10, newZoom);
+      if (span < 1e-9) {
+        zoom = clampZoom2D(Math.min(availW, availH, 200));
+      } else {
+        const worldW = maxX - minX || span;
+        const worldH = maxY - minY || span;
+        zoom = clampZoom2D(Math.min(availW / worldW, availH / worldH));
+      }
 
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;

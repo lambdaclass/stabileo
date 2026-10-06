@@ -47,10 +47,17 @@ export function drawGrid(
   const topLeft = screenToWorld(0, 0);
   const bottomRight = screenToWorld(width, height);
 
-  const startX = Math.floor(topLeft.x / gridSize) * gridSize;
-  const endX = Math.ceil(bottomRight.x / gridSize) * gridSize;
-  const startY = Math.floor(bottomRight.y / gridSize) * gridSize;
-  const endY = Math.ceil(topLeft.y / gridSize) * gridSize;
+  // Zoomed far out, a line every grid step would fill the screen (and, at a
+  // kilometre on screen, take seconds to stroke): show every 5th, 10th, 50th…
+  // line instead, so they stay apart. Snapping still uses the grid itself.
+  const pxPerM = Math.abs(worldToScreen(1, 0).x - worldToScreen(0, 0).x);
+  const step = gridStepOnScreen(gridSize, pxPerM);
+
+  const startX = Math.floor(topLeft.x / step) * step;
+  const endX = Math.ceil(bottomRight.x / step) * step;
+  const startY = Math.floor(bottomRight.y / step) * step;
+  const endY = Math.ceil(topLeft.y / step) * step;
+  gridSize = step;
 
   for (let x = startX; x <= endX; x += gridSize) {
     const sx = worldToScreen(x, 0).x;
@@ -67,6 +74,20 @@ export function drawGrid(
     ctx.lineTo(width, sy);
     ctx.stroke();
   }
+}
+
+/** Lines closer than this on screen are thinned out. */
+const GRID_MIN_PX = 8;
+
+/**
+ * The spacing the grid is drawn at: the grid size, or the smallest of its
+ * multiples by 5, 10, 50, 100… that keeps lines at least GRID_MIN_PX apart.
+ */
+export function gridStepOnScreen(gridSize: number, pxPerM: number): number {
+  let step = gridSize > 0 ? gridSize : 1;
+  if (!(pxPerM > 0)) return step;
+  for (let k = 0; step * pxPerM < GRID_MIN_PX && k < 40; k++) step *= k % 2 === 0 ? 5 : 2;
+  return step;
 }
 
 /**

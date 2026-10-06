@@ -777,7 +777,7 @@ const it: Translations = {
   'secEdit.title': 'Sezione {id}',
   'secEdit.chooseProfile': 'Scegli profilo...',
   'secEdit.name': 'Nome:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'Rettangolare (auto A, Iz)',
   'secEdit.profileRotation': 'Rotazione profilo',
   'secEdit.rotation': 'Rot (°):',

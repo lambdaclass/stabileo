@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
@@ -91,7 +92,8 @@
   </thead>
   <tbody>
     {#each supportsArr as sup}
-      <tr>
+      <tr class:row-sel={rowSelected('support', sup.id)} onclick={(e) => selectRow(e, 'support', sup.id)}
+        ondblclick={(e) => frameRow(e, 'support', sup.id)} onfocusin={(e) => focusRow(e, 'support', sup.id)}>
         <td class="id-cell">{sup.id}</td>
         <td>{sup.nodeId}</td>
         {#if uiStore.is3DWorkspace}
@@ -107,22 +109,22 @@
           </td>
           <td class="load-values">
             {#if !dofs.tx}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /></span>
+              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
             {/if}
             {#if !dofs.ty}
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /></span>
+              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
             {/if}
             {#if !dofs.tz}
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /></span>
+              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
             {/if}
             {#if !dofs.rx}
-              <span class="load-field">krx<input type="number" step="100" value={sup.krx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krx', e.currentTarget.value)} /></span>
+              <span class="load-field">krx<input type="number" step="100" value={sup.krx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krx', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
             {/if}
             {#if !dofs.ry}
-              <span class="load-field">kry<input type="number" step="100" value={sup.kry ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kry', e.currentTarget.value)} /></span>
+              <span class="load-field">kry<input type="number" step="100" value={sup.kry ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kry', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
             {/if}
             {#if !dofs.rz}
-              <span class="load-field">krz<input type="number" step="100" value={sup.krz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krz', e.currentTarget.value)} /></span>
+              <span class="load-field">krz<input type="number" step="100" value={sup.krz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krz', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
             {/if}
           </td>
         {:else}
@@ -138,13 +140,13 @@
           </td>
           <td class="load-values">
             {#if sup.type === 'spring'}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /></span>
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /></span>
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /></span>
+              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /><span class="lf-unit">kN·m/rad</span></span>
             {:else}
-              <span class="load-field">dx<input type="number" step="0.001" value={sup.dx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dx', e.currentTarget.value)} /></span>
-              <span class="load-field">dz<input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /></span>
-              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /></span>
+              <span class="load-field">dx<input type="number" step="0.001" value={sup.dx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dx', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
+              <span class="load-field">dz<input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
+              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /><span class="lf-unit">rad</span></span>
             {/if}
           </td>
         {/if}
@@ -183,6 +185,7 @@
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   table {
     width: max-content;
     min-width: 100%;
@@ -251,6 +254,13 @@
     color: var(--st-text-3);
   }
 
+  /* The unit each value is typed in, legible at a glance rather than a faint hint. */
+  .lf-unit {
+    margin-left: 2px;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+    white-space: nowrap;
+  }
   .load-field input {
     width: 50px;
   }

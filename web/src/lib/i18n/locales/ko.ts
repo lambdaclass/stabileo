@@ -825,7 +825,7 @@ const ko: Translations = {
   'secEdit.title': '단면 {id}',
   'secEdit.chooseProfile': '프로파일 선택...',
   'secEdit.name': '이름:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': '직사각형 (자동 A, Iz)',
   'secEdit.profileRotation': '프로파일 회전',
   'secEdit.rotation': '회전 (°):',

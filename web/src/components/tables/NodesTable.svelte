@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
@@ -60,7 +61,8 @@
     </thead>
     <tbody>
       {#each nodesArr as node}
-        <tr>
+        <tr class:row-sel={rowSelected('node', node.id)} onclick={(e) => selectRow(e, 'node', node.id)}
+          ondblclick={(e) => frameRow(e, 'node', node.id)} onfocusin={(e) => focusRow(e, 'node', node.id)}>
           <td class="id-cell">{node.id}</td>
           <td><input type="number" step="0.001" value={node.x.toFixed(3)} onchange={(e) => updateNodeX(node.id, e.currentTarget.value)} /></td>
           <td><input type="number" step="0.001" value={node.y.toFixed(3)} onchange={(e) => updateNodeY(node.id, e.currentTarget.value)} /></td>
@@ -88,6 +90,7 @@
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   table {
     width: max-content;
     min-width: 100%;

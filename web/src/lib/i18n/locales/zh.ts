@@ -819,7 +819,7 @@ const zh: Translations = {
   'secEdit.title': '截面 {id}',
   'secEdit.chooseProfile': '选择型钢...',
   'secEdit.name': '名称：',
-  'secEdit.iz': 'Iz (m⁴)：',
+  'secEdit.iz': 'Iz (cm⁴)：',
   'secEdit.rectangular': '矩形（自动计算 A, Iz）',
   'secEdit.profileRotation': '截面旋转',
   'secEdit.rotation': '旋转 (°)：',

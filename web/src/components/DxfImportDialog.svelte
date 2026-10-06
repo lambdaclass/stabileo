@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { askAboutOverlapsInModel } from '../lib/model/edit/connection-questions';
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { parseDxf } from '../lib/dxf/parser';
@@ -141,6 +142,7 @@
     }
 
     uiStore.toast(t('dxf.imported').replace('{n}', String(m.nodes.length)).replace('{e}', String(m.elements.length)), 'success');
+    askAboutOverlapsInModel();
 
     // Zoom to fit after a tick
     setTimeout(() => {

@@ -735,6 +735,28 @@ function createResultsStore() {
       diagramType = 'deformed';
     },
 
+    /**
+     * A P-Δ run that found no second-order equilibrium (unstable, or not
+     * converged): its numbers are kept for the panel that reports them, and
+     * nothing is drawn as its result. The engine hands back the first-order
+     * solution in that case, and drawing it as P-Δ showed a deformed shape
+     * and diagrams for an equilibrium that does not exist. The static view
+     * stays as it was.
+     */
+    setPDeltaWithoutEquilibrium(r: PDeltaResult | PDeltaResult3D, is3D: boolean) {
+      hold();
+      this.clearAdvanced();
+      if (is3D) {
+        const r3 = r as PDeltaResult3D;
+        pdeltaResult3D = _normaliseAdvanced3D ? _normaliseAdvanced3D.pdelta(r3) : r3;
+        staticUnder3D();
+      } else {
+        const r2 = r as PDeltaResult;
+        pdeltaResult = { ...r2, results: drawn(r2.results), ...(r2.linearResults ? { linearResults: drawn(r2.linearResults) } : {}) };
+        staticUnder2D();
+      }
+    },
+
     get modalResult() { return modalResult; },
     get activeModeIndex() { return activeModeIndex; },
     set activeModeIndex(v: number) { activeModeIndex = v; },

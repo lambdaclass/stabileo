@@ -23,13 +23,21 @@
   let pendingTf = $state<number | undefined>(undefined);
   let pendingT = $state<number | undefined>(undefined);
 
+  /*
+   * Typed in cm², cm⁴ and cm, as the sections table shows them: the model
+   * keeps m² and m⁴, and asking for 0.000083 m⁴ here while the table next to
+   * it said 8333 cm⁴ made the same section read as two.
+   */
+  const CM2 = 1e4, CM4 = 1e8, CM = 100;
+  const cm = (v: number, k: number) => String(+(v * k).toPrecision(6));
+
   $effect(() => {
     if (sec) {
       localName = sec.name;
-      localA = String(sec.a);
-      localIz = String(sec.iz);
-      localB = sec.b != null ? String(sec.b) : '';
-      localH = sec.h != null ? String(sec.h) : '';
+      localA = cm(sec.a, CM2);
+      localIz = cm(sec.iz, CM4);
+      localB = sec.b != null ? cm(sec.b, CM) : '';
+      localH = sec.h != null ? cm(sec.h, CM) : '';
       localRotation = String(sec.rotation ?? 0);
       pendingShape = sec.shape;
       pendingTw = sec.tw;
@@ -51,8 +59,8 @@
   function recalcFromBH() {
     const calc = autoCalc();
     if (calc) {
-      localA = calc.a.toPrecision(6);
-      localIz = calc.iz.toPrecision(6);
+      localA = String(+calc.a.toPrecision(6));
+      localIz = String(+calc.iz.toPrecision(6));
     }
   }
 
@@ -61,11 +69,11 @@
     const a = parseFloat(localA);
     const iz = parseFloat(localIz);
     if (isNaN(a) || isNaN(iz)) return;
-    const updates: Record<string, any> = { name: localName, a, iz };
+    const updates: Record<string, any> = { name: localName, a: a / CM2, iz: iz / CM4 };
     const b = parseFloat(localB);
     const h = parseFloat(localH);
-    if (!isNaN(b)) updates.b = b;
-    if (!isNaN(h)) updates.h = h;
+    if (!isNaN(b)) updates.b = b / CM;
+    if (!isNaN(h)) updates.h = h / CM;
     if (pendingShape) updates.shape = pendingShape;
     if (pendingTw != null) updates.tw = pendingTw;
     if (pendingTf != null) updates.tf = pendingTf;
@@ -85,10 +93,10 @@
   function handleProfileSelect(profile: SteelProfile, _section: { a: number; iz: number; b: number; h: number }) {
     const full = profileToSectionFull(profile);
     localName = profile.name;
-    localA = full.a.toPrecision(6);
-    localIz = full.iz.toPrecision(6);
-    localB = full.b.toPrecision(4);
-    localH = full.h.toPrecision(4);
+    localA = cm(full.a, CM2);
+    localIz = cm(full.iz, CM4);
+    localB = cm(full.b, CM);
+    localH = cm(full.h, CM);
     // Store extended section properties when confirming
     pendingShape = full.shape;
     pendingTw = full.tw;
@@ -128,10 +136,10 @@
       />
     </div>
     <div class="field">
-      <span>A (m²):</span>
+      <span>A (cm²):</span>
       <input
         type="number"
-        step="0.0001"
+        step="any"
         bind:value={localA}
         onkeydown={handleKeydown}
       />
@@ -140,27 +148,27 @@
       <span>{t('secEdit.iz')}</span>
       <input
         type="number"
-        step="0.000001"
+        step="any"
         bind:value={localIz}
         onkeydown={handleKeydown}
       />
     </div>
     <div class="separator">{t('secEdit.rectangular')}</div>
     <div class="field">
-      <span>b (m):</span>
+      <span>b (cm):</span>
       <input
         type="number"
-        step="0.001"
+        step="0.1"
         bind:value={localB}
         onkeydown={handleKeydown}
         oninput={recalcFromBH}
       />
     </div>
     <div class="field">
-      <span>h (m):</span>
+      <span>h (cm):</span>
       <input
         type="number"
-        step="0.001"
+        step="0.1"
         bind:value={localH}
         onkeydown={handleKeydown}
         oninput={recalcFromBH}

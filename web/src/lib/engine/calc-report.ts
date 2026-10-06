@@ -11,6 +11,7 @@ import type { AnalysisResults } from './types';
 import type { AnalysisResults3D } from './types-3d';
 import { releaseLabel } from '../export/excel';
 import { t, tp, i18n } from '../i18n';
+import { modelFigureSvg } from './report/model-figure';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -68,6 +69,9 @@ const CALC_REPORT_CSS = `
   body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 10pt; color: #222; line-height: 1.5; padding: 0; }
 
   /* Print controls */
+  .model-fig { margin: 8px 0 18px; text-align: center; break-inside: avoid; }
+  .model-fig svg { max-width: 100%; height: auto; border: 1px solid #ccd; }
+  .model-fig figcaption { font-size: 9pt; color: #555; margin-top: 4px; }
   .print-btn { position: fixed; top: 12px; right: 12px; z-index: 999; padding: 8px 20px; background: #1a4a7a; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 11pt; font-weight: 600; }
   .print-btn:hover { background: #0f3460; }
   @media print { .no-print { display: none !important; } }
@@ -188,6 +192,12 @@ function buildCover(cfg: CalcReportConfig, modeLabel: AnalysisModeLabel, nodeCou
 function buildModelSection(data: CalcReportData): string {
   const h: string[] = ['<div class="page">'];
   h.push(`<h1 id="sec-model">1. ${t('app.modelData')}</h1>`);
+
+  // The numbered model the tables below refer to.
+  const figure = modelFigureSvg({ nodes: data.nodes, elements: data.elements, supports: data.supports, is3D: data.is3D });
+  if (figure) {
+    h.push(`<figure class="model-fig">${figure}<figcaption>${t('calcReport.modelFigure')}</figcaption></figure>`);
+  }
 
   // 1.1 Materials
   h.push(`<h2>1.1 ${t('report.materials')} (${data.materials.length})</h2>`);

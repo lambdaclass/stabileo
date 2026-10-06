@@ -117,24 +117,90 @@ export function findUserData(obj: THREE.Object3D): { type: string; id: number } 
   return null;
 }
 
+/**
+ * The reader's label size, shared by every label sprite: a multiplier the
+ * sprite shader applies to the size each sprite was given, so changing it
+ * resizes every label at once without rebuilding any of them.
+ */
+export const labelScaleUniform = { value: 1 };
+export function setLabelScale3D(scale: number): void { labelScaleUniform.value = scale; }
+
+function withLabelScale(mat: THREE.SpriteMaterial, shape: [number, number] = [1, 1]): THREE.SpriteMaterial {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uLabelScale = labelScaleUniform;
+    shader.uniforms.uLabelShape = { value: new THREE.Vector2(shape[0], shape[1]) };
+    shader.vertexShader = 'uniform float uLabelScale;\nuniform vec2 uLabelShape;\n' + shader.vertexShader.replace(
+      'vec2 alignedPosition =', 'scale *= uLabelScale * uLabelShape;\n\tvec2 alignedPosition =',
+    );
+  };
+  mat.customProgramCacheKey = () => 'stabileo-label-scale';
+  return mat;
+}
+
+/*
+ * A label sized on the screen is drawn on a strip as wide as its text. It was
+ * a square with the text drawn at 28 of its 128
+ * pixels: an id beside a node came out 7 or 8 px tall, and a long value was
+ * squeezed into the square. Here the text fills most of a strip as wide as
+ * it (`uLabelShape`); the strip is 65 % of the height the caller gives, so the
+ * text reads at about 13 px at the default label size, near the 2D view's.
+ */
+const STRIP_H = 96;
+const STRIP_FONT = 0.72;
+const STRIP_OF_SIZE = 0.65;
+
+function drawStripCanvas(text: string, color: string): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const ctx0 = canvas.getContext('2d')!;
+  const px = STRIP_H * STRIP_FONT;
+  ctx0.font = `bold ${px}px sans-serif`;
+  const w = ctx0.measureText?.(text)?.width ?? px * 0.6 * text.length;
+  canvas.width = Math.max(STRIP_H, Math.ceil(w + STRIP_H * 0.25));
+  canvas.height = STRIP_H;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.font = `bold ${px}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, STRIP_H / 2);
+  return canvas;
+}
+
+/** Side of the square a label is drawn on, in canvas pixels. */
+const LABEL_TEXTURE_PX = 256;
+
+/**
+ * Draw a label's text on its square canvas. The canvas is twice what it was
+ * (128 px) so the text is sharp when labels are made bigger; a text wider
+ * than the square is narrowed to fit instead of being cut at both ends,
+ * which is what happened to "−123.45 kN·m".
+ */
+function drawLabelCanvas(text: string, color: string, fontSize: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const size = LABEL_TEXTURE_PX;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const px = fontSize * (size / 128);
+  ctx.fillStyle = color;
+  ctx.font = `bold ${px}px sans-serif`;
+  const room = size * 0.96;
+  const w = ctx.measureText?.(text)?.width ?? 0;
+  if (w > room) ctx.font = `bold ${px * room / w}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, size / 2, size / 2);
+  return canvas;
+}
+
 /** Create a canvas-based text sprite (for labels) */
 export function createTextSprite(
   text: string,
   color: string = '#ffffff',
   fontSize: number = 36,
 ): THREE.Sprite {
-  const canvas = document.createElement('canvas');
-  const size = 128;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = color;
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, size / 2, size / 2);
-  const texture = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const texture = new THREE.CanvasTexture(drawLabelCanvas(text, color, fontSize));
+  const mat = withLabelScale(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.6, 0.6, 1);
   return sprite;
@@ -149,8 +215,8 @@ export function createTextSprite(
 const TEXTURE_CACHE_MAX = 500;
 const textTextureCache = new Map<string, THREE.CanvasTexture>();
 
-function labelTexture(text: string, color: string, fontSize: number): THREE.CanvasTexture {
-  const key = `${text}|${color}|${fontSize}`;
+function labelTexture(text: string, color: string, fontSize: number, strip = false): THREE.CanvasTexture {
+  const key = `${text}|${color}|${strip ? 'strip' : fontSize}`;
   const cached = textTextureCache.get(key);
   if (cached) {
     // Refresh recency (Map iteration is insertion-ordered for eviction).
@@ -158,17 +224,9 @@ function labelTexture(text: string, color: string, fontSize: number): THREE.Canv
     textTextureCache.set(key, cached);
     return cached;
   }
-  const canvas = document.createElement('canvas');
-  const size = 128;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = color;
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, size / 2, size / 2);
+  const canvas = strip ? drawStripCanvas(text, color) : drawLabelCanvas(text, color, fontSize);
   const texture = new THREE.CanvasTexture(canvas);
+  texture.userData.aspect = canvas.height > 0 ? canvas.width / canvas.height : 1;
   textTextureCache.set(key, texture);
   if (textTextureCache.size > TEXTURE_CACHE_MAX) {
     const oldest = textTextureCache.keys().next().value!;
@@ -198,10 +256,10 @@ export function createTextSpriteCached(
    */
   screenSized = false,
 ): THREE.Sprite {
-  const texture = labelTexture(text, color, fontSize);
-  const mat = new THREE.SpriteMaterial({
+  const texture = labelTexture(text, color, fontSize, screenSized);
+  const mat = withLabelScale(new THREE.SpriteMaterial({
     map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
-  });
+  }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : [1, 1]);
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.userData.sharedTexture = true;

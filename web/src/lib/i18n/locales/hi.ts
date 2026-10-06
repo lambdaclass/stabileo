@@ -777,7 +777,7 @@ const hi: Translations = {
   'secEdit.title': 'खंड {id}',
   'secEdit.chooseProfile': 'प्रोफ़ाइल चुनें...',
   'secEdit.name': 'नाम:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'आयताकार (स्वतः A, Iz)',
   'secEdit.profileRotation': 'प्रोफ़ाइल घूर्णन',
   'secEdit.rotation': 'घूर्णन (°):',

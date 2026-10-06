@@ -68,7 +68,7 @@
   import { variableRefusal2D } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
-  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
@@ -307,7 +307,31 @@
    * A P-Δ that is the linear solve (nothing deforms the model, or nothing is
    * free) says so, instead of the engine's "did not converge, unstable".
    */
-  function pdeltaToast(result: any, dt: number): void {
+  /**
+   * A P-Δ run is drawn only when it found an equilibrium. Unstable (by the
+   * engine's word or by the displacements, `amplification`) or not converged,
+   * the engine's results are the first-order ones: the panel reports the run
+   * and nothing is drawn as its result.
+   */
+  function publishPDelta(result: any, threeD: boolean, dt: number): void {
+    const asSpace = threeD ? result : {
+      ...result,
+      results: { ...result.results, displacements: (result.results?.displacements ?? []).map((d: any) => ({ ...d, uy: 0 })) },
+      linearResults: result.linearResults ? { ...result.linearResults, displacements: result.linearResults.displacements.map((d: any) => ({ ...d, uy: 0 })) } : undefined,
+    };
+    const stable = result.isStable !== false && amplification(asSpace).stable;
+    const noEquilibrium = !stable || !result.converged;
+    if (!noEquilibrium) {
+      if (threeD) resultsStore.setPDeltaResult3D(result); else resultsStore.setPDeltaResult(result);
+      pdeltaToast(result, dt);
+      return;
+    }
+    const reported = stable ? result : { ...result, isStable: false, b2Factor: Infinity };
+    resultsStore.setPDeltaWithoutEquilibrium(reported, threeD);
+    pdeltaToast(reported, dt, true);
+  }
+
+  function pdeltaToast(result: any, dt: number, notDrawn = false): void {
     if (result.notice === 'noLoads' || result.notice === 'noFreeDofs') {
       uiStore.toast(t(result.notice === 'noLoads' ? 'toast.pdeltaLinearNoLoads' : 'toast.pdeltaLinearNoFreeDofs'), 'info');
       return;
@@ -315,7 +339,7 @@
     const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
       ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
       : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
-    uiStore.toast(msg, result.converged && result.isStable ? 'success' : 'error');
+    uiStore.toast(notDrawn ? `${msg}. ${t('toast.pdeltaNotDrawn')}` : msg, result.converged && result.isStable ? 'success' : 'error');
   }
 
   /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
@@ -385,8 +409,7 @@
       const result = solvePDelta(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
-      resultsStore.setPDeltaResult(result);
-      pdeltaToast(result, dt);
+      publishPDelta(result, false, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }
@@ -506,8 +529,7 @@
       result = wasmPDelta3D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
-      resultsStore.setPDeltaResult3D(result);
-      pdeltaToast(result, dt);
+      publishPDelta(result, true, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
     }

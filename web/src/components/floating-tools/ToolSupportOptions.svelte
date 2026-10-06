@@ -252,8 +252,8 @@
   }
 
   .ft-unit {
-    font-size: 0.6rem;
-    color: var(--st-text-3);
+    font-size: 0.68rem;
+    color: var(--st-text-2);
     white-space: nowrap;
   }
 
@@ -301,7 +301,7 @@
     }
 
     .ft-unit {
-      font-size: 0.6rem;
+      font-size: 0.68rem;
     }
 
     .ft-hint {

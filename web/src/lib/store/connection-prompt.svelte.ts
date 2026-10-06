@@ -5,11 +5,13 @@
  * second crossing does not wipe the question about the first.
  *
  * Accepted while the model is still as its edit left it, a connection joins
- * that edit's undo step, so one undo takes both back. Accepted after other
+ * that edit's undo step, so one undo takes both back; a question whose yes
+ * removes what the edit made (`undoesEdit`) undoes the edit instead. Accepted after other
  * edits, it is a step of its own. Declining changes nothing. A question whose
  * subject is gone (deleted, undone, already connected) drops out on its own.
  */
 import { modelStore } from './model.svelte';
+import { historyStore } from './history.svelte';
 
 export interface ConnectionQuestion {
   message: string;
@@ -21,6 +23,12 @@ export interface ConnectionQuestion {
   stillApplies?: () => boolean;
   /** Questions with the same key are about the same thing: a new one replaces the old. */
   key?: string;
+  /**
+   * The yes takes the edit back: accepted while the model is still as the edit
+   * left it, it is that edit's undo (with whatever the edit made on the way,
+   * such as a member split for its end). Later, it is `run` as a step of its own.
+   */
+  undoesEdit?: boolean;
 }
 
 type Queued = ConnectionQuestion & { id: number; version: number };
@@ -80,7 +88,9 @@ export const connectionPrompt = {
     if (!q) return;
     remove(q);
     if (!applies(q)) return;
-    if (modelStore.modelVersion === q.version) modelStore.amendLastStep(q.run);
+    const untouched = modelStore.modelVersion === q.version;
+    if (untouched && q.undoesEdit) historyStore.undo();
+    else if (untouched) modelStore.amendLastStep(q.run);
     else modelStore.batch(q.run);
   },
 

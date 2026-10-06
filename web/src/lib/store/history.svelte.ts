@@ -177,8 +177,11 @@ function createHistoryStore() {
   let selection: SelectionAccess | null = null;
   const selNow = () => selection?.get() ?? null;
   const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); };
+  /** True while undo or redo puts a snapshot back: the same project, a step earlier or later. */
+  let replaying = false;
 
   const store = {
+    get replaying() { return replaying; },
     get canUndo() { return undoStack.length > 0; },
     get canRedo() { return redoStack.length > 0; },
     get undoCount() { return undoStack.length; },
@@ -232,7 +235,8 @@ function createHistoryStore() {
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(prev);
       } else {
-        modelStore.restore(prev);
+        replaying = true;
+        try { modelStore.restore(prev); } finally { replaying = false; }
       }
       if (prev.presentation3D) uiStore.viewportPresentation3D = prev.presentation3D;
       selRestore(prevSel);
@@ -254,7 +258,8 @@ function createHistoryStore() {
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(next);
       } else {
-        modelStore.restore(next);
+        replaying = true;
+        try { modelStore.restore(next); } finally { replaying = false; }
       }
       if (next.presentation3D) uiStore.viewportPresentation3D = next.presentation3D;
       selRestore(nextSel);

@@ -779,7 +779,7 @@ const de: Translations = {
   'secEdit.title': 'Querschnitt {id}',
   'secEdit.chooseProfile': 'Profil wählen...',
   'secEdit.name': 'Name:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'Rechteckig (auto A, Iz)',
   'secEdit.profileRotation': 'Profildrehung',
   'secEdit.rotation': 'Rot (°):',

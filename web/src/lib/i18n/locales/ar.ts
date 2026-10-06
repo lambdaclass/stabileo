@@ -825,7 +825,7 @@ const ar: Translations = {
   'secEdit.title': 'المقطع {id}',
   'secEdit.chooseProfile': 'اختر مقطعاً...',
   'secEdit.name': 'الاسم:',
-  'secEdit.iz': 'Iz (م⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'مستطيل (حساب A, Iz تلقائياً)',
   'secEdit.profileRotation': 'دوران المقطع',
   'secEdit.rotation': 'دوران (°):',

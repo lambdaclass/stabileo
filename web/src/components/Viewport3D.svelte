@@ -22,7 +22,8 @@
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
   import { nodeAtPlacement3D } from '../lib/viewport/node-placement';
   import { boxSelect as boxSelectTargets, type BoxSelectMode } from '../lib/viewport/box-select';
-  import { memberNearPointer, nodeNearPointer } from '../lib/viewport3d/screen-pick';
+  import { membersNearPointer, nodesNearPointer } from '../lib/viewport3d/screen-pick';
+  import { createPickCycle, mergeTargets, type PickTarget } from '../lib/viewport/pick-cycle';
   import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
   import { pickLoadAt } from '../lib/viewport/load-pick';
   import { drawState } from '../lib/store/draw-state.svelte';
@@ -30,9 +31,10 @@
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
-  import { askToConnectMember } from '../lib/model/edit/connection-questions';
+  import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import Icon from './ribbon/Icon.svelte';
-  import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite, setLabelScale3D } from '../lib/three/selection-helpers';
+  import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
   import { NodesInstanced } from '../lib/three/nodes-instanced';
@@ -48,7 +50,7 @@
   import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor } from '../lib/viewport3d/camera';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
@@ -567,6 +569,12 @@
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.target.set(0, 0, 0);
+    // The wheel zooms toward what is under the pointer, as in the 2D view and
+    // in CAD, rather than toward the orbit centre: a detail far from the
+    // middle of the model can be reached without panning to it first.
+    controls.zoomToCursor = true;
+    // Close in on a small part, the near plane follows (see nearPlaneFor).
+    controls.addEventListener('change', syncNearPlane);
 
     // ── Keyboard camera navigation ──
     // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
@@ -1289,7 +1297,15 @@
 
   $effect(() => {
     modelStore.supports;
+    uiStore.showSupports;
+    void viewVisibility.version;
     syncSupports();
+    invalidate();
+  });
+
+  // The reader's label size: one shader uniform every label sprite reads.
+  $effect(() => {
+    setLabelScale3D(uiStore.labelScale);
     invalidate();
   });
 
@@ -1924,7 +1940,7 @@
     uiStore.selectElement(elemId, false);
     uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
     // Across other members or over nodes without touching them: ask, as in 2D.
-    if (uiStore.appMode !== 'pro') askToConnectMember(elemId);
+    if (uiStore.appMode !== 'pro') askAboutNewMember(elemId);
     // Chained (PRO's drawing bar, Basic's polyline mode), the far end starts the next member;
     // otherwise the next click starts afresh.
     const chain = uiStore.appMode === 'pro' ? drawState.memberChain : uiStore.memberChains;
@@ -2483,22 +2499,56 @@
   function clickSlop(): number { return uiStore.analysisMode === 'pro' ? 6 : 3; }
 
   /**
-   * In PRO, a click whose ray hit nothing takes the nearest node or member on the screen
+   * A click whose ray hit nothing takes the nearest node or member on the screen
    * (`viewport3d/screen-pick.ts`): the picking cylinder of a member is a pixel or two wide once a
-   * building is framed whole.
+   * building is framed whole. Basic and PRO alike; a plane model drawn in 3D is measured where
+   * it is drawn.
    */
-  function screenPick(e: MouseEvent, kind: 'node' | 'member'): number | null {
-    if (uiStore.analysisMode !== 'pro' || !camera) return null;
+  function screenPickAll(e: MouseEvent, kind: 'node' | 'member'): number[] {
+    if (!camera) return [];
     const rect = container.getBoundingClientRect();
     const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const project2D = shouldProject2DModel();
     const v = new THREE.Vector3();
     const project = (x: number, y: number, z: number) => {
-      v.set(x, y, z).project(camera);
+      const p = projectNodeToScene({ x, y, z }, project2D);
+      v.set(p.x, p.y, p.z).project(camera);
       if (v.z < -1 || v.z > 1) return null;
       return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
     };
-    if (kind === 'node') return nodeNearPointer(px, py, [...visibleNodes().values()], project, 9);
-    return memberNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, 7);
+    if (kind === 'node') return nodesNearPointer(px, py, [...visibleNodes().values()], project, 9);
+    return membersNearPointer(px, py, [...visibleElements().values()], (id) => modelStore.nodes.get(id), project, 7);
+  }
+  function screenPick(e: MouseEvent, kind: 'node' | 'member'): number | null {
+    return screenPickAll(e, kind)[0] ?? null;
+  }
+
+  /*
+   * A click again on the same spot steps to the next node or member under the
+   * pointer (`viewport/pick-cycle.ts`): what the ray hit, nearest first, then
+   * what lies within a few pixels on the screen.
+   */
+  const pickCycle = createPickCycle();
+  function pickUnderPointer(e: MouseEvent, kinds: { nodes: boolean; elements: boolean }): PickTarget | null {
+    const rayHits = (parent: THREE.Object3D, type: 'node' | 'element'): PickTarget[] => {
+      const out: PickTarget[] = [];
+      for (const h of raycaster.intersectObjects(parent.children, true)) {
+        const ud = resolveHitUserData(h);
+        if (ud?.type === type) out.push({ kind: type, id: ud.id });
+      }
+      return out;
+    };
+    const asTargets = (ids: number[], kind: 'node' | 'element') => ids.map((id): PickTarget => ({ kind, id }));
+    const targets = mergeTargets(
+      kinds.nodes ? rayHits(nodesParent, 'node') : [],
+      kinds.nodes ? asTargets(screenPickAll(e, 'node'), 'node') : [],
+      kinds.elements ? rayHits(elementsParent, 'element') : [],
+      kinds.elements ? asTargets(screenPickAll(e, 'member'), 'element') : [],
+    );
+    const rect = container.getBoundingClientRect();
+    return pickCycle.pick(targets, e.clientX - rect.left, e.clientY - rect.top, (at, of) => {
+      uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
+    });
   }
 
   /**
@@ -2662,34 +2712,12 @@
        */
       if (!addToSel) uiStore.clearSelection();
       let hit = false;
-      if (uiStore.selectsKind('nodes')) {
-        for (const h of raycaster.intersectObjects(nodesParent.children, true)) {
-          const ud = resolveHitUserData(h);
-          if (ud?.type === 'node') {
-            uiStore.selectNode(ud.id, addToSel);
-            hit = true;
-            break;
-          }
-        }
-      }
-      if (!hit && uiStore.selectsKind('nodes')) {
-        const id = screenPick(e, 'node');
-        if (id !== null) { uiStore.selectNode(id, addToSel); hit = true; }
-      }
-      if (!hit && uiStore.selectsKind('elements')) {
-        for (const h of raycaster.intersectObjects(elementsParent.children, true)) {
-          const ud = resolveHitUserData(h);
-          if (ud?.type === 'element') {
-            uiStore.selectElement(ud.id, addToSel);
-            if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
-            hit = true;
-            break;
-          }
-        }
-      }
-      if (!hit && uiStore.selectsKind('elements')) {
-        const id = screenPick(e, 'member');
-        if (id !== null) { uiStore.selectElement(id, addToSel); hit = true; }
+      const pick = pickUnderPointer(e, { nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements') });
+      if (pick?.kind === 'node') { uiStore.selectNode(pick.id, addToSel); hit = true; }
+      else if (pick?.kind === 'element') {
+        uiStore.selectElement(pick.id, addToSel);
+        if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
+        hit = true;
       }
       if (!hit && uiStore.selectsKind('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
@@ -2709,16 +2737,8 @@
     }
 
     if (sm === 'nodes') {
-      const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
-      for (const hit of nodeHits) {
-        const ud = resolveHitUserData(hit);
-        if (ud?.type === 'node') {
-          uiStore.selectNode(ud.id, addToSel);
-          return;
-        }
-      }
-      const nearNode = screenPick(e, 'node');
-      if (nearNode !== null) { uiStore.selectNode(nearNode, addToSel); return; }
+      const pick = pickUnderPointer(e, { nodes: true, elements: false });
+      if (pick) { uiStore.selectNode(pick.id, addToSel); return; }
       if (!addToSel) uiStore.clearSelection();
       return;
     }
@@ -2750,18 +2770,13 @@
      * then a support or a shell, so a click near a joint took whatever lay there, and what
      * Delete would then remove was not what the mode promised.
      */
-    for (const hit of raycaster.intersectObjects(elementsParent.children, true)) {
-      const ud = resolveHitUserData(hit);
-      if (ud?.type === 'element') {
-        uiStore.selectElement(ud.id, addToSel);
-        // Sync with DSM Matrix Explorer if wizard is open
-        if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
-        return;
-      }
+    const pick = pickUnderPointer(e, { nodes: false, elements: true });
+    if (pick) {
+      uiStore.selectElement(pick.id, addToSel);
+      // Sync with DSM Matrix Explorer if wizard is open
+      if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
+      return;
     }
-
-    const nearMember = screenPick(e, 'member');
-    if (nearMember !== null) { uiStore.selectElement(nearMember, addToSel); return; }
 
     // Clicked on empty space → clear selection
     if (!addToSel) {
@@ -3360,8 +3375,23 @@
    * buffer is what pays for it; the cost of too little is a floor that
    * disappears in pieces while you orbit.
    *
-   * The near plane stays at 0.1 m so zooming into a connection still works.
+   * The near plane is syncNearPlane's.
    */
+  /**
+   * The near plane follows the distance to what is looked at, so zooming in on a
+   * part a few millimetres across does not cut it away, and a whole building
+   * keeps the depth precision of the old fixed 0.1 m.
+   */
+  function syncNearPlane() {
+    if (!camera || !(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+    const cam = camera as THREE.PerspectiveCamera;
+    const near = nearPlaneFor(cam.position.distanceTo(controls.target));
+    if (Math.abs(cam.near - near) > near * 0.05) {
+      cam.near = near;
+      cam.updateProjectionMatrix();
+    }
+  }
+
   function syncCameraRange() {
     const reach = Math.max(uiStore.gridExtent3D, 50);
     const far = Math.max(2000, reach * 4);
@@ -3396,6 +3426,9 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="vp-prompt" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
     ontouchstart={(e) => e.stopPropagation()}><ConnectionPrompt /></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="vp-hidden-chip" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
+    ontouchstart={(e) => e.stopPropagation()}><HiddenItemsChip /></div>
   {#if uiStore.isMobile && uiStore.appMode === 'basico'}
     <!-- The phone's delete button: over the model's lower right corner, level
          with the axes; the canvas shrinks for the sheet, so it rises with it.
@@ -3751,7 +3784,7 @@
   .lasso-path polygon { fill: rgba(127, 212, 204, 0.12); stroke: #7fd4cc; stroke-width: 1.5; stroke-dasharray: 4 3; }
 
   /* The card positions itself; this only keeps presses on it off the model. */
-  .vp-prompt { display: contents; }
+  .vp-prompt, .vp-hidden-chip { display: contents; }
 
   .vp-delete {
     position: absolute;

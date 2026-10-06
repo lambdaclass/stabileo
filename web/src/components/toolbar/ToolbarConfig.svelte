@@ -190,8 +190,8 @@
               type="number"
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
               oninput={(e) => { const v = parseFloat(e.currentTarget.value); if (!isNaN(v) && v > 0) { if (is3D) uiStore.gridSize3D = v; else uiStore.gridSize = v; } }}
-              min="0.1"
-              step="0.1"
+              min="0.001"
+              step="any"
             />
           </div>
           {#if is3D}
@@ -282,6 +282,20 @@
           <span>{t('config.showLoads')}</span>
           </HelpTip>
         </label>
+        <label class="checkbox-item">
+          <HelpTip text={t('config.tip.showSupports')}>
+          <input type="checkbox" checked={uiStore.showSupports} data-testid="cfg-show-supports"
+            onchange={(e) => { uiStore.showSupports = e.currentTarget.checked; }} />
+          <span>{t('config.showSupports')}</span>
+          </HelpTip>
+        </label>
+        <div class="input-group" style="flex-direction: column; align-items: stretch;">
+          <HelpTip text={t('config.tip.labelSize')}><label for="cfg-label-size">{t('config.labelSize')}: {Math.round(uiStore.labelScale * 100)} %</label></HelpTip>
+          <input id="cfg-label-size" type="range" data-testid="cfg-label-size"
+            min={uiStore.labelScaleRange[0]} max={uiStore.labelScaleRange[1]} step="0.1"
+            value={uiStore.labelScale}
+            oninput={(e) => { uiStore.labelScale = parseFloat(e.currentTarget.value); }} />
+        </div>
         {#if !is3Dm}
           <label class="checkbox-item">
             <HelpTip text={t('config.tip.autoSplit')}>

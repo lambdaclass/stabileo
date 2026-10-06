@@ -819,7 +819,7 @@ const ru: Translations = {
   'secEdit.title': 'Сечение {id}',
   'secEdit.chooseProfile': 'Выбрать профиль...',
   'secEdit.name': 'Название:',
-  'secEdit.iz': 'Iz (м⁴):',
+  'secEdit.iz': 'Iz (см⁴):',
   'secEdit.rectangular': 'Прямоугольное (авто A, Iz)',
   'secEdit.profileRotation': 'Поворот профиля',
   'secEdit.rotation': 'Поворот (°):',

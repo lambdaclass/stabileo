@@ -825,7 +825,7 @@ const ja: Translations = {
   'secEdit.title': '断面 {id}',
   'secEdit.chooseProfile': 'プロファイルを選択...',
   'secEdit.name': '名前：',
-  'secEdit.iz': 'Iz (m⁴)：',
+  'secEdit.iz': 'Iz (cm⁴)：',
   'secEdit.rectangular': '矩形（自動 A, Iz）',
   'secEdit.profileRotation': 'プロファイル回転',
   'secEdit.rotation': '回転 (°)：',

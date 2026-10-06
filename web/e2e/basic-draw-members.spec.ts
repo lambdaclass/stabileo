@@ -105,15 +105,18 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
       await page.mouse.click(c.x + (d.x - c.x) * 0.25, c.y + (d.y - c.y) * 0.25);
     }, { nodes: 6, members: 6 });
 
-    // Ends already joined, by one member or by a run of split ones: a member
-    // there would lie on top of them, so nothing is made and no step is added.
+    // Ends already joined, by one member or by a run of split ones: the new
+    // member lies on top of them, and the editor asks. Deleting it right away
+    // takes the drawing back, so no step is left behind.
     for (const [p, q] of [[m, b], [c, a]]) {
       await page.keyboard.press('Escape');
       await page.getByTestId('rb-cmd-element').click();
       await page.mouse.click(p.x, p.y);
       await page.mouse.click(q.x, q.y);
-      await page.waitForTimeout(200);
-      expect(await census()).toEqual({ nodes: 6, members: 6 });
+      await expect(page.getByTestId('connection-prompt')).toContainText(/repite|repeats|superpone|overlaps/);
+      await page.getByTestId('connection-accept').click();
+      await expect(page.getByTestId('connection-prompt')).toHaveCount(0);
+      await expect.poll(census).toEqual({ nodes: 6, members: 6 });
       expect(await undos()).toBe(u0 + 4);
     }
     await page.keyboard.press('Escape');

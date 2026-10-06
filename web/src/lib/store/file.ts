@@ -410,6 +410,8 @@ export async function loadProject(file: File): Promise<void> {
   if (!deserializeProject(text)) {
     throw new Error(t('file.invalidFormat'));
   }
+  // Members lying over each other: ask about each, as drawing one would.
+  askAboutOverlapsInModel();
 }
 
 // ─── Session Save / Load (all tabs) ─────────────────────────────
@@ -450,6 +452,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     tabManager.restoreSession(data.tabs, data.activeTabId);
     return { type: 'session', count: data.tabs.length };
   } else if (deserializeProject(text)) {
+    askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };
   } else {
     throw new Error(t('file.invalidFormat'));
@@ -552,6 +555,7 @@ export function downloadCanvasPNG(canvas: HTMLCanvasElement): void {
 
 import { exportDxfWithResults } from '../dxf/writer';
 import { hydrateProjectProvenance } from './project-provenance';
+import { askAboutOverlapsInModel } from '../model/edit/connection-questions';
 
 export function exportDXF(): string {
   return exportDxfWithResults({

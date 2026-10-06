@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { askAboutOverlapsInModel } from '../lib/model/edit/connection-questions';
   // CAD → RC draft wizard (PR [9]).
   //
   // 4 steps: (1) upload/units → (2) layer roles → (3) assumptions →
@@ -564,6 +565,7 @@
     historyStore.pushState();
     modelStore.restore(draft.snapshot);
     resultsStore.clear();
+    if (uiStore.appMode !== 'pro') askAboutOverlapsInModel();
     uiStore.toast(
       t('cad.applied')
         .replace('{nodes}', String(draft.counts.nodes))

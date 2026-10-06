@@ -44,7 +44,10 @@ export function getModelBounds(
   }
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z, 2);
+  // A part a few centimetres across frames at its own size; only a lone node,
+  // with no size at all, falls back to a couple of metres.
+  const largest = Math.max(size.x, size.y, size.z);
+  const maxDim = largest > 1e-6 ? largest : 2;
   return { center, size, maxDim };
 }
 
@@ -116,7 +119,7 @@ export function zoomToFit(
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
   if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
     const persp = camera as THREE.PerspectiveCamera;
-    persp.near = Math.max(0.1, dist * 0.001);
+    persp.near = nearPlaneFor(dist);
     persp.far = Math.max(1000, dist * 10);
     persp.updateProjectionMatrix();
   }
@@ -228,4 +231,12 @@ export function handleResize(
   syncOrthoFrustum(orthoCamera, camera.position, controls.target, aspect, aspect);
   // Update fat-line resolution (shared by axes + element wireframes)
   setLineResolution(w, h);
+}
+
+/**
+ * The perspective near plane for a camera this far from what it looks at: a
+ * small fraction of the distance, between 0.1 mm and the 0.1 m it always was.
+ */
+export function nearPlaneFor(distance: number): number {
+  return Math.min(0.1, Math.max(1e-4, distance * 0.005));
 }

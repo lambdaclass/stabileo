@@ -777,7 +777,7 @@ const tr: Translations = {
   'secEdit.title': 'Kesit {id}',
   'secEdit.chooseProfile': 'Profil seçin...',
   'secEdit.name': 'Ad:',
-  'secEdit.iz': 'Iz (m⁴):',
+  'secEdit.iz': 'Iz (cm⁴):',
   'secEdit.rectangular': 'Dikdörtgen (otomatik A, Iz)',
   'secEdit.profileRotation': 'Profil döndürme',
   'secEdit.rotation': 'Dön (°):',

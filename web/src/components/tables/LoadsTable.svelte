@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import CombosTable from './CombosTable.svelte';
   import { t } from '../../lib/i18n';
@@ -77,7 +78,8 @@
   </thead>
   <tbody>
     {#each modelStore.loads as load, i}
-      <tr>
+      <tr class:row-sel={rowSelected('load', load.data.id)} onclick={(e) => selectRow(e, 'load', load.data.id)}
+        ondblclick={(e) => frameRow(e, 'load', load.data.id)} onfocusin={(e) => focusRow(e, 'load', load.data.id)}>
         <td class="id-cell">{i + 1}</td>
         <td>
           <select value={String(load.data.caseId ?? 1)} onchange={(e) => { modelStore.updateLoadCaseId(load.data.id, parseInt(e.currentTarget.value)); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }}>
@@ -107,43 +109,43 @@
         <td class="load-values">
           {#if load.type === 'nodal'}
             {@const d = load.data as NodalLoad}
-            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fz<input type="number" step="1" value={get2DDisplayNodalLoadVertical(d)} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /></span>
-            <span class="load-field">My<input type="number" step="1" value={get2DDisplayNodalLoadMoment(d)} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /></span>
+            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">Fz<input type="number" step="1" value={get2DDisplayNodalLoadVertical(d)} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">My<input type="number" step="1" value={get2DDisplayNodalLoadMoment(d)} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /><span class="lf-unit">kN·m</span></span>
           {:else if load.type === 'nodal3d'}
             {@const d = load.data as NodalLoad3D}
-            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fy<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /></span>
-            <span class="load-field">Fz<input type="number" step="1" value={d.fz} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /></span>
-            <span class="load-field">Mx<input type="number" step="1" value={d.mx} onchange={(e) => updateLoadField(d.id, 'mx', e.currentTarget.value)} /></span>
-            <span class="load-field">My<input type="number" step="1" value={d.my} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /></span>
-            <span class="load-field">Mz<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /></span>
+            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">Fy<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">Fz<input type="number" step="1" value={d.fz} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">Mx<input type="number" step="1" value={d.mx} onchange={(e) => updateLoadField(d.id, 'mx', e.currentTarget.value)} /><span class="lf-unit">kN·m</span></span>
+            <span class="load-field">My<input type="number" step="1" value={d.my} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /><span class="lf-unit">kN·m</span></span>
+            <span class="load-field">Mz<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /><span class="lf-unit">kN·m</span></span>
           {:else if load.type === 'distributed'}
             {@const d = load.data as DistributedLoad}
-            <span class="load-field">qI<input type="number" step="1" value={d.qI} onchange={(e) => updateLoadField(d.id, 'qI', e.currentTarget.value)} /></span>
-            <span class="load-field">qJ<input type="number" step="1" value={d.qJ} onchange={(e) => updateLoadField(d.id, 'qJ', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.1" value={d.a ?? 0} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
-            <span class="load-field">b<input type="number" step="0.1" value={d.b ?? modelStore.getElementLength(d.elementId)} onchange={(e) => updateLoadField(d.id, 'b', e.currentTarget.value)} /></span>
+            <span class="load-field">qI<input type="number" step="1" value={d.qI} onchange={(e) => updateLoadField(d.id, 'qI', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+            <span class="load-field">qJ<input type="number" step="1" value={d.qJ} onchange={(e) => updateLoadField(d.id, 'qJ', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+            <span class="load-field">a<input type="number" step="0.1" value={d.a ?? 0} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
+            <span class="load-field">b<input type="number" step="0.1" value={d.b ?? modelStore.getElementLength(d.elementId)} onchange={(e) => updateLoadField(d.id, 'b', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
           {:else if load.type === 'distributed3d'}
             {@const d = load.data as DistributedLoad3D}
-            <span class="load-field">qYI<input type="number" step="1" value={d.qYI} onchange={(e) => updateLoadField(d.id, 'qYI', e.currentTarget.value)} /></span>
-            <span class="load-field">qYJ<input type="number" step="1" value={d.qYJ} onchange={(e) => updateLoadField(d.id, 'qYJ', e.currentTarget.value)} /></span>
-            <span class="load-field">qZI<input type="number" step="1" value={d.qZI} onchange={(e) => updateLoadField(d.id, 'qZI', e.currentTarget.value)} /></span>
-            <span class="load-field">qZJ<input type="number" step="1" value={d.qZJ} onchange={(e) => updateLoadField(d.id, 'qZJ', e.currentTarget.value)} /></span>
+            <span class="load-field">qYI<input type="number" step="1" value={d.qYI} onchange={(e) => updateLoadField(d.id, 'qYI', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+            <span class="load-field">qYJ<input type="number" step="1" value={d.qYJ} onchange={(e) => updateLoadField(d.id, 'qYJ', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+            <span class="load-field">qZI<input type="number" step="1" value={d.qZI} onchange={(e) => updateLoadField(d.id, 'qZI', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
+            <span class="load-field">qZJ<input type="number" step="1" value={d.qZJ} onchange={(e) => updateLoadField(d.id, 'qZJ', e.currentTarget.value)} /><span class="lf-unit">kN/m</span></span>
           {:else if load.type === 'thermal'}
             {@const d = load.data as ThermalLoad}
-            <span class="load-field">&Delta;T<input type="number" step="5" value={d.dtUniform} onchange={(e) => updateLoadField(d.id, 'dtUniform', e.currentTarget.value)} /></span>
-            <span class="load-field">&Delta;Tg<input type="number" step="5" value={d.dtGradient} onchange={(e) => updateLoadField(d.id, 'dtGradient', e.currentTarget.value)} /></span>
+            <span class="load-field">&Delta;T<input type="number" step="5" value={d.dtUniform} onchange={(e) => updateLoadField(d.id, 'dtUniform', e.currentTarget.value)} /><span class="lf-unit">°C</span></span>
+            <span class="load-field">&Delta;Tg<input type="number" step="5" value={d.dtGradient} onchange={(e) => updateLoadField(d.id, 'dtGradient', e.currentTarget.value)} /><span class="lf-unit">°C</span></span>
           {:else if load.type === 'pointOnElement3d'}
             <!-- It fell into the plane branch below and showed an empty P. -->
             {@const d = load.data as PointLoadOnElement3D}
-            <span class="load-field">Py<input type="number" step="1" value={d.py} onchange={(e) => updateLoadField(d.id, 'py', e.currentTarget.value)} /></span>
-            <span class="load-field">Pz<input type="number" step="1" value={d.pz} onchange={(e) => updateLoadField(d.id, 'pz', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
+            <span class="load-field">Py<input type="number" step="1" value={d.py} onchange={(e) => updateLoadField(d.id, 'py', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">Pz<input type="number" step="1" value={d.pz} onchange={(e) => updateLoadField(d.id, 'pz', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
           {:else}
             {@const d = load.data as PointLoadOnElement}
-            <span class="load-field">P<input type="number" step="1" value={d.p} onchange={(e) => updateLoadField(d.id, 'p', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
+            <span class="load-field">P<input type="number" step="1" value={d.p} onchange={(e) => updateLoadField(d.id, 'p', e.currentTarget.value)} /><span class="lf-unit">kN</span></span>
+            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /><span class="lf-unit">m</span></span>
           {/if}
         </td>
         <td><button class="del" onclick={() => deleteLoad(i)}>&#10005;</button></td>
@@ -183,6 +185,7 @@
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   .combos-fold {
     margin: 0 0 6px;
     border: 1px solid var(--st-border);
@@ -271,6 +274,13 @@
     color: var(--st-text-3);
   }
 
+  /* The unit each value is typed in, legible at a glance rather than a faint hint. */
+  .lf-unit {
+    margin-left: 2px;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+    white-space: nowrap;
+  }
   .load-field input {
     width: 50px;
   }

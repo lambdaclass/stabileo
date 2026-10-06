@@ -407,9 +407,12 @@ export function applyElementVisibility(
 
 export function syncSupports(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
-  const storeSupports = viewVisibility.active
-    ? new Map([...modelStore.supports].filter(([, s]) => !viewVisibility.isNodeHidden(s.nodeId)))
-    : modelStore.supports;
+  // Turned off by the reader (Settings › Model), or standing on a hidden node.
+  const storeSupports = !uiStore.showSupports
+    ? new Map([...modelStore.supports].filter(() => false))
+    : viewVisibility.active
+      ? new Map([...modelStore.supports].filter(([, s]) => !viewVisibility.isNodeHidden(s.nodeId)))
+      : modelStore.supports;
   const project2D = projectFlag();
 
   // Remove stale
