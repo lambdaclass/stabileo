@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CollisionGeometry } from '../../../wasm/dedaliano_engine.js';
 import { prepareCollisionKernel, registerCollisionKernel } from '../collision-kernel';
-import { detectCollisions, type DetectCollisionsOptions } from '../collision';
+import { detectCollisions, DEFAULT_TOLERANCES, type DetectCollisionsOptions } from '../collision';
 import { buildStraightBarWithHooks, straightSegment, type BarPath } from '../../../codes/cirsoc201/bar-geometry';
 
 function bars(): BarPath[] {
@@ -49,6 +49,29 @@ describe('Rust collision kernel', () => {
     };
     expect(run(true)).toEqual(run(false));
   });
+  it.each([{}, { prune: false }, { deduplicateBuckets: false }, { broadPhase: false }])(
+    'matches separate Rust queries with classification callbacks and options %j', options => {
+      const input = bars();
+      input.push({ ...input[0], id: 'empty', segments: [] }, { ...input[0], id: 'coincident' });
+      const run = (fused: boolean) => {
+        registerCollisionKernel(CollisionGeometry, true, fused);
+        const calls: unknown[] = [];
+        const tolerances = { ...DEFAULT_TOLERANCES };
+        const result = detectCollisions(input, { ...options, tolerances,
+          classifyFor: (a, b, surface, ta, tb) => {
+            calls.push([a.id, b.id, surface, ta, tb]);
+            // A callback can change later queries' tolerance. Fusion must remain per bar,
+            // matching the old batch boundary rather than measuring the entire sweep early.
+            tolerances.placement = calls.length % 2 ? 0.002 : 0;
+            return { reportable: true, requiredClear: a.id < b.id ? 0.025 : 0.04,
+              pairClass: 'sameLayerSpacing', labelKey: 'test', refs: [] };
+          },
+        });
+        return { result, calls };
+      };
+      try { expect(run(true)).toEqual(run(false)); }
+      finally { registerCollisionKernel(CollisionGeometry); }
+    });
   it('uses the TS fallback and frees WASM geometry when callbacks throw', () => {
     const input = bars();
     const expected = detectCollisions(input, { kernel: false });
@@ -70,7 +93,12 @@ describe('Rust collision kernel', () => {
       expect(() => geometry.candidates(0)).toThrow();
       expect(() => geometry.build_hash(0, true)).toThrow();
       geometry.build_hash(0.3, true);
-      expect([...geometry.candidates(0)]).toEqual([]);
+      expect(() => geometry.query_measured(0, NaN, 0.1, true)).toThrow();
+      expect(() => geometry.query_measured(0, 0, Infinity, true)).toThrow();
+      expect(() => geometry.query_measured(1, 0, 0.1, true)).toThrow();
+      // Invalid input must not consume the ordered query cursor.
+      expect([...geometry.query_measured(0, 0, 0.1, true)]).toEqual([0, 0]);
+      expect(() => geometry.query_measured(0, 0, 0.1, true)).toThrow();
       expect(() => geometry.candidates(0)).toThrow();
     } finally { geometry.free(); }
   });

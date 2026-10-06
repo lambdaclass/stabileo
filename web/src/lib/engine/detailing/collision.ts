@@ -1,4 +1,4 @@
-import { prepareCollisionKernel, collisionRepairKernelAvailable, type CollisionGeometry } from './collision-kernel';
+import { prepareCollisionKernel, collisionRepairKernelAvailable, collisionQueryFusionEnabled, type CollisionGeometry } from './collision-kernel';
 /**
  * Bar-to-bar collision detection with a broad-phase spatial index.
  *
@@ -569,23 +569,30 @@ function sweepCollisions(
       if (prepared?.candidates && !prepared.candidates.has(i)) continue;
       const a = sampled[i];
       tsCandidates.length = 0;
-      const candidates = prepared?.candidates?.get(i)
+      // Constant-placement full sweeps can keep candidates entirely in Rust. Repair
+      // updates already supply selected pairs; custom placement keeps callback interleaving.
+      const fused = kernel && collisionQueryFusionEnabled() && !placementFor
+        && opts.broadPhase !== false && !prepared?.candidates
+        ? kernel.query_measured(i, tolerances.placement, maxClear, prune) : null;
+      const candidates = fused ? tsCandidates : prepared?.candidates?.get(i)
         ?? (kernel && opts.broadPhase !== false ? kernel.candidates(i) : tsCandidates);
-      if (candidates === tsCandidates) {
+      if (!fused && candidates === tsCandidates) {
         if (opts.broadPhase === false) {
           for (let j = i + 1; j < sampled.length; j++) tsCandidates.push(j);
         } else {
           for (const p of a.hashPoints) hash.collectNear(p, i, tsCandidates, seen);
         }
       }
-      barPairsTested += candidates.length;
+      barPairsTested += fused ? fused[0] : candidates.length;
+      if (fused) narrowPhaseTests += fused[1];
 
       // Batch constant-placement queries. Custom placement callbacks retain their exact
       // interleaving with classification callbacks, including observable side effects.
-      const measured = kernel && !placementFor && candidates.length > 0
-        ? kernel.measure(i, candidates instanceof Uint32Array ? candidates : Uint32Array.from(candidates), tolerances.placement, maxClear, prune) : null;
-      for (let candidate = 0; candidate < candidates.length; candidate++) {
-        const j = candidates[candidate];
+      const measured = fused ?? (kernel && !placementFor && candidates.length > 0
+        ? kernel.measure(i, candidates instanceof Uint32Array ? candidates : Uint32Array.from(candidates), tolerances.placement, maxClear, prune) : null);
+      const count = fused ? (fused.length - 2) / 8 : candidates.length;
+      for (let candidate = 0; candidate < count; candidate++) {
+        const j = fused ? fused[2 + candidate * 8] : candidates[candidate];
         const b = sampled[j];
         // Placement is needed before the sweep; `required` is resolved after the pair has
         // been classified, because the class chooses the rule.
@@ -620,8 +627,8 @@ function sweepCollisions(
 
         if (kernel) {
           const values = measured ?? kernel.measure(i, Uint32Array.of(j), placement, maxClear, prune);
-          const offset = measured ? candidate * 8 : 0;
-          narrowPhaseTests += values[offset + 7];
+          const offset = fused ? 3 + candidate * 8 : measured ? candidate * 8 : 0;
+          if (!fused) narrowPhaseTests += values[offset + 7];
           if (values[offset + 5] >= 0) {
             worst = { surface: values[offset], clearance: values[offset + 1],
               at: { x: values[offset + 2], y: values[offset + 3], z: values[offset + 4] },
