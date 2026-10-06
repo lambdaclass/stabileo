@@ -14,6 +14,7 @@ import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
+const numerical = process.argv.includes('--numerical');
 const kernels = process.argv.includes('--kernels');
 const compare = process.argv.includes('--compare');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,7 +22,7 @@ const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
 let server, browser, watchdog;
 try {
-  const module = kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
+  const module = numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
   await writeFile(entry, `<!doctype html><title>Design benchmark</title><script type="module">import { benchmark } from "/scripts/${module}.ts"; window.runBenchmark = benchmark;</script>`);
   await build({
     configFile: false, root, plugins: [svelte()],
@@ -36,7 +37,7 @@ try {
   if (!address || typeof address === 'string') throw new Error('No benchmark server address');
   browser = await chromium.launch({ headless: true });
   watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-  const examples = process.argv.slice(2).filter(arg => arg !== '--kernels' && arg !== '--compare');
+  const examples = process.argv.slice(2).filter(arg => arg !== '--numerical' && arg !== '--kernels' && arg !== '--compare');
   const run = async kernel => {
     // Fresh pages give both backends the same store revision counters and JIT warmup.
     const page = await browser.newPage();
