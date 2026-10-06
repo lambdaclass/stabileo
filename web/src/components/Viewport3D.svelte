@@ -1,5 +1,6 @@
 <script lang="ts">
   import { is3DWorkspace } from '../lib/utils/workspace';
+  import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
@@ -24,6 +25,7 @@
   import { memberNearPointer, nodeNearPointer } from '../lib/viewport3d/screen-pick';
   import { quickEdit } from '../lib/store/pro-quick-edit.svelte';
   import { pickLoadAt } from '../lib/viewport/load-pick';
+  import { activeStretchHandles, handleUnder, stationOnRay, moveStretchEnd, handleMeshes, type StretchHandles } from '../lib/viewport3d/load-handles';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -146,6 +148,21 @@
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
+
+  // ─── A member load's stretch, dragged by its handles ───────
+  let stretchDrag: { h: StretchHandles; end: 'a' | 'b'; moved: boolean } | null = null;
+  let stretchHandleGroup: THREE.Group | null = null;
+  $effect(() => {
+    // The handles of the one distributed load selected, rebuilt as it changes.
+    void modelStore.loads; void uiStore.selectedLoads; void uiStore.analysisMode;
+    if (!loadsParent) return;
+    untrack(() => {
+      if (stretchHandleGroup) { loadsParent.remove(stretchHandleGroup); disposeObject(stretchHandleGroup); stretchHandleGroup = null; }
+      const h = activeStretchHandles();
+      if (h) { stretchHandleGroup = handleMeshes(h); loadsParent.add(stretchHandleGroup); }
+      invalidate?.();
+    });
+  });
 
   // ─── Node dragging state ───────────────────────────────────
   let draggedNodeId3D = $state<number | null>(null);
@@ -1042,8 +1059,11 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Shift+P — toggle the dev perf HUD live (also persisted for next load).
-      if (e.key === 'P' && e.shiftKey) {
+      // Shift+P — toggle the dev perf HUD live (also persisted for next load). Only in development
+      // and test builds, and never while typing: a capital P in a field used to switch it on, and
+      // it stayed on through reloads.
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName));
+      if (PERF_HUD_ALLOWED && !typing && e.key === 'P' && e.shiftKey) {
         perfHud = { ...perfHud, on: !perfHud.on };
         try { localStorage.setItem('stabileo_perf', perfHud.on ? '1' : '0'); } catch { /* ignore */ }
         invalidate();
@@ -1144,8 +1164,10 @@
   // GPU-bound (draw calls / fill rate). Enable with ?perf in the URL or
   // localStorage.stabileo_perf='1', or toggle live with Shift+P. Zero cost when
   // off (perfTimed early-returns; the render block is guarded). Not for prod.
+  /** The HUD is a development tool: development and test builds only, never the released app. */
+  const PERF_HUD_ALLOWED = import.meta.env.DEV || import.meta.env.VITE_E2E === '1';
   let perfHud = $state<{ on: boolean; flush: number; fps: number; renderMs: number; syncMs: number; calls: number; tris: number; geos: number; texs: number }>({
-    on: (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
+    on: PERF_HUD_ALLOWED && (() => { try { return new URLSearchParams(location.search).has('perf') || localStorage.getItem('stabileo_perf') === '1'; } catch { return false; } })(),
     flush: 0, fps: 0, renderMs: 0, syncMs: 0, calls: 0, tris: 0, geos: 0, texs: 0,
   });
   // Non-reactive accumulators so the HUD's own reactivity doesn't perturb the measurement.
@@ -1381,6 +1403,7 @@
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
     uiStore.unitSystem; // value labels are in the chosen units
+    displayUnits.decimals; // and with the decimals the reader set
     syncDiagrams3D();
     invalidate();
   });
@@ -1700,6 +1723,14 @@
          * history was lost. The drag now starts on the first real movement (below, in the move
          * handler); a release before that is a plain click.
          */
+        // A handle of the selected load's stretch takes the press first.
+        const stretch = tool === 'select' ? activeStretchHandles() : null;
+        const end = stretch && camera ? handleUnder(stretch, camera, container.getBoundingClientRect(), e.clientX, e.clientY) : null;
+        if (stretch && end) {
+          stretchDrag = { h: stretch, end, moved: false };
+          controls.enabled = false;
+          return;
+        }
         const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
         if (nodeId !== null) {
@@ -2192,6 +2223,13 @@
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
       // At the click itself, not a frame late.
       if (moved < 5 && placementStore.follow) { pendingPlacementHover = null; placementHover(e); placementStore.commit(e.shiftKey, { copy: e.ctrlKey || e.metaKey }); }
+      return;
+    }
+
+    // ── A stretch end let go ──
+    if (stretchDrag) {
+      stretchDrag = null;
+      controls.enabled = true;
       return;
     }
 
@@ -2791,6 +2829,21 @@
     // over a large scene are the main cost of orbit on pro fixtures.
     scheduleHoverRaycast(e);
 
+    // ─── A stretch end dragged along its member: one undo step for the whole drag ──
+    if (stretchDrag && camera) {
+      updateMouseNDC(e);
+      raycaster.setFromCamera(mouse, camera);
+      if (!stretchDrag.moved) { historyStore.pushState(); stretchDrag.moved = true; }
+      const s = stationOnRay(stretchDrag.h, raycaster.ray);
+      const drag = stretchDrag;
+      modelStore.withoutUndo(() => moveStretchEnd(drag.h, drag.end, s));
+      // The other end, as it now stands.
+      const now = activeStretchHandles();
+      if (now) stretchDrag = { ...drag, h: now };
+      resultsStore.clear3D();
+      return;
+    }
+
     // ─── Node dragging ────────────────────────────────────────
     if (draggedNodeId3D !== null && dragStartWorld3D) {
       /*
@@ -2920,7 +2973,10 @@
       let tooltipText = '';
       if (newHover.type === 'node') {
         const n = modelStore.nodes.get(newHover.id);
-        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id)).replace('{x}', n.x.toFixed(2)).replace('{y}', n.y.toFixed(2)).replace('{z}', (n.z ?? 0).toFixed(2));
+        // In the chosen units, as the status bar shows the cursor: the hover read metres beside feet.
+        // To the millimetre (`fmtCoord`): automatic precision read x = 150.25 m as «150.3».
+        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
+          .replace('{x}', `${fmtCoord(n.x)}`).replace('{y}', `${fmtCoord(n.y)}`).replace('{z}', `${fmtCoord(n.z ?? 0)} ${unitQ('length')}`);
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
@@ -3550,20 +3606,20 @@
       <div class="coord-dialog">
         <div class="coord-title">{t('viewport3d.createNodeCoords')}</div>
         <div class="coord-row">
-          <label>X</label>
+          <label>X (m)</label>
           <!-- svelte-ignore a11y_autofocus -->
           <input type="number" step="any" bind:value={coordX} autofocus
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Y</label>
+          <label>Y (m)</label>
           <input type="number" step="any" bind:value={coordY}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />
         </div>
         <div class="coord-row">
-          <label>Z</label>
+          <label>Z (m)</label>
           <input type="number" step="any" bind:value={coordZ}
             onkeydown={(e) => { if (e.key === 'Enter') submitCoordDialog(); }}
           />

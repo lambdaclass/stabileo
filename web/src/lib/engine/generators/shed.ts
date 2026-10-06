@@ -62,6 +62,11 @@ export interface ShedParams {
   /** PD — clear height, ground to the underside of the roof structure, m. */
   clearHeightM: number;
   columnKind: ColumnKind;
+  /**
+   * Solid columns of variable section: one profile at the base and another at the head, varying
+   * linearly between. Ignored for latticed columns.
+   */
+  variableColumns?: boolean;
   /** Lattice column geometry. Ignored when the columns are solid. */
   column: Pick<LatticeColumnParams, 'widthM' | 'divisions' | 'lacing' | 'fixedBase'>;
   /** Longitudinal beams tying the column heads along the building. */
@@ -421,7 +426,7 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
       } else {
         const foot = addNode(b, xc, y, 0);
         const head = addNode(b, xc, y, p.clearHeightM);
-        b.members.push({ a: foot, b: head, role: 'column', type: 'frame' });
+        b.members.push({ a: foot, b: head, role: 'column', type: 'frame', ...(p.variableColumns ? { variableEnd: 'b' as const } : {}) });
         b.supports.push({ node: foot, type: supportType });
         sideHeads.push(head);
       }
@@ -623,6 +628,7 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
    */
   if (p.roof && !p.purlins) b.assumptions.add('generator.assume.roofWithoutPurlins');
   if (p.columnKind === 'solid') b.assumptions.add('generator.assume.solidColumns');
+  if (p.columnKind === 'solid' && p.variableColumns) b.assumptions.add('generator.assume.variableColumns');
   // Stated rather than left for the solver to discover: a latticed column on pinned chord
   // feet has no out-of-plane restraint, because the lacing only braces its own plane.
   if (p.columnKind === 'lattice' && !(p.fixedBase || p.column.fixedBase)) {

@@ -17,6 +17,23 @@
  */
 import { modelStore } from './model.svelte';
 import type { CaseCombination } from '../engine/loads/combination-cases';
+import { generateCombinations, type LoadCombinationSpec, type CombinationInputs } from '../codes/cirsoc101/combinations';
+import { generateServiceCombinations } from '../codes/cirsoc101/service-combinations';
+import { ruleToSpec, type CombinationRule } from '../engine/loads/combination-rules';
+import { withOrigin } from '../codes/families';
+import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
+
+/**
+ * The specs a template of the loads tab writes (CIRSOC 101-2025 strength, its service
+ * combinations, or the project's own rules), each saying which code and rule wrote it and what for
+ * (`withOrigin`), as the generator's do. The tab wrote them without: a service combination it
+ * added was read by design under "all", and "replace generated loads" never took back what it wrote.
+ */
+export function templateCombinationSpecs(template: 'lrfd' | 'service' | 'project', present: CombinationInputs['present'], rules: readonly CombinationRule[]): LoadCombinationSpec[] {
+  if (template === 'project') return rules.map((r) => withOrigin(ruleToSpec(r), CIRSOC101_BASIS, true));
+  const specs = template === 'service' ? generateServiceCombinations({ present }) : generateCombinations({ present });
+  return specs.map((c) => withOrigin(c, CIRSOC101_BASIS));
+}
 
 /** The envelope the generated service combinations join, created when missing. */
 export const SERVICE_ENVELOPE_NAME = 'SLS';
@@ -26,7 +43,7 @@ export function addGeneratedCombinations(list: readonly CaseCombination[], prefi
   const ids: number[] = [];
   const service: number[] = [];
   for (const c of list) {
-    const id = modelStore.addCombination(`${prefix(c)}${c.name}`, c.factors);
+    const id = modelStore.addCombination(`${prefix(c)}${c.name}`, c.factors, c.origin);
     ids.push(id);
     if (c.purpose === 'service') service.push(id);
   }

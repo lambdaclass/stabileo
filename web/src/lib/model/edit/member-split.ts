@@ -14,7 +14,8 @@
  * overlap's ends and the positions re-measured from the segment's own start; an end that
  * coincides with the segment's is left unstated, which is how the model stores a full-length
  * load. A point load goes to the segment that contains it — the later one when it sits exactly
- * on a cut. A thermal load is a state of the whole member and goes to every segment.
+ * on a cut. A thermal load is a state of the whole member and goes to every segment. A tendon goes
+ * to every segment as the stretch of its parabola there.
  *
  * The sum of the pieces is the original load, force and moment: that is what the tests assert.
  *
@@ -25,6 +26,10 @@
  * I-end release and joint to the first segment, the J-end ones to the last. Offsets are
  * interpolated at each cut so every flexible segment stays on the original line. An
  * interior cut is a rigid continuous connection, which is what cutting a continuous member means.
+ *
+ * A member of variable section's two sections are neither: each segment takes the section at its
+ * own ends, which the caller makes (`section/variable.ts`, `variableCutSection`), so
+ * `variableSection` is left out here.
  *
  * Reinforcement does not follow. Bars are laid out against a member's length and supports, and
  * a segment is neither; the segments are left undesigned and the caller reports it.
@@ -37,8 +42,9 @@ import { offsetVecToSolver } from '../../engine/member-offsets';
 
 import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
-  DistributedLoad3D, PointLoadOnElement3D,
+  DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D,
 } from '../../store/model.svelte';
+import { tendonStretch } from '../../engine/prestress';
 
 const EPS = 1e-9;
 
@@ -96,7 +102,7 @@ export function splitElementLoads(
   const L = bounds[bounds.length - 1]!;
   const onThis = (l: Load) => (l.data as { elementId?: number }).elementId === elementId
     && (l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
-      || l.type === 'distributed3d' || l.type === 'pointOnElement3d');
+      || l.type === 'distributed3d' || l.type === 'pointOnElement3d' || l.type === 'prestress3d');
 
   for (const l of loads) {
     if (!onThis(l)) { kept.push(l); continue; }
@@ -149,6 +155,15 @@ export function splitElementLoads(
         for (const sid of segmentIds) added.push({ type: 'thermal', data: { ...d, id: newId(), elementId: sid } });
         break;
       }
+      case 'prestress3d': {
+        // A parabola restricted to a segment is a parabola: each takes the tendon at its own ends
+        // and middle, and the anchor loads of neighbours cancel at the node they share (exact).
+        const d = l.data as PrestressLoad3D;
+        for (let k = 0; k < segmentIds.length; k++) {
+          added.push({ type: 'prestress3d', data: { ...tendonStretch(d, bounds[k]!, bounds[k + 1]!, L), id: newId(), elementId: segmentIds[k]! } });
+        }
+        break;
+      }
     }
   }
   return { kept, added };
@@ -159,11 +174,11 @@ const NO_RELEASE: Release = { my: false, mz: false, t: false };
 /**
  * The fields segment `k` of `count` takes from the original member, node ids aside.
  *
- * `reinforcement` is left out on purpose; see the module note.
+ * `reinforcement` and `variableSection` are left out on purpose; see the module note.
  */
 export function segmentFields(elem: Element, k: number, count: number, t0 = k / count, t1 = (k + 1) / count): Omit<Element, 'id' | 'nodeI' | 'nodeJ'> {
   const first = k === 0, last = k === count - 1;
-  const { id: _id, nodeI: _i, nodeJ: _j, reinforcement: _r, releaseI, releaseJ, jointI, jointJ, offset, ...whole } = elem;
+  const { id: _id, nodeI: _i, nodeJ: _j, reinforcement: _r, variableSection: _v, releaseI, releaseJ, jointI, jointJ, offset, ...whole } = elem;
   const out: Omit<Element, 'id' | 'nodeI' | 'nodeJ'> = {
     ...whole,
     releaseI: first ? { ...(releaseI ?? NO_RELEASE) } : { ...NO_RELEASE },

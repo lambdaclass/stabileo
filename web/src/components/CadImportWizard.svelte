@@ -709,6 +709,12 @@
                       .replace('{list}', Object.entries(b.refused).map(([type, n]) => `${n} × ${type}`).join(', '))
                       .replace('{n}', String(b.inserts))}</div>
                   {/each}
+                  {#if doc.paperSpace > 0}
+                    <div class="warn-line">ℹ {t('cad.warn.paperSpace').replace('{n}', String(doc.paperSpace))}</div>
+                  {/if}
+                  {#if doc.cyclicBlocks.length > 0}
+                    <div class="warn-line">⚠ {t('cad.warn.cyclicBlocks').replace('{names}', doc.cyclicBlocks.join(', '))}</div>
+                  {/if}
                   {#each Object.entries(doc.degenerate) as [type, count]}
                     <div class="warn-line">ℹ {t('cad.warn.degenerateEntity').replace('{type}', type).replace('{n}', String(count))}</div>
                   {/each}

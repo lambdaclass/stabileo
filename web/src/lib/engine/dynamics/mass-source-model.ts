@@ -5,10 +5,16 @@
  * Surface loads are taken from the model directly. The solve turns them into equivalent nodal
  * forces, and a nodal force has no member or shell to carry its mass; the shell they sit on
  * does.
+ *
+ * Only forces are weight. A tendon, a temperature, an initial strain and an imposed displacement
+ * are in a case too, and the solve turns the first three into forces: a tendon's push on a curved
+ * member is a load upward, which read as weight took the case's own downward weight off the mass.
+ * They are left out.
  */
 
 import { buildSolverLoads3D, type ModelData } from '../solver-service';
-import type { SurfaceLoad3D } from '../../store/model.svelte';
+import { solvableModel } from '../member-behaviour';
+import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import type { SolverInput3D } from '../types-3d';
 import {
   applyMassSource, resolveMassFactors,
@@ -16,11 +22,16 @@ import {
 } from './mass-source';
 import { withSectionMass } from './section-mass';
 
+/** The loads that are forces, so weight when they point down; surface loads are read apart. */
+const WEIGHT = new Set<Load['type']>(['nodal', 'nodal3d', 'distributed', 'distributed3d', 'pointOnElement', 'pointOnElement3d']);
+
 export function caseMassLoads(
   model: ModelData,
   factors: ReadonlyArray<ResolvedFactor>,
   leftHand: boolean,
 ): CaseMassLoads[] {
+  // On the members the analysis input has: a variable member's loads are its pieces' (idempotent).
+  model = solvableModel(model);
   const out: CaseMassLoads[] = [];
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
@@ -28,7 +39,7 @@ export function caseMassLoads(
     const surface = own
       .filter((l) => l.type === 'surface3d')
       .map((l) => ({ quadId: (l.data as SurfaceLoad3D).quadId, q: (l.data as SurfaceLoad3D).q }));
-    const rest = own.filter((l) => l.type !== 'surface3d');
+    const rest = own.filter((l) => WEIGHT.has(l.type));
     out.push({
       caseId: f.caseId,
       factor: f.factor,
@@ -53,6 +64,9 @@ export function withMassSource(
   userLeftHand = false,
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport; factors: ResolvedFactor[] } {
   const factors = resolveMassFactors(loadCases, stated);
+  // The model as the input was built from it: a variable member is its pieces, each with its own
+  // section, so a load and a section are looked up by the ids the input has (`variable-members.ts`).
+  model = solvableModel(model);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
   const physical = withSectionMass(input, model);

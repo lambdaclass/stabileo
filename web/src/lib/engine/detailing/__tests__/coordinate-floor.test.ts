@@ -24,6 +24,22 @@ const need25 = () => 0.025;
 
 describe('bounded repair ladder', () => {
   afterEach(() => { vi.restoreAllMocks(); });
+  it('a rung that makes things worse hands back the bars its conflicts describe', () => {
+    // b clears a by moving 7 mm up, and lands too close to c and d: two conflicts for one, so
+    // the ladder stops and keeps the state it started from — bars and conflicts alike.
+    const bars = [
+      bar('a', 0, { locked: true }), bar('b', 0.040),
+      bar('c', 0.086, { locked: true, segments: [straightSegment({ x: 0, y: 0.086, z: 0 }, { x: 1.9, y: 0.086, z: 0 })] }),
+      bar('d', 0.086, { locked: true, segments: [straightSegment({ x: 2.1, y: 0.086, z: 0 }, { x: 4, y: 0.086, z: 0 })] }),
+    ];
+    const r = repairConflicts(bars, need25);
+    expect(r.attempts).toEqual([{ rung: 'separación mínima', cleared: -1, remaining: 2 }]);
+    expect(r.conflicts.map((c) => [c.barA, c.barB])).toEqual([['a', 'b']]);
+    expect(r.bars.find((x) => x.id === 'b')!.segments[0].start.y).toBe(0.040);
+    const again = collision.detectCollisions(r.bars, { requiredClearFor: need25 });
+    expect(again.conflicts.map((c) => [c.barA, c.barB])).toEqual([['a', 'b']]);
+  });
+
   it('reports no conflicts and does nothing when the cage already fits', () => {
     const r = repairConflicts([bar('a', 0), bar('b', 0.3)], need25);
     expect(r.conflicts).toEqual([]);

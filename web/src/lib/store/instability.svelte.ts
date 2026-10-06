@@ -20,7 +20,8 @@ export const instability = {
   /** After a failed solve: ask the engine whether the model is a mechanism, and keep what it says. */
   explain(includeSelfWeight: boolean, leftHand: boolean): KinematicResult3D | null {
     report = null;
-    const input = modelStore.buildSolverInput3D(includeSelfWeight, leftHand, { expandMemberOffsets: false });
+    // The model's own nodes: no member cut for a load inside its span, whose node would be named.
+    const input = modelStore.buildSolverInput3D(includeSelfWeight, leftHand, { expandMemberOffsets: false, uncut: true });
     if (!input) return null;
     let r: KinematicResult3D;
     try {

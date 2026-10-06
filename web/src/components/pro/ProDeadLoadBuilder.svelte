@@ -14,24 +14,15 @@
    * they are different.
    */
   import { t } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { te } from '../../lib/i18n/engine-text';
   import {
     DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
     type DeadGroup,
   } from '../../lib/codes/cirsoc101/dead-loads';
-
-  export interface DeadRow {
-    /** Tabla 3.1 key, or null for a typed value. */
-    entryKey: string | null;
-    /** Metres, for a row the table prints per m³. */
-    thickness: number;
-    /** Tabla 3.1 (*) — laid on battens rather than boarding. */
-    onBattens: boolean;
-    /** kN/m², for a typed row. */
-    q: number;
-    /** True when this row is the allowance for interior partitions (§3.1.4). */
-    isPartition: boolean;
-  }
+  // A row, as the dialog holds it (`auto-loads-sections.ts`).
+  import type { DeadRow } from './auto-loads-sections';
 
   interface Props {
     rows: DeadRow[];
@@ -98,8 +89,7 @@
     <div class="dl-row" data-testid="dead-row">
       <span class="dl-label">{t(r.labelKey)}</span>
       {#if row.entryKey === null}
-        <span class="dl-qty"><input type="number" step="0.05" min="0" bind:value={rows[i].q}
-               class="dl-num" data-testid="dead-q" /> <span class="dl-unit">kN/m²</span></span>
+        <span class="dl-qty"><QuantityInput bind:value={rows[i].q} quantity="areaLoad" min={0} cls="dl-num" testid="dead-q" ariaLabel={t('loads.dead.custom')} /></span>
       {:else}
         <span class="dl-qty">
           {#if r.perVolume}
@@ -109,7 +99,7 @@
               m
             </label>
           {/if}
-          <span class="dl-value" data-testid="dead-value">{r.q.toFixed(3)} kN/m²</span>
+          <span class="dl-value" data-testid="dead-value">{toQ(r.q, 'areaLoad').toFixed(3)} {unitQ('areaLoad')}</span>
         </span>
       {/if}
       <label class="dl-inline dl-part">

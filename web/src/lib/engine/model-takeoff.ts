@@ -15,6 +15,9 @@
  * Does NOT touch the solver.
  */
 
+import { memberMeanArea } from '../section/variable';
+import { drawnMaterialAreas } from '../section/weight';
+import type { DrawnSection } from '../section/drawn';
 import { materialFamilyOf } from './steel/material-family';
 
 export interface MaterialTakeoff {
@@ -100,11 +103,21 @@ export function takeoffFromModel(model: TakeoffModel): ModelTakeoff {
 
     const a = at(nI), c = at(nJ);
     const L = Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
-    // A section drawn in several materials puts each one's real area in its own bucket; its `a`
-    // is transformed and would count a concrete core as steel (`member-weight.ts`).
-    const areas = (sec as { drawn?: { areas?: Array<{ materialId: number | null; a: number }> } }).drawn?.areas;
-    if (areas?.length) for (const part of areas) (part.materialId == null ? b : bucket(part.materialId) ?? b).volume += part.a * L;
-    else b.volume += sec.a * L;
+    // A drawn section puts each material's real area in its own bucket, by the rule self-weight
+    // uses (`drawnMaterialAreas`). Its `a` is transformed and would count a concrete core as steel,
+    // and a section drawn all in one non-reference material booked its transformed area.
+    const drawn = (sec as { drawn?: DrawnSection & { areas?: Array<{ materialId: number | null; a: number }> } }).drawn;
+    let areas: Array<{ materialId: number; area: number }> | null = null;
+    if (drawn?.areas?.length) {
+      // The areas written when the section was applied, with the same rule for parts with none.
+      areas = drawn.areas.map((x) => ({ materialId: x.materialId ?? drawn.refMaterialId ?? e.materialId, area: x.a }));
+    } else if (drawn?.parts?.length) {
+      try { areas = drawnMaterialAreas(drawn, e.materialId); } catch { areas = null; }
+    }
+    // A member of variable section: its mean area along it, each material's share scaled alike.
+    const scale = (e as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, e as never) ?? sec.a) / sec.a : 1;
+    if (areas) for (const part of areas) (bucket(part.materialId) ?? b).volume += part.area * L * scale;
+    else b.volume += sec.a * L * scale;
     b.memberLength += L;
     b.memberCount++;
   }

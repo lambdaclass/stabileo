@@ -13,7 +13,7 @@
   import { te } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
-  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
+  import { hasLoadCarrying3D, imposedRefusal } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import {
     withNotionalLoads, creepSteps, concreteMaterials, stagedLoadsByCase, stagedStagesPayload,
@@ -56,6 +56,8 @@
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
+  import { isVariableMember } from '../../lib/section/variable';
+  import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -130,7 +132,15 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  function buildInput() {
+  /**
+   * `caseDisplacements`: for an analysis that solves the model's loads statically, every case
+   * together as the linear "All loads" solve does (P-Delta, the imperfections' P-Delta, the
+   * corotational solve, Winkler, SSI, creep); the cases' imposed displacements go on the supports
+   * as that solve puts them. Left out of the eigen-analyses, the dynamic ones, the staged one
+   * (its supports enter at the first stage, so every case's displacement would too), the
+   * pushover's load factor and the influence line. `uncut`: no member cut for a load.
+   */
+  function buildInput(opts: { uncut?: boolean; caseDisplacements?: boolean } = {}) {
     // These analyses build with expandMemberOffsets:false, which ALSO skips
     // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
     // jointed model would silently solve as rigid (too stiff). Refuse with a
@@ -138,6 +148,12 @@
     // panel previously lacked.
     if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
     if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
+    // A case's imposed displacement on a direction no support holds is refused by node, as the
+    // linear solve refuses it; the input builder could only drop it without a word.
+    if (opts.caseDisplacements) {
+      const refused = imposedRefusal(modelStore.model);
+      if (refused) throw new Error(refused);
+    }
     // The store's builder, so these analyses read the project's rules (self-weight as stated, the
     // shear-deformation switch, groups) exactly as Solve does; a copy of it here left them out.
     const input = modelStore.buildSolverInput3D(
@@ -147,7 +163,7 @@
       // spectral) don't carry constraints, so expanded offset-helper nodes
       // would float free — singular K instead of eccentricity effects. The
       // linear + combination solves DO expand offsets.
-      { expandMemberOffsets: false },
+      { expandMemberOffsets: false, ...opts },
     );
     if (!input) throw new Error(t('advanced.emptyModel'));
     return input;
@@ -181,6 +197,13 @@
     return { input, densities: densitiesFor(input, ms.densities) };
   }
 
+  /**
+   * A result this panel shows, as the model has it: members of variable section back to one each,
+   * the pieces and interior nodes the solve cut them into out (`engine/variable-members.ts`). What
+   * it publishes goes through the results store, which does the same.
+   */
+  const asModel = (r: any) => (r?.elementForces ? collapseVariableResults(r, variableExpansionFor(modelStore.model as never)) : r);
+
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
   let pdeltaResult = $state<any | null>(null);
@@ -190,7 +213,7 @@
     solving = true;
     pdeltaElapsed = null;
     try {
-      let input = buildInput();
+      let input = buildInput({ caseDisplacements: true });
       let res: any;
       const t0 = performance.now();
       res = wasmPDelta3D(input);
@@ -440,7 +463,8 @@
     solveError = null;
     solving = true;
     try {
-      let input = buildInput();
+      // The corotational solve takes the model's loads; the pushover a load factor on them.
+      let input = buildInput({ caseDisplacements: nlType !== 'pushover' });
 
       if (nlType === 'pushover') {
         /*
@@ -457,6 +481,8 @@
          * holds f'c, and f'c·Zp is no plastic moment at all, so a model with concrete members is
          * refused by name rather than pushed over on numbers that mean nothing.
          */
+        // Hinges are placed and named by member, and Mp read from the member's section.
+        if (hasPieces()) { solveError = t('advanced.variableUnsupported'); solving = false; return; }
         const nonSteel = pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never);
         if (nonSteel.length > 0) {
           solveError = tp('adv.pushoverNonSteel', { materials: nonSteel.join(', ') });
@@ -479,7 +505,8 @@
         });
         nlVersion = modelStore.modelVersion;
       } else {
-        nlResult = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
+        const co: any = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);
+        nlResult = co?.results ? { ...co, results: asModel(co.results) } : co;
       }
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
@@ -511,9 +538,9 @@
        * only, so a frame loaded along its members took a fraction of its sway force or none
        * (78 % short on the seven-storey building). The input with them is solved as it stands.
        */
-      const { input: withN, totalH } = withNotionalLoads(buildInput(), imperfRatio, imperfDir);
+      const { input: withN, totalH } = withNotionalLoads(buildInput({ caseDisplacements: true }), imperfRatio, imperfDir);
       // Shown in this panel only; see `handleStaged` for why it is not published.
-      imperfResult = { ...solve3D(withN), notionalTotal: totalH };
+      imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, 'Error') });
     }
@@ -543,7 +570,7 @@
     solveError = null;
     solving = true;
     try {
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const res = solveWinkler3D({
         solver: input,
         foundationSprings: winklerSprings.map(s => ({
@@ -557,7 +584,7 @@
       // solved the nodal loads a truss member's load becomes; finishing gives
       // the axial part back to the member, as every other solve does.
       if (res.elementForces) finishSolve3D(res, input);
-      winklerResult = res;
+      winklerResult = asModel(res);
       if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, 'Error') });
@@ -618,7 +645,7 @@
     solveError = null;
     solving = true;
     try {
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const res = solveSSI3D({
         solver: input,
         soilSprings: ssiSprings,
@@ -628,7 +655,7 @@
       // As Winkler: the engine's member forces miss the axial share of a truss
       // member's load until it is given back.
       if (res.results) finishSolve3D(res.results, input);
-      ssiResult = res;
+      ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, 'Error') });
@@ -682,8 +709,16 @@
     stages = stages.filter((_, i) => i !== idx);
   }
 
+  /** Analyses whose input names members (stages, an influence path) do not take one cut into pieces. */
+  // Members the solve cuts into pieces (`section/variable.ts`): one whose section at J it does not use is solved prismatic.
+  const hasVariable = () => [...modelStore.elements.values()].some((e) => isVariableMember(modelStore.sections, e));
+  // Or cut at a concentrated moment or axial force inside its span (`variable-members.ts`), in any
+  // case: stages and hinges, which name members and take the loads, lose such a member to its pieces.
+  const hasPieces = () => variableExpansionFor(modelStore.model as never) !== undefined;
+
   function handleStaged() {
     solveError = null;
+    if (hasPieces()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
       const base = buildInput();
@@ -752,14 +787,14 @@
        * never reached a displacement; it gave every material, steel included, the panel's
        * parameters; and it read f'c as fcm. Only concrete creeps now, each with its own f'c.
        */
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const settingsOf = new Map([...concreteMaterials(modelStore.materials as never)].map(([id, m]) => [id, {
         fck: (m as { fy?: number }).fy ?? creepFc, rh: creepRH, h0: creepH0, t0: creepAge, cement: creepCementClass,
       }]));
       if (settingsOf.size === 0) { solveError = t('adv.creepNoConcrete'); solving = false; return; }
       const steps = creepSteps(input, settingsOf, creepTimeSteps.map((s) => s.time), solve3D);
       // Shown in this panel only; see `handleStaged` for why it is not published.
-      creepResult = { steps };
+      creepResult = { steps: steps.map((st: any) => (st.results ? { ...st, results: asModel(st.results) } : st)) };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, 'Error') });
     }
@@ -785,9 +820,11 @@
 
   function handleInfluenceLine3D() {
     solveError = null;
+    if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
-      let input = buildInput();
+      // The unloaded structure: no member cut for a load, and no case's imposed displacement.
+      let input = buildInput({ uncut: true });
       ilResult = computeInfluenceLine3D({
         solver: input,
         quantity: IL_QUANTITY[ilResponse],

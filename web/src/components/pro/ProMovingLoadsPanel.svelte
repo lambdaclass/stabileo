@@ -12,11 +12,10 @@
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
   import { toCsv } from '../../lib/engine/result-tables';
-  import { buildSolverInput3D } from '../../lib/engine/solver-service';
-  import { withoutSettlement } from '../../lib/engine/settlement-case';
+  import { isVariableMember } from '../../lib/section/variable';
   import { getPredefinedTrains, type LoadTrain } from '../../lib/engine/moving-loads';
   import {
-    buildPath3D, sweepMovingLoad3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
+    buildPath3D, sweepMovingLoad3D, movingLoadBase3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
   } from '../../lib/engine/moving-loads-3d';
 
   interface Props { disabled?: boolean }
@@ -44,12 +43,13 @@
 
   async function run() {
     error = null; result = null;
-    // The train alone: a support settlement is not part of a moving-load envelope, and solving
-    // every position on the settled supports mixed its forces into every peak. The project's
-    // axis convention, as the other solves use it.
-    let base: ReturnType<typeof buildSolverInput3D>;
+    // The path names the model's members; one of variable section is cut into pieces for the solve.
+    if ([...modelStore.elements.values()].some((e) => isVariableMember(modelStore.sections, e))) { error = t('advanced.variableUnsupported'); return; }
+    // The train alone, on the unloaded structure (`movingLoadBase3D`): no settlement, no load case's
+    // cut or imposed displacement. The project's axis convention, as the other solves use it.
+    let base: ReturnType<typeof movingLoadBase3D>;
     try {
-      base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
+      base = movingLoadBase3D(modelStore.model as never, uiStore.axisConvention3D === 'leftHand');
     } catch (e) {
       // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
       error = errorText(e, 'Error'); return;
@@ -107,7 +107,9 @@
 
   function csv() {
     if (!result) return;
-    const head = [t('pro.elemLabel'), ...ENVELOPE_COMPONENTS.flatMap((c) => [`${LABEL[c]} max`, `${LABEL[c]} min`])];
+    // SI, each column with its unit.
+    const UNIT: Record<EnvelopeComponent, string> = { n: 'kN', vy: 'kN', vz: 'kN', my: 'kN·m', mz: 'kN·m', torsion: 'kN·m' };
+    const head = [t('pro.elemLabel'), ...ENVELOPE_COMPONENTS.flatMap((c) => [`${LABEL[c]} max (${UNIT[c]})`, `${LABEL[c]} min (${UNIT[c]})`])];
     downloadText(toCsv(head, rows.map((r) => [r.id, ...ENVELOPE_COMPONENTS.flatMap((c) => [r.env[c].max.value, r.env[c].min.value])])),
       'moving-load-envelope.csv', 'text/csv;charset=utf-8');
   }

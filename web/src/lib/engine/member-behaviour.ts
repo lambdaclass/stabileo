@@ -22,6 +22,7 @@
  * None of this is linear, so a combination is not the sum of its cases: each one is solved
  * with its own factored loads. Each case is solved on its own too, for the per-case results.
  */
+import { expandVariableMembers } from './variable-members';
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, SolverInput3D, ElementForces3D, NonlinearReport } from './types-3d';
 import { solve3D, solveSSI3D, solveCable3D, type SolverInputCable3D } from './wasm-solver';
@@ -71,7 +72,10 @@ export function activeModel<M extends ModelData>(model: M): M {
  * the load in silence would change the answer.
  */
 export function solvableModel<M extends ModelData>(model: M): M {
-  return pruneModel(model, true);
+  // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
+  // Ids counted from the model given, so a reader of the results can plan the same expansion from
+  // it (`variableExpansionFor`).
+  return expandVariableMembers(pruneModel(model, true), model);
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
@@ -172,7 +176,7 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
   // Dropping a loaded free node would turn a mechanism into a false equilibrium.
   const orphanLoads = new Map<number, number[]>();
   for (const load of input.loads) {
-    if (load.type !== 'nodal' || used.has(load.data.nodeId)) continue;
+    if (load.type !== 'nodal' || used.has(load.data.nodeId) || (load.data.tendonOf !== undefined && off.has(load.data.tendonOf))) continue;
     const d = load.data;
     const sum = orphanLoads.get(d.nodeId) ?? [0, 0, 0, 0, 0, 0];
     [d.fx, d.fy, d.fz, d.mx, d.my, d.mz].forEach((v, i) => { sum[i] += v; });
@@ -182,8 +186,10 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
     if (force.some(v => Math.abs(v) > 1e-12)) throw new Error(`Unstable active set: loaded node ${id} is held only by slack members`);
   }
   const loads = input.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
+    const d = l.data as { elementId?: number; nodeId?: number; tendonOf?: number };
     if (d.elementId !== undefined && off.has(d.elementId)) return false;
+    // A tendon is in its member: its anchors leave with it.
+    if (d.tendonOf !== undefined && off.has(d.tendonOf)) return false;
     return d.nodeId === undefined || used.has(d.nodeId);
   });
   return {
@@ -419,13 +425,37 @@ type SolverSection = SolverInput3D['sections'] extends Map<number, infer S> ? S 
  * Give every member with stiffness modifiers a section of its own, scaled, in the solver input.
  * The model's sections are untouched.
  */
+/**
+ * A composite drawn section stores its A, I and J transformed to its reference material: a
+ * member of another material, which the solver gives its own E and G, solves it scaled by
+ * E_ref/E_member (A, I) and G_ref/G_member (J). Without it a steel member on a section drawn
+ * with concrete as reference came out about seven times too stiff. 1 when there is nothing to
+ * convert: no reference, a section of one material, or a member in the reference.
+ */
+export function compositeReferenceFactor(model: ModelData, memberId: number): { e: number; g: number } {
+  const el = model.elements.get(memberId);
+  const sec = el ? model.sections.get(el.sectionId) as { drawn?: { refMaterialId?: number; parts: Array<{ materialId?: number; void?: boolean }> } } | undefined : undefined;
+  const ref = sec?.drawn?.refMaterialId;
+  if (!el || ref == null || el.materialId === ref) return { e: 1, g: 1 };
+  if (!sec!.drawn!.parts.some((p) => !p.void && p.materialId != null && p.materialId !== ref)) return { e: 1, g: 1 };
+  const mr = model.materials.get(ref), mm = model.materials.get(el.materialId);
+  if (!mr || !mm || !(mm.e > 0)) return { e: 1, g: 1 };
+  const g = (m: { e: number; nu: number }) => m.e / (2 * (1 + m.nu));
+  return { e: mr.e / mm.e, g: g(mr) / g(mm) };
+}
+
+/** The factors on a member's A, Iy, Iz and J in the solve: its stiffness modifiers and a composite member's reference material. */
+export function solveStiffnessFactors(model: ModelData, id: number): { a: number; iy: number; iz: number; j: number } {
+  const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
+  const c = compositeReferenceFactor(model, id);
+  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+}
+
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {
   let next = Math.max(0, ...input.sections.keys()) + 1;
   const made = new Map<string, number>();
   for (const [id, el] of input.elements) {
-    const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness;
-    if (!m) continue;
-    const f = { a: m.a ?? 1, iy: m.iy ?? 1, iz: m.iz ?? 1, j: m.j ?? 1 };
+    const f = solveStiffnessFactors(model, id);
     if (f.a === 1 && f.iy === 1 && f.iz === 1 && f.j === 1) continue;
     const key = `${el.sectionId}|${f.a}|${f.iy}|${f.iz}|${f.j}`;
     let sid = made.get(key);

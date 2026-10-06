@@ -18,6 +18,7 @@
  * loads    imposed and permanent load magnitudes          (e.g. CIRSOC 101, EN 1991-1-1)
  * wind     wind actions                                    (e.g. CIRSOC 102, EN 1991-1-4)
  * seismic  seismic actions and seismic detailing           (e.g. INPRES-CIRSOC 103)
+ * thermal  temperature and restraint actions                (e.g. CIRSOC 101 §2.3.4, EN 1991-1-5)
  * concrete reinforced concrete design                      (e.g. CIRSOC 201, EC2)
  * steel    structural steel design                         (e.g. CIRSOC 301, EC3)
  * masonry  masonry design
@@ -39,13 +40,13 @@ import { msg, type EngineMessage, type MessageParam } from './message';
 // ─── Roles ───────────────────────────────────────────────────────
 
 export const REGULATION_ROLES = [
-  'basis', 'loads', 'wind', 'snow', 'seismic', 'concrete', 'steel', 'masonry', 'timber',
+  'basis', 'loads', 'wind', 'snow', 'seismic', 'thermal', 'concrete', 'steel', 'masonry', 'timber',
 ] as const;
 export type RegulationRole = (typeof REGULATION_ROLES)[number];
 
 /** Roles whose configuration affects generated loads, and therefore the analysis. */
 export const LOAD_AFFECTING_ROLES: readonly RegulationRole[] =
-  Object.freeze(['basis', 'loads', 'wind', 'snow', 'seismic']);
+  Object.freeze(['basis', 'loads', 'wind', 'snow', 'seismic', 'thermal']);
 
 /** Roles that only affect member design, not the forces. */
 export const DESIGN_ONLY_ROLES: readonly RegulationRole[] =
@@ -217,6 +218,12 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
     maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
   // ── seismic: selected through the ROLE, never a hardcoded tab ──
+  {
+    // The restraint actions T and their combinations, §2.3.4 of CIRSOC 101-2025.
+    adapterId: 'cirsoc101-2025-thermal', role: 'thermal', regulation: 'cirsoc-101',
+    edition: '2025', nameKey: 'regulations.name.cirsoc101Thermal', family: 'cirsoc',
+    maturity: 'VALIDATED', requiresConfig: false,
+  },
   {
     adapterId: 'inpres103-2018', role: 'seismic', regulation: 'inpres-cirsoc-103-i',
     edition: '2018', nameKey: 'regulations.name.inpres103', family: 'cirsoc',
@@ -455,6 +462,17 @@ export function bindRole(
 
 export type ProjectRegulations = Record<RegulationRole, RoleBinding>;
 
+/**
+ * The roles a stored project states, with the ones added since it was saved (the thermal role)
+ * filled in as a new project has them. Every reader of a stored stack goes through here.
+ */
+export function withAllRoles(reg: Partial<ProjectRegulations> | undefined): ProjectRegulations {
+  const fresh = defaultRegulations();
+  const out = {} as ProjectRegulations;
+  for (const role of REGULATION_ROLES) out[role] = reg?.[role] ?? fresh[role];
+  return out;
+}
+
 /** A new project: concrete and the load roles bound to the editions in force. */
 export function defaultRegulations(): ProjectRegulations {
   const out = {} as ProjectRegulations;
@@ -464,6 +482,7 @@ export function defaultRegulations(): ProjectRegulations {
     ['loads', 'cirsoc101-2025-loads'],
     ['wind', 'cirsoc102-2025'],
     ['snow', 'cirsoc104-2005'],
+    ['thermal', 'cirsoc101-2025-thermal'],
     ['concrete', 'cirsoc'],
   ];
   for (const [role, id] of seed) {
@@ -557,6 +576,18 @@ export function validateStack(reg: ProjectRegulations): StackValidation {
       params: { basis: bindingLabel(reg.basis), loads: bindingLabel(reg.loads) },
     });
   }
+  // The actions of one family combine by its own rules: a wind, snow, seismic or thermal code of
+  // another family than the basis would be combined with factors it was not calibrated for.
+  for (const role of ['wind', 'snow', 'seismic', 'thermal'] as const) {
+    const f = fam(role);
+    if (basisFam && f && f !== basisFam) {
+      problems.push({
+        severity: 'error', roles: ['basis', role],
+        key: 'regulations.problem.loadFamilyMismatch',
+        params: { action: bindingLabel(reg[role]), basis: bindingLabel(reg.basis) },
+      });
+    }
+  }
 
   for (const role of DESIGN_ONLY_ROLES) {
     const f = fam(role);
@@ -649,6 +680,11 @@ export const REGULATIONS_SCHEMA_VERSION = 2;
 export interface StoredRegulations {
   version: number;
   roles: ProjectRegulations;
+  /**
+   * Each code's settings, by adapter, kept when its role is bound to another: going back to a code
+   * finds what was stated for it, and a code never inherits another's settings.
+   */
+  settingsByCode?: Record<string, Record<string, unknown>>;
 }
 
 
@@ -724,7 +760,10 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
         appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : 0,
       };
     }
-    return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles }, rescuedAggregateMm: null, notices };
+    // Each code's settings come along: every restore (open, undo, autosave) goes through here,
+    // and dropping them lost what was stated for a code the moment its role was bound elsewhere.
+    const settingsByCode = storedSettingsByCode(src.settingsByCode);
+    return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles, ...(settingsByCode ? { settingsByCode } : {}) }, rescuedAggregateMm: null, notices };
   }
 
   // v1 CIRSOC-specific shape.
@@ -777,6 +816,16 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
   }
 
   return { stored: { version: REGULATIONS_SCHEMA_VERSION, roles }, rescuedAggregateMm: rescued, notices };
+}
+
+/** A stored `settingsByCode`, keeping only adapters whose settings are an object; none: undefined. */
+function storedSettingsByCode(v: unknown): StoredRegulations['settingsByCode'] {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [adapter, s] of Object.entries(v as Record<string, unknown>)) {
+    if (s && typeof s === 'object' && !Array.isArray(s)) out[adapter] = { ...(s as Record<string, unknown>) };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function isAdoption(v: unknown): v is RoleBinding['adoption'] {

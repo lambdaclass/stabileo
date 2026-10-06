@@ -65,6 +65,21 @@ interface LabelInstance {
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
+/** How a load's labels read its values: the project's units and decimals (scene-sync sets it). */
+export interface LoadLabelFormat {
+  force(v: number): string;
+  moment(v: number): string;
+  distributed(v: number): string;
+  pressure(v: number): string;
+}
+
+const SI_FORMAT: LoadLabelFormat = {
+  force: (v) => `${v.toFixed(1)} kN`,
+  moment: (v) => `${v.toFixed(1)} kN·m`,
+  distributed: (v) => `${v.toFixed(1)} kN/m`,
+  pressure: (v) => `${v.toFixed(1)} kN/m²`,
+};
+
 export class LoadArrowsBatched {
   private shaftPos: number[] = [];
   private shaftCol: number[] = [];
@@ -76,6 +91,10 @@ export class LoadArrowsBatched {
   private toruses: TorusInstance[] = [];
   private labels: LabelInstance[] = [];
   private owner: number | null = null;
+  /** The labels' units and decimals. */
+  format: LoadLabelFormat = SI_FORMAT;
+  /** The reader's factor on every arrow's length, beside the scale to the largest load. */
+  scale = 1;
   private tint: number | null = null;
   /** The world segments each load drew, by load id, six numbers per segment. */
   readonly footprints = new Map<number, number[]>();
@@ -131,6 +150,10 @@ export class LoadArrowsBatched {
       sx: headWid, sy: headLen, sz: headWid,
       color: this.paint(color),
     });
+  }
+
+  private len(magnitude: number, maxMag: number): number {
+    return arrowLength(magnitude, maxMag) * this.scale;
   }
 
   private label(text: string, colorHex: string, fontSize: number, at: THREE.Vector3): void {
@@ -221,10 +244,10 @@ export class LoadArrowsBatched {
       if (Math.abs(f.val) < 1e-10) continue;
       const dir = f.dir.clone();
       if (f.val < 0) dir.negate();
-      const len = arrowLength(f.val, maxForce);
+      const len = this.len(f.val, maxForce);
       const farEnd = origin.clone().addScaledVector(dir, -len);
       this.arrow(dir, farEnd, len, forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-      this.label(`${f.val.toFixed(1)} kN`, labelHex, 28,
+      this.label(this.format.force(f.val), labelHex, 28,
         farEnd.clone().addScaledVector(dir, -0.15));
     }
 
@@ -240,7 +263,7 @@ export class LoadArrowsBatched {
       } else {
         this.curvedMomentArrow(origin, m.axis, m.val, COLORS.moment);
       }
-      this.label(`${m.val.toFixed(1)} kN·m`, '#ffaa44', 24,
+      this.label(this.format.moment(m.val), '#ffaa44', 24,
         origin.clone().addScaledVector(m.axis, 0.35));
     }
   }
@@ -281,18 +304,18 @@ export class LoadArrowsBatched {
       const pos = pI.clone().lerp(pJ, t);
       const q = qI + (qJ - qI) * t;
       if (Math.abs(q) < 1e-10) continue;
-      const len = arrowLength(q, maxQ) * 0.6;
+      const len = this.len(q, maxQ) * 0.6;
       const farEnd = pos.clone().addScaledVector(loadDir, -len);
       this.arrow(loadDir, farEnd, len, arrowColor, ARROW_HEAD_LENGTH * 0.8, ARROW_HEAD_WIDTH * 0.8);
     }
 
     if (Math.abs(qI) > 1e-10) {
-      this.label(`${qI.toFixed(1)} kN/m`, labelColor, 24,
-        pI.clone().addScaledVector(loadDir, -(arrowLength(qI, maxQ) * 0.6 + 0.2)));
+      this.label(this.format.distributed(qI), labelColor, 24,
+        pI.clone().addScaledVector(loadDir, -(this.len(qI, maxQ) * 0.6 + 0.2)));
     }
     if (Math.abs(qJ) > 1e-10 && Math.abs(qJ - qI) > 0.01) {
-      this.label(`${qJ.toFixed(1)} kN/m`, labelColor, 24,
-        pJ.clone().addScaledVector(loadDir, -(arrowLength(qJ, maxQ) * 0.6 + 0.2)));
+      this.label(this.format.distributed(qJ), labelColor, 24,
+        pJ.clone().addScaledVector(loadDir, -(this.len(qJ, maxQ) * 0.6 + 0.2)));
     }
 
     // Envelope polyline through the arrow tails.
@@ -301,7 +324,7 @@ export class LoadArrowsBatched {
       const t = i / numArrows;
       const pos = pI.clone().lerp(pJ, t);
       const q = qI + (qJ - qI) * t;
-      const len = Math.abs(q) > 1e-10 ? arrowLength(q, maxQ) * 0.6 : 0;
+      const len = Math.abs(q) > 1e-10 ? this.len(q, maxQ) * 0.6 : 0;
       const tailPt = pos.clone().addScaledVector(loadDir, -len);
       if (prev) this.envelope(prev, tailPt, arrowColor);
       prev = tailPt;
@@ -334,14 +357,14 @@ export class LoadArrowsBatched {
     for (let i = 0; i <= N; i++) {
       for (let j = 0; j <= N; j++) {
         const pos = lerpQuad(i / N, j / N);
-        const len = arrowLength(q, maxQ) * 0.5;
+        const len = this.len(q, maxQ) * 0.5;
         const farEnd = pos.clone().addScaledVector(loadDir, -len);
         this.arrow(loadDir, farEnd, len, arrowColor, ARROW_HEAD_LENGTH * 0.7, ARROW_HEAD_WIDTH * 0.7);
       }
     }
 
     // Translucent fill at arrow-tail height (two triangles).
-    const offset = arrowLength(q, maxQ) * 0.5;
+    const offset = this.len(q, maxQ) * 0.5;
     const corners = [
       lerpQuad(0, 0).addScaledVector(loadDir, -offset),
       lerpQuad(1, 0).addScaledVector(loadDir, -offset),
@@ -363,8 +386,32 @@ export class LoadArrowsBatched {
 
     const center = lerpQuad(0.5, 0.5);
     const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
-    this.label(`${q.toFixed(1)} kN/m²`, labelHex, 26,
+    this.label(this.format.pressure(q), labelHex, 26,
       center.addScaledVector(loadDir, -(offset + 0.2)));
+  }
+
+  /** A text at a point: a temperature, a strain, an imposed displacement. */
+  addTag(pos: { x: number; y: number; z: number }, text: string, caseColor: number): void {
+    const p = new THREE.Vector3(pos.x, pos.y, pos.z);
+    this.mark(p, p.clone().add(new THREE.Vector3(0, 0, 0.05)));
+    this.label(text, '#' + new THREE.Color(caseColor).getHexString(), 22, p);
+  }
+
+  /** A line through points: a tendon's profile. */
+  addPolyline(points: ReadonlyArray<{ x: number; y: number; z: number }>, caseColor: number): void {
+    for (let k = 0; k + 1 < points.length; k++) {
+      const a = points[k]!, b = points[k + 1]!;
+      this.envelope(new THREE.Vector3(a.x, a.y, a.z), new THREE.Vector3(b.x, b.y, b.z), caseColor);
+    }
+  }
+
+  /** An arrow of a given direction and length, its tip at `tip`: an imposed displacement. */
+  addPointer(tip: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, length: number, caseColor: number): void {
+    const d = new THREE.Vector3(dir.x, dir.y, dir.z);
+    if (d.lengthSq() < 1e-20) return;
+    d.normalize();
+    const origin = new THREE.Vector3(tip.x, tip.y, tip.z).addScaledVector(d, -length);
+    this.arrow(d, origin, length, caseColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
   }
 
   // ── Build the renderable group ─────────────────────────────

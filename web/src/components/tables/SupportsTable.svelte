@@ -143,8 +143,8 @@
               <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /></span>
             {:else}
               <span class="load-field">dx<input type="number" step="0.001" value={sup.dx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dx', e.currentTarget.value)} /></span>
-              <span class="load-field">dz<input type="number" step="0.001" value={sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /></span>
-              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /></span>
+              <span class="load-field">dz<input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /></span>
+              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /></span>
             {/if}
           </td>
         {/if}

@@ -14,6 +14,14 @@ import { test as base, expect, type Page } from '@playwright/test';
 export const PRO_URL = '/app/pro?e2e=1';
 
 /**
+ * Open one section of the regulation load generator (`ProAutoLoadsDialog`): the dialog shows one
+ * at a time, chosen in its left column.
+ */
+export async function alSection(page: import('@playwright/test').Page, id: 'regulations' | 'dead' | 'live' | 'roof' | 'wind' | 'snow' | 'seismic' | 'special' | 'applying' | 'combos'): Promise<void> {
+  await page.getByTestId(`al-nav-${id}`).click();
+}
+
+/**
  * The bar and concrete families the 3-D scene batches by.
  *
  * Restated here rather than imported: `e2e/` is compiled by Playwright, not by the app's Vite

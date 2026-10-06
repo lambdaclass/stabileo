@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * The ground motion in one direction: none, a harmonic, a record (a file or typed values), or
    * compatible with the project's INPRES-CIRSOC 103 spectrum; and a scale on it. The record is
@@ -56,7 +57,7 @@
 
   const series = $derived(showChart ? groundSeries(g, dt, nSteps, spectrumSa) : null);
   const times = $derived(series ? series.map((_, k) => k * dt) : []);
-  const fmt = (v: number, d = 3) => (Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
+  const fmt = (v: number, d = 3) => plainNumber(v, d);
 </script>
 
 <div class="gm" data-testid="th-ground-{dir}">

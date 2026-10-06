@@ -385,6 +385,8 @@ export function codeToModel(text: string): ParseResult {
     ref('node', e.nodeI, at('member', id), 'node'); ref('node', e.nodeJ, at('member', id), 'node');
     if (e.materialId !== undefined) ref('material', e.materialId, at('member', id), 'material');
     if (e.sectionId !== undefined) ref('section', e.sectionId, at('member', id), 'section');
+    const vs = (e as { variableSection?: { sectionJ?: number } }).variableSection;
+    if (vs?.sectionJ !== undefined) ref('section', vs.sectionJ, at('member', id), 'section');
   }
   for (const [fam, key] of [['quad', 'quads'], ['plate', 'plates']] as const) {
     for (const [id, q] of s[key]) {
