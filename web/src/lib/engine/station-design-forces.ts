@@ -1,3 +1,4 @@
+import { getColumnCapacityKernel } from './column-capacity-kernel';
 /**
  * Station-based, sign-aware, per-combo force extraction for member design.
  *
@@ -1580,8 +1581,30 @@ function columnSectionData(As: number, b: number, h: number, fc: number, fy: num
   };
 }
 
-/** Uncached TS reference, retaining the station verifier's exact arithmetic and stopping rule. */
+/** One call per batch, with all equilibrium iterations inside Rust. Retain the
+ * reference for unavailable WASM and inputs outside the numeric kernel contract. */
+function solveColumnSections(data: ColumnSectionData, loads: readonly number[]): ColumnSectionSolution[] {
+  const kernel = getColumnCapacityKernel();
+  if (kernel) {
+    const { sectionDepth, sectionWidth, fc_kPa, fy_kPa, fy, b1, phiPn, barData } = data;
+    const constants = Float64Array.of(sectionDepth, sectionWidth, fc_kPa, fy_kPa, fy, b1, phiPn, ALPHA1);
+    const bars = Float64Array.from(barData.flatMap(b => [b.d, b.area_m2]));
+    if (constants.every(Number.isFinite) && bars.every(Number.isFinite) && loads.every(Number.isFinite)
+      && sectionDepth > 0 && sectionWidth > 0 && fc_kPa > 0 && fy_kPa > 0 && fy > 0 && b1 > 0
+      && barData.every(b => b.area_m2 >= 0)) {
+      const values = kernel(constants, bars, Float64Array.from(loads));
+      return loads.map((_, i) => ({ phiMn: values[i * 3], phiPtMax: values[i * 3 + 1],
+        cNeutral: +values[i * 3 + 2].toFixed(4) }));
+    }
+  }
+  return loads.map(Nu => solveColumnSectionReference(data, Nu));
+}
 function solveColumnSection(data: ColumnSectionData, Nu: number): ColumnSectionSolution {
+  return solveColumnSections(data, [Nu])[0];
+}
+
+/** Uncached TS reference, retaining the station verifier's exact arithmetic and stopping rule. */
+function solveColumnSectionReference(data: ColumnSectionData, Nu: number): ColumnSectionSolution {
   const { sectionDepth, sectionWidth, fc_kPa, fy_kPa, fy, b1, phiPn, barData } = data;
   const Es = 200000 * 1000;
   // Function: given neutral axis c, compute (N, M) about centroid
@@ -1786,16 +1809,31 @@ export function setColumnCapacityReuse(enabled: boolean): void { columnCapacityR
  * discarded before another member, candidate or reinforcement edit can reuse it.
  */
 export function prepareColumnCapacity(input: ColumnCapacitySection,
-  options: { reference?: boolean } = {}) {
+  options: { reference?: boolean; axialLoads?: { z?: readonly number[]; y?: readonly number[] } } = {}) {
   const { AsProv_cm2: As, b, h, fc, fy, cover, stirrupDia } = input;
   const bars = input.bars?.map(bar => ({ ...bar }));
   const reference = options.reference ?? !columnCapacityReuse;
-  const data = !reference && bars && bars.length >= 4 ? {
+  const data = bars && bars.length >= 4 ? {
     z: columnSectionData(As, b, h, fc, fy, bars, 'z'),
     y: columnSectionData(As, b, h, fc, fy, bars, 'y'),
   } : null;
+  // Snapshot and deduplicate exact signed loads; axes are filled lazily so a
+  // uniaxial verification never solves the unused bending direction.
+  const pending = {
+    z: [...new Set(options.axialLoads?.z?.filter(Number.isFinite) ?? [])],
+    y: [...new Set(options.axialLoads?.y?.filter(Number.isFinite) ?? [])],
+  };
+  const warmed = { z: false, y: false };
   const cache = { z: new Map<number, ColumnSectionSolution>(), y: new Map<number, ColumnSectionSolution>() };
   const solveSection: ColumnSectionSolve | undefined = data ? (Nu, axis) => {
+    if (reference) return solveColumnSectionReference(data[axis], Nu);
+    if (!warmed[axis]) {
+      warmed[axis] = true;
+      if (pending[axis].length && getColumnCapacityKernel()) {
+        const solutions = solveColumnSections(data[axis], pending[axis]);
+        pending[axis].forEach((load, i) => cache[axis].set(load, solutions[i]));
+      }
+    }
     const previous = cache[axis].get(Nu);
     if (previous) return previous;
     const result = solveColumnSection(data[axis], Nu);
@@ -2492,14 +2530,17 @@ export function verifyProvidedReinforcement(
         minMoment: boolean;
       } | null = null;
       let count = 0;
-      const capacity = prepareColumnCapacity({ AsProv_cm2: provArea, ...section, bars: colBars });
-      for (const t of allTuples) {
+      // Plan the same demand cases once, in their original order. Batch only
+      // loads actually checked on each axis (a rare biaxial case must not make
+      // every other uniaxial station solve its unused axis).
+      const axialLoads: { z: number[]; y: number[] } = { z: [], y: [] };
+      const demands = allTuples.flatMap(t => {
         // Compression positive: the solver's n is positive in tension. The column check read
         // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
         const Nu = -t.n;
         const Mp0 = Math.abs(tupleMoment(t, axes.flexure));
         const Ms0 = Math.abs(tupleMoment(t, axes.secondaryFlexure));
-        if (Math.abs(Nu) < 0.01 && Mp0 * deltaNs < 0.01 && Ms0 * deltaNs < 0.01) continue;
+        if (Math.abs(Nu) < 0.01 && Mp0 * deltaNs < 0.01 && Ms0 * deltaNs < 0.01) return [];
         count++;
         /*
          * §6.6.4.5.4: a slender column's M2 is at least M2,min = Pu·(15 mm + 0.03·h), «about each
@@ -2520,8 +2561,19 @@ export function verifyProvidedReinforcement(
         } else {
           cases.push({ Mprim: Mp0 * deltaNs, Msec: Ms0 * deltaNs, minMoment: false });
         }
-        for (const { Mprim, Msec, minMoment } of cases) {
-          const isBiax = Mprim > 0.1 && Msec > 0.1;
+        const planned = cases.map(c => ({ ...c,
+          isBiax: c.Mprim > 0.1 && c.Msec > 0.1,
+          capAxis: (c.Mprim >= c.Msec ? 'z' : 'y') as 'z' | 'y',
+        }));
+        for (const c of planned) {
+          if (c.isBiax) { axialLoads.z.push(Nu); axialLoads.y.push(Nu); }
+          else axialLoads[c.capAxis].push(Nu);
+        }
+        return [{ t, Nu, cases: planned }];
+      });
+      const capacity = prepareColumnCapacity({ AsProv_cm2: provArea, ...section, bars: colBars }, { axialLoads });
+      for (const { t, Nu, cases } of demands) {
+        for (const { Mprim, Msec, minMoment, isBiax, capAxis } of cases) {
           // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
           // invert to the demand/capacity convention used across the design surface.
           let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
@@ -2548,9 +2600,6 @@ export function verifyProvidedReinforcement(
             // so the mapping is primary→'z', secondary→'y' — NOT moment-name→axis,
             // which inverted the depth for My-governed rectangular columns and
             // over-estimated φMn (checked at the strong axis) by ~2x.
-            const primaryIsLarger = Mprim >= Msec;
-            const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
-            const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
             const cap = capacity.uniaxial(Nu, Mu, capAxis);
             util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
             phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
