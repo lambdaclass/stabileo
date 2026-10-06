@@ -36,7 +36,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
      * damping and the rigid G. A level's extent along the wind gives L_ef (Eq. 1.9-1).
      */
     const dyn = input.wind.dynamics;
-    const lowRise = isLowRise(h, bx, by, input.wind.enclosure);
+    const lowRise = isLowRise(h, bx, by, input.wind.enclosure, input.wind.structure?.kind);
     const extent = (ids: readonly number[], k: 'x' | 'y') => {
       const v = ids.map((id) => input.model.nodes.get(id)?.[k] ?? 0);
       return v.length ? Math.max(...v) - Math.min(...v) : 0;
@@ -173,7 +173,10 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
       if (!dyn && !input.wind.rigid) { unsupportedKeys.push(msg('loads.cirsoc102.unsupported.flexibleBuilding')); return { windQh }; }
       // Its gust effect factor per direction, with the structure's own h, B and L (§1.9, art. 1.3).
       const gOther = new Map<'x' | 'y', number>();
+      const diagonal = other.kind === 'latticeTower' && other.section === 'square' && other.diagonal;
       for (const axis of ['x', 'y'] as const) {
+        // Diagonal cases need both axes, even when only one cardinal direction was selected.
+        if (!diagonal && !windDirs.some((d) => d.endsWith(axis))) continue;
         const g = gustOf(axis);
         if (g && 'refused' in g) { unsupportedKeys.push(g.refused); continue; }
         if (!g) { gOther.set(axis, G_RIGID); continue; }
@@ -183,8 +186,11 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         windGust[axis] = r;
         derivation.push(gustLine(axis, r));
       }
-      if (dyn && gOther.size === 0) return { windQh, windGust };
-      const res = otherStructureWind({ model: input.model, structure: other, project, directions: windDirs, tributaryWidth: input.tributaryWidth, G: (axis) => gOther.get(axis) ?? G_RIGID });
+      const directions = windDirs.filter((d) => gOther.has(d.endsWith('x') ? 'x' : 'y'));
+      if (directions.length === 0) return { windQh, windGust };
+      // A rejected axis must not return as a rigid fallback, including through a diagonal.
+      const structure = other.kind === 'latticeTower' && gOther.size < 2 ? { ...other, diagonal: false } : other;
+      const res = otherStructureWind({ model: input.model, structure, project, directions, tributaryWidth: input.tributaryWidth, G: (axis) => gOther.get(axis)! });
       derivation.push(...res.derivation);
       unsupportedKeys.push(...res.notes);
       refs.push(other.kind === 'freeRoof' ? REF_FREE_ROOF : other.kind === 'solidSign' ? REF_SIGN : REF_OTHER, REF_MIN_OTHER);

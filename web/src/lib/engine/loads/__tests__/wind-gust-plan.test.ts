@@ -101,4 +101,68 @@ describe('a flexible building in the load plan', () => {
     expect(f.y).toMatchObject({ n1: 0.42, mode: 3 });
     expect(f.notes.map((n) => n.key)).toEqual(['loads.cirsoc102.gust.torsionalFirstMode']);
   });
+
+  it.each(['typed', 'modal'] as const)('does not load a chimney axis with a missing %s frequency', (n1Source) => {
+    const p = plan({
+      structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 },
+      directions: { x: true, y: true }, senses: ['+x', '-x', '+y', '-y'],
+      dynamics: { n1Source, n1: { x: 0.4 }, beta: 0.02, rigidG: 'default' },
+    }, tower(13, 2, 2));
+    expect(p.factors.windGust?.x?.kind).toBe('flexible');
+    expect(p.unsupportedKeys).toContainEqual({ key: `loads.cirsoc102.gust.no${n1Source === 'typed' ? 'Typed' : 'Modal'}Frequency`, params: { axis: 'Y' } });
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '-X']);
+    expect(p.nodal.some((n) => n.fx !== 0)).toBe(true);
+    expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
+  });
+
+  it('requires both gust factors for tower diagonals, even with only X selected', () => {
+    const wind: Partial<NonNullable<LoadPlanInput['wind']>> = {
+      structure: { kind: 'latticeTower', section: 'square', round: false, solidity: 0.2, diagonal: true, width: 2 },
+      directions: { x: true, y: false }, senses: ['+x'],
+      dynamics: { n1Source: 'typed', n1: { x: 0.4 }, beta: 0.02, rigidG: 'default' },
+    };
+    const missing = plan(wind, tower(13, 2, 2));
+    expect(missing.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
+    expect(missing.nodal.every((n) => n.fy === 0)).toBe(true);
+    expect(missing.unsupportedKeys.some((m) => m.key.endsWith('noTypedFrequency'))).toBe(true);
+    const complete = plan({ ...wind, dynamics: { ...wind.dynamics!, n1: { x: 0.4, y: 0.5 } } }, tower(13, 2, 2));
+    expect(complete.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X+Y']);
+    expect(complete.nodal.some((n) => n.fy !== 0)).toBe(true);
+  });
+
+  it('does not require an unused axis, or warn of a rigid assumption when G_f was computed', () => {
+    const p = plan({
+      rigid: false, structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 },
+      dynamics: { n1Source: 'typed', n1: { y: 0.4 }, beta: 0.02, rigidG: 'default' },
+    }, tower(13, 2, 2));
+    expect(p.nodal.some((n) => n.fy !== 0)).toBe(true);
+    expect(p.unsupportedKeys.some((m) => m.key.endsWith('noTypedFrequency') || m.key === 'wind.other.flexibleAssumedRigid')).toBe(false);
+  });
+
+  it('refuses an axis whose resonant response cannot be computed', () => {
+    const p = plan({
+      structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 },
+      directions: { x: true, y: true }, senses: ['+x', '+y'],
+      dynamics: { n1Source: 'typed', n1: { x: 1.2, y: 0.4 }, beta: 0, rigidG: 'default' },
+    }, tower(13, 2, 2));
+    expect(p.unsupportedKeys.some((m) => m.key.endsWith('noResonance'))).toBe(true);
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
+    expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
+  });
+
+  it('a free roof keeps its flexible response regardless of the building enclosure setting', () => {
+    const wind: Partial<NonNullable<LoadPlanInput['wind']>> = {
+      structure: { kind: 'freeRoof', roof: 'monoslope', blocked: false },
+      dynamics: { n1Source: 'typed', n1: { y: 0.4 }, beta: 0.02, rigidG: 'default' },
+    };
+    const model = tower(3, 20, 20);
+    const enclosed = plan({ ...wind, enclosure: 'enclosed' }, model);
+    const open = plan({ ...wind, enclosure: 'open' }, model);
+    expect(enclosed.factors.windGust?.y?.kind).toBe('flexible');
+    expect(enclosed.factors.windGust?.y?.value.value).toBeCloseTo(1.152, 3);
+    expect(enclosed.distributed.filter((d) => d.caseType === 'W').length).toBeGreaterThan(0);
+    expect(enclosed.distributed).toEqual(open.distributed);
+    // The low-rise exception still applies to an enclosed building of the same dimensions.
+    expect(plan({ ...wind, structure: { kind: 'building' } }, model).factors.windGust?.y?.kind).toBe('rigidDefault');
+  });
 });

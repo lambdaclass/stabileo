@@ -59,10 +59,10 @@ describe('closing the dialog', () => {
 });
 
 describe('the modes of the modal method', () => {
-  it('are found under the level weights, whose live load is unreduced', () => {
+  it.each(['modesForPlan', 'windFrequenciesForPlan'])('%s uses the level weights, whose live load is unreduced', (method) => {
     // The plan's level weights carry Lo; modes under the §4.7.2-reduced loads had a lighter mass
     // than the forces were spread over (see the consistency test in plan-gravity.test.ts).
-    const call = dialog.match(/modesForPlan\((\w+),/);
+    const call = dialog.match(new RegExp(`${method}\\((\\w+),`));
     expect(call).not.toBeNull();
     expect(dialog).toMatch(new RegExp(`const ${call![1]} = [^;]*applyLiveReduction: false`));
   });

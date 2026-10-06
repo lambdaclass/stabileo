@@ -28,8 +28,8 @@
  * toward +x +y. A square chimney on its diagonal is loaded on the width it shows the wind, D√2
  * for a stick of side D (Figura 4.5-1, note 1), with h/D still on the side; it took D.
  *
- * G is 0,85, a rigid structure's: G_f of a flexible one (§1.9.5) is not implemented, so a
- * structure the project calls flexible is loaded with it all the same, and a note says so.
+ * The planner supplies each axis's validated G or G_f. Legacy callers without a factor use
+ * the rigid 0,85, with a warning when they have declared the structure flexible.
  *
  * Pure: no store.
  */
@@ -76,7 +76,7 @@ export function otherStructureWind(i: {
   const notes: EngineMessage[] = [];
   const nodes = [...model.nodes.values()];
   const H = Math.max(...nodes.map(Z), 0);
-  if (!project.rigid) notes.push(msg('wind.other.flexibleAssumedRigid'));
+  if (!project.rigid && !i.G) notes.push(msg('wind.other.flexibleAssumedRigid'));
 
   if (s.kind === 'freeRoof') {
     const roof = roofMembers(model);

@@ -186,7 +186,7 @@
     const ns = [...modelStore.nodes.values()];
     if (ns.length === 0) return false;
     const ext = (k: 'x' | 'y') => Math.max(...ns.map((n) => n[k])) - Math.min(...ns.map((n) => n[k]));
-    return isLowRise(Math.max(...ns.map((n) => n.z ?? 0)), ext('x'), ext('y'), windEnclosure);
+    return isLowRise(Math.max(...ns.map((n) => n.z ?? 0)), ext('x'), ext('y'), windEnclosure, windStructure.kind);
   });
   /** The dynamics the plan gets: the modal frequencies in place of typed ones when they are the source. */
   const planDynamics = (): WindDynamics => ({
@@ -501,19 +501,20 @@
     applyError = null;
     recordRoleConfiguration();
     let p = buildLoadPlan(planInput());
+    const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
+    const seismicModes = enableSeismic && seismicMethod.method === 'modal';
+    // A member's design live-load reduction does not reduce the mass that moves with the
+    // floor. Both modal methods must use Lo at the stated participation.
+    const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
+      ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
     // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
-    if (enableWind && windDyn.n1Source === 'modal' && !windLowRise && p.outcome === 'READY') {
-      const f = windFrequenciesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
+    if (windModes && p.outcome === 'READY') {
+      const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
       if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
       windModal = f;
       p = buildLoadPlan(planInput());
     }
-    // The modal method needs the model's modes under the plan's own masses (`seismic-modes.ts`).
-    // Those are the level weights, whose live load is Lo as the table gives it: §4.7.2 reduces a
-    // member's design live load by the area it collects, not the weight that moves with the floor.
-    // The modes took the reduced loads, and so a lighter mass than the forces were spread over.
-    if (enableSeismic && seismicMethod.method === 'modal' && p.outcome === 'READY') {
-      const massPlan = applyLiveReduction ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
+    if (seismicModes && p.outcome === 'READY') {
       const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
       if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
       const base = planInput();

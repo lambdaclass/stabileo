@@ -16,6 +16,7 @@
 import { approximateFrequency, effectiveLength, type ApproximateSystem, type RigidG } from '../../codes/cirsoc102/gust';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { Enclosure } from '../../codes/cirsoc102/wind';
+import type { OtherStructure } from './wind-other';
 
 export type FrequencySource = 'modal' | 'typed' | 'approximate' | 'declaredRigid';
 
@@ -36,8 +37,8 @@ export interface WindDynamics {
 export const DEFAULT_WIND_DYNAMICS: WindDynamics = Object.freeze({ n1Source: 'modal', beta: 0.02, rigidG: 'default' }) as WindDynamics;
 
 /** Low rise (art. 1.2): enclosed or partly so, h ≤ 20 m and no more than the least plan dimension. */
-export function isLowRise(h: number, bx: number, by: number, enclosure: Enclosure): boolean {
-  return enclosure !== 'open' && h <= 20 && h <= Math.min(bx, by);
+export function isLowRise(h: number, bx: number, by: number, enclosure: Enclosure, kind: 'building' | OtherStructure['kind'] = 'building'): boolean {
+  return kind === 'building' && enclosure !== 'open' && h <= 20 && h <= Math.min(bx, by);
 }
 
 /**
