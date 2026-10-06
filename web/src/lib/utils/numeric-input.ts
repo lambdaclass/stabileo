@@ -170,3 +170,32 @@ export function decimalOrKeep(raw: string, previous: number, empty = 0): number 
   if (raw.trim() === '') return empty;
   return parseDecimal(raw) ?? previous;
 }
+
+/**
+ * The components typed into an add-load form: a blank field is a component not given (0), and
+ * null when ANY field does not read («5 kN», «1.2.3») — the form then adds nothing, rather than
+ * a load with a zero the user never typed. `parseFloat(s) || 0` read «1,5» as 1 and «1.234,5»
+ * as 1.234.
+ */
+export function loadComponents(raws: readonly string[]): number[] | null {
+  const out: number[] = [];
+  for (const raw of raws) {
+    const v = raw.trim() === '' ? 0 : parseDecimal(raw);
+    if (v === null) return null;
+    out.push(v);
+  }
+  return out;
+}
+
+/**
+ * The two ends of a line load as typed. A BLANK J end is the same as I, a uniform load; a typed
+ * 0 is a zero, so 10 → 0 is a triangle — `parseFloat(j) || i` added it as a uniform 10. Null
+ * when either end does not read.
+ */
+export function lineLoadEnds(rawI: string, rawJ: string): [number, number] | null {
+  const [i] = loadComponents([rawI]) ?? [];
+  if (i === undefined) return null;
+  if (rawJ.trim() === '') return [i, i];
+  const j = parseDecimal(rawJ);
+  return j === null ? null : [i, j];
+}

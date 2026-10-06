@@ -24,6 +24,7 @@ import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { isDesignedMember, maskAxialDemand } from '../engine/design/behaviour-demands';
+import { isVariableMember } from '../section/variable';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { isColdFormedSection } from '../profiles/cold-formed-catalogue';
@@ -164,6 +165,9 @@ function groups(scope: OptimiseScope, ids?: readonly number[]) {
     if (isColdFormedSection(modelStore.sections.get(e.sectionId))) { outOfScope.add(e.id); continue; }
     const p = catalogueProfileOf(modelStore.sections.get(e.sectionId));
     if (!p) continue;
+    // A member of variable section is not designed (`isDesignedMember`), and is not resized with
+    // its end I's section: it keeps it, and a row's section it names at either end is shared.
+    if (isVariableMember(modelStore.sections, e)) continue;
     const grp = groupOf.get(e.id);
     if (scope === 'group' && !grp) continue;
     const key = scope === 'section' ? `s${e.sectionId}m${e.materialId}` : scope === 'group' ? `g${grp!.id}m${e.materialId}` : `e${e.id}`;
@@ -254,7 +258,10 @@ function createSteelOptimise() {
           const p = r.result.chosen!.profile;
           const full = profileToSectionFull(p);
           const fields = { name: p.name, profileFamily: p.family, a: full.a, iy: full.iy, iz: full.iz, j: full.j, b: full.b, h: full.h, shape: full.shape, tw: full.tw, tf: full.tf, t: full.t };
-          const allUsersChosen = [...modelStore.elements.values()].every(e => e.sectionId !== r.sectionId || r.elementIds.includes(e.id));
+          // A section a member of variable section names at end J is shared too: that member is
+          // not designed, and an update in place would turn its taper round.
+          const allUsersChosen = [...modelStore.elements.values()].every(e =>
+            (e.sectionId !== r.sectionId || r.elementIds.includes(e.id)) && e.variableSection?.sectionJ !== r.sectionId);
           if (r.scope === 'section' && allUsersChosen) {
             // The section in place: every member sharing it follows.
             modelStore.updateSection(r.sectionId, fields);

@@ -23,7 +23,8 @@ describe('wind on other structures', () => {
     const m = model(pts, [[1, 5], [5, 9], [9, 13]]);
     const p = project('latticeTowerTriangularOrRect');
     const out = otherStructureWind({ model: m, structure: { kind: 'latticeTower', section: 'square', round: false, solidity: 0.2, diagonal: true }, project: p, directions: ['+x'], tributaryWidth: 1 });
-    expect(out.cases.map((c) => c.nameParams.dir)).toEqual(['+X', '45°']);
+    // Only +x asked: the one diagonal beside it, toward +y (no sense asked on y).
+    expect(out.cases.map((c) => c.nameParams.dir)).toEqual(['+X', '+X+Y']);
     const cf = towerCf(0.2, 'square', false);
     // Levels 3, 6, 9: bands [0, 4,5], [4,5, 7,5], [7,5, 9].
     const bands: Array<[number, number]> = [[0, 4.5], [4.5, 7.5], [7.5, 9]];
@@ -123,5 +124,52 @@ describe('wind on other structures: a monoslope free roof, and stick models', ()
     const cf = towerCf(0.2, 'square', false);
     const expected = ([[0, 9], [9, 12]] as const).reduce((t, [a, b]) => t + Math.max(velocityPressure((a + b) / 2, p) / 1000 * G_RIGID * cf, 0.8) * 0.2 * 2 * (b - a), 0);
     expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('wind on other structures: diagonals, the projected width, and a flexible structure', () => {
+  const tower = () => {
+    const pts: Array<[number, number, number]> = [];
+    for (const z of [0, 3, 6, 9]) for (const [x, y] of [[0, 0], [2, 0], [2, 2], [0, 2]]) pts.push([x, y, z]);
+    return model(pts, [[1, 5], [5, 9], [9, 13]]);
+  };
+
+  it('a square tower on its diagonals: all four when ±x and ±y are asked, each pushing its own way', () => {
+    const p = project('latticeTowerTriangularOrRect');
+    const out = otherStructureWind({
+      model: tower(), structure: { kind: 'latticeTower', section: 'square', round: false, solidity: 0.2, diagonal: true },
+      project: p, directions: ['+x', '-x', '+y', '-y'], tributaryWidth: 1,
+    });
+    const diag = out.cases.filter((c) => String(c.nameParams.dir).length === 4);
+    expect(diag.map((c) => c.nameParams.dir)).toEqual(['+X+Y', '+X-Y', '-X+Y', '-X-Y']);
+    const along = out.cases.find((c) => c.nameParams.dir === '+X')!.nodal.reduce((s, n) => s + n.fx, 0);
+    for (const c of diag) {
+      const [sx, sy] = [String(c.nameParams.dir)[0] === '+' ? 1 : -1, String(c.nameParams.dir)[2] === '+' ? 1 : -1];
+      const fx = c.nodal.reduce((s, n) => s + n.fx, 0), fy = c.nodal.reduce((s, n) => s + n.fy, 0);
+      expect(Math.sign(fx)).toBe(sx);
+      expect(Math.sign(fy)).toBe(sy);
+      expect(Math.abs(fx)).toBeCloseTo(Math.abs(fy), 9);
+      // The diagonal's force is the face's, times the factor of note 4, along the diagonal.
+      expect(Math.hypot(fx, fy)).toBeGreaterThan(along * 0.99);
+    }
+  });
+
+  it('a square chimney on its diagonal, as a stick: Af is the projected width D√2, h/D still on the side D', () => {
+    const m = model([[0, 0, 0], [0, 0, 10], [0, 0, 20]], [[1, 2], [2, 3]]);
+    const p = project('chimneySquare');
+    const out = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'squareDiagonal', diameter: 2 }, project: p, directions: ['+x'], tributaryWidth: 1 });
+    const expected = ([[0, 15], [15, 20]] as const).reduce((t, [a, b]) => {
+      const q = velocityPressure((a + b) / 2, p) / 1000;
+      return t + Math.max(q * G_RIGID * chimneyCf('squareDiagonal', 20 / 2, 2 * Math.sqrt(q * 1000)), 0.8) * 2 * Math.SQRT2 * (b - a);
+    }, 0);
+    expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
+  });
+
+  it('a flexible structure says G = 0,85 of a rigid one was used, since G_f is not implemented', () => {
+    const m = model([[0, 0, 0], [0, 0, 10], [0, 0, 20]], [[1, 2], [2, 3]]);
+    const rigid = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'roundRough', diameter: 3 }, project: project('chimneyRound'), directions: ['+x'], tributaryWidth: 1 });
+    expect(rigid.notes.map((n) => n.key)).not.toContain('wind.other.flexibleAssumedRigid');
+    const flexible = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'roundRough', diameter: 3 }, project: { ...project('chimneyRound'), rigid: false }, directions: ['+x'], tributaryWidth: 1 });
+    expect(flexible.notes.map((n) => n.key)).toContain('wind.other.flexibleAssumedRigid');
   });
 });

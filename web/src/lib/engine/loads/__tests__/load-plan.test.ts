@@ -832,3 +832,24 @@ describe('Kd of a chimney (CIRSOC 102 Tabla 1.6-1)', () => {
     expect(qh('squareNormal') / qh('hexOct')).toBeCloseTo(0.9, 9);
   });
 });
+
+describe('the companion live load factor reads the roof occupancy too', () => {
+  // Wind, for combination 4 (1,2 D + 1,0 W + L), where L is a companion.
+  const wind = { enabled: true, basicSpeed: 45, exposure: 'C' as const, enclosure: 'enclosed' as const,
+    siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: true, y: false } };
+  it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
+    const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
+    const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
+    expect(p.outcome).toBe('READY');
+    const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
+    expect(companions.length).toBeGreaterThan(0);
+    for (const t of companions) expect(t.factor).toBe(1);
+    expect(p.derivation.some((d) => d.key === 'loads.cirsoc101.exception1.blockedByAssembly')).toBe(true);
+  });
+
+  it('a private roof terrace of 3 kN/m² is nothing special, and leaves the 0,5', () => {
+    const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_privada', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
+    const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
+    expect(p.combinations.some((c) => c.terms.some((t) => t.symbol === 'L' && t.factor === 0.5))).toBe(true);
+  });
+});

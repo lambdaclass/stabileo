@@ -9,7 +9,7 @@
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
   // built the seismic weight on a literal "* 50 // rough 50m2 per floor".
   import {
-    buildLoadPlan, describePlanDelta, levelsWithPlanArea, type LoadPlan, type LoadPlanInput, type PlanDelta,
+    buildLoadPlan, describePlanDelta, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
@@ -254,10 +254,23 @@
     void [JSON.stringify(windDyn), windV, windExposure, windEnclosure, enableWind];
     planGust = undefined;
   });
-  /** The roof's weight class the plan settled on; read here, outside any `{#if}` that narrows `plan`. */
-  const planRoofWeight = $derived(plan?.roofWeight);
+  /**
+   * The roof's weight class as the plan would find it, structure and cladding (§4.8.1), from the
+   * model and the settings as they are. It was read off the plan, which the roof pane never has:
+   * the pane shows only with no preview open, so its "automatic" class was the dead load's alone.
+   * Only while the dialog is open: it lays out the whole model's gravity loads.
+   */
+  const autoRoofWeight = $derived(open && roofCfg.enabled && !roofCfg.weight
+    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan }, tributaryWidth, roofCfg.dead ?? totalDead)
+    : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
+
+  // A preview describes the model it was built against. Kept across a close, it came back on
+  // reopening, after any edit to the model, and Apply would commit it: closing drops it.
+  $effect(() => {
+    if (!open) untrack(() => { plan = null; delta = null; applyError = null; });
+  });
 
 
   // The old seismic preview computed floor weights as
@@ -283,17 +296,22 @@
     }
   }
 
+  /** The model as the plan reads it. */
+  function modelSlice(): LoadPlanInput['model'] {
+    return {
+      nodes: modelStore.nodes as never,
+      elements: modelStore.elements as never,
+      sections: modelStore.model.sections as never,
+      materials: modelStore.model.materials as never,
+      loadCases: modelStore.model.loadCases,
+      quads: modelStore.model.quads as never,
+    };
+  }
+
   function planInput(): LoadPlanInput {
     return {
       regulations: regulationsStore.roles,
-      model: {
-        nodes: modelStore.nodes as never,
-        elements: modelStore.elements as never,
-        sections: modelStore.model.sections as never,
-        materials: modelStore.model.materials as never,
-        loadCases: modelStore.model.loadCases,
-        quads: modelStore.model.quads as never,
-      },
+      model: modelSlice(),
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       occupancyKey: selectedOccupancy,
       tributaryWidth,
@@ -491,8 +509,12 @@
       p = buildLoadPlan(planInput());
     }
     // The modal method needs the model's modes under the plan's own masses (`seismic-modes.ts`).
+    // Those are the level weights, whose live load is Lo as the table gives it: §4.7.2 reduces a
+    // member's design live load by the area it collects, not the weight that moves with the floor.
+    // The modes took the reduced loads, and so a lighter mass than the forces were spread over.
     if (enableSeismic && seismicMethod.method === 'modal' && p.outcome === 'READY') {
-      const m = modesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
+      const massPlan = applyLiveReduction ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
+      const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
       if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
       const base = planInput();
       p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
@@ -596,7 +618,7 @@
 
   // ─── The navigation: each section, and what it comes to ─────────
   const snowNow = $derived(snowCfg.enabled ? snowPreview(snowCfg, snowRoof) : null);
-  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, plan?.roofWeight) : null);
+  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight) : null);
   const specialOn = $derived([special.thermal.on && 'T', special.soil.on && 'H', special.fluid.on && 'F'].filter(Boolean) as string[]);
   const f2 = (v: number) => v.toFixed(2);
   interface NavItem { id: Section; symbol?: string; labelKey: string; status: string | null; on: boolean }
@@ -856,7 +878,7 @@
             </div>
             <div class="al-pane-scroll">
               {#if roofCfg.enabled}
-                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} autoWeight={planRoofWeight} />
+                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} autoWeight={autoRoofWeight} />
               {:else}
                 <div class="al-pane-body"><p class="al-hint">{t('autoLoad.roof.off')}</p></div>
               {/if}

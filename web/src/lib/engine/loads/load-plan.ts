@@ -70,7 +70,7 @@ export interface LoadModelData {
   quads?: Map<number, { id: number; nodes: number[]; thickness?: number; materialId?: number }>;
   materials: Map<number, { id: number; rho: number }>;
   /** `alternatives`: the group a case belongs to, a generated full load among its patterns. */
-  loadCases: Array<{ id: number; type: string; name: string; alternatives?: string }>;
+  loadCases: Array<{ id: number; type: string; name: string; alternatives?: string; pattern?: boolean }>;
 }
 
 // ─── Inputs ──────────────────────────────────────────────────────
@@ -265,6 +265,12 @@ export interface PlannedCase {
   pattern?: boolean;
   /** What the action is, code-neutral (`codes/families/load-codes.ts`): set by the plan. */
   category?: import('../../codes/families/origin').ActionCategory;
+  /**
+   * The case holds the generated load and nothing else: Apply never files it into a user's case
+   * of the same name (`ensureLoadCase`), and the user's own cases of its type, outside the group,
+   * enter the combinations beside it (`applyLoadPlan`).
+   */
+  own?: boolean;
 }
 
 export interface PlannedDistributed {
@@ -495,6 +501,20 @@ export function roofWeightOf(model: LoadModelData, layout: GravityLayout, dead: 
   return { weight: roofWeightClass(structure + dead), structure };
 }
 
+/**
+ * The weight class the plan would give the roof (`roofWeightOf` over the same layout), for the
+ * roof's readouts before any plan is built: the dialog showed the dead load's class alone there,
+ * which called a concrete roof slab with light finishes light.
+ */
+export function roofWeightFor(
+  model: LoadModelData, gravity: LoadPlanInput['gravity'], tributaryWidth: number, dead: number,
+): RoofWeight {
+  const layout = gravityLayout(model, {
+    mode: gravity?.mode === 'panels' ? 'panels' : 'width', slab: gravity?.slab, spanAxis: gravity?.spanAxis, tributaryWidth,
+  });
+  return roofWeightOf(model, layout, dead).weight;
+}
+
 export function findCase(model: LoadModelData, type: string, nameMatch?: string): number | null {
   const c = model.loadCases.find((x) =>
     x.type === type && (nameMatch === undefined || x.name.includes(nameMatch)));
@@ -647,6 +667,8 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
   let roofLoads: RoofLoads | undefined;
   let roofWeight: RoofWeight | undefined;
+  /** The roof's own occupancy (§4.8.2), when it has one: the combinations read it with the floors'. */
+  let roofOccupancy: OccupancyEntry | undefined;
   if (input.roof) {
     const r = input.roof;
     if (r.weight) roofWeight = r.weight;
@@ -668,6 +690,7 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
         return { ...empty, blockedKeys };
       }
       const rlo = roofOcc.uniformKNm2;
+      roofOccupancy = roofOcc;
       refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
       const uniform = input.applyLiveReduction
         ? codes.loads.reduce({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
@@ -698,23 +721,30 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   // The full case of a group holds the generated load and nothing else. The user's own case of
   // the type, found by type alone, would join the group with its loads, and a combination that
   // takes a pattern in place of the full case would drop them: the full load goes to a case of
-  // its own, or to the one an earlier apply made (already of the group). The user's case stays
-  // outside the group and is summed into every combination, patterns included.
+  // its own, or to the one an earlier apply made (already of the group). The user's cases of the
+  // type stay outside the group, as plain cases, and Apply puts them in every combination of the
+  // type at its factor, beside whichever alternative of the group the combination takes.
   for (const sym of area.arranged) {
     const full = cases.find((c) => c.type === sym && c.alternatives === undefined);
     if (!full) continue;
     full.alternatives = sym === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS;
-    full.existingId = input.model.loadCases.find((c) => c.type === sym && c.alternatives === full.alternatives)?.id ?? null;
+    full.own = true;
+    full.existingId = input.model.loadCases.find((c) => c.type === sym && c.alternatives === full.alternatives && !c.pattern)?.id ?? null;
   }
   // One case per arrangement, a pattern of its group: it varies where its action is principal.
   const arrangementCase = area.arrangements.map((a) => {
     cases.push({
-      existingId: null, type: a.symbol, pattern: true,
+      existingId: null, type: a.symbol, pattern: true, own: true,
       nameKey: `autoLoad.${a.symbol === 'L' ? 'liveCase' : 'roofLiveCase'}${a.kind === 'checkerboard' ? 'Pattern' : 'Adjacent'}`,
       nameParams: a.nameParams, alternatives: a.symbol === 'L' ? LIVE_PATTERNS : ROOF_LIVE_PATTERNS,
     });
     return cases.length - 1;
   });
+  // A slab of shells is a mesh, not panels the checkerboard can colour: its live load is in the
+  // full case only, and every arrangement leaves those bays unloaded. Said, so the patterns are not
+  // read as covering the shells.
+  const shellsArranged = [...area.arranged].filter((sym) => area.surface.some((s) => s.caseType === sym));
+  if (shellsArranged.length > 0) unsupportedKeys.push(msg('loadPlan.note.patternsSkipShells', { symbols: shellsArranged.join(', ') }));
   const distributed: PlannedDistributed[] = area.distributed.map(({ arrangement, ...d }) =>
     (arrangement !== undefined ? { ...d, caseIndex: arrangementCase[arrangement]! } : d));
 
@@ -751,26 +781,34 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
 
   /*
    * What the area loads add to each level's mass. By area, each member and slab brings the area
-   * it carries, at the dead and live load of the floor or roof it belongs to. By width, the
-   * extent of the level's nodes, at the roof's loads when every member there is a roof member.
+   * it carries, at the dead and live load of the floor or roof it belongs to, measured as its case
+   * applies it: the dead load of a member loaded by width per metre of its length (the D case is
+   * per metre of member, along global Z), the live loads per metre of plan. A level that carries
+   * no area (the nodes where a column is split, the supports) adds none: it used to fall back to
+   * the extent of its nodes, and a split column weighed a whole phantom floor.
+   *
+   * By width, the extent of the level's nodes, at the roof's loads when every member there is a
+   * roof member.
    */
   const levelIndexOf = (z: number) => {
     let best = 0;
     levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
     return best;
   };
-  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0, any: false }));
+  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0 }));
   if (panelMode) {
+    // Sloped length over plan length of the members loaded by width; 1 for the rest.
+    const slopeOf = new Map(layout.widthMembers.map((m) => [m.elementId, m.horizontalLength > 0 ? m.length / m.horizontalLength : 1]));
     for (const [areas, m] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
       for (const [id, a] of areas) {
         const k = levelIndexOf(layout.zOf.get(id) ?? 0);
-        byArea[k]!.area += a; byArea[k]!.dead += a * m.dead; byArea[k]!.live += a * m.live; byArea[k]!.any = true;
+        byArea[k]!.area += a; byArea[k]!.dead += a * (slopeOf.get(id) ?? 1) * m.dead; byArea[k]!.live += a * m.live;
       }
     }
     // A sloped shell's dead load is per m² of its surface, its live load per m² of plan.
     for (const sq of layout.shellQuads) {
       const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
-      byArea[k]!.area += sq.area; byArea[k]!.dead += (sq.area / sq.cos) * m.dead; byArea[k]!.live += sq.area * m.live; byArea[k]!.any = true;
+      byArea[k]!.area += sq.area; byArea[k]!.dead += (sq.area / sq.cos) * m.dead; byArea[k]!.live += sq.area * m.live;
     }
   }
   const roofLevel = (k: number) => {
@@ -780,10 +818,11 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   };
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
     const ba = byArea[i]!;
-    const atRoof = !ba.any && roofLevel(i);
-    const area = ba.any ? ba.area : lv.planAreaM2;
-    const superimposed = ba.any ? ba.dead : (atRoof ? roofLoads!.dead : deadTotal) * area;
-    const liveTotal = ba.any ? ba.live : (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area;
+    const byExtent = !panelMode;
+    const atRoof = byExtent && roofLevel(i);
+    const area = byExtent ? lv.planAreaM2 : ba.area;
+    const superimposed = byExtent ? (atRoof ? roofLoads!.dead : deadTotal) * area : ba.dead;
+    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area : ba.live;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
@@ -853,14 +892,15 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
    * The two cases hold the generated loads and nothing else, like the full live load of its
    * patterns: the user's own T case, joining the group, would have its loads dropped from every
    * combination that takes the reverse. They reuse only the cases an earlier apply made (already
-   * of the group, the +ΔT one first); the user's case stays outside and is summed into both.
+   * of the group, the +ΔT one first); the user's T cases stay outside, as plain cases, and Apply
+   * puts them in every combination with T beside either sense.
    */
   const thermal: LoadPlan['thermal'] = [];
   if (special.thermal.length) {
     const heat = cases.length;
     const earlier = input.model.loadCases.filter((c) => c.type === 'T' && c.alternatives === THERMAL_SENSES).sort((a, b) => a.id - b.id);
-    cases.push({ existingId: earlier[0]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCase', alternatives: THERMAL_SENSES });
-    cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES });
+    cases.push({ existingId: earlier[0]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCase', alternatives: THERMAL_SENSES, own: true });
+    cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES, own: true });
     for (const th of special.thermal) thermal.push({ ...th, caseIndex: heat }, { ...th, dtUniform: -th.dtUniform || 0, dtGradient: -th.dtGradient || 0, caseIndex: heat + 1 });
     derivation.push(msg('loadPlan.derivation.thermalSenses'));
     refs.push(codes.thermal?.combinationRef ?? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
@@ -888,9 +928,12 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
       F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
       T: special.thermal.length > 0,
     };
+    // Exception 1 of §2.3.2 asks for the largest Lo the structure carries and whether any of it is
+    // a garage or a place of public assembly: a roof used for an occupancy (§4.8.2) is part of
+    // that. Reading the floors alone took a public roof terrace over dwellings for 0,5 L.
     const ci: CombinationInputs = {
-      present, maxLoKNm2: lo, earthPressurePermanent: input.soil?.permanent ?? true,
-      hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true,
+      present, maxLoKNm2: Math.max(lo, roofOccupancy?.uniformKNm2 ?? 0), earthPressurePermanent: input.soil?.permanent ?? true,
+      hasGarageOrPublicAssembly: occ.garageOrPublicAssembly === true || roofOccupancy?.garageOrPublicAssembly === true,
     };
     const set = input.combinationSet ?? 'ultimate';
     if (input.projectCombinations) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toSectionFields, isStandard, type SectionChoice } from '../section-choice';
+import { toSectionFields, isStandard, drawnUnchanged, type SectionChoice } from '../section-choice';
 import { defaultProfileSpec } from '../profile-spec';
 import { FAMILY_LIST, PROFILE_FAMILIES } from '../../data/steel-profiles';
 import { composeBuiltUp } from '../../engine/generators/built-up-section';
@@ -176,5 +176,55 @@ describe('isStandard', () => {
       kind: 'built', name: 'x', shapeType: 'rect', params: {},
       props: { a: 1, iy: 1, iz: 1, shape: 'rect' }, rotationDeg: 0,
     })).toBe(false);
+  });
+});
+
+/*
+ * PR 250 review, round 2. Declared shear areas are numbers about one section: replacing it with
+ * another kept them, and a 10×10 rectangle's As = 83 cm² went on describing an IPE 600.
+ */
+describe('replacing a section clears its declared shear areas', () => {
+  const declared = { basis: 'declared' as const, asY: 83e-4, asZ: 83e-4 };
+  const old = { name: 'R 100x100', a: 0.01, iy: 8.3e-6, iz: 8.3e-6, shearAreas: declared };
+  const choices: Record<string, SectionChoice> = {
+    standard: std(defaultProfileSpec('IPE 600')),
+    built: { kind: 'built', name: 'R 200x300', shapeType: 'rect', params: { b: 0.2, h: 0.3 },
+      props: { a: 0.06, iy: 4.5e-4, iz: 2.0e-4, j: 1.0e-4, b: 0.2, h: 0.3, shape: 'rect' }, rotationDeg: 0 },
+    drawn: { kind: 'drawn', name: 'Plate', drawn: { version: 1, parts: [{ id: 1, shape: { kind: 'rect', b: 0.2, h: 0.01 }, at: [0, 0], rotationDeg: 0 }] },
+      props: { a: 0.002, iy: 1.7e-8, iz: 6.7e-6, j: 6.6e-8, b: 0.2, h: 0.01 } },
+  };
+  for (const [kind, choice] of Object.entries(choices)) {
+    it(`a ${kind} choice writes shearAreas as undefined`, () => {
+      const f = toSectionFields(choice, 0)!;
+      // The store merges the fields into the section: a key left out keeps the old value.
+      expect('shearAreas' in f).toBe(true);
+      expect({ ...old, ...f }.shearAreas).toBeUndefined();
+    });
+  }
+});
+
+describe('drawnUnchanged', () => {
+  const initial = {
+    name: 'Plate',
+    drawn: { version: 1 as const, refMaterialId: 1, parts: [
+      { id: 1, shape: { kind: 'rect' as const, b: 0.2, h: 0.01 }, at: [0, 0] as [number, number], rotationDeg: 0 },
+      { id: 2, shape: { kind: 'rect' as const, b: 0.01, h: 0.2 }, at: [0, 0.1] as [number, number], rotationDeg: 0, materialId: 2 },
+    ] },
+  };
+  const props = { a: 0.004, iy: 1, iz: 1, j: 1, b: 0.2, h: 0.21 };
+  it('a drawing reopened and applied as it was is unchanged, whatever the editor derived on the way', () => {
+    // The editor refreshes the ratios and the material areas; neither is an edit.
+    const back: SectionChoice = { kind: 'drawn', name: 'Plate', props, drawn: {
+      areas: [{ materialId: null, a: 0.002 }, { materialId: 2, a: 0.002 }], refMaterialId: 1, version: 1,
+      parts: [initial.drawn.parts[0]!, { ...initial.drawn.parts[1]!, ratio: { e: 0.5, g: 0.5 } }],
+    } };
+    expect(drawnUnchanged(back, initial)).toBe(true);
+  });
+  it('a moved part, a new name or another kind of choice is a change', () => {
+    const moved = structuredClone(initial.drawn); moved.parts[1]!.at = [0, 0.2];
+    expect(drawnUnchanged({ kind: 'drawn', name: 'Plate', props, drawn: moved }, initial)).toBe(false);
+    expect(drawnUnchanged({ kind: 'drawn', name: 'Plate 2', props, drawn: initial.drawn }, initial)).toBe(false);
+    expect(drawnUnchanged(std(), initial)).toBe(false);
+    expect(drawnUnchanged(null, initial)).toBe(false);
   });
 });
