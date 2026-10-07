@@ -18,3 +18,11 @@ describe('member dimensions while drawing', () => {
     });
   });
 });
+
+describe('member dimensions in the chosen units', () => {
+  it('give the length and the legs in feet in imperial', () => {
+    expect(memberDimensionLabels({ x: 0, y: 0 }, { x: 3, y: 4 }, 'Imperial')).toEqual({
+      length: '16.40 ft', dx: 'ΔX 9.84', dz: 'ΔZ 13.12',
+    });
+  });
+});

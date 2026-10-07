@@ -1,9 +1,14 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
+  import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
+  import Icon from '../ribbon/Icon.svelte';
+  // Values are typed in the unit system chosen under Settings and kept in SI.
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import { editLoad, setMemberLoadFrame } from '../../lib/store/load-ops';
   import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
 
   /**
@@ -17,15 +22,27 @@
     return true;
   }
 
+  /**
+   * `inBar`: shown in the options bar's edit mode (ToolOptions), whose own
+   * label already says "Edit load", so the panel's tag would repeat it.
+   */
+  let { inBar = false }: { inBar?: boolean } = $props();
+
+  /**
+   * One field of the load. An edit that would leave a load of nothing, or put a member load off
+   * its member, is refused and said (`editLoad`); the results stay, since nothing changed.
+   */
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
     if (definedLoad(loadId)) return;
-    if (typeof val === 'boolean') {
-      modelStore.updateLoad(loadId, { [field]: val });
-    } else {
-      const num = parseFloat(val);
-      if (isNaN(num)) return;
-      modelStore.updateLoad(loadId, { [field]: num });
+    let value: number | boolean = val as boolean;
+    if (typeof val !== 'boolean') {
+      value = parseFloat(val);
+      if (isNaN(value)) return;
     }
+    const outcome = editLoad(loadId, { [field]: value });
+    if (outcome === 'zero') { uiStore.toast(t('editLoad.zero'), 'info'); return; }
+    if (outcome === 'place') { uiStore.toast(t('editLoad.offMember'), 'info'); return; }
+    if (outcome !== 'done') return;
     resultsStore.clear();
     warnIfTransverseOnTruss(loadId);
   }
@@ -57,6 +74,11 @@
       modelStore.updateLoad(loadId, { b });
     }
     resultsStore.clear();
+  }
+
+  /** The same load read on the other axes: every component re-expressed (`load-frame.ts`). */
+  function setLoadFrame(loadId: number, frame: 'global' | 'local') {
+    if (setMemberLoadFrame(loadId, frame)) resultsStore.clear();
   }
 
   function deleteSelectedLoads() {
@@ -137,9 +159,15 @@
   });
 </script>
 
+{#snippet frameToggle(id: number, global: boolean)}
+  <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
+  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={t('float.loadFrameGlobalTip')}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+{/snippet}
+
 {#if selectedLoad}
-  <div class="ft-load-edit">
-    <span class="ft-load-tag">{t('selEntity.editingLoad')}</span>
+  <div class="ft-load-edit" class:in-bar={inBar}>
+    {#if !inBar}<span class="ft-load-tag">{t('selEntity.editingLoad')}</span>{/if}
     <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor((selectedLoad.data as any).caseId ?? 1)}"></span>
     <select class="ft-case-select"
       value={String((selectedLoad.data as any).caseId ?? 1)}
@@ -154,41 +182,41 @@
       {@const nl = selectedLoad.data as NodalLoad}
       <label class="ft-input-group">
         <span>Fx:</span>
-        <input type="number" step="1" value={nl.fx} onchange={(e) => updateLoadField(nl.id, 'fx', e.currentTarget.value)} />
-        <span class="ft-unit">kN</span>
+        <UnitInput value={nl.fx} qty="force" onchange={(v) => updateLoadField(nl.id, 'fx', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
         <span>Fz:</span>
-        <input type="number" step="1" value={get2DDisplayNodalLoadVertical(nl)} onchange={(e) => updateLoadField(nl.id, 'fz', e.currentTarget.value)} />
-        <span class="ft-unit">kN</span>
+        <UnitInput value={get2DDisplayNodalLoadVertical(nl)} qty="force" onchange={(v) => updateLoadField(nl.id, 'fz', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
         <span>My:</span>
-        <input type="number" step="1" value={get2DDisplayNodalLoadMoment(nl)} onchange={(e) => updateLoadField(nl.id, 'my', e.currentTarget.value)} />
-        <span class="ft-unit">kN·m</span>
+        <UnitInput value={get2DDisplayNodalLoadMoment(nl)} qty="moment" onchange={(v) => updateLoadField(nl.id, 'my', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('moment')}</span>
       </label>
     {:else if selectedLoad.type === 'distributed'}
       {@const dl = selectedLoad.data as DistributedLoad}
       {@const elemLen = modelStore.getElementLength(dl.elementId)}
       <label class="ft-input-group">
         <span>qI:</span>
-        <input type="number" step="1" value={dl.qI} onchange={(e) => updateLoadField(dl.id, 'qI', e.currentTarget.value)} />
-        <span class="ft-unit">kN/m</span>
+        <UnitInput value={dl.qI} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qI', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
         <span>qJ:</span>
-        <input type="number" step="1" value={dl.qJ} onchange={(e) => updateLoadField(dl.id, 'qJ', e.currentTarget.value)} />
-        <span class="ft-unit">kN/m</span>
+        <UnitInput value={dl.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qJ', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
         <span>a:</span>
-        <input type="number" step="0.1" min="0" max={elemLen} value={(dl.a ?? 0).toFixed(2)} onchange={(e) => updateDistLoadPosition(dl.id, 'a', e.currentTarget.value, elemLen, dl.a ?? 0, dl.b ?? elemLen)} />
-        <span class="ft-unit">m</span>
+        <UnitInput value={dl.a ?? 0} qty="length" onchange={(v) => updateDistLoadPosition(dl.id, 'a', String(v), elemLen, dl.a ?? 0, dl.b ?? elemLen)} unit={false} />
+        <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <label class="ft-input-group">
         <span>b:</span>
-        <input type="number" step="0.1" min="0" max={elemLen} value={(dl.b ?? elemLen).toFixed(2)} onchange={(e) => updateDistLoadPosition(dl.id, 'b', e.currentTarget.value, elemLen, dl.a ?? 0, dl.b ?? elemLen)} />
-        <span class="ft-unit">m</span>
+        <UnitInput value={dl.b ?? elemLen} qty="length" onchange={(v) => updateDistLoadPosition(dl.id, 'b', String(v), elemLen, dl.a ?? 0, dl.b ?? elemLen)} unit={false} />
+        <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
@@ -203,23 +231,23 @@
       {@const elemLen = modelStore.getElementLength(pl.elementId)}
       <label class="ft-input-group">
         <span>a:</span>
-        <input type="number" step="0.1" min="0" max={elemLen} value={pl.a.toFixed(2)} onchange={(e) => updateLoadField(pl.id, 'a', e.currentTarget.value)} />
-        <span class="ft-unit">m</span>
+        <UnitInput value={pl.a} qty="length" onchange={(v) => updateLoadField(pl.id, 'a', String(Math.max(0, Math.min(elemLen, v))))} unit={false} />
+        <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <label class="ft-input-group">
         <span>{pl.isGlobal ? 'Fz' : 'Fj'}:</span>
-        <input type="number" step="1" value={pl.p} onchange={(e) => updateLoadField(pl.id, 'p', e.currentTarget.value)} />
-        <span class="ft-unit">kN</span>
+        <UnitInput value={pl.p} qty="force" onchange={(v) => updateLoadField(pl.id, 'p', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
         <span>{pl.isGlobal ? 'Fx' : 'Fi'}:</span>
-        <input type="number" step="1" value={pl.px ?? 0} onchange={(e) => updateLoadField(pl.id, 'px', e.currentTarget.value)} />
-        <span class="ft-unit">kN</span>
+        <UnitInput value={pl.px ?? 0} qty="force" onchange={(v) => updateLoadField(pl.id, 'px', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
         <span>My:</span>
-        <input type="number" step="1" value={get2DDisplayNodalLoadMoment(pl)} onchange={(e) => updateLoadField(pl.id, 'my', e.currentTarget.value)} />
-        <span class="ft-unit">kN·m</span>
+        <UnitInput value={get2DDisplayNodalLoadMoment(pl)} qty="moment" onchange={(v) => updateLoadField(pl.id, 'my', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('moment')}</span>
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
@@ -231,44 +259,64 @@
       </label>
     {:else if selectedLoad.type === 'thermal'}
       {@const tl = selectedLoad.data as { id: number; elementId: number; dtUniform: number; dtGradient: number }}
-      <label class="ft-input-group">
-        <span>ΔT:</span>
-        <input type="number" step="5" value={tl.dtUniform} onchange={(e) => updateLoadField(tl.id, 'dtUniform', e.currentTarget.value)} />
-        <span class="ft-unit">°C</span>
-      </label>
-      <label class="ft-input-group">
+      <label class="ft-input-group" title={t('float.thermalUniformTip')}>
         <span>ΔTg:</span>
-        <input type="number" step="5" value={tl.dtGradient} onchange={(e) => updateLoadField(tl.id, 'dtGradient', e.currentTarget.value)} />
-        <span class="ft-unit">°C</span>
+        <UnitInput value={tl.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(tl.id, 'dtUniform', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('temperatureDelta')}</span>
+      </label>
+      <label class="ft-input-group" title={t('float.thermalGradientTip')}>
+        <span>∇T:</span>
+        <UnitInput value={tl.dtGradient} qty="temperatureDelta" onchange={(v) => updateLoadField(tl.id, 'dtGradient', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('temperatureDelta')}</span>
       </label>
     {:else if selectedLoad.type === 'nodal3d'}
       {@const nl3 = selectedLoad.data as NodalLoad3D}
-      <label class="ft-input-group"><span>Fx:</span><input type="number" step="1" value={nl3.fx} onchange={(e) => updateLoadField(nl3.id, 'fx', e.currentTarget.value)} /><span class="ft-unit">kN</span></label>
-      <label class="ft-input-group"><span>Fy:</span><input type="number" step="1" value={nl3.fy} onchange={(e) => updateLoadField(nl3.id, 'fy', e.currentTarget.value)} /><span class="ft-unit">kN</span></label>
-      <label class="ft-input-group"><span>Fz:</span><input type="number" step="1" value={nl3.fz} onchange={(e) => updateLoadField(nl3.id, 'fz', e.currentTarget.value)} /><span class="ft-unit">kN</span></label>
-      <label class="ft-input-group"><span>Mx:</span><input type="number" step="1" value={nl3.mx} onchange={(e) => updateLoadField(nl3.id, 'mx', e.currentTarget.value)} /><span class="ft-unit">kN·m</span></label>
-      <label class="ft-input-group"><span>My:</span><input type="number" step="1" value={nl3.my} onchange={(e) => updateLoadField(nl3.id, 'my', e.currentTarget.value)} /><span class="ft-unit">kN·m</span></label>
-      <label class="ft-input-group"><span>Mz:</span><input type="number" step="1" value={nl3.mz} onchange={(e) => updateLoadField(nl3.id, 'mz', e.currentTarget.value)} /><span class="ft-unit">kN·m</span></label>
+      <label class="ft-input-group"><span>Fx:</span><UnitInput value={nl3.fx} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fx', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      <label class="ft-input-group"><span>Fy:</span><UnitInput value={nl3.fy} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fy', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      <label class="ft-input-group"><span>Fz:</span><UnitInput value={nl3.fz} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fz', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      <label class="ft-input-group"><span>Mx:</span><UnitInput value={nl3.mx} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'mx', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      <label class="ft-input-group"><span>My:</span><UnitInput value={nl3.my} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'my', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      <label class="ft-input-group"><span>Mz:</span><UnitInput value={nl3.mz} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'mz', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
     {:else if selectedLoad.type === 'distributed3d'}
       {@const dl3 = selectedLoad.data as DistributedLoad3D}
-      <label class="ft-input-group"><span>qYI:</span><input type="number" step="1" value={dl3.qYI} onchange={(e) => updateLoadField(dl3.id, 'qYI', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
-      <label class="ft-input-group"><span>qYJ:</span><input type="number" step="1" value={dl3.qYJ} onchange={(e) => updateLoadField(dl3.id, 'qYJ', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
-      <label class="ft-input-group"><span>qZI:</span><input type="number" step="1" value={dl3.qZI} onchange={(e) => updateLoadField(dl3.id, 'qZI', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
-      <label class="ft-input-group"><span>qZJ:</span><input type="number" step="1" value={dl3.qZJ} onchange={(e) => updateLoadField(dl3.id, 'qZJ', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
+      <label class="ft-input-group"><span>qYI:</span><UnitInput value={dl3.qYI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      <label class="ft-input-group"><span>qYJ:</span><UnitInput value={dl3.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      <label class="ft-input-group"><span>qZI:</span><UnitInput value={dl3.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      <label class="ft-input-group"><span>qZJ:</span><UnitInput value={dl3.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      <!-- Along X in Global; in Local, along the member: shown whenever it loads the member. -->
+      {#if dl3.frame === 'global' || dl3.qXI || dl3.qXJ}
+        <label class="ft-input-group"><span>qXI:</span><UnitInput value={dl3.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+        <label class="ft-input-group"><span>qXJ:</span><UnitInput value={dl3.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {/if}
+      {@render frameToggle(dl3.id, dl3.frame === 'global')}
+      {@const len3 = modelStore.getElementLength(dl3.elementId)}
+      <label class="ft-input-group"><span>a:</span><UnitInput value={dl3.a ?? 0} qty="length" onchange={(v) => updateLoadField(dl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+      <label class="ft-input-group"><span>b:</span><UnitInput value={dl3.b ?? len3} qty="length" onchange={(v) => updateLoadField(dl3.id, 'b', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+    {:else if selectedLoad.type === 'pointOnElement3d'}
+      <!-- A point on a member: where, and its force and moment along the member's axes or the global ones. -->
+      {@const pl3 = selectedLoad.data as PointLoadOnElement3D}
+      <label class="ft-input-group"><span>a:</span><UnitInput value={pl3.a} qty="length" onchange={(v) => updateLoadField(pl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
+      {#each [['px', pl3.px ?? 0], ['py', pl3.py], ['pz', pl3.pz]] as [k, v] (k)}
+        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="force" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      {/each}
+      {#each [['mx', pl3.mx ?? 0], ['my', pl3.my ?? 0], ['mz', pl3.mz ?? 0]] as [k, v] (k)}
+        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      {/each}
+      {@render frameToggle(pl3.id, pl3.frame === 'global')}
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')}>🗑</button>
-    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
   </div>
 {:else if uiStore.selectedLoads.size > 1}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.loadsSelected').replace('{n}', String(uiStore.selectedLoads.size))}</span>
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteSelectedLoads')}>🗑 {t('selEntity.deleteBtn')}</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedLoads()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteSelectedLoads')} data-testid="edit-delete"><Icon name="trash" size={14} /> {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
   </div>
 {/if}
 
 {#if selectedSup}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
@@ -330,22 +378,22 @@
       }} /> <span>Mz</span></label>
       <!-- Spring stiffnesses for unchecked DOFs -->
       {#if !dofs.tx}
-        <label class="ft-input-group"><span>kx:</span><input type="number" step="100" value={selectedSup.kx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'kx', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>kx:</span><UnitInput value={selectedSup.kx ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'kx', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
       {/if}
       {#if !dofs.ty}
-        <label class="ft-input-group"><span>ky:</span><input type="number" step="100" value={selectedSup.ky ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'ky', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>ky:</span><UnitInput value={selectedSup.ky ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'ky', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
       {/if}
       {#if !dofs.tz}
-        <label class="ft-input-group"><span>kz:</span><input type="number" step="100" value={selectedSup.kz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'kz', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>kz:</span><UnitInput value={selectedSup.kz ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'kz', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
       {/if}
       {#if !dofs.rx}
-        <label class="ft-input-group"><span>krx:</span><input type="number" step="100" value={selectedSup.krx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'krx', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>krx:</span><UnitInput value={selectedSup.krx ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'krx', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
       {/if}
       {#if !dofs.ry}
-        <label class="ft-input-group"><span>kry:</span><input type="number" step="100" value={selectedSup.kry ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'kry', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>kry:</span><UnitInput value={selectedSup.kry ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'kry', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
       {/if}
       {#if !dofs.rz}
-        <label class="ft-input-group"><span>krz:</span><input type="number" step="100" value={selectedSup.krz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'krz', e.currentTarget.value)} /></label>
+        <label class="ft-input-group"><span>krz:</span><UnitInput value={selectedSup.krz ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'krz', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
       {/if}
     {:else}
     <!-- 2D support type buttons -->
@@ -385,8 +433,8 @@
         title={t('float.rollerLocalLabel')}>Loc</button>
       <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
         <span>di:</span>
-        <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
-        <span class="ft-unit">m</span>
+        <UnitInput value={selectedSup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dx', String(v))} unit={false} />
+        <span class="ft-unit">{unitQ('displacement')}</span>
       </label>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
@@ -397,15 +445,15 @@
       <span class="ft-sep">|</span>
       <label class="ft-input-group">
         <span>kx:</span>
-        <input type="number" step="100" value={selectedSup.kx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'kx', e.currentTarget.value)} />
+        <UnitInput value={selectedSup.kx ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'kx', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span>
       </label>
       <label class="ft-input-group">
         <span>ky:</span>
-        <input type="number" step="100" value={selectedSup.ky ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'ky', e.currentTarget.value)} />
+        <UnitInput value={selectedSup.ky ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'ky', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span>
       </label>
       <label class="ft-input-group">
         <span>kθ:</span>
-        <input type="number" step="100" value={selectedSup.kz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'kz', e.currentTarget.value)} />
+        <UnitInput value={selectedSup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'kz', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span>
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
@@ -422,18 +470,18 @@
       {#if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
         <label class="ft-input-group" title={t('float.prescribedDx')}>
           <span>dx:</span>
-          <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
+          <UnitInput value={selectedSup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dx', String(v))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
         </label>
         <label class="ft-input-group" title={t('float.prescribedDy')}>
           <!-- The plane is XZ: named as SupportDetails names them, and written to the store's own fields. -->
           <span>dz:</span>
-          <input type="number" step="0.001" value={selectedSup.dz ?? selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dz', e.currentTarget.value)} />
+          <UnitInput value={selectedSup.dz ?? selectedSup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dz', String(v))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
         <label class="ft-input-group" title={t('float.prescribedDrz')}>
           <span>dθy:</span>
-          <input type="number" step="0.001" value={selectedSup.dry ?? selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dry', e.currentTarget.value)} />
+          <UnitInput value={selectedSup.dry ?? selectedSup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportField(selectedSup.id, 'dry', String(v))} unit={false} /><span class="ft-unit">{unitQ('rotation')}</span>
         </label>
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>
@@ -442,14 +490,14 @@
         <span class="ft-unit">°</span>
       </label>
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSupport')}>🗑</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSupport')} aria-label={t('selEntity.deleteSupport')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedSupports(); uiStore.currentTool = 'support'; }} title={t('selEntity.deselectBackSupport')} data-testid="edit-done">✓</button>
   </div>
 {:else if uiStore.selectedSupports.size > 1}
-  <div class="ft-load-edit">
+  <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.supportsSelected').replace('{n}', String(uiStore.selectedSupports.size))}</span>
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSelectedSupports')}>🗑 {t('selEntity.deleteBtn')}</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSelectedSupports')} data-testid="edit-delete"><Icon name="trash" size={14} /> {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedSupports(); uiStore.currentTool = 'support'; }} title={t('selEntity.deselectBackSupport')} data-testid="edit-done">✓</button>
   </div>
 {/if}
 
@@ -551,7 +599,7 @@
     color: var(--st-text-2);
   }
 
-  .ft-input-group input {
+  .ft-input-group :global(input) {
     width: 55px;
     padding: 2px 4px;
     background: var(--st-surface-2);
@@ -562,8 +610,8 @@
   }
 
   .ft-unit {
-    font-size: 0.6rem;
-    color: var(--st-text-3);
+    font-size: 0.68rem;
+    color: var(--st-text-2);
     white-space: nowrap;
   }
 
@@ -592,6 +640,9 @@
     background: var(--st-surface-2);
   }
 
+  /* In the options bar it is part of the row, not a strip of its own. */
+  .ft-load-edit.in-bar { border-top: none; background: transparent; padding: 0; justify-content: flex-start; }
+
   .ft-load-tag {
     font-size: 0.65rem;
     color: var(--st-value);
@@ -600,6 +651,9 @@
   }
 
   .ft-load-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 2px 6px;
     background: var(--st-accent);
     border: 1px solid var(--st-danger);
@@ -643,7 +697,7 @@
       min-width: 20px;
     }
 
-    .ft-input-group input {
+    .ft-input-group :global(input) {
       width: 45px;
     }
 
@@ -652,7 +706,7 @@
     }
 
     .ft-unit {
-      font-size: 0.6rem;
+      font-size: 0.68rem;
     }
 
     .ft-load-edit {

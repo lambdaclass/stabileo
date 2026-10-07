@@ -13,6 +13,8 @@
   import { t } from '../lib/i18n';
   import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../lib/geometry/coordinate-system';
   import EditorCard from './EditorCard.svelte';
+  import { unitQ } from '../lib/store/display-units.svelte';
+  import { toDisplay, fromDisplay } from '../lib/utils/units';
 
   let inputX = $state<HTMLInputElement | null>(null);
 
@@ -20,21 +22,38 @@
   const node = $derived(nodeId !== null ? modelStore.getNode(nodeId) : null);
   const pos = $derived(uiStore.editScreenPos);
 
+  /*
+   * The fields show the chosen unit system; the model keeps metres. What each
+   * field showed when it opened is kept, so a coordinate left untouched keeps
+   * its exact value instead of the one rounded to the digits on screen.
+   */
   let localX = $state('');
   let localY = $state('');
+  let shownX = '';
+  let shownY = '';
+
+  // Three decimals, a millimetre in metres and a third of one in feet.
+  const show = (m: number) => toDisplay(m, 'length', uiStore.unitSystem).toFixed(3);
 
   $effect(() => {
     if (node) {
-      localX = node.x.toFixed(3);
-      localY = node.y.toFixed(3);
+      localX = shownX = show(node.x);
+      localY = shownY = show(node.y);
       setTimeout(() => inputX?.select(), 0);
     }
   });
 
+  /** A field back in metres: the exact value when left as shown, NaN when not a number. */
+  function metres(text: string | number, shown: string, exact: number): number {
+    if (String(text) === shown) return exact;
+    const n = parseFloat(String(text));
+    return Number.isFinite(n) ? fromDisplay(n, 'length', uiStore.unitSystem) : NaN;
+  }
+
   function confirm() {
     if (!node || nodeId === null) return;
-    const x = parseFloat(localX);
-    const y = parseFloat(localY);
+    const x = metres(localX, shownX, node.x);
+    const y = metres(localY, shownY, node.y);
     if (isNaN(x) || isNaN(y)) return;
     if (x !== node.x || y !== node.y) {
       historyStore.pushState();
@@ -65,7 +84,7 @@
     testid="node-editor"
   >
     <label class="ne-field">
-      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</span>
+      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} ({unitQ('length')})</span>
       <input
         bind:this={inputX}
         type="number"
@@ -76,7 +95,7 @@
     </label>
 
     <label class="ne-field">
-      <span>{TWO_D_VERTICAL_AXIS_LABEL} (m)</span>
+      <span>{TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</span>
       <input type="number" step="0.001" bind:value={localY} data-testid="node-editor-y" />
     </label>
 

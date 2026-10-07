@@ -12,6 +12,7 @@
   import { t } from '../../lib/i18n';
   import { uiStore } from '../../lib/store';
   import { selectionSummary, deleteSelection, type SelectionKind } from '../../lib/actions/delete-selection';
+  import Icon from './Icon.svelte';
 
   /**
    * `floating`: the phone's version, over the model's lower right corner
@@ -28,6 +29,12 @@
     return selectionSummary();
   });
   const total = $derived(summary.reduce((s, c) => s + c.n, 0));
+  /*
+   * Supports and loads alone are edited in the options row, whose own bin
+   * deletes them (ToolOptions › SelectedEntityPanel). A second, larger bin for
+   * the same thing was one too many, on a desktop and on a phone alike.
+   */
+  const editedInRow = $derived(summary.length > 0 && summary.every((c) => c.kind === 'supports' || c.kind === 'loads'));
   let confirming = $state(false);
   let btn: HTMLButtonElement | undefined = $state();
   /*
@@ -61,7 +68,7 @@
 
 <svelte:window onkeydown={(e) => { if (confirming && e.key === 'Escape') confirming = false; }} />
 
-{#if total > 0}
+{#if total > 0 && !editedInRow}
   <div class="sd-wrap" class:floating>
     <button
       class="sd-btn"
@@ -73,9 +80,7 @@
       aria-expanded={confirming}
       data-testid="selection-delete"
     >
-      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
+      <Icon name="trash" size={16} />
       <span class="sd-count">{total}</span>
     </button>
     {#if confirming}

@@ -44,7 +44,10 @@ export function getModelBounds(
   }
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z, 2);
+  // A part a few centimetres across frames at its own size; only a lone node,
+  // with no size at all, falls back to a couple of metres.
+  const largest = Math.max(size.x, size.y, size.z);
+  const maxDim = largest > 1e-6 ? largest : 2;
   return { center, size, maxDim };
 }
 
@@ -116,8 +119,8 @@ export function zoomToFit(
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
   if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
     const persp = camera as THREE.PerspectiveCamera;
-    persp.near = Math.max(0.1, dist * 0.001);
-    persp.far = Math.max(1000, dist * 10);
+    persp.near = nearPlaneFor(dist);
+    persp.far = farPlaneFor(Math.max(dist, camera.position.distanceTo(controls.target)), uiStore.gridExtent3D);
     persp.updateProjectionMatrix();
   }
   if (camera === orthoCamera) {
@@ -228,4 +231,27 @@ export function handleResize(
   syncOrthoFrustum(orthoCamera, camera.position, controls.target, aspect, aspect);
   // Update fat-line resolution (shared by axes + element wireframes)
   setLineResolution(w, h);
+}
+
+/**
+ * The perspective near plane for a camera this far from what it looks at: a
+ * small fraction of the distance, never under 0.1 mm. It grows with the
+ * distance too, so a bridge seen whole keeps its depth precision (the depth
+ * buffer is linear) instead of spending it on the first metres.
+ */
+export function nearPlaneFor(distance: number): number {
+  return Math.max(1e-4, distance * 0.005);
+}
+
+/**
+ * The perspective far plane for a camera this far from what it looks at, over
+ * a grid this wide: ten times the distance (the model a fit frames), and the
+ * grid's far corner from wherever the camera is (it reaches 0.71 of its width
+ * from its centre, and the camera can look at any point of it). It was 2000 m
+ * or more whatever the view, so zoomed in on a part, with the near plane at
+ * a tenth of a millimetre, far and near were ten million apart; following the
+ * distance keeps the depth range to what is on screen.
+ */
+export function farPlaneFor(distance: number, gridExtent: number): number {
+  return Math.max(distance * 10, distance + gridExtent * 1.5, 1);
 }

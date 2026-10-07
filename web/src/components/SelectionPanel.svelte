@@ -15,9 +15,10 @@
    * disagreeing.
    */
   import { uiStore, modelStore } from '../lib/store';
-  import { selectAll, invertSelection, selectByIds, loadedInCase, parallelToGlobal, type GlobalDirection } from '../lib/model/select-ops';
+  import { selectAll, invertSelection, selectByIds, loadedInCase, parallelToGlobal, seedMembersOf, membersAsKinds, type GlobalDirection } from '../lib/model/select-ops';
   import { selectionHistory, trackSelectionHistory } from '../lib/store/selection-history.svelte';
-  import { viewState } from '../lib/store/view-state.svelte';
+  import { viewState, visibleModel } from '../lib/store/view-state.svelte';
+  import { selectWalkItem } from '../lib/actions/selection-walk';
   import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial, groupByElevation, groupByPlane, groupByFrameLine, groupByKind, memberKindOf } from '../lib/engine/design/member-grouping';
   import { t, tp } from '../lib/i18n';
 
@@ -45,6 +46,8 @@
     uiStore.appMode === 'pro' ? ALL_MODES : ALL_MODES.filter((m) => m.id !== 'shells'),
   );
 
+  const KIND_LABEL = Object.fromEntries(ALL_MODES.map((m) => [m.id, m.key])) as Record<string, string>;
+
   // ── Operating on the selection as a set ──────────────────────────
   let byIdKind = $state<'nodes' | 'elements' | 'plates' | 'quads'>('elements');
   let byIdText = $state('');
@@ -52,6 +55,19 @@
 
   /** The kinds currently being selected, as the set the operations take. */
   const armedKinds = $derived(new Set(MODES.filter((m) => uiStore.selectsKind(m.id)).map((m) => m.id)));
+
+  /*
+   * Basic keeps the operations it can explain: the whole set (all, none, invert), "like the
+   * selection" by direction, connection, section and material, the previous selection, the walk,
+   * and by number. Each works on the kinds armed above, one or several. PRO keeps its own
+   * longer list (levels, planes, frame lines, loaded in a case, parallel to an axis).
+   */
+  const basic = $derived(uiStore.appMode !== 'pro');
+  /** The selection as it stands, every channel. */
+  const current = () => ({
+    nodes: uiStore.selectedNodes, elements: uiStore.selectedElements,
+    supports: uiStore.selectedSupports, loads: uiStore.selectedLoads,
+  });
 
   function apply(sel: { nodes: Set<number>; elements: Set<number>; shells: Set<string>; supports?: Set<number>; loads?: Set<number> }) {
     uiStore.setSelection(sel.nodes, sel.elements, true, sel.shells);
@@ -80,30 +96,58 @@
   }
 
   // ── Walking through a set, one at a time, framed ─────────────────
-  let walk = $state<{ kind: 'elements' | 'nodes'; ids: number[] } | null>(null);
+  /*
+   * The walk goes through what is selected, in the kinds armed above, one at a time, framing
+   * each: members, nodes, supports or loads. With nothing selected, through all of the first
+   * armed kind.
+   */
+  type WalkKind = 'elements' | 'nodes' | 'supports' | 'loads';
+  let walk = $state<{ items: { kind: WalkKind; id: number }[] } | null>(null);
   let walkAt = $state(0);
+  const WALK_ORDER: WalkKind[] = ['elements', 'nodes', 'supports', 'loads'];
   function startWalk() {
-    const els = [...uiStore.selectedElements], ns = [...uiStore.selectedNodes];
-    const ids = els.length ? els : ns.length ? ns : [...modelStore.elements.keys()];
-    walk = { kind: els.length || !ns.length ? 'elements' : 'nodes', ids: ids.sort((a, b) => a - b) };
+    const sel: Record<WalkKind, Iterable<number>> = {
+      elements: uiStore.selectedElements, nodes: uiStore.selectedNodes,
+      supports: uiStore.selectedSupports, loads: uiStore.selectedLoads,
+    };
+    // PRO walks members, or nodes when only nodes are selected, as it always has.
+    const kinds = basic ? WALK_ORDER.filter((k) => armedKinds.has(k))
+      : [[...uiStore.selectedElements].length || ![...uiStore.selectedNodes].length ? 'elements' : 'nodes'] as WalkKind[];
+    let items = kinds.flatMap((k) => [...sel[k]].sort((a, b) => a - b).map((id) => ({ kind: k, id })));
+    if (!items.length) {
+      const k = kinds[0] ?? 'elements';
+      const all: Record<WalkKind, () => number[]> = {
+        elements: () => [...modelStore.elements.keys()], nodes: () => [...modelStore.nodes.keys()],
+        supports: () => [...modelStore.supports.keys()], loads: () => modelStore.loads.map((l) => l.data.id),
+      };
+      items = all[k]().sort((a, b) => a - b).map((id) => ({ kind: k, id }));
+    }
+    walk = { items };
     walkAt = -1;
     step(1);
   }
   function step(by: 1 | -1) {
-    if (!walk || walk.ids.length === 0) return;
-    walkAt = (walkAt + by + walk.ids.length) % walk.ids.length;
-    const id = walk.ids[walkAt]!;
-    if (walk.kind === 'elements') { uiStore.selectMode = 'elements'; uiStore.setSelection(new Set(), new Set([id]), true); }
-    else { uiStore.selectMode = 'nodes'; uiStore.setSelection(new Set([id]), new Set(), true); }
+    if (!walk || walk.items.length === 0) return;
+    walkAt = (walkAt + by + walk.items.length) % walk.items.length;
+    const { kind, id } = walk.items[walkAt]!;
+    // In Basic the armed kinds stay as they are; the item is selected in its own channel.
+    if (!basic) uiStore.selectMode = kind === 'nodes' ? 'nodes' : 'elements';
+    selectWalkItem(kind, id);
     window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
   }
 
+  /*
+   * All and Invert take what the view shows: a hidden member, a support on a
+   * hidden node, a load on a hidden member are not taken, as a click or a
+   * marquee does not take them, so the Delete that follows cannot reach
+   * what the reader cannot see. PRO as well: it hides and isolates the same way.
+   */
   function doSelectAll() {
-    apply(selectAll(modelStore.model as never, armedKinds as never));
+    apply(selectAll(visibleModel() as never, armedKinds as never));
   }
 
   function doInvert() {
-    apply(invertSelection(modelStore.model as never, armedKinds as never, {
+    apply(invertSelection(visibleModel() as never, armedKinds as never, {
       nodes: new Set(uiStore.selectedNodes),
       elements: new Set(uiStore.selectedElements),
       shells: new Set(uiStore.selectedShells),
@@ -118,7 +162,9 @@
    * lives: members parallel to, connected to, or sharing the section or material of the
    * selected ones. Seeded by the selection, so "every beam running this way" is two clicks.
    */
-  const seedMembers = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
+  const seedMembers = $derived(basic
+    ? seedMembersOf(modelStore.model as never, current())
+    : [...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
   function like(kind: 'parallel' | 'connected' | 'section' | 'material' | 'level' | 'plane' | 'frame' | 'kind') {
     const model = modelStore.model as never;
     let ids: number[] = [];
@@ -151,11 +197,42 @@
       }
       ids = [...set];
     }
+    if (basic) {
+      // As the kinds armed above: the members, their nodes, the supports and loads on them.
+      const sel = membersAsKinds(modelStore.model as never, ids, armedKinds);
+      apply(sel);
+      const n = sel.nodes.size + sel.elements.size + (sel.supports?.size ?? 0) + (sel.loads?.size ?? 0);
+      byIdNote = tp('selection.likeCount', { n });
+      return;
+    }
     uiStore.setSelection(new Set(), new Set(ids), true);
     byIdNote = tp('selection.likeCount', { n: ids.length });
   }
 
+  /** The kinds a number is looked up in, in Basic: the ones armed above. */
+  const BYID_KINDS = ['elements', 'nodes', 'supports', 'loads'] as const;
+  const byIdKinds = $derived(BYID_KINDS.filter((k) => armedKinds.has(k)));
+
   function doSelectByIds() {
+    if (basic) {
+      // Each armed kind is its own numbering (node 7 and member 7 are different things): a
+      // number is looked up in each, and missing ones are said per kind.
+      const sel = { nodes: new Set<number>(), elements: new Set<number>(), shells: new Set<string>(), supports: new Set<number>(), loads: new Set<number>() };
+      const notes: string[] = [];
+      const missing: string[] = [];
+      let bad: string[] = [];
+      for (const k of byIdKinds) {
+        const r = selectByIds(modelStore.model as never, k, byIdText);
+        for (const ch of ['nodes', 'elements', 'supports', 'loads'] as const) for (const id of r.selection[ch] ?? []) sel[ch].add(id);
+        if (r.missing.length) missing.push(`${t(KIND_LABEL[k]).toLowerCase()} ${r.missing.join(', ')}`);
+        bad = r.bad;
+      }
+      apply(sel);
+      if (missing.length) notes.push(tp('selection.missingIds', { ids: missing.join('; ') }));
+      if (bad.length) notes.push(tp('selection.badIds', { text: bad.join(', ') }));
+      byIdNote = notes.join(' ');
+      return;
+    }
     const r = selectByIds(modelStore.model as never, byIdKind, byIdText);
     apply(r.selection);
     /* Reported, not dropped: "select 1, 2, 9" quietly giving two of three is
@@ -235,16 +312,18 @@
     <button class="sel-op" onclick={doInvert} data-testid="sel-invert">{t('selection.invert')}</button>
   </div>
   <div class="sel-like" data-testid="sel-like">
-    <span class="sel-like-label">{tp('selection.like', { n: seedMembers.length })}</span>
+    <span class="sel-like-label">{tp(basic ? 'selection.likeBasic' : 'selection.like', { n: seedMembers.length })}</span>
     <div class="sel-ops">
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('parallel')} data-testid="sel-like-parallel">{t('selection.likeParallel')}</button>
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('connected')} data-testid="sel-like-connected">{t('selection.likeConnected')}</button>
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('section')} data-testid="sel-like-section">{t('selection.likeSection')}</button>
       <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('material')} data-testid="sel-like-material">{t('selection.likeMaterial')}</button>
-      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('kind')} data-testid="sel-like-kind">{t('selection.likeKind')}</button>
-      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('level')} data-testid="sel-like-level">{t('selection.likeLevel')}</button>
-      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('plane')} data-testid="sel-like-plane">{t('selection.likePlane')}</button>
-      <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('frame')} data-testid="sel-like-frame">{t('selection.likeFrame')}</button>
+      {#if !basic}
+        <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('kind')} data-testid="sel-like-kind">{t('selection.likeKind')}</button>
+        <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('level')} data-testid="sel-like-level">{t('selection.likeLevel')}</button>
+        <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('plane')} data-testid="sel-like-plane">{t('selection.likePlane')}</button>
+        <button class="sel-op" disabled={seedMembers.length === 0} onclick={() => like('frame')} data-testid="sel-like-frame">{t('selection.likeFrame')}</button>
+      {/if}
     </div>
   </div>
 
@@ -252,6 +331,7 @@
     {#if uiStore.appMode === 'pro'}
       <label class="sel-like-label"><input type="checkbox" bind:checked={viewState.lasso} data-testid="sel-lasso" /> {t('selection.lasso')}</label>
     {/if}
+    {#if !basic}
     <div class="sel-byid-row">
       <span class="sel-like-label">{t('selection.loadedIn')}</span>
       <select value={loadCase ?? cases[0]?.id} onchange={(e) => (loadCase = Number(e.currentTarget.value))} data-testid="sel-loaded-case" aria-label={t('selection.loadedIn')}>
@@ -266,11 +346,12 @@
       </select>
       <button class="sel-op" onclick={selectParallel} data-testid="sel-parallel-go">{t('selection.go')}</button>
     </div>
-    <div class="sel-ops">
+    {/if}
+    <div class="sel-ops" class:sel-ops-walk={basic && walk}>
       <button class="sel-op" disabled={selectionHistory.previous.length === 0} onclick={() => selectionHistory.back()} data-testid="sel-previous">{t('selection.previous')}</button>
       {#if walk}
         <button class="sel-op" onclick={() => step(-1)} aria-label={t('selection.walkPrev')} data-testid="sel-walk-prev">◀</button>
-        <span class="sel-like-label" data-testid="sel-walk-at">{walkAt + 1} / {walk.ids.length}</span>
+        <span class="sel-like-label" data-testid="sel-walk-at">{walkAt + 1} / {walk.items.length}</span>
         <button class="sel-op" onclick={() => step(1)} aria-label={t('selection.walkNext')} data-testid="sel-walk-next">▶</button>
         <button class="sel-op" onclick={() => (walk = null)}>{t('selection.walkStop')}</button>
       {:else}
@@ -280,23 +361,23 @@
   </div>
 
   <div class="sel-byid">
-    <label for="sel-id-list">{t('selection.byId')}</label>
+    <label for="sel-id-list">{basic ? tp('selection.byIdKinds', { kinds: byIdKinds.map((k) => t(KIND_LABEL[k]).toLowerCase()).join(', ') }) : t('selection.byId')}</label>
     <div class="sel-byid-row">
-      <select bind:value={byIdKind} data-testid="sel-id-kind" aria-label={t('selection.byId')}>
-        <option value="nodes">{t('float.selectNodes')}</option>
-        <option value="elements">{t('float.selectElements')}</option>
-        {#if uiStore.appMode === 'pro'}
+      {#if !basic}
+        <select class="sel-field" bind:value={byIdKind} data-testid="sel-id-kind" aria-label={t('selection.byId')}>
+          <option value="nodes">{t('float.selectNodes')}</option>
+          <option value="elements">{t('float.selectElements')}</option>
           <option value="plates">{t('pro.plates')}</option>
           <option value="quads">{t('pro.quads')}</option>
-        {/if}
-      </select>
+        </select>
+      {/if}
       <input
-        id="sel-id-list" type="text" bind:value={byIdText}
+        id="sel-id-list" class="sel-field" type="text" bind:value={byIdText}
         placeholder={t('selection.byIdPh')}
         data-testid="sel-id-text"
         onkeydown={(e) => { if (e.key === 'Enter') doSelectByIds(); }}
       />
-      <button class="sel-op" onclick={doSelectByIds} data-testid="sel-id-go">{t('selection.go')}</button>
+      <button class="sel-op sel-go" onclick={doSelectByIds} disabled={basic && byIdKinds.length === 0} data-testid="sel-id-go">{t('selection.go')}</button>
     </div>
     {#if byIdNote}<p class="sel-byid-note" data-testid="sel-id-note">{byIdNote}</p>{/if}
   </div>
@@ -323,10 +404,30 @@
   .sel-op:hover { color: var(--st-text); border-color: var(--st-accent); }
   .sel-op:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
 
+  /* While walking, the counter sits between its arrows and "Previous selection" takes its own row. */
+  .sel-ops-walk { align-items: center; }
+  .sel-ops-walk > :first-child { flex-basis: 100%; }
+  .sel-ops-walk .sel-like-label { flex: none; padding: 0 4px; }
+
   .sel-byid { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
   .sel-byid label { font-size: 0.7rem; color: var(--st-text-3); }
-  .sel-byid-row { display: flex; gap: 6px; }
-  .sel-byid-row input { flex: 1; min-width: 0; }
+  .sel-byid-row { display: flex; gap: 6px; align-items: stretch; }
+  /* The panel's own fields, not the browser's: the same surface, border and type as its buttons. */
+  .sel-field {
+    min-width: 0;
+    padding: 0.32rem 0.45rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.74rem;
+  }
+  input.sel-field { flex: 1; }
+  .sel-field:focus { outline: none; border-color: var(--st-accent); }
+  .sel-go { flex: none; padding-inline: 0.8rem; }
+  .sel-op:disabled { opacity: 0.45; cursor: default; }
+  .sel-op:disabled:hover { color: var(--st-text-2); border-color: var(--st-hair-strong); }
   .sel-byid-note { font-size: 0.68rem; color: var(--st-warn); margin: 0; }
 
 

@@ -2,6 +2,9 @@
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  // Stiffnesses and settlements are typed in the chosen unit system and kept in SI.
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
 
   const supportTypes = [
     { id: 'fixed', key: 'float.supportFixedShort', icon: '▣', svg: false },
@@ -31,22 +34,22 @@
   <!-- Spring stiffnesses for unchecked DOFs -->
   {#if !uiStore.sup3dTx || !uiStore.sup3dTy || !uiStore.sup3dTz || !uiStore.sup3dRx || !uiStore.sup3dRy || !uiStore.sup3dRz}
     {#if !uiStore.sup3dTx}
-      <label class="ft-input-group"><span>kx:</span><input type="number" bind:value={uiStore.sup3dKx} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>kx:</span><UnitInput value={uiStore.sup3dKx} qty="springK" onchange={(v) => (uiStore.sup3dKx = v)} unit={false} live /><span class="ft-unit">{unitQ('springK')}</span></label>
     {/if}
     {#if !uiStore.sup3dTy}
-      <label class="ft-input-group"><span>ky:</span><input type="number" bind:value={uiStore.sup3dKy} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>ky:</span><UnitInput value={uiStore.sup3dKy} qty="springK" onchange={(v) => (uiStore.sup3dKy = v)} unit={false} live /><span class="ft-unit">{unitQ('springK')}</span></label>
     {/if}
     {#if !uiStore.sup3dTz}
-      <label class="ft-input-group"><span>kz:</span><input type="number" bind:value={uiStore.sup3dKz} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>kz:</span><UnitInput value={uiStore.sup3dKz} qty="springK" onchange={(v) => (uiStore.sup3dKz = v)} unit={false} live /><span class="ft-unit">{unitQ('springK')}</span></label>
     {/if}
     {#if !uiStore.sup3dRx}
-      <label class="ft-input-group"><span>krx:</span><input type="number" bind:value={uiStore.sup3dKrx} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>krx:</span><UnitInput value={uiStore.sup3dKrx} qty="springKr" onchange={(v) => (uiStore.sup3dKrx = v)} unit={false} live /><span class="ft-unit">{unitQ('springKr')}</span></label>
     {/if}
     {#if !uiStore.sup3dRy}
-      <label class="ft-input-group"><span>kry:</span><input type="number" bind:value={uiStore.sup3dKry} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>kry:</span><UnitInput value={uiStore.sup3dKry} qty="springKr" onchange={(v) => (uiStore.sup3dKry = v)} unit={false} live /><span class="ft-unit">{unitQ('springKr')}</span></label>
     {/if}
     {#if !uiStore.sup3dRz}
-      <label class="ft-input-group"><span>krz:</span><input type="number" bind:value={uiStore.sup3dKrz} step="100" placeholder="0" /></label>
+      <label class="ft-input-group"><span>krz:</span><UnitInput value={uiStore.sup3dKrz} qty="springKr" onchange={(v) => (uiStore.sup3dKrz = v)} unit={false} live /><span class="ft-unit">{unitQ('springKr')}</span></label>
     {/if}
   {/if}
   <span class="ft-hint">{t('float.supportHint')}</span>
@@ -80,15 +83,15 @@
     <span class="ft-sep">|</span>
     <label class="ft-input-group">
       <span>kx:</span>
-      <input type="number" bind:value={uiStore.springKx} step="100" />
+      <UnitInput value={uiStore.springKx} qty="springK" onchange={(v) => (uiStore.springKx = v)} unit={false} live /><span class="ft-unit">{unitQ('springK')}</span>
     </label>
     <label class="ft-input-group">
       <span>ky:</span>
-      <input type="number" bind:value={uiStore.springKy} step="100" />
+      <UnitInput value={uiStore.springKy} qty="springK" onchange={(v) => (uiStore.springKy = v)} unit={false} live /><span class="ft-unit">{unitQ('springK')}</span>
     </label>
     <label class="ft-input-group">
       <span>kθ:</span>
-      <input type="number" bind:value={uiStore.springKz} step="100" />
+      <UnitInput value={uiStore.springKz} qty="springKr" onchange={(v) => (uiStore.springKz = v)} unit={false} live /><span class="ft-unit">{unitQ('springKr')}</span>
     </label>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
@@ -121,8 +124,7 @@
       title={t('float.rollerLocalLabel')}>Loc</button>
     <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
       <span>di:</span>
-      <input type="number" bind:value={uiStore.supportDx} step="0.001" />
-      <span class="ft-unit">m</span>
+      <UnitInput value={uiStore.supportDx} qty="displacement" onchange={(v) => (uiStore.supportDx = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>
     </label>
     <label class="ft-input-group" title={t('float.supportAngle')}>
       <span>α:</span>
@@ -134,17 +136,17 @@
     {#if uiStore.supportType === 'fixed' || uiStore.supportType === 'pinned'}
       <label class="ft-input-group" title={t('float.prescribedDx')}>
         <span>dx:</span>
-        <input type="number" bind:value={uiStore.supportDx} step="0.001" />
+        <UnitInput value={uiStore.supportDx} qty="displacement" onchange={(v) => (uiStore.supportDx = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>
       </label>
       <label class="ft-input-group" title={t('float.prescribedDy')}>
         <span>dz:</span>
-        <input type="number" bind:value={uiStore.supportDy} step="0.001" />
+        <UnitInput value={uiStore.supportDy} qty="displacement" onchange={(v) => (uiStore.supportDy = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>
       </label>
     {/if}
     {#if uiStore.supportType === 'fixed'}
       <label class="ft-input-group" title={t('float.prescribedDrz')}>
         <span>dθy:</span>
-        <input type="number" bind:value={uiStore.supportDrz} step="0.001" />
+        <UnitInput value={uiStore.supportDrz} qty="rotation" onchange={(v) => (uiStore.supportDrz = v)} unit={false} live /><span class="ft-unit">{unitQ('rotation')}</span>
       </label>
     {/if}
     <label class="ft-input-group" title={t('float.supportAngleVisual')}>
@@ -241,7 +243,7 @@
     color: var(--st-text-2);
   }
 
-  .ft-input-group input {
+  .ft-input-group :global(input) {
     width: 55px;
     padding: 2px 4px;
     background: var(--st-surface-2);
@@ -252,8 +254,8 @@
   }
 
   .ft-unit {
-    font-size: 0.6rem;
-    color: var(--st-text-3);
+    font-size: 0.68rem;
+    color: var(--st-text-2);
     white-space: nowrap;
   }
 
@@ -292,7 +294,7 @@
       min-width: 20px;
     }
 
-    .ft-input-group input {
+    .ft-input-group :global(input) {
       width: 45px;
     }
 
@@ -301,7 +303,7 @@
     }
 
     .ft-unit {
-      font-size: 0.6rem;
+      font-size: 0.68rem;
     }
 
     .ft-hint {

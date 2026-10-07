@@ -181,6 +181,7 @@
 
 <aside
   class="basic-panel"
+  class:bp-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}
   data-testid="basic-panel"
   data-panel={panel}
   style:width="{width}px"
@@ -319,6 +320,27 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.65rem;
+  }
+
+  /*
+   * Scrollbars drawn whenever something in the panel overflows, on desktop (Settings › Model).
+   * macOS and some touchpads draw them only while scrolling, and a mouse without a sideways
+   * wheel then has no way across a wide table. Styling the WebKit scrollbar is what makes
+   * Chrome and Safari keep it on screen; Firefox takes the standard properties. Every scrolling
+   * box in the panel takes it: the panel itself, which scrolls down, and the tables, which
+   * scroll both ways inside it with their bar at the panel's foot.
+   */
+  .bp-scrollbars :global(*::-webkit-scrollbar) { width: 10px; height: 10px; }
+  .bp-scrollbars :global(*::-webkit-scrollbar-track),
+  .bp-scrollbars :global(*::-webkit-scrollbar-corner) { background: var(--st-surface-2); }
+  .bp-scrollbars :global(*::-webkit-scrollbar-thumb) {
+    background: var(--st-hair-strong);
+    border: 2px solid var(--st-surface-2);
+    border-radius: 6px;
+  }
+  .bp-scrollbars :global(*::-webkit-scrollbar-thumb:hover) { background: var(--st-text-3); }
+  @supports not selector(::-webkit-scrollbar) {
+    .bp-scrollbars :global(*) { scrollbar-color: var(--st-hair-strong) var(--st-surface-2); }
   }
 
   /* A step-by-step view lays out its own header, tabs and footer, and scrolls its own body. */

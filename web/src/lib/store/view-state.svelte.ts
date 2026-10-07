@@ -173,3 +173,20 @@ export const visibleElements = () => visible(modelStore.elements, (id) => viewVi
 export const visibleNodes = () => visible(modelStore.nodes, (id) => viewVisibility.isNodeHidden(id));
 export const visiblePlates = () => visible(modelStore.plates, (id) => viewVisibility.isShellHidden(`p${id}`));
 export const visibleQuads = () => visible(modelStore.quads, (id) => viewVisibility.isShellHidden(`q${id}`));
+/** Supports whose node is shown. */
+export const visibleSupports = () => visible(modelStore.supports, (id) => {
+  const s = modelStore.supports.get(id);
+  return !!s && viewVisibility.isNodeHidden(s.nodeId);
+});
+
+/**
+ * The model as the view shows it, for the operations that take "everything":
+ * Select all and Invert. The model's own collections when nothing is hidden.
+ */
+export function visibleModel() {
+  return {
+    nodes: visibleNodes(), elements: visibleElements(), plates: visiblePlates(), quads: visibleQuads(),
+    supports: visibleSupports(),
+    loads: hidden ? modelStore.loads.filter((l) => !isLoadHidden(l.data as never)) : modelStore.loads,
+  };
+}

@@ -1,5 +1,7 @@
 // Create Three.js arrow helpers for structural loads
 import * as THREE from 'three';
+import { canvasUnitSystem } from '../canvas/canvas-units';
+import { fixedQuantity } from '../utils/unit-format';
 import { COLORS, createTextSprite } from './selection-helpers';
 import {
   GLOBAL_X, GLOBAL_Y, GLOBAL_Z,
@@ -106,7 +108,7 @@ export function createNodalLoadArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow (away from node)
-    const label = createTextSprite(`${f.val.toFixed(1)} kN`, labelHex, 28);
+    const label = createTextSprite(fixedQuantity(f.val, 'force', 1, canvasUnitSystem()), labelHex, 28);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.15));
     group.add(label);
   }
@@ -177,7 +179,7 @@ export function createNodalLoadArrow(
       group.add(coneMesh);
     }
 
-    const label = createTextSprite(`${m.val.toFixed(1)} kN·m`, '#ffaa44', 24);
+    const label = createTextSprite(fixedQuantity(m.val, 'moment', 1, canvasUnitSystem()), '#ffaa44', 24);
     label.position.copy(origin).add(m.axis.clone().multiplyScalar(0.35));
     group.add(label);
   }
@@ -254,12 +256,12 @@ export function createDistributedLoadGroup(
 
   // Value labels at ends (at arrow tails, away from element)
   if (Math.abs(qI) > 1e-10) {
-    const labelI = createTextSprite(`${qI.toFixed(1)} kN/m`, labelColor, 24);
+    const labelI = createTextSprite(fixedQuantity(qI, 'distributedLoad', 1, canvasUnitSystem()), labelColor, 24);
     labelI.position.copy(pI).sub(loadDir.clone().multiplyScalar(arrowLength(qI, maxQ) * 0.6 + 0.2));
     group.add(labelI);
   }
   if (Math.abs(qJ) > 1e-10 && Math.abs(qJ - qI) > 0.01) {
-    const labelJ = createTextSprite(`${qJ.toFixed(1)} kN/m`, labelColor, 24);
+    const labelJ = createTextSprite(fixedQuantity(qJ, 'distributedLoad', 1, canvasUnitSystem()), labelColor, 24);
     labelJ.position.copy(pJ).sub(loadDir.clone().multiplyScalar(arrowLength(qJ, maxQ) * 0.6 + 0.2));
     group.add(labelJ);
   }
@@ -362,7 +364,7 @@ export function createSurfaceLoadGroup(
   // Label at center
   const center = lerpQuad(0.5, 0.5);
   const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
-  const label = createTextSprite(`${q.toFixed(1)} kN/m²`, labelHex, 26);
+  const label = createTextSprite(fixedQuantity(q, 'areaLoad', 1, canvasUnitSystem()), labelHex, 26);
   label.position.copy(center).sub(loadDir.clone().multiplyScalar(offset + 0.2));
   group.add(label);
 
@@ -403,7 +405,7 @@ export function createReactionArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow (away from node)
-    const label = createTextSprite(`${f.val.toFixed(2)} kN`, '#44ff88', 24);
+    const label = createTextSprite(fixedQuantity(f.val, 'force', 2, canvasUnitSystem()), '#44ff88', 24);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
     group.add(label);
   }
@@ -417,7 +419,7 @@ export function createReactionArrow(
 
   for (const m of moments) {
     if (Math.abs(m.val) < 1e-10) continue;
-    const label = createTextSprite(`${m.name}=${m.val.toFixed(2)} kN·m`, '#ffaa44', 22);
+    const label = createTextSprite(`${m.name}=${fixedQuantity(m.val, 'moment', 2, canvasUnitSystem())}`, '#ffaa44', 22);
     label.position.copy(origin).add(m.axis.clone().multiplyScalar(0.5));
     group.add(label);
   }
@@ -453,7 +455,7 @@ export function createConstraintForceArrow(
   if (isRotational) {
     // Moment-type constraint force — show as label only (like reaction moments)
     const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX, my -> MY
-    const label = createTextSprite(`${axisName}=${force.toFixed(2)} kN·m`, '#f0a500', 22);
+    const label = createTextSprite(`${axisName}=${fixedQuantity(force, 'moment', 2, canvasUnitSystem())}`, '#f0a500', 22);
     label.position.copy(origin).add(baseDir.clone().multiplyScalar(0.5));
     group.add(label);
   } else {
@@ -471,8 +473,7 @@ export function createConstraintForceArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow
-    const unit = 'kN';
-    const label = createTextSprite(`${force.toFixed(2)} ${unit}`, '#f0a500', 24);
+    const label = createTextSprite(fixedQuantity(force, 'force', 2, canvasUnitSystem()), '#f0a500', 24);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
     group.add(label);
   }

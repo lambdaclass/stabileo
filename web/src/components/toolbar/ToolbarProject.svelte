@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { askAboutOverlapsInModel } from '../../lib/model/edit/connection-questions';
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import {
     loadFile, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel,
@@ -93,6 +94,8 @@
       if (!outcome) return; // the library failed to load, and said so
       xlsReport = outcome;
       announceImport(outcome);
+      // Members lying over each other in the sheet: ask about each, as the drawing does.
+      if (uiStore.appMode !== 'pro') askAboutOverlapsInModel();
     } catch (err) {
       console.error('[stabileo] Excel import failed:', err);
       uiStore.toast(t('xls.ui.unreadable'), 'error');

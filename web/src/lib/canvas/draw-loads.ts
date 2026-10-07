@@ -3,6 +3,19 @@ import { transverseSign } from '../engine/transverse-sign-2d';
 import { createLabelCollector, type LabelCollector, type SegmentObstacle } from './label-layout';
 
 import { canvasTheme } from './theme';
+import { canvasUnitSystem } from './canvas-units';
+import { fixedQuantity } from '../utils/unit-format';
+import { toDisplay, unitLabel } from '../utils/units';
+
+/**
+ * A temperature change as typed, signed, with no space before the degree sign.
+ * A difference, so 20 °C reads 36 °F (never 68 °F, which is a temperature).
+ */
+function temperatureDeltaText(v: number): string {
+  const us = canvasUnitSystem();
+  const shown = Number(toDisplay(v, 'temperatureDelta', us).toFixed(2));
+  return `${v > 0 ? '+' : ''}${shown === 0 ? 0 : shown}${unitLabel('temperatureDelta', us)}`;
+}
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -328,7 +341,7 @@ export function drawDistributedLoads(
        */
       const baseline = sn.y > 0 ? 12 : 0;
       labels.add({
-        text: `${casePrefix}${Math.abs(load.qI).toFixed(1)} kN/m${coordLabel}`,
+        text: `${casePrefix}${fixedQuantity(Math.abs(load.qI), 'distributedLoad', 1, canvasUnitSystem())}${coordLabel}`,
         colour: labelColor,
         font: '12px sans-serif',
         box: {
@@ -355,7 +368,7 @@ export function drawDistributedLoads(
         const sn = normalize(tipW.x - s.x, tipW.y - s.y);
         const aLen = ARROW_MAX_PX * Math.abs(q) / maxQ;
         labels.add({
-          text: `${casePrefix}${Math.abs(q).toFixed(1)} kN/m${coordLabel}`,
+          text: `${casePrefix}${fixedQuantity(Math.abs(q), 'distributedLoad', 1, canvasUnitSystem())}${coordLabel}`,
           colour: labelColor,
           font: '11px sans-serif',
           box: {
@@ -526,7 +539,7 @@ export function drawPointLoadsOnElements(
       labels.block({ x1: base.x, y1: base.y, x2: fromX, y2: fromY });
 
       labels.add({
-        text: `${ptCasePrefix}${Math.abs(load.p).toFixed(1)} kN${coordLabel}`,
+        text: `${ptCasePrefix}${fixedQuantity(Math.abs(load.p), 'force', 1, canvasUnitSystem())}${coordLabel}`,
         colour: ptColor,
         font: '12px sans-serif',
         box: {
@@ -561,7 +574,7 @@ export function drawPointLoadsOnElements(
 
       const axLabel = loadIsGlobal ? 'Fx' : 'Fi';
       labels.add({
-        text: `${ptCasePrefix}${axLabel}=${Math.abs(px).toFixed(1)} kN`,
+        text: `${ptCasePrefix}${axLabel}=${fixedQuantity(Math.abs(px), 'force', 1, canvasUnitSystem())}`,
         colour: ptColor,
         font: '12px sans-serif',
         box: {
@@ -581,7 +594,7 @@ export function drawPointLoadsOnElements(
 
       const yOff = (Math.abs(load.p) > 1e-10 ? 14 : 0) + (Math.abs(px) > 1e-10 ? 14 : 0);
       labels.add({
-        text: `${ptCasePrefix}My=${Math.abs(my).toFixed(1)} kN·m`,
+        text: `${ptCasePrefix}My=${fixedQuantity(Math.abs(my), 'moment', 1, canvasUnitSystem())}`,
         colour: ptColor,
         font: '12px sans-serif',
         box: {
@@ -599,16 +612,16 @@ export function drawPointLoadsOnElements(
 
 interface ThermalLoadInfo {
   elementId: number;
-  dtUniform: number; // °C uniform ΔT
-  dtGradient: number; // °C gradient ΔTg
+  dtUniform: number; // °C uniform change (Basic calls it ΔTg)
+  dtGradient: number; // °C bottom-face minus top-face change (Basic calls it ∇T)
   caseName?: string;     // name prefix for labels
 }
 
 /**
  * Draw thermal loads as +/- symbols along elements.
  *
- * ΔT uniform: + on both sides (positive = expansion) or - on both sides (negative = contraction)
- * ΔTg gradient: + on one side, - on other side (top/bottom temperature difference → bending)
+ * ΔTg, the uniform change: + on both sides (lengthens) or − on both sides (shortens).
+ * ∇T, the gradient: + on the warmer face, − on the other (the faces' difference bends the member).
  */
 export function drawThermalLoads(
   loads: ThermalLoadInfo[],
@@ -652,7 +665,7 @@ export function drawThermalLoads(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Draw uniform ΔT: same sign on both sides
+    // The uniform change (ΔTg): the same sign on both sides
     if (Math.abs(load.dtUniform) > 0.01) {
       const sign = load.dtUniform > 0 ? '+' : '−';
       ctx.fillStyle = load.dtUniform > 0 ? '#e5482a' : '#4a8fd4';
@@ -691,7 +704,7 @@ export function drawThermalLoads(
        */
       const thermPrefix = load.caseName ? `${load.caseName}: ` : '';
       labels.add({
-        text: `${thermPrefix}ΔT=${load.dtUniform > 0 ? '+' : ''}${load.dtUniform}°C`,
+        text: `${thermPrefix}ΔTg=${temperatureDeltaText(load.dtUniform)}`,
         colour: load.dtUniform > 0 ? '#e5482a' : '#4a8fd4',
         font: '11px sans-serif',
         box: {
@@ -704,10 +717,10 @@ export function drawThermalLoads(
       });
     }
 
-    // Draw gradient ΔTg: + on one side, - on other
+    // The gradient (∇T): + on the warmer face, − on the other
     if (Math.abs(load.dtGradient) > 0.01) {
       /*
-       * ΔTg = ΔT(bottom) − ΔT(top), top the drawn local z: the hot side of a
+       * ∇T = ΔT(bottom) − ΔT(top), top the drawn local z: the hot side of a
        * positive gradient is −z. `n` is that side for a member whose drawn z
        * is the solver's; the others turn it over (transverse-sign-2d.ts).
        */
@@ -752,7 +765,7 @@ export function drawThermalLoads(
       const labelOffset = Math.abs(load.dtUniform) > 0.01 ? gradOffset + 14 : OFFSET_PX + 14;
       const gradPrefix = load.caseName ? `${load.caseName}: ` : '';
       labels.add({
-        text: `${gradPrefix}ΔTg=${load.dtGradient > 0 ? '+' : ''}${load.dtGradient}°C`,
+        text: `${gradPrefix}∇T=${temperatureDeltaText(load.dtGradient)}`,
         colour: '#a88fd4',
         font: '11px sans-serif',
         box: {
@@ -870,7 +883,7 @@ export function drawMovingLoadAxles(
     ctx.fillStyle = AXLE_LABEL_COLOR();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${axle.weight.toFixed(0)} kN`, fromX + snX * 10, fromY + snY * 10);
+    ctx.fillText(fixedQuantity(axle.weight, 'force', 0, canvasUnitSystem()), fromX + snX * 10, fromY + snY * 10);
     ctx.textAlign = 'start'; // reset
     ctx.textBaseline = 'alphabetic';
   }

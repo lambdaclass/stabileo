@@ -172,6 +172,42 @@ export function findNearestMidpoint(
   return nearest;
 }
 
+/**
+ * Every member within maxDist of the point, nearest first: what a click there
+ * could mean when members overlap or meet, for clicking through them in turn.
+ */
+export function findElementsNear(
+  x: number,
+  y: number,
+  maxDist: number,
+  elements: Map<number, Element>,
+  nodes: Map<number, Node>
+): number[] {
+  const hits: { id: number; d: number }[] = [];
+  for (const elem of elements.values()) {
+    const ni = nodes.get(elem.nodeI);
+    const nj = nodes.get(elem.nodeJ);
+    if (!ni || !nj) continue;
+    const dx = nj.x - ni.x, dy = nj.y - ni.y;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-10) continue;
+    const t = Math.max(0, Math.min(1, ((x - ni.x) * dx + (y - ni.y) * dy) / lenSq));
+    const d = Math.hypot(x - (ni.x + t * dx), y - (ni.y + t * dy));
+    if (d < maxDist) hits.push({ id: elem.id, d });
+  }
+  return hits.sort((a, b) => a.d - b.d || a.id - b.id).map((h) => h.id);
+}
+
+/** Every node within maxDist of the point, nearest first. */
+export function findNodesNear(x: number, y: number, maxDist: number, nodes: Map<number, Node>): number[] {
+  const hits: { id: number; d: number }[] = [];
+  for (const n of nodes.values()) {
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < maxDist) hits.push({ id: n.id, d });
+  }
+  return hits.sort((a, b) => a.d - b.d || a.id - b.id).map((h) => h.id);
+}
+
 // ─── Support Queries ─────────────────────────────────────────────
 
 /** Finds the nearest support within maxDist of the given world coordinates. */

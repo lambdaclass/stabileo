@@ -5,6 +5,7 @@ import type { ProjectCodeSettings } from '../codes/project-code-settings';
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
+import { pruneStaleSelection } from './selection-prune';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -176,13 +177,20 @@ function createHistoryStore() {
   let redoSel: (SelectionState | null)[] = [];
   let selection: SelectionAccess | null = null;
   const selNow = () => selection?.get() ?? null;
-  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); };
+  // The supports and loads selected are not part of the entry; whatever the step took away is let go.
+  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); pruneStaleSelection(); };
 
   const store = {
     get canUndo() { return undoStack.length > 0; },
     get canRedo() { return redoStack.length > 0; },
     get undoCount() { return undoStack.length; },
     get redoCount() { return redoStack.length; },
+    /**
+     * The entry on top of the undo stack, to tell later whether a step was taken since: compared
+     * by identity, as a count would not (it stops growing at MAX_HISTORY, and an undo then an
+     * edit leave it where it was). Only for that; it is not a model to restore.
+     */
+    get lastStep(): object | null { return undoStack[undoStack.length - 1] ?? null; },
 
     /**
      * Push the current model onto the undo stack.

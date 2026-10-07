@@ -34,6 +34,8 @@ export interface DrawFeedback {
   setPicked(points: THREE.Vector3[]): void;
   /** The dashed preview: through `points`, then to `cursor` when there is one. */
   setPreview(points: THREE.Vector3[], cursor: THREE.Vector3 | null): void;
+  /** A larger ring on the node the next click will take, or none. Whether anything changed. */
+  setTarget(point: THREE.Vector3 | null): boolean;
   clear(): void;
 }
 
@@ -58,7 +60,26 @@ export function createDrawFeedback(): DrawFeedback {
   );
   preview.renderOrder = 999;
   preview.frustumCulled = false;
-  group.add(rings, preview);
+
+  /*
+   * The node a click would take while drawing a member: caught within a few
+   * pixels (Viewport3D `memberSnapNode`), so the reader sees it before
+   * clicking instead of having to land on a sphere a few pixels wide.
+   * It follows the pointer, so its one point is moved in place rather than
+   * a geometry built on every mouse move.
+   */
+  const targetAt = new THREE.BufferAttribute(new Float32Array(3), 3);
+  const target = new THREE.Points(
+    new THREE.BufferGeometry().setAttribute('position', targetAt),
+    new THREE.PointsMaterial({
+      size: RING_PX * 1.5, sizeAttenuation: false, map: ring(), transparent: true,
+      color: COLORS.nodeHovered, depthTest: false, depthWrite: false,
+    }),
+  );
+  target.renderOrder = 1001;
+  target.frustumCulled = false;
+  target.visible = false;
+  group.add(rings, preview, target);
 
   return {
     group,
@@ -74,9 +95,23 @@ export function createDrawFeedback(): DrawFeedback {
       preview.computeLineDistances();
       preview.visible = all.length >= 2;
     },
+    setTarget(point) {
+      if (!point) {
+        const was = target.visible;
+        target.visible = false;
+        return was;
+      }
+      const a = targetAt.array as Float32Array;
+      if (target.visible && a[0] === Math.fround(point.x) && a[1] === Math.fround(point.y) && a[2] === Math.fround(point.z)) return false;
+      a[0] = point.x; a[1] = point.y; a[2] = point.z;
+      targetAt.needsUpdate = true;
+      target.visible = true;
+      return true;
+    },
     clear() {
       this.setPicked([]);
       this.setPreview([], null);
+      this.setTarget(null);
     },
   };
 }

@@ -75,7 +75,9 @@ export function createLabelCollector(): LabelCollector {
        */
       const boxes = entries.map((e) => {
         ctx.font = e.font;
-        const size = parseFloat(e.font) || 12;
+        // The size the canvas actually uses: the reader's label size may have
+        // scaled the one asked for (canvas/text-scale.ts).
+        const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? '') || parseFloat(e.font) || 12;
         return { ...e.box, width: ctx.measureText(e.text).width, height: size + 2 };
       });
       const placed = placeLabels(boxes, obstacles);

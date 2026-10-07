@@ -92,7 +92,7 @@
   {#if !uiStore.is3DWorkspace}
     <div class="status-item">
       <span class="status-label">{t('status.zoom')}:</span>
-      <span class="status-value">{Math.round(uiStore.zoom)} px/m</span>
+      <span class="status-value">{uiStore.zoom >= 10 ? Math.round(uiStore.zoom) : +uiStore.zoom.toPrecision(2)} px/m</span>
     </div>
   {/if}
   <div class="status-item">

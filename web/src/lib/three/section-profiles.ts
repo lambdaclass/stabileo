@@ -369,6 +369,16 @@ export function createSectionShape(sec: Section): THREE.Shape | null {
   const tl = sec.tl ?? 0;
 
   if (!shape && h <= 0 && b <= 0) return null;
+  /*
+   * No shape and a single dimension: a round bar of that diameter. A tie or a rod is entered
+   * that way ("Ø16" with h = 16 mm), and it fell to the cylinder every unknown section gets,
+   * 12 cm across, so the shed's 116 ties looked like the heaviest members in it. An area alone
+   * still draws nothing: that is a guess, and the viewer does not make one.
+   */
+  if (!shape && !(h > 0 && b > 0)) {
+    const d = h > 0 ? h : b;
+    return createCHSShape(d / 2, d / 2);
+  }
 
   switch (shape) {
     case 'I':
