@@ -78,6 +78,8 @@ export interface BoxSelectModel {
   getElement(id: number): { nodeI: number; nodeJ: number } | undefined;
   /** The corner nodes of a shell, for the loads that sit on one. */
   getQuad?(id: number): { nodes: readonly number[] } | undefined;
+  /** A triangle's: its load names it by `quadId` with `on: 'plate'`, numbered apart from the quads. */
+  getPlate?(id: number): { nodes: readonly number[] } | undefined;
 }
 
 export interface BoxSelectInput {
@@ -166,7 +168,7 @@ function loadExtent(
   // On a shell: its outline. The 3D load types are named apart from the 2D ones, and treating
   // them as a member load (the fall-through below) found no member, so they were never taken.
   if (load.type === 'surface3d' || load.type === 'thermalQuad3d') {
-    const q = model.getQuad?.(d.quadId as number);
+    const q = (d as { on?: string }).on === 'plate' ? model.getPlate?.(d.quadId as number) : model.getQuad?.(d.quadId as number);
     if (!q) return null;
     const pts: { x: number; y: number }[] = [];
     for (const id of q.nodes) {

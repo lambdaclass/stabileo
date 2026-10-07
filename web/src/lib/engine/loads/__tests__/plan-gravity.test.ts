@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { floorLoad, type FloorBeam } from '../floor-loads';
+import { expandDefinition } from '../../../model/loads/floor-definitions';
+import { buildSolverInput3D } from '../../solver-service';
+import { withMassSource } from '../../dynamics/mass-source-model';
+import { G } from '../../dynamics/requests';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 
@@ -377,5 +382,132 @@ describe('alternate loading beside a slab of shells', () => {
   it('and says nothing of the kind when no shell carries the live load', () => {
     const p = buildLoadPlan(planInput(floor(2, 2, 5, 5), { patterns: 'checkerboard' }));
     expect(p.unsupportedKeys.some((k) => k.key === 'loadPlan.note.patternsSkipShells')).toBe(false);
+  });
+});
+
+/** A level at z = 3 of the given nodes and members, for `gravityLayout` and the plan. */
+function drawn(pts: Array<[number, number]>, members: Array<[number, number]>): GravityModel & LoadModelData {
+  return {
+    nodes: new Map(pts.map(([x, y], i) => [i + 1, { id: i + 1, x, y, z: 3 }])),
+    elements: new Map(members.map(([nodeI, nodeJ], i) => [i + 1, { id: i + 1, nodeI, nodeJ, sectionId: 1, materialId: 1 }])),
+    sections: new Map([[1, { id: 1, a: 0.09 }]]), materials: new Map([[1, { id: 1, rho: 25 }]]),
+    loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }],
+  };
+}
+const collected = (g: ReturnType<typeof gravityLayout>) => [...g.areaOf.values(), ...g.roofAreaOf.values()].reduce((s, a) => s + a, 0);
+const fixtureModel = (f: { nodes: Array<{ id: number; x: number; y: number; z?: number }>; elements: Array<{ id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string }>; quads?: Array<{ id: number; nodes: number[] }> }): GravityModel => ({
+  nodes: new Map(f.nodes.map((n) => [n.id, n])),
+  elements: new Map(f.elements.map((e) => [e.id, { ...e, type: e.type === 'truss' ? 'truss' as const : 'frame' as const }])),
+  quads: new Map((f.quads ?? []).map((q) => [q.id, q])),
+});
+
+describe('every member along a panel’s sides is the panel’s, never loaded by width as well', () => {
+  // The plane graph keeps one member per pair of nodes; the other one, or a stub along a side,
+  // went to the width loop and took 3 m of floor on top of the panel's.
+  it('a second member between the same two nodes: the bay is 24 m², and its D 48 kN', () => {
+    const m = drawn([[0, 0], [6, 0], [6, 4], [0, 4]], [[1, 2], [2, 3], [3, 4], [4, 1], [1, 2]]);
+    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    expect(g.widthMembers).toEqual([]);
+    expect(collected(g)).toBeCloseTo(24, 9);
+    const p = buildLoadPlan(planInput(m));
+    expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m)).toBeCloseTo(-48, 6);
+  });
+
+  it('a stub lying along a side, to a node of its own', () => {
+    const m = drawn([[0, 0], [6, 0], [6, 4], [0, 4], [2.5, 0]], [[1, 2], [2, 3], [3, 4], [4, 1], [1, 5]]);
+    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    expect(g.widthMembers).toEqual([]);
+    expect(collected(g)).toBeCloseTo(24, 9);
+  });
+
+  it('the PRO examples collect what they did before panels learned openings', async () => {
+    // Panel mode, width 3: the totals of main before this change (2430, 3132 and 34916.4 with it).
+    const want: Array<[string, number]> = [['pipe-rack', 1890], ['3d-nave-industrial', 2988], ['suspension-bridge', 34896.6]];
+    for (const [id, area] of want) {
+      const f = (await import(`../../../templates/fixtures/${id}.json`)).default;
+      expect(collected(gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3 })), id).toBeCloseTo(area, 6);
+    }
+  });
+});
+
+describe('an opening’s ring is loaded once, by its own panel', () => {
+  // The panel around the ring was loaded again from its members alone, which found the ring's
+  // panel too: a 10 × 10 bay with a 2 × 2 ring collected 104 m².
+  const ringBay = () => drawn(
+    [[0, 0], [10, 0], [10, 10], [0, 10], [4, 4], [6, 4], [6, 6], [4, 6]],
+    [[1, 2], [2, 3], [3, 4], [4, 1], [5, 6], [6, 7], [7, 8], [8, 5]],
+  );
+  it('a 10 × 10 bay with a 2 × 2 ring: 100 m², and D 200 kN', () => {
+    const m = ringBay();
+    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    expect(collected(g)).toBeCloseTo(100, 6);
+    expect(g.areaByLevel.get(3)).toBeCloseTo(100, 6);
+    expect(g.panels).toHaveLength(2);
+    // The opening's sides take part of theirs past their ends, at the ring's corners.
+    const p = buildLoadPlan(planInput(m));
+    const atCorners = p.nodal.filter((n) => n.caseType === 'D').reduce((s, n) => s + n.fz, 0);
+    expect(atCorners).toBeLessThan(0);
+    expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m) + atCorners).toBeCloseTo(-200, 6);
+  });
+
+  it('the stadium: each level as the Floor tool loads it, once (18 674 m² were counted twice)', async () => {
+    const f = (await import('../../../templates/fixtures/full-stadium.json')).default;
+    const m = fixtureModel(f);
+    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
+    const byLevel = new Map<number, FloorBeam[]>();
+    for (const e of m.elements.values()) {
+      const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;
+      if (e.type === 'truss' || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+      const z = Math.round((a.z ?? 0) / 1e-3) * 1e-3;
+      (byLevel.get(z) ?? byLevel.set(z, []).get(z)!).push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: 1 });
+    }
+    let levels = 0;
+    for (const [z, beams] of byLevel) {
+      const tool = floorLoad({ nodes: m.nodes, beams, q: 1, distribution: 'twoWay' }).loadedArea;
+      if (tool > 0) levels++;
+      expect(g.areaByLevel.get(z) ?? 0, `z = ${z}`).toBeCloseTo(tool, 6);
+    }
+    expect(levels).toBeGreaterThan(3);
+  });
+});
+
+describe('a share at a re-entrant corner weighs the same in the plan and in the mass source', () => {
+  // An L floor sends part of its area to the node at the inner corner. The plan counted it in the
+  // level's weight; written by the Floor tool it was a nodal load, which the mass source leaves
+  // out (it has no member to carry it), so the same floor weighed less there.
+  it('an L floor, D = 2 kN/m²: the plan and the mass source both weigh 2 × 47.44 kN', () => {
+    const plan: Array<[number, number]> = [[0, 0], [7.9, 0], [7.9, 1.6], [5.8, 1.6], [5.8, 7.6], [0, 7.6]];
+    const area = 47.44, q = 2;
+    const m = drawn(plan, plan.map((_, i) => [i + 1, ((i + 1) % plan.length) + 1]));
+    // The generator's plan, its share at the corner naming the member it belongs to as well.
+    const planned = buildLoadPlan(planInput(m));
+    const lv = planned.levels.find((l) => l.elevation === 3)!;
+    expect(lv.superimposedKN).toBeCloseTo(q * area, 6);
+    const corner = planned.nodal.filter((n) => n.caseType === 'D');
+    expect(corner.length).toBeGreaterThan(0);
+    expect(corner.every((n) => n.carrier !== undefined && [m.elements.get(n.carrier)!.nodeI, m.elements.get(n.carrier)!.nodeJ].includes(n.nodeId))).toBe(true);
+    // The Floor tool, on the same floor standing on columns.
+    const nodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+    for (const [id, n] of m.nodes) { nodes.set(id, { id, x: n.x, y: n.y, z: 3 }); nodes.set(id + 100, { id: id + 100, x: n.x, y: n.y, z: 0 }); }
+    const elements = new Map<number, { id: number; type: 'frame'; nodeI: number; nodeJ: number; materialId: number; sectionId: number }>();
+    for (const [id, e] of m.elements) elements.set(id, { id, type: 'frame', nodeI: e.nodeI, nodeJ: e.nodeJ, materialId: 1, sectionId: 1 });
+    for (const id of m.nodes.keys()) elements.set(id + 100, { id: id + 100, type: 'frame', nodeI: id + 100, nodeJ: id, materialId: 1, sectionId: 1 });
+    const cases = [{ id: 1, type: 'D', name: 'D' }];
+    const def = expandDefinition({
+      nodes, elements, quads: new Map(), plates: new Map(), sections: new Map(), groups: new Map(), loadCases: cases,
+    }, { caseId: 1, q, target: { by: 'level', z: 3 }, distribution: 'twoWay' }, {}, 1, { leftHand: false });
+    expect(def.loads.some((l) => l.type === 'nodal3d')).toBe(true);
+    expect(def.totalKN).toBeCloseTo(q * area, 6);
+    const md = {
+      nodes, elements, loads: def.loads.map((l, i) => ({ ...l, data: { ...l.data, id: i + 1 } })),
+      supports: new Map([...m.nodes.keys()].map((id) => [id, { id, nodeId: id + 100, type: 'fixed3d' }])),
+      materials: new Map([[1, { id: 1, name: 'H', e: 30000, nu: 0.2, rho: 24 }]]),
+      sections: new Map([[1, { id: 1, name: 's', a: 0.09, iz: 6.75e-4, iy: 6.75e-4, j: 1.1e-3 }]]),
+      quads: new Map(), plates: new Map(), constraints: [], connectors: new Map(),
+    };
+    const input = buildSolverInput3D(md as never, false, false, { expandMemberOffsets: false })!;
+    const ms = withMassSource(md as never, cases, { kind: 'custom', factors: [{ caseId: 1, factor: 1 }] }, input);
+    expect(ms.report.excludedNodalKN).toBeCloseTo(0, 9);
+    expect(ms.report.addedT.get(1)! * G).toBeCloseTo(q * area, 6);
   });
 });

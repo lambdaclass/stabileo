@@ -12,6 +12,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import type { Load } from '../../../lib/store/model.svelte';
   import { addLoads } from '../../../lib/store/load-ops';
   import { resolveTargets, type TargetEntity } from '../../../lib/model/loads/load-targets';
   import { inclinedForce, type GlobalAxis } from '../../../lib/model/loads/member-load-tools';
@@ -20,13 +21,15 @@
   import { memberRef3D } from '../../../lib/engine/solver-service';
   import type { MemberFrame } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
+  import ProShellLoadForm from './ProShellLoadForm.svelte';
+  import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
-  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'thermalQuad';
+  type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad';
   const KINDS: Array<{ id: Kind; group: 'node' | 'member' | 'slab' }> = [
     { id: 'nodal', group: 'node' }, { id: 'displacement', group: 'node' },
     { id: 'distributed', group: 'member' }, { id: 'point', group: 'member' }, { id: 'thermal', group: 'member' },
     { id: 'strain', group: 'member' }, { id: 'prestress', group: 'member' },
-    { id: 'surface', group: 'slab' }, { id: 'thermalQuad', group: 'slab' },
+    { id: 'surface', group: 'slab' }, { id: 'hydro', group: 'slab' }, { id: 'shellPoint', group: 'slab' }, { id: 'thermalQuad', group: 'slab' },
   ];
   let kind = $state<Kind>('nodal');
   const entity = $derived<TargetEntity>(KINDS.find((k) => k.id === kind)!.group === 'node' ? 'nodes' : KINDS.find((k) => k.id === kind)!.group === 'member' ? 'members' : 'quads');
@@ -63,7 +66,6 @@
   let strainVal = $state('');
   let ps = $state({ force: '', eI: '', eM: '', eJ: '' });
   // ── Slabs ──
-  let sq = $state('');
   let tq = $state({ dt: '', g: '' });
 
   let error = $state<string | null>(null);
@@ -71,14 +73,41 @@
 
   const caseId = $derived(uiStore.activeLoadCaseId);
   const quadSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'q').map((k) => Number(k.slice(1))));
+  const plateSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'p').map((k) => Number(k.slice(1))));
+  const sel = () => ({ nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection, plates: plateSelection });
   const targets = (): number[] => (target.by === 'chain' ? [...uiStore.selectedElements]
-    : resolveTargets(entity, target, modelStore.model as never, { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection }));
+    : resolveTargets(entity, target, modelStore.model as never, sel()));
+  /** The shells picked, quads and triangles; typed ids name quads. */
+  function shellTargets(): ShellRef[] {
+    const of = (kind: 'quads' | 'plates') => (kind === 'plates' && target.by === 'ids' ? [] : resolveTargets(kind, target as never, modelStore.model as never, sel()));
+    const ref = (id: number, on?: 'plate'): ShellRef | null => {
+      const sh = on ? modelStore.plates.get(id) : modelStore.quads.get(id);
+      const pts = sh?.nodes.map((n) => modelStore.nodes.get(n));
+      return sh && pts && pts.every(Boolean) ? { id, ...(on ? { on } : {}), nodes: [...sh.nodes], pts: pts as ShellRef['pts'] } : null;
+    };
+    return [...of('quads').map((id) => ref(id)), ...of('plates').map((id) => ref(id, 'plate'))].filter((r): r is ShellRef => !!r);
+  }
+  let shellForm = $state<ProShellLoadForm | null>(null);
 
   /** The loads the form describes, on its targets; a reason when it describes none. */
   function build(): WriteOutcome | WriteRefusal {
+    // Slab loads act on quads and triangles through one integral (`shell-load-integration.ts`).
+    if (kind === 'surface' || kind === 'hydro' || kind === 'shellPoint') {
+      return shellForm ? shellForm.build(shellTargets(), caseId) : { error: 'writeLoad.noTarget' };
+    }
+    if (kind === 'thermalQuad') {
+      const shells = shellTargets();
+      if (!shells.length) return { error: 'writeLoad.noTarget' };
+      // Blank is 0; text that does not read refuses the add instead of becoming a zero.
+      const read = (v: string) => (v.trim() === '' ? 0 : parseDecimal(v));
+      const dt = read(tq.dt), g = read(tq.g);
+      if (dt === null || g === null) return { error: 'pro.loadUnreadable' };
+      if (dt === 0 && g === 0) return { error: 'writeLoad.zero' };
+      return { loads: shells.map((sh) => ({ type: 'thermalQuad3d', data: { id: 0, quadId: sh.id, ...(sh.on ? { on: sh.on } : {}), dtUniform: dt, dtGradient: g, caseId } }) as Load) };
+    }
     return buildWrittenLoads({
       kind, f, inclined, incF, incToNode, incTo, incByNode, u, frame, shape, q, qa, qb, peak, peakAt, peakComp,
-      w1, w2, hydroAxis, hydroComp, pFrame, p, pa, th, strainBy, strainVal, ps, sq, tq,
+      w1, w2, hydroAxis, hydroComp, pFrame, p, pa, th, strainBy, strainVal, ps, sq: '', tq,
     }, {
       caseId, ids: targets(), chain: target.by === 'chain',
       node: (id) => modelStore.nodes.get(id),
@@ -235,8 +264,8 @@
       <label>e J <input type="text" bind:value={ps.eJ} class="wl-num" placeholder="mm" data-testid="wl-ps-ej" /></label>
     </div>
     <p class="wl-hint">{t('writeLoad.prestressHint')}</p>
-  {:else if kind === 'surface'}
-    <div class="wl-row"><label>q <input type="text" bind:value={sq} class="wl-num" placeholder="kN/m²" data-testid="wl-sq" /></label></div>
+  {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
+    {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} />{/key}
   {:else}
     <div class="wl-row">
       <label>ΔT <input type="text" bind:value={tq.dt} class="wl-num" placeholder="°C" data-testid="wl-tq-dt" /></label>

@@ -35,7 +35,7 @@ import type { ModelData } from './solver-service';
 import { distributedGlobalEnds, trapezoidPieces, memberFrame3D } from './member-loads';
 import { selfWeightFor, selfWeightScope } from './self-weight';
 import { activeModel } from './member-behaviour';
-import { quadCornerShares } from './solver-shells';
+import { quadCornerShares, convertSurfaceLoad } from './solver-shells';
 import type {
   NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, Load,
 } from '../store/model.svelte';
@@ -206,13 +206,15 @@ export function appliedResultant(
         for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
       }
     } else if (l.type === 'surface3d') {
-      // q downward on the quad, each corner its consistent share — the solve's own split.
+      // The solve's own corner forces, whatever the load's direction, field and extent.
       const d = l.data as SurfaceLoad3D;
-      const q = model.quads?.get(d.quadId);
-      const ps = q?.nodes.map((id) => model.nodes.get(id));
-      if (!q || !ps || ps.some((n) => !n)) { uncovered.add('surface3d'); continue; }
-      const shares = quadCornerShares(ps as never);
-      (ps as P3[]).forEach((n, i) => addForceAt(applied, [0, 0, -d.q * shares[i]!], [n.x, n.y, n.z ?? 0]));
+      const nodal = convertSurfaceLoad(d, model.quads as never, model.nodes as never, model.plates as never);
+      if (!nodal.length) { uncovered.add('surface3d'); continue; }
+      for (const f of nodal) {
+        if (f.type !== 'nodal') continue;
+        const n = model.nodes.get(f.data.nodeId)!;
+        addForceAt(applied, [f.data.fx, f.data.fy, f.data.fz], [n.x, n.y, n.z ?? 0]);
+      }
     } else if (l.type === 'thermal' || l.type === 'thermalQuad3d' || l.type === 'prestress3d' || l.type === 'displacement3d') {
       // No net external force by definition: a temperature, a strain, a tendon (its equivalent
       // loads are in equilibrium on their own) and an imposed displacement. Not a gap.

@@ -20,7 +20,7 @@ export const MAGNITUDE_FIELDS: MagnitudeFields = {
   nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
   distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ', 'qXI', 'qXJ'],
   pointOnElement3d: ['py', 'pz', 'px', 'mx', 'my', 'mz'],
-  surface3d: ['q'],
+  surface3d: ['q', 'qNodes', 'vary'],
   thermalQuad3d: ['dtUniform', 'dtGradient'],
   prestress3d: ['force'],
   displacement3d: ['dx', 'dy', 'dz', 'drx', 'dry', 'drz'],
@@ -32,6 +32,12 @@ export function scaledLoad<L extends Load>(l: L, k: number): L {
   for (const f of MAGNITUDE_FIELDS[l.type] as readonly string[]) {
     const v = data[f];
     if (typeof v === 'number') data[f] = v * k;
+    // A value per corner, and the two values of a variation.
+    else if (Array.isArray(v)) data[f] = v.map((x) => (typeof x === 'number' ? x * k : x));
+    else if (v && typeof v === 'object' && 'q1' in v && 'q2' in v) {
+      const o = v as { q1: number; q2: number };
+      data[f] = { ...o, q1: o.q1 * k, q2: o.q2 * k };
+    }
   }
   return { ...l, data } as L;
 }

@@ -10,14 +10,15 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
-import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D } from '../../store/model.svelte';
-import { carryPointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
+import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
 import { generatedMetadata } from './generated-metadata';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
 import { closure, type EntitySet } from './fragment';
 import { coincidentNodeGroups, mergeNodesInto } from './cleanup';
 import { weldTolerance } from '../weld-tolerance';
+import { carriedTarget, targetNodes, type DefinitionModel, type FloorLoadDef } from '../loads/floor-definitions';
 
 export interface InPlaceReport {
   movedNodes: number;
@@ -40,6 +41,9 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     // coordinates already read for the rest.
     modelStore.ensureSpaceCoordinates();
     const before = new Map([...src.nodes].map((id) => [id, { ...modelStore.nodes.get(id)! }]));
+    // What each floor-load definition loads, read before anything moves (see below).
+    const defined = [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad' && g.data)
+      .map((g) => ({ g, nodes: targetNodes(modelStore.model as unknown as DefinitionModel, g.data as unknown as FloorLoadDef, g.members) }));
     // Members wholly inside move rigidly; their frames are read before anything moves.
     const rigid = [...modelStore.elements.values()].filter((e) => src.nodes.has(e.nodeI) && src.nodes.has(e.nodeJ));
     report.stretchedMembers = [...modelStore.elements.values()].filter((e) => src.nodes.has(e.nodeI) !== src.nodes.has(e.nodeJ)).length;
@@ -136,6 +140,13 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
           const q = l.data as PrestressLoad3D; const g = signs.get(q.elementId); if (!g) return null;
           return { type: 'prestress3d', data: carryPrestress(q, g.sz) };
         }
+        case 'surface3d': {
+          // On a shell that moved whole: its direction, variation and region turn with it.
+          const q = l.data as SurfaceLoad3D;
+          const onPlate = q.on === 'plate';
+          if (!(onPlate ? rigidPlates : rigidQuads).includes(q.quadId)) return null;
+          return { type: 'surface3d', data: carrySurface(q, T, isReflection(T), onPlate ? 'plate' : 'quad') };
+        }
         case 'displacement3d': {
           const q = l.data as NodeDisplacement3D;
           if (!src.nodes.has(q.nodeId)) return null;
@@ -170,6 +181,18 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
       if (data && data.nodes.length > 0 && data.nodes.every((n) => src.nodes.has(n.id))) {
         modelStore.setGroupData(g.id, { ...data, transform: compose(T, data.transform) });
       }
+    }
+    /*
+     * A floor-load definition on a level or a box names coordinates, not members: a floor moved
+     * as a whole left it pointing at where the floor was, with nothing to load. When everything it
+     * loads moves, its level or box moves too (`carriedTarget`); part of it moved is no longer the
+     * same floor, and the target stays.
+     */
+    for (const { g, nodes } of defined) {
+      if (nodes.size === 0 || ![...nodes].every((id) => src.nodes.has(id))) continue;
+      const def = g.data as unknown as FloorLoadDef;
+      const target = carriedTarget(def.target, T);
+      if (target) modelStore.setGroupData(g.id, { ...def, target } as unknown as Record<string, unknown>);
     }
     mergeNodesInto(to);
   });

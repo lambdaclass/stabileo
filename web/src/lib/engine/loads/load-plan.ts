@@ -299,6 +299,10 @@ export interface PlannedSurface {
   caseType: PlannedCase['type'];
   caseIndex?: number;
   q: number;
+  /** A pressure that is not a plain downward one (a wall's soil or fluid): as `SurfaceLoad3D` keeps it. */
+  frame?: 'global';
+  dir?: [number, number, number];
+  vary?: { dir: [number, number, number]; c1: number; q1: number; c2: number; q2: number };
 }
 
 export interface PlannedNodal {
@@ -311,6 +315,8 @@ export interface PlannedNodal {
   fz: number;
   /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
   mz?: number;
+  /** The member a floor's share at a re-entrant corner belongs to (`NodalLoad3D.carrier`). */
+  carrier?: number;
 }
 
 /** The lists a planning step appends to: the plan's cases, loads and what it says about them. */
@@ -836,7 +842,8 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   }
 
   // ── Wind (load-plan-wind.ts) ──
-  const nodal: PlannedNodal[] = [];
+  const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
+    ({ ...n, fx: 0, fy: 0, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) }));
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
   const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, levels, sink) : { windQh: undefined, windGust: undefined };
 
@@ -903,12 +910,12 @@ export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   if (special.soil.length) {
     const index = cases.length;
     cases.push({ existingId: findCase(input.model, 'H'), type: 'H', nameKey: 'autoLoad.soilCase' });
-    for (const n of special.soil) nodal.push({ ...n, caseType: 'H', caseIndex: index });
+    for (const w of special.soil) surface.push({ quadId: w.quadId, caseType: 'H', caseIndex: index, q: 0, frame: 'global', dir: w.dir, vary: w.vary });
   }
   if (special.fluid.length || special.fluidBottom.length) {
     const index = cases.length;
     cases.push({ existingId: findCase(input.model, 'F'), type: 'F', nameKey: 'autoLoad.fluidCase' });
-    for (const n of special.fluid) nodal.push({ ...n, caseType: 'F', caseIndex: index });
+    for (const w of special.fluid) surface.push({ quadId: w.quadId, caseType: 'F', caseIndex: index, q: 0, frame: 'global', dir: w.dir, vary: w.vary });
     for (const b of special.fluidBottom) surface.push({ quadId: b.quadId, caseType: 'F', caseIndex: index, q: b.q });
   }
 

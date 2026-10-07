@@ -359,9 +359,10 @@ function validateDedalFile(data: unknown): data is DedalFile {
   // Surface/thermal loads must target an existing quad (CAD drafts attach one
   // per slab quad); a dangling target is silently dropped at solve time.
   const quadIds = new Set(((s.quads as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
-  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number } }>) {
+  const plateIds = new Set(((s.plates as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
+  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number; on?: string } }>) {
     if ((l.type === 'surface3d' || l.type === 'thermalQuad3d')
-      && l.data?.quadId !== undefined && !quadIds.has(l.data.quadId)) {
+      && l.data?.quadId !== undefined && !(l.data.on === 'plate' ? plateIds : quadIds).has(l.data.quadId)) {
       return false;
     }
   }

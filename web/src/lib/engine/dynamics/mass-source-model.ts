@@ -15,6 +15,7 @@
 import { buildSolverLoads3D, type ModelData } from '../solver-service';
 import { solvableModel } from '../member-behaviour';
 import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
+import { surfaceDownwardPressure } from '../solver-shells';
 import type { SolverInput3D } from '../types-3d';
 import {
   applyMassSource, resolveMassFactors,
@@ -36,15 +37,31 @@ export function caseMassLoads(
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
     const own = model.loads.filter((l) => (l.data.caseId ?? 1) === f.caseId);
-    const surface = own
-      .filter((l) => l.type === 'surface3d')
-      .map((l) => ({ quadId: (l.data as SurfaceLoad3D).quadId, q: (l.data as SurfaceLoad3D).q }));
-    const rest = own.filter((l) => WEIGHT.has(l.type));
+    // A surface load's weight is its downward resultant, whatever its direction or field
+    // (`shell-load-integration.ts`), spread over the shell: a suction or a wall pressure weighs nothing.
+    const surface = own.filter((l) => l.type === 'surface3d').flatMap((l) => {
+      const d = l.data as SurfaceLoad3D;
+      const q = surfaceDownwardPressure(d, model.quads as never, model.nodes as never, model.plates as never);
+      return q === null ? [] : [{ quadId: d.quadId, q, ...(d.on ? { on: d.on } : {}) }];
+    });
+    // A nodal load that names its member (a floor's share at a re-entrant corner) weighs on it,
+    // when the member is still there and ends at the node.
+    const carrierOf = (l: Load): number | null => {
+      if (l.type !== 'nodal3d' || l.data.carrier === undefined) return null;
+      const e = model.elements.get(l.data.carrier);
+      return e && (e.nodeI === l.data.nodeId || e.nodeJ === l.data.nodeId) ? e.id : null;
+    };
+    const carried = own.flatMap((l) => {
+      const id = carrierOf(l);
+      return id === null || l.type !== 'nodal3d' ? [] : [{ elementId: id, down: -l.data.fz }];
+    });
+    const rest = own.filter((l) => WEIGHT.has(l.type) && carrierOf(l) === null);
     out.push({
       caseId: f.caseId,
       factor: f.factor,
       loads: buildSolverLoads3D(model, rest, [], leftHand),
       surface,
+      ...(carried.length ? { carried } : {}),
     });
   }
   return out;

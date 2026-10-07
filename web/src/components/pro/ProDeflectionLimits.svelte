@@ -9,7 +9,7 @@
   import type { DeflectionRule, DeflectionScope, DeflectionDirection } from '../../lib/engine/deflection-limits';
 
   const rules = $derived(modelStore.deflectionLimits?.rules ?? []);
-  const groups = $derived([...modelStore.model.groups.values()].sort((a, b) => a.id - b.id));
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad').sort((a, b) => a.id - b.id));
   const DIRS: DeflectionDirection[] = ['resultant', 'localY', 'localZ'];
   const PRESETS = [240, 360, 480];
 
