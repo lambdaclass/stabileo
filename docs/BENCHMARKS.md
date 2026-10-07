@@ -6,8 +6,8 @@
 > BLOCKED = needs new solver features.
 
 Read next:
-- solver roadmap: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
-- verification method: [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/docs/VERIFICATION.md)
+- solver roadmap: [`SOLVER_ROADMAP.md`](roadmap/SOLVER_ROADMAP.md)
+- verification method: [`VERIFICATION.md`](VERIFICATION.md)
 
 ---
 
@@ -207,7 +207,7 @@ The right long-term role for differential tests here is:
 
 In other words, the benchmark strategy should be framed around reproducibility and solver consistency, not around parity with a removed TypeScript solver.
 
-For the broader verification strategy, including fuzzing and selective formal verification, see [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/docs/VERIFICATION.md).
+For the broader verification strategy, including fuzzing and selective formal verification, see [`VERIFICATION.md`](VERIFICATION.md).
 
 ---
 
