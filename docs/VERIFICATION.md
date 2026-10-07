@@ -8,8 +8,6 @@ It is not the benchmark ledger and it is not the product roadmap.
 
 - Use [`BENCHMARKS.md`](BENCHMARKS.md) for benchmark status and solver maturity.
 - Use [`SOLVER_ROADMAP.md`](roadmap/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
-- Use [`PRODUCT_ROADMAP.md`](roadmap/PRODUCT_ROADMAP.md) for app and workflow sequencing.
-- Use [`POSITIONING.md`](POSITIONING.md) for the business meaning of solver trust.
 - Use [`research/lean_formal_verification.md`](research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
 
 ## Goal

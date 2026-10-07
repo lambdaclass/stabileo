@@ -11,6 +11,13 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### This repository is the engine only
+
+The Stabileo web application and its AI backend moved to their own repository; this one keeps
+the engine (`engine/`), its documentation and the application's user guide. The application
+consumes the engine as a library: the crate as a git dependency and the WebAssembly package built
+from a pinned commit. CI here runs the engine jobs and now also builds the WebAssembly package.
+
 #### Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)
 
 **BREAKING (results): every model with shell elements solves differently.** Four defects,

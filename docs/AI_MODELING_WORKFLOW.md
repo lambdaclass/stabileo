@@ -12,10 +12,12 @@ The correct framing is:
 
 The repo already contains:
 
-- an in-product AI drawer in [`web/src/components/AiDrawer.svelte`](../web/src/components/AiDrawer.svelte)
-- frontend AI client calls in [`web/src/lib/ai/client.ts`](../web/src/lib/ai/client.ts)
-- backend AI routes in [`backend/src/main.rs`](../backend/src/main.rs)
-- build/edit loop tests in [`web/src/lib/ai/__tests__/build-model.test.ts`](../web/src/lib/ai/__tests__/build-model.test.ts)
+- an in-product AI drawer
+- frontend AI client calls
+- backend AI routes
+- build/edit loop tests
+
+These live in the Stabileo application, which is not part of this repository.
 
 Current backend routes:
 
@@ -102,4 +104,3 @@ That is much stronger than vague "AI for engineering" positioning.
 
 - [Quick start](QUICKSTART.md)
 - [Solver reference](SOLVER_REFERENCE.md)
-- [AI roadmap](roadmap/AI_ROADMAP.md)

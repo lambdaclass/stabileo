@@ -2,7 +2,6 @@
 
 Read next:
 - solver priorities: [SOLVER_ROADMAP.md](../roadmap/SOLVER_ROADMAP.md)
-- product execution: [PRODUCT_ROADMAP.md](../roadmap/PRODUCT_ROADMAP.md)
 
 This note analyzes where WebGPU is a good fit for Dedaliano and where it is not.
 

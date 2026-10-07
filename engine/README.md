@@ -1,4 +1,4 @@
-# Dedaliano Engine
+# Stabileo Engine (`dedaliano-engine`)
 
 High-performance 2D/3D structural analysis engine in Rust, implementing the Direct Stiffness Method from scratch with no external linear algebra dependencies.
 
@@ -12,10 +12,44 @@ This file is the engine-facing overview.
 
 - For full benchmark status and solver gap tracking, see [`../docs/BENCHMARKS.md`](../docs/BENCHMARKS.md).
 - For repo-level solver priorities, see [`../docs/roadmap/SOLVER_ROADMAP.md`](../docs/roadmap/SOLVER_ROADMAP.md).
-- For app and workflow priorities, see [`../docs/roadmap/PRODUCT_ROADMAP.md`](../docs/roadmap/PRODUCT_ROADMAP.md).
-- For business framing and market position, see [`../docs/POSITIONING.md`](../docs/POSITIONING.md).
 
 This document should stay focused on the engine surface, analysis families, and engine-facing validation summary.
+
+## Using the Engine
+
+The crate is published from this repository; it is not on crates.io yet. Pin a commit:
+
+```toml
+[dependencies]
+dedaliano-engine = { git = "https://github.com/lambdaclass/stabileo", rev = "<commit>" }
+```
+
+Cargo finds the crate inside the repository. The native entry points take and return the
+types in `dedaliano_engine::types`, for example:
+
+```rust
+use dedaliano_engine::solver::linear::solve_2d;
+use dedaliano_engine::types::SolverInput;
+
+fn solve(input: &SolverInput) -> Result<(), String> {
+    let results = solve_2d(input)?; // AnalysisResults: displacements, reactions, element forces
+    println!("{} reactions", results.reactions.len());
+    Ok(())
+}
+```
+
+For the browser, build the WebAssembly package from the repository root:
+
+```bash
+make wasm   # wasm-pack build --target web into engine/pkg
+```
+
+`engine/pkg` then holds an ES module (`dedaliano_engine.js`) with the `#[wasm_bindgen]` exports
+of `src/lib.rs` (`solve_2d`, `solve_3d`, the analysis variants, section analysis, ...) and its
+TypeScript declarations. The toolchain is pinned in `rust-toolchain.toml`.
+
+The coordinate contract (Z up, flat 2D models in the XZ plane) is part of the input format; see
+[`../docs/SOLVER_REFERENCE.md`](../docs/SOLVER_REFERENCE.md).
 
 ## Analysis Types
 

@@ -12,9 +12,15 @@ The practical consequences are:
 - `XY` is the horizontal ground plane
 - common flat 2D models are embedded in the `XZ` plane
 
-Read:
+In full, for 3D input:
 
-- [ADR 0001: Z-up coordinate system](adr/0001-z-up-coordinate-system.md)
+- `x` is horizontal width, `y` horizontal plan depth, `z` elevation
+- gravity acts along `(0, 0, -1)`
+- the default horizontal working plane is `XY`, and a top view looks down global `+Z`
+
+Callers that build models (an editor, a generator, an AI layer) must hand the engine `z` as
+elevation; a model built `Y-up` solves without error and comes out rotated. Mixed conventions
+are correctness bugs, not a display choice.
 
 ## 2. Core Model Objects
 
@@ -166,21 +172,20 @@ Use these docs for that layer:
 - [BENCHMARKS.md](BENCHMARKS.md)
 - [SOLVER_ROADMAP.md](roadmap/SOLVER_ROADMAP.md)
 
-## 6. Engine, Web, and AI Seams
+## 6. Consuming the Engine
 
-If you need implementation-level detail, start with:
+The engine is a library. For implementation-level detail and how to depend on it, from Rust or
+as WebAssembly, start with [`engine/README.md`](../engine/README.md).
 
-- [`engine/README.md`](../engine/README.md)
-- [`web/src/lib/engine/`](../web/src/lib/engine)
-- [`web/src/lib/ai/client.ts`](../web/src/lib/ai/client.ts)
-- [`backend/src/main.rs`](../backend/src/main.rs)
+The Stabileo application at [stabileo.com](https://stabileo.com) is one consumer: its web app runs
+the WebAssembly build in the browser, and its AI backend uses the crate's input and output types.
+The application is not part of this repository.
 
 ## 7. Recommended Reading Order
 
 If you are new:
 
-1. [Quick start](QUICKSTART.md)
-2. [AI modeling workflow](AI_MODELING_WORKFLOW.md)
-3. [ADR 0001](adr/0001-z-up-coordinate-system.md)
-4. [Verification](VERIFICATION.md)
-5. [Engine README](../engine/README.md)
+1. [Engine README](../engine/README.md)
+2. [Coordinate contract](#1-coordinate-contract)
+3. [Verification](VERIFICATION.md)
+4. [Benchmarks](BENCHMARKS.md)
