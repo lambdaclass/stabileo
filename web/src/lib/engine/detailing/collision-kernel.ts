@@ -5,6 +5,7 @@ import type { Point3 } from '../../codes/cirsoc201/bar-geometry';
 export interface CollisionGeometry {
   build_hash(cell: number, deduplicate: boolean): void;
   candidates(index: number): Uint32Array;
+  query_measured(index: number, placement: number, maxClear: number, prune: boolean): Float64Array;
   bucket_scans(): number;
   update_bar(index: number, points: Float64Array): void;
   changed_pairs(changed: Uint32Array): Uint32Array;
@@ -14,11 +15,14 @@ export interface CollisionGeometry {
 export type CollisionGeometryConstructor = new (points: Float64Array, offsets: Uint32Array, radii: Float64Array) => CollisionGeometry;
 let constructor: CollisionGeometryConstructor | null = null;
 let incrementalRepair = true;
-/** The second argument disables index reuse for differential benchmarks. */
-export function registerCollisionKernel(value: CollisionGeometryConstructor | null, incremental = true): void {
+let fusedQueries = true;
+/** Reference switches for differential benchmarks; both optimizations are enabled in production. */
+export function registerCollisionKernel(value: CollisionGeometryConstructor | null, incremental = true, fused = true): void {
   constructor = value;
   incrementalRepair = incremental;
+  fusedQueries = fused;
 }
+export function collisionQueryFusionEnabled(): boolean { return fusedQueries; }
 export function collisionRepairKernelAvailable(): boolean {
   return constructor !== null && incrementalRepair;
 }

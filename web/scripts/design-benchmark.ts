@@ -11,10 +11,10 @@ import '../src/lib/engine/design/adapters/cirsoc201-adapter';
 import '../src/lib/engine/design/adapters/unsupported-adapter';
 import { detailingStore } from '../src/lib/store/detailing.svelte';
 
-export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true, columnCapacity = true, incrementalRepair = true, compactStations = true) {
+export async function benchmark(exampleIds: string[], captureOutputs: boolean, collisionKernel = true, columnCapacity = true, incrementalRepair = true, compactStations = true, fusedQueries = true) {
   const results = [];
   await initSolver();
-  registerCollisionKernel(collisionKernel ? CollisionGeometry : null, incrementalRepair);
+  registerCollisionKernel(collisionKernel ? CollisionGeometry : null, incrementalRepair, fusedQueries);
   setColumnCapacityReuse(columnCapacity);
   setCompactStationTransfer(compactStations);
   for (const example of exampleIds) {

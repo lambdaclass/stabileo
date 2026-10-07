@@ -272,6 +272,42 @@ pub struct CollisionGeometry {
     hash: Option<SpatialHash>,
 }
 impl CollisionGeometry {
+    fn measure_pair(
+        &self,
+        i: usize,
+        j: usize,
+        placement: f64,
+        max_clear: f64,
+        prune: bool,
+    ) -> [f64; 8] {
+        let a = &self.bars[i];
+        let b = &self.bars[j];
+        let cutoff = max_clear + placement + self.radii[i] + self.radii[j];
+        let cutoff_sq = cutoff * cutoff;
+        let mut best = [0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0];
+        if !prune || a.bounds.gap(b.bounds) <= cutoff_sq {
+            for (m, ap) in a.points.windows(2).enumerate() {
+                if prune && a.boxes[m].gap(b.bounds) > cutoff_sq {
+                    continue;
+                }
+                for (n, bp) in b.points.windows(2).enumerate() {
+                    if prune && a.boxes[m].gap(b.boxes[n]) > cutoff_sq {
+                        continue;
+                    }
+                    best[7] += 1.0;
+                    let (d, at) = distance(ap[0], ap[1], bp[0], bp[1]);
+                    let surface = d - self.radii[i] - self.radii[j];
+                    let clearance = surface - placement;
+                    if best[5] < 0.0 || clearance < best[1] {
+                        best[..7].copy_from_slice(&[
+                            surface, clearance, at[0], at[1], at[2], m as f64, n as f64,
+                        ]);
+                    }
+                }
+            }
+        }
+        best
+    }
     fn checked(points: &[f64], offsets: &[u32], radii: &[f64]) -> Result<Self, &'static str> {
         if points.len() % 3 != 0
             || offsets.len() != radii.len() + 1
@@ -411,37 +447,44 @@ impl CollisionGeometry {
         {
             return Err(JsValue::from_str("Invalid collision query"));
         }
-        let i = index as usize;
-        let a = &self.bars[i];
         let mut out = Vec::with_capacity(candidates.len() * 8);
         for &j in candidates {
-            let j = j as usize;
-            let b = &self.bars[j];
-            let cutoff = max_clear + placement + self.radii[i] + self.radii[j];
-            let cutoff_sq = cutoff * cutoff;
-            let mut best = [0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0];
-            if !prune || a.bounds.gap(b.bounds) <= cutoff_sq {
-                for (m, ap) in a.points.windows(2).enumerate() {
-                    if prune && a.boxes[m].gap(b.bounds) > cutoff_sq {
-                        continue;
-                    }
-                    for (n, bp) in b.points.windows(2).enumerate() {
-                        if prune && a.boxes[m].gap(b.boxes[n]) > cutoff_sq {
-                            continue;
-                        }
-                        best[7] += 1.0;
-                        let (d, at) = distance(ap[0], ap[1], bp[0], bp[1]);
-                        let surface = d - self.radii[i] - self.radii[j];
-                        let clearance = surface - placement;
-                        if best[5] < 0.0 || clearance < best[1] {
-                            best[..7].copy_from_slice(&[
-                                surface, clearance, at[0], at[1], at[2], m as f64, n as f64,
-                            ]);
-                        }
-                    }
-                }
+            out.extend_from_slice(&self.measure_pair(
+                index as usize,
+                j as usize,
+                placement,
+                max_clear,
+                prune,
+            ));
+        }
+        Ok(out)
+    }
+    /// Find and measure neighbors without transferring the candidate list through JS.
+    /// Header: candidate count, total segment tests. Each surviving row has eight doubles:
+    /// neighbor index, surface, clearance, midpoint xyz, and the two segment indices.
+    /// Rejected pairs have no row; counts and traversal order match candidates + measure.
+    pub fn query_measured(
+        &mut self,
+        index: u32,
+        placement: f64,
+        max_clear: f64,
+        prune: bool,
+    ) -> Result<Vec<f64>, JsValue> {
+        // Validate before advancing the ordered hash cursor, allowing a rejected query to retry.
+        if !placement.is_finite() || !max_clear.is_finite() {
+            return Err(JsValue::from_str("Invalid collision query"));
+        }
+        let candidates = self.candidates(index)?;
+        // Reserve once for dense cages; only the surviving prefix crosses the WASM boundary.
+        let mut out = Vec::with_capacity(2 + candidates.len() * 8);
+        out.extend_from_slice(&[candidates.len() as f64, 0.0]);
+        for j in candidates {
+            let best = self.measure_pair(index as usize, j as usize, placement, max_clear, prune);
+            out[1] += best[7];
+            if best[5] >= 0.0 {
+                out.push(j as f64);
+                out.extend_from_slice(&best[..7]);
             }
-            out.extend_from_slice(&best);
         }
         Ok(out)
     }
@@ -449,6 +492,50 @@ impl CollisionGeometry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fused_queries_match_separate_queries_and_omit_rejected_rows() {
+        let points = [
+            -1., 0., 0., 1., 0., 0., -1., 0.02, 0., 1., 0.02, 0., -1., 0.18, 0., 1., 0.18, 0., 0.,
+            0., 0.,
+        ];
+        for prune in [false, true] {
+            for deduplicate in [false, true] {
+                // The last two bars have empty and point-only geometry.
+                let mut reference =
+                    CollisionGeometry::checked(&points, &[0, 2, 4, 6, 6, 7], &[0.01; 5]).unwrap();
+                let mut fused =
+                    CollisionGeometry::checked(&points, &[0, 2, 4, 6, 6, 7], &[0.01; 5]).unwrap();
+                reference.build_hash(0.3, deduplicate).unwrap();
+                fused.build_hash(0.3, deduplicate).unwrap();
+                for i in 0..5 {
+                    let candidates = reference.candidates(i).unwrap();
+                    let measured = reference
+                        .measure(i, &candidates, 0.0, 0.025, prune)
+                        .unwrap();
+                    let actual = fused.query_measured(i, 0.0, 0.025, prune).unwrap();
+                    assert_eq!(actual[0], candidates.len() as f64);
+                    assert_eq!(
+                        actual[1],
+                        measured.chunks_exact(8).map(|row| row[7]).sum::<f64>()
+                    );
+                    let survivors: Vec<_> = candidates
+                        .iter()
+                        .zip(measured.chunks_exact(8))
+                        .filter(|(_, row)| row[5] >= 0.0)
+                        .collect();
+                    assert_eq!(actual.len(), 2 + survivors.len() * 8);
+                    for (row, (j, expected)) in actual[2..].chunks_exact(8).zip(survivors) {
+                        assert_eq!(row[0], *j as f64);
+                        assert_eq!(&row[1..], &expected[..7]);
+                    }
+                    assert_eq!(fused.bucket_scans(), reference.bucket_scans());
+                    if i == 0 && prune {
+                        assert!(actual[0] > (actual.len() - 2) as f64 / 8.0);
+                    }
+                }
+            }
+        }
+    }
     #[test]
     fn hash_wraps_negative_cells_and_preserves_candidate_order() {
         assert_eq!(
