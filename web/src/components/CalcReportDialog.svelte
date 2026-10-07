@@ -3,6 +3,7 @@
   import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
   import { loadComponentsText, distributedText, pointOnElementText, thermalText } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
+  import { shouldProjectModelToXZ } from '../lib/geometry/coordinate-system';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
 
@@ -68,7 +69,7 @@
       } else if (l.type === 'pointOnElement') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us)}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us, uiStore.analysisMode === 'pro' ? 'pro' : 'basic')}`;
       } else {
         description = tp('calcReport.loadOn', { type: l.type, target: d.elementId ?? d.nodeId ?? '?' });
       }
@@ -88,6 +89,16 @@
     const data: CalcReportData = {
       config,
       is3D,
+      // The figure stands a flat model up the way the 3D view does (vertical in y, not z).
+      project2DToXZ: is3D && shouldProjectModelToXZ({
+        analysisMode: uiStore.analysisMode,
+        viewportPresentation3D: uiStore.viewportPresentation3D,
+        nodes: modelStore.nodes.values(),
+        supports: modelStore.supports.values(),
+        loads: modelStore.loads,
+        plateCount: modelStore.plates.size,
+        quadCount: modelStore.quads.size,
+      }),
       analysisMode: modeLabel,
       provenance: deriveProvenance(),
       unitSystem: us,

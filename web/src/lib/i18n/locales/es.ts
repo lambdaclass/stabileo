@@ -4463,6 +4463,8 @@ const es: Record<string, string> = {
   'drawBar.loadKind': 'Tipo de carga',
   'drawBar.thermal': 'Térmica',
   'drawBar.loadIsZero': 'La carga es cero en todas sus componentes: escribí un valor en la barra de dibujo.',
+  'editLoad.zero': 'La carga quedaría en cero en todas sus componentes: si no la querés, borrala. Quedó como estaba.',
+  'editLoad.offMember': 'Así la carga queda fuera de su barra: a y b avanzan desde el nudo I y quedan sobre ella (0 ≤ a < b ≤ L), y la a de una carga puntual, también. Quedó como estaba.',
   'drawBar.plateCreated': 'Placa {id} creada con {n} nodos.',
   'pro.drawStartHint': 'Clickeá en el modelo para colocarlo. El cuadrito sobre el modelo avisa que estás dibujando, y vuelve a Seleccionar.',
   'pro.drawStopHint': 'Volver a Seleccionar.',

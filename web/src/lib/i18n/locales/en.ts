@@ -4470,6 +4470,8 @@ const en: Record<string, string> = {
   'drawBar.loadKind': 'Load type',
   'drawBar.thermal': 'Thermal',
   'drawBar.loadIsZero': 'Every component of the load is zero: type a value in the drawing bar.',
+  'editLoad.zero': 'Every component of the load would be zero: delete it instead. The load was left as it was.',
+  'editLoad.offMember': 'That puts the load off its member: a and b go forward from node I and stay on it (0 ≤ a < b ≤ L), and a point load\'s a stays on it. The load was left as it was.',
   'drawBar.plateCreated': 'Shell {id} created with {n} nodes.',
   'pro.drawStartHint': 'Click in the model to place it. The small badge over the model shows you are drawing; click it to go back to Select.',
   'pro.drawStopHint': 'Back to Select.',

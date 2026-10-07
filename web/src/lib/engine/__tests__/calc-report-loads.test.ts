@@ -168,4 +168,10 @@ describe('the load list follows the report units', () => {
     expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'Imperial')).toBe('ΔTg=36°F, ∇T=-18°F');
     expect(thermalText({ dtUniform: 20, dtGradient: 0 })).toBe('ΔTg=20°C, ∇T=0°C');
   });
+
+  it('a PRO report keeps PRO\'s names: ΔT the change, ΔTgz and ΔTgy the gradients', () => {
+    // In PRO «ΔTg» is a gradient; Basic's names there would read the uniform change as one.
+    expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'SI', 'pro')).toBe('ΔT=20°C, ΔTgz=-10°C');
+    expect(thermalText({ dtUniform: 0, dtGradient: 0, dtGradientY: 5 }, 'SI', 'pro')).toBe('ΔT=0°C, ΔTgz=0°C, ΔTgy=5°C');
+  });
 });

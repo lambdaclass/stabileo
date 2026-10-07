@@ -8,6 +8,7 @@
   // Values are typed in the unit system chosen under Settings and kept in SI.
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
+  import { editLoad, setMemberLoadFrame } from '../../lib/store/load-ops';
 
   /**
    * `inBar`: shown in the options bar's edit mode (ToolOptions), whose own
@@ -15,14 +16,20 @@
    */
   let { inBar = false }: { inBar?: boolean } = $props();
 
+  /**
+   * One field of the load. An edit that would leave a load of nothing, or put a member load off
+   * its member, is refused and said (`editLoad`); the results stay, since nothing changed.
+   */
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
-    if (typeof val === 'boolean') {
-      modelStore.updateLoad(loadId, { [field]: val });
-    } else {
-      const num = parseFloat(val);
-      if (isNaN(num)) return;
-      modelStore.updateLoad(loadId, { [field]: num });
+    let value: number | boolean = val as boolean;
+    if (typeof val !== 'boolean') {
+      value = parseFloat(val);
+      if (isNaN(value)) return;
     }
+    const outcome = editLoad(loadId, { [field]: value });
+    if (outcome === 'zero') { uiStore.toast(t('editLoad.zero'), 'info'); return; }
+    if (outcome === 'place') { uiStore.toast(t('editLoad.offMember'), 'info'); return; }
+    if (outcome !== 'done') return;
     resultsStore.clear();
     warnIfTransverseOnTruss(loadId);
   }
@@ -55,9 +62,9 @@
     resultsStore.clear();
   }
 
+  /** The same load read on the other axes: every component re-expressed (`load-frame.ts`). */
   function setLoadFrame(loadId: number, frame: 'global' | 'local') {
-    modelStore.updateLoad(loadId, { frame: frame === 'global' ? 'global' : undefined });
-    resultsStore.clear();
+    if (setMemberLoadFrame(loadId, frame)) resultsStore.clear();
   }
 
   function deleteSelectedLoads() {
@@ -260,7 +267,8 @@
       <label class="ft-input-group"><span>qYJ:</span><UnitInput value={dl3.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       <label class="ft-input-group"><span>qZI:</span><UnitInput value={dl3.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       <label class="ft-input-group"><span>qZJ:</span><UnitInput value={dl3.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
-      {#if dl3.frame === 'global'}
+      <!-- Along X in Global; in Local, along the member: shown whenever it loads the member. -->
+      {#if dl3.frame === 'global' || dl3.qXI || dl3.qXJ}
         <label class="ft-input-group"><span>qXI:</span><UnitInput value={dl3.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
         <label class="ft-input-group"><span>qXJ:</span><UnitInput value={dl3.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       {/if}

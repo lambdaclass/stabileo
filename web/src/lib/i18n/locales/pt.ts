@@ -4179,6 +4179,8 @@ const pt: Translations = {
   'drawBar.loadKind': 'Tipo de carga',
   'drawBar.thermal': 'Térmica',
   'drawBar.loadIsZero': 'Todas as componentes da carga são zero: digite um valor na barra de desenho.',
+  'editLoad.zero': 'Todas as componentes da carga ficariam zero: se não a quer, apague-a. Ficou como estava.',
+  'editLoad.offMember': 'Assim a carga fica fora da sua barra: a e b avançam a partir do nó I e ficam sobre ela (0 ≤ a < b ≤ L), e o a de uma carga pontual também. Ficou como estava.',
   'drawBar.plateCreated': 'Placa {id} criada com {n} nós.',
   'pro.drawStartHint': 'Clique no modelo para colocá-lo. A caixinha sobre o modelo avisa que você está desenhando, e volta para Selecionar.',
   'pro.drawStopHint': 'Voltar para Selecionar.',

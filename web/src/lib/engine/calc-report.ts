@@ -35,6 +35,8 @@ export type AnalysisModeLabel = '2D' | '3D' | 'PRO';
 export interface CalcReportData {
   config: CalcReportConfig;
   is3D: boolean;
+  /** A flat 2D model the 3D view shows upright: the figure stands it up the same way. */
+  project2DToXZ?: boolean;
   analysisMode: AnalysisModeLabel;
   provenance: ResultProvenance;
   hasDesignChecks: boolean;
@@ -220,7 +222,7 @@ function buildModelSection(data: CalcReportData): string {
   h.push(`<h1 id="sec-model">1. ${t('app.modelData')}</h1>`);
 
   // The numbered model the tables below refer to.
-  const figure = modelFigureSvg({ nodes: data.nodes, elements: data.elements, supports: data.supports, is3D: data.is3D });
+  const figure = modelFigureSvg({ nodes: data.nodes, elements: data.elements, supports: data.supports, is3D: data.is3D, project2DToXZ: data.project2DToXZ });
   if (figure) {
     h.push(`<figure class="model-fig">${figure}<figcaption>${t('calcReport.modelFigure')}</figcaption></figure>`);
   }

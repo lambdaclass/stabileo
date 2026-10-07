@@ -111,8 +111,16 @@ export function loadComponentsText(type: string, d: Record<string, any>, us: Uni
 /**
  * A thermal load: the uniform change and the gradient. Both are differences of
  * temperature, so in imperial 20 °C reads 36 °F, not the 68 °F of a temperature.
+ *
+ * Named as the mode that wrote it names them: Basic's ΔTg (the change) and ∇T (the gradient),
+ * PRO's ΔT, ΔTgz and ΔTgy (its tables and load card). In PRO «ΔTg» is a gradient, so Basic's
+ * names in a PRO report read the uniform change as one. The side-to-side gradient, which only
+ * PRO writes, is given when it is there.
  */
-export function thermalText(d: { dtUniform?: number; dtGradient?: number }, us: UnitSystem = 'SI'): string {
+export function thermalText(
+  d: { dtUniform?: number; dtGradient?: number; dtGradientY?: number }, us: UnitSystem = 'SI', mode: 'basic' | 'pro' = 'basic',
+): string {
   const dt = (v: number | undefined) => `${val(v ?? 0, 'temperatureDelta', us)}${unitLabel('temperatureDelta', us)}`;
-  return `ΔTg=${dt(d.dtUniform)}, ∇T=${dt(d.dtGradient)}`;
+  if (mode === 'basic') return `ΔTg=${dt(d.dtUniform)}, ∇T=${dt(d.dtGradient)}`;
+  return `ΔT=${dt(d.dtUniform)}, ΔTgz=${dt(d.dtGradient)}` + (nonZero(d.dtGradientY) ? `, ΔTgy=${dt(d.dtGradientY)}` : '');
 }

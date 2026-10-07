@@ -8,6 +8,7 @@
  * zoom, with any labels toggled, in 2D or in 3D (an isometric view, Z up).
  * Pure: returns an SVG string.
  */
+import { projectNodeToScene } from '../../geometry/coordinate-system';
 
 export interface FigureNode { id: number; x: number; y: number; z?: number }
 export interface FigureMember { id: number; nodeI: number; nodeJ: number; type?: string }
@@ -18,6 +19,12 @@ export interface ModelFigureInput {
   elements: readonly FigureMember[];
   supports: readonly FigureSupport[];
   is3D: boolean;
+  /**
+   * A flat 2D model the 3D view shows upright (vertical in y, see shouldProjectModelToXZ): its
+   * nodes go to the scene as that view places them, x across and y up, before the isometric.
+   * Without it a portal column (0,0)→(0,3) was drawn lying on the ground, as a diagonal.
+   */
+  project2DToXZ?: boolean;
 }
 
 /** Width of the figure in CSS pixels; the height follows the model. */
@@ -42,7 +49,10 @@ const r1 = (v: number) => v.toFixed(1);
 
 export function modelFigureSvg(input: ModelFigureInput): string {
   const pts = new Map<number, { x: number; y: number }>();
-  for (const n of input.nodes) pts.set(n.id, project(n, input.is3D));
+  for (const n of input.nodes) {
+    const at = input.is3D ? { id: n.id, ...projectNodeToScene(n, input.project2DToXZ) } : n;
+    pts.set(n.id, project(at, input.is3D));
+  }
   if (!pts.size) return '';
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

@@ -17,6 +17,7 @@ import { COLORS } from './selection-helpers';
 import type { Displacement3D, ElementForces3D } from '../engine/types-3d';
 import type { Node, Element } from '../store/model.svelte';
 import { memberLocalCurve, type ElementEI, type LocalCurve } from '../engine/member-deflection';
+import { takesNoBending } from '../engine/member-loads';
 
 const SEGMENTS_PER_ELEMENT = 20;
 
@@ -151,8 +152,10 @@ export function createDeformedLines(
     // both ends have zero displacement (e.g. simply supported beam).
     // Fall back to linear interpolation when forces are missing.
     // A truss member carries axial force only, so it stays straight between its displaced nodes:
-    // the linear interpolation below, not the bending shape of its joints' rotations.
-    if (ef && eiEntry && elem.type !== 'truss') {
+    // the linear interpolation below, not the bending shape of its joints' rotations. So does a
+    // frame member that works one way (a cable, tension- or compression-only), which the solve
+    // takes as a truss (`takesNoBending`): drawn curved, a cable sat 2.6 m off its chord.
+    if (ef && eiEntry && !takesNoBending(elem)) {
       const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       // Effective roll = element rollAngle + section rotation, matching the

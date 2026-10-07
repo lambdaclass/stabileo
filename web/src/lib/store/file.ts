@@ -57,8 +57,12 @@ export interface DedalFile {
    * alone in the first case rather than asserting a value the file never stated.
    */
   includeSelfWeight?: boolean;
-  /** The load case Basic's self-weight goes in; absent: the first dead-load case. */
-  selfWeightCaseId?: number;
+  /**
+   * The load case Basic's self-weight goes in; `null`: the first dead-load case. Absent: a file
+   * written while Basic put self-weight in EVERY dead-load case (see
+   * noteBasicSelfWeightRuleIfNeeded), so a newer file always writes the key.
+   */
+  selfWeightCaseId?: number | null;
 }
 
 /** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
@@ -217,8 +221,18 @@ export function buildProjectFile(): DedalFile {
      * is the format people actually keep, and it was the one dropping it.
      */
     includeSelfWeight: uiStore.includeSelfWeight,
-    ...(uiStore.selfWeightCaseId !== null ? { selfWeightCaseId: uiStore.selfWeightCaseId } : {}),
+    selfWeightCaseId: statedSelfWeightCaseId(),
   });
+}
+
+/**
+ * The case Basic's self-weight goes in, as a file or a link writes it: the one chosen while it
+ * still exists, else `null` (the first dead-load case — what the solve reads for a deleted one).
+ * Always a value, never absent: absence is how an older project is told apart.
+ */
+export function statedSelfWeightCaseId(): number | null {
+  const chosen = uiStore.selfWeightCaseId;
+  return chosen !== null && modelStore.model.loadCases.some((c) => c.id === chosen) ? chosen : null;
 }
 
 /**
@@ -295,6 +309,7 @@ export function deserializeProject(text: string): boolean {
   // plain `if (data.includeSelfWeight)` would drop exactly the case this fixes.
   if (data.includeSelfWeight !== undefined) uiStore.includeSelfWeight = data.includeSelfWeight;
   uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
+  noteBasicSelfWeightRuleIfNeeded(data.selfWeightCaseId !== undefined, uiStore.analysisMode);
   viewVisibility.showAll();
   validateAxisSafety(data);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
@@ -322,6 +337,25 @@ export function noteAxisConventionMigrationIfNeeded(
     && Array.isArray(snap.elements) && snap.elements.length > 0) {
     uiStore.toast(t('file.loadedNoAxisConvention'), 'info');
   }
+}
+
+/**
+ * Basic put self-weight in every dead-load case; it now goes in one (basicSelfWeight in
+ * model.svelte.ts). On a project written before, with two or more dead-load cases, every
+ * combination that adds them changes on opening — a cantilever with D1 = 10 kN, D2 = 5 kN and
+ * U = 1.2·D1 + 1.2·D2 went from about 23.2 to 20.6 kN — so it is said once, with PRO's words for
+ * the same change. Shared by every load path, as the note above is: `.ded`, link, tab, autosave.
+ *
+ * `statesCase`: the project wrote `selfWeightCaseId` (a number or `null`); every newer one does.
+ * Only a Basic workspace with self-weight on and members is told: PRO migrates on its own
+ * (self-weight-migration.ts), and with the weight off or no members nothing changed.
+ */
+export function noteBasicSelfWeightRuleIfNeeded(statesCase: boolean, analysisMode: string | undefined): void {
+  if (statesCase || analysisMode === 'pro' || !uiStore.includeSelfWeight) return;
+  if (modelStore.elements.size === 0) return;
+  const dead = modelStore.model.loadCases.filter((c) => c.type === 'D');
+  if (dead.length < 2) return;
+  uiStore.toast(t('selfWeight.migratedMany').replaceAll('{case}', dead[0]!.name).replaceAll('{n}', String(dead.length)), 'info');
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {

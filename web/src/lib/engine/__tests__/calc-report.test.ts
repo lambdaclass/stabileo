@@ -143,3 +143,16 @@ describe('calc-report units', () => {
     expect(html).not.toContain('(m²)');
   });
 });
+
+describe('the report figure of a 2D model shown upright in 3D', () => {
+  it('stands the column up, as the 3D view shows it', () => {
+    const nodes = [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 3, z: 0 }] as never;
+    const elements = [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }] as never;
+    const line = (html: string) => html.match(/<line x1="([^"]+)" y1="[^"]+" x2="([^"]+)"/)!.slice(1, 3).map(Number);
+    const [x1, x2] = line(generateCalcReportHtml(baseData({ is3D: true, analysisMode: '3D', nodes, elements, project2DToXZ: true })));
+    expect(x1).toBeCloseTo(x2!, 1);
+    // Without the flag the same nodes are a 3D model lying in the ground plane: a diagonal.
+    const [y1, y2] = line(generateCalcReportHtml(baseData({ is3D: true, analysisMode: '3D', nodes, elements })));
+    expect(Math.abs(y1! - y2!)).toBeGreaterThan(10);
+  });
+});

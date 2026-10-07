@@ -7,7 +7,9 @@
  * frame or a case never scales.
  */
 import { modelStore, type Load } from './model.svelte';
-import { scaledLoad } from '../model/loads/load-magnitudes';
+import { uiStore } from './ui.svelte';
+import { editLeavesNothing, scaledLoad } from '../model/loads/load-magnitudes';
+import { reframedMemberLoad, type LoadFrame } from '../model/loads/load-frame';
 
 /** The loads with these ids, in model order. */
 function picked(ids: Iterable<number>): Load[] {
@@ -31,6 +33,30 @@ export function addLoads(loads: readonly Load[]): number[] {
 export function addNodalLoadIfAny(nodeId: number, v: { fx: number; fy: number; fz: number; mx: number; my: number; mz: number }, caseId: number): number | null {
   if ([v.fx, v.fy, v.fz, v.mx, v.my, v.mz].every((x) => x === 0)) return null;
   return modelStore.addNodalLoad3D(nodeId, v.fx, v.fy, v.fz, v.mx, v.my, v.mz, caseId);
+}
+
+/**
+ * A thermal load on a member, or null and nothing added when both its changes are zero: the 3D
+ * thermal tool wrote ΔTg = ∇T = 0, where every other tool refuses a load of nothing.
+ */
+export function addThermalLoadIfAny(elementId: number, dtUniform: number, dtGradient: number, caseId: number): number | null {
+  if (dtUniform === 0 && dtGradient === 0) return null;
+  return modelStore.addThermalLoad(elementId, dtUniform, dtGradient, caseId);
+}
+
+/**
+ * What became of an edit from the edit card: made; refused because it would leave a load of
+ * nothing (`zero`); refused because it puts a member load off its member (`place`, the store's
+ * `editKeepsPlace`); or no such load (`gone`). A refused edit changes nothing, not even the
+ * version, so the card says why and keeps the results, where it used to say nothing and clear them.
+ */
+export type LoadEditOutcome = 'done' | 'zero' | 'place' | 'gone';
+
+export function editLoad(loadId: number, edit: Record<string, number | boolean | string | undefined>): LoadEditOutcome {
+  const load = modelStore.loads.find((l) => l.data.id === loadId);
+  if (!load) return 'gone';
+  if (editLeavesNothing(load, edit)) return 'zero';
+  return modelStore.updateLoad(loadId, edit) ? 'done' : 'place';
 }
 
 /** Whether the model has the case: loads written to one it does not have belong to no case. */
@@ -114,4 +140,19 @@ export function caseDeletionScope(caseId: number): { loads: number; combinations
     selfWeight: modelStore.model.analysis?.selfWeight?.filter((r) => r.caseId === caseId).length ?? 0,
     mass: ms?.kind === 'custom' && ms.factors.some((f) => f.caseId === caseId),
   };
+}
+
+/**
+ * A member load moved to frame `to` (the edit card's Global / Local), acting as it did: every
+ * component re-expressed (`model/loads/load-frame.ts`), not the frame alone, which turned a
+ * global sideways qX into an axial one. One undo step; false, and nothing changed, when the load
+ * is in that frame already, has no frame, or its member has no axes.
+ */
+export function setMemberLoadFrame(loadId: number, to: LoadFrame): boolean {
+  const load = modelStore.loads.find((l) => l.data.id === loadId);
+  if (!load) return false;
+  const now = (load.data as { frame?: string }).frame ?? 'local';
+  if (now === to) return false;
+  const edit = reframedMemberLoad(load, modelStore.model as never, to, uiStore.axisConvention3D === 'leftHand');
+  return edit ? modelStore.updateLoad(loadId, edit) : false;
 }

@@ -49,3 +49,24 @@ describe('the report\'s model figure', () => {
     expect(modelFigureSvg({ nodes: [], elements: [], supports: [], is3D: false })).toBe('');
   });
 });
+
+describe('a 2D model shown upright in the 3D workspace', () => {
+  /** The members' lines, as [x1, y1, x2, y2] in the drawing. */
+  const lines = (svg: string) => [...svg.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)]
+    .map((m) => m.slice(1, 5).map(Number));
+
+  it('draws a column standing, as the 3D view shows it, not lying on the ground', () => {
+    // A portal: two columns (0,0)→(0,3) and (4,0)→(4,3) and the beam; vertical in y, z = 0.
+    const portal = [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 3, z: 0 }, { id: 3, x: 4, y: 3, z: 0 }, { id: 4, x: 4, y: 0, z: 0 }];
+    const svg = modelFigureSvg({
+      nodes: portal, elements: [el(1, 1, 2), el(2, 2, 3), el(3, 4, 3)], supports: [{ nodeId: 1 }, { nodeId: 4 }],
+      is3D: true, project2DToXZ: true,
+    });
+    const [column, beam] = lines(svg);
+    // Upright on the page: one x, the top above the foot (SVG y grows downward).
+    expect(column![0]).toBeCloseTo(column![2]!, 1);
+    expect(column![3]).toBeLessThan(column![1]! - 10);
+    // The beam is not vertical; it runs across in the isometric view.
+    expect(Math.abs(beam![0]! - beam![2]!)).toBeGreaterThan(10);
+  });
+});

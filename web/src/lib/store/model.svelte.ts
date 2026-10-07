@@ -518,6 +518,12 @@ export interface Element extends Element3DMetadata {
   reinforcement?: ProvidedReinforcement;
   /** Inactive, tension only or compression only (`engine/member-behaviour.ts`). Absent: linear. */
   behaviour?: import('../engine/member-behaviour').MemberBehaviour;
+  /**
+   * The members this one lies over and was kept with ("Keep both" on the overlap question,
+   * `model/edit/connection-questions.ts`): not asked about again, on this open or the next.
+   * Read only by that question; the analysis and the diagnostics do not look at it.
+   */
+  keptOver?: number[];
   /** Factors on A, Iy, Iz and J for the analysis only; the section itself is not changed. */
   stiffness?: import('../engine/member-behaviour').StiffnessModifiers;
   /** Semi-rigid ends: rotational stiffness about local y and z, kN·m/rad (`engine/expand-semi-rigid-3d.ts`). */

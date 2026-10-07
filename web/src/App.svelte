@@ -32,7 +32,7 @@
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -730,6 +730,7 @@
       // the self-weight it was computed with rather than the session's.
       if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
       uiStore.selfWeightCaseId = autosaveData.selfWeightCaseId ?? null;
+      noteBasicSelfWeightRuleIfNeeded(autosaveData.selfWeightCaseId !== undefined, uiStore.analysisMode);
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;

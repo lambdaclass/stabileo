@@ -8,7 +8,7 @@ import { viewVisibility } from './view-state.svelte';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
-import { noteAxisConventionMigrationIfNeeded } from './file';
+import { noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded } from './file';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
 import type { ViewportPresentation3D } from '../geometry/coordinate-system';
@@ -255,6 +255,8 @@ function createTabManager() {
       // Restore other per-tab settings
       uiStore.includeSelfWeight = state.includeSelfWeight;
       uiStore.selfWeightCaseId = state.selfWeightCaseId ?? null;
+      // A tab kept by an older session has no case at all: its self-weight was in every D case.
+      noteBasicSelfWeightRuleIfNeeded(state.selfWeightCaseId !== undefined, state.analysisMode);
       viewVisibility.showAll();
       uiStore.liveCalc = state.liveCalc;
 

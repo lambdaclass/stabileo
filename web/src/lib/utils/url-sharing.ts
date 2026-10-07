@@ -15,7 +15,7 @@ import { viewVisibility } from '../store/view-state.svelte';
 import { NO_RELEASE, type Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
-import { noteAxisConventionMigrationIfNeeded } from '../store/file';
+import { noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded, statedSelfWeightCaseId } from '../store/file';
 import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share';
 import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
@@ -184,7 +184,8 @@ export interface ShareMeta {
   axisConvention3D?: string;
   // Self-weight
   includeSelfWeight?: boolean;
-  selfWeightCaseId?: number;
+  /** `null`: the first dead-load case. Absent: an older link, which put it in every one. */
+  selfWeightCaseId?: number | null;
   // Live calc
   liveCalc?: boolean;
   // Viewport state (2D)
@@ -315,6 +316,9 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     const jj = (v as any).jointJ as { dof?: boolean[] } | undefined;
     if (ji?.dof?.some(Boolean)) opt.ji = ji.dof.map(d => (d ? 1 : 0));
     if (jj?.dof?.some(Boolean)) opt.jj = jj.dof.map(d => (d ? 1 : 0));
+    // "Keep both" on an overlap, so the link does not ask again (connection-questions.ts).
+    const ko = (v as { keptOver?: number[] }).keptOver;
+    if (ko?.length) opt.ko = ko;
     if (Object.keys(opt).length > 0) arr.push(opt);
     return arr;
   });
@@ -520,6 +524,7 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         // would build a wrong-length releases mask straight into the solver.
         ...(Array.isArray(opt.ji) && opt.ji.length === 6 ? { jointI: { dof: (opt.ji as number[]).map(d => d === 1) } } : {}),
         ...(Array.isArray(opt.jj) && opt.jj.length === 6 ? { jointJ: { dof: (opt.jj as number[]).map(d => d === 1) } } : {}),
+        ...(Array.isArray(opt.ko) && opt.ko.every((x: unknown) => typeof x === 'number') ? { keptOver: opt.ko as number[] } : {}),
       }];
     }),
 
@@ -716,7 +721,8 @@ function buildShareMeta(includeViewport: boolean): ShareMeta {
     localAxesMode3D: uiStore.localAxesMode3D,
     axisConvention3D: uiStore.axisConvention3D,
     includeSelfWeight: uiStore.includeSelfWeight,
-    ...(uiStore.selfWeightCaseId !== null ? { selfWeightCaseId: uiStore.selfWeightCaseId } : {}),
+    // Always written (`null` is not a default the compact form drops): see statedSelfWeightCaseId.
+    selfWeightCaseId: statedSelfWeightCaseId(),
     liveCalc: uiStore.liveCalc,
   };
   if (includeViewport) {
@@ -853,6 +859,7 @@ function restoreMeta(snapshot: ModelSnapshot): void {
   // Other settings
   if (meta.includeSelfWeight !== undefined) uiStore.includeSelfWeight = meta.includeSelfWeight;
   uiStore.selfWeightCaseId = meta.selfWeightCaseId ?? null;
+  noteBasicSelfWeightRuleIfNeeded(meta.selfWeightCaseId !== undefined, uiStore.analysisMode);
   viewVisibility.showAll();
   if (meta.liveCalc !== undefined) uiStore.liveCalc = meta.liveCalc;
   // Viewport state

@@ -7,8 +7,11 @@
  * Accepted while the model is still as its edit left it, a connection joins
  * that edit's undo step, so one undo takes both back; a question whose yes
  * removes what the edit made (`undoesEdit`) undoes the edit instead. Accepted after other
- * edits, it is a step of its own. Declining changes nothing. A question whose
- * subject is gone (deleted, undone, already connected) drops out on its own.
+ * edits, it is a step of its own. "Other edits" are any that took an undo step, not only those
+ * that changed the analysed model: a named view or a footing takes one and leaves the version
+ * alone, and the edit's step is then no longer the last. A question not about an edit (`ownStep`:
+ * a file opened, a model imported) is always a step of its own. Declining changes nothing. A
+ * question whose subject is gone (deleted, undone, already connected) drops out on its own.
  */
 import { modelStore } from './model.svelte';
 import { historyStore } from './history.svelte';
@@ -29,9 +32,20 @@ export interface ConnectionQuestion {
    * such as a member split for its end). Later, it is `run` as a step of its own.
    */
   undoesEdit?: boolean;
+  /**
+   * Not about an edit: asked when a model was opened or imported. Its yes is a step of its own,
+   * so an undo goes back to the model as it came, not to before it was opened.
+   */
+  ownStep?: boolean;
+  /**
+   * What the no does, when it does more than leave things as they are: "Keep both" remembers the
+   * pair, and asks what the overlap held back. Not an edit; run only while the question applies.
+   */
+  declined?: () => void;
 }
 
-type Queued = ConnectionQuestion & { id: number; version: number };
+/** `version` and `step`: the model and the undo stack as the edit left them. */
+type Queued = ConnectionQuestion & { id: number; version: number; step: object | null };
 
 let queue = $state.raw<Queued[]>([]);
 let index = $state(0);
@@ -76,7 +90,7 @@ export const connectionPrompt = {
 
   ask(q: ConnectionQuestion): void {
     prune();
-    const item: Queued = { ...q, id: ++seq, version: modelStore.modelVersion };
+    const item: Queued = { ...q, id: ++seq, version: modelStore.modelVersion, step: historyStore.lastStep };
     const rest = q.key ? queue.filter((x) => x.key !== q.key) : queue;
     queue = [...rest, item];
     index = queue.length - 1;
@@ -88,7 +102,7 @@ export const connectionPrompt = {
     if (!q) return;
     remove(q);
     if (!applies(q)) return;
-    const untouched = modelStore.modelVersion === q.version;
+    const untouched = !q.ownStep && modelStore.modelVersion === q.version && historyStore.lastStep === q.step;
     if (untouched && q.undoesEdit) {
       // An undo puts a snapshot back, and a put-back model forgets every question
       // (store/index.ts); the others in the queue were not about this edit.
@@ -104,7 +118,9 @@ export const connectionPrompt = {
   decline(): void {
     prune();
     const q = queue[index];
-    if (q) remove(q);
+    if (!q) return;
+    remove(q);
+    if (applies(q)) q.declined?.();
   },
 
   next(): void { prune(); if (queue.length) index = (index + 1) % queue.length; },

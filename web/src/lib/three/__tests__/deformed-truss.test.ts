@@ -52,3 +52,14 @@ describe('deformed shape of a truss member', () => {
     expect(offLine(frame)).toBeGreaterThan(1e-3);
   });
 });
+
+describe('deformed shape of a frame member that works one way', () => {
+  it('a cable, a tension-only or a compression-only member is solved as a truss, and drawn straight like one', () => {
+    for (const behaviour of ['cable', 'tensionOnly', 'compressionOnly']) {
+      const el = new Map([[1, { id: 1, type: 'frame', behaviour, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]]) as never;
+      const ps = points(createDeformedLines(el, NODES, DISP, FORCES, 100, EI));
+      expect(ps.length).toBeGreaterThan(2);
+      expect(offLine(ps)).toBeLessThan(1e-5);
+    }
+  });
+});
