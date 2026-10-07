@@ -27,7 +27,10 @@
  *
  * NODAL loads have no such carrier, and spreading them onto the adjacent members would move half
  * their mass to the far ends. They are left out and COUNTED, so the report says how much weight
- * did not become mass rather than letting a total look complete.
+ * did not become mass rather than letting a total look complete. The one exception names its
+ * member: a floor's share past a side's end, at a re-entrant corner, is that side's load put at
+ * its end node, and weighs on that member as the rest of the side's load does (`carried`). The
+ * plan counts it in the level's weight, and left out here the same floor weighed less.
  *
  * ── Why the loads come from the model and not from the analysis input ──
  *
@@ -140,6 +143,11 @@ export interface CaseMassLoads {
   loads: SolverLoad3D[];
   /** Surface loads, kN/m², positive downward (their weight over the shell's area); a triangle says so. */
   surface: ReadonlyArray<{ quadId: number; q: number; on?: 'plate' }>;
+  /**
+   * Nodal loads that name the member they belong to (`NodalLoad3D.carrier`): kN, positive
+   * downward, carried by that member like a load on it.
+   */
+  carried?: ReadonlyArray<{ elementId: number; down: number }>;
 }
 
 export interface MassSourceReport {
@@ -253,6 +261,10 @@ export function applyMassSource(
         down = -(l.data.py * g.ey[2] + l.data.pz * g.ez[2]);
       }
       mw.set(l.data.elementId, (mw.get(l.data.elementId) ?? 0) + down * c.factor);
+    }
+    for (const n of c.carried ?? []) {
+      if (!memberGeometry(input, n.elementId)) { if (n.down > 0) excludedNodalKN += n.down * c.factor; continue; }
+      mw.set(n.elementId, (mw.get(n.elementId) ?? 0) + n.down * c.factor);
     }
     // A triangle is keyed by its id negated: plates and quads number apart.
     for (const s of c.surface) {

@@ -315,6 +315,8 @@ export interface PlannedNodal {
   fz: number;
   /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
   mz?: number;
+  /** The member a floor's share at a re-entrant corner belongs to (`NodalLoad3D.carrier`). */
+  carrier?: number;
 }
 
 /** The lists a planning step appends to: the plan's cases, loads and what it says about them. */

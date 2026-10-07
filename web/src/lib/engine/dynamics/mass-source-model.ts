@@ -44,12 +44,24 @@ export function caseMassLoads(
       const q = surfaceDownwardPressure(d, model.quads as never, model.nodes as never, model.plates as never);
       return q === null ? [] : [{ quadId: d.quadId, q, ...(d.on ? { on: d.on } : {}) }];
     });
-    const rest = own.filter((l) => WEIGHT.has(l.type));
+    // A nodal load that names its member (a floor's share at a re-entrant corner) weighs on it,
+    // when the member is still there and ends at the node.
+    const carrierOf = (l: Load): number | null => {
+      if (l.type !== 'nodal3d' || l.data.carrier === undefined) return null;
+      const e = model.elements.get(l.data.carrier);
+      return e && (e.nodeI === l.data.nodeId || e.nodeJ === l.data.nodeId) ? e.id : null;
+    };
+    const carried = own.flatMap((l) => {
+      const id = carrierOf(l);
+      return id === null || l.type !== 'nodal3d' ? [] : [{ elementId: id, down: -l.data.fz }];
+    });
+    const rest = own.filter((l) => WEIGHT.has(l.type) && carrierOf(l) === null);
     out.push({
       caseId: f.caseId,
       factor: f.factor,
       loads: buildSolverLoads3D(model, rest, [], leftHand),
       surface,
+      ...(carried.length ? { carried } : {}),
     });
   }
   return out;

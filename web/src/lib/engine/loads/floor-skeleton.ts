@@ -12,7 +12,10 @@
  * The front is simulated event by event (Felkel and Obdržálek): a side shrinking to nothing (its
  * two ends meet), and a re-entrant corner reaching another side, which splits the front, or joins
  * an opening's front to the outer one. Between events every stretch of front sweeps a trapezoid;
- * those are the cells returned, per side.
+ * those are the cells returned, per side. Events are taken one at a time, each found anew on the
+ * front the last one left, so several at one moment (a rectangle's two short sides; an opening's
+ * corner reaching a side just as the side's end does) follow one another zero apart, and what
+ * has met along a line or shrunk to nothing is cleared between them.
  *
  * Loops: the outer one counter-clockwise, openings clockwise, so the panel lies left of every
  * side. Pure.
@@ -49,6 +52,8 @@ export function skeletonCells(loops: readonly (readonly P2[])[]): P2[][][] | nul
     scale = Math.max(scale, span);
   }
   const eps = 1e-9 * Math.max(1, scale);
+  /** A length, and an area, too small to be anything but rounding. */
+  const tolL = 10 * eps, tolA = 1e-12 * Math.max(1, scale) ** 2;
   const cells: P2[][][] = [];
 
   for (const loop of loops) {
@@ -66,11 +71,14 @@ export function skeletonCells(loops: readonly (readonly P2[])[]): P2[][][] | nul
       verts.push({ x: loop[k]!, w: [0, 0], eL: base + (k - 1 + m) % m, eR: base + k, prev: vbase + (k - 1 + m) % m, next: vbase + (k + 1) % m, alive: true });
     }
   }
-  /** Null for two fronts facing each other: they have met, and the area check ends that loop. */
+  /**
+   * The velocity of the corner between two sides' fronts. Null for two fronts facing each other
+   * along one line: they have met there (`tidy` takes the spike out).
+   */
   const velocity = (eL: number, eR: number): P2 | null => {
     const a = edges[eL]!.n, b = edges[eR]!.n;
     const det = a[0] * b[1] - a[1] * b[0];
-    if (Math.abs(det) < 1e-12) return dot(a, b) > 0 ? [a[0], a[1]] : null;
+    if (Math.abs(det) < 1e-10) return dot(a, b) > 0 ? [a[0], a[1]] : null;
     return [(b[1] - a[1]) / det, (a[0] - b[0]) / det];
   };
   for (const v of verts) v.w = velocity(v.eL, v.eR) ?? [0, 0];
@@ -78,143 +86,127 @@ export function skeletonCells(loops: readonly (readonly P2[])[]): P2[][][] | nul
   let T = 0;
   const reflex = (v: V) => cross(edges[v.eL]!.u, edges[v.eR]!.u) < -1e-12;
   const kill = (i: number) => { verts[i]!.alive = false; };
+  /** A new corner between `prev` and `next`, from side `eL` to side `eR`, linked in. */
+  const join = (x: P2, eL: number, eR: number, prev: number, next: number): number => {
+    const id = verts.length;
+    verts.push({ x, w: velocity(eL, eR) ?? [0, 0], eL, eR, prev, next, alive: true });
+    verts[prev]!.next = id; verts[next]!.prev = id;
+    return id;
+  };
+  /** A side whose front has shrunk to nothing: its two corners become one. */
+  const collapse = (i: number) => {
+    const v = verts[i]!, ni = v.next, n = verts[ni]!;
+    kill(i); kill(ni);
+    if (n.next === i) return; // a loop of two: nothing left
+    join([(v.x[0] + n.x[0]) / 2, (v.x[1] + n.x[1]) / 2], v.eL, n.eR, v.prev, n.next);
+  };
+  /** How fast the front of the side from `v` to the next corner grows (negative: shrinks). */
+  const growth = (v: V) => dot(edges[v.eR]!.u, sub(verts[v.next]!.w, v.w));
 
-  /** Loops of the alive vertices. */
+  /** Loops of the live corners. */
   const liveLoops = (): number[][] => {
     const seen = new Set<number>(), out: number[][] = [];
     verts.forEach((v, i) => {
       if (!v.alive || seen.has(i)) return;
       const loop: number[] = [];
-      let j = i, guard = 0;
-      while (!seen.has(j) && guard++ < 100000) { seen.add(j); loop.push(j); j = verts[j]!.next; }
+      let j = i;
+      while (!seen.has(j)) { seen.add(j); loop.push(j); j = verts[j]!.next; }
       out.push(loop);
     });
     return out;
   };
 
-  /** Consecutive vertices at one point merge (a side that has shrunk away); dead loops end. */
+  /**
+   * The front made clean before the next event, one change at a time, each on the front as it
+   * stands: a loop with no area left ends; a stretch of front with no length and not growing goes
+   * (its corners become one); a corner between two stretches of one side goes; and two fronts that
+   * have met along a line, out and back (a spike), are swept where they overlap, and what is left
+   * of the longer one goes on.
+   */
   const tidy = () => {
-    let changed = true;
-    while (changed) {
-      changed = false;
+    for (let guard = 0; guard < 100000; guard++) {
+      let changed = false;
       for (const loop of liveLoops()) {
-        if (loop.length < 3 || Math.abs(polyArea(loop.map((i) => verts[i]!.x))) < eps * eps * 10) {
+        if (loop.length < 3 || Math.abs(polyArea(loop.map((i) => verts[i]!.x))) <= tolA) {
           for (const i of loop) kill(i);
-          changed = true;
-          continue;
-        }
-        // Two fronts facing each other on one line have met: the loop runs out along it and back
-        // (a spike). The stretch where they overlap is swept; what is left of the longer one goes on.
-        for (const i of loop) {
-          const sv = verts[i]!;
-          if (!sv.alive || velocity(sv.eL, sv.eR) !== null) continue;
-          const pi = sv.prev, ni = sv.next;
-          const p = verts[pi]!, n = verts[ni]!;
-          if (pi === ni) continue;
-          const dp = Math.hypot(...sub(p.x, sv.x)), dn = Math.hypot(...sub(n.x, sv.x));
-          const id = verts.length;
-          if (Math.abs(dp - dn) <= eps * 10) {
-            const w = velocity(p.eL, n.eR);
-            verts.push({ x: p.x, w: w ?? [0, 0], eL: p.eL, eR: n.eR, prev: p.prev, next: n.next, alive: true });
-            verts[p.prev]!.next = id; verts[n.next]!.prev = id;
-            kill(pi); kill(ni);
-          } else if (dp < dn) {
-            const w = velocity(p.eL, sv.eR);
-            verts.push({ x: p.x, w: w ?? [0, 0], eL: p.eL, eR: sv.eR, prev: p.prev, next: ni, alive: true });
-            verts[p.prev]!.next = id; n.prev = id;
-            kill(pi);
-          } else {
-            const w = velocity(sv.eL, n.eR);
-            verts.push({ x: n.x, w: w ?? [0, 0], eL: sv.eL, eR: n.eR, prev: pi, next: n.next, alive: true });
-            p.next = id; verts[n.next]!.prev = id;
-            kill(ni);
-          }
-          kill(i);
           changed = true;
           break;
         }
-        if (changed) break;
         for (const i of loop) {
-          const v = verts[i]!, n = verts[v.next]!;
-          if (!v.alive || !n.alive || v.next === i) continue;
-          if (Math.hypot(...sub(v.x, n.x)) > eps * 10) continue;
-          const w = velocity(v.eL, n.eR);
-          const id = verts.length;
-          verts.push({ x: v.x, w: w ?? [0, 0], eL: v.eL, eR: n.eR, prev: v.prev, next: n.next, alive: true });
-          verts[v.prev]!.next = id; verts[n.next]!.prev = id;
-          kill(i); kill(v.next);
+          const v = verts[i]!, p = verts[v.prev]!, n = verts[v.next]!;
+          if (Math.hypot(...sub(n.x, v.x)) <= tolL && growth(v) <= 1e-9) { collapse(i); changed = true; break; }
+          if (v.eL === v.eR) { kill(i); p.next = v.next; n.prev = v.prev; changed = true; break; }
+          if (velocity(v.eL, v.eR) !== null) continue;
+          const pi = v.prev, ni = v.next;
+          const dp = Math.hypot(...sub(p.x, v.x)), dn = Math.hypot(...sub(n.x, v.x));
+          kill(i);
+          if (Math.abs(dp - dn) <= tolL) { kill(pi); kill(ni); join(p.x, p.eL, n.eR, p.prev, n.next); }
+          else if (dp < dn) { kill(pi); join(p.x, p.eL, v.eR, p.prev, ni); }
+          else { kill(ni); join(n.x, v.eL, n.eR, pi, n.next); }
           changed = true;
           break;
         }
         if (changed) break;
       }
+      if (!changed) return;
     }
   };
 
-  for (let iter = 0; iter < 10000; iter++) {
+  // One event at a time, the earliest, on the front as it stands: a side shrinking to nothing (its
+  // two corners meet), or a re-entrant corner reaching a side, which splits the front in two, or
+  // joins an opening's front to the outer one. Taken a batch at a time, two events at one moment
+  // left a corner linked to corners the other had ended, and the front never closed.
+  const limit = 10 * verts.length + 100;
+  for (let iter = 0; iter < limit; iter++) {
     tidy();
-    const alive = verts.map((v, i) => [v, i] as const).filter(([v]) => v.alive);
+    const alive: number[] = [];
+    verts.forEach((v, i) => { if (v.alive) alive.push(i); });
     if (alive.length === 0) return cells;
 
-    // The next event: a side's ends meeting, or a re-entrant corner reaching a side.
-    let tNext = Infinity;
-    const splits: Array<{ t: number; v: number; a: number }> = [];
-    for (const [v] of alive) {
-      const n = verts[v.next]!;
-      const e = edges[v.eR]!;
-      const L = dot(e.u, sub(n.x, v.x)), rate = dot(e.u, sub(n.w, v.w));
-      if (rate < -1e-12) tNext = Math.min(tNext, T + Math.max(0, -L / rate));
+    let tNext = Infinity, kind: 'edge' | 'split' = 'edge', ev = -1, onto = -1;
+    for (const i of alive) {
+      const v = verts[i]!, rate = growth(v);
+      if (rate >= -1e-12) continue;
+      const t = T + Math.max(0, dot(edges[v.eR]!.u, sub(verts[v.next]!.x, v.x))) / -rate;
+      if (t < tNext) { tNext = t; kind = 'edge'; ev = i; }
     }
-    for (const [v, vi] of alive) {
+    for (const vi of alive) {
+      const v = verts[vi]!;
       if (!reflex(v)) continue;
-      for (const [a, ai] of alive) {
+      for (const ai of alive) {
+        const a = verts[ai]!;
         if (ai === vi || a.next === vi) continue;
-        const ei = a.eR;
-        if (ei === v.eL || ei === v.eR) continue;
-        const e = edges[ei]!;
+        const e = edges[a.eR]!;
+        if (a.eR === v.eL || a.eR === v.eR) continue;
         const d = dot(e.n, v.x) - (e.c + T);
         const rate = 1 - dot(e.n, v.w);
-        if (d < -eps || rate <= 1e-12) continue;
+        if (d < -tolL || rate <= 1e-12) continue;
         const t = T + Math.max(0, d) / rate;
-        const P = at(v, t - T);
-        const b = verts[a.next]!;
-        const sa = dot(e.u, at(a, t - T)), sb = dot(e.u, at(b, t - T)), sp = dot(e.u, P);
-        if (sp < sa - eps * 10 || sp > sb + eps * 10) continue;
-        splits.push({ t, v: vi, a: ai });
-        tNext = Math.min(tNext, t);
+        if (t >= tNext) continue;
+        const sp = dot(e.u, at(v, t - T));
+        if (sp < dot(e.u, at(a, t - T)) - tolL || sp > dot(e.u, at(verts[a.next]!, t - T)) + tolL) continue;
+        tNext = t; kind = 'split'; ev = vi; onto = ai;
       }
     }
     if (!Number.isFinite(tNext)) return null;
 
     // Sweep to it: each stretch of front a trapezoid.
     const dt = tNext - T;
-    for (const [v] of alive) {
-      const n = verts[v.next]!;
+    for (const i of alive) {
+      const v = verts[i]!, n = verts[v.next]!;
       const cell: P2[] = [v.x, n.x, at(n, dt), at(v, dt)];
       if (Math.abs(polyArea(cell)) > eps * eps) cells[v.eR]!.push(cell);
     }
-    for (const [v] of alive) v.x = at(v, dt);
+    for (const i of alive) { const v = verts[i]!; v.x = at(v, dt); }
     T = tNext;
 
-    // The splits due now, one at a time, each checked against the front as it stands.
-    const tol = eps * 100 + 1e-9 * T;
-    for (const s of splits.filter((x) => x.t <= T + tol).sort((p, q) => p.t - q.t)) {
-      const v = verts[s.v]!, a = verts[s.a]!;
-      if (!v.alive || !a.alive) continue;
-      const b = verts[a.next]!;
-      const e = edges[a.eR]!;
-      if (Math.abs(dot(e.n, v.x) - (e.c + T)) > tol * 10) continue;
-      const sp = dot(e.u, v.x);
-      if (sp < dot(e.u, a.x) - tol * 10 || sp > dot(e.u, b.x) + tol * 10) continue;
-      if (a.next === s.v || verts[s.v]!.next === s.a) continue;
-      const w1 = velocity(v.eL, a.eR), w2 = velocity(a.eR, v.eR);
-      const i1 = verts.length, i2 = i1 + 1, bi = a.next, vprev = v.prev, vnext = v.next;
-      verts.push({ x: v.x, w: w1 ?? [0, 0], eL: v.eL, eR: a.eR, prev: vprev, next: bi, alive: true });
-      verts.push({ x: v.x, w: w2 ?? [0, 0], eL: a.eR, eR: v.eR, prev: s.a, next: vnext, alive: true });
-      verts[vprev]!.next = i1; verts[bi]!.prev = i1;
-      a.next = i2; verts[vnext]!.prev = i2;
-      kill(s.v);
-    }
+    if (kind === 'edge') { collapse(ev); continue; }
+    // The corner splits the side it reached: two corners where it was, one on each new loop.
+    const v = verts[ev]!, a = verts[onto]!;
+    const bi = a.next, vprev = v.prev, vnext = v.next;
+    kill(ev);
+    join(v.x, v.eL, a.eR, vprev, bi);
+    join(v.x, a.eR, v.eR, onto, vnext);
   }
   return null;
 }
