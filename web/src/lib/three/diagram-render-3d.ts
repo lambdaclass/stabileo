@@ -14,6 +14,7 @@ import {
   type Diagram3DKind,
 } from '../engine/diagrams-3d';
 import { createTextSprite } from './selection-helpers';
+import { structureNodes } from './node-scale';
 import type { UnitSystem } from '../utils/units';
 import { GLOBAL_Z } from '../geometry/coordinate-system';
 
@@ -117,7 +118,7 @@ export function createDiagramGroup3D(
   // Compute model bounding box for scale reference
   let modelSize = 1;
   const box = new THREE.Box3();
-  for (const [, node] of nodes) {
+  for (const node of structureNodes(nodes, elements.values())) {
     box.expandByPoint(new THREE.Vector3(node.x, node.y, node.z ?? 0));
   }
   const size = box.getSize(new THREE.Vector3());
@@ -336,7 +337,7 @@ export function createEnvelopeDiagramGroup3D(
   // Compute model bounding box for scale reference
   let modelSize = 1;
   const box = new THREE.Box3();
-  for (const [, node] of nodes) {
+  for (const node of structureNodes(nodes, elements.values())) {
     box.expandByPoint(new THREE.Vector3(node.x, node.y, node.z ?? 0));
   }
   const size = box.getSize(new THREE.Vector3());

@@ -10,6 +10,8 @@
   import { generateMesh, type Loop2, type MeshInput, type SideSpec } from '../../lib/model/edit/mesher';
   import { applyMesh, modelPoints } from '../../lib/model/edit/mesh-apply';
   import type { Vec3 } from '../../lib/model/edit/affine';
+  import { fromDisplay, unitLabel } from '../../lib/utils/units';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   type OuterKind = 'polygon' | 'circle';
   let outerKind = $state<OuterKind>('polygon');
@@ -28,7 +30,12 @@
   const num = (s: string) => Number(s.trim().replace(',', '.'));
   const ids = (s: string) => s.split(/[,\s;]+/).map((x) => Number(x)).filter((x) => Number.isInteger(x) && modelStore.nodes.has(x));
   const pos = (id: number): Vec3 => { const n = modelStore.nodes.get(id)!; return [n.x, n.y, n.z ?? 0]; };
-  const vec = (s: string): Vec3 | null => { const v = s.split(';').map(num); return v.length === 3 && v.every(Number.isFinite) ? (v as Vec3) : null; };
+  /** A point typed as "x; y; z" in the display units, in SI. */
+  const vec = (s: string): Vec3 | null => {
+    const v = s.split(';').map(num);
+    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as Vec3) : null;
+  };
+  const lenUnit = $derived(unitLabel('length', uiStore.unitSystem));
 
   function fromSelection() { outlineText = [...uiStore.selectedNodes].join(', '); }
 
@@ -107,8 +114,8 @@
     {/if}
   {:else}
     <div class="ms-row">
-      <label>{t('mesher.center')} <input bind:value={circleCenter} placeholder="x; y; z" data-testid="ms-center" /></label>
-      <label>R <input type="number" min="0.1" step="0.5" bind:value={circleRadius} data-testid="ms-radius" /> m</label>
+      <label>{t('mesher.center')} <input bind:value={circleCenter} placeholder="x; y; z" data-testid="ms-center" /> <span class="ms-unit">{lenUnit}</span></label>
+      <label>R <QuantityInput min={0.1} bind:value={circleRadius} quantity="length" cls="ms-num" testid="ms-radius" /></label>
     </div>
   {/if}
 
@@ -119,13 +126,13 @@
     <div class="ms-row ms-hole">
       <select bind:value={h.kind}><option value="circle">{t('mesher.circle')}</option><option value="polygon">{t('mesher.polygon')}</option></select>
       {#if h.kind === 'polygon'}<input class="ms-wide" bind:value={h.nodes} placeholder={t('mesher.outlinePlaceholder')} />
-      {:else}<input bind:value={h.center} placeholder="x; y; z" data-testid="ms-hole-center-{i}" /> R <input type="number" min="0.05" step="0.1" bind:value={h.radius} data-testid="ms-hole-r-{i}" />{/if}
+      {:else}<input bind:value={h.center} placeholder="x; y; z" data-testid="ms-hole-center-{i}" /> <span class="ms-unit">{lenUnit}</span> R <QuantityInput min={0.05} bind:value={h.radius} quantity="length" cls="ms-num" testid="ms-hole-r-{i}" />{/if}
       <button class="pro-btn" onclick={() => (holes = holes.filter((_, k) => k !== i))}>×</button>
     </div>
   {/each}
 
   <div class="ms-row">
-    <label>{t('mesher.size')} <input type="number" min="0.05" step="0.05" bind:value={size} data-testid="ms-size" /> m</label>
+    <label>{t('mesher.size')} <QuantityInput min={0.05} bind:value={size} quantity="length" cls="ms-num" testid="ms-size" /></label>
     <select bind:value={element} data-testid="ms-element">
       <option value="quad">{t('mesher.quads')}</option>
       <option value="tri">{t('mesher.tris')}</option>
@@ -133,7 +140,7 @@
   </div>
   <div class="ms-row">
     <label>{t('pro.thMaterial')} <select bind:value={materialId}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select></label>
-    <label>{t('pro.thickness')} <input type="number" min="0.001" step="0.01" bind:value={thickness} /> m</label>
+    <label>{t('pro.thicknessLabel')} <QuantityInput min={0.001} bind:value={thickness} quantity="length" cls="ms-num" /></label>
   </div>
   <label class="ms-row"><input type="checkbox" bind:checked={splitBeams} /> {t('pro.meshSplitBeams')}</label>
 
@@ -150,7 +157,8 @@
 <style>
   .ms { display: flex; flex-direction: column; gap: 5px; font-size: 0.68rem; color: var(--st-text-2); }
   .ms-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .ms-row input[type='number'] { width: 60px; }
+  .ms-row :global(input.ms-num) { width: 60px; }
+  .ms-unit { font-size: 0.66rem; color: var(--st-text-3); }
   .ms-wide { flex: 1; min-width: 120px; }
   .ms-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   .ms-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }

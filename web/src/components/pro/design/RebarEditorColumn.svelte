@@ -8,6 +8,7 @@
    * pre-rounding count, so an accepted design could exceed 8 % with no flag.
    */
   import { t, tp } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import { REBAR_DB } from '../../../lib/engine/codes/argentina/cirsoc201';
   import { resolveColumnReinf, computeColumnLayout } from '../../../lib/engine/station-design-forces';
   import { maxTieSpacing, COLUMN_LIMITS } from '../../../lib/engine/design/candidate-enumerate-column';
@@ -107,11 +108,10 @@
              data-testid={`tie-legs-${elementId}`} aria-label={t('design.batch.legs')}
              onchange={(e) => setTies(elementId, { legs: +e.currentTarget.value })} />
       <span class="sub">L c/</span>
-      <input type="number" class="num num-sp" min="0.05" max="0.5" step="0.025"
+      <QuantityInput quantity="length" cls="num num-sp" min={0.05} max={0.5}
              value={state.ties?.spacing ?? 0.15}
-             data-testid={`tie-spacing-${elementId}`} aria-label={t('design.batch.spacing')}
-             onchange={(e) => setTies(elementId, { spacing: +e.currentTarget.value })} />
-      <span class="sub">m</span>
+             testid={`tie-spacing-${elementId}`} ariaLabel={t('design.batch.spacingShort')}
+             onchange={(v) => setTies(elementId, { spacing: v })} />
       <span class="total" class:bad={(state.ties?.spacing ?? 0) > state.sMax + 1e-9}>
         s,max = {(state.sMax * 100).toFixed(0)} cm
       </span>
@@ -128,9 +128,9 @@
   .total-line { border-top: 1px dashed var(--st-surface-3); padding-top: 3px; margin-top: 4px; }
   .faces { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 3px 0; }
   .face { display: flex; flex-direction: column; gap: 1px; }
-  .num { width: 100%; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+  .num, .line :global(input.num) { width: 100%; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
-  .num-sm { width: 34px; } .num-sp { width: 56px; }
+  .num-sm { width: 34px; } .num-sp, .line :global(input.num-sp) { width: 56px; }
   .sel { padding: 1px 3px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .sel-sm { width: 46px; }

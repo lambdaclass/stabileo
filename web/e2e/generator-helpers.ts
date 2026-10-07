@@ -11,6 +11,16 @@ export async function pickGenerator(page: Page, id: string): Promise<void> {
   if (await back.isVisible()) await back.click();
   await page.getByTestId(`gen-card-${id}`).click();
   await expect(page.getByTestId('gen-current')).toBeVisible();
+  await openGenSections(page);
+}
+
+/**
+ * Open every section of the form. They start folded (only their headings show), and the specs
+ * reach the fields inside them.
+ */
+export async function openGenSections(page: Page): Promise<void> {
+  const closed = page.locator('details[data-testid^="gen-sec-"]:not([open]) > summary');
+  while (await closed.count() > 0) await closed.first().click();
 }
 
 /** Insert the structure as generated, at typed coordinates (the origin by default). */

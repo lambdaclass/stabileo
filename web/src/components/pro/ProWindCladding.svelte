@@ -5,6 +5,8 @@
    * Parte 2 above, by the roof's kind, with the parapet both read and the element's height Parte 2 reads.
    */
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ } from '../../lib/store/display-units.svelte';
   import { claddingPressures, type CladdingRoof } from '../../lib/codes/cirsoc102/cladding';
   import { velocityPressure, internalPressureCoefficient, type Enclosure, type Exposure } from '../../lib/codes/cirsoc102/wind';
 
@@ -47,7 +49,7 @@
     <span class="al-sub-title">{t('wind.cladding.title')}</span>
     <div class="al-grid">
       <label class="al-field"><span class="al-label">{t('wind.cladding.area')}</span>
-        <span class="al-unit-field"><input type="number" min="0.1" step="0.5" bind:value={area} data-testid="al-cladding-area" /><span>m²</span></span>
+        <QuantityInput bind:value={area} quantity="area" min={0.1} testid="al-cladding-area" wrap="al-unit-field" />
       </label>
       <label class="al-field"><span class="al-label">{t('wind.cladding.roofKind')}</span>
         <select value={kind} onchange={(e) => (roof = e.currentTarget.value as CladdingRoof)} data-testid="al-cladding-roof">
@@ -56,8 +58,7 @@
       </label>
       {#if height > 20 && !(lowRise && cladding.r.lowRiseAllowed)}
         <label class="al-field"><span class="al-label">{t('wind.cladding.z')}</span>
-          <span class="al-unit-field"><input type="number" min="0" step="1" value={z ?? ''} placeholder={height.toFixed(1)}
-            onchange={(e) => { const v = parseFloat(e.currentTarget.value); z = Number.isFinite(v) && v >= 0 ? v : null; }} data-testid="al-cladding-z" /><span>m</span></span>
+          <QuantityInput bind:value={z} nullable quantity="length" min={0} placeholder={fmtQ(height, 'length')} testid="al-cladding-z" wrap="al-unit-field" />
         </label>
       {/if}
     </div>

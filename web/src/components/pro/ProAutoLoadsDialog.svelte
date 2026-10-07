@@ -31,6 +31,10 @@
   import ProWindDynamics from './ProWindDynamics.svelte';
   import { autoLoadsDefaults, autoLoadsMemory } from './auto-loads-memory';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import ProActionRegion from './loads/ProActionRegion.svelte';
+  import ProfileChart from './loads/ProfileChart.svelte';
+  import { parseDecimal } from '../../lib/utils/numeric-input';
+  import { regionNodes, regionMembers, type ActionRegion } from '../../lib/model/loads/region-nodes';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { loadCodeFor } from '../../lib/codes/families';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
@@ -269,6 +273,26 @@
     const m = loadCodeFor(regulationsStore.binding(role)?.adapterId);
     return m ? [m.title, section ? m.sections?.[section] : ''].filter(Boolean).join(' ') : '';
   }
+  // ── Where wind and snow act (`region-nodes.ts`), and the user's wind profile ──
+  let windRegion = $state<ActionRegion>({ kind: 'all' });
+  let snowRegion = $state<ActionRegion>({ kind: 'all' });
+  let windProfileOn = $state(false);
+  let windProfileText = $state('0; 0.8\n10; 1.0\n20; 1.15');
+  const windRegionNodes = $derived(regionNodes(modelStore.model as never, windRegion));
+  const snowRoofMembers = $derived(regionMembers(modelStore.model as never, snowRegion));
+  /** Rows of "z; p" read into a profile, or null when they do not read. */
+  const windProfile = $derived.by((): Array<[number, number]> | null => {
+    const rows: Array<[number, number]> = [];
+    for (const line of windProfileText.split(/\r?\n/)) {
+      const l = line.trim();
+      if (!l) continue;
+      const cells = l.split(/\s*[;\t]\s*|\s+/);
+      const z = parseDecimal(cells[0] ?? ''), p = parseDecimal(cells[1] ?? '');
+      if (z === null || p === null) return null;
+      rows.push([z, p]);
+    }
+    return rows.length >= 2 ? rows.sort((a, b) => a[0] - b[0]) : null;
+  });
   /** The previewed plan's gust effect factor per axis, for the dynamics block's reading. */
   /**
    * The last preview's gust effect factor per axis. Kept apart from the plan, which "Back" clears:
@@ -368,6 +392,8 @@
         caseSet: windCaseSet, senses: [...windDirs],
         service: windService.enabled ? { ...windService } : undefined,
         structure: windStructurePlan(),
+        ...(windRegionNodes ? { region: windRegionNodes } : {}),
+        ...(windProfileOn && windProfile ? { profile: windProfile } : {}),
       } : undefined,
       snow: snowCfg.enabled ? {
         enabled: true, ...snowPg(snowCfg),
@@ -375,6 +401,7 @@
         category: snowCfg.category, roofKind: snowCfg.roofKind, slippery: snowCfg.slippery,
         ...(snowCfg.roofKind === 'curved' && snowCfg.abutting ? { abutting: true } : {}),
         partial: snowCfg.partial,
+        ...(snowRoofMembers ? { roof: snowRoofMembers } : {}),
         ...(snowCfg.parapet > 0 ? { parapet: { height: snowCfg.parapet } } : {}),
         ...(snowCfg.adjacent.length ? { adjacent: $state.snapshot(snowCfg.adjacent) } : {}),
       } : undefined,
@@ -903,7 +930,7 @@
                         </select>
                       </label>
                       <label class="al-field"><span class="al-label">{t('autoLoad.windAltitude')}</span>
-                        <span class="al-unit-field"><input type="number" bind:value={windAltitude} min={0} step={10} data-testid="al-wind-altitude" /><span>m</span></span>
+                        <QuantityInput bind:value={windAltitude} quantity="length" min={0} testid="al-wind-altitude" wrap="al-unit-field" />
                       </label>
                       <label class="al-field"><span class="al-label">{t('autoLoad.windRoofSlope')}</span>
                         <span class="al-unit-field"><input type="number" bind:value={windRoofSlope} min={0} max={90} step={1} data-testid="al-wind-slope" /><span>°</span></span>
@@ -919,6 +946,14 @@
                     {#key windStructure.kind}
                       <ProWindDynamics bind:dynamics={windDyn} gust={planGust} modal={windModal} lowRise={windLowRise} building={isBuildingKind(windStructure.kind)} />
                     {/key}
+                    <!-- Where it acts, and a profile of the user's in place of the code's pressures. -->
+                    <ProActionRegion bind:region={windRegion} testid="al-wind-region" />
+                    <label class="al-check"><input type="checkbox" bind:checked={windProfileOn} data-testid="al-wind-profile-on" /> {t('windProfile.use')}</label>
+                    {#if windProfileOn}
+                      <textarea class="al-profile" rows="5" bind:value={windProfileText} placeholder="z (m); p (kPa)" data-testid="al-wind-profile-text"></textarea>
+                      {#if windProfile}<ProfileChart points={windProfile} />{:else}<p class="al-hint">{t('windProfile.bad')}</p>{/if}
+                      <p class="al-hint">{t('windProfile.hint')}</p>
+                    {/if}
                   </div>
                   <ProWindCasesPanel
                     bind:caseSet={windCaseSet} bind:directions={windDirs} bind:enclosure={windEnclosure}
@@ -952,6 +987,8 @@
                 <div class="al-pane-body" data-testid="al-snow-section"><p class="al-hint">{t('autoLoad.snow.off')}</p></div>
               {:else}
                 <ProSnowSection bind:config={snowCfg} roof={snowRoof} />
+                <ProActionRegion bind:region={snowRegion} testid="al-snow-roof" />
+                <p class="al-hint">{t('snowRoof.hint')}</p>
               {/if}
             </div>
 
@@ -1272,4 +1309,5 @@
     .al-dialog :global(.al-grid) { grid-template-columns: minmax(0, 1fr); }
     .al-summary { display: none; }
   }
+  .al-profile { width: 100%; font-family: var(--st-mono); font-size: 0.68rem; background: var(--st-surface-3); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 3px; }
 </style>

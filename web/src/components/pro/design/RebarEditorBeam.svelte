@@ -7,6 +7,7 @@
    * immediately from retained demand.
    */
   import { t } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import { REBAR_DB } from '../../../lib/engine/codes/argentina/cirsoc201';
   import { rebarGroupArea, layersTotalArea } from '../../../lib/engine/station-design-forces';
   import { maxBarsPerRow } from '../../../lib/engine/design/candidate-enumerate-beam';
@@ -125,11 +126,10 @@
                aria-label={t('design.batch.legs')}
                onchange={(e) => setStirrups(elementId, st.field, { legs: +e.currentTarget.value })} />
         <span class="sub">L c/</span>
-        <input type="number" class="num num-sp" min="0.05" max="0.5" step="0.025" value={st.def?.spacing ?? 0.15}
-               data-testid={`stir-spacing-${st.field}-${elementId}`}
-               aria-label={t('design.batch.spacing')}
-               onchange={(e) => setStirrups(elementId, st.field, { spacing: +e.currentTarget.value })} />
-        <span class="sub">m</span>
+        <QuantityInput quantity="length" cls="num num-sp" min={0.05} max={0.5} value={st.def?.spacing ?? 0.15}
+               testid={`stir-spacing-${st.field}-${elementId}`}
+               ariaLabel={t('design.batch.spacingShort')}
+               onchange={(v) => setStirrups(elementId, st.field, { spacing: v })} />
       </div>
     </div>
   {/each}
@@ -144,9 +144,9 @@
   .line { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
   .line.empty { color: var(--st-text-2); font-size: 0.66rem; font-style: italic; }
   .idx { font-family: monospace; font-size: 0.64rem; color: var(--st-text-2); width: 16px; }
-  .num { width: 44px; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
+  .num, .line :global(input.num) { width: 44px; padding: 1px 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
-  .num-sm { width: 34px; } .num-sp { width: 54px; }
+  .num-sm { width: 34px; } .num-sp, .line :global(input.num-sp) { width: 54px; }
   .sel { padding: 1px 3px; background: var(--st-surface); border: 1px solid var(--st-hair-strong);
     border-radius: 3px; color: var(--st-text); font-size: 0.7rem; }
   .sel-sm { width: 46px; }

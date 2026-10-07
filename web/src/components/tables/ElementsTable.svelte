@@ -1,10 +1,15 @@
 <script lang="ts">
+  import { askAboutOverlaps } from '../../lib/model/edit/connection-questions';
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, historyStore, resultsStore, uiStore } from '../../lib/store';
   import PairingNote from '../property/PairingNote.svelte';
   import { isUnusualPairing } from '../../lib/data/structural-grades';
   import { t } from '../../lib/i18n';
   import EndConditionSelect from '../EndConditionSelect.svelte';
+  import LazyIdSelect from './LazyIdSelect.svelte';
+  import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import type { Release } from '../../lib/store/model.svelte';
+  import { fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
 
   const is3DMode = $derived(uiStore.is3DWorkspace);
 
@@ -38,10 +43,21 @@
     if (nodeId === other) { modelStore.reverseElement(id); return; }
     historyStore.pushState({ notifyMutation: false });
     modelStore.updateElement(id, end === 'i' ? { nodeI: nodeId } : { nodeJ: nodeId });
+    // Now on top of another member? The same question the drawing asks.
+    askAboutOverlaps([id]);
   }
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
+  const nodeIds = $derived(nodesArr.map((n) => n.id));
   const elementsArr = $derived([...modelStore.elements.values()]);
+
+  /*
+   * Rows drawn in batches (`progressive-rows.svelte.ts`). Each row is a dozen controls, and the
+   * shed's 709 at once held the main thread for half a second every time the member tool opened
+   * this table.
+   */
+  const batches = progressiveRows(() => elementsArr);
+  const shownRows = $derived(batches.rows);
   const materialsArr = $derived([...modelStore.materials.values()]);
   const sectionsArr = $derived([...modelStore.sections.values()]);
 
@@ -69,8 +85,9 @@
     if (!modelStore.getNode(newElemNodeI) || !modelStore.getNode(newElemNodeJ)) return;
     if (newElemNodeI === newElemNodeJ) return;
     historyStore.pushState();
-    modelStore.addElement(newElemNodeI, newElemNodeJ, newElemType);
+    const id = modelStore.addElement(newElemNodeI, newElemNodeJ, newElemType);
     resultsStore.clear();
+    askAboutOverlaps([id]);
   }
 
   /**
@@ -95,11 +112,12 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L (m)</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L ({unitQ('length')})</th><th></th></tr>
   </thead>
   <tbody>
-    {#each elementsArr as elem}
-      <tr>
+    {#each shownRows as elem (elem.id)}
+      <tr class:row-sel={rowSelected('element', elem.id)} onclick={(e) => selectRow(e, 'element', elem.id)}
+        ondblclick={(e) => frameRow(e, 'element', elem.id)} onfocusin={(e) => focusRow(e, 'element', elem.id)}>
         <td class="id-cell">{elem.id}</td>
         <td>
           <select value={elem.type} onchange={(e) => setType(elem.id, e.currentTarget.value as 'frame' | 'truss')} data-testid="elem-type-{elem.id}">
@@ -108,14 +126,10 @@
           </select>
         </td>
         <td>
-          <select class="node-sel" value={elem.nodeI} onchange={(e) => setNode(elem.id, 'i', Number(e.currentTarget.value))} data-testid="elem-node-i-{elem.id}">
-            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
-          </select>
+          <LazyIdSelect class="node-sel" value={elem.nodeI} ids={nodeIds} onchange={(id) => setNode(elem.id, 'i', id)} testid="elem-node-i-{elem.id}" />
         </td>
         <td>
-          <select class="node-sel" value={elem.nodeJ} onchange={(e) => setNode(elem.id, 'j', Number(e.currentTarget.value))} data-testid="elem-node-j-{elem.id}">
-            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
-          </select>
+          <LazyIdSelect class="node-sel" value={elem.nodeJ} ids={nodeIds} onchange={(id) => setNode(elem.id, 'j', id)} testid="elem-node-j-{elem.id}" />
           <button class="flip" title={t('editor.reverseHint')} aria-label={t('editor.reverse')}
             onclick={() => modelStore.reverseElement(elem.id)} data-testid="elem-reverse-{elem.id}">⇄</button>
         </td>
@@ -139,7 +153,7 @@
         <td class="end-cell" title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>
           <EndConditionSelect compact release={elem.releaseJ} is3D={is3DMode} onchange={(r) => setEnd(elem.id, 'j', r)} testid="elem-end-j-{elem.id}" />
         </td>
-        <td>{modelStore.getElementLength(elem.id).toFixed(3)}</td>
+        <td>{fmtCoord(modelStore.getElementLength(elem.id))}</td>
         <td><button class="del" onclick={() => deleteElement(elem.id)}>&#10005;</button></td>
       </tr>
     {/each}
@@ -184,6 +198,7 @@
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   .pairing-note {
     display: flex;
     align-items: flex-start;
@@ -242,7 +257,7 @@
     font-size: 0.7rem;
   }
 
-  td select {
+  td select, td :global(select.node-sel) {
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
     border: 1px solid var(--st-surface-3);
@@ -257,7 +272,7 @@
   .end-cell { min-width: 96px; }
   .end-cell :global(.ec) { display: flex; }
 
-  td select.node-sel { max-width: 52px; }
+  td :global(select.node-sel) { max-width: 52px; }
 
   .flip {
     background: none;

@@ -7,6 +7,7 @@ import './styles/tokens.css';
 // live in several components with scoped styles. See the file's own header.
 import './styles/touch-density.css';
 import './styles/pro-kit.css';
+import './styles/panel-scrollbars.css';
 import 'katex/dist/katex.min.css';
 import App from './App.svelte';
 import { mount } from 'svelte';

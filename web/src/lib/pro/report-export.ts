@@ -17,7 +17,10 @@
  * not going out.
  */
 
+import { tick } from 'svelte';
 import { viewportCanvas } from '../utils/viewport-canvas';
+import { uiStore } from '../store/ui.svelte';
+import { viewState } from '../store/view-state.svelte';
 import { buildProReportData } from '../engine/pro-report-inputs';
 import { openReport } from '../engine/pro-report';
 import type { ReportConfig, ReportData } from '../engine/pro-report';
@@ -42,6 +45,35 @@ function screenshotOfCanvas(): string | undefined {
   const canvas = viewportCanvas();
   if (!canvas) return undefined;
   try { return (canvas as HTMLCanvasElement).toDataURL('image/png'); } catch { return undefined; }
+}
+
+/** The next painted frame. */
+const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/**
+ * The canvas with every node and member number on, whatever the reader shows: the report's tables
+ * name nodes and members by number, and the picture is where a reader finds them. What the reader
+ * had on is put back after the picture, also when it fails.
+ */
+async function screenshotWithNumbers(): Promise<string | undefined> {
+  const had = { nodes: uiStore.showNodeLabels3D, members: uiStore.showElementLabels3D, label: viewState.memberLabel, onSelection: viewState.labelsOnSelection };
+  const changes = !had.nodes || !had.members || had.label !== 'id' || had.onSelection;
+  if (!changes) return screenshotOfCanvas();
+  try {
+    uiStore.showNodeLabels3D = true;
+    uiStore.showElementLabels3D = true;
+    viewState.memberLabel = 'id';
+    viewState.labelsOnSelection = false;
+    await tick();
+    // The viewport redraws on the frame after it is invalidated; two leave room for the labels.
+    await frame(); await frame(); await frame();
+    return screenshotOfCanvas();
+  } finally {
+    uiStore.showNodeLabels3D = had.nodes;
+    uiStore.showElementLabels3D = had.members;
+    viewState.memberLabel = had.label;
+    viewState.labelsOnSelection = had.onSelection;
+  }
 }
 
 /**
@@ -75,7 +107,7 @@ export function reportDesignChecks(): NonNullable<ReportData['designChecks']> {
   return out.sort((a, b) => a.elementId - b.elementId);
 }
 
-export function exportReportAs(input: ReportExportInputs): void {
+export async function exportReportAs(input: ReportExportInputs): Promise<void> {
   if (input.config.format === 'xlsx') {
     const o = workbookOptions(input);
     void downloadProjectWorkbook(5, { model: o.includeModel, results: o.includeResults, extra: o.extraSheets });
@@ -88,7 +120,7 @@ export function exportReportAs(input: ReportExportInputs): void {
     advancedResults: Object.keys(input.advancedResults).length > 0
       ? input.advancedResults as ReportData['advancedResults']
       : undefined,
-    screenshot: screenshotOfCanvas(),
+    screenshot: input.config.sections?.modelData === false ? undefined : await screenshotWithNumbers(),
     t: input.t,
   });
   if (!data) return;

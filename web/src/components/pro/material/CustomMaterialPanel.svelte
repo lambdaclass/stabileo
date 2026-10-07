@@ -20,6 +20,8 @@
    */
   import { t } from '../../../lib/i18n';
   import type { MaterialChoice } from '../../../lib/material/material-choice';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import { toQ } from '../../../lib/store/display-units.svelte';
 
   interface Props {
     /** Emitted on every change, so the shell's Apply stays in step with the form. */
@@ -29,10 +31,14 @@
   const onDraft = args.onDraft;
 
   let name = $state('');
-  let e = $state('');
+  /** E and fy in MPa, ρ in kN/m³ (SI): typed in the display units, blank is `null`. */
+  let e = $state<number | null>(null);
   let nu = $state('');
-  let rho = $state('');
-  let fy = $state('');
+  let rho = $state<number | null>(null);
+  let fy = $state<number | null>(null);
+
+  /** A placeholder in the display units. */
+  const hint = (si: number, q: 'stress' | 'density') => String(+toQ(si, q).toPrecision(4));
 
   /**
    * A field's number, or null when it is blank or not a number.
@@ -58,12 +64,12 @@
    */
   const draft = $derived.by<MaterialChoice | null>(() => {
     const n = name.trim();
-    const eV = num(e), nuV = num(nu), rhoV = num(rho), fyV = num(fy);
+    const eV = e, nuV = num(nu), rhoV = rho, fyV = fy;
     if (!n) return null;
     if (eV === null || eV <= 0) return null;
     if (nuV === null || nuV <= -1 || nuV >= 0.5) return null;
     if (rhoV === null || rhoV < 0) return null;
-    if (fy.trim() !== '' && (fyV === null || fyV <= 0)) return null;
+    if (fyV !== null && fyV <= 0) return null;
     return {
       kind: 'custom',
       name: n,
@@ -87,7 +93,7 @@
   const problem = $derived.by<{ reasonKey: string } | null>(() => {
     if (draft) return null;
     if (!name.trim()) return { reasonKey: 'material.custom.needName' };
-    const eV = num(e), nuV = num(nu), rhoV = num(rho);
+    const eV = e, nuV = num(nu), rhoV = rho;
     if (eV === null || nuV === null || rhoV === null) return { reasonKey: 'material.custom.needNumbers' };
     if (eV <= 0) return { reasonKey: 'material.custom.badE' };
     if (nuV <= -1 || nuV >= 0.5) return { reasonKey: 'material.custom.badNu' };
@@ -112,8 +118,7 @@
   </label>
   <label>
     <span>E</span>
-    <input type="text" inputmode="decimal" data-testid="material-custom-e" bind:value={e} placeholder="200000" />
-    <span class="unit">MPa</span>
+    <QuantityInput nullable cls="cm-num" testid="material-custom-e" bind:value={e} quantity="stress" placeholder={hint(200000, 'stress')} />
   </label>
   <label>
     <span>{t('field.poisson')}</span>
@@ -122,16 +127,11 @@
   </label>
   <label>
     <span>{t('field.density')}</span>
-    <input type="text" inputmode="decimal" data-testid="material-custom-rho" bind:value={rho} placeholder="78.5" />
-    <span class="unit">kN/m³</span>
+    <QuantityInput nullable cls="cm-num" testid="material-custom-rho" bind:value={rho} quantity="density" placeholder={hint(78.5, 'density')} />
   </label>
   <label>
     <span>fy</span>
-    <input
-      type="text" inputmode="decimal" data-testid="material-custom-fy"
-      bind:value={fy} placeholder={t('pro.optional')}
-    />
-    <span class="unit">MPa</span>
+    <QuantityInput nullable cls="cm-num" testid="material-custom-fy" bind:value={fy} quantity="stress" placeholder={t('pro.optional')} />
   </label>
 
   {#if problem}
@@ -145,7 +145,7 @@
   .custom { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
   label { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); }
   label > span:first-child { min-width: 8rem; }
-  input {
+  input, .custom :global(input.cm-num) {
     background: var(--st-bg); color: var(--st-text);
     border: 1px solid var(--st-surface-3); border-radius: 3px;
     padding: 3px 5px; font-size: 0.72rem; width: 8rem; text-align: right;
@@ -153,5 +153,5 @@
   input[type='text']:not([inputmode]) { text-align: left; }
   .unit { color: var(--st-text-3); font-size: 0.68rem; }
   .note { margin: 0; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
-  input:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
+  input:focus-visible, .custom :global(input.cm-num:focus-visible) { outline: 2px solid var(--st-value); outline-offset: 1px; }
 </style>

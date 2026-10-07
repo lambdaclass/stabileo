@@ -9,6 +9,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { JOINT3D_DOF_LABELS } from '../../lib/store/model.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
   import { CIRSOC201_STIFFNESS, presetModifiers, type StiffnessPreset, type StiffnessModifiers } from '../../lib/engine/member-behaviour';
 
   /** Which part: the stiffness factors, or the ends (global joints and semi-rigid ends). */
@@ -127,9 +128,8 @@
           <span class="mb-end">{end.toUpperCase()}</span>
           <label class="mb-dof"><input type="checkbox" checked={!!sr} onchange={(e) => (e.currentTarget.checked ? setSemi(end, 'ky', sr?.ky ?? 1e4) : setSemi(end, 'off'))} data-testid="mb-semi-{end}-on" /></label>
           {#if sr}
-            <label>kθy <input type="number" min="0" step="1000" value={sr.ky} onchange={(e) => setSemi(end, 'ky', Number(e.currentTarget.value))} data-testid="mb-semi-{end}-ky" /></label>
-            <label>kθz <input type="number" min="0" step="1000" value={sr.kz} onchange={(e) => setSemi(end, 'kz', Number(e.currentTarget.value))} /></label>
-            <span>kN·m/rad</span>
+            <label>kθy <QuantityInput min={0} value={sr.ky} quantity="springKr" cls="mb-num" showUnit={false} onchange={(v) => setSemi(end, 'ky', v)} testid="mb-semi-{end}-ky" /></label>
+            <label>kθz <QuantityInput min={0} value={sr.kz} quantity="springKr" cls="mb-num" onchange={(v) => setSemi(end, 'kz', v)} /></label>
           {/if}
         </div>
       {/each}
@@ -142,7 +142,7 @@
   .mb { display: flex; flex-direction: column; gap: 0.45rem; color: var(--st-text-2); }
   .mb-row { display: flex; gap: 8px; align-items: center; }
   .mb-wrap { flex-wrap: wrap; }
-  .mb-row input { width: 56px; }
+  .mb-row input, .mb-row :global(input.mb-num) { width: 56px; }
   .mb-joints { display: flex; flex-direction: column; gap: 3px; padding-top: 0.35rem; border-top: 1px solid var(--st-hair); }
   .mb-end { font-weight: 600; width: 12px; }
   .mb-dof { display: flex; gap: 2px; align-items: center; font-family: var(--st-mono); font-size: 0.62rem; }

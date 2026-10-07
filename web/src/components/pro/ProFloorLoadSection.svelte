@@ -12,7 +12,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { sortedLevels } from '../../lib/model/grid';
-  import { expandDefinition, rangeTarget, zoneChanged, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
+  import { expandDefinition, zoneChanged, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
@@ -37,7 +37,8 @@
   let spanAxis = $state<'x' | 'y'>('x');
   let perPlanArea = $state(false);
   let name = $state('');
-  let range = $state({ x0: '', x1: '', y0: '', y1: '', z0: '', z1: '' });
+  /** SI; an empty field leaves its axis unbounded. */
+  let range = $state<Record<'x0' | 'x1' | 'y0' | 'y1' | 'z0' | 'z1', number | null>>({ x0: null, x1: null, y0: null, y1: null, z0: null, z1: null });
   let applied = $state<string | null>(null);
 
   const targets = $derived<Array<{ key: string; label: string }>>([
@@ -53,12 +54,27 @@
     if (caseId === null || !cases.some((c) => c.id === caseId)) caseId = (cases.find((c) => c.type === 'L') ?? cases[0])?.id ?? null;
   });
 
-  /** Null for a box with an axis bounded on one side only or unreadable (`rangeTarget`). */
+  /**
+   * The box, on the SI values its fields hold: an axis bounded on both sides, or on neither. Null
+   * for an axis bounded on one side only, which the panel says (`rangeTarget` reads the same rule
+   * from text).
+   */
+  function rangeOf(r: typeof range): FloorTarget | null {
+    const out: Extract<FloorTarget, { by: 'range' }> = { by: 'range' };
+    for (const a of ['x', 'y', 'z'] as const) {
+      const v0 = r[`${a}0`], v1 = r[`${a}1`];
+      if (v0 === null && v1 === null) continue;
+      if (v0 === null || v1 === null) return null;
+      out[a] = [v0, v1];
+    }
+    return out;
+  }
+  /** Null for a box with an axis bounded on one side only (`rangeOf`). */
   const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
-    if (targetKey === 'range') return rangeTarget(range);
+    if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
   });
   const own = $derived(targetKey === 'sel' ? {
@@ -123,7 +139,7 @@
       <span class="fl-range-label">{t('floorLoad.rangeBox')}</span>
       <span class="fl-range" data-testid="fl-range">
         {#each ['x', 'y', 'z'] as a (a)}
-          <span>{a.toUpperCase()} <input type="text" class="fl-num" bind:value={range[`${a}0` as 'x0']} data-testid="fl-range-{a}0" /> … <input type="text" class="fl-num" bind:value={range[`${a}1` as 'x1']} data-testid="fl-range-{a}1" /> m</span>
+          <span>{a.toUpperCase()} <QuantityInput bind:value={range[`${a}0` as 'x0']} nullable quantity="length" showUnit={false} cls="fl-num" testid="fl-range-{a}0" /> … <QuantityInput bind:value={range[`${a}1` as 'x1']} nullable quantity="length" cls="fl-num" testid="fl-range-{a}1" /></span>
         {/each}
       </span>
     {/if}
@@ -220,7 +236,7 @@
   .fl-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; }
   .fl-range { display: flex; flex-direction: column; gap: 2px; }
   .fl-range-label { color: var(--st-text-3); }
-  .fl-num { width: 52px; }
+  .fl-range :global(.fl-num) { width: 52px; }
   .fl-check { display: inline-flex; align-items: center; gap: 5px; }
   .fl-plan { width: 100%; max-width: 320px; display: block; background: var(--st-surface-3); border-radius: var(--st-radius); }
   .fl-panel { fill: color-mix(in srgb, var(--st-accent) 22%, transparent); stroke: var(--st-accent); stroke-width: 1.5; }

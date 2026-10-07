@@ -32,7 +32,6 @@
   const ROOFS = ['gable', 'mono', 'curved', 'multiple', 'dome'] as const;
   const SIDES = ['+x', '-x', '+y', '-y'] as const;
   const f3 = (v: number) => v.toFixed(3);
-  const num = (v: string, fallback: number) => { const x = parseFloat(v.replace(',', '.')); return Number.isFinite(x) ? x : fallback; };
 </script>
 
 <div class="al-pane-body" data-testid="al-snow-section">
@@ -119,8 +118,7 @@
     <span class="al-sub-title">{t('autoLoad.snow.driftsTitle')}</span>
     <p class="al-hint">{t('autoLoad.snow.driftsHint')}</p>
     <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.snow.parapet')}</span>
-      <span class="al-unit-field"><input type="number" min="0" step="0.1" value={config.parapet}
-        onchange={(e) => (config.parapet = Math.max(0, num(e.currentTarget.value, config.parapet)))} data-testid="al-snow-parapet" /><span>m</span></span>
+      <QuantityInput bind:value={config.parapet} quantity="length" min={0} testid="al-snow-parapet" wrap="al-unit-field" />
     </label>
     <span class="al-label">{t('autoLoad.snow.adjacent')}</span>
     {#each config.adjacent as a, k (k)}
@@ -128,11 +126,11 @@
         <label class="al-field"><span class="al-label">{t('autoLoad.snow.adjSide')}</span>
           <select bind:value={a.side}>{#each SIDES as sd (sd)}<option value={sd}>{sd.toUpperCase()}</option>{/each}</select></label>
         <label class="al-field"><span class="al-label">{t('autoLoad.snow.adjTop')}</span>
-          <span class="al-unit-field"><input type="number" step="0.5" value={a.topZ} onchange={(e) => (a.topZ = num(e.currentTarget.value, a.topZ))} /><span>m</span></span></label>
+          <QuantityInput bind:value={a.topZ} quantity="length" wrap="al-unit-field" /></label>
         <label class="al-field"><span class="al-label">{t('autoLoad.snow.adjGap')}</span>
-          <span class="al-unit-field"><input type="number" min="0" step="0.5" value={a.separation} onchange={(e) => (a.separation = Math.max(0, num(e.currentTarget.value, a.separation)))} /><span>m</span></span></label>
+          <QuantityInput bind:value={a.separation} quantity="length" min={0} wrap="al-unit-field" /></label>
         <label class="al-field"><span class="al-label">{t('autoLoad.snow.adjLength')}</span>
-          <span class="al-unit-field"><input type="number" min="0" step="1" value={a.length} onchange={(e) => (a.length = Math.max(0, num(e.currentTarget.value, a.length)))} /><span>m</span></span></label>
+          <QuantityInput bind:value={a.length} quantity="length" min={0} wrap="al-unit-field" /></label>
         <button type="button" class="al-btn-sm" aria-label={t('autoLoad.snow.adjRemove')} onclick={() => (config.adjacent = config.adjacent.filter((_, j) => j !== k))}>×</button>
       </div>
     {/each}

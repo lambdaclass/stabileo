@@ -9,6 +9,8 @@
 // The two real DXFs are PROPRIETARY client drawings (~6 MB each) and are NOT
 // committed (see fixtures/.gitignore). These suites skip themselves when the
 // files are absent, so CI stays green; run them locally with the files present.
+// The skip is said out loud (a warning and the suite's title), and
+// cad-real-like.test.ts walks the same path on a synthetic plan that always runs.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -24,6 +26,11 @@ const V1_PATH = join(DIR, 'V1-Architecture-plus-structure.dxf');
 const V2_PATH = join(DIR, 'V2-Architecture.dxf');
 const HAS_V1 = existsSync(V1_PATH);
 const HAS_V2 = existsSync(V2_PATH);
+const ABSENT = ' (SKIPPED: client plan not in fixtures/, kept out of the repo)';
+if (!HAS_V1 || !HAS_V2) {
+  console.warn(`[cad-real-dxf] Skipping the real-plan suites: ${[!HAS_V1 && 'V1-Architecture-plus-structure.dxf', !HAS_V2 && 'V2-Architecture.dxf'].filter(Boolean).join(', ')} not in fixtures/. `
+    + 'Copy the client DXFs there to run them; cad-real-like.test.ts covers the same path meanwhile.');
+}
 
 function assumptions(over: Partial<RcDraftAssumptions> = {}): RcDraftAssumptions {
   return {
@@ -45,7 +52,7 @@ function override(mappings: LayerMapping[], roles: Record<string, LayerMapping['
 // same window the example build script uses).
 const V1_WIN: PlanWindow = { x0: 188.5, x1: 211, y0: 55.5, y1: 67 };
 
-describe.skipIf(!HAS_V1)('real DXF V1 — shipped path', () => {
+describe.skipIf(!HAS_V1)(`real DXF V1 — shipped path${HAS_V1 ? '' : ABSENT}`, () => {
   let doc: ReturnType<typeof parseCadDxf>;
   beforeAll(() => { doc = parseCadDxf(readFileSync(V1_PATH, 'utf8'), 'V1.dxf'); });
 
@@ -99,7 +106,7 @@ describe.skipIf(!HAS_V1)('real DXF V1 — shipped path', () => {
   });
 });
 
-describe.skipIf(!HAS_V2)('real DXF V2 — shipped path', () => {
+describe.skipIf(!HAS_V2)(`real DXF V2 — shipped path${HAS_V2 ? '' : ABSENT}`, () => {
   let doc: ReturnType<typeof parseCadDxf>;
   beforeAll(() => { doc = parseCadDxf(readFileSync(V2_PATH, 'utf8'), 'V2.dxf'); });
 

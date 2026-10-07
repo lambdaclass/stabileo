@@ -4,7 +4,7 @@
  * pinned in `structures.test.ts`; regeneration in `generated-structures.test.ts`.
  */
 import { test, expect } from './fixtures';
-import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
+import { insertGenerated, openGenSections, pickGenerator, placeButton } from './generator-helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -39,6 +39,7 @@ test.describe('@smoke generators into the model', () => {
     // 3 columns and 2 beams, added to the portal frame.
     expect((await census()).elements).toBe(before.elements + 5);
 
+    await openGenSections(page);
     await page.locator('[data-testid^="gen-edit-group-"]').first().click();
     await page.getByTestId('gen-f-baysX').fill('6; 6; 6');
     await page.getByTestId('gen-regenerate').click();

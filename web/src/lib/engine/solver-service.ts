@@ -1157,7 +1157,7 @@ function solveCombinations2DCore(
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads2D(model, caseLoads, includeSelfWeight && lc.type === 'D');
+    const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight).length > 0);
     mcLoadCases.push({ name: lc.name, loads });
     caseNameToId.set(lc.name, lc.id);
   }
@@ -1238,7 +1238,7 @@ function solveCombinations2DFallback(
   for (const lc of loadCases) {
     // Filter loads for this case instead of mutating model.loads
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const result = validateAndSolve2D(caseModel, includeSelfWeight && lc.type === 'D');
+    const result = validateAndSolve2D(caseModel, selfWeightFor(model, lc, includeSelfWeight).length > 0);
     if (typeof result === 'string') {
       return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }
@@ -2241,6 +2241,8 @@ export function solveCombinations3D(
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
+  /** The spectral cases' results (`store/spectral-cases.ts`), by case id. */
+  spectral?: Map<number, AnalysisResults3D>,
 ): Bundle3D | string | null {
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
@@ -2251,7 +2253,7 @@ export function solveCombinations3D(
   try {
     const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
-    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations);
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, spectral);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -2726,6 +2728,7 @@ export async function solveCombinations3DParallel(
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
+  spectral?: Map<number, AnalysisResults3D>,
 ): Promise<Bundle3D | string | null> {
   // The sequential entry's refusals, case effects and plan (`combinationsPlan3D`); only the linear
   // core runs on the workers.
@@ -2736,7 +2739,7 @@ export async function solveCombinations3DParallel(
   try {
     const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
     const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
-    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations);
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, spectral);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;

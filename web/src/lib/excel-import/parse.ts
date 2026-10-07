@@ -329,10 +329,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     if (!firstNode(id, row)) continue;
     /* Flat: the height was given as Z, which is what it is called everywhere
        else. It is stored where a flat model keeps its height. */
+    const nodeName = str(row.cells.name).trim();
     model.nodes.push({
       id, x,
       y: flatFromZ ? (zCell ?? 0) : (yCell ?? 0),
       z: flatFromZ ? 0 : (zCell ?? 0),
+      ...(nodeName ? { name: nodeName } : {}),
     });
   }
   counts.Nodes = model.nodes.length;
@@ -480,6 +482,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       hingeStart: truthy(row.cells.hingestart),
       hingeEnd: truthy(row.cells.hingeend),
       ...(num(row.cells.rollangle) !== null ? { rollAngle: num(row.cells.rollangle)! } : {}),
+      ...(str(row.cells.name).trim() ? { name: str(row.cells.name).trim() } : {}),
     });
   }
   counts.Members = model.elements.length;

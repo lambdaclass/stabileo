@@ -16,9 +16,11 @@
     kind: string;
     /** What is being written, for the label: "Write NODE". */
     label: string;
+    /** `add` where the card is the panel's only way in (supports, loads): "Add SUPPORT". */
+    verb?: 'write' | 'add';
     testid?: string;
   }
-  const { kind, label, testid = 'write-in-panel' }: Props = $props();
+  const { kind, label, verb = 'write', testid = 'write-in-panel' }: Props = $props();
   const open = $derived(drawState.writing === kind);
 </script>
 
@@ -32,7 +34,7 @@
   title={t('pro.writeHint')}
 >
   <Icon name="data" size={13} />
-  <span>{t('pro.writeIn')} {label}</span>
+  <span>{verb === 'add' ? t('pro.add') : t('pro.writeIn')} {label}</span>
 </button>
 
 <style>

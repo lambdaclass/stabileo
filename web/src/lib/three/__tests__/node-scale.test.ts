@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nodeRadiusFor, nodeRadiusForSections, diagonalOf,
+  nodeRadiusFor, nodeRadiusForSections, diagonalOf, structureNodes,
   MIN_NODE_RADIUS_M, MAX_NODE_RADIUS_M,
 } from '../node-scale';
 
@@ -81,5 +81,14 @@ describe('the shed, which is the model this was measured against', () => {
     const r = nodeRadiusFor({ diagonalM: d });
     expect(r).toBeGreaterThan(MIN_NODE_RADIUS_M);
     expect(r).toBeLessThan(MAX_NODE_RADIUS_M);
+  });
+});
+
+describe('the structure a size is measured on', () => {
+  it('leaves out a node that no member or shell uses', () => {
+    const nodes = new Map([[1, { x: 0, y: 0, z: 0 }], [2, { x: 10, y: 0, z: 0 }], [3, { x: -500, y: 0, z: 0 }]]);
+    expect(diagonalOf(structureNodes(nodes, [{ nodeI: 1, nodeJ: 2 }]))).toBeCloseTo(10);
+    // With nothing built yet, every node counts.
+    expect(structureNodes(nodes, [])).toHaveLength(3);
   });
 });

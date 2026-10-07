@@ -25,6 +25,10 @@
    * (`GeneratorGallery`); a card opens its parameters, and Back returns to the list.
    */
   import { t, tp } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import { uiStore } from '../../../lib/store/ui.svelte';
+  import { toDisplay, fromDisplay, unitLabel } from '../../../lib/utils/units';
+  import { parseSpacings } from '../../../lib/model/edit/affine';
   import { modelStore } from '../../../lib/store/model.svelte';
   import {
     DEFAULT_TRUSS_PARAMS, generateTruss, validateTrussParams, type Topology, type TrussParams,
@@ -62,6 +66,9 @@
   import GeneratorOutput from './GeneratorOutput.svelte';
   import ProTemplatesSection from './ProTemplatesSection.svelte';
   import GeneratorGallery from './GeneratorGallery.svelte';
+  import GenRow from './GenRow.svelte';
+  import GenSection from './GenSection.svelte';
+  import { genHelp, clearGenHelp, foldAllSections } from './gen-help.svelte';
   import type { GeneratorEntry } from '../../../lib/pro/generator-catalog';
   import {
     DEFAULT_STRUCTURE_PARAMS, STRUCTURE_FIELDS, STRUCTURE_KINDS, generateStructure, validateStructureParams,
@@ -69,6 +76,28 @@
   } from '../../../lib/engine/generators/structures';
   import { defaultOutputState, generatedData, generatedGroups, withSupportMode, type SupportMode } from '../../../lib/store/generated-structures';
   const outputState = $state(defaultOutputState());
+
+  /** The structure fields that are a length; the others (an angle, a count) keep their own unit. */
+  const LENGTH_FIELDS = new Set(['depth', 'span', 'rise', 'toothSpan', 'height', 'radius', 'baseRadius']);
+
+  /*
+   * A list of lengths ("6; 7,5; 6", "3x4") stays text, and the generator reads it in meters. It is
+   * typed in the display units: in meters the text goes through as typed; in other units each
+   * value is converted, and a text that does not read as a list is kept for the validator to name.
+   */
+  const lengthIsSI = $derived(toDisplay(1, 'length', uiStore.unitSystem) === 1);
+  function listShown(si: string): string {
+    if (lengthIsSI) return si;
+    const v = parseSpacings(si);
+    return v ? v.map((x) => String(+toDisplay(x, 'length', uiStore.unitSystem).toPrecision(6))).join('; ') : si;
+  }
+  function listRead(shown: string): string {
+    if (lengthIsSI) return shown;
+    const v = parseSpacings(shown);
+    return v ? v.map((x) => String(+fromDisplay(x, 'length', uiStore.unitSystem).toPrecision(9))).join('; ') : shown;
+  }
+  /** The list being typed: shown as typed, not rewritten from the converted value under the cursor. */
+  let listEditing = $state<{ id: string; text: string } | null>(null);
 
   type Kind = 'truss' | 'column' | 'shed' | 'structure';
   let structureKind = $state<StructureKind>('spaceFrame');
@@ -80,7 +109,12 @@
   let kind = $state<Kind>('truss');
   /** The list of generators, or the parameters of the one picked. */
   let view = $state<'gallery' | 'form'>('gallery');
+  /** The scroller: a form opens at its top, not where the gallery was left scrolled. */
+  let scrollEl = $state<HTMLDivElement | null>(null);
   function pick(e: GeneratorEntry) {
+    clearGenHelp();
+    foldAllSections();
+    if (scrollEl) scrollEl.scrollTop = 0;
     kind = e.kind;
     if (e.structureKind) structureKind = e.structureKind;
     editingGroupId = null;
@@ -242,8 +276,13 @@
    * column and left the viewport as soon as the parameters were scrolled. Unlockable, because
    * on a short viewport a docked preview costs the parameters the room they need — and that is
    * the user's call, not a rule.
+   *
+   * On a phone it starts unpinned: the sheet is short, and a pinned drawing left room for one row
+   * of parameters. The drawing then follows the form, and only the help line and the Place button
+   * stay at the foot.
    */
-  let previewDocked = $state(true);
+  const narrow = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 767px)').matches;
+  let previewDocked = $state(!narrow);
 
   const grade = $derived(gradeId ? structuralGradeSource.byId(gradeId) : null);
 
@@ -333,30 +372,54 @@
     editingGroupId = id;
     view = 'form';
   }
+
+  /* ── The form's help line and the summaries its folded sections show ── */
+  const activeHelp = $derived(genHelp.hover ?? genHelp.focus);
+  const hint = (key: string) => ({ hint: t(`generator.hint.${key}`), hintId: `gen-hint-${key}` });
+  const len = (m: number) => `${+toDisplay(m, 'length', uiStore.unitSystem).toPrecision(4)} ${unitLabel('length', uiStore.unitSystem)}`;
+  const sumTrussShape = $derived(`${t(`generator.truss.${truss.kind}`)} · ${len(truss.spanM)}`);
+  const sumTrussWeb = $derived(truss.kind === 'rolledPortal'
+    ? (truss.variableSection ? t('generator.ui.variableSection') : '')
+    : `${tp('generator.sum.panels', { n: truss.panelsPerHalf })} · ${t(`generator.webPattern.${truss.webPattern}`)}`);
+  const sumColumn = $derived(`${len(column.heightM)} · ${len(column.widthM)} · ${t(`generator.lacing.${column.lacing}`)}`);
+  const sumStructure = $derived.by(() => {
+    const p = structureParams[structureKind];
+    return STRUCTURE_FIELDS[structureKind].filter((f) => f.type !== 'bool').slice(0, 2).map((f) => {
+      const v = p[f.key];
+      const shown = f.type === 'bays' ? `${listShown(String(v ?? ''))} ${unitLabel('length', uiStore.unitSystem)}`
+        : f.type === 'select' ? t(`generator.option.${f.key}.${v}`)
+          : LENGTH_FIELDS.has(f.key) ? len(Number(v)) : String(v);
+      return `${t(`generator.field.${f.key}`)} ${shown}`;
+    }).join(' · ');
+  });
+  const sumFrames = $derived(tp('generator.sum.frames', {
+    span: len(shed.spanM), height: len(shed.clearHeightM), frames: shed.frames, bay: len(shed.bayM),
+  }));
+  const sumShedColumns = $derived(shed.columnKind === 'solid'
+    ? t('generator.ui.columnSolid')
+    : `${t('generator.ui.columnLattice')} · ${len(shed.column.widthM)}`);
+  const sumRoof = $derived(shed.roof
+    ? `${t(`generator.truss.${shed.truss.kind}`)} · ${len(shed.truss.riseM)}${shed.purlins ? ` · ${t('generator.ui.purlins')}` : ''}`
+    : t('generator.sum.noRoof'));
+  const sumBracing = $derived.by(() => {
+    const n = [shed.roofBracing, shed.trussBracing, shed.wallBracing].filter(Boolean).length;
+    return n === 0 ? t('generator.sum.none') : tp('generator.sum.bracing', { n, total: 3 });
+  });
+  const sumMembers = $derived([
+    [...new Set(roles.map((r) => emitProfiles[r].profileName))].slice(0, 3).join(', '),
+    grade ? grade.designation : t('generator.sum.provisionalGrade'),
+  ].filter(Boolean).join(' · '));
+  const sumWhere = $derived(editingGroupId !== null
+    ? t('generator.out.regenerate')
+    : `${t(`generator.out.${outputState.mode}`)} · ${t('generator.out.supports')}: ${t(`generator.out.supports.${outputState.supportMode}`)}`);
   const groups = $derived(generatedGroups());
   /** In a generator's form, the structures it made in this model, to regenerate one in place. */
   const formGroups = $derived(groups.filter((g) => generatedData(g.id)?.generator === generatorId()));
 
 </script>
 
-<!--
-  The head of a parameter field: its name, and one line saying what the number CONTROLS.
 
-  The fields were bare labels — `Span`, `Rise`, `Panels` — and a number box. Which of them is a
-  length and which is a count, what unit it is in, and what changes when you move it were things
-  a user had to already know. The hint carries the unit, so a value can be entered without
-  guessing whether the box wants metres or millimetres.
-
-  `id` is derived from the key so the input beside it can point at the hint with
-  `aria-describedby`: a screen reader then reads the explanation with the field, rather than the
-  reader having to go looking for it.
--->
-{#snippet fieldHead(key: string)}
-  <span class="fname">{t(`generator.ui.${key}`)}</span>
-  <span class="fhint" id={`gen-hint-${key}`}>{t(`generator.hint.${key}`)}</span>
-{/snippet}
-
-{#snippet previewAndActions()}
+{#snippet preview()}
   {#if topology}
     <div class="previews" data-testid="gen-previews">
       {#if frameElevation}
@@ -364,7 +427,7 @@
           topology={frameElevation}
           view="elevation"
           label={t('generator.ui.previewFrame')}
-          heightPx={120}
+          heightPx={165}
         />
       {:else if kind === 'structure' && topology.nodes.some((n) => Math.abs(n.y) > 1e-9)}
         <TopologyPreview
@@ -389,7 +452,7 @@
           view="isometric"
           footprint={{ spanM: shed.spanM, lengthM: shed.bayM * (shed.frames - 1) }}
           label={t('generator.ui.previewIso')}
-          heightPx={195}
+          heightPx={165}
           showLegend
         />
       {/if}
@@ -418,10 +481,6 @@
     </div>
   {/if}
 
-  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta}
-    {editingGroupId}
-    describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
-
 {/snippet}
 
 <div class="gen" data-testid="pro-generators-panel">
@@ -432,7 +491,7 @@
 
   {#if view === 'form'}
     <div class="gen-crumb">
-      <button type="button" class="gen-back" onclick={() => { view = 'gallery'; editingGroupId = null; }} data-testid="gen-back">← {t('generator.ui.all')}</button>
+      <button type="button" class="gen-back" onclick={() => { view = 'gallery'; editingGroupId = null; clearGenHelp(); }} data-testid="gen-back">← {t('generator.ui.all')}</button>
       <span class="gen-current" data-testid="gen-current">{formTitle}</span>
     </div>
   {/if}
@@ -445,7 +504,7 @@
     a short viewport. A flex column with one `min-height: 0` scroller and a fixed footer is what
     actually pins it.
   -->
-  <div class="gen-scroll" data-testid="gen-scroll">
+  <div class="gen-scroll" bind:this={scrollEl} data-testid="gen-scroll">
   {#if view === 'gallery'}
     <GeneratorGallery onPick={pick} />
     {#if groups.length > 0}
@@ -466,81 +525,132 @@
     <ProTemplatesSection />
   {:else}
 
-  <!-- ── Parameters ── -->
-  <div class="fields">
-    {#if kind === 'truss'}
-      <TrussFields bind:p={truss} withSpan />
+  <!--
+    ── The form, in sections ──
 
-    {:else if kind === 'column'}
+    Each section folds and, folded, keeps saying what it holds. The parameters come first, split
+    the way the structure is read (the outline, then what is inside it); then the members and
+    their steel; then where it goes.
+  -->
+  <div class="gen-form">
+  {#if kind === 'truss'}
+    <GenSection id="shape" title={t('generator.sec.shape')} summary={sumTrussShape}>
+      <TrussFields bind:p={truss} withSpan part="shape" />
+    </GenSection>
+    <GenSection id="web" title={truss.kind === 'rolledPortal' ? t('generator.sec.solidWeb') : t('generator.sec.web')} summary={sumTrussWeb}>
+      <TrussFields bind:p={truss} part="web" />
+    </GenSection>
+
+  {:else if kind === 'column'}
+    <GenSection id="column" title={t('generator.sec.column')} summary={sumColumn}>
       <LatticeColumnFields bind:p={column} standalone />
+    </GenSection>
 
-    {:else if kind === 'structure'}
+  {:else if kind === 'structure'}
+    <GenSection id="geometry" title={t('generator.sec.geometry')} summary={sumStructure}>
       {#each STRUCTURE_FIELDS[structureKind] as f (structureKind + f.key)}
+        {@const fh = { hint: t(`generator.fhint.${f.key}`), hintId: `gen-hint-f-${f.key}` }}
         {#if f.type === 'bool'}
-          <label class="check"><input type="checkbox" checked={!!structureParams[structureKind][f.key]} onchange={(e) => { structureParams[structureKind][f.key] = e.currentTarget.checked; }} data-testid="gen-f-{f.key}" /><span>{t(`generator.field.${f.key}`)}</span></label>
+          <GenRow name={t(`generator.field.${f.key}`)} check {...fh}><input type="checkbox" checked={!!structureParams[structureKind][f.key]} onchange={(e) => { structureParams[structureKind][f.key] = e.currentTarget.checked; }} aria-describedby={fh.hintId} data-testid="gen-f-{f.key}" /></GenRow>
         {:else if f.type === 'select'}
-          <label><span>{t(`generator.field.${f.key}`)}</span>
-            <select bind:value={structureParams[structureKind][f.key]} data-testid="gen-f-{f.key}">
+          <GenRow name={t(`generator.field.${f.key}`)} {...fh}>
+            <select bind:value={structureParams[structureKind][f.key]} aria-describedby={fh.hintId} data-testid="gen-f-{f.key}">
               {#each f.options ?? [] as o (o)}<option value={o}>{t(`generator.option.${f.key}.${o}`)}</option>{/each}
-            </select></label>
+            </select>
+          </GenRow>
         {:else if f.type === 'bays'}
-          <label><span>{t(`generator.field.${f.key}`)}</span>
-            <input type="text" class="bays" bind:value={structureParams[structureKind][f.key]} placeholder="6; 7,5; 6" data-testid="gen-f-{f.key}" /></label>
+          {@const id = structureKind + f.key}
+          <GenRow name={t(`generator.field.${f.key}`)} {...fh}>
+            <input type="text" class="bays" placeholder="6; 7,5; 6" aria-describedby={fh.hintId} data-testid="gen-f-{f.key}"
+              value={listEditing?.id === id ? listEditing.text : listShown(String(structureParams[structureKind][f.key] ?? ''))}
+              onfocus={(e) => (listEditing = { id, text: e.currentTarget.value })}
+              oninput={(e) => { listEditing = { id, text: e.currentTarget.value }; structureParams[structureKind][f.key] = listRead(e.currentTarget.value); }}
+              onblur={() => (listEditing = null)} />
+            <span class="unit">{unitLabel('length', uiStore.unitSystem)}</span>
+          </GenRow>
+        {:else if LENGTH_FIELDS.has(f.key)}
+          <!-- No min/max on the field: a value out of range is named by the validator, not dropped. -->
+          <GenRow name={t(`generator.field.${f.key}`)} {...fh}>
+            <QuantityInput quantity="length" testid="gen-f-{f.key}" describedBy={fh.hintId}
+              bind:value={() => Number(structureParams[structureKind][f.key]), (v) => (structureParams[structureKind][f.key] = v)} />
+          </GenRow>
         {:else}
-          <label><span>{t(`generator.field.${f.key}`)}</span>
-            <input type="number" min={f.min} max={f.max} step={f.step ?? 1} bind:value={structureParams[structureKind][f.key]} data-testid="gen-f-{f.key}" /></label>
+          <GenRow name={t(`generator.field.${f.key}`)} {...fh}>
+            <input type="number" min={f.min} max={f.max} step={f.step ?? 1} bind:value={structureParams[structureKind][f.key]} aria-describedby={fh.hintId} data-testid="gen-f-{f.key}" />
+          </GenRow>
         {/if}
       {/each}
+    </GenSection>
 
-    {:else}
-      <label><span>{t('generator.ui.spanVT')}</span><input type="number" min="1" step="0.5" bind:value={shed.spanM} /></label>
-      <label>{@render fieldHead('bayVP')}<input type="number" min="1" step="0.5" bind:value={shed.bayM} aria-describedby="gen-hint-bayVP" /></label>
-      <label>{@render fieldHead('frames')}<input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></label>
-      <label>{@render fieldHead('clearHeight')}<input type="number" min="1" step="0.5" bind:value={shed.clearHeightM} aria-describedby="gen-hint-clearHeight" /></label>
-      <label><span>{t('generator.ui.columnKind')}</span>
+  {:else}
+    <GenSection id="frames" title={t('generator.sec.frames')} summary={sumFrames}>
+      <GenRow name={t('generator.ui.spanVT')} {...hint('spanVT')}><QuantityInput quantity="length" bind:value={shed.spanM} describedBy="gen-hint-spanVT" /></GenRow>
+      <GenRow name={t('generator.ui.clearHeight')} {...hint('clearHeight')}><QuantityInput quantity="length" bind:value={shed.clearHeightM} describedBy="gen-hint-clearHeight" /></GenRow>
+      <GenRow name={t('generator.ui.bayVP')} {...hint('bayVP')}><QuantityInput quantity="length" bind:value={shed.bayM} describedBy="gen-hint-bayVP" /></GenRow>
+      <GenRow name={t('generator.ui.frames')} {...hint('frames')}><input type="number" min="2" step="1" bind:value={shed.frames} aria-describedby="gen-hint-frames" /></GenRow>
+      <GenRow name={t('generator.ui.beams')} check {...hint('beams')}><input type="checkbox" bind:checked={shed.longitudinalBeams} aria-describedby="gen-hint-beams" /></GenRow>
+      <GenRow name={t('generator.ui.fixedBase')} check><input type="checkbox" bind:checked={shed.fixedBase} /></GenRow>
+    </GenSection>
+
+    <GenSection id="columns" title={t('generator.sec.columns')} summary={sumShedColumns}>
+      <GenRow name={t('generator.ui.columnKind')}>
         <select bind:value={shed.columnKind} data-testid="gen-column-kind">
           <option value="lattice">{t('generator.ui.columnLattice')}</option>
           <option value="solid">{t('generator.ui.columnSolid')}</option>
-        </select></label>
+        </select>
+      </GenRow>
       {#if shed.columnKind === 'solid'}
-        <label class="check"><input type="checkbox" checked={!!shed.variableColumns} onchange={(e) => { shed.variableColumns = e.currentTarget.checked; }} data-testid="gen-variable-columns" /><span>{t('generator.ui.variableSection')}</span></label>
-        <p class="gen-hint">{t('generator.ui.variableColumnHelp')}</p>
+        <GenRow name={t('generator.ui.variableSection')} check><input type="checkbox" checked={!!shed.variableColumns} onchange={(e) => { shed.variableColumns = e.currentTarget.checked; }} data-testid="gen-variable-columns" /></GenRow>
+        <p class="gen-note">{t('generator.ui.variableColumnHelp')}</p>
       {:else}
         <LatticeColumnFields bind:p={shed.column} />
       {/if}
-      <label class="check"><input type="checkbox" bind:checked={shed.longitudinalBeams} /><span>{t('generator.ui.beams')}</span></label>
-      <label class="check"><input type="checkbox" bind:checked={shed.roof} /><span>{t('generator.ui.roof')}</span></label>
+    </GenSection>
+
+    <GenSection id="roof" title={t('generator.sec.roof')} summary={sumRoof}>
+      <GenRow name={t('generator.ui.roof')} check><input type="checkbox" bind:checked={shed.roof} /></GenRow>
       {#if shed.roof}
-        <TrussFields bind:p={shed.truss} shapeKey="generator.ui.roofTrussShape" />
-        <label class="check"><input type="checkbox" bind:checked={shed.purlins} /><span>{t('generator.ui.purlins')}</span></label>
+        <TrussFields bind:p={shed.truss} shapeKey="generator.ui.roofTrussShape" part="shape" />
+        <TrussFields bind:p={shed.truss} part="web" />
+        <GenRow name={t('generator.ui.purlins')} check {...hint('purlinsOn')}><input type="checkbox" bind:checked={shed.purlins} aria-describedby="gen-hint-purlinsOn" /></GenRow>
       {/if}
-      <label class="check"><input type="checkbox" bind:checked={shed.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
-
       <!--
-        Bracing, as three switches rather than one.
-
-        They are three different members doing three different jobs, and collapsing them into
-        "Bracing" would hide the fact the measurement turned up: bracing the roof PLANE anchors
-        nothing on its own. The path is roof plane → vertical bracing between trusses → eave line
-        → eave beams → braced wall → ground, and a user who ticks one box and gets 10^11 m of
-        displacement learns nothing from a single control.
-
-        `shed-bracing.test.ts` measures each one's contribution by removing it.
+        `status`, not `alert`: nothing is wrong yet and Generate stays available. It is announced
+        when it appears, which is the moment the user unticks Purlins — before Generate, not after
+        Solve refuses.
       -->
-      <label class="check"><input type="checkbox" bind:checked={shed.roofBracing} />
-        <span>{t('generator.ui.roofBracing')}</span></label>
-      <label class="check"><input type="checkbox" bind:checked={shed.trussBracing} />
-        <span>{t('generator.ui.trussBracing')}</span></label>
-      <label class="check"><input type="checkbox" bind:checked={shed.wallBracing} />
-        <span>{t('generator.ui.wallBracing')}</span></label>
+      {#if stabilityNotice}
+        <p class="notice" role="status" data-testid="gen-stability-notice">{stabilityNotice}</p>
+      {/if}
+    </GenSection>
+
+    <!--
+      Bracing, as three switches rather than one.
+
+      They are three different members doing three different jobs, and collapsing them into
+      "Bracing" would hide the fact the measurement turned up: bracing the roof PLANE anchors
+      nothing on its own. The path is roof plane → vertical bracing between trusses → eave line
+      → eave beams → braced wall → ground, and a user who ticks one box and gets 10^11 m of
+      displacement learns nothing from a single control.
+
+      `shed-bracing.test.ts` measures each one's contribution by removing it.
+    -->
+    <GenSection id="bracing" title={t('generator.sec.bracing')} summary={sumBracing}>
+      <GenRow name={t('generator.ui.roofBracing')} check {...hint('roofBracing')}><input type="checkbox" bind:checked={shed.roofBracing} aria-describedby="gen-hint-roofBracing" /></GenRow>
+      <GenRow name={t('generator.ui.trussBracing')} check {...hint('trussBracing')}><input type="checkbox" bind:checked={shed.trussBracing} aria-describedby="gen-hint-trussBracing" /></GenRow>
+      <GenRow name={t('generator.ui.wallBracing')} check {...hint('wallBracing')}><input type="checkbox" bind:checked={shed.wallBracing} aria-describedby="gen-hint-wallBracing" /></GenRow>
       {#if shed.roofBracing || shed.trussBracing || shed.wallBracing}
-        <label><span>{t('generator.ui.bracingBays')}</span>
+        <GenRow name={t('generator.ui.bracingBays')}>
           <select bind:value={shed.bracingBays} data-testid="gen-bracing-bays">
             {#each BRACING_BAYS as b (b)}<option value={b}>{t(`generator.bracingBays.${b}`)}</option>{/each}
-          </select></label>
+          </select>
+        </GenRow>
       {/if}
-    {/if}
-  </div>
+      {#if bracingNotice}
+        <p class="notice" role="status" data-testid="gen-bracing-notice">{bracingNotice}</p>
+      {/if}
+    </GenSection>
+  {/if}
 
   {#if paramProblems.length > 0}
     <ul class="problems" id="gen-param-problems" role="alert" data-testid="gen-param-problems">
@@ -548,21 +658,9 @@
     </ul>
   {/if}
 
-  <!--
-    `status`, not `alert`: nothing is wrong yet and Generate stays available. It is announced
-    when it appears, which is the moment the user unticks Purlins — before Generate, not after
-    Solve refuses.
-  -->
-  {#if stabilityNotice}
-    <p class="notice" role="status" data-testid="gen-stability-notice">{stabilityNotice}</p>
-  {/if}
-  {#if bracingNotice}
-    <p class="notice" role="status" data-testid="gen-bracing-notice">{bracingNotice}</p>
-  {/if}
-
-  <!-- ── Profiles, only for the roles this topology actually places ── -->
+  <!-- ── Profiles, only for the roles this topology actually places, and the one steel ── -->
+  <GenSection id="members" title={t('generator.sec.members')} summary={sumMembers}>
   {#if roles.length > 0}
-    <h4>{t('generator.ui.profiles')}</h4>
     {#each roles as role (role)}
       {#if varying.has(role)}
         <!-- A member of variable section: the section where it starts, and where it grows to. -->
@@ -596,8 +694,8 @@
     role-by-role CONSEQUENCE of the single choice, which sections that steel is not ordinarily
     rolled in, is reported below.
   -->
-  <h4>{t('generator.ui.material')}</h4>
   <div class="grade-line" data-testid="gen-grade-line">
+    <span class="grade-name">{t('generator.ui.material')}</span>
     <button
       type="button"
       class="grade-trigger"
@@ -618,26 +716,7 @@
       <span class="grade-meta">{t('generator.ui.materialPlaceholder')}</span>
     {/if}
   </div>
-  <p class="grade-note" data-testid="gen-grade-scope">{t('generator.ui.materialScope')}</p>
-
-  <!--
-    The same selector the materials tab opens, narrowed to the metals.
-
-    It used to be `GradePickerPanel`, an inline popover over the grade database. That panel is
-    good and is still what the modal's own list is measured against, but having two material
-    surfaces in PRO meant two places to keep in step — and only one of them carried the
-    thickness bands and the per-field authority. Narrowing the shared one to the metal
-    categories keeps the catalogue, the sheet, the keyboard and the conversion identical, and
-    shortens only the tab strip.
-  -->
-  <ProMaterialModal
-    open={gradeOpen}
-    selected={grade?.designation ?? ''}
-    label={t('generator.ui.material')}
-    categories={METAL_CATEGORIES}
-    onApply={(choice) => { gradeId = choiceGradeId(choice); }}
-    onClose={() => (gradeOpen = false)}
-  />
+  <p class="gen-note" data-testid="gen-grade-scope">{t('generator.ui.materialScope')}</p>
 
   <!--
     The pairing note sits with the controls it is about. A warning that a grade is unusual for
@@ -659,9 +738,29 @@
       {/each}
     </ul>
   {/if}
+  </GenSection>
+
+  <!--
+    The same selector the materials tab opens, narrowed to the metals.
+
+    It used to be `GradePickerPanel`, an inline popover over the grade database. That panel is
+    good and is still what the modal's own list is measured against, but having two material
+    surfaces in PRO meant two places to keep in step — and only one of them carried the
+    thickness bands and the per-field authority. Narrowing the shared one to the metal
+    categories keeps the catalogue, the sheet, the keyboard and the conversion identical, and
+    shortens only the tab strip.
+  -->
+  <ProMaterialModal
+    open={gradeOpen}
+    selected={grade?.designation ?? ''}
+    label={t('generator.ui.material')}
+    categories={METAL_CATEGORIES}
+    onApply={(choice) => { gradeId = choiceGradeId(choice); }}
+    onClose={() => (gradeOpen = false)}
+  />
 
     {#if formGroups.length > 0}
-      <h4>{t('generator.out.groupsTitle')}</h4>
+      <GenSection id="groups" title={t('generator.out.groupsTitle')} summary={String(formGroups.length)}>
       <ul class="gen-groups" data-testid="gen-groups">
         {#each formGroups as g (g.id)}
           <li class:editing={editingGroupId === g.id}>
@@ -674,12 +773,14 @@
           </li>
         {/each}
       </ul>
+      </GenSection>
     {/if}
-    <h4>{t('generator.out.where')}</h4>
-    <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} {editingGroupId} />
+    <GenSection id="where" title={t('generator.out.where')} summary={sumWhere}>
+      <GeneratorOutput part="options" st={outputState} {topology} {canGenerate} {build} {meta} {editingGroupId} />
+    </GenSection>
+  </div><!-- /gen-form -->
 
-
-    {#if !previewDocked}{@render previewAndActions()}{/if}
+    {#if !previewDocked}{@render preview()}{/if}
   {/if}
   </div><!-- /gen-scroll -->
 
@@ -689,12 +790,33 @@
   -->
   {#if view === 'form'}
   <div class="gen-dock" class:docked={previewDocked} data-testid="gen-dock">
-    <button
-      type="button" class="dock-toggle" data-testid="gen-dock-toggle"
-      aria-pressed={previewDocked}
-      onclick={() => (previewDocked = !previewDocked)}
-    >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
-    {#if previewDocked}{@render previewAndActions()}{/if}
+    <div class="gen-dock-head">
+      <!--
+        What the parameter under the pointer (or in focus) controls, on the same line as the
+        preview's pin. One line tall: a longer explanation opens over the drawing below it, never
+        pushing anything (a line that grew shrank the list above, moved the hovered row out from
+        under the pointer, and the form shook). Read aloud through each field's own
+        `aria-describedby`, so it is for the eye only.
+      -->
+      <div class="gen-help" class:on={!!activeHelp} aria-hidden="true" data-testid="gen-help">
+        <p class="gen-help-text">{#if activeHelp}<span class="gen-help-name">{activeHelp.name}</span> {activeHelp.text}{:else}{t('generator.help.idle')}{/if}</p>
+      </div>
+      <button
+        type="button" class="dock-toggle" data-testid="gen-dock-toggle"
+        aria-pressed={previewDocked}
+        onclick={() => (previewDocked = !previewDocked)}
+      >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
+    </div>
+    {#if previewDocked}<div class="gen-dock-body">{@render preview()}</div>{/if}
+  </div>
+  <!--
+    The action that places what the form describes, always at the foot of the panel: with the
+    preview pinned or not, and however long the form, it is never scrolled away.
+  -->
+  <div class="gen-actions">
+    <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta}
+      {editingGroupId}
+      describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
   </div>
   {/if}
 
@@ -723,14 +845,14 @@
   .gen-back:hover { color: var(--st-text); border-color: var(--st-accent); }
   .gen-current { font-size: 0.8rem; font-weight: 600; color: var(--st-text); }
   .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
-  .gen-dock { display: flex; flex-direction: column; gap: 8px; }
-  .gen-dock.docked {
-    flex-shrink: 0;
-    border-top: 1px solid var(--st-hair);
-    margin-top: 8px; padding-top: 8px;
-    /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
-    max-height: 55%; overflow-y: auto;
+  .gen-dock {
+    display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+    border-top: 1px solid var(--st-hair); margin-top: 6px; padding-top: 5px;
   }
+  /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
+  .gen-dock.docked { max-height: 50%; min-height: 0; }
+  .gen-dock-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+  .gen-actions { flex-shrink: 0; padding-top: 8px; }
   .dock-toggle {
     align-self: flex-end; padding: 2px 8px; font-size: 0.64rem; cursor: pointer;
     background: transparent; color: var(--st-text-3);
@@ -767,23 +889,20 @@
   h3 { margin: 0; font-size: 0.86rem; font-weight: 600; }
   h4 { margin: 6px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--st-text-2); }
   .sub { margin: 2px 0 0; font-size: 0.7rem; color: var(--st-text-2); }
-  .fields { display: flex; flex-direction: column; gap: 3px; }
-  .fields :global(label) { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--st-text-2); }
-  .fields :global(label > span:first-child) { min-width: 9rem; }
-  .fields :global(input[type='number']), .fields :global(select) {
-    background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 6rem; text-align: right;
-  }
-  .fields :global(select) { text-align: left; width: auto; min-width: 8rem; }
-  .fields :global(label.check > span) { min-width: 0; }
-  .fields input.bays {
-    background: var(--st-bg); color: var(--st-text); border: 1px solid var(--st-surface-3);
-    border-radius: 3px; padding: 2px 4px; font-size: 0.7rem; width: 9rem;
+  /*
+    The form: sections of rows, every name in one column and every box in the next (`GenRow`).
+    The name column narrows with the panel, down to a width that still holds two short words.
+  */
+  .gen-form { --gr-l: clamp(6.5rem, 34%, 9rem); display: flex; flex-direction: column; }
+  .gen-form .unit { font-size: 0.66rem; color: var(--st-text-3); }
+  /* A note about the field above it, under the box column where that field starts. */
+  .gen-form :global(.gen-note) {
+    margin: -1px 0 3px calc(var(--gr-l) + 8px);
+    font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3);
   }
   .gen-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.7rem; }
   .gen-groups li { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px; }
   .gen-groups li.editing { background: var(--st-surface-3); }
-  .fields :global(input:focus-visible), .fields :global(select:focus-visible) { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .problems { margin: 0; padding-left: 16px; font-size: 0.68rem; color: var(--st-danger); }
   /* Warn, not error: the model will generate. `--st-warn` is the token that means exactly
      "this is going to cost you something", which is what an unsolvable roof is. */
@@ -791,7 +910,8 @@
     margin: 6px 0 0; font-size: 0.68rem; line-height: 1.45; color: var(--st-warn);
     border-left: 2px solid var(--st-warn); padding-left: 8px;
   }
-  .previews { display: flex; flex-direction: column; gap: 6px; }
+  /* Side by side where the panel is wide enough, so two drawings do not take the whole dock. */
+  .previews { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
   .preview { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 6px 8px; }
   .totals { margin: 0; font-size: 0.72rem; color: var(--st-text); font-variant-numeric: tabular-nums; }
   /* The per-role legend moved into the preview, beside the colours it names. */
@@ -809,11 +929,13 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .model-note { margin: 0; font-size: 0.66rem; color: var(--st-text-3); }
-  /* The hint under a field: it had no rule of its own and took the page's body size. */
-  .gen-hint, .fields :global(.gen-hint) { margin: 0 0 4px; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
 
   /* The material row reads like a profile row, because it is the same kind of choice. */
-  .grade-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+  .grade-line {
+    display: grid; grid-template-columns: var(--gr-l) auto auto auto; justify-content: start;
+    align-items: center; gap: 4px 8px; margin: 4px 0 2px;
+  }
+  .grade-name { text-align: right; font-size: 0.7rem; color: var(--st-text-2); }
   .grade-trigger {
     font-family: var(--st-mono, monospace); font-size: 0.68rem;
     padding: 3px 7px; min-width: 7.5rem; text-align: left; cursor: pointer;
@@ -825,7 +947,6 @@
     background: none; border: none; cursor: pointer;
     font-size: 0.6rem; color: var(--st-text-3); text-decoration: underline;
   }
-  .grade-note { margin: 0 0 6px; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
 
   /*
     One focus ring for every control in this panel.
@@ -843,13 +964,26 @@
     outline-offset: 1px;
   }
 
-  /* Field head: the name, and the line that says what the number controls. */
-  .fname, .fields :global(.fname) { font-size: 0.7rem; color: var(--st-text); }
-  .fhint, .fields :global(.fhint) {
-    display: block;
-    font-size: 0.64rem;
-    line-height: 1.35;
-    color: var(--st-text-3);
-    margin: 0.05rem 0 0.15rem;
+  /* The help line, beside the preview's pin. Above the drawing, so it can open over it. */
+  .gen-dock-head { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px; }
+  .gen-dock-head .dock-toggle { flex-shrink: 0; }
+  .gen-help { position: relative; flex: 1; min-width: 0; height: 1.35em; font-size: 0.64rem; line-height: 1.35; }
+  .gen-help-text {
+    position: absolute; top: 0; left: 0; right: 0; margin: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--st-text-3); pointer-events: none;
   }
+  /* An explanation longer than the line opens downward over the drawing, on its own card. */
+  .gen-help.on .gen-help-text {
+    white-space: normal; overflow: visible;
+    top: -4px; left: -6px; right: -6px; padding: 3px 6px;
+    background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius, 3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+  /* Without a pointer to hover with (a phone), the invitation to hover is only in the way. */
+  @media (hover: none) {
+    .gen-help:not(.on) .gen-help-text { visibility: hidden; }
+  }
+  .gen-help-name { color: var(--st-text); font-weight: 600; margin-right: 2px; }
+  .gen-help-name::after { content: ' ·'; font-weight: 400; color: var(--st-text-3); }
 </style>

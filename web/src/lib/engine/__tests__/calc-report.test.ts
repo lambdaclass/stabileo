@@ -106,3 +106,53 @@ describe('calc-report applied-loads table', () => {
     expect(html).not.toContain('more loads');
   });
 });
+
+describe('calc-report units', () => {
+  const sec = { id: 1, name: 'R', a: 0.02, iy: 1e-4, iz: 2e-4, j: 0 } as any;
+  const withDisp = {
+    reactions: [{ nodeId: 1, rx: 0, rz: 9.80665, my: 0 }],
+    displacements: [{ nodeId: 1, ux: 0.0025, uz: 0, ry: 0 }],
+    elementForces: [],
+  } as any;
+
+  it('in SI gives sections in cm² and cm⁴, displacements in mm and reactions in kN', () => {
+    const html = generateCalcReportHtml(baseData({ sections: [sec], results2D: withDisp }));
+    expect(html).toContain('<th>A (cm²)</th><th>Iy (cm⁴)</th>');
+    expect(html).toContain('<td class="num">200.0</td><td class="num">10000</td>');
+    expect(html).toContain('<th>ux (mm)</th>');
+    expect(html).toContain('<td class="num">2.500</td>');
+    expect(html).toContain('<th>Rz (kN)</th>');
+    expect(html).toContain('<td class="num">9.81</td>');
+  });
+
+  it('in MKS gives reactions in tf and displacements in cm, keeping the resolution', () => {
+    const html = generateCalcReportHtml(baseData({ unitSystem: 'MKS', results2D: withDisp }));
+    expect(html).toContain('<th>Rz (tf)</th>');
+    expect(html).toContain('<td class="num">1.000</td>');
+    expect(html).toContain('<th>ux (cm)</th>');
+    expect(html).toContain('<td class="num">0.2500</td>');
+    expect(html).not.toContain('(kN)');
+    expect(html).not.toContain('(mm)');
+  });
+
+  it('in imperial gives sections in in² and in⁴, and displacements in inches', () => {
+    const html = generateCalcReportHtml(baseData({ unitSystem: 'Imperial', sections: [sec], results2D: withDisp }));
+    expect(html).toContain('<th>A (in²)</th><th>Iy (in⁴)</th>');
+    expect(html).toContain('<th>Rz (kip)</th>');
+    expect(html).toContain('<th>ux (in)</th>');
+    expect(html).not.toContain('(m²)');
+  });
+});
+
+describe('the report figure of a 2D model shown upright in 3D', () => {
+  it('stands the column up, as the 3D view shows it', () => {
+    const nodes = [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 3, z: 0 }] as never;
+    const elements = [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }] as never;
+    const line = (html: string) => html.match(/<line x1="([^"]+)" y1="[^"]+" x2="([^"]+)"/)!.slice(1, 3).map(Number);
+    const [x1, x2] = line(generateCalcReportHtml(baseData({ is3D: true, analysisMode: '3D', nodes, elements, project2DToXZ: true })));
+    expect(x1).toBeCloseTo(x2!, 1);
+    // Without the flag the same nodes are a 3D model lying in the ground plane: a diagonal.
+    const [y1, y2] = line(generateCalcReportHtml(baseData({ is3D: true, analysisMode: '3D', nodes, elements })));
+    expect(Math.abs(y1! - y2!)).toBeGreaterThan(10);
+  });
+});

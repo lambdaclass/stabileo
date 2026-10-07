@@ -31,6 +31,50 @@ function getSharedGeo(radius: number): THREE.SphereGeometry {
   return geo;
 }
 
+/**
+ * How the markers are drawn.
+ *
+ * `mesh` is the instanced sphere, sized in metres (PRO). `points` and `spheres` draw a marker of
+ * a fixed size on SCREEN (Basic): a dot of a few pixels, or a small shaded ball. A sphere sized
+ * in metres has to be kept clickable with a pixel floor measured at the orbit target, and a node
+ * much nearer the camera than that target then grew into a ball covering the members. A marker
+ * sized in pixels cannot grow. In both screen styles the sphere mesh stays in the scene, not
+ * drawn, as the raycast target.
+ */
+export type NodeMarkerStyle = 'mesh' | 'points' | 'spheres';
+
+/** Diameters in CSS pixels: ordinary, and selected or hovered. */
+const MARKER_PX: Record<'points' | 'spheres', [number, number]> = { points: [3, 7], spheres: [8, 11] };
+
+const POINTS_VERTEX = `
+attribute vec3 aColor;
+attribute float aSize;
+uniform float uPixelRatio;
+varying vec3 vColor;
+void main() {
+  vColor = aColor;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // A hair towards the camera, so a marker is not buried in the member lines that meet at it.
+  gl_Position.z -= 0.0008 * gl_Position.w;
+  gl_PointSize = aSize * uPixelRatio;
+}`;
+
+const POINTS_FRAGMENT = `
+uniform float uSphere;
+varying vec3 vColor;
+void main() {
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(p, p);
+  if (r2 > 1.0) discard;
+  vec3 c = vColor;
+  if (uSphere > 0.5) {
+    vec3 n = vec3(p.x, -p.y, sqrt(1.0 - r2));
+    float d = max(dot(n, normalize(vec3(-0.4, 0.5, 0.8))), 0.0);
+    c = vColor * (0.45 + 0.6 * d) + vec3(0.22) * pow(d, 24.0);
+  }
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
 export interface NodesInstancedOpts {
   radius?: number;
   initialCapacity?: number;
@@ -55,6 +99,12 @@ export class NodesInstanced {
   private _mat4 = new THREE.Matrix4();
   private _color = new THREE.Color();
 
+  /** The screen-sized markers (see `NodeMarkerStyle`); not raycast, the mesh is. */
+  public points: THREE.Points;
+  private pointsMat: THREE.ShaderMaterial;
+  private style: NodeMarkerStyle = 'mesh';
+  private drawnFlag = true;
+
   /**
    * The one node whose marker is collapsed, or null.
    *
@@ -78,7 +128,69 @@ export class NodesInstanced {
     this.mesh.count = 0;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.userData = { type: 'nodeBatch', indexToId: this.indexToId };
+
+    this.pointsMat = new THREE.ShaderMaterial({
+      uniforms: { uPixelRatio: { value: 1 }, uSphere: { value: 0 } },
+      vertexShader: POINTS_VERTEX,
+      fragmentShader: POINTS_FRAGMENT,
+    });
+    this.points = new THREE.Points(this.pointsGeometry(this.capacity), this.pointsMat);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 3;
+    this.points.visible = false;
+    // The sphere mesh is the pick target; a hit here would carry no node id.
+    this.points.raycast = () => {};
   }
+
+  private pointsGeometry(capacity: number): THREE.BufferGeometry {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage));
+    g.setDrawRange(0, this.count);
+    return g;
+  }
+
+  /** How the markers are drawn; see `NodeMarkerStyle`. */
+  setStyle(style: NodeMarkerStyle): void {
+    if (style === this.style) return;
+    this.style = style;
+    if (style !== 'mesh') this.pointsMat.uniforms.uSphere!.value = style === 'spheres' ? 1 : 0;
+    for (let i = 0; i < this.count; i++) this.writePointSize(i);
+    this.applyVisibility();
+  }
+
+  get markerStyle(): NodeMarkerStyle {
+    return this.style;
+  }
+
+  /** Device pixels per CSS pixel, so a marker is the same size on a retina screen. */
+  setPixelRatio(ratio: number): void {
+    this.pointsMat.uniforms.uPixelRatio!.value = ratio;
+  }
+
+  private applyVisibility(): void {
+    const screen = this.style !== 'mesh';
+    this.mat.visible = this.drawnFlag && !screen;
+    this.points.visible = this.drawnFlag && screen;
+  }
+
+  private writePointSize(idx: number): void {
+    if (this.style === 'mesh') return;
+    const id = this.indexToId[idx];
+    const size = this.size(id);
+    (this.points.geometry.getAttribute('aSize') as THREE.BufferAttribute).setX(idx, size);
+    this.points.geometry.getAttribute('aSize').needsUpdate = true;
+  }
+
+  private size(id: number | undefined): number {
+    if (this.style === 'mesh' || id === undefined || id === this.suppressedId) return 0;
+    const [base, marked] = MARKER_PX[this.style];
+    return (this.shownColor.get(id) ?? COLORS.node) === COLORS.node ? base : marked;
+  }
+
+  /** The colour each marker currently shows, so a marked one (selected, hovered) is drawn larger. */
+  private shownColor = new Map<number, number>();
 
   /**
    * Resize the markers.
@@ -151,12 +263,13 @@ export class NodesInstanced {
    * mode where it is invisible.
    */
   setDrawn(drawn: boolean): void {
-    this.mat.visible = drawn;
+    this.drawnFlag = drawn;
+    this.applyVisibility();
   }
 
   /** Whether the markers are currently drawn. Read by the specs. */
   get drawn(): boolean {
-    return this.mat.visible;
+    return this.drawnFlag;
   }
 
   /** Insert or move a node. Allocates an instance slot if new. */
@@ -169,6 +282,7 @@ export class NodesInstanced {
       this.idToIndex.set(id, idx);
       this.indexToId[idx] = id;
       this.mesh.count = this.count;
+      this.points.geometry.setDrawRange(0, this.count);
       // Default base color for new nodes
       if (!this.baseColorById.has(id)) {
         this.setBaseColor(id, COLORS.node);
@@ -193,6 +307,10 @@ export class NodesInstanced {
     }
     this.mesh.setMatrixAt(idx, this._mat4);
     this.mesh.instanceMatrix.needsUpdate = true;
+    const pos = this.points.geometry.getAttribute('position') as THREE.BufferAttribute;
+    pos.setXYZ(idx, x, y, z);
+    pos.needsUpdate = true;
+    this.writePointSize(idx);
     this.invalidateBounds();
   }
 
@@ -249,14 +367,21 @@ export class NodesInstanced {
         this.mesh.getColorAt(lastIdx, this._color);
         this.mesh.setColorAt(idx, this._color);
       }
+      for (const name of ['position', 'aColor', 'aSize']) {
+        const attr = this.points.geometry.getAttribute(name) as THREE.BufferAttribute;
+        for (let k = 0; k < attr.itemSize; k++) attr.array[idx * attr.itemSize + k] = attr.array[lastIdx * attr.itemSize + k]!;
+        attr.needsUpdate = true;
+      }
       this.idToIndex.set(lastId, idx);
       this.indexToId[idx] = lastId;
     }
     this.indexToId.length = lastIdx;
     this.idToIndex.delete(id);
     this.baseColorById.delete(id);
+    this.shownColor.delete(id);
     this.count = lastIdx;
     this.mesh.count = this.count;
+    this.points.geometry.setDrawRange(0, this.count);
     this.mesh.instanceMatrix.needsUpdate = true;
     this.invalidateBounds();
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
@@ -284,6 +409,12 @@ export class NodesInstanced {
     this._color.setHex(color);
     this.mesh.setColorAt(idx, this._color);
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    // The hex as written, not linearised: the point shader writes it straight to the screen.
+    const c = this.points.geometry.getAttribute('aColor') as THREE.BufferAttribute;
+    c.setXYZ(idx, ((color >> 16) & 0xff) / 255, ((color >> 8) & 0xff) / 255, (color & 0xff) / 255);
+    c.needsUpdate = true;
+    this.shownColor.set(id, color);
+    this.writePointSize(idx);
   }
 
   /** Set base color (tracked for restore) AND push it to the instance. */
@@ -305,8 +436,10 @@ export class NodesInstanced {
     this.idToIndex.clear();
     this.indexToId.length = 0;
     this.baseColorById.clear();
+    this.shownColor.clear();
     this.count = 0;
     this.mesh.count = 0;
+    this.points.geometry.setDrawRange(0, 0);
     /*
      * Emptying the mesh is a change of extent like any other.
      *
@@ -331,6 +464,8 @@ export class NodesInstanced {
   dispose(): void {
     this.clear();
     this.mat.dispose();
+    this.pointsMat.dispose();
+    this.points.geometry.dispose();
     // Shared geometry is not disposed — it may be held by a freshly created
     // replacement instance after hot-reload or context re-init.
   }
@@ -361,6 +496,31 @@ export class NodesInstanced {
     }
     this.mesh.dispose();
     this.mesh = newMesh;
+    const oldGeo = this.points.geometry;
+    const newGeo = this.pointsGeometry(newCap);
+    for (const name of ['position', 'aColor', 'aSize']) {
+      (newGeo.getAttribute(name).array as Float32Array).set(oldGeo.getAttribute(name).array as Float32Array);
+    }
+    newGeo.setDrawRange(0, this.count);
+    this.points.geometry = newGeo;
+    oldGeo.dispose();
     this.capacity = newCap;
   }
+}
+
+/** The reader's choice under Settings › Model, Basic 3D. */
+export type NodeStylePref = 'points' | 'spheres' | 'auto';
+
+/** Tools whose click lands on a node: while one is armed, `auto` draws balls to aim at. */
+const MODELLING_TOOLS = new Set(['node', 'element', 'support', 'load', 'moveNodes']);
+
+/**
+ * The marker style to draw for a preference and the armed tool. `aiming`: something else that
+ * clicks on nodes is under way (in PRO: a plate's corners or a mesh outline being picked, a
+ * generated structure or a paste placed with its ghost, the joints tab), which `auto` treats as a
+ * modelling tool.
+ */
+export function resolveNodeStyle(pref: NodeStylePref, tool: string, aiming = false): 'points' | 'spheres' {
+  if (pref === 'auto') return aiming || MODELLING_TOOLS.has(tool) ? 'spheres' : 'points';
+  return pref;
 }

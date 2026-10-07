@@ -43,7 +43,9 @@
   const shown = $derived(pinned ?? activeTab);
   const phoneOptions = $derived(
     uiStore.isMobile && uiStore.appMode === 'basico' && !pinned
-    && ['node', 'element', 'support', 'load'].includes(uiStore.currentTool),
+    && (['node', 'element', 'support', 'load'].includes(uiStore.currentTool)
+      // A selected support or load is edited in the same row (ToolOptions).
+      || uiStore.selectedSupports.size > 0 || uiStore.selectedLoads.size > 0),
   );
 
   /**
@@ -270,6 +272,39 @@
     color: var(--st-accent);
     background: color-mix(in srgb, var(--st-accent) 12%, var(--st-surface-2));
   }
+  /*
+   * The values row under the big buttons (dx, dz, α; F, its unit, Z, ⊥, α) and
+   * the edit row: easier to hit than the desktop strip they come from, about
+   * half the height of the tool buttons above so they read as their details.
+   * `.data-table` first to outrank the components' own phone rules.
+   */
+  .data-table .dt-tool-options :global(.ft-input-group) { font-size: 0.82rem; gap: 0.3rem; }
+  .data-table .dt-tool-options :global(.ft-input-group input),
+  .data-table .dt-tool-options :global(.ft-case-select),
+  .data-table .dt-tool-options :global(.ft-load-edit select) {
+    min-height: 30px; font-size: 0.85rem; padding: 2px 6px;
+  }
+  .data-table .dt-tool-options :global(.ft-input-group input) { width: 4.2em; }
+  .data-table .dt-tool-options :global(.ft-unit) { font-size: 0.78rem; }
+  .data-table .dt-tool-options :global(.ft-opt-btn:not(.ft-primary)) {
+    min-height: 30px; min-width: 30px; padding: 3px 9px; font-size: 0.8rem;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* Editing: the row wraps instead of running off the screen, says what it
+     edits, and its ✓ and bin are thumb-sized. */
+  .data-table .dt-tool-options :global(.tb-tool-name.tb-editing) {
+    display: block; flex-basis: 100%; font-size: 0.72rem;
+  }
+  .data-table .dt-tool-options :global(.ft-load-edit) {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.6rem; width: 100%; overflow: visible;
+  }
+  .data-table .dt-tool-options :global(.ft-load-edit .ft-sep) { display: none; }
+  .data-table .dt-tool-options :global(.ft-load-delete),
+  .data-table .dt-tool-options :global(.ft-load-done) {
+    min-height: 32px; min-width: 40px; font-size: 0.85rem;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
   .dt-tool-options :global(.ft-hint) {
     flex-basis: 100%;
     font-size: 0.74rem;

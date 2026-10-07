@@ -1,6 +1,6 @@
 /**
  * The write card's loads (`write-load.ts`): a physical member's frame, stretches that do not fit,
- * unreadable fields, and a force pointing at a node that is not there or is the node itself.
+ * blank fields, and an inclined force from an origin that is not there or is the loaded node itself.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore, type Load } from '../../../store/model.svelte';
@@ -43,8 +43,8 @@ function chainOfTwo(dir: [number, number, number] = [1, 0, 0]) {
 }
 
 describe('a load on a physical member keeps its local z whichever member is picked first', () => {
-  const qz = form('distributed', (f) => { f.q.zI = '-10'; });
-  const pz = form('point', (f) => { f.p.pz = '-5'; });
+  const qz = form('distributed', (f) => { f.q.zI = -10; });
+  const pz = form('point', (f) => { f.p.pz = -5; });
 
   it('picked [e1, e2] or [e2, e1]: the same downward 70 kN, and a point load stays downward', () => {
     const { e1, e2 } = chainOfTwo();
@@ -78,85 +78,85 @@ describe('a stretch or a position that does not fit is refused, not clamped', ()
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
     return modelStore.addElement(a, b, 'frame');
   };
-  const dist = (a: string, b: string) => form('distributed', (f) => { f.q.zI = '-10'; f.qa = a; f.qb = b; });
+  const dist = (a: number | null, b: number | null) => form('distributed', (f) => { f.q.zI = -10; f.qa = a; f.qb = b; });
 
   it('a ≥ b, a past the member, b at or before its start', () => {
     const e = beam(5);
-    expect(errorOf(buildWrittenLoads(dist('3', '2'), ctx([e])))).toBe('writeLoad.stretchBad');
-    expect(errorOf(buildWrittenLoads(dist('6', ''), ctx([e])))).toBe('writeLoad.stretchDoesNotFit');
-    expect(errorOf(buildWrittenLoads(dist('', '0'), ctx([e])))).toBe('writeLoad.stretchBad');
-    expect(errorOf(buildWrittenLoads(dist('-1', ''), ctx([e])))).toBe('writeLoad.stretchBad');
+    expect(errorOf(buildWrittenLoads(dist(3, 2), ctx([e])))).toBe('writeLoad.stretchBad');
+    expect(errorOf(buildWrittenLoads(dist(6, null), ctx([e])))).toBe('writeLoad.stretchDoesNotFit');
+    expect(errorOf(buildWrittenLoads(dist(null, 0), ctx([e])))).toBe('writeLoad.stretchBad');
+    expect(errorOf(buildWrittenLoads(dist(-1, null), ctx([e])))).toBe('writeLoad.stretchBad');
     // What fits is kept as typed, a full-length end stored as absent.
-    expect(loadsOf(buildWrittenLoads(dist('1', '5'), ctx([e])))[0]!.data).toMatchObject({ a: 1 });
-    expect((loadsOf(buildWrittenLoads(dist('1', '5'), ctx([e])))[0]!.data as { b?: number }).b).toBeUndefined();
+    expect(loadsOf(buildWrittenLoads(dist(1, 5), ctx([e])))[0]!.data).toMatchObject({ a: 1 });
+    expect((loadsOf(buildWrittenLoads(dist(1, 5), ctx([e])))[0]!.data as { b?: number }).b).toBeUndefined();
   });
 
   it('members of different lengths: the ones the stretch does not fit are named, nothing is added', () => {
     const short = beam(3);
     const a = modelStore.addNode(0, 2, 0), b = modelStore.addNode(6, 2, 0);
     const long = modelStore.addElement(a, b, 'frame');
-    const r = buildWrittenLoads(dist('5', ''), ctx([short, long]));
+    const r = buildWrittenLoads(dist(5, null), ctx([short, long]));
     expect(errorOf(r)).toBe('writeLoad.stretchDoesNotFit');
     expect(String((r as WriteRefusal).params?.list)).toBe(String(short));
   });
 
   it('a point load past the member, a triangle\'s peak past it', () => {
     const e = beam(5);
-    expect(errorOf(buildWrittenLoads(form('point', (f) => { f.p.pz = '-5'; f.pa = '9'; }), ctx([e])))).toBe('writeLoad.pointOutside');
-    expect(errorOf(buildWrittenLoads(form('distributed', (f) => { f.shape = 'triangle'; f.peak = '-5'; f.peakAt = '9'; }), ctx([e])))).toBe('writeLoad.pointOutside');
-    expect(loadsOf(buildWrittenLoads(form('point', (f) => { f.p.pz = '-5'; f.pa = '5'; }), ctx([e])))[0]!.data).toMatchObject({ a: 5 });
+    expect(errorOf(buildWrittenLoads(form('point', (f) => { f.p.pz = -5; f.pa = 9; }), ctx([e])))).toBe('writeLoad.pointOutside');
+    expect(errorOf(buildWrittenLoads(form('distributed', (f) => { f.shape = 'triangle'; f.peak = -5; f.peakAt = 9; }), ctx([e])))).toBe('writeLoad.pointOutside');
+    expect(loadsOf(buildWrittenLoads(form('point', (f) => { f.p.pz = -5; f.pa = 5; }), ctx([e])))[0]!.data).toMatchObject({ a: 5 });
   });
 
   it('on a physical member: a point beyond it, a stretch starting before it or ending past it', () => {
     const { e1, e2 } = chainOfTwo();
-    expect(errorOf(buildWrittenLoads(form('point', (f) => { f.p.pz = '-5'; f.pa = '10'; }), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
-    expect(errorOf(buildWrittenLoads(dist('-1', ''), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
-    expect(errorOf(buildWrittenLoads(dist('', '8'), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
-    expect(errorOf(buildWrittenLoads(dist('4', '2'), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
+    expect(errorOf(buildWrittenLoads(form('point', (f) => { f.p.pz = -5; f.pa = 10; }), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
+    expect(errorOf(buildWrittenLoads(dist(-1, null), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
+    expect(errorOf(buildWrittenLoads(dist(null, 8), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
+    expect(errorOf(buildWrittenLoads(dist(4, 2), ctx([e1, e2], true)))).toBe('writeLoad.chainOutside');
   });
 });
 
-describe('a field that does not read refuses the add; blank is the default it names', () => {
-  it('a J end, a force with its unit typed, an a with its unit typed', () => {
+describe('a blank field is the default it names', () => {
+  it('a blank J end is the I value, a zero typed in J is a zero', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
     const e = modelStore.addElement(a, b, 'frame');
-    expect(errorOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = '-1,5'; f.q.zJ = '-2,5.0'; }), ctx([e])))).toBe('pro.loadUnreadable');
-    expect(errorOf(buildWrittenLoads(form('nodal', (f) => { f.f.fx = '5'; f.f.fz = '-10 kN'; }), ctx([a])))).toBe('pro.loadUnreadable');
-    expect(errorOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = '-1'; f.qa = '0.5m'; }), ctx([e])))).toBe('pro.loadUnreadable');
-    expect(errorOf(buildWrittenLoads(form('point', (f) => { f.p.pz = '-1'; f.pa = '1 m'; }), ctx([e])))).toBe('pro.loadUnreadable');
-    expect(errorOf(buildWrittenLoads(form('prestress', (f) => { f.ps.force = '500'; f.ps.eM = '2O0'; }), ctx([e])))).toBe('pro.loadUnreadable');
-    expect(errorOf(buildWrittenLoads(form('displacement', (f) => { f.u.dz = '-10mm'; }), ctx([a])))).toBe('pro.loadUnreadable');
-    // Blank J is the I value, a zero typed in J is a zero.
-    expect(loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = '-1,5'; }), ctx([e])))[0]!.data).toMatchObject({ qZI: -1.5, qZJ: -1.5 });
-    expect(loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = '-1,5'; f.q.zJ = '0'; }), ctx([e])))[0]!.data).toMatchObject({ qZI: -1.5, qZJ: 0 });
+    expect(loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = -1.5; }), ctx([e])))[0]!.data).toMatchObject({ qZI: -1.5, qZJ: -1.5 });
+    expect(loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.zI = -1.5; f.q.zJ = 0; }), ctx([e])))[0]!.data).toMatchObject({ qZI: -1.5, qZJ: 0 });
+    // Displacements and eccentricities are SI, as the card's fields hand them over.
+    expect(loadsOf(buildWrittenLoads(form('displacement', (f) => { f.u.dz = -0.01; }), ctx([a])))[0]!.data).toMatchObject({ dz: -0.01 });
+    expect(loadsOf(buildWrittenLoads(form('prestress', (f) => { f.ps.force = 500; f.ps.eI = 0.1; f.ps.eJ = 0.3; }), ctx([e])))[0]!.data).toMatchObject({ eI: 0.1, eM: 0.2, eJ: 0.3 });
   });
 });
 
-describe('a force toward a node', () => {
-  const toward = (node: string, F = '10') => form('nodal', (f) => { f.inclined = true; f.incF = F; f.incByNode = true; f.incToNode = node; });
+describe('an inclined force, from an origin toward each loaded node', () => {
+  const fromNode = (node: string, F = 10) => form('nodal', (f) => { f.inclined = true; f.incF = F; f.incFromKind = 'node'; f.incFromNode = node; });
 
-  it('names a node that is there, or nothing is added', () => {
+  it('names a node that is there, or nothing is added; a point needs a coordinate', () => {
     const a = modelStore.addNode(0, 0, 0);
-    expect(errorOf(buildWrittenLoads(toward(''), ctx([a])))).toBe('writeLoad.towardNodeMissing');
-    expect(errorOf(buildWrittenLoads(toward('999'), ctx([a])))).toBe('writeLoad.towardNodeMissing');
-    expect(errorOf(buildWrittenLoads(toward('x'), ctx([a])))).toBe('writeLoad.towardNodeMissing');
+    expect(errorOf(buildWrittenLoads(fromNode(''), ctx([a])))).toBe('writeLoad.fromNodeMissing');
+    expect(errorOf(buildWrittenLoads(fromNode('999'), ctx([a])))).toBe('writeLoad.fromNodeMissing');
+    expect(errorOf(buildWrittenLoads(fromNode('x'), ctx([a])))).toBe('writeLoad.fromNodeMissing');
+    expect(errorOf(buildWrittenLoads(form('nodal', (f) => { f.inclined = true; f.incF = 10; f.incFromKind = 'point'; }), ctx([a])))).toBe('writeLoad.inclinedNoDirection');
   });
 
-  it('the node it points at is left out, and said', () => {
+  it('points from the origin at the loaded node; a loaded node on the origin is left out, and said', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 4);
-    const r = buildWrittenLoads(toward(String(b)), ctx([a, b]));
+    const r = buildWrittenLoads(fromNode(String(b)), ctx([a, b]));
     expect(loadsOf(r)).toHaveLength(1);
-    expect(loadsOf(r)[0]!.data).toMatchObject({ nodeId: a, fx: 6, fz: 8 });
-    expect((r as WriteOutcome).skipped).toEqual({ key: 'writeLoad.towardSelf', ids: [b] });
+    expect(loadsOf(r)[0]!.data).toMatchObject({ nodeId: a, fx: -6, fz: -8 });
+    expect((r as WriteOutcome).skipped).toEqual({ key: 'writeLoad.fromSelf', ids: [b] });
     // Only that node: nothing to add, and the reason.
-    expect(errorOf(buildWrittenLoads(toward(String(b)), ctx([b])))).toBe('writeLoad.towardSelf');
+    expect(errorOf(buildWrittenLoads(fromNode(String(b)), ctx([b])))).toBe('writeLoad.fromSelf');
+    // From a point straight above: straight down.
+    const down = buildWrittenLoads(form('nodal', (f) => { f.inclined = true; f.incF = 10; f.incFromKind = 'point'; f.incFrom = { x: 0, y: 0, z: 5 }; }), ctx([a]));
+    expect(loadsOf(down)[0]!.data).toMatchObject({ fx: 0, fz: -10 });
   });
 });
 
 describe('every refusal is said in each language', () => {
   it('the keys the write card and the tables show exist in en, es and pt', async () => {
     const keys = ['writeLoad.stretchBad', 'writeLoad.stretchDoesNotFit', 'writeLoad.pointOutside', 'writeLoad.chainOutside',
-      'writeLoad.towardNodeMissing', 'writeLoad.towardSelf', 'pro.loadUnreadable', 'loadTables.placeRefused',
+      'writeLoad.fromNodeMissing', 'writeLoad.fromSelf', 'pro.loadUnreadable', 'loadTables.placeRefused',
       'pro.removeCaseSelfWeight', 'pro.removeCaseMass'];
     for (const lang of ['en', 'es', 'pt']) {
       const dict = (await import(`../../../i18n/locales/${lang}.ts`)).default as Record<string, string>;

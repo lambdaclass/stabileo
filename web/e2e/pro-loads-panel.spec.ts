@@ -2,7 +2,7 @@ import { test, expect, loadModel } from './fixtures';
 
 /*
  * The Loads tab's cases and combinations: a new case is a type and an optional name, the eye
- * shows or hides a case in the model, the self-weight is one closed row, and a combination is
+ * shows or hides a case in the model, the self-weight is a row of the load tables, and a combination is
  * one closed row that says what it adds up.
  */
 
@@ -38,11 +38,11 @@ test.describe('@smoke PRO loads panel', () => {
     await expect(eye).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('the self-weight is one closed row that says where it goes', async ({ pro: page }) => {
-    await expect(page.getByTestId('sw-summary')).toBeVisible();
-    await expect(page.getByTestId('sw-add')).toHaveCount(0);
-    await page.getByTestId('sw-toggle').click();
-    await expect(page.getByTestId('sw-add')).toBeVisible();
+  test('the self-weight is listed with the loads and added from the Add load card', async ({ pro: page }) => {
+    await expect(page.getByTestId('sw-row')).toHaveCount(1);
+    await expect(page.getByTestId('sw-row')).toContainText('The whole model');
+    await page.getByTestId('write-load').click();
+    await expect(page.getByTestId('wl-kind').locator('optgroup[label="General"] option[value="selfWeight"]')).toHaveCount(1);
   });
 
   test('combinations are closed rows that read as their definition', async ({ pro: page }) => {

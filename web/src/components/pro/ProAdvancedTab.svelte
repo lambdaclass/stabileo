@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { withMassSource, densitiesFor } from '../../lib/engine/dynamics/mass-source-model';
+  import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
+  import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
+  import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
+  import ProUserSpectra from './dynamics/ProUserSpectra.svelte';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
@@ -13,7 +16,7 @@
   import { te } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
-  import { hasLoadCarrying3D, imposedRefusal } from '../../lib/engine/solver-service';
+  import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
   import { plasticInput3D } from '../../lib/engine/plastic-moments';
   import {
     withNotionalLoads, creepSteps, concreteMaterials, stagedLoadsByCase, stagedStagesPayload,
@@ -42,7 +45,7 @@
     analyzeSectionTorsion,
   } from '../../lib/engine/wasm-solver';
   // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
-  import { solvePDelta3DCorrected as wasmPDelta3D } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
   // The SSI and Winkler wrappers return the engine's answer as is; whoever shows it finishes it.
   import { finishSolve3D } from '../../lib/engine/solve-finish';
   // Every solver below is a WASM export that throws a bare string, which has no
@@ -58,6 +61,8 @@
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { isVariableMember } from '../../lib/section/variable';
   import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -132,42 +137,8 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  /**
-   * `caseDisplacements`: for an analysis that solves the model's loads statically, every case
-   * together as the linear "All loads" solve does (P-Delta, the imperfections' P-Delta, the
-   * corotational solve, Winkler, SSI, creep); the cases' imposed displacements go on the supports
-   * as that solve puts them. Left out of the eigen-analyses, the dynamic ones, the staged one
-   * (its supports enter at the first stage, so every case's displacement would too), the
-   * pushover's load factor and the influence line. `uncut`: no member cut for a load.
-   */
-  function buildInput(opts: { uncut?: boolean; caseDisplacements?: boolean } = {}) {
-    // These analyses build with expandMemberOffsets:false, which ALSO skips
-    // sliding-joint / 3D-joint expansion (joints share the offset gate), so a
-    // jointed model would silently solve as rigid (too stiff). Refuse with a
-    // clear message instead — mirrors the ToolbarAdvanced guard, which this PRO
-    // panel previously lacked.
-    if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
-    if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
-    // A case's imposed displacement on a direction no support holds is refused by node, as the
-    // linear solve refuses it; the input builder could only drop it without a word.
-    if (opts.caseDisplacements) {
-      const refused = imposedRefusal(modelStore.model);
-      if (refused) throw new Error(refused);
-    }
-    // The store's builder, so these analyses read the project's rules (self-weight as stated, the
-    // shear-deformation switch, groups) exactly as Solve does; a copy of it here left them out.
-    const input = modelStore.buildSolverInput3D(
-      uiStore.includeSelfWeight,
-      uiStore.axisConvention3D === 'leftHand',
-      // Advanced analyses run on the centerline: their wire payloads (modal/
-      // spectral) don't carry constraints, so expanded offset-helper nodes
-      // would float free — singular K instead of eccentricity effects. The
-      // linear + combination solves DO expand offsets.
-      { expandMemberOffsets: false, ...opts },
-    );
-    if (!input) throw new Error(t('advanced.emptyModel'));
-    return input;
-  }
+  /** The static input on the centerline, with the options of `centerlineInput` (`store/dynamic-input.ts`). */
+  const buildInput = (opts: { uncut?: boolean; caseDisplacements?: boolean } = {}) => centerlineInput(opts);
 
 
 
@@ -183,18 +154,9 @@
    * about how heavy the structure is.
    */
   function buildDynamicInput(): { input: any; densities: Map<number, number> } {
-    const md = {
-      nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-      loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
-      quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints,
-      connectors: modelStore.connectors,
-    };
-    const ms = withMassSource(md as never, modelStore.model.loadCases, modelStore.model.massSource, buildInput(), uiStore.axisConvention3D === 'leftHand');
-    massReport = ms.report;
-    // Rigid diaphragms are the model's own constraints (Constraints › Auto-detect); this panel used
-    // to add a second, transient set of its own behind a checkbox.
-    const input = ms.input;
-    return { input, densities: densitiesFor(input, ms.densities) };
+    const d = dynamicInput();
+    massReport = d.report;
+    return { input: d.input, densities: d.densities };
   }
 
   /**
@@ -206,7 +168,15 @@
 
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
-  let pdeltaResult = $state<any | null>(null);
+  /** What the run gave: convergence, iterations, and the amplification and stability as `amplification` reads them. */
+  let pdeltaResult = $state<{ converged: boolean; iterations: number; b2: number; stable: boolean } | null>(null);
+  /**
+   * Why the run is not published as a P-Δ result, or null when it is. The criterion is the one the
+   * combinations use (`solver-service.ts`, `amplification`): with no second-order equilibrium at
+   * this load, or without convergence, the engine hands back first-order displacements, and those
+   * are not shown as if they were second-order ones.
+   */
+  let pdeltaRefused = $state<string | null>(null);
 
   function handlePDelta() {
     solveError = null;
@@ -220,11 +190,14 @@
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: String(res) }); solving = false; return; }
       pdeltaElapsed = elapsed;
-      pdeltaResult = res;
-      if (res.results) {
-        resultsStore.setPDeltaResult3D(res);
-      }
-      advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor, isStable: res.isStable } };
+      const amp = res.results ? amplification(res) : { b2: Infinity, stable: false };
+      const converged = !!res.converged;
+      pdeltaResult = { converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
+      pdeltaRefused = !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
+      if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
+      // A result of an earlier run is not left on screen as if it were this one's.
+      else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
+      advancedResults = { ...advancedResults, pdelta: { converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
     }
@@ -302,6 +275,8 @@
 
   let spectralResult = $state<any | null>(null);
   let spectralCombination = $state<'CQC' | 'SRSS'>('CQC');
+  /** 'code', or a user spectrum's id. */
+  let spectralSource = $state<string>('code');
   /*
    * The spectrum is INPRES-CIRSOC 103 2018's (`codes/cirsoc103/spectrum.ts`), the same one the
    * seismic load generator uses. It was a table of its own — as, Ca and Cv by zone and a three-way
@@ -345,15 +320,15 @@
         return;
       }
       const { input, densities } = buildDynamicInput();
+      // The code's spectrum, or one of the project's own (`ProUserSpectra.svelte`), taken as written.
+      const user = spectralSource === 'code' ? null : modelStore.model.dynamics?.spectra?.find((s) => s.id === Number(spectralSource)) ?? null;
       const cs = codeSpectrum;
-      if (isBlocked(cs)) { solveError = `${t('pro.spectralTitle')}: ${te(cs.blocked)}`; solving = false; return; }
-      const spectrum: DesignSpectrum = {
-        name: `INPRES-CIRSOC 103 2018 — ${t('autoLoad.zone')} ${cs.zone}, ${siteClass}`,
-        points: spectrumPoints(cs),
-        inG: true,
-      };
-      const importanceFactor = RISK_FACTOR[destinationGroup];
-      const reductionFactor = spectralR > 0 ? spectralR : 1;
+      if (!user && isBlocked(cs)) { solveError = `${t('pro.spectralTitle')}: ${te(cs.blocked)}`; solving = false; return; }
+      const spectrum: DesignSpectrum = user
+        ? { name: user.name, points: userSpectrumPointsInG(user), inG: true }
+        : { name: `INPRES-CIRSOC 103 2018 — ${t('autoLoad.zone')} ${(cs as { zone: number }).zone}, ${siteClass}`, points: spectrumPoints(cs as never), inG: true };
+      const importanceFactor = user ? 1 : RISK_FACTOR[destinationGroup];
+      const reductionFactor = user ? 1 : spectralR > 0 ? spectralR : 1;
       const modes = spectralModesFrom(modalResult);
       // One run per horizontal direction: the engine combines a single direction at a time.
       const byDir: Record<string, any> = {};
@@ -443,6 +418,34 @@
 
   let nlType = $state<'pushover' | 'corotational'>('pushover');
   let nlMaxHinges = $state(20);
+  // ── What the pushover pushes with, and its target (`engine/pushover-pattern.ts`) ──
+  let pushPattern = $state<'loads' | 'case' | 'uniform' | 'triangular' | 'modal'>('loads');
+  let pushCase = $state<number | null>(null);
+  let pushDir = $state<'X' | 'Y'>('X');
+  let pushTargetKind = $state<'none' | 'shear' | 'displacement'>('none');
+  let pushTarget = $state(0);
+  /** The loads the push scales, by the pattern chosen; a message when it cannot be had. */
+  function pushLoads(input: any): any[] | string {
+    const lh = uiStore.axisConvention3D === 'leftHand';
+    const md = modelStore.model as never;
+    if (pushPattern === 'loads') return input.loads;
+    if (pushPattern === 'case') {
+      const lc = modelStore.model.loadCases.find((c) => c.id === pushCase) ?? modelStore.model.loadCases[0];
+      return lc ? caseSolverLoads3D(md, [lc], uiStore.includeSelfWeight, lh).get(lc.id) ?? [] : t('pushover.noCase');
+    }
+    // The gravity that weighs each node: the dead-load cases and their self-weight.
+    const dead = modelStore.model.loadCases.filter((c) => c.type === 'D');
+    const per = caseSolverLoads3D(md, dead, uiStore.includeSelfWeight, lh);
+    const gravity = dead.flatMap((c) => per.get(c.id) ?? []);
+    let shape: Map<number, { ux: number; uy: number }> | undefined;
+    if (pushPattern === 'modal') {
+      if (!modalResult || modalModelVersion !== modelStore.modelVersion) return t('pushover.needModal');
+      const k = pushDir === 'X' ? 'massRatioX' : 'massRatioY';
+      const mode = [...modalResult.modes].sort((a: any, b: any) => (b[k] ?? 0) - (a[k] ?? 0))[0];
+      shape = new Map((mode?.displacements ?? []).map((d: any) => [d.nodeId, { ux: d.ux, uy: d.uy }]));
+    }
+    return lateralPatternLoads(input, gravity, pushPattern, pushDir, shape, lh) ?? t('pushover.noWeight');
+  }
   let nlMaxIter = $state(50);
   let nlTol = $state(1e-6);
   let nlIncrements = $state(10);
@@ -496,6 +499,9 @@
           input, (id) => modelStore.elements.get(id)?.sectionId,
         );
         nlAssumed = assumed;
+        const loads = pushLoads(input);
+        if (typeof loads === 'string') { solveError = loads; solving = false; return; }
+        input = { ...input, loads };
         nlResult = solvePlastic3D({
           solver: input,
           sections,
@@ -986,16 +992,17 @@
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving}>P-Delta</button>
+        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving} data-testid="adv-run-pdelta">P-Delta</button>
         <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
       {#if pdeltaResult}
-        <div class="adv-inline">
+        <div class="adv-inline" data-testid="pdelta-summary">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
-          — {pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
-          — B2 = {formatPDeltaFactor(pdeltaResult.b2Factor)}
+          — {pdeltaResult.stable ? t('advanced.stable') : t('advanced.unstable')}
+          — B2 = {formatPDeltaFactor(pdeltaResult.b2)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
+        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{/if}
       {/if}
     </div>
 
@@ -1052,12 +1059,20 @@
 
     <!-- ── 3. Spectral ── -->
     <div class="adv-group">
+      <ProUserSpectra />
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult}>{t('pro.spectralTitle')}</button>
         <label class="adv-label">
           <select class="adv-sel" bind:value={spectralCombination}>
             <option value="CQC">CQC</option>
             <option value="SRSS">SRSS</option>
+          </select>
+        </label>
+        <label class="adv-label">
+          {t('userSpectrum.source')}:
+          <select class="adv-sel" bind:value={spectralSource} data-testid="spectral-source">
+            <option value="code">INPRES-CIRSOC 103</option>
+            {#each modelStore.model.dynamics?.spectra ?? [] as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
           </select>
         </label>
         <label class="adv-label">
@@ -1239,6 +1254,29 @@
           <label class="adv-label">{t('adv.type')}: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">{t('adv.nl.corotational')}</option></select></label>
           {#if nlType === 'pushover'}
             <label class="adv-label">{t('pro.maxHinges')}: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
+            <label class="adv-label">{t('pushover.pattern')}:
+              <select class="adv-sel" bind:value={pushPattern} data-testid="push-pattern">
+                <option value="loads">{t('pushover.pattern.loads')}</option>
+                <option value="case">{t('pushover.pattern.case')}</option>
+                <option value="uniform">{t('pushover.pattern.uniform')}</option>
+                <option value="triangular">{t('pushover.pattern.triangular')}</option>
+                <option value="modal">{t('pushover.pattern.modal')}</option>
+              </select>
+            </label>
+            {#if pushPattern === 'case'}
+              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+            {:else if pushPattern !== 'loads'}
+              <select class="adv-sel" bind:value={pushDir} data-testid="push-dir"><option value="X">X</option><option value="Y">Y</option></select>
+            {/if}
+            <label class="adv-label">{t('pushover.target')}:
+              <select class="adv-sel" bind:value={pushTargetKind} data-testid="push-target-kind">
+                <option value="none">{t('pushover.target.none')}</option>
+                <option value="shear">{t('pushover.target.shear')}</option>
+                <option value="displacement">{t('pushover.target.displacement')}</option>
+              </select>
+            </label>
+            {#if pushTargetKind !== 'none'}<QuantityInput cls="adv-num adv-num-wide" bind:value={pushTarget} quantity={pushTargetKind === 'shear' ? 'force' : 'displacement'} testid="push-target" />{/if}
+            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -1269,7 +1307,7 @@
           {/if}
         </div>
         {#if nlType === 'pushover' && nlResult.steps?.length}
-          <PushoverView result={nlResult} modelVersion={nlVersion} />
+          <PushoverView result={nlResult} modelVersion={nlVersion} target={pushTargetKind === 'none' ? null : { kind: pushTargetKind, value: pushTarget }} />
         {/if}
       {/if}
       {/if}
@@ -1309,20 +1347,20 @@
               {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
             </select>
           </label>
-          <label class="adv-label" title={t('adv.winklerAxes')}>ky (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKy} min={0} step={100} /></label>
-          <label class="adv-label" title={t('adv.winklerAxes')}>kz (kN/m/m): <input type="number" class="adv-num" bind:value={winklerKz} min={0} step={100} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>ky: <QuantityInput cls="adv-num" bind:value={winklerKy} quantity="areaLoad" min={0} /></label>
+          <label class="adv-label" title={t('adv.winklerAxes')}>kz: <QuantityInput cls="adv-num" bind:value={winklerKz} quantity="areaLoad" min={0} /></label>
           <span class="adv-hint">{t('adv.winklerAxes')}</span>
           <button class="adv-btn-sm" onclick={addWinklerSpring} disabled={winklerElementId == null}>+</button>
         </div>
         {#if winklerSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>{t('adv.member')}</th><th>ky</th><th>kz</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.member')}</th><th>ky ({unitQ('areaLoad')})</th><th>kz ({unitQ('areaLoad')})</th><th></th></tr></thead>
             <tbody>
               {#each winklerSprings as s, i}
                 <tr>
                   <td class="col-id">{s.elementId}</td>
-                  <td class="col-num">{fmtNum(s.ky)}</td>
-                  <td class="col-num">{fmtNum(s.kz)}</td>
+                  <td class="col-num">{fmtQ(s.ky, 'areaLoad')}</td>
+                  <td class="col-num">{fmtQ(s.kz, 'areaLoad')}</td>
                   <td><button class="adv-rm" onclick={() => removeWinklerSpring(i)}>x</button></td>
                 </tr>
               {/each}
@@ -1367,10 +1405,10 @@
         </div>
         {#if ssiCurveType === 'softClay' || ssiCurveType === 'stiffClay'}
           <div class="adv-form">
-            <label class="adv-label">su (kPa): <input type="number" class="adv-num" bind:value={ssiSu} min={0} step={5} /></label>
-            <label class="adv-label">&#947; (kN/m3): <input type="number" class="adv-num" bind:value={ssiGamma} min={0} step={1} /></label>
-            <label class="adv-label">d (m): <input type="number" class="adv-num" bind:value={ssiDiameter} min={0.1} step={0.1} /></label>
-            <label class="adv-label">{t('pro.depth')}: <input type="number" class="adv-num" bind:value={ssiDepth} min={0} step={0.5} /></label>
+            <label class="adv-label">su: <QuantityInput cls="adv-num" bind:value={ssiSu} quantity="areaLoad" min={0} /></label>
+            <label class="adv-label">&#947;: <QuantityInput cls="adv-num" bind:value={ssiGamma} quantity="density" min={0} /></label>
+            <label class="adv-label">d: <QuantityInput cls="adv-num" bind:value={ssiDiameter} quantity="length" min={0.1} /></label>
+            <label class="adv-label">{t('adv.ssiDepth')}: <QuantityInput cls="adv-num" bind:value={ssiDepth} quantity="length" min={0} /></label>
             <!-- Matlock/Reese both key the curve on ε50; it has no default in
                  the engine, so the run needs it. -->
             <label class="adv-label">&#949;50: <input type="number" class="adv-num" bind:value={ssiEps50} min={0.001} max={0.05} step={0.001} /></label>
@@ -1378,25 +1416,25 @@
         {:else if ssiCurveType === 'sand'}
           <div class="adv-form">
             <label class="adv-label">&#966; (deg): <input type="number" class="adv-num" bind:value={ssiPhi} min={0} max={50} step={1} /></label>
-            <label class="adv-label">&#947; (kN/m3): <input type="number" class="adv-num" bind:value={ssiGamma} min={0} step={1} /></label>
-            <label class="adv-label">d (m): <input type="number" class="adv-num" bind:value={ssiDiameter} min={0.1} step={0.1} /></label>
-            <label class="adv-label">{t('pro.depth')}: <input type="number" class="adv-num" bind:value={ssiDepth} min={0} step={0.5} /></label>
+            <label class="adv-label">&#947;: <QuantityInput cls="adv-num" bind:value={ssiGamma} quantity="density" min={0} /></label>
+            <label class="adv-label">d: <QuantityInput cls="adv-num" bind:value={ssiDiameter} quantity="length" min={0.1} /></label>
+            <label class="adv-label">{t('adv.ssiDepth')}: <QuantityInput cls="adv-num" bind:value={ssiDepth} quantity="length" min={0} /></label>
           </div>
         {/if}
         <div class="adv-form">
-          <label class="adv-label">{t('pro.tribLength')}: <input type="number" class="adv-num" bind:value={ssiTribLength} min={0.1} step={0.5} /></label>
+          <label class="adv-label">{t('adv.ssiTribLength')}: <QuantityInput cls="adv-num" bind:value={ssiTribLength} quantity="length" min={0.1} /></label>
           <button class="adv-btn-sm" onclick={addSsiSpring} disabled={ssiNodeId == null}>{t('pro.addSpring')}</button>
         </div>
         {#if ssiSprings.length > 0}
           <table class="adv-table">
-            <thead><tr><th>{t('adv.node')}</th><th>{t('adv.direction')}</th><th>{t('adv.curve')}</th><th>L</th><th></th></tr></thead>
+            <thead><tr><th>{t('adv.node')}</th><th>{t('adv.direction')}</th><th>{t('adv.curve')}</th><th>L ({unitQ('length')})</th><th></th></tr></thead>
             <tbody>
               {#each ssiSprings as s, i}
                 <tr>
                   <td class="col-id">{s.nodeId}</td>
                   <td class="col-num">{s.direction}</td>
                   <td class="col-num">{s.curve.type}</td>
-                  <td class="col-num">{fmtNum(s.tributaryLength)}</td>
+                  <td class="col-num">{fmtQ(s.tributaryLength, 'length')}</td>
                   <td><button class="adv-rm" onclick={() => removeSsiSpring(i)}>x</button></td>
                 </tr>
               {/each}
@@ -1609,26 +1647,26 @@
         </div>
         {#if secShape === 'rect'}
           <div class="adv-form">
-            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
+            <label class="adv-label">b: <QuantityInput cls="adv-num" bind:value={secB} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
           </div>
         {:else if secShape === 'circle'}
           <div class="adv-form">
-            <label class="adv-label">r (m): <input type="number" class="adv-num" bind:value={secR} min={0.01} step={0.01} /></label>
+            <label class="adv-label">r: <QuantityInput cls="adv-num" bind:value={secR} quantity="sectionDim" min={0.01} /></label>
           </div>
         {:else if secShape === 'I' || secShape === 'T'}
           <div class="adv-form">
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
-            <label class="adv-label">bf (m): <input type="number" class="adv-num" bind:value={secBf} min={0.01} step={0.01} /></label>
-            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
-            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">bf: <QuantityInput cls="adv-num" bind:value={secBf} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">tw: <QuantityInput cls="adv-num" bind:value={secTw} quantity="sectionDim" min={0.001} /></label>
+            <label class="adv-label">tf: <QuantityInput cls="adv-num" bind:value={secTf} quantity="sectionDim" min={0.001} /></label>
           </div>
         {:else if secShape === 'L'}
           <div class="adv-form">
-            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
-            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
-            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
-            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+            <label class="adv-label">h: <QuantityInput cls="adv-num" bind:value={secH} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">b: <QuantityInput cls="adv-num" bind:value={secB} quantity="sectionDim" min={0.01} /></label>
+            <label class="adv-label">tw: <QuantityInput cls="adv-num" bind:value={secTw} quantity="sectionDim" min={0.001} /></label>
+            <label class="adv-label">tf: <QuantityInput cls="adv-num" bind:value={secTf} quantity="sectionDim" min={0.001} /></label>
           </div>
         {:else if secShape === 'polygon'}
           <div class="adv-form">
@@ -1642,15 +1680,15 @@
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->
         <div class="adv-inline">
-          {#if secResult.a != null}A={secResult.a.toExponential(3)} m²{/if}
-          {#if secResult.iy != null} — Iy={secResult.iy.toExponential(3)} m⁴{/if}
-          {#if secResult.iz != null} — Iz={secResult.iz.toExponential(3)} m⁴{/if}
+          {#if secResult.a != null}A={fmtQ(secResult.a, 'sectionArea')} {unitQ('sectionArea')}{/if}
+          {#if secResult.iy != null} — Iy={fmtQ(secResult.iy, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
+          {#if secResult.iz != null} — Iz={fmtQ(secResult.iz, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
         </div>
         <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
-          CG: y={fmtNum(secResult.yc ?? 0)} m, z={fmtNum(secResult.zc ?? 0)} m
-          {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
-          {#if secResult.syTop != null} — Wy={secResult.syTop.toExponential(3)} m³{/if}
-          {#if secResult.szRight != null} — Wz={secResult.szRight.toExponential(3)} m³{/if}
+          CG: y={fmtQ(secResult.yc ?? 0, 'sectionDim')} {unitQ('sectionDim')}, z={fmtQ(secResult.zc ?? 0, 'sectionDim')} {unitQ('sectionDim')}
+          {#if secResult.j != null} — J={fmtQ(secResult.j, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
+          {#if secResult.syTop != null} — Wy={fmtQ(secResult.syTop, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
+          {#if secResult.szRight != null} — Wz={fmtQ(secResult.szRight, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
         </div>
       {/if}
       {/if}
@@ -2035,4 +2073,5 @@
   .adv-mode-row { cursor: pointer; }
   .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
   .adv-mode-on td { color: var(--st-accent); }
+  .adv-refused { margin: 4px 0 0; font-size: 0.7rem; color: var(--st-warn); line-height: 1.4; }
 </style>

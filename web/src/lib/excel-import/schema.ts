@@ -98,6 +98,7 @@ export const SHEETS: SheetSpec[] = [
        */
       { key: 'y', unit: 'm', helpKey: 'xls.col.y', example: '' },
       { key: 'z', unit: 'm', helpKey: 'xls.col.z', example: 0 },
+      { key: 'name', helpKey: 'xls.col.nodeName', example: '' },
     ],
     /*
      * Four nodes, not three: they close a rectangle, so the Plates and Quads
@@ -120,10 +121,10 @@ export const SHEETS: SheetSpec[] = [
      * shells and the wall is the one that belongs beside a portal.
      */
     examples: [
-      [1, 0, '', 0],
-      [2, 6, '', 0],
-      [3, 6, '', 4],
-      [4, 0, '', 4],
+      [1, 0, '', 0, 'A1'],
+      [2, 6, '', 0, 'B1'],
+      [3, 6, '', 4, ''],
+      [4, 0, '', 4, ''],
     ],
   },
 
@@ -145,11 +146,12 @@ export const SHEETS: SheetSpec[] = [
        * pitched roof uses one section and each is rolled by its own slope.
        */
       { key: 'rollAngle', unit: '°', helpKey: 'xls.col.rollAngle', example: '' },
+      { key: 'name', helpKey: 'xls.col.memberName', example: '' },
     ],
     examples: [
-      [1, 'frame', 1, 2, 1, 1, 'no', 'no', ''],
-      [2, 'frame', 2, 3, 1, 1, 'no', 'no', ''],
-      [3, 'truss', 1, 3, 1, 2, 'no', 'no', ''],
+      [1, 'frame', 1, 2, 1, 1, 'no', 'no', '', 'V1'],
+      [2, 'frame', 2, 3, 1, 1, 'no', 'no', '', ''],
+      [3, 'truss', 1, 3, 1, 2, 'no', 'no', '', ''],
     ],
   },
 

@@ -11,6 +11,7 @@
  */
 
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
+import { spectralOrSay } from '../actions/solve';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
@@ -291,7 +292,7 @@ async function globalSolve3D(isStale: () => boolean): Promise<void> {
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro);
+    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
     if (isStale()) return null;
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');

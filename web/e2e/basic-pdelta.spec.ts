@@ -48,7 +48,9 @@ test.describe('@smoke P-Delta stability', () => {
       await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
       await expect(page.getByTestId('pdelta-result')).toContainText('B₂ = ∞');
       await expect(page.getByTestId('pdelta-result')).toContainText('unstable');
-      await expect(page.getByText('Unstable structure (P-Δ)', { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Unstable structure \(P-Δ\)\. It is not drawn as a result/)).toBeVisible();
+      // The engine's first-order results are not drawn as P-Δ: no results are on screen.
+      expect(await page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
       expect(errors).toEqual([]);
     });
   }

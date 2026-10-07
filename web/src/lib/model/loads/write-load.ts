@@ -2,60 +2,64 @@
  * The write card's loads (`ProWriteLoadCard.svelte`): what the form describes, on its targets, as
  * the loads to add, or the reason it describes none.
  *
- * Every number is read by the app's one rule (`utils/numeric-input.ts`, as `loadComponents` and
- * `lineLoadEnds` read it): a comma or a point, a blank field the default it names (0; a J end blank
- * is the I value; an a or b blank the member's own end), and a field that does not read («5 kN»,
- * «0.5m», «1.2.3») refuses the add. It never becomes a zero, or an I value, the user did not type.
+ * The values come in SI, `null` for a blank field: the card types every magnitude in the display
+ * units (`QuantityInput`, which never holds text that does not read). A blank field is the default
+ * it names (0; a J end blank is the I value; an a or b blank the member's own end), never a zero or
+ * an I value the user did not type.
  *
  * Where a load sits is checked, not clamped (`load-stretch.ts`): a stretch that does not go forward
  * or does not fit on a member, a point off it, or anything beyond a physical member is refused, and
  * the members it does not fit are named. A clamp made a = 3, b = 2 into a load of no length that was
  * reported as added.
  *
- * Values are in SI, as the rest of the model is typed: kN, kN/m, kN·m, m, °C; the displacements and
- * eccentricities in mm, as they are measured, kept in m.
+ * Values are in SI, as the rest of the model is kept: kN, kN/m, kN·m, m, rad, °C; a strain by unit
+ * in ‰.
  *
  * Pure: the caller passes the targets and the geometry, and writes the result in one undo step.
  */
 import type { Load } from '../../store/model.svelte';
 import type { MemberAxes, MemberFrame } from '../../engine/member-loads';
-import { parseDecimal, lineLoadEnds } from '../../utils/numeric-input';
 import { orderedChain, loadsOnChain, chainFrame, triangularPeak, hydrostaticLoads, inclinedForce, type GlobalAxis } from './member-load-tools';
 import { checkStretch, checkPosition, stretchForward } from './load-stretch';
 
 export type WriteKind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'thermalQuad';
 
-/** The form's fields, as typed. */
+/** A value in SI, or null for a blank field. */
+type N = number | null;
+
+/** The form's fields, in SI. */
 export interface WriteForm {
   kind: WriteKind;
-  f: { fx: string; fy: string; fz: string; mx: string; my: string; mz: string };
+  f: { fx: N; fy: N; fz: N; mx: N; my: N; mz: N };
   inclined: boolean;
-  incF: string;
-  incToNode: string;
-  incTo: { x: string; y: string; z: string };
-  incByNode: boolean;
-  u: { dx: string; dy: string; dz: string; drx: string; dry: string; drz: string };
+  incF: N;
+  /** Where an inclined force comes from: a node (its number as typed) or a point. It points at each loaded node. */
+  incFromKind: 'node' | 'point';
+  incFromNode: string;
+  incFrom: { x: N; y: N; z: N };
+  u: { dx: N; dy: N; dz: N; drx: N; dry: N; drz: N };
   frame: MemberFrame;
   shape: 'trapezoid' | 'triangle' | 'hydrostatic';
-  q: { xI: string; xJ: string; yI: string; yJ: string; zI: string; zJ: string };
-  qa: string;
-  qb: string;
-  peak: string;
-  peakAt: string;
+  q: { xI: N; xJ: N; yI: N; yJ: N; zI: N; zJ: N };
+  qa: N;
+  qb: N;
+  peak: N;
+  peakAt: N;
   peakComp: 'x' | 'y' | 'z';
-  w1: string;
-  w2: string;
+  w1: N;
+  w2: N;
   hydroAxis: GlobalAxis;
   hydroComp: 'x' | 'y' | 'z';
   pFrame: 'local' | 'global';
-  p: { px: string; py: string; pz: string; mx: string; my: string; mz: string };
-  pa: string;
-  th: { dt: string; gz: string; gy: string };
+  p: { px: N; py: N; pz: N; mx: N; my: N; mz: N };
+  pa: N;
+  th: { dt: N; gz: N; gy: N };
   strainBy: 'unit' | 'length';
-  strainVal: string;
-  ps: { force: string; eI: string; eM: string; eJ: string };
-  sq: string;
-  tq: { dt: string; g: string };
+  /** ‰ by unit, or the change of length (m). */
+  strainVal: N;
+  ps: { force: N; eI: N; eM: N; eJ: N };
+  sq: N;
+  tq: { dt: N; g: N };
 }
 
 type P3 = { x: number; y: number; z?: number };
@@ -79,41 +83,22 @@ export interface WriteRefusal { error: string; params?: Record<string, string | 
 /** The loads to add; `skipped`, the targets left out (an i18n key taking `{list}`). */
 export interface WriteOutcome { loads: Load[]; skipped?: { key: string; ids: number[] } }
 
-const UNREADABLE: WriteRefusal = { error: 'pro.loadUnreadable' };
 const ZERO: WriteRefusal = { error: 'writeLoad.zero' };
 
-/** A field typed that does not read as a number. */
-const unreadable = (s: string) => s.trim() !== '' && parseDecimal(s) === null;
-/** A field's number, blank is 0. Read once `fieldsRead` all read. */
-const num = (s: string): number => (s.trim() === '' ? 0 : parseDecimal(s) ?? 0);
-/** A field's number, or undefined when it is blank. */
-const opt = (s: string): number | undefined => (s.trim() === '' ? undefined : parseDecimal(s) ?? undefined);
+/** A field's value, blank is 0. */
+const num = (v: N): number => v ?? 0;
+/** A field's value, or undefined when it is blank. */
+const opt = (v: N): number | undefined => v ?? undefined;
+/** A line load's two ends: a blank J is the I value, a blank I is 0. */
+const ends = (i: N, j: N): [number, number] => [i ?? 0, j ?? i ?? 0];
 /** A length for a message: to the millimetre. */
 const m3 = (v: number) => String(Math.round(v * 1000) / 1000);
-
-/** The number fields the form reads for its kind: any of them unreadable refuses the add. */
-function fieldsRead(form: WriteForm): string[] {
-  switch (form.kind) {
-    case 'nodal': return form.inclined ? [form.incF, ...(form.incByNode ? [] : Object.values(form.incTo))] : Object.values(form.f);
-    case 'displacement': return Object.values(form.u);
-    case 'distributed':
-      return form.shape === 'hydrostatic' ? [form.w1, form.w2]
-        : form.shape === 'triangle' ? [form.peak, form.peakAt] : [...Object.values(form.q), form.qa, form.qb];
-    case 'point': return [...Object.values(form.p), form.pa];
-    case 'thermal': return Object.values(form.th);
-    case 'strain': return [form.strainVal];
-    case 'prestress': return Object.values(form.ps);
-    case 'surface': return [form.sq];
-    case 'thermalQuad': return Object.values(form.tq);
-  }
-}
 
 /** The loads the form describes, on its targets; a reason when it describes none. */
 export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutcome | WriteRefusal {
   const { kind, f, u, q, p, th, ps, tq, frame, shape } = form;
   const ids = ctx.ids;
   if (ids.length === 0) return { error: 'writeLoad.noTarget' };
-  if (fieldsRead(form).some(unreadable)) return UNREADABLE;
   const c = { caseId: ctx.caseId };
   const bends = (id: number) => ctx.element(id)?.type !== 'truss';
   const lengthOf = ctx.length;
@@ -138,33 +123,34 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
       if (form.inclined) {
         const F = opt(form.incF);
         if (F === undefined || F === 0) return ZERO;
-        let to: P3 | undefined;
-        if (form.incByNode) {
-          const typed = form.incToNode.trim();
-          to = /^\d+$/.test(typed) ? ctx.node(Number(typed)) : undefined;
-          if (!to) return { error: 'writeLoad.towardNodeMissing', params: { id: typed } };
+        let from: P3 | undefined;
+        if (form.incFromKind === 'node') {
+          const typed = form.incFromNode.trim();
+          from = /^\d+$/.test(typed) ? ctx.node(Number(typed)) : undefined;
+          if (!from) return { error: 'writeLoad.fromNodeMissing', params: { id: typed } };
         } else {
-          to = { x: num(form.incTo.x), y: num(form.incTo.y), z: num(form.incTo.z) };
+          const o = form.incFrom;
+          if (o.x === null && o.y === null && o.z === null) return { error: 'writeLoad.inclinedNoDirection' };
+          from = { x: num(o.x), y: num(o.y), z: num(o.z) };
         }
-        // A node where the force points has no direction to take: left out, and said.
+        // A loaded node on the origin has no direction to take: left out, and said.
         const loads: Load[] = [], skipped: number[] = [];
         for (const id of ids) {
           const at = ctx.node(id);
-          const v = at ? inclinedForce(at, to, F) : null;
+          const v = at ? inclinedForce(from, at, F) : null;
           if (v) loads.push({ type: 'nodal3d', data: { id: 0, nodeId: id, fx: v[0], fy: v[1], fz: v[2], mx: 0, my: 0, mz: 0, ...c } });
           else skipped.push(id);
         }
-        if (loads.length === 0) return { error: 'writeLoad.towardSelf', params: { list: skipped.join(', ') } };
-        return { loads, ...(skipped.length ? { skipped: { key: 'writeLoad.towardSelf', ids: skipped } } : {}) };
+        if (loads.length === 0) return { error: 'writeLoad.fromSelf', params: { list: skipped.join(', ') } };
+        return { loads, ...(skipped.length ? { skipped: { key: 'writeLoad.fromSelf', ids: skipped } } : {}) };
       }
       const v = { fx: num(f.fx), fy: num(f.fy), fz: num(f.fz), mx: num(f.mx), my: num(f.my), mz: num(f.mz) };
       if (Object.values(v).every((x) => x === 0)) return ZERO;
       return nodeLoads((id) => ({ type: 'nodal3d', data: { id: 0, nodeId: id, ...v, ...c } }));
     }
     case 'displacement': {
-      const mm = (s: string) => { const x = opt(s); return x === undefined || x === 0 ? undefined : x / 1000; };
-      const r = (s: string) => { const x = opt(s); return x === undefined || x === 0 ? undefined : x; };
-      const d = { dx: mm(u.dx), dy: mm(u.dy), dz: mm(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
+      const r = (v: N) => (v === null || v === 0 ? undefined : v);
+      const d = { dx: r(u.dx), dy: r(u.dy), dz: r(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
       if (Object.values(d).every((x) => x === undefined)) return ZERO;
       const clean = Object.fromEntries(Object.entries(d).filter(([, x]) => x !== undefined));
       return nodeLoads((id) => ({ type: 'displacement3d', data: { id: 0, nodeId: id, ...clean, ...c } }) as Load);
@@ -190,9 +176,7 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
         }));
       }
       // An empty J is the I value: a uniform load needs one row. A zero typed is a zero.
-      const ends = [lineLoadEnds(q.xI, q.xJ), lineLoadEnds(q.yI, q.yJ), lineLoadEnds(q.zI, q.zJ)];
-      if (ends.some((e) => e === null)) return UNREADABLE;
-      const [[xI, xJ], [yI, yJ], [zI, zJ]] = ends as Array<[number, number]>;
+      const [[xI, xJ], [yI, yJ], [zI, zJ]] = [ends(q.xI, q.xJ), ends(q.yI, q.yJ), ends(q.zI, q.zJ)];
       if ([xI, xJ, yI, yJ, zI, zJ].every((x) => x === 0)) return ZERO;
       const a = opt(form.qa), b = opt(form.qb);
       if (ctx.chain) {
@@ -249,15 +233,14 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
     case 'strain': {
       const v = opt(form.strainVal);
       if (v === undefined || v === 0) return ZERO;
-      // ‰ of the member's length, or mm of it.
-      return out(ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: 0, dtGradient: 0, strain: form.strainBy === 'unit' ? v / 1000 : v / 1000 / lengthOf(id), ...c } }) as Load));
+      // ‰ of the member's length, or a change of it.
+      return out(ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: 0, dtGradient: 0, strain: form.strainBy === 'unit' ? v / 1000 : v / lengthOf(id), ...c } }) as Load));
     }
     case 'prestress': {
       const P = opt(ps.force);
       if (P === undefined || P === 0) return ZERO;
       if (ids.some((id) => !bends(id))) return { error: 'writeLoad.prestressOnTruss' };
-      const mm = (s: string) => num(s) / 1000;
-      return out(ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: mm(ps.eI), eM: opt(ps.eM) === undefined ? (mm(ps.eI) + mm(ps.eJ)) / 2 : mm(ps.eM), eJ: mm(ps.eJ), ...c } }) as Load));
+      return out(ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: num(ps.eI), eM: ps.eM === null ? (num(ps.eI) + num(ps.eJ)) / 2 : ps.eM, eJ: num(ps.eJ), ...c } }) as Load));
     }
     case 'surface': {
       const v = opt(form.sq);
@@ -276,16 +259,16 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
 export function blankWriteForm(kind: WriteKind = 'nodal'): WriteForm {
   return {
     kind,
-    f: { fx: '', fy: '', fz: '', mx: '', my: '', mz: '' },
-    inclined: false, incF: '', incToNode: '', incTo: { x: '', y: '', z: '' }, incByNode: true,
-    u: { dx: '', dy: '', dz: '', drx: '', dry: '', drz: '' },
+    f: { fx: null, fy: null, fz: null, mx: null, my: null, mz: null },
+    inclined: false, incF: null, incFromKind: 'node', incFromNode: '', incFrom: { x: null, y: null, z: null },
+    u: { dx: null, dy: null, dz: null, drx: null, dry: null, drz: null },
     frame: 'local', shape: 'trapezoid',
-    q: { xI: '', xJ: '', yI: '', yJ: '', zI: '', zJ: '' }, qa: '', qb: '',
-    peak: '', peakAt: '', peakComp: 'z',
-    w1: '', w2: '', hydroAxis: 'Z', hydroComp: 'x',
-    pFrame: 'local', p: { px: '', py: '', pz: '', mx: '', my: '', mz: '' }, pa: '',
-    th: { dt: '', gz: '', gy: '' }, strainBy: 'unit', strainVal: '',
-    ps: { force: '', eI: '', eM: '', eJ: '' },
-    sq: '', tq: { dt: '', g: '' },
+    q: { xI: null, xJ: null, yI: null, yJ: null, zI: null, zJ: null }, qa: null, qb: null,
+    peak: null, peakAt: null, peakComp: 'z',
+    w1: null, w2: null, hydroAxis: 'Z', hydroComp: 'x',
+    pFrame: 'local', p: { px: null, py: null, pz: null, mx: null, my: null, mz: null }, pa: null,
+    th: { dt: null, gz: null, gy: null }, strainBy: 'unit', strainVal: null,
+    ps: { force: null, eI: null, eM: null, eJ: null },
+    sq: null, tq: { dt: null, g: null },
   };
 }

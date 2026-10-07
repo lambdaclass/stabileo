@@ -125,3 +125,102 @@ test('a click on a node keeps the results, even with a pixel of jitter', async (
   await page.getByTestId('pr-stage-analyse').click();
   await expect(page.getByTestId('pr-cmd-axial')).toBeEnabled();
 });
+
+/*
+ * Every operation of the panel answers in the kind armed above it. They used to answer in
+ * members (like, parallel, walk) or in every kind at once (loaded in case, previous) whatever
+ * was armed, so a Delete after them reached things the panel did not say it was selecting.
+ */
+test.describe('@smoke the selection panel works on the kind armed above it', () => {
+  test('supports: like by type, walk through them, and no member operation on offer', async ({ pro: page }) => {
+    await openSelection(page, 'supports');
+    await expect(page.getByTestId('sel-like-parallel')).toHaveCount(0);
+    await expect(page.getByTestId('sel-like-kind')).toBeDisabled();
+    await expect(page.getByTestId('sel-parallel-go')).toBeDisabled();
+    await expect(page.getByTestId('sel-loaded-go')).toBeDisabled();
+
+    const supports = await page.evaluate(() => window.__stabileo.supportCount?.() ?? null);
+    await page.getByTestId('sel-id-text').fill('1');
+    await page.getByTestId('sel-id-go').click();
+    await expect.poll(() => sel(page)).toEqual({ nodes: [], elements: [], supports: [1], loads: [] });
+    await page.getByTestId('sel-like-kind').click();
+    const s = await sel(page);
+    expect(s.supports.length).toBeGreaterThan(1);
+    expect(s.elements).toEqual([]);
+    if (supports !== null) expect(s.supports.length).toBeLessThanOrEqual(supports);
+
+    await page.getByTestId('sel-walk').click();
+    await expect(page.getByTestId('sel-walk-at')).toContainText(`1 / ${s.supports.length}`);
+    await expect.poll(async () => (await sel(page)).supports.length).toBe(1);
+  });
+
+  test('by id names supports and loads, plates as one kind, and arms what it names', async ({ pro: page }) => {
+    await openSelection(page, 'elements');
+    const kinds = await page.getByTestId('sel-id-kind').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+    expect(kinds).toEqual(['elements', 'nodes', 'shells', 'supports', 'loads']);
+    await page.getByTestId('sel-id-kind').selectOption('loads');
+    await page.getByTestId('sel-id-text').fill('1, 3');
+    await page.getByTestId('sel-id-go').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.armedKinds())).toEqual(['loads']);
+    await expect.poll(() => sel(page)).toEqual({ nodes: [], elements: [], supports: [], loads: [1, 3] });
+    // Armed again from above, the list follows.
+    await page.getByTestId('select-mode-nodes').click();
+    await expect(page.getByTestId('sel-id-kind')).toHaveValue('nodes');
+  });
+
+  test('previous selection gives back the armed kind, not another', async ({ pro: page }) => {
+    await openSelection(page, 'elements');
+    await page.getByTestId('sel-all').click();
+    const members = (await sel(page)).elements;
+    expect(members.length).toBeGreaterThan(0);
+    await page.getByTestId('select-mode-supports').click();
+    await page.getByTestId('sel-all').click();
+    await expect.poll(async () => (await sel(page)).elements).toEqual([]);
+    await page.getByTestId('select-mode-elements').click();
+    await page.getByTestId('sel-none').click();
+    await page.getByTestId('sel-previous').click();
+    await expect.poll(() => sel(page)).toEqual({ nodes: [], elements: members, supports: [], loads: [] });
+  });
+
+  test('loaded in case, with nodes armed, takes the loaded nodes only', async ({ pro: page }) => {
+    await openSelection(page, 'nodes');
+    await page.getByTestId('sel-loaded-case').selectOption({ index: 0 });
+    await page.getByTestId('sel-loaded-go').click();
+    await expect.poll(() => sel(page)).toEqual({ nodes: [5], elements: [], supports: [], loads: [] });
+  });
+});
+
+/*
+ * A load picked in the model is found in the table: the table moves to its case. And a load on a
+ * plate is picked anywhere on its fill, not only on its arrows (a slab temperature has none).
+ */
+test.describe('@smoke loads on plates, picked and found', () => {
+  test('a slab temperature in another case: clicked on its fill, and the table moves to its case', async ({ pro: page }) => {
+    await loadModel(page, 'mat-foundation');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('write-load').click();
+    const cases = await page.evaluate(() => window.__stabileo.loadCases() as Array<{ id: number }>);
+    expect(cases.length).toBeGreaterThan(1);
+    await page.getByTestId('write-load-case').selectOption(String(cases[1]!.id));
+    await page.evaluate(() => window.__stabileoActions.selectShells(['q1']));
+    await page.getByTestId('wl-kind').selectOption('thermalQuad');
+    await page.getByTestId('write-load-form').locator('input[inputmode="decimal"]').first().fill('20');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-done')).toBeVisible();
+    const id = await page.evaluate(() => (window.__stabileo.allLoads() as Array<{ type: string; data: { id: number } }>).filter((l) => l.type === 'thermalQuad3d').at(-1)!.data.id);
+
+    // Back to the first case, then a click on the slab, in loads mode.
+    await page.getByTestId('write-load-case').selectOption(String(cases[0]!.id));
+    await page.evaluate(() => { window.__stabileoActions.clearSelection(); });
+    await page.getByTestId('pr-select').click();
+    await page.getByTestId('select-mode-loads').click();
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    const at = await page.evaluate((i) => window.__stabileo.loadFaceScreenPos(i), id);
+    expect(at).not.toBeNull();
+    await page.mouse.click(at!.x, at!.y);
+    await expect.poll(async () => (await sel(page)).loads).toEqual([id]);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.activeLoadCaseId())).toBe(cases[1]!.id);
+  });
+});

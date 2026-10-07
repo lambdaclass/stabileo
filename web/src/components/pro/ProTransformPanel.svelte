@@ -16,6 +16,8 @@
   import { editPreview } from '../../lib/store/edit-preview.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
   import { onDestroy } from 'svelte';
+  import { fromDisplay, unitLabel } from '../../lib/utils/units';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
   const MODES: Mode[] = ['repeat', 'polar', 'mirror', 'rotate', 'move'];
@@ -26,7 +28,9 @@
   let count = $state(1);
   /** Unequal steps along the offset's direction, e.g. "6; 7,5; 6". Blank: equal steps. */
   let spacingText = $state('');
-  const spacings = $derived(mode === 'repeat' && spacingText.trim() ? parseSpacings(spacingText) : null);
+  // Typed in the display units, read back to SI.
+  const spacings = $derived(mode === 'repeat' && spacingText.trim()
+    ? parseSpacings(spacingText)?.map((v) => fromDisplay(v, 'length', uiStore.unitSystem)) ?? null : null);
   let d = $state<Vec3>([0, 0, 3]);
   let point = $state<Vec3>([0, 0, 0]);
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>('Z');
@@ -229,7 +233,7 @@
   {#if mode === 'repeat'}
     <label class="tp-field">
       <span title={t('transform.spacingsHint')}>{t('transform.spacings')}</span>
-      <input type="text" placeholder="6; 7,5; 6" bind:value={spacingText} data-testid="tp-spacings" />
+      <span class="tp-unit"><input type="text" placeholder="6; 7,5; 6" bind:value={spacingText} data-testid="tp-spacings" /> {unitLabel('length', uiStore.unitSystem)}</span>
     </label>
     {#if !spacingOk}<p class="tp-err">{t('transform.spacingsInvalid')}</p>{/if}
     {#if spacings}<p class="pk-hint">{tp('transform.spacingsApplied', { n: spacings.length })}</p>{/if}
@@ -245,7 +249,7 @@
       <span class="tp-label">{t(mode === 'repeat' ? 'transform.stepOffset' : 'transform.offset')}</span>
       <div class="tp-row">
         {#each ['X', 'Y', 'Z'] as ax, i (ax)}
-          <label><span>{ax}</span><input type="number" step="0.1" bind:value={d[i]} data-testid="tp-d{ax.toLowerCase()}" /></label>
+          <label><span>{ax}</span><QuantityInput bind:value={d[i]} quantity="length" cls="tp-num" testid="tp-d{ax.toLowerCase()}" /></label>
         {/each}
       </div>
     </div>
@@ -254,7 +258,7 @@
       <span class="tp-label">{t(mode === 'mirror' ? 'transform.planePoint' : 'transform.axisPoint')}</span>
       <div class="tp-row">
         {#each ['X', 'Y', 'Z'] as ax, i (ax)}
-          <label><span>{ax}</span><input type="number" step="0.1" bind:value={point[i]} data-testid="tp-p{ax.toLowerCase()}" /></label>
+          <label><span>{ax}</span><QuantityInput bind:value={point[i]} quantity="length" cls="tp-num" testid="tp-p{ax.toLowerCase()}" /></label>
         {/each}
       </div>
       <div class="tp-row">
@@ -325,7 +329,7 @@
   .tp-lead { margin: 0; color: var(--st-text-2); }
   .tp-sel { margin: 0; color: var(--st-text-3); }
   .tp-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--st-text-2); }
-  .tp-field input, .tp-field select, .tp-row input, .tp-row select {
+  .tp-field input, .tp-field select, .tp-row input, .tp-row :global(input.tp-num), .tp-row select {
     padding: 3px 5px; font-size: 0.68rem; background: var(--st-surface); border: 1px solid var(--st-surface-3);
     border-radius: 3px; color: var(--st-text-2);
   }
@@ -334,7 +338,8 @@
   .tp-label { color: var(--st-text-3); }
   .tp-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .tp-row label { display: flex; align-items: center; gap: 3px; color: var(--st-text-3); }
-  .tp-row input { width: 58px; text-align: right; }
+  .tp-row input, .tp-row :global(input.tp-num) { width: 58px; text-align: right; }
+  .tp-unit { display: inline-flex; align-items: center; gap: 4px; color: var(--st-text-3); font-size: 0.66rem; }
   .tp-linkrow select { max-width: 110px; }
   .tp-check { display: flex; align-items: center; gap: 6px; color: var(--st-text-2); cursor: pointer; }
   .tp-link {

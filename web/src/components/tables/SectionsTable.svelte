@@ -9,17 +9,20 @@
   import { profileToSectionFull } from '../../lib/data/steel-profiles';
   import type { SectionProperties } from '../../lib/data/section-shapes';
   import { solverProperties } from '../../lib/section/state';
+  import { toQ, unitQ } from '../../lib/store/display-units.svelte';
+  import UnitInput from '../UnitInput.svelte';
 
   const sectionsArr = $derived([...modelStore.sections.values()]);
   const is3D = $derived(uiStore.is3DWorkspace);
 
-  // Unit conversion factors: model stores m² and m⁴, display in cm² and cm⁴
-  const M2_TO_CM2 = 1e4;   // m² → cm²
-  const M4_TO_CM4 = 1e8;   // m⁴ → cm⁴
-  /** Format area in cm² */
-  function fmtA(v: number) { return (v * M2_TO_CM2).toPrecision(4); }
-  /** Format inertia in cm⁴ */
-  function fmtI(v: number) { return (v * M4_TO_CM4).toPrecision(4); }
+  /*
+   * The model stores m² and m⁴; they are shown at the section's own scale in
+   * the chosen unit system (cm² and cm⁴ in SI and MKS, in² and in⁴ in Imperial).
+   */
+  /** Area in the chosen section unit, four significant figures. */
+  function fmtA(v: number) { return toQ(v, 'sectionArea').toPrecision(4); }
+  /** Inertia in the chosen section unit, four significant figures. */
+  function fmtI(v: number) { return toQ(v, 'sectionInertia').toPrecision(4); }
 
   let sectionChangerTargetSecId = $state<number | null>(null);
   /** Which section has its properties open. One at a time: this is a list. */
@@ -57,13 +60,16 @@
     } else {
       const num = parseFloat(val);
       if (isNaN(num)) return;
-      // Convert from display units (cm², cm⁴) back to model units (m², m⁴)
-      let modelVal = num;
-      if (field === 'a') modelVal = num / M2_TO_CM2;
-      else if (field === 'iy' || field === 'iz' || field === 'j') modelVal = num / M4_TO_CM4;
-      modelStore.updateSection(id, { [field]: modelVal });
+      modelStore.updateSection(id, { [field]: num });
       resultsStore.clear();
     }
+  }
+
+  /** A, Iy, Iz and J come from a UnitInput, already back in m² and m⁴. */
+  function setSectionNumber(id: number, field: 'a' | 'iy' | 'iz' | 'j', v: number) {
+    if (!Number.isFinite(v)) return;
+    modelStore.updateSection(id, { [field]: v });
+    resultsStore.clear();
   }
 
   function deleteSection(id: number) {
@@ -245,18 +251,18 @@
                 {#if derived}
                   <!-- Derived from the polygons, so the table, the drawing and
                        the analysis cannot quote three different areas. -->
-                  <div class="prop"><span>A</span><span title={t('table.derivedFromGeometry')}>{fmtA(props.a)} cm²</span></div>
-                  <div class="prop"><span>Iy</span><span title={t('table.derivedFromGeometry')}>{fmtI(props.iy ?? props.iz)} cm⁴</span></div>
-                  <div class="prop"><span>Iz</span><span title={t('table.derivedFromGeometry')}>{fmtI(props.iz)} cm⁴</span></div>
+                  <div class="prop"><span>A</span><span title={t('table.derivedFromGeometry')}>{fmtA(props.a)} {unitQ('sectionArea')}</span></div>
+                  <div class="prop"><span>Iy</span><span title={t('table.derivedFromGeometry')}>{fmtI(props.iy ?? props.iz)} {unitQ('sectionInertia')}</span></div>
+                  <div class="prop"><span>Iz</span><span title={t('table.derivedFromGeometry')}>{fmtI(props.iz)} {unitQ('sectionInertia')}</span></div>
                   {#if is3D}
-                    <div class="prop"><span>J</span><span title={props.j == null ? t('table.torsionUnavailable') : t('table.derivedFromGeometry')}>{props.j == null ? '—' : fmtI(props.j) + ' cm⁴'}</span></div>
+                    <div class="prop"><span>J</span><span title={props.j == null ? t('table.torsionUnavailable') : t('table.derivedFromGeometry')}>{props.j == null ? '—' : `${fmtI(props.j)} ${unitQ('sectionInertia')}`}</span></div>
                   {/if}
                 {:else}
-                  <label class="prop"><span>A (cm²)</span><input type="number" step="0.01" value={sec.a * M2_TO_CM2} onchange={(e) => updateSectionField(sec.id, 'a', e.currentTarget.value)} /></label>
-                  <label class="prop"><span>Iy (cm⁴)</span><input type="number" step="0.01" value={(sec.iy ?? sec.iz) * M4_TO_CM4} onchange={(e) => updateSectionField(sec.id, 'iy', e.currentTarget.value)} /></label>
-                  <label class="prop"><span>Iz (cm⁴)</span><input type="number" step="0.01" value={sec.iz * M4_TO_CM4} onchange={(e) => updateSectionField(sec.id, 'iz', e.currentTarget.value)} /></label>
+                  <label class="prop"><span>A ({unitQ('sectionArea')})</span><UnitInput value={sec.a} qty="sectionArea" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'a', v)} /></label>
+                  <label class="prop"><span>Iy ({unitQ('sectionInertia')})</span><UnitInput value={sec.iy ?? sec.iz} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'iy', v)} /></label>
+                  <label class="prop"><span>Iz ({unitQ('sectionInertia')})</span><UnitInput value={sec.iz} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'iz', v)} /></label>
                   {#if is3D}
-                    <label class="prop"><span>J (cm⁴)</span><input type="number" step="0.01" value={(sec.j ?? (sec.iy ?? sec.iz) * 0.001) * M4_TO_CM4} onchange={(e) => updateSectionField(sec.id, 'j', e.currentTarget.value)} /></label>
+                    <label class="prop"><span>J ({unitQ('sectionInertia')})</span><UnitInput value={sec.j ?? (sec.iy ?? sec.iz) * 0.001} qty="sectionInertia" unit={false} step="0.01" onchange={(v) => setSectionNumber(sec.id, 'j', v)} /></label>
                   {/if}
                 {/if}
                 <label class="prop"><span>{t('table.rotation')}</span><input type="number" step="1" min="0" max="359" value={sec.rotation ?? 0} onchange={(e) => updateSectionField(sec.id, 'rotation', e.currentTarget.value)} /></label>
@@ -331,7 +337,8 @@
   }
   .prop > span:first-child { color: var(--st-text-3); }
   .prop > span:last-child { font-family: var(--st-mono, monospace); }
-  .prop input { width: 86px; text-align: right; }
+  /* :global because A, Iy, Iz and J are inputs inside UnitInput. */
+  .prop :global(input) { width: 86px; text-align: right; }
 
   table {
     width: max-content;
@@ -371,7 +378,7 @@
     text-align: center;
   }
 
-  td input[type="number"],
+  td :global(input[type="number"]),
   td input[type="text"] {
     width: 55px;
     padding: 0.1rem 0.2rem;

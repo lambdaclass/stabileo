@@ -90,6 +90,9 @@ describe('targets', () => {
     const sid = modelStore.elements.get(beam)!.sectionId;
     expect(resolveTargets('members', { by: 'section', sectionId: sid }, m, sel)).toEqual([col1, beam, col2]);
     expect(memberKindOf(m, col2)).toBe('column');
+    // The whole model: every member, every node.
+    expect(resolveTargets('members', { by: 'all' }, m, sel)).toEqual([col1, beam, col2].sort((x, y) => x - y));
+    expect(resolveTargets('nodes', { by: 'all' }, m, sel)).toEqual([...n].sort((x, y) => x - y));
   });
 });
 

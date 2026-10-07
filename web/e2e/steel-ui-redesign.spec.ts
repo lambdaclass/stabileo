@@ -48,7 +48,7 @@ test.describe('@smoke the generators panel explains its parameters', () => {
 
     const fields = await page.evaluate(() => {
       const panel = document.querySelector('[data-testid="pro-generators-panel"]')!;
-      return [...panel.querySelectorAll('input[type="number"]')].map((el) => {
+      return [...panel.querySelectorAll('input[type="number"], input[inputmode="decimal"]')].map((el) => {
         const id = el.getAttribute('aria-describedby');
         const hint = id ? document.getElementById(id) : null;
         return {
@@ -227,7 +227,7 @@ test.describe('the generators panel explains itself in English', () => {
   test.use({ appLocale: 'en' });
   test('U8 en — the parameter hints are localised', async ({ pro: page }) => {
     await openGenerators(page);
-    await expect(page.locator('#gen-hint-span')).toContainText('meters');
+    await expect(page.locator('#gen-hint-span')).toContainText('supports');
   });
 });
 
@@ -235,7 +235,7 @@ test.describe('the generators panel explains itself in Spanish', () => {
   test.use({ appLocale: 'es' });
   test('U8 es — the parameter hints are localised', async ({ pro: page }) => {
     await openGenerators(page);
-    await expect(page.locator('#gen-hint-span')).toContainText('metros');
+    await expect(page.locator('#gen-hint-span')).toContainText('apoyos');
   });
 });
 
@@ -260,6 +260,6 @@ test.describe('the generators panel explains itself in Portuguese', () => {
   ) => {
     await openGenerators(page);
     await expect(page.locator('#gen-hint-span')).toContainText('vão');
-    await expect(page.locator('#gen-hint-span')).not.toContainText('meters');
+    await expect(page.locator('#gen-hint-span')).not.toContainText('supports');
   });
 });

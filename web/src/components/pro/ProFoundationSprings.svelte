@@ -7,6 +7,8 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { foundationSprings, tributaryAreas } from '../../lib/engine/foundation-springs';
 
   const profiles = $derived(modelStore.geotechnical?.profiles ?? []);
@@ -57,10 +59,10 @@
     <select bind:value={source} data-testid="fs-source">
       <option value="typed">{t('foundation.typed')}</option>
       {#each profiles as p (p.id)}
-        <option value={String(p.id)} disabled={p.subgradeModulusKNm3 === null}>{p.name}{p.subgradeModulusKNm3 === null ? ` (${t('foundation.noKs')})` : ` · ${p.subgradeModulusKNm3} kN/m³`}</option>
+        <option value={String(p.id)} disabled={p.subgradeModulusKNm3 === null}>{p.name}{p.subgradeModulusKNm3 === null ? ` (${t('foundation.noKs')})` : ` · ${fmtQ(p.subgradeModulusKNm3, 'density')} ${unitQ('density')}`}</option>
       {/each}
     </select>
-    {#if source === 'typed'}<input type="number" min="1" step="1000" bind:value={ksTyped} data-testid="fs-ks" /> kN/m³{/if}
+    {#if source === 'typed'}<QuantityInput bind:value={ksTyped} quantity="density" min={1} cls="fs-ks" testid="fs-ks" />{/if}
   </label>
   <label class="pk-check"><input type="checkbox" bind:checked={uplift} data-testid="fs-uplift" /> {t('foundation.oneWay')}</label>
   <label class="pk-check"><input type="checkbox" bind:checked={holdHorizontal} /> {t('foundation.holdHorizontal')}</label>
@@ -75,6 +77,6 @@
   .fs { display: flex; flex-direction: column; gap: 0.45rem; color: var(--st-text-2); }
   .fs-go { align-self: flex-start; }
   .fs-row { display: flex; gap: 6px; align-items: center; }
-  .fs-row input[type='number'] { width: 80px; }
+  .fs-row :global(input.fs-ks) { width: 80px; }
   .fs-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
 </style>

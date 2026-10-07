@@ -17,6 +17,7 @@ import { solvableModel } from '../member-behaviour';
 import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
+import { massWeightLoads, WEIGHT_CASE } from './mass-weights';
 import type { SolverInput3D } from '../types-3d';
 import {
   applyMassSource, resolveMassFactors,
@@ -81,11 +82,20 @@ export function withMassSource(
   input: SolverInput3D,
   userLeftHand = false,
 ): { input: SolverInput3D; densities: Map<number, number>; report: MassSourceReport; factors: ResolvedFactor[] } {
-  const factors = resolveMassFactors(loadCases, stated);
-  // A composite case weighs what it takes in (`case-effects.ts`). Then the model as the input was
-  // built from it: a variable member is its pieces, each with its own section, so a load and a
-  // section are looked up by the ids the input has (`variable-members.ts`).
-  model = solvableModel(withCaseEffects(model, loadCases as never, { includeSelfWeight: false, leftHand: userLeftHand }));
+  let factors = resolveMassFactors(loadCases, stated);
+  // A composite case weighs what it takes in (`case-effects.ts`).
+  model = withCaseEffects(model, loadCases as never, { includeSelfWeight: false, leftHand: userLeftHand });
+  // The weights stated for the mass alone, as a case of their own taken whole (`mass-weights.ts`).
+  if (stated?.weights?.length) {
+    const extra = massWeightLoads(model as never, stated.weights, userLeftHand);
+    if (extra.length) {
+      model = { ...model, loads: [...model.loads, ...extra] };
+      factors = [...factors, { caseId: WEIGHT_CASE, name: 'weights', type: '', factor: 1, basis: 'stated' }];
+    }
+  }
+  // Then the model as the input was built from it: a variable member is its pieces, each with its
+  // own section, so a load and a section are looked up by the ids the input has (`variable-members.ts`).
+  model = solvableModel(model);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
   const cases = caseMassLoads(model, factors, userLeftHand);
   const physical = withSectionMass(input, model);

@@ -16,10 +16,7 @@ const FIXTURE = new URL(
 async function openLoads(page: Page) {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-loads').click();
-  await expect(page.getByTestId('analysis-rules')).toBeVisible();
-  // The self-weight is one closed row until it is opened.
-  await expect(page.getByTestId('sw-row')).toHaveCount(0);
-  await page.getByTestId('sw-toggle').click();
+  await expect(page.getByTestId('load-tables')).toBeVisible();
 }
 
 const rules = (page: Page) => page.evaluate(() => window.__stabileo.analysisSettings());
@@ -28,20 +25,37 @@ test.describe('@smoke PRO analysis rules', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('self-weight is a row of its own, and its factor is the model\'s', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
+    const [m1, m2] = await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
-    // The example states its rule, so the older checkbox row is gone.
-    await expect(page.locator('.sw-row')).toHaveCount(0);
+    // The example states its rule, so the older checkbox is gone.
+    await expect(page.getByTestId('sw-legacy')).toHaveCount(0);
     await expect(page.getByTestId('sw-row')).toHaveCount(1);
     expect((await rules(page))?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor: -1 }]);
 
-    await page.getByTestId('sw-factor').fill('-1.1');
+    await page.getByTestId('sw-factor').fill('-1,1');
     await page.getByTestId('sw-factor').press('Tab');
     await expect.poll(async () => (await rules(page))?.selfWeight?.[0]?.factor).toBe(-1.1);
 
-    await page.getByTestId('sw-add').click();
+    // Added from the card: the same case, axis and reach takes the new factor in place.
+    await page.getByTestId('write-load').click();
+    await page.getByTestId('wl-kind').selectOption('selfWeight');
+    await expect(page.getByTestId('load-target-by')).toHaveValue('all');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-done')).toBeVisible();
+    await expect(page.getByTestId('sw-row')).toHaveCount(1);
+    await expect.poll(async () => (await rules(page))?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor: -1 }]);
+
+    // On two members: a second rule.
+    await page.getByTestId('load-target-by').selectOption('ids');
+    await page.getByTestId('load-target-ids').fill(`${m1}, ${m2}`);
+    await page.getByTestId('wl-sw-factor').fill('-0,5');
+    await page.getByTestId('wl-add').click();
     await expect(page.getByTestId('sw-row')).toHaveCount(2);
-    await expect.poll(async () => (await rules(page))?.selfWeight?.length).toBe(2);
+    await expect.poll(async () => (await rules(page))?.selfWeight?.[1]).toEqual({ caseId: 1, direction: 'Z', factor: -0.5, elements: [m1, m2].sort((a, b) => a! - b!) });
+    await expect(page.getByTestId('sw-row').nth(1)).toContainText('2 members');
+
+    await page.getByTestId('sw-remove').nth(1).click();
+    await expect.poll(async () => (await rules(page))?.selfWeight?.length).toBe(1);
   });
 
   test('the combination method and P-Delta per combination are written to the model', async ({ pro: page }) => {
@@ -61,7 +75,7 @@ test.describe('@smoke PRO analysis rules', () => {
   test('a distributed load takes its axes from the table', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
-    const first = page.locator('.pro-loads-table tbody tr').first();
+    const first = page.locator('.pro-loads-table:not([data-testid="lt-sw"]) tbody tr').first();
     await first.locator('select.inp-cell').selectOption('projected');
     await expect.poll(async () =>
       (await page.evaluate(() => window.__stabileo.distributedLoads3D()))[0]?.frame).toBe('projected');

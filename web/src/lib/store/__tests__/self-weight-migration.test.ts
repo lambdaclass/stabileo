@@ -9,12 +9,12 @@ import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { migrateSelfWeightIfNeeded, planSelfWeight } from '../self-weight-migration';
+import { migrateSelfWeightIfNeeded, planSelfWeight, selfWeightRuleEffect } from '../self-weight-migration';
 import { initSolver } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
-beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; modelStore.clear(); historyStore.clear(); });
+beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; uiStore.selfWeightCaseId = null; modelStore.clear(); historyStore.clear(); });
 
 /** A column with a load, and the cases asked for (the default model's cases removed). */
 function project(types: string[]) {
@@ -68,12 +68,43 @@ describe('the migration', () => {
     expect(historyStore.canUndo).toBe(false);
   });
 
+  it('from Basic, the case its reader chose for self-weight, not the first dead-load one', () => {
+    const { ids } = project(['D', 'D', 'L']);
+    uiStore.selfWeightCaseId = ids[1]!;
+    migrateSelfWeightIfNeeded();
+    expect(modelStore.analysis!.selfWeight).toEqual([{ caseId: ids[1], direction: 'Z', factor: -1 }]);
+    // Chosen, but a case the model no longer has: the plan's first dead-load case.
+    modelStore.withoutUndo(() => modelStore.setAnalysis({ selfWeight: undefined }));
+    uiStore.selfWeightCaseId = 999;
+    migrateSelfWeightIfNeeded();
+    expect(modelStore.analysis!.selfWeight![0]!.caseId).toBe(ids[0]);
+  });
+
   it('self-weight off: a stated empty rule, and it runs once', () => {
     uiStore.includeSelfWeight = false;
     project(['D']);
     expect(migrateSelfWeightIfNeeded()).toBe(true);
     expect(modelStore.analysis!.selfWeight).toEqual([]);
     expect(migrateSelfWeightIfNeeded()).toBe(false);
+  });
+});
+
+describe('a new PRO project', () => {
+  it('starts without self-weight, and drawing does not add it; a project with members is migrated', () => {
+    modelStore.withoutUndo(() => modelStore.setAnalysis({ selfWeight: undefined }));
+    historyStore.clear();
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([]);
+    expect(historyStore.canUndo).toBe(false);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([]);
+
+    // An older project, with members and no rule: the weight it computed before, as a rule.
+    const { ids } = project(['D']);
+    selfWeightRuleEffect();
+    expect(modelStore.analysis!.selfWeight).toEqual([{ caseId: ids[0], direction: 'Z', factor: -1 }]);
   });
 });
 
@@ -87,5 +118,64 @@ describe('Basic reads its own toggle', () => {
     if (!r || typeof r === 'string') throw new Error(String(r));
     // 10 kN of load and the column's own weight.
     expect(r.reactions.reduce((s, x) => s + x.fz, 0)).toBeGreaterThan(10 + 1e-6);
+  });
+});
+
+describe('Basic puts self-weight in the case chosen for it', () => {
+  const sumFz = (r: { reactions: Array<{ fz?: number; rz?: number }> }) => r.reactions.reduce((s, x) => s + (x.fz ?? x.rz ?? 0), 0);
+
+  it('3D: in the chosen case only, and the first dead-load case when none is chosen', () => {
+    uiStore.analysisMode = '3d';
+    const { ids } = project(['D', 'L']);
+    modelStore.addCombination('C', [{ caseId: ids[0]!, factor: 1 }, { caseId: ids[1]!, factor: 1 }]);
+    uiStore.selfWeightCaseId = ids[1]!;
+    let r = modelStore.solveCombinations3D(true, false, false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    // The load is in D; the weight now in L.
+    expect(sumFz(r.perCase.get(ids[0]!)!)).toBeCloseTo(10, 6);
+    expect(sumFz(r.perCase.get(ids[1]!)!)).toBeGreaterThan(1e-6);
+    uiStore.selfWeightCaseId = null;
+    r = modelStore.solveCombinations3D(true, false, false);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(sumFz(r.perCase.get(ids[0]!)!)).toBeGreaterThan(10 + 1e-6);
+    expect(Math.abs(sumFz(r.perCase.get(ids[1]!)!))).toBeLessThan(1e-6);
+  });
+
+  it('2D: the same rule per case', () => {
+    uiStore.analysisMode = '2d';
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed');
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    for (const c of [...modelStore.model.loadCases]) modelStore.removeLoadCase(c.id);
+    const d = modelStore.addLoadCase('D0', 'D'), l = modelStore.addLoadCase('L1', 'L');
+    modelStore.addNodalLoad(b, 0, -10, 0, d);
+    modelStore.addNodalLoad(b, 0, -5, 0, l);
+    modelStore.addCombination('C', [{ caseId: d, factor: 1 }, { caseId: l, factor: 1 }]);
+    const vertical = (res: { reactions: Array<{ rz?: number; ry?: number }> }) => res.reactions.reduce((s, x) => s + (x.rz ?? x.ry ?? 0), 0);
+    uiStore.selfWeightCaseId = l;
+    const r = modelStore.solveCombinations(true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    expect(vertical(r.perCase.get(d)!)).toBeCloseTo(10, 6);
+    expect(vertical(r.perCase.get(l)!)).toBeGreaterThan(5 + 1e-6);
+    uiStore.selfWeightCaseId = null;
+  });
+});
+
+describe('a new project starts over', () => {
+  it('forgets the self-weight case and what was hidden, but undo keeps them', async () => {
+    const { viewVisibility } = await import('../view-state.svelte');
+    uiStore.analysisMode = '3d';
+    const { ids } = project(['D', 'L']);
+    uiStore.selfWeightCaseId = ids[1]!;
+    viewVisibility.hide({ nodes: [], elements: [...modelStore.elements.keys()], shells: [] });
+    modelStore.addNode(5, 5, 5);
+    historyStore.undo();
+    expect(uiStore.selfWeightCaseId).toBe(ids[1]!);
+    expect(viewVisibility.active).toBe(true);
+    modelStore.clear();
+    expect(uiStore.selfWeightCaseId).toBeNull();
+    expect(viewVisibility.active).toBe(false);
   });
 });

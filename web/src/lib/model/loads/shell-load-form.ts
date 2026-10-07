@@ -3,13 +3,15 @@
  * or why it describes none: an area load with its direction, its field and its extent; a fluid to a
  * level; a force at a point.
  *
- * The numbers are read by the app's one rule (`write-load.ts`): a field that does not read as a
- * number refuses the add (`pro.loadUnreadable`) instead of becoming a zero or a default. A blank
- * value is 0 (a force component, a point's coordinate, a pressure at one end of a variation, a
- * corner of a list), and a blank datum the load cannot do without (γ, the level, a coordinate of
- * a variation or of the rectangle) is asked for. A list by corner has exactly one value per corner:
- * "5; 6O; 7; 9" on a triangle used to drop the unreadable value and apply 5, 7, 9 to the three
- * corners. The point inside a fluid is all three coordinates or none.
+ * The values come in SI, `null` for a blank field (the form's `QuantityInput`s, which never hold
+ * text that does not read). A blank value is 0 (a force component, a point's coordinate, a
+ * pressure at one end of a variation, a corner of a list), and a blank datum the load cannot do
+ * without (γ, the level, a coordinate of a variation or of the rectangle) is asked for. The list by
+ * corner is text, read by the app's one rule (`utils/numeric-input.ts`) in the display units
+ * (`cornerSI` turns each value to SI): a value that does not read refuses the add
+ * (`pro.loadUnreadable`), and the list has exactly one value per corner. "5; 6O; 7; 9" on a
+ * triangle used to drop the unreadable value and apply 5, 7, 9 to the three corners. The point
+ * inside a fluid is all three coordinates or none.
  *
  * What comes back is i18n keys and their values, as every refusal of the card (`WriteRefusal`).
  *
@@ -24,42 +26,36 @@ import type { Vec3 } from '../../engine/shell-load-integration';
 export type ShellLoadKind = 'surface' | 'hydro' | 'shellPoint';
 type Axis = 'X' | 'Y' | 'Z';
 
+/** A value in SI, or null for a blank field. */
+type N = number | null;
+
 export interface ShellLoadFields {
   dirMode: 'down' | 'local' | 'global' | 'projected';
   dirAxis: Axis;
   field: 'uniform' | 'corners' | 'axis';
-  q: string;
-  /** Values by corner, separated by semicolons. */
+  q: N;
+  /** Values by corner, separated by semicolons, in the display units. */
   qc: string;
-  va: { axis: Axis; c1: string; q1: string; c2: string; q2: string };
+  va: { axis: Axis; c1: N; q1: N; c2: N; q2: N };
   partial: boolean;
-  rect: { plane: 'XY' | 'XZ' | 'YZ'; u1: string; v1: string; u2: string; v2: string };
-  gamma: string;
-  level: string;
-  inside: { x: string; y: string; z: string };
-  at: { x: string; y: string; z: string };
-  pf: { fx: string; fy: string; fz: string };
+  rect: { plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N };
+  gamma: N;
+  level: N;
+  inside: { x: N; y: N; z: N };
+  at: { x: N; y: N; z: N };
+  pf: { fx: N; fy: N; fz: N };
 }
 
 const AXIS: Record<Axis, Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const UNREADABLE: WriteRefusal = { error: 'pro.loadUnreadable' };
 const ZERO: WriteRefusal = { error: 'writeLoad.zero' };
 
-/** A field typed that does not read as a number. */
+/** A list entry typed that does not read as a number. */
 const unreadable = (s: string) => s.trim() !== '' && parseDecimal(s) === null;
-/** A field's number, blank is 0. Read once none is unreadable. */
-const num = (s: string): number => (s.trim() === '' ? 0 : parseDecimal(s) ?? 0);
-/** A field's number, or null when it is blank. */
-const opt = (s: string): number | null => (s.trim() === '' ? null : parseDecimal(s));
-
-/** The fields of `kind` the form shows, the ones read. */
-function fieldsRead(kind: ShellLoadKind, f: ShellLoadFields): string[] {
-  if (kind === 'shellPoint') return [f.at.x, f.at.y, f.at.z, f.pf.fx, f.pf.fy, f.pf.fz];
-  if (kind === 'hydro') return [f.gamma, f.level, f.inside.x, f.inside.y, f.inside.z];
-  const out = f.field === 'uniform' ? [f.q] : f.field === 'corners' ? cornerTexts(f.qc) : [f.va.c1, f.va.q1, f.va.c2, f.va.q2];
-  if (f.partial) out.push(f.rect.u1, f.rect.v1, f.rect.u2, f.rect.v2);
-  return out;
-}
+/** A field's value, blank is 0. */
+const num = (v: N): number => v ?? 0;
+/** A field's value, or null when it is blank. */
+const opt = (v: N): N => v;
 
 /** The entries of a list by corner; one separator after the last value closes the list. */
 const cornerTexts = (s: string): string[] => s.trim().replace(/;\s*$/, '').split(';');
@@ -68,9 +64,12 @@ const cornerTexts = (s: string): string[] => s.trim().replace(/;\s*$/, '').split
 const naming = (shells: readonly ShellRef[]) => shells.map((s) => `${s.on ? 'p' : 'q'}${s.id}`).join(', ');
 
 /** The loads the form describes, on the shells picked; a reason when it describes none. */
-export function buildShellLoads(kind: ShellLoadKind, f: ShellLoadFields, shells: readonly ShellRef[], caseId: number | undefined): WriteOutcome | WriteRefusal {
+export function buildShellLoads(
+  kind: ShellLoadKind, f: ShellLoadFields, shells: readonly ShellRef[], caseId: number | undefined,
+  cornerSI: (v: number) => number = (v) => v,
+): WriteOutcome | WriteRefusal {
   if (!shells.length) return { error: 'writeLoad.noTarget' };
-  if (fieldsRead(kind, f).some(unreadable)) return UNREADABLE;
+  if (kind === 'surface' && f.field === 'corners' && cornerTexts(f.qc).some(unreadable)) return UNREADABLE;
   const c = caseId !== undefined ? { caseId } : {};
 
   if (kind === 'shellPoint') {
@@ -103,7 +102,7 @@ export function buildShellLoads(kind: ShellLoadKind, f: ShellLoadFields, shells:
   } else if (f.field === 'corners') {
     // One value per corner, exactly: three on a triangle, four on a quad, a blank one 0.
     if (f.qc.trim() === '') return { error: 'writeLoad.shell.cornersIncomplete' };
-    const vals = cornerTexts(f.qc).map(num);
+    const vals = cornerTexts(f.qc).map((x) => (x.trim() === '' ? 0 : cornerSI(parseDecimal(x) ?? 0)));
     const counts = new Set(shells.map((s) => s.pts.length));
     if (counts.size > 1) return { error: 'writeLoad.shell.cornersMixed' };
     if (!counts.has(vals.length)) return { error: 'writeLoad.shell.cornersIncomplete' };

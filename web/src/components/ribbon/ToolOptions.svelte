@@ -8,10 +8,12 @@
   import { t } from '../../lib/i18n';
   import { IL_QUANTITY_GROUPS } from '../../lib/influence-line-quantities';
   import { uiStore } from '../../lib/store/ui.svelte';
+  import { editingKind } from '../../lib/store/selection-prune';
   import ToolNodeOptions from '../floating-tools/ToolNodeOptions.svelte';
   import ToolElementOptions from '../floating-tools/ToolElementOptions.svelte';
   import ToolSupportOptions from '../floating-tools/ToolSupportOptions.svelte';
   import ToolLoadOptions from '../floating-tools/ToolLoadOptions.svelte';
+  import SelectedEntityPanel from '../floating-tools/SelectedEntityPanel.svelte';
 
   /*
    * `influenceLine` belongs here too. It is armed from Advanced analysis, not
@@ -22,10 +24,26 @@
    */
   const HAS_OPTIONS = ['select', 'node', 'element', 'support', 'load', 'influenceLine'];
   const showOptions = $derived(HAS_OPTIONS.includes(uiStore.currentTool));
+
+  /*
+   * ── Create, or edit ──────────────────────────────────────────────────
+   * One row for supports and loads, in one of two modes. Armed from the
+   * ribbon, it creates. With a support or a load selected (with the pointer,
+   * or by a row of its table), it edits that one, in another colour, and its
+   * ✓ goes back to creating. The edit used to open at the other end of the
+   * bar while the create row stayed here, two answers to one question.
+   */
+  // Only a support or load the model still has: one deleted from its table or undone edits nothing.
+  const editing = $derived(editingKind());
+  const creating = $derived(!editing && (uiStore.currentTool === 'support' || uiStore.currentTool === 'load'));
 </script>
 
-{#if showOptions}
-  <span class="tb-tool-name">{t(`float.${uiStore.currentTool}`)}</span>
+{#if editing}
+  <span class="tb-tool-name tb-editing" data-testid="tool-mode-edit">{t(editing === 'load' ? 'float.editLoad' : 'float.editSupport')}</span>
+  <span class="tb-sep" aria-hidden="true"></span>
+  <SelectedEntityPanel inBar />
+{:else if showOptions}
+  <span class="tb-tool-name" data-testid={creating ? 'tool-mode-create' : undefined}>{t(creating ? (uiStore.currentTool === 'load' ? 'float.createLoad' : 'float.createSupport') : `float.${uiStore.currentTool}`)}</span>
   <span class="tb-sep" aria-hidden="true"></span>
   <!--
     No select options here any more: they live in the Selection panel, so
@@ -66,6 +84,9 @@
     white-space: nowrap;
     flex: none;
   }
+
+  /* Editing reads apart from creating at a glance: the warm accent of a change in progress. */
+  .tb-tool-name.tb-editing { color: var(--st-amber-text, #d9a441); }
 
   .tb-sep {
     width: 1px;

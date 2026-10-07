@@ -8,12 +8,15 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
-    axesFromBays, axesOf, baysText, frameBetweenAxes, gridFromModel, gridIssues, levelsFromHeights,
+    axesFromBays, axesOf, frameBetweenAxes, gridFromModel, gridIssues, levelsFromHeights,
     parseBays, sortedLevels, fmt, type AxisNaming, type GridAxis, type Level, type StructuralGrid,
   } from '../../lib/model/grid';
   import { fragmentFromMembers } from '../../lib/model/edit/fragment';
   import { insertFragment } from '../../lib/model/edit/transformed-copy';
   import { IDENTITY } from '../../lib/model/edit/affine';
+  import { toDisplay, fromDisplay, unitLabel } from '../../lib/utils/units';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   const grid = $derived<StructuralGrid>(modelStore.grid ?? { axes: [], levels: [] });
   const xs = $derived(axesOf(grid, 'x'));
@@ -22,19 +25,27 @@
   const issues = $derived(gridIssues(grid));
   const activeZ = $derived(uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null);
 
-  const num = (s: string) => Number(String(s).replace(',', '.'));
+  // The bays and the storey heights are typed as text in the display units, read back to SI.
+  const lenUnit = $derived(unitLabel('length', uiStore.unitSystem));
+  const shownList = (vs: number[]) => vs.map((v) => fmt(toDisplay(v, 'length', uiStore.unitSystem))).join('; ');
+  const readList = (s: string) => parseBays(s)?.map((v) => fromDisplay(v, 'length', uiStore.unitSystem)) ?? null;
+  /** The bays between the axes, as the bays field takes them, in the display units. */
+  const baysShown = (axes: GridAxis[]) => {
+    const s = [...axes].sort((a, b) => a.at - b.at);
+    return shownList(s.slice(1).map((a, i) => a.at - s[i]!.at));
+  };
 
   // ── Axes typed as bays ──
-  let bx = $state({ bays: '6; 6; 6', origin: '0', naming: 'numbers' as AxisNaming, start: '1' });
-  let by = $state({ bays: '5; 5', origin: '0', naming: 'letters' as AxisNaming, start: 'A' });
+  let bx = $state({ bays: shownList([6, 6, 6]), origin: 0, naming: 'numbers' as AxisNaming, start: '1' });
+  let by = $state({ bays: shownList([5, 5]), origin: 0, naming: 'letters' as AxisNaming, start: 'A' });
 
   function setGrid(next: StructuralGrid) { modelStore.setGrid(next); }
 
   function generateAxes(axis: 'x' | 'y') {
     const d = axis === 'x' ? bx : by;
-    const bays = parseBays(d.bays);
+    const bays = readList(d.bays);
     if (!bays) return;
-    const axes = axesFromBays(bays, axis, num(d.origin) || 0, d.naming, d.start.trim() || (d.naming === 'letters' ? 'A' : '1'));
+    const axes = axesFromBays(bays, axis, d.origin, d.naming, d.start.trim() || (d.naming === 'letters' ? 'A' : '1'));
     setGrid({ ...grid, axes: [...grid.axes.filter((a) => a.axis !== axis), ...axes] });
   }
 
@@ -53,14 +64,14 @@
     : /^[A-Z]+$/i.test(n) ? axesFromBays([1], 'x', 0, 'letters', n.toUpperCase())[1]!.name : `${n}'`);
 
   // ── Levels typed as storey heights ──
-  let heights = $state('3; 3; 3');
-  let base = $state('0');
+  let heights = $state(shownList([3, 3, 3]));
+  let base = $state(0);
   let names = $state('');
 
   function generateLevels() {
-    const h = parseBays(heights);
+    const h = readList(heights);
     if (!h) return;
-    const lv = levelsFromHeights(h, num(base) || 0, names.split(/[;,]/));
+    const lv = levelsFromHeights(h, base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
   function editLevel(l: Level, patch: Partial<Level>) {
@@ -128,10 +139,10 @@
         <div class="gr-dir-head">{t(`grid.dir.${row.axis}`)}</div>
         <div class="pk-row gr-wrap">
           <label class="gr-field gr-grow">{t('grid.bays')}
-            <input bind:value={row.d.bays} placeholder="6; 7,5; 6" data-testid="grid-bays-{row.axis}" />
+            <span class="gr-unit"><input bind:value={row.d.bays} placeholder="6; 7,5; 6" data-testid="grid-bays-{row.axis}" /> {lenUnit}</span>
           </label>
           <label class="gr-field gr-narrow">{t('grid.origin')}
-            <input bind:value={row.d.origin} data-testid="grid-origin-{row.axis}" />
+            <QuantityInput bind:value={row.d.origin} quantity="length" testid="grid-origin-{row.axis}" />
           </label>
           <label class="gr-field">{t('grid.naming')}
             <select bind:value={row.d.naming}>
@@ -146,12 +157,12 @@
         </div>
         {#if row.list.length > 0}
           <table class="gr-table">
-            <thead><tr><th>{t('grid.name')}</th><th>{row.axis} (m)</th><th></th></tr></thead>
+            <thead><tr><th>{t('grid.name')}</th><th>{row.axis} ({unitQ('length')})</th><th></th></tr></thead>
             <tbody>
               {#each row.list as a (a.id)}
                 <tr data-testid="grid-axis-{a.name}">
                   <td><input class="gr-cell" value={a.name} onchange={(e) => editAxis(a, { name: e.currentTarget.value.trim() || a.name })} /></td>
-                  <td><input class="gr-cell gr-num" value={fmt(a.at)} onchange={(e) => { const v = num(e.currentTarget.value); if (Number.isFinite(v)) editAxis(a, { at: v }); }} /></td>
+                  <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={a.at} quantity="length" onchange={(v) => editAxis(a, { at: v })} /></td>
                   <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeAxis(a)}>×</button></td>
                 </tr>
               {/each}
@@ -159,7 +170,7 @@
           </table>
           <div class="pk-row">
             <button class="pk-btn" onclick={() => addAxis(row.axis)}>{t('grid.addAxis')}</button>
-            <span class="pk-hint">{t('grid.bays')}: {baysText(row.list) || '—'}</span>
+            <span class="pk-hint">{t('grid.bays')}: {baysShown(row.list) ? `${baysShown(row.list)} ${lenUnit}` : '—'}</span>
           </div>
         {/if}
       </div>
@@ -171,10 +182,10 @@
     <p class="pk-hint">{t('grid.levelsHint')}</p>
     <div class="pk-row gr-wrap">
       <label class="gr-field gr-grow">{t('grid.heights')}
-        <input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" />
+        <span class="gr-unit"><input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" /> {lenUnit}</span>
       </label>
       <label class="gr-field gr-narrow">{t('grid.base')}
-        <input bind:value={base} />
+        <QuantityInput bind:value={base} quantity="length" />
       </label>
       <label class="gr-field gr-grow">{t('grid.levelNames')}
         <input bind:value={names} placeholder={t('grid.levelNamesPlaceholder')} />
@@ -183,13 +194,13 @@
     </div>
     {#if levels.length > 0}
       <table class="gr-table">
-        <thead><tr><th>{t('grid.name')}</th><th>z (m)</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
+        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
         <tbody>
           {#each [...levels].reverse() as l (l.id)}
             {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
             <tr class:gr-active={active} data-testid="grid-level-{l.name}">
               <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
-              <td><input class="gr-cell gr-num" value={fmt(l.z)} onchange={(e) => { const v = num(e.currentTarget.value); if (Number.isFinite(v)) editLevel(l, { z: v }); }} /></td>
+              <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={l.z} quantity="length" onchange={(v) => editLevel(l, { z: v })} /></td>
               <td><input type="radio" name="gr-active" checked={active} onchange={() => uiStore.setActiveLevel(l.z)} aria-label={tp('grid.workOn', { name: l.name })} data-testid="grid-activate-{l.name}" /></td>
               <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeLevel(l)}>×</button></td>
             </tr>
@@ -255,16 +266,19 @@
   .gr-dir-head { font-size: 0.66rem; font-weight: 600; color: var(--st-text-2); }
   .gr-wrap { flex-wrap: wrap; align-items: flex-end; }
   .gr-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.62rem; color: var(--st-text-3); }
-  .gr-field input, .gr-field select { min-width: 0; }
+  .gr-field input, .gr-field select, .gr-field :global(input) { min-width: 0; }
+  .gr-unit { display: flex; align-items: center; gap: 4px; }
+  .gr-unit input { flex: 1; }
   .gr-grow { flex: 1 1 120px; }
-  .gr-narrow { width: 56px; }
-  .gr-narrow input { width: 100%; }
+  .gr-narrow { width: 72px; }
+  .gr-narrow :global(input) { width: 100%; }
   .gr-table { border-collapse: collapse; font-size: 0.66rem; width: 100%; }
   .gr-table th { text-align: left; font-weight: 500; color: var(--st-text-3); padding: 2px 4px; border-bottom: 1px solid var(--st-hair); }
   .gr-table td { padding: 1px 4px; border-bottom: 1px solid var(--st-hair); }
-  .gr-cell { width: 100%; min-width: 0; background: transparent; border: 1px solid transparent; font-size: 0.66rem; padding: 1px 3px; color: var(--st-text); }
-  .gr-cell:focus { border-color: var(--st-interactive); background: var(--st-surface); }
-  .gr-num { text-align: right; font-family: var(--st-mono); }
+  .gr-table :global(.gr-qi) { display: flex; }
+  .gr-cell, .gr-table :global(input.gr-cell) { width: 100%; min-width: 0; background: transparent; border: 1px solid transparent; font-size: 0.66rem; padding: 1px 3px; color: var(--st-text); }
+  .gr-cell:focus, .gr-table :global(input.gr-cell:focus) { border-color: var(--st-interactive); background: var(--st-surface); }
+  .gr-table :global(input.gr-num) { text-align: right; font-family: var(--st-mono); }
   .gr-active td { background: var(--st-surface-3); }
   .gr-check { display: flex; gap: 6px; align-items: center; font-size: 0.66rem; }
   .gr-grid { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 4px 6px; align-items: center; font-size: 0.66rem; margin: 4px 0; }

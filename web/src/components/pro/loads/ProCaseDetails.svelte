@@ -9,10 +9,14 @@
   import { t, tp } from '../../../lib/i18n';
   import { te } from '../../../lib/i18n/engine-text';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import QuantityInput from './QuantityInput.svelte';
   import { caseOrder } from '../../../lib/engine/case-effects';
   import { loadCodeFor } from '../../../lib/codes/families';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import type { LoadCase } from '../../../lib/store/model.svelte';
+  import type { SpectralCaseDef } from '../../../lib/engine/spectral-case';
+  import { RISK_FACTOR } from '../../../lib/codes/cirsoc103/spectrum';
+  import { findBehaviour, R_ELASTIC } from '../../../lib/codes/cirsoc103/behaviour';
 
   interface Props { lc: LoadCase }
   let { lc }: Props = $props();
@@ -40,18 +44,35 @@
   }
 
   // ── Reduction ──
-  let area = $state(String(lc.reduction?.tributaryAreaM2 ?? ''));
+  /** m² (SI); empty is no area yet. */
+  let area = $state<number | null>(lc.reduction?.tributaryAreaM2 ?? null);
   let kind = $state(lc.reduction?.elementKind ?? 'interiorBeam');
   let floors = $state(String(lc.reduction?.floorsSupported ?? 1));
   const imposedCode = $derived(loadCodeFor(regulationsStore.binding('loads')?.adapterId));
   const reductionPreview = $derived.by(() => {
-    const a = parseDecimal(area), f = parseDecimal(floors);
+    const a = area, f = parseDecimal(floors);
     if (!imposedCode || imposedCode.role !== 'loads' || a === null || !(a > 0) || f === null) return null;
     const r = imposedCode.reduce({ loKNm2: 1, tributaryAreaM2: a, elementKind: kind as never, floorsSupported: Math.max(1, Math.round(f)), passengerGarage: false, publicAssembly: false, noReduction: false });
     return { ratio: r.lKNm2, reason: r.reason, area: a, floors: Math.max(1, Math.round(f)) };
   });
   const KINDS = ['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever', 'edgeBeamNoCantilever', 'interiorBeam', 'other'];
   const isImposed = $derived(['L', 'LR', 'CR', 'TR'].includes((lc.type ?? '').toUpperCase()));
+
+  // ── Spectral ──
+  const spectra = $derived(modelStore.model.dynamics?.spectra ?? []);
+  /** γr/R from the project's seismic regulation: the code spectrum's own scale. */
+  function codeScale(): number {
+    const s = regulationsStore.binding('seismic')?.settings as { destinationGroup?: string; systemKey?: string; elastic?: boolean } | undefined;
+    const gr = RISK_FACTOR[(s?.destinationGroup ?? 'B') as keyof typeof RISK_FACTOR] ?? 1;
+    const r = s?.elastic ? R_ELASTIC : s?.systemKey ? findBehaviour(s.systemKey)?.r ?? 1 : 1;
+    return +(gr / r).toFixed(4);
+  }
+  function setSpectral(patch: Partial<SpectralCaseDef> | null) {
+    if (patch === null) { update({ spectral: undefined }); return; }
+    const base: SpectralCaseDef = lc.spectral ?? { source: { kind: 'code' }, factors: { x: 1, y: 0, z: 0 }, rule: 'cqc', xi: 0.05, scale: codeScale() };
+    update({ spectral: { ...base, ...patch } });
+  }
+  const num = (s: string) => parseDecimal(s);
 </script>
 
 <div class="cd" data-testid="case-details-{lc.id}">
@@ -98,13 +119,38 @@
     <p class="cd-hint">{t('caseDetails.notionalHint')}</p>
   {/if}
 
+  {#if (lc.type ?? '').toUpperCase() === 'E'}
+    <div class="cd-title">{t('spectralCase.title')}</div>
+    <label><input type="checkbox" checked={!!lc.spectral} onchange={(e) => setSpectral(e.currentTarget.checked ? {} : null)} data-testid="cd-spec-on" /> {t('spectralCase.on')}</label>
+    {#if lc.spectral}
+      {@const sp = lc.spectral}
+      <div class="cd-row">
+        <select value={sp.source.kind === 'code' ? 'code' : String(sp.source.spectrumId)} onchange={(e) => setSpectral({ source: e.currentTarget.value === 'code' ? { kind: 'code' } : { kind: 'user', spectrumId: Number(e.currentTarget.value) }, ...(e.currentTarget.value === 'code' ? { scale: codeScale() } : {}) })} data-testid="cd-spec-source">
+          <option value="code">INPRES-CIRSOC 103</option>
+          {#each spectra as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
+        </select>
+        <select value={sp.rule} onchange={(e) => setSpectral({ rule: e.currentTarget.value as 'cqc' })} data-testid="cd-spec-rule">
+          <option value="cqc">CQC</option><option value="srss">SRSS</option><option value="abs">ABS</option>
+        </select>
+        <label>ξ <input type="text" class="cd-num" value={String(sp.xi)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ xi: v }); }} /></label>
+        <label>{t('spectralCase.scale')} <input type="text" class="cd-num" value={String(sp.scale)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ scale: v }); }} data-testid="cd-spec-scale" /></label>
+      </div>
+      <div class="cd-row">
+        {#each ['x', 'y', 'z'] as a (a)}
+          <label>{a.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{a}" /></label>
+        {/each}
+      </div>
+      <p class="cd-hint">{t('spectralCase.hint')}</p>
+    {/if}
+  {/if}
+
   {#if isImposed}
     <div class="cd-title">{t('caseDetails.reduction')}</div>
     <div class="cd-row">
       <select bind:value={kind} data-testid="cd-red-kind">
         {#each KINDS as k (k)}<option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>{/each}
       </select>
-      <label>A<sub>T</sub> <input type="text" class="cd-num" bind:value={area} data-testid="cd-red-area" /> m²</label>
+      <label>A<sub>T</sub> <QuantityInput bind:value={area} nullable quantity="area" cls="cd-num" testid="cd-red-area" /></label>
       <label>{t('autoLoad.floorsSupported')} <input type="text" class="cd-num" bind:value={floors} data-testid="cd-red-floors" /></label>
     </div>
     {#if reductionPreview}
@@ -123,7 +169,7 @@
   .cd-title { font-size: 0.64rem; font-weight: 600; color: var(--st-text); margin-top: 4px; }
   .cd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .cd-row label { display: inline-flex; align-items: center; gap: 4px; }
-  .cd-num { width: 56px; font-family: var(--st-mono); }
+  .cd :global(.cd-num) { width: 56px; font-family: var(--st-mono); }
   .cd-wide { width: 110px; }
   .cd-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
   .cd-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }

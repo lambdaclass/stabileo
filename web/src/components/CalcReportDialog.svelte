@@ -1,8 +1,9 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
-  import { loadComponentsText, distributedText, pointOnElementText } from '../lib/engine/calc-report-loads';
+  import { loadComponentsText, distributedText, pointOnElementText, thermalText } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
+  import { shouldProjectModelToXZ } from '../lib/geometry/coordinate-system';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
 
@@ -51,6 +52,8 @@
 
     // Extract load descriptions from model
     const loadWords = { global: t('report.loadGlobal') };
+    // The report is written in the units chosen in Settings; the model stays in SI.
+    const us = uiStore.unitSystem;
     const loads = modelStore.loads.map((l) => {
       const d = l.data as any;
       let description = '';
@@ -58,15 +61,15 @@
       // Every non-zero component, named by its axis, to four significant figures
       // (`calc-report-loads.ts`, which reads each load type by the store's own field names).
       if (l.type === 'nodal' || l.type === 'nodal3d') {
-        description = `${t('table.nodeLabel')} ${d.nodeId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
+        description = `${t('table.nodeLabel')} ${d.nodeId}: ${loadComponentsText(l.type, d, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'distributed') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${distributedText(d, loadWords)}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${distributedText(d, loadWords, us)}`;
       } else if (l.type === 'distributed3d') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d) || t('calcReport.loadZero')}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords) || t('calcReport.loadZero')}`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ΔT=${d.dtUniform}°C, ΔTg=${d.dtGradient}°C`;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us, uiStore.analysisMode === 'pro' ? 'pro' : 'basic')}`;
       } else {
         description = tp('calcReport.loadOn', { type: l.type, target: d.elementId ?? d.nodeId ?? '?' });
       }
@@ -86,8 +89,19 @@
     const data: CalcReportData = {
       config,
       is3D,
+      // The figure stands a flat model up the way the 3D view does (vertical in y, not z).
+      project2DToXZ: is3D && shouldProjectModelToXZ({
+        analysisMode: uiStore.analysisMode,
+        viewportPresentation3D: uiStore.viewportPresentation3D,
+        nodes: modelStore.nodes.values(),
+        supports: modelStore.supports.values(),
+        loads: modelStore.loads,
+        plateCount: modelStore.plates.size,
+        quadCount: modelStore.quads.size,
+      }),
       analysisMode: modeLabel,
       provenance: deriveProvenance(),
+      unitSystem: us,
       hasDesignChecks: verificationStore.hasResults,
       nodes: [...modelStore.nodes.values()],
       elements: [...modelStore.elements.values()],

@@ -181,6 +181,7 @@
 
 <aside
   class="basic-panel"
+  class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}
   data-testid="basic-panel"
   data-panel={panel}
   style:width="{width}px"
@@ -320,6 +321,8 @@
     overflow-y: auto;
     padding: 0.65rem;
   }
+
+  /* Scrollbars always drawn when the reader asks (`styles/panel-scrollbars.css`). */
 
   /* A step-by-step view lays out its own header, tabs and footer, and scrolls its own body. */
   .bp-body.bp-steps { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }

@@ -22,8 +22,9 @@ export function selectionSummary(): Array<{ kind: SelectionKind; n: number }> {
   const counts: Array<{ kind: SelectionKind; n: number }> = [
     { kind: 'elements', n: [...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)).length },
     { kind: 'nodes', n: uiStore.selectedNodes.size },
-    { kind: 'supports', n: uiStore.selectedSupports.size },
-    { kind: 'loads', n: uiStore.selectedLoads.size },
+    // Only what the model still has: a support or load deleted under the selection is not counted.
+    { kind: 'supports', n: [...uiStore.selectedSupports].filter((id) => modelStore.supports.has(id)).length },
+    { kind: 'loads', n: uiStore.selectedLoads.size === 0 ? 0 : modelStore.loads.filter((l) => uiStore.selectedLoads.has(l.data.id)).length },
     { kind: 'shells', n: uiStore.selectedShells.size },
   ];
   return counts.filter((c) => c.n > 0);

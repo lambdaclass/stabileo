@@ -20,6 +20,7 @@
   import { recordSummary } from '../../../lib/engine/dynamics/accelerogram';
   import { timeHistoryView, type TimeHistoryResult3D } from '../../../lib/store/time-history-view.svelte';
   import TimeSeriesChart from './TimeSeriesChart.svelte';
+  import QuantityInput from '../loads/QuantityInput.svelte';
   import GroundMotionRow from './GroundMotionRow.svelte';
   import { defaultTimeHistory, timeHistoryInput, type TimeHistorySpec } from '../../../lib/engine/dynamics/time-history-spec';
   import { onDestroy, untrack } from 'svelte';
@@ -57,7 +58,7 @@
   function save(snapshot: string) {
     cancelSave();
     observed = snapshot;
-    if (snapshot !== storedSpec()) modelStore.setDynamics({ timeHistory: JSON.parse(snapshot) });
+    if (snapshot !== storedSpec()) modelStore.setDynamics({ ...modelStore.model.dynamics, timeHistory: JSON.parse(snapshot) });
   }
   // Undo, redo and project loading replace the stored spec without editing this component; a new
   // project (a new loadEpoch) re-reads the draft even when its run reads the same.
@@ -179,7 +180,7 @@
       <label class="adv-label">{t('pro.th.node')} <input type="number" class="adv-num" bind:value={f.nodeId} min={1} step={1} /></label>
       <select class="adv-sel" bind:value={f.dir}><option value="x">Fx</option><option value="y">Fy</option><option value="z">Fz</option></select>
       <select class="adv-sel" bind:value={f.kind}><option value="sine">{t('pro.th.force.sine')}</option><option value="step">{t('pro.th.force.step')}</option></select>
-      <label class="adv-label">kN <input type="number" class="adv-num" bind:value={f.amplitude} step={1} /></label>
+      <label class="adv-label">{t('pro.th.amplitude')} <QuantityInput bind:value={f.amplitude} quantity="force" cls="adv-num" /></label>
       {#if f.kind === 'sine'}<label class="adv-label">Hz <input type="number" class="adv-num" bind:value={f.freqHz} step={0.1} /></label>
       {:else}<label class="adv-label">{t('pro.th.from')} (s) <input type="number" class="adv-num" bind:value={f.from} step={0.1} /></label>{/if}
       <button class="adv-link" onclick={() => (spec.forces = spec.forces.filter((_, k) => k !== i))}>×</button>
@@ -246,11 +247,12 @@
   .adv-panel { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; }
   .adv-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .adv-label { font-size: 0.68rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-  .adv-num {
+  /* Global under the panel: the force amplitude's input is drawn by `QuantityInput`. */
+  .adv-panel :global(.adv-num) {
     width: 55px; padding: 3px 5px; font-size: 0.68rem; background: var(--st-surface);
     border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text-2); text-align: right;
   }
-  .adv-num-wide { width: 70px; }
+  .adv-panel :global(.adv-num-wide) { width: 70px; }
   .adv-sel {
     padding: 3px 5px; font-size: 0.68rem; background: var(--st-surface);
     border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text-2); cursor: pointer;

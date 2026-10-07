@@ -10,6 +10,7 @@
    * cladding of a building are `ProWindCladding`.
    */
   import { t } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   interface Props { config: WindStructureConfig }
   let { config = $bindable() }: Props = $props();
@@ -52,12 +53,12 @@
         </label>
       {/if}
       <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.width')}</span>
-        <span class="al-unit-field"><input type="number" min="0" step="0.1" bind:value={config.width} placeholder={t('wind.other.fromModel')} data-testid="al-wind-width" /><span>m</span></span>
+        <QuantityInput bind:value={config.width} quantity="length" min={0} placeholder={t('wind.other.fromModel')} testid="al-wind-width" wrap="al-unit-field" />
       </label>
     </div>
   {:else if config.kind === 'solidSign'}
     <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.clearance')}</span>
-      <span class="al-unit-field"><input type="number" min="0" step="0.5" bind:value={config.clearance} data-testid="al-wind-clearance" /><span>m</span></span>
+      <QuantityInput bind:value={config.clearance} quantity="length" min={0} testid="al-wind-clearance" wrap="al-unit-field" />
     </label>
   {:else if config.kind === 'chimney'}
     <div class="al-row">
@@ -67,7 +68,7 @@
         </select>
       </label>
       <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.diameter')}</span>
-        <span class="al-unit-field"><input type="number" min="0" step="0.1" bind:value={config.diameter} placeholder={t('wind.other.fromModel')} data-testid="al-wind-diameter" /><span>m</span></span>
+        <QuantityInput bind:value={config.diameter} quantity="length" min={0} placeholder={t('wind.other.fromModel')} testid="al-wind-diameter" wrap="al-unit-field" />
       </label>
     </div>
   {/if}

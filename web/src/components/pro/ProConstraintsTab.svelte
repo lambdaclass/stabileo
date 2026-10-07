@@ -10,6 +10,7 @@
   import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   import DataTable from '../DataTable.svelte';
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   /** Comma-tolerant numeric parse (same rule as ProLoadsTab.parseNum):
    *  '0,5' must read as 0.5, not silently truncate to 0 via parseFloat. */
@@ -63,9 +64,10 @@
   // is free in that DOF — that's how a sliding bearing along ux is expressed.
   let ecMaster = $state('');
   let ecSlave = $state('');
-  let ecOffsetX = $state('0');
-  let ecOffsetY = $state('0');
-  let ecOffsetZ = $state('0');
+  // SI, typed in the display units.
+  let ecOffsetX = $state(0);
+  let ecOffsetY = $state(0);
+  let ecOffsetZ = $state(0);
   let ecReleases = $state([false, false, false, false, false, false]); // [ux, uy, uz, rx, ry, rz]
 
   // ─── Connector (joint/spring/bearing) state ──────────────────
@@ -75,12 +77,13 @@
   // pick which directions are stiff, leave the others at 0.
   let connNodeI = $state('');
   let connNodeJ = $state('');
-  let connKAxial = $state('0');
-  let connKShear = $state('0');
-  let connKMoment = $state('0');
-  let connKShearZ = $state('0');
-  let connKBendY = $state('0');
-  let connKBendZ = $state('0');
+  // SI (kN/m, kN·m/rad), typed in the display units.
+  let connKAxial = $state(0);
+  let connKShear = $state(0);
+  let connKMoment = $state(0);
+  let connKShearZ = $state(0);
+  let connKBendY = $state(0);
+  let connKBendZ = $state(0);
 
   const connectors = $derived([...modelStore.connectors.values()]);
 
@@ -179,9 +182,9 @@
     const master = validateNode(ecMaster);
     const slave = validateNode(ecSlave);
     if (master === null || slave === null || master === slave) return;
-    const ox = parseNum(ecOffsetX);
-    const oy = parseNum(ecOffsetY);
-    const oz = parseNum(ecOffsetZ);
+    const ox = ecOffsetX;
+    const oy = ecOffsetY;
+    const oz = ecOffsetZ;
     if (isNaN(ox) || isNaN(oy) || isNaN(oz)) return;
     modelStore.addConstraint({
       type: 'eccentricConnection',
@@ -195,9 +198,9 @@
     });
     ecMaster = '';
     ecSlave = '';
-    ecOffsetX = '0';
-    ecOffsetY = '0';
-    ecOffsetZ = '0';
+    ecOffsetX = 0;
+    ecOffsetY = 0;
+    ecOffsetZ = 0;
     ecReleases = [false, false, false, false, false, false];
   }
 
@@ -264,12 +267,12 @@
     const ni = validateNode(connNodeI);
     const nj = validateNode(connNodeJ);
     if (ni === null || nj === null || ni === nj) return;
-    const kA = parseNum(connKAxial);
-    const kS = parseNum(connKShear);
-    const kM = parseNum(connKMoment);
-    const kSz = parseNum(connKShearZ);
-    const kBy = parseNum(connKBendY);
-    const kBz = parseNum(connKBendZ);
+    const kA = connKAxial;
+    const kS = connKShear;
+    const kM = connKMoment;
+    const kSz = connKShearZ;
+    const kBy = connKBendY;
+    const kBz = connKBendZ;
     if ([kA, kS, kM, kSz, kBy, kBz].some(v => isNaN(v))) return;
     // Disallow all-zero connectors — that's a fully disconnected pair, almost
     // certainly a user error and a guaranteed mechanism.
@@ -281,8 +284,8 @@
     });
     connNodeI = '';
     connNodeJ = '';
-    connKAxial = '0'; connKShear = '0'; connKMoment = '0';
-    connKShearZ = '0'; connKBendY = '0'; connKBendZ = '0';
+    connKAxial = 0; connKShear = 0; connKMoment = 0;
+    connKShearZ = 0; connKBendY = 0; connKBendZ = 0;
   }
 
   function removeConnector(id: number) {
@@ -345,9 +348,9 @@
       {#if selectedKind === 'eccentricConnection'}
         <span class="pk-label">{t('spec.links.offset')}</span>
         <div class="pk-row">
-          <input class="ln-num" type="text" bind:value={ecOffsetX} placeholder="0" aria-label="X" />
-          <input class="ln-num" type="text" bind:value={ecOffsetY} placeholder="0" aria-label="Y" />
-          <input class="ln-num" type="text" bind:value={ecOffsetZ} placeholder="0" aria-label="Z" />
+          <QuantityInput cls="ln-num" bind:value={ecOffsetX} quantity="length" placeholder="0" ariaLabel="X" />
+          <QuantityInput cls="ln-num" bind:value={ecOffsetY} quantity="length" placeholder="0" ariaLabel="Y" />
+          <QuantityInput cls="ln-num" bind:value={ecOffsetZ} quantity="length" placeholder="0" ariaLabel="Z" />
         </div>
       {/if}
 
@@ -416,15 +419,15 @@
     </div>
     <span class="pk-label">{t('pro.kInPlane')}</span>
     <div class="pk-row ln-fields">
-      <label class="ln-field"><span class="pk-label">kAxial</span><input class="ln-num" type="text" bind:value={connKAxial} placeholder="0" /></label>
-      <label class="ln-field"><span class="pk-label">kShear</span><input class="ln-num" type="text" bind:value={connKShear} placeholder="0" /></label>
-      <label class="ln-field"><span class="pk-label">kMoment</span><input class="ln-num" type="text" bind:value={connKMoment} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kAxial</span><QuantityInput cls="ln-num" bind:value={connKAxial} quantity="springK" placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kShear</span><QuantityInput cls="ln-num" bind:value={connKShear} quantity="springK" placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kMoment</span><QuantityInput cls="ln-num" bind:value={connKMoment} quantity="springKr" placeholder="0" /></label>
     </div>
     <span class="pk-label">{t('pro.k3D')}</span>
     <div class="pk-row ln-fields">
-      <label class="ln-field"><span class="pk-label">kShearZ</span><input class="ln-num" type="text" bind:value={connKShearZ} placeholder="0" /></label>
-      <label class="ln-field"><span class="pk-label">kBendY</span><input class="ln-num" type="text" bind:value={connKBendY} placeholder="0" /></label>
-      <label class="ln-field"><span class="pk-label">kBendZ</span><input class="ln-num" type="text" bind:value={connKBendZ} placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kShearZ</span><QuantityInput cls="ln-num" bind:value={connKShearZ} quantity="springK" placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kBendY</span><QuantityInput cls="ln-num" bind:value={connKBendY} quantity="springKr" placeholder="0" /></label>
+      <label class="ln-field"><span class="pk-label">kBendZ</span><QuantityInput cls="ln-num" bind:value={connKBendZ} quantity="springKr" placeholder="0" /></label>
     </div>
     <p class="pk-hint">{t('pro.connectorHint')}</p>
     <div class="pk-row">
@@ -452,7 +455,7 @@
   .ln-field { display: flex; flex-direction: column; gap: 2px; }
   .ln-fields { align-items: flex-end; gap: 0.5rem; }
   .ln-id { width: 64px; }
-  .ln-num { width: 72px; }
+  .pk :global(input.ln-num) { width: 72px; }
   .ln-dofs { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px 14px; }
   .ln-head { gap: 0.5rem; }
   .ln-head .pk-heading { margin-bottom: 0; }

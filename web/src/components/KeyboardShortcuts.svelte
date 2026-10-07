@@ -210,6 +210,12 @@
       } as Record<string, () => void>)[e.code];
       if (handled) { e.preventDefault(); handled(); return; }
     }
+    // Alt+Z frames the selection in the plane view too.
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !uiStore.is3DWorkspace && e.code === 'KeyZ') {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
+      return;
+    }
 
     // Ctrl+Shift+S: Save session (all tabs)
     if ((e.ctrlKey || e.metaKey) && key === 'S' && e.shiftKey) {

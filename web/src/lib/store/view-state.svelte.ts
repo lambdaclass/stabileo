@@ -7,8 +7,8 @@
  */
 
 /** What a member label shows. */
-export type MemberLabel = 'id' | 'section' | 'material';
-export const MEMBER_LABELS: readonly MemberLabel[] = ['id', 'section', 'material'];
+export type MemberLabel = 'id' | 'name' | 'section' | 'material';
+export const MEMBER_LABELS: readonly MemberLabel[] = ['id', 'name', 'section', 'material'];
 
 import { modelStore } from './model.svelte';
 
@@ -52,13 +52,19 @@ export const viewState = {
 /** The text of a member's label. */
 export function memberLabelText(
   mode: MemberLabel,
-  elem: { id: number; sectionId: number; materialId: number },
+  elem: { id: number; sectionId: number; materialId: number; name?: string },
   sections: ReadonlyMap<number, { name: string }>,
   materials: ReadonlyMap<number, { name: string }>,
 ): string {
+  if (mode === 'name') return elem.name || String(elem.id);
   if (mode === 'section') return sections.get(elem.sectionId)?.name ?? String(elem.id);
   if (mode === 'material') return materials.get(elem.materialId)?.name ?? String(elem.id);
   return String(elem.id);
+}
+
+/** What a node label shows: its name when labels read names and it has one, otherwise its number. */
+export function nodeLabelText(mode: MemberLabel, node: { id: number; name?: string }): string {
+  return mode === 'name' && node.name ? node.name : String(node.id);
 }
 
 /**
@@ -173,3 +179,20 @@ export const visibleElements = () => visible(modelStore.elements, (id) => viewVi
 export const visibleNodes = () => visible(modelStore.nodes, (id) => viewVisibility.isNodeHidden(id));
 export const visiblePlates = () => visible(modelStore.plates, (id) => viewVisibility.isShellHidden(`p${id}`));
 export const visibleQuads = () => visible(modelStore.quads, (id) => viewVisibility.isShellHidden(`q${id}`));
+/** Supports whose node is shown. */
+export const visibleSupports = () => visible(modelStore.supports, (id) => {
+  const s = modelStore.supports.get(id);
+  return !!s && viewVisibility.isNodeHidden(s.nodeId);
+});
+
+/**
+ * The model as the view shows it, for the operations that take "everything":
+ * Select all and Invert. The model's own collections when nothing is hidden.
+ */
+export function visibleModel() {
+  return {
+    nodes: visibleNodes(), elements: visibleElements(), plates: visiblePlates(), quads: visibleQuads(),
+    supports: visibleSupports(),
+    loads: hidden ? modelStore.loads.filter((l) => !isLoadHidden(l.data as never)) : modelStore.loads,
+  };
+}

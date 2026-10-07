@@ -3,27 +3,68 @@
    * Moving loads in PRO: a train of axles along a path of members (the selection, in order), and
    * each member's envelope over every position (`engine/moving-loads-3d.ts`).
    *
-   * The envelope is a result of its own: combinations and design do not read it. The lane load,
-   * where a code asks for one, is a static uniform load, so it is created here as an ordinary
-   * load case on the same members and combines like any other.
+   * The envelope is a result of its own: combinations and design do not read it. For them the
+   * vehicle is written as static cases, one per position, alternatives of one group
+   * (`store/moving-cases.ts`). The lane load, where a code asks for one, is a static uniform load,
+   * created here as an ordinary load case on the same members. A vehicle has its spacing range,
+   * its two wheel lines and its dynamic factor (`engine/vehicles.ts`), and is saved as a file.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
   import { toCsv } from '../../lib/engine/result-tables';
   import { isVariableMember } from '../../lib/section/variable';
-  import { getPredefinedTrains, type LoadTrain } from '../../lib/engine/moving-loads';
+  import { getPredefinedTrains } from '../../lib/engine/moving-loads';
   import {
-    buildPath3D, sweepMovingLoad3D, movingLoadBase3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
+    buildPath3D, sweepTrains3D, movingLoadBase3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
   } from '../../lib/engine/moving-loads-3d';
+  import { AASHTO_VEHICLES, vehicleTrains, vehicleToJson, vehicleFromJson, type Vehicle } from '../../lib/engine/vehicles';
+  import { addPositionCases, MAX_POSITION_CASES } from '../../lib/store/moving-cases';
 
   interface Props { disabled?: boolean }
   let { disabled = false }: Props = $props();
 
-  const presets = getPredefinedTrains();
+  // The app's trains and the AASHTO catalog (`engine/vehicles.ts`).
+  const presets: Vehicle[] = [...getPredefinedTrains(), ...AASHTO_VEHICLES];
   let preset = $state<number>(0);
   let axles = $state(presets[0]!.axles.map((a) => ({ ...a })));
+  let name = $state(presets[0]!.name);
+  let gauge = $state<number | null>(presets[0]!.gauge ?? null);
+  let dynamicFactor = $state(1);
+  let variable = $state<{ axle: number; min: number; max: number } | null>(presets[0]!.variable ?? null);
+  let spacingStep = $state(0.5);
+  /** The members of the second wheel line, picked apart from the path. */
+  let path2Ids = $state<number[]>([]);
+  let caseStep = $state(1);
+  const vehicle = (): Vehicle => ({
+    name, axles: axles.filter((a) => a.weight !== 0),
+    ...(gauge ? { gauge } : {}), ...(dynamicFactor !== 1 ? { dynamicFactor } : {}), ...(variable ? { variable } : {}),
+  });
+  function load(v: Vehicle) {
+    axles = v.axles.map((a) => ({ ...a })); name = v.name; gauge = v.gauge ?? null;
+    dynamicFactor = v.dynamicFactor ?? 1; variable = v.variable ? { ...v.variable } : null;
+  }
+  function saveFile() {
+    const v = vehicle();
+    downloadText(vehicleToJson(v), `${v.name.replace(/[^\w.-]+/g, '_') || 'vehicle'}.json`, 'application/json');
+  }
+  async function openFile(e: Event) {
+    const f = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (!f) return;
+    const v = vehicleFromJson(await f.text());
+    if (!v) { error = t('moving.badVehicleFile'); return; }
+    error = null; load(v);
+  }
+  function positionCases() {
+    const trains = vehicleTrains(vehicle(), spacingStep);
+    const r = addPositionCases(trains[0]!, pathIds, path2Ids, caseStep);
+    if ('error' in r) { error = r.error; return; }
+    error = null;
+    uiStore.toast(tp('moving.casesCreated', { n: r.cases }), 'success');
+  }
   let step = $state(0.25);
   /** The code's lane load, kN/m; none by default, since it is the code's number and not ours. */
   let laneQ = $state(0);
@@ -38,7 +79,7 @@
 
   function usePreset(i: number) {
     preset = i;
-    axles = presets[i]!.axles.map((a) => ({ ...a }));
+    load(presets[i]!);
   }
 
   async function run() {
@@ -57,13 +98,15 @@
     if (!base) { error = t('moving.noModel'); return; }
     const path = buildPath3D(base, pathIds);
     if (!path) { error = t('moving.notAChain'); return; }
-    const train: LoadTrain = { name: presets[preset]?.name ?? 'train', axles: axles.filter((a) => a.weight !== 0) };
-    if (train.axles.length === 0) { error = t('moving.noAxles'); return; }
+    const path2 = path2Ids.length ? buildPath3D(base, path2Ids) : null;
+    if (path2Ids.length && !path2) { error = t('moving.notAChain'); return; }
+    const trains = vehicleTrains(vehicle(), spacingStep);
+    if (trains[0]!.axles.length === 0) { error = t('moving.noAxles'); return; }
     running = true;
     controller = new AbortController();
     try {
-      result = await sweepMovingLoad3D({ ...base, loads: [] }, path, train, {
-        step, signal: controller.signal, onProgress: (done, total) => (progress = { done, total }),
+      result = await sweepTrains3D({ ...base, loads: [] }, path, trains, {
+        step, path2, signal: controller.signal, onProgress: (done, total) => (progress = { done, total }),
       });
       if (result.positions === 0) { error = t('train.noPositionSolved'); result = null; }
     } catch (e) {
@@ -123,21 +166,45 @@
         {#each presets as p, i (i)}<option value={i}>{p.name}</option>{/each}
       </select>
     </label>
-    <label>{t('moving.step')} (m) <input type="number" min="0.05" step="0.05" bind:value={step} class="ml-num" /></label>
+    <label>{t('moving.step')} <QuantityInput bind:value={step} quantity="length" min={0.05} cls="ml-num" /></label>
   </div>
   <table class="ml-axles">
-    <thead><tr><th>{t('moving.offset')} (m)</th><th>{t('moving.weight')} (kN)</th><th></th></tr></thead>
+    <thead><tr><th>{t('moving.offset')} ({unitQ('length')})</th><th>{t('moving.weight')} ({unitQ('force')})</th><th></th></tr></thead>
     <tbody>
       {#each axles as a, i (i)}
         <tr>
-          <td><input type="number" step="0.1" bind:value={a.offset} class="ml-num" /></td>
-          <td><input type="number" step="1" bind:value={a.weight} class="ml-num" /></td>
+          <td><QuantityInput bind:value={a.offset} quantity="length" showUnit={false} cls="ml-num" /></td>
+          <td><QuantityInput bind:value={a.weight} quantity="force" showUnit={false} cls="ml-num" /></td>
           <td><button class="ml-x" onclick={() => (axles = axles.filter((_, j) => j !== i))} aria-label={t('moving.removeAxle')}>×</button></td>
         </tr>
       {/each}
     </tbody>
   </table>
   <button class="pk-btn" onclick={() => (axles = [...axles, { offset: (axles.at(-1)?.offset ?? 0) + 1.2, weight: 100 }])}>{t('moving.addAxle')}</button>
+  <div class="ml-row">
+    <label>{t('moving.vehicleName')} <input type="text" bind:value={name} class="ml-name" data-testid="moving-name" /></label>
+    <label>{t('moving.dynamicFactor')} <input type="number" min="0.5" step="0.01" bind:value={dynamicFactor} class="ml-num" data-testid="moving-dyn" /></label>
+    <label>{t('moving.gauge')} <QuantityInput value={gauge} nullable quantity="length" min={0} onchange={(v) => (gauge = v !== null && v > 0 ? v : null)} cls="ml-num" testid="moving-gauge" /></label>
+  </div>
+  <div class="ml-row">
+    <label><input type="checkbox" checked={!!variable} onchange={(e) => (variable = e.currentTarget.checked ? { axle: Math.min(axles.length - 1, 2) || 1, min: 4.3, max: 9 } : null)} data-testid="moving-var" /> {t('moving.variable')}</label>
+    {#if variable}
+      <label>{t('moving.beforeAxle')} <input type="number" min="1" max={axles.length - 1} step="1" bind:value={variable.axle} class="ml-num" /></label>
+      <label>min <QuantityInput bind:value={variable.min} quantity="length" min={0} cls="ml-num" /></label>
+      <label>max <QuantityInput bind:value={variable.max} quantity="length" min={0} cls="ml-num" /></label>
+      <label>{t('moving.spacingStep')} <QuantityInput bind:value={spacingStep} quantity="length" min={0.05} cls="ml-num" /></label>
+    {/if}
+  </div>
+  <div class="ml-row">
+    <button class="pk-btn" onclick={saveFile} data-testid="moving-save">{t('moving.saveVehicle')}</button>
+    <label class="pk-btn">{t('moving.openVehicle')} <input type="file" accept="application/json,.json" onchange={openFile} hidden data-testid="moving-open" /></label>
+  </div>
+  <p class="ml-hint">{t('moving.vehicleHint')}</p>
+  <div class="ml-row">
+    <button class="pk-btn" disabled={pathIds.length === 0} onclick={() => (path2Ids = [...pathIds])} data-testid="moving-path2">{t('moving.useAsLine2')}</button>
+    {#if path2Ids.length}<span class="ml-hint" data-testid="moving-path2-n">{tp('moving.line2', { n: path2Ids.length })}</span>
+      <button class="ml-x" onclick={() => (path2Ids = [])} aria-label={t('loadTables.delete')}>×</button>{/if}
+  </div>
 
   <p class="ml-path" data-testid="moving-path">{pathIds.length > 0 ? tp('moving.path', { n: pathIds.length }) : t('moving.pathEmpty')}</p>
   <div class="ml-row">
@@ -147,7 +214,12 @@
     {#if running}<button class="pk-btn" onclick={() => controller?.abort()}>{t('moving.cancel')}</button>{/if}
   </div>
   <div class="ml-row">
-    <label>{t('moving.lane')} (kN/m) <input type="number" min="0" step="0.1" bind:value={laneQ} class="ml-num" /></label>
+    <label>{t('moving.caseStep')} <QuantityInput bind:value={caseStep} quantity="length" min={0.1} cls="ml-num" testid="moving-case-step" /></label>
+    <button class="pk-btn" disabled={pathIds.length === 0} onclick={positionCases} data-testid="moving-cases">{t('moving.createCases')}</button>
+  </div>
+  <p class="ml-hint">{tp('moving.casesHint', { max: MAX_POSITION_CASES })}</p>
+  <div class="ml-row">
+    <label>{t('moving.lane')} <QuantityInput bind:value={laneQ} quantity="distributedLoad" min={0} cls="ml-num" testid="moving-lane-q" /></label>
     <button class="pk-btn" disabled={pathIds.length === 0 || !(laneQ > 0)} onclick={createLane} data-testid="moving-lane">{t('moving.laneCreate')}</button>
   </div>
 
@@ -188,7 +260,8 @@
   .ml { display: flex; flex-direction: column; gap: 6px; font-size: 0.66rem; color: var(--st-text-2); }
   .ml-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .ml-hint, .ml-path { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
-  .ml-num { width: 64px; }
+  .ml :global(.ml-num) { width: 64px; }
+  .ml-name { width: 140px; }
   .ml-axles { border-collapse: collapse; align-self: flex-start; }
   .ml-axles th { font-weight: 500; color: var(--st-text-3); padding: 2px 6px; text-align: left; }
   .ml-axles td { padding: 1px 6px; }

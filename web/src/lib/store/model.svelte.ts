@@ -44,7 +44,7 @@ import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
+import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
 import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
@@ -66,6 +66,8 @@ export interface Node {
   x: number;
   y: number;
   z?: number;  // 3D coordinate (default 0 for 2D models)
+  /** A name of the user's ("A1", "cumbrera"), beside the number; absent when there is none. */
+  name?: string;
 }
 
 export interface Material {
@@ -498,6 +500,8 @@ export interface ProvidedReinforcement {
 
 export interface Element extends Element3DMetadata {
   id: number;
+  /** A name of the user's ("V101", "C3 PB"), beside the number; absent when there is none. */
+  name?: string;
   type: 'frame' | 'truss';
   nodeI: number;
   nodeJ: number;
@@ -518,6 +522,12 @@ export interface Element extends Element3DMetadata {
   reinforcement?: ProvidedReinforcement;
   /** Inactive, tension only or compression only (`engine/member-behaviour.ts`). Absent: linear. */
   behaviour?: import('../engine/member-behaviour').MemberBehaviour;
+  /**
+   * The members this one lies over and was kept with ("Keep both" on the overlap question,
+   * `model/edit/connection-questions.ts`): not asked about again, on this open or the next.
+   * Read only by that question; the analysis and the diagnostics do not look at it.
+   */
+  keptOver?: number[];
   /** Factors on A, Iy, Iz and J for the analysis only; the section itself is not changed. */
   stiffness?: import('../engine/member-behaviour').StiffnessModifiers;
   /** Semi-rigid ends: rotational stiffness about local y and z, kN·m/rad (`engine/expand-semi-rigid-3d.ts`). */
@@ -846,6 +856,8 @@ export interface LoadCase {
    * (`codes/families` `ImposedLoadCode.reduce`).
    */
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number };
+  /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
+  spectral?: import('../engine/spectral-case').SpectralCaseDef;
 }
 
 export interface LoadCombination {
@@ -984,7 +996,7 @@ export interface StructureModel {
   /** The structural grid and the named levels (`model/grid.ts`). Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Dynamic analysis settings kept with the project: the time history. Absent: none stated. */
-  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec };
+  dynamics?: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] };
   /** Deflection limits by member, group or kind (`engine/deflection-limits.ts`). Absent: beams at L/360. */
   deflectionLimits?: import('../engine/deflection-limits').DeflectionLimits;
   /**
@@ -1252,11 +1264,14 @@ function createModelStore() {
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints } | string {
+  function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints; analysis?: { selfWeight: SelfWeightLoad[] } } | string {
+    // Only Basic's self-weight rule rides along: which case carries it.
+    const sw = basicSelfWeight(includeSelfWeight);
+    const analysis = sw ? { selfWeight: sw } : undefined;
     if (plane === 'xy') {
       return { nodes: model.nodes, elements: model.elements, supports: model.supports,
         loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors, constraints: model.constraints };
+        connectors: model.connectors, constraints: model.constraints, analysis };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1326,7 +1341,7 @@ function createModelStore() {
     // [ux, uz, ry] convention.
     return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
       loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors, constraints: model.constraints };
+      connectors: model.connectors, constraints: model.constraints, analysis };
   }
 
   let nextId = $state({
@@ -1402,6 +1417,8 @@ function createModelStore() {
   let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
   let _onReplaced: (() => void) | null = null;
+  /** A different project now (cleared, an example): view and project settings start over. */
+  let _onNewProject: (() => void) | null = null;
   // Bulk mutation mode: during loadExample (and other wholesale mutations) we
   // want a single reactive commit instead of one per entity. Add/update methods
   // skip their per-call Map / array reassignment while this flag is true;
@@ -1598,10 +1615,28 @@ function createModelStore() {
    * a model that visited PRO carries a stated rule (`selfWeight: []` when it had none), and it
    * silenced Basic's toggle. Basic reads the rest of the settings and its toggle for self-weight.
    */
-  function analysisFor(isPro: boolean): StructureModel['analysis'] {
-    if (isPro || !model.analysis?.selfWeight) return model.analysis;
-    const { selfWeight: _stated, ...rest } = model.analysis;
+  function analysisFor(isPro: boolean, includeSelfWeight: boolean): StructureModel['analysis'] {
+    if (isPro) return model.analysis;
+    const { selfWeight: _stated, ...rest } = model.analysis ?? {};
+    const basic = basicSelfWeight(includeSelfWeight);
+    if (basic) return { ...rest, selfWeight: basic };
     return Object.keys(rest).length ? rest : undefined;
+  }
+
+  /**
+   * Basic's self-weight as the rule a solve reads: on or off as the solve was asked, in the case chosen under
+   * Loads › Combinations, or the first dead-load case when none is chosen (or the chosen one
+   * was deleted), else the first case. With no case at all there is nothing to state, and the
+   * older rule applies.
+   */
+  function basicSelfWeight(includeSelfWeight: boolean): SelfWeightLoad[] | undefined {
+    const cases = model.loadCases;
+    const chosen = uiStore.selfWeightCaseId;
+    const target = (chosen !== null && cases.some((c) => c.id === chosen))
+      ? chosen
+      : (cases.find((c) => c.type === 'D') ?? cases[0])?.id;
+    if (target === undefined) return undefined;
+    return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -1646,6 +1681,7 @@ function createModelStore() {
     _setOnMutation(fn: () => void) { _onMutation = fn; },
     _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
+    _setOnNewProject(fn: () => void) { _onNewProject = fn; },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
      *  set of element ids written. Wired in store/index.ts so this store never
@@ -1821,6 +1857,45 @@ function createModelStore() {
         if (JSON.stringify(m[k] ?? null) === JSON.stringify(next ?? null)) continue;
         m[k] = next;
       }
+      // Names of nodes and members travel on this channel too: the analysis reads neither.
+      const named = <T extends { name?: string }>(map: Map<number, T>, entries: ReadonlyArray<[number, { name?: string }]> | undefined): Map<number, T> | null => {
+        let out: Map<number, T> | null = null;
+        for (const [id, v] of entries ?? []) {
+          const cur = map.get(id);
+          if (!cur || (cur.name ?? '') === (v.name ?? '')) continue;
+          out ??= new Map(map);
+          const { name: _old, ...rest } = cur;
+          out.set(id, (v.name ? { ...rest, name: v.name } : rest) as T);
+        }
+        return out;
+      };
+      const nodes = named(model.nodes, s.nodes as never);
+      if (nodes) model.nodes = nodes;
+      const elements = named(model.elements, s.elements as never);
+      if (elements) model.elements = elements;
+    },
+
+    /**
+     * Name a node or a member, or take its name away (an empty one). One undo step on the views
+     * channel: a name changes nothing the analysis reads, so the results on hand stay.
+     */
+    renameNode(id: number, name: string): void {
+      const n = model.nodes.get(id);
+      const next = name.trim();
+      if (!n || (n.name ?? '') === next) return;
+      _pushUndoView?.();
+      const { name: _old, ...rest } = n;
+      model.nodes.set(id, next ? { ...rest, name: next } : rest);
+      model.nodes = new Map(model.nodes);
+    },
+    renameElement(id: number, name: string): void {
+      const e = model.elements.get(id);
+      const next = name.trim();
+      if (!e || (e.name ?? '') === next) return;
+      _pushUndoView?.();
+      const { name: _old, ...rest } = e;
+      model.elements.set(id, (next ? { ...rest, name: next } : rest) as Element);
+      model.elements = new Map(model.elements);
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
@@ -2004,7 +2079,7 @@ function createModelStore() {
         ...(snap.grid && (snap.grid.axes.length > 0 || snap.grid.levels.length > 0)
           ? { grid: JSON.parse(JSON.stringify(snap.grid)) as ModelSnapshot['grid'] }
           : {}),
-        ...(snap.dynamics?.timeHistory
+        ...(snap.dynamics?.timeHistory || snap.dynamics?.spectra?.length
           ? { dynamics: JSON.parse(JSON.stringify(snap.dynamics)) as ModelSnapshot['dynamics'] }
           : {}),
         ...(snap.projectInfo
@@ -3523,6 +3598,7 @@ function createModelStore() {
     clear(): void {
       loadEpoch++;
       _onReplaced?.();
+      _onNewProject?.();
       if (!_undoBatching) _pushUndo?.();
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();
@@ -3625,7 +3701,7 @@ function createModelStore() {
       if (node) {
         modelVersion++;
         _onMutation?.();
-        model.nodes.set(id, { id: node.id, x, y, z: z !== undefined ? z : node.z });
+        model.nodes.set(id, { ...node, id: node.id, x, y, z: z !== undefined ? z : node.z });
         model.nodes = new Map(model.nodes);
         // Clamp distributed load a/b when element length changes
         for (const elem of model.elements.values()) {
@@ -3821,7 +3897,7 @@ function createModelStore() {
     /** Mirror selected nodes about an axis through their centroid */
 
     solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
     },
@@ -3829,14 +3905,14 @@ function createModelStore() {
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
     async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return validateAndSolve2DAsync(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
     buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return null;
       return buildSolverInput2D(mapped, includeSelfWeight);
     },
@@ -3975,9 +4051,9 @@ function createModelStore() {
       model.deflectionLimits = d && d.rules.length > 0 ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
-    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec } | null): void {
+    setDynamics(d: { timeHistory?: import('../engine/dynamics/time-history-spec').TimeHistorySpec; spectra?: import('../engine/spectral-case').UserSpectrum[] } | null): void {
       if (!_undoBatching) _pushUndoView?.();
-      model.dynamics = d && d.timeHistory ? JSON.parse(JSON.stringify(d)) : undefined;
+      model.dynamics = d && (d.timeHistory || d.spectra?.length) ? JSON.parse(JSON.stringify(d)) : undefined;
     },
 
     /** State the project's combination rules; an empty list withdraws them. */
@@ -4000,6 +4076,9 @@ function createModelStore() {
      */
     setMassSource(ms: MassSource | null): void {
       if (!_undoBatching) _pushUndo?.();
+      // The weights stay through a change of the case factors unless the change names them.
+      const kept = model.massSource?.weights;
+      if (kept?.length && (!ms || !('weights' in ms))) ms = ms ? { ...ms, weights: kept } : { kind: 'custom', factors: [], weights: kept };
       model.massSource = normalizeMassSource(ms ? JSON.parse(JSON.stringify(ms)) : undefined);
       this.bumpModelVersion();
     },
@@ -4089,7 +4168,7 @@ function createModelStore() {
      * whether it is a reference or solved on its own, its notional loads, its reduction, its
      * alternatives group and pattern. A field given as undefined is removed.
      */
-    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern'>>): void {
+    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral'>>): void {
       const lc = model.loadCases.find((c) => c.id === id);
       if (!lc) return;
       if (!_undoBatching) _pushUndo?.();
@@ -4111,7 +4190,7 @@ function createModelStore() {
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
     solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-      const mapped = remapModelForPlane(drawPlane);
+      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return solveCombinations2D(mapped, model.loadCases, model.combinations, includeSelfWeight);
     },
@@ -4136,7 +4215,7 @@ function createModelStore() {
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
+          loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic, includeSelfWeight), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -4151,7 +4230,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -4166,7 +4245,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       return validateAndSolve3DAsync(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -4177,32 +4256,32 @@ function createModelStore() {
 
     /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
      *  Shell elements are only included when isPro=true. */
-    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
+    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
           connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
       );
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
-    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       const r = await solveCombinations3DParallelFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro), groups: model.groups,
+          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
           connectors: isPro ? model.connectors : undefined },
-        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+        model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
       );
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;

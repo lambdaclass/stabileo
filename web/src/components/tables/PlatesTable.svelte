@@ -15,6 +15,9 @@
   import { parseIdList } from '../../lib/model/select-ops';
   import { shellSpecifications } from '../../lib/pro/specification-list';
   import BatchEditBar from '../pro/BatchEditBar.svelte';
+  import { tick } from 'svelte';
+  import LazySelect from './LazySelect.svelte';
+  import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
 
   type Row = {
     key: string;
@@ -88,11 +91,18 @@
     if (next.has(row.key)) next.delete(row.key); else next.add(row.key);
     uiStore.setSelection(new Set(), new Set(), true, next);
   }
-  // The first selected shell scrolled into view, wherever it was selected.
+  /*
+   * Rows drawn in batches (`progressive-rows.svelte.ts`): a meshed floor is thousands of faces.
+   * The first selected shell is drawn and scrolled into view, wherever it was selected.
+   */
+  const batches = progressiveRows(() => rows, 30, 60);
   $effect(() => {
     if (!pro) return;
     const first = selectedKeys[0];
-    if (first) queueMicrotask(() => document.querySelector(`tr[data-shell="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
+    if (!first) return;
+    const at = rows.findIndex((r) => r.key === first);
+    if (at >= 0) batches.reach(at);
+    void tick().then(() => document.querySelector(`tr[data-shell="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
   });
   const specsOf = (row: Row) => {
     const sh = row.kind === 'plate' ? modelStore.plates.get(row.id) : modelStore.quads.get(row.id);
@@ -188,7 +198,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each rows as row (row.key)}
+      {#each batches.rows as row (row.key)}
         <tr class:selected={pro && uiStore.selectedShells.has(row.key)} class:pickable={pro} onmousedown={(e) => { if (pro && (e.shiftKey || e.metaKey || e.ctrlKey) && !(e.target instanceof HTMLInputElement)) e.preventDefault(); }} onclick={(e) => rowClick(row, e)} data-shell={row.key}>
           <td class="id-cell">{row.id}</td>
           <td class="kind-cell">
@@ -204,9 +214,8 @@
             {:else}{row.nodes.join(' · ')}{/if}
           </td>
           <td>
-            <select value={row.materialId} onchange={(e) => setMaterial(row, e.currentTarget.value)}>
-              {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-            </select>
+            <LazySelect value={row.materialId} label={materials.find((m) => m.id === row.materialId)?.name ?? String(row.materialId)}
+              options={() => materials.map((m) => ({ value: m.id, label: m.name }))} onchange={(v) => setMaterial(row, v)} />
           </td>
           <td>
             <input type="number" step="0.01" min="0.001" value={row.thickness}
@@ -284,7 +293,7 @@
   .curv-cell { text-align: center; }
   .curv-cell input { width: auto; }
 
-  input, select {
+  input, select, td :global(select) {
     width: 74px; background: var(--st-surface); color: var(--st-text);
     border: 1px solid var(--st-hair); border-radius: 3px;
     padding: 1px 3px; font: inherit; font-size: 0.7rem;

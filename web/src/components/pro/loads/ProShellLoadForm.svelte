@@ -5,120 +5,120 @@
    * loads on the shells picked, or the reason it does not, as i18n keys
    * (`model/loads/shell-load-form.ts`, which reads the numbers by the app's one rule).
    *
-   * Pressures in kN/m², coordinates in m, a force in kN, in SI as the rest of the card.
+   * Every magnitude is typed in the display units (`QuantityInput`) and kept here in SI, `null`
+   * while empty; the list of corner values is read the same way, value by value.
    */
   import { t } from '../../../lib/i18n';
+  import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import { uiStore } from '../../../lib/store/ui.svelte';
+  import { fromDisplay, unitLabel } from '../../../lib/utils/units';
+  import QuantityInput from './QuantityInput.svelte';
+  import type { SketchInput } from './LoadSketch.svelte';
   import { buildShellLoads, type ShellLoadFields } from '../../../lib/model/loads/shell-load-form';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { WriteOutcome, WriteRefusal } from '../../../lib/model/loads/write-load';
 
-  interface Props { kind: 'surface' | 'hydro' | 'shellPoint' }
-  let { kind }: Props = $props();
+  interface Props {
+    kind: 'surface' | 'hydro' | 'shellPoint';
+    /** What the fields say, for the card's sketch (`LoadSketch`). */
+    sketch?: SketchInput['shell'];
+  }
+  let { kind, sketch = $bindable() }: Props = $props();
+
+  type N = number | null;
 
   // ── Area load ──
   let dirMode = $state<ShellLoadFields['dirMode']>('down');
   let dirAxis = $state<'X' | 'Y' | 'Z'>('Z');
   let field = $state<ShellLoadFields['field']>('uniform');
-  let q = $state('');
+  let q = $state<N>(null);
   let qc = $state('');
-  let va = $state({ axis: 'Z' as 'X' | 'Y' | 'Z', c1: '', q1: '', c2: '', q2: '' });
+  let va = $state<{ axis: 'X' | 'Y' | 'Z'; c1: N; q1: N; c2: N; q2: N }>({ axis: 'Z', c1: null, q1: null, c2: null, q2: null });
   let partial = $state(false);
-  let rect = $state({ plane: 'XY' as 'XY' | 'XZ' | 'YZ', u1: '', v1: '', u2: '', v2: '' });
+  let rect = $state<{ plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N }>({ plane: 'XY', u1: null, v1: null, u2: null, v2: null });
   // ── Fluid ──
-  let gamma = $state('10');
-  let level = $state('');
-  let inside = $state({ x: '', y: '', z: '' });
+  let gamma = $state<N>(10);
+  let level = $state<N>(null);
+  let inside = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
   // ── Point ──
-  let at = $state({ x: '', y: '', z: '' });
-  let pf = $state({ fx: '', fy: '', fz: '' });
+  let at = $state<Record<'x' | 'y' | 'z', N>>({ x: null, y: null, z: null });
+  let pf = $state<Record<'fx' | 'fy' | 'fz', N>>({ fx: null, fy: null, fz: null });
+
+  $effect(() => {
+    const corners = qc.split(';').map((x) => parseDecimal(x.trim())).filter((x): x is number => x !== null);
+    sketch = { dirMode, dirAxis, field, q, corners, va: { ...va }, partial, rect: { ...rect }, gamma, level, inside: { ...inside }, at: { ...at }, pf: { ...pf } };
+  });
 
   /** The loads on the shells picked, or why there are none. */
   export function build(shells: readonly ShellRef[], caseId: number | undefined): WriteOutcome | WriteRefusal {
-    return buildShellLoads(kind, { dirMode, dirAxis, field, q, qc, va, partial, rect, gamma, level, inside, at, pf }, shells, caseId);
+    return buildShellLoads(kind, { dirMode, dirAxis, field, q, qc, va, partial, rect, gamma, level, inside, at, pf }, shells, caseId,
+      (v) => fromDisplay(v, 'areaLoad', uiStore.unitSystem));
   }
 </script>
 
 {#if kind === 'surface'}
-  <div class="sl-row">
-    <label>{t('writeLoad.shell.direction')}
-      <select bind:value={dirMode} data-testid="wl-sl-dir">
+  <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.direction')}</span>
+    <span class="fg-wide">
+      <select class="fg-wide" bind:value={dirMode} data-testid="wl-sl-dir">
         <option value="down">{t('writeLoad.shell.dir.down')}</option>
         <option value="local">{t('writeLoad.shell.dir.local')}</option>
         <option value="global">{t('writeLoad.shell.dir.global')}</option>
         <option value="projected">{t('writeLoad.shell.dir.projected')}</option>
       </select>
-    </label>
-    {#if dirMode === 'global' || dirMode === 'projected'}
-      <select bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>+{a}</option>{/each}</select>
-    {/if}
-  </div>
-  <div class="sl-row">
-    <label>{t('writeLoad.shell.field')}
-      <select bind:value={field} data-testid="wl-sl-field">
-        <option value="uniform">{t('writeLoad.shell.field.uniform')}</option>
-        <option value="corners">{t('writeLoad.shell.field.corners')}</option>
-        <option value="axis">{t('writeLoad.shell.field.axis')}</option>
-      </select>
-    </label>
-  </div>
+      {#if dirMode === 'global' || dirMode === 'projected'}
+        <select class="fg-in sl-axis" bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>+{a}</option>{/each}</select>
+      {/if}
+    </span></div>
+  <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.field')}</span>
+    <select class="fg-wide" bind:value={field} data-testid="wl-sl-field">
+      <option value="uniform">{t('writeLoad.shell.field.uniform')}</option>
+      <option value="corners">{t('writeLoad.shell.field.corners')}</option>
+      <option value="axis">{t('writeLoad.shell.field.axis')}</option>
+    </select></div>
   {#if field === 'uniform'}
-    <div class="sl-row"><label>q <input type="text" bind:value={q} class="sl-num" placeholder="kN/m²" data-testid="wl-sq" /></label></div>
+    <div class="fg-r"><span class="fg-l">q</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={q} quantity="areaLoad" testid="wl-sq" /><span class="fg-u">{unitLabel('areaLoad', uiStore.unitSystem)}</span></div>
   {:else if field === 'corners'}
-    <div class="sl-row"><label>q₁; q₂; q₃; q₄ <input type="text" bind:value={qc} class="sl-wide" placeholder="kN/m²" data-testid="wl-sl-corners" /></label></div>
+    <div class="fg-r"><span class="fg-l">q₁; q₂; q₃; q₄</span><input type="text" bind:value={qc} class="fg-in sl-list" data-testid="wl-sl-corners" /><span class="fg-u sl-list-u">{unitLabel('areaLoad', uiStore.unitSystem)}</span></div>
   {:else}
-    <div class="sl-row">
-      <select bind:value={va.axis} data-testid="wl-sl-vary-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>{a}</option>{/each}</select>
-      <label>c₁ <input type="text" bind:value={va.c1} class="sl-num" placeholder="m" data-testid="wl-sl-c1" /></label>
-      <label>q₁ <input type="text" bind:value={va.q1} class="sl-num" placeholder="kN/m²" data-testid="wl-sl-q1" /></label>
-      <label>c₂ <input type="text" bind:value={va.c2} class="sl-num" placeholder="m" data-testid="wl-sl-c2" /></label>
-      <label>q₂ <input type="text" bind:value={va.q2} class="sl-num" placeholder="kN/m²" data-testid="wl-sl-q2" /></label>
-    </div>
-    <p class="sl-hint">{t('writeLoad.shell.varyHint')}</p>
+    <div class="fg-r"><span class="fg-l">{t('loadTarget.axis')}</span><select class="fg-in" bind:value={va.axis} data-testid="wl-sl-vary-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>{a}</option>{/each}</select></div>
+    <div class="fg-r fg-head"><span></span><span>{va.axis} ({unitLabel('length', uiStore.unitSystem)})</span><span>q ({unitLabel('areaLoad', uiStore.unitSystem)})</span></div>
+    <div class="fg-r"><span class="fg-l">1</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={va.c1} quantity="length" testid="wl-sl-c1" /><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={va.q1} quantity="areaLoad" testid="wl-sl-q1" /></div>
+    <div class="fg-r"><span class="fg-l">2</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={va.c2} quantity="length" testid="wl-sl-c2" /><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={va.q2} quantity="areaLoad" testid="wl-sl-q2" /></div>
+    <p class="wl-hint fg-full">{t('writeLoad.shell.varyHint')}</p>
   {/if}
-  <label class="sl-check"><input type="checkbox" bind:checked={partial} data-testid="wl-sl-partial" /> {t('writeLoad.shell.partial')}</label>
+  <label class="wl-check fg-full"><input type="checkbox" bind:checked={partial} data-testid="wl-sl-partial" /> {t('writeLoad.shell.partial')}</label>
   {#if partial}
-    <div class="sl-row">
-      <select bind:value={rect.plane} data-testid="wl-sl-plane">{#each ['XY', 'XZ', 'YZ'] as p (p)}<option value={p}>{p}</option>{/each}</select>
-      <label>{rect.plane[0]}₁ <input type="text" bind:value={rect.u1} class="sl-num" data-testid="wl-sl-u1" /></label>
-      <label>{rect.plane[1]}₁ <input type="text" bind:value={rect.v1} class="sl-num" data-testid="wl-sl-v1" /></label>
-      <label>{rect.plane[0]}₂ <input type="text" bind:value={rect.u2} class="sl-num" data-testid="wl-sl-u2" /></label>
-      <label>{rect.plane[1]}₂ <input type="text" bind:value={rect.v2} class="sl-num" data-testid="wl-sl-v2" /></label>
-    </div>
-    <p class="sl-hint">{t('writeLoad.shell.partialHint')}</p>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.plane')}</span><select class="fg-in" bind:value={rect.plane} data-testid="wl-sl-plane">{#each ['XY', 'XZ', 'YZ'] as p (p)}<option value={p}>{p}</option>{/each}</select></div>
+    <div class="fg-r fg-head"><span></span><span>{rect.plane[0]}</span><span>{rect.plane[1]}</span></div>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.corner')} 1</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={rect.u1} quantity="length" testid="wl-sl-u1" /><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={rect.v1} quantity="length" testid="wl-sl-v1" /><span class="fg-u fg-u2">{unitLabel('length', uiStore.unitSystem)}</span></div>
+    <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.corner')} 2</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={rect.u2} quantity="length" testid="wl-sl-u2" /><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={rect.v2} quantity="length" testid="wl-sl-v2" /><span class="fg-u fg-u2">{unitLabel('length', uiStore.unitSystem)}</span></div>
+    <p class="wl-hint fg-full">{t('writeLoad.shell.partialHint')}</p>
   {/if}
 {:else if kind === 'hydro'}
-  <div class="sl-row">
-    <label>γ <input type="text" bind:value={gamma} class="sl-num" placeholder="kN/m³" data-testid="wl-hy-gamma" /></label>
-    <label>{t('writeLoad.shell.level')} <input type="text" bind:value={level} class="sl-num" placeholder="m" data-testid="wl-hy-level" /></label>
-  </div>
-  <div class="sl-row">
-    <span>{t('writeLoad.shell.inside')}</span>
-    <label>X <input type="text" bind:value={inside.x} class="sl-num" data-testid="wl-hy-x" /></label>
-    <label>Y <input type="text" bind:value={inside.y} class="sl-num" data-testid="wl-hy-y" /></label>
-    <label>Z <input type="text" bind:value={inside.z} class="sl-num" data-testid="wl-hy-z" /></label>
-  </div>
-  <p class="sl-hint">{t('writeLoad.shell.hydroHint')}</p>
+  <div class="fg-r"><span class="fg-l">γ</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={gamma} quantity="density" testid="wl-hy-gamma" /><span class="fg-u">{unitLabel('density', uiStore.unitSystem)}</span></div>
+  <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.level')}</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={level} quantity="length" testid="wl-hy-level" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
+  <p class="wl-hint fg-full">{t('writeLoad.shell.inside')}</p>
+  <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+  <div class="fg-r"><span class="fg-l">{t('writeLoad.point')}</span>
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.x} quantity="length" testid="wl-hy-x" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.y} quantity="length" testid="wl-hy-y" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.z} quantity="length" testid="wl-hy-z" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
+  <p class="wl-hint fg-full">{t('writeLoad.shell.hydroHint')}</p>
 {:else}
-  <div class="sl-row">
-    <span>{t('writeLoad.shell.at')}</span>
-    <label>X <input type="text" bind:value={at.x} class="sl-num" placeholder="m" data-testid="wl-sp-x" /></label>
-    <label>Y <input type="text" bind:value={at.y} class="sl-num" placeholder="m" data-testid="wl-sp-y" /></label>
-    <label>Z <input type="text" bind:value={at.z} class="sl-num" placeholder="m" data-testid="wl-sp-z" /></label>
-  </div>
-  <div class="sl-row">
-    <label>Fx <input type="text" bind:value={pf.fx} class="sl-num" placeholder="kN" data-testid="wl-sp-fx" /></label>
-    <label>Fy <input type="text" bind:value={pf.fy} class="sl-num" placeholder="kN" data-testid="wl-sp-fy" /></label>
-    <label>Fz <input type="text" bind:value={pf.fz} class="sl-num" placeholder="kN" data-testid="wl-sp-fz" /></label>
-  </div>
-  <p class="sl-hint">{t('writeLoad.shell.pointHint')}</p>
+  <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
+  <div class="fg-r"><span class="fg-l">{t('writeLoad.point')}</span>
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={at.x} quantity="length" testid="wl-sp-x" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={at.y} quantity="length" testid="wl-sp-y" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={at.z} quantity="length" testid="wl-sp-z" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
+  <div class="fg-r"><span class="fg-l">F</span>
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pf.fx} quantity="force" testid="wl-sp-fx" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pf.fy} quantity="force" testid="wl-sp-fy" />
+    <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={pf.fz} quantity="force" testid="wl-sp-fz" /><span class="fg-u">{unitLabel('force', uiStore.unitSystem)}</span></div>
+  <p class="wl-hint fg-full">{t('writeLoad.shell.pointHint')}</p>
 {/if}
 
 <style>
-  .sl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 0.7rem; color: var(--st-text-2); }
-  .sl-row label { display: inline-flex; align-items: center; gap: 4px; }
-  .sl-row select, .sl-num, .sl-wide { padding: 3px 5px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.74rem; font-family: var(--st-mono); }
-  .sl-num { width: 58px; }
-  .sl-wide { width: 160px; }
-  .sl-check { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--st-text-2); }
-  .sl-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
+  /* The grid and its cells are the card's (`ProWriteLoadCard`), shared with every other kind. */
+  :global(.wl .fg-r) .sl-list { grid-column: 2 / 5; }
+  .sl-axis { width: auto; }
 </style>

@@ -114,6 +114,8 @@ test.describe('@smoke PRO results, report, view and tools', () => {
     await loadModel(page, '3d-portal-frame');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-select').click();
+    // Parallel to an axis takes members (and plates): it is offered with members armed.
+    await page.getByTestId('select-mode-elements').click();
     await page.getByTestId('sel-parallel-dir').selectOption('Z');
     await page.getByTestId('sel-parallel-go').click();
     const cols = await page.evaluate(() => window.__stabileo.selection().length);

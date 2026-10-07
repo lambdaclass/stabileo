@@ -61,8 +61,14 @@ its own **Draw** button (node, member, plate…); pressing it again goes back to
 
 ### Draw
 
-**Nodes.** An editable table of X, Y, Z coordinates in metres. You can **paste from Excel**
-(X, Y and optionally Z columns).
+**Nodes.** An editable table of X, Y, Z coordinates in the chosen units, and an optional **name**
+(for example A1) beside the number. You can **paste from Excel** (X, Y and optionally Z columns).
+A double click on a row frames that node in the model.
+
+Members also take an optional **name** in their table, and a double click on the row frames them.
+Names are kept in the file, go in and out of the model's Excel, show in the report's tables and in
+the labels when **View › Labels show** says **name**. Renaming is undone in one step and keeps the
+results.
 
 **Members.** A table with start and end node, material and section, and the **Hinge i** and
 **Hinge j** columns. For a member being added they toggle **Pin** (both bending moments released)
@@ -76,8 +82,8 @@ edited. Also:
   beam hangs below the slab. It is set in **Specifications › Members**.
 - Right-clicking a member: **edit** its material and section, open its **Specifications…**, or
   **subdivide** it into N parts (2 to 20). Right-clicking a supported node opens the support's
-  specifications. With nodes selected, right-clicking empty space mirrors them in X or Y or rotates
-  them by 90°.
+  specifications; **Add support** and **Add load** open their panel's card on that node. With
+  nodes selected, right-clicking empty space mirrors them in X or Y or rotates them by 90°.
 
 Members you draw are frame members; **Specifications › Members** makes them trusses, one-way
 members or cables, and sets the roll of their local axes.
@@ -148,7 +154,9 @@ they are split.
   from a number. If that number belongs to something not selected, nothing is renumbered and the
   panel says which.
 - **Clean-up:** coincident nodes (within the **weld tolerance**, which can be changed and which
-  every weld in the model reads), repeated or zero-length members, orphan nodes, and also **loose
+  every weld in the model reads), repeated members (the same two nodes, which are removed) or
+  zero-length ones, orphan nodes, **overlapping collinear members** with different end nodes
+  (listed by pair with the stretch they share and selected, to choose which one stays), and also **loose
   parts** reached by no support, **free shell edges** on no member, **members crossing without a
   node**, and **repeated properties** (materials or sections equal under another number), which
   are unified.
@@ -160,10 +168,30 @@ they are split.
   of each segment's mid-length; with 12 segments a cantilever's deflection is within 0.5 % of the
   exact one.
 
-**Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle; members
-**parallel to a global axis or plane** are selected, and what is **loaded in a case**, and the
-**previous selection** comes back. **Walk through, zoomed** steps through the selected members or
-nodes one at a time, framing each.
+**Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle. Every
+tool in the panel works on the kind chosen above it (members, nodes, plates, supports or loads, or
+several at once) and never leaves another kind selected; changing the kind lets go of what was
+selected of the previous one, so Delete removes only what the panel says.
+
+- **Like the selection:** for members, parallel, connected, same section, material, type, level,
+  plane or frame; for nodes, connected and same level; for plates, parallel, same plane, connected,
+  same thickness, material and level; for supports, same type and level; for loads, same type and
+  same case.
+- **Parallel to a global axis or plane:** members, and plates (those containing the axis or lying
+  in the plane).
+- **Loaded in a case:** the loads themselves, or the nodes, members and plates they sit on.
+- **Previous selection:** the last one of the chosen kind.
+- **Walk through, zoomed:** steps one at a time through what is selected of the chosen kind (or all
+  of that kind), framing each.
+- **By id:** nodes, members, plates, supports or loads, by the numbers in their tables. Plates are
+  one kind: when a triangle and a quadrilateral share a number, both are taken and the panel says
+  so.
+
+**Nodes and panels.** In 3D nodes are drawn a fixed size on screen: dots to look, and balls while something aims at a node (drawing, picking a plate's corners, placing a generated structure or a paste, the joints tab). Settings chooses always dots, always balls or automatic, and whether the right panel keeps its scrollbars on screen.
+
+**Loads on plates.** A surface load or a slab temperature is picked with a click anywhere on its fill. Picking a load in the model moves the load tables to its case and shows its row.
+
+**Large models.** The nodes, members, plates and loads tables draw their first rows on opening and the rest in batches, and their drop-down lists are built when used; a row picked in the model is drawn and shown at once.
 
 **View.** Saved views keep the projection, the orthographic zoom, what is hidden, the labels and
 the colours. Also:
@@ -174,8 +202,10 @@ the colours. Also:
 - **Member colour** by section, material or group, with its legend.
 - **Draw** constraints and diaphragms as lines between their nodes, and the I and J ends.
 - **Notes** of text at a point of the model, saved with the project.
-- **Units:** SI (kN, m), technical metric (tf, tf·m, kgf/cm², cm) or imperial, and the **decimals**
-  of each quantity. The model is always stored in kN and m.
+- **Units:** SI (kN, m), **SI with millimetres** (kN, mm: coordinates, displacements and section
+  properties in mm), technical metric (tf, tf·m, kgf/cm², cm) or imperial, and the **decimals** of
+  each quantity. Every field with a magnitude is typed in the chosen units and shows the unit beside
+  it; the model is always stored in kN and m. A section's properties read in cm², cm⁴ and cm³ in SI.
 
 ### Properties
 
@@ -322,8 +352,14 @@ members and its pointer picks something else, a button switches the pointer to w
 Springs, lift-off and an inclined frame
 are set in **Specifications › Supports**.
 
-**Loads.** The panel has three tabs (load cases, with the self-weight rule inside; combinations;
-floor loads), the card to write a load, and the load tables:
+A support is added with **Add support**: tick the degrees of freedom it restrains (or pick one of
+the kinds above) and, at the bottom, **Apply to**, the same choice as for loads: the selection, a
+list of numbers (`1, 4, 7-12`), a group or a range of coordinates, with the count of nodes it goes
+to. It all goes in one undo step, and a node that already had a support takes the new one in its
+place.
+
+**Loads.** The panel has three tabs (load cases; combinations; floor loads), the card to add a
+load, and the load tables:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
   S snow, R rain, T temperature, F fluids, H soil; and, to add when needed, N notional and
@@ -343,12 +379,16 @@ floor loads), the card to write a load, and the load tables:
     with the bound code's formula: the case's loads are multiplied by the factor shown.
 
   **Notional cases** below the table creates one N case per source case and direction.
-- **Self-weight:** a load of a case. Each row says which case it goes into, along which global
-  direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
-  members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
+- **Self-weight:** a load of a case. It is added from **Add load › General › Self-weight**: a
+  global direction, a factor (−1 along Z is gravity) and, under **Apply to**, the whole model, a
+  group or members (by selection, numbers, range, section or kind). One in the same case, along the
+  same direction and on the same reach takes the new factor in its place. The load tables list it
+  first, one row per rule, where its case, direction or factor are changed and where it is removed.
+  On the whole model or a group it includes their plates; on chosen members, only those members. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
   a column or an inclined member the part along the member stays in it, so its axial force grows
   towards the lower end. On plates it is ρ·t over the area. It goes in once, in that case, and each combination takes it with
-  that case's factor. A project saved before this rule opens with self-weight in its first D case,
+  that case's factor. A new project has no self-weight until it is added. A project saved before
+  this rule opens with self-weight in its first D case,
   and a notice says so; if it had several D cases, the notice recalls that the weight used to be
   counted in each of them.
 - **Combinations:** manual, or generated automatically. The strength ones are CIRSOC 101-2025's
@@ -382,10 +422,19 @@ floor loads), the card to write a load, and the load tables:
   marked ⟲ in the tables and rewritten before solving when the model has changed under it; the list
   below shows each one with its total, to remove it. **Zones** are drawn by picking an outline's
   nodes in order; the members picked with them stay out, and other zones can be their openings.
-- **Write a load:** pick its kind, its values and what it goes on. Numbers take a decimal comma or
+- **Add a load:** at the top, the case and the kind (a list grouped into Node, Member, Plate and
+  General); under them, set in, the kind's values, each beside its name and components in X, Y, Z
+  (or I, J) columns; at the end, what it goes on. Beside the values, a sketch shows what each one
+  stands for, with its axes and dimensions (a, b, the peak's position, the eccentricities), redrawn
+  as you type: a sign turns the arrow and an empty field shows its symbol. Members are drawn
+  sloping, so local axes, global axes and the horizontal projection read apart; plates side on
+  (direction, true or projected area) and in plan (how the value spreads); temperatures as their
+  diagram across the section. The button on its corner shows it large over the model (on a phone,
+  full screen). On a phone the sketch goes under the values. Numbers take a decimal comma or
   point; an empty J field takes the I value, and a zero typed in J is a zero.
-  - On **nodes**: a six-component force in global axes, or a force pointing at another node or a
-    point (kept as its components); and an **imposed displacement** of the case, in mm or rad, on
+  - On **nodes**: a six-component force in global axes, or a force from an origin, a node or a point,
+    toward the loaded node: the target is each node Apply to names and is not typed (kept as its
+    components); and an **imposed displacement** of the case, in mm or rad, on
     nodes whose support restrains that direction. Unlike a support's settlement, which enters once,
     it is multiplied by the case's factor in every combination.
   - On **members**: a **distributed** load in local, global or projected axes, over the whole member
@@ -410,8 +459,10 @@ floor loads), the card to write a load, and the load tables:
   **Apply to** is the same choice for every kind: the selection, a list of numbers (`1, 4, 7-12`),
   a group, a range of coordinates in X, Y or Z, a section or a kind of member (beams, columns,
   inclined, truss members). Member loads also take a **physical member**: the members picked taken
-  as one straight member, with distances measured along the whole of it. The panel says how many
-  elements the load goes on before adding, and all of it is one undo step.
+  as one straight member, with distances measured along the whole of it. Beside the **Add load**
+  button the card says how many elements it goes on, and all of it is one undo step. On
+  **Selection**, when the pointer has another tool, **Select with the mouse** appears beside it: a
+  click in the model then selects, and nothing is added until Add.
 - **Load tables:** one table per kind, for the active case or every case, with the stretches a–b,
   temperatures and strains, tendons and imposed displacements; every cell is edited in place. Below
   them, **each case's totals** about the origin (ΣF and ΣM, with the self-weight where it applies),
@@ -438,6 +489,10 @@ floor loads), the card to write a load, and the load tables:
   until its text is supplied, and is not replaced by 2025's. For the service combinations you can
   add B.4.2's **service wind Wa**: the 50-year speed from the map of Figure C AB.4.2-1 and a
   recurrence (5 to 500 years), converted by that figure's factor.
+  The wind can act on a **zone, a group or a box of coordinates** instead of the whole model (its
+  nodes make the levels and the front), and can take a **pressure profile** of your own in place of
+  the code's: a net lateral pressure against height, drawn beside it, which covers any code's wind
+  read off its tables (case 1 only, without roof pressures or the code's minimum).
   The **gust effect factor** follows §1.9. Each direction's fundamental frequency comes from the
   model's own modal analysis (with the plan's masses), from numbers you type, from the
   approximate formulas of §1.9.3, or from declaring the structure rigid. Above 1 Hz the building
@@ -448,7 +503,8 @@ floor loads), the card to write a load, and the load tables:
 - **Snow** to CIRSOC 104-2005: pg for the locality (Tables 1.1 to 1.15) or the site, pf with its
   minimum on low-slope roofs, Cs from the slope and the thermal condition, rain on snow, and the
   unbalanced load on gable roofs, one case per wind direction. Drifts, partial loads and ice are
-  not generated.
+  not generated. The roof can be chosen (a zone, a group or a box) instead of the one the geometry
+  shows.
 - **Earthquake** to INPRES-CIRSOC 103 (static method). This part is enabled when the project has a
   seismic regulation assigned; if it has none, the dialog says so.
 
@@ -486,6 +542,13 @@ and offers to remove them as well; otherwise they stay and the plan is added bes
 - **Structures:** space frame by bays (X, Y and storeys), plane frame, floor grid, continuous
   beam, space truss, lattice girder with X or K bracing, Howe roof truss, sawtooth roof, barrel
   vault, circular beam and dome. Bays are typed as "6; 7.5; 6".
+
+The form is laid out in foldable sections, which start folded so everything that can be edited
+reads at a glance; folded, each one shows in its heading what it holds (for instance, "10 m × 6 m ·
+6 frames at 5 m"). A shed splits into Frames, Columns, Roof and Bracing; a truss into Shape and Web
+members; then come **Sections and material** and **Where**. Hovering a parameter, or typing in it,
+the line beside the preview's pin says what it controls. The button that places the structure stays
+at the foot of the panel; on a phone the preview starts unpinned and follows the form.
 
 It assigns a profile to each kind of member, a steel grade and the supports (the generator's,
 none, pinned or fixed). The structure can go:
@@ -611,7 +674,9 @@ PRO's advanced analyses:
 - **P-Delta**, **modal**, **spectral** and **buckling**, on the project's rules as **Solve** reads
   them (self-weight as stated, the shear-deformation switch). This P-Delta takes every load of the
   model together, unfactored; each combination with its factors is asked for in
-  **Specifications › Analysis**. Modal can ask for modes **up to 90 % of the mass**: it adds modes
+  **Specifications › Analysis**. With no second-order equilibrium under those loads, or without
+  convergence, the result is not published as P-Delta and the panel says why, on the same criterion
+  as the combinations. Modal can ask for modes **up to 90 % of the mass**: it adds modes
   until the cumulative participating mass reaches 90 % in X and in Y, or says so when the model has
   no more. The masses come from the **mass source** (self-weight only, or chosen cases with their
   factors). With node links the engine's mass ratios are not reliable: modal then gives
@@ -619,7 +684,15 @@ PRO's advanced analyses:
   offered. Spectral builds the INPRES-CIRSOC 103 spectrum from the zone, the site class and its
   parameters (ca, cv, T1 to T3, γr, R and ξ), combines the modes by CQC (complete quadratic
   combination, with the ξ you set) or SRSS (square root of the sum of squares), and needs a modal
-  run first.
+  run first. It can also run on one of the **project's spectra**: tables of Sa (in g or m/s²) or Sd
+  against period, pasted or typed, read linearly or on log axes, kept with the project. The mass
+  source can carry **weights of its own**, apart from the load cases: kN/m on members, kN/m² on
+  slabs, or kN/m² on a floor carried to its beams, on a zone, a group or a box of coordinates.
+- **Spectral load case:** an E case can take a spectrum (the code's or the project's) as its result,
+  with the excitation's X/Y/Z factors, the rule (SRSS, CQC or ABS), ξ and a scale (γr/R for the
+  code's). Each mode is solved with its shape imposed and the modes are combined quantity by
+  quantity, each value with the dominant mode's sign; it is worked out when the combinations are
+  solved and enters them as any case, with ± when both senses of the earthquake are asked for.
 - **Time history**, with Newmark or HHT-α. The settings are saved with the project and travel in
   the model code. Each direction (X, Y and Z, at once) has its own ground acceleration, with a
   scale factor: sinusoidal, a record read from a file (PEER .AT2, a time–acceleration table or a
@@ -638,7 +711,11 @@ PRO's advanced analyses:
   steps; each one lists its new hinges with their moments, and the model shows the deformed shape
   and every hinge formed up to that step. When the run stops because every member end at a joint
   yielded at once, the panel says so: the structure may carry more, and the collapse factor is
-  read as a lower bound.
+  read as a lower bound. It pushes with the model's loads, a load case's, or a lateral pattern along
+  X or Y spread by each node's dead-load weight (uniform, triangular by height, or the dominant
+  mode's shape); a pattern adds up to 1 kN, so the load factor reads as the base shear, and it is
+  pushed without gravity. It runs to the mechanism or to a target base shear or control-node
+  displacement.
 - **Geometric imperfections:** notional loads equal to the chosen out-of-plumbness times each
   node's total vertical load (nodal loads, member loads and self-weight). As **experimental**
   analyses whose data stays in the panel, **foundation on Winkler springs**, with ky and kz along
@@ -655,10 +732,15 @@ PRO's advanced analyses:
   from the panel.
 - **3D influence lines** and the **section analyzer**; its J comes from the Saint-Venant solution on
   the section's mesh.
-- **Moving loads:** a train of axles (predefined or your own) travels along the selected members,
-  in order, and each member keeps its largest and smallest forces with the train's position. The
-  lane load is created as an ordinary load case on the same members. The envelope does not enter
-  the combinations or the design.
+- **Moving loads:** a train of axles (predefined, your own, or from the AASHTO catalog: HS20-44,
+  HS15-44, H20-44, H15-44, and the HL-93 truck and tandem) travels along the selected members, in
+  order, and each member keeps its largest and smallest forces with the train's position. A vehicle
+  can have a variable gap between two axles (every spacing in the range is run), a gauge with a
+  second line of members for the other wheel line (half of each axle on each), and a dynamic factor;
+  it is saved and opened as a file. The lane load is created as an ordinary load case on the same
+  members. The envelope does not enter the combinations or the design; for them the vehicle is
+  written as **static cases by position**, traffic cases that are alternatives of one group, so each
+  combination takes one position at a time.
 
 Unless the analysis says otherwise, these analyses load the unfactored sum of every case. They use
 the members' axis, without their offsets, and the hinges of the **Hinge i** and
@@ -670,7 +752,9 @@ frequencies and shapes but not reliable mass ratios.
 
 ### Report
 
-**Report** builds a printable **calculation report**: model data with every property, load
+**Report** builds a printable **calculation report**: model data with every property and the
+model's view as **Figure 1**, with node and member numbers (turned on for the picture and put back
+afterwards), load
 details, results, the summary of extremes (along the members) and the envelope over the
 combinations, the statics, the deflections, the **design check** as the Design panel ran it (each
 member with its own reinforcement, the governing check, demand, capacity and utilization; the

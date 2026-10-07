@@ -59,9 +59,19 @@ export interface MassSourceFactor { caseId: number; factor: number }
  *
  * `custom` is a table the user wrote, case by case.
  */
+/**
+ * A weight that is mass and no load case: kN/m on members, kN/m² on slabs, or kN/m² on a floor
+ * carried to its beams by tributary area (`mass-weights.ts`), on a part of the model.
+ */
+export interface MassWeight {
+  on: 'members' | 'slabs' | 'floor';
+  region: import('../../model/loads/region-nodes').ActionRegion;
+  w: number;
+}
+
 export type MassSource =
-  | { kind: 'preset'; presetId: string; params: Record<string, MassPresetParamValue> }
-  | { kind: 'custom'; factors: MassSourceFactor[] };
+  | { kind: 'preset'; presetId: string; params: Record<string, MassPresetParamValue>; weights?: MassWeight[] }
+  | { kind: 'custom'; factors: MassSourceFactor[]; weights?: MassWeight[] };
 
 export type FactorBasis =
   /** Nothing stated: self-weight only. */
@@ -124,14 +134,19 @@ export function normalizeMassSource(raw: unknown): MassSource | undefined {
           ? [{ caseId: x.caseId, factor: x.factor }] : [];
       })
     : null;
+  // Weights kept as written when they read (`mass-weights.ts`).
+  const weights = Array.isArray(r.weights)
+    ? (r.weights as MassWeight[]).filter((w) => w && (w.on === 'members' || w.on === 'slabs' || w.on === 'floor') && Number.isFinite(w.w) && w.region && typeof w.region === 'object')
+    : [];
+  const withW = weights.length ? { weights } : {};
   if (r.kind === 'preset' && typeof r.presetId === 'string') {
     const params: Record<string, MassPresetParamValue> = {};
     for (const [k, v] of Object.entries((r.params ?? {}) as Record<string, unknown>)) {
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') params[k] = v;
     }
-    return { kind: 'preset', presetId: r.presetId, params };
+    return { kind: 'preset', presetId: r.presetId, params, ...withW };
   }
-  if ((r.kind === 'custom' || r.kind === undefined) && factors) return { kind: 'custom', factors };
+  if ((r.kind === 'custom' || r.kind === undefined) && factors) return { kind: 'custom', factors, ...withW };
   return undefined;
 }
 

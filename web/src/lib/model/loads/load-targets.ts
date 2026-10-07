@@ -1,6 +1,7 @@
 /**
  * What a load goes on: the one choice every load form asks for, answered the same way for all.
  *
+ *   · everything of the kind (the self-weight of the whole model);
  *   · the selection;
  *   · the ids typed (a list: `1, 4, 7-12`);
  *   · a group of the model;
@@ -16,6 +17,7 @@ export type TargetEntity = 'nodes' | 'members' | 'quads' | 'plates';
 export type MemberKindFilter = 'column' | 'beam' | 'inclined' | 'truss';
 
 export type TargetSpec =
+  | { by: 'all' }
   | { by: 'selection' }
   | { by: 'ids'; text: string }
   | { by: 'group'; groupId: number }
@@ -94,6 +96,8 @@ export function resolveTargets(entity: TargetEntity, spec: TargetSpec, m: Target
   const has = (id: number) => (entity === 'nodes' ? m.nodes.has(id) : entity === 'members' ? m.elements.has(id) : !!shells?.has(id));
   const sorted = (ids: Iterable<number>) => [...new Set(ids)].filter(has).sort((a, b) => a - b);
   switch (spec.by) {
+    case 'all':
+      return sorted(entity === 'nodes' ? m.nodes.keys() : entity === 'members' ? m.elements.keys() : (shells?.keys() ?? []));
     case 'selection':
       return sorted(entity === 'nodes' ? sel.nodes : entity === 'members' ? sel.elements : entity === 'plates' ? (sel.plates ?? []) : (sel.quads ?? []));
     case 'ids':

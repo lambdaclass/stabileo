@@ -22,6 +22,15 @@ import { initSolver, isWasmReady } from '../engine/wasm-solver';
 import { reportModelDiagnostics } from '../engine/solve-diagnostics';
 import { requestAutosave } from '../store/autosave-service';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
+import { spectralCaseResults } from '../store/spectral-cases';
+
+/** The spectral cases' results, or nothing (said) when they cannot be had: those cases are left out. */
+export function spectralOrSay() {
+  if (!modelStore.model.loadCases.some((c) => c.spectral)) return undefined;
+  const r = spectralCaseResults();
+  if (typeof r === 'string') { uiStore.toast(t('spectralCase.leftOut') + ' ' + r, 'error'); return undefined; }
+  return r;
+}
 
 export function runSolve() {
   /*
@@ -121,7 +130,7 @@ export async function runSolve3D() {
     // Auto-solve 3D combinations if they exist
     let comboText = '';
     if (modelStore.model.combinations.length > 0) {
-      const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
+      const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro, isPro ? spectralOrSay() : undefined);
       if (comboResult && typeof comboResult !== 'string') {
         publishCombinations3D(comboResult);
         comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));

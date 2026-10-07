@@ -7,22 +7,24 @@
    * top bar, spoke in Basic's terms (one direction and one value, the 2D support kinds) and said
    * nothing for nodes, members and plates. Each tool here gets the choices PRO has for it, the
    * step it is at ("node I is 5, pick node J"), and one way out.
+   *
+   * Supports and loads are not drawn: each is added from its panel's "Add" card, on the selection
+   * or on what is named. A support or load tool still armed from Basic is put down here.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
   import { t, tp } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
-  import SupportDofFields from './SupportDofFields.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   const pick = $derived(uiStore.shellNodePick);
   const drawingPlate = $derived(pick.target === 'quad' && (pick.active || pick.picked.length > 0));
   const tool = $derived(drawingPlate ? 'plate' : uiStore.currentTool);
 
-  const icon = $derived(({ node: 'node', element: 'element', plate: 'shell', support: 'support', load: 'load' } as Record<string, string>)[tool] ?? 'node');
+  const icon = $derived(({ node: 'node', element: 'element', plate: 'shell' } as Record<string, string>)[tool] ?? 'node');
   const title = $derived(({
     node: t('pro.oneNode'), element: t('pro.oneElement'), plate: t('pro.onePlate'),
-    support: t('pro.oneSupport'), load: t('pro.oneLoad'),
   } as Record<string, string>)[tool] ?? '');
 
   /** What the next click does, said as the step the reader is at. */
@@ -33,16 +35,16 @@
         ? t('drawBar.stepMemberI')
         : tp('drawBar.stepMemberJ', { id: drawState.memberStart });
       case 'plate': return tp('drawBar.stepPlate', { k: Math.min(pick.picked.length + 1, drawState.plateCorners), n: drawState.plateCorners });
-      case 'support': return t('drawBar.stepSupport');
-      case 'load': return uiStore.loadType === 'nodal' ? t('drawBar.stepLoadNode') : t('drawBar.stepLoadMember');
       default: return '';
     }
   });
 
   const levelAxis = $derived(({ XY: 'Z', XZ: 'Y', YZ: 'X' } as const)[uiStore.workingPlane]);
   const materials = $derived([...modelStore.materials.values()]);
-  const cases = $derived(modelStore.loadCases);
-  const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0;
+
+  $effect(() => {
+    if (uiStore.currentTool === 'support' || uiStore.currentTool === 'load') uiStore.currentTool = 'select';
+  });
 
   function undoCorner() {
     const kept = pick.picked.slice(0, -1);
@@ -65,7 +67,7 @@
           </select>
         </label>
         <label>{levelAxis} =
-          <input type="number" step="0.5" value={uiStore.nodeCreateZ} onchange={(e) => (uiStore.nodeCreateZ = num(e))} data-testid="draw-level" /> m
+          <QuantityInput value={uiStore.nodeCreateZ} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = v)} testid="draw-level" />
         </label>
       {:else if tool === 'element'}
         <NextMemberFields />
@@ -86,40 +88,9 @@
         <select value={drawState.plateMaterialId} onchange={(e) => (drawState.plateMaterialId = Number(e.currentTarget.value))} aria-label={t('pro.thMaterial')}>
           {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
         </select>
-        <label>{t('pro.thickness')}
-          <input type="number" step="any" min="0.001" value={drawState.plateThickness} onchange={(e) => { const v = num(e); if (v > 0) drawState.plateThickness = v; else e.currentTarget.value = String(drawState.plateThickness); }} />
+        <label>{t('pro.thicknessLabel')}
+          <QuantityInput min={0.001} value={drawState.plateThickness} quantity="length" cls="db-num" onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} />
         </label>
-      {:else if tool === 'support'}
-        <SupportDofFields />
-      {:else if tool === 'load'}
-        <select bind:value={uiStore.activeLoadCaseId} aria-label={t('pro.loadCases')} data-testid="draw-load-case">
-          {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-        </select>
-        <div class="db-seg" role="group" aria-label={t('drawBar.loadKind')}>
-          <button class:on={uiStore.loadType === 'nodal'} aria-pressed={uiStore.loadType === 'nodal'} onclick={() => (uiStore.loadType = 'nodal')} data-testid="draw-load-nodal">{t('pro.nodal')}</button>
-          <button class:on={uiStore.loadType === 'distributed'} aria-pressed={uiStore.loadType === 'distributed'} onclick={() => (uiStore.loadType = 'distributed')} data-testid="draw-load-member">{t('pro.distributed')}</button>
-          <button class:on={uiStore.loadType === 'thermal'} aria-pressed={uiStore.loadType === 'thermal'} onclick={() => (uiStore.loadType = 'thermal')}>{t('drawBar.thermal')}</button>
-        </div>
-        {#if uiStore.loadType === 'nodal'}
-          {#each ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const as k (k)}
-            <label>{k.toUpperCase()} <input type="number" value={drawState.nodalLoad[k]} onchange={(e) => (drawState.nodalLoad = { ...drawState.nodalLoad, [k]: num(e) })} data-testid="draw-load-{k}" /></label>
-          {/each}
-          <span class="db-unit">kN, kN·m</span>
-        {:else if uiStore.loadType === 'distributed'}
-          <select value={drawState.memberLoad.frame} onchange={(e) => (drawState.memberLoad = { ...drawState.memberLoad, frame: e.currentTarget.value as never })} title={t('loads.frameHelp')} aria-label={t('loads.frame')}>
-            <option value="local">{t('loads.frame.local')}</option>
-            <option value="global">{t('loads.frame.global')}</option>
-            <option value="projected">{t('loads.frame.projected')}</option>
-          </select>
-          {#each ['qx', 'qy', 'qz'] as const as k (k)}
-            <label>{drawState.memberLoad.frame === 'local' ? k : 'q' + k[1]!.toUpperCase()} <input type="number" value={drawState.memberLoad[k]} onchange={(e) => (drawState.memberLoad = { ...drawState.memberLoad, [k]: num(e) })} data-testid="draw-load-{k}" /></label>
-          {/each}
-          <span class="db-unit">kN/m</span>
-        {:else}
-          <label>{t('pro.dtUniform')} <input type="number" value={uiStore.thermalDT} onchange={(e) => (uiStore.thermalDT = num(e))} /></label>
-          <label>{t('pro.dtGradient')} <input type="number" value={uiStore.thermalDTg} onchange={(e) => (uiStore.thermalDTg = num(e))} /></label>
-          <span class="db-unit">°C</span>
-        {/if}
       {/if}
     </div>
 
@@ -147,15 +118,15 @@
   .db-sep { width: 1px; align-self: stretch; background: var(--st-hair); }
   .db-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
   .db-opts label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  .db-opts input[type='number'], .db-opts select {
+  .db-opts :global(input.db-num), .db-opts select {
     padding: 1px 5px;
     background: var(--st-ink); color: var(--st-text);
     border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius);
     font: inherit; font-family: var(--st-font-mono, monospace);
   }
-  .db-opts input[type='number'] { width: 58px; }
+  .db-opts :global(input.db-num) { width: 58px; }
   .db-opts select { max-width: 150px; font-family: inherit; }
-  .db-opts input:focus, .db-opts select:focus { outline: none; border-color: var(--st-accent); }
+  .db-opts :global(input.db-num:focus), .db-opts select:focus { outline: none; border-color: var(--st-accent); }
   .db-unit { color: var(--st-text-3); }
   .db-check { cursor: pointer; }
   .db-seg { display: inline-flex; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }

@@ -9,7 +9,7 @@
  * out of a table.
  */
 import { describe, it, expect } from 'vitest';
-import { selectAll, invertSelection, parseIdList, selectByIds, allShellKeys } from '../select-ops';
+import { selectAll, invertSelection, parseIdList, selectByIds, allShellKeys, seedMembersOf, membersAsKinds } from '../select-ops';
 
 const model = {
   nodes: new Map([[1, {}], [2, {}], [3, {}]]),
@@ -103,5 +103,38 @@ describe('naming what you want by id', () => {
   it('keys plates and quads apart', () => {
     expect([...selectByIds(model, 'plates', '1').selection.shells]).toEqual(['p1']);
     expect([...selectByIds(model, 'quads', '1').selection.shells]).toEqual(['q1']);
+  });
+});
+
+describe('Basic: like the selection, in the kinds armed above', () => {
+  // A beam 1-2 and a column 2-3; a support at 1; a load on the beam and one at node 3.
+  const linked = {
+    elements: new Map([[1, { nodeI: 1, nodeJ: 2 }], [2, { nodeI: 2, nodeJ: 3 }]]),
+    supports: new Map([[5, { nodeId: 1 }]]),
+    loads: [{ data: { id: 8, elementId: 1 } }, { data: { id: 9, nodeId: 3 } }],
+  };
+
+  it('takes its reference members from members, loads, nodes and supports alike', () => {
+    expect(seedMembersOf(linked, { nodes: [], elements: [], supports: [], loads: [8] })).toEqual([1]);
+    expect(seedMembersOf(linked, { nodes: [], elements: [], supports: [5], loads: [] })).toEqual([1]);
+    expect(seedMembersOf(linked, { nodes: [3], elements: [], supports: [], loads: [] })).toEqual([2]);
+  });
+
+  it('gives a set of members back as the armed kinds: members, nodes, supports, loads', () => {
+    const s = membersAsKinds(linked, [1], new Set(['supports', 'loads']));
+    expect([...s.elements]).toEqual([]);
+    expect([...s.supports!]).toEqual([5]);
+    expect([...s.loads!]).toEqual([8]);
+    const n = membersAsKinds(linked, [2], new Set(['nodes', 'loads']));
+    expect([...n.nodes].sort()).toEqual([2, 3]);
+    expect([...n.loads!]).toEqual([9]);
+  });
+
+  it('selects supports and loads by their numbers', () => {
+    const model = { nodes: new Map(), elements: new Map(), supports: new Map([[5, {}]]), loads: [{ data: { id: 8 } }] };
+    const s = selectByIds(model as never, 'supports', '5, 6');
+    expect([...s.selection.supports!]).toEqual([5]);
+    expect(s.missing).toEqual([6]);
+    expect([...selectByIds(model as never, 'loads', '8').selection.loads!]).toEqual([8]);
   });
 });

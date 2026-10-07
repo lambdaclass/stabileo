@@ -55,6 +55,7 @@ import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
 import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
+import { loadFixture } from '../templates/load-fixture';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -161,6 +162,8 @@ export interface StabileoTestHooks {
    * joint?». This pair can.
    */
   nodeMarkersDrawn(): boolean;
+  /** How the node markers are drawn now: 'points', 'spheres' or 'mesh' (`NodeMarkerStyle`). */
+  nodeMarkerStyle(): string | null;
   /** Member diagrams the 3D scene holds right now (0 when none is drawn). */
   diagramMembers(): number;
   renderMode3D(): string;
@@ -177,6 +180,8 @@ export interface StabileoTestHooks {
   armedKinds(): string[];
   /** What the viewport is drawing — the walkthrough audit reads this. */
   diagramType(): string;
+  /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
+  hasDrawnResults(): boolean;
   /**
    * What a click on the canvas would currently mean, and whether the viewport
    * has anything to answer it with.
@@ -238,6 +243,10 @@ export interface StabileoTestHooks {
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
   loadScreenPos(id: number): { x: number; y: number } | null;
+  /** A point on a plate load's fill, halfway from its first corner to its centre, on screen. */
+  loadFaceScreenPos(id: number): { x: number; y: number } | null;
+  /** The case new loads go to, and the load tables show. */
+  activeLoadCaseId(): number;
   /** The nodes the model rings while drawing: a member's first node, a plate's corners. */
   drawPicked(): number[];
   nodeCount(): number;
@@ -410,6 +419,13 @@ export interface StabileoTestHooks {
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
   /**
+   * Load a model given as an example's JSON (`templates/load-fixture.ts`), as an example loads:
+   * for a spec that builds its own model, a large one to time the tables, say.
+   */
+  loadModelData(json: Record<string, unknown>): void;
+  /** Open a tab of PRO's panel by its id, as its command does. */
+  openProTab(tab: string): void;
+  /**
    * Open a project from its `.ded` JSON, exactly as File → Open does (`deserializeProject`):
    * validated, migrated, results cleared. Lets a spec load a model that is not one of the
    * examples. Returns false when the file is refused, as the open dialog would refuse it.
@@ -466,6 +482,8 @@ export interface StabileoTestActions {
   selectNodes(ids: number[]): void;
   /** Open the viewport's context menu on a member, as a right click on it would. */
   openContextMenu(elementId: number): void;
+  /** Open the viewport's context menu on a node, as a right click on it would. */
+  openNodeContextMenu(nodeId: number): void;
   /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
   selectShells(keys: string[]): void;
   toggleBarLock(barId: string): void;
@@ -592,9 +610,12 @@ export function installE2EHooks(): void {
     diagramMembers: () => (window as unknown as { __diagramMembers?: number }).__diagramMembers ?? 0,
     nodeMarkersDrawn: () =>
       (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn ?? true,
+    nodeMarkerStyle: () => (window as unknown as { __nodeMarkerStyle?: string }).__nodeMarkerStyle ?? null,
     renderMode3D: () => String(uiStore.renderMode3D),
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
+    /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
+    hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
     cameraState: () => readCamera(),
 
     viewportPick: () => ({
@@ -666,6 +687,14 @@ export function installE2EHooks(): void {
       if (!f || f.length < 6) return null;
       const k = 6 * Math.floor(f.length / 12);
       return projectWorld((f[k]! + f[k + 3]!) / 2, (f[k + 1]! + f[k + 4]!) / 2, (f[k + 2]! + f[k + 5]!) / 2);
+    },
+    activeLoadCaseId: () => uiStore.activeLoadCaseId,
+    loadFaceScreenPos: (id: number) => {
+      const f = (window as unknown as { __loadAreas?: Map<number, number[][]> }).__loadAreas?.get(id)?.[0];
+      if (!f || f.length < 9) return null;
+      const n = f.length / 3;
+      const c = [0, 1, 2].map((k) => f.filter((_, i) => i % 3 === k).reduce((s, v) => s + v, 0) / n);
+      return projectWorld((f[0]! + c[0]!) / 2, (f[1]! + c[1]!) / 2, (f[2]! + c[2]!) / 2);
     },
     drawPicked: () => (drawState.memberStart !== null && uiStore.currentTool === 'element'
       ? [drawState.memberStart] : [...uiStore.shellNodePick.picked]),
@@ -794,12 +823,22 @@ export function installE2EHooks(): void {
     openContextMenu: (elementId: number) => {
       uiStore.contextMenu = { x: 200, y: 200, elementId };
     },
+    openNodeContextMenu: (nodeId: number) => {
+      uiStore.contextMenu = { x: 200, y: 200, nodeId };
+    },
     selectShells: (keys: string[]) => {
       const all = keys.length ? keys : [...[...modelStore.quads.keys()].map((id) => `q${id}`), ...[...modelStore.plates.keys()].map((id) => `p${id}`)];
       all.forEach((k, i) => uiStore.selectShell(k, i > 0));
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    loadModelData: (json: Record<string, unknown>) => {
+      modelStore.clear();
+      modelStore.bulkMutate(() => loadFixture(json as never, modelStore.fixtureApi() as never));
+      modelStore.refreshCanonicalSections();
+      uiStore.useNative3DPresentation();
+    },
+    openProTab: (tab: string) => { uiStore.proActiveTab = tab; },
     loadProject: (file: DedalFile | Record<string, unknown>) => deserializeProject(JSON.stringify(file)),
     turnElements: (ids: number[], degrees: number) => {
       modelStore.batch(() => {

@@ -159,3 +159,15 @@ describe('C channel degenerate-lip guard', () => {
     }
   });
 });
+
+describe('a section given only its diameter', () => {
+  it('is drawn as a round bar of that diameter, not the generic cylinder', () => {
+    const tie: Section = { id: 8, name: 'Tirante Ø16', a: 0.000201, iz: 3.2e-9, h: 0.016 };
+    const shape = createSectionShape(tie)!;
+    expect(shape).not.toBeNull();
+    const pts = shape.getPoints(32);
+    const r = Math.max(...pts.map((p) => Math.hypot(p.x, p.y)));
+    expect(r).toBeCloseTo(0.008, 5);
+    expect(shape.holes).toHaveLength(0);
+  });
+});

@@ -5,6 +5,8 @@
    * them from its clear height and its own base switch.
    */
   import { t } from '../../../lib/i18n';
+  import QuantityInput from '../loads/QuantityInput.svelte';
+  import GenRow from './GenRow.svelte';
   import { LACING_PATTERNS, type LatticeColumnParams } from '../../../lib/engine/generators/lattice-column';
 
   interface Props {
@@ -14,22 +16,19 @@
   }
   let { p = $bindable(), standalone = false }: Props = $props();
   const full = $derived(p as LatticeColumnParams);
+  const hint = (key: string) => ({ hint: t(`generator.hint.${key}`), hintId: `gen-hint-${key}` });
 </script>
 
-{#snippet fieldHead(key: string)}
-  <span class="fname">{t(`generator.ui.${key}`)}</span>
-  <span class="fhint" id={`gen-hint-${key}`}>{t(`generator.hint.${key}`)}</span>
-{/snippet}
-
 {#if standalone}
-  <label>{@render fieldHead('height')}<input type="number" min="0.5" step="0.5" bind:value={full.heightM} aria-describedby="gen-hint-height" /></label>
+  <GenRow name={t('generator.ui.height')} {...hint('height')}><QuantityInput quantity="length" bind:value={full.heightM} describedBy="gen-hint-height" /></GenRow>
 {/if}
-<label>{@render fieldHead('width')}<input type="number" min="0.1" step="0.05" bind:value={p.widthM} aria-describedby="gen-hint-width" /></label>
-<label>{@render fieldHead('divisions')}<input type="number" min="1" step="1" bind:value={p.divisions} aria-describedby="gen-hint-divisions" /></label>
-<label><span>{t('generator.ui.lacing')}</span>
+<GenRow name={t('generator.ui.width')} {...hint('width')}><QuantityInput quantity="length" bind:value={p.widthM} describedBy="gen-hint-width" /></GenRow>
+<GenRow name={t('generator.ui.divisions')} {...hint('divisions')}><input type="number" min="1" step="1" bind:value={p.divisions} aria-describedby="gen-hint-divisions" /></GenRow>
+<GenRow name={t('generator.ui.lacing')}>
   <select bind:value={p.lacing} data-testid="gen-lacing">
     {#each LACING_PATTERNS as l (l)}<option value={l}>{t(`generator.lacing.${l}`)}</option>{/each}
-  </select></label>
+  </select>
+</GenRow>
 {#if standalone}
-  <label class="check"><input type="checkbox" bind:checked={p.fixedBase} /><span>{t('generator.ui.fixedBase')}</span></label>
+  <GenRow name={t('generator.ui.fixedBase')} check><input type="checkbox" bind:checked={p.fixedBase} /></GenRow>
 {/if}

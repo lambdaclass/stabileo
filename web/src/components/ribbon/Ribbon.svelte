@@ -552,6 +552,13 @@
     if (cmd.tool) {
       armTool(cmd.tool);
       /*
+       * Entering Supports or Loads is entering their CREATE mode: an edit left
+       * open on one of them would replace the create row (ToolOptions), and the
+       * button would seem not to have done anything.
+       */
+      if (cmd.tool === 'support') uiStore.clearSelectedSupports();
+      if (cmd.tool === 'load') uiStore.clearSelectedLoads();
+      /*
        * Arming a tool now OPENS the data panel on that tool's own tab.
        *
        * It used to close whatever panel was open, on the reasoning that the

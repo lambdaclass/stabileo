@@ -94,9 +94,8 @@
         <span class="dl-qty">
           {#if r.perVolume}
             <label class="dl-inline">
-              <input type="number" step="0.01" min="0.001" bind:value={rows[i].thickness}
-                     class="dl-num" data-testid="dead-thickness" aria-label={t('loads.dead.thickness')} title={t('loads.dead.thickness')} />
-              m
+              <QuantityInput bind:value={rows[i].thickness} quantity="length" min={0.001}
+                     cls="dl-num" testid="dead-thickness" ariaLabel={t('loads.dead.thickness')} title={t('loads.dead.thickness')} />
             </label>
           {/if}
           <span class="dl-value" data-testid="dead-value">{toQ(r.q, 'areaLoad').toFixed(3)} {unitQ('areaLoad')}</span>
@@ -168,7 +167,7 @@
   .dl-qty { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
   .dl-inline { display: inline-flex; align-items: center; gap: 4px; color: var(--st-text-3); white-space: nowrap; }
   .dl-part { font-size: 0.66rem; }
-  .dl .dl-row input.dl-num { width: 64px; }
+  .dl .dl-row :global(input.dl-num) { width: 64px; }
   .dl-unit, .dl-value { color: var(--st-text-3); font-family: var(--st-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .dl-value { color: var(--st-value); min-width: 6.5rem; text-align: right; }
   .dl-del { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.75rem; padding: 0; }

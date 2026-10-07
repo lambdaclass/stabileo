@@ -96,3 +96,25 @@ export function diagonalOf(points: ReadonlyArray<{ x: number; y: number; z?: num
 export function nodeRadiusForSections(extent: ModelExtent): number {
   return Math.max(MIN_NODE_RADIUS_M, nodeRadiusFor(extent) * 0.5);
 }
+
+/**
+ * The nodes that make up the structure: the ends of its members and the corners of its plates
+ * and quads, or every node when there is none of those.
+ *
+ * What sizes things to the model (diagram height, mode-shape amplitude, marker radius) is
+ * measured on these. A node left on its own far from the structure belongs to nothing drawn
+ * there, and measured with the rest it made a shed 500 m wide: diagrams tens of metres tall.
+ */
+export function structureNodes<N>(
+  nodes: ReadonlyMap<number, N>,
+  members: Iterable<{ nodeI: number; nodeJ: number }>,
+  shells: Iterable<{ nodes: readonly number[] }> = [],
+): N[] {
+  const used = new Set<number>();
+  for (const m of members) { used.add(m.nodeI); used.add(m.nodeJ); }
+  for (const s of shells) for (const id of s.nodes) used.add(id);
+  if (used.size === 0) return [...nodes.values()];
+  const out: N[] = [];
+  for (const id of used) { const n = nodes.get(id); if (n) out.push(n); }
+  return out.length > 0 ? out : [...nodes.values()];
+}

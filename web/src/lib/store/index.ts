@@ -16,6 +16,7 @@ import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
 import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads';
+import { viewVisibility } from './view-state.svelte';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -25,8 +26,19 @@ import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads
 // a micro-optimisation that made the analysis-revision counter conditional, which
 // would let a mutation silently fail to advance it and leave a stale result reading
 // as current.
-// Questions about connections in the old model mean nothing in a replaced one.
+// Questions about connections in the old model mean nothing in a replaced one,
+// and neither do the ids it had hidden: they would hide unrelated members.
 modelStore._setOnReplaced(() => connectionPrompt.clear());
+/*
+ * A different project: what the last one had hidden (by id) and the load case
+ * its self-weight went in mean nothing in it. Opening a file, a tab or a link
+ * resets them too (file.ts, tabs, url-sharing), and then sets the project's own.
+ * Not on every restore: undo, a what-if slider and an applied edit keep them.
+ */
+modelStore._setOnNewProject(() => {
+  viewVisibility.showAll();
+  uiStore.selfWeightCaseId = null;
+});
 
 // An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
 modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);

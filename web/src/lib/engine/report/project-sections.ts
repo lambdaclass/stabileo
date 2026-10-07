@@ -102,11 +102,12 @@ export function deflectionSectionHtml(rows: readonly DeflectionReportRow[], tr: 
 
 export interface ReportFigure { dataUrl: string; caption: string }
 
-export function figuresSectionHtml(figures: readonly ReportFigure[], tr: Tr, heading: string): string[] {
+/** `first`: the number of the first figure here, after the ones earlier in the document. */
+export function figuresSectionHtml(figures: readonly ReportFigure[], tr: Tr, heading: string, first = 1): string[] {
   if (figures.length === 0) return [];
   const out = [`<div class="page-break"></div>`, `<h1 id="sec-figures">${esc(heading)}</h1>`];
   figures.forEach((f, i) => {
-    out.push(`<figure style="margin:12px 0;page-break-inside:avoid"><img class="screenshot" src="${f.dataUrl}" alt="${esc(f.caption)}" /><figcaption style="font-size:11px;color:#444">${esc(tr('report.figure'))} ${i + 1}. ${esc(f.caption)}</figcaption></figure>`);
+    out.push(`<figure style="margin:12px 0;page-break-inside:avoid"><img class="screenshot" src="${f.dataUrl}" alt="${esc(f.caption)}" /><figcaption style="font-size:11px;color:#444">${esc(tr('report.figure'))} ${first + i}. ${esc(f.caption)}</figcaption></figure>`);
   });
   return out;
 }

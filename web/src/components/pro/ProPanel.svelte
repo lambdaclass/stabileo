@@ -175,7 +175,7 @@
      layout shell, and the 600-line ceiling on it is what said so. */
   function exportReport(config: ReportConfig) {
     showReportDialog = false;
-    exportReportAs({
+    void exportReportAs({
       config,
       // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
       verifications: [],
@@ -252,7 +252,7 @@
   };
 </script>
 
-<div class="pro-panel">
+<div class="pro-panel" data-testid="pro-panel" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}>
   {#if uiStore.isMobile}
     <ProPhoneNav {shell} />
   {/if}

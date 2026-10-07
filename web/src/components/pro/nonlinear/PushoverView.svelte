@@ -14,15 +14,19 @@
     capacityCurve, defaultControl, hingesThrough, hingePoints, pushoverFrames, stoppedAtJoint,
     type PushoverResult, type PushDir,
   } from '../../../lib/engine/pushover-curve';
+  import { upToTarget } from '../../../lib/engine/pushover-pattern';
 
-  let { result, modelVersion }: { result: PushoverResult; modelVersion: number } = $props();
+  let { result, modelVersion, target = null }: { result: PushoverResult; modelVersion: number; target?: { kind: 'shear' | 'displacement'; value: number } | null } = $props();
 
   const OWNER = 'pushover';
   const initial = $derived(defaultControl(result));
   let nodeChoice = $state<number | null>(null);
   let dirChoice = $state<PushDir | null>(null);
   const control = $derived({ nodeId: nodeChoice ?? initial?.nodeId ?? 0, dir: dirChoice ?? initial?.dir ?? 'x' });
-  const curve = $derived(capacityCurve(result, control));
+  /** The curve up to the target, when there is one (`pushover-pattern.ts`). */
+  const full = $derived(capacityCurve(result, control));
+  const cut = $derived(target && target.value > 0 ? upToTarget(full, target) : null);
+  const curve = $derived(cut ? cut.curve : full);
   const nodeIds = $derived([...new Set(result.steps[0]?.results.displacements.map((d) => d.nodeId) ?? [])].sort((a, b) => a - b));
   const stopped = $derived(stoppedAtJoint(result, modelStore.elements));
 

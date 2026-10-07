@@ -5,6 +5,7 @@
    * one tributary width on every beam; and whether the loads already there are replaced.
    */
   import { t } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
   import type { GravityMode } from './auto-loads-sections';
   interface Props {
     mode: GravityMode;
@@ -46,7 +47,7 @@
     </div>
     <p class="al-hint">{t(mode === 'panels' ? 'autoLoad.gravity.panelsHint' : 'autoLoad.tributaryHint')}</p>
     <label class="al-field al-field-narrow"><span class="al-label">{t(mode === 'panels' ? 'autoLoad.gravity.fallbackWidth' : 'autoLoad.tributaryWidth')}</span>
-      <span class="al-unit-field"><input type="number" step="0.5" min="0.1" bind:value={tributaryWidth} data-testid="al-trib" /><span>m</span></span>
+      <QuantityInput bind:value={tributaryWidth} quantity="length" min={0.1} testid="al-trib" wrap="al-unit-field" />
     </label>
   </div>
   <div class="al-sub">

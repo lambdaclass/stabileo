@@ -115,37 +115,107 @@ export function parseIdList(text: string): { ids: number[]; bad: string[] } {
   return { ids: [...new Set(ids)], bad };
 }
 
+/** The kinds that can be named by id. `shells` is every plate, three- or four-noded. */
+export type IdKind = 'nodes' | 'elements' | 'shells' | 'plates' | 'quads' | 'supports' | 'loads';
+
 /**
  * Select by id, within one kind, reporting ids the model does not have.
  *
  * One kind at a time on purpose: node 7 and member 7 are different things,
  * and a control that took "7" and selected both would be guessing.
+ *
+ * Plates (`shells`) are one kind to the reader, numbered in two lists: triangles and
+ * quadrilaterals. An id is looked up in both; one that exists in both takes both, and is reported
+ * (`both`) so the reader knows two plates answered it.
  */
 export function selectByIds(
   model: SelectableModel,
-  kind: 'nodes' | 'elements' | 'plates' | 'quads',
+  kind: IdKind,
   text: string,
-): { selection: Selection; missing: number[]; bad: string[] } {
+): { selection: Selection; missing: number[]; bad: string[]; both: number[] } {
   const { ids, bad } = parseIdList(text);
+  const loadIds = new Set((model.loads ?? []).map((l) => l.data.id));
   const has = (id: number): boolean => {
     if (kind === 'nodes') return model.nodes.has(id);
     if (kind === 'elements') return model.elements.has(id);
     if (kind === 'plates') return !!model.plates?.has(id);
-    return !!model.quads?.has(id);
+    if (kind === 'quads') return !!model.quads?.has(id);
+    if (kind === 'shells') return !!model.plates?.has(id) || !!model.quads?.has(id);
+    if (kind === 'supports') return !!model.supports?.has(id);
+    return loadIds.has(id);
   };
   const found = ids.filter(has);
   const missing = ids.filter((id) => !has(id));
+  const shells = new Set<string>();
+  const both: number[] = [];
+  for (const id of found) {
+    const p = (kind === 'plates' || kind === 'shells') && !!model.plates?.has(id);
+    const q = (kind === 'quads' || kind === 'shells') && !!model.quads?.has(id);
+    if (p) shells.add(`p${id}`);
+    if (q) shells.add(`q${id}`);
+    if (p && q) both.push(id);
+  }
   return {
     selection: {
       nodes: kind === 'nodes' ? new Set(found) : new Set(),
       elements: kind === 'elements' ? new Set(found) : new Set(),
-      shells: kind === 'plates' ? new Set(found.map((id) => `p${id}`))
-        : kind === 'quads' ? new Set(found.map((id) => `q${id}`))
-        : new Set(),
+      shells,
+      supports: kind === 'supports' ? new Set(found) : new Set(),
+      loads: kind === 'loads' ? new Set(found) : new Set(),
     },
     missing,
     bad,
+    both,
   };
+}
+
+/** What `likeMembers` needs of the model: members by their nodes, supports and loads by what they sit on. */
+export interface LinkedModel {
+  elements: Map<number, { nodeI: number; nodeJ: number }>;
+  supports: Map<number, { nodeId: number }>;
+  loads: ReadonlyArray<{ data: { id: number; nodeId?: number; elementId?: number } }>;
+}
+
+/**
+ * The members a selection stands for, to find others like them: the selected members, the
+ * members the selected loads sit on, and the members meeting at the selected nodes and at the
+ * nodes of the selected supports and nodal loads.
+ */
+export function seedMembersOf(model: LinkedModel, sel: { nodes: Iterable<number>; elements: Iterable<number>; supports: Iterable<number>; loads: Iterable<number> }): number[] {
+  const seeds = new Set<number>([...sel.elements].filter((id) => model.elements.has(id)));
+  const atNodes = new Set<number>(sel.nodes);
+  for (const id of sel.supports) { const s = model.supports.get(id); if (s) atNodes.add(s.nodeId); }
+  const loadIds = new Set(sel.loads);
+  for (const l of model.loads) {
+    if (!loadIds.has(l.data.id)) continue;
+    if (l.data.elementId !== undefined) seeds.add(l.data.elementId);
+    else if (l.data.nodeId !== undefined) atNodes.add(l.data.nodeId);
+  }
+  if (atNodes.size) for (const [id, e] of model.elements) if (atNodes.has(e.nodeI) || atNodes.has(e.nodeJ)) seeds.add(id);
+  return [...seeds];
+}
+
+/**
+ * A set of members as the kinds being selected: the members themselves, their nodes, the
+ * supports on those nodes, and the loads on those members or nodes. So "parallel", "connected",
+ * "same section" and "same material" work whatever kind is armed above.
+ */
+export function membersAsKinds(model: LinkedModel, members: Iterable<number>, kinds: ReadonlySet<string>): Selection {
+  const ms = new Set(members);
+  const ns = new Set<number>();
+  for (const id of ms) { const e = model.elements.get(id); if (e) { ns.add(e.nodeI); ns.add(e.nodeJ); } }
+  const out: Selection = {
+    nodes: kinds.has('nodes') ? ns : new Set(),
+    elements: kinds.has('elements') ? ms : new Set(),
+    shells: new Set(),
+  };
+  if (kinds.has('supports')) out.supports = new Set([...model.supports].filter(([, s]) => ns.has(s.nodeId)).map(([id]) => id));
+  if (kinds.has('loads')) {
+    out.loads = new Set(model.loads.filter((l) =>
+      (l.data.elementId !== undefined && ms.has(l.data.elementId)) || (l.data.elementId === undefined && l.data.nodeId !== undefined && ns.has(l.data.nodeId)),
+    ).map((l) => l.data.id));
+  }
+  return out;
 }
 
 /**

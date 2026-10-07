@@ -1,6 +1,8 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { unitQ } from '../lib/store/display-units.svelte';
+  import { toDisplay, fromDisplay, type Quantity } from '../lib/utils/units';
 
   let inputName = $state<HTMLInputElement | null>(null);
 
@@ -13,24 +15,39 @@
   let localRho = $state('');
   let localFy = $state('');
 
+  /*
+   * E, ρ and fy are shown in the chosen unit system; the model keeps MPa and
+   * kN/m³. What each field showed when it opened is kept, so a value left
+   * untouched keeps its exact SI number instead of the one rounded on screen.
+   */
+  let shownE = '';
+  let shownRho = '';
+  let shownFy = '';
+  const show = (v: number, q: Quantity) => String(+toDisplay(v, q, uiStore.unitSystem).toPrecision(6));
+  function toSI(text: string | number, shown: string, exact: number | undefined, q: Quantity): number {
+    if (String(text) === shown && exact != null) return exact;
+    const n = parseFloat(String(text));
+    return Number.isFinite(n) ? fromDisplay(n, q, uiStore.unitSystem) : NaN;
+  }
+
   $effect(() => {
     if (mat) {
       localName = mat.name;
-      localE = String(mat.e);
+      localE = shownE = show(mat.e, 'stress');
       localNu = String(mat.nu);
-      localRho = String(mat.rho);
-      localFy = mat.fy != null ? String(mat.fy) : '';
+      localRho = shownRho = show(mat.rho, 'density');
+      localFy = shownFy = mat.fy != null ? show(mat.fy, 'stress') : '';
       setTimeout(() => inputName?.select(), 0);
     }
   });
 
   function confirm() {
     if (!mat || matId === null) return;
-    const e = parseFloat(localE);
+    const e = toSI(localE, shownE, mat.e, 'stress');
     const nu = parseFloat(localNu);
-    const rho = parseFloat(localRho);
+    const rho = toSI(localRho, shownRho, mat.rho, 'density');
     if (isNaN(e) || isNaN(nu) || isNaN(rho)) return;
-    const fy = parseFloat(localFy);
+    const fy = toSI(localFy, shownFy, mat.fy, 'stress');
     modelStore.updateMaterial(matId, { name: localName, e, nu, rho, fy: isNaN(fy) ? undefined : fy });
     close();
   }
@@ -67,7 +84,7 @@
       />
     </div>
     <div class="field">
-      <span>E (MPa):</span>
+      <span>E ({unitQ('stress')}):</span>
       <input
         type="number"
         step="1000"
@@ -85,7 +102,7 @@
       />
     </div>
     <div class="field">
-      <span>ρ (kN/m³):</span>
+      <span>ρ ({unitQ('density')}):</span>
       <input
         type="number"
         step="0.1"
@@ -94,7 +111,7 @@
       />
     </div>
     <div class="field">
-      <span>fy (MPa):</span>
+      <span>fy ({unitQ('stress')}):</span>
       <input
         type="number"
         step="10"

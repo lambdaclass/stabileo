@@ -16,16 +16,18 @@
   import type { Support } from '../../lib/store/model.svelte';
   import { supportDofs3D } from '../../lib/engine/support-dofs-3d';
   import { inclinePatch } from '../../lib/model/edit/support-incline';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import QuantityInput from './loads/QuantityInput.svelte';
 
   let { support }: { support: Support } = $props();
 
   const DOF = [
-    { key: 'tx', label: 'ux', k: 'kx', unit: 'kN/m', c: 'x' },
-    { key: 'ty', label: 'uy', k: 'ky', unit: 'kN/m', c: 'y' },
-    { key: 'tz', label: 'uz', k: 'kz', unit: 'kN/m', c: 'z' },
-    { key: 'rx', label: 'rx', k: 'krx', unit: 'kN·m/rad', c: null },
-    { key: 'ry', label: 'ry', k: 'kry', unit: 'kN·m/rad', c: null },
-    { key: 'rz', label: 'rz', k: 'krz', unit: 'kN·m/rad', c: null },
+    { key: 'tx', label: 'ux', k: 'kx', q: 'springK', c: 'x' },
+    { key: 'ty', label: 'uy', k: 'ky', q: 'springK', c: 'y' },
+    { key: 'tz', label: 'uz', k: 'kz', q: 'springK', c: 'z' },
+    { key: 'rx', label: 'rx', k: 'krx', q: 'springKr', c: null },
+    { key: 'ry', label: 'ry', k: 'kry', q: 'springKr', c: null },
+    { key: 'rz', label: 'rz', k: 'krz', q: 'springKr', c: null },
   ] as const;
 
   const isCustom = $derived(support.type === 'custom3d');
@@ -42,10 +44,9 @@
   function setFixed(key: (typeof DOF)[number]['key'], v: boolean) {
     modelStore.updateSupport(support.id, { dofRestraints: { ...restraints, [key]: v } });
   }
-  function setSpring(k: string, v: string) {
+  function setSpring(k: string, v: number | null) {
     // Empty clears the spring; text that is not a number changes nothing (it used to become 0).
-    const n = v.trim() === '' ? 0 : parseDecimal(v);
-    if (n === null) return;
+    const n = v ?? 0;
     modelStore.updateSupport(support.id, { [k]: n } as never);
   }
 
@@ -91,12 +92,12 @@
       {#each DOF as d (d.key)}
         <tr>
           <!-- The spring's unit beside its DOF: as a placeholder it went away once a value was typed. -->
-          <td class="se-dof">{d.label} <span class="se-unit">{d.unit}</span></td>
+          <td class="se-dof">{d.label} <span class="se-unit">{unitQ(d.q)}</span></td>
           <td><input type="checkbox" checked={fixed(d.key)} disabled={!isCustom} title={isCustom ? '' : t('support.fixedByType')}
             onchange={(e) => setFixed(d.key, e.currentTarget.checked)} data-testid="sup-fix-{support.id}-{d.key}" aria-label="{t('support.fixed')} {d.label}" /></td>
           <td>
-            <input type="text" class="se-num" value={(support as unknown as Record<string, number | undefined>)[d.k] ?? ''} placeholder={d.unit}
-                   disabled={fixed(d.key)} onchange={(e) => setSpring(d.k, e.currentTarget.value)} aria-label="{t('support.spring')} {d.label}" />
+            <QuantityInput nullable cls="se-num" value={(support as unknown as Record<string, number | undefined>)[d.k] ?? null} quantity={d.q} showUnit={false}
+                   disabled={fixed(d.key)} onchange={(v) => setSpring(d.k, v)} ariaLabel="{t('support.spring')} {d.label}" />
           </td>
           <td>
             {#if d.c}
@@ -128,7 +129,7 @@
   .se-grid th { font-weight: 500; color: var(--st-text-3); text-align: left; padding: 1px 4px; }
   .se-grid td { padding: 1px 4px; }
   .se-dof { font-family: var(--st-mono); }
-  .se-num { width: 72px; }
+  .se-num, .se-grid :global(input.se-num) { width: 72px; }
   .se-curve { width: 150px; }
   .se-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .se-mono { font-family: var(--st-mono); }
