@@ -106,6 +106,22 @@ test.describe('@smoke Basic interaction and view', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-node-style-3d'))).toBe('points');
   });
 
+  test('the members table of a large model opens light: node lists load when used', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-nave-industrial'));
+    await page.getByTestId('rb-cmd-element').click();
+    const nodeJ = page.getByTestId('elem-node-j-1');
+    await expect(nodeJ).toBeVisible();
+    // 709 members × 2 × 232 nodes was 330 000 options built at once.
+    expect(await page.evaluate(() => document.getElementsByTagName('option').length)).toBeLessThan(30_000);
+    await expect(page.locator('[data-testid^=elem-type-]')).toHaveCount(709);
+    await nodeJ.focus();
+    await expect(nodeJ.locator('option')).toHaveCount(232);
+    await nodeJ.selectOption('9');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().elements)).toBe(709);
+    await expect(nodeJ).toHaveValue('9');
+  });
+
   test('loads: the row creates; selecting one turns it into the editor, with its own bin', async ({ page }) => {
     await boot(page);
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));

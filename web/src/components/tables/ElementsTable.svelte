@@ -6,6 +6,7 @@
   import { isUnusualPairing } from '../../lib/data/structural-grades';
   import { t } from '../../lib/i18n';
   import EndConditionSelect from '../EndConditionSelect.svelte';
+  import LazyIdSelect from './LazyIdSelect.svelte';
   import type { Release } from '../../lib/store/model.svelte';
   import { fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
 
@@ -46,7 +47,23 @@
   }
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
+  const nodeIds = $derived(nodesArr.map((n) => n.id));
   const elementsArr = $derived([...modelStore.elements.values()]);
+
+  /*
+   * Rows drawn in batches. Each row is a dozen controls, and the shed's 709 at once held the
+   * main thread for half a second every time the member tool opened this table. The first
+   * batch fills the panel at once; the rest follow a frame at a time.
+   */
+  const FIRST_ROWS = 30, MORE_ROWS = 100;
+  let rowLimit = $state(FIRST_ROWS);
+  $effect(() => {
+    const total = elementsArr.length;
+    if (rowLimit >= total) return;
+    const id = requestAnimationFrame(() => { rowLimit = Math.min(total, rowLimit + MORE_ROWS); });
+    return () => cancelAnimationFrame(id);
+  });
+  const shownRows = $derived(rowLimit >= elementsArr.length ? elementsArr : elementsArr.slice(0, rowLimit));
   const materialsArr = $derived([...modelStore.materials.values()]);
   const sectionsArr = $derived([...modelStore.sections.values()]);
 
@@ -104,7 +121,7 @@
     <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeI')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th title={is3DMode ? t('prop.hinge3DDisclosure') : ''}>{t('table.hingeJ')}{is3DMode ? ` ${t('prop.hinges3DSuffix')}` : ''}</th><th>L ({unitQ('length')})</th><th></th></tr>
   </thead>
   <tbody>
-    {#each elementsArr as elem}
+    {#each shownRows as elem (elem.id)}
       <tr class:row-sel={rowSelected('element', elem.id)} onclick={(e) => selectRow(e, 'element', elem.id)}
         ondblclick={(e) => frameRow(e, 'element', elem.id)} onfocusin={(e) => focusRow(e, 'element', elem.id)}>
         <td class="id-cell">{elem.id}</td>
@@ -115,14 +132,10 @@
           </select>
         </td>
         <td>
-          <select class="node-sel" value={elem.nodeI} onchange={(e) => setNode(elem.id, 'i', Number(e.currentTarget.value))} data-testid="elem-node-i-{elem.id}">
-            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
-          </select>
+          <LazyIdSelect class="node-sel" value={elem.nodeI} ids={nodeIds} onchange={(id) => setNode(elem.id, 'i', id)} testid="elem-node-i-{elem.id}" />
         </td>
         <td>
-          <select class="node-sel" value={elem.nodeJ} onchange={(e) => setNode(elem.id, 'j', Number(e.currentTarget.value))} data-testid="elem-node-j-{elem.id}">
-            {#each nodesArr as n (n.id)}<option value={n.id}>{n.id}</option>{/each}
-          </select>
+          <LazyIdSelect class="node-sel" value={elem.nodeJ} ids={nodeIds} onchange={(id) => setNode(elem.id, 'j', id)} testid="elem-node-j-{elem.id}" />
           <button class="flip" title={t('editor.reverseHint')} aria-label={t('editor.reverse')}
             onclick={() => modelStore.reverseElement(elem.id)} data-testid="elem-reverse-{elem.id}">⇄</button>
         </td>
@@ -250,7 +263,7 @@
     font-size: 0.7rem;
   }
 
-  td select {
+  td select, td :global(select.node-sel) {
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
     border: 1px solid var(--st-surface-3);
@@ -265,7 +278,7 @@
   .end-cell { min-width: 96px; }
   .end-cell :global(.ec) { display: flex; }
 
-  td select.node-sel { max-width: 52px; }
+  td :global(select.node-sel) { max-width: 52px; }
 
   .flip {
     background: none;
