@@ -21,11 +21,25 @@ test.describe('@smoke deleting on a phone', () => {
     await page.getByTestId('rb-cmd-select').tap();
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
     const before = await page.evaluate(() => window.__stabileo.elementIds().length);
-    // The beam of the portal, at the top of the framed model.
-    for (const fy of [0.405, 0.39, 0.42, 0.37, 0.44]) {
-      await page.touchscreen.tap(box.x + box.width * 0.5, box.y + box.height * fy);
-      if (await page.getByTestId('selection-delete').count()) break;
-    }
+    // The beam of the portal, at the middle of its span: where it is drawn, not
+    // at a fixed fraction of the canvas, which moves with the framing. The
+    // sheet that opens with the tool shortens the canvas and the model is
+    // framed again into what is left, so wait until the beam is inside it.
+    const beamOnScreen = () => page.evaluate(() => {
+      const h = window.__stabileo;
+      for (const id of h.elementIds()) {
+        const ends = h.elementEnds(id);
+        const a = ends && h.nodeScreenPos(ends.i), b = ends && h.nodeScreenPos(ends.j);
+        if (a && b && Math.abs(a.y - b.y) < 1) return { x: (a.x + b.x) / 2, y: a.y };
+      }
+      return null;
+    });
+    await expect.poll(async () => {
+      const p = await beamOnScreen();
+      return !!p && p.y > box.y && p.y < box.y + box.height;
+    }).toBe(true);
+    const beam = (await beamOnScreen())!;
+    await page.touchscreen.tap(beam.x, beam.y);
     await expect(page.getByTestId('selection-delete')).toBeVisible();
     // Over the model's lower right corner, and no row above the model: the
     // drawing does not move when something is selected.
