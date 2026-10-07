@@ -9141,5 +9141,7 @@ const pt: Translations = {
   'float.loadFrameLocalTip': 'Os valores seguem os eixos locais da barra.',
   'float.thermalUniformTip': 'ΔTg: variação de temperatura de toda a barra, igual em toda a seção. Ela alonga (+) ou encurta (−) a barra; se os apoios impedem, aparece esforço normal.',
   'float.thermalGradientTip': '∇T: diferença de temperatura entre as faces, a inferior menos a superior (superior = eixo local z). Positivo: a face inferior está mais quente e a barra se curva para cima; se os vínculos impedem, aparece flexão.',
+  'selection.likeBasic': 'Como a seleção, nos tipos acima (barras de referência: {n})',
+  'selection.byIdKinds': 'Por número: {kinds}',
 };
 export default pt;

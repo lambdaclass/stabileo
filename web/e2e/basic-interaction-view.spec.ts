@@ -177,6 +177,41 @@ test.describe('@smoke Basic 3D loads and members, and units', () => {
   });
 });
 
+test.describe('@smoke Basic selection panel: every option works on the kinds armed above', () => {
+  test('supports and loads are selected by all, by number, like the selection and walked through', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-select').click();
+    // The PRO-only rows are not here.
+    for (const id of ['sel-like-kind', 'sel-like-level', 'sel-like-plane', 'sel-like-frame', 'sel-loaded-go', 'sel-parallel-go', 'sel-id-kind']) {
+      await expect(page.getByTestId(id)).toHaveCount(0);
+    }
+    // One kind armed: loads.
+    await page.getByTestId('select-mode-loads').click();
+    await page.getByTestId('sel-all').click();
+    await expect.poll(() => selected(page)).toMatchObject({ elements: [], nodes: [], supports: [], loads: [1, 2] });
+    // Two kinds armed: supports and loads.
+    await page.getByTestId('multi-kind').click();
+    await page.getByTestId('select-mode-supports').click();
+    await page.getByTestId('sel-none').click();
+    await page.getByTestId('sel-id-text').fill('1, 9');
+    await page.getByTestId('sel-id-go').click();
+    await expect.poll(() => selected(page)).toMatchObject({ supports: [1], loads: [1] });
+    await expect(page.getByTestId('sel-id-note')).toContainText('9');
+    // Like the selection: every member is connected to the loaded ones, so every support and load.
+    await page.getByTestId('sel-like-connected').click();
+    await expect.poll(() => selected(page)).toMatchObject({ elements: [], supports: [1, 2], loads: [1, 2] });
+    await page.getByTestId('sel-previous').click();
+    await expect.poll(() => selected(page)).toMatchObject({ supports: [1], loads: [1] });
+    // Walking steps through each one, in its own kind.
+    await page.getByTestId('sel-walk').click();
+    await expect(page.getByTestId('sel-walk-at')).toHaveText('1 / 2');
+    await expect.poll(() => selected(page)).toMatchObject({ supports: [1], loads: [] });
+    await page.getByTestId('sel-walk-next').click();
+    await expect.poll(() => selected(page)).toMatchObject({ supports: [], loads: [1] });
+  });
+});
+
 test.describe('@smoke Basic on a phone: create and edit in the sheet', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

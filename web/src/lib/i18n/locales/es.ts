@@ -9497,5 +9497,7 @@ const es: Record<string, string> = {
   'float.loadFrameLocalTip': 'Los valores van según los ejes locales de la barra.',
   'float.thermalUniformTip': 'ΔTg: cambio de temperatura de toda la barra, igual en toda la sección. La alarga (+) o la acorta (−); si los apoyos no la dejan, aparece esfuerzo axil.',
   'float.thermalGradientTip': '∇T: diferencia de temperatura entre las caras, la inferior menos la superior (superior = eje local z). Positivo: la cara inferior está más caliente y la barra se curva hacia arriba; si los vínculos lo impiden, aparece flexión.',
+  'selection.likeBasic': 'Como lo seleccionado, en los tipos de arriba (barras de referencia: {n})',
+  'selection.byIdKinds': 'Por número: {kinds}',
 };
 export default es;

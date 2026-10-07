@@ -1057,13 +1057,30 @@
     // Frame what is selected — the magnifier. Same fit as the whole model, over its nodes only.
     const handleZoomToSelection = () => {
       const ids = selectionNodeIds(uiStore.selectedNodes, uiStore.selectedElements, modelStore.elements);
+      // A selected support or load is framed by the node or member it stands on.
+      for (const id of uiStore.selectedSupports) { const s = modelStore.supports.get(id); if (s) ids.add(s.nodeId); }
+      for (const l of modelStore.loads) {
+        if (!uiStore.selectedLoads.has(l.data.id)) continue;
+        const d = l.data as { nodeId?: number; elementId?: number };
+        if (d.nodeId !== undefined) ids.add(d.nodeId);
+        const e = d.elementId !== undefined ? modelStore.elements.get(d.elementId) : undefined;
+        if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
+      }
       if (ids.size === 0) return;
       const subset = new Map([...modelStore.nodes].filter(([id]) => ids.has(id)));
       if (subset.size === 1) {
-        // One node has no extent to fit; give it a metre around it.
+        // One node has no extent to fit; give it a metre around it. In Basic, where walking
+        // steps through supports and nodal loads one by one, about a third of the model around it,
+        // so what it holds stays in view.
         const [n] = subset.values();
-        subset.set(-1, { ...n!, id: -1, x: n!.x + 0.5 });
-        subset.set(-2, { ...n!, id: -2, x: n!.x - 0.5 });
+        let pad = 0.5;
+        if (uiStore.appMode !== 'pro') {
+          const xs = [...modelStore.nodes.values()];
+          const span = (f: (p: { x: number; y: number; z?: number }) => number) => Math.max(...xs.map(f)) - Math.min(...xs.map(f));
+          pad = Math.max(0.5, 0.3 * Math.hypot(span((p) => p.x), span((p) => p.y), span((p) => p.z ?? 0)));
+        }
+        subset.set(-1, { ...n!, id: -1, x: n!.x + pad });
+        subset.set(-2, { ...n!, id: -2, x: n!.x - pad });
       }
       _zoomToFit(camera, controls, subset as never, orthoCamera, container);
       invalidate();

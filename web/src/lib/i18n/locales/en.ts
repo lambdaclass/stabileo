@@ -9508,5 +9508,7 @@ const en: Record<string, string> = {
   'float.loadFrameLocalTip': 'The values are along the member\'s local axes.',
   'float.thermalUniformTip': 'ΔTg: temperature change of the whole member, the same across the section. It lengthens (+) or shortens (−) the member; if the supports prevent it, an axial force appears.',
   'float.thermalGradientTip': '∇T: temperature difference between the faces, the bottom one minus the top one (top = local z axis). Positive: the bottom face is warmer and the member curves upward; if the supports prevent it, bending appears.',
+  'selection.likeBasic': 'Like the selection, in the kinds above (reference members: {n})',
+  'selection.byIdKinds': 'By number: {kinds}',
 };
 export default en;

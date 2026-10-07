@@ -69,7 +69,8 @@
     {#each modelStore.loads as load, i}
       <tr class:row-sel={rowSelected('load', load.data.id)} onclick={(e) => selectRow(e, 'load', load.data.id)}
         ondblclick={(e) => frameRow(e, 'load', load.data.id)} onfocusin={(e) => focusRow(e, 'load', load.data.id)}>
-        <td class="id-cell">{i + 1}</td>
+        <!-- The load's own number, the one selection by number and the drawing use. -->
+        <td class="id-cell">{load.data.id}</td>
         <td>
           <select value={String(load.data.caseId ?? 1)} onchange={(e) => { modelStore.updateLoadCaseId(load.data.id, parseInt(e.currentTarget.value)); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }}>
             {#each modelStore.loadCases as lc}
