@@ -12,9 +12,9 @@ import type { LoadPlan } from './load-plan';
  * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses']): number {
-  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}) }));
-  return expandCombinations(plan.combinations, cases, { bothSenses }).length;
+function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses'], patternsInCompanions?: boolean): number {
+  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) }));
+  return expandCombinations(plan.combinations, cases, { bothSenses, patternsInCompanions }).length;
 }
 
 
@@ -71,6 +71,13 @@ export interface PlanDelta {
   changes: boolean;
   /** Echo of the flag the counts were computed under. */
   replaceExisting: boolean;
+  /**
+   * With replace on, what carries no generator mark in the cases the plan writes into, and the
+   * combinations that use them (`store/apply-load-plan.ts`, `replaceScope`); null when there is none.
+   * Kept and added to unless `alsoUnmarked`, which is echoed here.
+   */
+  unmarked: { loads: number; combinations: number; cases: string[] } | null;
+  alsoUnmarked: boolean;
 }
 
 export interface CurrentLoadState {
@@ -80,6 +87,22 @@ export interface CurrentLoadState {
   caseTypes: string[];
   /** Existing load counts per case type. Enables an honest `after` when replace is off. */
   perCaseType?: Record<string, { distributed: number; nodal: number }>;
+  /**
+   * What the generator wrote, per case type, and the combinations a code wrote: what "replace"
+   * removes (`apply-load-plan.ts`). Absent: every existing load and combination counts as such.
+   */
+  generated?: { byType: Record<string, { distributed: number; nodal: number }>; combinations: number };
+  /**
+   * What carries no generator mark in the cases the plan writes into, by case type, and the
+   * combinations using them that no code wrote: typed by hand, edited, or written by a version
+   * before the marks. "Replace" keeps them unless asked (`alsoUnmarked`).
+   */
+  unmarked?: { byType: Record<string, { distributed: number; nodal: number; other?: number }>; combinations: number };
+  /**
+   * What floor-load definitions wrote, by case type (`apply-load-plan.ts`, `replaceScope`): kept
+   * whatever "replace" says, since the definition writes them again, and the plan adds to them.
+   */
+  defined?: { byType: Record<string, { distributed: number; nodal: number; other?: number }> };
 }
 
 /**
@@ -91,14 +114,23 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses'] },
+  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean; alsoUnmarked?: boolean },
 ): PlanDelta {
   const replace = options.replaceExisting;
+  const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
   const beforeTypes = [...new Set(current.caseTypes)].sort();
   const added = afterTypes.filter((t) => !beforeTypes.includes(t));
   const removed = beforeTypes.filter((t) => !afterTypes.includes(t));
 
+  // A per-action replace (the model says what the generator wrote) leaves the other actions' cases as they are.
+  const g = current.generated;
+  const clears = replace && !g;
+  // What a per-action replace keeps in the cases it regenerates: a project saved before the marks
+  // keeps the generator's own loads there, and the plan doubles them. Kept unless asked.
+  const u = replace && g ? current.unmarked : undefined;
+  const unmarkedIn = (t: string) => { const r = u?.byType[t]; return r ? r.distributed + r.nodal + (r.other ?? 0) : 0; };
+  const keepsUnmarked = (t: string) => !alsoUnmarked && unmarkedIn(t) > 0;
   const dispositions: CaseDisposition[] = [];
   for (const t of afterTypes) {
     const existed = beforeTypes.includes(t);
@@ -109,14 +141,14 @@ export function describePlanDelta(
         ? 'loadPlan.disposition.regenerated'
         : 'loadPlan.disposition.created', { caseType: t }),
       // Regenerating into a case that keeps its old loads doubles them up. Say so.
-      lossy: existed && !replace,
+      lossy: existed && (!replace || keepsUnmarked(t)),
     });
   }
   for (const t of removed) {
     dispositions.push({
       caseType: t,
-      action: replace ? 'cleared' : 'retained',
-      reason: msg(replace
+      action: clears ? 'cleared' : 'retained',
+      reason: msg(clears
         ? 'loadPlan.disposition.cleared'
         : 'loadPlan.disposition.retained', { caseType: t }),
       lossy: true,
@@ -126,15 +158,30 @@ export function describePlanDelta(
 
   // Counts. With replace ON the plan is the whole model; with it OFF the plan is added to
   // what is there, except combinations, which are always regenerated wholesale.
-  const after = replace
+  // Per action, when the model says what the generator wrote: what it wrote for the plan's actions
+  // goes, the rest stays (cases of other actions and everything typed by hand).
+  // With `alsoUnmarked`, the unmarked loads of the cases it writes into go too.
+  const takenUnmarked = u && alsoUnmarked ? u : undefined;
+  const gone = g ? afterTypes.reduce((acc, t) => ({
+    distributed: acc.distributed + (g.byType[t]?.distributed ?? 0) + (takenUnmarked?.byType[t]?.distributed ?? 0),
+    nodal: acc.nodal + (g.byType[t]?.nodal ?? 0) + (takenUnmarked?.byType[t]?.nodal ?? 0),
+  }), { distributed: 0, nodal: 0 }) : null;
+  const after = replace && g && gone
+    ? {
+        distributed: current.distributed - gone.distributed + plan.distributed.length,
+        nodal: current.nodal - gone.nodal + plan.nodal.length,
+        combinations: current.combinations - g.combinations - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
+      }
+    : replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinationCount(plan, options.bothSenses), cases: afterTypes,
+        combinations: plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions), cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses),
+        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
         cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
       };
 
@@ -142,9 +189,27 @@ export function describePlanDelta(
   for (const t of removed) {
     // The load case is one thing; its participation in the combinations is another, and
     // that participation ends either way. That is the part users were not being told.
-    warnings.push(msg(replace
+    warnings.push(msg(clears
       ? 'loadPlan.warning.caseCleared'
       : 'loadPlan.warning.caseRetainedNotCombined', { caseType: t }));
+  }
+  const unmarkedCases = afterTypes.filter((t) => unmarkedIn(t) > 0);
+  const unmarkedLoads = unmarkedCases.reduce((n, t) => n + unmarkedIn(t), 0);
+  const unmarked = u && (unmarkedLoads > 0 || u.combinations > 0)
+    ? { loads: unmarkedLoads, combinations: u.combinations, cases: unmarkedCases }
+    : null;
+  if (unmarked) {
+    warnings.push(msg(alsoUnmarked ? 'loadPlan.warning.unmarkedRemoved' : 'loadPlan.warning.unmarkedKept', {
+      loads: unmarked.loads, combinations: unmarked.combinations, cases: unmarked.cases.join(', ') || '—',
+    }));
+  }
+  // A floor a definition loads and the plan loads too is loaded twice: the definition stays.
+  const definedIn = (t: string) => { const r = current.defined?.byType[t]; return r ? r.distributed + r.nodal + (r.other ?? 0) : 0; };
+  const definedCases = afterTypes.filter((t) => definedIn(t) > 0);
+  if (definedCases.length > 0) {
+    warnings.push(msg('loadPlan.warning.definedKept', {
+      loads: definedCases.reduce((n, t) => n + definedIn(t), 0), cases: definedCases.join(', '),
+    }));
   }
   if (!replace) {
     const duplicated = afterTypes.filter((t) => beforeTypes.includes(t));
@@ -161,7 +226,7 @@ export function describePlanDelta(
       combinations: current.combinations, cases: beforeTypes,
     },
     after, addedCaseTypes: added, removedCaseTypes: removed,
-    dispositions, warnings, replaceExisting: replace,
+    dispositions, warnings, replaceExisting: replace, unmarked, alsoUnmarked,
     changes: current.distributed !== after.distributed
       || current.nodal !== after.nodal
       || current.combinations !== after.combinations

@@ -1,3 +1,4 @@
+import { getShellCombinationKernel } from './shell-combination-kernel';
 // Combine per-case shell stresses into per-combination + envelope results.
 //
 // The WASM combination solver linearly combines displacements / reactions /
@@ -107,6 +108,30 @@ export function enrichComboShellStresses(
   combinations: Array<{ id: number; factors: Array<{ caseId: number; factor: number }> }>,
   plates: PlateThickness,
 ): void {
+  const kernel = getShellCombinationKernel();
+  if (kernel) {
+    if (![...perCase.values()].some(r => r.plateStresses?.length || r.quadStresses?.length)) return;
+    const active = combinations.filter(c => perCombo.has(c.id));
+    const replaced = new Set(active.map(c => c.id));
+    const result = kernel({
+      cases: [...perCase].map(([id, r]) => ({ id, plateStresses: r.plateStresses ?? [], quadStresses: r.quadStresses ?? [] })),
+      combinations: active,
+      thicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
+      envelopeOrder: envelopeMaxAbs ? [...perCombo].map(([id, r]) => ({ id,
+        plateStresses: replaced.has(id) ? [] : r.plateStresses ?? [],
+        quadStresses: replaced.has(id) ? [] : r.quadStresses ?? [],
+      })) : [],
+    });
+    for (const r of result.combinations) {
+      const destination = perCombo.get(r.id)!;
+      destination.plateStresses = r.plateStresses; destination.quadStresses = r.quadStresses;
+    }
+    if (envelopeMaxAbs) {
+      envelopeMaxAbs.plateStresses = result.envelope.plateStresses;
+      envelopeMaxAbs.quadStresses = result.envelope.quadStresses;
+    }
+    return;
+  }
   const perCasePlates = new Map<number, Map<number, Membrane>>();
   const perCaseQuads = new Map<number, Map<number, Membrane>>();
   let any = false;

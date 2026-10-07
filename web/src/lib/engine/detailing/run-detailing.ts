@@ -1972,6 +1972,10 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     return out.sort((a, b) => a.id.localeCompare(b.id));
   };
 
+  // Built at the first joint, after longitudinal geometry is final. The joint loop only
+  // adds transverse bars, so every column can share these extents for this run.
+  let jointBarExtents: Map<string, { lo: number; hi: number }> | undefined;
+
   // ── §15.4 — the joint gets its own transverse reinforcement ──
   //
   // Beam stirrups stop at the support face, which is where a beam's shear reinforcement
@@ -2030,14 +2034,17 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     // up to a few diameters plus their clearance gaps, so the uppermost ties in a joint band
     // can sit above a bar that stops below them. Judging containment at the node's elevation
     // credits every tie with a bar that only some of them reach.
-    const columnBarExtent = new Map<string, { lo: number; hi: number }>();
-    for (const mb of memberBarsById.values()) {
-      for (const bar of mb.bars) {
-        if (bar.role !== 'longitudinal') continue;
-        const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
-        columnBarExtent.set(bar.id, { lo: Math.min(...zs), hi: Math.max(...zs) });
+    if (!jointBarExtents) {
+      jointBarExtents = new Map();
+      for (const mb of memberBarsById.values()) {
+        for (const bar of mb.bars) {
+          if (bar.role !== 'longitudinal') continue;
+          const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
+          jointBarExtents.set(bar.id, { lo: Math.min(...zs), hi: Math.max(...zs) });
+        }
       }
     }
+    const columnBarExtent = jointBarExtents;
     const plan = columnBarsAtLevel(Z(top), { x: top.x, y: top.y });
     const cageBarsAt = (z: number) => plan
       .filter((p) => {

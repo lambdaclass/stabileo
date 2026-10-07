@@ -97,6 +97,13 @@ export interface SectionFields {
   t?: number;
   /** Lip thickness, C-channel only. `createSectionShape` substitutes `tf` when it is absent. */
   tl?: number;
+  /**
+   * Always written as `undefined`: shear areas declared for a section are numbers about THAT
+   * section, and a replacement kept them — a 10×10 rectangle's declared As went on describing the
+   * IPE 600 chosen in its place. The geometric basis is the caller's to carry over (it is a way
+   * of reading whatever section is there, not a number about the old one).
+   */
+  shearAreas?: import('./shear-areas').ShearAreaSpec;
 }
 
 /**
@@ -123,11 +130,13 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       rotation: 0,
       drawn,
       // Nothing of a previous make-up may survive: each of these would describe another section.
-      built: undefined, composition: undefined, tl: undefined,
+      built: undefined, composition: undefined, tl: undefined, shearAreas: undefined,
       shape: d?.shape, tw: d?.tw, tf: d?.tf, t: d?.t,
       profileFamily: d?.profileName ? findProfileFamily(d.profileName) : undefined,
       a: props.a, iy: props.iy, iz: props.iz,
-      ...(props.j != null ? { j: props.j } : {}),
+      // Written even when the drawing has no torsion constant: a previous one would otherwise
+      // survive and be reported for a section it was never computed for.
+      j: props.j ?? undefined,
       b: props.b, h: props.h,
     };
   }
@@ -158,14 +167,17 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
     const single = built.count === 1;
     return {
       name: built.name,
-      drawn: undefined,
+      // A template's record and its lip would otherwise stay, and the section reopen as the
+      // template it no longer is.
+      drawn: undefined, built: undefined, tl: undefined, shearAreas: undefined,
       rotation: resolveRotationDeg(spec, autoDeg),
       composition: specToComposition(spec, resolved.name),
       profileFamily: resolved.family,
       a: built.a,
       iy: built.iy,
       iz: built.iz,
-      ...(built.j !== null ? { j: built.j } : {}),
+      // Written even when the assembly has none, for the reason the drawn branch gives.
+      j: built.j ?? undefined,
       b: built.b,
       h: built.h,
       // The profile's own thicknesses, or none: a previous make-up's (a drawn welded I, say) would
@@ -182,28 +194,66 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
        * Iz with a single profile's — the solver would then analyse a double-channel member as
        * one channel. The emitter takes the same care for the same reason.
        */
-      ...(single ? { shape: familyToShape(resolved.family as never) } : {}),
+      // And written as `undefined` for an assembly, so a previous single profile's shape does not.
+      shape: single ? familyToShape(resolved.family as never) : undefined,
     };
   }
   const { name, shapeType, params, props, rotationDeg } = choice;
+  /*
+   * Every field a template can define is written, `undefined` when this one does not define it.
+   * The store merges a patch into the section, so a field left out keeps the previous template's
+   * value: a tube edited into a solid round bar kept its wall `t` and stayed a tube, 85 % short of
+   * the bar's area.
+   */
   return {
     name,
-    drawn: undefined,
+    drawn: undefined, composition: undefined, profileFamily: undefined, shearAreas: undefined,
     rotation: rotationDeg === 'auto' ? autoDeg : rotationDeg,
     built: { shapeType, params },
     a: props.a,
     iy: props.iy,
     iz: props.iz,
-    ...(props.j !== undefined ? { j: props.j } : {}),
-    ...(props.b !== undefined ? { b: props.b } : {}),
-    ...(props.h !== undefined ? { h: props.h } : {}),
+    j: props.j,
+    b: props.b,
+    h: props.h,
     // The four the resolver needs for a section with no catalogue entry. See `SectionFields`.
-    ...(props.tw !== undefined ? { tw: props.tw } : {}),
-    ...(props.tf !== undefined ? { tf: props.tf } : {}),
-    ...(props.t !== undefined ? { t: props.t } : {}),
-    ...(props.tl !== undefined ? { tl: props.tl } : {}),
+    tw: props.tw,
+    tf: props.tf,
+    t: props.t,
+    tl: props.tl,
     shape: props.shape,
   };
+}
+
+/**
+ * Whether a drawn choice is the drawing it was reopened from, as it was: same name, same parts.
+ *
+ * What the editor derives on the way out — each part's modular ratio, the material areas — is not
+ * an edit, nor is the reference material of a drawing in one material, which the editor leaves
+ * out. Closing a drawing reopened and left alone used to ask whether to discard it.
+ */
+export function drawnUnchanged(
+  choice: SectionChoice | null,
+  initial: { name: string; drawn: import('./drawn').DrawnSection } | null,
+): boolean {
+  if (!choice || choice.kind !== 'drawn' || !initial || choice.name !== initial.name) return false;
+  const norm = (d: import('./drawn').DrawnSection) => {
+    const { areas: _a, refMaterialId, ...rest } = d;
+    const parts = d.parts.map(({ ratio: _r, ...p }) => p);
+    const composite = parts.some((p) => !p.void && p.materialId != null);
+    return canonical({ ...rest, parts, ...(composite ? { refMaterialId } : {}) });
+  };
+  return norm(choice.drawn) === norm(initial.drawn);
+}
+
+/** JSON with every object's keys sorted, so two equal values read the same however they were built. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
+  if (v && typeof v === 'object') {
+    return `{${Object.keys(v).filter((k) => (v as Record<string, unknown>)[k] !== undefined).sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v);
 }
 
 /** Whether a choice describes a catalogue pick. Kept here so no surface re-derives the rule. */

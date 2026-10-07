@@ -7,6 +7,7 @@ import type { Section } from '../store/model.svelte';
 import { buildSectionOutline } from '../engine/generators/section-outline';
 import type { BuiltUpArrangement } from '../engine/generators/built-up-section';
 import { zedOutline } from '../profiles/cold-formed';
+import { drawingGeometry } from '../section/drawing';
 
 /**
  * Create an I/H beam shape (doubly-symmetric).
@@ -324,8 +325,38 @@ export function createSectionShapes(sec: Section): THREE.Shape[] {
     return [];
   }
 
+  /*
+   * A drawn section, one with no shape, and the inverted L take the canonical outline: the
+   * polygons the analysis integrates, about the centroid the member's axis runs through. A
+   * drawing has no shape unless it is a welded I or one profile, so it fell to the `default:`
+   * branch below and every cover-plated, boxed or filled section rendered as a plain I.
+   */
+  if (sec.drawn || !sec.shape || sec.shape === 'invL') {
+    const canonical = canonicalShapes(sec);
+    if (canonical.length > 0) return canonical;
+  }
   const single = createSectionShape(sec);
   return single ? [single] : [];
+}
+
+/** The section's canonical outline as shapes, each solid with the holes inside it. */
+export function canonicalShapes(sec: Section): THREE.Shape[] {
+  const state = sec.canonical;
+  if (!state || state.kind !== 'geometry-backed') return [];
+  const g = drawingGeometry(state);
+  const inside = (pt: readonly [number, number], poly: ReadonlyArray<readonly [number, number]>) => {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [yi, zi] = poly[i]!, [yj, zj] = poly[j]!;
+      if ((zi > pt[1]) !== (zj > pt[1]) && pt[0] < ((yj - yi) * (pt[1] - zi)) / (zj - zi) + yi) c = !c;
+    }
+    return c;
+  };
+  return g.solids.filter((p) => p.length >= 3).map((solid) => {
+    const s = new THREE.Shape(solid.map(([y, z]) => new THREE.Vector2(y, z)));
+    for (const h of g.holes) if (h.length >= 3 && inside(h[0]!, solid)) s.holes.push(new THREE.Path(h.map(([y, z]) => new THREE.Vector2(y, z))));
+    return s;
+  });
 }
 
 export function createSectionShape(sec: Section): THREE.Shape | null {

@@ -1,3 +1,4 @@
+import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
@@ -14,6 +15,7 @@ import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
+import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -26,9 +28,14 @@ import { connectionPrompt } from './connection-prompt.svelte';
 // Questions about connections in the old model mean nothing in a replaced one.
 modelStore._setOnReplaced(() => connectionPrompt.clear());
 
+// An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
+modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
+
 modelStore._setOnMutation(() => {
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
+  // Floor loads kept as definitions follow the edit once the model is still, in its undo step (`defined-loads.ts`).
+  scheduleDefinedLoadsSync();
 });
 
 // A reinforcement transaction is NOT a model mutation: forces are unaffected, so
@@ -88,6 +95,17 @@ resultsStore._setTransverseSignProvider((elementId) => {
   const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
 });
+
+// Members of variable section are published as one member each, from any analysis that solved
+// them as pieces (`engine/variable-members.ts`), the advanced ones included.
+resultsStore._setNormalise3D(
+  (r) => collapseVariableResults(r, variableExpansionFor(modelStore.model as never)),
+  (e) => collapseVariableEnvelope(e, variableExpansionFor(modelStore.model as never)),
+  {
+    pdelta: (r) => collapseVariablePDelta(r, variableExpansionFor(modelStore.model as never)),
+    modes: (r) => collapseVariableModes(r, variableExpansionFor(modelStore.model as never)),
+  },
+);
 
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();

@@ -15,6 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { detailingStore } from '../detailing.svelte';
 import { resultsStore } from '../results.svelte';
+import { collectSlabColumns } from '../detailing-footing-inputs';
 import type { ElementForces3D, QuadStress } from '../../engine/types-3d';
 
 /**
@@ -523,6 +524,42 @@ describe('punching F_direct — what beams deliver into the joint', () => {
 });
 
 describe('punching joint transfer — modelling-direction invariance and factored nodal loads', () => {
+  it('keeps nodal loads separate by joint and refreshes loads and factors on each collection', () => {
+    const { top, columns } = buildSlabModel();
+    modelStore.addNodalLoad3D(top[0], 0, 0, -10, 0, 0, 0, 1);
+    modelStore.addNodalLoad3D(top[1], 0, 0, -7, 0, 0, 0, 2);
+    const live = modelStore.addNodalLoad3D(top[0], 0, 0, -4, 0, 0, 0, 2);
+    modelStore.addNodalLoad3D(top[0], 0, 0, 3, 0, 0, 0, 1);
+    const delivered = () => {
+      publishCombinations([], columns, -220);
+      const joints = collectSlabColumns();
+      return top.map(id => joints.get(id)!.forces.find(f => f.combinationId === 1)!.directlyDelivered);
+    };
+    const initial = delivered();
+    expect(initial[0]).toBeCloseTo(1.2 * 7 + 1.6 * 4, 10);
+    expect(initial[1]).toBeCloseTo(1.6 * 7, 10);
+    expect(initial.slice(2)).toEqual([0, 0]);
+
+    modelStore.updateLoad(live, { fz: -9 });
+    modelStore.updateCombination(1, { factors: [{ caseId: 1, factor: 0 }, { caseId: 2, factor: -2 }] });
+    expect(delivered()).toEqual([-18, -14, 0, 0]);
+    modelStore.removeLoad(live);
+    expect(delivered()).toEqual([0, -14, 0, 0]);
+  });
+
+  it('uses unfactored loads from all cases for the single active result set', () => {
+    const { top, columns } = buildSlabModel();
+    modelStore.addNodalLoad3D(top[0], 0, 0, -10, 0, 0, 0);
+    modelStore.addNodalLoad3D(top[1], 0, 0, -7, 0, 0, 0, 2);
+    modelStore.addNodalLoad3D(top[0], 0, 0, 3, 0, 0, 0, 2);
+    resultsStore.clear();
+    resultsStore.setResults3D({ displacements: [], reactions: [],
+      elementForces: columns.map(id => columnForces(id, -220)), quadStresses: [] });
+    const joints = collectSlabColumns();
+    expect(joints.get(top[0])!.forces[0]).toMatchObject({ combinationId: 0, directlyDelivered: 7 });
+    expect(joints.get(top[1])!.forces[0]).toMatchObject({ combinationId: 0, directlyDelivered: 7 });
+  });
+
   it('sums the unbalanced moment in GLOBAL axes: mixed modelling directions cannot cancel wrongly', () => {
     // Below leg modelled top→base carrying 10 kN·m, above leg base→top carrying 4,
     // both about the same global axis. The joint transfer is 14. The old

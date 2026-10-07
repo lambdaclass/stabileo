@@ -3,7 +3,8 @@
  *
  * Design, verification, detailing, joints, the report and the export all used to read every
  * solved combination. In PRO they read the ACTIVE list the project states
- * (`engine/result-scopes.ts`); unstated, that is every combination, as before. The viewport and
+ * (`engine/result-scopes.ts`); unstated, that is every combination but the service ones a code
+ * wrote (`designComboIds`). The viewport and
  * the combination selectors keep offering every combination — the list decides what is used,
  * not what can be looked at.
  */
@@ -11,7 +12,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
-import { activeComboIds, narrowPerCombo } from '../engine/result-scopes';
+import { activeComboIds, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
 import { computeGoverning3D } from '../engine/governing-case';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
 
@@ -21,10 +22,15 @@ export function activeCombinationIds(): number[] {
   return uiStore.analysisMode === 'pro' ? activeComboIds(modelStore.resultScopes, combos) : combos.map((c) => c.id);
 }
 
-/** The solved combinations design reads. */
+/**
+ * The solved combinations design reads. With no stated list, every one but the service
+ * combinations a code wrote (`designComboIds`): it returned all of them, and joints, footings,
+ * floors, the report and the tables read service combinations as design demands.
+ */
 export function activePerCombo3D(): Map<number, AnalysisResults3D> {
   const all = resultsStore.perCombo3D;
-  if (uiStore.analysisMode !== 'pro' || !modelStore.resultScopes?.active) return all;
+  if (uiStore.analysisMode !== 'pro') return all;
+  if (!modelStore.resultScopes?.active && !modelStore.model.combinations.some(isServiceCombination)) return all;
   return narrowPerCombo(all, activeCombinationIds());
 }
 

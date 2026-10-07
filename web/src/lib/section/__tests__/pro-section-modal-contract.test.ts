@@ -349,3 +349,31 @@ describe('the batten panel states the code and draws nothing', () => {
     expect(call).not.toContain('lengthM');
   });
 });
+
+/*
+ * PR 250 review, round 2. The build division's editors lived in the `{:else}` of the division
+ * switch, so a look at the catalogue unmounted them and a drawing in progress was gone on the
+ * way back, without a word. A drawing reopened and left alone asked "discard?" on close, and a
+ * pending "discard?" outlived a close by the parent.
+ */
+describe('the build division keeps what is being built', () => {
+  /** The markup from the division switch to the end of the browse column. */
+  const browse = MODAL.slice(MODAL.indexOf('<div class="browse">'), MODAL.indexOf('{#if division === \'standard\'}\n        <aside'));
+
+  it('mounts the build editors outside the division switch, hidden while the catalogue shows', () => {
+    const standardSwitch = browse.match(/\{#if division === 'standard' && browseMode === 'table'\}[\s\S]*?\{\/if\}/)?.[0] ?? '';
+    expect(standardSwitch).not.toBe('');
+    expect(standardSwitch).not.toContain('DrawnSectionEditor');
+    expect(standardSwitch).not.toContain('BuiltSectionPanel');
+    expect(browse).toMatch(/hidden=\{division !== 'build'\}[\s\S]*DrawnSectionEditor/);
+  });
+
+  it('counts a drawing reopened unchanged as untouched', () => {
+    expect(MODAL).toContain('drawnUnchanged(drawDraft, drawn)');
+  });
+
+  it('forgets a pending "discard?" when the dialog closes, whoever closed it', () => {
+    const closing = MODAL.slice(MODAL.indexOf('} else if (!isOpen && wasOpen) {'));
+    expect(closing.slice(0, closing.indexOf('});'))).toContain('confirmClose = false');
+  });
+});

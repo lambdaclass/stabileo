@@ -14,6 +14,8 @@
  *     Removing it must lose nothing;
  *   · they are collinear and drawn head to tail, so the merged member's I→J is theirs;
  *   · same type, material and section, and the same local frame (same explicit reference and roll);
+ *   · neither of variable section: the merged member has one section at each end, and two
+ *     members of which one tapers are no one taper;
  *   · no release, joint or offset at the shared ends — an interior hinge is a structure, not a
  *     drawing artefact.
  *
@@ -46,7 +48,7 @@ export interface MergeReport {
   reinforcementDropped: number;
 }
 
-export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal';
+export type RefuseReason = 'nodeBusy' | 'differentProperties' | 'endConditions' | 'reversed' | 'thermal' | 'variableSection' | 'prestress';
 
 type N = { x: number; y: number; z?: number };
 const pv = (n: N): Vec3 => [n.x, n.y, n.z ?? 0];
@@ -91,6 +93,7 @@ function nodeIsBusy(nodeId: number): boolean {
 /** Why two collinear, head-to-tail members may not merge, or null. */
 function whyNot(a: Element, b: Element): RefuseReason | null {
   if (a.type !== b.type || a.materialId !== b.materialId || a.sectionId !== b.sectionId) return 'differentProperties';
+  if (a.variableSection || b.variableSection) return 'variableSection';
   if (a.localYx !== b.localYx || a.localYy !== b.localYy || a.localYz !== b.localYz || (a.rollAngle ?? 0) !== (b.rollAngle ?? 0)) return 'differentProperties';
   if (released(a.releaseJ) || released(b.releaseI) || a.jointJ || b.jointI || a.offset?.j || b.offset?.i) return 'endConditions';
   // A semi-rigid end where the two meet is an end condition the merged member would lose.
@@ -106,9 +109,13 @@ function whyNot(a: Element, b: Element): RefuseReason | null {
 
 function thermalKey(elementId: number): string {
   return modelStore.loads.filter((l) => l.type === 'thermal' && (l.data as { elementId: number }).elementId === elementId)
-    .map((l) => { const d = l.data as { dtUniform: number; dtGradient: number; caseId?: number }; return `${d.caseId ?? 1}:${d.dtUniform}:${d.dtGradient}`; })
+    .map((l) => { const d = l.data as { dtUniform: number; dtGradient: number; dtGradientY?: number; strain?: number; caseId?: number }; return `${d.caseId ?? 1}:${d.dtUniform}:${d.dtGradient}:${d.dtGradientY ?? 0}:${d.strain ?? 0}`; })
     .sort().join('|');
 }
+
+/** A tendon is one parabola per member; two members' tendons are not one parabola in general. */
+const hasTendon = (elementId: number) =>
+  modelStore.loads.some((l) => l.type === 'prestress3d' && l.data.elementId === elementId);
 
 export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
   const report: MergeReport = { merged: [], removedNodes: 0, refused: {}, reinforcementDropped: 0 };
@@ -132,7 +139,8 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
     const f = modelStore.elements.get(cand)!;
     // Not collinear: a corner, not a refusal.
     if (1 - dot(direction(e), direction(f)) > ANGLE_TOL) return null;
-    const why = whyNot(e, f) ?? (nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null);
+    const why = whyNot(e, f) ?? (nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null)
+      ?? (hasTendon(e.id) || hasTendon(f.id) ? 'prestress' : null);
     if (why) { refuse(why); return null; }
     return cand;
   };

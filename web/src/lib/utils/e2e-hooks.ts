@@ -298,6 +298,8 @@ export interface StabileoTestHooks {
   analysisSettings(): unknown;
   /** The 3D distributed loads, as plain copies of their data. */
   distributedLoads3D(): Array<Record<string, unknown>>;
+  /** Every load of the model, its type and its data. */
+  allLoads(): Array<{ type: string; data: Record<string, unknown> }>;
   /**
    * The joint designs the project carries, as persisted — I-06.
    *
@@ -456,6 +458,8 @@ export interface StabileoTestActions {
   combineCases(name: string): number;
   /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
+  /** Select these nodes, in this order, as clicking them one after another would. */
+  selectNodes(ids: number[]): void;
   /** Open the viewport's context menu on a member, as a right click on it would. */
   openContextMenu(elementId: number): void;
   /** Select shells by key, `q12` for a quad and `p3` for a plate; empty: every shell. */
@@ -710,6 +714,7 @@ export function installE2EHooks(): void {
     canvasInkRatio,
     codeSettings: () => JSON.parse(JSON.stringify(modelStore.model.codeSettings ?? null)),
     analysisSettings: () => JSON.parse(JSON.stringify(modelStore.analysis ?? null)),
+    allLoads: () => JSON.parse(JSON.stringify(modelStore.loads)),
     distributedLoads3D: () => modelStore.loads
       .filter((l) => l.type === 'distributed3d')
       .map((l) => JSON.parse(JSON.stringify(l.data)) as Record<string, unknown>),
@@ -775,6 +780,10 @@ export function installE2EHooks(): void {
     selectElements: (ids: number[]) => {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));
+    },
+    selectNodes: (ids: number[]) => {
+      uiStore.selectMode = 'nodes';
+      ids.forEach((id, i) => uiStore.selectNode(id, i > 0));
     },
     openContextMenu: (elementId: number) => {
       uiStore.contextMenu = { x: 200, y: 200, elementId };

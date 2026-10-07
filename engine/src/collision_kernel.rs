@@ -33,8 +33,16 @@ fn dot(a: Point, b: Point) -> f64 {
 fn sub(a: Point, b: Point) -> Point {
     std::array::from_fn(|k| a[k] - b[k])
 }
+// As the reference's Math.max(0, Math.min(1, v)): a zero comes back +0, never the −0 that
+// f64::clamp keeps, so the closest point is the same to the sign of its zeros. NaN stays NaN.
 fn clamp(v: f64) -> f64 {
-    v.clamp(0.0, 1.0)
+    if v > 0.0 {
+        v.min(1.0)
+    } else if v.is_nan() {
+        v
+    } else {
+        0.0
+    }
 }
 // Scaled compensated norm, matching the JS reference's Math.hypot without overflow.
 fn norm(v: Point) -> f64 {
@@ -506,6 +514,14 @@ mod tests {
         assert!(geometry.bucket_scans() > 0.0);
         assert!(geometry.changed_pairs(&[]).unwrap().is_empty());
         assert_eq!(geometry.bucket_scans(), 0.0);
+    }
+    #[test]
+    fn clamp_gives_positive_zero_like_math_max() {
+        assert!(clamp(-0.0).is_sign_positive());
+        assert!(clamp(-1e-300).is_sign_positive() && clamp(-1e-300) == 0.0);
+        assert_eq!(clamp(0.25), 0.25);
+        assert_eq!(clamp(7.0), 1.0);
+        assert!(clamp(f64::NAN).is_nan());
     }
     #[test]
     fn rejects_bad_buffers() {

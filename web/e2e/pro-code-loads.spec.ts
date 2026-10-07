@@ -1,4 +1,4 @@
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, alSection } from './fixtures';
 
 /**
  * The code-backed load generator, on the two halves that were not code-backed.
@@ -29,6 +29,7 @@ async function openWithSeismic(page: import('@playwright/test').Page) {
   await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
   await page.getByTestId('pending-review-in-loads').click();
   await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+  await alSection(page, 'seismic');
   await page.getByTestId('al-enable-seismic').check();
 }
 
@@ -242,7 +243,7 @@ test.describe('@smoke the project states its own combination rules', () => {
     await expect(page.getByTestId('combo-rules')).toHaveCount(0);
     await expect(page.getByTestId('combo-rule-generate')).toBeDisabled();
     await page.getByTestId('combo-rules-edit').click();
-    await expect(page.getByTestId('al-tab-combos')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('al-nav-combos')).toHaveAttribute('aria-current', 'page');
     const rules = page.getByTestId('combo-rules');
     await page.getByTestId('combo-rule-add').click();
     // 1,4 D + 0,7 L, typed with a decimal comma.
@@ -268,19 +269,21 @@ test.describe('@smoke the project states its own combination rules', () => {
 
   test('the regulation dialog applies the project rules in place of CIRSOC 101 when asked', async ({ pro: page }) => {
     await openDialog(page);
-    await page.getByTestId('al-tab-combos').click();
+    await alSection(page, 'combos');
     await expect(page.getByTestId('al-combo-source-project')).toBeDisabled();
     await page.getByTestId('combo-rule-add').click();
     await page.getByTestId('combo-rule-r1-D').fill('1.4');
     await page.getByTestId('combo-rule-r1-D').press('Tab');
     await page.getByTestId('al-combo-source-project').check();
-    // Replacing what the model has, so the count is the rule's alone.
-    await page.getByTestId('al-tab-loads').click();
+    // "Replace" takes back what a code wrote; the example's own combinations are typed in it and
+    // stay, so the rule adds one to them.
+    const typed = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
+    await alSection(page, 'applying');
     await page.getByTestId('al-clear').check();
     await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-after-combos')).toHaveText('1');
+    await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(1);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(typed + 1);
   });
 });
 
@@ -290,6 +293,7 @@ test.describe('@smoke snow from CIRSOC 104', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('pro-auto-loads-btn').click();
+    await alSection(page, 'snow');
     await page.getByTestId('al-enable-snow').check();
     await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
     await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);

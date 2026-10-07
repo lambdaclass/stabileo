@@ -53,6 +53,7 @@ test.describe('@smoke structural grid', () => {
     await page.getByTestId('load-tab-floor').click();
     await page.getByTestId('fl-target').selectOption({ label: 'N1' });
     await page.getByTestId('fl-q').fill('5');
+    await page.getByTestId('fl-q').press('Tab');
     // Two panels, 13.5 × 5 m: 5 kN/m² × 67.5 m².
     await expect(page.getByTestId('fl-summary')).toContainText('2 panels');
     await expect(page.getByTestId('fl-summary')).toContainText('337.5 kN');

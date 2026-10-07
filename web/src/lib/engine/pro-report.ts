@@ -3,6 +3,8 @@
 // Uses window.print() for PDF output (browser native)
 // Groups identical element designs to reduce report length
 
+import { memberSectionLabel } from '../section/variable';
+import { plainNumber } from '../utils/units';
 import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
@@ -644,7 +646,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<h2>${subNo(1)} ${escHtml(tr('report.materials'))} (${materials.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('E')} (MPa)</th><th>${km('\\nu')}</th><th>${km('\\gamma')} (kN/m³)</th><th>${km("f'_c / f_y")} (MPa)</th></tr></thead><tbody>`);
   for (const m of materials) {
-    html.push(`<tr><td>${m.id}</td><td>${escHtml(m.name)}</td><td class="num">${m.e.toLocaleString()}</td><td class="num">${m.nu}</td><td class="num">${m.rho}</td><td class="num">${m.fy ?? '—'}</td></tr>`);
+    html.push(`<tr><td>${m.id}</td><td>${escHtml(m.name)}</td><td class="num">${plainNumber(m.e, 0)}</td><td class="num">${m.nu}</td><td class="num">${m.rho}</td><td class="num">${m.fy ?? '—'}</td></tr>`);
   }
   html.push(`</tbody></table>`);
 
@@ -664,7 +666,7 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
     for (const e of elements) {
       const matName = materials.find(m => m.id === e.materialId)?.name ?? String(e.materialId);
-      const secName = sections.find(s => s.id === e.sectionId)?.name ?? String(e.sectionId);
+      const secName = memberSectionLabel(sections, e as never);
       html.push(`<tr><td>${e.id}</td><td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${escHtml(matName)}</td><td>${escHtml(secName)}</td></tr>`);
     }
     html.push(`</tbody></table>`);

@@ -182,11 +182,20 @@ export function analyzeDrawn(
       for (const piece of allSolid) {
         const jp = analyzeSectionTorsion({ geometry: pieceGeometry(piece) }).j;
         if (!(Number.isFinite(jp) && jp > 0)) throw new Error('no J');
-        // G of the piece: the area-weighted G ratio of the regions it contains.
+        /*
+         * G of the piece: the G ratio of the regions it contains, weighted by their polar moment
+         * about the piece's centroid. The outer material carries most of the torque, so an area
+         * weighting gave a filled tube a quarter less J than it has; this one is exact for
+         * concentric circles, where J is the polar moment.
+         */
+        const pm = momentsOf([piece]);
+        const yc = pm.sy / pm.a, zc = pm.sz / pm.a;
         let wa = 0, wg = 0, kinds = 0;
         for (const r of assembled.regions) {
-          const ar = areaOf(polygonClipping.intersection(r.region, piece));
-          if (ar > 0) { wa += ar; wg += ar * r.ratio.g; kinds++; }
+          const m = momentsOf(polygonClipping.intersection(r.region, piece));
+          if (!(m.a > 1e-14)) continue;
+          const ip = m.iyy + m.izz - 2 * (yc * m.sy + zc * m.sz) + (yc * yc + zc * zc) * m.a;
+          wa += ip; wg += ip * r.ratio.g; kinds++;
         }
         if (kinds > 1) mixed = true;
         sum += jp * (wa > 0 ? wg / wa : 1);

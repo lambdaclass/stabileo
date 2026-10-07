@@ -27,7 +27,8 @@
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
-import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad } from '../../store/model.svelte';
+import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
+import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
 import { applyAxial, applyVector, axisPermutation, dot, isReflection, type Affine, type Vec3 } from './affine';
 
@@ -218,7 +219,14 @@ export function carriedLoad(
   T: Affine, l: Load,
   nodeMap: Map<number, number>, elementMap: Map<number, number>, quadMap: Map<number, number>,
   signsOf: (elementId: number) => { sy: 1 | -1; sz: 1 | -1 },
+  plateMap: Map<number, number> = new Map(),
 ): { load?: Load; warning?: EditWarning } | null {
+  // A copy of a floor-load definition's load is a plain load (`fromDef` dropped): the definition
+  // loads the original, and its rewrite deleted the copies, which lost their loads at the next solve.
+  if ((l.data as { fromDef?: number }).fromDef !== undefined) {
+    const { fromDef: _def, ...rest } = l.data as unknown as Record<string, unknown>;
+    l = { ...l, data: rest } as unknown as Load;
+  }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
   const d = l.data as unknown as Record<string, unknown>;
   switch (l.type) {
@@ -245,26 +253,43 @@ export function carriedLoad(
       const q = l.data as PointLoadOnElement3D;
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
-      const { sy, sz } = signsOf(q.elementId);
-      return { load: { type: 'pointOnElement3d', data: { ...q, elementId: to, py: sy * q.py, pz: sz * q.pz } } };
+      return { load: { type: 'pointOnElement3d', data: { ...carryPointLoad(q, T, signsOf(q.elementId)), elementId: to } } };
     }
     case 'thermal': {
       const q = l.data as ThermalLoad;
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
-      // The gradient is across local z, so it follows z's sign.
-      const { sz } = signsOf(q.elementId);
-      return { load: { type: 'thermal', data: { ...q, elementId: to, dtGradient: sz * q.dtGradient } } };
+      // Each gradient follows the sign of the axis it is across.
+      return { load: { type: 'thermal', data: { ...carryThermal(q, signsOf(q.elementId)), elementId: to } } };
+    }
+    case 'prestress3d': {
+      const q = l.data as PrestressLoad3D;
+      const to = elementMap.get(q.elementId);
+      if (to === undefined) return null;
+      return { load: { type: 'prestress3d', data: { ...carryPrestress(q, signsOf(q.elementId).sz), elementId: to } } };
+    }
+    case 'displacement3d': {
+      const q = l.data as NodeDisplacement3D;
+      const to = nodeMap.get(q.nodeId);
+      if (to === undefined) return null;
+      // An imposed displacement turns with the structure, its rotation as an axial vector.
+      const u = applyVector(T, [q.dx ?? 0, q.dy ?? 0, q.dz ?? 0]), r = applyAxial(T, [q.drx ?? 0, q.dry ?? 0, q.drz ?? 0]);
+      const keep = (v: number) => (Math.abs(v) > 1e-15 ? v : undefined);
+      return { load: { type: 'displacement3d', data: { ...q, nodeId: to, dx: keep(u[0]), dy: keep(u[1]), dz: keep(u[2]), drx: keep(r[0]), dry: keep(r[1]), drz: keep(r[2]) } } };
     }
     case 'surface3d':
     case 'thermalQuad3d': {
-      const to = quadMap.get(d.quadId as number);
+      const onPlate = d.on === 'plate';
+      const to = (onPlate ? plateMap : quadMap).get(d.quadId as number);
       if (to === undefined) return null;
-      // A surface load is vertical by definition, and stays so. On a copy that is no longer
-      // horizontal that is a choice, and it is reported.
+      if (l.type === 'thermalQuad3d') return { load: { ...l, data: { ...l.data, quadId: to } } as Load };
+      const s = l.data as SurfaceLoad3D;
+      // A load with no frame is vertical by definition, and stays so. On a copy that is no longer
+      // horizontal that is a choice, and it is reported. One with a frame turns with the shell.
       const up = applyVector(T, [0, 0, 1]);
-      const tilted = l.type === 'surface3d' && Math.abs(Math.abs(dot(up, [0, 0, 1])) - 1) > 1e-9;
-      return { load: { ...l, data: { ...l.data, quadId: to } } as Load, ...(tilted ? { warning: 'surfaceLoadTilted' as const } : {}) };
+      const tilted = !s.frame && Math.abs(Math.abs(dot(up, [0, 0, 1])) - 1) > 1e-9;
+      const data = { ...carrySurface(s, T, isReflection(T), onPlate ? 'plate' : 'quad'), quadId: to };
+      return { load: { type: 'surface3d', data }, ...(tilted ? { warning: 'surfaceLoadTilted' as const } : {}) };
     }
     default: {
       if (!translationOnly) return { warning: 'loadDropped' };

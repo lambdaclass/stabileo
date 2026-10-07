@@ -49,9 +49,13 @@ describe('§1.13.1 — K_z reproduces the published Table 1.13-1', () => {
   });
 
   it('uses the Table 1.9-1 constants', () => {
-    expect(EXPOSURE_CONSTANTS.B).toEqual({ alpha: 7.5, zg: 1000 });
-    expect(EXPOSURE_CONSTANTS.C).toEqual({ alpha: 9.8, zg: 750 });
-    expect(EXPOSURE_CONSTANTS.D).toEqual({ alpha: 11.5, zg: 590 });
+    // The whole table: α and z_g for K_z, the rest for the gust effect factor (`gust.ts`).
+    expect(EXPOSURE_CONSTANTS.B).toMatchObject({ alpha: 7.5, zg: 1000, bHat: 0.84, bBar: 0.47, c: 0.30, ell: 98, zmin: 9.2 });
+    expect(EXPOSURE_CONSTANTS.C).toMatchObject({ alpha: 9.8, zg: 750, bHat: 1.00, bBar: 0.66, c: 0.20, ell: 152, zmin: 4.6 });
+    expect(EXPOSURE_CONSTANTS.D).toMatchObject({ alpha: 11.5, zg: 590, bHat: 1.09, bBar: 0.78, c: 0.15, ell: 198, zmin: 2.1 });
+    expect(EXPOSURE_CONSTANTS.B.alphaBar).toBeCloseTo(1 / 4.5, 12);
+    expect(EXPOSURE_CONSTANTS.C.epsBar).toBeCloseTo(1 / 5, 12);
+    expect(EXPOSURE_CONSTANTS.D.alphaHat).toBeCloseTo(1 / 11.5, 12);
   });
 
   it('increases monotonically with height in every exposure', () => {

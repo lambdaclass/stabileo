@@ -1,3 +1,4 @@
+import { packedShellCombinationKernel, registerShellCombinationKernel } from './shell-combination-kernel';
 import { registerRcSectionKernel } from './codes/argentina/rc-section-kernel';
 import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
@@ -18,6 +19,14 @@ import { errorText } from '../utils/error-text';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
+
+interface NativeLoadSession { solve(loads: unknown): any; free(): void }
+type LoadSessionConstructor = new (input: unknown) => NativeLoadSession;
+let loadSession2D: LoadSessionConstructor | null = null;
+let loadSession3D: LoadSessionConstructor | null = null;
+let preparedLoadSessionsEnabled = true;
+/** Reference/benchmark switch; production reuses the prepared factorization. */
+export function setPreparedLoadSessionsEnabled(enabled: boolean): void { preparedLoadSessionsEnabled = enabled; }
 
 // Dynamically loaded WASM functions
 let wasmSolve2d: ((input: any) => any) | null = null;
@@ -191,6 +200,9 @@ export async function initSolver(): Promise<void> {
     }
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
     registerRcSectionKernel(wasm.RcSectionGeometry ?? null);
+    loadSession2D = wasm.LoadSession2D ?? null;
+    loadSession3D = wasm.LoadSession3D ?? null;
+    registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
@@ -717,6 +729,43 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   } finally {
     console.error = origError;
   }
+}
+
+/** Lazy construction preserves per-position error handling and avoids preparing
+ * an already-cancelled run. Each session owns an immutable native model snapshot. */
+function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () => Record<string, unknown>,
+  fallback: (loads: L[]) => R, finish: (result: R, loads: L[]) => R) {
+  let native: NativeLoadSession | null = null;
+  let closed = false;
+  let attempted = false;
+  let failure: unknown;
+  let failed = false;
+  const useNative = preparedLoadSessionsEnabled && Constructor !== null;
+  return {
+    solve(loads: L[]): R {
+      if (closed) throw new Error('Load session has been freed');
+      if (!useNative) return fallback(loads);
+      if (!attempted) {
+        attempted = true;
+        try { const input = wire(); assertFiniteWire(input); native = new Constructor!(input); }
+        catch (e) { failure = e; failed = true; }
+      }
+      if (failed) throw failure;
+      assertFiniteWire(loads, 'loads');
+      return finish(native!.solve(loads), loads);
+    },
+    free() { if (!closed) { closed = true; native?.free(); native = null; } },
+  };
+}
+export function prepareLoadSession2D(input: SolverInput) {
+  return loadSession<import('./types').SolverLoad, AnalysisResults>(loadSession2D,
+    () => input2DToWireObject({ ...input, loads: [] }),
+    loads => solve({ ...input, loads }), result => result);
+}
+export function prepareLoadSession3D(input: SolverInput3D) {
+  return loadSession<import('./types-3d').SolverLoad3D, AnalysisResults3D>(loadSession3D,
+    () => input3DToWireObject({ ...input, loads: [] }),
+    loads => solve3D({ ...input, loads }), (result, loads) => finishSolve3D(result, { ...input, loads }));
 }
 
 /** Solve 2D P-Delta analysis via WASM. */

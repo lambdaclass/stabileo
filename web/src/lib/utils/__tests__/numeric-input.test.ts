@@ -123,3 +123,108 @@ describe('a field says what zero means for it', () => {
     expect(parseNumericInput('-6', { zero: 'invalid' }).kind).toBe('invalid');
   });
 });
+
+describe('parseDecimal: what people type and paste', () => {
+  it('reads a comma or a point for decimals, and grouped thousands by the other', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('1,5')).toBe(1.5);
+    expect(parseDecimal('1.5')).toBe(1.5);
+    expect(parseDecimal('-0,25')).toBe(-0.25);
+    expect(parseDecimal('1,234.5')).toBe(1234.5);
+    expect(parseDecimal('1.234,5')).toBe(1234.5);
+    expect(parseDecimal('6,123,456.78')).toBe(6123456.78);
+    expect(parseDecimal('1.234.567')).toBe(1234567);
+    expect(parseDecimal('2e-3')).toBe(0.002);
+  });
+  it('refuses what it would have to guess, instead of truncating it', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    for (const s of ['', '1,23,4', '1.2.3', '1,2.3', 'abc', '1,234.5.6', '12,3456.7']) expect(parseDecimal(s)).toBeNull();
+  });
+});
+
+describe('parseDecimal: one separator, written once, is the decimal one', () => {
+  /*
+   * "1,234" could be an English thousand. It is read as 1.234 on purpose: three decimals (a
+   * millimetre in metres) is how the app's Spanish and Portuguese users write a length, and the
+   * old `parseFloat(s.replace(',', '.'))` read it the same way. A thousand is read as one only
+   * when the text says so — a second group, or the other separator after it.
+   */
+  it('a single group of three after a comma or a point is decimals', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('1,234')).toBe(1.234);
+    expect(parseDecimal('1.234')).toBe(1.234);
+    expect(parseDecimal('12.345')).toBe(12.345);
+  });
+  it('a second group, or the other separator after it, makes it a thousand', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('1,234,567')).toBe(1234567);
+    expect(parseDecimal('1.234.567')).toBe(1234567);
+    expect(parseDecimal('1,234.0')).toBe(1234);
+    expect(parseDecimal('1.234,0')).toBe(1234);
+  });
+  it('spaces, signs and exponents', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('1 234,5')).toBe(1234.5);
+    expect(parseDecimal('-0,5')).toBe(-0.5);
+    expect(parseDecimal('+3')).toBe(3);
+    expect(parseDecimal('1e3')).toBe(1000);
+    expect(parseDecimal('   ')).toBeNull();
+  });
+  it('a number with a unit after it is refused, where parseFloat read the number', async () => {
+    const { parseDecimal } = await import('../numeric-input');
+    expect(parseDecimal('5 kN')).toBeNull();
+    expect(parseDecimal('5kN')).toBeNull();
+  });
+});
+
+describe('decimalOrKeep: unreadable text changes nothing', () => {
+  /*
+   * A PRO load cell read `parseDecimal(s) ?? 0`: a typo or a unit («12 kN», «1.2.3») wrote a
+   * zero into the load, and the cell then showed a 0 the user never typed.
+   */
+  it('keeps the previous value for text it cannot read', async () => {
+    const { decimalOrKeep } = await import('../numeric-input');
+    expect(decimalOrKeep('12 kN', 12)).toBe(12);
+    expect(decimalOrKeep('1,23,4', -7.5)).toBe(-7.5);
+    expect(decimalOrKeep('1.2.3', 4)).toBe(4);
+  });
+  it('reads what it can, zero included', async () => {
+    const { decimalOrKeep } = await import('../numeric-input');
+    expect(decimalOrKeep('2,5', 12)).toBe(2.5);
+    expect(decimalOrKeep('0', 12)).toBe(0);
+  });
+  it('an empty cell is a cleared component: zero, or what the caller says', async () => {
+    const { decimalOrKeep } = await import('../numeric-input');
+    expect(decimalOrKeep('', 12)).toBe(0);
+    expect(decimalOrKeep('  ', 12, 12)).toBe(12);
+  });
+});
+
+describe('an add-load form: a blank J end is uniform, a typed zero is a zero', () => {
+  /*
+   * The PRO add-load form read `parseFloat(j) || i`: a triangular 10 → 0 was added as a uniform
+   * 10, «1,5» as 1 and «1.234,5» as 1.234.
+   */
+  it('a typed 0 at J is a triangle, not a uniform load', async () => {
+    const { lineLoadEnds } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '0')).toEqual([10, 0]);
+  });
+  it('a blank J end, and only a blank one, is the same as I', async () => {
+    const { lineLoadEnds } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '')).toEqual([10, 10]);
+    expect(lineLoadEnds('10', '  ')).toEqual([10, 10]);
+    expect(lineLoadEnds('', '')).toEqual([0, 0]);
+    expect(lineLoadEnds('', '5')).toEqual([0, 5]);
+  });
+  it('decimals with a comma, and grouped thousands', async () => {
+    const { lineLoadEnds, loadComponents } = await import('../numeric-input');
+    expect(lineLoadEnds('1,5', '1.234,5')).toEqual([1.5, 1234.5]);
+    expect(loadComponents(['1,5', '', '-2'])).toEqual([1.5, 0, -2]);
+  });
+  it('text that does not read refuses the load, instead of adding a zero or a uniform one', async () => {
+    const { lineLoadEnds, loadComponents } = await import('../numeric-input');
+    expect(lineLoadEnds('10', '5 kN')).toBeNull();
+    expect(lineLoadEnds('abc', '')).toBeNull();
+    expect(loadComponents(['10', '1.2.3'])).toBeNull();
+  });
+});

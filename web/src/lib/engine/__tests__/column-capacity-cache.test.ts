@@ -98,3 +98,26 @@ it('preserves complete verification reports, governing tuples and slender minimu
     expect(verify(delta)).toEqual(reference);
   }
 });
+
+it('uses the provided reinforcement area regardless of extra section metadata', () => {
+  const s = section();
+  const geometry = { b: s.b, h: s.h, fc: s.fc, fy: s.fy, cover: s.cover, stirrupDia: s.stirrupDia };
+  const axialDemand: ElementStationResult = {
+    elementId: 1, length: 6, stationTs: [0.5],
+    comboResults: [{ comboId: 1, comboName: 'U', stations: [
+      { t: 0.5, x: 3, n: -2200, vy: 0, vz: 0, my: 0, mz: 0, torsion: 0 },
+    ] }],
+  };
+  for (const reuse of [false, true]) {
+    setColumnCapacityReuse(reuse);
+    const expected = verifyProvidedReinforcement(1, 'column', provided, undefined, {}, geometry, axialDemand);
+    expect(expected.overallStatus).toBe('fail');
+    expect(expected.worstUtilization).toBeGreaterThan(1);
+    // Richer section objects are valid structural subtypes. Their cached or
+    // estimated steel area must not replace the area of the supplied bars.
+    for (const AsProv_cm2 of [40, 0, NaN]) {
+      const metadata = { ...geometry, AsProv_cm2 };
+      expect(verifyProvidedReinforcement(1, 'column', provided, undefined, {}, metadata, axialDemand)).toEqual(expected);
+    }
+  }
+});

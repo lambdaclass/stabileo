@@ -162,14 +162,14 @@
       </div>
       <div class="property-row" title={t('prop.imposedDyTitle')}>
         <span>dz:</span>
-        <input type="number" step="0.001" value={sup.dy ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dy', e.currentTarget.value)} />
+        <input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dz', e.currentTarget.value)} />
         <span>m</span>
       </div>
     {/if}
     {#if sup.type === 'fixed'}
       <div class="property-row" title={t('prop.imposedDrzTitle')}>
         <span>dθy:</span>
-        <input type="number" step="0.001" value={sup.drz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'drz', e.currentTarget.value)} />
+        <input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dry', e.currentTarget.value)} />
         <span>rad</span>
       </div>
     {/if}

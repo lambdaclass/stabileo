@@ -4,8 +4,21 @@
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
+  import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
+
+  /**
+   * A load a floor-load definition wrote is changed through the definition: the store refuses the
+   * edit (the next rewrite would undo it), and this says why.
+   */
+  function definedLoad(loadId: number): boolean {
+    const l = modelStore.loads.find((x) => x.data.id === loadId);
+    if (!l || !isDefinedLoad(l)) return false;
+    uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    return true;
+  }
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
+    if (definedLoad(loadId)) return;
     if (typeof val === 'boolean') {
       modelStore.updateLoad(loadId, { [field]: val });
     } else {
@@ -31,6 +44,7 @@
   }
 
   function updateDistLoadPosition(loadId: number, field: 'a' | 'b', val: string, elemLen: number, currentA: number, currentB: number) {
+    if (definedLoad(loadId)) return;
     const num = parseFloat(val);
     if (isNaN(num)) return;
     if (field === 'a') {
@@ -46,7 +60,9 @@
   }
 
   function deleteSelectedLoads() {
-    const ids = [...uiStore.selectedLoads];
+    const all = [...uiStore.selectedLoads];
+    const ids = all.filter((id) => !modelStore.loads.some((l) => l.data.id === id && isDefinedLoad(l)));
+    if (ids.length < all.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
     modelStore.batch(() => { for (const id of ids) modelStore.removeLoad(id); });
     uiStore.clearSelectedLoads();
     resultsStore.clear();
@@ -409,14 +425,15 @@
           <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
         </label>
         <label class="ft-input-group" title={t('float.prescribedDy')}>
-          <span>dy:</span>
-          <input type="number" step="0.001" value={selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dy', e.currentTarget.value)} />
+          <!-- The plane is XZ: named as SupportDetails names them, and written to the store's own fields. -->
+          <span>dz:</span>
+          <input type="number" step="0.001" value={selectedSup.dz ?? selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dz', e.currentTarget.value)} />
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
         <label class="ft-input-group" title={t('float.prescribedDrz')}>
-          <span>dθz:</span>
-          <input type="number" step="0.001" value={selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'drz', e.currentTarget.value)} />
+          <span>dθy:</span>
+          <input type="number" step="0.001" value={selectedSup.dry ?? selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dry', e.currentTarget.value)} />
         </label>
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>

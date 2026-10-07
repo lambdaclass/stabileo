@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import { roofGeometry, snowLoadCases } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
-import { roofSnow } from '../../../codes/cirsoc104/snow';
+import { roofSnow, snowDensity } from '../../../codes/cirsoc104/snow';
+import { gravityLayout } from '../plan-gravity';
 
 /** Two columns 5 m high, two rafters to a ridge 2 m higher at mid-span, span 16 m along x. */
 function shed(): LoadModelData {
@@ -60,6 +61,85 @@ describe('snow on the roof members', () => {
     const q = (id: number) => plusX.distributed.find((d) => d.elementId === id)?.q ?? 0;
     // Wind toward +x: rafter 4 (x 8→16) is leeward, rafter 3 windward at 0,3 p_s (W = 8 > 6).
     expect(Math.abs(q(4)) / Math.abs(q(3))).toBeCloseTo(r.unbalanced!.leeward / r.unbalanced!.windward, 9);
+  });
+});
+
+/**
+ * A smooth monoslope upper roof at 25° (two rafters climbing along +x from +6 m at x = 0 to the
+ * step at x = 6, so nothing slides onto the lower roof), and a flat 6 × 6 m lower roof at +3 m
+ * over x 6–12, closed by four beams.
+ */
+function stepped(): LoadModelData {
+  const top = 6 + 6 * Math.tan((25 * Math.PI) / 180);
+  const pts: Array<[number, number, number]> = [
+    [0, 0, 6], [6, 0, top], [0, 6, 6], [6, 6, top],
+    [6, 0, 3], [12, 0, 3], [12, 6, 3], [6, 6, 3],
+  ];
+  const members: Array<[number, number]> = [[1, 2], [3, 4], [5, 6], [6, 7], [7, 8], [8, 5]];
+  return {
+    nodes: new Map(pts.map(([x, y, z], i) => [i + 1, { id: i + 1, x, y, z }])),
+    elements: new Map(members.map(([a, b], i) => [i + 1, { id: i + 1, nodeI: a, nodeJ: b, sectionId: 1, materialId: 1 }])),
+    sections: new Map([[1, { id: 1, a: 0.005 }]]), materials: new Map([[1, { id: 1, rho: 78.5 }]]),
+    loadCases: [{ id: 1, type: 'D', name: 'D' }],
+  };
+}
+const smooth = { ...snow, roofKind: 'mono' as const, slippery: true };
+const LOWER = new Set([3, 4, 5, 6]);
+/** Total vertical load of a list of projected loads on the given members, kN. */
+const totalOn = (m: LoadModelData, list: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number }>, ids: Set<number>) =>
+  list.filter((d) => ids.has(d.elementId)).reduce((s, d) => {
+    const e = m.elements.get(d.elementId)!;
+    const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    return s + ((d.q + (d.qJ ?? d.q)) / 2) * ((d.b ?? L) - (d.a ?? 0));
+  }, 0);
+
+describe('snow: each roof surface takes C_s from its own slope', () => {
+  // p_f = 0,7 · 1,0 · 1,0 · 1,0 · 1,5 = 1,050 kN/m²; the 25° smooth roof has C_s = 45/65.
+  const flat = roofSnow({ ...smooth, roof: { kind: 'mono', slopeDeg: 0, W: 6, slippery: true } });
+
+  it('by width: the flat lower roof beside a 25° smooth roof takes p_f, not the sloped roof’s C_s p_f', () => {
+    const m = stepped();
+    const out = snowLoadCases({ model: m, snow: smooth, tributaryWidth: 2 })!;
+    expect(out.result.cs).toBeCloseTo(45 / 65, 9);                      // the sloped roof's own
+    expect(flat.ps).toBeCloseTo(1.05, 9);
+    const bal = out.cases[0]!;
+    for (const id of LOWER) expect(bal.distributed.find((d) => d.elementId === id)!.q).toBeCloseTo(-flat.ps * 2, 9);
+    // The rafters keep the 25° roof's value.
+    const raf = bal.distributed.find((d) => d.elementId === 1)!;
+    const cos = Math.cos((25 * Math.PI) / 180);
+    expect(raf.q).toBeCloseTo(-out.result.ps * 2 * cos * cos, 9);
+  });
+
+  it('by panels: the lower panel carries p_f over its 36 m², and a parapet drift reads h_b from it', () => {
+    const m = stepped();
+    const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 2 });
+    const plain = snowLoadCases({ model: m, snow: smooth, tributaryWidth: 2, layout })!;
+    expect(-totalOn(m, plain.cases[0]!.distributed, LOWER)).toBeCloseTo(flat.ps * 36, 6);
+    const out = snowLoadCases({ model: m, snow: { ...smooth, parapet: { height: 1.5 } }, tributaryWidth: 2, layout })!;
+    const par = out.derivation.find((x) => x.key === 'snow.derivation.parapet')!;
+    expect(par.params?.hb).toBeCloseTo(flat.ps / snowDensity(1.5), 3);
+  });
+});
+
+describe('snow: a ridge member under the unbalanced load', () => {
+  /** The shed, as two frames 6 m apart joined by a ridge beam and two eave beams. */
+  function shed3d(): LoadModelData {
+    const m = shed();
+    const n = m.nodes as Map<number, { id: number; x: number; y: number; z?: number }>;
+    for (const [id, x, z] of [[13, 0, 5], [14, 16, 5], [15, 8, 7]] as const) n.set(id, { id, x, y: 6, z });
+    const e = m.elements as Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number }>;
+    for (const [id, a, b] of [[5, 13, 15], [6, 15, 14], [7, 5, 15], [8, 3, 13], [9, 4, 14]] as const) e.set(id, { id, nodeI: a, nodeJ: b, sectionId: 1, materialId: 1 });
+    return m;
+  }
+
+  it('takes the mean of the two slopes in both directions, not the windward value in both', () => {
+    const out = snowLoadCases({ model: shed3d(), snow, tributaryWidth: 3 })!;
+    const u = out.result.unbalanced!;
+    for (const dir of ['+X', '−X']) {
+      const c = out.cases.find((x) => x.nameParams.dir === dir)!;
+      expect(c.distributed.find((d) => d.elementId === 7)!.q).toBeCloseTo(-((u.leeward + u.windward) / 2) * 3, 9);
+    }
   });
 });
 

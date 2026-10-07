@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * Whether a section's members deform in shear, and with what areas: none (flexural only, as
    * every section solved before), from the geometry (recomputed from the shape every solve), or
@@ -13,7 +14,7 @@
 
   const mode = $derived(section.shearAreas?.basis ?? 'none');
   const geo = $derived(geometricShearAreas(section));
-  const cm2 = (v: number) => (v * 1e4).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const cm2 = (v: number) => plainNumber(v * 1e4, 2);
 
   function setMode(m: string) {
     if (m === 'none') modelStore.updateSection(section.id, { shearAreas: undefined });

@@ -26,6 +26,8 @@ export interface CompatibleOptions {
   iterations?: number;
   /** Periods matched, s. Default 0,05 to 4 s, 60 of them, log-spaced. */
   periods?: number[];
+  /** Uncached arithmetic reference for regression tests and benchmarks. */
+  reference?: boolean;
 }
 
 export interface CompatibleRecord {
@@ -82,11 +84,25 @@ function envelope(t: number, D: number): number {
   return Math.exp(-3 * ((t - t2) / (D - t2)));
 }
 
+const recordCache = new Map<string, CompatibleRecord>();
+const MAX_CACHED_VALUES = 500_000;
+let cachedValues = 0;
+const copyRecord = (r: CompatibleRecord): CompatibleRecord => ({ ...r, accel: [...r.accel], periods: [...r.periods], achieved: [...r.achieved], target: [...r.target] });
+/** Clear the bounded cache (also useful for cold benchmark measurements). */
+export function clearSpectrumRecordCache(): void { recordCache.clear(); cachedValues = 0; }
+
 export function spectrumCompatible(o: CompatibleOptions): CompatibleRecord {
   const xi = o.xi ?? 0.05;
   const periods = o.periods ?? Array.from({ length: 60 }, (_, i) => 0.05 * Math.pow(4 / 0.05, i / 59));
   const target = periods.map((T) => o.target(T));
   const n = Math.max(2, Math.round(o.duration / o.dt) + 1);
+  // Key by sampled target VALUES, not callback identity: changing the design
+  // spectrum through a closure must invalidate the result. Scale is applied by
+  // groundSeries afterwards, so preview and analysis can share the same record.
+  const signature = [o.duration, o.dt, o.seed ?? 1, xi, o.iterations ?? 16, ...periods, ...target];
+  const key = !o.reference && o.duration > 0 && o.dt > 0 && periods.length >= 2 && periods.every(T => T > 0) && signature.every(Number.isFinite) ? JSON.stringify(signature) : null;
+  const hit = key === null ? undefined : recordCache.get(key);
+  if (hit) { recordCache.delete(key!); recordCache.set(key!, hit); return copyRecord(hit); }
   const rand = rng(o.seed ?? 1);
   // Several sinusoids per matched period, spread between its neighbours, so the energy is not
   // concentrated on single lines; the phases drawn once.
@@ -102,17 +118,25 @@ export function spectrumCompatible(o: CompatibleOptions): CompatibleRecord {
     }
   });
   let amp = w.map((_, i) => target[owner[i]!]! * G * 0.05);
+  // Above 32 MiB keep the original evaluation rather than retaining an
+  // unbounded matrix for a long record or a very fine time step.
+  const prepared = !o.reference && n * w.length * 8 <= 32 * 1024 * 1024;
+  const basis = prepared ? new Float64Array(n * w.length) : null;
+  const weights = prepared ? Float64Array.from({ length: n }, (_, i) => envelope(i * o.dt, o.duration)) : null;
+  if (basis) for (let i = 0; i < n; i++) for (let k = 0; k < w.length; k++) {
+    basis[i * w.length + k] = Math.sin(w[k]! * (i * o.dt) + phase[k]!);
+  }
   const build = () => {
     const a = new Array<number>(n);
     for (let i = 0; i < n; i++) {
       const t = i * o.dt;
       let s = 0;
-      for (let k = 0; k < w.length; k++) s += amp[k]! * Math.sin(w[k]! * t + phase[k]!);
-      a[i] = envelope(t, o.duration) * s;
+      for (let k = 0; k < w.length; k++) s += amp[k]! * (basis ? basis[i * w.length + k]! : Math.sin(w[k]! * t + phase[k]!));
+      a[i] = (weights ? weights[i]! : envelope(t, o.duration)) * s;
     }
     // Baseline: no mean acceleration, so the ground does not drift away at the end.
     const mean = a.reduce((x, y) => x + y, 0) / n;
-    for (let i = 0; i < n; i++) a[i] = a[i]! - mean * envelope(i * o.dt, o.duration);
+    for (let i = 0; i < n; i++) a[i] = a[i]! - mean * (weights ? weights[i]! : envelope(i * o.dt, o.duration));
     return a;
   };
   let accel = build();
@@ -133,5 +157,16 @@ export function spectrumCompatible(o: CompatibleOptions): CompatibleRecord {
     if (err < best.err) best = { accel, achieved, err };
   }
   accel = best.accel; achieved = best.achieved;
-  return { accel, dt: o.dt, periods, achieved, target };
+  const result = { accel, dt: o.dt, periods, achieved, target };
+  const size = accel.length + periods.length * 3;
+  if (key !== null && size <= MAX_CACHED_VALUES) {
+    while (recordCache.size && (recordCache.size >= 4 || cachedValues + size > MAX_CACHED_VALUES)) {
+      const oldest = recordCache.keys().next().value!;
+      const r = recordCache.get(oldest)!;
+      cachedValues -= r.accel.length + r.periods.length * 3;
+      recordCache.delete(oldest);
+    }
+    recordCache.set(key, copyRecord(result)); cachedValues += size;
+  }
+  return result;
 }

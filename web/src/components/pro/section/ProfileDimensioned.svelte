@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plainNumber } from '../../../lib/utils/units';
   /**
    * A catalogue profile drawn from its canonical outline, with its dimensions: depth and width
    * always, web and flange thickness where the shape has them, the wall thickness otherwise,
@@ -30,7 +31,7 @@
   const shape = $derived(profile ? familyToShape(profile.family) : null);
   /** An I or H: its web is centred, so tw and tf can be drawn where they are. */
   const doublySymmetricI = $derived(shape === 'I' || shape === 'H');
-  const mm = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const mm = (v: number) => plainNumber(v, 1);
 </script>
 
 {#if profile && outline}

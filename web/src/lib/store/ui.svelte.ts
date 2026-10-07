@@ -583,6 +583,8 @@ function createUIStore() {
   let showShellLabels3D_pro = $state<boolean>(false);
   let showLengths3D_pro = $state<boolean>(false);
   let showLoads3D_pro = $state<boolean>(true);
+  /** The reader's factor on the length of every load arrow, beside the scale to the largest load. */
+  let loadArrowScale = $state<number>(1);
   let visibleLoadCases3D_pro = $state<number[] | null>(null);
   let showAxes3D_pro = $state<boolean>(true);
   let localAxesMode3D_pro = $state<LocalAxesDisplayMode>('selected');
@@ -1215,6 +1217,8 @@ function createUIStore() {
     set showShellLabels3D(v: boolean) { if (analysisMode === 'pro') showShellLabels3D_pro = v; else showShellLabels3D_basic = v; },
     get showLengths3D() { return analysisMode === 'pro' ? showLengths3D_pro : showLengths3D_basic; },
     set showLengths3D(v: boolean) { if (analysisMode === 'pro') showLengths3D_pro = v; else showLengths3D_basic = v; },
+    get loadArrowScale() { return loadArrowScale; },
+    set loadArrowScale(v: number) { loadArrowScale = Number.isFinite(v) && v > 0 ? Math.min(20, v) : 1; },
     get showLoads3D() { return analysisMode === 'pro' ? showLoads3D_pro : showLoads3D_basic; },
     set showLoads3D(v: boolean) { if (analysisMode === 'pro') showLoads3D_pro = v; else showLoads3D_basic = v; },
     get visibleLoadCases3D() { return analysisMode === 'pro' ? visibleLoadCases3D_pro : visibleLoadCases3D_basic; },

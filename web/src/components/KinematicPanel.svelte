@@ -59,7 +59,8 @@
   function recompute3D() {
     let input3D: ReturnType<typeof modelStore.buildSolverInput3D> = null;
     try {
-      input3D = modelStore.buildSolverInput3D(false, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false });
+      // The model's members and nodes, none cut for a load inside its span.
+      input3D = modelStore.buildSolverInput3D(false, uiStore.axisConvention3D === 'leftHand', { expandMemberOffsets: false, uncut: true });
     } catch {
       input3D = null;
     }

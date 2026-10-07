@@ -11,6 +11,7 @@
    * at the model's levels so the numbers can be read before anything is applied.
    */
   import { t, tp } from '../../lib/i18n';
+  import QuantityInput from './loads/QuantityInput.svelte';
   import {
     classifyEnclosure, velocityPressure, velocityPressureExposureCoefficient, SERVICE_WIND_FACTOR,
     type Enclosure, type Exposure, type ServiceRecurrence,
@@ -89,7 +90,7 @@
     {#if service.enabled}
       <div class="al-grid">
         <label class="al-field"><span class="al-label">V₅₀</span>
-          <span class="al-unit-field"><input type="number" min="0" step="1" bind:value={service.v50} data-testid="al-wind-service-v50" /><span>m/s</span></span>
+          <QuantityInput bind:value={service.v50} quantity="speed" min={0} testid="al-wind-service-v50" wrap="al-unit-field" />
         </label>
         <label class="al-field"><span class="al-label">{t('autoLoad.windServiceMri')}</span>
           <select bind:value={service.mri} data-testid="al-wind-service-mri">

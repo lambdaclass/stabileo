@@ -2492,7 +2492,8 @@ export function verifyProvidedReinforcement(
         minMoment: boolean;
       } | null = null;
       let count = 0;
-      const capacity = prepareColumnCapacity({ AsProv_cm2: provArea, ...section, bars: colBars });
+      // Use the provided bars' area even if the section carries a cached steel area.
+      const capacity = prepareColumnCapacity({ ...section, AsProv_cm2: provArea, bars: colBars });
       for (const t of allTuples) {
         // Compression positive: the solver's n is positive in tension. The column check read
         // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
