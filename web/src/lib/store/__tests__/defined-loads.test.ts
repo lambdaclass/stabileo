@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, uiStore, historyStore } from '..';
-import { addFloorLoadDef, syncDefinedLoads, expandDefinitions } from '../defined-loads';
+import { addFloorLoadDef, syncDefinedLoads, expandDefinitions, DEFINED_LOADS_SETTLE_MS } from '../defined-loads';
 import { definitionsCurrent, type FloorLoadDef } from '../../model/loads/floor-definitions';
 import { generateEmbedURL, generateShareURL, loadFromShareLink } from '../../utils/url-sharing';
 import { deleteSelection } from '../../actions/delete-selection';
@@ -127,23 +127,33 @@ describe('undo and redo', () => {
 });
 
 describe('every analysis reads current loads', () => {
-  it('an edit rewrites them as part of its own step, before anything reads the model', async () => {
+  it('an analysis reads them rewritten even while the rewrite waits for the model to be still', () => {
     const { top } = bay();
     const steps = historyStore.undoCount;
     move(top[1]!, 10, 0, 3);
     move(top[2]!, 10, 6, 3);
+    // A drag does not pay a rewrite per step: nothing is written while edits keep coming.
     expect(current()).toBe(false);
-    await Promise.resolve();
-    expect(current()).toBe(true);
-    expect(historyStore.undoCount).toBe(steps + 2);
-    // What an advanced analysis builds from (modal, buckling, P-Delta… `buildInput`): the 10 × 6 m
-    // bay's 120 kN, not the 8 × 6 m one's 96.
+    // What an advanced analysis builds from (modal, buckling, P-Delta… `buildInput`) flushes it:
+    // the 10 × 6 m bay's 120 kN, not the 8 × 6 m one's 96, and no step of its own.
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
     const pieces = input.loads as unknown as Array<{ type: string; data: { qZI: number; qZJ: number; a: number; b: number } }>;
     const kN = pieces.filter((l) => l.type === 'distributed').reduce((t, l) => t - (l.data.qZI + l.data.qZJ) / 2 * (l.data.b - l.data.a), 0);
     expect(kN).toBeCloseTo(120, 6);
+    expect(current()).toBe(true);
+    expect(historyStore.undoCount).toBe(steps + 2);
+  });
+
+  it('once the model is still, the rewrite runs by itself, in the edit\'s step', async () => {
+    const { top } = bay();
+    const steps = historyStore.undoCount;
+    move(top[1]!, 10, 0, 3);
+    expect(current()).toBe(false);
+    await new Promise((r) => setTimeout(r, DEFINED_LOADS_SETTLE_MS + 50));
+    expect(current()).toBe(true);
+    expect(historyStore.undoCount).toBe(steps + 1);
     historyStore.undo();
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, DEFINED_LOADS_SETTLE_MS + 50));
     expect(current()).toBe(true);
   });
 

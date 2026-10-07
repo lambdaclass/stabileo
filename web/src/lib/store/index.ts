@@ -15,7 +15,7 @@ import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
-import { scheduleDefinedLoadsSync } from './defined-loads';
+import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -28,10 +28,13 @@ import { scheduleDefinedLoadsSync } from './defined-loads';
 // Questions about connections in the old model mean nothing in a replaced one.
 modelStore._setOnReplaced(() => connectionPrompt.clear());
 
+// An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
+modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
+
 modelStore._setOnMutation(() => {
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
-  // Floor loads kept as definitions follow the edit, in its own undo step (`defined-loads.ts`).
+  // Floor loads kept as definitions follow the edit once the model is still, in its undo step (`defined-loads.ts`).
   scheduleDefinedLoadsSync();
 });
 

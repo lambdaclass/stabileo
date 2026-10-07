@@ -1,8 +1,9 @@
 /**
  * The loads of the model's floor-load definitions (`model/loads/floor-definitions.ts`), kept in
  * step with them: written when a definition is, and rewritten whenever the model moves under them
- * (a beam added, a node moved), right after the edit and before a solve (the axis convention,
- * which is not an edit of the model). When nothing changed, nothing is written.
+ * (a beam added, a node moved), once the model is still after an edit, and before any analysis
+ * reads them (the axis convention, which is not an edit of the model, included). When nothing
+ * changed, nothing is written.
  *
  * They are derived data, so a rewrite takes no undo step of its own: it belongs to the edit that
  * made it necessary. As a step of its own, undo took the rewrite back, the next solve wrote it
@@ -85,26 +86,41 @@ function hasDefinitions(): boolean {
   return modelStore.loads.some(isDefinedLoad);
 }
 
-let scheduled = false;
+let timer: ReturnType<typeof setTimeout> | null = null;
 let syncing = false;
 
+/** How long the model must stay still before the definitions' loads are rewritten, ms. */
+export const DEFINED_LOADS_SETTLE_MS = 150;
+
 /**
- * After every change of the model (`store/index.ts`): the definitions' loads rewritten once the
- * edit is done, in the edit's own undo step. So whatever reads the model's loads next — live calc,
- * a modal or buckling analysis, P-Delta, a design run, the report, the tables and the drawing —
- * reads them current, and no reader has to remember to ask. A microtask: the edit is finished by
- * then, and a batch of edits is rewritten once. When nothing changed it is a comparison.
+ * After a change of the model (`store/index.ts`): the definitions' loads rewritten once the model
+ * has been still for a moment, in the current undo step. A rewrite expands every definition (some
+ * tens of milliseconds on a building of eight floors), and rewriting on every edit cost that on
+ * every step of a node drag; now a drag pays it once, when it stops.
+ *
+ * Nothing reads them stale meanwhile: every analysis builds its input through the store, which
+ * flushes a pending rewrite first (`flushDefinedLoadsSync`), and Solve and live calc rewrite
+ * before solving. Only the drawing and the tables may show the previous loads for that moment.
  */
 export function scheduleDefinedLoadsSync(): void {
-  if (scheduled || syncing) return;
-  scheduled = true;
-  void Promise.resolve().then(() => {
-    scheduled = false;
-    if (!uiStore.is3DWorkspace || !hasDefinitions()) return;
-    // Its own rewrite is a change of the model too; it does not schedule another.
-    syncing = true;
-    try { syncDefinedLoadsForAnalysis(); } finally { syncing = false; }
-  });
+  if (syncing) return;
+  if (timer !== null) clearTimeout(timer);
+  timer = setTimeout(() => { timer = null; runPendingSync(); }, DEFINED_LOADS_SETTLE_MS);
+}
+
+/** A rewrite scheduled and not yet run, run now: before an analysis reads the loads. */
+export function flushDefinedLoadsSync(): void {
+  if (timer === null) return;
+  clearTimeout(timer);
+  timer = null;
+  runPendingSync();
+}
+
+function runPendingSync(): void {
+  if (!uiStore.is3DWorkspace || !hasDefinitions()) return;
+  // Its own rewrite is a change of the model too; it does not schedule another.
+  syncing = true;
+  try { syncDefinedLoadsForAnalysis(); } finally { syncing = false; }
 }
 
 /** A new floor-load definition, with its loads, in one undo step. Returns its group id. */

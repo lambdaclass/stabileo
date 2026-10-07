@@ -1372,6 +1372,8 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  /** Run before an analysis reads the model's loads (`defined-loads.ts`: a pending rewrite). */
+  let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
   let _onReplaced: (() => void) | null = null;
   // Bulk mutation mode: during loadExample (and other wholesale mutations) we
@@ -1616,6 +1618,7 @@ function createModelStore() {
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
@@ -4078,6 +4081,9 @@ function createModelStore() {
      * (`engine/variable-members.ts`), for what names the model's nodes and members.
      */
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
+      // Loads that follow the model (floor-load definitions) brought up to date first, unless this is
+      // read inside a reactive computation, which must not write the model.
+      if (!$effect.tracking()) _beforeAnalysisInput?.();
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
