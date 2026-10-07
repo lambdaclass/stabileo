@@ -24,7 +24,7 @@ test.describe('@smoke deleting on a phone', () => {
     // The beam of the portal, at the middle of its span: where it is drawn, not
     // at a fixed fraction of the canvas, which moves with the framing. The
     // sheet that opens with the tool shortens the canvas and the model is
-    // framed again into what is left, so wait until the beam is inside it.
+    // framed again into what is left.
     const beamOnScreen = () => page.evaluate(() => {
       const h = window.__stabileo;
       for (const id of h.elementIds()) {
@@ -34,12 +34,15 @@ test.describe('@smoke deleting on a phone', () => {
       }
       return null;
     });
+    // The fit for the taller canvas holds still for a while before the reframe
+    // lands (a debounce), so no wait tells which position is final: tap where
+    // the beam is now, and again where it is then, until it is selected.
     await expect.poll(async () => {
       const p = await beamOnScreen();
-      return !!p && p.y > box.y && p.y < box.y + box.height;
-    }).toBe(true);
-    const beam = (await beamOnScreen())!;
-    await page.touchscreen.tap(beam.x, beam.y);
+      if (!p || p.y <= box.y || p.y >= box.y + box.height) return 0;
+      await page.touchscreen.tap(p.x, p.y);
+      return page.getByTestId('selection-delete').count();
+    }, { intervals: [400] }).toBeGreaterThan(0);
     await expect(page.getByTestId('selection-delete')).toBeVisible();
     // Over the model's lower right corner, and no row above the model: the
     // drawing does not move when something is selected.
