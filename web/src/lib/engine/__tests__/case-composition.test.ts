@@ -86,7 +86,9 @@ describe('a composite case', () => {
     portal();
     const A = modelStore.addLoadCase('A', ''), B = modelStore.addLoadCase('B', '');
     modelStore.updateLoadCaseFields(A, { includes: [{ caseId: B, factor: 1 }] });
-    modelStore.updateLoadCaseFields(B, { includes: [{ caseId: A, factor: 1 }] });
+    // The store refuses the loop; a file can still hold one.
+    expect(modelStore.updateLoadCaseFields(B, { includes: [{ caseId: A, factor: 1 }] })).toBe(false);
+    modelStore.model.loadCases.find((c) => c.id === B)!.includes = [{ caseId: A, factor: 1 }];
     expect([...caseOrder(modelStore.model.loadCases).looped].sort()).toEqual([A, B].sort());
   });
 });

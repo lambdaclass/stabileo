@@ -40,6 +40,12 @@ const OCCUPANCIES: ReadonlyArray<OccupancyProbability> = ['exceptional', 'reduce
  * f1 depends on how likely the imposed load is to be present — a quarter for dwellings and
  * offices, three quarters for a warehouse — and f2 on whether the roof retains snow. A roof live
  * load (`Lr`) is maintenance load, the table's "exceptional" row.
+ *
+ * A mass case (`M`) is weight stated to be mass — equipment, a tank's contents — present when the
+ * earthquake arrives as the permanent loads are: it weighs whole, as D. A crane's or a vehicle's
+ * load (`Cr`, `Tr`) is a moving load [3.15] does not name; it is not counted, and a project that
+ * means it to be writes its own table. A composite case weighs through its cases
+ * (`mass-source.ts` `resolveMassFactors`).
  */
 export const CIRSOC_103_2018: MassPreset = {
   id: 'cirsoc103-2018',
@@ -57,7 +63,7 @@ export const CIRSOC_103_2018: MassPreset = {
     const occupancy = (OCCUPANCIES as readonly string[]).includes(String(params.occupancy))
       ? params.occupancy as OccupancyProbability : 'reduced';
     switch (caseType) {
-      case 'D': return 1;
+      case 'D': case 'M': return 1;
       case 'L': return SIMULTANEITY_F1[occupancy];
       case 'Lr': return SIMULTANEITY_F1.exceptional;
       case 'S': return params.snowRetaining === true ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;

@@ -49,13 +49,14 @@ import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../c
 /** Symbols whose cases are alternatives (one direction at a time), not summands. */
 const ALTERNATIVE: ReadonlySet<LoadSymbol> = new Set(['W', 'Wa', 'E']);
 
-const SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
+const SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T', 'M', 'A', 'I'];
 
 /**
  * Types that combine as another symbol: a crane's and a vehicle's loads are imposed loads (L) in
- * the combinations, with their own category for design. Notional (N), mass (M), accidental (A)
- * and ice (I) cases have no symbol here: the automatic combinations leave them out (notional
- * loads are added on request), and a project's rules name them.
+ * the combinations, with their own category for design. Mass (M), accidental (A) and ice (I)
+ * cases are symbols of their own that no code rule names, so the automatic combinations leave
+ * them out and a project's rules take them in. Notional (N) cases have no symbol: they are added
+ * on request, with their source's factor (`notional-combinations.ts`).
  */
 const COMBINES_AS: Readonly<Record<string, LoadSymbol>> = { CR: 'L', TR: 'L' };
 
@@ -63,6 +64,21 @@ const COMBINES_AS: Readonly<Record<string, LoadSymbol>> = { CR: 'L', TR: 'L' };
 export function symbolOfType(type: string | undefined): LoadSymbol | null {
   const u = (type ?? '').toUpperCase();
   return SYMBOLS.find((s) => s.toUpperCase() === u) ?? COMBINES_AS[u] ?? null;
+}
+
+/**
+ * A case made of others (`LoadCase.includes`, `engine/case-effects.ts`): the sum it stands for,
+ * not an action of its type. Typed D, a composite of 1,2 D + 1,6 L was taken again as a dead
+ * load wherever cases are picked by type: in "1,4 D" beside the D it already holds, in a mass
+ * rule's D, in the older self-weight switch's dead-load cases.
+ */
+export function isCompositeCase(c: { includes?: ReadonlyArray<unknown> }): boolean {
+  return (c.includes?.length ?? 0) > 0;
+}
+
+/** The symbol a case combines as: its type's, and none for a composite case. */
+export function symbolOfCase(c: { type?: string; includes?: ReadonlyArray<unknown> }): LoadSymbol | null {
+  return isCompositeCase(c) ? null : symbolOfType(c.type);
 }
 
 export interface CaseCombination {
@@ -77,8 +93,8 @@ export interface CaseCombination {
 }
 
 /** Which load symbols the model has cases for. */
-export function presentSymbols(cases: ReadonlyArray<{ type?: string }>): CombinationInputs['present'] {
-  const has = (s: LoadSymbol) => cases.some((c) => symbolOfType(c.type) === s);
+export function presentSymbols(cases: ReadonlyArray<{ type?: string; includes?: ReadonlyArray<unknown> }>): CombinationInputs['present'] {
+  const has = (s: LoadSymbol) => cases.some((c) => symbolOfCase(c) === s);
   return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa'), T: has('T') };
 }
 
@@ -100,17 +116,17 @@ export interface ExpandOptions {
 }
 
 /** Actions that vary: the ones a rule has a principal among. D, F and H are permanent. */
-const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T']);
+const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T', 'A', 'I']);
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown> }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
   type Case = { id: number; name: string; alternatives?: string; pattern?: boolean };
   const bySymbol = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
-    const s = symbolOfType(c.type);
+    const s = symbolOfCase(c);
     if (!s) continue;
     bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern }]);
   }

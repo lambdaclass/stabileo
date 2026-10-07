@@ -76,7 +76,7 @@ export function caseMassLoads(
  */
 export function withMassSource(
   model: ModelData,
-  loadCases: ReadonlyArray<{ id: number; name: string; type: string }>,
+  loadCases: ReadonlyArray<{ id: number; name: string; type: string; includes?: ReadonlyArray<unknown> }>,
   stated: MassSource | null | undefined,
   input: SolverInput3D,
   userLeftHand = false,

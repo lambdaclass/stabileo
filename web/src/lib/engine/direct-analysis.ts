@@ -14,6 +14,9 @@
  *          the ratio of second- to first-order drift exceeds 1.7 (C2.2b(4)); in a gravity-only
  *          combination they always apply, along +X, −X, +Y and −Y in turn, and the direction
  *          giving the largest sway is kept.
+ *          A combination that takes notional cases (`case-effects.ts`) has its notional loads in
+ *          them: the analysis adds none of its own, and their horizontal load is not the
+ *          combination's lateral load. They act where the cases put them, at any drift ratio.
  *   C2.3a  0.80 on every stiffness: applied to E of every material, so axial, flexural, torsional
  *          and shell stiffness alike.
  *   C2.3b  τb on the flexural stiffness of steel members: 1 while αPr/Pns ≤ 0.5, else
@@ -53,7 +56,8 @@ export interface DirectAnalysisSettings {
 
 export const DEFAULT_DIRECT_SETTINGS: DirectAnalysisSettings = { notional: 0.002, tauB: 'iterate' };
 
-export type NotionalDirection = 'none' | 'lateral' | '+X' | '-X' | '+Y' | '-Y';
+/** `cases`: the combination's own notional cases are its notional loads. */
+export type NotionalDirection = 'none' | 'lateral' | 'cases' | '+X' | '-X' | '+Y' | '-Y';
 
 export interface DirectComboInfo {
   comboId: number;
@@ -268,6 +272,8 @@ export async function runDirectAnalysis(
   const perCombo = new Map<number, AnalysisResults3D>();
   const info = new Map<number, DirectComboInfo>();
   const extra = settings.tauB === 'unity' ? 0.001 : 0;
+  // The notional cases: a combination that takes one has its C2.2b loads already.
+  const notionalCases = new Set(loadCases.filter((c) => c.notional || (c.type ?? '').toUpperCase() === 'N').map((c) => c.id));
 
   await Promise.all(combinations.map(async (combo) => {
     const loads = comboSolverLoads3D(combo, caseLoads);
@@ -276,7 +282,9 @@ export async function runDirectAnalysis(
     if (loads.length === 0 && !imposedHere) return;
     const on = imposedHere ? buildSolverInput3D({ ...solvable, loads: imposedOf(solvable.loads, factorOf) }, false, leftHand) : base;
     if (!on) return;
-    const { gravity, lateral } = nodeGravity(base, loads, leftHand);
+    const takesNotional = combo.factors.some((f) => f.factor !== 0 && notionalCases.has(f.caseId));
+    const part = (keep: boolean) => comboSolverLoads3D({ ...combo, factors: combo.factors.filter((f) => notionalCases.has(f.caseId) === keep) }, caseLoads);
+    const { gravity, lateral } = nodeGravity(base, takesNotional ? part(false) : loads, leftHand);
     const hMag = Math.hypot(lateral.x, lateral.y);
     const totalGravity = [...gravity.values()].reduce((s, g) => s + Math.max(g, 0), 0);
     const hasLateral = hMag > 1e-6 * Math.max(totalGravity, 1);
@@ -315,7 +323,13 @@ export async function runDirectAnalysis(
     };
 
     let chosen: Awaited<ReturnType<typeof solveDirection>> & { dir: NotionalDirection };
-    if (hasLateral) {
+    if (takesNotional) {
+      // The cases' loads are in `loads`; C2.3(c)'s addition, when asked, goes with the lateral
+      // load, or along the cases' own resultant.
+      const along = hasLateral ? lateral : nodeGravity(base, part(true), leftHand).lateral;
+      const m = Math.hypot(along.x, along.y) || 1;
+      chosen = { ...(await solveDirection(() => extra, along.x / m, along.y / m)), dir: 'cases' };
+    } else if (hasLateral) {
       const ux = lateral.x / hMag, uy = lateral.y / hMag;
       const answer = await solveDirection((b2) => (b2 > 1.7 ? settings.notional : 0) + extra, ux, uy);
       const { r } = answer;

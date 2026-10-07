@@ -97,7 +97,11 @@
               <option value="abs">{t('combos.method.abs')}</option>
             </select>
           </label>
-          {#if combo.method === 'srss' || combo.method === 'abs'}<p class="cb-hint">{t('combos.method.hint')}</p>{/if}
+          {#if combo.method === 'srss' || combo.method === 'abs'}
+            <p class="cb-hint">{t('combos.method.hint')}</p>
+            <!-- Under P-Delta per combination its result says `magnitude.firstOrder` (`combination-methods.ts`). -->
+            {#if modelStore.analysis?.perCombination === 'pdelta'}<p class="cb-hint" data-testid="combo-method-first-order">{t('combos.method.firstOrder')}</p>{/if}
+          {/if}
           <table class="cb-factors">
             <tbody>
               {#if legacySelfWeight}

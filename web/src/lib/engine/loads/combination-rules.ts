@@ -16,7 +16,9 @@ export interface CombinationRule {
 
 // Wa is the service-level wind of CIRSOC 102-2025 B.4.2: the service rules seeded from the code
 // carry it, and a table or template without it dropped the wind from the service envelope.
-export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T'];
+// M, A and I (mass, accidental, ice) are named by a project's rules only, which is how their cases
+// enter a combination; a template reading them dropped them as unknown.
+export const RULE_SYMBOLS: readonly LoadSymbol[] = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'F', 'H', 'T', 'M', 'A', 'I'];
 
 /**
  * Terms as a formula, in the regulation's locale-neutral notation (`1.2 D + 1.6 L − 1.0 W`):

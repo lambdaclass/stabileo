@@ -13,6 +13,7 @@ import { catalogueGradeFamily } from './steel/grade-family';
 import { semiRigidNotAligned } from './expand-semi-rigid-3d';
 import { variableRefusal } from '../section/variable';
 import { anchorEndsUnplaced } from './variable-members';
+import { caseOrder } from './case-effects';
 
 interface LoadEntry {
   type: string;
@@ -23,6 +24,8 @@ interface LoadCase {
   id: number;
   name: string;
   type: string;
+  includes?: ReadonlyArray<{ caseId: number; factor: number }>;
+  notional?: { sourceCaseId: number };
 }
 
 interface ModelData {
@@ -332,6 +335,15 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
         details: { caseName: lc.name, caseId: lc.id },
       }));
     }
+  }
+
+  // Cases that read themselves, through the cases they take in or a notional source: solved, a
+  // loop takes nothing in (`case-effects.ts`), so they came out empty and nothing said so.
+  const looped = caseOrder(m.loadCases as never).looped;
+  if (looped.size) {
+    out.push(diag('warning', 'MODEL_CASE_LOOP', 'diag.model.caseLoop', {
+      details: { cases: m.loadCases.filter((c) => looped.has(c.id)).map((c) => c.name).join(', ') },
+    }));
   }
 
   // ─── Combinations ─────────────────────────────

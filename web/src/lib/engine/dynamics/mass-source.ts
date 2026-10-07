@@ -46,6 +46,7 @@ import type { SolverInput3D, SolverLoad3D, SolverMaterial } from '../types-3d';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { G } from './requests';
 import { massPresetById, presetParams, type MassPresetParamValue } from './mass-presets';
+import { isCompositeCase } from '../loads/combination-cases';
 
 export interface MassSourceFactor { caseId: number; factor: number }
 
@@ -70,6 +71,8 @@ export type FactorBasis =
   | 'preset'
   /** The code names this case type as not mass. */
   | 'notMass'
+  /** A case made of others: they weigh as themselves, and it weighed them again. */
+  | 'composite'
   /** From the table the user wrote. */
   | 'stated'
   /** The user wrote a table and this case is not in it — a case added after. */
@@ -86,7 +89,7 @@ export interface ResolvedFactor {
 }
 
 export function resolveMassFactors(
-  cases: ReadonlyArray<{ id: number; name: string; type: string }>,
+  cases: ReadonlyArray<{ id: number; name: string; type: string; includes?: ReadonlyArray<unknown> }>,
   source?: MassSource | null,
 ): ResolvedFactor[] {
   const row = (c: { id: number; name: string; type: string }, factor: number, basis: FactorBasis): ResolvedFactor =>
@@ -103,6 +106,8 @@ export function resolveMassFactors(
   if (!preset) return cases.map((c) => row(c, 0, 'unknownPreset'));
   const params = presetParams(preset, source.params);
   return cases.map((c) => {
+    // A composite case is not a load of its type (`combination-cases.ts` `isCompositeCase`).
+    if (isCompositeCase(c)) return row(c, 0, 'composite');
     const f = preset.factorFor(c.type, params);
     return f === null ? row(c, 0, 'notMass') : row(c, f, 'preset');
   });

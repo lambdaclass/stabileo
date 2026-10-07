@@ -34,6 +34,8 @@ import { resultsStore } from './results.svelte';
 // must not depend on the design run having populated `verificationStore.contexts`.
 import { classifyElement } from '../engine/codes/argentina/cirsoc201';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { withCaseEffects } from '../engine/case-effects';
+import type { ModelData } from '../engine/solver-service';
 // A store is a locale boundary, and these readings cross it where the store did.
 import { t } from '../i18n';
 import type { ElementForces3D } from '../engine/types-3d';
@@ -365,24 +367,7 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
       // Downward positive: a member pushing the node down delivers load into the column.
       sum += -globalZ;
     }
-    // A load applied at the joint node itself also arrives inside the perimeter. Downward is
-    // negative global Z, so it is negated to become a downward-positive delivery. The delivery
-    // must carry the COMBINATION's factors: the set's element forces are factored per case,
-    // so an unfactored raw load would mix magnitudes from two different worlds. The single
-    // active result set (setId 0) is unfactored by construction — the raw value IS right there.
-    for (const load of modelStore.model.loads) {
-      if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
-      const d = load.data as { nodeId: number; fz?: number; caseId?: number };
-      if (d.nodeId !== nodeId) continue;
-      if (setId === 0) {
-        sum += -(d.fz ?? 0);
-        continue;
-      }
-      const combo = modelStore.model.combinations.find((c) => c.id === setId);
-      const factor = combo?.factors.find((fc) => fc.caseId === (d.caseId ?? 1))?.factor ?? 0;
-      sum += factor * -(d.fz ?? 0);
-    }
-    return sum;
+    return sum + nodalLoadAtJoint(nodeId, setId);
   };
 
   /** Step in the column end moments across the joint, kN·m, about global x and y. */
@@ -517,4 +502,32 @@ export function footingRunFingerprint(): string {
     .sort((a, b) => a.id - b.id)
     .map((f) => `${f.id}:${f.revision}`);
   return JSON.stringify({ prefs, footings });
+}
+
+/**
+ * A load applied at the joint node itself, kN, downward positive: it arrives inside the perimeter
+ * too. Downward is negative global Z, so it is negated. The delivery carries the COMBINATION's
+ * factors: the set's element forces are factored per case, so an unfactored raw load would mix
+ * magnitudes from two different worlds. And each case as solved (`case-effects.ts`): a composite
+ * case carries the loads it takes in, a reduced case its reduced ones; the raw loads by case id
+ * left out a load a combination takes through a composite case. Notional loads are horizontal and
+ * are not worked out here. The single active result set (setId 0) is the solve of every load
+ * unfactored, its raw loads by construction.
+ */
+export function nodalLoadAtJoint(nodeId: number, setId: number): number {
+  const combo = setId === 0 ? undefined : modelStore.model.combinations.find((c) => c.id === setId);
+  const loads = setId === 0 ? modelStore.model.loads : withCaseEffects(
+    modelStore.model as unknown as ModelData,
+    modelStore.model.loadCases.map(({ notional: _n, ...c }) => c),
+    { includeSelfWeight: false, leftHand: false },
+  ).loads;
+  let sum = 0;
+  for (const load of loads) {
+    if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
+    const d = load.data as { nodeId: number; fz?: number; caseId?: number };
+    if (d.nodeId !== nodeId) continue;
+    const factor = setId === 0 ? 1 : (combo?.factors.find((fc) => fc.caseId === (d.caseId ?? 1))?.factor ?? 0);
+    sum += factor * -(d.fz ?? 0);
+  }
+  return sum;
 }

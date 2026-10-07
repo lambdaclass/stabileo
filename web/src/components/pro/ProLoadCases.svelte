@@ -17,6 +17,7 @@
   import { tp } from '../../lib/i18n';
   import ProCaseDetails from './loads/ProCaseDetails.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
+  import { caseOrder } from '../../lib/engine/case-effects';
 
   /** The case whose composition is open below its row. */
   let open = $state<number | null>(null);
@@ -49,6 +50,8 @@
 
   const loads = $derived(modelStore.loads);
   const loadCases = $derived(modelStore.model.loadCases);
+  /** Cases that read themselves (a file can hold such a loop): solved, they take nothing in. */
+  const looped = $derived(caseOrder(loadCases).looped);
 
   /** The types a case can take, in the order the regulation lists them. */
   const TYPES = ['D', 'L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T', 'F', 'H', 'N', 'Cr', 'Tr', 'M', 'A', 'I', ''] as const;
@@ -188,7 +191,8 @@
           {#if lc.reference}<span class="lc-alt" title={t('caseDetails.reference')} data-testid="lc-ref-{lc.id}">{t('caseDetails.referenceBadge')}</span>
           {:else if lc.solve === false}<span class="lc-alt" title={t('caseDetails.solve')}>{t('caseDetails.notSolvedBadge')}</span>{/if}
           {#if lc.notional}<span class="lc-alt" title={t('caseDetails.notional')}>{lc.notional.ratio} · {lc.notional.dir}</span>{/if}
-          {#if lc.reduction}<span class="lc-alt" title={t('caseDetails.reduction')}>× {lc.reduction.ratio.toFixed(2)}</span>{/if}</td>
+          {#if lc.reduction}<span class="lc-alt" title={t('caseDetails.reduction')}>× {lc.reduction.ratio.toFixed(2)}</span>{/if}
+          {#if looped.has(lc.id)}<span class="lc-alt lc-loop" title={t('caseDetails.loop')} data-testid="lc-loop-{lc.id}">{t('caseDetails.loopBadge')}</span>{/if}</td>
         <td class="lc-count">{count}</td>
         <!-- The regulation for THIS case, from the row that names it: a row that says W wants
              the wind parameters, not a dialog where they are the fourth section down. -->
@@ -209,8 +213,9 @@
         <!-- Deleting a case takes its loads and its place in the combinations: said, then done. -->
         <tr class="lc-confirm" data-testid="lc-confirm-{lc.id}">
           <td colspan="9">
-            <!-- And what removeLoadCase takes beyond the loads: self-weight rows, a mass-source factor. -->
-            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}{#if scope.selfWeight}{' '}{tp('pro.removeCaseSelfWeight', { n: scope.selfWeight })}{/if}{#if scope.mass}{' '}{t('pro.removeCaseMass')}{/if}</span>
+            <!-- And what removeLoadCase takes beyond the loads: self-weight rows, a mass-source factor,
+                 its place in composite cases, the source of notional cases (left empty). -->
+            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}{#if scope.selfWeight}{' '}{tp('pro.removeCaseSelfWeight', { n: scope.selfWeight })}{/if}{#if scope.mass}{' '}{t('pro.removeCaseMass')}{/if}{#if scope.composites.length}{' '}{tp('pro.removeCaseComposites', { names: scope.composites.join(', ') })}{/if}{#if scope.notional.length}{' '}{tp('pro.removeCaseNotional', { names: scope.notional.join(', ') })}{/if}</span>
             <button class="pk-btn lc-danger" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} data-testid="lc-confirm-yes">{t('pro.removeCase')}</button>
             <button class="pk-btn" onclick={(e) => { e.stopPropagation(); confirming = null; }}>{t('calcReport.cancel')}</button>
           </td>
@@ -305,4 +310,5 @@
   .lc-not-row label { display: inline-flex; align-items: center; gap: 3px; }
   .lc-not-num { width: 56px; font-family: var(--st-mono); }
   .lc-alt { flex: none; padding: 0 5px; line-height: 16px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-3); font-size: 0.6rem; }
+  .lc-loop { color: var(--st-warn); border-color: var(--st-warn); }
 </style>

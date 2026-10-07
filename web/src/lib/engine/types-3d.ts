@@ -467,6 +467,13 @@ export interface AnalysisResults3D {
   nonlinear?: NonlinearReport;
   /** A combination solved with P-Delta (`analysis.perCombination`): how the iteration ended. */
   secondOrder?: { converged: boolean; iterations: number; stable: boolean; b2: number };
+  /**
+   * A combination by SRSS or ABS (`combination-methods.ts`): every quantity a magnitude, not a
+   * state of the structure, so nothing that needs a sign or an equilibrium reads it
+   * (`result-scopes.ts` `isMagnitudeCombination`). `firstOrder`: combined from the linear cases
+   * while the other combinations were solved with P-Delta.
+   */
+  magnitude?: { method: 'srss' | 'abs'; firstOrder?: true };
 }
 
 /** The active-set loop's account of one solve (`member-behaviour.ts`). */

@@ -13,6 +13,7 @@
  *   perCombination     each combination solved linearly, or with P-Delta on its own factored
  *                      loads.
  */
+import { isCompositeCase } from './loads/combination-cases';
 
 export type GlobalAxis = 'X' | 'Y' | 'Z';
 
@@ -61,8 +62,9 @@ export interface SelfWeightPlan {
  * model, downward, when the project had self-weight on. With no dead-load case, `caseId` is null
  * and the caller makes one.
  */
-export function planSelfWeight(loadCases: ReadonlyArray<{ id: number; type?: string }>, includeSelfWeight: boolean): SelfWeightPlan {
-  const dead = loadCases.filter((c) => c.type === 'D');
+export function planSelfWeight(loadCases: ReadonlyArray<{ id: number; type?: string; includes?: ReadonlyArray<unknown> }>, includeSelfWeight: boolean): SelfWeightPlan {
+  // A composite case typed D is not a dead-load case (`combination-cases.ts` `isCompositeCase`).
+  const dead = loadCases.filter((c) => c.type === 'D' && !isCompositeCase(c));
   if (!includeSelfWeight) return { selfWeight: [], caseId: dead[0]?.id ?? null, deadCases: dead.length };
   const first = dead[0];
   return first

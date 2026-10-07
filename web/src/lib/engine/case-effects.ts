@@ -21,6 +21,9 @@ import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { scaledLoad } from '../model/loads/load-magnitudes';
 import { buildSolverInput3D, buildSolverLoads3D, type ModelData } from './solver-service';
 import { nodeGravity, notionalLoads } from './direct-analysis';
+import { solvableModel } from './member-behaviour';
+import { isCompositeCase } from './loads/combination-cases';
+import { variableExpansionFor } from './variable-members';
 
 type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction'>;
 
@@ -60,9 +63,10 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
   const { order, looped } = caseOrder(cases);
   const byId = new Map(cases.map((c) => [c.id, c]));
 
-  // The self-weight rows, written out: the older switch puts gravity on every dead-load case.
+  // The self-weight rows, written out: the older switch puts gravity on every dead-load case,
+  // not on a composite one typed D, which has it through the cases it takes in.
   const stated: SelfWeightLoad[] = model.analysis?.selfWeight
-    ?? (opts.includeSelfWeight ? cases.filter((c) => c.type === 'D').map((c) => ({ caseId: c.id, ...GRAVITY_SELF_WEIGHT })) : []);
+    ?? (opts.includeSelfWeight ? cases.filter((c) => c.type === 'D' && !isCompositeCase(c)).map((c) => ({ caseId: c.id, ...GRAVITY_SELF_WEIGHT })) : []);
   const rows = new Map<number, SelfWeightLoad[]>();
   for (const r of stated) (rows.get(r.caseId) ?? rows.set(r.caseId, []).get(r.caseId)!).push(r);
 
@@ -74,7 +78,6 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
     const s = k === 1 ? l : scaledLoad(l, k);
     return { ...s, data: { ...s.data, id: nextId++, caseId } } as Load;
   };
-  let base: ReturnType<typeof buildSolverInput3D> | undefined;
 
   for (const id of order) {
     const c = byId.get(id)!;
@@ -83,10 +86,8 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
       const src = c.notional.sourceCaseId;
-      base ??= buildSolverInput3D({ ...model, loads: [] }, false, opts.leftHand);
-      if (base) {
-        const solverLoads = buildSolverLoads3D(model, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [], opts.leftHand);
-        const { gravity } = nodeGravity(base, solverLoads, opts.leftHand);
+      const gravity = sourceGravity(model, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [], opts.leftHand);
+      if (gravity) {
         const [ux, uy] = DIRS[c.notional.dir];
         for (const n of notionalLoads(gravity, c.notional.ratio, ux, uy)) {
           if (n.type !== 'nodal') continue;
@@ -111,5 +112,66 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
     ...model,
     loads: [...orphan, ...order.flatMap((id) => loads.get(id) ?? [])],
     analysis: { ...(model.analysis ?? {}), selfWeight: [...rows.values()].flat() },
+  };
+}
+
+/**
+ * The gravity a source case puts at each of the model's nodes, kN, or null for a model with
+ * nothing to solve. Read off the structure the solve solves (`solvableModel`): the base and the
+ * source's loads from the same expanded model, as `runDirectAnalysis` builds them. Built from the
+ * model as given, a member solved as pieces had its loads on an id the base no longer has, and
+ * they and its self-weight were lost. The share at a piece's interior node goes to its member's
+ * own ends by the lever rule, as `nodeGravity` shares out a member load, so every notional load is
+ * on a node the model has.
+ */
+function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean): Map<number, number> | null {
+  const of = { ...model, loads: srcLoads, analysis: { ...(model.analysis ?? {}), selfWeight: srcRows } } as ModelData;
+  const solvable = solvableModel(of);
+  const base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
+  if (!base) return null;
+  const { gravity } = nodeGravity(base, buildSolverLoads3D(solvable, solvable.loads, solvable.analysis?.selfWeight ?? [], leftHand), leftHand);
+  const exp = variableExpansionFor(of);
+  if (!exp) return gravity;
+  const at = new Map<number, { parent: number; t: number }>();
+  for (const m of exp.members.values()) {
+    for (const p of m.pieces) {
+      at.set(p.nodeI, { parent: m.parentId, t: p.x0 / m.length });
+      at.set(p.nodeJ, { parent: m.parentId, t: p.x1 / m.length });
+    }
+  }
+  const out = new Map<number, number>();
+  const add = (n: number, g: number) => out.set(n, (out.get(n) ?? 0) + g);
+  for (const [n, g] of gravity) {
+    const where = model.nodes.has(n) ? undefined : at.get(n);
+    const parent = where && model.elements.get(where.parent);
+    if (!where || !parent) { add(n, g); continue; }
+    add(parent.nodeI, g * (1 - where.t));
+    add(parent.nodeJ, g * where.t);
+  }
+  return out;
+}
+
+/**
+ * The model for a solve of every load at once, without combinations: each case's own loads once,
+ * a reduced case's times its ratio, and a reference case's left out, with its self-weight rows:
+ * it is only for the cases that take it in, and the results listed it nowhere else. A composite
+ * case adds its own loads only, since what it takes in is there already, each case once; notional
+ * loads are a fraction of other cases' gravity, which only a combination states, and are not
+ * worked out. With no case saying any of it, the model is returned as it is.
+ */
+export function singleSolveModel<M extends ModelData>(model: M, cases: readonly Pick<LoadCase, 'id' | 'reference' | 'reduction'>[]): M {
+  const reference = new Set(cases.filter((c) => c.reference).map((c) => c.id));
+  const ratio = new Map(cases.filter((c) => c.reduction && c.reduction.ratio !== 1).map((c) => [c.id, c.reduction!.ratio]));
+  if (reference.size === 0 && ratio.size === 0) return model;
+  const loads = model.loads.flatMap((l) => {
+    const c = l.data.caseId ?? 1;
+    if (reference.has(c)) return [];
+    const k = ratio.get(c);
+    return [k === undefined ? l : scaledLoad(l, k)];
+  });
+  const rows = model.analysis?.selfWeight;
+  return {
+    ...model, loads,
+    ...(rows && reference.size ? { analysis: { ...model.analysis, selfWeight: rows.filter((r) => !reference.has(r.caseId)) } } : {}),
   };
 }

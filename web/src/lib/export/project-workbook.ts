@@ -34,7 +34,7 @@ function coverSheet(input: ProjectWorkbookInput): WorkbookSheet {
   const { tr } = input;
   const info = input.projectInfo ?? {};
   const rev = currentRevision(info);
-  const combos = input.results.sources.filter((s) => s.kind === 'combination').length + (input.results.unstable?.length ?? 0);
+  const combos = input.results.sources.filter((s) => s.kind === 'combination' || s.kind === 'magnitude').length + (input.results.unstable?.length ?? 0);
   const rows: WorkbookSheet['rows'] = [['field', 'value']];
   const add = (key: string, value: string | number | undefined) => {
     if (value !== undefined && value !== '') rows.push([tr(`wb.cover.${key}`), typeof value === 'string' ? safeText(value) : value]);

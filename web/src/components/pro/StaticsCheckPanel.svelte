@@ -103,6 +103,10 @@
         {/each}
       </tbody>
     </table>
+    {#if all?.magnitude?.length}
+      <!-- SRSS and ABS combinations: magnitudes, in no equilibrium by nature, so not checked (`statics-rows.ts`). -->
+      <div class="sc-hint" data-testid="statics-magnitude">{tp('pro.statics.magnitude', { names: all.magnitude.map((m) => m.name).join(', ') })}</div>
+    {/if}
     <div class="sc-hint">{t('pro.statics.selfWeightNote')}</div>
   {/if}
 </div>
