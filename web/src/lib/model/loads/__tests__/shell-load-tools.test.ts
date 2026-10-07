@@ -4,7 +4,7 @@
  * the region; scaling scales every value.
  */
 import { describe, it, expect } from 'vitest';
-import { hydrostaticSurfaceLoads, shellPointNodalLoads, type ShellRef } from '../shell-load-tools';
+import { hydrostaticSurfaceLoads, shellPointNodalLoads, type HydrostaticResult, type ShellRef } from '../shell-load-tools';
 import { shellLoadForces, type Vec3 } from '../../../engine/shell-load-integration';
 import { carrySurface } from '../member-load-carry';
 import { scaledLoad } from '../load-magnitudes';
@@ -23,13 +23,14 @@ function tank(): ShellRef[] {
     sh(5, [P(0, 0, 0), P(4, 0, 0), P(4, 2, 0), P(0, 2, 0)]),
   ];
 }
+const loadsOf = (r: HydrostaticResult) => { if ('refused' in r) throw new Error('refused'); return r.loads; };
 const total = (s: ShellRef, l: Omit<SurfaceLoad3D, 'id' | 'caseId'>): Vec3 =>
   shellLoadForces(s.on ?? 'quad', s.pts, l)!.forces.reduce<Vec3>((a, f) => [a[0] + f[0], a[1] + f[1], a[2] + f[2]], [0, 0, 0]);
 
 describe('a tank of water', () => {
   it('every wall pushed outward with γH²/2 per metre, the bottom down with γH·A', () => {
     const shells = tank();
-    const loads = hydrostaticSurfaceLoads(shells, 10, 3);
+    const loads = loadsOf(hydrostaticSurfaceLoads(shells, 10, 3));
     expect(loads).toHaveLength(5);
     const F = loads.map((l, i) => total(shells[i]!, l));
     expect(F[0]![1]).toBeCloseTo(-10 * 9 / 2 * 4, 9); // y = 0 wall: toward −y
@@ -38,8 +39,52 @@ describe('a tank of water', () => {
     expect(F[3]![0]).toBeCloseTo(-10 * 9 / 2 * 2, 9);
     expect(F[4]![2]).toBeCloseTo(-10 * 3 * 8, 9);     // the bottom
     // Half full: nothing above 1,5 m.
-    const half = hydrostaticSurfaceLoads(shells, 10, 1.5);
+    const half = loadsOf(hydrostaticSurfaceLoads(shells, 10, 1.5));
     expect(total(shells[0]!, half[0]!)[1]).toBeCloseTo(-10 * 1.5 ** 2 / 2 * 4, 9);
+  });
+});
+
+describe('the fluid\'s side', () => {
+  const P = (x: number, y: number, z: number) => ({ x, y, z });
+  /** A wall 3 m high on the plan segment a→b, its nodes in the order given or reversed. */
+  const wall = (id: number, a: [number, number], b: [number, number], reversed = false): ShellRef => {
+    const pts = [P(a[0], a[1], 0), P(b[0], b[1], 0), P(b[0], b[1], 3), P(a[0], a[1], 3)];
+    const o = reversed ? pts.reverse() : pts;
+    return { id, pts: o, nodes: o.map((_, i) => id * 10 + i) };
+  };
+
+  it('a single wall has no side of its own: refused without a point, away from the point given', () => {
+    for (const reversed of [false, true]) {
+      const w = wall(1, [0, 0], [2, 0], reversed);
+      const r = hydrostaticSurfaceLoads([w], 10, 3);
+      expect(r).toEqual({ refused: 'sideUnknown', shells: [w] });
+      const l = loadsOf(hydrostaticSurfaceLoads([w], 10, 3, [1, 1, 1]));
+      expect(total(w, l[0]!)[1]).toBeCloseTo(-90, 9); // the fluid at y > 0 pushes toward −y
+    }
+  });
+
+  it('an L-shaped tank: every wall pushed out of the fluid, the inner ones too', () => {
+    const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 2], [2, 2], [2, 10], [0, 10]];
+    const walls = corners.map((a, i) => wall(i + 1, a, corners[(i + 1) % corners.length]!, i % 2 === 1));
+    const bottom: ShellRef[] = [
+      { id: 7, pts: [P(0, 0, 0), P(10, 0, 0), P(10, 2, 0), P(0, 2, 0)], nodes: [70, 71, 72, 73] },
+      { id: 8, pts: [P(0, 2, 0), P(0, 10, 0), P(2, 10, 0), P(2, 2, 0)], nodes: [80, 81, 82, 83] },
+    ];
+    const shells = [...walls, ...bottom];
+    const loads = loadsOf(hydrostaticSurfaceLoads(shells, 10, 3));
+    expect(loads).toHaveLength(8);
+    const F = loads.map((l, i) => total(shells[i]!, l));
+    const H = 10 * 9 / 2;
+    // Outward from the L: y = 0 toward −y, x = 10 toward +x, the inner y = 2 toward +y, the inner
+    // x = 2 toward +x, y = 10 toward +y, x = 0 toward −x; the bottom down.
+    const want: Vec3[] = [[0, -H * 10, 0], [H * 2, 0, 0], [0, H * 8, 0], [H * 8, 0, 0], [0, H * 2, 0], [-H * 10, 0, 0], [0, 0, -30 * 20], [0, 0, -30 * 16]];
+    want.forEach((w, i) => w.forEach((v, k) => expect(F[i]![k], `shell ${i + 1}, component ${k}`).toBeCloseTo(v, 9)));
+    // A point outside every wall: the fluid is outside (a cofferdam), each wall pushed inward.
+    const out = loadsOf(hydrostaticSurfaceLoads(walls, 10, 3, [20, 20, 1]));
+    expect(total(walls[2]!, out[2]!)[1]).toBeCloseTo(-H * 8, 9);
+    // A lid below the level has no side without a point.
+    const lid: ShellRef = { id: 9, pts: [P(0, 0, 2), P(10, 0, 2), P(10, 2, 2), P(0, 2, 2)], nodes: [90, 91, 92, 93] };
+    expect(hydrostaticSurfaceLoads([...shells, lid], 10, 3)).toEqual({ refused: 'sideUnknown', shells: [lid] });
   });
 });
 

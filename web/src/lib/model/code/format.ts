@@ -399,7 +399,8 @@ export function codeToModel(text: string): ParseResult {
     const d = l.data, line = lineOf.get(`load:${d.id}`) ?? 0;
     if (d.nodeId !== undefined) ref('node', d.nodeId, line, 'node');
     if (d.elementId !== undefined) ref('member', d.elementId, line, 'member');
-    if (d.quadId !== undefined) ref('quad', d.quadId, line, 'quad');
+    // A triangle's load names it by quadId too, with `on: 'plate'`.
+    if (d.quadId !== undefined) { if (d.on === 'plate') ref('plate', d.quadId, line, 'plate'); else ref('quad', d.quadId, line, 'quad'); }
   }
   // A load or a combination naming an undefined CASE is not refused: the application keeps such
   // models (the case simply contributes nothing), and code that refused one it can open would not

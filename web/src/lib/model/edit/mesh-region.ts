@@ -114,8 +114,9 @@ export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: 
   if (regionOccupied(regionMeshInput(corners, o.density), planned.mesh.plane, quadId)) return { refused: 'occupied' };
 
   const { materialId, thickness, offset, curved } = quad;
-  const surface = modelStore.loads.flatMap((l) => (l.type === 'surface3d' && l.data.quadId === quadId ? [l.data as SurfaceLoad3D] : []));
-  const thermal = modelStore.loads.flatMap((l) => (l.type === 'thermalQuad3d' && l.data.quadId === quadId ? [l.data as ThermalLoadQuad3D] : []));
+  // The quad's own loads: a triangle numbered as the quad (`on: 'plate'`) is another shell.
+  const surface = modelStore.loads.flatMap((l) => (l.type === 'surface3d' && l.data.quadId === quadId && !l.data.on ? [l.data as SurfaceLoad3D] : []));
+  const thermal = modelStore.loads.flatMap((l) => (l.type === 'thermalQuad3d' && l.data.quadId === quadId && !l.data.on ? [l.data as ThermalLoadQuad3D] : []));
   const groups = [...modelStore.model.groups.values()].filter((g) => g.members.quads?.includes(quadId)).map((g) => g.id);
   let out!: MeshQuadResult;
   modelStore.batch(() => {
