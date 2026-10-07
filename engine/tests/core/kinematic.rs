@@ -275,3 +275,155 @@ fn kinematic_3d_per_axis_release_does_not_overcount_hinges() {
     );
     assert!(result.is_solvable);
 }
+
+// ─── The sparse proof of solvability, above its 64-free-DOF threshold ─────
+//
+// A large constraint-free model takes the sparse Cholesky proof instead of
+// the dense assembly plus dense LU rank; a mechanism at that size still falls
+// through to the full path, which names the DOFs.
+
+/// A fixed-base portal frame of `bays`×`storeys`, fixed at the base corners.
+fn big_portal(bays: usize, storeys: usize, pinned_base: bool) -> dedaliano_engine::types::SolverInput {
+    let (span, h) = (6.0, 3.5);
+    let id = |i: usize, k: usize| 1 + k * (bays + 1) + i;
+    let mut nodes = Vec::new();
+    for k in 0..=storeys {
+        for i in 0..=bays {
+            nodes.push((id(i, k), span * i as f64, h * k as f64));
+        }
+    }
+    let mut elements = Vec::new();
+    let mut eid = 1;
+    for k in 0..=storeys {
+        for i in 0..bays {
+            elements.push((eid, "frame", id(i, k), id(i + 1, k), 1, 1, false, false));
+            eid += 1;
+        }
+    }
+    for k in 0..storeys {
+        for i in 0..=bays {
+            elements.push((eid, "frame", id(i, k), id(i, k + 1), 1, 1, false, false));
+            eid += 1;
+        }
+    }
+    let supports = vec![
+        (1, id(0, 0), if pinned_base { "pinned" } else { "fixed" }),
+        (2, id(bays, 0), if pinned_base { "pinned" } else { "fixed" }),
+    ];
+    make_input(nodes, vec![(1, 200000.0, 0.3)], vec![(1, 0.01, 0.001)], elements, supports, vec![])
+}
+
+#[test]
+fn sparse_proof_solves_a_large_stable_frame() {
+    // 6 bays × 8 storeys: 63 nodes, 189 DOFs, 183 free — past the threshold.
+    let input = big_portal(6, 8, false);
+    let result = analyze_kinematics_2d(&input);
+    assert!(result.is_solvable, "a fixed-base portal is stable: {}", result.diagnosis);
+    assert_eq!(result.mechanism_modes, 0);
+    assert!(result.degree > 0);
+}
+
+#[test]
+fn a_mechanism_at_size_still_falls_through_and_is_named() {
+    // Same frame on pinned bases with every beam end released: a sway mechanism
+    // the sparse proof refuses to pass, so the dense path must name it.
+    let mut input = big_portal(6, 8, true);
+    for e in input.elements.values_mut() {
+        e.hinge_start = true;
+        e.hinge_end = true;
+    }
+    let result = analyze_kinematics_2d(&input);
+    assert!(!result.is_solvable, "a pinned, all-hinged portal is a mechanism");
+    assert!(result.mechanism_modes > 0);
+    assert!(!result.mechanism_nodes.is_empty());
+}
+
+#[test]
+fn sparse_proof_agrees_with_the_dense_path_on_a_heated_frame() {
+    // A thermal load adds nothing to the count but exercises the load-agnostic path.
+    let mut input = big_portal(6, 8, false);
+    input.loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 20.0, dt_gradient: 0.0 }));
+    let result = analyze_kinematics_2d(&input);
+    assert!(result.is_solvable);
+    assert_eq!(result.mechanism_modes, 0);
+}
+
+// ─── The sparse constrained solve, above its threshold ─────────────
+
+#[test]
+fn a_mechanism_whose_factorization_succeeds_is_still_a_mechanism() {
+    // A singular K need not make the sparse Cholesky fail: the zero pivot comes out of the
+    // elimination as rounding, often positive. Each of these factored and was called solvable.
+    let mut one_pin = big_portal(6, 8, false);
+    one_pin.supports.retain(|_, s| s.id == 1);
+    for s in one_pin.supports.values_mut() { s.support_type = "pinned".into(); }
+
+    let mut rollers = big_portal(6, 8, false);
+    for s in rollers.supports.values_mut() { s.support_type = "rollerX".into(); }
+
+    // 30 frame elements, pin and roller, one internal hinge at midspan.
+    let nodes: Vec<_> = (0..=30).map(|i| (i + 1, i as f64 * 0.5, 0.0)).collect();
+    let elements: Vec<_> = (0..30).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, i == 14)).collect();
+    let hinged_beam = make_input(nodes, vec![(1, 200000.0, 0.3)], vec![(1, 0.01, 0.001)], elements,
+        vec![(1, 1, "pinned"), (2, 31, "rollerX")], vec![]);
+
+    for (name, input) in [("a rigid frame on one pin", one_pin), ("on two rollers", rollers), ("a beam with an internal hinge", hinged_beam)] {
+        let result = analyze_kinematics_2d(&input);
+        assert!(!result.is_solvable, "{name} is a mechanism: {}", result.diagnosis);
+        assert!(result.mechanism_modes > 0, "{name}");
+    }
+}
+
+#[test]
+fn a_large_stable_frame_with_a_gerber_hinge_passes_the_sparse_proof() {
+    // 30 frame elements of 0.5 m in a line, a pin at one end, rollers at an
+    // intermediate and the far node, and a genuine internal hinge — hinge_end
+    // on the element into node 24, hinge_start on the one out of it. The hinge
+    // node's rotation carries no stiffness, so the assembly adds an artificial
+    // spring there and the proof must excuse exactly that DOF; its condensed
+    // rotation row is an explicit zero in the CSC, which only a value-based
+    // touch check reads correctly. 31 nodes × 3 DOF − 4 restraints = 89 free.
+    let nodes: Vec<_> = (0..=30).map(|i| (i + 1, i as f64 * 0.5, 0.0)).collect();
+    let elements: Vec<_> = (0..30)
+        .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, i == 23, i == 22))
+        .collect();
+    let input = make_input(
+        nodes, vec![(1, 200000.0, 0.3)], vec![(1, 0.01, 0.001)], elements,
+        vec![(1, 1, "pinned"), (2, 16, "rollerX"), (3, 31, "rollerX")],
+        vec![],
+    );
+    let result = analyze_kinematics_2d(&input);
+    assert!(result.is_solvable, "a Gerber beam is stable: {}", result.diagnosis);
+    assert_eq!(result.mechanism_modes, 0);
+    assert_eq!(result.degree, 0, "pin + 2 rollers + 1 hinge is isostatic");
+}
+
+#[test]
+fn an_inclined_support_defers_the_sparse_proof_to_the_dense_path() {
+    // A pin at the base corner and two inclined rollers whose parallel normals
+    // run along the diagonal that crosses both rollers: the frame rotates about
+    // the pin — a mechanism. The sparse assembly never rotates K at an inclined
+    // support, so its K_ff restrains global z at the rollers instead: a stable
+    // matrix whose Cholesky succeeds, and whose "solvable" would be wrong. The
+    // fast path must defer, and the dense path must name the slide.
+    let mut input = big_portal(6, 8, false);
+    let theta = 6.0f64.atan2(3.5); // normal along (6, 3.5), the corner → node (1,1) diagonal
+    for s in input.supports.values_mut() {
+        if s.node_id == 1 {
+            s.support_type = "pinned".into();
+        } else {
+            // id(1, 1) = 9: on the diagonal from the pin
+            s.node_id = 9;
+            s.support_type = "inclinedRoller".into();
+            s.angle = Some(theta);
+        }
+    }
+    input.supports.insert("3".to_string(), SolverSupport {
+        id: 3, node_id: 17, // id(2, 2): same diagonal, same parallel normal
+        support_type: "inclinedRoller".into(),
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: Some(theta),
+    });
+    let result = analyze_kinematics_2d(&input);
+    assert!(!result.is_solvable, "the frame rotates about the pin along the rollers' tangents: {}", result.diagnosis);
+    assert!(result.mechanism_modes > 0, "the rotation about the pin is one mode");
+}

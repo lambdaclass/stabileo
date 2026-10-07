@@ -1,8 +1,9 @@
+import * as axesModule from '../local-axes-3d';
 /**
  * A member of variable section through the solve: cut into prismatic pieces for the engine, back to
  * one member in the results, against the exact integral of its own taper.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
@@ -132,4 +133,24 @@ describe('variable-section members', () => {
       expect(Math.abs(w - p.dJ!.uz)).toBeLessThan(1e-9 + 1e-6 * Math.abs(p.dJ!.uz));
     });
   });
+  it('groups unsorted/duplicate stations by piece with the same values as one-point evaluation', () => {
+    const { a, b, e } = cantilever();
+    modelStore.addNodalLoad3D(b, 0, 0, -P, 0, 0, 0);
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const f = r.elementForces.find(x => x.elementId === e)!;
+    const ni = modelStore.nodes.get(a)!, nj = modelStore.nodes.get(b)!;
+    const start = { x: ni.x, y: ni.y, z: ni.z ?? 0 }, end = { x: nj.x, y: nj.y, z: nj.z ?? 0 };
+    const dI = r.displacements.find(d => d.nodeId === a)!, dJ = r.displacements.find(d => d.nodeId === b)!;
+    const ts = [1, 0.25, 0, 0.3, 0.5, 0.25, 0.75, ...Array.from({ length: 41 }, (_, i) => i / 40)];
+    const reference = ts.map(t => memberLocalCurve(start, end, dI, dJ, f, undefined, undefined, 0, false, [t])!);
+    const spy = vi.spyOn(axesModule, 'computeLocalAxes3D');
+    try {
+      const result = memberLocalCurve(start, end, dI, dJ, f, undefined, undefined, 0, false, ts)!;
+      expect(result.xi).toEqual(ts);
+      for (const component of ['u', 'v', 'w'] as const) expect(result[component]).toEqual(reference.map(c => c[component][0]));
+      expect(spy).toHaveBeenCalledTimes(f.pieces!.length);
+    } finally { spy.mockRestore(); }
+  });
+
 });
