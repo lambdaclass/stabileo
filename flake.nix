@@ -1,5 +1,5 @@
 {
-  description = "Dedaliano — structural analysis engine + AI backend";
+  description = "Stabileo engine — structural analysis solver in Rust and WebAssembly";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -29,17 +29,6 @@
             pkgs.wasm-pack
             pkgs.cargo-watch
 
-            # Node / frontend
-            pkgs.nodejs_22
-            pkgs.nodePackages.npm
-
-            # Backend runtime deps
-            pkgs.pkg-config
-            pkgs.openssl
-
-            # Docker (optional — uses host docker)
-            pkgs.docker-compose
-
             # Dev tools
             pkgs.just
             pkgs.jq
@@ -49,10 +38,9 @@
           ];
 
           shellHook = ''
-            echo "🏗  Dedaliano dev shell ready"
-            echo "   make dev        — start backend + web"
-            echo "   make test       — run all tests"
-            echo "   make docker-up  — start via docker compose"
+            echo "🏗  Stabileo engine dev shell ready"
+            echo "   make test       — run the engine tests"
+            echo "   make wasm       — build the WebAssembly package"
           '';
 
           RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";

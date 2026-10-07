@@ -1,47 +1,13 @@
-.PHONY: dev dev-backend dev-web wasm build build-backend build-web \
-       test test-engine test-backend test-web test-inventory \
-       docker-build docker-up docker-down \
-       clean fmt check
+.PHONY: wasm test test-inventory clean fmt check
 
-# ── Development ──────────────────────────────────────────────
-
-## Start everything: backend + web dev server (requires .env in backend/)
-dev:
-	@echo "Starting backend and web dev server..."
-	$(MAKE) -j2 dev-backend dev-web
-
-dev-backend:
-	cd backend && cargo run
-
-dev-web: wasm
-	cd web && npm install && npm run dev
-
-## Build WASM engine for the frontend
+## Build the engine to WebAssembly (JS bindings for the browser) into engine/pkg
 wasm:
-	cd engine && wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
-
-# ── Build ────────────────────────────────────────────────────
-
-build: build-backend build-web
-
-build-backend:
-	cargo build -p dedaliano-backend --release
-
-build-web: wasm
-	cd web && npm install && npm run build
+	cd engine && wasm-pack build --target web --out-dir pkg --no-opt
 
 # ── Test ─────────────────────────────────────────────────────
 
-test: test-engine test-backend test-web
-
-test-engine:
+test:
 	cargo test -p dedaliano-engine
-
-test-backend:
-	cargo test -p dedaliano-backend
-
-test-web:
-	cd web && npm install && npm test
 
 ## Measure the engine test inventory published in docs/BENCHMARKS.md.
 ## Engine-coupled = every target except `reference`, whose tests recompute
@@ -68,17 +34,6 @@ test-inventory:
 			printf "total registered: %d\n", eng + ref; \
 		}'
 
-# ── Docker ───────────────────────────────────────────────────
-
-docker-build:
-	docker compose build
-
-docker-up:
-	docker compose up -d
-
-docker-down:
-	docker compose down
-
 # ── Utilities ────────────────────────────────────────────────
 
 fmt:
@@ -89,4 +44,4 @@ check:
 
 clean:
 	cargo clean
-	rm -rf web/dist web/node_modules/.vite
+	rm -rf engine/pkg
