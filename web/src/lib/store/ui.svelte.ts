@@ -1513,19 +1513,23 @@ function createUIStore() {
       }
       if (count === 0) return;
 
-      const padding = 120; // pixels — margin for distributed loads and labels
+      if (!(canvasWidth > 0 && canvasHeight > 0)) return;
+      // A margin for distributed loads and labels: 120 px, or a sixth of a side
+      // on a canvas too small for that (a phone in landscape), which left
+      // nothing to frame in and fell to the farthest zoom.
+      const availW = canvasWidth - 2 * Math.min(120, canvasWidth / 6);
+      const availH = canvasHeight - 2 * Math.min(120, canvasHeight / 6);
       // A model with no width or no height (a beam, a column) frames on the other
-      // dimension. A lone node has no size to frame: it keeps the old framing,
-      // a metre across at most 200 px/m, so the next click lands a grid square away.
+      // dimension alone, filling the screen as it did; framing it as a square of
+      // its length used half the width. A lone node has no size to frame: it
+      // keeps the old framing, a metre across at most 200 px/m, so the next
+      // click lands a grid square away.
       const span = Math.max(maxX - minX, maxY - minY);
-      const availW = canvasWidth - padding * 2;
-      const availH = canvasHeight - padding * 2;
       if (span < 1e-9) {
         zoom = clampZoom2D(Math.min(availW, availH, 200));
       } else {
-        const worldW = maxX - minX || span;
-        const worldH = maxY - minY || span;
-        zoom = clampZoom2D(Math.min(availW / worldW, availH / worldH));
+        const fit = (avail: number, extent: number) => (extent > span * 1e-6 ? avail / extent : Infinity);
+        zoom = clampZoom2D(Math.min(fit(availW, maxX - minX), fit(availH, maxY - minY)));
       }
 
       const cx = (minX + maxX) / 2;

@@ -6,7 +6,7 @@
  * the row, the id and the read-only cells. Moving into one of a row's fields
  * selects the row's subject too (focusRow).
  */
-import { uiStore, modelStore } from '../store';
+import { uiStore } from '../store';
 
 export type RowKind = 'node' | 'element' | 'support' | 'load';
 
@@ -35,20 +35,16 @@ export function focusRow(e: FocusEvent, kind: RowKind, id: number): void {
   else uiStore.selectLoad(id);
 }
 
-/** Double click: select the row and frame it in the view. */
+/**
+ * Double click: select the row and frame it in the view. A support or a load
+ * is framed by the node or member it stands on, which both viewports work out
+ * from the selected support or load themselves; selecting that node or member
+ * as well left a support row's double click holding the node, so Delete took
+ * the node and its members, and the support's own edit bar never came up.
+ */
 export function frameRow(e: MouseEvent, kind: RowKind, id: number): void {
   if (onControl(e)) return;
   selectRow(e, kind, id);
-  // A support or a load is framed by the node or member it stands on.
-  if (kind === 'support') {
-    const sup = modelStore.supports.get(id);
-    if (sup) uiStore.selectNode(sup.nodeId, true);
-  } else if (kind === 'load') {
-    const load = modelStore.loads.find((l) => l.data.id === id);
-    const d = load?.data as { nodeId?: number; elementId?: number } | undefined;
-    if (d?.nodeId !== undefined) uiStore.selectNode(d.nodeId, true);
-    else if (d?.elementId !== undefined) uiStore.selectElement(d.elementId, true);
-  }
   window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
 }
 

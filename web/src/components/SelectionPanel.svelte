@@ -17,7 +17,8 @@
   import { uiStore, modelStore } from '../lib/store';
   import { selectAll, invertSelection, selectByIds, loadedInCase, parallelToGlobal, seedMembersOf, membersAsKinds, type GlobalDirection } from '../lib/model/select-ops';
   import { selectionHistory, trackSelectionHistory } from '../lib/store/selection-history.svelte';
-  import { viewState } from '../lib/store/view-state.svelte';
+  import { viewState, visibleModel } from '../lib/store/view-state.svelte';
+  import { selectWalkItem } from '../lib/actions/selection-walk';
   import { groupByParallel, groupByConnectivity, groupBySection, groupByMaterial, groupByElevation, groupByPlane, groupByFrameLine, groupByKind, memberKindOf } from '../lib/engine/design/member-grouping';
   import { t, tp } from '../lib/i18n';
 
@@ -131,19 +132,22 @@
     const { kind, id } = walk.items[walkAt]!;
     // In Basic the armed kinds stay as they are; the item is selected in its own channel.
     if (!basic) uiStore.selectMode = kind === 'nodes' ? 'nodes' : 'elements';
-    if (kind === 'elements') uiStore.setSelection(new Set(), new Set([id]), true);
-    else if (kind === 'nodes') uiStore.setSelection(new Set([id]), new Set(), true);
-    else if (kind === 'supports') uiStore.selectSupport(id);
-    else uiStore.selectLoad(id);
+    selectWalkItem(kind, id);
     window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
   }
 
+  /*
+   * All and Invert take what the view shows: a hidden member, a support on a
+   * hidden node, a load on a hidden member are not taken, as a click or a
+   * marquee does not take them, so the Delete that follows cannot reach
+   * what the reader cannot see. PRO as well: it hides and isolates the same way.
+   */
   function doSelectAll() {
-    apply(selectAll(modelStore.model as never, armedKinds as never));
+    apply(selectAll(visibleModel() as never, armedKinds as never));
   }
 
   function doInvert() {
-    apply(invertSelection(modelStore.model as never, armedKinds as never, {
+    apply(invertSelection(visibleModel() as never, armedKinds as never, {
       nodes: new Set(uiStore.selectedNodes),
       elements: new Set(uiStore.selectedElements),
       shells: new Set(uiStore.selectedShells),

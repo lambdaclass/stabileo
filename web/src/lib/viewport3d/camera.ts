@@ -120,7 +120,7 @@ export function zoomToFit(
   if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
     const persp = camera as THREE.PerspectiveCamera;
     persp.near = nearPlaneFor(dist);
-    persp.far = Math.max(1000, dist * 10);
+    persp.far = farPlaneFor(Math.max(dist, camera.position.distanceTo(controls.target)), uiStore.gridExtent3D);
     persp.updateProjectionMatrix();
   }
   if (camera === orthoCamera) {
@@ -241,4 +241,17 @@ export function handleResize(
  */
 export function nearPlaneFor(distance: number): number {
   return Math.max(1e-4, distance * 0.005);
+}
+
+/**
+ * The perspective far plane for a camera this far from what it looks at, over
+ * a grid this wide: ten times the distance (the model a fit frames), and the
+ * grid's far corner from wherever the camera is (it reaches 0.71 of its width
+ * from its centre, and the camera can look at any point of it). It was 2000 m
+ * or more whatever the view, so zoomed in on a part, with the near plane at
+ * a tenth of a millimetre, far and near were ten million apart; following the
+ * distance keeps the depth range to what is on screen.
+ */
+export function farPlaneFor(distance: number, gridExtent: number): number {
+  return Math.max(distance * 10, distance + gridExtent * 1.5, 1);
 }

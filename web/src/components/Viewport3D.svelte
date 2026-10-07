@@ -36,6 +36,7 @@
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
+  import { addThermalLoadIfAny } from '../lib/store/load-ops';
   import Icon from './ribbon/Icon.svelte';
   import { COLORS, setGroupColor, findUserData, disposeObject, createTextSprite, setLabelScale3D } from '../lib/three/selection-helpers';
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
@@ -54,7 +55,8 @@
   import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
+  import { createFrameCoalescer } from '../lib/viewport3d/frame-coalesce';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
@@ -572,10 +574,11 @@
      * exactly how it was reported. At 10 km the whole floor sits beyond the
      * plane and nothing draws at all.
      *
-     * `syncCameraRange` sizes it from whatever has to be visible. The
-     * logarithmic depth buffer is what makes that affordable: spanning 0.1 m
-     * to 40 km on a linear 24-bit depth buffer puts almost all of the
-     * precision in the first few metres and z-fights everything past them.
+     * `syncCameraRange` sizes it from whatever has to be visible. The depth
+     * buffer is not logarithmic (the renderer never asked for one), so the
+     * perspective range is kept no wider than the view needs: near and far
+     * both follow the distance to what is looked at (`nearPlaneFor`,
+     * `farPlaneFor`).
      */
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     setCameraUp(perspCamera);
@@ -2199,7 +2202,10 @@
       const elemId = loadToolMember(e);
       if (elemId === null) return;
       // No pushState: addThermalLoad pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-      modelStore.addThermalLoad(elemId, uiStore.thermalDT, uiStore.thermalDTg, uiStore.activeLoadCaseId);
+      // ΔTg = ∇T = 0 is a load of nothing, refused as the other tools refuse one.
+      if (addThermalLoadIfAny(elemId, uiStore.thermalDT, uiStore.thermalDTg, uiStore.activeLoadCaseId) === null) {
+        uiStore.toast(t('drawBar.loadIsZero'), 'info'); return;
+      }
       uiStore.toast(t('viewport3d.thermalLoadApplied').replace('{id}', String(elemId)), 'success');
     }
   }
@@ -2716,9 +2722,13 @@
   /*
    * A click again on the same spot steps to the next node or member under the
    * pointer (`viewport/pick-cycle.ts`): what the ray hit, nearest first, then
-   * what lies within a few pixels on the screen.
+   * what lies within a few pixels on the screen. It steps only while what the
+   * last click took is still selected.
    */
-  const pickCycle = createPickCycle();
+  const pickCycle = createPickCycle({
+    isSelected: (p) => p.kind === 'node' ? uiStore.selectedNodes.has(p.id)
+      : p.kind === 'element' ? uiStore.selectedElements.has(p.id) : uiStore.selectedLoads.has(p.id),
+  });
   const cycledToast = (at: number, of: number) =>
     uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
   function pickUnderPointer(e: MouseEvent, kinds: { nodes: boolean; elements: boolean; loads?: boolean }): PickTarget | null {
@@ -2756,6 +2766,13 @@
   function handleDoubleClick3D(e: MouseEvent) {
     if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera) return;
     if (uiStore.shellNodePick.active || drawState.active) return;
+    // A node or member the clicks on this spot stepped to (see pick-cycle) is what is lit, and what opens.
+    const rect = container.getBoundingClientRect();
+    const picked = pickCycle.steppedTo(e.clientX - rect.left, e.clientY - rect.top);
+    if (picked?.kind === 'node' || picked?.kind === 'element') {
+      quickEdit.open({ kind: picked.kind === 'node' ? 'node' : 'member', id: picked.id }, e.clientX, e.clientY);
+      return;
+    }
     updateMouseNDC(e);
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
@@ -2905,11 +2922,12 @@
        * reset the node/element/shell channels, so a hit on one kind would
        * otherwise leave another kind's selection stale — still highlighted,
        * still what Delete removes. The trailing clear-on-miss the single-kind
-       * branches need is covered by this.
+       * branches need is covered by this. The pick is asked first: a click
+       * again steps on only from what is still selected.
        */
+      const pick = pickUnderPointer(e, { nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'), loads: uiStore.selectsKind('loads') });
       if (!addToSel) uiStore.clearSelection();
       let hit = false;
-      const pick = pickUnderPointer(e, { nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'), loads: uiStore.selectsKind('loads') });
       if (pick?.kind === 'node') { uiStore.selectNode(pick.id, addToSel); hit = true; }
       else if (pick?.kind === 'element') {
         uiStore.selectElement(pick.id, addToSel);
@@ -3075,25 +3093,30 @@
     }
 
     // ─── Preview while drawing a member or a plate: from what is picked to the pointer ──
-    // Uses cached hoveredData (may lag ≤1 frame behind mouse) so this stays cheap.
-    {
-      const pick = uiStore.shellNodePick;
-      const picked = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
-        : pick.active && pick.target === 'quad' ? pick.picked : [];
-      // Drawing a member: the node the next click takes, caught within a few pixels, is ringed,
-      // and the preview line ends on it rather than on the floor under the pointer.
-      const drawingMember = uiStore.currentTool === 'element' && uiStore.elementMode !== 'hinge';
-      const snapId = drawingMember ? memberSnapNode(e) : null;
-      const snapAt = snapId !== null && snapId !== drawState.memberStart ? nodeScenePoint(snapId) : null;
-      if (drawingMember) { drawFeedback.setTarget(snapAt); invalidate(); }
-      if (picked.length > 0) {
-        const pts = picked.map(nodeScenePoint).filter((v): v is THREE.Vector3 => v !== null);
-        const hovered = hoveredData?.type === 'node' ? nodeScenePoint(hoveredData.id) : null;
-        drawFeedback.setPreview(pts, snapAt ?? hovered ?? getGroundIntersection(e));
-        invalidate();
-      }
-    }
+    // Once a frame, on the latest move (the snap raycasts and projects every node).
+    if (uiStore.currentTool === 'element' || uiStore.shellNodePick.active) drawPreviewFrame.schedule(e);
   }
+
+  const drawPreviewFrame = createFrameCoalescer<MouseEvent>((e) => {
+    if (!camera || !initialized) return;
+    // Uses cached hoveredData (may lag ≤1 frame behind mouse) so this stays cheap.
+    const pick = uiStore.shellNodePick;
+    const picked = uiStore.currentTool === 'element' && drawState.memberStart !== null ? [drawState.memberStart]
+      : pick.active && pick.target === 'quad' ? pick.picked : [];
+    // Drawing a member: the node the next click takes, caught within a few pixels, is ringed,
+    // and the preview line ends on it rather than on the floor under the pointer.
+    const drawingMember = uiStore.currentTool === 'element' && uiStore.elementMode !== 'hinge';
+    const snapId = drawingMember ? memberSnapNode(e) : null;
+    const snapAt = snapId !== null && snapId !== drawState.memberStart ? nodeScenePoint(snapId) : null;
+    // A frame only when the ring moved, appeared or went.
+    if (drawingMember && drawFeedback.setTarget(snapAt)) invalidate();
+    if (picked.length > 0) {
+      const pts = picked.map(nodeScenePoint).filter((v): v is THREE.Vector3 => v !== null);
+      const hovered = hoveredData?.type === 'node' ? nodeScenePoint(hoveredData.id) : null;
+      drawFeedback.setPreview(pts, snapAt ?? hovered ?? getGroundIntersection(e));
+      invalidate();
+    }
+  });
 
   /**
    * rAF-coalesce the expensive hover raycast so a burst of mousemove events
@@ -3584,24 +3607,28 @@
    * The far plane was a literal 1000 from when the grid was 50 m across; see
    * the note where the cameras are built. A grid of extent E reaches E/2 from
    * the centre, and the camera can be that far out again, so the diagonal a
-   * frustum has to contain is comfortably a few times E. Generous rather than
-   * tight: the cost of too much range is depth precision, and the logarithmic
-   * buffer is what pays for it; the cost of too little is a floor that
-   * disappears in pieces while you orbit.
-   *
-   * The near plane is syncNearPlane's.
+   * frustum has to contain is comfortably a few times E. The cost of too
+   * little is a floor that disappears in pieces while you orbit; the cost of
+   * too much is depth precision (the depth buffer is not logarithmic), so the
+   * perspective camera's far plane follows the distance too (farPlaneFor,
+   * kept by syncNearPlane); the orthographic one, whose depth is linear,
+   * keeps the generous range.
    */
   /**
    * The near plane follows the distance to what is looked at, so zooming in on a
    * part a few millimetres across does not cut it away, and a whole building
-   * keeps the depth precision of the old fixed 0.1 m.
+   * keeps the depth precision of the old fixed 0.1 m. The far plane follows it
+   * as well, still reaching the grid's far corner.
    */
   function syncNearPlane() {
     if (!camera || !(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
     const cam = camera as THREE.PerspectiveCamera;
-    const near = nearPlaneFor(cam.position.distanceTo(controls.target));
-    if (Math.abs(cam.near - near) > near * 0.05) {
+    const dist = cam.position.distanceTo(controls.target);
+    const near = nearPlaneFor(dist);
+    const far = farPlaneFor(dist, uiStore.gridExtent3D);
+    if (Math.abs(cam.near - near) > near * 0.05 || Math.abs(cam.far - far) > far * 0.05) {
       cam.near = near;
+      cam.far = far;
       cam.updateProjectionMatrix();
     }
   }
@@ -3609,10 +3636,16 @@
   function syncCameraRange() {
     const reach = Math.max(uiStore.gridExtent3D, 50);
     const far = Math.max(2000, reach * 4);
-    for (const cam of [perspCamera, orthoCamera]) {
-      if (!cam || cam.far === far) continue;
-      cam.far = far;
-      cam.updateProjectionMatrix();
+    if (orthoCamera && orthoCamera.far !== far) {
+      orthoCamera.far = far;
+      orthoCamera.updateProjectionMatrix();
+    }
+    if (perspCamera && controls) {
+      const pf = farPlaneFor(perspCamera.position.distanceTo(controls.target), uiStore.gridExtent3D);
+      if (perspCamera.far !== pf) {
+        perspCamera.far = pf;
+        perspCamera.updateProjectionMatrix();
+      }
     }
   }
 

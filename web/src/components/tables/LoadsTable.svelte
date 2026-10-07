@@ -8,6 +8,7 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
+  import { pruneStaleSelection } from '../../lib/store/selection-prune';
 
   /** The case self-weight goes in: the one chosen, else the first dead-load case, else the first. */
   const selfWeightCase = $derived.by(() => {
@@ -22,6 +23,8 @@
   function deleteLoad(index: number) {
     historyStore.pushState();
     modelStore.loads.splice(index, 1);
+    // A deleted load leaves the selection too, or the bar keeps editing nothing.
+    pruneStaleSelection();
   }
 
   function updateLoadField(loadId: number, field: string, val: string) {
@@ -122,6 +125,15 @@
             <span class="load-field">qYJ<UnitInput value={d.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qYJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             <span class="load-field">qZI<UnitInput value={d.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qZI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             <span class="load-field">qZJ<UnitInput value={d.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qZJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <!-- qX loads the member in every frame (along X, or along the member): never hidden while
+                 it is not zero. The axes the components are read on, unless the member's own. -->
+            {#if d.frame === 'global' || d.qXI || d.qXJ}
+              <span class="load-field">qXI<UnitInput value={d.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qXI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+              <span class="load-field">qXJ<UnitInput value={d.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qXJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            {/if}
+            {#if d.frame === 'global' || d.frame === 'projected'}
+              <span class="load-field" data-testid="load-frame">{d.frame === 'global' ? t('float.frameGlobal') : t('loads.frame.projected')}</span>
+            {/if}
           {:else if load.type === 'thermal'}
             {@const d = load.data as ThermalLoad}
             <span class="load-field" title={t('float.thermalUniformTip')}>ΔTg<UnitInput value={d.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtUniform', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>

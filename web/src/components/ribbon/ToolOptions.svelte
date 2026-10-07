@@ -8,6 +8,7 @@
   import { t } from '../../lib/i18n';
   import { IL_QUANTITY_GROUPS } from '../../lib/influence-line-quantities';
   import { uiStore } from '../../lib/store/ui.svelte';
+  import { editingKind } from '../../lib/store/selection-prune';
   import ToolNodeOptions from '../floating-tools/ToolNodeOptions.svelte';
   import ToolElementOptions from '../floating-tools/ToolElementOptions.svelte';
   import ToolSupportOptions from '../floating-tools/ToolSupportOptions.svelte';
@@ -32,9 +33,8 @@
    * ✓ goes back to creating. The edit used to open at the other end of the
    * bar while the create row stayed here, two answers to one question.
    */
-  const editing = $derived<'support' | 'load' | null>(
-    uiStore.selectedLoads.size > 0 ? 'load' : uiStore.selectedSupports.size > 0 ? 'support' : null,
-  );
+  // Only a support or load the model still has: one deleted from its table or undone edits nothing.
+  const editing = $derived(editingKind());
   const creating = $derived(!editing && (uiStore.currentTool === 'support' || uiStore.currentTool === 'load'));
 </script>
 

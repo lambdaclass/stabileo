@@ -7,12 +7,15 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
   import { defaultDofs } from '../../lib/store/support-dofs';
+  import { pruneStaleSelection } from '../../lib/store/selection-prune';
 
   const supportsArr = $derived([...modelStore.supports.values()]);
 
 
   function deleteSupport(id: number) {
     modelStore.removeSupport(id);
+    // A deleted support leaves the selection too, or the bar keeps editing nothing.
+    pruneStaleSelection();
   }
 
   function changeSupportType(supId: number, val: string) {
@@ -110,8 +113,8 @@
               <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {:else}
               <span class="load-field">dx<UnitInput value={sup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
-              <span class="load-field">dz<UnitInput value={sup.dz ?? sup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dy', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
-              <span class="load-field">d&theta;y<UnitInput value={sup.dry ?? sup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'drz', String(v))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
+              <span class="load-field">dz<UnitInput value={sup.dz ?? sup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dz', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">d&theta;y<UnitInput value={sup.dry ?? sup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'dry', String(v))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
             {/if}
           </td>
         {/if}

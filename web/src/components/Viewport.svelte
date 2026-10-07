@@ -56,6 +56,8 @@
     snapWithMidpoint as _snapWithMidpoint,
   } from '../lib/viewport/spatial-queries';
   import { createPickCycle, type PickTarget } from '../lib/viewport/pick-cycle';
+  import { pickable2D, loadsDrawn2D } from '../lib/viewport/pick-visibility';
+  import { PICK_PX, pickTolAt, nodeToolTolerances } from '../lib/viewport/pick-tolerance';
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
@@ -1632,7 +1634,8 @@
   function drawReactions() {
     if (!resultsStore.results) return;
     _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
-      const node = modelStore.getNode(nodeId);
+      // A reaction is drawn with its support: not at a node the view hides.
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -1827,16 +1830,19 @@
             // snap-to-grid is on. When it's off, `snapped` equals `world`.
             const projInputX = uiStore.snapToGrid ? snapped.x : world.x;
             const projInputY = uiStore.snapToGrid ? snapped.y : world.y;
-            didSplit = attemptSplit(world.x, world.y, 0.3, projInputX, projInputY);
+            // Reaches in screen pixels, as every other one (they were 0.3 and 0.4 m).
+            const reach = nodeToolTolerances(uiStore.zoom);
+            didSplit = attemptSplit(world.x, world.y, reach.split, projInputX, projInputY);
             // 2nd attempt — placement-point-based: snapWithMidpoint can
             // resolve `ms` ONTO a bar even when the cursor attempt missed
-            // (its midpoint snap reaches 0.4 > the 0.3 search above, and a
+            // (its midpoint snap reaches further than the search above, and a
             // grid intersection can lie on the bar). Without this, the node
             // would sit exactly on the element without subdividing it — the
             // coincident-unconnected trap auto-split exists to prevent.
-            // Tight tolerance: only when ms is effectively ON the element.
+            // Tight tolerance: only when ms is effectively ON the element
+            // (1 cm, or a pixel zoomed in on a small part).
             if (!didSplit) {
-              didSplit = attemptSplit(ms.x, ms.y, 0.01, ms.x, ms.y);
+              didSplit = attemptSplit(ms.x, ms.y, Math.min(0.01, pickTol(1)), ms.x, ms.y);
             }
           }
         }
@@ -1851,9 +1857,15 @@
           // placement point `ms`: with grid snap on, `ms` can land exactly
           // on an existing grid-aligned node that is >0.5m from the cursor —
           // creating an exact coincident duplicate.
+          // The coincidence check looks at hidden nodes too: a node is not
+          // placed on one (a twin that looks joined and is not), and a hidden
+          // one is not dragged either, so the click does nothing.
+          const coincident = _findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL, modelStore.nodes);
           const onExisting = nodeAtCursor
-            ?? findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL);
-          if (onExisting) {
+            ?? (coincident && !viewVisibility.isNodeHidden(coincident.id) ? coincident : null);
+          if (!onExisting && coincident) {
+            // Nothing: the place is taken by a node the view hides.
+          } else if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
               uiStore.selectNode(onExisting.id, e.shiftKey);
             }
@@ -2118,18 +2130,19 @@
          * multi-kind earns its keep; this ordering just keeps a single click
          * predictable rather than arbitrary.
          */
+        let hit = false;
+        // Nodes and members: tested where the cursor is (the snapped point
+        // only as a second chance for a node), and a click again on the same
+        // spot steps to the next one under it — asked before the selection is
+        // cleared, since stepping goes on only from what is still selected.
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, {
+          nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'),
+        }), mx, my, e.detail);
         if (!e.shiftKey) {
           uiStore.clearSelection();
           uiStore.clearSelectedSupports();
           uiStore.clearSelectedLoads();
         }
-        let hit = false;
-        // Nodes and members: tested where the cursor is (the snapped point
-        // only as a second chance for a node), and a click again on the same
-        // spot steps to the next one under it.
-        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, {
-          nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'),
-        }), mx, my, e.detail);
         if (pick?.kind === 'node') { uiStore.selectNode(pick.id, true); hit = true; }
         else if (pick?.kind === 'element') { uiStore.selectElement(pick.id, true); hit = true; }
         if (!hit && uiStore.selectsKind('supports')) {
@@ -2495,20 +2508,21 @@
                 (k): k is BoxSelectMode => k !== 'shells' && k !== 'stress',
               ),
           toScreen: (p) => uiStore.worldToScreen(p.x, p.y),
-          model: {
-            nodes: [...modelStore.nodes.values()].map((n) => {
+          // Only what is drawn: nothing hidden, no support or load whose layer is off.
+          model: ((reach) => ({
+            nodes: [...reach.nodes.values()].map((n) => {
               const p = project2DNode(n);
               return { id: n.id, x: p.x, y: p.y };
             }),
-            elements: modelStore.elements.values(),
-            supports: modelStore.supports.values(),
-            loads: modelStore.model.loads as never,
-            getNode: (id) => {
+            elements: reach.elements.values(),
+            supports: reach.supports.values(),
+            loads: reach.loads as never,
+            getNode: (id: number) => {
               const n = modelStore.getNode(id);
               return n ? project2DNode(n) : undefined;
             },
-            getElement: (id) => modelStore.elements.get(id),
-          },
+            getElement: (id: number) => modelStore.elements.get(id),
+          }))(pickable()),
         });
 
         if (picked.nodes.size > 0 || picked.elements.size > 0) {
@@ -2537,6 +2551,16 @@
     const my = e.clientY - rect.top;
     const world = uiStore.screenToWorld(mx, my);
     const snapped = uiStore.snapWorld(world.x, world.y);
+
+    // A node or member the clicks on this spot stepped to (see pick-cycle) is
+    // what is lit, and what the editor opens; otherwise the most specific thing here.
+    const picked = pickCycle.steppedTo(mx, my);
+    if (picked?.kind === 'node' || picked?.kind === 'element') {
+      if (picked.kind === 'node') uiStore.editingNodeId = picked.id;
+      else uiStore.editingElementId = picked.id;
+      uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
+      return;
+    }
 
     /*
      * At the cursor, not at the snapped point. Snapping exists to PLACE
@@ -2815,17 +2839,35 @@
     _drawTooltip(ctx, sx, sy, lines, width, height);
   }
 
-  /*
-   * Click tolerances, in screen pixels: a node or member is as easy to hit
-   * zoomed out on a long bridge as zoomed in on a small part. They were
-   * metres (0.3, 0.4 and 0.5), which at the old default of 50 px/m are these
-   * same pixels, so nothing changes at that zoom.
-   */
-  const PICK_PX = { tight: 15, mid: 20, loose: 25 } as const;
-  function pickTol(px: number): number { return px / Math.max(uiStore.zoom, 1e-9); }
+  // Click tolerances, in screen pixels (lib/viewport/pick-tolerance), in metres at this zoom.
+  function pickTol(px: number): number { return pickTolAt(uiStore.zoom, px); }
 
-  // A click again on the same spot steps to the next thing under the pointer.
-  const pickCycle = createPickCycle();
+  /*
+   * What a pointer can reach: what is drawn (lib/viewport/pick-visibility).
+   * Every picking path below takes its nodes, members, supports and loads from
+   * here, so nothing hidden or turned off is clicked, hovered, dragged,
+   * loaded, edited or taken by a marquee.
+   */
+  function pickable() {
+    return pickable2D(
+      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.model.loads },
+      {
+        anyHidden: viewVisibility.active,
+        isNodeHidden: (id) => viewVisibility.isNodeHidden(id),
+        isElementHidden: (id) => viewVisibility.isElementHidden(id),
+        isLoadHidden: (d) => isLoadHidden(d),
+        showSupports: uiStore.showSupports,
+        loadsDrawn: loadsDrawn2D(uiStore.showLoads, uiStore.hideLoadsWithDiagram, !!(resultsStore.results && resultsStore.diagramType !== 'none')),
+      },
+    );
+  }
+
+  // A click again on the same spot steps to the next thing under the pointer,
+  // while what the last click took is still selected.
+  const pickCycle = createPickCycle({
+    isSelected: (p) => p.kind === 'node' ? uiStore.selectedNodes.has(p.id)
+      : p.kind === 'element' ? uiStore.selectedElements.has(p.id) : uiStore.selectedLoads.has(p.id),
+  });
   function cyclePick(targets: PickTarget[], mx: number, my: number, clickCount = 1): PickTarget | null {
     return pickCycle.pick(targets, mx, my, (at, of) => {
       uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
@@ -2834,24 +2876,33 @@
   /** What a click at this point could mean, the most specific first. */
   function pickTargets(wx: number, wy: number, sx: number, sy: number, kinds: { nodes: boolean; elements: boolean }): PickTarget[] {
     const out: PickTarget[] = [];
+    const reach = pickable();
     if (kinds.nodes) {
-      const near = _findNodesNear(wx, wy, pickTol(PICK_PX.tight), modelStore.nodes);
+      const near = _findNodesNear(wx, wy, pickTol(PICK_PX.tight), reach.nodes);
       // A node on a grid point just outside the tolerance still counts, as before.
-      const ids = near.length ? near : _findNodesNear(sx, sy, pickTol(PICK_PX.tight), modelStore.nodes).slice(0, 1);
-      for (const id of ids) if (!viewVisibility.isNodeHidden(id)) out.push({ kind: 'node', id });
+      const ids = near.length ? near : _findNodesNear(sx, sy, pickTol(PICK_PX.tight), reach.nodes).slice(0, 1);
+      for (const id of ids) out.push({ kind: 'node', id });
     }
     if (kinds.elements) {
-      for (const id of _findElementsNear(wx, wy, pickTol(PICK_PX.tight), modelStore.elements, getProjectedNodes())) {
-        if (!viewVisibility.isElementHidden(id)) out.push({ kind: 'element', id });
+      for (const id of _findElementsNear(wx, wy, pickTol(PICK_PX.tight), reach.elements, getProjectedNodes())) {
+        out.push({ kind: 'element', id });
       }
     }
     return out;
   }
 
-  // ── Thin wrappers that delegate to spatial-queries.ts, passing store data ──
+  // ── Thin wrappers that delegate to spatial-queries.ts, passing what can be picked ──
 
   function findNearestNode(x: number, y: number, maxDist: number) {
-    return _findNearestNode(x, y, maxDist, modelStore.nodes);
+    return _findNearestNode(x, y, maxDist, pickable().nodes);
+  }
+
+  /** The projected nodes a snap can catch: those drawn. */
+  function getPickableProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+    const all = getProjectedNodes();
+    if (!viewVisibility.active) return all;
+    for (const id of all.keys()) if (viewVisibility.isNodeHidden(id)) all.delete(id);
+    return all;
   }
 
   /** Build a projected node map for hit testing / picking in the current 2D plane. */
@@ -2864,14 +2915,12 @@
   }
 
   function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, modelStore.elements, getProjectedNodes());
+    return _findNearestElement(x, y, maxDist, pickable().elements, getProjectedNodes());
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
     // Supports turned off or hidden are not drawn, so they are not clicked either.
-    if (!uiStore.showSupports) return null;
-    const near = _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
-    return near && !viewVisibility.isNodeHidden(near.nodeId) ? near : null;
+    return _findNearestSupport(x, y, maxDist, pickable().supports, getProjectedNodes());
   }
 
   /**
@@ -2881,9 +2930,10 @@
    * horizontal or vertical, or the grid. Nothing in the model changes.
    */
   function memberEndAt(wx: number, wy: number, sx: number, sy: number): MemberSnap {
-    const nodes = getProjectedNodes();
+    // Only what is drawn is caught.
+    const nodes = getPickableProjectedNodes();
     const members: SnapMember[] = [];
-    for (const e of modelStore.elements.values()) {
+    for (const e of pickable().elements.values()) {
       const a = nodes.get(e.nodeI), b = nodes.get(e.nodeJ);
       if (a && b) members.push({ id: e.id, a, b });
     }
@@ -2904,9 +2954,9 @@
    * Null when it catches nothing, so it follows the grid.
    */
   function dragEndAt(nodeId: number, wx: number, wy: number, sx: number, sy: number): MemberSnap | null {
-    const all = getProjectedNodes();
+    const all = getPickableProjectedNodes();
     const members: SnapMember[] = [];
-    for (const e of modelStore.elements.values()) {
+    for (const e of pickable().elements.values()) {
       if (e.nodeI === nodeId || e.nodeJ === nodeId) continue;
       const a = all.get(e.nodeI), b = all.get(e.nodeJ);
       if (a && b) members.push({ id: e.id, a, b });
@@ -2933,7 +2983,8 @@
    * exists.
    */
   function realizeMemberEnd(x: number, y: number): number {
-    const there = findNearestNode(x, y, 1e-6);
+    // A node exactly here, hidden or not: welding to it beats a coincident twin.
+    const there = _findNearestNode(x, y, 1e-6, modelStore.nodes);
     if (there) return there.id;
     if (uiStore.autoSplitOnNodePlace) {
       const through: Array<{ id: number; t: number }> = [];
@@ -2959,15 +3010,17 @@
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
-    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, getProjectedNodes());
+    return _findNearestMidpoint(x, y, maxDist, pickable().elements, getProjectedNodes());
   }
 
+  /** The node tool's snap: a drawn node, a drawn member's midpoint, the grid; reaches in pixels. */
   function snapWithMidpoint(worldX: number, worldY: number): { x: number; y: number } {
-    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getProjectedNodes(), modelStore.elements);
+    const tol = nodeToolTolerances(uiStore.zoom);
+    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getPickableProjectedNodes(), pickable().elements, tol.node, tol.midpoint);
   }
 
   function findAllLoadsNear(wx: number, wy: number, maxDist: number): number[] {
-    return _findAllLoadsNear(wx, wy, maxDist, modelStore.model.loads, modelStore.elements, modelStore.nodes);
+    return _findAllLoadsNear(wx, wy, maxDist, pickable().loads as never, modelStore.elements, modelStore.nodes);
   }
 
 
