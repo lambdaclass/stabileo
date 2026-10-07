@@ -216,7 +216,7 @@ From issues #251, #181, #96, #205 and #206.
 - Measured with a real GPU (Metal) on a generated building (`e2e/large-model.ts`: 1,638 nodes, 4,245 members, 1,200 slab faces, 5,130 loads): members 860 → ~40 ms to open, loads 942 → ~80 ms, plates 203 → ~30 ms, nodes 144 → ~40 ms. On the industrial shed example: members ~25 ms, loads ~38 ms, no long frame.
 - `lib/utils/progressive-rows.svelte.ts` (`progressiveRows`, `progressiveLimit`): first 30 rows, then a batch a frame; `reach(i)` draws up to a row the model asks for. Used by Basic's members table, PRO's members (40 a frame), nodes, plates (60) and load tables (one budget of 30 a frame over the eight tables).
 - `components/tables/LazySelect.svelte`: a select holding its list only while open; `LazyIdSelect` is built on it. Used for material and section per member row, material per plate row, frame per distributed and point load row.
-- The rest of the drawing time is the browser's style and layout of the large tables (a CPU profile shows it native), spread over frames; keyed rows keep each batch from re-reading the rows before it. Virtualizing would be the next step if a table must stay smaller.
+- The rest of the drawing time is the browser's style and layout of the large tables (a CPU profile shows it native), spread over frames. Virtualizing would be the next step if a table must stay smaller.
 - `e2e/pro-large-model-tables.spec.ts` counts rows and options on the first frame (not times: CI draws WebGL on the CPU).
 
 ## Tests

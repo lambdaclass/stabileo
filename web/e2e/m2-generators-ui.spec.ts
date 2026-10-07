@@ -279,7 +279,8 @@ test.describe('@smoke the sectioned generator form', () => {
     await page.getByTestId('gen-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });
     const row = page.getByTestId('gen-sec-bracing').locator('.gr').first();
     const before = await row.boundingBox();
-    await row.hover();
+    // The pointer moved onto it, not `hover()`, which scrolls a row at the edge into view.
+    await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
     await expect(page.getByTestId('gen-help')).not.toContainText(/Hover|Pasá|Passe/);
     const after = await row.boundingBox();
     expect(after!.y).toBeCloseTo(before!.y, 0);

@@ -273,7 +273,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each batches.rows as row, idx (row)}
+        {#each batches.rows as row, idx}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <tr
             class:selected={selectedRowIdx === idx}
