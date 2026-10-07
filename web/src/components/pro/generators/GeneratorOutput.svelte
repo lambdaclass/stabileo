@@ -20,6 +20,8 @@
   import type { Vec3 } from '../../../lib/model/edit/affine';
   import { untrack } from 'svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
+  import GenRow from './GenRow.svelte';
+  import { unitLabel } from '../../../lib/utils/units';
   import type { OutputState } from '../../../lib/store/generated-structures';
 
   interface Props {
@@ -187,17 +189,22 @@
 
 {#if part === 'options'}
 <div class="go-out" data-testid="gen-output">
-  <label class="go-field">{t('generator.out.supports')}
+  <GenRow name={t('generator.out.supports')}>
     <select bind:value={st.supportMode} data-testid="gen-support-mode">
       {#each ['generated', 'none', 'pinned', 'fixed'] as m (m)}<option value={m}>{t(`generator.out.supports.${m}`)}</option>{/each}
     </select>
-  </label>
+  </GenRow>
   {#if editingGroupId === null}
-    <div class="go-modes" role="radiogroup" aria-label={t('generator.out.where')}>
-      {#each ['atNode', 'atPoint'] as m (m)}
-        <label class="go-mode"><input type="radio" name="gen-out" value={m} bind:group={st.mode} data-testid="gen-out-{m}" /> {t(`generator.out.${m}`)}</label>
-      {/each}
-    </div>
+    <GenRow name={t('generator.out.placeBy')} as="div">
+      <span class="go-modes" role="radiogroup" aria-label={t('generator.out.where')}>
+        {#each ['atNode', 'atPoint'] as m (m)}
+          <label class="go-mode"><input type="radio" name="gen-out" value={m} bind:group={st.mode} data-testid="gen-out-{m}" /> {t(`generator.out.${m}`)}</label>
+        {/each}
+      </span>
+    </GenRow>
+    {#if st.mode !== 'atPoint'}
+      <p class="go-note">{t('generator.out.atNodeHint')}</p>
+    {/if}
       {#if schema}
         <svg viewBox="0 0 {W} {H}" class="go-schema" role="img" aria-label={t('generator.out.anchor')}>
           <path d={schema.lines} class="go-lines" />
@@ -222,37 +229,34 @@
           {/each}
         </svg>
       {/if}
-      <label class="go-field">{t('generator.out.anchor')}
+      <GenRow name={t('generator.out.anchor')}>
         <select bind:value={st.anchorIndex} data-testid="gen-anchor">
           {#each anchors as a, i (i)}<option value={i}>{i + 1}. {a.label}</option>{/each}
         </select>
-      </label>
-      <div class="go-row">
-        <label class="go-field">{t('generator.out.plane')}
-          <select bind:value={st.plane} data-testid="gen-plane"><option value="XZ">XZ</option><option value="YZ">YZ</option></select>
-        </label>
-        <label class="go-field">{t('generator.out.rotation')}
-          <input type="number" step="15" bind:value={st.rot} aria-describedby="gen-out-rot-hint" data-testid="gen-rot" />
-        </label>
-        {#if gridAxes.length > 0}
-          <label class="go-field">{t('generator.out.onAxis')}
-            <select bind:value={st.axisId} onchange={() => useAxis(st.axisId)} data-testid="gen-on-axis">
-              <option value="">—</option>
-              {#each gridAxes as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
-            </select>
-          </label>
-        {/if}
-      </div>
-      <p class="go-hint" id="gen-out-rot-hint">{t('generator.out.rotHint')}</p>
+      </GenRow>
+      <GenRow name={t('generator.out.plane')}>
+        <select class="go-short" bind:value={st.plane} data-testid="gen-plane"><option value="XZ">XZ</option><option value="YZ">YZ</option></select>
+      </GenRow>
+      <GenRow name={t('generator.out.rotation')} hint={t('generator.out.rotHint')} hintId="gen-out-rot-hint">
+        <input type="number" step="15" bind:value={st.rot} aria-describedby="gen-out-rot-hint" data-testid="gen-rot" />
+      </GenRow>
+      {#if gridAxes.length > 0}
+        <GenRow name={t('generator.out.onAxis')}>
+          <select bind:value={st.axisId} onchange={() => useAxis(st.axisId)} data-testid="gen-on-axis">
+            <option value="">—</option>
+            {#each gridAxes as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
+          </select>
+        </GenRow>
+      {/if}
       {#if st.mode === 'atPoint'}
-        <div class="go-row">
-          <label class="go-field">X<QuantityInput quantity="length" bind:value={st.px} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-x" /></label>
-          <label class="go-field">Y<QuantityInput quantity="length" bind:value={st.py} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-y" /></label>
-          <label class="go-field">Z<QuantityInput quantity="length" bind:value={st.pz} describedBy="gen-out-at-hint" title={t('generator.out.atHint')} testid="gen-z" /></label>
-        </div>
-        <p class="go-hint" id="gen-out-at-hint">{t('generator.out.atHint')}</p>
-      {:else}
-        <p class="go-hint">{t('generator.out.atNodeHint')}</p>
+        <GenRow name={t('generator.out.at')} hint={t('generator.out.atHint')} hintId="gen-out-at-hint" as="div">
+          <span class="go-xyz">
+            <span class="go-ax">X</span><QuantityInput quantity="length" bind:value={st.px} cls="go-xyz-in" ariaLabel="X" describedBy="gen-out-at-hint" showUnit={false} testid="gen-x" />
+            <span class="go-ax">Y</span><QuantityInput quantity="length" bind:value={st.py} cls="go-xyz-in" ariaLabel="Y" describedBy="gen-out-at-hint" showUnit={false} testid="gen-y" />
+            <span class="go-ax">Z</span><QuantityInput quantity="length" bind:value={st.pz} cls="go-xyz-in" ariaLabel="Z" describedBy="gen-out-at-hint" showUnit={false} testid="gen-z" />
+            <span class="go-unit">{unitLabel('length', uiStore.unitSystem)}</span>
+          </span>
+        </GenRow>
       {/if}
   {/if}
 </div>
@@ -288,12 +292,20 @@
   .go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 2px; }
   .result { margin: 0; font-size: 0.7rem; color: var(--st-ok); }
   .go-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
-  .go-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.64rem; color: var(--st-text-3); }
-  .go-field :global(input) { width: 64px; }
-  .go-modes { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; }
+  .go-modes { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.7rem; color: var(--st-text); }
   .go-mode { display: flex; gap: 4px; align-items: center; }
   .go-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
-  .go-schema { width: 100%; max-width: 300px; background: var(--st-surface-3); border-radius: var(--st-radius); }
+  /* Under the box column, where the field it explains starts. */
+  .go-note, .go-schema { margin: 0 0 0 calc(var(--gr-l, 8.5rem) + 8px); }
+  .go-note { font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3); }
+  .go-schema { width: calc(100% - var(--gr-l, 8.5rem) - 8px); max-width: 300px; background: var(--st-surface-3); border-radius: var(--st-radius); }
+  .go-xyz { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .go-ax { font-size: 0.64rem; color: var(--st-text-3); }
+  .go-ax:not(:first-child) { margin-left: 4px; }
+  .go-unit { font-size: 0.64rem; color: var(--st-text-3); }
+  /* Narrower than the form's numbers, so the three fit on one line. */
+  :global(.gr .gr-cell input.go-xyz-in[inputmode='decimal']) { width: 4.2rem; }
+  :global(.gr .gr-cell select.go-short) { width: 5.5rem; }
   .go-lines { stroke: var(--st-text-3); stroke-width: 1; fill: none; }
   .go-axes path { stroke: var(--st-text-2); stroke-width: 1.2; fill: none; }
   .go-axes .go-arrow { fill: var(--st-text-2); stroke: none; }

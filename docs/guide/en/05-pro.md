@@ -168,10 +168,24 @@ they are split.
   of each segment's mid-length; with 12 segments a cantilever's deflection is within 0.5 % of the
   exact one.
 
-**Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle; members
-**parallel to a global axis or plane** are selected, and what is **loaded in a case**, and the
-**previous selection** comes back. **Walk through, zoomed** steps through the selected members or
-nodes one at a time, framing each.
+**Select.** Beyond Basic's options: dragging can draw a **lasso** instead of a rectangle. Every
+tool in the panel works on the kind chosen above it (members, nodes, plates, supports or loads, or
+several at once) and never leaves another kind selected; changing the kind lets go of what was
+selected of the previous one, so Delete removes only what the panel says.
+
+- **Like the selection:** for members, parallel, connected, same section, material, type, level,
+  plane or frame; for nodes, connected and same level; for plates, parallel, same plane, connected,
+  same thickness, material and level; for supports, same type and level; for loads, same type and
+  same case.
+- **Parallel to a global axis or plane:** members, and plates (those containing the axis or lying
+  in the plane).
+- **Loaded in a case:** the loads themselves, or the nodes, members and plates they sit on.
+- **Previous selection:** the last one of the chosen kind.
+- **Walk through, zoomed:** steps one at a time through what is selected of the chosen kind (or all
+  of that kind), framing each.
+- **By id:** nodes, members, plates, supports or loads, by the numbers in their tables. Plates are
+  one kind: when a triangle and a quadrilateral share a number, both are taken and the panel says
+  so.
 
 **View.** Saved views keep the projection, the orthographic zoom, what is hidden, the labels and
 the colours. Also:
@@ -519,6 +533,12 @@ code, edition and rule it comes from; the design uses the strength ones.
 - **Structures:** space frame by bays (X, Y and storeys), plane frame, floor grid, continuous
   beam, space truss, lattice girder with X or K bracing, Howe roof truss, sawtooth roof, barrel
   vault, circular beam and dome. Bays are typed as "6; 7.5; 6".
+
+The form is laid out in foldable sections, which start folded so everything that can be edited
+reads at a glance; folded, each one shows in its heading what it holds (for instance, "10 m × 6 m ·
+6 frames at 5 m"). A shed splits into Frames, Columns, Roof and Bracing; a truss into Shape and Web
+members; then come **Sections and material** and **Where**. Hovering a parameter, or typing in it,
+the line above the preview says what it controls.
 
 It assigns a profile to each kind of member, a steel grade and the supports (the generator's,
 none, pinned or fixed). The structure can go:

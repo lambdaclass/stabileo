@@ -238,3 +238,37 @@ test.describe('the three languages', () => {
     });
   }
 });
+
+/*
+ * The form's sections start folded, and the help line above the preview never moves them. It
+ * used to grow with a longer explanation: at the bottom of the list, hovering a bracing switch
+ * pushed the rows up from under the pointer, the explanation went away, the rows came back, and
+ * the form shook.
+ */
+test.describe('@smoke the sectioned generator form', () => {
+  test('opens folded, each section saying what it holds', async ({ pro: page }) => {
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await page.getByTestId('gen-card-shed').click();
+    for (const id of ['frames', 'columns', 'roof', 'bracing', 'members', 'where']) {
+      await expect(page.getByTestId(`gen-sec-${id}`)).not.toHaveAttribute('open', '');
+    }
+    await expect(page.getByTestId('gen-sec-sum-frames')).toBeVisible();
+    await expect(page.getByTestId('gen-sec-sum-frames')).toContainText('6');
+  });
+
+  test('hovering a field at the bottom of the list moves nothing', async ({ pro: page }) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await page.getByTestId('gen-card-shed').click();
+    await page.getByTestId('gen-sec-bracing').locator('summary').click();
+    await page.getByTestId('gen-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    const row = page.getByTestId('gen-sec-bracing').locator('.gr').first();
+    const before = await row.boundingBox();
+    await row.hover();
+    await expect(page.getByTestId('gen-help')).not.toContainText(/Hover|Pasá|Passe/);
+    const after = await row.boundingBox();
+    expect(after!.y).toBeCloseTo(before!.y, 0);
+  });
+});

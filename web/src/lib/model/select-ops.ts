@@ -115,36 +115,57 @@ export function parseIdList(text: string): { ids: number[]; bad: string[] } {
   return { ids: [...new Set(ids)], bad };
 }
 
+/** The kinds that can be named by id. `shells` is every plate, three- or four-noded. */
+export type IdKind = 'nodes' | 'elements' | 'shells' | 'plates' | 'quads' | 'supports' | 'loads';
+
 /**
  * Select by id, within one kind, reporting ids the model does not have.
  *
  * One kind at a time on purpose: node 7 and member 7 are different things,
  * and a control that took "7" and selected both would be guessing.
+ *
+ * Plates (`shells`) are one kind to the reader, numbered in two lists: triangles and
+ * quadrilaterals. An id is looked up in both; one that exists in both takes both, and is reported
+ * (`both`) so the reader knows two plates answered it.
  */
 export function selectByIds(
   model: SelectableModel,
-  kind: 'nodes' | 'elements' | 'plates' | 'quads',
+  kind: IdKind,
   text: string,
-): { selection: Selection; missing: number[]; bad: string[] } {
+): { selection: Selection; missing: number[]; bad: string[]; both: number[] } {
   const { ids, bad } = parseIdList(text);
+  const loadIds = new Set((model.loads ?? []).map((l) => l.data.id));
   const has = (id: number): boolean => {
     if (kind === 'nodes') return model.nodes.has(id);
     if (kind === 'elements') return model.elements.has(id);
     if (kind === 'plates') return !!model.plates?.has(id);
-    return !!model.quads?.has(id);
+    if (kind === 'quads') return !!model.quads?.has(id);
+    if (kind === 'shells') return !!model.plates?.has(id) || !!model.quads?.has(id);
+    if (kind === 'supports') return !!model.supports?.has(id);
+    return loadIds.has(id);
   };
   const found = ids.filter(has);
   const missing = ids.filter((id) => !has(id));
+  const shells = new Set<string>();
+  const both: number[] = [];
+  for (const id of found) {
+    const p = (kind === 'plates' || kind === 'shells') && !!model.plates?.has(id);
+    const q = (kind === 'quads' || kind === 'shells') && !!model.quads?.has(id);
+    if (p) shells.add(`p${id}`);
+    if (q) shells.add(`q${id}`);
+    if (p && q) both.push(id);
+  }
   return {
     selection: {
       nodes: kind === 'nodes' ? new Set(found) : new Set(),
       elements: kind === 'elements' ? new Set(found) : new Set(),
-      shells: kind === 'plates' ? new Set(found.map((id) => `p${id}`))
-        : kind === 'quads' ? new Set(found.map((id) => `q${id}`))
-        : new Set(),
+      shells,
+      supports: kind === 'supports' ? new Set(found) : new Set(),
+      loads: kind === 'loads' ? new Set(found) : new Set(),
     },
     missing,
     bad,
+    both,
   };
 }
 

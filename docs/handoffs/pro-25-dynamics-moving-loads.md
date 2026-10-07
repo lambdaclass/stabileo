@@ -176,6 +176,21 @@ From issues #251, #181, #96, #205 and #206.
   - `cad-real-dxf` and `cad-rooms-uploaded` warn when the client plans are absent and say so in the suite title.
   - `cad-real-like.test.ts` builds a plan with author layer names, block columns and a wrong `$INSUNITS`, and runs the shipped path.
 
+## Generator form
+
+- `generators/GenSection.svelte`: a `<details>` per group of the form (shed: Frames, Columns, Roof, Bracing; truss: Shape, Web members; column; structures: Geometry; then Sections and material, Generated structures, Where), testid `gen-sec-<id>`. They start folded and fold again on picking a generator (`gen-help.svelte.ts`, `foldAllSections`); folded, the heading shows a summary (`gen-sec-sum-<id>`). The fields stay in the DOM, so `aria-describedby` and the U1 test still find them; the e2e helper `pickGenerator` opens them all (`openGenSections`).
+- `generators/GenRow.svelte`: one parameter on the load card's grid (name right-aligned, box in the next column, unit after; a checkbox in the box column). The explanation is kept beside the field, visually hidden, under `gen-hint-<key>` (structure fields: `gen-hint-f-<key>`, text `generator.fhint.*`), and shown in the help line at the top of the dock for the row under the pointer or in focus.
+- The help line has a fixed height (four lines, scrolling inside on a narrow panel). It grew with the text at first, which shrank the scroller: at the bottom of the list the hovered row moved out from under the pointer and the form shook. `m2-generators-ui.spec.ts` checks the row does not move.
+- `TrussFields` takes `part: 'shape' | 'web'`; the shed's two previews sit side by side when the panel is wide enough, so the dock keeps the Place button in sight.
+
+## Selection panel
+
+- `components/SelectionPanel.svelte` is shared with Basic; the behaviour is the same in both, plates only in PRO.
+- Every operation goes through `applyArmed`: armed kinds take the operation's answer (or keep their selection when it gives none), the others are emptied. Changing the kind from the panel drops the selection of kinds no longer armed (`dropUnarmed`), the isolation `basic-selection-permutations.spec.ts` already states for drags.
+- `lib/model/select-like.ts`: "like the selection" per kind (`LIKE_OPS`), plates parallel to a global axis or plane, and `focusNodeIds` (what zoom to selection frames: member ends, plate corners, supported nodes, loaded nodes/members/plates). `Viewport3D`'s zoom-to-selection handler reads it; that one line is the only change there.
+- Loaded in case: each armed kind takes its part (disabled with only supports armed). Parallel to: members and plates (disabled otherwise). Walk: through the armed kind. Previous: `selectionHistory.back(kinds)` gives back the last selection of the armed kinds and skips the others.
+- By id: nodes, members, plates (one kind: `selectByIds(..., 'shells')` looks in triangles and quadrilaterals and reports an id found in both), supports, loads. The list follows the armed kind, and naming another kind arms it.
+
 ## Tests
 
 - `engine/__tests__/spectral-case.test.ts`: the engine's spectral displacements for the same modes,
@@ -190,6 +205,9 @@ From issues #251, #181, #96, #205 and #206.
 - `lib/utils/__tests__/units-mks.test.ts` (SImm, section quantities, temperatureDiff), `lib/store/__tests__/entity-names.test.ts`, `lib/cad/__tests__/cad-real-like.test.ts`.
 - `e2e/pro-add-supports-loads.spec.ts` (`@smoke`): every option of both cards, on the selection and
   on numbers, and the context menu.
+- `lib/model/__tests__/select-like.test.ts`: like by kind, plates parallel, by id over every kind, zoom framing.
+- `e2e/pro-selection-tools.spec.ts` (`@smoke` block): supports, by id, previous by kind, loaded in case with nodes.
+- `e2e/m2-generators-ui.spec.ts` (`@smoke` block): folded sections with summaries; the hovered row does not move.
 
 ## Not done here
 

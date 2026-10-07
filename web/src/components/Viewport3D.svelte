@@ -4,7 +4,8 @@
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
-  import { viewState, selectionNodeIds, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
+  import { focusNodeIds } from '../lib/model/select-like';
+  import { viewState, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
   import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
@@ -1043,7 +1044,11 @@
 
     // Frame what is selected — the magnifier. Same fit as the whole model, over its nodes only.
     const handleZoomToSelection = () => {
-      const ids = selectionNodeIds(uiStore.selectedNodes, uiStore.selectedElements, modelStore.elements);
+      // Every kind frames by its nodes: members by their ends, plates by their corners, supports and loads by where they sit.
+      const ids = focusNodeIds(modelStore.model as never, {
+        nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells,
+        supports: uiStore.selectedSupports, loads: uiStore.selectedLoads,
+      });
       if (ids.size === 0) return;
       const subset = new Map([...modelStore.nodes].filter(([id]) => ids.has(id)));
       if (subset.size === 1) {

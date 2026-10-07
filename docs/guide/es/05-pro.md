@@ -177,9 +177,22 @@ seleccionadas antes de dividir.
   exacta.
 
 **Seleccionar.** Además de las opciones de Básico: arrastrar puede dibujar un **lazo** en lugar de
-un rectángulo; se seleccionan las barras **paralelas a un eje o a un plano global**, lo que está
-**cargado en un caso**, y se vuelve a la **selección anterior**. **Recorrer con zoom** pasa por las
-barras o nodos seleccionados de a uno, encuadrando cada uno.
+un rectángulo. Cada herramienta del panel trabaja sobre el tipo elegido arriba (barras, nodos,
+placas, apoyos o cargas, o varios a la vez) y nunca deja seleccionado otro tipo; al cambiar de tipo,
+se suelta lo seleccionado del anterior, así Suprimir borra sólo lo que el panel dice.
+
+- **Como lo seleccionado:** para barras, paralelas, conectadas, misma sección, material, tipo,
+  nivel, plano o pórtico; para nodos, conectados y mismo nivel; para placas, paralelas, mismo plano,
+  conectadas, mismo espesor, material y nivel; para apoyos, mismo tipo y nivel; para cargas, mismo
+  tipo y mismo caso.
+- **Paralelas a un eje o a un plano global:** barras, y placas (las que contienen el eje o yacen en
+  el plano).
+- **Cargados en un caso:** las cargas mismas, o los nodos, barras y placas donde están.
+- **Selección anterior:** la última del tipo elegido.
+- **Recorrer con zoom:** pasa de a uno por lo seleccionado del tipo elegido (o por todo ese tipo),
+  encuadrando cada uno.
+- **Por id:** nodos, barras, placas, apoyos o cargas, con los números de sus tablas. Las placas son
+  un solo tipo: si un triángulo y un cuadrilátero comparten número, se toman los dos y se avisa.
 
 **Vista.** Las vistas guardadas conservan la proyección, el zoom ortográfico, lo oculto, las
 etiquetas y los colores. Además:
@@ -544,6 +557,13 @@ resistencia.
 - **Estructuras:** pórtico espacial por vanos (X, Y y pisos), pórtico plano, emparrillado, viga
   continua, reticulado espacial, viga reticulada en X o en K, cabriada Howe, diente de sierra,
   bóveda cilíndrica, viga circular y cúpula. Los vanos se escriben como "6; 7,5; 6".
+
+El formulario se ordena en secciones desplegables, que arrancan cerradas para ver de un vistazo
+todo lo que se puede editar; cerrada, cada una muestra en su título lo que tiene definido (por
+ejemplo, "10 m × 6 m · 6 pórticos cada 5 m"). Una nave se divide en Pórticos, Columnas, Cubierta y
+Arriostramientos; una cercha, en Forma y Barras del alma; después vienen **Perfiles y material** y
+**Dónde**. Al pasar el mouse por un parámetro, o al escribir en él, la línea sobre la vista previa
+dice qué controla.
 
 Asigna un perfil a cada tipo de barra, un acero y los apoyos (los del generador, ninguno,
 articulados o empotrados). La estructura puede ir:

@@ -44,15 +44,37 @@ export function trackSelectionHistory(): void {
  */
 const currentIsRecorded = () => !empty(snap());
 
+type Kind = typeof KEYS[number];
+/** A selection narrowed to the kinds armed in the panel; all of them when none is named. */
+const narrow = (s: Snap, kinds?: ReadonlySet<Kind>): Snap =>
+  kinds ? { nodes: [], elements: [], shells: [], supports: [], loads: [], ...Object.fromEntries(KEYS.filter((k) => kinds.has(k)).map((k) => [k, s[k]])) } : s;
+
+/**
+ * The entry "previous selection" brings back for these kinds: the most recent one that holds
+ * something of them and is not what is selected now. Narrowed, so with members armed it gives
+ * back the members picked before, never the plates or supports picked in another mode (which the
+ * next Delete would then reach while the panel says members).
+ */
+function previousIndex(kinds?: ReadonlySet<Kind>): number {
+  const now = narrow(snap(), kinds);
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = narrow(history[i]!, kinds);
+    if (!empty(h) && !same(h, now)) return i;
+  }
+  return -1;
+}
+
 export const selectionHistory = {
   /** Selections before the current one, most recent last. */
   get previous(): Snap[] { return currentIsRecorded() ? history.slice(0, -1) : history; },
-  /** Restore the selection before the current one. */
-  back(): boolean {
-    const recorded = currentIsRecorded();
-    if (history.length < (recorded ? 2 : 1)) return false;
-    const prev = history[history.length - (recorded ? 2 : 1)]!;
-    if (recorded) history = history.slice(0, -1);
+  /** Whether there is a previous selection of these kinds to go back to. */
+  canGoBack(kinds?: ReadonlySet<Kind>): boolean { return previousIndex(kinds) >= 0; },
+  /** Restore the selection before the current one, of these kinds (all, when none are named). */
+  back(kinds?: ReadonlySet<Kind>): boolean {
+    const i = previousIndex(kinds);
+    if (i < 0) return false;
+    const prev = narrow(history[i]!, kinds);
+    history = history.slice(0, i + 1);
     restoring = true;
     uiStore.setSelection(new Set(prev.nodes), new Set(prev.elements), true, new Set(prev.shells));
     uiStore.selectedSupports = new Set(prev.supports);
