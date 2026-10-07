@@ -25,7 +25,6 @@ const numerical = process.argv.includes('--numerical');
 const stations = process.argv.includes('--stations');
 const compareStation = process.argv.includes('--compare-station');
 const kernels = process.argv.includes('--kernels');
-const compareColumn = process.argv.includes('--compare-column');
 const compareRepair = process.argv.includes('--compare-repair');
 const compare = process.argv.includes('--compare') || compareColumn || compareRepair || compareStation;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
