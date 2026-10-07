@@ -31,20 +31,38 @@
  * exact. A member that is also of variable section is cut at both, each piece with the section at
  * its mid-length; one that is not keeps its section on every piece.
  *
+ * ── A tendon at a joined end ──────────────────────────────────────
+ *
+ * A tendon's anchors act on its member's end (`prestress.ts`), on the member's side of whatever
+ * joins that end to its node. Where nothing does, the node is that end. Where a hinge, a joint or a
+ * semi-rigid connection does, the engine has no node there: a hinge is a release inside the
+ * element, and a joint or a semi-rigid end gets its helper node at the solve, after the loads. Put
+ * on the node, the anchor moment went into whatever met the member there, and a hinged beam's
+ * column took it. So such an end gets a node of its own here, where the joint is, the member's end
+ * is moved to it and the connection becomes a constraint between the two nodes (with the connector
+ * of a semi-rigid end): the same connection, with the member's end a node the anchors go on. The
+ * member is then solved as one piece, and the helper leaves the results as a cut's node does.
+ *
+ * The constraint releases global axes, so a released local axis must lie along one; a member with
+ * offsets has its release where the offset puts it. Neither gets the helper (`anchorEndsUnplaced`
+ * names them for the model's findings).
+ *
  * Ids: interior nodes, pieces, their sections and loads take ids after the model's highest, in
  * member order, so the same model always expands the same way.
  *
  * Pure: no store.
  */
 import type { ModelData } from './solver-service';
-import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
 import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
-import { memberFrame3D } from './member-loads';
+import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
 import { pointNeedsCut, POINT_END_TOL } from './member-point-loads';
+import { hasMemberOffset } from './member-offsets';
+import { globalAxis, CONNECTOR_ROT } from './expand-semi-rigid-3d';
 
 /** Pieces a variable member is cut into when it states none. */
 export const DEFAULT_VARIABLE_SEGMENTS = 12;
@@ -100,14 +118,14 @@ interface Planned {
   nodes: Array<{ id: number; x: number; y: number; z?: number }>;
   pieces: Array<{ parent: El; k: number; n: number; t0: number; t1: number; piece: VariablePiece; section: Section }>;
   bounds: Map<number, number[]>;
+  /** The joined ends given a node of their own: the node, its helper, and how they are tied. */
+  ends: Array<{ parentId: number; node: number; helper: number; tie: AnchorEnd }>;
 }
 
 /**
  * Where each member is cut for a load, as fractions of its length: the interior points of its
  * concentrated moments and axial forces, on a member that bends and takes part in the analysis.
  */
-const AXIAL_OR_OUT = new Set(['inactive', 'tensionOnly', 'compressionOnly', 'cable']);
-
 function loadCuts(model: ModelData): Map<number, number[]> {
   const out = new Map<number, number[]>();
   for (const l of model.loads) {
@@ -116,7 +134,7 @@ function loadCuts(model: ModelData): Map<number, number[]> {
     const e = model.elements.get(d.elementId) as (El & { behaviour?: string }) | undefined;
     // A member that takes no bending carries its loads to its nodes (`member-loads.ts`); one out
     // of the analysis carries none.
-    if (!e || e.type === 'truss' || (e.behaviour !== undefined && AXIAL_OR_OUT.has(e.behaviour))) continue;
+    if (!e || takesNoBending(e) || e.behaviour === 'inactive') continue;
     const f = memberFrame3D(model, e);
     if (!f || !(f.ax.L > 1e-10)) continue;
     if (!pointNeedsCut(d, { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L })) continue;
@@ -129,11 +147,91 @@ function loadCuts(model: ModelData): Map<number, number[]> {
   return out;
 }
 
+/** How a joined end is tied to its node once the member's end is a node of its own. */
+interface AnchorEnd {
+  side: 'i' | 'j';
+  /** Released global DOFs between the node and the member's end, ux … rz. */
+  releases: boolean[];
+  /** A semi-rigid end's stiffness about global X, Y and Z (`expand-semi-rigid-3d.ts`). */
+  springs?: [number, number, number];
+}
+
+type Joined = El & { behaviour?: string; releaseI?: Element['releaseI']; releaseJ?: Element['releaseJ']; semiRigid?: { i?: { ky: number; kz: number }; j?: { ky: number; kz: number } } };
+
+/**
+ * A member's local axes released at an end, as global DOFs: null when they do not span global
+ * axes, which a constraint between two nodes cannot release.
+ */
+function globalRotations(axes: Vec3[]): boolean[] | null {
+  const mask = [false, false, false];
+  for (let k = 0; k < 3; k++) {
+    const p = axes.reduce((s, v) => s + v[k]! * v[k]!, 0);
+    if (p > 1 - 1e-6) mask[k] = true;
+    else if (p > 1e-6) return null;
+  }
+  return mask;
+}
+
+/**
+ * The joined ends of the members a tendon is in (see the header): per member, how each such end
+ * is tied to its node. `unplaced` collects the ones that cannot get a node of their own.
+ */
+function anchorEnds(model: ModelData, unplaced?: Set<number>): Map<number, AnchorEnd[]> {
+  const out = new Map<number, AnchorEnd[]>();
+  const tendons = new Set<number>();
+  for (const l of model.loads) if (l.type === 'prestress3d' && l.data.force) tendons.add(l.data.elementId);
+  for (const id of tendons) {
+    const e = model.elements.get(id) as Joined | undefined;
+    // A member that takes no bending takes the tendon as an axial force at its nodes, which its
+    // ends pass on whatever joins them.
+    if (!e || takesNoBending(e) || e.behaviour === 'inactive') continue;
+    const ends: AnchorEnd[] = [];
+    for (const side of ['i', 'j'] as const) {
+      const rel = side === 'i' ? e.releaseI : e.releaseJ;
+      const joint = side === 'i' ? e.jointI : e.jointJ;
+      const sr = e.semiRigid?.[side];
+      const jointed = !!joint?.dof.some(Boolean);
+      if (!rel?.my && !rel?.mz && !rel?.t && !jointed && !sr) continue;
+      const f = hasMemberOffset(e) ? null : memberFrame3D(model, e);
+      const rot = f ? globalRotations([...(rel?.t ? [f.ax.ex] : []), ...(rel?.my ? [f.ax.ey] : []), ...(rel?.mz ? [f.ax.ez] : [])] as Vec3[]) : null;
+      if (!f || !rot) { unplaced?.add(id); continue; }
+      const releases = jointed ? [...joint!.dof] : [false, false, false, false, false, false];
+      rot.forEach((r, k) => { if (r) releases[3 + k] = true; });
+      const end: AnchorEnd = { side, releases };
+      if (sr) {
+        // As the solve's own expansion has it; an end it refuses is left to refuse.
+        const ay = globalAxis(f.ax.ey), az = globalAxis(f.ax.ez);
+        if (ay === null || az === null || ![sr.ky, sr.kz].every((k) => Number.isFinite(k) && k >= 0)) continue;
+        releases[3 + ay] = true; releases[3 + az] = true;
+        const springs: [number, number, number] = [0, 0, 0];
+        // A released axis stays released: the hinge inside the member came before the spring.
+        springs[ay] = rel?.my ? 0 : sr.ky;
+        springs[az] = rel?.mz ? 0 : sr.kz;
+        end.springs = springs;
+      }
+      ends.push(end);
+    }
+    if (ends.length) out.set(id, ends);
+  }
+  return out;
+}
+
+/**
+ * Members with a tendon whose joined end cannot be given a node of its own (see the header): the
+ * anchors at that end act on the node, as on a rigid end. For the model's findings.
+ */
+export function anchorEndsUnplaced(model: ModelData): number[] {
+  const out = new Set<number>();
+  anchorEnds(model, out);
+  return [...out].sort((a, b) => a - b);
+}
+
 /** Which members, and every id: from `base`'s highest ids, so the same model always plans alike. */
 function planExpansion(model: ModelData, base: ModelData): Planned {
-  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map() };
+  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map(), ends: [] };
   const cuts = loadCuts(model);
-  const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id)) as El[];
+  const anchored = anchorEnds(model);
+  const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id) || anchored.has(e.id)) as El[];
   if (vars.length === 0) return out;
   const maxOf = (keys: Iterable<number>) => Math.max(0, ...keys);
   let nextNode = Math.max(maxOf(base.nodes.keys()), maxOf(model.nodes.keys())) + 1;
@@ -161,7 +259,17 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       out.exp.innerNodes.add(id);
       return id;
     });
-    const chain = [e.nodeI, ...inner, e.nodeJ];
+    // A joined end with a tendon: the member's end becomes a node of its own, where its node is.
+    const endNode = (side: 'i' | 'j', node: number, at: typeof ni) => {
+      const tie = anchored.get(e.id)?.find((x) => x.side === side);
+      if (!tie) return node;
+      const id = nextNode++;
+      out.nodes.push({ id, x: at.x, y: at.y, ...(at.z !== undefined ? { z: at.z } : {}) });
+      out.exp.innerNodes.add(id);
+      out.ends.push({ parentId: e.id, node, helper: id, tie });
+      return id;
+    };
+    const chain = [endNode('i', e.nodeI, ni), ...inner, endNode('j', e.nodeJ, nj)];
     const L = e.offset
       ? flexibleMemberLength(e, ni, nj, model.sections.get(e.sectionId)?.rotation)
       : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
@@ -203,6 +311,32 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     const fields = segmentFields(parent, k, n, t0, t1);
     elements.set(piece.id, { ...fields, id: piece.id, nodeI: piece.nodeI, nodeJ: piece.nodeJ, sectionId: piece.sectionId } as Element);
   }
+  // A joined end with a tendon (see the header): the piece's end is rigid on its own node, and the
+  // connection is between that node and the member's.
+  let constraints = model.constraints;
+  let connectors = model.connectors;
+  let nextConn = Math.max(0, ...(model.connectors?.keys() ?? [])) + 1;
+  for (const { parentId, node, helper, tie } of planned.ends) {
+    const m = exp.members.get(parentId)!;
+    const p = tie.side === 'i' ? m.pieces[0]! : m.pieces[m.pieces.length - 1]!;
+    const el = { ...elements.get(p.id)! } as Element & { semiRigid?: { i?: unknown; j?: unknown } };
+    if (tie.side === 'i') { el.releaseI = { ...el.releaseI, my: false, mz: false, t: false }; delete el.jointI; }
+    else { el.releaseJ = { ...el.releaseJ, my: false, mz: false, t: false }; delete el.jointJ; }
+    if (el.semiRigid) {
+      const { [tie.side]: _gone, ...rest } = el.semiRigid;
+      if (Object.keys(rest).length) el.semiRigid = rest; else delete el.semiRigid;
+    }
+    elements.set(p.id, el);
+    constraints = [...(constraints ?? []), {
+      type: 'eccentricConnection', masterNode: node, slaveNode: helper, offsetX: 0, offsetY: 0, offsetZ: 0, releases: tie.releases,
+    } as Constraint3D];
+    if (tie.springs) {
+      const c: Record<string, number> = { kAxial: 0, kShear: 0, kShearZ: 0, kMoment: 0, kBendY: 0, kBendZ: 0 };
+      tie.springs.forEach((k, axis) => { c[CONNECTOR_ROT[axis]!] = k; });
+      const id = nextConn++;
+      connectors = new Map(connectors ?? []).set(id, { id, nodeI: node, nodeJ: helper, ...c } as unknown as ConnectorElement);
+    }
+  }
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
@@ -223,6 +357,8 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }));
   return {
     ...model, nodes, elements, sections, loads, supports,
+    ...(constraints !== model.constraints ? { constraints } : {}),
+    ...(connectors !== model.connectors ? { connectors } : {}),
     ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, g.members.elements ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),
     ...(analysis?.selfWeight ? { analysis: { ...analysis, selfWeight: analysis.selfWeight.map((r) => (r.elements ? { ...r, elements: rename(r.elements) } : r)) } } : {}),
   } as M;
@@ -273,6 +409,8 @@ export function collapseVariableResults(r: AnalysisResults3D, exp: VariableExpan
     ...r,
     displacements: r.displacements.filter((d) => !exp.innerNodes.has(d.nodeId)),
     reactions: r.reactions.filter((x) => !exp.innerNodes.has(x.nodeId)),
+    // A joined end's own node is tied by a constraint (see the header), whose forces are its.
+    ...(r.constraintForces ? { constraintForces: r.constraintForces.filter((c) => !exp.innerNodes.has(c.nodeId)) } : {}),
     elementForces: [...r.elementForces.filter((f) => !pieceIds.has(f.elementId)), ...parents],
   };
 }
@@ -288,6 +426,7 @@ export function reexpandVariableResults(r: AnalysisResults3D): { results: Analys
   const exp: VariableExpansion = { members: new Map(), innerNodes: new Set() };
   const forces: ElementForces3D[] = [];
   const extra = new Map<number, Displacement3D>();
+  const known = new Set(r.displacements.map((d) => d.nodeId));
   for (const f of r.elementForces) {
     const ps = f.pieces;
     if (!ps?.length || ps.some((p) => !p.dI || !p.dJ)) { forces.push(f); continue; }
@@ -298,6 +437,9 @@ export function reexpandVariableResults(r: AnalysisResults3D): { results: Analys
     exp.members.set(f.elementId, { parentId: f.elementId, length: f.length, pieces, innerNodes });
     for (const n of innerNodes) exp.innerNodes.add(n);
     for (const p of ps) { forces.push(p.forces); extra.set(p.dJ!.nodeId, p.dJ!); }
+    // A joined end's own node (see the header) is no node of the model either.
+    const first = ps[0]!.dI!, last = ps[ps.length - 1]!.dJ!;
+    for (const d of [first, last]) if (!known.has(d.nodeId)) { exp.innerNodes.add(d.nodeId); extra.set(d.nodeId, d); }
   }
   if (exp.members.size === 0) return { results: r, exp: undefined };
   const displacements = [...r.displacements, ...[...exp.innerNodes].map((n) => extra.get(n)!)];

@@ -1,23 +1,6 @@
 <script lang="ts" module>
-  export interface WindStructureConfig {
-    kind: 'building' | 'freeRoof' | 'latticeTower' | 'openSign' | 'solidSign' | 'chimney';
-    roof: 'monoslope' | 'pitched' | 'troughed';
-    blocked: boolean;
-    towerSection: 'square' | 'triangle';
-    round: boolean;
-    solidity: number;
-    diagonal: boolean;
-    members: 'flat' | 'roundSmall' | 'roundLarge';
-    clearance: number;
-    chimney: 'squareNormal' | 'squareDiagonal' | 'hexOct' | 'roundSmooth' | 'roundRough' | 'roundVeryRough';
-    /** A lattice's face width and a chimney's D, m, for a stick model whose levels span none; 0: from the nodes. */
-    width: number;
-    diameter: number;
-  }
-  export const defaultWindStructure = (): WindStructureConfig => ({
-    kind: 'building', roof: 'pitched', blocked: false, towerSection: 'square', round: false, solidity: 0.2,
-    diagonal: true, members: 'flat', clearance: 2, chimney: 'roundRough', width: 0, diameter: 0,
-  });
+  // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
+  import type { WindStructureConfig } from './auto-loads-sections';
 </script>
 
 <script lang="ts">

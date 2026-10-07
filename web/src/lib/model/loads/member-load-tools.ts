@@ -126,6 +126,18 @@ export function orderedChain(
   return { links, total: s };
 }
 
+/**
+ * The chain's frame: its first member's axes, turned to run along the chain. A first member walked
+ * J→I is seen as the member drawn the other way, (−ex, −ey, ez): x along the chain, z where the
+ * member's own z is (up for a level beam), still right-handed. Negating ez with ex turned a local
+ * qz = −10 into an upward load whenever the members were picked from the J end.
+ */
+export function chainFrame(first: MemberAxes, reversed: boolean): MemberAxes {
+  if (!reversed) return first;
+  const neg = (v: Vec3) => v.map((x) => -x) as Vec3;
+  return { ...first, ex: neg(first.ex), ey: neg(first.ey) };
+}
+
 /** A load along a physical member, its positions measured along the whole chain. */
 export type ChainLoad =
   | { kind: 'distributed'; a: number; b: number; frame: MemberFrame; qI: Vec3; qJ: Vec3 }

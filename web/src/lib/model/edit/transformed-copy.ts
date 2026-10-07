@@ -127,7 +127,11 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     const nodes0 = new Map(frag.nodes.map((n) => [n.id, n]));
     const elements0 = new Map(frag.elements.map((e) => [e.id, e]));
     const supports0 = opts.withSupports ? frag.supports : [];
-    const loads0 = opts.withLoads ? frag.loads.map((l) => {
+    // A definition copied with what it loads writes the copy's loads itself (`defined-loads.ts`):
+    // its loads carried as well would load the copy twice. Others are carried as plain loads
+    // (`carriedLoad`).
+    const copiedDefs = new Set(frag.groups.filter((g) => g.kind === 'floorLoad').map((g) => g.id));
+    const loads0 = opts.withLoads ? frag.loads.filter((l) => !copiedDefs.has((l.data as { fromDef?: number }).fromDef ?? NaN)).map((l) => {
       const c = (l.data as { caseId?: number }).caseId;
       return c === undefined || frag.local ? l : { ...l, data: { ...l.data, caseId: defs.loadCase.get(c) ?? c } } as typeof l;
     }) : [];

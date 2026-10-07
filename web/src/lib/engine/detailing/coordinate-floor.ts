@@ -232,7 +232,10 @@ export function repairConflicts(
   }
   trace.push(`${initial} conflicto(s) detectado(s); se intenta la escalera de reparación.`);
 
-  const byId = new Map(working.map((b) => [b.id, b]));
+  // The rungs move bars in place, so they work on a copy of their own. Built on `working`
+  // itself, the first rung moved the initial state `best` still holds, and a rung that made
+  // things worse handed back bars that had moved with the conflicts of bars that had not.
+  const byId = new Map(working.map((b) => [b.id, { ...b, segments: b.segments.map((s) => ({ ...s })) }]));
 
   // Four rungs, not two. Moving a bar out of one clash can create another, so a single
   // pass leaves a long tail; the flagship frame converged from ~4,800 conflicts to a few
@@ -249,6 +252,7 @@ export function repairConflicts(
 
   for (const [rung, margin] of RUNGS) {
     const before = result.conflicts.length;
+    let moved = false;
     for (const c of result.conflicts) {
       const a = byId.get(c.barA);
       const b = byId.get(c.barB);
@@ -308,6 +312,7 @@ export function repairConflicts(
       for (const member of group) {
         const target = byId.get(member.id) ?? member;
         for (const seg of target.segments) {
+          moved = true;
           seg.start = {
             x: seg.start.x + dir.x * shift,
             y: seg.start.y + dir.y * shift,
@@ -321,8 +326,12 @@ export function repairConflicts(
         }
       }
     }
-    working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
-    result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
+    // Locked bars and cage pieces can leave a rung with no geometry changes. Reuse
+    // its collision result while retaining the same attempt, trace and stop decision.
+    if (moved) {
+      working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
+      result = detectCollisions(working, { tolerances, requiredClearFor, classifyFor });
+    }
     const cleared = before - result.conflicts.length;
     attempts.push({ rung, cleared, remaining: result.conflicts.length });
     trace.push(

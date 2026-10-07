@@ -1,11 +1,10 @@
 <script lang="ts">
   /**
    * Write a load: its kind, its values, and what it goes on (`LoadTargetPicker`), added in one undo
-   * step to the active case.
-   *
-   * Every number is read by the app's one reader (a comma or a point; `parseDecimal`): "1,5" is one
-   * and a half, and a field left empty is the default it names (a J value empty is the I value; a
-   * zero typed in J is a zero, so a triangle that ends in nothing is a triangle).
+   * step to the active case. What the form describes is `model/loads/write-load.ts`'s: the numbers
+   * read by the app's one rule (a field empty is the default it names, a J value empty is the I
+   * value, a field that does not read refuses the add), and a stretch or a point that does not fit
+   * its member refused, the members named.
    *
    * Values are in SI, as the rest of the model is typed: kN, kN/m, kN·m, m, °C; the displacements and
    * eccentricities in mm, as they are measured, kept in m.
@@ -13,12 +12,14 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
+  import type { Load } from '../../../lib/store/model.svelte';
   import { addLoads } from '../../../lib/store/load-ops';
   import { resolveTargets, type TargetEntity } from '../../../lib/model/loads/load-targets';
-  import { orderedChain, loadsOnChain, triangularPeak, hydrostaticLoads, inclinedForce, type GlobalAxis } from '../../../lib/model/loads/member-load-tools';
+  import { inclinedForce, type GlobalAxis } from '../../../lib/model/loads/member-load-tools';
+  import { buildWrittenLoads, type WriteOutcome, type WriteRefusal } from '../../../lib/model/loads/write-load';
+  import { loadedLength } from '../../../lib/model/loads/load-stretch';
   import { memberRef3D } from '../../../lib/engine/solver-service';
-  import type { Load } from '../../../lib/store/model.svelte';
-  import type { MemberFrame, Vec3 } from '../../../lib/engine/member-loads';
+  import type { MemberFrame } from '../../../lib/engine/member-loads';
   import LoadTargetPicker, { type PickedSpec } from './LoadTargetPicker.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
@@ -34,9 +35,9 @@
   const entity = $derived<TargetEntity>(KINDS.find((k) => k.id === kind)!.group === 'node' ? 'nodes' : KINDS.find((k) => k.id === kind)!.group === 'member' ? 'members' : 'quads');
   let target = $state<PickedSpec>({ by: 'selection' });
 
-  /** A field's number; empty or unreadable is `fallback`. */
+  /** The preview's reading of a field: empty or unreadable is `fallback` (the add refuses unreadable text). */
   const num = (s: string, fallback = 0): number => parseDecimal(s) ?? fallback;
-  /** A field's number, or null when it is empty or unreadable. */
+  /** The preview's reading of a field, or null when it is empty or unreadable. */
   const opt = (s: string): number | null => (s.trim() === '' ? null : parseDecimal(s));
 
   // ── Nodal ──
@@ -87,142 +88,42 @@
     return [...of('quads').map((id) => ref(id)), ...of('plates').map((id) => ref(id, 'plate'))].filter((r): r is ShellRef => !!r);
   }
   let shellForm = $state<ProShellLoadForm | null>(null);
-  const lengthOf = (id: number) => memberRef3D(modelStore.model as never, id)?.axes.L ?? modelStore.getElementLength(id);
-  const bends = (id: number) => modelStore.elements.get(id)?.type !== 'truss';
 
   /** The loads the form describes, on its targets; a reason when it describes none. */
-  function build(): Load[] | string {
-    if (kind === 'surface' || kind === 'hydro' || kind === 'shellPoint') return shellForm ? shellForm.build(shellTargets(), caseId) : t('writeLoad.noTarget');
+  function build(): WriteOutcome | WriteRefusal {
+    // Slab loads act on quads and triangles through one integral (`shell-load-integration.ts`).
+    if (kind === 'surface' || kind === 'hydro' || kind === 'shellPoint') {
+      return shellForm ? shellForm.build(shellTargets(), caseId) : { error: 'writeLoad.noTarget' };
+    }
     if (kind === 'thermalQuad') {
       const shells = shellTargets();
-      if (!shells.length) return t('writeLoad.noTarget');
-      const dt = num(tq.dt), g = num(tq.g);
-      if (dt === 0 && g === 0) return t('writeLoad.zero');
-      return shells.map((sh) => ({ type: 'thermalQuad3d', data: { id: 0, quadId: sh.id, ...(sh.on ? { on: sh.on } : {}), dtUniform: dt, dtGradient: g, caseId } }) as Load);
+      if (!shells.length) return { error: 'writeLoad.noTarget' };
+      // Blank is 0; text that does not read refuses the add instead of becoming a zero.
+      const read = (v: string) => (v.trim() === '' ? 0 : parseDecimal(v));
+      const dt = read(tq.dt), g = read(tq.g);
+      if (dt === null || g === null) return { error: 'pro.loadUnreadable' };
+      if (dt === 0 && g === 0) return { error: 'writeLoad.zero' };
+      return { loads: shells.map((sh) => ({ type: 'thermalQuad3d', data: { id: 0, quadId: sh.id, ...(sh.on ? { on: sh.on } : {}), dtUniform: dt, dtGradient: g, caseId } }) as Load) };
     }
-    const ids = targets();
-    if (ids.length === 0) return t('writeLoad.noTarget');
-    const c = { caseId };
-    const nodeLoads = (data: (id: number) => Load | null) => ids.map(data).filter((l): l is Load => !!l);
-    switch (kind) {
-      case 'nodal': {
-        if (inclined) {
-          const F = opt(incF);
-          if (F === null || F === 0) return t('writeLoad.zero');
-          return nodeLoads((id) => {
-            const at = modelStore.nodes.get(id)!;
-            const to = incByNode ? modelStore.nodes.get(Number(incToNode)) : { x: num(incTo.x), y: num(incTo.y), z: num(incTo.z) };
-            const v = to ? inclinedForce(at, to, F) : null;
-            return v ? { type: 'nodal3d', data: { id: 0, nodeId: id, fx: v[0], fy: v[1], fz: v[2], mx: 0, my: 0, mz: 0, ...c } } : null;
-          });
-        }
-        const v = { fx: num(f.fx), fy: num(f.fy), fz: num(f.fz), mx: num(f.mx), my: num(f.my), mz: num(f.mz) };
-        if (Object.values(v).every((x) => x === 0)) return t('writeLoad.zero');
-        return nodeLoads((id) => ({ type: 'nodal3d', data: { id: 0, nodeId: id, ...v, ...c } }));
-      }
-      case 'displacement': {
-        const mm = (s: string) => { const x = opt(s); return x === null || x === 0 ? undefined : x / 1000; };
-        const r = (s: string) => { const x = opt(s); return x === null || x === 0 ? undefined : x; };
-        const d = { dx: mm(u.dx), dy: mm(u.dy), dz: mm(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
-        if (Object.values(d).every((x) => x === undefined)) return t('writeLoad.zero');
-        const clean = Object.fromEntries(Object.entries(d).filter(([, x]) => x !== undefined));
-        return nodeLoads((id) => ({ type: 'displacement3d', data: { id: 0, nodeId: id, ...clean, ...c } }));
-      }
-      case 'distributed': {
-        if (shape === 'hydrostatic') {
-          const members = ids.map((id) => {
-            const e = modelStore.elements.get(id)!;
-            return { id, i: modelStore.nodes.get(e.nodeI)!, j: modelStore.nodes.get(e.nodeJ)! };
-          });
-          const out = hydrostaticLoads(members, hydroAxis, num(w1), num(w2), hydroComp, frame);
-          return out.length ? out.map((d) => ({ type: 'distributed3d', data: { ...d, id: 0, ...c } }) as Load) : t('writeLoad.zero');
-        }
-        if (shape === 'triangle') {
-          const pk = opt(peak);
-          if (pk === null || pk === 0) return t('writeLoad.zero');
-          return ids.flatMap((id) => {
-            const L = lengthOf(id);
-            const at = opt(peakAt);
-            return triangularPeak(id, L, pk, peakComp, frame, at ?? L / 2).map((d) => ({ type: 'distributed3d', data: { ...d, id: 0, ...c } }) as Load);
-          });
-        }
-        const xI = num(q.xI), yI = num(q.yI), zI = num(q.zI);
-        // An empty J is the I value: a uniform load needs one row. A zero typed is a zero.
-        const xJ = opt(q.xJ) ?? xI, yJ = opt(q.yJ) ?? yI, zJ = opt(q.zJ) ?? zI;
-        if ([xI, xJ, yI, yJ, zI, zJ].every((x) => x === 0)) return t('writeLoad.zero');
-        const a = opt(qa), b = opt(qb);
-        if (target.by === 'chain') {
-          const chain = orderedChain(ids, (id) => modelStore.elements.get(id), (id) => modelStore.nodes.get(id));
-          if (!chain) return t('loadTarget.chainBad');
-          const ax = (id: number) => memberRef3D(modelStore.model as never, id)?.axes ?? null;
-          const first = ax(chain.links[0]!.id);
-          if (!first) return t('writeLoad.noTarget');
-          const chainAxes = chain.links[0]!.reversed ? { ...first, ex: first.ex.map((v) => -v) as Vec3, ez: first.ez.map((v) => -v) as Vec3 } : first;
-          return loadsOnChain(chain, { kind: 'distributed', a: a ?? 0, b: b ?? chain.total, frame, qI: [xI, yI, zI], qJ: [xJ, yJ, zJ] }, ax, chainAxes)
-            .map((l) => ({ type: l.type, data: { ...l.data, id: 0, ...c } }) as Load);
-        }
-        return ids.map((id) => {
-          const L = lengthOf(id);
-          const data: Record<string, unknown> = { id: 0, elementId: id, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, ...c };
-          if (xI || xJ) { data.qXI = xI; data.qXJ = xJ; }
-          if (frame !== 'local') data.frame = frame;
-          if (a !== null && a > 0) data.a = Math.min(a, L);
-          if (b !== null && b < L) data.b = Math.max(b, a ?? 0);
-          return { type: 'distributed3d', data } as unknown as Load;
-        });
-      }
-      case 'point': {
-        const v = { px: num(p.px), py: num(p.py), pz: num(p.pz), mx: num(p.mx), my: num(p.my), mz: num(p.mz) };
-        if (Object.values(v).every((x) => x === 0)) return t('writeLoad.zero');
-        const moment = v.mx !== 0 || v.my !== 0 || v.mz !== 0;
-        if (moment && ids.some((id) => !bends(id))) return t('writeLoad.momentOnTruss');
-        const a = opt(pa);
-        if (target.by === 'chain') {
-          const chain = orderedChain(ids, (id) => modelStore.elements.get(id), (id) => modelStore.nodes.get(id));
-          if (!chain) return t('loadTarget.chainBad');
-          const ax = (id: number) => memberRef3D(modelStore.model as never, id)?.axes ?? null;
-          const first = ax(chain.links[0]!.id);
-          if (!first) return t('writeLoad.noTarget');
-          const chainAxes = chain.links[0]!.reversed ? { ...first, ex: first.ex.map((x) => -x) as Vec3, ez: first.ez.map((x) => -x) as Vec3 } : first;
-          return loadsOnChain(chain, { kind: 'point', a: a ?? chain.total / 2, frame: pFrame, F: [v.px, v.py, v.pz], M: [v.mx, v.my, v.mz] }, ax, chainAxes)
-            .map((l) => ({ type: l.type, data: { ...l.data, id: 0, ...c } }) as Load);
-        }
-        return ids.map((id) => {
-          const L = lengthOf(id);
-          const data: Record<string, unknown> = { id: 0, elementId: id, a: Math.min(L, Math.max(0, a ?? L / 2)), py: v.py, pz: v.pz, ...c };
-          for (const k of ['px', 'mx', 'my', 'mz'] as const) if (v[k]) data[k] = v[k];
-          if (pFrame === 'global') data.frame = 'global';
-          return { type: 'pointOnElement3d', data } as unknown as Load;
-        });
-      }
-      case 'thermal': {
-        const dt = num(th.dt), gz = num(th.gz), gy = num(th.gy);
-        if (dt === 0 && gz === 0 && gy === 0) return t('writeLoad.zero');
-        return ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: dt, dtGradient: gz, ...(gy ? { dtGradientY: gy } : {}), ...c } }) as Load);
-      }
-      case 'strain': {
-        const v = opt(strainVal);
-        if (v === null || v === 0) return t('writeLoad.zero');
-        // ‰ of the member's length, or mm of it.
-        return ids.map((id) => ({ type: 'thermal', data: { id: 0, elementId: id, dtUniform: 0, dtGradient: 0, strain: strainBy === 'unit' ? v / 1000 : v / 1000 / lengthOf(id), ...c } }) as Load);
-      }
-      case 'prestress': {
-        const P = opt(ps.force);
-        if (P === null || P === 0) return t('writeLoad.zero');
-        if (ids.some((id) => !bends(id))) return t('writeLoad.prestressOnTruss');
-        const mm = (s: string) => num(s) / 1000;
-        return ids.map((id) => ({ type: 'prestress3d', data: { id: 0, elementId: id, force: P, eI: mm(ps.eI), eM: opt(ps.eM) === null ? (mm(ps.eI) + mm(ps.eJ)) / 2 : mm(ps.eM), eJ: mm(ps.eJ), ...c } }) as Load);
-      }
-      default: return t('writeLoad.noTarget');
-    }
+    return buildWrittenLoads({
+      kind, f, inclined, incF, incToNode, incTo, incByNode, u, frame, shape, q, qa, qb, peak, peakAt, peakComp,
+      w1, w2, hydroAxis, hydroComp, pFrame, p, pa, th, strainBy, strainVal, ps, sq: '', tq,
+    }, {
+      caseId, ids: targets(), chain: target.by === 'chain',
+      node: (id) => modelStore.nodes.get(id),
+      element: (id) => modelStore.elements.get(id),
+      axes: (id) => memberRef3D(modelStore.model as never, id)?.axes ?? null,
+      length: (id) => loadedLength(modelStore.model as never, id),
+    });
   }
 
   function add() {
-    const out = build();
-    if (typeof out === 'string') { error = out; done = null; return; }
-    addLoads(out);
+    const res = build();
+    if ('error' in res) { error = tp(res.error, res.params); done = null; return; }
+    addLoads(res.loads);
     error = null;
-    done = tp('writeLoad.added', { n: out.length, case: modelStore.model.loadCases.find((lc) => lc.id === caseId)?.name ?? '' });
+    done = tp('writeLoad.added', { n: res.loads.length, case: modelStore.model.loadCases.find((lc) => lc.id === caseId)?.name ?? '' })
+      + (res.skipped ? ` ${tp(res.skipped.key, { list: res.skipped.ids.join(', ') })}` : '');
   }
 
   const incPreview = $derived.by(() => {

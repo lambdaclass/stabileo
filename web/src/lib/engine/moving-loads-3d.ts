@@ -8,7 +8,7 @@
  * at its two ends. The largest moment under a moving axle is under the axle, inside the member,
  * so on a simply supported span modelled as one member it reports zero for a beam whose real
  * envelope is P·L/4. The 2D path met the same thing and reads its pointwise envelope instead
- * (`moving-loads.ts`). Here each position is solved with the ordinary 3D solve and read at the
+ * (`moving-loads.ts`). Here each position reuses a prepared 3D factorization and is read at the
  * member's critical stations (`station-forces.ts`), which include every point-load position, so
  * the maximum under each axle is read where it occurs.
  *
@@ -20,11 +20,13 @@
  * point load, the axial part as nodal forces shared by the two ends in proportion to position.
  * A train that is not symmetric also runs the other way, on the mirrored positions.
  */
-import { solve3D } from './wasm-solver';
+import { prepareLoadSession3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { buildCriticalStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
+import { buildSolverInput3D, type ModelData } from './solver-service';
+import { withoutSettlement } from './settlement-case';
 
 export interface PathSegment3D {
   elementId: number;
@@ -151,6 +153,17 @@ export interface MovingLoad3DOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * The structure a train runs on: the model's, with none of its loads. A load builds the input it
+ * is in: a moment or an axial force inside a span cuts the member there, and a load case's imposed
+ * displacement goes on the supports. Neither belongs to the train: the cut made the path's member
+ * pieces the path could not name, and every case's displacements were imposed on every position.
+ * A support's own settlement is not part of a moving-load envelope either.
+ */
+export function movingLoadBase3D(model: ModelData, leftHand = false): SolverInput3D | null {
+  return buildSolverInput3D({ ...model, supports: withoutSettlement(model.supports), loads: [] }, false, leftHand);
+}
+
 /** Sweep `train` along `path`, forward and (for an asymmetric train) back. */
 export async function sweepMovingLoad3D(
   base: SolverInput3D, path: PathSegment3D[], train: LoadTrain, opts: MovingLoad3DOptions = {},
@@ -165,18 +178,21 @@ export async function sweepMovingLoad3D(
   const count = passes.reduce((n, p) => n + p.refs.length, 0);
   const env: MovingEnvelope3D['elements'] = new Map();
   let done = 0, failed = 0;
-  for (const p of passes) {
-    for (const r of p.refs) {
-      if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
-      try {
-        foldPosition(env, solve3D({ ...base, loads: trainLoads(base, path, p.train, r) }), r);
-      } catch {
-        failed++;
+  const session = prepareLoadSession3D(base);
+  try {
+    for (const p of passes) {
+      for (const r of p.refs) {
+        if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+        try {
+          foldPosition(env, session.solve(trainLoads(base, path, p.train, r)), r);
+        } catch {
+          failed++;
+        }
+        done++;
+        opts.onProgress?.(done, count);
+        if (done % 8 === 0) await new Promise((res) => setTimeout(res, 0));
       }
-      done++;
-      opts.onProgress?.(done, count);
-      if (done % 8 === 0) await new Promise((res) => setTimeout(res, 0));
     }
-  }
-  return { elements: env, path, train, positions: done - failed, failed };
+    return { elements: env, path, train, positions: done - failed, failed };
+  } finally { session.free(); }
 }

@@ -162,6 +162,8 @@ export interface LongitudinalBarRef {
 }
 
 export interface StirrupSetInput {
+  /** Share section-level closure choices within one detailing run. */
+  closureCache?: StirrupClosureCache;
   elementId: number;
   /** The member's cage. Every piece of one member's transverse steel shares it. */
   cageId?: string;
@@ -207,6 +209,25 @@ export interface StirrupSetInput {
    * that limit and §25.3.5(d) are mandatory, and when they conflict the spacing limit governs.
    */
   acrossMax?: number;
+}
+
+/** Run-scoped: cache a candidate index, never mutable geometry or member/bar identities. */
+export class StirrupClosureCache {
+  private readonly choices = new Map<string, number>();
+
+  select(input: StirrupSetInput, calculate: () => number): number {
+    const values = [input.b, input.h, input.cover, input.stirrupDiaMm,
+      ...input.longitudinalBars.flatMap(b => [b.across, b.up, b.diameterMm])];
+    // Preserve exact numeric inputs (including signed zero). Invalid geometry is
+    // evaluated normally, without letting JSON/non-finite coercions alias valid keys.
+    if (!values.every(Number.isFinite)) return calculate();
+    const key = input.hookOrientation + ':' + values.map(v => Object.is(v, -0) ? '-0' : String(v)).join(',');
+    const previous = this.choices.get(key);
+    if (previous !== undefined) return previous;
+    const choice = calculate();
+    this.choices.set(key, choice);
+    return choice;
+  }
 }
 
 function add(p: Point3, v: Point3, k: number): Point3 {
@@ -582,13 +603,17 @@ export function buildClosedStirrup(input: StirrupSetInput): TransversePiece {
     { s: preferred, v: 1 }, { s: -preferred as 1 | -1, v: 1 },
     { s: preferred, v: -1 }, { s: -preferred as 1 | -1, v: -1 },
   ];
-  let closure = candidates[0];
-  let bestClear = tailClearance(candidates[0]);
-  for (const k of candidates.slice(1)) {
-    if (bestClear >= 0) break;          // the preferred corner already works; stagger wins.
-    const c = tailClearance(k);
-    if (c > bestClear) { closure = k; bestClear = c; }
-  }
+  const selectClosure = () => {
+    let choice = 0;
+    let bestClear = tailClearance(candidates[0]);
+    for (let i = 1; i < candidates.length; i++) {
+      if (bestClear >= 0) break;        // the preferred corner already works; stagger wins.
+      const c = tailClearance(candidates[i]);
+      if (c > bestClear) { choice = i; bestClear = c; }
+    }
+    return choice;
+  };
+  const closure = candidates[input.closureCache?.select(input, selectClosure) ?? selectClosure()];
 
   const geom = layout(closure);
   const { corners, dir, bendCentre, bendStart, tipStart, exitEnd, tipEnd, onSide0, bendEnd } = geom;

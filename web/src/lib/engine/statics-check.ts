@@ -155,12 +155,16 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
  * What a case applies to the structure, about the origin: its loads and its self-weight, read the
  * way the solve reads them. `caseId` null: every load, as a single solve. The loads no reading
  * covers are named, not guessed. Also the per-case totals of the loads panel, before a solve.
+ * Inactive members are out, with their loads and weight (`activeModel`).
  */
 export function appliedResultant(
   model: StaticsCheckInput['model'], caseId: number | null,
   opts: { includeSelfWeight: StaticsCheckInput['includeSelfWeight']; caseTypes?: Map<number, string>; leftHand?: boolean },
 ): { applied: Resultant6; uncovered: string[]; selfWeightIncluded: boolean } {
   const { includeSelfWeight, caseTypes, leftHand = false } = opts;
+  // The structure the solve has, whoever asks: the loads panel's totals read the model as it is, and
+  // counted the loads and weight of inactive members the statics check leaves out.
+  model = activeModel(model);
   const applied: Resultant6 = { ...ZERO };
   const uncovered = new Set<string>();
 

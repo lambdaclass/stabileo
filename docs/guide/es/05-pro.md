@@ -490,7 +490,10 @@ del proyecto.
 las acciones que regenera y las combinaciones que escribió una norma. Las cargas y combinaciones
 escritas a mano se mantienen, igual que los casos de las acciones que el plan no toca. Cada
 combinación generada registra la norma, la edición y la regla de la que sale; el diseño usa las de
-resistencia.
+resistencia. Una carga o combinación que editás o copiás pasa a ser tuya, y reemplazar la deja. En
+un proyecto guardado antes de que las cargas se marcaran, la vista previa dice cuántas cargas y
+combinaciones sin marca hay en los casos donde escribe el plan, y ofrece quitarlas también; si no,
+quedan y el plan se agrega al lado.
 
 ### Generadores
 

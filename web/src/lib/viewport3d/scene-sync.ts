@@ -8,7 +8,9 @@ import { shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
 import { tendonEccentricity } from '../engine/prestress';
-import { formatValue, unitLabel, toDisplay } from '../utils/units';
+import { formatValue, unitLabel, toDisplay, type Quantity } from '../utils/units';
+import { displayUnits } from '../store/display-units.svelte';
+import { loadedSegment } from '../model/loads/load-stretch';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
@@ -615,7 +617,21 @@ const LOAD_DIMMED = 0x5d6d7a;
  *  scale/colour, referenced node positions, and the UI toggles). When it matches
  *  the previous run the entire load-group rebuild is skipped — so dragging a node
  *  that carries no load (the common case) no longer rebuilds every arrow per tick. */
-function loadsSignature(project2D: boolean): string {
+/**
+ * The scene point `s` m along the segment a member load is placed on, clamped to it; the segment's
+ * end when `s` is absent. The segment is the one the engine loads and the stretch handles move on
+ * (`loadedSegment`): on a member with rigid end offsets it starts at the end of the offset at I, so
+ * a load drawn node to node sat off where it acts. Null when the member has no segment.
+ */
+export function loadStationInScene(elementId: number, s: number | undefined, project2D: boolean): { x: number; y: number; z: number } | null {
+  const seg = loadedSegment(modelStore.model as never, elementId);
+  if (!seg) return null;
+  const t = s === undefined ? 1 : Math.min(1, Math.max(0, s / seg.L));
+  const p = [0, 1, 2].map((k) => seg.I[k]! + (seg.J[k]! - seg.I[k]!) * t);
+  return projectNodeToScene({ x: p[0]!, y: p[1]!, z: p[2]! }, project2D);
+}
+
+export function loadsSignature(project2D: boolean): string {
   const parts: (string | number)[] = [
     uiStore.showLoads3D ? 1 : 0,
     uiStore.hideLoadsWithDiagram ? 1 : 0,
@@ -627,7 +643,7 @@ function loadsSignature(project2D: boolean): string {
     // A selected load is drawn in the selection colour and the rest dimmed beside it.
     [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
     // The labels' units and decimals, and the reader's arrow scale.
-    uiStore.unitSystem, uiStore.loadArrowScale,
+    uiStore.unitSystem, JSON.stringify(displayUnits.decimals), uiStore.loadArrowScale,
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -636,18 +652,24 @@ function loadsSignature(project2D: boolean): string {
   for (const load of modelStore.loads) {
     const d = load.data as unknown as Record<string, number | undefined>;
     parts.push(load.type, JSON.stringify(d), modelStore.getLoadCaseColor((d.caseId as number) ?? 1));
-    if (load.type === 'nodal' || load.type === 'nodal3d') {
+    // Every drawing placed by nodes holds their positions, or it stays where a moved node left it:
+    // a tendon (its profile also along the member's z, so the roll and section rotation), a
+    // member's temperature, a slab's, an imposed displacement.
+    if (load.type === 'nodal' || load.type === 'nodal3d' || load.type === 'displacement3d') {
       parts.push(np(d.nodeId));
     } else if (load.type === 'distributed' || load.type === 'distributed3d'
-      || load.type === 'pointOnElement' || load.type === 'pointOnElement3d') {
+      || load.type === 'pointOnElement' || load.type === 'pointOnElement3d'
+      || load.type === 'thermal' || load.type === 'prestress3d') {
       const elem = modelStore.elements.get(d.elementId as number);
       // element endpoints + (for distributed3d) the local frame that orients qY/qZ
       parts.push(elem ? np(elem.nodeI) + np(elem.nodeJ) : '_',
         elem?.localYx ?? '', elem?.localYy ?? '', elem?.localYz ?? '', elem?.rollAngle ?? '',
+        // A rigid end offset moves the segment a member load is drawn on.
+        elem?.offset ? JSON.stringify(elem.offset) : '',
         // Local loads are drawn along the displayed axes: section rotation and convention.
         elem ? (modelStore.sections.get(elem.sectionId)?.rotation ?? 0) : '', uiStore.axisConvention3D,
         (d as { frame?: string }).frame ?? '', (d as { qXI?: number }).qXI ?? '', (d as { qXJ?: number }).qXJ ?? '');
-    } else if (load.type === 'surface3d') {
+    } else if (load.type === 'surface3d' || load.type === 'thermalQuad3d') {
       const shell = (d as { on?: string }).on === 'plate' ? modelStore.plates.get(d.quadId as number) : modelStore.quads.get(d.quadId as number);
       parts.push(shell ? shell.nodes.map((nid: number) => np(nid)).join('') : '_');
     }
@@ -681,7 +703,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
   if (!loadsLayerDrawn(drawView)) return;
 
   const loads = modelStore.loads;
-  if (loads.length === 0) return;
+  // A load zone is drawn before anything loads it: it is drawn to be loaded.
+  if (loads.length === 0 && ![...modelStore.model.groups.values()].some((g) => g.kind === 'loadZone')) return;
 
   // Compute max force magnitude for scaling
   let maxForce = 0;
@@ -714,14 +737,15 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Batched accumulator: all arrows/envelopes/fills/cones merge into ~5
   // draw calls total instead of ~18-35 per load (the load-heavy GPU bottleneck).
   const batch = createLoadArrowsBatched();
-  // The project's units and decimals on every label, and the reader's scale on every arrow.
+  // The project's units and the reader's decimals on every label (as `fmtQ` writes every other
+  // value in the app), and the reader's scale on every arrow.
   const sys = uiStore.unitSystem;
-  const withUnit = (v: number, q: 'force' | 'moment' | 'distributedLoad') => `${formatValue(v, q, sys)} ${unitLabel(q, sys)}`;
+  const withUnit = (v: number, q: Quantity) => `${formatValue(v, q, sys, displayUnits.decimals[q])} ${unitLabel(q, sys)}`;
   batch.format = {
     force: (v) => withUnit(v, 'force'),
     moment: (v) => withUnit(v, 'moment'),
     distributed: (v) => withUnit(v, 'distributedLoad'),
-    pressure: (v) => `${formatValue(toDisplay(v, 'force', sys) / toDisplay(1, 'length', sys) ** 2, 'force', 'SI')} ${unitLabel('force', sys)}/${unitLabel('length', sys)}²`,
+    pressure: (v) => `${formatValue(toDisplay(v, 'force', sys) / toDisplay(1, 'length', sys) ** 2, 'force', 'SI', displayUnits.decimals.force)} ${unitLabel('force', sys)}/${unitLabel('length', sys)}²`,
   };
   batch.scale = uiStore.loadArrowScale;
   const selected = uiStore.selectedLoads;
@@ -803,14 +827,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const ey = { x: localAxes.ey[0], y: localAxes.ey[1], z: localAxes.ey[2] };
       const ez = { x: localAxes.ez[0], y: localAxes.ez[1], z: localAxes.ez[2] };
       // Drawn on its stretch a–b, not node to node: a floor's or a generator's partial loads sat
-      // over the whole member, one on top of the other.
-      const Lm = localAxes.L;
-      const at = (s: number) => {
-        const t = Lm > 0 ? Math.min(1, Math.max(0, s / Lm)) : 0;
-        return { x: nodeI.x + (nodeJ.x - nodeI.x) * t, y: nodeI.y + (nodeJ.y - nodeI.y) * t, z: nodeI.z + (nodeJ.z - nodeI.z) * t };
-      };
-      const sceneI = at(load.data.a ?? 0);
-      const sceneJ = at(load.data.b ?? Lm);
+      // over the whole member, one on top of the other. Measured as the engine and the handles
+      // measure it (`loadStationInScene`).
+      const sceneI = loadStationInScene(load.data.elementId, load.data.a ?? 0, project2D) ?? nodeI;
+      const sceneJ = loadStationInScene(load.data.elementId, load.data.b, project2D) ?? nodeJ;
       const frame = load.data.frame ?? 'local';
       if (frame !== 'local') {
         // Along the global axes, at the intensity per metre of member the solve applies.
@@ -911,13 +931,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
-      const L = Math.sqrt((nJ.x-nI.x)**2 + (nJ.y-nI.y)**2 + ((nJ.z??0)-(nI.z??0))**2);
-      const t = L > 0 ? load.data.a / L : 0.5;
-      const sceneI = projectNodeToScene(nI, project2D);
-      const sceneJ = projectNodeToScene(nJ, project2D);
-      const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
-      const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
-      const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
+      // At a from the start of the flexible segment, as the engine places it (past a rigid offset).
+      const at = loadStationInScene(load.data.elementId, load.data.a, project2D);
+      if (!at) continue;
+      const { x: px, y: py, z: pz } = at;
 
       const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
       const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
@@ -946,7 +963,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!elem || !nI || !nJ) continue;
       const a = projectNodeToScene(nI, project2D), b = projectNodeToScene(nJ, project2D);
       const d = load.data;
-      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const temp = (v: number) => withUnit(v, 'temperature');
       const parts = [
         d.dtUniform ? `ΔT ${temp(d.dtUniform)}` : '',
         d.dtGradient ? `ΔTgz ${temp(d.dtGradient)}` : '',
@@ -981,7 +998,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!quad || !ns || ns.some((n) => !n)) continue;
       const ps = (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D));
       const c = ps.reduce((acc, p) => ({ x: acc.x + p.x / ps.length, y: acc.y + p.y / ps.length, z: acc.z + p.z / ps.length }), { x: 0, y: 0, z: 0 });
-      const temp = (v: number) => `${formatValue(v, 'temperature', sys)} ${unitLabel('temperature', sys)}`;
+      const temp = (v: number) => withUnit(v, 'temperature');
       const text = [load.data.dtUniform ? `ΔT ${temp(load.data.dtUniform)}` : '', load.data.dtGradient ? `ΔTg ${temp(load.data.dtGradient)}` : ''].filter(Boolean).join(' · ');
       if (text) batch.addTag({ x: c.x, y: c.y, z: c.z + 0.15 }, text, cc);
     }
@@ -993,10 +1010,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const d = load.data;
       const u = { x: d.dx ?? 0, y: d.dy ?? 0, z: d.dz ?? 0 };
       if (Math.hypot(u.x, u.y, u.z) > 0) batch.addPointer(p, u, 0.6 * uiStore.loadArrowScale, cc);
-      const mm = (v: number) => `${formatValue(v, 'displacement', sys)} ${unitLabel('displacement', sys)}`;
+      // In the displacement and rotation units the results use, with the reader's decimals.
       const text = [
-        ...(['dx', 'dy', 'dz'] as const).filter((k) => d[k]).map((k) => `${k} ${mm(d[k]!)}`),
-        ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k} ${d[k]} rad`),
+        ...(['dx', 'dy', 'dz'] as const).filter((k) => d[k]).map((k) => `${k} ${withUnit(d[k]!, 'displacement')}`),
+        ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k} ${withUnit(d[k]!, 'rotation')}`),
       ].join(' · ');
       batch.addTag({ x: p.x, y: p.y, z: p.z - 0.3 }, text, cc);
     }

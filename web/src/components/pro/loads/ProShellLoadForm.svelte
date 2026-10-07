@@ -2,27 +2,23 @@
   /**
    * The values of a load on shells, for the write card: an area load with its direction, its field
    * and its extent; a fluid to a level; a force at a point. `build` turns them into the model's
-   * loads on the shells picked (`shell-load-tools.ts` for the two tools).
+   * loads on the shells picked, or the reason it does not, as i18n keys
+   * (`model/loads/shell-load-form.ts`, which reads the numbers by the app's one rule).
    *
    * Pressures in kN/m², coordinates in m, a force in kN, in SI as the rest of the card.
    */
   import { t } from '../../../lib/i18n';
-  import { parseDecimal } from '../../../lib/utils/numeric-input';
-  import { hydrostaticSurfaceLoads, shellPointNodalLoads, type ShellRef } from '../../../lib/model/loads/shell-load-tools';
-  import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
-  import type { Vec3 } from '../../../lib/engine/shell-load-integration';
+  import { buildShellLoads, type ShellLoadFields } from '../../../lib/model/loads/shell-load-form';
+  import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
+  import type { WriteOutcome, WriteRefusal } from '../../../lib/model/loads/write-load';
 
   interface Props { kind: 'surface' | 'hydro' | 'shellPoint' }
   let { kind }: Props = $props();
 
-  const num = (s: string, fallback = 0): number => parseDecimal(s) ?? fallback;
-  const opt = (s: string): number | null => (s.trim() === '' ? null : parseDecimal(s));
-  const AXIS: Record<'X' | 'Y' | 'Z', Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
-
   // ── Area load ──
-  let dirMode = $state<'down' | 'local' | 'global' | 'projected'>('down');
+  let dirMode = $state<ShellLoadFields['dirMode']>('down');
   let dirAxis = $state<'X' | 'Y' | 'Z'>('Z');
-  let field = $state<'uniform' | 'corners' | 'axis'>('uniform');
+  let field = $state<ShellLoadFields['field']>('uniform');
   let q = $state('');
   let qc = $state('');
   let va = $state({ axis: 'Z' as 'X' | 'Y' | 'Z', c1: '', q1: '', c2: '', q2: '' });
@@ -36,65 +32,9 @@
   let at = $state({ x: '', y: '', z: '' });
   let pf = $state({ fx: '', fy: '', fz: '' });
 
-  /** The rectangle as a region: its plane's two axes, projected along the third. */
-  function region(): SurfaceLoad3D['region'] | string {
-    const [u1, v1, u2, v2] = [opt(rect.u1), opt(rect.v1), opt(rect.u2), opt(rect.v2)];
-    if (u1 === null || v1 === null || u2 === null || v2 === null || u1 === u2 || v1 === v2) return t('writeLoad.shell.rectIncomplete');
-    const put = (u: number, v: number): Vec3 => (rect.plane === 'XY' ? [u, v, 0] : rect.plane === 'XZ' ? [u, 0, v] : [0, u, v]);
-    const normal: Vec3 = rect.plane === 'XY' ? [0, 0, 1] : rect.plane === 'XZ' ? [0, 1, 0] : [1, 0, 0];
-    return { normal, points: [put(u1, v1), put(u2, v1), put(u2, v2), put(u1, v2)] };
-  }
-
   /** The loads on the shells picked, or why there are none. */
-  export function build(shells: readonly ShellRef[], caseId: number | undefined): Load[] | string {
-    if (!shells.length) return t('writeLoad.noTarget');
-    const c = caseId !== undefined ? { caseId } : {};
-    if (kind === 'shellPoint') {
-      const F: Vec3 = [num(pf.fx), num(pf.fy), num(pf.fz)];
-      if (F.every((v) => v === 0)) return t('writeLoad.zero');
-      const nodal = shellPointNodalLoads(shells, [num(at.x), num(at.y), num(at.z)], F);
-      if (!nodal) return t('writeLoad.shell.pointOutside');
-      return nodal.map((n) => ({ type: 'nodal3d', data: { id: 0, ...n, ...c } }) as Load);
-    }
-    if (kind === 'hydro') {
-      const g = opt(gamma), z = opt(level);
-      if (g === null || g === 0 || z === null) return t('writeLoad.shell.hydroIncomplete');
-      const pt = [opt(inside.x), opt(inside.y), opt(inside.z)];
-      const loads = hydrostaticSurfaceLoads(shells, g, z, pt.every((v) => v !== null) ? (pt as Vec3) : undefined);
-      if (!loads.length) return t('writeLoad.shell.hydroNothing');
-      return loads.map((l) => ({ type: 'surface3d', data: { id: 0, ...l, ...c } }) as Load);
-    }
-
-    const extra: Partial<SurfaceLoad3D> = {};
-    if (dirMode !== 'down') extra.frame = dirMode;
-    if (dirMode === 'global' || dirMode === 'projected') extra.dir = AXIS[dirAxis];
-    let qv = 0;
-    if (field === 'uniform') {
-      const v = opt(q);
-      if (v === null || v === 0) return t('writeLoad.zero');
-      qv = v;
-    } else if (field === 'corners') {
-      const vals = qc.split(';').map((s) => parseDecimal(s.trim())).filter((v): v is number => v !== null);
-      if (vals.length < 3) return t('writeLoad.shell.cornersIncomplete');
-      if (vals.every((v) => v === 0)) return t('writeLoad.zero');
-      // Three values for a triangle, four for a quad; a triangle picked with four takes the first three.
-      extra.qNodes = vals;
-    } else {
-      const [c1, q1, c2, q2] = [opt(va.c1), opt(va.q1), opt(va.c2), opt(va.q2)];
-      if (c1 === null || q1 === null || c2 === null || q2 === null || c1 === c2) return t('writeLoad.shell.varyIncomplete');
-      if (q1 === 0 && q2 === 0) return t('writeLoad.zero');
-      extra.vary = { dir: AXIS[va.axis], c1, q1, c2, q2 };
-    }
-    if (partial) {
-      const r = region();
-      if (typeof r === 'string') return r;
-      extra.region = r;
-    }
-    if (extra.qNodes && shells.some((s) => s.pts.length > extra.qNodes!.length)) return t('writeLoad.shell.cornersIncomplete');
-    return shells.map((s) => ({
-      type: 'surface3d',
-      data: { id: 0, quadId: s.id, ...(s.on ? { on: s.on } : {}), q: qv, ...extra, ...(extra.qNodes ? { qNodes: extra.qNodes.slice(0, s.pts.length) } : {}), ...c },
-    }) as Load);
+  export function build(shells: readonly ShellRef[], caseId: number | undefined): WriteOutcome | WriteRefusal {
+    return buildShellLoads(kind, { dirMode, dirAxis, field, q, qc, va, partial, rect, gamma, level, inside, at, pf }, shells, caseId);
   }
 </script>
 

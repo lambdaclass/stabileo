@@ -66,7 +66,7 @@ export function modesForPlan(plan: LoadPlan, liveParticipation: number): { modes
 
 /**
  * Each wind direction's fundamental frequency under the plan's masses (CIRSOC 102-2025 §1.9.2):
- * the mode with the most mass along it (`wind-dynamics.ts`). The live load at the seismic
+ * the lowest mode with a tenth of the mass along it (`wind-dynamics.ts`). The live load at the seismic
  * participation is in the mass: more mass lowers n₁ and raises G_f, the safe side.
  */
 export function windFrequenciesForPlan(plan: LoadPlan, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {

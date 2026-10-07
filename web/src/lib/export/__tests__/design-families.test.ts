@@ -12,8 +12,10 @@
  * they are the same functions.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { designRunStore } from '../../store/design-run.svelte';
+import { detailingStore } from '../../store/detailing.svelte';
+import { verificationStore } from '../../store/verification.svelte';
 import { DEFAULT_DESIGN_FAMILIES, availableDesignFamilies, initialDesignSelection, pruneDesignSelection, DESIGN_FAMILIES } from '../../engine/design/design-families';
 import { ready, familyOf, familiesWithSteel } from './design-families-fixture';
 
@@ -91,19 +93,35 @@ describe('a family the model does not have is not offered', () => {
 
 describe('the run covers exactly the families chosen', () => {
   beforeEach(async () => { await ready('pro-edificio-7p'); }, 300_000);
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it('columns and beams only: no slab or wall steel is produced', () => {
-    const report = designRunStore.designFamilies(['column', 'beam']);
+    const generate = vi.spyOn(detailingStore, 'generate');
+    const verifierId = 'cirsoc201.provided.v2.2025';
+    const report = designRunStore.designFamilies(['column', 'beam'], { verifierId });
+    expect(generate).toHaveBeenCalledExactlyOnceWith({ verifierId });
     expect(familyOf(report, 'column').state).toBe('designed');
     expect(familyOf(report, 'beam').state).toBe('designed');
     expect(familyOf(report, 'slab').state).toBe('skipped');
     expect(familyOf(report, 'wall').state).toBe('skipped');
     expect(familyOf(report, 'footing').state).toBe('skipped');
     expect(familiesWithSteel().has('slab')).toBe(false);
+    // Counts must describe outcomes AFTER the detailing feedback repairs.
+    for (const family of ['column', 'beam'] as const) {
+      const outcomes = [...verificationStore.contexts]
+        .filter(([, ctx]) => ctx.elementType === family)
+        .map(([id]) => verificationStore.outcomeFor(id));
+      expect(familyOf(report, family).designed).toBe(outcomes.filter(o => o?.outcome === 'VERIFIED' && o.accepted).length);
+      expect(familyOf(report, family).refused).toBe(outcomes.filter(o => o && o.outcome !== 'VERIFIED').length);
+    }
   }, 300_000);
 
   it('columns only: beams are skipped and get no reinforcement from this run', () => {
+    detailingStore.setAutoGenerate(false);
+    const generate = vi.spyOn(detailingStore, 'generate');
     const report = designRunStore.designFamilies(['column']);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(detailingStore.autoGenerate).toBe(false);
     expect(familyOf(report, 'beam').state).toBe('skipped');
     expect(familyOf(report, 'column').processed).toBeGreaterThan(50);
     // The split reads `elementType` from the member context — the same authority the search
@@ -122,7 +140,9 @@ describe('the run covers exactly the families chosen', () => {
   }, 300_000);
 
   it('slabs only: walls are filtered out through the engine’s own classifier', () => {
+    const generate = vi.spyOn(detailingStore, 'generate');
     const report = designRunStore.designFamilies(['slab']);
+    expect(generate).not.toHaveBeenCalled();
     expect(familyOf(report, 'slab').state).toBe('designed');
     expect(familyOf(report, 'wall').state).toBe('skipped');
     expect(familiesWithSteel().has('wall')).toBe(false);

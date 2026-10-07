@@ -221,6 +221,12 @@ export function carriedLoad(
   signsOf: (elementId: number) => { sy: 1 | -1; sz: 1 | -1 },
   plateMap: Map<number, number> = new Map(),
 ): { load?: Load; warning?: EditWarning } | null {
+  // A copy of a floor-load definition's load is a plain load (`fromDef` dropped): the definition
+  // loads the original, and its rewrite deleted the copies, which lost their loads at the next solve.
+  if ((l.data as { fromDef?: number }).fromDef !== undefined) {
+    const { fromDef: _def, ...rest } = l.data as unknown as Record<string, unknown>;
+    l = { ...l, data: rest } as unknown as Load;
+  }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
   const d = l.data as unknown as Record<string, unknown>;
   switch (l.type) {

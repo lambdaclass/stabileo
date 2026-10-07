@@ -4,12 +4,9 @@
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
   import { windCaseReversible } from '../../lib/store/wind-reversal';
-  import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
-  import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
-  import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations, addCompositeCases } from '../../lib/store/generated-combinations';
+  import { addGeneratedCombinations, addCompositeCases, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -91,12 +88,9 @@
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const present = presentSymbols(cases);
-    // The project's rules carry their own factors: W is written as the engineer means it.
-    const specs = template === 'project'
-      ? modelStore.combinationRules.map(ruleToSpec)
-      : template === 'service'
-      ? generateServiceCombinations({ present })
-      : generateCombinations({ present });
+    // The project's rules carry their own factors: W is written as the engineer means it. Each
+    // says which code wrote it and what for, so service ones stay out of design.
+    const specs = templateCombinationSpecs(template, present, modelStore.combinationRules);
     const expanded = expandCombinations(specs, cases, {
       bothSenses: { W: windBySign, E: seismicBothSenses },
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).

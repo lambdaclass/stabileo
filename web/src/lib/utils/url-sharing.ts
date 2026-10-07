@@ -23,12 +23,13 @@ import { prepareSharedSnapshot } from './share-snapshot';
 /**
  * The wire schema tag.
  *
- * 5 = the joint designs travel (`jd`). 4 = typed per-axis releases (`ri`/`rj`). 3 = legacy
+ * 6 = the groups travel (`gr`): floor-load definitions and load zones among them. 5 = the joint
+ * designs travel (`jd`). 4 = typed per-axis releases (`ri`/`rj`). 3 = legacy
  * `hs`/`he` booleans plus the iy/iz convention. Compatible in both directions: 4 → 5 added a new
  * TOP-LEVEL key and no position to any existing tuple, and the two migrations below key off
  * `sv >= 3` and `sv >= 4`, which 5 satisfies. A reader that predates `jd` ignores it.
  */
-const SHARE_VERSION = 5;
+const SHARE_VERSION = 6;
 
 /**
  * The modes a link is written from.
@@ -412,6 +413,13 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   const jd = packJointDesigns(snapshot.jointDesigns);
   if (jd) c.jd = jd;
 
+  /*
+   * Groups: kept verbatim, like connectors. The floor-load definitions and load zones are groups,
+   * and their loads travel marked with them (`fromDef`): without the groups an embed arrived with
+   * the marks and no definitions, and the first rewrite took the floors' loads away.
+   */
+  if (snapshot.groups?.length) c.gr = snapshot.groups;
+
   // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?,
   //          connector?, footing?, soilProfile?]
   // Appended at the END so a link shared before footings existed still decodes: the
@@ -589,6 +597,9 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
      * of matching them by node id.
      */
     jointDesigns: unpackJointDesigns(c.jd),
+
+    // Groups; their shape is checked by `prepareSharedSnapshot`, as a legacy link's are.
+    groups: c.gr as ModelSnapshot['groups'],
 
     // NextId
     nextId: (() => {

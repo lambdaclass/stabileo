@@ -209,7 +209,8 @@
         <!-- Deleting a case takes its loads and its place in the combinations: said, then done. -->
         <tr class="lc-confirm" data-testid="lc-confirm-{lc.id}">
           <td colspan="9">
-            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}</span>
+            <!-- And what removeLoadCase takes beyond the loads: self-weight rows, a mass-source factor. -->
+            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}{#if scope.selfWeight}{' '}{tp('pro.removeCaseSelfWeight', { n: scope.selfWeight })}{/if}{#if scope.mass}{' '}{t('pro.removeCaseMass')}{/if}</span>
             <button class="pk-btn lc-danger" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} data-testid="lc-confirm-yes">{t('pro.removeCase')}</button>
             <button class="pk-btn" onclick={(e) => { e.stopPropagation(); confirming = null; }}>{t('calcReport.cancel')}</button>
           </td>

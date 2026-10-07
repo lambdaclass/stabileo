@@ -17,9 +17,13 @@
  * A whole shell under a field it carries everywhere is integrated in the element's own natural
  * coordinates, exactly (3×3 Gauss on a quad, a degree-4 rule on a triangle). A shell cut by a region
  * or by the ends of a variation is clipped in its plane, and the piece is integrated over triangles
- * with a composite degree-5 rule, mapping each point back to natural coordinates: exact on a
- * triangle and on a parallelogram, and converged to round-off elsewhere. An opening is subtracted:
- * the integral is linear in the region.
+ * with a composite degree-5 rule, mapping each point back to natural coordinates. That is exact on a
+ * triangle and on a parallelogram. On any other quad the shape functions are not polynomials of
+ * the plane's coordinates and the rule only converges: a corner's share is good to about 1e-6 of
+ * it (1.6e-6 kN of 2.7 kN on a strongly distorted quad), while the total and its moment are exact
+ * (the shares add to one and reproduce the coordinates). A region with openings is the set of
+ * points in its outline and in none of them, the rule the drawing uses: an opening reaching past
+ * the outline, or overlapping another, is not subtracted twice (`regionCells`).
  *
  * Pure: no store, no engine.
  */
@@ -42,7 +46,11 @@ export interface ShellLoadSpec {
   dir?: Vec3;
   /** q at each corner, in the shell's node order: a field by node. Replaces q. */
   qNodes?: number[];
-  /** q linear in the coordinate c = dir·X: q1 at c1, q2 at c2, and nothing outside [c1, c2]. */
+  /**
+   * q linear in the coordinate c = dir·X: q1 at c1, q2 at c2, and nothing outside [c1, c2]. With
+   * c1 = c2 the range is empty and the load is none, a shell lying at that coordinate included (no
+   * value between two equal coordinates is the one meant).
+   */
   vary?: { dir: Vec3; c1: number; q1: number; c2: number; q2: number };
   /** Only inside this polygon, projected onto the shell along `normal`. Openings are taken out. */
   region?: { normal: Vec3; points: Vec3[]; holes?: Vec3[][] };
@@ -213,6 +221,58 @@ export function clipHalfPlane(poly: readonly P2[], g: (p: P2) => number): P2[] {
   return out;
 }
 
+/**
+ * The part of a convex polygon (the element, counter-clockwise) inside `outer` and in none of
+ * `holes`, as convex cells. The plane is cut into strips across x at every vertex and every
+ * crossing of two edges, so no edge crosses another inside a strip; each strip is cut into
+ * trapezoids between consecutive edges, and a trapezoid is kept when its middle is in the
+ * region. Exact for any outline and any openings, overlapping each other or reaching past the
+ * outline, and the same rule the drawing samples (`shellLoadSamples`): in the outline, in no
+ * opening.
+ */
+function regionCells(el: readonly P2[], outer: readonly P2[], holes: readonly P2[][]): P2[][] {
+  const xs = el.map((p) => p[0]), ys = el.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const tol = 1e-10 * Math.max(x1 - x0, Math.max(...ys) - Math.min(...ys), 1e-300);
+  const edges: Array<[P2, P2]> = [];
+  for (const poly of [el, outer, ...holes]) {
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+      // Only an edge reaching the element's strip, and not across x (it lies on a strip's side).
+      if (Math.max(a[0], b[0]) < x0 - tol || Math.min(a[0], b[0]) > x1 + tol || Math.abs(b[0] - a[0]) <= tol) continue;
+      edges.push(a[0] <= b[0] ? [a, b] : [b, a]);
+    }
+  }
+  const cuts = [x0, x1];
+  for (const [a, b] of edges) cuts.push(a[0], b[0]);
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const [a, b] = edges[i]!, [c, d] = edges[j]!;
+      const r: P2 = [b[0] - a[0], b[1] - a[1]], s: P2 = [d[0] - c[0], d[1] - c[1]];
+      const den = r[0] * s[1] - r[1] * s[0];
+      if (Math.abs(den) < 1e-300) continue;
+      const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+      if (t > 0 && t < 1 && u > 0 && u < 1) cuts.push(a[0] + t * r[0]);
+    }
+  }
+  const strips = cuts.filter((x) => x >= x0 - tol && x <= x1 + tol).sort((a, b) => a - b)
+    .filter((x, i, arr) => i === 0 || x - arr[i - 1]! > tol);
+  const yAt = ([a, b]: [P2, P2], x: number) => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]);
+  const inside = (p: P2) => insidePolygon(p, el) && insidePolygon(p, outer) && !holes.some((h) => insidePolygon(p, h));
+  const cells: P2[][] = [];
+  for (let k = 0; k + 1 < strips.length; k++) {
+    const xa = strips[k]!, xb = strips[k + 1]!, xm = (xa + xb) / 2;
+    const across = edges.filter(([a, b]) => a[0] <= xa + tol && b[0] >= xb - tol)
+      .map((e) => ({ ya: yAt(e, xa), yb: yAt(e, xb), ym: yAt(e, xm) })).sort((p, q) => p.ym - q.ym);
+    for (let i = 0; i + 1 < across.length; i++) {
+      const lo = across[i]!, hi = across[i + 1]!;
+      if (hi.ym - lo.ym <= tol || !inside([xm, (lo.ym + hi.ym) / 2])) continue;
+      cells.push([[xa, lo.ya], [xb, lo.yb], [xb, hi.yb], [xa, hi.ya]]);
+    }
+  }
+  return cells;
+}
+
 /** A polygon clipped by a convex one (counter-clockwise). The subject may be any simple polygon. */
 function clipConvex(subject: readonly P2[], convexCcw: readonly P2[]): P2[] {
   let out = [...subject];
@@ -245,10 +305,7 @@ export function shellLoadForces(kind: 'quad' | 'plate', pts: readonly ShellPoint
   const lo = vary ? Math.min(vary.c1, vary.c2) : -Infinity, hi = vary ? Math.max(vary.c1, vary.c2) : Infinity;
   const field = (X: Vec3, N: number[]): number => {
     if (spec.qNodes) return N.reduce((s, v, i) => s + v * (spec.qNodes![i] ?? 0), 0);
-    if (vary) {
-      const c = dot(vary.dir, X);
-      return vary.c2 === vary.c1 ? vary.q1 : vary.q1 + (vary.q2 - vary.q1) * (c - vary.c1) / (vary.c2 - vary.c1);
-    }
+    if (vary) return vary.q1 + (vary.q2 - vary.q1) * (dot(vary.dir, X) - vary.c1) / (vary.c2 - vary.c1);
     return spec.q;
   };
 
@@ -258,6 +315,8 @@ export function shellLoadForces(kind: 'quad' | 'plate', pts: readonly ShellPoint
     forces: Array.from({ length: n }, (_, i): Vec3 => [d[0] * factor * acc[i]!, d[1] * factor * acc[i]!, d[2] * factor * acc[i]!]),
     loadedArea: acc[n]!, area: el.area,
   });
+  // A range from a coordinate to itself is empty, on a shell lying at it as on one crossing it.
+  if (vary && vary.c1 === vary.c2) return done(new Array<number>(size).fill(0));
 
   const cornerC = vary ? el.X.map((x) => dot(vary.dir, x)) : [];
   const wholeInRange = !vary || cornerC.every((c) => c >= lo - 1e-12 && c <= hi + 1e-12);
@@ -288,8 +347,8 @@ export function shellLoadForces(kind: 'quad' | 'plate', pts: readonly ShellPoint
     const X = sub([P[0] + t * nn[0], P[1] + t * nn[1], P[2] + t * nn[2]], el.X[0]!);
     return [dot(X, el.ex), dot(X, el.ey)];
   };
-  const cut = (poly: P2[]): P2[] => {
-    let out = clipConvex(poly, ccw);
+  const inRange = (poly: P2[]): P2[] => {
+    let out = poly;
     if (vary && out.length) {
       const c = (q: P2) => dot(vary.dir, onPlane(el, q));
       out = clipHalfPlane(out, (q) => c(q) - lo);
@@ -297,31 +356,41 @@ export function shellLoadForces(kind: 'quad' | 'plate', pts: readonly ShellPoint
     }
     return out;
   };
+  const cut = (poly: P2[]): P2[] => inRange(clipConvex(poly, ccw));
   const f = (q: P2): number[] => {
     const [a, b] = natural(el, q);
     const N = shape(el.kind, a, b);
     const v = field(onPlane(el, q), N);
     return [...N.map((x) => x * v), 1];
   };
-  const integrate = (poly: P2[]): number[] => {
-    const piece = cut(poly);
+  const integratePiece = (piece: P2[]): number[] => {
     if (piece.length < 3) return new Array<number>(size).fill(0);
     const v = polygonIntegral(piece, f, size, 2);
     // The fan follows the piece's winding; a clockwise region integrates negative.
     const s = polygonArea(piece) >= 0 ? 1 : -1;
     return v.map((x) => x * s);
   };
+  const integrate = (poly: P2[]): number[] => integratePiece(cut(poly));
 
   let acc: number[];
   if (spec.region) {
     const outer = spec.region.points.map((P) => toPlane(P, spec.region!.normal));
     if (outer.some((p) => !p)) return done(new Array<number>(size).fill(0));
-    acc = integrate(outer as P2[]);
-    for (const h of spec.region.holes ?? []) {
-      const hole = h.map((P) => toPlane(P, spec.region!.normal));
-      if (hole.some((p) => !p)) continue;
-      const v = integrate(hole as P2[]);
-      for (let k = 0; k < size; k++) acc[k] -= v[k]!;
+    // The openings that reach the element; one projected edge-on covers nothing.
+    const xs = ccw.map((p) => p[0]), ys = ccw.map((p) => p[1]);
+    const near = (h: P2[]) => Math.max(...h.map((p) => p[0])) > Math.min(...xs) && Math.min(...h.map((p) => p[0])) < Math.max(...xs)
+      && Math.max(...h.map((p) => p[1])) > Math.min(...ys) && Math.min(...h.map((p) => p[1])) < Math.max(...ys);
+    const holes = (spec.region.holes ?? []).map((h) => h.map((P) => toPlane(P, spec.region!.normal)))
+      .filter((h): h is P2[] => h.length >= 3 && h.every((p) => !!p)).filter(near);
+    if (!holes.length) acc = integrate(outer as P2[]);
+    else {
+      // In the outline and in no opening, as the drawing shows it: an opening is not subtracted
+      // whole, since it may reach past the outline or overlap another.
+      acc = new Array<number>(size).fill(0);
+      for (const cell of regionCells(ccw, outer as P2[], holes)) {
+        const v = integratePiece(inRange(cell));
+        for (let k = 0; k < size; k++) acc[k] += v[k]!;
+      }
     }
   } else {
     acc = integrate([...ccw]);
@@ -398,7 +467,8 @@ export function shellLoadSamples(kind: 'quad' | 'plate', pts: readonly ShellPoin
     if (spec.qNodes) q = N.reduce((s, w, i) => s + w * (spec.qNodes![i] ?? 0), 0);
     else if (vary) {
       const c = dot(vary.dir, X);
-      q = c < lo - 1e-9 || c > hi + 1e-9 ? 0 : vary.c2 === vary.c1 ? vary.q1 : vary.q1 + (vary.q2 - vary.q1) * (c - vary.c1) / (vary.c2 - vary.c1);
+      // A range from a coordinate to itself is empty (as `shellLoadForces` integrates it).
+      q = c < lo - 1e-9 || c > hi + 1e-9 || vary.c2 === vary.c1 ? 0 : vary.q1 + (vary.q2 - vary.q1) * (c - vary.c1) / (vary.c2 - vary.c1);
     }
     samples.push({ X, q: inRegion(X) ? q : 0 });
   };
