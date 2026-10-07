@@ -7,7 +7,7 @@
   import { resultsStore } from '../../lib/store';
   import { DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
-  import { fmtQ, fmtCoord, unitQ, toQ } from '../../lib/store/display-units.svelte';
+  import { fmtQ, fmtCoord, unitQ, toQ, sigQ } from '../../lib/store/display-units.svelte';
   import { plainNumber } from '../../lib/utils/units';
 
   let { mps }: { mps: SectionMp[] } = $props();
@@ -58,7 +58,7 @@
   <p class="pl-note">{t('plastic.note')}</p>
   {#each mps as m (m.sectionId)}
     <div class="adv-result-info" data-testid="plastic-mp">
-      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {toQ(m.zp, 'sectionModulus').toFixed(0)} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
+      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
     </div>
   {/each}
 {/if}

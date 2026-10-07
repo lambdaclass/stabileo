@@ -24,6 +24,8 @@ import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStat
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
+import { forceMomentFormat } from '../utils/load-tag-text';
+import { displayUnits } from '../store/display-units.svelte';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
@@ -980,7 +982,8 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
   const ver = modelStore.modelVersion;
   // Options that change WHAT is drawn → rebuild (they're infrequent user actions);
   // the pull-apart itself is animated cheaply via despieceUpdate.
-  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceCombineVectors ? 1 : 0}|${uiStore.despieceLoadMode}`;
+  // The labels are written in the project's units with the reader's decimals, as the inspector.
+  const optSig = `${uiStore.despieceVectorMode}|${uiStore.despieceBasis}|${uiStore.despieceVectorSize}|${uiStore.despieceLabelSize}|${resultsStore.showReactions ? 1 : 0}|${uiStore.axisConvention3D}|${uiStore.despieceCombineVectors ? 1 : 0}|${uiStore.despieceLoadMode}|${uiStore.unitSystem}|${displayUnits.decimals.force}|${displayUnits.decimals.moment}`;
   const g = ctx.despieceGroup;
   const stale = !g || g.userData.despieceResultsRef !== r3d || g.userData.despieceModelVer !== ver || g.userData.despieceOptSig !== optSig;
   if (stale) {
@@ -1002,6 +1005,7 @@ export function syncDespiece3D(ctx: ResultsSyncContext, sep: number): void {
       resultant: uiStore.despieceCombineVectors,
       loads: modelStore.loads,
       loadMode: uiStore.despieceLoadMode,
+      format: forceMomentFormat(uiStore.unitSystem, displayUnits.decimals),
     });
     ng.userData.despieceResultsRef = r3d;
     ng.userData.despieceModelVer = ver;

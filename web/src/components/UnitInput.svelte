@@ -9,10 +9,12 @@
    * (`toDisplay`), says the unit, and hands back SI (`fromDisplay`).
    *
    * A field left as shown keeps the exact value behind it: converting to the
-   * display and back would round it to the digits on screen.
+   * display and back would round it to the digits on screen. What it shows and
+   * what a typed text commits are `utils/unit-input.ts`.
    */
   import { uiStore } from '../lib/store/ui.svelte';
-  import { toDisplay, fromDisplay, unitLabel, type Quantity } from '../lib/utils/units';
+  import { unitLabel, type Quantity } from '../lib/utils/units';
+  import { unitInputText, unitInputCommit } from '../lib/utils/unit-input';
 
   interface Props {
     /** The value in SI. */
@@ -34,12 +36,8 @@
   }
   let { value, qty, onchange, unit = true, inputClass = '', step = 'any', min, title, disabled = false, testid, live = false }: Props = $props();
 
-  const shown = $derived.by(() => {
-    if (!Number.isFinite(value)) return '';
-    const v = toDisplay(value, qty, uiStore.unitSystem);
-    // Six significant figures: enough for any input, without 0.30000000000000004.
-    return String(+v.toPrecision(6));
-  });
+  // Six significant figures, and a length to the millimetre however large it is.
+  const shown = $derived(unitInputText(value, qty, uiStore.unitSystem));
   const label = $derived(unitLabel(qty, uiStore.unitSystem));
 
   /*
@@ -52,10 +50,8 @@
   $effect(() => { const s = shown; if (!focused) text = s; });
 
   function commit(raw: string) {
-    if (raw === shown) return;
-    const n = parseFloat(raw);
-    if (!Number.isFinite(n)) return;
-    onchange(fromDisplay(n, qty, uiStore.unitSystem));
+    const si = unitInputCommit(raw, value, qty, uiStore.unitSystem);
+    if (si !== null) onchange(si);
   }
 </script>
 

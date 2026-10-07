@@ -525,17 +525,24 @@ export function drawSupport(
 
 // ── Prescribed Displacements ─────────────────────────────────────────
 
-/** Draw small arrows/arcs near the support indicating prescribed displacements */
+/**
+ * Draw small arrows/arcs near the support indicating prescribed displacements. The settlement is
+ * `dz` and the rotation `dry`, as the store keeps them (`updateSupport`); `dy` and `drz` are the
+ * legacy names a file may still carry. Reading only those, a settlement typed in the table or
+ * the edit panel was solved but never drawn.
+ */
 export function drawPrescribedDisp(
   ctx: CanvasRenderingContext2D,
   screen: { x: number; y: number },
-  sup: { dx?: number; dy?: number; drz?: number },
+  sup: { dx?: number; dz?: number; dry?: number; dy?: number; drz?: number },
   size: number,
 ): void {
+  const dz = sup.dz ?? sup.dy;
+  const dry = sup.dry ?? sup.drz;
   const hasDx = sup.dx !== undefined && sup.dx !== 0;
-  const hasDy = sup.dy !== undefined && sup.dy !== 0;
-  const hasDrz = sup.drz !== undefined && sup.drz !== 0;
-  if (!hasDx && !hasDy && !hasDrz) return;
+  const hasDz = dz !== undefined && dz !== 0;
+  const hasDry = dry !== undefined && dry !== 0;
+  if (!hasDx && !hasDz && !hasDry) return;
 
   const arrowLen = 20;
   const headLen = 6;
@@ -570,9 +577,9 @@ export function drawPrescribedDisp(
     ctx.fillText(`\u03B4x=${displacementText(sup.dx!, 1, canvasUnitSystem())}`, endX + dir * 3, ay);
   }
 
-  // dy: displayed vertical arrow in the 2D XZ presentation
-  if (hasDy) {
-    const dir = sup.dy! < 0 ? 1 : -1; // screen direction (positive screen Y = down)
+  // dz: displayed vertical arrow in the 2D XZ presentation
+  if (hasDz) {
+    const dir = dz! < 0 ? 1 : -1; // screen direction (positive screen Y = down)
     const startY = screen.y + dir * 4;
     const endY = startY + dir * arrowLen;
     const ax = screen.x + offset;
@@ -591,13 +598,13 @@ export function drawPrescribedDisp(
     // Label
     ctx.textAlign = 'left';
     ctx.textBaseline = dir > 0 ? 'top' : 'bottom';
-    ctx.fillText(`\u03B4z=${displacementText(sup.dy!, 1, canvasUnitSystem())}`, ax + 5, endY);
+    ctx.fillText(`\u03B4z=${displacementText(dz!, 1, canvasUnitSystem())}`, ax + 5, endY);
     ctx.textBaseline = 'middle';
   }
 
-  // drz: curved arrow arc
-  if (hasDrz) {
-    const dir = sup.drz! > 0 ? 1 : -1; // CCW positive
+  // dry: curved arrow arc
+  if (hasDry) {
+    const dir = dry! > 0 ? 1 : -1; // CCW positive
     const r = 14;
     const cx = screen.x - offset - r;
     const cy = screen.y;
@@ -621,7 +628,7 @@ export function drawPrescribedDisp(
     ctx.fill();
     // Label
     ctx.textAlign = 'right';
-    ctx.fillText(`\u03B4\u03B8y=${(sup.drz! * 1000).toFixed(2)}mrad`, cx - 3, cy);
+    ctx.fillText(`\u03B4\u03B8y=${(dry! * 1000).toFixed(2)}mrad`, cx - 3, cy);
   }
 }
 

@@ -63,3 +63,17 @@ export function displacementText(v: number, mmDecimals: number, us: UnitSystem):
   const d = mmDecimals + extra;
   return `${noNegZero((v * factor).toFixed(d), d)} ${unit}`;
 }
+
+/**
+ * A value in `us` to `digits` significant figures (whole from there up), trailing zeros dropped,
+ * no unit: the section catalogue's A, I and Z. Whole inches⁴ read the weak-axis inertia of 116 of
+ * the 777 catalogue profiles «0» (an IPE 80's 8.49 cm⁴ is 0.204 in⁴).
+ */
+export function significantNumber(v: number, q: Quantity, us: UnitSystem, digits = 3): string {
+  if (!Number.isFinite(v)) return '—';
+  const x = toDisplay(v, q, us);
+  if (x === 0) return '0';
+  const d = Math.max(0, digits - 1 - Math.floor(Math.log10(Math.abs(x))));
+  const r = Number(x.toFixed(Math.min(20, d)));
+  return r === 0 ? '0' : String(r);
+}

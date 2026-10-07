@@ -160,7 +160,7 @@
       for (const k of ['px', 'py', 'pz', 'mx', 'my', 'mz'] as const) if (d[k]) parts.push(`${k[0]!.toUpperCase()}${k[1]}=${k[0] === 'm' ? M(d[k]!) : F(d[k]!)}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
-    if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${l.data.force} (B${l.data.elementId})`;
+    if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${F(l.data.force as number)} (B${l.data.elementId})`;
     if (l.type === 'displacement3d') return `${t('loads.imposedDisplacement')} (N${l.data.nodeId})`;
     const quad = (id: number) => t('results.quadLabel').replace('{id}', String(id));
     if (l.type === 'surface3d') {

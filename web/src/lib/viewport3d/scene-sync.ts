@@ -8,6 +8,7 @@ import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
 import { tendonEccentricity } from '../engine/prestress';
 import { formatValue, unitLabel, toDisplay, type Quantity } from '../utils/units';
+import { slabTemperatureTag } from '../utils/load-tag-text';
 import { displayUnits } from '../store/display-units.svelte';
 import { loadedSegment } from '../model/loads/load-stretch';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
@@ -989,8 +990,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!quad || !ns || ns.some((n) => !n)) continue;
       const ps = (ns as Array<{ x: number; y: number; z?: number }>).map((n) => projectNodeToScene(n as never, project2D));
       const c = ps.reduce((acc, p) => ({ x: acc.x + p.x / ps.length, y: acc.y + p.y / ps.length, z: acc.z + p.z / ps.length }), { x: 0, y: 0, z: 0 });
-      const temp = (v: number) => withUnit(v, 'temperature');
-      const text = [load.data.dtUniform ? `ΔT ${temp(load.data.dtUniform)}` : '', load.data.dtGradient ? `ΔTg ${temp(load.data.dtGradient)}` : ''].filter(Boolean).join(' · ');
+      // Changes, not temperatures (no 32 °F offset), as on a member.
+      const text = slabTemperatureTag(load.data.dtUniform, load.data.dtGradient, sys, displayUnits.decimals);
       if (text) batch.addTag({ x: c.x, y: c.y, z: c.z + 0.15 }, text, cc);
     }
     // An imposed displacement: an arrow along it at the node, and its values.

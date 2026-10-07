@@ -1,10 +1,17 @@
+<script lang="ts" module>
+  import type { Quantity } from '../../lib/utils/units';
+  /** What `uiStore.loadValue` was last shown as; kept while the toolbar is closed. */
+  let loadValueShownAs: Quantity | null = null;
+</script>
+
 <script lang="ts">
+  import { untrack } from 'svelte';
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
-  import type { Quantity } from '../../lib/utils/units';
+  import { keepTypedNumber } from '../../lib/utils/unit-input';
 
   /*
    * Values are typed in the unit system chosen under Settings and kept in SI
@@ -12,6 +19,25 @@
    */
   const nodalQty3D = $derived<Quantity>(['mx', 'my', 'mz'].includes(uiStore.nodalLoadDir3D) ? 'moment' : 'force');
   const nodalQty2D = $derived<Quantity>(uiStore.nodalLoadDir === 'my' ? 'moment' : 'force');
+
+  /*
+   * One value serves the point force, the moment and the 2D distributed load.
+   * Switching between them keeps the number on screen (2 kip becomes 2 kip/ft,
+   * not the 0.61 kip/ft the same SI value is): `keepTypedNumber`.
+   */
+  const loadValueQty = $derived<Quantity | null>(
+    uiStore.loadType === 'nodal' ? (uiStore.is3DWorkspace ? nodalQty3D : nodalQty2D)
+    : uiStore.loadType === 'distributed' && !uiStore.is3DWorkspace ? 'distributedLoad'
+    : null,
+  );
+  $effect(() => {
+    const q = loadValueQty;
+    if (!q) return;
+    untrack(() => {
+      if (loadValueShownAs && loadValueShownAs !== q) uiStore.loadValue = keepTypedNumber(uiStore.loadValue, loadValueShownAs, q, uiStore.unitSystem);
+      loadValueShownAs = q;
+    });
+  });
 
   const loadTypes = [
     { id: 'nodal', key: 'float.loadPoint' },

@@ -6,7 +6,7 @@
   import { profileOutline } from '../lib/section/outline';
   import { t } from '../lib/i18n';
   import { uiStore } from '../lib/store/ui.svelte';
-  import { toQ, unitQ } from '../lib/store/display-units.svelte';
+  import { toQ, unitQ, sigQ } from '../lib/store/display-units.svelte';
 
   interface Props {
     open: boolean;
@@ -113,9 +113,9 @@
                 <td class="name-cell">{p.name}</td>
                 <td>{dim(p.h)}</td>
                 <td>{dim(p.b)}</td>
-                <td>{toQ(p.a * 1e-4, 'sectionArea').toFixed(1)}</td>
-                <td>{toQ(p.iz * 1e-8, 'sectionInertia').toFixed(0)}</td>
-                <td>{toQ(p.iy * 1e-8, 'sectionInertia').toFixed(0)}</td>
+                <td>{sigQ(p.a * 1e-4, 'sectionArea')}</td>
+                <td>{sigQ(p.iz * 1e-8, 'sectionInertia')}</td>
+                <td>{sigQ(p.iy * 1e-8, 'sectionInertia')}</td>
                 <td>{p.weight.toFixed(1)}</td>
               </tr>
             {/each}
