@@ -1,5 +1,6 @@
 // UI state store
 
+import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import type { UnitSystem } from '../utils/units';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
@@ -299,6 +300,20 @@ function createUIStore() {
     return Number.isFinite(v) ? Math.max(LABEL_SCALE_RANGE[0], Math.min(LABEL_SCALE_RANGE[1], v)) : 1;
   })());
   let hideLoadsWithDiagram = $state<boolean>(true);
+  /** Basic 3D node markers: dots, small balls, or dots that turn into balls while modelling (default). Persisted. */
+  let nodeStyle3D = $state<NodeStylePref>((() => {
+    if (!hasLocalStorage()) return 'auto';
+    const v = localStorage.getItem('stabileo-node-style-3d');
+    return v === 'points' || v === 'spheres' || v === 'auto' ? v : 'auto';
+  })());
+  /**
+   * Basic, desktop: the right panel's scrollbars always drawn where its content overflows, not
+   * only while scrolling. Not every mouse or touchpad scrolls sideways. Persisted; on by default.
+   */
+  let panelScrollbars = $state<boolean>((() => {
+    if (!hasLocalStorage()) return true;
+    return localStorage.getItem('stabileo-panel-scrollbars') !== '0';
+  })());
 
   // Result selector visibility
   let showPrimarySelector = $state<boolean>(true);
@@ -899,6 +914,16 @@ function createUIStore() {
       if (hasLocalStorage()) { try { localStorage.setItem('stabileo-label-scale', String(labelScale)); } catch { /* private mode */ } }
     },
     labelScaleRange: LABEL_SCALE_RANGE,
+    get nodeStyle3D() { return nodeStyle3D; },
+    set nodeStyle3D(v: NodeStylePref) {
+      nodeStyle3D = v;
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-node-style-3d', v); } catch { /* private mode */ } }
+    },
+    get panelScrollbars() { return panelScrollbars; },
+    set panelScrollbars(v: boolean) {
+      panelScrollbars = v;
+      if (hasLocalStorage()) { try { localStorage.setItem('stabileo-panel-scrollbars', v ? '1' : '0'); } catch { /* private mode */ } }
+    },
     get showLoads() { return showLoads; },
     set showLoads(v: boolean) { showLoads = v; },
     get hideLoadsWithDiagram() { return hideLoadsWithDiagram; },

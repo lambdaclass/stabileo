@@ -19,6 +19,7 @@ import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { viewState, memberLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { createDespiece3DGroup } from '../three/despiece-3d';
+import { structureNodes } from '../three/node-scale';
 import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
@@ -120,7 +121,7 @@ function computeStructureBBox(): number {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   const project2D = projectFlag();
-  for (const n of modelStore.nodes.values()) {
+  for (const n of structureNodes(modelStore.nodes, modelStore.elements.values(), [...modelStore.plates.values(), ...modelStore.quads.values()])) {
     const p = projectNodeToScene(n, project2D);
     if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
     if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
@@ -1091,24 +1092,15 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
 
   const project2D = projectFlag();
 
-  // Compute model size for sprite scaling
-  const box = new THREE.Box3();
-  for (const [, node] of modelStore.nodes) {
-    const pos = projectNodeToScene(node, project2D);
-    box.expandByPoint(new THREE.Vector3(pos.x, pos.y, pos.z));
-  }
-  const size = box.getSize(new THREE.Vector3());
-  const modelSize = Math.max(size.x, size.y, size.z, 1);
   /*
-     ── Labels are sized on SCREEN, offsets in the world ──────────────
-     `spriteScale` still positions them: an id sits a little up and to the
-     right of its node, and that nudge has to be in model units or it would
-     drift as you zoom. The GLYPH is a different question — see
-     `createTextSpriteCached`: sized with the model it reached a metre and a
-     half of numeral on a building, which is the "the ids are gigantic in PRO"
-     report. `LABEL_SCREEN` is a fraction of the viewport height.
+     ── Labels are sized and placed on SCREEN ─────────────────────────
+     The glyph is a fraction of the viewport height (`LABEL_SCREEN`, see
+     `createTextSpriteCached`). The nudge that puts an id up and to the right
+     of its node is the sprite's anchor (`center`), so it is a fraction of the
+     label itself and stays the same few pixels at every zoom. It used to be a
+     share of the model's size in metres: one node added far from a shed made
+     the model 500 m wide and every id slid metres away from its node.
   */
-  const spriteScale = modelSize * 0.025;
 
   // Node labels
   if (uiStore.showNodeLabels3D && modelStore.nodes.size > 0) {
@@ -1120,11 +1112,8 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(String(id), '#ffffff', 28, true);
-      sprite.position.set(
-        pos.x + spriteScale * 0.3,
-        pos.y + spriteScale * 0.5,
-        pos.z,
-      );
+      sprite.position.set(pos.x, pos.y, pos.z);
+      sprite.center.set(-0.05, -0.15);
       sprite.scale.set(LABEL_SCREEN, LABEL_SCREEN, 1);
       ctx.nodeLabelsGroup.add(sprite);
     }
@@ -1150,7 +1139,8 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const mz = (sceneI.z + sceneJ.z) / 2;
 
       const sprite = createTextSpriteCached(memberLabelText(viewState.memberLabel, elem, modelStore.sections, modelStore.materials), '#88ccff', 24, true);
-      sprite.position.set(mx, my + spriteScale * 0.3, mz);
+      sprite.position.set(mx, my, mz);
+      sprite.center.set(0.5, -0.1);
       sprite.scale.set(LABEL_SCREEN * 0.85, LABEL_SCREEN * 0.85, 1);
       ctx.elementLabelsGroup.add(sprite);
     }
@@ -1175,11 +1165,12 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
       const mx = (sceneI.x + sceneJ.x) / 2;
-      const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
+      const my = (sceneI.y + sceneJ.y) / 2;
       const mz = (sceneI.z + sceneJ.z) / 2;
 
       const sprite = createTextSpriteCached(fixedQuantity(len, 'length', 2, canvasUnitSystem()), '#88cc88', 22, true);
       sprite.position.set(mx, my, mz);
+      sprite.center.set(0.5, 1.1);
       sprite.scale.set(LABEL_SCREEN * 0.75, LABEL_SCREEN * 0.75, 1);
       ctx.lengthLabelsGroup.add(sprite);
     }

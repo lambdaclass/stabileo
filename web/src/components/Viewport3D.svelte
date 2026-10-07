@@ -41,8 +41,8 @@
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { paintShell, paintShellEdge, restoreShellColor } from '../lib/three/create-shell-mesh';
   import ShellContourLegend from './viewport/ShellContourLegend.svelte';
-  import { NodesInstanced } from '../lib/three/nodes-instanced';
-  import { nodeRadiusFor, diagonalOf } from '../lib/three/node-scale';
+  import { NodesInstanced, resolveNodeStyle } from '../lib/three/nodes-instanced';
+  import { nodeRadiusFor, diagonalOf, structureNodes } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { buildJointMeshes } from '../lib/three/joint-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
@@ -360,7 +360,7 @@
     publishMarkerState(drawn, drawn ? undefined : null);
     if (!drawn) return;
 
-    const extent = { diagonalM: diagonalOf([...modelStore.nodes.values()]) };
+    const extent = { diagonalM: diagonalOf(structureNodes(modelStore.nodes, modelStore.elements.values(), [...modelStore.plates.values(), ...modelStore.quads.values()])) };
     const base = nodeRadiusFor(extent);
 
     let floor = 0;
@@ -398,6 +398,17 @@
     void uiStore.renderMode3D;
     lastNodeDist = -1; // the model changed: recompute regardless of the camera
     applyNodeRadius();
+  });
+
+  /*
+   * Basic draws its node markers a fixed size on screen (`NodeMarkerStyle`), as the reader
+   * chose under Settings › Model: dots, small balls, or dots that turn into balls while a tool
+   * that clicks on nodes is armed. PRO keeps the sphere sized in metres.
+   */
+  $effect(() => {
+    const style = uiStore.appMode === 'pro' ? 'mesh' : resolveNodeStyle(uiStore.nodeStyle3D, uiStore.currentTool);
+    nodesInstanced.setStyle(style);
+    invalidate();
   });
 
   /**
@@ -527,7 +538,7 @@
     // Parent groups
     nodesParent = new THREE.Group();
     nodesParent.name = 'nodes';
-    nodesParent.add(nodesInstanced.mesh);
+    nodesParent.add(nodesInstanced.mesh, nodesInstanced.points);
 
     elementsParent = new THREE.Group();
     elementsParent.name = 'elements';
@@ -864,6 +875,7 @@
       }
 
       const _perfT0 = perfHud.on ? performance.now() : 0;
+      nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       renderer.render(scene, camera);
       renderInset();
       drawAxisGizmo();
@@ -2318,7 +2330,7 @@
       // Compute model-size-relative scale for the label
       const box = new THREE.Box3();
       const project2D = shouldProject2DModel();
-      for (const [, node] of modelStore.nodes) {
+      for (const node of structureNodes(modelStore.nodes, modelStore.elements.values())) {
         const pos = projectNodeToScene(node, project2D);
         box.expandByPoint(new THREE.Vector3(pos.x, pos.y, pos.z));
       }

@@ -91,6 +91,21 @@ test.describe('@smoke Basic interaction and view', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-label-scale'))).toBe('1.5');
   });
 
+  test('panel scrollbars are on by default and switch off; node style is remembered', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    await page.getByTestId('rb-settings').click();
+    const panel = page.getByTestId('basic-panel');
+    await expect(panel).toHaveClass(/bp-scrollbars/);
+    await page.getByTestId('cfg-panel-scrollbars').uncheck();
+    await expect(panel).not.toHaveClass(/bp-scrollbars/);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-panel-scrollbars'))).toBe('0');
+    const style = page.getByTestId('cfg-node-style');
+    await expect(style).toHaveValue('auto');
+    await style.selectOption('points');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-node-style-3d'))).toBe('points');
+  });
+
   test('loads: the row creates; selecting one turns it into the editor, with its own bin', async ({ page }) => {
     await boot(page);
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));

@@ -309,6 +309,15 @@
             value={uiStore.labelScale}
             oninput={(e) => { uiStore.labelScale = parseFloat(e.currentTarget.value); }} />
         </div>
+        {#if uiStore.appMode !== 'pro' && !uiStore.isMobile}
+          <label class="checkbox-item">
+            <HelpTip text={t('config.tip.panelScrollbars')}>
+            <input type="checkbox" checked={uiStore.panelScrollbars} data-testid="cfg-panel-scrollbars"
+              onchange={(e) => { uiStore.panelScrollbars = e.currentTarget.checked; }} />
+            <span>{t('config.panelScrollbars')}</span>
+            </HelpTip>
+          </label>
+        {/if}
         {#if !is3Dm}
           <label class="checkbox-item">
             <HelpTip text={t('config.tip.autoSplit')}>
@@ -352,6 +361,16 @@
             </select>
             </HelpTip>
           </div>
+          {#if uiStore.appMode !== 'pro'}
+            <div class="input-group">
+              <HelpTip text={t('config.tip.nodeStyle')}><label for="cfg-node-style">{t('config.nodeStyle')}:</label></HelpTip>
+              <select id="cfg-node-style" bind:value={uiStore.nodeStyle3D} data-testid="cfg-node-style">
+                <option value="auto">{t('config.nodeStyleAuto')}</option>
+                <option value="points">{t('config.nodeStylePoints')}</option>
+                <option value="spheres">{t('config.nodeStyleSpheres')}</option>
+              </select>
+            </div>
+          {/if}
         {:else}
           <div class="input-group">
             <HelpTip text={t('config.tip.color')}><label>{t('config.color')}:</label></HelpTip>
