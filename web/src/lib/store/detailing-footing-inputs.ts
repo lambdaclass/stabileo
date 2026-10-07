@@ -306,6 +306,30 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
   }
   sets.sort((a, b) => a.id - b.id);
 
+  // These inputs stay fixed during collection. Keep loads in their original order so
+  // indexing changes neither summation order nor the per-load combination factors.
+  // Rebuild on every call: load edits and combination edits must take effect immediately.
+  type JointLoad = { nodeId: number; fz?: number; caseId?: number };
+  const nodalLoads = new Map<number, JointLoad[]>();
+  for (const load of modelStore.model.loads) {
+    if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
+    const data = load.data as JointLoad;
+    if (!legs.has(data.nodeId)) continue;
+    const list = nodalLoads.get(data.nodeId);
+    if (list) list.push(data); else nodalLoads.set(data.nodeId, [data]);
+  }
+  const factorsBySet = new Map<number, Map<number, number>>();
+  for (const set of sets) {
+    if (set.id === 0) continue;
+    const factors = new Map<number, number>();
+    const combo = modelStore.model.combinations.find(c => c.id === set.id);
+    for (const entry of combo?.factors ?? []) {
+      // Match the first factor returned by the previous Array.find lookup.
+      if (!factors.has(entry.caseId)) factors.set(entry.caseId, entry.factor);
+    }
+    factorsBySet.set(set.id, factors);
+  }
+
   /** Axial force at the joint end of a column leg, COMPRESSION POSITIVE, kN. */
   const axialAt = (leg: Leg, forces: ReadonlyMap<number, ElementForces3D>): number | null => {
     const f = forces.get(leg.elementId);
@@ -370,16 +394,13 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
     // must carry the COMBINATION's factors: the set's element forces are factored per case,
     // so an unfactored raw load would mix magnitudes from two different worlds. The single
     // active result set (setId 0) is unfactored by construction — the raw value IS right there.
-    for (const load of modelStore.model.loads) {
-      if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
-      const d = load.data as { nodeId: number; fz?: number; caseId?: number };
-      if (d.nodeId !== nodeId) continue;
+    const factors = factorsBySet.get(setId);
+    for (const d of nodalLoads.get(nodeId) ?? []) {
       if (setId === 0) {
         sum += -(d.fz ?? 0);
         continue;
       }
-      const combo = modelStore.model.combinations.find((c) => c.id === setId);
-      const factor = combo?.factors.find((fc) => fc.caseId === (d.caseId ?? 1))?.factor ?? 0;
+      const factor = factors?.get(d.caseId ?? 1) ?? 0;
       sum += factor * -(d.fz ?? 0);
     }
     return sum;
