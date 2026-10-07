@@ -76,7 +76,10 @@ test.describe('@smoke PRO analysis rules', () => {
     await loadModel(page, 'rc-design-qa-8');
     await openLoads(page);
     const first = page.locator('.pro-loads-table:not([data-testid="lt-sw"]) tbody tr').first();
-    await first.locator('select.inp-cell').selectOption('projected');
+    // The frame's list is built when the select is used (`LazySelect`), as a reader's focus or tap does.
+    const frame = first.locator('select.inp-cell');
+    await frame.focus();
+    await frame.selectOption('projected');
     await expect.poll(async () =>
       (await page.evaluate(() => window.__stabileo.distributedLoads3D()))[0]?.frame).toBe('projected');
     await expect(page.getByTestId('dl-frame')).toHaveCount(0);
